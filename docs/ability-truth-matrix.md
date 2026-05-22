@@ -189,6 +189,7 @@
 | `stonewright/qa-suggest-fixes` | `QA\SuggestFixes` | Converts diff/accessibility report items into a list of suggested patches. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/QAContractTest.php` |
 | `stonewright/qa-apply-fix-plan` | `QA\ApplyFixPlan` | Validates a confirmation token, snapshots affected posts, and applies a fix plan from SuggestFixes. | Write | `Permissions::edit_post( (int)` | Yes | Yes | No | stable | `tests/Integration/QAContractTest.php` |
 | `stonewright/qa-report` | `QA\Report` | Runs the requested QA checks (screenshot, responsive, accessibility, lighthouse) and returns a unified report. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/QAContractTest.php` |
+| `stonewright/qa-verify-against-reference` | `QA\VerifyAgainstReference` | Capture responsive screenshots and pixel-diff each against a labelled reference baseline. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/QAContractTest.php` |
 
 ---
 
@@ -230,7 +231,7 @@
 
 ## Summary
 
-Total abilities registered: **108**
+Total abilities registered: **109**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

@@ -102,6 +102,7 @@ use Stonewright\WpMcp\Abilities\QA\Report as QaReport;
 use Stonewright\WpMcp\Abilities\QA\ResponsiveCheck;
 use Stonewright\WpMcp\Abilities\QA\ScreenshotPage;
 use Stonewright\WpMcp\Abilities\QA\SuggestFixes;
+use Stonewright\WpMcp\Abilities\QA\VerifyAgainstReference;
 use Stonewright\WpMcp\Abilities\Security\IssueConfirmationToken;
 use Stonewright\WpMcp\Abilities\Site\BackupPage as SiteBackupPage;
 use Stonewright\WpMcp\Abilities\Site\Capabilities;
@@ -234,6 +235,7 @@ final class AbilityRegistry {
 			SuggestFixes::class,
 			ApplyFixPlan::class,
 			QaReport::class,
+			VerifyAgainstReference::class,
 
 			// Memory (Wave 3a).
 			MemoryList::class,

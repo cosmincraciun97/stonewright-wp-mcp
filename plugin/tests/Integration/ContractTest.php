@@ -38,6 +38,13 @@ final class ContractTest extends TestCase {
 			'stonewright_elementor_v4_atomic' => true,
 			'stonewright_memory_enabled'      => true,
 			'elementor_active_kit'            => 4,
+			'stonewright_reference_artifacts' => [
+				'contract-baseline' => [
+					'artifact_id' => '/tmp/wp-content/uploads/stonewright-qa/contract/baseline.png',
+					'path'        => '/tmp/wp-content/uploads/stonewright-qa/contract/baseline.png',
+					'registered'  => 1716336000,
+				],
+			],
 		];
 		$GLOBALS['stonewright_test_transients']      = [];
 		$GLOBALS['stonewright_test_wpdb_inserts']    = [];
