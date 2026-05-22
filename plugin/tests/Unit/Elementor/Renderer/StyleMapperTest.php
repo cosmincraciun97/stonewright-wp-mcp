@@ -135,7 +135,10 @@ final class StyleMapperTest extends TestCase {
 		);
 	}
 
-	public function test_border_color_only_does_not_set_style_or_width(): void {
+	public function test_border_color_only_activates_solid_and_omits_width(): void {
+		// Pre-B.1 this used to assert border_border was absent. That was the bug:
+		// Elementor needs border_border set or it discards the colour silently.
+		// Post-B.1 the activate_groups pass fills in 'solid' as the default.
 		$out = StyleMapper::apply(
 			[],
 			[ 'border' => '#222222' ],
@@ -143,11 +146,13 @@ final class StyleMapperTest extends TestCase {
 		);
 
 		$this->assertSame( '#222222', $out['border_color'] );
-		$this->assertArrayNotHasKey( 'border_border', $out );
+		$this->assertSame( 'solid', $out['border_border'] );
 		$this->assertArrayNotHasKey( 'border_width', $out );
 	}
 
-	public function test_border_width_only_does_not_set_style_or_color(): void {
+	public function test_border_width_only_activates_solid_and_omits_color(): void {
+		// Same fix as above — width-only used to drop into Elementor's "no border"
+		// path silently. The activator now lands a default style so the width renders.
 		$out = StyleMapper::apply(
 			[],
 			[ 'border' => '3px' ],
@@ -155,7 +160,7 @@ final class StyleMapperTest extends TestCase {
 		);
 
 		$this->assertSame( '3', $out['border_width']['top'] );
-		$this->assertArrayNotHasKey( 'border_border', $out );
+		$this->assertSame( 'solid', $out['border_border'] );
 		$this->assertArrayNotHasKey( 'border_color', $out );
 	}
 
@@ -203,6 +208,251 @@ final class StyleMapperTest extends TestCase {
 		);
 
 		$this->assertArrayNotHasKey( 'title_color', $out );
+	}
+
+	// -------------------------------------------------------------------------
+	// Group-toggle activation — typography
+	// -------------------------------------------------------------------------
+
+	public function test_typography_font_size_implies_typography_activator(): void {
+		$out = StyleMapper::apply(
+			[],
+			[ 'font_size' => '32px' ],
+			[ 'font_size' => [ 'key' => 'typography_font_size', 'is_size' => true ] ]
+		);
+
+		$this->assertSame( 'custom', $out['typography_typography'] );
+		$this->assertSame(
+			[ 'unit' => 'px', 'size' => 32, 'sizes' => [] ],
+			$out['typography_font_size']
+		);
+	}
+
+	public function test_typography_font_weight_scalar_passthrough_emits_activator(): void {
+		$out = StyleMapper::apply(
+			[],
+			[ 'font_weight' => '700' ],
+			[ 'font_weight' => 'typography_font_weight' ]
+		);
+
+		$this->assertSame( 'custom', $out['typography_typography'] );
+		$this->assertSame( '700', $out['typography_font_weight'] );
+	}
+
+	public function test_typography_text_transform_emits_activator(): void {
+		$out = StyleMapper::apply(
+			[],
+			[ 'text_transform' => 'uppercase' ],
+			[ 'text_transform' => 'typography_text_transform' ]
+		);
+
+		$this->assertSame( 'custom', $out['typography_typography'] );
+		$this->assertSame( 'uppercase', $out['typography_text_transform'] );
+	}
+
+	public function test_typography_responsive_sibling_still_triggers_activator(): void {
+		$out = StyleMapper::apply(
+			[],
+			[ 'font_size' => [ 'desktop' => '32px', 'mobile' => '24px' ] ],
+			[ 'font_size' => [ 'key' => 'typography_font_size', 'is_size' => true ] ]
+		);
+
+		// Activator emitted once even though we have two sub-key siblings.
+		$this->assertSame( 'custom', $out['typography_typography'] );
+		$this->assertArrayHasKey( 'typography_font_size', $out );
+		$this->assertArrayHasKey( 'typography_font_size_mobile', $out );
+	}
+
+	public function test_typography_activator_preserved_if_caller_supplied_default(): void {
+		$out = StyleMapper::apply(
+			[ 'typography_typography' => '' ], // Caller explicitly opted out — honour it.
+			[ 'font_size' => '32px' ],
+			[ 'font_size' => [ 'key' => 'typography_font_size', 'is_size' => true ] ]
+		);
+
+		$this->assertSame( '', $out['typography_typography'] );
+	}
+
+	public function test_named_typography_group_uses_named_activator(): void {
+		// Pro Countdown widget's digits group → keys are digits_typography_*.
+		$out = StyleMapper::apply(
+			[],
+			[ 'digit_size' => '64px' ],
+			[ 'digit_size' => [ 'key' => 'digits_typography_font_size', 'is_size' => true ] ]
+		);
+
+		$this->assertSame( 'custom', $out['digits_typography_typography'] );
+		$this->assertArrayHasKey( 'digits_typography_font_size', $out );
+		// And the default-named activator should NOT appear — different group instance.
+		$this->assertArrayNotHasKey( 'typography_typography', $out );
+	}
+
+	// -------------------------------------------------------------------------
+	// Group-toggle activation — border
+	// -------------------------------------------------------------------------
+
+	public function test_border_width_only_emits_border_border_solid(): void {
+		$out = StyleMapper::apply(
+			[],
+			[ 'border' => '3px' ],
+			[ 'border' => [ 'is_border' => true, 'prefix' => 'border' ] ]
+		);
+
+		// Plain width without style word should still activate border_border.
+		$this->assertSame( 'solid', $out['border_border'] );
+		$this->assertSame( '3', $out['border_width']['top'] );
+	}
+
+	public function test_border_color_only_emits_border_border_solid(): void {
+		$out = StyleMapper::apply(
+			[],
+			[ 'border' => '#222222' ],
+			[ 'border' => [ 'is_border' => true, 'prefix' => 'border' ] ]
+		);
+
+		$this->assertSame( 'solid', $out['border_border'] );
+		$this->assertSame( '#222222', $out['border_color'] );
+	}
+
+	public function test_border_full_shorthand_dashed_style_not_overridden(): void {
+		$out = StyleMapper::apply(
+			[],
+			[ 'border' => '2px dashed #FFFFFF' ],
+			[ 'border' => [ 'is_border' => true, 'prefix' => 'border' ] ]
+		);
+
+		// Explicit 'dashed' from shorthand must win over the activator default.
+		$this->assertSame( 'dashed', $out['border_border'] );
+		$this->assertSame( '#FFFFFF', $out['border_color'] );
+		$this->assertSame( '2', $out['border_width']['top'] );
+	}
+
+	public function test_underscored_border_width_emits_underscored_activator(): void {
+		$out = StyleMapper::apply(
+			[],
+			[ 'border' => '1px' ],
+			[ 'border' => [ 'is_border' => true, 'prefix' => '_border' ] ]
+		);
+
+		$this->assertSame( 'solid', $out['_border_border'] );
+		$this->assertArrayHasKey( '_border_width', $out );
+		$this->assertArrayNotHasKey( 'border_border', $out );
+	}
+
+	public function test_image_border_prefix_uses_named_activator(): void {
+		$out = StyleMapper::apply(
+			[],
+			[ 'border' => '#000' ],
+			[ 'border' => [ 'is_border' => true, 'prefix' => 'image_border' ] ]
+		);
+
+		$this->assertSame( 'solid', $out['image_border_border'] );
+		$this->assertSame( '#000', $out['image_border_color'] );
+		$this->assertArrayNotHasKey( 'border_border', $out );
+	}
+
+	public function test_border_radius_does_not_trigger_border_border(): void {
+		$out = StyleMapper::apply(
+			[],
+			[ 'border_radius' => '8px' ],
+			[ 'border_radius' => [ 'key' => 'border_radius', 'is_dimension' => true ] ]
+		);
+
+		// border_radius is a standalone setting, NOT a border-group sub-key.
+		$this->assertArrayHasKey( 'border_radius', $out );
+		$this->assertArrayNotHasKey( 'border_border', $out );
+	}
+
+	// -------------------------------------------------------------------------
+	// Group-toggle activation — background
+	// -------------------------------------------------------------------------
+
+	public function test_is_background_descriptor_still_sets_activator_exactly_once(): void {
+		// The existing is_background descriptor path already sets the activator.
+		// The post-pass must not double it or overwrite it.
+		$out = StyleMapper::apply(
+			[],
+			[ 'background' => '#101010' ],
+			[ 'background' => [ 'key' => '_background_color', 'is_background' => true ] ]
+		);
+
+		$this->assertSame( 'classic', $out['_background_background'] );
+		$this->assertSame( '#101010', $out['_background_color'] );
+	}
+
+	public function test_background_color_emitted_via_plain_passthrough_still_gets_activator(): void {
+		// Widget renderer set background_color directly (no is_background descriptor)
+		// — common pattern for Pro widgets that map a section colour straight to the key.
+		$out = StyleMapper::apply(
+			[],
+			[ 'bg' => '#FF0000' ],
+			[ 'bg' => 'background_color' ]
+		);
+
+		$this->assertSame( 'classic', $out['background_background'] );
+		$this->assertSame( '#FF0000', $out['background_color'] );
+	}
+
+	public function test_underscored_background_color_passthrough_gets_underscored_activator(): void {
+		$out = StyleMapper::apply(
+			[],
+			[ 'bg' => '#000' ],
+			[ 'bg' => '_background_color' ]
+		);
+
+		$this->assertSame( 'classic', $out['_background_background'] );
+		$this->assertSame( '#000', $out['_background_color'] );
+	}
+
+	public function test_background_image_implies_background_background_classic(): void {
+		$out = StyleMapper::apply(
+			[],
+			[ 'bg_image' => 'https://example.com/hero.jpg' ],
+			[ 'bg_image' => 'background_image' ]
+		);
+
+		$this->assertSame( 'classic', $out['background_background'] );
+		$this->assertSame( 'https://example.com/hero.jpg', $out['background_image'] );
+	}
+
+	// -------------------------------------------------------------------------
+	// Group-toggle activation — false positives must NOT fire
+	// -------------------------------------------------------------------------
+
+	public function test_title_color_is_standalone_no_activator_added(): void {
+		// Heading widget's title_color is a single setting, not a group sub-field.
+		$out = StyleMapper::apply(
+			[],
+			[ 'color' => '#fff' ],
+			[ 'color' => [ 'key' => 'title_color', 'is_color' => true ] ]
+		);
+
+		$this->assertSame( '#fff', $out['title_color'] );
+		$this->assertArrayNotHasKey( 'title_title', $out );
+	}
+
+	public function test_button_text_color_is_standalone_no_activator_added(): void {
+		$out = StyleMapper::apply(
+			[],
+			[ 'color' => '#000' ],
+			[ 'color' => [ 'key' => 'button_text_color', 'is_color' => true ] ]
+		);
+
+		$this->assertSame( '#000', $out['button_text_color'] );
+		$this->assertArrayNotHasKey( 'text_text', $out );
+		$this->assertArrayNotHasKey( 'button_text_text', $out );
+	}
+
+	public function test_typography_typography_key_itself_does_not_activate_recursively(): void {
+		// If a caller passes typography_typography directly (rare but possible),
+		// activate_groups must not loop on it and re-emit it.
+		$out = StyleMapper::apply(
+			[ 'typography_typography' => 'custom' ],
+			[],
+			[]
+		);
+
+		$this->assertSame( [ 'typography_typography' => 'custom' ], $out );
 	}
 
 	// -------------------------------------------------------------------------

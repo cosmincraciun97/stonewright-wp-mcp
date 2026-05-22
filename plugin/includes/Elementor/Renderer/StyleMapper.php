@@ -104,7 +104,143 @@ final class StyleMapper {
 			$settings = Responsive::apply( $settings, $key, $value );
 		}
 
-		return $settings;
+		return self::activate_groups( $settings );
+	}
+
+	/**
+	 * Ensure every group-control sub-key has its activator companion set.
+	 *
+	 * Elementor stores each group control (typography / border / background /
+	 * box-shadow) behind an activator key. When the activator is missing or
+	 * empty, Elementor's renderer treats the sub-keys as inherited from theme
+	 * defaults and discards the bespoke values. The discard is silent: the
+	 * spec round-trips fine in the editor, but the page paints in the theme
+	 * default colour / typography / border. This pass is the structural fix
+	 * for the live-build symptom "colours don't apply, typography is plain,
+	 * border doesn't render".
+	 *
+	 * The activator key follows the pattern `<name>_<group>` where `<name>`
+	 * is whatever the widget called the group instance (often the same word
+	 * as the group, sometimes prefixed — `typography_typography`,
+	 * `border_border`, `_background_background`, `digits_typography_typography`,
+	 * `image_border_border`, etc.). Sub-keys are `<name>_<sub_field>` where
+	 * `<sub_field>` belongs to a hardcoded allowlist per group.
+	 *
+	 * Restricting to an allowlist instead of regex-matching every `<x>_<y>` is
+	 * deliberate — it keeps `title_color`, `button_text_color`, `border_radius`
+	 * and other standalone settings out of the activation pass.
+	 *
+	 * @param array<string, mixed> $settings
+	 * @return array<string, mixed>
+	 */
+	private static function activate_groups( array $settings ): array {
+		$to_add = [];
+
+		foreach ( array_keys( $settings ) as $key ) {
+			// Treat the desktop / tablet / mobile sibling of any responsive
+			// sub-key the same as its desktop base — they share the activator.
+			$canonical = (string) preg_replace( '/_(tablet|mobile|laptop|widescreen|min|max)$/', '', (string) $key );
+
+			$activator = self::detect_group_activator( $canonical );
+			if ( null === $activator ) {
+				continue;
+			}
+
+			[ $activator_key, $default ] = $activator;
+
+			// Defensive: never try to activate from the activator key itself.
+			if ( $activator_key === $key || $activator_key === $canonical ) {
+				continue;
+			}
+
+			// Honour any value the caller already supplied (the descriptor
+			// path for `is_background` and the shorthand `border()` parser
+			// both set the activator explicitly).
+			if ( isset( $settings[ $activator_key ] ) || isset( $to_add[ $activator_key ] ) ) {
+				continue;
+			}
+
+			$to_add[ $activator_key ] = $default;
+		}
+
+		return $settings + $to_add;
+	}
+
+	/**
+	 * Group-activator rules: `<group_base> => [<activator_default>, [<sub_field>, ...]]`.
+	 *
+	 * `<group_base>` is the suffix that ends the activator key — the activator
+	 * is always `<prefix>_<group_base>` for some `<prefix>` that itself ends
+	 * with `<group_base>`. `typography_typography` (prefix `typography` ends
+	 * with `typography`) → activator. `digits_typography_typography` (prefix
+	 * `digits_typography` ends with `typography`) → activator. `border_radius`
+	 * has prefix `border` ending with `border` but `radius` is not a border
+	 * sub-field, so no activation fires.
+	 *
+	 * @return array<string, array{0:string,1:array<int,string>}>
+	 */
+	private static function group_rules(): array {
+		return [
+			'typography' => [ 'custom', [
+				'font_family',
+				'font_size',
+				'font_weight',
+				'font_style',
+				'text_transform',
+				'text_decoration',
+				'line_height',
+				'letter_spacing',
+				'word_spacing',
+			] ],
+			'border' => [ 'solid', [
+				'width',
+				'color',
+			] ],
+			'background' => [ 'classic', [
+				'color',
+				'image',
+				'position',
+				'size',
+				'repeat',
+				'attachment',
+				'xpos',
+				'ypos',
+				'bg_width',
+			] ],
+		];
+	}
+
+	/**
+	 * Match a setting key against the group-activator rules.
+	 *
+	 * Returns `[<activator_key>, <activator_default>]` when the key looks
+	 * like `<prefix>_<sub_field>` where `<prefix>` ends with a known
+	 * `<group_base>` AND `<sub_field>` is in that group's allowlist.
+	 *
+	 * Returns null for standalone settings (`title_color`, `border_radius`,
+	 * `button_text_color`, …) that do not need an activator.
+	 *
+	 * @return array{0:string,1:string}|null
+	 */
+	private static function detect_group_activator( string $key ): ?array {
+		foreach ( self::group_rules() as $group_base => $rule ) {
+			[ $default, $sub_fields ] = $rule;
+			foreach ( $sub_fields as $sub_field ) {
+				$suffix = '_' . $sub_field;
+				if ( ! str_ends_with( $key, $suffix ) ) {
+					continue;
+				}
+				$prefix = substr( $key, 0, -strlen( $suffix ) );
+				if ( '' === $prefix ) {
+					continue;
+				}
+				if ( ! str_ends_with( $prefix, $group_base ) ) {
+					continue;
+				}
+				return [ $prefix . '_' . $group_base, $default ];
+			}
+		}
+		return null;
 	}
 
 	/**
