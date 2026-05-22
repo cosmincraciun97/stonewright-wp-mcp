@@ -73,6 +73,12 @@ final class PluginRegistration {
 		add_action( 'abilities_api_init', [ AbilityRegistry::class, 'register_all' ], 20 );
 		add_action( 'mcp_adapter_init', [ ServerRegistration::class, 'register_server' ], 20 );
 
+		// Rescue themes that forgot to declare `add_theme_support( 'elementor-pro' )`
+		// so Stonewright-created header/footer templates actually inject under
+		// ProElements / Elementor Pro. Safe no-op when the theme already opts in
+		// or when neither Pro is present.
+		\Stonewright\WpMcp\Compat\ProElementsThemeSupport::register();
+
 		// Boot the MCP adapter if it is vendored into Stonewright (i.e. not active
 		// as a standalone plugin).  McpAdapter::instance() is idempotent — calling
 		// it again when the adapter plugin is already running is a no-op because the

@@ -82,17 +82,68 @@ final class TemplateStore {
 	}
 
 	/**
+	 * Cached-conditions option key used by Elementor Pro / ProElements
+	 * theme-builder. Deleting this option forces a lazy re-scan of every
+	 * `_elementor_conditions`-bearing post on the next front-end request,
+	 * which is what actually wires our template into the page render.
+	 */
+	private const PRO_CONDITIONS_CACHE_OPTION = 'elementor_pro_theme_builder_conditions';
+
+	/**
 	 * Replace the display conditions on a Theme Builder template.
 	 *
-	 * Conditions are stored as a single meta key (`_elementor_conditions`)
-	 * containing an array of rule objects. This setter replaces the whole
-	 * array — callers that want to add/remove a single rule should read,
-	 * mutate, and write the full list themselves.
+	 * Stonewright accepts a rich, object-shaped condition array on its API
+	 * boundary — `[{type:'include', name:'general'}, {type:'exclude',
+	 * name:'archive', sub_name:'category', sub_id:12}, ...]` — and serialises
+	 * to the slash-delimited string format Elementor Pro / ProElements
+	 * actually persists: `['include/general', 'exclude/archive/category/12']`.
 	 *
-	 * @param array<int, array<string, mixed>> $conditions
+	 * After writing the meta we delete the
+	 * `elementor_pro_theme_builder_conditions` cache option so ProElements'
+	 * Conditions_Cache regenerates from the fresh meta on next page load.
+	 * Without that bust the page keeps using the stale cache and our new
+	 * header / footer never reaches the front end.
+	 *
+	 * Pass an empty array to clear all conditions.
+	 *
+	 * @param array<int, array<string, mixed>|string> $conditions
 	 */
 	public static function set_conditions( int $template_id, array $conditions ): bool {
-		return (bool) update_post_meta( $template_id, '_elementor_conditions', $conditions );
+		$serialised = [];
+		foreach ( $conditions as $condition ) {
+			if ( is_string( $condition ) ) {
+				$serialised[] = trim( $condition, '/' );
+				continue;
+			}
+			if ( ! is_array( $condition ) ) {
+				continue;
+			}
+			// Strip internal `_id` field Elementor's admin UI adds.
+			unset( $condition['_id'] );
+			// Order must be type / name / sub_name / sub_id to match
+			// Conditions_Manager::save_conditions in ProElements.
+			$ordered = [];
+			foreach ( [ 'type', 'name', 'sub_name', 'sub_id' ] as $key ) {
+				if ( isset( $condition[ $key ] ) && '' !== (string) $condition[ $key ] ) {
+					$ordered[] = (string) $condition[ $key ];
+				}
+			}
+			if ( [] !== $ordered ) {
+				$serialised[] = implode( '/', $ordered );
+			}
+		}
+
+		if ( [] === $serialised ) {
+			delete_post_meta( $template_id, '_elementor_conditions' );
+		} else {
+			update_post_meta( $template_id, '_elementor_conditions', $serialised );
+		}
+
+		// Bust the ProElements cached conditions option so the next front-end
+		// request re-scans posts and picks up our template.
+		delete_option( self::PRO_CONDITIONS_CACHE_OPTION );
+
+		return true;
 	}
 
 	/**
