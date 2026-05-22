@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Elementor\Renderer;
 
 use Stonewright\WpMcp\DesignTokens\Resolver;
+use Stonewright\WpMcp\Elementor\Renderer\Responsive;
 
 /**
  * Renders a DesignSpec heading/paragraph node as an Elementor heading widget.
@@ -30,8 +31,12 @@ final class Heading {
 			'header_size' => $header_size,
 		];
 
+		if ( isset( $node['font_size'] ) ) {
+			$settings = Responsive::apply( $settings, 'typography_font_size', $node['font_size'] );
+		}
+
 		if ( isset( $node['align'] ) ) {
-			$settings['align'] = (string) $node['align'];
+			$settings = Responsive::apply( $settings, 'align', $node['align'] );
 		}
 
 		if ( isset( $node['color'] ) ) {

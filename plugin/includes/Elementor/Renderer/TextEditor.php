@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Elementor\Renderer;
 
 use Stonewright\WpMcp\DesignTokens\Resolver;
+use Stonewright\WpMcp\Elementor\Renderer\Responsive;
 
 /**
  * Renders a DesignSpec `text-editor` node as an Elementor text-editor widget.
@@ -34,8 +35,12 @@ final class TextEditor {
 			'editor' => $content,
 		];
 
+		if ( isset( $node['font_size'] ) ) {
+			$settings = Responsive::apply( $settings, 'typography_font_size', $node['font_size'] );
+		}
+
 		if ( isset( $node['align'] ) ) {
-			$settings['align'] = (string) $node['align'];
+			$settings = Responsive::apply( $settings, 'align', $node['align'] );
 		}
 
 		if ( isset( $node['color'] ) ) {

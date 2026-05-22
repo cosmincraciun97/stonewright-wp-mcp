@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Elementor\Renderer;
 
 use Stonewright\WpMcp\DesignTokens\Resolver;
+use Stonewright\WpMcp\Elementor\Renderer\Responsive;
 
 /**
  * Renders a DesignSpec `button` node as an Elementor button widget.
@@ -26,8 +27,16 @@ final class Button {
 			],
 		];
 
+		if ( isset( $node['font_size'] ) ) {
+			$settings = Responsive::apply( $settings, 'typography_font_size', $node['font_size'] );
+		}
+
 		if ( isset( $node['align'] ) ) {
-			$settings['align'] = (string) $node['align'];
+			$settings = Responsive::apply( $settings, 'align', $node['align'] );
+		}
+
+		if ( isset( $node['padding'] ) ) {
+			$settings = Responsive::apply( $settings, 'padding', $node['padding'] );
 		}
 
 		if ( isset( $node['size'] ) ) {

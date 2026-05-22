@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Elementor\Renderer;
 
 use Stonewright\WpMcp\DesignTokens\Resolver;
+use Stonewright\WpMcp\Elementor\Renderer\Responsive;
 
 /**
  * Renders a DesignSpec `image` node as an Elementor image widget.
@@ -25,8 +26,12 @@ final class Image {
 			],
 		];
 
+		if ( isset( $node['width'] ) ) {
+			$settings = Responsive::apply( $settings, 'width', $node['width'] );
+		}
+
 		if ( isset( $node['align'] ) ) {
-			$settings['align'] = (string) $node['align'];
+			$settings = Responsive::apply( $settings, 'align', $node['align'] );
 		}
 
 		if ( isset( $node['size'] ) ) {
