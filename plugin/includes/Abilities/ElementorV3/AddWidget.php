@@ -20,11 +20,11 @@ final class AddWidget extends AbilityKernel {
 	}
 
 	public function label(): string {
-		return __( 'Add Elementor widget', 'stonewright' );
+		return __( 'Add raw Elementor widget', 'stonewright' );
 	}
 
 	public function description(): string {
-		return __( 'Adds a widget inside a container/column. Snapshots before write.', 'stonewright' );
+		return __( 'Adds a raw Elementor widget by writing the literal Elementor settings JSON for any widget_type. USE THIS WHEN the dedicated per-widget renderer doesn\'t cover a widget or a setting structure that DesignSpec can\'t express (custom widgets, third-party Pro widgets, experimental Elementor V3 controls). Bypasses DesignSpec validation entirely — caller is responsible for emitting a valid Elementor settings dict. Snapshots before write.', 'stonewright' );
 	}
 
 	public function category(): string {
