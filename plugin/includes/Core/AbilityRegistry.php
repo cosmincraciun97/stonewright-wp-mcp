@@ -15,6 +15,7 @@ use Stonewright\WpMcp\Abilities\Design\ApplyToPost;
 use Stonewright\WpMcp\Abilities\Design\BuildSpec;
 use Stonewright\WpMcp\Abilities\Design\ChooseRenderer;
 use Stonewright\WpMcp\Abilities\Design\ExtractTokens;
+use Stonewright\WpMcp\Abilities\Design\FigmaToSpec;
 use Stonewright\WpMcp\Abilities\Design\ImportFigmaNode;
 use Stonewright\WpMcp\Abilities\Design\ImportImage;
 use Stonewright\WpMcp\Abilities\Design\IngestFigma;
@@ -229,6 +230,9 @@ final class AbilityRegistry {
 			IngestFigma::class,
 			PreviewRender::class,
 			ApplyToPost::class,
+
+			// Design (Phase 2.5).
+			FigmaToSpec::class,
 
 			// QA.
 			ScreenshotPage::class,

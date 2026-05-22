@@ -1,0 +1,6 @@
+{
+    "args": {
+        "figma_node": {}
+    },
+    "expect": "wp_error"
+}
