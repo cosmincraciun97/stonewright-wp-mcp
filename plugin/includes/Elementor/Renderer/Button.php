@@ -5,11 +5,42 @@ namespace Stonewright\WpMcp\Elementor\Renderer;
 
 use Stonewright\WpMcp\DesignTokens\Resolver;
 use Stonewright\WpMcp\Elementor\Renderer\Responsive;
+use Stonewright\WpMcp\Elementor\Renderer\StyleMapper;
 
 /**
  * Renders a DesignSpec `button` node as an Elementor button widget.
+ *
+ * Elementor's button widget is one of the few widgets that does NOT use the
+ * `_background_*` underscore-prefixed convention; its background setting is
+ * the bare `background_color`. Same for `button_text_color` (no prefix).
+ * The map below encodes those quirks.
  */
 final class Button {
+
+	/**
+	 * @return array<string, string|array<string, mixed>>
+	 */
+	private static function style_map(): array {
+		return [
+			'color'           => [ 'key' => 'button_text_color', 'is_color' => true ],
+			'background'      => [ 'key' => 'background_color', 'is_background' => true ],
+			'hover_color'     => [ 'key' => 'hover_color', 'is_color' => true ],
+			'hover_background' => [ 'key' => 'button_background_hover_color', 'is_color' => true ],
+			'font_size'       => [ 'key' => 'typography_font_size', 'is_size' => true ],
+			'font_weight'     => 'typography_font_weight',
+			'font_family'     => 'typography_font_family',
+			'line_height'     => [ 'key' => 'typography_line_height', 'is_size' => true ],
+			'letter_spacing'  => [ 'key' => 'typography_letter_spacing', 'is_size' => true ],
+			'text_transform'  => 'typography_text_transform',
+			'text_decoration' => 'typography_text_decoration',
+			'font_style'      => 'typography_font_style',
+			'padding'         => [ 'key' => 'text_padding', 'is_dimension' => true ],
+			'border_radius'   => [ 'key' => 'border_radius', 'is_dimension' => true ],
+			'border'          => [ 'is_border' => true, 'prefix' => 'border' ],
+			'width'           => [ 'key' => 'width', 'is_size' => true ],
+			'height'          => [ 'key' => 'height', 'is_size' => true ],
+		];
+	}
 
 	/**
 	 * @param array<string, mixed> $node
@@ -43,12 +74,6 @@ final class Button {
 			$settings['size'] = (string) $node['size'];
 		}
 
-		if ( isset( $node['type'] ) && 'button' !== $node['type'] ) {
-			// node['type'] is the spec type; button_type is Elementor's style variant.
-		} elseif ( isset( $node['style'] ) ) {
-			$settings['button_type'] = (string) $node['style'];
-		}
-
 		if ( isset( $node['icon'] ) ) {
 			$settings['icon'] = [ 'value' => (string) $node['icon'], 'library' => 'fa-solid' ];
 		}
@@ -61,6 +86,11 @@ final class Button {
 			$settings['button_background_color'] = (string) $resolver->resolve( (string) $node['background_color'] );
 		}
 
+		if ( isset( $node['style'] ) && is_array( $node['style'] ) ) {
+			$style    = self::resolve_style( (array) $node['style'], $resolver );
+			$settings = StyleMapper::apply( $settings, $style, self::style_map() );
+		}
+
 		return [
 			'id'         => Section::stable_id( $canonical_path ),
 			'elType'     => 'widget',
@@ -68,5 +98,18 @@ final class Button {
 			'settings'   => $settings,
 			'elements'   => [],
 		];
+	}
+
+	/**
+	 * @param array<string, mixed> $style
+	 * @return array<string, mixed>
+	 */
+	private static function resolve_style( array $style, Resolver $resolver ): array {
+		foreach ( $style as $k => $v ) {
+			if ( is_string( $v ) ) {
+				$style[ $k ] = $resolver->resolve( $v );
+			}
+		}
+		return $style;
 	}
 }

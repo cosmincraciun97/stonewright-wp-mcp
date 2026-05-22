@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Elementor\Renderer;
 
 use Stonewright\WpMcp\DesignTokens\Resolver;
 use Stonewright\WpMcp\Elementor\Renderer\Responsive;
+use Stonewright\WpMcp\Elementor\Renderer\StyleMapper;
 
 /**
  * Renders a DesignSpec heading/paragraph node as an Elementor heading widget.
@@ -13,6 +14,29 @@ use Stonewright\WpMcp\Elementor\Renderer\Responsive;
  * For `paragraph` the header_size defaults to `p` (rendered as a div by Elementor).
  */
 final class Heading {
+
+	/**
+	 * Map from `style.*` keys to Elementor heading-widget settings.
+	 *
+	 * @return array<string, string|array<string, mixed>>
+	 */
+	private static function style_map(): array {
+		return [
+			'color'           => [ 'key' => 'title_color', 'is_color' => true ],
+			'font_size'       => [ 'key' => 'typography_font_size', 'is_size' => true ],
+			'font_weight'     => 'typography_font_weight',
+			'font_family'     => 'typography_font_family',
+			'line_height'     => [ 'key' => 'typography_line_height', 'is_size' => true ],
+			'letter_spacing'  => [ 'key' => 'typography_letter_spacing', 'is_size' => true ],
+			'text_align'      => 'align',
+			'text_transform'  => 'typography_text_transform',
+			'text_decoration' => 'typography_text_decoration',
+			'font_style'      => 'typography_font_style',
+			'padding'         => [ 'key' => '_padding', 'is_dimension' => true ],
+			'margin'          => [ 'key' => '_margin', 'is_dimension' => true ],
+			'background'      => [ 'key' => '_background_color', 'is_background' => true ],
+		];
+	}
 
 	/**
 	 * @param array<string, mixed> $node
@@ -47,6 +71,11 @@ final class Heading {
 			$settings['link'] = [ 'url' => (string) $node['link']['url'] ];
 		}
 
+		if ( isset( $node['style'] ) && is_array( $node['style'] ) ) {
+			$style    = self::resolve_style( (array) $node['style'], $resolver );
+			$settings = StyleMapper::apply( $settings, $style, self::style_map() );
+		}
+
 		return [
 			'id'         => Section::stable_id( $canonical_path ),
 			'elType'     => 'widget',
@@ -54,5 +83,21 @@ final class Heading {
 			'settings'   => $settings,
 			'elements'   => [],
 		];
+	}
+
+	/**
+	 * Run any string values through the token resolver so style entries like
+	 * `'color' => '{colors.primary}'` still work.
+	 *
+	 * @param array<string, mixed> $style
+	 * @return array<string, mixed>
+	 */
+	private static function resolve_style( array $style, Resolver $resolver ): array {
+		foreach ( $style as $k => $v ) {
+			if ( is_string( $v ) ) {
+				$style[ $k ] = $resolver->resolve( $v );
+			}
+		}
+		return $style;
 	}
 }

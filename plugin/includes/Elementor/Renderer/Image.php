@@ -5,11 +5,32 @@ namespace Stonewright\WpMcp\Elementor\Renderer;
 
 use Stonewright\WpMcp\DesignTokens\Resolver;
 use Stonewright\WpMcp\Elementor\Renderer\Responsive;
+use Stonewright\WpMcp\Elementor\Renderer\StyleMapper;
 
 /**
  * Renders a DesignSpec `image` node as an Elementor image widget.
+ *
+ * Elementor's image widget uses `image_border_*` for border keys (so the
+ * border style helper's prefix flips to `image_border`); border-radius is the
+ * non-prefixed `border_radius` dimension.
  */
 final class Image {
+
+	/**
+	 * @return array<string, string|array<string, mixed>>
+	 */
+	private static function style_map(): array {
+		return [
+			'width'         => [ 'key' => 'width', 'is_size' => true ],
+			'height'        => [ 'key' => 'height', 'is_size' => true ],
+			'max_width'     => [ 'key' => 'width', 'is_size' => true ],
+			'border_radius' => [ 'key' => 'border_radius', 'is_dimension' => true ],
+			'border'        => [ 'is_border' => true, 'prefix' => 'image_border' ],
+			'padding'       => [ 'key' => '_padding', 'is_dimension' => true ],
+			'margin'        => [ 'key' => '_margin', 'is_dimension' => true ],
+			'opacity'       => [ 'key' => 'opacity', 'is_size' => true ],
+		];
+	}
 
 	/**
 	 * @param array<string, mixed> $node
@@ -48,6 +69,11 @@ final class Image {
 			$settings['caption']        = (string) $node['caption'];
 		}
 
+		if ( isset( $node['style'] ) && is_array( $node['style'] ) ) {
+			$style    = self::resolve_style( (array) $node['style'], $resolver );
+			$settings = StyleMapper::apply( $settings, $style, self::style_map() );
+		}
+
 		return [
 			'id'         => Section::stable_id( $canonical_path ),
 			'elType'     => 'widget',
@@ -55,5 +81,18 @@ final class Image {
 			'settings'   => $settings,
 			'elements'   => [],
 		];
+	}
+
+	/**
+	 * @param array<string, mixed> $style
+	 * @return array<string, mixed>
+	 */
+	private static function resolve_style( array $style, Resolver $resolver ): array {
+		foreach ( $style as $k => $v ) {
+			if ( is_string( $v ) ) {
+				$style[ $k ] = $resolver->resolve( $v );
+			}
+		}
+		return $style;
 	}
 }
