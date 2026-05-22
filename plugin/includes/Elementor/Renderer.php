@@ -11,6 +11,7 @@ use Stonewright\WpMcp\Elementor\Renderer\Column;
 use Stonewright\WpMcp\Elementor\Renderer\Container;
 use Stonewright\WpMcp\Elementor\Renderer\Countdown;
 use Stonewright\WpMcp\Elementor\Renderer\Counter;
+use Stonewright\WpMcp\Elementor\Renderer\NavMenu;
 use Stonewright\WpMcp\Elementor\Renderer\Divider;
 use Stonewright\WpMcp\Elementor\Renderer\Form;
 use Stonewright\WpMcp\Elementor\Renderer\Heading;
@@ -159,6 +160,9 @@ final class Renderer {
 			// ------- Pro-gated -------
 			case 'countdown':
 				return Countdown::render( $block, $resolver, $path, $diagnostics );
+
+			case 'nav-menu':
+				return NavMenu::render( $block, $resolver, $path, $diagnostics );
 
 			case 'form':
 			case 'form-placeholder':
