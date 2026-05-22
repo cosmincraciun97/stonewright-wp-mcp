@@ -53,7 +53,7 @@ git commit --allow-empty -m "chore: baseline confirmed before full-coverage push
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\Elementor\Renderer;
+namespace Stonewright\WpMcp\Tests\Unit\Elementor\Renderer;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Elementor\Renderer\Responsive;
@@ -161,7 +161,7 @@ git commit -m "feat(elementor-v3): add Responsive::apply helper for breakpoint k
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\Elementor\Renderer;
+namespace Stonewright\WpMcp\Tests\Unit\Elementor\Renderer;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Elementor\Renderer\Heading;
@@ -243,7 +243,7 @@ git commit -m "feat(elementor-v3): emit responsive variants for built-in widget 
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit;
+namespace Stonewright\WpMcp\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Elementor\WidgetBuilder\Compiler;
@@ -318,7 +318,7 @@ git commit -m "feat(widget-builder): emit add_responsive_control when control.re
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\QA;
+namespace Stonewright\WpMcp\Tests\Unit\QA;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\QA\ReferenceArtifacts;
@@ -424,7 +424,7 @@ git commit -m "feat(qa): add ReferenceArtifacts label registry for diff baseline
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\Abilities\QA;
+namespace Stonewright\WpMcp\Tests\Unit\Abilities\QA;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\QA\VerifyAgainstReference;
@@ -601,7 +601,7 @@ git commit -m "feat(qa): add VerifyAgainstReference composite ability (responsiv
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\Abilities\ThemeBuilder;
+namespace Stonewright\WpMcp\Tests\Unit\Abilities\ThemeBuilder;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ThemeBuilder\CreateTemplate;
@@ -786,7 +786,7 @@ git commit -m "feat(theme-builder): add CreateTemplate ability + TemplateStore f
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\Abilities\ThemeBuilder;
+namespace Stonewright\WpMcp\Tests\Unit\Abilities\ThemeBuilder;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ThemeBuilder\SetConditions;
@@ -1134,7 +1134,7 @@ git commit -m "feat(theme-builder): add SetConditions, ListTemplates, GetTemplat
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\Elementor\V4;
+namespace Stonewright\WpMcp\Tests\Unit\Elementor\V4;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Elementor\V4\AtomicWidgetMap;
@@ -1229,7 +1229,7 @@ git commit -m "feat(elementor-v4): add AtomicWidgetMap (DesignSpec node → V4 w
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\Elementor\V4;
+namespace Stonewright\WpMcp\Tests\Unit\Elementor\V4;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Elementor\V4\AtomicRenderer;
@@ -1405,7 +1405,7 @@ git commit -m "feat(elementor-v4): replace stub renderer with real AtomicRendere
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\Elementor\V4;
+namespace Stonewright\WpMcp\Tests\Unit\Elementor\V4;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Elementor\V4\AtomicCompiler;
@@ -1777,7 +1777,7 @@ git commit -m "feat(companion): add vision-bridge (image → DesignSpec via Anth
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\Abilities\Vision;
+namespace Stonewright\WpMcp\Tests\Unit\Abilities\Vision;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\Vision\ImageToSpec;
@@ -1926,7 +1926,7 @@ describe('prompt-to-spec', () => {
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\Abilities\Vision;
+namespace Stonewright\WpMcp\Tests\Unit\Abilities\Vision;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\Vision\PromptToSpec;
@@ -2003,7 +2003,7 @@ git commit -m "feat(vision): add PromptToSpec (text → DesignSpec via companion
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\Abilities\ElementorV3;
+namespace Stonewright\WpMcp\Tests\Unit\Abilities\ElementorV3;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\DuplicateElement;
@@ -2152,7 +2152,7 @@ git commit -m "feat(elementor-v3): add DuplicateElement ability (cloned subtree 
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\Abilities\ElementorV3;
+namespace Stonewright\WpMcp\Tests\Unit\Abilities\ElementorV3;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\ReorderChildren;
@@ -2304,7 +2304,7 @@ git commit -m "feat(elementor-v3): add ReorderChildren ability"
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\Abilities\ElementorV3;
+namespace Stonewright\WpMcp\Tests\Unit\Abilities\ElementorV3;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\BatchUpdate;
@@ -2463,7 +2463,7 @@ git commit -m "feat(elementor-v3): add BatchUpdate ability"
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\Abilities\ElementorV3;
+namespace Stonewright\WpMcp\Tests\Unit\Abilities\ElementorV3;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\FindElement;
@@ -2603,7 +2603,7 @@ git commit -m "feat(elementor-v3): add FindElement ability"
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\Abilities\Shortcuts;
+namespace Stonewright\WpMcp\Tests\Unit\Abilities\Shortcuts;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\Shortcuts\AddHeading;
@@ -2802,7 +2802,7 @@ git commit -m "feat(elementor-v3): add 12 widget shortcut abilities + ShortcutKe
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\Abilities\Pro;
+namespace Stonewright\WpMcp\Tests\Unit\Abilities\Pro;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\Pro\AddForm;
@@ -2918,7 +2918,7 @@ git commit -m "feat(elementor-pro): add 5 Pro widget shortcuts (Form, Posts, Sli
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\Abilities\ElementorV3;
+namespace Stonewright\WpMcp\Tests\Unit\Abilities\ElementorV3;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\AddCustomCss;
@@ -3035,7 +3035,7 @@ git commit -m "feat(elementor-v3): add AddCustomCss + AddCustomJs page-level cod
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\Abilities\ElementorV3;
+namespace Stonewright\WpMcp\Tests\Unit\Abilities\ElementorV3;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\SetDynamicTag;
@@ -3170,7 +3170,7 @@ git commit -m "feat(elementor-v3): add SetDynamicTag ability"
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\Abilities\ElementorV3;
+namespace Stonewright\WpMcp\Tests\Unit\Abilities\ElementorV3;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\ExportPage;
@@ -3236,7 +3236,7 @@ Keep the dangerous-function list in `StaticGuard::BLOCKED_TOKENS` as the single 
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\Sandbox;
+namespace Stonewright\WpMcp\Tests\Unit\Sandbox;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Sandbox\AstGuard;
@@ -3405,7 +3405,7 @@ git commit -m "feat(sandbox): add AstGuard (PHP-Parser AST allowlist on top of S
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\Security;
+namespace Stonewright\WpMcp\Tests\Unit\Security;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\AddWidget;
@@ -3598,7 +3598,7 @@ git commit -m "feat(security): add ConfirmationGate + IssueConfirmation, gate al
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\Sandbox;
+namespace Stonewright\WpMcp\Tests\Unit\Sandbox;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Sandbox\Library;
@@ -3646,7 +3646,7 @@ git commit -m "feat(sandbox): back up existing widget file before overwrite (slu
 <?php
 declare( strict_types=1 );
 
-namespace Stonewright\Tests\Unit\Admin;
+namespace Stonewright\WpMcp\Tests\Unit\Admin;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\SandboxLibraryScreen;
