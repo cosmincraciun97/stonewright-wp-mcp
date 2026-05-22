@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stonewright.dev/companion/contracts/health",
+  "title": "Health contract",
+  "description": "GET /health — no auth required. Advertises the contract_version so PHP CompanionClient can detect major-version mismatches.",
+  "type": "object",
+  "properties": {
+    "request": { "$ref": "#/$defs/HealthRequest" },
+    "response": { "$ref": "#/$defs/HealthResponse" }
+  },
+  "$defs": {
+    "HealthRequest": {
+      "description": "GET /health has no request body.",
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "HealthResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "ok"
+        },
+        "contract_version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "description": "Semantic version of this contract set. PHP checks major-version compatibility."
+        }
+      },
+      "required": ["status", "contract_version"],
+      "additionalProperties": false
+    }
+  }
+}

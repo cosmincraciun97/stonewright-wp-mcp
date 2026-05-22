@@ -1,0 +1,9 @@
+{
+    "args": {
+        "post_id": 1,
+        "path": [
+            0
+        ]
+    },
+    "expect": "ok"
+}

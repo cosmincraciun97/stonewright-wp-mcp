@@ -1,0 +1,7 @@
+{
+  "args": {
+    "template_slug": "single",
+    "theme": "twentytwentyfour",
+    "content": "<!-- wp:paragraph --><p>Hello</p><!-- /wp:paragraph -->"
+  }
+}

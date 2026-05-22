@@ -1,0 +1,15 @@
+{
+    "args": {
+        "post_id": 999999,
+        "block": {
+            "blockName": "core/paragraph",
+            "attrs": [],
+            "innerHTML": "<p>Hello</p>",
+            "innerContent": [
+                "<p>Hello</p>"
+            ],
+            "innerBlocks": []
+        }
+    },
+    "expect": "wp_error"
+}

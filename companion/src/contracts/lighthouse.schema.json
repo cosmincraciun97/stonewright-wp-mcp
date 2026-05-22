@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stonewright.dev/companion/contracts/lighthouse",
+  "title": "Lighthouse contract",
+  "description": "POST /lighthouse — optional Lighthouse audit. Design decision: lighthouse is optional with graceful degradation. When the lighthouse binary is unavailable the companion returns available=false; PHP surfaces WP_Error('stonewright_companion_unavailable', ..., ['status'=>503,'endpoint'=>'lighthouse']).",
+  "type": "object",
+  "properties": {
+    "request": { "$ref": "#/$defs/LighthouseRequest" },
+    "response": { "$ref": "#/$defs/LighthouseResponse" }
+  },
+  "$defs": {
+    "LighthouseScores": {
+      "type": "object",
+      "properties": {
+        "performance":     { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "accessibility":   { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "best-practices":  { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "seo":             { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "LighthouseRequest": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "url": {
+          "type": "string",
+          "pattern": "^https?://",
+          "description": "Target URL resolved by PHP."
+        },
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["performance", "accessibility", "best-practices", "seo", "pwa"]
+          },
+          "minItems": 1,
+          "default": ["performance", "accessibility", "best-practices", "seo"]
+        },
+        "artifact_path": {
+          "type": "string",
+          "pattern": "^/[a-z0-9/_.-]+stonewright-qa/[a-z0-9-]+/?$",
+          "description": "Directory for the Lighthouse HTML report."
+        }
+      },
+      "required": ["request_id", "url"],
+      "additionalProperties": false
+    },
+    "LighthouseResponse": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "available": {
+          "type": "boolean",
+          "description": "False when the lighthouse binary is not installed. PHP surfaces 503."
+        },
+        "scores": { "$ref": "#/$defs/LighthouseScores" },
+        "report_url": {
+          "type": "string",
+          "description": "Public URL to the HTML report. Present only when available=true."
+        },
+        "audits_failed": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Audit IDs that failed. Present only when available=true."
+        }
+      },
+      "required": ["request_id", "available"],
+      "additionalProperties": false
+    }
+  }
+}

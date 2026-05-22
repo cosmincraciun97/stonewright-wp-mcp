@@ -1,0 +1,202 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#wp--skip-link--target"
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e7]:
+        - paragraph [ref=e8]:
+          - link "My WordPress Website" [ref=e9] [cursor=pointer]:
+            - /url: http://localhost:8882
+        - navigation [ref=e11]:
+          - list [ref=e16]:
+            - list [ref=e17]:
+              - listitem [ref=e18]:
+                - link "Homepage" [ref=e19] [cursor=pointer]:
+                  - /url: http://localhost:8882/
+              - listitem [ref=e20]:
+                - link "Sample Page" [ref=e21] [cursor=pointer]:
+                  - /url: http://localhost:8882/sample-page/
+              - listitem [ref=e22]:
+                - link "Stonewright Transavia Test" [ref=e23] [cursor=pointer]:
+                  - /url: http://localhost:8882/stonewright-transavia-test/
+    - main [ref=e24]:
+      - generic [ref=e25]:
+        - heading "Stonewright Transavia Test" [level=1] [ref=e26]
+        - generic [ref=e27]:
+          - generic [ref=e29]:
+            - generic [ref=e30]:
+              - navigation "Navigare" [ref=e31]: Acasă / Rețete / Pulpe de pui
+              - generic [ref=e32]: Fragedo și partenerii
+              - heading "Pulpe de pui crocante" [level=1] [ref=e33]
+              - generic [ref=e34]:
+                - generic [ref=e35]:
+                  - generic [ref=e36]: Dificultate
+                  - generic [ref=e37]: Mediu
+                - generic [ref=e38]:
+                  - generic [ref=e39]: Timp
+                  - generic [ref=e40]: 45 min
+                - generic [ref=e41]:
+                  - generic [ref=e42]: Porții
+                  - generic [ref=e43]: "4"
+              - list [ref=e44]:
+                - listitem [ref=e45]:
+                  - generic [ref=e46]: 320kcal
+                  - generic [ref=e47]: Calorii
+                - listitem [ref=e48]:
+                  - generic [ref=e49]: 28g
+                  - generic [ref=e50]: Proteine
+                - listitem [ref=e51]:
+                  - generic [ref=e52]: 180mg
+                  - generic [ref=e53]: Sodiu
+                - listitem [ref=e54]:
+                  - generic [ref=e55]: 0.9g
+                  - generic [ref=e56]: Sare
+                - listitem [ref=e57]:
+                  - generic [ref=e58]: 2g
+                  - generic [ref=e59]: Zahăr
+            - link "Redă video" [ref=e63] [cursor=pointer]:
+              - /url: "#"
+              - img [ref=e64]
+          - generic [ref=e67]:
+            - generic [ref=e68]:
+              - heading "Rețete similare" [level=2] [ref=e69]
+              - paragraph [ref=e70]: Inspirate de tradiție, pregătite cu Fragedo
+            - generic [ref=e71]:
+              - button "Slide anterior" [disabled] [ref=e72]:
+                - img [ref=e73]
+              - list [ref=e75]:
+                - listitem [ref=e76]:
+                  - article [ref=e77]:
+                    - link "Pulpe de pui glazurate Medie Gata în 40 min" [ref=e78] [cursor=pointer]:
+                      - /url: "#"
+                      - img [ref=e81]
+                      - generic [ref=e85]:
+                        - heading "Pulpe de pui glazurate" [level=3] [ref=e86]
+                        - generic [ref=e87]:
+                          - generic [ref=e88]:
+                            - generic [ref=e89]:
+                              - img [ref=e91]
+                              - img [ref=e94]
+                              - img [ref=e97]
+                            - generic [ref=e99]: Medie
+                          - generic [ref=e100]:
+                            - img [ref=e101]
+                            - generic [ref=e104]: Gata în 40 min
+                - listitem [ref=e105]:
+                  - article [ref=e106]:
+                    - link "Piept de pui milaneză Ușoară Gata în 30 min" [ref=e107] [cursor=pointer]:
+                      - /url: "#"
+                      - img [ref=e110]
+                      - generic [ref=e114]:
+                        - heading "Piept de pui milaneză" [level=3] [ref=e115]
+                        - generic [ref=e116]:
+                          - generic [ref=e117]:
+                            - generic [ref=e118]:
+                              - img [ref=e120]
+                              - img [ref=e123]
+                              - img [ref=e126]
+                            - generic [ref=e128]: Ușoară
+                          - generic [ref=e129]:
+                            - img [ref=e130]
+                            - generic [ref=e133]: Gata în 30 min
+                - listitem [ref=e134]:
+                  - article [ref=e135]:
+                    - link "Curry de pui Medie Gata în 50 min" [ref=e136] [cursor=pointer]:
+                      - /url: "#"
+                      - img [ref=e139]
+                      - generic [ref=e143]:
+                        - heading "Curry de pui" [level=3] [ref=e144]
+                        - generic [ref=e145]:
+                          - generic [ref=e146]:
+                            - generic [ref=e147]:
+                              - img [ref=e149]
+                              - img [ref=e152]
+                              - img [ref=e155]
+                            - generic [ref=e157]: Medie
+                          - generic [ref=e158]:
+                            - img [ref=e159]
+                            - generic [ref=e162]: Gata în 50 min
+                - listitem [ref=e163]:
+                  - article [ref=e164]:
+                    - link "Aripioare glazurate Ușoară Gata în 35 min" [ref=e165] [cursor=pointer]:
+                      - /url: "#"
+                      - img [ref=e168]
+                      - generic [ref=e172]:
+                        - heading "Aripioare glazurate" [level=3] [ref=e173]
+                        - generic [ref=e174]:
+                          - generic [ref=e175]:
+                            - generic [ref=e176]:
+                              - img [ref=e178]
+                              - img [ref=e181]
+                              - img [ref=e184]
+                            - generic [ref=e186]: Ușoară
+                          - generic [ref=e187]:
+                            - img [ref=e188]
+                            - generic [ref=e191]: Gata în 35 min
+                - listitem [ref=e192]:
+                  - article [ref=e193]:
+                    - link "Pui la tigaie cu rozmarin Ușoară Gata în 25 min" [ref=e194] [cursor=pointer]:
+                      - /url: "#"
+                      - img [ref=e197]
+                      - generic [ref=e201]:
+                        - heading "Pui la tigaie cu rozmarin" [level=3] [ref=e202]
+                        - generic [ref=e203]:
+                          - generic [ref=e204]:
+                            - generic [ref=e205]:
+                              - img [ref=e207]
+                              - img [ref=e210]
+                              - img [ref=e213]
+                            - generic [ref=e215]: Ușoară
+                          - generic [ref=e216]:
+                            - img [ref=e217]
+                            - generic [ref=e220]: Gata în 25 min
+              - button "Slide următor" [ref=e221] [cursor=pointer]:
+                - img [ref=e222]
+            - tablist "Selectează slide" [ref=e224]:
+              - tab "Slide 1" [selected] [ref=e225] [cursor=pointer]
+              - tab "Slide 2" [ref=e226] [cursor=pointer]
+            - link "Vezi toate rețetele" [ref=e227] [cursor=pointer]:
+              - /url: "#"
+              - generic [ref=e228]: Vezi toate rețetele
+              - img [ref=e229]
+    - contentinfo [ref=e231]:
+      - generic [ref=e233]:
+        - generic [ref=e234]:
+          - heading "My WordPress Website" [level=2] [ref=e237]:
+            - link "My WordPress Website" [ref=e238] [cursor=pointer]:
+              - /url: http://localhost:8882
+          - generic [ref=e239]:
+            - navigation "2" [ref=e240]:
+              - list [ref=e241]:
+                - listitem [ref=e242]:
+                  - link "Blog" [ref=e243] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e244]:
+                  - link "About" [ref=e245] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e246]:
+                  - link "FAQs" [ref=e247] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e248]:
+                  - link "Authors" [ref=e249] [cursor=pointer]:
+                    - /url: "#"
+            - navigation "3" [ref=e250]:
+              - list [ref=e251]:
+                - listitem [ref=e252]:
+                  - link "Events" [ref=e253] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e254]:
+                  - link "Shop" [ref=e255] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e256]:
+                  - link "Patterns" [ref=e257] [cursor=pointer]:
+                    - /url: "#"
+                - listitem [ref=e258]:
+                  - link "Themes" [ref=e259] [cursor=pointer]:
+                    - /url: "#"
+        - generic [ref=e261]:
+          - paragraph [ref=e262]: Twenty Twenty-Five
+          - paragraph [ref=e263]:
+            - text: Designed with
+            - link "WordPress" [ref=e264] [cursor=pointer]:
+              - /url: https://wordpress.org

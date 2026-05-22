@@ -1,0 +1,11 @@
+{
+    "args": {
+        "post_id": 1,
+        "parent_id": "parent1",
+        "widget_type": "heading",
+        "settings": {
+            "title": "Hello"
+        }
+    },
+    "expect": "ok"
+}

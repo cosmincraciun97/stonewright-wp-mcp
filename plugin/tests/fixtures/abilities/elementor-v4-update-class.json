@@ -1,0 +1,8 @@
+{
+    "args": {
+        "id": "cls_contract",
+        "patch": {
+            "name": "Contract Updated"
+        }
+    }
+}

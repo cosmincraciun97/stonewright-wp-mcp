@@ -1,0 +1,9 @@
+{
+    "args": {
+        "spec": {
+            "page": [],
+            "sections": []
+        }
+    },
+    "expect_permission_error": true
+}

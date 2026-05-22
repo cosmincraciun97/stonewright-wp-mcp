@@ -1,0 +1,6 @@
+{
+    "args": {
+        "id": 999999
+    },
+    "expect_permission_error": true
+}

@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stonewright.dev/companion/contracts/diff",
+  "title": "Diff contract",
+  "description": "POST /diff — pixel diff two artifacts. Design decisions: (1) diff accepts artifact_ids (not URLs) — composable with /screenshot output, no double-fetch; (2) artifact_path is PHP-reserved and validated by pattern; (3) when no reference screenshot exists the response must return needs_reference=true instead of a fake pass/fail.",
+  "type": "object",
+  "properties": {
+    "request": { "$ref": "#/$defs/DiffRequest" },
+    "response": { "$ref": "#/$defs/DiffResponse" }
+  },
+  "$defs": {
+    "IgnoreRegion": {
+      "type": "object",
+      "properties": {
+        "x":      { "type": "integer", "minimum": 0 },
+        "y":      { "type": "integer", "minimum": 0 },
+        "width":  { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      },
+      "required": ["x", "y", "width", "height"],
+      "additionalProperties": false
+    },
+    "MismatchRegion": {
+      "type": "object",
+      "properties": {
+        "x":      { "type": "integer", "minimum": 0 },
+        "y":      { "type": "integer", "minimum": 0 },
+        "width":  { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      },
+      "required": ["x", "y", "width", "height"],
+      "additionalProperties": false
+    },
+    "DiffRequest": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "reference_artifact_id": {
+          "type": "string",
+          "description": "artifact_id from a prior /screenshot response (reference screenshot)."
+        },
+        "actual_artifact_id": {
+          "type": "string",
+          "description": "artifact_id from a prior /screenshot response (actual/current screenshot)."
+        },
+        "artifact_path": {
+          "type": "string",
+          "pattern": "^/[a-z0-9/_.-]+stonewright-qa/[a-z0-9-]+/?$",
+          "description": "Directory where the diff PNG will be written."
+        },
+        "threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.1
+        },
+        "ignore_regions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/IgnoreRegion" },
+          "default": []
+        }
+      },
+      "required": ["request_id", "reference_artifact_id", "actual_artifact_id", "artifact_path"],
+      "additionalProperties": false
+    },
+    "DiffResponse": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "needs_reference": {
+          "type": "boolean",
+          "description": "True when no reference screenshot exists. When true, diff_ratio/passed/diff_url/mismatch_regions MUST be absent."
+        },
+        "diff_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Fraction of mismatched pixels. Present only when needs_reference=false."
+        },
+        "passed": {
+          "type": "boolean",
+          "description": "True when diff_ratio <= threshold. Present only when needs_reference=false."
+        },
+        "threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "diff_url": {
+          "type": "string",
+          "description": "Public URL to the diff PNG. Present only when needs_reference=false."
+        },
+        "mismatch_regions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/MismatchRegion" },
+          "description": "Bounding boxes of clustered mismatch regions. Present only when needs_reference=false."
+        }
+      },
+      "required": ["request_id", "needs_reference"],
+      "additionalProperties": false
+    }
+  }
+}

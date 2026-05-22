@@ -1,0 +1,7 @@
+{
+    "args": {
+        "post_id": 999999,
+        "url": ""
+    },
+    "expect_permission_error": true
+}

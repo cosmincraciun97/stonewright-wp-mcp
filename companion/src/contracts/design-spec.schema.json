@@ -1,0 +1,365 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stonewright.dev/companion/contracts/design-spec",
+  "title": "Stonewright Design Spec",
+  "description": "Canonical design specification consumed by both the companion (Figma ingestion) and the WordPress plugin (rendering, validation). Version 1.0.0.",
+  "type": "object",
+  "properties": {
+    "spec": {
+      "$ref": "#/$defs/DesignSpec"
+    }
+  },
+  "$defs": {
+    "ColorValue": {
+      "type": "object",
+      "description": "RGBA colour in 0-1 float range.",
+      "properties": {
+        "r": { "type": "number", "minimum": 0, "maximum": 1 },
+        "g": { "type": "number", "minimum": 0, "maximum": 1 },
+        "b": { "type": "number", "minimum": 0, "maximum": 1 },
+        "a": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "required": ["r", "g", "b"],
+      "additionalProperties": false
+    },
+    "TypographyToken": {
+      "type": "object",
+      "properties": {
+        "fontFamily":    { "type": "string" },
+        "fontSize":      { "type": "number", "minimum": 1 },
+        "fontWeight":    { "type": "number" },
+        "lineHeightPx":  { "type": "number" },
+        "letterSpacing": { "type": "number" }
+      },
+      "required": ["fontFamily", "fontSize", "fontWeight"],
+      "additionalProperties": false
+    },
+    "SpacingToken": {
+      "description": "CSS-compatible spacing value, e.g. '16px' or '1rem'.",
+      "type": "string",
+      "pattern": "^[0-9]+(\\.[0-9]+)?(px|rem|em|vh|vw|%)$"
+    },
+    "ColorToken": {
+      "description": "CSS-compatible color value or a $ref to a token name.",
+      "type": "string"
+    },
+    "DesignTokens": {
+      "type": "object",
+      "description": "Named design tokens — colours, typography, spacing.",
+      "properties": {
+        "colors": {
+          "type": "object",
+          "description": "Map of token name → CSS color string.",
+          "additionalProperties": { "$ref": "#/$defs/ColorToken" }
+        },
+        "typography": {
+          "type": "object",
+          "description": "Map of token name → TypographyToken.",
+          "additionalProperties": { "$ref": "#/$defs/TypographyToken" }
+        },
+        "spacing": {
+          "type": "object",
+          "description": "Map of token name → SpacingToken.",
+          "additionalProperties": { "$ref": "#/$defs/SpacingToken" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Breakpoint": {
+      "type": "object",
+      "properties": {
+        "id":    { "type": "string", "description": "Breakpoint identifier, e.g. 'mobile', 'tablet', 'desktop'." },
+        "label": { "type": "string" },
+        "maxWidth": { "type": "integer", "description": "Max viewport width in px." }
+      },
+      "required": ["id"],
+      "additionalProperties": false
+    },
+    "AssetReference": {
+      "type": "object",
+      "description": "Remote or local asset reference (image URL before sideloading).",
+      "properties": {
+        "id":          { "type": "string", "description": "Stable reference ID used to correlate across sideloading." },
+        "url":         { "type": "string", "description": "Source URL (http/https Figma CDN or public URL)." },
+        "altText":     { "type": "string" },
+        "width":       { "type": "number" },
+        "height":      { "type": "number" },
+        "mimeType":    { "type": "string", "description": "Expected MIME type, e.g. image/png." }
+      },
+      "required": ["id", "url"],
+      "additionalProperties": false
+    },
+    "BlockBase": {
+      "type": "object",
+      "description": "Common fields present on every block.",
+      "properties": {
+        "id":    { "type": "string" },
+        "type":  { "type": "string" },
+        "styles": {
+          "type": "object",
+          "description": "Arbitrary CSS-compatible style overrides.",
+          "additionalProperties": { "type": "string" }
+        },
+        "responsive": {
+          "type": "object",
+          "description": "Per-breakpoint setting overrides keyed by breakpoint id.",
+          "additionalProperties": { "type": "object", "additionalProperties": true }
+        },
+        "assetRef": { "type": "string", "description": "Reference to an AssetReference id in the spec." }
+      },
+      "required": ["type"]
+    },
+    "HeadingBlock": {
+      "allOf": [
+        { "$ref": "#/$defs/BlockBase" },
+        {
+          "type": "object",
+          "properties": {
+            "type":  { "const": "heading" },
+            "text":  { "type": "string" },
+            "level": { "type": "integer", "minimum": 1, "maximum": 6 },
+            "typography": { "$ref": "#/$defs/TypographyToken" }
+          },
+          "required": ["type", "text"]
+        }
+      ]
+    },
+    "ParagraphBlock": {
+      "allOf": [
+        { "$ref": "#/$defs/BlockBase" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "paragraph" },
+            "text": { "type": "string" },
+            "typography": { "$ref": "#/$defs/TypographyToken" }
+          },
+          "required": ["type", "text"]
+        }
+      ]
+    },
+    "ImageBlock": {
+      "allOf": [
+        { "$ref": "#/$defs/BlockBase" },
+        {
+          "type": "object",
+          "properties": {
+            "type":    { "const": "image" },
+            "src":     { "type": "string", "description": "URL or asset reference. Replaced with WP attachment URL after sideloading." },
+            "alt":     { "type": "string" },
+            "width":   { "type": "number" },
+            "height":  { "type": "number" }
+          },
+          "required": ["type", "src"]
+        }
+      ]
+    },
+    "ButtonBlock": {
+      "allOf": [
+        { "$ref": "#/$defs/BlockBase" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "button" },
+            "text": { "type": "string" },
+            "url":  { "type": "string" },
+            "variant": { "type": "string", "enum": ["primary", "secondary", "outline", "link"] }
+          },
+          "required": ["type", "text"]
+        }
+      ]
+    },
+    "GroupBlock": {
+      "allOf": [
+        { "$ref": "#/$defs/BlockBase" },
+        {
+          "type": "object",
+          "properties": {
+            "type":     { "const": "group" },
+            "layout":   { "type": "string", "enum": ["horizontal", "vertical", "grid"] },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/Block" }
+            }
+          },
+          "required": ["type"]
+        }
+      ]
+    },
+    "SpacerBlock": {
+      "allOf": [
+        { "$ref": "#/$defs/BlockBase" },
+        {
+          "type": "object",
+          "properties": {
+            "type":   { "const": "spacer" },
+            "height": { "type": "string" }
+          },
+          "required": ["type"]
+        }
+      ]
+    },
+    "VideoBlock": {
+      "allOf": [
+        { "$ref": "#/$defs/BlockBase" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "video" },
+            "src":  { "type": "string" },
+            "poster": { "type": "string" },
+            "autoplay": { "type": "boolean" }
+          },
+          "required": ["type", "src"]
+        }
+      ]
+    },
+    "EmbedBlock": {
+      "allOf": [
+        { "$ref": "#/$defs/BlockBase" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "embed" },
+            "url":  { "type": "string" }
+          },
+          "required": ["type", "url"]
+        }
+      ]
+    },
+    "IconBlock": {
+      "allOf": [
+        { "$ref": "#/$defs/BlockBase" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "icon" },
+            "icon": { "type": "string", "description": "Icon library key, e.g. 'fa-star'." },
+            "size": { "type": "string" }
+          },
+          "required": ["type", "icon"]
+        }
+      ]
+    },
+    "CardBlock": {
+      "allOf": [
+        { "$ref": "#/$defs/BlockBase" },
+        {
+          "type": "object",
+          "properties": {
+            "type":     { "const": "card" },
+            "title":    { "type": "string" },
+            "body":     { "type": "string" },
+            "imageRef": { "type": "string" },
+            "cta":      { "type": "string" },
+            "ctaUrl":   { "type": "string" }
+          },
+          "required": ["type"]
+        }
+      ]
+    },
+    "UnknownBlock": {
+      "allOf": [
+        { "$ref": "#/$defs/BlockBase" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string" }
+          },
+          "required": ["type"],
+          "not": {
+            "properties": {
+              "type": {
+                "enum": ["heading", "paragraph", "image", "button", "group", "spacer", "video", "embed", "icon", "card"]
+              }
+            },
+            "required": ["type"]
+          }
+        }
+      ]
+    },
+    "Block": {
+      "oneOf": [
+        { "$ref": "#/$defs/HeadingBlock" },
+        { "$ref": "#/$defs/ParagraphBlock" },
+        { "$ref": "#/$defs/ImageBlock" },
+        { "$ref": "#/$defs/ButtonBlock" },
+        { "$ref": "#/$defs/GroupBlock" },
+        { "$ref": "#/$defs/SpacerBlock" },
+        { "$ref": "#/$defs/VideoBlock" },
+        { "$ref": "#/$defs/EmbedBlock" },
+        { "$ref": "#/$defs/IconBlock" },
+        { "$ref": "#/$defs/CardBlock" },
+        { "$ref": "#/$defs/UnknownBlock" }
+      ]
+    },
+    "Section": {
+      "type": "object",
+      "properties": {
+        "id":     { "type": "string" },
+        "label":  { "type": "string" },
+        "blocks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Block" },
+          "minItems": 1
+        },
+        "background": {
+          "type": "object",
+          "properties": {
+            "color":    { "$ref": "#/$defs/ColorToken" },
+            "imageRef": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "padding":   { "type": "string" },
+        "margin":    { "type": "string" },
+        "fullWidth": { "type": "boolean" }
+      },
+      "required": ["blocks"],
+      "additionalProperties": false
+    },
+    "DesignSpec": {
+      "type": "object",
+      "description": "Full Stonewright Design Spec — passed from companion to WordPress. Version 1.0.0.",
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "Spec schema version, semver.",
+          "default": "1.0.0"
+        },
+        "page": {
+          "type": "object",
+          "properties": {
+            "title":       { "type": "string" },
+            "description": { "type": "string" },
+            "slug":        { "type": "string" }
+          },
+          "required": ["title"],
+          "additionalProperties": false
+        },
+        "tokens":      { "$ref": "#/$defs/DesignTokens" },
+        "sections": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Section" },
+          "minItems": 1
+        },
+        "breakpoints": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Breakpoint" }
+        },
+        "assets": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/AssetReference" },
+          "description": "Image assets referenced by blocks. Companion fills src URLs; WordPress sideloads them."
+        },
+        "meta": {
+          "type": "object",
+          "description": "Arbitrary metadata (e.g. source instructions, confidence scores).",
+          "additionalProperties": true
+        }
+      },
+      "required": ["version", "page", "sections"],
+      "additionalProperties": false
+    }
+  }
+}

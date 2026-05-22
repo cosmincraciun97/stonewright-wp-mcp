@@ -1,0 +1,6 @@
+{
+    "args": {
+        "name": "../bad.php"
+    },
+    "expect": "wp_error"
+}

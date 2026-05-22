@@ -1,0 +1,7 @@
+{
+    "args": {
+        "id": 999999,
+        "patch": []
+    },
+    "expect": "wp_error"
+}

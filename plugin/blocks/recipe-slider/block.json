@@ -1,0 +1,126 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "stonewright/recipe-slider",
+	"version": "1.0.0",
+	"title": "Recipe Slider",
+	"category": "media",
+	"icon": "images-alt2",
+	"description": "Carousel-style recipe slider with arrows, dots, auto-rotate, swipe and fully editable slides.",
+	"keywords": ["slider", "carousel", "recipes", "transavia"],
+	"textdomain": "stonewright",
+	"supports": {
+		"html": false,
+		"align": ["wide", "full"],
+		"anchor": true,
+		"spacing": {
+			"margin": true,
+			"padding": true
+		},
+		"interactivity": false
+	},
+	"attributes": {
+		"heading": {
+			"type": "string",
+			"default": "Rețete similare"
+		},
+		"subheading": {
+			"type": "string",
+			"default": "Bune și ușor de făcut. Inspiră-te pentru următoarea ta masă."
+		},
+		"ctaText": {
+			"type": "string",
+			"default": "Vezi toate rețetele"
+		},
+		"ctaUrl": {
+			"type": "string",
+			"default": "#"
+		},
+		"backgroundColor": {
+			"type": "string",
+			"default": "#00583f"
+		},
+		"textColor": {
+			"type": "string",
+			"default": "#ffffff"
+		},
+		"accentColor": {
+			"type": "string",
+			"default": "#e2001a"
+		},
+		"cardColor": {
+			"type": "string",
+			"default": "#ffffff"
+		},
+		"autoRotate": {
+			"type": "boolean",
+			"default": true
+		},
+		"interval": {
+			"type": "number",
+			"default": 5000
+		},
+		"perViewDesktop": {
+			"type": "number",
+			"default": 4
+		},
+		"perViewTablet": {
+			"type": "number",
+			"default": 2
+		},
+		"perViewMobile": {
+			"type": "number",
+			"default": 1
+		},
+		"showDots": {
+			"type": "boolean",
+			"default": true
+		},
+		"showArrows": {
+			"type": "boolean",
+			"default": true
+		},
+		"slides": {
+			"type": "array",
+			"default": [
+				{
+					"title": "Pulpe de pui la cuptor cu cartofi noi",
+					"image": "",
+					"imageAlt": "Pulpe de pui la cuptor",
+					"difficulty": "Ușoară",
+					"time": "45 min.",
+					"url": "#"
+				},
+				{
+					"title": "Piept de pui à la milaneză cu rucola",
+					"image": "",
+					"imageAlt": "Piept de pui milaneză",
+					"difficulty": "Medie",
+					"time": "30 min.",
+					"url": "#"
+				},
+				{
+					"title": "Curry de pui cu lapte de cocos",
+					"image": "",
+					"imageAlt": "Curry de pui",
+					"difficulty": "Medie",
+					"time": "55 min.",
+					"url": "#"
+				},
+				{
+					"title": "Aripioare glazurate cu miere și soia",
+					"image": "",
+					"imageAlt": "Aripioare glazurate",
+					"difficulty": "Ușoară",
+					"time": "40 min.",
+					"url": "#"
+				}
+			]
+		}
+	},
+	"editorScript": "file:./edit.js",
+	"viewScript": "file:./view.js",
+	"style": "file:./style.css",
+	"editorStyle": "file:./editor.css",
+	"render": "file:./render.php"
+}

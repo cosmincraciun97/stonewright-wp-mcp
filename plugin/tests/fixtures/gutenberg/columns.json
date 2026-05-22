@@ -1,0 +1,27 @@
+{
+  "blockName": "core/columns",
+  "attrs": {},
+  "innerHTML": "<div class=\"wp-block-columns\"></div>",
+  "innerContent": [
+    "<div class=\"wp-block-columns\">",
+    null,
+    null,
+    "</div>"
+  ],
+  "innerBlocks": [
+    {
+      "blockName": "core/column",
+      "attrs": {},
+      "innerHTML": "<div class=\"wp-block-column\"></div>",
+      "innerContent": [ "<div class=\"wp-block-column\">", "</div>" ],
+      "innerBlocks": []
+    },
+    {
+      "blockName": "core/column",
+      "attrs": {},
+      "innerHTML": "<div class=\"wp-block-column\"></div>",
+      "innerContent": [ "<div class=\"wp-block-column\">", "</div>" ],
+      "innerBlocks": []
+    }
+  ]
+}

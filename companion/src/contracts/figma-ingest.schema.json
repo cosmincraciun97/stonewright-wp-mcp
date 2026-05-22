@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stonewright.dev/companion/contracts/figma-ingest",
+  "title": "Figma ingest contract",
+  "description": "POST /figma-ingest — Ingests a Figma node and returns a fully-validated Stonewright Design Spec. Companion never writes to WordPress.",
+  "type": "object",
+  "properties": {
+    "request":  { "$ref": "#/$defs/FigmaIngestRequest" },
+    "response": { "$ref": "#/$defs/FigmaIngestResponse" }
+  },
+  "$defs": {
+    "FigmaIngestRequest": {
+      "type": "object",
+      "description": "Either figma_url OR both file_key + node_id must be supplied.",
+      "properties": {
+        "figma_url": {
+          "type": "string",
+          "pattern": "^https://www\\.figma\\.com/(file|design)/",
+          "description": "Full Figma share URL. Mutually exclusive with file_key/node_id."
+        },
+        "file_key": {
+          "type": "string",
+          "description": "Figma file key (path segment after /file/ or /design/)."
+        },
+        "node_id": {
+          "type": "string",
+          "description": "Figma node ID in 'NN:NN' colon form."
+        },
+        "token_override": {
+          "type": "string",
+          "description": "Optional Figma personal access token. Falls back to FIGMA_TOKEN env var."
+        }
+      },
+      "anyOf": [
+        { "required": ["figma_url"] },
+        { "required": ["file_key", "node_id"] }
+      ],
+      "additionalProperties": false
+    },
+    "FigmaIngestResponse": {
+      "type": "object",
+      "properties": {
+        "spec": {
+          "$ref": "https://stonewright.dev/companion/contracts/design-spec#/$defs/DesignSpec"
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Non-fatal ingestion warnings (unsupported node types, missing fills, etc.)."
+        },
+        "asset_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of image assets discovered in the Figma node (before sideloading)."
+        }
+      },
+      "required": ["spec", "warnings", "asset_count"],
+      "additionalProperties": false
+    }
+  }
+}

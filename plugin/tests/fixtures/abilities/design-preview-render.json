@@ -1,0 +1,17 @@
+{
+    "args": {
+        "spec": {
+            "version": "1.0.0",
+            "page": { "title": "Contract Preview" },
+            "sections": [
+                {
+                    "id": "hero",
+                    "blocks": [
+                        { "type": "heading", "text": "Hello", "level": 1 }
+                    ]
+                }
+            ]
+        }
+    },
+    "expect": "ok"
+}

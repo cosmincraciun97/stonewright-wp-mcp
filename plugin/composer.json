@@ -1,0 +1,55 @@
+{
+    "name": "stonewright/wp-mcp",
+    "description": "Stonewright exposes WordPress building primitives to MCP clients.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "require": {
+        "php": ">=8.1",
+        "wordpress/mcp-adapter": "^0.3.0 || ^1.0",
+        "wordpress/abilities-api": "^0.1.0 || ^1.0",
+        "opis/json-schema": "^2.3"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.6",
+        "squizlabs/php_codesniffer": "^3.10",
+        "wp-coding-standards/wpcs": "^3.1",
+        "phpcompatibility/phpcompatibility-wp": "^2.1",
+        "phpstan/phpstan": "^1.11",
+        "szepeviktor/phpstan-wordpress": "^1.3",
+        "yoast/phpunit-polyfills": "^2.0",
+        "wp-phpunit/wp-phpunit": "^6.7",
+        "automattic/jetpack-autoloader": "^4.0",
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Stonewright\\WpMcp\\": "includes/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Stonewright\\WpMcp\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true,
+            "automattic/jetpack-autoloader": true
+        },
+        "sort-packages": true
+    },
+    "scripts": {
+        "test": "phpunit",
+        "phpstan": "phpstan analyse --memory-limit=1G",
+        "phpcs": "phpcs",
+        "phpcbf": "phpcbf",
+        "docs:matrix": "php bin/generate-ability-matrix.php",
+        "security:audit": "php bin/security-audit.php"
+    },
+    "extra": {
+        "wordpress-install-dir": "../wordpress",
+        "branch-alias": {
+            "dev-main": "1.x-dev"
+        }
+    }
+}

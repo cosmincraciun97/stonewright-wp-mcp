@@ -1,0 +1,8 @@
+{
+  "args": {
+    "template_slug": "INVALID!",
+    "theme": "twentytwentyfour",
+    "content": "<!-- wp:group --><div class=\"wp-block-group\"></div><!-- /wp:group -->",
+    "area": "footer"
+  }
+}

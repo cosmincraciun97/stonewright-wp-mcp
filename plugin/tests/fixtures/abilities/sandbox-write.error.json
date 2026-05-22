@@ -1,0 +1,7 @@
+{
+    "args": {
+        "name": "../bad.php",
+        "contents": "contract"
+    },
+    "expect": "wp_error"
+}

@@ -1,0 +1,7 @@
+{
+  "blockName": "core/paragraph",
+  "attrs": {},
+  "innerHTML": "<p class=\"wp-block-paragraph\">Some text here.</p>",
+  "innerContent": [ "<p class=\"wp-block-paragraph\">Some text here.</p>" ],
+  "innerBlocks": []
+}

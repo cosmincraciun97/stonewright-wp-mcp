@@ -1,0 +1,8 @@
+{
+    "args": {
+        "post_id": 1,
+        "settings": [],
+        "mode": "contract"
+    },
+    "expect": "ok"
+}

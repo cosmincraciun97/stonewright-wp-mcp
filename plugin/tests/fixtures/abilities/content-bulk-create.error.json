@@ -1,0 +1,11 @@
+{
+    "args": {
+        "items": [
+            {
+                "title": "Denied",
+                "post_type": "page"
+            }
+        ]
+    },
+    "expect_permission_error": true
+}

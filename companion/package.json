@@ -1,0 +1,46 @@
+{
+	"name": "@stonewright/companion",
+	"version": "1.0.0-alpha.1",
+	"description": "Node bridge for the Stonewright WordPress MCP plugin — Figma ingestion, Playwright screenshots, pixel diff, optional MCP HTTP proxy.",
+	"type": "module",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/stonewright/stonewright-wp-mcp"
+	},
+	"engines": {
+		"node": ">=20.0.0"
+	},
+	"main": "dist/index.js",
+	"exports": {
+		".": "./dist/index.js"
+	},
+	"scripts": {
+		"build": "tsup src/index.ts --format esm --dts --clean --outDir dist",
+		"build:contracts": "node scripts/build-contracts.mjs",
+		"dev": "tsup src/index.ts --format esm --watch --onSuccess \"node dist/index.js\"",
+		"start": "node dist/index.js",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"lint": "eslint src tests --ext .ts",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.0.0",
+		"dotenv": "^16.4.5",
+		"playwright": "^1.44.0",
+		"sharp": "^0.33.4",
+		"zod": "^3.23.8"
+	},
+	"devDependencies": {
+		"@types/node": "^20.14.0",
+		"@typescript-eslint/eslint-plugin": "^7.13.0",
+		"@typescript-eslint/parser": "^7.13.0",
+		"ajv": "^8.20.0",
+		"eslint": "^8.57.0",
+		"json-schema-to-typescript": "^15.0.4",
+		"tsup": "^8.1.0",
+		"typescript": "^5.4.5",
+		"vitest": "^1.6.0"
+	}
+}

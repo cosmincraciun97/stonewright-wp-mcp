@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stonewright.dev/schemas/design-spec/1.0.0.json",
+  "title": "Stonewright Design Spec",
+  "description": "Renderer-agnostic page description used by Stonewright to materialize Gutenberg, Elementor V3, and Elementor V4 pages from a single source of truth.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "page", "sections"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "source": {
+      "type": "object",
+      "description": "Where this spec came from. Optional but recommended for traceability.",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["figma", "image", "html", "manual"]
+        },
+        "url": { "type": "string", "format": "uri" },
+        "node_id": { "type": "string" },
+        "captured_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title"],
+      "properties": {
+        "title": { "type": "string", "maxLength": 255 },
+        "slug": { "type": "string", "maxLength": 200 },
+        "template": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "publish", "private", "pending"]
+        }
+      }
+    },
+    "tokens": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "colors": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^(#|rgb|hsl|var\\().*"
+          }
+        },
+        "typography": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "font_family": { "type": "string" },
+              "font_weight": { "type": "string" },
+              "font_size": { "type": "string" },
+              "line_height": { "type": "string" },
+              "letter_spacing": { "type": "string" }
+            }
+          }
+        },
+        "spacing": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "radius": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "shadow": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "responsive": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "breakpoints": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mobile": { "type": "integer", "minimum": 0 },
+            "tablet": { "type": "integer", "minimum": 0 },
+            "desktop": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/section" }
+    }
+  },
+  "$defs": {
+    "section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "blocks"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "width": {
+          "type": "string",
+          "enum": ["full", "boxed", "narrow"],
+          "default": "boxed"
+        },
+        "layout": {
+          "type": "string",
+          "enum": ["stack", "row", "grid"],
+          "default": "stack"
+        },
+        "gap": { "type": ["string", "number"] },
+        "padding": { "$ref": "#/$defs/dimensions" },
+        "background": { "$ref": "#/$defs/background" },
+        "blocks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/block" }
+        }
+      }
+    },
+    "block": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "heading",
+            "paragraph",
+            "image",
+            "button",
+            "spacer",
+            "separator",
+            "list",
+            "icon",
+            "video",
+            "embed",
+            "slider",
+            "card",
+            "row",
+            "column"
+          ]
+        },
+        "text": { "type": "string" },
+        "level": { "type": "integer", "minimum": 1, "maximum": 6 },
+        "url": { "type": "string" },
+        "alt": { "type": "string" },
+        "id": { "type": ["integer", "string"] },
+        "height": { "type": ["integer", "string"] },
+        "items": { "type": "array" },
+        "blocks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/block" }
+        },
+        "style": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "background": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "color": { "type": "string" },
+        "image": { "type": "string" },
+        "image_id": { "type": "integer" },
+        "overlay": { "type": "string" },
+        "position": { "type": "string" },
+        "size": { "type": "string" }
+      }
+    },
+    "dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "top": { "type": ["integer", "string"] },
+        "right": { "type": ["integer", "string"] },
+        "bottom": { "type": ["integer", "string"] },
+        "left": { "type": ["integer", "string"] }
+      }
+    }
+  }
+}

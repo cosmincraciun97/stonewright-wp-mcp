@@ -1,0 +1,14 @@
+{
+    "id": "2070b1a",
+    "elType": "widget",
+    "widgetType": "icon-box",
+    "settings": {
+        "icon": {
+            "value": "fas fa-rocket",
+            "library": "fa-solid"
+        },
+        "title_text": "Feature Title",
+        "description_text": "Feature description goes here."
+    },
+    "elements": []
+}

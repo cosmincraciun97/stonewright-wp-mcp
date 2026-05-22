@@ -1,0 +1,15 @@
+{
+  "blockName": "core/cover",
+  "attrs": {
+    "dimRatio": 40,
+    "url": "https://example.com/bg.jpg",
+    "overlayColor": "#000000",
+    "customOverlayColor": "#000000"
+  },
+  "innerHTML": "<div class=\"wp-block-cover\"></div>",
+  "innerContent": [
+    "<div class=\"wp-block-cover\">",
+    "</div>"
+  ],
+  "innerBlocks": []
+}

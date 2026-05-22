@@ -1,0 +1,59 @@
+/**
+ * Stonewright Recipe Slider — editor-only styles.
+ */
+
+.sw-recipe-slider .sw-rs__slide-edit-toolbar {
+	display: flex;
+	gap: 6px;
+	margin-top: 12px;
+	flex-wrap: wrap;
+}
+
+.sw-recipe-slider .sw-rs__slide-edit-toolbar .components-button {
+	flex: 1;
+}
+
+.sw-recipe-slider .sw-rs__add-slide {
+	margin-top: 24px;
+	background: rgba(255, 255, 255, 0.12);
+	border: 1px dashed rgba(255, 255, 255, 0.45);
+	color: #fff;
+	width: 100%;
+	border-radius: 12px;
+	padding: 16px;
+	cursor: pointer;
+	font-weight: 500;
+	transition: background 0.15s ease;
+}
+
+.sw-recipe-slider .sw-rs__add-slide:hover {
+	background: rgba(255, 255, 255, 0.2);
+}
+
+.sw-recipe-slider .sw-rs__media-pick {
+	position: absolute;
+	inset: auto 8px 8px auto;
+	z-index: 2;
+}
+
+.sw-recipe-slider .sw-rs__card-edit {
+	position: relative;
+}
+
+.sw-recipe-slider .sw-rs__card-edit .components-rich-text__editable {
+	min-height: 1.4em;
+}
+
+.sw-recipe-slider .sw-rs__card-text-input {
+	font-size: 13px;
+	border: 1px solid rgba(0, 0, 0, 0.12);
+	background: rgba(255, 255, 255, 0.7);
+	border-radius: 6px;
+	padding: 4px 8px;
+	width: 100%;
+}
+
+/* The viewport doesn't auto-rotate in the editor — make scroll feel intentional. */
+.block-editor-block-list__block .sw-rs__track {
+	scroll-behavior: smooth;
+}

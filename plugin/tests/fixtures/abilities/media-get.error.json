@@ -1,0 +1,6 @@
+{
+    "args": {
+        "id": 999999
+    },
+    "expect": "wp_error"
+}

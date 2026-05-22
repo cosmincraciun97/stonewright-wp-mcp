@@ -1,0 +1,169 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://stonewright.dev/schemas/theme-json/1.0.0.json",
+  "title": "theme.json subset",
+  "description": "Minimal structural subset of the WordPress theme.json schema (settings.color, settings.typography, settings.spacing, styles top-level). Full schema: https://schemas.wp.org/trunk/theme.json",
+  "type": "object",
+  "required": ["version"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 2,
+      "maximum": 3
+    },
+    "$schema": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "palette": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["slug", "color"],
+                "additionalProperties": false,
+                "properties": {
+                  "slug": { "type": "string" },
+                  "color": { "type": "string" },
+                  "name": { "type": "string" }
+                }
+              }
+            },
+            "gradients": {
+              "type": "array",
+              "items": { "type": "object" }
+            },
+            "custom": { "type": "boolean" },
+            "customDuotone": { "type": "boolean" },
+            "customGradient": { "type": "boolean" },
+            "defaultGradients": { "type": "boolean" },
+            "defaultPalette": { "type": "boolean" },
+            "duotone": {
+              "type": "array",
+              "items": { "type": "object" }
+            },
+            "background": { "type": "boolean" },
+            "button": { "type": "boolean" },
+            "caption": { "type": "boolean" },
+            "heading": { "type": "boolean" },
+            "link": { "type": "boolean" },
+            "text": { "type": "boolean" }
+          }
+        },
+        "typography": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "fontFamilies": {
+              "type": "array",
+              "items": { "type": "object" }
+            },
+            "fontSizes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["slug", "size"],
+                "properties": {
+                  "slug": { "type": "string" },
+                  "size": { "type": "string" },
+                  "name": { "type": "string" }
+                }
+              }
+            },
+            "customFontSize": { "type": "boolean" },
+            "dropCap": { "type": "boolean" },
+            "fontStyle": { "type": "boolean" },
+            "fontWeight": { "type": "boolean" },
+            "letterSpacing": { "type": "boolean" },
+            "lineHeight": { "type": "boolean" },
+            "textDecoration": { "type": "boolean" },
+            "textTransform": { "type": "boolean" },
+            "writingMode": { "type": "boolean" }
+          }
+        },
+        "spacing": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "spacingSizes": {
+              "type": "array",
+              "items": { "type": "object" }
+            },
+            "spacingScale": { "type": "object" },
+            "blockGap": { "type": "boolean" },
+            "customSpacingSize": { "type": "boolean" },
+            "margin": { "type": "boolean" },
+            "padding": { "type": "boolean" },
+            "units": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "layout": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "contentSize": { "type": "string" },
+            "wideSize": { "type": "string" },
+            "allowEditing": { "type": "boolean" },
+            "allowCustomContentAndWideSize": { "type": "boolean" }
+          }
+        },
+        "custom": {
+          "type": "object"
+        },
+        "blocks": {
+          "type": "object"
+        },
+        "appearanceTools": { "type": "boolean" },
+        "border": { "type": "object" },
+        "dimensions": { "type": "object" },
+        "position": { "type": "object" },
+        "shadow": { "type": "object" },
+        "useRootPaddingAwareAlignments": { "type": "boolean" }
+      }
+    },
+    "styles": {
+      "type": "object",
+      "properties": {
+        "color": { "type": "object" },
+        "typography": { "type": "object" },
+        "spacing": { "type": "object" },
+        "border": { "type": "object" },
+        "filter": { "type": "object" },
+        "outline": { "type": "object" },
+        "shadow": { "type": "object" },
+        "dimensions": { "type": "object" },
+        "elements": { "type": "object" },
+        "blocks": { "type": "object" },
+        "css": { "type": "string" }
+      }
+    },
+    "customTemplates": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "templateParts": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "patterns": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

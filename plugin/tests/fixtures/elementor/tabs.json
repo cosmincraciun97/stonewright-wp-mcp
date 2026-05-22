@@ -1,0 +1,15 @@
+{
+    "id": "2070b1a",
+    "elType": "widget",
+    "widgetType": "tabs",
+    "settings": {
+        "tabs": [
+            {
+                "_id": "c07c48e",
+                "tab_title": "Tab One",
+                "tab_content": "Content of tab one."
+            }
+        ]
+    },
+    "elements": []
+}

@@ -1,0 +1,10 @@
+{
+    "args": {
+        "diff_report": [],
+        "spec": {
+            "page": [],
+            "sections": []
+        }
+    },
+    "expect_permission_error": true
+}

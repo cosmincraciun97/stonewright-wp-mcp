@@ -1,0 +1,9 @@
+{
+    "args": {
+        "post_id": 1,
+        "element_id": "parent1",
+        "settings": [],
+        "mode": "contract"
+    },
+    "expect": "ok"
+}

@@ -1,0 +1,26 @@
+# PHP
+plugin/vendor/
+plugin/.phpunit.cache/
+plugin/.phpunit.result.cache
+plugin/coverage/
+
+# Node
+companion/node_modules/
+companion/dist/
+companion/coverage/
+companion/playwright-report/
+companion/test-results/
+
+# Local
+*.log
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Research vault must never enter the repo
+research/
+
+# WordPress
+plugin/wp-content/
+plugin/wordpress/

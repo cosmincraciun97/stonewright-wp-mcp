@@ -1,0 +1,23 @@
+{
+    "args": {
+        "post_id": 1,
+        "spec": {
+            "page": {
+                "title": "Contract Page"
+            },
+            "sections": [
+                {
+                    "id": "hero",
+                    "blocks": [
+                        {
+                            "type": "heading",
+                            "text": "Hello"
+                        }
+                    ]
+                }
+            ]
+        },
+        "replace": false
+    },
+    "expect": "ok"
+}

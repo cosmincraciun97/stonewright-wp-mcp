@@ -1,0 +1,7 @@
+{
+    "args": {
+        "id": "stonewright-theme//contract",
+        "content": "<p>Hello</p>"
+    },
+    "expect": "ok"
+}

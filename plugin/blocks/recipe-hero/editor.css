@@ -1,0 +1,27 @@
+/**
+ * Stonewright Recipe Hero — editor-only tweaks.
+ */
+
+.sw-recipe-hero .sw-rh__media-pick {
+	position: absolute;
+	inset: auto 12px 12px auto;
+	z-index: 3;
+}
+
+.sw-recipe-hero .components-rich-text__editable {
+	min-height: 1em;
+}
+
+.sw-recipe-hero .sw-rh__stat-edit input {
+	border: none;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	width: 3.4em;
+	padding: 0;
+}
+
+.sw-recipe-hero .sw-rh__stat-edit input:focus {
+	outline: 1px dashed rgba(255, 255, 255, 0.5);
+	outline-offset: 2px;
+}

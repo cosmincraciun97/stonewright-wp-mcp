@@ -1,0 +1,16 @@
+{
+  "blockName": "core/media-text",
+  "attrs": {
+    "mediaType": "image",
+    "mediaUrl": "https://example.com/hero.jpg",
+    "mediaAlt": "Hero image"
+  },
+  "innerHTML": "<div class=\"wp-block-media-text\"><figure class=\"wp-block-media-text__media\"><img src=\"https://example.com/hero.jpg\" alt=\"Hero image\" class=\"wp-image-0 size-full\"/></figure><div class=\"wp-block-media-text__content\"></div></div>",
+  "innerContent": [
+    "<div class=\"wp-block-media-text\">",
+    "<figure class=\"wp-block-media-text__media\"><img src=\"https://example.com/hero.jpg\" alt=\"Hero image\" class=\"wp-image-0 size-full\"/></figure>",
+    "<div class=\"wp-block-media-text__content\">",
+    "</div></div>"
+  ],
+  "innerBlocks": []
+}

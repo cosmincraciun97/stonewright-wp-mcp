@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stonewright.dev/companion/contracts/layout",
+  "title": "Layout check contract",
+  "description": "POST /layout — DOM layout extraction and sanity checks. Detects horizontal overflow, text/element overlap, and returns a sections tree for comparison against the design spec.",
+  "type": "object",
+  "properties": {
+    "request": { "$ref": "#/$defs/LayoutRequest" },
+    "response": { "$ref": "#/$defs/LayoutResponse" }
+  },
+  "$defs": {
+    "LayoutSection": {
+      "type": "object",
+      "properties": {
+        "name":     { "type": "string" },
+        "tag":      { "type": "string" },
+        "selector": { "type": "string" },
+        "rect": {
+          "type": "object",
+          "properties": {
+            "x":      { "type": "number" },
+            "y":      { "type": "number" },
+            "width":  { "type": "number" },
+            "height": { "type": "number" }
+          },
+          "required": ["x", "y", "width", "height"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["name", "tag", "rect"],
+      "additionalProperties": true
+    },
+    "AlignmentDiff": {
+      "type": "object",
+      "properties": {
+        "type":    { "type": "string", "enum": ["overflow", "overlap", "missing", "extra"] },
+        "detail":  { "type": "string" },
+        "element": { "type": "string" }
+      },
+      "required": ["type", "detail"],
+      "additionalProperties": true
+    },
+    "LayoutRequest": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "url": {
+          "type": "string",
+          "pattern": "^https?://",
+          "description": "Target URL resolved by PHP."
+        },
+        "viewport": {
+          "type": "object",
+          "properties": {
+            "width":  { "type": "integer", "minimum": 1, "maximum": 7680 },
+            "height": { "type": "integer", "minimum": 1, "maximum": 4320 }
+          },
+          "required": ["width", "height"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["request_id", "url"],
+      "additionalProperties": false
+    },
+    "LayoutResponse": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "sections": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/LayoutSection" }
+        },
+        "alignment_diffs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/AlignmentDiff" }
+        },
+        "has_horizontal_overflow": {
+          "type": "boolean"
+        },
+        "has_element_overlap": {
+          "type": "boolean"
+        }
+      },
+      "required": ["request_id", "sections", "alignment_diffs", "has_horizontal_overflow", "has_element_overlap"],
+      "additionalProperties": false
+    }
+  }
+}

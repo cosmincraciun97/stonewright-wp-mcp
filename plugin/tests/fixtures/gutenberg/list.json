@@ -1,0 +1,27 @@
+{
+  "blockName": "core/list",
+  "attrs": {},
+  "innerHTML": "<ul class=\"wp-block-list\"></ul>",
+  "innerContent": [
+    "<ul class=\"wp-block-list\">",
+    null,
+    null,
+    "</ul>"
+  ],
+  "innerBlocks": [
+    {
+      "blockName": "core/list-item",
+      "attrs": {},
+      "innerHTML": "<li>Alpha</li>",
+      "innerContent": [ "<li>Alpha</li>" ],
+      "innerBlocks": []
+    },
+    {
+      "blockName": "core/list-item",
+      "attrs": {},
+      "innerHTML": "<li>Beta</li>",
+      "innerContent": [ "<li>Beta</li>" ],
+      "innerBlocks": []
+    }
+  ]
+}

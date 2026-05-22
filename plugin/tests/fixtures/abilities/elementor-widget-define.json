@@ -1,0 +1,17 @@
+{
+  "args": {
+    "widget_slug": "contract-widget",
+    "label": "Contract Widget",
+    "category": "stonewright",
+    "controls": [
+      {
+        "id": "title",
+        "label": "Title",
+        "type": "text",
+        "default": ""
+      }
+    ],
+    "template": "{{ title }}",
+    "render_strategy": "twig"
+  }
+}

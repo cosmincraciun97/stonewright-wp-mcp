@@ -1,0 +1,8 @@
+{
+    "args": {
+        "slug": "contract",
+        "title": "Contract",
+        "content": ""
+    },
+    "expect_permission_error": true
+}

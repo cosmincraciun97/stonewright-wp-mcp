@@ -1,0 +1,9 @@
+{
+    "id": "2070b1a",
+    "elType": "widget",
+    "widgetType": "text-editor",
+    "settings": {
+        "editor": "<p>Rich content here.</p>"
+    },
+    "elements": []
+}

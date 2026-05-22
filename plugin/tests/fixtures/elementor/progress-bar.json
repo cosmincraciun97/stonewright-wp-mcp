@@ -1,0 +1,13 @@
+{
+    "id": "2070b1a",
+    "elType": "widget",
+    "widgetType": "progress",
+    "settings": {
+        "title": "Design Skills",
+        "percent": {
+            "unit": "%",
+            "size": 80
+        }
+    },
+    "elements": []
+}

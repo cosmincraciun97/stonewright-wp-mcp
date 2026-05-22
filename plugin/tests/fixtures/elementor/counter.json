@@ -1,0 +1,11 @@
+{
+    "id": "2070b1a",
+    "elType": "widget",
+    "widgetType": "counter",
+    "settings": {
+        "starting_number": 0,
+        "ending_number": 500,
+        "title": "Happy Clients"
+    },
+    "elements": []
+}

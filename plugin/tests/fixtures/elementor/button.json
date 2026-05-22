@@ -1,0 +1,14 @@
+{
+    "id": "2070b1a",
+    "elType": "widget",
+    "widgetType": "button",
+    "settings": {
+        "text": "Click Me",
+        "link": {
+            "url": "https://example.com",
+            "is_external": false,
+            "nofollow": false
+        }
+    },
+    "elements": []
+}

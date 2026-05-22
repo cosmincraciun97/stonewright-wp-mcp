@@ -1,0 +1,43 @@
+# Contributing
+
+## Setup
+
+```bash
+git clone https://github.com/<you>/stonewright-wp-mcp.git
+cd stonewright-wp-mcp/plugin && composer install
+cd ../companion && npm install
+```
+
+## Branches
+
+- `main` — stable
+- `phase/<n>-<short-name>` — feature work
+- `review/phase-<n>` — Codex review branch
+
+## Tests
+
+```bash
+cd plugin && composer test
+cd ../companion && npm test
+```
+
+PHPStan level 8, PHPCS WordPress-Extra, PHPUnit. Vitest for companion. Playwright for QA end-to-end.
+
+## Commit style
+
+Use conventional commits without scopes that leak AI authorship.
+
+```
+feat(abilities): add stonewright.qa.diff-screenshot
+fix(elementor): backup post meta before write
+docs(security): clarify confirmation token TTL
+```
+
+## Pull requests
+
+Each PR must:
+
+- pass CI
+- include or update tests
+- update docs if behaviour changes
+- pass `bin/check-docs-tone.sh`

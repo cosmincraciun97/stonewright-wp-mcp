@@ -1,0 +1,16 @@
+{
+    "id": "2070b1a",
+    "elType": "widget",
+    "widgetType": "testimonial",
+    "settings": {
+        "testimonial_content": "This product changed my life.",
+        "testimonial_name": "Jane Doe",
+        "testimonial_job": "CEO, Acme Corp",
+        "testimonial_image": {
+            "url": "",
+            "id": "",
+            "alt": ""
+        }
+    },
+    "elements": []
+}

@@ -1,0 +1,9 @@
+{
+    "args": {
+        "source": "css_vars",
+        "data": {
+            "--color-contract": "#111111",
+            "--space-contract": "12px"
+        }
+    }
+}

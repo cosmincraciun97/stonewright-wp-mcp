@@ -1,0 +1,22 @@
+{
+    "args": {
+        "diff_report": [],
+        "spec": {
+            "page": {
+                "title": "Contract Page"
+            },
+            "sections": [
+                {
+                    "id": "hero",
+                    "blocks": [
+                        {
+                            "type": "heading",
+                            "text": "Hello"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "expect": "ok"
+}

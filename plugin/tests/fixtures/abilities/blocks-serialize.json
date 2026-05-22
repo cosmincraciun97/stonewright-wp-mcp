@@ -1,0 +1,16 @@
+{
+    "args": {
+        "blocks": [
+            {
+                "blockName": "core/paragraph",
+                "attrs": [],
+                "innerHTML": "<p>Hello</p>",
+                "innerContent": [
+                    "<p>Hello</p>"
+                ],
+                "innerBlocks": []
+            }
+        ]
+    },
+    "expect": "ok"
+}

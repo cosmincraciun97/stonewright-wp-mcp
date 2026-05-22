@@ -1,0 +1,12 @@
+{
+    "id": "2070b1a",
+    "elType": "widget",
+    "widgetType": "spacer",
+    "settings": {
+        "space": {
+            "unit": "px",
+            "size": 60
+        }
+    },
+    "elements": []
+}

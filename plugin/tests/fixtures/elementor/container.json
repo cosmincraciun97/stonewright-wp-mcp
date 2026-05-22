@@ -1,0 +1,9 @@
+{
+    "id": "2d6c8a6",
+    "elType": "container",
+    "isInner": true,
+    "settings": {
+        "flex_direction": "column"
+    },
+    "elements": []
+}

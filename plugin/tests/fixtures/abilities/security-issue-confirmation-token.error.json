@@ -1,0 +1,6 @@
+{
+    "args": {
+        "ability": ""
+    },
+    "expect_permission_error": true
+}

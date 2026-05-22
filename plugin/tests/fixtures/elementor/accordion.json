@@ -1,0 +1,15 @@
+{
+    "id": "2070b1a",
+    "elType": "widget",
+    "widgetType": "accordion",
+    "settings": {
+        "tabs": [
+            {
+                "_id": "2e6348f",
+                "tab_title": "Question One",
+                "tab_content": "Answer to question one."
+            }
+        ]
+    },
+    "elements": []
+}

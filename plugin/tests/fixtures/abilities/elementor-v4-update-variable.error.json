@@ -1,0 +1,8 @@
+{
+    "args": {
+        "id": 999999,
+        "value": "contract",
+        "mode": "contract"
+    },
+    "expect": "wp_error"
+}

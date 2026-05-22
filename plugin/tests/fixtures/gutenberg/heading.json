@@ -1,0 +1,7 @@
+{
+  "blockName": "core/heading",
+  "attrs": {},
+  "innerHTML": "<h2 class=\"wp-block-heading\">Hello World</h2>",
+  "innerContent": [ "<h2 class=\"wp-block-heading\">Hello World</h2>" ],
+  "innerBlocks": []
+}

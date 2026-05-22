@@ -1,0 +1,13 @@
+{
+  "blockName": "core/heading",
+  "attrs": {
+    "style": {
+      "typography": {
+        "fontSize": "24px"
+      }
+    }
+  },
+  "innerHTML": "<h2 class=\"wp-block-heading\">Token heading.</h2>",
+  "innerContent": [ "<h2 class=\"wp-block-heading\">Token heading.</h2>" ],
+  "innerBlocks": []
+}

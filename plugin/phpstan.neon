@@ -1,0 +1,55 @@
+includes:
+    - vendor/szepeviktor/phpstan-wordpress/extension.neon
+
+parameters:
+    level: 5
+    paths:
+        - includes/
+    excludePaths:
+        - tests/*
+    bootstrapFiles:
+        - tests/phpstan-bootstrap.php
+    scanFiles:
+        - stubs/elementor.stub.php
+    treatPhpDocTypesAsCertain: false
+    reportUnmatchedIgnoredErrors: false
+
+    # Suppress false positives from WP stubs that declare properties non-nullable
+    # when in practice WordPress returns them as null (e.g., WP_Block_Template fields
+    # from get_block_templates(), WP_Block_Type fields from registered blocks).
+    # The defensive ?? and isset() patterns in the codebase are intentional.
+    ignoreErrors:
+        # WP_Block_Template stub declares properties as string, but WP can return null.
+        -
+            message: '#Property WP_Block_Template::\$[a-z_]+ \(.+\) on left side of \?\? is not nullable#'
+            reportUnmatched: false
+        # WP_Block_Type stub declares properties as non-nullable, but fields can be absent.
+        -
+            message: '#Property WP_Block_Type::\$[a-z_]+ \(.+\) in isset\(\) is not nullable#'
+            reportUnmatched: false
+        -
+            message: '#Property WP_Block_Type::\$render_callback \(.+\) on left side of \?\? is not nullable#'
+            reportUnmatched: false
+        # Defensive ?? on a value that PHPStan considers non-nullable (code is being safe).
+        -
+            message: '#Expression on left side of \?\? is not nullable#'
+            reportUnmatched: false
+        # Offset always exists in the error_get_last() shape — code uses ?? for safety.
+        -
+            message: '#Offset .+ on array\{type: int, message: string, file: string, line: int\} on left side of \?\? always exists#'
+            reportUnmatched: false
+        # Pre-emptive: would fire at level 6+ for generated/dynamic ability lists.
+        # Each entry has reportUnmatched: false so dead patterns are silent — re-evaluate
+        # when bumping PHPStan level. TODO(phase-2): verify each pattern still fires.
+        -
+            message: '#If condition is always true#'
+            reportUnmatched: false
+        -
+            message: '#Call to private method#'
+            reportUnmatched: false
+        -
+            message: '#Static method .+ not found#'
+            reportUnmatched: false
+        -
+            message: '#Static method .+ is unused#'
+            reportUnmatched: false

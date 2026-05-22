@@ -1,0 +1,89 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "stonewright/recipe-hero",
+	"version": "1.0.0",
+	"title": "Recipe Hero",
+	"category": "media",
+	"icon": "format-image",
+	"description": "Full-bleed recipe hero with breadcrumb, category, title, info card and nutrition stats. Fully editable.",
+	"keywords": ["hero", "recipe", "transavia"],
+	"textdomain": "stonewright",
+	"supports": {
+		"html": false,
+		"align": ["full"],
+		"anchor": true,
+		"spacing": {
+			"margin": false,
+			"padding": false
+		}
+	},
+	"attributes": {
+		"breadcrumb": {
+			"type": "string",
+			"default": "Acasă / Rețete / Pulpe de pui"
+		},
+		"category": {
+			"type": "string",
+			"default": "Fragedo și partenerii"
+		},
+		"title": {
+			"type": "string",
+			"default": "Pulpe de pui la cuptor cu cartofi noi și usturoi"
+		},
+		"difficulty": {
+			"type": "string",
+			"default": "Ușoară"
+		},
+		"time": {
+			"type": "string",
+			"default": "45 min."
+		},
+		"servings": {
+			"type": "string",
+			"default": "4 porții"
+		},
+		"image": {
+			"type": "string",
+			"default": ""
+		},
+		"imageAlt": {
+			"type": "string",
+			"default": ""
+		},
+		"backgroundColor": {
+			"type": "string",
+			"default": "#1a171c"
+		},
+		"textColor": {
+			"type": "string",
+			"default": "#ffffff"
+		},
+		"accentColor": {
+			"type": "string",
+			"default": "#e2001a"
+		},
+		"showPlayButton": {
+			"type": "boolean",
+			"default": true
+		},
+		"videoUrl": {
+			"type": "string",
+			"default": ""
+		},
+		"stats": {
+			"type": "array",
+			"default": [
+				{ "label": "Calorii",  "value": "320", "unit": "kcal" },
+				{ "label": "Proteine", "value": "28",  "unit": "g" },
+				{ "label": "Sodiu",    "value": "180", "unit": "mg" },
+				{ "label": "Sare",     "value": "0.9", "unit": "g" },
+				{ "label": "Zahăr",    "value": "2",   "unit": "g" }
+			]
+		}
+	},
+	"editorScript": "file:./edit.js",
+	"style": "file:./style.css",
+	"editorStyle": "file:./editor.css",
+	"render": "file:./render.php"
+}

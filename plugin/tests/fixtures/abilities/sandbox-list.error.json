@@ -1,0 +1,6 @@
+{
+    "args": {
+        "name": "../bad.php"
+    },
+    "expect_permission_error": true
+}

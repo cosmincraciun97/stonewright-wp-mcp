@@ -1,0 +1,22 @@
+{
+    "id": "2070b1a",
+    "elType": "widget",
+    "widgetType": "social-icons",
+    "settings": {
+        "social_icon_list": [
+            {
+                "_id": "0b87b64",
+                "social": {
+                    "value": "fab fa-facebook-f",
+                    "library": "fa-brands"
+                },
+                "link": {
+                    "url": "https://facebook.com/example",
+                    "is_external": false,
+                    "nofollow": false
+                }
+            }
+        ]
+    },
+    "elements": []
+}
