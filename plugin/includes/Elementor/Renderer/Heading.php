@@ -67,8 +67,20 @@ final class Heading {
 			$settings['title_color'] = (string) $resolver->resolve( (string) $node['color'] );
 		}
 
+		// Prefer the nested link object (explicit form) over the top-level url shorthand.
+		// Both are valid; the nested form wins when both are present.
 		if ( isset( $node['link']['url'] ) ) {
-			$settings['link'] = [ 'url' => (string) $node['link']['url'] ];
+			$settings['link'] = [
+				'url'         => (string) $node['link']['url'],
+				'is_external' => ! empty( $node['link']['external'] ),
+				'nofollow'    => ! empty( $node['link']['nofollow'] ),
+			];
+		} elseif ( isset( $node['url'] ) ) {
+			$settings['link'] = [
+				'url'         => (string) $node['url'],
+				'is_external' => ! empty( $node['external'] ),
+				'nofollow'    => ! empty( $node['nofollow'] ),
+			];
 		}
 
 		if ( isset( $node['style'] ) && is_array( $node['style'] ) ) {
