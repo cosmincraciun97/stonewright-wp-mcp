@@ -51,8 +51,26 @@ final class PluginRegistration {
 		register_deactivation_hook( $this->plugin_file, [ $this, 'on_deactivate' ] );
 
 		add_action( 'plugins_loaded', [ $this, 'load_textdomain' ], 5 );
-		add_action( 'wp_abilities_api_categories_init', [ AbilityRegistry::class, 'register_categories' ], 20 );
+		// Two flavours of the Abilities API exist in the wild and we must
+		// support both:
+		//
+		//   • WordPress core 6.9+ ships its own copy in `wp-includes/abilities-api/`,
+		//     which fires `wp_abilities_api_categories_init` (for categories) and
+		//     `wp_abilities_api_init` (for abilities). The core copy ALWAYS wins
+		//     over the vendor copy below because the vendor bootstrap has
+		//     `class_exists( 'WP_Ability' )` guards.
+		//
+		//   • The standalone `wordpress/abilities-api` package (≤ 0.1.0) used
+		//     when running on pre-6.9 cores fires only `abilities_api_init`
+		//     (no `wp_` prefix) and has no separate categories init.
+		//
+		// We register on every action that any supported flavour might fire.
+		// `register_all` is idempotent (it guards against running twice via
+		// AbilityRegistry::$registered_once), so listening on multiple hooks is
+		// safe even if both fire in the same request.
+		add_action( 'wp_abilities_api_categories_init', [ AbilityRegistry::class, 'register_categories' ], 10 );
 		add_action( 'wp_abilities_api_init', [ AbilityRegistry::class, 'register_all' ], 20 );
+		add_action( 'abilities_api_init', [ AbilityRegistry::class, 'register_all' ], 20 );
 		add_action( 'mcp_adapter_init', [ ServerRegistration::class, 'register_server' ], 20 );
 
 		// Boot the MCP adapter if it is vendored into Stonewright (i.e. not active

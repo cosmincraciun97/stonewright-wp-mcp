@@ -277,10 +277,23 @@ final class AbilityRegistry {
 		];
 	}
 
+	/**
+	 * Tracks whether register_all() has already run in this request, so that
+	 * listening on multiple Abilities API init actions (the wp_-prefixed core
+	 * pair and the un-prefixed vendor fallback) cannot re-register and trigger
+	 * `_doing_it_wrong( 'Ability already registered' )` notices.
+	 */
+	private static bool $registered_once = false;
+
 	public static function register_all(): void {
 		if ( ! function_exists( 'wp_register_ability' ) ) {
 			return;
 		}
+
+		if ( self::$registered_once ) {
+			return;
+		}
+		self::$registered_once = true;
 
 		$master_enabled     = (bool) get_option( 'stonewright_enabled', false );
 		$disabled_abilities = (array) get_option( 'stonewright_disabled_abilities', [] );
@@ -314,7 +327,14 @@ final class AbilityRegistry {
 				'execute_callback'    => [ $ability, 'execute' ],
 				'meta'                => array_merge(
 					[
-						'mcp' => [ 'public' => true ],
+						'mcp'          => [ 'public' => true ],
+						// WordPress core's `/wp-json/wp-abilities/v1/abilities`
+						// list endpoint filters by `meta.show_in_rest === true`
+						// (see WP_REST_Abilities_V1_List_Controller::get_items).
+						// Without this, every Stonewright ability is invisible
+						// to standard MCP/REST clients even though they are
+						// registered. Per-ability `meta()` overrides can opt out.
+						'show_in_rest' => true,
 					],
 					$ability->meta()
 				),
@@ -390,5 +410,14 @@ final class AbilityRegistry {
 				]
 			);
 		}
+	}
+
+	/**
+	 * Reset the in-process registration guard. For tests only.
+	 *
+	 * @internal
+	 */
+	public static function reset_for_tests(): void {
+		self::$registered_once = false;
 	}
 }
