@@ -85,6 +85,7 @@ use Stonewright\WpMcp\Abilities\Sandbox\SandboxRead;
 use Stonewright\WpMcp\Abilities\Sandbox\SandboxToggle;
 use Stonewright\WpMcp\Abilities\Sandbox\SandboxWrite;
 use Stonewright\WpMcp\Abilities\System\AbilitiesList;
+use Stonewright\WpMcp\Abilities\ThemeBuilder\CreateTemplate as ThemeBuilderCreateTemplate;
 use Stonewright\WpMcp\Abilities\System\InstructionsGet;
 use Stonewright\WpMcp\Abilities\System\InstructionsSet;
 use Stonewright\WpMcp\Abilities\Media\GetMedia;
@@ -262,6 +263,9 @@ final class AbilityRegistry {
 			SandboxActivate::class,
 			SandboxDeactivate::class,
 			SandboxToggle::class,
+
+			// Theme Builder (Phase 1.6+).
+			ThemeBuilderCreateTemplate::class,
 		];
 	}
 
@@ -361,6 +365,7 @@ final class AbilityRegistry {
 			'system'    => __( 'System', 'stonewright' ),
 			'sandbox'           => __( 'Sandbox', 'stonewright' ),
 			'elementor-widget'  => __( 'Elementor Widget Builder', 'stonewright' ),
+			'theme-builder'     => __( 'Theme Builder', 'stonewright' ),
 		];
 	}
 

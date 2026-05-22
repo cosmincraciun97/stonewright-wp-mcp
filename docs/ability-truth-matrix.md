@@ -229,9 +229,17 @@
 
 ---
 
+## ThemeBuilder
+
+| Slug | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
+|---|---|---|---|---|---|---|---|---|---|
+| `stonewright/theme-builder-create-template` | `ThemeBuilder\CreateTemplate` | Creates a real Elementor Theme Builder template (header / footer / single / single-post / single-page / archive / search-results / error-404 / loop-item) as an elementor_library post. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+
+---
+
 ## Summary
 
-Total abilities registered: **109**
+Total abilities registered: **110**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`
