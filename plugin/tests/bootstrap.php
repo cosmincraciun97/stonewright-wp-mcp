@@ -569,6 +569,17 @@ if ( ! function_exists( 'update_post_meta' ) ) {
 			'meta_key' => $meta_key,
 			'value'    => $meta_value,
 		];
+		// Also persist into the fake post's meta array so get_post_meta() can
+		// read it back. This mirrors how real WordPress behaves and lets
+		// round-trip read-after-write code paths (ElementorData::write
+		// post-verification, GetTemplate->get_post_meta, etc.) work under tests.
+		if ( isset( $GLOBALS['stonewright_test_posts'][ $post_id ] ) ) {
+			$post                              = $GLOBALS['stonewright_test_posts'][ $post_id ];
+			$meta                              = (array) ( $post->meta ?? [] );
+			$meta[ $meta_key ]                 = $meta_value;
+			$post->meta                        = $meta;
+			$GLOBALS['stonewright_test_posts'][ $post_id ] = $post;
+		}
 		return true;
 	}
 }

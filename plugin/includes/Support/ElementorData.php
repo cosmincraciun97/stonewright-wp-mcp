@@ -31,6 +31,17 @@ final class ElementorData {
 	/**
 	 * Persist tree back to post meta. Elementor expects slashed JSON.
 	 *
+	 * `update_post_meta()` returns `false` BOTH when the call truly fails AND
+	 * when the new value happens to equal the existing value (a successful
+	 * no-op). The mode + version meta keys are frequently already correct
+	 * when this runs (e.g. on Theme Builder templates created by
+	 * TemplateStore::create, where `_elementor_edit_mode = 'builder'` is set
+	 * at creation time). Treating the no-op as a failure used to make every
+	 * BuildPageFromSpec call into a freshly-created template error out with
+	 * `stonewright_write_failed` even though the data WAS persisted. We now
+	 * read back each key after the write and accept it as long as the
+	 * end-state matches what we asked for.
+	 *
 	 * @param array<int, array<string, mixed>> $tree
 	 */
 	public static function write( int $post_id, array $tree ): bool {
@@ -39,11 +50,26 @@ final class ElementorData {
 			return false;
 		}
 
-		$data_result    = update_post_meta( $post_id, '_elementor_data', wp_slash( $json ) );
-		$mode_result    = update_post_meta( $post_id, '_elementor_edit_mode', 'builder' );
-		$version_result = update_post_meta( $post_id, '_elementor_version', defined( 'ELEMENTOR_VERSION' ) ? ELEMENTOR_VERSION : '3.0.0' );
+		$elementor_version = defined( 'ELEMENTOR_VERSION' ) ? ELEMENTOR_VERSION : '3.0.0';
+
+		update_post_meta( $post_id, '_elementor_data', wp_slash( $json ) );
+		update_post_meta( $post_id, '_elementor_edit_mode', 'builder' );
+		update_post_meta( $post_id, '_elementor_version', $elementor_version );
 		self::clear_cache( $post_id );
-		return false !== $data_result && false !== $mode_result && false !== $version_result;
+
+		// Verify end-state — robust against update_post_meta's "false means
+		// either failed-or-unchanged" ambiguity.
+		$stored_data = (string) get_post_meta( $post_id, '_elementor_data', true );
+		$stored_mode = (string) get_post_meta( $post_id, '_elementor_edit_mode', true );
+		$stored_ver  = (string) get_post_meta( $post_id, '_elementor_version', true );
+
+		// Compare against the unslashed JSON we tried to write. Real WordPress
+		// auto-unslashes get_post_meta() output, but stub WordPress in tests
+		// keeps the addslashed form on disk — wp_unslash() is a no-op on
+		// already-unslashed strings, so calling it here is safe in both cases.
+		return wp_unslash( $stored_data ) === $json
+			&& 'builder' === $stored_mode
+			&& $stored_ver === $elementor_version;
 	}
 
 	public static function is_active( int $post_id ): bool {
