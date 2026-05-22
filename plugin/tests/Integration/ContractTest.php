@@ -51,6 +51,25 @@ final class ContractTest extends TestCase {
 		$GLOBALS['stonewright_test_next_post_id']    = 1001;
 		$GLOBALS['stonewright_test_posts']           = $this->posts();
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
+		// Seed nav-menu state so menu-* contract fixtures have a real menu to
+		// reference (id=5001) and a real registered location to assign to.
+		// The menu-create fixture builds its own menu under a different name,
+		// so this baseline does not collide with it.
+		$GLOBALS['stonewright_test_nav_menus']             = [
+			5001 => (object) [
+				'term_id' => 5001,
+				'name'    => 'Contract Menu',
+				'slug'    => 'contract-menu',
+				'items'   => [],
+			],
+		];
+		$GLOBALS['stonewright_test_theme_mods']            = [];
+		$GLOBALS['stonewright_test_registered_nav_menus']  = [
+			'primary' => 'Primary Menu',
+			'footer'  => 'Footer Menu',
+		];
+		$GLOBALS['stonewright_test_next_nav_menu_id']      = 6001;
+		$GLOBALS['stonewright_test_next_nav_menu_item_id'] = 6101;
 		$this->prepare_sandbox_files();
 	}
 

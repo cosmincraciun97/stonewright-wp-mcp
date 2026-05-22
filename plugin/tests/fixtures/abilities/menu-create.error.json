@@ -1,0 +1,6 @@
+{
+    "args": {
+        "name": "Forbidden"
+    },
+    "expect_permission_error": true
+}

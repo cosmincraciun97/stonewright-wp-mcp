@@ -245,9 +245,21 @@
 
 ---
 
+## Menu
+
+| Slug | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
+|---|---|---|---|---|---|---|---|---|---|
+| `stonewright/menu-create` | `Menu\MenuCreate` | Creates a new WordPress nav menu (a nav_menu term) and optionally seeds it with menu items in one call. | Read | `Permissions::edit_theme_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/menu-add-item` | `Menu\MenuAddItem` | Appends a single { title, url } item to an existing nav menu. | Read | `Permissions::edit_theme_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/menu-list` | `Menu\MenuList` | Lists every WordPress nav menu as { id, name, slug }. | Read | `Permissions::edit_theme_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/menu-delete` | `Menu\MenuDelete` | Deletes a nav menu by term id, detaching all its items and clearing any theme-location pointing at it. | Read | `Permissions::edit_theme_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/menu-assign-location` | `Menu\MenuAssignLocation` | Assigns a nav menu to a theme location slot (primary / footer / mobile / etc.). | Read | `Permissions::edit_theme_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+
+---
+
 ## Summary
 
-Total abilities registered: **118**
+Total abilities registered: **123**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

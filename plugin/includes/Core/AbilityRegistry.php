@@ -100,6 +100,11 @@ use Stonewright\WpMcp\Abilities\Media\GetMedia;
 use Stonewright\WpMcp\Abilities\Media\OptimizeMedia;
 use Stonewright\WpMcp\Abilities\Media\SetAlt;
 use Stonewright\WpMcp\Abilities\Media\UploadMedia;
+use Stonewright\WpMcp\Abilities\Menu\MenuAddItem;
+use Stonewright\WpMcp\Abilities\Menu\MenuAssignLocation;
+use Stonewright\WpMcp\Abilities\Menu\MenuCreate;
+use Stonewright\WpMcp\Abilities\Menu\MenuDelete;
+use Stonewright\WpMcp\Abilities\Menu\MenuList;
 use Stonewright\WpMcp\Abilities\Patterns\CreatePattern;
 use Stonewright\WpMcp\Abilities\Patterns\ListPatterns;
 use Stonewright\WpMcp\Abilities\QA\AccessibilityCheck;
@@ -288,6 +293,13 @@ final class AbilityRegistry {
 			ThemeBuilderListTemplates::class,
 			ThemeBuilderGetTemplate::class,
 			ThemeBuilderDeleteTemplate::class,
+
+			// Menu (Phase 1.x add-on).
+			MenuCreate::class,
+			MenuAddItem::class,
+			MenuList::class,
+			MenuDelete::class,
+			MenuAssignLocation::class,
 		];
 	}
 
@@ -408,6 +420,7 @@ final class AbilityRegistry {
 			'sandbox'           => __( 'Sandbox', 'stonewright' ),
 			'elementor-widget'  => __( 'Elementor Widget Builder', 'stonewright' ),
 			'theme-builder'     => __( 'Theme Builder', 'stonewright' ),
+			'menu'              => __( 'Menu', 'stonewright' ),
 		];
 	}
 
