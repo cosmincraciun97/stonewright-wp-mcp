@@ -675,6 +675,38 @@ if ( ! function_exists( 'post_type_supports' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_delete_post' ) ) {
+	/**
+	 * @return \WP_Post|false|null
+	 */
+	function wp_delete_post( int $post_id, bool $force_delete = false ): mixed {
+		$post = $GLOBALS['stonewright_test_posts'][ $post_id ] ?? null;
+		if ( null === $post ) {
+			return false;
+		}
+		$GLOBALS['stonewright_test_deleted_posts'][] = [
+			'post_id' => $post_id,
+			'force'   => $force_delete,
+		];
+		if ( $force_delete ) {
+			unset( $GLOBALS['stonewright_test_posts'][ $post_id ] );
+		} else {
+			$GLOBALS['stonewright_test_posts'][ $post_id ]->post_status = 'trash';
+		}
+		return $post;
+	}
+}
+
+if ( ! function_exists( 'get_the_title' ) ) {
+	function get_the_title( int|object $post = 0 ): string {
+		if ( is_object( $post ) ) {
+			return (string) ( $post->post_title ?? '' );
+		}
+		$record = $GLOBALS['stonewright_test_posts'][ (int) $post ] ?? null;
+		return null === $record ? '' : (string) ( $record->post_title ?? '' );
+	}
+}
+
 if ( ! function_exists( 'wp_save_post_revision' ) ) {
 	function wp_save_post_revision( int $post_id ): int|\WP_Error|null {
 		return 9001;

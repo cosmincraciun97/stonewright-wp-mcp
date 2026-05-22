@@ -234,12 +234,16 @@
 | Slug | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
 |---|---|---|---|---|---|---|---|---|---|
 | `stonewright/theme-builder-create-template` | `ThemeBuilder\CreateTemplate` | Creates a real Elementor Theme Builder template (header / footer / single / single-post / single-page / archive / search-results / error-404 / loop-item) as an elementor_library post. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/theme-builder-set-conditions` | `ThemeBuilder\SetConditions` | Replaces the display rules on an elementor_library template. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/theme-builder-list-templates` | `ThemeBuilder\ListTemplates` | Lists elementor_library templates as { template_id, title, template_type }. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/theme-builder-get-template` | `ThemeBuilder\GetTemplate` | Reads a Theme Builder template (data tree + conditions + type). | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/theme-builder-delete-template` | `ThemeBuilder\DeleteTemplate` | Trashes (or permanently deletes if force=true) an elementor_library template. | Write | `Permissions::edit_posts()` | No | Yes | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 
 ---
 
 ## Summary
 
-Total abilities registered: **110**
+Total abilities registered: **114**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

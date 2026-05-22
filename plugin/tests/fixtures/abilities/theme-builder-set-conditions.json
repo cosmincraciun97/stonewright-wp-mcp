@@ -1,0 +1,9 @@
+{
+    "args": {
+        "template_id": 4,
+        "conditions": [
+            { "type": "include", "name": "general" }
+        ]
+    },
+    "expect": "ok"
+}

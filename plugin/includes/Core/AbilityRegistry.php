@@ -86,6 +86,10 @@ use Stonewright\WpMcp\Abilities\Sandbox\SandboxToggle;
 use Stonewright\WpMcp\Abilities\Sandbox\SandboxWrite;
 use Stonewright\WpMcp\Abilities\System\AbilitiesList;
 use Stonewright\WpMcp\Abilities\ThemeBuilder\CreateTemplate as ThemeBuilderCreateTemplate;
+use Stonewright\WpMcp\Abilities\ThemeBuilder\DeleteTemplate as ThemeBuilderDeleteTemplate;
+use Stonewright\WpMcp\Abilities\ThemeBuilder\GetTemplate as ThemeBuilderGetTemplate;
+use Stonewright\WpMcp\Abilities\ThemeBuilder\ListTemplates as ThemeBuilderListTemplates;
+use Stonewright\WpMcp\Abilities\ThemeBuilder\SetConditions as ThemeBuilderSetConditions;
 use Stonewright\WpMcp\Abilities\System\InstructionsGet;
 use Stonewright\WpMcp\Abilities\System\InstructionsSet;
 use Stonewright\WpMcp\Abilities\Media\GetMedia;
@@ -266,6 +270,10 @@ final class AbilityRegistry {
 
 			// Theme Builder (Phase 1.6+).
 			ThemeBuilderCreateTemplate::class,
+			ThemeBuilderSetConditions::class,
+			ThemeBuilderListTemplates::class,
+			ThemeBuilderGetTemplate::class,
+			ThemeBuilderDeleteTemplate::class,
 		];
 	}
 
