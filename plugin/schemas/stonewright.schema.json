@@ -147,7 +147,10 @@
             "slider",
             "card",
             "row",
-            "column"
+            "column",
+            "countdown",
+            "nav-menu",
+            "icon-list"
           ]
         },
         "text": { "type": "string" },

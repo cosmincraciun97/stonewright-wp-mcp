@@ -9,6 +9,7 @@ use Stonewright\WpMcp\Elementor\Renderer\Accordion;
 use Stonewright\WpMcp\Elementor\Renderer\Button;
 use Stonewright\WpMcp\Elementor\Renderer\Column;
 use Stonewright\WpMcp\Elementor\Renderer\Container;
+use Stonewright\WpMcp\Elementor\Renderer\Countdown;
 use Stonewright\WpMcp\Elementor\Renderer\Counter;
 use Stonewright\WpMcp\Elementor\Renderer\Divider;
 use Stonewright\WpMcp\Elementor\Renderer\Form;
@@ -156,6 +157,9 @@ final class Renderer {
 				return Counter::render( $block, $resolver, $path );
 
 			// ------- Pro-gated -------
+			case 'countdown':
+				return Countdown::render( $block, $resolver, $path, $diagnostics );
+
 			case 'form':
 			case 'form-placeholder':
 				return Form::render( $block, $resolver, $path, $diagnostics );
