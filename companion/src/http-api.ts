@@ -28,6 +28,7 @@ import { screenshot as playwrightScreenshot } from './playwright-runner.js';
 import { diff as pixelDiff } from './pixel-diff.js';
 import { log } from './lib/log.js';
 import { parseUrl, ingestFigmaNode } from './figma-bridge.js';
+import { promptToSpec, PromptToSpecError, type Viewport } from './prompt-to-spec.js';
 import { assertInsideArtifacts, getArtifactsRoot } from './lib/paths.js';
 import type {
   ScreenshotRequest,
@@ -652,18 +653,82 @@ export async function handleFigmaIngest(
 }
 
 // ---------------------------------------------------------------------------
+// POST /prompt-to-spec
+// ---------------------------------------------------------------------------
+
+interface PromptToSpecRequestBody {
+	prompt?: string;
+	image_url?: string;
+	image_base64?: string;
+	image_media_type?: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp';
+	viewport?: Viewport;
+}
+
+export async function handlePromptToSpec(
+	_req: IncomingMessage,
+	res: ServerResponse,
+	body: unknown,
+): Promise<void> {
+	const data = body as Partial<PromptToSpecRequestBody>;
+
+	if (typeof data.prompt !== 'string' || data.prompt.trim() === '') {
+		bad(res, 'prompt is required and must be a non-empty string');
+		return;
+	}
+	if (data.image_url === undefined && data.image_base64 === undefined) {
+		bad(res, 'image_url or image_base64 is required');
+		return;
+	}
+	if (data.image_url !== undefined && !/^https?:\/\//.test(data.image_url)) {
+		bad(res, 'image_url must be an absolute http:// or https:// URL');
+		return;
+	}
+	if (data.viewport !== undefined && data.viewport !== 'desktop' && data.viewport !== 'mobile') {
+		bad(res, 'viewport must be "desktop" or "mobile" when provided');
+		return;
+	}
+
+	try {
+		// Build the promptToSpec input without undefined keys (exactOptionalPropertyTypes).
+		const input: Parameters<typeof promptToSpec>[0] = {
+			prompt: data.prompt,
+			...(data.image_url !== undefined ? { imageUrl: data.image_url } : {}),
+			...(data.image_base64 !== undefined ? { imageBase64: data.image_base64 } : {}),
+			...(data.image_media_type !== undefined ? { imageMediaType: data.image_media_type } : {}),
+			...(data.viewport !== undefined ? { viewport: data.viewport } : {}),
+		};
+		const spec = await promptToSpec(input);
+		send(res, 200, { spec });
+	} catch (err) {
+		if (err instanceof PromptToSpecError) {
+			log.error('PromptToSpec failed', { code: err.code, error: err.message });
+			// Map known error codes to HTTP statuses. missing_api_key is a server
+			// config problem (500); anything user-input-shaped is a 400.
+			const status =
+				err.code === 'missing_api_key' || err.code === 'api_error' ? 502 : 400;
+			send(res, status, { error: err.message, code: err.code, detail: err.detail });
+			return;
+		}
+		const message = err instanceof Error ? err.message : String(err);
+		log.error('PromptToSpec unexpected failure', { error: message });
+		send(res, 500, { error: 'PromptToSpec failed', detail: message });
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Route dispatcher — called from index.ts
 // ---------------------------------------------------------------------------
 
 type Handler = (req: IncomingMessage, res: ServerResponse, body: unknown) => Promise<void>;
 
 const QA_ROUTES: Record<string, Handler> = {
-  '/screenshot':   handleScreenshot,
-  '/diff':         handleDiff,
-  '/axe':          handleAxe,
-  '/layout':       handleLayout,
-  '/lighthouse':   handleLighthouse,
-  '/figma-ingest': handleFigmaIngest,
+  '/screenshot':     handleScreenshot,
+  '/diff':           handleDiff,
+  '/axe':            handleAxe,
+  '/layout':         handleLayout,
+  '/lighthouse':     handleLighthouse,
+  '/figma-ingest':   handleFigmaIngest,
+  '/prompt-to-spec': handlePromptToSpec,
 };
 
 /**

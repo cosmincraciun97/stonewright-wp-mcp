@@ -12,6 +12,7 @@ import { log } from './lib/log.js';
 import { parseUrl, fetchNode, exportImages } from './figma-bridge.js';
 import { screenshot } from './playwright-runner.js';
 import { diff } from './pixel-diff.js';
+import { promptToSpec, PromptToSpecError } from './prompt-to-spec.js';
 
 // ---------------------------------------------------------------------------
 // Schema definitions
@@ -42,6 +43,20 @@ const PixelDiffSchema = z.object({
 		.array(z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() }))
 		.optional(),
 	diff_output_path: z.string().optional(),
+});
+
+const PromptToSpecSchema = z.object({
+	prompt: z.string().min(1).describe('Free-form description of what to extract from the image'),
+	image_url: z.string().url().optional().describe('Public http/https URL of the reference image'),
+	image_base64: z.string().optional().describe('Base64-encoded image bytes (no data: prefix)'),
+	image_media_type: z
+		.enum(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
+		.optional()
+		.describe('MIME type when image_base64 is used; defaults to image/png'),
+	viewport: z
+		.enum(['desktop', 'mobile'])
+		.optional()
+		.describe('Target viewport hint — informs responsive choices in the spec'),
 });
 
 // ---------------------------------------------------------------------------
@@ -169,6 +184,57 @@ export function createMcpServer(): McpServer {
 				log.error('companion_screenshot failed', { error: msg, url: params.url });
 				return {
 					content: [{ type: 'text', text: JSON.stringify({ error: msg }) }],
+					isError: true,
+				};
+			}
+		},
+	);
+
+	// ------------------------------------------------------------------
+	// Tool: prompt_to_spec
+	// ------------------------------------------------------------------
+	server.tool(
+		'prompt_to_spec',
+		'Generate a DesignSpec node tree from a reference image + prompt using Anthropic vision (Claude). Use when you have a screenshot or Figma export but no machine-readable spec.',
+		PromptToSpecSchema.shape,
+		async (args) => {
+			const params = PromptToSpecSchema.parse(args);
+			try {
+				const promptToSpecInput: Parameters<typeof promptToSpec>[0] = {
+					prompt: params.prompt,
+					...(params.image_url !== undefined ? { imageUrl: params.image_url } : {}),
+					...(params.image_base64 !== undefined ? { imageBase64: params.image_base64 } : {}),
+					...(params.image_media_type !== undefined
+						? { imageMediaType: params.image_media_type }
+						: {}),
+					...(params.viewport !== undefined ? { viewport: params.viewport } : {}),
+				};
+				const spec = await promptToSpec(promptToSpecInput);
+				log.info('prompt_to_spec succeeded', { viewport: params.viewport ?? 'unspecified' });
+				return {
+					content: [{ type: 'text', text: JSON.stringify(spec, null, 2) }],
+				};
+			} catch (err) {
+				if (err instanceof PromptToSpecError) {
+					log.error('prompt_to_spec failed', { code: err.code, error: err.message });
+					return {
+						content: [
+							{
+								type: 'text',
+								text: JSON.stringify({
+									error: err.message,
+									code: err.code,
+									detail: err.detail,
+								}),
+							},
+						],
+						isError: true,
+					};
+				}
+				const msg = err instanceof Error ? err.message : String(err);
+				log.error('prompt_to_spec unexpected failure', { error: msg });
+				return {
+					content: [{ type: 'text', text: JSON.stringify({ error: msg, code: 'unknown' }) }],
 					isError: true,
 				};
 			}

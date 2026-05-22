@@ -94,7 +94,7 @@ export async function startHttp(port: number): Promise<StartedHttpServer> {
 		}
 
 		// QA REST routes — POST only, body already size-limited.
-		if (['/screenshot', '/diff', '/axe', '/layout', '/lighthouse'].includes(url)) {
+		if (['/screenshot', '/diff', '/axe', '/layout', '/lighthouse', '/prompt-to-spec'].includes(url)) {
 			if (req.method !== 'POST') {
 				res.writeHead(405, { 'Content-Type': 'application/json' });
 				res.end(JSON.stringify({ error: 'Method not allowed' }));
