@@ -41,8 +41,11 @@ use Stonewright\WpMcp\Abilities\ElementorV3\UpdateElement;
 use Stonewright\WpMcp\Abilities\ElementorV3\UpdateKitColors;
 use Stonewright\WpMcp\Abilities\ElementorV3\UpdateKitTypography;
 use Stonewright\WpMcp\Abilities\ElementorV3\UpdatePageSettings;
+use Stonewright\WpMcp\Abilities\ElementorV4\AtomicWidgetDefine;
 use Stonewright\WpMcp\Abilities\ElementorV4\CreateClass;
 use Stonewright\WpMcp\Abilities\ElementorV4\CreateVariable;
+use Stonewright\WpMcp\Abilities\ElementorV4\DescribeAtomicWidget;
+use Stonewright\WpMcp\Abilities\ElementorV4\ListAtomicNodeTypes;
 use Stonewright\WpMcp\Abilities\ElementorV4\ListClasses;
 use Stonewright\WpMcp\Abilities\ElementorV4\ListVariables;
 use Stonewright\WpMcp\Abilities\ElementorV4\ReadAtomicTree;
@@ -215,6 +218,13 @@ final class AbilityRegistry {
 			CreateClass::class,
 			UpdateClass::class,
 			RenderV4FromSpec::class,
+
+			// Elementor V4 — atomic widget definer (Phase 2.3).
+			AtomicWidgetDefine::class,
+
+			// Elementor V4 — atomic introspection (Phase 2.4).
+			ListAtomicNodeTypes::class,
+			DescribeAtomicWidget::class,
 
 			// Design.
 			ValidateSpec::class,

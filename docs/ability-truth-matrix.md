@@ -143,6 +143,9 @@
 | `stonewright/elementor-v4-create-class` | `ElementorV4\CreateClass` | Adds a new CSS class to the active Elementor kit's classes collection. | Write | `Permissions::edit_theme_options()` | No | Yes | No | experimental | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v4-update-class` | `ElementorV4\UpdateClass` | Applies a partial patch to an existing CSS class in the active Elementor kit. | Write | `Permissions::edit_theme_options()` | No | Yes | No | experimental | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v4-render-from-spec` | `ElementorV4\RenderFromSpec` | Validates a Stonewright Design Spec and renders it as an Elementor V4 atomic tree. | Write | `Permissions::edit_post( (int)` | Yes | Yes | Yes (DesignSpec) | experimental | `tests/Integration/ElementorWriterTest.php` |
+| `stonewright/elementor-v4-atomic-widget-define` | `ElementorV4\AtomicWidgetDefine` | Compiles a Stonewright atomic widget spec into a sandboxed Elementor V4 Atomic_Widget_Base subclass and writes the source to the sandbox draft directory. | Read | `Permissions::can_manage_sandbox()` | No | No | No | sandboxed | `tests/Integration/ElementorWriterTest.php` |
+| `stonewright/elementor-v4-list-atomic-node-types` | `ElementorV4\ListAtomicNodeTypes` | Returns every DesignSpec node type the V4 atomic renderer can build, paired with its target atomic widget identifier. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
+| `stonewright/elementor-v4-describe-atomic-widget` | `ElementorV4\DescribeAtomicWidget` | Returns the prop catalog the V4 atomic renderer supports for a given DesignSpec node type. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 
 ---
 
@@ -244,7 +247,7 @@
 
 ## Summary
 
-Total abilities registered: **115**
+Total abilities registered: **118**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`
