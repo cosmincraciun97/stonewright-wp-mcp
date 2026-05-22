@@ -35,10 +35,33 @@ final class Section {
 	 * @return array<string, mixed>
 	 */
 	private static function build_settings( array $node, Resolver $resolver ): array {
+		// `row` block-type auto-implies horizontal layout, even if the spec
+		// doesn't set layout explicitly. For sections, explicit `layout` wins.
+		$type      = isset( $node['type'] ) ? (string) $node['type'] : '';
+		$layout    = isset( $node['layout'] ) ? (string) $node['layout'] : ( 'row' === $type ? 'row' : 'stack' );
+		$direction = 'row' === $layout ? 'row' : 'column';
+
 		$settings = [
 			'content_width'  => isset( $node['width'] ) ? (string) $node['width'] : 'boxed',
-			'flex_direction' => 'column',
+			'flex_direction' => $direction,
 		];
+
+		// gap → flex_gap (Elementor's atomic gap setting). Accept either a
+		// scalar (single value, applied to both axes) or a viewport-keyed
+		// dict (responsive). Numbers and bare px strings both work.
+		if ( isset( $node['gap'] ) ) {
+			$gap = $node['gap'];
+			if ( is_numeric( $gap ) ) {
+				$gap = (string) (int) $gap . 'px';
+			}
+			$settings['flex_gap'] = [
+				'unit'     => 'px',
+				'size'     => (int) preg_replace( '/[^0-9]/', '', (string) $gap ) ?: 0,
+				'column'   => preg_replace( '/[^0-9.]/', '', (string) $gap ) ?: '0',
+				'row'      => preg_replace( '/[^0-9.]/', '', (string) $gap ) ?: '0',
+				'isLinked' => true,
+			];
+		}
 
 		if ( isset( $node['background'] ) && is_array( $node['background'] ) ) {
 			$bg = $node['background'];

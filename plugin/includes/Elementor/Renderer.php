@@ -77,16 +77,25 @@ final class Renderer {
 
 		switch ( $type ) {
 			// ------- layout shells -------
+			// Container types render their own shell, then we walk their
+			// `blocks` and append the rendered children to `elements`. Before
+			// this, the per-renderer methods (Section::render, Column::render,
+			// Container::render) always returned `'elements' => []`, so any
+			// widget nested inside a column or row block was silently dropped
+			// — only the top-level section's block list got processed by the
+			// outer render() loop. Caught during the nZeb Expo live build: the
+			// hero section's two columns rendered as empty containers because
+			// their heading/paragraph/button children never reached Elementor.
 			case 'section':
 			case 'row':
-				return Section::render( $block, $resolver, $path );
+				return self::with_children( Section::render( $block, $resolver, $path ), $block, $resolver, $path, $diagnostics );
 
 			case 'column':
-				return Column::render( $block, $resolver, $path );
+				return self::with_children( Column::render( $block, $resolver, $path ), $block, $resolver, $path, $diagnostics );
 
 			case 'group':
 			case 'container':
-				return Container::render( $block, $resolver, $path );
+				return self::with_children( Container::render( $block, $resolver, $path ), $block, $resolver, $path, $diagnostics );
 
 			// ------- text -------
 			case 'heading':
@@ -170,6 +179,33 @@ final class Renderer {
 				];
 				return null;
 		}
+	}
+
+	/**
+	 * Walk the given container block's nested `blocks`, render each through
+	 * the dispatcher, and append the results to the rendered shell's
+	 * `elements` field.
+	 *
+	 * @param array<string, mixed>              $rendered    The container shell produced by Section/Column/Container::render.
+	 * @param array<string, mixed>              $block       The original spec block whose `blocks` we still need to render.
+	 * @param array<int, array<string, mixed>>  $diagnostics Forwarded so unsupported children are reported.
+	 * @return array<string, mixed>
+	 */
+	private static function with_children( array $rendered, array $block, Resolver $resolver, string $path, array &$diagnostics ): array {
+		$nested = isset( $block['blocks'] ) && is_array( $block['blocks'] ) ? $block['blocks'] : [];
+		if ( empty( $nested ) ) {
+			return $rendered;
+		}
+		$children = isset( $rendered['elements'] ) && is_array( $rendered['elements'] ) ? $rendered['elements'] : [];
+		foreach ( $nested as $i => $child ) {
+			$child_path     = $path . '.b' . $i;
+			$child_rendered = self::render_block( (array) $child, $resolver, $child_path, $diagnostics );
+			if ( null !== $child_rendered ) {
+				$children[] = $child_rendered;
+			}
+		}
+		$rendered['elements'] = $children;
+		return $rendered;
 	}
 
 	/**
