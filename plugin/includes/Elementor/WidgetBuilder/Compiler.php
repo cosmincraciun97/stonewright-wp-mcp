@@ -64,17 +64,83 @@ final class Compiler {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Compile a DSL template + metadata into a full PHP class source string.
+	 * Compile a DSL widget spec or individual template parts into a PHP class source string.
 	 *
-	 * @param string               $widget_slug     Validated slug (^[a-z][a-z0-9_-]{2,40}$).
-	 * @param string               $label           Widget display name.
-	 * @param string               $category        Elementor category key.
-	 * @param array<int, array<string, mixed>> $controls Validated controls array.
-	 * @param string               $template        DSL source.
-	 * @param string               $render_strategy 'twig' or 'block-binding'.
-	 * @return string|\WP_Error    PHP source on success, WP_Error on compile failure.
+	 * Two calling conventions are supported:
+	 *
+	 * 1. Static / positional (original API, used by WidgetDefine and all existing callers):
+	 *
+	 *      Compiler::compile( $slug, $label, $category, $controls, $template, $strategy )
+	 *
+	 * 2. Instance / spec-array (new API, used in tests and future tooling):
+	 *
+	 *      ( new Compiler() )->compile( $spec )
+	 *
+	 *    where $spec is:
+	 *      [
+	 *        'slug'            => string,
+	 *        'title'|'label'   => string,
+	 *        'category'        => string,
+	 *        'controls'        => array,   // may use 'name' instead of 'id' per control
+	 *        'template'        => string,
+	 *        'render_strategy' => string,  // optional, default 'twig'
+	 *      ]
+	 *
+	 * Each control may include 'responsive' => true to emit add_responsive_control() instead
+	 * of add_control().
+	 *
+	 * @param string|array<string, mixed> $widget_slug_or_spec
+	 * @param string               $label           (positional mode only)
+	 * @param string               $category        (positional mode only)
+	 * @param array<int, array<string, mixed>> $controls (positional mode only)
+	 * @param string               $template        (positional mode only)
+	 * @param string               $render_strategy (positional mode only)
+	 * @return string|\WP_Error
 	 */
 	public static function compile(
+		string|array $widget_slug_or_spec,
+		string $label = '',
+		string $category = '',
+		array $controls = [],
+		string $template = '',
+		string $render_strategy = 'twig'
+	): string|\WP_Error {
+		// Spec-array calling convention.
+		if ( is_array( $widget_slug_or_spec ) ) {
+			$spec            = $widget_slug_or_spec;
+			$widget_slug     = (string) ( $spec['slug'] ?? '' );
+			$label           = (string) ( $spec['title'] ?? $spec['label'] ?? '' );
+			$category        = (string) ( $spec['category'] ?? 'general' );
+			$render_strategy = (string) ( $spec['render_strategy'] ?? 'twig' );
+			$template        = (string) ( $spec['template'] ?? '' );
+
+			// Normalize controls: allow 'name' as alias for 'id'.
+			$controls = [];
+			foreach ( (array) ( $spec['controls'] ?? [] ) as $ctrl ) {
+				if ( ! isset( $ctrl['id'] ) && isset( $ctrl['name'] ) ) {
+					$ctrl['id'] = $ctrl['name'];
+				}
+				$controls[] = $ctrl;
+			}
+		} else {
+			$widget_slug = $widget_slug_or_spec;
+		}
+
+		return self::do_compile( $widget_slug, $label, $category, $controls, $template, $render_strategy );
+	}
+
+	/**
+	 * Internal compile implementation called by both the static and instance entry points.
+	 *
+	 * @param string               $widget_slug
+	 * @param string               $label
+	 * @param string               $category
+	 * @param array<int, array<string, mixed>> $controls
+	 * @param string               $template
+	 * @param string               $render_strategy
+	 * @return string|\WP_Error
+	 */
+	private static function do_compile(
 		string $widget_slug,
 		string $label,
 		string $category,
@@ -550,7 +616,8 @@ PHP;
 			$type    = self::control_type_constant( (string) ( $control['type'] ?? 'text' ) );
 			$default = self::emit_default_value( $control['default'] ?? '' );
 
-			$lines[] = "\t\t\$this->add_control(";
+			$method  = ! empty( $control['responsive'] ) ? 'add_responsive_control' : 'add_control';
+			$lines[] = sprintf( "\t\t\$this->%s(", $method );
 			$lines[] = "\t\t\t" . var_export( $id, true ) . ',';
 			$lines[] = "\t\t\t[";
 			$lines[] = "\t\t\t\t'label'   => esc_html__( '{$lbl}', 'stonewright' ),";
@@ -720,6 +787,7 @@ PHP;
 		return match ( $type ) {
 			'textarea' => '\\Elementor\\Controls_Manager::TEXTAREA',
 			'number'   => '\\Elementor\\Controls_Manager::NUMBER',
+			'slider'   => '\\Elementor\\Controls_Manager::SLIDER',
 			'color'    => '\\Elementor\\Controls_Manager::COLOR',
 			'select'   => '\\Elementor\\Controls_Manager::SELECT',
 			'url'      => '\\Elementor\\Controls_Manager::URL',
