@@ -23,6 +23,50 @@
 
 ---
 
+## 1bis. The user's goal — second-round update (verbatim, this session)
+
+The user expanded the brief after seeing the comparative analysis. Direct quotes:
+
+> "https://elementor.com/blog/custom-wordpress-widget/ analizeaza asta, usecase ul asta ar trebui sa il aplicam si noi pentru ca si noi avem posibilitatea sa cream widgeturi custom, si vreau sa pot crea widgeturi custom uptodate si orice widget e posibil in momentul asta sa faci pentru elementor pro sau free."
+
+> "si vreau sa analizeze toate aceste widgeturi corect si sa le implementam in mcp, toate tips urile, ai ul sa tina cont de ele, sa fie trainuit ca sa stie ce, cum si cand sa aplice si sa creeze si ce e posibil de facut doar cu elementor si fara custom code etc sa stie tot ce se poate face ca sa ia decizii corecte tot timpul la implementare si sa customize cu tot ce e posibil in elementor https://elementor.com/help/build-with-the-editor/widgets/"
+
+> "si vreau sa fie trainuit si pentru editor elementor normal dar si pentru V4 sa stie tot ce se poate face ca sa ia decizii corecte tot timpul la implementare si sa customize cu tot ce e posibil in elementor. https://elementor.com/help/build-with-the-editor/getting-started-editor/"
+
+> "SI PENTRU DESIGN YOUR THEME. https://elementor.com/help/design-your-theme/"
+
+> "DECI ESTE OBLIGATORIU CA FIECARE ARTICOL/TUTORIAL, FIECARE LINK DE AICI SA FIE CA SURSA DE TRAINING, SI SA SPAMEZE MULTI AGENTI IN PARALEL CU SONNET CA MODEL."
+
+> "VREAU CA ACEST MCP SA STIE TOATE ACESTE LUCRURI, ABSOLUT TOATE, SI CAND NU STIE SA INTRE PE TOATE LINKURILE TRIMISE DE MINE SI SA ISI ACTUALIZEZE INFORMATIILE CA SA IA CELE MAI BUNE DECIZII DE IMPLEMENTARE"
+
+**What this expansion adds (in English):**
+
+5. **Knowledge harvest is mandatory, not optional.** Every article and tutorial under the canonical Elementor source URLs (listed in § 1ter) must be scraped, summarised, and stored as training material the LLM consumes when planning. Many parallel **Sonnet** subagents (the user named the model — use Sonnet for the doc harvest specifically).
+6. **Custom widget creation is a first-class capability.** Stonewright already has Sandbox + WidgetDefine + WidgetRegister abilities (Phase 5 of the original plan). They must be wired so the LLM can build any widget that doesn't ship with Elementor / Pro / WC out of the box, following the Elementor blog's official custom-widget recipe (`extends \Elementor\Widget_Base`, `register_controls()`, `render()`, `content_template()`, `get_script_depends()`).
+7. **Self-update loop.** When the LLM hits a question the knowledge base can't answer (a new Elementor release, a non-indexed help page, a community-built widget), Stonewright must expose a `knowledge-refresh` ability that fetches the relevant URL, processes it through the same harvest pipeline, and writes it into the knowledge base — so the next request has the answer cached.
+8. **Editor V3 and V4 both.** The LLM must know enough about each editor mode (V3 sections-and-columns + V3 flexbox containers + V4 atomic widgets) to choose correctly when generating a page.
+9. **Theme building.** Theme Builder, Site Settings, Global Styles, Display Conditions, Site Parts — full coverage of the "Design Your Theme" knowledge area.
+
+---
+
+## 1ter. The required Elementor knowledge sources (MANDATORY scrape targets)
+
+These are the canonical hub URLs the user specified. Every linked article underneath each hub must be harvested.
+
+| # | Hub URL | Topic | Subagent batch hint |
+|---|---|---|---|
+| 1 | https://elementor.com/blog/custom-wordpress-widget/ | Official custom-widget walkthrough — feeds Phase G | Single agent — short article, parse code samples carefully |
+| 2 | https://elementor.com/widgets/ | Marketing index of every widget (free + Pro + Theme + WC) | Single agent — link harvester only; emit per-widget URLs for further fan-out |
+| 3 | https://elementor.com/help/build-with-the-editor/widgets/ | Per-widget help articles — "what does it do / how to use / settings reference" | Fan-out: ~80 parallel batches via Sonnet |
+| 4 | https://elementor.com/help/build-with-the-editor/getting-started-editor/ | Editor fundamentals (V3 + V4): canvas, navigator, kit, responsive controls, history, finder | Single agent + fan-out for sub-articles |
+| 5 | https://elementor.com/help/design-your-theme/ | Theme Builder, global colors/fonts, site settings, parts, display conditions | Fan-out per section |
+| 6 | https://developers.elementor.com/docs/ | Developer documentation — widget API, control types, hooks (cross-reference) | Single agent or batched, low priority but recommended |
+| 7 | https://elementor.com/help/ | Root help index — catches anything 3–5 didn't cover (changelogs, FAQs, account / billing skip) | Single agent — emit just the link list, filter to topic-relevant |
+
+**Filter rule:** ignore account / billing / sales / pricing / "buy now" pages. Only ingest editor / widget / theme / developer / changelog / release-notes content.
+
+---
+
 ## 2. Competitive intel (already done in prior session — DO NOT re-fetch)
 
 | MCP | Architecture | Widget catalog | "Smoothness" reason |
@@ -102,7 +146,73 @@
 
 ---
 
-## 6. The plan — six phases
+## 6. The plan — eight phases
+
+### Phase 0 — Knowledge harvest (the foundation — many parallel Sonnet agents)
+
+The user's second-round mandate. Every official Elementor URL in § 1ter becomes harvested markdown stored under `docs/knowledge/elementor/`. The harvested files become both (a) input data for later phases (Phase A.4 manifest enrichment, Phase D.1 description copy) and (b) a runtime knowledge base the LLM can search through dedicated abilities.
+
+**0.1 — Storage layout** (single agent, fast):
+
+```
+docs/knowledge/elementor/
+  README.md                       <- index of every harvested file with one-line summary
+  widgets/<slug>.md               <- one per widget (free / pro / wc / theme)
+  editor/<slug>.md                <- one per editor concept (canvas, navigator, kit, history, finder, responsive, theme-style)
+  theme/<slug>.md                 <- one per Theme Builder topic (header / footer / single / archive / loop / popup / site-settings / display-conditions / global-styles / kit-import-export)
+  developer/<slug>.md             <- developer docs (widget API, control types, hooks, atomic widgets, V4 schema, prop transformers)
+  custom-widget/recipe.md         <- the blog/custom-wordpress-widget article fully extracted
+  meta/sources.json               <- map of harvested-file -> canonical Elementor URL + fetch timestamp + content hash (used by Phase H refresh loop)
+```
+
+Each `.md` file has frontmatter:
+```
+---
+title: <article title>
+source_url: https://elementor.com/help/...
+fetched_at: 2026-05-22T...
+content_hash: sha256-...
+applies_to: [widget:<slug>, editor:v3, editor:v4, theme-builder, ...]
+related_widgets: [heading, button, ...]
+---
+```
+
+Body: tight extraction — one-paragraph summary, then bulleted "Use this when" cases, then a "Settings highlights" subsection (linking to the technical manifest from Phase A.4), then a "Limits / gotchas" subsection. Aim for 200-400 words per file — dense, not verbose. No marketing fluff.
+
+**0.2 — Link harvester** (1 agent, Sonnet):
+
+Crawl the 7 hub URLs from § 1ter, emit `docs/knowledge/elementor/_links.json` listing every child article URL grouped by hub. Skip non-topic (billing / account / sales / pricing / changelog-irrelevant). Output ≤500 URLs total expected.
+
+**0.3 — Parallel ingestion** (Sonnet, batched 8 at a time, ~10 articles per batch):
+
+Dispatch Sonnet subagents in waves. Each subagent:
+
+1. Gets a batch of ~10 URLs.
+2. For each URL: WebFetch with a tight prompt ("Extract title, 1-paragraph purpose, 3-5 use-when cases, key settings or features mentioned, related widget slugs, any code snippets. Output as the markdown body per the schema above. No marketing copy.").
+3. Writes one `.md` file per URL into the correct subdirectory.
+4. Appends to `meta/sources.json`.
+5. Commits the batch as `docs(knowledge): ingest <hub> batch <n>/<total> via Sonnet`.
+
+**Critical playbook for the Sonnet harvest agents:**
+
+* They MUST be invoked with `model: "sonnet"` — the user explicitly asked for Sonnet, and the harvest workload is exactly Sonnet's sweet spot (high volume of moderate-complexity summaries).
+* They MUST commit their own batches — main thread cannot reliably stage and squash 80+ parallel writes.
+* They MUST stay in their batch scope — never touch a file outside `docs/knowledge/elementor/`.
+* They MUST report only file counts + commit SHAs + URLs that 404'd or were blocked — no content paraphrase back to the main thread.
+
+**0.4 — Knowledge-base abilities** (single agent, after 0.3):
+
+* `stonewright/elementor-knowledge-search` — input `{ query: string, area?: 'widget'|'editor'|'theme'|'developer'|'custom-widget' }`, output top 5 matching `.md` files with their summaries. Backed by a simple SQLite FTS index over the harvested files (write the indexer as a one-shot PHP script, or do an in-memory grep if FTS feels heavy for v1).
+* `stonewright/elementor-describe-widget` — input `{ slug: string }`, output the merged record: manifest entry + harvested help-article body + marketing intent.
+* `stonewright/elementor-explain-editor` — input `{ topic: string }` (e.g. `responsive controls`, `flex containers`, `theme styles`), output the matching `editor/` or `theme/` doc.
+
+These three abilities are how the runtime LLM consumes the knowledge base.
+
+**Acceptance gate for Phase 0:**
+
+* ≥90% of the URLs in `_links.json` ingested (≤10% allowed to 404/timeout per harvest)
+* `composer test` still green
+* A new contract test `tests/Integration/KnowledgeBaseContractTest` asserts: every widget that exists in the registered ability list has a matching `widgets/<slug>.md` file (or a `tombstone.md` if the widget intentionally has no help article)
 
 ### Phase A — Inventory & extraction (mostly parallel)
 
@@ -326,17 +436,110 @@ Now the build looks like a real designer's output instead of a stack of heading 
 * Push to `feat/full-coverage`, update PR #1 description with new metrics + the nZeb pixel diff result
 * (Optional) cherry-pick the StyleMapper fix to a hotfix branch if it needs to land independently before the big catalog merge
 
+### Phase G — Custom widget creation (live-build from spec, current Elementor API)
+
+The Elementor blog walkthrough at https://elementor.com/blog/custom-wordpress-widget/ is the official, up-to-date recipe. Stonewright already has the building blocks — `Sandbox*` abilities (write PHP files under a sandboxed dir + StaticGuard scan), `WidgetDefine` (compile DSL to PHP source), `WidgetRegister` (activate the compiled widget). Phase G wires them into a single coherent "create me a custom widget" surface.
+
+**G.1 — Sync the recipe with the harvested article** (`docs/knowledge/elementor/custom-widget/recipe.md`).
+
+The article says: extend `\Elementor\Widget_Base`, override `get_name() / get_title() / get_icon() / get_categories() / get_keywords()`, implement `register_controls()`, `render()`, `content_template()`, `get_script_depends()`, `get_style_depends()`. Confirm the existing `WidgetDefine` compiler emits all of these — if it doesn't, extend it.
+
+**G.2 — High-level ability** `stonewright/elementor-create-custom-widget`. Input shape:
+
+```
+{
+  slug: 'my-pricing-card',         // becomes the widget_type at runtime
+  title: 'Pricing Card',
+  icon: 'eicon-price-list',
+  categories: ['general'],
+  keywords: ['pricing', 'card', 'plan'],
+  props: [
+    { name: 'plan_name', type: 'string', default: 'Pro' },
+    { name: 'price',     type: 'string', default: '$29' },
+    { name: 'features',  type: 'repeater', fields: [
+        { name: 'text', type: 'string' },
+        { name: 'included', type: 'switcher' }
+    ]},
+    { name: 'cta_text',  type: 'string', default: 'Buy' },
+    { name: 'cta_link',  type: 'url' }
+  ],
+  template: '<div class="card"><h3>{{ plan_name }}</h3><p class="price">{{ price }}</p>...</div>',
+  styles: '.card { padding: 24px; ... }',     // optional — bundled CSS
+  script_url: null,                            // optional external JS
+  activate: true                               // call WidgetRegister after compile
+}
+```
+
+Output: `{ class_name, php_source, sandbox_path, registered: bool, widget_type }`. Pipeline:
+
+1. Compile via `WidgetDefine` → PHP source string
+2. Run through `StaticAnalysis\StaticGuard` (existing — rejects eval / file_put_contents / exec etc.)
+3. Write to `wp-content/stonewright-sandbox/widget-<slug>.php` via `SandboxWrite`
+4. Activate via `SandboxActivate` (creates an mu-plugin loader)
+5. Call `WidgetRegister` so Elementor sees it on next request
+6. (Optional) `composer docs:matrix` and update `widget-inventory.json` to mark the slug as `source: custom`
+
+**G.3 — Smart custom-widget detection.** When the FigmaToSpec resolver in Phase D meets a node pattern that doesn't match any built-in widget heuristic (e.g. a unique card layout with non-standard props), it emits a fallback hint: `{ type: 'custom_widget_candidate', signature_hash, suggested_props }`. A new sibling ability `stonewright/widget-intent-promote-to-custom` takes that candidate, generates a `create-custom-widget` input, and (with the user's confirmation token) runs G.2.
+
+**G.4 — Templates library.** Bundle a small set of pre-baked custom-widget templates (`docs/knowledge/elementor/custom-widget/templates/`) for the most common gaps Elementor doesn't have natively (a "pricing-card", a "feature-tile", an "icon-stat-counter-with-suffix"). The LLM can copy + tweak instead of writing from scratch.
+
+### Phase H — Self-update loop ("don't know? fetch it")
+
+User requirement: when the MCP doesn't know something, it should crawl the relevant Elementor link and learn.
+
+**H.1 — `stonewright/elementor-knowledge-refresh` ability.** Input: `{ url: string, hub?: 'widgets'|'editor'|'theme'|'developer'|'custom-widget' }`. Behavior:
+
+1. WebFetch the URL with the same Phase 0.3 extraction prompt.
+2. Compute content hash; if it differs from the last fetch (recorded in `meta/sources.json`) write the new markdown into the right subdirectory.
+3. If the URL is new (not in `_links.json`), append it.
+4. Rebuild the FTS index (Phase 0.4) so subsequent `knowledge-search` calls see the new content.
+5. Return `{ slug, file_path, content_changed: bool, updated_at }`.
+
+**H.2 — Auto-refresh policy.** Add an option `stonewright_knowledge_max_age_days` (default 30). When `elementor-describe-widget` or `elementor-explain-editor` is called and the matching `.md`'s `fetched_at` is older than the threshold, emit a warning in the response payload (`stale: true, age_days: N`) but still return the cached content. The LLM can then opt to call `knowledge-refresh` if it cares.
+
+**H.3 — Diff awareness.** When `knowledge-refresh` updates a file with a new content hash, append a one-line entry to `docs/knowledge/elementor/_change_log.md` so the next maintainer can review what Elementor changed. Bonus: feed the change log into a periodic `stonewright/elementor-changelog-summary` ability that returns "what changed in the docs in the last N days".
+
+**H.4 — Bulk refresh CLI script.** `plugin/bin/refresh-knowledge.php` — iterates `meta/sources.json`, calls H.1 for each entry older than the threshold, in batches of 8 with backoff. Cron-able via WP-CLI.
+
+**Acceptance gates for G + H:**
+
+* G.2 round-trip test: create a custom widget via the ability, verify it appears in `wp_get_widget_types()` and renders with a sample settings payload.
+* H.1 unit test: stub WebFetch, assert markdown is rewritten only when hash changes, assert FTS rebuild is triggered.
+* End-to-end: invoke `knowledge-search` for a term that doesn't exist in the harvested base → confirm a documented escalation path ("try `knowledge-refresh` against `<best-guess-url>`") shows in the empty-result envelope.
+
 ---
 
 ## 7. Subagent dispatch playbook (lessons from this session)
 
+* **Model choice.** The user explicitly requested **Sonnet** for the documentation harvest (Phase 0). Pass `model: "sonnet"` on every Agent call for Phase 0 + Phase A.3 (marketing copy fetch). For code-implementing agents (Phase A.2 setting extraction, Phase C ability generation, Phase B fixes) the default Sonnet is also the right choice — Phase B may use Opus for the StyleMapper rewrite if precision matters. The point: do not silently downgrade Sonnet to Haiku for the harvest; the user named the model and named it for a reason (cost-effective high-volume summarisation).
 * **Subagents must commit their own work.** Main thread cannot reliably `git add` files a subagent created — the previous session learned this twice (Phase 2.1 and Phase 2.5). Include `git add ... && git commit -m "..."` in every subagent prompt. Heredoc the commit body.
-* **Keep subagent file scopes orthogonal.** If two subagents touch the same directory you get merge friction. Phase A.2 batches must each own a distinct set of widget files. Phase C batches must each own a distinct alphabetical range of widget abilities.
+* **Keep subagent file scopes orthogonal.** If two subagents touch the same directory you get merge friction. Phase 0.3 batches must each own a distinct set of URLs writing to distinct filenames. Phase A.2 batches must each own a distinct set of widget files. Phase C batches must each own a distinct alphabetical range of widget abilities.
 * **Tell subagents the known environmental failures so they don't chase them.** The Windows symlink tests in `QaArtifactStorePurgeSymlinkTest` (PHP) and `tests/path-safety.test.ts` (companion) error out — ignore both.
-* **Subagent reports under 400 words, structured.** Ask for `(a) test counts before/after, (b) commit SHA, (c) any deviation from the spec, (d) one surprise worth flagging`.
+* **Subagent reports under 400 words, structured.** Ask for `(a) item counts (files written, URLs ingested, tests added), (b) commit SHA(s), (c) any deviation from the spec, (d) one surprise worth flagging`.
 * **Tell subagents the path conventions verbatim.** `tests/Unit/<feature>/`, `includes/Core/AbilityRegistry.php`, 2 contract fixtures, run `composer docs:matrix` after.
 * **Trust but verify.** After every subagent claims done, the main thread reads the commit and at least spot-checks one new file. The prior session was burned twice by subagent reports that didn't match reality.
-* **Concurrent subagent budget.** Run no more than 3-4 truly concurrent. Beyond that the WebFetch / FS contention degrades quality. Phase A.2 should be batched as 4 at a time, two waves.
+* **Concurrent subagent budget.**
+  * Code-modifying (PHP / TS): 3-4 truly concurrent. Beyond that, FS contention + AbilityRegistry merge conflicts degrade quality.
+  * Doc-harvesting (Sonnet, write-only into `docs/knowledge/elementor/`): up to **8 truly concurrent**, and queue more waves behind them. The work is read-mostly (WebFetch + write to a unique file path), so the conflict surface is tiny. The user expects the harvest to fan out wide and finish fast.
+* **No "fire and forget" subagents on the critical path.** If the work blocks a later phase (e.g. Phase 0 blocks Phase A.4 manifest enrichment), wait on the notification, read the result, then proceed. Background only for genuinely independent work.
+* **Sonnet harvest prompt template** (copy-paste):
+
+  > You are extracting Elementor documentation into a structured knowledge base for an MCP server. **Use the WebFetch tool** to fetch each URL in your batch (passed in the prompt). For each URL, write **one markdown file** under `D:\Work\stonewright-wp-mcp\docs\knowledge\elementor\<subdir>\<slug>.md` with this frontmatter:
+  >
+  > ```yaml
+  > ---
+  > title: <article title>
+  > source_url: <the URL>
+  > fetched_at: <ISO 8601 timestamp>
+  > content_hash: <sha256 of body>
+  > applies_to: [widget:<slug>|editor:v3|editor:v4|theme-builder|...]
+  > related_widgets: [list of widget slugs mentioned]
+  > ---
+  > ```
+  >
+  > Body sections in order: `## Purpose` (1 paragraph, what the feature is for), `## Use this when` (3-5 bullets), `## Settings highlights` (key control keys + 1-line explanations), `## Limits / gotchas` (anything that surprises a new user). 200-400 words, dense, no marketing fluff. If the page is marketing/billing/sales-only, write a stub with `tombstone: true` in frontmatter and skip the body.
+  >
+  > After all URLs processed, append entries to `docs/knowledge/elementor/meta/sources.json`, then git add + git commit your batch with message `docs(knowledge): ingest <hub> batch <N>/<total> via Sonnet`. Report file count + commit SHA + any 404 URLs. Under 200 words.
 
 ## 8. Quality gates (cannot claim done without these)
 
@@ -362,13 +565,77 @@ When you re-enter this work, do these in order before *any* code:
 
 1. `git status && git log --oneline -10` — confirm where the branch is
 2. `cd plugin && composer test 2>&1 | Select-Object -Last 6` — confirm baseline (one known error allowed)
-3. Read this file end to end
+3. Read this file end to end (you are doing it now)
 4. Read `D:\Work\stonewright-wp-mcp\docs\superpowers\plans\2026-05-22-stonewright-full-coverage-completion.md` (the original 29-task plan — still has open Phase 3 / 4 / 5 items)
 5. Run a quick probe: `Invoke-WebRequest http://mcp-test.local/ -UseBasicParsing | Select -Expand StatusCode` — confirm the live site is up
-6. Then start at **Phase B** (critical bug fixes — they unblock everything else) or **Phase A** (inventory — needed before C onwards). They can run in parallel: B is single-threaded plugin work, A is subagent fan-out.
+6. Start phases in this order:
+   * **Phase 0** (knowledge harvest, Sonnet fan-out) AND **Phase B** (critical bug fixes, single thread) in parallel. They don't overlap.
+   * Then **Phase A** (widget inventory + extraction).
+   * Then **Phase C** (per-widget abilities, depends on A's manifest).
+   * Then **Phase D** (smart detection, depends on Phase 0 knowledge base + Phase A manifest).
+   * Then **Phase E** (nZeb live build redo — the user-facing proof).
+   * Phases F / G / H follow E.
 
-The user wants to see Phase E running end to end with a pixel-perfect nZeb result. Every phase before E is in service of that.
+The user wants to see Phase E running end to end with a pixel-perfect nZeb result, on top of a Stonewright that genuinely knows the whole Elementor surface (Phases 0 + A + C + D) and can build custom widgets on demand (Phase G) and self-update its knowledge (Phase H). Every phase before E is in service of that proof.
 
 ---
 
-*End of plan. Length: ~700 lines. Save the file; do not delete it after the work is done — keep as a postmortem reference.*
+## 11. What to put in the first message of the new session (the user's own words)
+
+The user explicitly asked: "*completeaza din nou planul si ce sa spun agentului in noua sesiune cu exact cuvintele mele, sau aproape de ce am zis, ca sa inteleaga ce sa faca.*"
+
+The block below is the user's request reframed for hand-off. Copy it verbatim into the first message of the new session, *after* asking the agent to read `D:\Work\stonewright-wp-mcp\docs\superpowers\plans\2026-05-22-elementor-mastery-plan.md`. The agent will then have both the user's intent in the user's voice and the structured plan to execute against.
+
+> **Read** `D:\Work\stonewright-wp-mcp\docs\superpowers\plans\2026-05-22-elementor-mastery-plan.md` **end-to-end before any tool call.** Then act on the brief below.
+>
+> ---
+>
+> Vreau ca Stonewright MCP să fie mai șmecher decât novamira, msrbuilds/elementor-mcp și claudeus-wp-mcp. Ne putem inspira de la ei (analiza e deja făcută în plan, secțiunea § 2 — nu o refaci), dar arhitectural să ajungem peste ei.
+>
+> **Concret, vreau ca acest MCP să știe absolut tot despre Elementor (free + Pro + WooCommerce + V3 + V4 + Theme Builder + Site Settings + custom widget creation):**
+>
+> 1. **Knowledge harvest obligatoriu.** Intră pe TOATE link-urile de mai jos cu subagenți paraleli pe model `sonnet`. Fiecare articol/tutorial devine un fișier markdown în `docs/knowledge/elementor/` cu schema din plan § 0.1. Fără excepție.
+>    * https://elementor.com/blog/custom-wordpress-widget/ — recipe-ul oficial pentru widget custom; aplică-l ca în Phase G
+>    * https://elementor.com/widgets/ — indexul de widgeturi (free + Pro + Theme + WC)
+>    * https://elementor.com/help/build-with-the-editor/widgets/ — articol-per-widget cu tips, what/how/when; Stonewright trebuie să știe toate tips-urile astea
+>    * https://elementor.com/help/build-with-the-editor/getting-started-editor/ — editorul Elementor V3 ȘI V4, ce e posibil, ce nu, când să folosești fiecare
+>    * https://elementor.com/help/design-your-theme/ — Theme Builder complet (header / footer / single / archive / loop / popup / site settings / global styles / display conditions)
+>    * Plus root-ul https://elementor.com/help/ pentru orice link copil pe care îl mai prinde
+>    * Plus https://developers.elementor.com/docs/ pentru API-uri developer
+>
+> 2. **Custom widget creation.** Stonewright are deja Sandbox + WidgetDefine + WidgetRegister abilities. Wire-le în `stonewright/elementor-create-custom-widget` cum e în plan § G.2. Vreau să pot crea widgeturi custom up-to-date, orice widget posibil cu Elementor free sau Pro, prin Stonewright.
+>
+> 3. **Catalogul complet de widgeturi.** Toate widgeturile native (Elementor + Pro + WooCommerce) ca abilități individuale, fiecare cu setting-urile reale ca input schema. Plus un escape hatch universal `stonewright/elementor-v3-add-raw-widget` pentru orice n-am acoperit.
+>
+> 4. **Smart detection.** AI-ul trebuie să știe ce, cum și când să aplice fiecare widget. Bagi în ability descriptions "USE THIS WHEN" cu cazuri concrete (3-4 signature-uri vizuale). Plus FigmaToSpec heuristică să detecteze pattern-urile (countdown digit pairs → widget countdown, nav row → widget nav-menu, social row → social-icons). Plus structured per-property validation errors ca LLM să se corecteze în 1 try (pattern Novamira).
+>
+> 5. **Self-update.** Când Stonewright nu știe ceva, expune `stonewright/elementor-knowledge-refresh` cu URL ca input — fetchează, parsează, scrie în knowledge base, rebuild index. Așa MCP-ul învață singur fără să trebuiască să-l reantrenez manual.
+>
+> 6. **Editor V3 + V4.** Antrenat pentru ambele moduri. AI-ul trebuie să știe când să folosească fiecare.
+>
+> 7. **Design Your Theme.** Theme Builder, Global Styles, Site Settings, Display Conditions — tot.
+>
+> **CUM îl rulezi:**
+> * Spamează mulți agenți Sonnet în paralel — knowledge harvest e perfect pentru fan-out (până la 8 concurenți, în valuri).
+> * Subagentii trebuie să-și commit-eze singuri batch-urile (lecție din sesiunea trecută — main thread nu poate stage corect 80+ scrieri paralele).
+> * Pentru work-ul de cod (Phase B fix-uri, Phase A extraction, Phase C ability generation): max 3-4 concurenți, scope-uri ortogonale.
+> * Folosește template-ul de prompt din plan § 7 pentru agenții Sonnet de harvest.
+>
+> **REGULI dure (din eșecul sesiunii trecute, nu mai accept asta):**
+> * Niciodată "merge" / "great" / "looks good" fără să rulezi `stonewright/qa-verify-against-reference` și să-mi arăți rezultatul pixel-diff.
+> * Niciodată nu simulezi un widget cu altul. Countdown ≠ 3× Heading. Nav menu ≠ 4× Button. Footer link ≠ Paragraph fără link.
+> * Niciodată nu descarci compozite Figma — găsești sub-nodul exact pentru fiecare asset.
+> * StyleMapper-ul TREBUIE să activeze group toggles (`background_background:'classic'` înainte de `background_color`, `typography_typography:'custom'` înainte de `typography_font_size`, etc.) — fără asta culorile și typography dispar silent.
+> * Subagentii — verifică-le commit-urile, nu doar raportele. Trust but verify.
+>
+> Pornește de la Phase 0 (knowledge harvest Sonnet paralel) și Phase B (bug fixes critice) în paralel. Apoi Phase A, C, D, E. Apoi G, H. Vezi planul § 6 pentru tot graful de dependențe.
+
+---
+
+*End of plan. Length: ~900 lines. Save the file; do not delete it after the work is done — keep as a postmortem reference. When phases land, append a "Phase X — done at commit `<sha>`" note at the bottom of this file rather than rewriting the plan body.*
+
+---
+
+## 12. Phase landing log (append-only, oldest at top)
+
+* (none yet — first entry will be the new session)
