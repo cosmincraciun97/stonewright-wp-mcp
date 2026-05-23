@@ -41,7 +41,7 @@ final class StatusPage {
 		}
 
 		$mode           = (string) get_option( 'stonewright_mode', 'development' );
-		$companion_url  = (string) get_option( 'stonewright_companion_url', '' );
+		$companion_url  = (string) get_option( 'stonewright_companion_url', 'http://127.0.0.1:8765' );
 		$elementor_ver  = defined( 'ELEMENTOR_VERSION' ) ? (string) constant( 'ELEMENTOR_VERSION' ) : '';
 		$elementor_pro  = class_exists( 'ElementorPro\Plugin' );
 		$recent_entries = AuditLog::recent( 5, 1 );
@@ -90,15 +90,15 @@ final class StatusPage {
 					</tr>
 
 					<tr>
-						<th scope="row"><?php esc_html_e( 'Companion URL', 'stonewright' ); ?></th>
-						<td>
-							<?php if ( '' !== $companion_url ) : ?>
-								<code><?php echo esc_html( $companion_url ); ?></code>
-							<?php else : ?>
-								<em><?php esc_html_e( 'Not configured', 'stonewright' ); ?></em>
-							<?php endif; ?>
-						</td>
-					</tr>
+					<th scope="row"><?php esc_html_e( 'Companion URL', 'stonewright' ); ?></th>
+					<td>
+						<code><?php echo esc_html( $companion_url ); ?></code>
+						<?php if ( '' === get_option( 'stonewright_companion_url', '' ) ) : ?>
+							<span style="color:#888;font-size:12px;margin-left:6px;"><?php esc_html_e( '(default)', 'stonewright' ); ?></span>
+							&nbsp;<a href="<?php echo esc_url( admin_url( 'admin.php?page=stonewright' ) ); ?>"><?php esc_html_e( 'Configure →', 'stonewright' ); ?></a>
+						<?php endif; ?>
+					</td>
+				</tr>
 				</tbody>
 			</table>
 
