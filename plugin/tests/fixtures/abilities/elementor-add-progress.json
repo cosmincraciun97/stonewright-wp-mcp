@@ -1,0 +1,13 @@
+{
+    "args": {
+        "post_id": 1,
+        "parent_id": "parent1",
+        "settings": {
+            "percent": {
+                "unit": "%",
+                "size": 50
+            }
+        }
+    },
+    "expect": "ok"
+}

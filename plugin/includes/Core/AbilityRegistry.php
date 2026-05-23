@@ -137,7 +137,7 @@ final class AbilityRegistry {
 	 * @return array<class-string<Ability>>
 	 */
 	public static function list(): array {
-		return [
+		$base = [
 			// Security.
 			IssueConfirmationToken::class,
 
@@ -301,6 +301,27 @@ final class AbilityRegistry {
 			MenuDelete::class,
 			MenuAssignLocation::class,
 		];
+
+		// Phase C — auto-generated per-widget Elementor V3 abilities (one per
+		// slug in plugin/includes/Elementor/WidgetRegistry/manifest.json).
+		// Re-run plugin/bin/generate-widget-abilities.php after manifest changes.
+		return array_merge( $base, self::widget_ability_classes() );
+	}
+
+	/**
+	 * Returns the auto-generated per-widget ability class list emitted by
+	 * `plugin/bin/generate-widget-abilities.php`. Returns an empty array
+	 * if the file is missing (e.g. generator hasn't run yet).
+	 *
+	 * @return array<int, class-string<Ability>>
+	 */
+	private static function widget_ability_classes(): array {
+		$path = __DIR__ . '/../Abilities/ElementorWidgets/_class_list.php';
+		if ( ! is_file( $path ) ) {
+			return [];
+		}
+		$loaded = include $path;
+		return is_array( $loaded ) ? $loaded : [];
 	}
 
 	/**

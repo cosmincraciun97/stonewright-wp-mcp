@@ -1,0 +1,8 @@
+{
+    "args": {
+        "post_id": 999999,
+        "parent_id": "parent1",
+        "settings": {}
+    },
+    "expect": "wp_error"
+}

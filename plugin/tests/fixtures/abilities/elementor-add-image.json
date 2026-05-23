@@ -1,0 +1,13 @@
+{
+    "args": {
+        "post_id": 1,
+        "parent_id": "parent1",
+        "settings": {
+            "image": {
+                "id": 1,
+                "url": "http://example.com/img.png"
+            }
+        }
+    },
+    "expect": "ok"
+}

@@ -1,0 +1,11 @@
+{
+    "args": {
+        "post_id": 999999,
+        "parent_id": "parent1",
+        "settings": {
+            "title_text_a": "Side A",
+            "title_text_b": "Side B"
+        }
+    },
+    "expect": "wp_error"
+}

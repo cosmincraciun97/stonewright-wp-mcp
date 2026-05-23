@@ -1,0 +1,14 @@
+{
+    "args": {
+        "post_id": 1,
+        "parent_id": "parent1",
+        "settings": {
+            "features_list": [
+                {
+                    "item_text": "Feature 1"
+                }
+            ]
+        }
+    },
+    "expect": "ok"
+}
