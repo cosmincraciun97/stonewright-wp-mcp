@@ -1,0 +1,41 @@
+{
+    "slug": "sidebar",
+    "source": "free",
+    "title": "Sidebar",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/sidebar.php",
+    "sections": [
+        {
+            "id": "section_sidebar",
+            "label": "Sidebar",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "sidebar",
+                    "type": "select",
+                    "label": "Choose Sidebar",
+                    "default": {
+                        "__unresolved__": "$default_key"
+                    },
+                    "options": {
+                        "__unresolved__": "$options"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:48+00:00"
+}

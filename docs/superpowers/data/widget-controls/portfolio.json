@@ -1,0 +1,400 @@
+{
+    "slug": "portfolio",
+    "source": "pro",
+    "title": "Portfolio",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/posts/widgets/portfolio.php",
+    "sections": [
+        {
+            "id": "section_layout",
+            "label": "Layout",
+            "tab": "content",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "columns",
+                    "type": "select",
+                    "label": "Columns",
+                    "default": "3",
+                    "options": {
+                        "1": "1",
+                        "2": "2",
+                        "3": "3",
+                        "4": "4",
+                        "5": "5",
+                        "6": "6"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "posts_per_page",
+                    "type": "number",
+                    "label": "Posts Per Page",
+                    "default": 6,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "masonry",
+                    "type": "switcher",
+                    "label": "Masonry",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "columns!": "1"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "item_ratio",
+                    "type": "slider",
+                    "label": "Item Ratio",
+                    "default": {
+                        "size": 0.66
+                    },
+                    "options": null,
+                    "condition": {
+                        "masonry": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_title",
+                    "type": "switcher",
+                    "label": "Show Title",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "title_tag",
+                    "type": "select",
+                    "label": "Title HTML Tag",
+                    "default": "h3",
+                    "options": {
+                        "h1": "H1",
+                        "h2": "H2",
+                        "h3": "H3",
+                        "h4": "H4",
+                        "h5": "H5",
+                        "h6": "H6",
+                        "div": "div",
+                        "span": "span",
+                        "p": "p"
+                    },
+                    "condition": {
+                        "show_title": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "image-size",
+                    "name": "thumbnail_size",
+                    "label": null,
+                    "selector": null,
+                    "condition": null,
+                    "exclude": [
+                        "custom"
+                    ],
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_query",
+            "label": "Query",
+            "tab": "content",
+            "condition": null,
+            "controls": [],
+            "group_controls": [
+                {
+                    "group": null,
+                    "name": "posts",
+                    "label": null,
+                    "selector": null,
+                    "condition": null,
+                    "exclude": [
+                        "posts_per_page"
+                    ],
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "filter_bar",
+            "label": "Filter Bar",
+            "tab": "content",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "show_filter_bar",
+                    "type": "switcher",
+                    "label": "Show",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "taxonomy",
+                    "type": "select2",
+                    "label": "Taxonomy",
+                    "default": [],
+                    "options": {
+                        "__unresolved__": "->get_taxonomies()"
+                    },
+                    "condition": {
+                        "show_filter_bar": "yes",
+                        "posts_post_type!": "by_id"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_design_layout",
+            "label": "Items",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "item_gap",
+                    "type": "slider",
+                    "label": "Item Gap",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "column_gap",
+                    "type": "slider",
+                    "label": "Columns Gap",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "row_gap",
+                    "type": "slider",
+                    "label": "Rows Gap",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_design_overlay",
+            "label": "Item Overlay",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "color_background",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "color_title",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "show_title": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "typography_title",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-portfolio-item__title",
+                    "condition": {
+                        "show_title": "yes"
+                    },
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_design_filter",
+            "label": "Filter Bar",
+            "tab": "style",
+            "condition": {
+                "show_filter_bar": "yes"
+            },
+            "controls": [
+                {
+                    "key": "color_filter",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "color_filter_active",
+                    "type": "color",
+                    "label": "Active Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "filter_item_spacing",
+                    "type": "slider",
+                    "label": "Space Between",
+                    "default": {
+                        "size": 10
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "filter_spacing",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": {
+                        "size": 10
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "typography_filter",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-portfolio__filter",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "image-size",
+            "name": "thumbnail_size",
+            "label": null,
+            "selector": null,
+            "condition": null,
+            "exclude": [
+                "custom"
+            ],
+            "include": null
+        },
+        {
+            "group": null,
+            "name": "posts",
+            "label": null,
+            "selector": null,
+            "condition": null,
+            "exclude": [
+                "posts_per_page"
+            ],
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "typography_title",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-portfolio-item__title",
+            "condition": {
+                "show_title": "yes"
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "typography_filter",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-portfolio__filter",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:51+00:00"
+}

@@ -1,0 +1,674 @@
+{
+    "slug": "taxonomy-filter",
+    "source": "pro",
+    "title": "Taxonomy Filter",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/loop-filter/widgets/taxonomy-filter.php",
+    "sections": [
+        {
+            "id": "section_taxonomy_filter",
+            "label": "Layout",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "selected_element",
+                    "type": "select",
+                    "label": "Selected loop grid",
+                    "default": null,
+                    "options": {
+                        "": "Select a widget"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "taxonomy",
+                    "type": "select",
+                    "label": "Taxonomy",
+                    "default": null,
+                    "options": {
+                        "": "Select a taxonomy"
+                    },
+                    "condition": {
+                        "selected_element!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "direction",
+                    "type": "select",
+                    "label": "Direction",
+                    "default": "horizontal",
+                    "options": {
+                        "horizontal": "Horizontal",
+                        "vertical": "Vertical"
+                    },
+                    "condition": {
+                        "selected_element!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "item_alignment_horizontal",
+                    "type": "choose",
+                    "label": "Item Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-align-start-h"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-align-center-h"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-align-end-h"
+                        },
+                        "stretch": {
+                            "title": "Stretch",
+                            "icon": "eicon-align-stretch-h"
+                        }
+                    },
+                    "condition": {
+                        "direction": "horizontal",
+                        "selected_element!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "title_alignment_horizontal",
+                    "type": "choose",
+                    "label": "Title Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-align-start-h"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-align-center-h"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-align-end-h"
+                        }
+                    },
+                    "condition": {
+                        "direction": "horizontal",
+                        "selected_element!": "",
+                        "item_alignment_horizontal": "stretch"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "item_alignment_vertical",
+                    "type": "choose",
+                    "label": "Item Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-align-start-h"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-align-center-h"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-align-end-h"
+                        },
+                        "stretch": {
+                            "title": "Stretch",
+                            "icon": "eicon-align-stretch-h"
+                        }
+                    },
+                    "condition": {
+                        "direction": "vertical",
+                        "selected_element!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "title_alignment_vertical",
+                    "type": "choose",
+                    "label": "Title Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-align-start-h"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-align-center-h"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-align-end-h"
+                        }
+                    },
+                    "condition": {
+                        "direction": "vertical",
+                        "selected_element!": "",
+                        "item_alignment_vertical": "stretch"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_settings",
+            "label": "Settings",
+            "tab": null,
+            "condition": {
+                "selected_element!": ""
+            },
+            "controls": [
+                {
+                    "key": "heading_filter_logic",
+                    "type": "heading",
+                    "label": "Filter Logic",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "multiple_selection",
+                    "type": "switcher",
+                    "label": "Multiple Selection",
+                    "default": "no",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "logical_combination",
+                    "type": "select",
+                    "label": "Logical Combination",
+                    "default": "AND",
+                    "options": {
+                        "AND": "AND",
+                        "OR": "OR"
+                    },
+                    "condition": {
+                        "multiple_selection": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_displayed_elements",
+                    "type": "heading",
+                    "label": "Displayed Elements",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_empty_items",
+                    "type": "switcher",
+                    "label": "Empty Items",
+                    "default": "no",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_child_taxonomy",
+                    "type": "switcher",
+                    "label": "Taxonomy Children",
+                    "default": "no",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "child_taxonomy_depth",
+                    "type": "select",
+                    "label": "Depth",
+                    "default": "1",
+                    "options": {
+                        "1": "1",
+                        "2": "2",
+                        "3": "3",
+                        "4": "4",
+                        "5": "5",
+                        "6": "6"
+                    },
+                    "condition": {
+                        "show_child_taxonomy": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_first_item",
+                    "type": "switcher",
+                    "label": "First Item",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "first_item_title",
+                    "type": "text",
+                    "label": "First Item Title",
+                    "default": "All",
+                    "options": null,
+                    "condition": {
+                        "show_first_item": "yes"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "number_of_taxonomies",
+                    "type": "number",
+                    "label": "Number of taxonomies",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "horizontal_scroll",
+                    "type": "select",
+                    "label": "Horizontal Scroll",
+                    "default": "disable",
+                    "options": {
+                        "disable": "Disable",
+                        "enable": "Enable"
+                    },
+                    "condition": {
+                        "direction": "horizontal"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": "Scroll items if they don’t fit into their parent container"
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_design_layout",
+            "label": "Items",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "taxonomy_filter_items_space_between",
+                    "type": "slider",
+                    "label": "Space between Items",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "taxonomy_filter_normal_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "taxonomy_filter_hover_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "taxonomy_filter_active_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "taxonomy_filter_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "taxonomy_filter_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "taxonomy_filter_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-filter-item",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "taxonomy_filter_normal_text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-filter-item:not( [aria-pressed=true] ):not( :hover )",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": "taxonomy_filter_normal_background",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-filter-item:not( [aria-pressed=true] ):not( :hover )",
+                    "condition": null,
+                    "exclude": [
+                        "image",
+                        "video"
+                    ],
+                    "include": null
+                },
+                {
+                    "group": "border",
+                    "name": "taxonomy_filter_normal_border",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-filter-item:not( [aria-pressed=true] ):not( :hover )",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "taxonomy_filter_normal_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-filter-item:not( [aria-pressed=true] ):not( :hover )",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "taxonomy_filter_hover_text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-filter-item:hover:not( [aria-pressed=true] )",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": "taxonomy_filter_hover_background",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-filter-item:hover:not( [aria-pressed=true] )",
+                    "condition": null,
+                    "exclude": [
+                        "image",
+                        "video"
+                    ],
+                    "include": null
+                },
+                {
+                    "group": "border",
+                    "name": "taxonomy_filter_hover_border",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-filter-item:hover:not( [aria-pressed=true] )",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "taxonomy_filter_hover_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-filter-item:hover:not( [aria-pressed=true] )",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "taxonomy_filter_active_text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-filter-item[aria-pressed=\"true\"]",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": "taxonomy_filter_active_background",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-filter-item[aria-pressed=\"true\"]",
+                    "condition": null,
+                    "exclude": [
+                        "image",
+                        "video"
+                    ],
+                    "include": null
+                },
+                {
+                    "group": "border",
+                    "name": "taxonomy_filter_active_border",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-filter-item[aria-pressed=\"true\"]",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "taxonomy_filter_active_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-filter-item[aria-pressed=\"true\"]",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "typography",
+            "name": "taxonomy_filter_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-filter-item",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "taxonomy_filter_normal_text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-filter-item:not( [aria-pressed=true] ):not( :hover )",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "taxonomy_filter_normal_background",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-filter-item:not( [aria-pressed=true] ):not( :hover )",
+            "condition": null,
+            "exclude": [
+                "image",
+                "video"
+            ],
+            "include": null
+        },
+        {
+            "group": "border",
+            "name": "taxonomy_filter_normal_border",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-filter-item:not( [aria-pressed=true] ):not( :hover )",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "taxonomy_filter_normal_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-filter-item:not( [aria-pressed=true] ):not( :hover )",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "taxonomy_filter_hover_text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-filter-item:hover:not( [aria-pressed=true] )",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "taxonomy_filter_hover_background",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-filter-item:hover:not( [aria-pressed=true] )",
+            "condition": null,
+            "exclude": [
+                "image",
+                "video"
+            ],
+            "include": null
+        },
+        {
+            "group": "border",
+            "name": "taxonomy_filter_hover_border",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-filter-item:hover:not( [aria-pressed=true] )",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "taxonomy_filter_hover_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-filter-item:hover:not( [aria-pressed=true] )",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "taxonomy_filter_active_text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-filter-item[aria-pressed=\"true\"]",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "taxonomy_filter_active_background",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-filter-item[aria-pressed=\"true\"]",
+            "condition": null,
+            "exclude": [
+                "image",
+                "video"
+            ],
+            "include": null
+        },
+        {
+            "group": "border",
+            "name": "taxonomy_filter_active_border",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-filter-item[aria-pressed=\"true\"]",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "taxonomy_filter_active_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-filter-item[aria-pressed=\"true\"]",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:52+00:00"
+}

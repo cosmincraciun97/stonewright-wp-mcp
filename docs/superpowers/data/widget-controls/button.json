@@ -1,0 +1,492 @@
+{
+    "slug": "button",
+    "source": "free",
+    "title": "Button",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/button.php",
+    "sections": [
+        {
+            "id": "section_button",
+            "label": "Button",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "button_type",
+                    "type": "select",
+                    "label": "Type",
+                    "default": "",
+                    "options": {
+                        "": "Default",
+                        "info": "Info",
+                        "success": "Success",
+                        "warning": "Warning",
+                        "danger": "Danger"
+                    },
+                    "condition": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "text",
+                    "type": "text",
+                    "label": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "default": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "options": null,
+                    "condition": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "link",
+                    "type": "url",
+                    "label": "Link",
+                    "default": {
+                        "url": "#"
+                    },
+                    "options": null,
+                    "condition": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "size",
+                    "type": "select",
+                    "label": "Size",
+                    "default": "sm",
+                    "options": {
+                        "__unresolved__": "self::get_button_sizes()"
+                    },
+                    "condition": {
+                        "__unresolved__": "array_merge()"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "selected_icon",
+                    "type": "icons",
+                    "label": "Icon",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon_align",
+                    "type": "choose",
+                    "label": "Icon Position",
+                    "default": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\Ternary"
+                    },
+                    "options": {
+                        "row": {
+                            "title": "Start",
+                            "icon": "eicon-h-align-left"
+                        },
+                        "row-reverse": {
+                            "title": "End",
+                            "icon": "eicon-h-align-right"
+                        }
+                    },
+                    "condition": {
+                        "__unresolved__": "array_merge()"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon_indent",
+                    "type": "slider",
+                    "label": "Icon Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "__unresolved__": "array_merge()"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_css_id",
+                    "type": "text",
+                    "label": "Button ID",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": {
+                        "__unresolved__": "sprintf()"
+                    }
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_style",
+            "label": "Button",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "align",
+                    "type": "choose",
+                    "label": "Position",
+                    "default": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "options": {
+                        "left": {
+                            "title": "Left",
+                            "icon": "eicon-h-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-h-align-center"
+                        },
+                        "right": {
+                            "title": "Right",
+                            "icon": "eicon-h-align-right"
+                        },
+                        "justify": {
+                            "title": "Stretch",
+                            "icon": "eicon-h-align-stretch"
+                        }
+                    },
+                    "condition": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "content_align",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        },
+                        "space-between": {
+                            "title": "Space between",
+                            "icon": "eicon-text-align-justify"
+                        }
+                    },
+                    "condition": {
+                        "__unresolved__": "array_merge()"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "button_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hover_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_hover_border_color",
+                    "type": "color",
+                    "label": "Border Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_hover_transition_duration",
+                    "type": "slider",
+                    "label": "Transition Duration",
+                    "default": {
+                        "unit": "s"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hover_animation",
+                    "type": "hover_animation",
+                    "label": "Hover Animation",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "text_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-button",
+                    "condition": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-button",
+                    "condition": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": "background",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-button",
+                    "condition": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "exclude": [
+                        "image"
+                    ],
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "button_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-button",
+                    "condition": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": "button_background_hover",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-button:hover, {{WRAPPER}} .elementor-button:focus",
+                    "condition": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "exclude": [
+                        "image"
+                    ],
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "button_hover_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-button:hover, {{WRAPPER}} .elementor-button:focus",
+                    "condition": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "border",
+                    "name": "border",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-button",
+                    "condition": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "typography",
+            "name": "typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-button",
+            "condition": {
+                "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-button",
+            "condition": {
+                "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "background",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-button",
+            "condition": {
+                "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+            },
+            "exclude": [
+                "image"
+            ],
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "button_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-button",
+            "condition": {
+                "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "button_background_hover",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-button:hover, {{WRAPPER}} .elementor-button:focus",
+            "condition": {
+                "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+            },
+            "exclude": [
+                "image"
+            ],
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "button_hover_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-button:hover, {{WRAPPER}} .elementor-button:focus",
+            "condition": {
+                "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "border",
+            "name": "border",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-button",
+            "condition": {
+                "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+            },
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:47+00:00"
+}

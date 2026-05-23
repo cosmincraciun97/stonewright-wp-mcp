@@ -1,0 +1,857 @@
+{
+    "slug": "video",
+    "source": "free",
+    "title": "Video",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/video.php",
+    "sections": [
+        {
+            "id": "section_video",
+            "label": "Video",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "video_type",
+                    "type": "select",
+                    "label": "Source",
+                    "default": "youtube",
+                    "options": {
+                        "youtube": "YouTube",
+                        "vimeo": "Vimeo",
+                        "dailymotion": "Dailymotion",
+                        "videopress": "VideoPress",
+                        "hosted": "Self Hosted"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "youtube_url",
+                    "type": "text",
+                    "label": "Link",
+                    "default": "https://www.youtube.com/watch?v=XHOmBV4js_E",
+                    "options": null,
+                    "condition": {
+                        "video_type": "youtube"
+                    },
+                    "dynamic": {
+                        "active": true,
+                        "categories": [
+                            {
+                                "__unresolved__": "TagsModule::POST_META_CATEGORY"
+                            },
+                            {
+                                "__unresolved__": "TagsModule::URL_CATEGORY"
+                            }
+                        ]
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "vimeo_url",
+                    "type": "text",
+                    "label": "Link",
+                    "default": "https://vimeo.com/235215203",
+                    "options": null,
+                    "condition": {
+                        "video_type": "vimeo"
+                    },
+                    "dynamic": {
+                        "active": true,
+                        "categories": [
+                            {
+                                "__unresolved__": "TagsModule::POST_META_CATEGORY"
+                            },
+                            {
+                                "__unresolved__": "TagsModule::URL_CATEGORY"
+                            }
+                        ]
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "dailymotion_url",
+                    "type": "text",
+                    "label": "Link",
+                    "default": "https://www.dailymotion.com/video/x6tqhqb",
+                    "options": null,
+                    "condition": {
+                        "video_type": "dailymotion"
+                    },
+                    "dynamic": {
+                        "active": true,
+                        "categories": [
+                            {
+                                "__unresolved__": "TagsModule::POST_META_CATEGORY"
+                            },
+                            {
+                                "__unresolved__": "TagsModule::URL_CATEGORY"
+                            }
+                        ]
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "insert_url",
+                    "type": "switcher",
+                    "label": "External URL",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "video_type": [
+                            "hosted",
+                            "videopress"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hosted_url",
+                    "type": "media",
+                    "label": "Choose Video File",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "video_type": [
+                            "hosted",
+                            "videopress"
+                        ],
+                        "insert_url": ""
+                    },
+                    "dynamic": {
+                        "active": true,
+                        "categories": [
+                            {
+                                "__unresolved__": "TagsModule::MEDIA_CATEGORY"
+                            }
+                        ]
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "external_url",
+                    "type": "url",
+                    "label": "URL",
+                    "default": null,
+                    "options": false,
+                    "condition": {
+                        "video_type": "hosted",
+                        "insert_url": "yes"
+                    },
+                    "dynamic": {
+                        "active": true,
+                        "categories": [
+                            {
+                                "__unresolved__": "TagsModule::POST_META_CATEGORY"
+                            },
+                            {
+                                "__unresolved__": "TagsModule::URL_CATEGORY"
+                            }
+                        ]
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "videopress_url",
+                    "type": "text",
+                    "label": "URL",
+                    "default": "https://videopress.com/v/ZCAOzTNk",
+                    "options": null,
+                    "condition": {
+                        "video_type": "videopress",
+                        "insert_url": "yes"
+                    },
+                    "dynamic": {
+                        "active": true,
+                        "categories": [
+                            {
+                                "__unresolved__": "TagsModule::POST_META_CATEGORY"
+                            },
+                            {
+                                "__unresolved__": "TagsModule::URL_CATEGORY"
+                            }
+                        ]
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "start",
+                    "type": "number",
+                    "label": "Start Time",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": "Specify a start time (in seconds)"
+                },
+                {
+                    "key": "end",
+                    "type": "number",
+                    "label": "End Time",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "video_type": [
+                            "youtube",
+                            "hosted"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": "Specify an end time (in seconds)"
+                },
+                {
+                    "key": "video_options",
+                    "type": "heading",
+                    "label": "Video Options",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "autoplay",
+                    "type": "switcher",
+                    "label": "Autoplay",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": {
+                        "__unresolved__": "sprintf()"
+                    }
+                },
+                {
+                    "key": "play_on_mobile",
+                    "type": "switcher",
+                    "label": "Play On Mobile",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "autoplay": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "mute",
+                    "type": "switcher",
+                    "label": "Mute",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "loop",
+                    "type": "switcher",
+                    "label": "Loop",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "video_type!": "dailymotion"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "controls",
+                    "type": "switcher",
+                    "label": "Player Controls",
+                    "default": "yes",
+                    "options": null,
+                    "condition": {
+                        "video_type!": "vimeo"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "showinfo",
+                    "type": "switcher",
+                    "label": "Video Info",
+                    "default": "yes",
+                    "options": null,
+                    "condition": {
+                        "video_type": [
+                            "dailymotion"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "cc_load_policy",
+                    "type": "switcher",
+                    "label": "Captions",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "video_type": [
+                            "youtube"
+                        ],
+                        "controls": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "logo",
+                    "type": "switcher",
+                    "label": "Logo",
+                    "default": "yes",
+                    "options": null,
+                    "condition": {
+                        "video_type": [
+                            "dailymotion"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "yt_privacy",
+                    "type": "switcher",
+                    "label": "Privacy Mode",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "video_type": [
+                            "youtube",
+                            "vimeo"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": "When you turn on privacy mode, YouTube/Vimeo won't store information about visitors on your website unless they play the video."
+                },
+                {
+                    "key": "lazy_load",
+                    "type": "switcher",
+                    "label": "Lazy Load",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "relation": "or",
+                        "terms": [
+                            {
+                                "name": "video_type",
+                                "operator": "===",
+                                "value": "youtube"
+                            },
+                            {
+                                "relation": "and",
+                                "terms": [
+                                    {
+                                        "name": "show_image_overlay",
+                                        "operator": "===",
+                                        "value": "yes"
+                                    },
+                                    {
+                                        "name": "video_type",
+                                        "operator": "!==",
+                                        "value": "hosted"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "rel",
+                    "type": "select",
+                    "label": "Suggested Videos",
+                    "default": null,
+                    "options": {
+                        "": "Current Video Channel",
+                        "yes": "Any Video"
+                    },
+                    "condition": {
+                        "video_type": "youtube"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "vimeo_title",
+                    "type": "switcher",
+                    "label": "Intro Title",
+                    "default": "yes",
+                    "options": null,
+                    "condition": {
+                        "video_type": "vimeo"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "vimeo_portrait",
+                    "type": "switcher",
+                    "label": "Intro Portrait",
+                    "default": "yes",
+                    "options": null,
+                    "condition": {
+                        "video_type": "vimeo"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "vimeo_byline",
+                    "type": "switcher",
+                    "label": "Intro Byline",
+                    "default": "yes",
+                    "options": null,
+                    "condition": {
+                        "video_type": "vimeo"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "color",
+                    "type": "color",
+                    "label": "Controls Color",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "video_type": [
+                            "vimeo",
+                            "dailymotion"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "download_button",
+                    "type": "switcher",
+                    "label": "Download Button",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "video_type": "hosted"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "preload",
+                    "type": "select",
+                    "label": "Preload",
+                    "default": "metadata",
+                    "options": {
+                        "metadata": "Metadata",
+                        "auto": "Auto",
+                        "none": "None"
+                    },
+                    "condition": {
+                        "video_type": "hosted",
+                        "autoplay": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": {
+                        "__unresolved__": "sprintf()"
+                    }
+                },
+                {
+                    "key": "poster",
+                    "type": "media",
+                    "label": "Poster",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "video_type": "hosted"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_image_overlay",
+            "label": "Image Overlay",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "show_image_overlay",
+                    "type": "switcher",
+                    "label": "Image Overlay",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "image_overlay",
+                    "type": "media",
+                    "label": "Choose Image",
+                    "default": {
+                        "url": {
+                            "__unresolved__": "Utils::get_placeholder_image_src()"
+                        }
+                    },
+                    "options": null,
+                    "condition": {
+                        "show_image_overlay": "yes"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_play_icon",
+                    "type": "switcher",
+                    "label": "Play Icon",
+                    "default": "yes",
+                    "options": null,
+                    "condition": {
+                        "show_image_overlay": "yes",
+                        "image_overlay[url]!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "play_icon",
+                    "type": "icons",
+                    "label": "Icon",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "show_image_overlay": "yes",
+                        "show_play_icon!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "lightbox",
+                    "type": "switcher",
+                    "label": "Lightbox",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "show_image_overlay": "yes",
+                        "image_overlay[url]!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "image-size",
+                    "name": "image_overlay",
+                    "label": null,
+                    "selector": null,
+                    "condition": {
+                        "show_image_overlay": "yes"
+                    },
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_video_style",
+            "label": "Video",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "aspect_ratio",
+                    "type": "select",
+                    "label": "Aspect Ratio",
+                    "default": "169",
+                    "options": {
+                        "169": "16:9",
+                        "219": "21:9",
+                        "43": "4:3",
+                        "32": "3:2",
+                        "11": "1:1",
+                        "916": "9:16"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "css-filter",
+                    "name": "css_filters",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-wrapper",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_image_overlay_style",
+            "label": "Image Overlay",
+            "tab": "style",
+            "condition": {
+                "show_image_overlay": "yes",
+                "show_play_icon": "yes"
+            },
+            "controls": [
+                {
+                    "key": "play_icon_title",
+                    "type": "heading",
+                    "label": "Play Icon",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "show_image_overlay": "yes",
+                        "show_play_icon": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "play_icon_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "show_image_overlay": "yes",
+                        "show_play_icon": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "play_icon_size",
+                    "type": "slider",
+                    "label": "Size",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "show_image_overlay": "yes",
+                        "show_play_icon": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "text-shadow",
+                    "name": "play_icon_text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-custom-embed-play i",
+                    "condition": {
+                        "show_image_overlay": "yes",
+                        "show_play_icon": "yes",
+                        "play_icon[library]!": "svg"
+                    },
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_lightbox_style",
+            "label": "Lightbox",
+            "tab": "style",
+            "condition": {
+                "show_image_overlay": "yes",
+                "image_overlay[url]!": "",
+                "lightbox": "yes"
+            },
+            "controls": [
+                {
+                    "key": "lightbox_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "lightbox_ui_color",
+                    "type": "color",
+                    "label": "UI Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "lightbox_ui_color_hover",
+                    "type": "color",
+                    "label": "UI Hover Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "lightbox_content_animation",
+                    "type": "animation",
+                    "label": "Entrance Animation",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "deprecation_warning",
+                    "type": "alert",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "lightbox_video_width!": "",
+                        "lightbox_content_position!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "lightbox_video_width",
+                    "type": "slider",
+                    "label": "Content Width",
+                    "default": {
+                        "unit": "%"
+                    },
+                    "options": null,
+                    "condition": {
+                        "lightbox_video_width!": "",
+                        "lightbox_content_position!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "lightbox_content_position",
+                    "type": "select",
+                    "label": "Content Position",
+                    "default": null,
+                    "options": {
+                        "": "Center",
+                        "top": "Top"
+                    },
+                    "condition": {
+                        "lightbox_video_width!": "",
+                        "lightbox_content_position!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "image-size",
+            "name": "image_overlay",
+            "label": null,
+            "selector": null,
+            "condition": {
+                "show_image_overlay": "yes"
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "css-filter",
+            "name": "css_filters",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-wrapper",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "play_icon_text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-custom-embed-play i",
+            "condition": {
+                "show_image_overlay": "yes",
+                "show_play_icon": "yes",
+                "play_icon[library]!": "svg"
+            },
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:49+00:00"
+}

@@ -1,0 +1,186 @@
+{
+    "slug": "audio",
+    "source": "free",
+    "title": "SoundCloud",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/audio.php",
+    "sections": [
+        {
+            "id": "section_audio",
+            "label": "SoundCloud",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "link",
+                    "type": "url",
+                    "label": "Link",
+                    "default": {
+                        "url": "https://soundcloud.com/shchxango/john-coltrane-1963-my-favorite"
+                    },
+                    "options": false,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true,
+                        "categories": [
+                            {
+                                "__unresolved__": "TagsModule::POST_META_CATEGORY"
+                            },
+                            {
+                                "__unresolved__": "TagsModule::URL_CATEGORY"
+                            }
+                        ]
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "visual",
+                    "type": "select",
+                    "label": "Visual Player",
+                    "default": "no",
+                    "options": {
+                        "yes": "Yes",
+                        "no": "No"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sc_options",
+                    "type": "heading",
+                    "label": "Additional Options",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sc_auto_play",
+                    "type": "switcher",
+                    "label": "Autoplay",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sc_buying",
+                    "type": "switcher",
+                    "label": "Buy Button",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sc_liking",
+                    "type": "switcher",
+                    "label": "Like Button",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sc_download",
+                    "type": "switcher",
+                    "label": "Download Button",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sc_show_artwork",
+                    "type": "switcher",
+                    "label": "Artwork",
+                    "default": "yes",
+                    "options": null,
+                    "condition": {
+                        "visual": "no"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sc_sharing",
+                    "type": "switcher",
+                    "label": "Share Button",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sc_show_comments",
+                    "type": "switcher",
+                    "label": "Comments",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sc_show_playcount",
+                    "type": "switcher",
+                    "label": "Play Counts",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sc_show_user",
+                    "type": "switcher",
+                    "label": "Username",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sc_color",
+                    "type": "color",
+                    "label": "Controls Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:47+00:00"
+}

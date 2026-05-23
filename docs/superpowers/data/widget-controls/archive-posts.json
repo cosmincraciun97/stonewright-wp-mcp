@@ -1,0 +1,84 @@
+{
+    "slug": "archive-posts",
+    "source": "pro",
+    "title": "Archive Posts",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/archive-posts.php",
+    "sections": [
+        {
+            "id": "section_advanced",
+            "label": "Advanced",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "nothing_found_message",
+                    "type": "textarea",
+                    "label": "Nothing Found Message",
+                    "default": "It seems we can’t find what you’re looking for.",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_nothing_found_style",
+            "label": "Nothing Found Message",
+            "tab": "style",
+            "condition": {
+                "nothing_found_message!": ""
+            },
+            "controls": [
+                {
+                    "key": "nothing_found_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "nothing_found_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-posts-nothing-found",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "typography",
+            "name": "nothing_found_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-posts-nothing-found",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [
+            "register_pagination_section_controls"
+        ],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:49+00:00"
+}

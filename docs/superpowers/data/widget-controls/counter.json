@@ -1,0 +1,527 @@
+{
+    "slug": "counter",
+    "source": "free",
+    "title": "Counter",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/counter.php",
+    "sections": [
+        {
+            "id": "section_counter",
+            "label": "Counter",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "starting_number",
+                    "type": "number",
+                    "label": "Starting Number",
+                    "default": 0,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "ending_number",
+                    "type": "number",
+                    "label": "Ending Number",
+                    "default": 100,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "prefix",
+                    "type": "text",
+                    "label": "Number Prefix",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "suffix",
+                    "type": "text",
+                    "label": "Number Suffix",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "duration",
+                    "type": "number",
+                    "label": "Animation Duration (ms)",
+                    "default": 2000,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "thousand_separator",
+                    "type": "switcher",
+                    "label": "Thousand Separator",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "thousand_separator_char",
+                    "type": "select",
+                    "label": "Separator",
+                    "default": null,
+                    "options": {
+                        "": "Default",
+                        ".": "Dot",
+                        " ": "Space",
+                        "_": "Underline",
+                        "'": "Apostrophe"
+                    },
+                    "condition": {
+                        "thousand_separator": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "title",
+                    "type": "text",
+                    "label": "Title",
+                    "default": "Cool Number",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "title_tag",
+                    "type": "select",
+                    "label": "Title HTML Tag",
+                    "default": "div",
+                    "options": {
+                        "h1": "H1",
+                        "h2": "H2",
+                        "h3": "H3",
+                        "h4": "H4",
+                        "h5": "H5",
+                        "h6": "H6",
+                        "div": "div",
+                        "span": "span",
+                        "p": "p"
+                    },
+                    "condition": {
+                        "title!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_counter_style",
+            "label": "Counter",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "title_position",
+                    "type": "choose",
+                    "label": "Title Position",
+                    "default": null,
+                    "options": {
+                        "before": {
+                            "title": "Before",
+                            "icon": "eicon-v-align-top"
+                        },
+                        "after": {
+                            "title": "After",
+                            "icon": "eicon-v-align-bottom"
+                        },
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-h-align-left"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-h-align-right"
+                        }
+                    },
+                    "condition": {
+                        "title!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "title_horizontal_alignment",
+                    "type": "choose",
+                    "label": "Title Horizontal Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-h-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-h-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-h-align-right"
+                        }
+                    },
+                    "condition": {
+                        "title!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "title_vertical_alignment",
+                    "type": "choose",
+                    "label": "Title Vertical Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Top",
+                            "icon": "eicon-v-align-top"
+                        },
+                        "center": {
+                            "title": "Middle",
+                            "icon": "eicon-v-align-middle"
+                        },
+                        "end": {
+                            "title": "Bottom",
+                            "icon": "eicon-v-align-bottom"
+                        }
+                    },
+                    "condition": {
+                        "title!": "",
+                        "title_position": [
+                            "start",
+                            "end"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "title_gap",
+                    "type": "slider",
+                    "label": "Title Gap",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "title!": "",
+                        "title_position": [
+                            "",
+                            "before",
+                            "after"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "number_position",
+                    "type": "choose",
+                    "label": "Number Position",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-h-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-h-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-h-align-right"
+                        },
+                        "stretch": {
+                            "title": "Stretch",
+                            "icon": "eicon-grow"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "number_alignment",
+                    "type": "choose",
+                    "label": "Number Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        }
+                    },
+                    "condition": {
+                        "number_position": "stretch"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "number_gap",
+                    "type": "slider",
+                    "label": "Number Gap",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "relation": "and",
+                        "terms": [
+                            {
+                                "name": "number_position",
+                                "operator": "!==",
+                                "value": "stretch"
+                            },
+                            {
+                                "relation": "or",
+                                "terms": [
+                                    {
+                                        "name": "prefix",
+                                        "operator": "!==",
+                                        "value": ""
+                                    },
+                                    {
+                                        "name": "suffix",
+                                        "operator": "!==",
+                                        "value": ""
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_number",
+            "label": "Number",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "number_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "typography_number",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-counter-number-wrapper",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-stroke",
+                    "name": "number_stroke",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-counter-number-wrapper",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "number_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-counter-number-wrapper",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_title",
+            "label": "Title",
+            "tab": "style",
+            "condition": {
+                "title!": ""
+            },
+            "controls": [
+                {
+                    "key": "title_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "title!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "typography_title",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-counter-title",
+                    "condition": {
+                        "title!": ""
+                    },
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-stroke",
+                    "name": "title_stroke",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-counter-title",
+                    "condition": {
+                        "title!": ""
+                    },
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "title_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-counter-title",
+                    "condition": {
+                        "title!": ""
+                    },
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "typography",
+            "name": "typography_number",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-counter-number-wrapper",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-stroke",
+            "name": "number_stroke",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-counter-number-wrapper",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "number_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-counter-number-wrapper",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "typography_title",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-counter-title",
+            "condition": {
+                "title!": ""
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-stroke",
+            "name": "title_stroke",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-counter-title",
+            "condition": {
+                "title!": ""
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "title_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-counter-title",
+            "condition": {
+                "title!": ""
+            },
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:47+00:00"
+}

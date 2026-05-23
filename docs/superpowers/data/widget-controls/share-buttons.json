@@ -1,0 +1,407 @@
+{
+    "slug": "share-buttons",
+    "source": "pro",
+    "title": "Share Buttons",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/share-buttons/widgets/share-buttons.php",
+    "sections": [
+        {
+            "id": "section_buttons_content",
+            "label": "Share Buttons",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "share_buttons",
+                    "type": "repeater",
+                    "label": null,
+                    "default": [
+                        {
+                            "button": "facebook"
+                        },
+                        {
+                            "button": "x-twitter"
+                        },
+                        {
+                            "button": "linkedin"
+                        }
+                    ],
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "view",
+                    "type": "select",
+                    "label": "View",
+                    "default": "icon-text",
+                    "options": {
+                        "icon-text": "Icon & Text",
+                        "icon": "Icon",
+                        "text": "Text"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_label",
+                    "type": "switcher",
+                    "label": "Label",
+                    "default": "yes",
+                    "options": null,
+                    "condition": {
+                        "view": "icon-text"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "skin",
+                    "type": "select",
+                    "label": "Skin",
+                    "default": "gradient",
+                    "options": {
+                        "gradient": "Gradient",
+                        "minimal": "Minimal",
+                        "framed": "Framed",
+                        "boxed": "Boxed Icon",
+                        "flat": "Flat"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "shape",
+                    "type": "select",
+                    "label": "Shape",
+                    "default": "square",
+                    "options": {
+                        "square": "Square",
+                        "rounded": "Rounded",
+                        "circle": "Circle"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "columns",
+                    "type": "select",
+                    "label": "Columns",
+                    "default": "0",
+                    "options": [
+                        "Auto",
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6"
+                    ],
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "left": {
+                            "title": "Left",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "right": {
+                            "title": "Right",
+                            "icon": "eicon-text-align-right"
+                        },
+                        "justify": {
+                            "title": "Justify",
+                            "icon": "eicon-text-align-justify"
+                        }
+                    },
+                    "condition": {
+                        "columns": "0"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "share_url_type",
+                    "type": "select",
+                    "label": "Target URL",
+                    "default": "current_page",
+                    "options": {
+                        "current_page": "Current Page",
+                        "custom": "Custom"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "share_url",
+                    "type": "url",
+                    "label": "Link",
+                    "default": null,
+                    "options": false,
+                    "condition": {
+                        "share_url_type": "custom"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_buttons_style",
+            "label": "Share Buttons",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "column_gap",
+                    "type": "slider",
+                    "label": "Columns Gap",
+                    "default": {
+                        "size": 10
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "row_gap",
+                    "type": "slider",
+                    "label": "Rows Gap",
+                    "default": {
+                        "size": 10
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "button_size",
+                    "type": "slider",
+                    "label": "Button Size",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "icon_size",
+                    "type": "slider",
+                    "label": "Icon Size",
+                    "default": {
+                        "unit": "em"
+                    },
+                    "options": null,
+                    "condition": {
+                        "view!": "text"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "button_height",
+                    "type": "slider",
+                    "label": "Button Height",
+                    "default": {
+                        "unit": "em"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "border_size",
+                    "type": "slider",
+                    "label": "Border Width",
+                    "default": {
+                        "size": 2
+                    },
+                    "options": null,
+                    "condition": {
+                        "skin": [
+                            "framed",
+                            "boxed"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "color_source",
+                    "type": "select",
+                    "label": "Color",
+                    "default": "official",
+                    "options": {
+                        "official": "Official",
+                        "custom": "Custom"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "primary_color",
+                    "type": "color",
+                    "label": "Primary Color",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "secondary_color",
+                    "type": "color",
+                    "label": "Secondary Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "skin!": "framed"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "primary_color_hover",
+                    "type": "color",
+                    "label": "Primary Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "secondary_color_hover",
+                    "type": "color",
+                    "label": "Secondary Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "text_padding",
+                    "type": "dimensions",
+                    "label": "Text Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "view": "text"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-share-btn__title",
+                    "condition": null,
+                    "exclude": [
+                        "line_height"
+                    ],
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "typography",
+            "name": "typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-share-btn__title",
+            "condition": null,
+            "exclude": [
+                "line_height"
+            ],
+            "include": null
+        }
+    ],
+    "repeaters": [
+        {
+            "var": "repeater",
+            "fields": [
+                {
+                    "key": "button",
+                    "type": "select",
+                    "label": "Network",
+                    "default": "facebook",
+                    "options": {
+                        "__unresolved__": "array_reduce()"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "text",
+                    "type": "text",
+                    "label": "Custom Label",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                }
+            ]
+        }
+    ],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:52+00:00"
+}

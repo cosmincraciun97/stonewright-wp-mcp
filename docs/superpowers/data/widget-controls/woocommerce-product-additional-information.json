@@ -1,0 +1,103 @@
+{
+    "slug": "woocommerce-product-additional-information",
+    "source": "wc",
+    "title": "Additional Information",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-additional-information.php",
+    "sections": [
+        {
+            "id": "section_additional_info_style",
+            "label": "General",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "show_heading",
+                    "type": "switcher",
+                    "label": "Heading",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "show_heading!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "content_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "heading_typography",
+                    "label": null,
+                    "selector": ".woocommerce {{WRAPPER}} h2",
+                    "condition": {
+                        "show_heading!": ""
+                    },
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "content_typography",
+                    "label": null,
+                    "selector": ".woocommerce {{WRAPPER}} .shop_attributes",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "typography",
+            "name": "heading_typography",
+            "label": null,
+            "selector": ".woocommerce {{WRAPPER}} h2",
+            "condition": {
+                "show_heading!": ""
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "content_typography",
+            "label": null,
+            "selector": ".woocommerce {{WRAPPER}} .shop_attributes",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:53+00:00"
+}

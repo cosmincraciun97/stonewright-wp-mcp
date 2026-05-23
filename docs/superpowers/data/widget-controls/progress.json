@@ -1,0 +1,347 @@
+{
+    "slug": "progress",
+    "source": "free",
+    "title": "Progress Bar",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/progress.php",
+    "sections": [
+        {
+            "id": "section_progress",
+            "label": "Progress Bar",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "title",
+                    "type": "text",
+                    "label": "Title",
+                    "default": "My Skill",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "title_tag",
+                    "type": "select",
+                    "label": "Title HTML Tag",
+                    "default": "span",
+                    "options": {
+                        "h1": "H1",
+                        "h2": "H2",
+                        "h3": "H3",
+                        "h4": "H4",
+                        "h5": "H5",
+                        "h6": "H6",
+                        "div": "div",
+                        "span": "span",
+                        "p": "p"
+                    },
+                    "condition": {
+                        "title!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "title_display",
+                    "type": "switcher",
+                    "label": "Display Title",
+                    "default": "yes",
+                    "options": null,
+                    "condition": {
+                        "title!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "progress_type",
+                    "type": "select",
+                    "label": "Type",
+                    "default": "",
+                    "options": {
+                        "": "Default",
+                        "info": "Info",
+                        "success": "Success",
+                        "warning": "Warning",
+                        "danger": "Danger"
+                    },
+                    "condition": {
+                        "progress_type!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "percent",
+                    "type": "slider",
+                    "label": "Percentage",
+                    "default": {
+                        "size": 50,
+                        "unit": "%"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "display_percentage",
+                    "type": "switcher",
+                    "label": "Display Percentage",
+                    "default": "show",
+                    "options": null,
+                    "condition": {
+                        "percent!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "inner_text",
+                    "type": "text",
+                    "label": "Inner Text",
+                    "default": "Web Designer",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_progress_style",
+            "label": "Progress Bar",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "title_heading",
+                    "type": "heading",
+                    "label": "Title",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "title!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "title_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "title!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "percentage_heading",
+                    "type": "heading",
+                    "label": "Percentage",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "bar_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "bar_bg_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "bar_height",
+                    "type": "slider",
+                    "label": "Height",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "bar_border_radius",
+                    "type": "slider",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "inner_text_heading",
+                    "type": "heading",
+                    "label": "Inner Text",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "inner_text!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "bar_inline_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "inner_text!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-title",
+                    "condition": {
+                        "title!": ""
+                    },
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "title_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-title",
+                    "condition": {
+                        "title!": ""
+                    },
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "bar_inner_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-progress-bar",
+                    "condition": {
+                        "inner_text!": ""
+                    },
+                    "exclude": [
+                        "line_height"
+                    ],
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "bar_inner_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-progress-bar",
+                    "condition": {
+                        "inner_text!": ""
+                    },
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "typography",
+            "name": "typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-title",
+            "condition": {
+                "title!": ""
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "title_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-title",
+            "condition": {
+                "title!": ""
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "bar_inner_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-progress-bar",
+            "condition": {
+                "inner_text!": ""
+            },
+            "exclude": [
+                "line_height"
+            ],
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "bar_inner_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-progress-bar",
+            "condition": {
+                "inner_text!": ""
+            },
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:48+00:00"
+}

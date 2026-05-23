@@ -1,0 +1,972 @@
+{
+    "slug": "nav-menu",
+    "source": "pro",
+    "title": "WordPress Menu",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/nav-menu/widgets/nav-menu.php",
+    "sections": [
+        {
+            "id": "section_layout",
+            "label": "Layout",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "menu_name",
+                    "type": "text",
+                    "label": "Menu Name",
+                    "default": "Menu",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "menu",
+                    "type": "select",
+                    "label": "Menu",
+                    "default": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\ArrayDimFetch"
+                    },
+                    "options": {
+                        "__unresolved__": "$menus"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": {
+                        "__unresolved__": "sprintf()"
+                    }
+                },
+                {
+                    "key": "menu",
+                    "type": "alert",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "layout",
+                    "type": "select",
+                    "label": "Layout",
+                    "default": "horizontal",
+                    "options": {
+                        "horizontal": "Horizontal",
+                        "vertical": "Vertical",
+                        "dropdown": "Dropdown"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "align_items",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": {
+                                "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+                            }
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-align-center-h"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": {
+                                "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+                            }
+                        },
+                        "justify": {
+                            "title": "Stretch",
+                            "icon": "eicon-align-stretch-h"
+                        }
+                    },
+                    "condition": {
+                        "layout!": "dropdown"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "pointer",
+                    "type": "select",
+                    "label": "Pointer",
+                    "default": "underline",
+                    "options": {
+                        "none": "None",
+                        "underline": "Underline",
+                        "overline": "Overline",
+                        "double-line": "Double Line",
+                        "framed": "Framed",
+                        "background": "Background",
+                        "text": "Text"
+                    },
+                    "condition": {
+                        "layout!": "dropdown"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "animation_line",
+                    "type": "select",
+                    "label": "Animation",
+                    "default": "fade",
+                    "options": {
+                        "fade": "Fade",
+                        "slide": "Slide",
+                        "grow": "Grow",
+                        "drop-in": "Drop In",
+                        "drop-out": "Drop Out",
+                        "none": "None"
+                    },
+                    "condition": {
+                        "layout!": "dropdown",
+                        "pointer": [
+                            "underline",
+                            "overline",
+                            "double-line"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "animation_framed",
+                    "type": "select",
+                    "label": "Animation",
+                    "default": "fade",
+                    "options": {
+                        "fade": "Fade",
+                        "grow": "Grow",
+                        "shrink": "Shrink",
+                        "draw": "Draw",
+                        "corners": "Corners",
+                        "none": "None"
+                    },
+                    "condition": {
+                        "layout!": "dropdown",
+                        "pointer": "framed"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "animation_background",
+                    "type": "select",
+                    "label": "Animation",
+                    "default": "fade",
+                    "options": {
+                        "fade": "Fade",
+                        "grow": "Grow",
+                        "shrink": "Shrink",
+                        "sweep-left": "Sweep Left",
+                        "sweep-right": "Sweep Right",
+                        "sweep-up": "Sweep Up",
+                        "sweep-down": "Sweep Down",
+                        "shutter-in-vertical": "Shutter In Vertical",
+                        "shutter-out-vertical": "Shutter Out Vertical",
+                        "shutter-in-horizontal": "Shutter In Horizontal",
+                        "shutter-out-horizontal": "Shutter Out Horizontal",
+                        "none": "None"
+                    },
+                    "condition": {
+                        "layout!": "dropdown",
+                        "pointer": "background"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "animation_text",
+                    "type": "select",
+                    "label": "Animation",
+                    "default": "grow",
+                    "options": {
+                        "grow": "Grow",
+                        "shrink": "Shrink",
+                        "sink": "Sink",
+                        "float": "Float",
+                        "skew": "Skew",
+                        "rotate": "Rotate",
+                        "none": "None"
+                    },
+                    "condition": {
+                        "layout!": "dropdown",
+                        "pointer": "text"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "submenu_icon",
+                    "type": "icons",
+                    "label": "Submenu Indicator",
+                    "default": {
+                        "value": {
+                            "__unresolved__": "PhpParser\\Node\\Expr\\BinaryOp\\Concat"
+                        },
+                        "library": "fa-solid"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_mobile_dropdown",
+                    "type": "heading",
+                    "label": "Mobile Dropdown",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "layout!": "dropdown"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "dropdown",
+                    "type": "select",
+                    "label": "Breakpoint",
+                    "default": "tablet",
+                    "options": {
+                        "__unresolved__": "$dropdown_options"
+                    },
+                    "condition": {
+                        "layout!": "dropdown"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "full_width",
+                    "type": "switcher",
+                    "label": "Full Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "dropdown!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": "Stretch the dropdown of the menu to full width."
+                },
+                {
+                    "key": "text_align",
+                    "type": "select",
+                    "label": "Text Align",
+                    "default": "aside",
+                    "options": {
+                        "aside": "Aside",
+                        "center": "Center"
+                    },
+                    "condition": {
+                        "dropdown!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "toggle",
+                    "type": "select",
+                    "label": "Toggle Button",
+                    "default": "burger",
+                    "options": {
+                        "": "None",
+                        "burger": "Hamburger"
+                    },
+                    "condition": {
+                        "dropdown!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "toggle_icon_normal",
+                    "type": "icons",
+                    "label": "Icon",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "toggle": "burger"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "toggle_icon_hover_animation",
+                    "type": "hover_animation",
+                    "label": "Hover Animation",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "toggle": "burger"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "toggle_icon_active",
+                    "type": "icons",
+                    "label": "Icon",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "toggle": "burger"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "toggle_align",
+                    "type": "choose",
+                    "label": "Toggle Align",
+                    "default": "center",
+                    "options": {
+                        "left": {
+                            "title": "Left",
+                            "icon": "eicon-h-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-h-align-center"
+                        },
+                        "right": {
+                            "title": "Right",
+                            "icon": "eicon-h-align-right"
+                        }
+                    },
+                    "condition": {
+                        "toggle!": "",
+                        "dropdown!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_style_main-menu",
+            "label": "Main Menu",
+            "tab": "style",
+            "condition": {
+                "layout!": "dropdown"
+            },
+            "controls": [
+                {
+                    "key": "color_menu_item",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "color_menu_item_hover",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "pointer!": "background"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "color_menu_item_hover_pointer_bg",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": "#fff",
+                    "options": null,
+                    "condition": {
+                        "pointer": "background"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "pointer_color_menu_item_hover",
+                    "type": "color",
+                    "label": "Pointer Color",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "pointer!": [
+                            "none",
+                            "text"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "color_menu_item_active",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "pointer_color_menu_item_active",
+                    "type": "color",
+                    "label": "Pointer Color",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "pointer!": [
+                            "none",
+                            "text"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "nav_menu_divider",
+                    "type": "switcher",
+                    "label": "Divider",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "layout": "horizontal"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "nav_menu_divider_style",
+                    "type": "select",
+                    "label": "Style",
+                    "default": "solid",
+                    "options": {
+                        "solid": "Solid",
+                        "double": "Double",
+                        "dotted": "Dotted",
+                        "dashed": "Dashed"
+                    },
+                    "condition": {
+                        "__unresolved__": "$divider_condition"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "nav_menu_divider_weight",
+                    "type": "slider",
+                    "label": "Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "__unresolved__": "$divider_condition"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "nav_menu_divider_height",
+                    "type": "slider",
+                    "label": "Height",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "__unresolved__": "$divider_condition"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "nav_menu_divider_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "__unresolved__": "$divider_condition"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hr",
+                    "type": "divider",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "pointer_width",
+                    "type": "slider",
+                    "label": "Pointer Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "pointer": [
+                            "underline",
+                            "overline",
+                            "double-line",
+                            "framed"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "padding_horizontal_menu_item",
+                    "type": "slider",
+                    "label": "Horizontal Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "padding_vertical_menu_item",
+                    "type": "slider",
+                    "label": "Vertical Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "menu_space_between",
+                    "type": "slider",
+                    "label": "Space Between",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "border_radius_menu_item",
+                    "type": "slider",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "pointer": "background"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "menu_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-nav-menu .elementor-item",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_style_dropdown",
+            "label": "Dropdown",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "dropdown_description",
+                    "type": "raw_html",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "color_dropdown_item",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "background_color_dropdown_item",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "color_dropdown_item_hover",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "background_color_dropdown_item_hover",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "color_dropdown_item_active",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "background_color_dropdown_item_active",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "dropdown_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "padding_horizontal_dropdown_item",
+                    "type": "slider",
+                    "label": "Horizontal Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "padding_vertical_dropdown_item",
+                    "type": "slider",
+                    "label": "Vertical Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "heading_dropdown_divider",
+                    "type": "heading",
+                    "label": "Divider",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "dropdown_divider_width",
+                    "type": "slider",
+                    "label": "Border Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "dropdown_divider_border!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "dropdown_top_distance",
+                    "type": "slider",
+                    "label": "Distance",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "dropdown_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-nav-menu--dropdown .elementor-item, {{WRAPPER}} .elementor-nav-menu--dropdown  .elementor-sub-item",
+                    "condition": null,
+                    "exclude": [
+                        "line_height"
+                    ],
+                    "include": null
+                },
+                {
+                    "group": "border",
+                    "name": "dropdown_border",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-nav-menu--dropdown",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "dropdown_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-nav-menu--main .elementor-nav-menu--dropdown, {{WRAPPER}} .elementor-nav-menu__container.elementor-nav-menu--dropdown",
+                    "condition": null,
+                    "exclude": [
+                        "box_shadow_position"
+                    ],
+                    "include": null
+                },
+                {
+                    "group": "border",
+                    "name": "dropdown_divider",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-nav-menu--dropdown li:not(:last-child)",
+                    "condition": null,
+                    "exclude": [
+                        "width"
+                    ],
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "style_toggle",
+            "label": "Toggle Button",
+            "tab": "style",
+            "condition": {
+                "toggle!": "",
+                "dropdown!": "none"
+            },
+            "controls": [
+                {
+                    "key": "toggle_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "toggle_background_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "toggle_color_hover",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "toggle_background_color_hover",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "toggle_size",
+                    "type": "slider",
+                    "label": "Size",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "toggle_border_width",
+                    "type": "slider",
+                    "label": "Border Width",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "toggle_border_radius",
+                    "type": "slider",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "typography",
+            "name": "menu_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-nav-menu .elementor-item",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "dropdown_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-nav-menu--dropdown .elementor-item, {{WRAPPER}} .elementor-nav-menu--dropdown  .elementor-sub-item",
+            "condition": null,
+            "exclude": [
+                "line_height"
+            ],
+            "include": null
+        },
+        {
+            "group": "border",
+            "name": "dropdown_border",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-nav-menu--dropdown",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "dropdown_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-nav-menu--main .elementor-nav-menu--dropdown, {{WRAPPER}} .elementor-nav-menu__container.elementor-nav-menu--dropdown",
+            "condition": null,
+            "exclude": [
+                "box_shadow_position"
+            ],
+            "include": null
+        },
+        {
+            "group": "border",
+            "name": "dropdown_divider",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-nav-menu--dropdown li:not(:last-child)",
+            "condition": null,
+            "exclude": [
+                "width"
+            ],
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:51+00:00"
+}

@@ -1,0 +1,745 @@
+{
+    "slug": "image-carousel",
+    "source": "free",
+    "title": "Image Carousel",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/image-carousel.php",
+    "sections": [
+        {
+            "id": "section_image_carousel",
+            "label": "Image Carousel",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "carousel_name",
+                    "type": "text",
+                    "label": "Carousel Name",
+                    "default": "Image Carousel",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "carousel",
+                    "type": "gallery",
+                    "label": "Add Images",
+                    "default": [],
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "slides_to_show",
+                    "type": "select",
+                    "label": "Slides to Show",
+                    "default": null,
+                    "options": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\BinaryOp\\Plus"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "slides_to_scroll",
+                    "type": "select",
+                    "label": "Slides to Scroll",
+                    "default": null,
+                    "options": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\BinaryOp\\Plus"
+                    },
+                    "condition": {
+                        "slides_to_show!": "1"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": "Set how many slides are scrolled per swipe."
+                },
+                {
+                    "key": "image_stretch",
+                    "type": "select",
+                    "label": "Image Stretch",
+                    "default": "no",
+                    "options": {
+                        "no": "No",
+                        "yes": "Yes"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "navigation",
+                    "type": "select",
+                    "label": "Navigation",
+                    "default": "both",
+                    "options": {
+                        "both": "Arrows and Dots",
+                        "arrows": "Arrows",
+                        "dots": "Dots",
+                        "none": "None"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "navigation_previous_icon",
+                    "type": "icons",
+                    "label": "Previous Arrow Icon",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "relation": "or",
+                        "terms": [
+                            {
+                                "name": "navigation",
+                                "operator": "=",
+                                "value": "both"
+                            },
+                            {
+                                "name": "navigation",
+                                "operator": "=",
+                                "value": "arrows"
+                            }
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "navigation_next_icon",
+                    "type": "icons",
+                    "label": "Next Arrow Icon",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "relation": "or",
+                        "terms": [
+                            {
+                                "name": "navigation",
+                                "operator": "=",
+                                "value": "both"
+                            },
+                            {
+                                "name": "navigation",
+                                "operator": "=",
+                                "value": "arrows"
+                            }
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "link_to",
+                    "type": "select",
+                    "label": "Link",
+                    "default": "none",
+                    "options": {
+                        "none": "None",
+                        "file": "Media File",
+                        "custom": "Custom URL"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "link",
+                    "type": "url",
+                    "label": "Link",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "link_to": "custom"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "open_lightbox",
+                    "type": "select",
+                    "label": "Lightbox",
+                    "default": "default",
+                    "options": {
+                        "default": "Default",
+                        "yes": "Yes",
+                        "no": "No"
+                    },
+                    "condition": {
+                        "link_to": "file"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": {
+                        "__unresolved__": "sprintf()"
+                    }
+                },
+                {
+                    "key": "caption_type",
+                    "type": "select",
+                    "label": "Caption",
+                    "default": "",
+                    "options": {
+                        "": "None",
+                        "title": "Title",
+                        "caption": "Caption",
+                        "description": "Description"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "image-size",
+                    "name": "thumbnail",
+                    "label": null,
+                    "selector": null,
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_additional_options",
+            "label": "Additional Options",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "lazyload",
+                    "type": "switcher",
+                    "label": "Lazyload",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "autoplay",
+                    "type": "switcher",
+                    "label": "Autoplay",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "pause_on_hover",
+                    "type": "switcher",
+                    "label": "Pause on Hover",
+                    "default": "yes",
+                    "options": null,
+                    "condition": {
+                        "autoplay": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "pause_on_interaction",
+                    "type": "switcher",
+                    "label": "Pause on Interaction",
+                    "default": "yes",
+                    "options": null,
+                    "condition": {
+                        "autoplay": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "autoplay_speed",
+                    "type": "number",
+                    "label": "Autoplay Speed",
+                    "default": 5000,
+                    "options": null,
+                    "condition": {
+                        "autoplay": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "infinite",
+                    "type": "switcher",
+                    "label": "Infinite Loop",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "effect",
+                    "type": "select",
+                    "label": "Effect",
+                    "default": "slide",
+                    "options": {
+                        "slide": "Slide",
+                        "fade": "Fade"
+                    },
+                    "condition": {
+                        "slides_to_show": "1"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "speed",
+                    "type": "number",
+                    "label": "Animation Speed",
+                    "default": 500,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "direction",
+                    "type": "select",
+                    "label": "Direction",
+                    "default": "ltr",
+                    "options": {
+                        "ltr": "Left",
+                        "rtl": "Right"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_style_navigation",
+            "label": "Navigation",
+            "tab": "style",
+            "condition": {
+                "navigation": [
+                    "arrows",
+                    "dots",
+                    "both"
+                ]
+            },
+            "controls": [
+                {
+                    "key": "heading_style_arrows",
+                    "type": "heading",
+                    "label": "Arrows",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "navigation": [
+                            "arrows",
+                            "both"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "arrows_position",
+                    "type": "select",
+                    "label": "Position",
+                    "default": "inside",
+                    "options": {
+                        "inside": "Inside",
+                        "outside": "Outside"
+                    },
+                    "condition": {
+                        "navigation": [
+                            "arrows",
+                            "both"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "arrows_size",
+                    "type": "slider",
+                    "label": "Size",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "navigation": [
+                            "arrows",
+                            "both"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "arrows_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "navigation": [
+                            "arrows",
+                            "both"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_style_dots",
+                    "type": "heading",
+                    "label": "Pagination",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "navigation": [
+                            "dots",
+                            "both"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "dots_position",
+                    "type": "select",
+                    "label": "Position",
+                    "default": "outside",
+                    "options": {
+                        "outside": "Outside",
+                        "inside": "Inside"
+                    },
+                    "condition": {
+                        "navigation": [
+                            "dots",
+                            "both"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "dots_gap",
+                    "type": "slider",
+                    "label": "Space Between Dots",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "navigation": [
+                            "dots",
+                            "both"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "dots_size",
+                    "type": "slider",
+                    "label": "Size",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "navigation": [
+                            "dots",
+                            "both"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "dots_inactive_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "navigation": [
+                            "dots",
+                            "both"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "dots_color",
+                    "type": "color",
+                    "label": "Active Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "navigation": [
+                            "dots",
+                            "both"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_style_image",
+            "label": "Image",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "gallery_vertical_align",
+                    "type": "choose",
+                    "label": "Vertical Align",
+                    "default": null,
+                    "options": {
+                        "flex-start": {
+                            "title": "Start",
+                            "icon": "eicon-v-align-top"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-v-align-middle"
+                        },
+                        "flex-end": {
+                            "title": "End",
+                            "icon": "eicon-v-align-bottom"
+                        }
+                    },
+                    "condition": {
+                        "slides_to_show!": "1"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "image_spacing",
+                    "type": "select",
+                    "label": "Spacing",
+                    "default": "",
+                    "options": {
+                        "": "Default",
+                        "custom": "Custom"
+                    },
+                    "condition": {
+                        "slides_to_show!": "1"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "image_spacing_custom",
+                    "type": "slider",
+                    "label": "Image Spacing",
+                    "default": {
+                        "size": 20
+                    },
+                    "options": null,
+                    "condition": {
+                        "image_spacing": "custom",
+                        "slides_to_show!": "1"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "image_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "border",
+                    "name": "image_border",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-image-carousel-wrapper .elementor-image-carousel .swiper-slide-image",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_caption",
+            "label": "Caption",
+            "tab": "style",
+            "condition": {
+                "caption_type!": ""
+            },
+            "controls": [
+                {
+                    "key": "caption_align",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": "center",
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        },
+                        "justify": {
+                            "title": "Justified",
+                            "icon": "eicon-text-align-justify"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "caption_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "caption_space",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "caption_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-image-carousel-caption",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "caption_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-image-carousel-caption",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "image-size",
+            "name": "thumbnail",
+            "label": null,
+            "selector": null,
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "border",
+            "name": "image_border",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-image-carousel-wrapper .elementor-image-carousel .swiper-slide-image",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "caption_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-image-carousel-caption",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "caption_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-image-carousel-caption",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:48+00:00"
+}

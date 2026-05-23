@@ -1,0 +1,74 @@
+{
+    "slug": "posts",
+    "source": "pro",
+    "title": "Posts",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/posts/widgets/posts.php",
+    "sections": [
+        {
+            "id": "section_query",
+            "label": "Query",
+            "tab": "content",
+            "condition": null,
+            "controls": [],
+            "group_controls": [
+                {
+                    "group": null,
+                    "name": {
+                        "__unresolved__": "->get_name()"
+                    },
+                    "label": null,
+                    "selector": null,
+                    "condition": null,
+                    "exclude": [
+                        "posts_per_page"
+                    ],
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": null,
+            "name": {
+                "__unresolved__": "->get_name()"
+            },
+            "label": null,
+            "selector": null,
+            "condition": null,
+            "exclude": [
+                "posts_per_page"
+            ],
+            "include": null
+        }
+    ],
+    "repeaters": [
+        {
+            "var": "widget",
+            "fields": [
+                {
+                    "key": "archive_query_note",
+                    "type": "raw_html",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": [
+                        "current_query"
+                    ],
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ]
+        }
+    ],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [
+            "register_pagination_section_controls"
+        ],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:51+00:00"
+}

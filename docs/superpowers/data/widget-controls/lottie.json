@@ -1,0 +1,624 @@
+{
+    "slug": "lottie",
+    "source": "pro",
+    "title": "Lottie",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/lottie/widgets/lottie.php",
+    "sections": [
+        {
+            "id": "lottie",
+            "label": "Lottie",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "source",
+                    "type": "select",
+                    "label": "Source",
+                    "default": "media_file",
+                    "options": {
+                        "__unresolved__": "->get_source_options()"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "source_external_url",
+                    "type": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\Ternary"
+                    },
+                    "label": "External URL",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "source": "external_url"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "source_json",
+                    "type": "media",
+                    "label": "Upload JSON File",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "source": "media_file"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "align",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": "center",
+                    "options": {
+                        "left": {
+                            "title": "Left",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "right": {
+                            "title": "Right",
+                            "icon": "eicon-text-align-right"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "caption_source",
+                    "type": "select",
+                    "label": "Caption",
+                    "default": "none",
+                    "options": {
+                        "none": "None",
+                        "title": "Title",
+                        "caption": "Caption",
+                        "custom": "Custom"
+                    },
+                    "condition": {
+                        "source!": "external_url",
+                        "source_json[url]!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "caption",
+                    "type": "text",
+                    "label": "Custom Caption",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "relation": "or",
+                        "terms": [
+                            {
+                                "name": "caption_source",
+                                "value": "custom"
+                            },
+                            {
+                                "name": "source",
+                                "value": "external_url"
+                            }
+                        ]
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "link_to",
+                    "type": "select",
+                    "label": "Link",
+                    "default": "none",
+                    "options": {
+                        "none": "None",
+                        "custom": "Custom URL"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "custom_link",
+                    "type": "url",
+                    "label": "Link",
+                    "default": {
+                        "url": ""
+                    },
+                    "options": null,
+                    "condition": {
+                        "link_to": "custom"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "settings",
+            "label": "Settings",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "trigger",
+                    "type": "select",
+                    "label": "Trigger",
+                    "default": "arriving_to_viewport",
+                    "options": {
+                        "arriving_to_viewport": "Viewport",
+                        "on_click": "On Click",
+                        "on_hover": "On Hover",
+                        "bind_to_scroll": "Scroll",
+                        "none": "None"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "viewport",
+                    "type": "slider",
+                    "label": "Viewport",
+                    "default": {
+                        "sizes": {
+                            "start": 0,
+                            "end": 100
+                        },
+                        "unit": "%"
+                    },
+                    "options": null,
+                    "condition": {
+                        "relation": "or",
+                        "terms": [
+                            {
+                                "name": "trigger",
+                                "operator": "===",
+                                "value": "arriving_to_viewport"
+                            },
+                            {
+                                "name": "trigger",
+                                "operator": "===",
+                                "value": "bind_to_scroll"
+                            }
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "effects_relative_to",
+                    "type": "select",
+                    "label": "Effects Relative To",
+                    "default": "viewport",
+                    "options": {
+                        "viewport": "Viewport",
+                        "page": "Entire Page"
+                    },
+                    "condition": {
+                        "trigger": "bind_to_scroll"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "loop",
+                    "type": "switcher",
+                    "label": "Loop",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "trigger!": "bind_to_scroll"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "number_of_times",
+                    "type": "number",
+                    "label": "Times",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "relation": "and",
+                        "terms": [
+                            {
+                                "name": "trigger",
+                                "operator": "!==",
+                                "value": "bind_to_scroll"
+                            },
+                            {
+                                "name": "loop",
+                                "operator": "===",
+                                "value": "yes"
+                            }
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "link_timeout",
+                    "type": "number",
+                    "label": "Link Timeout (ms)",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "relation": "and",
+                        "terms": [
+                            {
+                                "name": "link_to",
+                                "operator": "===",
+                                "value": "custom"
+                            },
+                            {
+                                "name": "trigger",
+                                "operator": "===",
+                                "value": "on_click"
+                            },
+                            {
+                                "name": "custom_link[url]",
+                                "operator": "!==",
+                                "value": ""
+                            }
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": "Redirect to link after selected timeout"
+                },
+                {
+                    "key": "on_hover_out",
+                    "type": "select",
+                    "label": "On Hover Out",
+                    "default": "default",
+                    "options": {
+                        "default": "Default",
+                        "reverse": "Reverse",
+                        "pause": "Pause"
+                    },
+                    "condition": {
+                        "trigger": "on_hover"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hover_area",
+                    "type": "select",
+                    "label": "Hover Area",
+                    "default": "animation",
+                    "options": {
+                        "animation": "Animation",
+                        "column": "Column",
+                        "section": "Section",
+                        "container": "Container"
+                    },
+                    "condition": {
+                        "trigger": "on_hover"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "play_speed",
+                    "type": "slider",
+                    "label": "Play Speed (x)",
+                    "default": {
+                        "size": 1
+                    },
+                    "options": null,
+                    "condition": {
+                        "trigger!": "bind_to_scroll"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "start_point",
+                    "type": "slider",
+                    "label": "Start Point",
+                    "default": {
+                        "size": 0,
+                        "unit": "%"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "end_point",
+                    "type": "slider",
+                    "label": "End Point",
+                    "default": {
+                        "size": 100,
+                        "unit": "%"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "reverse_animation",
+                    "type": "switcher",
+                    "label": "Reverse",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "relation": "and",
+                        "terms": [
+                            {
+                                "name": "trigger",
+                                "operator": "!==",
+                                "value": "bind_to_scroll"
+                            },
+                            {
+                                "name": "trigger",
+                                "operator": "!==",
+                                "value": "on_hover"
+                            }
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "renderer",
+                    "type": "select",
+                    "label": "Renderer",
+                    "default": "svg",
+                    "options": {
+                        "svg": "SVG",
+                        "canvas": "Canvas"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "lazyload",
+                    "type": "switcher",
+                    "label": "Lazy Load",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "style",
+            "label": "Lottie",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "width",
+                    "type": "slider",
+                    "label": "Width",
+                    "default": {
+                        "unit": "%"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "space",
+                    "type": "slider",
+                    "label": "Max Width",
+                    "default": {
+                        "unit": "%"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "opacity",
+                    "type": "slider",
+                    "label": "Opacity",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "opacity_hover",
+                    "type": "slider",
+                    "label": "Opacity",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "background_hover_transition",
+                    "type": "slider",
+                    "label": "Transition Duration (s)",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "css-filter",
+                    "name": "css_filters",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-lottie__container",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "css-filter",
+                    "name": "css_filters_hover",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-lottie__container:hover",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_style_caption",
+            "label": "Caption",
+            "tab": "style",
+            "condition": {
+                "caption_source!": "none"
+            },
+            "controls": [
+                {
+                    "key": "caption_align",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": "center",
+                    "options": {
+                        "left": {
+                            "title": "Left",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "right": {
+                            "title": "Right",
+                            "icon": "eicon-text-align-right"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "caption_space",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "caption_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-lottie__caption",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "css-filter",
+            "name": "css_filters",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-lottie__container",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "css-filter",
+            "name": "css_filters_hover",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-lottie__container:hover",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "caption_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-lottie__caption",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:51+00:00"
+}

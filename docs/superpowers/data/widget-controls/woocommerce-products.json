@@ -1,0 +1,290 @@
+{
+    "slug": "woocommerce-products",
+    "source": "wc",
+    "title": "Products",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/products.php",
+    "sections": [
+        {
+            "id": "section_content",
+            "label": "Content",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "rows",
+                    "type": "number",
+                    "label": "Rows",
+                    "default": {
+                        "__unresolved__": "Products_Renderer::DEFAULT_COLUMNS_AND_ROWS"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "paginate",
+                    "type": "switcher",
+                    "label": "Pagination",
+                    "default": "",
+                    "options": null,
+                    "condition": [
+                        [
+                            "related_products",
+                            "upsells",
+                            "cross_sells"
+                        ]
+                    ],
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "allow_order",
+                    "type": "switcher",
+                    "label": "Allow Order",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "paginate": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "wc_notice_frontpage",
+                    "type": "alert",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "paginate": "yes",
+                        "allow_order": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_result_count",
+                    "type": "switcher",
+                    "label": "Show Result Count",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "paginate": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_query",
+            "label": "Query",
+            "tab": "content",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "related_products_note",
+                    "type": "alert",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": [
+                        "related_products"
+                    ],
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "upsells_products_note",
+                    "type": "alert",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": [
+                        "upsells"
+                    ],
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "cross_sells_products_note",
+                    "type": "alert",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": [
+                        "cross_sells"
+                    ],
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": null,
+                    "name": null,
+                    "label": null,
+                    "selector": null,
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_products_title",
+            "label": "Title",
+            "tab": null,
+            "condition": {
+                "relation": "or",
+                "terms": [
+                    {
+                        "name": {
+                            "__unresolved__": "PhpParser\\Node\\Expr\\BinaryOp\\Concat"
+                        },
+                        "operator": "=",
+                        "value": "related_products"
+                    },
+                    {
+                        "name": {
+                            "__unresolved__": "PhpParser\\Node\\Expr\\BinaryOp\\Concat"
+                        },
+                        "operator": "=",
+                        "value": "upsells"
+                    },
+                    {
+                        "name": {
+                            "__unresolved__": "PhpParser\\Node\\Expr\\BinaryOp\\Concat"
+                        },
+                        "operator": "=",
+                        "value": "cross_sells"
+                    }
+                ]
+            },
+            "controls": [
+                {
+                    "key": "products_title_show",
+                    "type": "switcher",
+                    "label": "Title",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "products_title_alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        }
+                    },
+                    "condition": {
+                        "products_title_show!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "products_title_style",
+            "label": "Title",
+            "tab": "style",
+            "condition": {
+                "products_title_show!": ""
+            },
+            "controls": [
+                {
+                    "key": "products_title_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "products_title_spacing",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "products_title_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}}.products-heading-show .related-products > h2, {{WRAPPER}}.products-heading-show .upsells > h2, {{WRAPPER}}.products-heading-show .cross-sells > h2",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": null,
+            "name": null,
+            "label": null,
+            "selector": null,
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "products_title_typography",
+            "label": null,
+            "selector": "{{WRAPPER}}.products-heading-show .related-products > h2, {{WRAPPER}}.products-heading-show .upsells > h2, {{WRAPPER}}.products-heading-show .cross-sells > h2",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:54+00:00"
+}

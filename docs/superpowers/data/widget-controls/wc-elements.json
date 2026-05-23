@@ -1,0 +1,61 @@
+{
+    "slug": "wc-elements",
+    "source": "wc",
+    "title": "WooCommerce Pages",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/elements.php",
+    "sections": [
+        {
+            "id": "section_product",
+            "label": "Element",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "element",
+                    "type": "select",
+                    "label": "Page",
+                    "default": null,
+                    "options": {
+                        "": "— Select —",
+                        "woocommerce_cart": "Cart Page",
+                        "product_page": "Single Product Page",
+                        "woocommerce_checkout": "Checkout Page",
+                        "woocommerce_order_tracking": "Order Tracking Form",
+                        "woocommerce_my_account": "My Account"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "product_id",
+                    "type": {
+                        "__unresolved__": "QueryModule::QUERY_CONTROL_ID"
+                    },
+                    "label": "Product",
+                    "default": null,
+                    "options": [],
+                    "condition": {
+                        "element": [
+                            "product_page"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:53+00:00"
+}

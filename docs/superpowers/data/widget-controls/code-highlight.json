@@ -1,0 +1,143 @@
+{
+    "slug": "code-highlight",
+    "source": "pro",
+    "title": "Code Highlight",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/code-highlight/widgets/code-highlight.php",
+    "sections": [
+        {
+            "id": "section_content",
+            "label": "Code Highlight",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "language",
+                    "type": "select2",
+                    "label": "Language",
+                    "default": "javascript",
+                    "options": {
+                        "__unresolved__": "$language_option"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "code",
+                    "type": "code",
+                    "label": "Code",
+                    "default": "console.log( 'Code is Poetry' );",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true,
+                        "categories": [
+                            {
+                                "__unresolved__": "TagsModule::TEXT_CATEGORY"
+                            }
+                        ]
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "line_numbers",
+                    "type": "switcher",
+                    "label": "Line Numbers",
+                    "default": "line-numbers",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "copy_to_clipboard",
+                    "type": "switcher",
+                    "label": "Copy to Clipboard",
+                    "default": "copy-to-clipboard",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "highlight_lines",
+                    "type": "text",
+                    "label": "Highlight Lines",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "word_wrap",
+                    "type": "switcher",
+                    "label": "Word Wrap",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "theme",
+                    "type": "select",
+                    "label": "Theme",
+                    "default": "default",
+                    "options": {
+                        "default": "Solid",
+                        "dark": "Dark",
+                        "okaidia": "Okaidia",
+                        "solarizedlight": "Solarizedlight",
+                        "tomorrow": "Tomorrow",
+                        "twilight": "Twilight"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "height",
+                    "type": "slider",
+                    "label": "Height",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "font_size",
+                    "type": "slider",
+                    "label": "Font Size",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:50+00:00"
+}

@@ -1,0 +1,39 @@
+{
+    "slug": "html",
+    "source": "free",
+    "title": "HTML",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/html.php",
+    "sections": [
+        {
+            "id": "section_title",
+            "label": "HTML Code",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "html",
+                    "type": "code",
+                    "label": "HTML Code",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:47+00:00"
+}

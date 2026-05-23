@@ -1,0 +1,1532 @@
+{
+    "slug": "price-table",
+    "source": "pro",
+    "title": "Price Table",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/pricing/widgets/price-table.php",
+    "sections": [
+        {
+            "id": "section_header",
+            "label": "Header",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "heading",
+                    "type": "text",
+                    "label": "Title",
+                    "default": "Enter your title",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sub_heading",
+                    "type": "text",
+                    "label": "Description",
+                    "default": "Enter your description",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_tag",
+                    "type": "select",
+                    "label": "Title HTML Tag",
+                    "default": "h3",
+                    "options": {
+                        "h2": "H2",
+                        "h3": "H3",
+                        "h4": "H4",
+                        "h5": "H5",
+                        "h6": "H6"
+                    },
+                    "condition": {
+                        "heading!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_pricing",
+            "label": "Pricing",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "currency_symbol",
+                    "type": "select",
+                    "label": "Currency Symbol",
+                    "default": "dollar",
+                    "options": {
+                        "": "None",
+                        "dollar": "&#36; Dollar",
+                        "euro": "&#128; Euro",
+                        "baht": "&#3647; Baht",
+                        "franc": "&#8355; Franc",
+                        "guilder": "&fnof; Guilder",
+                        "krona": "kr Krona",
+                        "lira": "&#8356; Lira",
+                        "peseta": "&#8359 Peseta",
+                        "peso": "&#8369; Peso",
+                        "pound": "&#163; Pound Sterling",
+                        "real": "R$ Real",
+                        "ruble": "&#8381; Ruble",
+                        "rupee": "&#8360; Rupee",
+                        "indian_rupee": "&#8377; Rupee (Indian)",
+                        "shekel": "&#8362; Shekel",
+                        "yen": "&#165; Yen/Yuan",
+                        "won": "&#8361; Won",
+                        "custom": "Custom"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "currency_symbol_custom",
+                    "type": "text",
+                    "label": "Custom Symbol",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "currency_symbol": "custom"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "price",
+                    "type": "text",
+                    "label": "Price",
+                    "default": "39.99",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "currency_format",
+                    "type": "select",
+                    "label": "Currency Format",
+                    "default": null,
+                    "options": {
+                        "": "1,234.56 (Default)",
+                        ",": "1.234,56"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sale",
+                    "type": "switcher",
+                    "label": "Sale",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "original_price",
+                    "type": "number",
+                    "label": "Original Price",
+                    "default": "59",
+                    "options": null,
+                    "condition": {
+                        "sale": "yes"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "period",
+                    "type": "text",
+                    "label": "Period",
+                    "default": "Monthly",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_features",
+            "label": "Features",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "features_list",
+                    "type": "repeater",
+                    "label": null,
+                    "default": [
+                        {
+                            "item_text": "List Item #1",
+                            "selected_item_icon": {
+                                "__unresolved__": "$default_icon"
+                            }
+                        },
+                        {
+                            "item_text": "List Item #2",
+                            "selected_item_icon": {
+                                "__unresolved__": "$default_icon"
+                            }
+                        },
+                        {
+                            "item_text": "List Item #3",
+                            "selected_item_icon": {
+                                "__unresolved__": "$default_icon"
+                            }
+                        }
+                    ],
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_footer",
+            "label": "Footer",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "button_text",
+                    "type": "text",
+                    "label": "Button Text",
+                    "default": "Click Here",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "link",
+                    "type": "url",
+                    "label": "Link",
+                    "default": {
+                        "url": "#"
+                    },
+                    "options": null,
+                    "condition": {
+                        "button_text!": ""
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "footer_additional_info",
+                    "type": "textarea",
+                    "label": "Additional Info",
+                    "default": "This is text element",
+                    "options": null,
+                    "condition": {
+                        "button_text!": ""
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_ribbon",
+            "label": "Ribbon",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "show_ribbon",
+                    "type": "switcher",
+                    "label": "Show",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "ribbon_title",
+                    "type": "text",
+                    "label": "Title",
+                    "default": "Popular",
+                    "options": null,
+                    "condition": {
+                        "show_ribbon": "yes"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "ribbon_horizontal_position",
+                    "type": "choose",
+                    "label": "Position",
+                    "default": null,
+                    "options": {
+                        "left": {
+                            "title": "Left",
+                            "icon": "eicon-h-align-left"
+                        },
+                        "right": {
+                            "title": "Right",
+                            "icon": "eicon-h-align-right"
+                        }
+                    },
+                    "condition": {
+                        "show_ribbon": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_header_style",
+            "label": "Header",
+            "tab": "style",
+            "condition": {
+                "relation": "or",
+                "terms": [
+                    {
+                        "name": "heading",
+                        "operator": "!==",
+                        "value": ""
+                    },
+                    {
+                        "name": "sub_heading",
+                        "operator": "!==",
+                        "value": ""
+                    }
+                ]
+            },
+            "controls": [
+                {
+                    "key": "header_bg_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "relation": "or",
+                        "terms": [
+                            {
+                                "name": "heading",
+                                "operator": "!==",
+                                "value": ""
+                            },
+                            {
+                                "name": "sub_heading",
+                                "operator": "!==",
+                                "value": ""
+                            }
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "header_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "relation": "or",
+                        "terms": [
+                            {
+                                "name": "heading",
+                                "operator": "!==",
+                                "value": ""
+                            },
+                            {
+                                "name": "sub_heading",
+                                "operator": "!==",
+                                "value": ""
+                            }
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "heading_heading_style",
+                    "type": "heading",
+                    "label": "Title",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "heading!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "heading!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_sub_heading_style",
+                    "type": "heading",
+                    "label": "Sub Title",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "sub_heading!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sub_heading_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "sub_heading!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "heading_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-price-table__heading",
+                    "condition": {
+                        "heading!": ""
+                    },
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "sub_heading_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-price-table__subheading",
+                    "condition": {
+                        "sub_heading!": ""
+                    },
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_pricing_element_style",
+            "label": "Pricing",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "pricing_element_bg_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "pricing_element_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "price_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_currency_style",
+                    "type": "heading",
+                    "label": "Currency Symbol",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "currency_symbol!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "currency_size",
+                    "type": "slider",
+                    "label": "Size",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "currency_symbol!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "currency_position",
+                    "type": "choose",
+                    "label": "Position",
+                    "default": "before",
+                    "options": {
+                        "before": {
+                            "title": "Before",
+                            "icon": "eicon-h-align-left"
+                        },
+                        "after": {
+                            "title": "After",
+                            "icon": "eicon-h-align-right"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "currency_vertical_position",
+                    "type": "choose",
+                    "label": "Vertical Position",
+                    "default": "top",
+                    "options": {
+                        "top": {
+                            "title": "Top",
+                            "icon": "eicon-v-align-top"
+                        },
+                        "middle": {
+                            "title": "Middle",
+                            "icon": "eicon-v-align-middle"
+                        },
+                        "bottom": {
+                            "title": "Bottom",
+                            "icon": "eicon-v-align-bottom"
+                        }
+                    },
+                    "condition": {
+                        "currency_symbol!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "fractional_part_style",
+                    "type": "heading",
+                    "label": "Fractional Part",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "fractional-part_size",
+                    "type": "slider",
+                    "label": "Size",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "fractional_part_vertical_position",
+                    "type": "choose",
+                    "label": "Vertical Position",
+                    "default": "top",
+                    "options": {
+                        "top": {
+                            "title": "Top",
+                            "icon": "eicon-v-align-top"
+                        },
+                        "middle": {
+                            "title": "Middle",
+                            "icon": "eicon-v-align-middle"
+                        },
+                        "bottom": {
+                            "title": "Bottom",
+                            "icon": "eicon-v-align-bottom"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_original_price_style",
+                    "type": "heading",
+                    "label": "Original Price",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "sale": "yes",
+                        "original_price!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "original_price_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "sale": "yes",
+                        "original_price!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "original_price_vertical_position",
+                    "type": "choose",
+                    "label": "Vertical Position",
+                    "default": "bottom",
+                    "options": {
+                        "top": {
+                            "title": "Top",
+                            "icon": "eicon-v-align-top"
+                        },
+                        "middle": {
+                            "title": "Middle",
+                            "icon": "eicon-v-align-middle"
+                        },
+                        "bottom": {
+                            "title": "Bottom",
+                            "icon": "eicon-v-align-bottom"
+                        }
+                    },
+                    "condition": {
+                        "sale": "yes",
+                        "original_price!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_period_style",
+                    "type": "heading",
+                    "label": "Period",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "period!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "period_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "period!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "period_position",
+                    "type": "select",
+                    "label": "Position",
+                    "default": "below",
+                    "options": {
+                        "below": "Below",
+                        "beside": "Beside"
+                    },
+                    "condition": {
+                        "period!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "price_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-price-table .elementor-price-table__price",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "original_price_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-price-table__original-price",
+                    "condition": {
+                        "sale": "yes",
+                        "original_price!": ""
+                    },
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "period_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-price-table__period",
+                    "condition": {
+                        "period!": ""
+                    },
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_features_list_style",
+            "label": "Features",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "features_list_bg_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "features_list_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "features_list_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "features_list_alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "item_width",
+                    "type": "slider",
+                    "label": "Width",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "list_divider",
+                    "type": "switcher",
+                    "label": "Divider",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "divider_style",
+                    "type": "select",
+                    "label": "Style",
+                    "default": "solid",
+                    "options": {
+                        "solid": "Solid",
+                        "double": "Double",
+                        "dotted": "Dotted",
+                        "dashed": "Dashed"
+                    },
+                    "condition": {
+                        "list_divider": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "divider_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": "#ddd",
+                    "options": null,
+                    "condition": {
+                        "list_divider": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "divider_weight",
+                    "type": "slider",
+                    "label": "Weight",
+                    "default": {
+                        "size": 2
+                    },
+                    "options": null,
+                    "condition": {
+                        "list_divider": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "divider_width",
+                    "type": "slider",
+                    "label": "Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "list_divider": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "divider_gap",
+                    "type": "slider",
+                    "label": "Gap",
+                    "default": {
+                        "size": 15
+                    },
+                    "options": null,
+                    "condition": {
+                        "list_divider": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "features_list_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-price-table__features-list li",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_footer_style",
+            "label": "Footer",
+            "tab": "style",
+            "condition": {
+                "button_text!": ""
+            },
+            "controls": [
+                {
+                    "key": "footer_bg_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "button_text!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "footer_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "button_text!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "heading_footer_button",
+                    "type": "heading",
+                    "label": "Button",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "button_text!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_size",
+                    "type": "select",
+                    "label": "Size",
+                    "default": "md",
+                    "options": {
+                        "xs": "Extra Small",
+                        "sm": "Small",
+                        "md": "Medium",
+                        "lg": "Large",
+                        "xl": "Extra Large"
+                    },
+                    "condition": {
+                        "button_text!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "button_text!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "button_text!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_text_padding",
+                    "type": "dimensions",
+                    "label": "Text Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "button_text!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_hover_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "button_text!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_hover_border_color",
+                    "type": "color",
+                    "label": "Border Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "button_text!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_hover_animation",
+                    "type": "hover_animation",
+                    "label": "Animation",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "button_text!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_additional_info",
+                    "type": "heading",
+                    "label": "Additional Info",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "relation": "and",
+                        "terms": [
+                            {
+                                "name": "button_text",
+                                "operator": "!==",
+                                "value": ""
+                            },
+                            {
+                                "name": "footer_additional_info",
+                                "operator": "!==",
+                                "value": ""
+                            }
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "additional_info_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "relation": "and",
+                        "terms": [
+                            {
+                                "name": "button_text",
+                                "operator": "!==",
+                                "value": ""
+                            },
+                            {
+                                "name": "footer_additional_info",
+                                "operator": "!==",
+                                "value": ""
+                            }
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "additional_info_margin",
+                    "type": "dimensions",
+                    "label": "Margin",
+                    "default": {
+                        "top": 15,
+                        "right": 30,
+                        "bottom": 0,
+                        "left": 30,
+                        "unit": "px"
+                    },
+                    "options": null,
+                    "condition": {
+                        "relation": "and",
+                        "terms": [
+                            {
+                                "name": "button_text",
+                                "operator": "!==",
+                                "value": ""
+                            },
+                            {
+                                "name": "footer_additional_info",
+                                "operator": "!==",
+                                "value": ""
+                            }
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "button_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-price-table__button",
+                    "condition": {
+                        "button_text!": ""
+                    },
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": "button_background",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-price-table__button",
+                    "condition": {
+                        "button_text!": ""
+                    },
+                    "exclude": [
+                        "image"
+                    ],
+                    "include": null
+                },
+                {
+                    "group": "border",
+                    "name": "button_border",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-price-table__button",
+                    "condition": {
+                        "button_text!": ""
+                    },
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": "button_background_hover",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-price-table__button:hover",
+                    "condition": {
+                        "button_text!": ""
+                    },
+                    "exclude": [
+                        "image"
+                    ],
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "additional_info_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-price-table__additional_info",
+                    "condition": {
+                        "relation": "and",
+                        "terms": [
+                            {
+                                "name": "button_text",
+                                "operator": "!==",
+                                "value": ""
+                            },
+                            {
+                                "name": "footer_additional_info",
+                                "operator": "!==",
+                                "value": ""
+                            }
+                        ]
+                    },
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_ribbon_style",
+            "label": "Ribbon",
+            "tab": "style",
+            "condition": {
+                "show_ribbon": "yes"
+            },
+            "controls": [
+                {
+                    "key": "ribbon_bg_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "show_ribbon": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "ribbon_distance",
+                    "type": "slider",
+                    "label": "Distance",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "show_ribbon": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "ribbon_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": "#ffffff",
+                    "options": null,
+                    "condition": {
+                        "show_ribbon": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "ribbon_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-ribbon-inner",
+                    "condition": {
+                        "show_ribbon": "yes"
+                    },
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-ribbon-inner",
+                    "condition": {
+                        "show_ribbon": "yes"
+                    },
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "typography",
+            "name": "heading_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-price-table__heading",
+            "condition": {
+                "heading!": ""
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "sub_heading_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-price-table__subheading",
+            "condition": {
+                "sub_heading!": ""
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "price_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-price-table .elementor-price-table__price",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "original_price_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-price-table__original-price",
+            "condition": {
+                "sale": "yes",
+                "original_price!": ""
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "period_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-price-table__period",
+            "condition": {
+                "period!": ""
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "features_list_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-price-table__features-list li",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "button_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-price-table__button",
+            "condition": {
+                "button_text!": ""
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "button_background",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-price-table__button",
+            "condition": {
+                "button_text!": ""
+            },
+            "exclude": [
+                "image"
+            ],
+            "include": null
+        },
+        {
+            "group": "border",
+            "name": "button_border",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-price-table__button",
+            "condition": {
+                "button_text!": ""
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "button_background_hover",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-price-table__button:hover",
+            "condition": {
+                "button_text!": ""
+            },
+            "exclude": [
+                "image"
+            ],
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "additional_info_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-price-table__additional_info",
+            "condition": {
+                "relation": "and",
+                "terms": [
+                    {
+                        "name": "button_text",
+                        "operator": "!==",
+                        "value": ""
+                    },
+                    {
+                        "name": "footer_additional_info",
+                        "operator": "!==",
+                        "value": ""
+                    }
+                ]
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "ribbon_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-ribbon-inner",
+            "condition": {
+                "show_ribbon": "yes"
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-ribbon-inner",
+            "condition": {
+                "show_ribbon": "yes"
+            },
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [
+        {
+            "var": "repeater",
+            "fields": [
+                {
+                    "key": "item_text",
+                    "type": "text",
+                    "label": "Text",
+                    "default": "List Item",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "selected_item_icon",
+                    "type": "icons",
+                    "label": "Icon",
+                    "default": {
+                        "__unresolved__": "$default_icon"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "item_icon_color",
+                    "type": "color",
+                    "label": "Icon Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ]
+        }
+    ],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:51+00:00"
+}

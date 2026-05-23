@@ -1,0 +1,39 @@
+{
+    "slug": "template",
+    "source": "pro",
+    "title": "Template",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/library/widgets/template.php",
+    "sections": [
+        {
+            "id": "section_template",
+            "label": "Template",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "template_id",
+                    "type": {
+                        "__unresolved__": "QueryControlModule::QUERY_CONTROL_ID"
+                    },
+                    "label": "Choose Template",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:52+00:00"
+}
