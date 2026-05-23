@@ -176,104 +176,98 @@ final class SandboxPage {
 						<?php esc_html_e( 'Cancel', 'stonewright' ); ?>
 					</button>
 				</form>
-			</div>
-
-			<?php /* File table */ ?>
+			</div>		<?php /* File card grid */ ?>
 			<?php if ( empty( $files ) ) : ?>
 				<p><?php esc_html_e( 'No sandbox files yet. Create one above.', 'stonewright' ); ?></p>
 			<?php else : ?>
-				<table class="wp-list-table widefat fixed striped">
-					<thead>
-						<tr>
-							<th scope="col"><?php esc_html_e( 'Filename', 'stonewright' ); ?></th>
-							<th scope="col" style="width:90px;"><?php esc_html_e( 'Status', 'stonewright' ); ?></th>
-							<th scope="col" style="width:80px;"><?php esc_html_e( 'Size', 'stonewright' ); ?></th>
-							<th scope="col" style="width:160px;"><?php esc_html_e( 'Modified', 'stonewright' ); ?></th>
-							<th scope="col"><?php esc_html_e( 'Actions', 'stonewright' ); ?></th>
-						</tr>
-					</thead>
-					<tbody>
-						<?php foreach ( $files as $file ) : ?>
-							<?php
-							$fname   = $file['name'];
-							$status  = $file['status'];
-							$size    = size_format( $file['size'] );
-							$mtime   = wp_date( 'Y-m-d H:i', $file['modified'] );
+				<div class="sw-card-grid">
+					<?php foreach ( $files as $file ) : ?>
+					<?php
+					$fname  = $file['name'];
+					$status = $file['status'];
+					$size   = size_format( $file['size'] );
+					$mtime  = wp_date( 'Y-m-d H:i', $file['modified'] );
 
-							// Badge styling per status.
-							$badge_style = match ( $status ) {
-								'active'   => 'background:#00a32a;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px;',
-								'disabled' => 'background:#dba617;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px;',
-								'crashed'  => 'background:#d63638;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px;',
-								default    => 'background:#78716c;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px;',
-							};
-							?>
-							<tr>
-								<td><?php echo esc_html( $fname ); ?></td>
-								<td><span style="<?php echo esc_attr( $badge_style ); ?>"><?php echo esc_html( ucfirst( $status ) ); ?></span></td>
-								<td><?php echo esc_html( $size ); ?></td>
-								<td><?php echo esc_html( (string) $mtime ); ?></td>
-								<td>
-									<?php /* Edit link (no form — just a GET) */ ?>
-									<a href="<?php echo esc_url( add_query_arg( [ 'page' => self::SLUG, 'edit' => rawurlencode( $fname ) ], admin_url( 'admin.php' ) ) ); ?>" class="button button-small"><?php esc_html_e( 'Edit', 'stonewright' ); ?></a>
+					$badge_class = match ( $status ) {
+						'active'   => 'sw-badge sw-badge--active',
+						'disabled' => 'sw-badge sw-badge--disabled',
+						'crashed'  => 'sw-badge sw-badge--crashed',
+						default    => 'sw-badge sw-badge--draft',
+					};
+					?>
+					<div class="sw-card">
+						<div class="sw-card__header">
+							<div class="sw-card__title-row">
+								<span class="sw-card__title"><?php echo esc_html( $fname ); ?></span>
+								<span class="<?php echo esc_attr( $badge_class ); ?>"><?php echo esc_html( ucfirst( $status ) ); ?></span>
+								<span class="sw-badge sw-badge--category">PHP</span>
+							</div>
+						</div>
+						<div class="sw-card__body">
+							<p class="sw-card__description">
+								<?php echo esc_html( $size ); ?> &mdash; <?php echo esc_html( (string) $mtime ); ?>
+							</p>
+						</div>
+						<div class="sw-card__footer">
+							<?php /* Edit link (GET) */ ?>
+							<a href="<?php echo esc_url( add_query_arg( [ 'page' => self::SLUG, 'edit' => rawurlencode( $fname ) ], admin_url( 'admin.php' ) ) ); ?>" class="button button-small"><?php esc_html_e( 'Edit', 'stonewright' ); ?></a>
 
-									<?php /* Activate */ ?>
-									<?php if ( 'draft' === $status ) : ?>
-										<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
-											<input type="hidden" name="action" value="stonewright_sandbox_action"/>
-											<input type="hidden" name="stonewright_file_action" value="activate"/>
-											<input type="hidden" name="stonewright_filename" value="<?php echo esc_attr( $fname ); ?>"/>
-											<?php wp_nonce_field( self::NONCE_ACTION, '_stonewright_nonce' ); ?>
-											<button type="submit" class="button button-small"><?php esc_html_e( 'Activate', 'stonewright' ); ?></button>
-										</form>
-									<?php endif; ?>
+							<?php /* Activate */ ?>
+							<?php if ( 'draft' === $status ) : ?>
+							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+								<input type="hidden" name="action" value="stonewright_sandbox_action"/>
+								<input type="hidden" name="stonewright_file_action" value="activate"/>
+								<input type="hidden" name="stonewright_filename" value="<?php echo esc_attr( $fname ); ?>"/>
+								<?php wp_nonce_field( self::NONCE_ACTION, '_stonewright_nonce' ); ?>
+								<button type="submit" class="button button-small button-primary"><?php esc_html_e( 'Activate', 'stonewright' ); ?></button>
+							</form>
+							<?php endif; ?>
 
-									<?php /* Deactivate */ ?>
-									<?php if ( 'active' === $status ) : ?>
-										<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
-											<input type="hidden" name="action" value="stonewright_sandbox_action"/>
-											<input type="hidden" name="stonewright_file_action" value="deactivate"/>
-											<input type="hidden" name="stonewright_filename" value="<?php echo esc_attr( $fname ); ?>"/>
-											<?php wp_nonce_field( self::NONCE_ACTION, '_stonewright_nonce' ); ?>
-											<button type="submit" class="button button-small"><?php esc_html_e( 'Deactivate', 'stonewright' ); ?></button>
-										</form>
-									<?php endif; ?>
+							<?php /* Deactivate */ ?>
+							<?php if ( 'active' === $status ) : ?>
+							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+								<input type="hidden" name="action" value="stonewright_sandbox_action"/>
+								<input type="hidden" name="stonewright_file_action" value="deactivate"/>
+								<input type="hidden" name="stonewright_filename" value="<?php echo esc_attr( $fname ); ?>"/>
+								<?php wp_nonce_field( self::NONCE_ACTION, '_stonewright_nonce' ); ?>
+								<button type="submit" class="button button-small"><?php esc_html_e( 'Deactivate', 'stonewright' ); ?></button>
+							</form>
+							<?php endif; ?>
 
-									<?php /* Disable */ ?>
-									<?php if ( 'active' === $status ) : ?>
-										<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
-											<input type="hidden" name="action" value="stonewright_sandbox_action"/>
-											<input type="hidden" name="stonewright_file_action" value="disable"/>
-											<input type="hidden" name="stonewright_filename" value="<?php echo esc_attr( $fname ); ?>"/>
-											<?php wp_nonce_field( self::NONCE_ACTION, '_stonewright_nonce' ); ?>
-											<button type="submit" class="button button-small"><?php esc_html_e( 'Disable', 'stonewright' ); ?></button>
-										</form>
-									<?php endif; ?>
+							<?php /* Disable */ ?>
+							<?php if ( 'active' === $status ) : ?>
+							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+								<input type="hidden" name="action" value="stonewright_sandbox_action"/>
+								<input type="hidden" name="stonewright_file_action" value="disable"/>
+								<input type="hidden" name="stonewright_filename" value="<?php echo esc_attr( $fname ); ?>"/>
+								<?php wp_nonce_field( self::NONCE_ACTION, '_stonewright_nonce' ); ?>
+								<button type="submit" class="button button-small"><?php esc_html_e( 'Disable', 'stonewright' ); ?></button>
+							</form>
+							<?php endif; ?>
 
-									<?php /* Enable */ ?>
-									<?php if ( 'disabled' === $status ) : ?>
-										<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
-											<input type="hidden" name="action" value="stonewright_sandbox_action"/>
-											<input type="hidden" name="stonewright_file_action" value="enable"/>
-											<input type="hidden" name="stonewright_filename" value="<?php echo esc_attr( $fname ); ?>"/>
-											<?php wp_nonce_field( self::NONCE_ACTION, '_stonewright_nonce' ); ?>
-											<button type="submit" class="button button-small"><?php esc_html_e( 'Enable', 'stonewright' ); ?></button>
-										</form>
-									<?php endif; ?>
+							<?php /* Enable */ ?>
+							<?php if ( 'disabled' === $status ) : ?>
+							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+								<input type="hidden" name="action" value="stonewright_sandbox_action"/>
+								<input type="hidden" name="stonewright_file_action" value="enable"/>
+								<input type="hidden" name="stonewright_filename" value="<?php echo esc_attr( $fname ); ?>"/>
+								<?php wp_nonce_field( self::NONCE_ACTION, '_stonewright_nonce' ); ?>
+								<button type="submit" class="button button-small"><?php esc_html_e( 'Enable', 'stonewright' ); ?></button>
+							</form>
+							<?php endif; ?>
 
-									<?php /* Delete */ ?>
-									<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;" onsubmit="return confirm('<?php echo esc_js( __( 'Delete this file? This cannot be undone.', 'stonewright' ) ); ?>');">
-										<input type="hidden" name="action" value="stonewright_sandbox_action"/>
-										<input type="hidden" name="stonewright_file_action" value="delete"/>
-										<input type="hidden" name="stonewright_filename" value="<?php echo esc_attr( $fname ); ?>"/>
-										<?php wp_nonce_field( self::NONCE_ACTION, '_stonewright_nonce' ); ?>
-										<button type="submit" class="button button-small button-link-delete"><?php esc_html_e( 'Delete', 'stonewright' ); ?></button>
-									</form>
-								</td>
-							</tr>
-						<?php endforeach; ?>
-					</tbody>
-				</table>
+							<?php /* Delete */ ?>
+							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;" onsubmit="return confirm('<?php echo esc_js( __( 'Delete this file? This cannot be undone.', 'stonewright' ) ); ?>');">
+								<input type="hidden" name="action" value="stonewright_sandbox_action"/>
+								<input type="hidden" name="stonewright_file_action" value="delete"/>
+								<input type="hidden" name="stonewright_filename" value="<?php echo esc_attr( $fname ); ?>"/>
+								<?php wp_nonce_field( self::NONCE_ACTION, '_stonewright_nonce' ); ?>
+								<button type="submit" class="button button-small button-link-delete"><?php esc_html_e( 'Delete', 'stonewright' ); ?></button>
+							</form>
+						</div>
+					</div>
+					<?php endforeach; ?>
+				</div>
 			<?php endif; ?>
 
 			<?php /* Inline editor */ ?>
