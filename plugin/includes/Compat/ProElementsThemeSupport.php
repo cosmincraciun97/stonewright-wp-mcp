@@ -39,31 +39,65 @@ final class ProElementsThemeSupport {
 		}
 		self::$registered = true;
 		add_action( 'after_setup_theme', [ self::class, 'declare_support' ], 100 );
+		add_action( 'elementor/theme/register_locations', [ self::class, 'register_default_locations' ] );
 	}
 
 	public static function declare_support(): void {
-		if ( current_theme_supports( 'elementor-pro' ) ) {
-			return; // Theme already opted in.
-		}
-
 		if ( ! self::pro_elements_active() ) {
-			return; // Nothing to integrate with.
+			return;
 		}
 
-		/**
-		 * Whether to silently rescue themes that forgot to declare
-		 * `elementor-pro` theme support. Defaults to true; set to false to
-		 * opt out (e.g. when working with a custom theme that intentionally
-		 * gates the support).
-		 *
-		 * @param bool $rescue
-		 */
 		$rescue = (bool) apply_filters( 'stonewright_proelements_theme_support_rescue', true );
 		if ( ! $rescue ) {
 			return;
 		}
 
-		add_theme_support( 'elementor-pro' );
+		if ( ! current_theme_supports( 'elementor-pro' ) ) {
+			add_theme_support( 'elementor-pro' );
+		}
+	}
+
+	/**
+	 * Register the default theme-builder locations (`header`, `footer`)
+	 * on behalf of themes that don't do it themselves.
+	 *
+	 * ProElements / Elementor Pro injects Stonewright-created
+	 * header/footer templates into the matching `Locations_Manager`
+	 * location. If the theme never registered the location (e.g. Hello
+	 * Elementor uses its own `hello_elementor_header` / `_footer` hooks
+	 * instead of Pro's location system), the templates have nowhere to
+	 * render. We register the standard pair so the templates appear in
+	 * the document where any Elementor-aware theme would expect them.
+	 *
+	 * @param object $manager Locations_Manager from Elementor Pro.
+	 */
+	public static function register_default_locations( $manager ): void {
+		if ( ! is_object( $manager ) || ! method_exists( $manager, 'register_location' ) ) {
+			return;
+		}
+
+		$rescue = (bool) apply_filters( 'stonewright_proelements_register_default_locations', true );
+		if ( ! $rescue ) {
+			return;
+		}
+
+		$registered = method_exists( $manager, 'get_locations' ) ? (array) $manager->get_locations() : [];
+
+		if ( ! isset( $registered['header'] ) ) {
+			$manager->register_location( 'header', [
+				'label'     => __( 'Header', 'stonewright' ),
+				'multiple'  => false,
+				'edit_in_content' => false,
+			] );
+		}
+
+		if ( ! isset( $registered['footer'] ) ) {
+			$manager->register_location( 'footer', [
+				'label'     => __( 'Footer', 'stonewright' ),
+				'multiple'  => false,
+				'edit_in_content' => false,
+			] );
+		}
 	}
 
 	private static function pro_elements_active(): bool {
