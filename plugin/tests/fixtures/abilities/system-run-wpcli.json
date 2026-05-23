@@ -1,0 +1,7 @@
+{
+    "args": {
+        "command": "option",
+        "args": ["get", "siteurl"]
+    },
+    "expect": "ok"
+}

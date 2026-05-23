@@ -107,6 +107,7 @@ use Stonewright\WpMcp\Abilities\ThemeBuilder\ListTemplates as ThemeBuilderListTe
 use Stonewright\WpMcp\Abilities\ThemeBuilder\SetConditions as ThemeBuilderSetConditions;
 use Stonewright\WpMcp\Abilities\System\InstructionsGet;
 use Stonewright\WpMcp\Abilities\System\InstructionsSet;
+use Stonewright\WpMcp\Abilities\System\RunWpCli;
 use Stonewright\WpMcp\Abilities\Media\GetMedia;
 use Stonewright\WpMcp\Abilities\Media\OptimizeMedia;
 use Stonewright\WpMcp\Abilities\Media\SetAlt;
@@ -292,6 +293,7 @@ final class AbilityRegistry {
 			InstructionsGet::class,
 			InstructionsSet::class,
 			AbilitiesList::class,
+			RunWpCli::class,
 
 			// Skills (Novamira-inspired enhancement).
 			SkillsList::class,

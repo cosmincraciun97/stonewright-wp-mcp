@@ -220,6 +220,7 @@
 | `stonewright/system-instructions-get` | `System\InstructionsGet` | Returns the current Stonewright custom instructions (system prompt prefix). | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/system-instructions-set` | `System\InstructionsSet` | Replaces the Stonewright custom instructions. | Write | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/system-abilities-list` | `System\AbilitiesList` | Returns all registered Stonewright abilities with category and enabled status. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/system-run-wpcli` | `System\RunWpCli` | Run a WP-CLI command via the companion bridge (no PHP exec). Commands are validated against a hard allowlist. In production-safe mode only read-only subcommands are permitted. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/Abilities/System/RunWpCliTest.php` |
 
 ---
 

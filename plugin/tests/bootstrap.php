@@ -1124,6 +1124,11 @@ if ( ! function_exists( 'wp_safe_remote_post' ) ) {
 				'has_horizontal_overflow' => false,
 				'has_element_overlap'    => false,
 			],
+			'/wpcli' => [
+				'stdout'    => "http://mcp-test.local\n",
+				'stderr'    => '',
+				'exit_code' => 0,
+			],
 			default => [
 				'ok'     => true,
 				'issues' => [],
