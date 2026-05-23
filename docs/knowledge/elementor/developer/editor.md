@@ -1,36 +1,26 @@
 ---
-title: The Editor
+title: Page not found - Developers
 source_url: https://developers.elementor.com/editor/
-fetched_at: 2026-05-22T16:00:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:07:15.797Z
+content_hash: sha256-b6191f23c26ef91992a08c22d8e8b68df17271ecf7cb3a1cc6c6eac46535f1f3
 applies_to: [developer]
 related_widgets: []
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Elementor Editor documentation provides an overview of the core editing environment where developers build pages and manage site settings. It covers the structural components — preview and panel areas — and introduces the various panel types that developers can extend to customize the editing experience.
+Elementor LogoWordPress LogoGithub LogoInstagram LogoDiscord LogoFacebook LogoTwitter LogoYouTube LogoTiktok LogoLinkedin LogoElementor is the leading WordPress website builder, powering over 21 million sites and 13% of the web. Built for professionals, creatives, and businesses, Elementor brings design freedom, performance, and control into one seamless creation experience that helps Web Creators build, launch, and manage websites that grow with them. Get the updates that help you build better. By entering your email, you agree to ourTerms & Conditions and Privacy Policy. © Elementor. All rights reserved
 
 ## Use this when
-- Building custom panels or extending existing Elementor editor functionality
-- Integrating third-party controls into the editor interface
-- Creating custom page, site, or user preference settings
-- Developing widgets that require panel-level customization
-- Understanding the architectural layout of the Elementor editing environment
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
-## API highlights
-- **Elementor Preview** — the visual rendering area where page content displays
-- **Elementor Panel** — the sidebar containing controls and settings
-- **Menu Panel** — top-level navigation and file operations
-- **Site Settings Panel** — global website configuration controls
-- **User Preferences Panel** — individual user customization options
-- **Page Settings Panel** — page-specific metadata and configuration
-- **History Panel** — undo/redo and revision management
-- **Widgets Panel** — available widget library for drag-and-drop composition
-- **Default Panel** — extensibility entry point for custom panels
-- **Elementor Tabs** — tabbed interface organization within panels
+## Settings highlights
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- The editor "consists of two main areas" (preview and panel) with multiple panel types; developers must target the correct panel for their use case
-- Extension capabilities are specifically documented under "Extending The Editor," suggesting only designated extension points are officially supported
-- "Elementor Core Basic" designation indicates tier-specific feature availability; higher versions may include additional extension points
-- Panel architecture is hierarchical, requiring understanding of parent-child relationships when injecting custom controls
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

@@ -1,7 +1,7 @@
 ---
 title: Page not found - Developers
-source_url: https://developers.elementor.com/addons/
-fetched_at: 2026-05-23T00:07:15.517Z
+source_url: https://developers.elementor.com/finder/
+fetched_at: 2026-05-23T00:07:32.815Z
 content_hash: sha256-b6191f23c26ef91992a08c22d8e8b68df17271ecf7cb3a1cc6c6eac46535f1f3
 applies_to: [developer]
 related_widgets: []
