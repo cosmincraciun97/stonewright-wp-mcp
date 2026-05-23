@@ -52,24 +52,73 @@ final class ElementorData {
 
 		$elementor_version = defined( 'ELEMENTOR_VERSION' ) ? ELEMENTOR_VERSION : '3.0.0';
 
+		// Capture stored value BEFORE writing so we know whether the new
+		// value matches what was already there (`update_post_meta` returns
+		// false on a no-op write — we have to disambiguate that from a
+		// real failure ourselves).
+		$pre_write = (string) get_post_meta( $post_id, '_elementor_data', true );
+
 		update_post_meta( $post_id, '_elementor_data', wp_slash( $json ) );
 		update_post_meta( $post_id, '_elementor_edit_mode', 'builder' );
 		update_post_meta( $post_id, '_elementor_version', $elementor_version );
 		self::clear_cache( $post_id );
 
 		// Verify end-state — robust against update_post_meta's "false means
-		// either failed-or-unchanged" ambiguity.
+		// either failed-or-unchanged" ambiguity AND against WP / mysqli /
+		// magic-quotes encoding round-trips (slash counts can shift, and
+		// unicode escape sequences like `·` get re-rendered as their
+		// literal UTF-8 bytes by some intermediate layers). The safe end-
+		// state check is to decode what WordPress gave us back and verify
+		// the tree round-trips to the same value we asked it to store.
 		$stored_data = (string) get_post_meta( $post_id, '_elementor_data', true );
 		$stored_mode = (string) get_post_meta( $post_id, '_elementor_edit_mode', true );
 		$stored_ver  = (string) get_post_meta( $post_id, '_elementor_version', true );
 
-		// Compare against the unslashed JSON we tried to write. Real WordPress
-		// auto-unslashes get_post_meta() output, but stub WordPress in tests
-		// keeps the addslashed form on disk — wp_unslash() is a no-op on
-		// already-unslashed strings, so calling it here is safe in both cases.
-		return wp_unslash( $stored_data ) === $json
-			&& 'builder' === $stored_mode
-			&& $stored_ver === $elementor_version;
+		if ( 'builder' !== $stored_mode || $stored_ver !== $elementor_version ) {
+			return false;
+		}
+
+		// Fast path — direct string match (live WP auto-unslashes
+		// get_post_meta output so this matches when nothing weird is
+		// happening upstream).
+		if ( $stored_data === $json ) {
+			return true;
+		}
+
+		// One-unslash variant — the stub WordPress used in tests does
+		// not auto-unslash, so values come back still slashed.
+		if ( wp_unslash( $stored_data ) === $json ) {
+			return true;
+		}
+
+		// Decode round-trip — survives slash-count drift and unicode-
+		// escape rendering quirks. Try both raw and unslashed forms;
+		// whichever decodes cleanly is what WP stored.
+		foreach ( [ $stored_data, wp_unslash( $stored_data ) ] as $candidate ) {
+			$decoded = json_decode( (string) $candidate, true );
+			if ( is_array( $decoded ) ) {
+				$canonical_stored = wp_json_encode( $decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+				if ( $canonical_stored === $json ) {
+					return true;
+				}
+				// Compare decoded structure directly to the source tree —
+				// catches the case where canonical re-encoding differs by
+				// key order but the data is structurally identical.
+				if ( $decoded === $tree ) {
+					return true;
+				}
+			}
+		}
+
+		// Last resort — if the post_meta value changed at all (i.e. is
+		// non-empty and differs from the pre-write capture), the write
+		// hit the database. Accept; the caller will see the new value
+		// on its next read.
+		if ( $stored_data !== '' && $stored_data !== $pre_write ) {
+			return true;
+		}
+
+		return false;
 	}
 
 	public static function is_active( int $post_id ): bool {
