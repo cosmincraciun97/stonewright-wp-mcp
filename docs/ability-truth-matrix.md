@@ -235,6 +235,14 @@
 
 ---
 
+## Knowledge
+
+| Slug | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
+|---|---|---|---|---|---|---|---|---|---|
+| `stonewright/elementor-knowledge-refresh` | `Knowledge\KnowledgeRefresh` | Self-updates the Stonewright Elementor knowledge base from a canonical URL. | Write | `Permissions::manage_options()` | No | No | No | sandboxed | `tests/Unit/AbilityKernelAuditTest.php` |
+
+---
+
 ## ThemeBuilder
 
 | Slug | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
@@ -362,7 +370,7 @@
 
 ## Summary
 
-Total abilities registered: **219**
+Total abilities registered: **220**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

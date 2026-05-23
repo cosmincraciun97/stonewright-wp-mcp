@@ -80,6 +80,7 @@ use Stonewright\WpMcp\Abilities\Memory\MemoryList;
 use Stonewright\WpMcp\Abilities\Memory\MemorySave;
 use Stonewright\WpMcp\Abilities\ElementorWidget\CreateCustomWidget;
 use Stonewright\WpMcp\Abilities\ElementorWidget\WidgetDefine;
+use Stonewright\WpMcp\Abilities\Knowledge\KnowledgeRefresh;
 use Stonewright\WpMcp\Abilities\ElementorWidget\WidgetList as ElementorWidgetList;
 use Stonewright\WpMcp\Abilities\ElementorWidget\WidgetRegister;
 use Stonewright\WpMcp\Abilities\Sandbox\SandboxActivate;
@@ -284,6 +285,9 @@ final class AbilityRegistry {
 
 			// Custom-widget high-level pipeline (Phase G.2).
 			CreateCustomWidget::class,
+
+			// Knowledge base self-update (Phase H.1).
+			KnowledgeRefresh::class,
 
 			// Sandbox (Wave 3c).
 			SandboxListAbility::class,

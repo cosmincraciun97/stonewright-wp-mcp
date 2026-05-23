@@ -1,0 +1,6 @@
+{
+    "args": {
+        "url": "https://other-site.example/page"
+    },
+    "expect": "wp_error"
+}
