@@ -1,35 +1,27 @@
 ---
 title: Spacing identical elements in a container
 source_url: https://elementor.com/help/spacing-identical-elements-in-a-container/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [editor:v3]
-related_widgets: []
+fetched_at: 2026-05-23T00:13:01.722Z
+content_hash: sha256-6d0cdfb60607ca68dc4b5113b26e95c26282cfaa89d1fc270a680015dad47c80
+applies_to: [editor:v4]
+related_widgets: [icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-This article explains how to distribute multiple identical elements evenly within a Flexbox container using gap and spacing controls to create visually balanced layouts without manual adjustment of individual elements.
+When there are several evenly spaced identical elements in a container there can be issues with responsive design. Elements may not line up as you would like for different screen widths.
 
 ## Use this when
-- You need to space multiple similar widgets or elements consistently
-- Creating grids of cards, buttons, or other repeating components
-- You want uniform distribution across container width or height
-- Building responsive layouts that maintain spacing across devices
-- Avoiding manual margin/padding adjustments on each element
+- Enter responsive modeClick this icon to enter responsive mode
+- Select tabletSelect the tablet icon to view the page as it would appear on a tablet
+- While we can see all four elements on the screen, a two column design would probably look better on a tablet
+- This is done in the Advanced tab of each individual widget
 
 ## Settings highlights
-- Gap control for space between adjacent elements
-- Flexbox container direction (row/column) settings
-- Justify-content property for horizontal alignment options
-- Align-items for vertical alignment within container
-- Flex-wrap to control element wrapping behavior
-- Row gap and column gap for separate control per axis
-- Responsive settings to adjust spacing per breakpoint
-- Margin controls as alternative spacing method
-- Container width constraints affecting element distribution
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Gap property requires Flexbox container—won't work with sections/columns
-- Spacing applies uniformly; unequal gaps require workarounds or nested containers
-- Nested containers may need additional configuration for proper inheritance
-- Responsive adjustments must be set manually for each breakpoint
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

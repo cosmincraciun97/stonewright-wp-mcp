@@ -1,40 +1,30 @@
 ---
 title: Paragraph element
 source_url: https://elementor.com/help/paragraph-element/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:13:50.090Z
+content_hash: sha256-d303c0b0edc45f958783dfcfa540b20614895df4cfeaaf1e891078bb4c04934c
 applies_to: [editor:v4]
-related_widgets: []
+related_widgets: [heading, toggle, tabs]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-
-The Paragraph element in Elementor Editor V4 is a fundamental atomic component for adding and styling text content within pages. It renders a `<p>` tag with streamlined controls for typography, spacing, and visual effects tailored to the V4 architecture's modern atomic prop schema rather than the V3 Text Editor widget control groups.
+Who can use this feature: This article is for Editor v4 users. If you’re using Editor v3, check out the relevant article here: Text Editor widget Add and delete the element Add the element to the canvas
 
 ## Use this when
-
-- Adding body text, descriptions, or longer-form copy to a page or template
-- Applying consistent typography styling with global font controls and design tokens
-- Requiring responsive text sizing across different device breakpoints
-- Building with V4's atomic element structure rather than the V3 Text Editor widget
-- Layering text effects like shadows, transforms, or advanced styling via element states
+- Press the delete key on your keyboard
+- For more information, see Delete elements from a page
+- What is Paragraph element
+- The Paragraph element allows you to add and customize your website text
 
 ## Settings highlights
-
-- **text** prop — paragraph text content; supports inline dynamic tag binding for post excerpt or custom field values
-- **Typography** — font-family, font-size, font-weight, font-style, line-height, letter-spacing, text-transform, text-decoration
-- **Color** — text color with global color picker and element-state-aware overrides
-- **Text Shadow** — offset X/Y, blur, color
-- **Alignment** — left, center, right, justify; per-breakpoint responsive
-- **Spacing** — Padding and Margin via atomic props (`paddingTop/Right/Bottom/Left`)
-- **Advanced effects** — CSS transforms (scale, rotate, translate) and CSS filters
-- **Element states** — hover color, hover shadow, hover transform without custom CSS
-- **Dynamic content** — bind text to post excerpt, custom field, or any text-returning dynamic tag
-- **Z-index** — layering control for overlapping text over images
+- To access and use an element – In Elementor Editor, click +. All available elements are displayed.Click or drag the element to the canvas. For more information, see Add elements to a page.
+- To delete the element – On the canvas, select the element by clicking it.Press the delete key on your keyboard. For more information, see Delete elements from a page.
+- Add a Paragraph element – Step-by-step
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-
-- V4 Paragraph element does not include a WYSIWYG editor; for rich text with inline bold/italic/links use the Text Editor widget instead
-- Custom CSS targeting in V4 requires understanding V4's generated class structures (not `.elementor-text-editor`)
-- Certain text-wrapping behaviors differ between V3 containers and V4 Flexbox element layouts; check `overflow` on parent
-- Nested link functionality in the paragraph has distinct handling requirements in V4 compared to V3
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

@@ -1,33 +1,29 @@
 ---
 title: Convert existing sections to containers
 source_url: https://elementor.com/help/convert-existing-sections-to-containers/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:12:23.107Z
+content_hash: sha256-3a13de11b9962dd98cfc40eaabc6753651c549da0fe70a4fb4ea3539765815d7
 applies_to: [editor:v3]
-related_widgets: []
+related_widgets: [icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-This feature enables users to transform their existing page sections into modern Flexbox containers, facilitating migration from the older section-based layout system to Elementor's current container architecture for improved design flexibility and responsiveness.
+Containers are the default layout element of all new Elementor sites. However, you may have an existing site that uses sections. These sections can be converted to containers by using the Convert to Container option. This will save you valuable time as you migrate to containers.
 
 ## Use this when
-- Migrating legacy pages built with sections to the container-based system
-- Seeking enhanced layout control with Flexbox capabilities
-- Wanting to leverage newer container-specific features and styling options
-- Updating older designs without rebuilding from scratch
-- Preparing sites for modern responsive design patterns
+- Pro tip – You can use the Structure window’s multi-select feature to move several widgets at the same time out of redundant containers
+- It can also be used to delete extra containers
+- For more details, see Structure, Add elements to a page and How many containers should my page contain
+- Create a flexbox container
 
 ## Settings highlights
-- Automated conversion preserves existing section content and basic structure
-- Access conversion through section context menu or settings panel
-- Container layout options (Flexbox, grid) become available post-conversion
-- Style transfer attempts to maintain visual consistency during migration
-- Responsive behavior adapts to container's native breakpoint system
-- Advanced container settings unlock additional spacing and alignment controls
-- Nested element handling adjusts hierarchies appropriately
+- Important Note – While you can convert a page using sections and columns to containers, this is a one-way process. You cannot convert a container page to work with sections and columns!
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Complex custom CSS on sections may require manual adjustment after conversion
-- Some section-specific properties don't have direct container equivalents
-- Conversion is typically one-way; reverting requires undoing via revision history
-- Performance may temporarily fluctuate during large-scale section conversions
+- Important Note: While you can convert a page using sections and columns to containers, this is a one-way process. You cannot convert a container page to work with sections and columns!
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

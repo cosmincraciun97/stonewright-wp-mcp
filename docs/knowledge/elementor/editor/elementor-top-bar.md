@@ -1,34 +1,28 @@
 ---
 title: Elementor Top Bar
 source_url: https://elementor.com/help/elementor-top-bar/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:11:04.913Z
+content_hash: sha256-b11f1a394e72ac70a6c8c1dbfc8231a83957542ba3b01e1ecbcf85172647b6ea
 applies_to: [editor:v3]
-related_widgets: []
+related_widgets: [image, icon, toggle]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Elementor Top Bar is the navigation element appearing at the highest point of the editor interface, providing quick access to essential editing tools, site settings, and account information while building pages. It serves as the primary control center for managing the design workflow and accessing key Elementor features from anywhere in the editor.
+For ease of use, many Elementor Editor features are accessible from the top tool bar.
 
 ## Use this when
-- You need quick access to save, preview, or publish your current page
-- You want to adjust global site settings without leaving the editor
-- You need to manage your Elementor account or subscription details
-- You require rapid navigation between different pages or templates
-- You're looking for notifications about updates or system alerts
+- Theme Builder – here you can access the different site parts
+- This includes things like using light or dark mode, panel width and the visibility of global settings
+- Keyboard Shortcuts – brings up a chart showing the keyboard combinations, or hotkeys, that will bring up certain actions
+- Exit to WordPress – exit to the site’s WP Admin
 
 ## Settings highlights
-- Page title and status display showing current editing context
-- Publishing and preview controls for immediate content management
-- Global site settings quick-access button for design system adjustments
-- Account menu containing profile, license, and subscription management
-- Notification center displaying updates and important system messages
-- Search/finder functionality for locating pages and templates quickly
-- Responsive breakpoint selector for testing different device views
-- Template library access for importing pre-designed elements
-- Back button for exiting the editor to the WordPress dashboard
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- The top bar remains fixed during editing, which may reduce visible workspace on smaller monitors
-- Some advanced settings accessible from the top bar require Elementor Pro subscription
-- Navigation through the top bar account menu requires proper Elementor account connection and authentication
+- First time users will have an extra option called the Pages Panel. See Pages Panel below for more details. This feature is only available to users of Elementor Host sites.
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

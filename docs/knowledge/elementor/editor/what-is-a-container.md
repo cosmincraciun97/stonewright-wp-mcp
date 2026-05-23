@@ -1,38 +1,27 @@
 ---
 title: What is a Flexbox Container?
 source_url: https://elementor.com/help/what-is-a-container/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:13:13.130Z
+content_hash: sha256-3e67cb26b2d2dde0a3fdb335ca9d6d5407d860375cee3b450f6841d88489db4a
 applies_to: [editor:v4]
 related_widgets: []
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-
-The Flexbox Container is Elementor's primary layout element, replacing the legacy section/column model. A container is a single `<div>` rendered with CSS `display: flex`, enabling flexible one-dimensional layout of any child widgets or nested containers. It supports styling, background, responsive overrides, and atomic prop controls from V4.
+Containers are the way Elementor now organizes and lays out webpages, replacing the current system of sections, columns, and inner sections. Containers not only allow you to create more complex web page designs, they also help you design your page layout more efficiently.
 
 ## Use this when
-
-- Building any page layout in Elementor V4 (containers are the default building block)
-- Creating horizontal rows of cards, icons, buttons, or text blocks
-- Building vertical stacks (column direction) for mobile-first designs
-- Nesting containers inside containers for complex multi-column layouts
-- Replacing legacy sections and columns for better performance and CSS purity
+- Containers are the way Elementor now organizes and lays out webpages, replacing the current system of sections, columns, and inner sections
+- Containers not only allow you to create more complex web page designs, they also help you design your page layout more efficiently
+- Elementor Flexbox Containers provide you with much greater creative freedom and control over your web design process
+- They also allow you to work more efficiently
 
 ## Settings highlights
-
-- **Layout tab** — Direction, Wrap, Justify Content, Align Items, Gap, Min Height, Overflow
-- **Style tab** — Background (solid/gradient/image/video), Border, Box Shadow, CSS Filters, Opacity, Blend Mode
-- **Advanced tab** — Margin, Padding, Z-Index, CSS ID, CSS Classes, Custom CSS, Motion Effects, Positioning
-- **Atomic prop schema** — `direction`, `flexWrap`, `justifyContent`, `alignItems`, `gap`, `minHeight`, `overflow` map directly to CSS flex properties
-- **Width control** — Boxed (max-width constrained) or Full Width; inner content width set separately
-- **Clickable container** — entire container can be linked via the Link option without wrapping an anchor widget
-- **Responsive overrides** — each layout/style prop has per-breakpoint (Desktop/Tablet/Mobile) variants
-- **HTML tag** — container renders as `div` by default; can be changed to `section`, `article`, `header`, etc.
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-
-- Containers are one-dimensional (flex); for two-dimensional grid use the Grid Container
-- Nesting too many containers (5+ levels) adds DOM depth and can hurt performance
-- Legacy "inner section" widget is deprecated; replace with nested container
-- Position: Absolute on a child removes it from flex flow; parent needs `position: relative`
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

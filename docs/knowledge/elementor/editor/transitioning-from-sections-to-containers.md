@@ -1,37 +1,27 @@
 ---
 title: Transitioning from sections to containers
 source_url: https://elementor.com/help/transitioning-from-sections-to-containers/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:13:07.518Z
+content_hash: sha256-1c9a4edef32d415439e1574941369ba601d7823d33c8484c0d5b0973763f7d91
 applies_to: [editor:v4]
-related_widgets: []
+related_widgets: [heading, video, icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-
-This guide covers the migration path from the legacy Elementor V3 section/column layout model to the V4 Flexbox and Grid container architecture. Containers are the recommended building block in Elementor 3.x+ and mandatory in V4; this article walks through coexistence strategies, automatic conversion tools, and manual migration patterns.
+The default layout element in Elementor is the container. However, before the development of containers, Elementor used sections and columns for layout, so many creators are used to creating with sections.
 
 ## Use this when
-
-- You have existing V3 pages with sections and columns and want to move to containers
-- Setting up a new project and deciding between keeping V3 structures or fully adopting containers
-- Troubleshooting layout differences after using the Convert to Containers feature
-- Ensuring third-party widgets still work after migration
+- Containers allow you to create more sophisticated designs with a greater level of customization
+- For example, the Icon Box widget allows designers using sections to combine an icon, a heading, and text within a contained area
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
 
 ## Settings highlights
-
-- **Convert to Containers tool** — right-click any section in the editor → "Convert to Container" to migrate one section at a time
-- **Bulk conversion** — available via Elementor > Tools > Replace Sections with Containers in dashboard
-- **Flexbox container equivalent** — a V3 section maps to a Flexbox container; a V3 column maps to a nested inner container
-- **Width behavior** — V3 section boxed width set via `.site-inner` or content width; containers use self-contained `max-width` / `width` props
-- **Column gap** — V3 used column gutter; V4 container uses `gap` prop; values may differ after conversion
-- **Responsive behavior** — V4 containers inherit responsive controls differently; re-check tablet/mobile layouts post-migration
-- **Widget compatibility** — most free widgets function in containers; some complex V3 widgets (inner section nesting) need review
-- **Sections and containers coexist** — you can keep both on the same page during transition
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-
-- Automatic conversion does not guarantee pixel-perfect parity; visual review is mandatory
-- V3 column percentage widths convert to flex-grow values, which may behave differently at edge breakpoints
-- Nested inner sections converted to nested containers may introduce extra wrapper elements affecting z-index or overflow
-- After full migration, disabling V3 sections experiment may break fallback for any remaining legacy structures
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

@@ -1,34 +1,27 @@
 ---
 title: Create a dropdown menu
 source_url: https://elementor.com/help/dropdown-menu/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:12:22.905Z
+content_hash: sha256-bf33655f1c1292922025e0f3be06f86874109343d609eb2e4654b0033cf3e7c3
 applies_to: [editor:v3]
 related_widgets: []
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-This article guides users through building dropdown menus in Elementor using containers and layout tools. Dropdown menus enable hierarchical navigation structures where submenus appear on hover or click, improving site organization and user experience for complex navigation needs.
+Creating menus is a WordPress function. You can use the Elementor Nav Menu Widget (Pro) or your theme to display the menus. For details, see WordPress Menu Widget.
 
 ## Use this when
-- You need multi-level navigation on your website
-- You want to organize menu items into categories or sections
-- You're designing a header with expandable navigation options
-- You require responsive dropdown behavior across devices
-- You're building a mega menu with advanced submenu layouts
+- Creating menus is a WordPress function
+- You can use the Elementor Nav Menu Widget (Pro) or your theme to display the menus
+- For details, see WordPress Menu Widget
+- Click Create a new menu
 
 ## Settings highlights
-- Container layout configuration for menu structure
-- Hover and click triggers for dropdown visibility
-- Flexbox alignment options for menu item positioning
-- Responsive settings to hide/show dropdowns per device
-- Spacing controls for padding and margins between items
-- Display conditions to show/hide specific menu items
-- Z-index management for layering dropdown content
-- Styling options for dropdown backgrounds and borders
-- Animation and transition effects for smooth opening/closing
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Dropdowns require proper container nesting; incorrect structure breaks functionality
-- Mobile responsiveness needs specific configuration; dropdowns may not work well on touch devices without additional setup
-- Performance can degrade with deeply nested menus or excessive animations
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

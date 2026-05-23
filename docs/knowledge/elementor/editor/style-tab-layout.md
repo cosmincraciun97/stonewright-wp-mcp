@@ -1,38 +1,31 @@
 ---
 title: Style tab - Layout
 source_url: https://elementor.com/help/style-tab-layout/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:14:01.776Z
+content_hash: sha256-1bcc20e5d19abbc182d0f2869ba0e12467306b7b403766d26d849c5a4badfac8
 applies_to: [editor:v4]
-related_widgets: []
+related_widgets: [heading]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-
-The Layout section of the V4 Style tab controls how elements flow, align, and distribute within their containers using flexbox and grid properties. This atomic control schema enables responsive, flexible positioning without legacy V3 nested control groups — all layout props are directly in the Style tab, not buried in a separate Layout tab.
+In block layout, the element will take up the full width of the screen, however, you will still be able to control the element’s size in the Space field.
 
 ## Use this when
-
-- Arranging child elements within a flex or grid container
-- Defining element distribution and spacing alignment along flex axes
-- Creating responsive layouts that adapt across device breakpoints
-- Controlling directional flow (row/column) and wrapping behavior
-- Fine-tuning gaps, justification, and alignment properties
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-
-- **Direction** — set flex flow as `row` or `column` orientation (`flex-direction` prop)
-- **Wrap** — enable/disable element wrapping within container bounds (`flex-wrap` prop)
-- **Justify Content** — distribute elements along primary axis: `flex-start`, `flex-end`, `center`, `space-between`, `space-around`, `space-evenly`
-- **Align Items** — align child elements perpendicular to direction axis: `flex-start`, `flex-end`, `center`, `stretch`, `baseline`
-- **Align Content** — multi-line cross-axis distribution when wrap is active
-- **Gap** — row-gap and column-gap in px/em/rem/%; replaces V3 column gutter
-- **Atomic prop schema** — `direction`, `flexWrap`, `justifyContent`, `alignItems`, `gap` map directly to CSS flex properties
-- **Responsive toggles** — apply different layout values per device (desktop, tablet, mobile)
+- Direction – Flex layout elements generally contain other elements. Set a direction to determine if these inner, or child elements, line up:
+- Justify content – Align the content within the element:
+- or Start – Items are aligned to the start of the container.
+- or Center – Items are aligned to the center of the container.
+- or End – Items are aligned to the end of the container.
+- or Space between – Items are spaced evenly across the element. The first item aligns with the start and the final item with the end.
+- or Space Around – Items have an equal space between themselves. There is an equal amount of space between the items and there is equal space between the first and last items and the container’s edges.
+- or Space Evenly – Items have equal space between themselves and the container’s edges.
 
 ## Limits / gotchas
-
-- V4's atomic structure differs significantly from V3's nested control hierarchy; migrated layouts may require reconfiguration of flex properties
-- Legacy section/column structures don't map directly to V4 flexbox/grid — conversion tools available but manual review is recommended
-- Gap property applies uniformly to all children; for unequal child spacing use margin on individual children or custom CSS
-- Some V3 advanced layout tricks (absolute positioning combos with flex children) need rethinking in V4's declarative model
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

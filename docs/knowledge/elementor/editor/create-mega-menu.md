@@ -1,33 +1,31 @@
 ---
 title: Create a mega menu
 source_url: https://elementor.com/help/create-mega-menu/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [editor:v3]
-related_widgets: []
+fetched_at: 2026-05-23T00:12:28.657Z
+content_hash: sha256-84a2ef3b1ca07f2696ce758fe9e3f6367bb4562e065a93c9b8d17cbf5433e933
+applies_to: [editor:v4]
+related_widgets: [image, icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-A mega menu is an expanded dropdown navigation structure that displays multiple columns of links, content, and submenus in an organized grid layout. This advanced menu type allows you to present extensive navigation options without cluttering your header, making it ideal for sites with complex information architecture or multiple product categories.
+Mega menus give you the flexibility to create stylish menus for your website. The following article will walk you through the creation of a mega menu. For a comprehensive guide to all the options available in your mega menu, check out our article on the Menu widget.
 
 ## Use this when
-- Your site has many top-level categories requiring organized subcategory displays
-- You want to showcase multiple menu items with descriptions or images simultaneously
-- Creating e-commerce sites with extensive product hierarchies
-- Designing corporate or service-based sites with diverse service offerings
-- You need visual organization beyond standard dropdown menus
+- Tip
+ You can put a menu anyplace on a page, but they are most commonly placed in the header and/or footer
+- In the example below, we’ll create a mega menu in a header
+- We’ll be using the Bread Bakery Website Kit
+- Select create a new header using the Theme Builder
 
 ## Settings highlights
-- Menu widget configuration for layout and styling
-- Container-based structure for organizing mega menu content
-- Submenu inclusion options for displaying nested navigation levels
-- Flexbox alignment controls for column arrangement and spacing
-- Responsive design settings to adapt mega menus for mobile devices
-- Style options for backgrounds, borders, and typography customization
-- Link and submenu item styling with hover effects
-- Positioning controls for mega menu panel placement and size
+- Our menu has three top – level menu items. To create them, Items 1-3 need to be replaced.
+- Note – You cannot put a menu widget inside another menu widget (i.e. a mega menu inside a mega menu.)
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Mega menus require careful responsive design planning for smaller screens to avoid overwhelming mobile users
-- Performance may be affected if mega menus contain excessive images or heavy content elements
-- Navigation clarity diminishes if too many columns or items are cramped into the mega menu display
+- You cannot put a menu widget inside another menu widget (i.e. a mega menu inside a mega menu.)
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

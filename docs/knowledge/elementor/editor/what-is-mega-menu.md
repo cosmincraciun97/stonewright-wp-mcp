@@ -1,38 +1,27 @@
 ---
 title: What is a mega menu?
 source_url: https://elementor.com/help/what-is-mega-menu/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:13:18.779Z
+content_hash: sha256-dce50c8b90cf110f697d0dcf3035a08042f9e874594ab97c79e86e37744f02ae
 applies_to: [editor:v4]
-related_widgets: []
+related_widgets: [image, video, icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-
-A mega menu is an expanded navigation dropdown that replaces a standard single-column sub-menu with a multi-column, widget-rich panel. In Elementor Pro, mega menus are built using containers placed inside nav menu items, allowing arbitrary widgets (images, icons, headings, CTAs) to appear on hover within the nav dropdown region.
+Website menus provide visitors easy access to different areas of your website. As your website grows and becomes more sophisticated, your menu should reflect that.
 
 ## Use this when
-
-- A top-nav menu item has many children and a simple dropdown becomes cluttered
-- You need images, featured posts, or promo banners inside the navigation dropdown
-- Building e-commerce sites with category navigation requiring visual hierarchy
-- Creating "full-width" navigation overlays with multi-column layouts
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-
-- **Enable Mega Menu** — toggled per-menu-item in the WordPress Menu editor or via Astra/theme mega menu settings
-- **Panel type** — "Mega Menu" dropdown type replaces default sub-menu for that item
-- **Container-based content** — inner content is built with Elementor containers and widgets
-- **Width** — Full Width (100vw) or Custom Width for the expanded panel
-- **Columns** — define columns inside the mega panel using nested Flexbox/Grid containers
-- **Background** — style the mega menu panel background independently
-- **Trigger** — hover or click; configurable per item
-- **Include sub-menus** — existing WordPress child menu items can be merged into mega panel as widget-driven columns
-- **Responsive** — mega panel collapses to standard accordion or hamburger on mobile breakpoints
+- Multi – column layout for submenus
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-
-- Mega menus require Elementor Pro (Menu widget or Nav Menu widget with mega option)
-- The mega panel is built in a separate Elementor "canvas" — changes there are independent from the page template
-- CSS specificity conflicts can arise when theme stylesheet targets `.sub-menu` globally
-- Mobile mega menus often need custom CSS to override desktop panel dimensions
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

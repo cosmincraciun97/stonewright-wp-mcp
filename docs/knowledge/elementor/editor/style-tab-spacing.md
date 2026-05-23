@@ -1,37 +1,28 @@
 ---
 title: Style tab - Spacing
 source_url: https://elementor.com/help/style-tab-spacing/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:14:07.437Z
+content_hash: sha256-0c2fd9890dd4a23db3adc75af06f34a26fc197199bf75d62811a1921c96a81b9
 applies_to: [editor:v4]
-related_widgets: []
+related_widgets: [icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-
-The Spacing section of the V4 Style tab controls margin and padding for elements using individual atomic props for each side, with support for logical properties (RTL-aware), responsive breakpoint overrides, and units from px to vw. In V4 these controls live in the Style tab; V3 placed them in a separate "Advanced" tab.
+The Spacing section sets the Padding and Margins for the element. Padding is the space between the element’s border and its contents, while margins are the space between elements. For details, see Create space with padding and margins.
 
 ## Use this when
-
-- Adding internal space (padding) inside a container before its children render
-- Adding external space (margin) between an element and its siblings
-- Creating consistent vertical rhythm between sections using top/bottom margins
-- Adjusting mobile-specific spacing that differs from desktop
-- Using logical properties for RTL multilingual sites
+- Use the number fields to enter settings for the padding and margins
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-
-- **Padding** — per-side controls: `paddingTop`, `paddingRight`, `paddingBottom`, `paddingLeft`; unit selector per side (px/em/rem/%)
-- **Margin** — per-side controls: `marginTop`, `marginRight`, `marginBottom`, `marginLeft`; supports negative values for overlapping effects
-- **Linked values** — lock icon links all four sides to the same value for quick uniform spacing
-- **Logical properties** — toggle to use `padding-block-start/end` and `padding-inline-start/end` instead of physical top/right/bottom/left
-- **Units** — px, em, rem, %, vw, vh; unit can differ per side
-- **Auto margin** — set `margin-left: auto` + `margin-right: auto` to center a block-level element horizontally
-- **Responsive** — each side has per-breakpoint overrides; common use: reduce padding on mobile
+- A lock icon – When the lock icon is selected, all the settings below are equal.
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-
-- Margin collapse: adjacent block elements' top/bottom margins collapse to the larger value; this affects vertical spacing between elements outside flex containers
-- Margin collapse does NOT occur inside flex or grid containers — elements inside Flexbox containers behave as if `overflow: auto` is set
-- V4 moved spacing from Advanced tab (V3) to Style tab; muscle memory from V3 will cause confusion
-- Negative margins that create overlapping effects may cause scrollbar appearance if the parent doesn't have `overflow: hidden`
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

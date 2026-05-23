@@ -1,38 +1,26 @@
 ---
 title: What are logical properties?
 source_url: https://elementor.com/help/what-are-logical-properties/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:14:27.868Z
+content_hash: sha256-853fe12a94dbe02c0d2ab284000ddcd2cb1f17e86c6742a06317543d6b4a430c
 applies_to: [editor:v4]
 related_widgets: []
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-
-Logical properties provide a CSS-based approach to styling that adapts automatically to different text directions (LTR/RTL) and writing modes, eliminating the need for separate directional overrides. In Elementor V4 the atomic Style tab exposes logical property options for margin, padding, border, and positioning — replacing the physical `left/right/top/bottom` with logical `inline-start/end` and `block-start/end` equivalents.
+Web creators have to be prepared to build sites in a variety of languages and for a variety of styles and devices. In order to provide this flexibility, Elementor uses logical properties for many of its options.
 
 ## Use this when
-
-- Building multilingual sites supporting RTL languages (Arabic, Hebrew, Farsi)
-- Creating responsive layouts that need to adapt to different writing systems
-- Standardizing spacing and alignment across language variants without duplicate CSS
-- Reducing CSS complexity by using directional-agnostic properties
-- Designing components that must maintain visual consistency regardless of locale direction
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-
-- **Block Start/End** — replace `top`/`bottom` margins and padding (`margin-block-start`, `padding-block-end`)
-- **Inline Start/End** — replace `left`/`right` margins and padding (`margin-inline-start`, `padding-inline-end`)
-- **Logical border** — `border-inline-start/end` replaces `border-left`/`border-right`
-- **Logical insets** — `inset-inline-start/end` for absolute/fixed positioning offset
-- **Text alignment** — `start` and `end` values instead of `left`/`right` in Typography alignment
-- **V4 toggle** — logical property mode toggled per-prop via a direction icon in the Spacing/Position style controls
-- **Sizing logical props** — `inline-size` (width in LTR), `block-size` (height in LTR) used in Size section
-- **Auto-flip** — when WordPress site language changes direction, logical-property-based layouts flip without CSS changes
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-
-- V3 used physical properties exclusively; V4 requires explicit logical property adoption per element — no auto-migration
-- Browser support for all logical properties requires Chrome 87+, Firefox 63+, Safari 14.1+; test older browser targets
-- Mixing logical and physical properties in the same ruleset on the same prop causes conflicts; pick one convention per element
-- Some older third-party widgets use physical CSS internally and don't respond to V4 logical property changes
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

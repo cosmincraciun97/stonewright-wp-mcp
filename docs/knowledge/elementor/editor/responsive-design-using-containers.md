@@ -1,35 +1,26 @@
 ---
 title: Create responsive design with containers
 source_url: https://elementor.com/help/responsive-design-using-containers/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [editor:v3]
+fetched_at: 2026-05-23T00:12:39.559Z
+content_hash: sha256-85ecd4c21cecd70bcaa5ab331773af0c82958cc8ad516081e7f0e35841c43cc7
+applies_to: [editor:v4]
 related_widgets: []
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Containers in Elementor enable developers and designers to build flexible, responsive layouts that automatically adapt to different screen sizes and devices. This feature leverages Flexbox and Grid technologies to create modern, mobile-first designs without writing code.
+Containers make the best use of available space within them. This means your designs will look great across all devices with less need for additional breakpoints. The ability to resize and reorder individual elements within a section was only possible before with a lot of custom CSS or third party add-ons.
 
 ## Use this when
-- Building responsive layouts that need to adapt across desktop, tablet, and mobile devices
-- Creating flexible arrangements of elements using Flexbox or Grid display modes
-- Designing navigation menus, headers, footers, and complex page structures
-- Needing fine-grained control over element spacing and alignment
-- Converting existing section-based designs to modern container architecture
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- **Layout Tab**: Define container display type (Flexbox or Grid)
-- **Flex Direction**: Control whether items flow horizontally or vertically
-- **Justify Content**: Align items along the main axis
-- **Align Items**: Position items perpendicular to the main axis
-- **Flex Wrap**: Determine if items wrap to multiple lines
-- **Gap Settings**: Add consistent spacing between child elements
-- **Responsive Controls**: Adjust layout behavior per device breakpoint
-- **Style Tab**: Apply backgrounds, borders, shadows, and effects
-- **Advanced Tab**: Configure z-index, positioning, and custom CSS
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Converting existing sections to containers requires manual setup and testing across devices
-- Grid containers require understanding CSS Grid syntax for proper cell spanning
-- Container behavior differs significantly from legacy sections, requiring design workflow adjustments
-- Performance may impact if excessive nesting of containers occurs without optimization
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

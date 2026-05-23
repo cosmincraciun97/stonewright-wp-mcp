@@ -1,36 +1,30 @@
 ---
 title: Get started with the Elementor plugin
 source_url: https://elementor.com/help/get-started-with-the-elementor-plugin/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:11:08.074Z
+content_hash: sha256-865d7f3e545d48f49772756ae230d2373282aa6ada2d0afde3d6dc3f3980e7e5
 applies_to: [editor:v3]
 related_widgets: []
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-This article serves as an introductory guide to installing and activating the Elementor page builder plugin, covering foundational setup steps for WordPress users who want to begin creating pages visually without coding.
+(Optional) Connect your Elementor Pro subscription. You must connect your Elementor Pro license to use the Pro features.
 
 ## Use this when
-- You're first installing Elementor on a WordPress site
-- You need to activate the plugin after downloading it
-- You want to understand basic navigation in the Elementor editor
-- You're preparing to build your first page with the visual builder
-- You need to connect your Elementor Pro license to your site
+- (Optional) Connect your Elementor Pro subscription
+- You must connect your Elementor Pro license to use the Pro features
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
 
 ## Settings highlights
-- Plugin installation from WordPress dashboard
-- License activation and connection process
-- Editor interface navigation and layout
-- Page creation workflow
-- Basic element insertion and management
-- Template library access and usage
-- Publishing and preview options
-- User role and permission controls
-- Site settings configuration
-- System requirements verification
+- Install Elementor Core – We recommend creating an account during installation. This will give you access to extra features like the Template Library.
+- (Optional) Purchase Elementor Pro – Get the most out of Elementor by unlocking even more features and professionally designed templates.
+- Create your first page or post – Start your Elementor journey with some hands-on designing.
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Elementor requires compatible WordPress theme and PHP version
-- Some features differ between free and Pro versions
-- License activation needed to unlock Pro functionality
-- Page builder only works on supported post types
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

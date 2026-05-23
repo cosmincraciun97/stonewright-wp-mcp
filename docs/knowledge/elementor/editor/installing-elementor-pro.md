@@ -1,34 +1,27 @@
 ---
-title: Install & activate Elementor Pro
+title: How to Install Elementor Pro: Full Guide
 source_url: https://elementor.com/help/installing-elementor-pro/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:11:30.627Z
+content_hash: sha256-f5c9687e6c38487dca7e8b367ec08e0d06d84fb83e541f11f6a7b24c9efe0d0a
 applies_to: [editor:v3]
-related_widgets: []
+related_widgets: [button, icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-This guide provides comprehensive instructions for installing and activating Elementor Pro on WordPress sites. It covers the complete workflow from plugin installation through license key activation, enabling users to access premium features and functionality beyond the free version.
+Elementor Pro is an extension of the free plugin, Elementor Core. In order to install and activate Elementor Pro, you must have Elementor Core downloaded as well. See Install and activate Elementor Core for instructions before adding Elementor Pro to your WordPress site.
 
 ## Use this when
-- Setting up Elementor Pro for the first time on a WordPress site
-- Troubleshooting activation or connection issues with license keys
-- Needing to manually connect Elementor Pro to an account
-- Transferring licenses between domains or websites
-- Activating experimental features that require Pro access
+- Use the dropdown menu to select the subscription you want to use
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- License key activation and management in plugin settings
-- Account connection via My Elementor dashboard integration
-- Multi-site license activation configuration
-- Manual connection option for environments with connectivity issues
-- License deactivation for transferring to new domains
-- Experimental features toggle (requires active Pro subscription)
-- Composer installation method for developer environments
-- White label options for agency/reseller use cases
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- License activations are tied to specific domains; changing site URLs requires deactivation and reactivation
-- Licensing errors (403, curl failures) may occur due to server configuration or firewall restrictions
-- Safari browser has known issues downloading the Pro ZIP file; alternative methods recommended
-- Staging sites consume license activations; plan accordingly for development workflows
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

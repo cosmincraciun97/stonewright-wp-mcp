@@ -1,34 +1,27 @@
 ---
 title: Make a Flexbox container clickable
 source_url: https://elementor.com/help/making-a-container-clickable/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [editor:v3]
-related_widgets: []
+fetched_at: 2026-05-23T00:12:50.150Z
+content_hash: sha256-9cac4e88b2104e14b28094b0bb159442361ab5c2deae840b1d27bc1edf0837de
+applies_to: [editor:v4]
+related_widgets: [icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Make a Flexbox container function as a clickable link element, enabling the entire container and its contents to trigger navigation when clicked. This feature transforms containers into interactive components that behave like buttons or links while maintaining their layout structure.
+Making an entire column clickable in WordPress can be challenging. Containers, however, can incorporate an “a” HTML tag, making the entire container clickable. Website visitors clicking this container will be taken to the link specified in the “a” tag.
 
 ## Use this when
-- You want an entire card or section to be clickable rather than just a button within it
-- Creating clickable product cards, service boxes, or portfolio items
-- Building interactive navigation elements or tile-based layouts
-- Designing call-to-action sections that need full-area click targets
-- You need better mobile usability by expanding clickable surface area
+- Create a clickable container
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- Container must be a Flexbox type to access this feature
-- Link URL field in the container's advanced settings panel
-- Option to open links in new tabs or same window
-- "nofollow" attribute toggle for SEO control
-- Custom CSS classes can be applied to the clickable container
-- Interaction states (hover effects) available for visual feedback
-- Z-index management for layered content within container
-- Title/ARIA attributes for accessibility compliance
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Nested interactive elements (buttons, links) may conflict with container click behavior
-- Some browser compatibility considerations with flex layouts on mobile devices
-- Container must have defined dimensions for reliable click targeting
-- Cannot combine clickable container with certain display conditions without testing
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

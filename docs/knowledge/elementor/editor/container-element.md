@@ -1,34 +1,27 @@
 ---
 title: How do I learn about Flexbox Containers?
 source_url: https://elementor.com/help/container-element/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [editor:v3]
-related_widgets: []
+fetched_at: 2026-05-23T00:12:44.844Z
+content_hash: sha256-22a1876db50e4a92f13e78dd6570352e2c180f0cead71ebba48e3eaba3bc620a
+applies_to: [editor:v4]
+related_widgets: [image, video, gallery]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Flexbox Containers are layout tools in Elementor that use flexible box model principles to arrange and align elements dynamically. They adapt to different screen sizes and content requirements, making them essential for responsive web design and modern page layouts.
+Flexbox containers use the power of flexbox CSS to make building websites faster, while giving you more freedom than ever to create exactly the design you want. Containers also provide improved page loading and greater responsive control.
 
 ## Use this when
-- Building responsive layouts that need to adapt to multiple devices and screen sizes
-- Creating flexible arrangements of elements with dynamic spacing and alignment
-- Designing complex page sections like headers, footers, navigation menus, or hero sections
-- You need precise control over how child elements distribute and align within a container
-- Converting traditional section-based designs to more modern, flexible layouts
+- Containers also provide improved page loading and greater responsive control
+- Flexbox Containers are currently a release candidate, you may need to activate them if you would like to use them on existing sites
+- How do I create a Flexbox Container
+- Flexbox Containers – Common use cases
 
 ## Settings highlights
-- **Layout direction**: Control whether elements flow horizontally (row) or vertically (column)
-- **Justify content**: Distribute space between and around elements along the main axis
-- **Align items**: Control vertical or horizontal alignment depending on direction
-- **Wrap behavior**: Allow elements to wrap to next line when space is constrained
-- **Gap spacing**: Set uniform spacing between child elements automatically
-- **Flex grow/shrink**: Configure how elements expand or contract relative to available space
-- **Container size behavior**: Define fixed, minimum, or maximum dimensions
-- **Responsive breakpoints**: Adjust layout properties at different device sizes
-- **Z-index layering**: Control stacking order of overlapping elements
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Nested containers can create complex hierarchies that may impact performance if overdone
-- Converting existing sections to containers may require layout adjustments to match previous designs
-- Mobile responsiveness settings must be configured separately for each breakpoint
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

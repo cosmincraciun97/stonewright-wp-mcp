@@ -1,33 +1,30 @@
 ---
 title: Span content over multiple cells in a grid layout
 source_url: https://elementor.com/help/span-content-over-multiple-cells-in-a-grid-layout/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [editor:v3]
-related_widgets: []
+fetched_at: 2026-05-23T00:13:01.652Z
+content_hash: sha256-af032ede76a1cf1b423466adbbefd992a16333328fb55f7bd1d4b76f6dc831bd
+applies_to: [editor:v4]
+related_widgets: [image, gallery]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Span content over multiple cells in grid layouts by configuring grid column and row settings to extend elements beyond their default single-cell boundaries, enabling flexible design arrangements within Elementor's grid container system.
+Grid containers are great for creating a symmetrical design, but they can be somewhat constrictive. The span content feature gives you greater flexibility with the grid layout, allowing content to span across multiple cells and giving you the ability to create complex layouts within a grid.
 
 ## Use this when
-- Creating asymmetrical layouts where certain elements need more visual prominence
-- Designing product showcases or portfolio grids with featured items
-- Building complex dashboard or dashboard-like interfaces
-- Arranging content that requires varied proportions across the grid
-- Achieving responsive designs with different spanning rules per breakpoint
+- Spanning content across multiple cells gives you greater design flexibility
+- For instance, you can create an image gallery with pictures of various sizes
+- For this example, we’ll create a 4 by 2 grid
+- For details, see Create a Grid container
 
 ## Settings highlights
-- Grid column span controls to extend elements horizontally across multiple columns
-- Grid row span settings for vertical element expansion
-- Auto-placement algorithms that adjust when elements span multiple cells
-- Responsive breakpoint configuration for device-specific spanning behavior
-- Grid gap and alignment adjustments when working with spanned content
-- Column and row template definitions that define the grid structure
-- Z-index layering for overlapping spanned elements
-- Padding and margin controls within spanned containers
+- Span 2 – Span across 2 rows or columns.
+- 1 / 3 – Span from the first line to the third line.
+- 2 / 5 – Span from the second line to the fifth line.
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Spanned elements may create gaps in the grid if not properly aligned with defined tracks
-- Responsive spanning rules require manual configuration at each breakpoint to maintain intended layouts on smaller devices
-- Complex spanning arrangements can reduce visual hierarchy clarity if not carefully designed
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

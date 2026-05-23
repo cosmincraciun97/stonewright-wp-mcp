@@ -1,32 +1,29 @@
 ---
 title: Arrange the elements in a Flexbox Container
 source_url: https://elementor.com/help/adjusting-the-contained-elements/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:12:17.429Z
+content_hash: sha256-d2a6de5b12771ba72bfc9504e97cb7352f455111f9bad0cafe52f0d9f4923073
 applies_to: [editor:v3]
 related_widgets: []
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-This article explains how to arrange and organize child elements within a Flexbox Container using alignment, spacing, and distribution controls. It covers the foundational layout controls for positioning multiple items horizontally and vertically within a container structure.
+Containers offer you enormous flexibility in how to arrange the elements inside the container. The controls for arranging the items in your container are found in the Items’ area of the Layout tab.
 
 ## Use this when
-- You need to position multiple widgets or elements side-by-side in a row or column
-- You want to control spacing between child elements automatically
-- You're aligning content to edges, centers, or distributing items evenly
-- You need responsive adjustments to element arrangement across devices
-- You're building structured layouts like navigation bars, feature sections, or galleries
+- Use the Direction option to determine the direction in which the contained elements will appear
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- **Direction controls**: Switch between row (horizontal) and column (vertical) layouts
-- **Justify content**: Align items along the main axis with flex-start, center, space-between, space-around options
-- **Align items**: Control vertical alignment perpendicular to the main axis
-- **Gap/Spacing**: Set consistent spacing between adjacent child elements
-- **Wrap behavior**: Allow elements to wrap to multiple lines or remain in single row
-- **Flex grow/shrink**: Control how elements expand or contract relative to available space
-- **Order property**: Rearrange visual order of elements independent of DOM order
+- Note – The default Elements Gap is set to 20PX, but it can be edited in Site Settings > Layout.
+- Note – You’ll find more options connected to arranging container elements under the Advanced tab.
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Flexbox affects only direct children; nested containers require separate flex settings
-- Percentage-based widths may behave unexpectedly without explicit parent sizing
-- Browser support varies for newer flex properties on older WordPress environments
+- The default Elements Gap is set to 20PX, but it can be edited in Site Settings > Layout.
+- You’ll find more options connected to arranging container elements under the Advanced tab.

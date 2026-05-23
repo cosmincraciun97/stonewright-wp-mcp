@@ -1,38 +1,30 @@
 ---
 title: Add Custom CSS to an element
 source_url: https://elementor.com/help/add-custom-css-to-an-element/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:13:24.833Z
+content_hash: sha256-688d20400cfe5f8e549f785c77a5b6625f26a00c80f0302895c31d787b9e213b
 applies_to: [editor:v4]
-related_widgets: []
+related_widgets: [heading, icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-
-This feature enables applying custom CSS styling directly to individual Elementor V4 elements without affecting other components, providing granular control over element appearance and behavior through the dedicated Custom CSS tab in the Style panel. Styles are scoped to the element's generated selector and do not leak to siblings.
+Adding custom CSS to an element gives web creators almost unlimited flexibility in designing their web pages.
 
 ## Use this when
-
-- You need to apply unique styling to a specific element that standard controls don't cover
-- You want to override default styles with targeted CSS rules
-- Implementing advanced visual effects or animations beyond built-in options
-- You need to ensure styles apply only to one element without global impact
-- Working with custom properties or experimental CSS features
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-
-- Access via **Advanced tab** → Custom CSS section in element settings panel
-- Write standard CSS using the `selector` placeholder which maps to the element's unique class
-- Apply pseudo-classes (`:hover`, `:focus`, `:active`) for interactive states
-- Leverage CSS custom properties (variables) defined in the V4 Variables Manager
-- Custom CSS respects the element's responsive breakpoint context when placed in responsive mode
-- Changes preview in real-time within the editor canvas
-- Scoped styling prevents unintended cascade to child or sibling elements
-- Multiple CSS rules can be chained within the same block
+- In the CSS editor enter the following – color:red;The heading text turns red.
+- In the CSS editor enter the following – color:blueNow the text is red, but when you hover over it, it turns blue.Since Custom CSS applies to device sizes as well as states, you can change the text color according to device size.
+- In the CSS editor enter the following – color:greenThe heading text turns green for mobile devices.
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-
-- V4 uses atomic component architecture — CSS selectors must target generated class names rather than legacy V3 container structures (`.elementor-container`, `.elementor-row` no longer apply)
-- Custom CSS does not have access to element-specific dynamic values or live preview bindings in all contexts
-- Browser DevTools inspection needed to identify correct generated selectors for complex nested atomic components
-- Performance impact increases with heavily nested custom rules; simple selectors and low-specificity rules perform best
+- Adding custom CSS to an element gives web creators almost unlimited flexibility in designing their web pages.
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

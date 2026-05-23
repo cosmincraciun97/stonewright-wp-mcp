@@ -1,38 +1,30 @@
 ---
 title: Div Block element
 source_url: https://elementor.com/help/div-block-element/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:13:30.466Z
+content_hash: sha256-34109a5bfe9603c5e9580a0427fb4d62212c202a75c945a4d1ba2ad373f86322
 applies_to: [editor:v4]
-related_widgets: []
+related_widgets: [image, toggle, tabs]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-
-The Div Block element is a V4 atomic element that renders a plain `<div>` (or any block-level HTML tag) with no default layout behavior — it is a structural wrapper element. Unlike Flexbox or Grid containers it has `display: block` by default, making it useful for wrapping inline elements, creating simple stacked block structures, or serving as a styled box without flex/grid complexity.
+The XXXX widget is an experimental feature that XXX In order to use XXX widget, you need to activate it. For details, see activating Elementor features. Add and delete the element Add the element to the canvas
 
 ## Use this when
-
-- Wrapping a group of inline elements that don't need flex alignment
-- Creating a visually styled box (card, panel, callout) with background, border, padding
-- Using as a positioned layer (absolute or sticky) inside a container
-- Serving as a semantic HTML wrapper (article, aside, main) by changing the HTML tag
-- Building custom-coded components that need a clean, unstyled wrapper
+- Press the delete key on your keyboard
+- For more information, see Delete elements from a page
+- What is the Div Block widget
+- A Div Block is a generic container designed to hold other elements, including other Div Blocks
 
 ## Settings highlights
-
-- **HTML tag** — `div`, `article`, `aside`, `section`, `header`, `footer`, `main`, `nav`, `figure`
-- **display** — block by default; override to `inline-block` or `flex` via custom CSS if needed
-- **Style tab** — Background, Border, Box Shadow, Opacity, CSS Filters, Blend Mode
-- **Spacing** — Padding and Margin via the Spacing section of the Style tab (atomic props: `paddingTop/Right/Bottom/Left`, `marginTop/Right/Bottom/Left`)
-- **Size** — Width, Height, Min/Max Width/Height controls
-- **Position** — Static, Relative, Absolute, Fixed, Sticky with offset controls
-- **Custom CSS** — write scoped CSS targeting the element's generated selector
-- **Attributes** — add data-* or ARIA attributes in the Advanced tab
+- To access and use a element – In Elementor Editor, click +. All available elements are displayed.Click or drag the element to the canvas. For more information, see Add elements to a page.
+- To delete the widget – On the canvas, select the element by clicking it.Press the delete key on your keyboard. For more information, see Delete elements from a page.
+- Add a Div Block element – Step-by-step
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-
-- A Div Block does not flex its children — if you need to align children horizontally use a Flexbox element instead
-- V4 Div Block is different from the V3 "Inner Section" widget; it does not add structural columns automatically
-- Setting `position: absolute` removes the element from document flow; parent must have `position: relative` or the element escapes to nearest positioned ancestor
-- Div Blocks are not drag-and-drop multi-column containers; use Flexbox or Grid for that purpose
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

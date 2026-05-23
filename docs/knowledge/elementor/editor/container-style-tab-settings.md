@@ -1,34 +1,31 @@
 ---
 title: Container Style tab settings
 source_url: https://elementor.com/help/container-style-tab-settings/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:12:22.028Z
+content_hash: sha256-ca85c989f9189b31b39ebb8c6080304d54d2c5f003dd9d245bc9114e1e263295
 applies_to: [editor:v3]
-related_widgets: []
+related_widgets: [image, icon, slides]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Container Style tab in Elementor allows designers to control visual presentation and aesthetic properties of container elements. This settings panel provides comprehensive styling options for customizing appearance, spacing, effects, and visual treatments applied to flexbox and grid containers within page layouts.
+The container style tab controls how items appear in a container. See below for a summary of these controls.
 
 ## Use this when
-- Customizing background colors, gradients, or images for containers
-- Adjusting padding, margins, and internal spacing within container elements
-- Adding borders, shadows, or visual effects to container structures
-- Applying responsive styling rules across different device breakpoints
-- Creating visual hierarchy through typography and color adjustments
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- Background configuration (solid colors, gradients, images, video backgrounds)
-- Border styling with customizable width, color, and radius options
-- Shadow effects including box shadow and text shadow capabilities
-- Padding and margin controls for internal and external spacing
-- Opacity and blend mode adjustments for layering effects
-- Transform properties for rotation, scale, and translation effects
-- Responsive controls enabling device-specific styling overrides
-- Advanced effects like filters and animations integration points
+- Color (background) – From the color picker, select the color(s) for the field
+- Image – Click to select or upload an image or images if slideshow type is used to the media library to use as the background image of your container
+- Color (background) – From the color picker, select the color(s) for the field
+- Image – Click to select or upload an image to the media library to use as the background overlay image of your container
+- Opacity – Use the slider or manually enter a value in the field
+- Border type – From the dropdown menu select between solid, double, dotted, dashed, or grooved
+- Width (border) – Enter a chosen value in the fields based on px, em, or %
+- Color (border) – From the color picker, choose the background color for your border
 
 ## Limits / gotchas
-- Some styling options vary between flexbox and grid container types
-- Overly complex background images may impact performance on lower-end devices
-- Responsive value inheritance can create unexpected cascading effects across breakpoints
-- Shadow effects with high blur radius values may reduce rendering performance
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

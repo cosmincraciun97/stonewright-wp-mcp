@@ -1,38 +1,28 @@
 ---
 title: SVG element
 source_url: https://elementor.com/help/svg-element/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:14:13.046Z
+content_hash: sha256-9fd012e329c425bc82ce36ab5ef55a3354c81ae7508bb34db3d843afc16190fc
 applies_to: [editor:v4]
-related_widgets: []
+related_widgets: [image, icon, toggle, tabs]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-
-The SVG element is a V4 atomic element for rendering inline or referenced SVG graphics with full CSS-based styling. It enables adding scalable vector graphics — icons, illustrations, logo marks, decorative shapes — with size controls, color overrides via CSS `fill`/`stroke`, and element-state-driven hover effects, all without the V3 Icon widget limitations.
+Click to add an SVG file. For details, see Adding images and icons. Link
 
 ## Use this when
-
-- Adding a custom SVG icon or logo that isn't in Font Awesome
-- Rendering an illustration that needs to respond to hover color changes via CSS `fill`
-- Placing decorative geometric shapes that scale perfectly at any resolution
-- Using inline SVG so that CSS variables (brand colors) can propagate into SVG `fill` values
-- Adding animated SVG paths via Interactions or custom CSS `@keyframes`
+- Press the delete key on your keyboard
+- For more information, see Delete elements from a page
+- What is the SVG element
+- SVG (Scalable Vector Graphics) is an XML-based image format used for creating two-dimensional vector graphics
 
 ## Settings highlights
-
-- **src** prop — SVG file from WordPress Media Library; requires SVG support enabled in Elementor > Settings > Advanced
-- **Inline rendering** — SVG is injected inline into the DOM (not as `<img>`), enabling CSS targeting of inner SVG elements
-- **width** / **height** props — explicit dimensions in px or %; SVG scales proportionally if only one is set
-- **color** prop — sets CSS `color` which cascades to `fill: currentColor` in SVGs that use `currentColor`
-- **Style tab** — Opacity, CSS Filters (for color manipulation: hue-rotate, saturate), element states for hover color changes
-- **Hover state** — change `color` on hover state to recolor the SVG without custom CSS
-- **Custom CSS** — target specific SVG paths within the element via `.elementor-svg path { fill: #hex; }`
-- **Attributes** — add `aria-label` for accessibility when SVG conveys meaning
+- To access and use a element – In Elementor Editor, click +. All available elements are displayed.Click or drag the element to the canvas. For more information, see Add elements to a page.
+- To delete the element – On the canvas, select the element by clicking it.Press the delete key on your keyboard. For more information, see Delete elements from a page.
+- SVG (Scalable Vector Graphics) is an XML – based image format used for creating two-dimensional vector graphics. SVG graphics can be scaled without losing quality, making it ideal for website graphics, icons, and illustrations.The SVG widget allows you to incorporate SVG graphics into your webpage as a separate element.See all the options available with the SVG element.
+- Add an SVG element – Step-by-step
 
 ## Limits / gotchas
-
-- SVG files must be sanitized before upload; Elementor sanitizes SVG on upload but some complex SVGs with `<script>` tags will be stripped
-- CSS `fill` override only works if the SVG uses `fill="currentColor"` or has no explicit fill; hard-coded fills in the SVG ignore CSS
-- Animated SVGs (`<animate>`, `<animateTransform>`) require the SVG to define the animation internally; Elementor Interactions don't control SVG internal animations
-- Very large or complex SVGs increase page weight significantly; optimize with SVGO before upload
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

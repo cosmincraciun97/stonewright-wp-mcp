@@ -1,38 +1,28 @@
 ---
 title: Add a layered background
 source_url: https://elementor.com/help/add-a-layered-background/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:13:21.849Z
+content_hash: sha256-ac0027ced3a6b8047926dc0ea172a8ca8ec47152d3b794081eae767ea2fc2ebd
 applies_to: [editor:v4]
-related_widgets: []
+related_widgets: [heading, image]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-
-The layered background feature in Elementor V4 allows stacking multiple background types (color, gradient, image, video) on a single element. Each layer has independent opacity, blend mode, and positioning controls, enabling complex visual effects without custom CSS or external image editing.
+Layered backgrounds allow you to add depth to elements by adding colors, images and text on top of one another. Using layered backgrounds you can create a variety of interesting effects. In the example below, we’ll use layered effects to create a textured Heading element that incorporates an image and text created in a graphics program.
 
 ## Use this when
-
-- Combining a brand color overlay with a photo background
-- Creating gradient-over-image effects for hero sections
-- Stacking multiple semi-transparent images for depth effects
-- Adding a solid color fallback beneath a video background
-- Building textured overlays using pattern images over gradients
+- Layered backgrounds allow you to add depth to elements by adding colors, images and text on top of one another
+- Using layered backgrounds you can create a variety of interesting effects
+- Use the Position dropdown to select Custom
 
 ## Settings highlights
-
-- **Add Layer button** — appends additional background layers above existing ones; processed top-to-bottom (painter's model)
-- **Layer types** — Classic (solid color), Gradient (linear/radial), Image (with full position/size/repeat controls), Video (YouTube/self-hosted)
-- **Layer opacity** — per-layer alpha slider independent of element opacity
-- **Blend mode** — per-layer CSS blend mode (multiply, screen, overlay, luminosity, etc.)
-- **Image position/size** — `background-position` (X/Y), `background-size` (cover/contain/custom), `background-repeat`
-- **Attachment** — Fixed (parallax-like scroll) or Scroll for image layers
-- **Layer order** — drag to reorder; top of list = topmost visual layer
-- **Responsive** — each layer's visibility and properties have per-breakpoint overrides
+- Create a layered background – Step-by-step
+- Set the X value to – 20 and Y value to -60.
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-
-- Video backgrounds do not play on iOS due to browser autoplay restrictions; provide image fallback layer
-- Too many layers (5+) significantly increase paint complexity and GPU memory usage
-- Blend modes apply between layers and between the element and page backdrop; test on actual background colors
-- V4 layered backgrounds use atomic `backgroundLayers` prop array — differs structurally from V3 single-background controls
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

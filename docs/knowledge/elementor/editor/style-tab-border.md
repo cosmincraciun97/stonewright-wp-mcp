@@ -1,38 +1,29 @@
 ---
-title: Style tab - Border
+title: Style tab- Border
 source_url: https://elementor.com/help/style-tab-border/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:14:12.479Z
+content_hash: sha256-0cc655d120c3f8060169ca0bd997760a84116984897b252407d5c6e51d913fd1
 applies_to: [editor:v4]
-related_widgets: []
+related_widgets: [button]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-
-The Border section of the V4 Style tab controls border styling for any element — border type, width, color, and border-radius — using atomic CSS props. It consolidates what V3 split between the Style tab "Border" control and the Advanced tab border-radius into a unified Border section with per-side and per-corner controls and full element-state support.
+Adding a border to your element can help it stand out or distinguish it from other elements on the page.
 
 ## Use this when
-
-- Adding a visible border outline to containers, cards, buttons, or images
-- Creating rounded corners (border-radius) on elements for a modern card appearance
-- Styling form input borders with focus-state color changes
-- Creating CSS-only dividers using border-bottom on headings
-- Building pill-shaped buttons with `border-radius: 50px`
+- In the Border width box, Use the number field to set a thickness for the border
+- Click the Adjust borders button if you want to set different thicknesses for the four borders
+- For details, see Use the color picker
 
 ## Settings highlights
-
-- **Border type** — None, Solid, Double, Dotted, Dashed, Groove
-- **Border width** — per-side (top/right/bottom/left) in px; linked or individual control
-- **Border color** — color picker with global color integration; supports RGBA
-- **Border radius** — per-corner (top-left, top-right, bottom-right, bottom-left) in px/%; linked or individual
-- **Logical border properties** — `border-inline-start/end` and `border-block-start/end` for RTL-aware borders
-- **Box Shadow** — also in the Border section (drop shadow on the element box); offset X/Y, blur, spread, color, inset option
-- **Element states** — separate border color/width/radius per Normal / Hover / Active / Focus
-- **Responsive** — all border props support per-breakpoint overrides
+- Border color – Set a color for the border. For details, see Use the color picker.
+- Border type – Use a dropdown menu to determine how the border will look. Your choices are:
+- Border radius – Add a number to the border radius field to round the corners of your border. Click the Adjust corners button if you want to set different cornering for the four corners.
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-
-- `border-radius` clips the background and children; child elements that overflow will be clipped when `overflow: hidden` is also set
-- Box shadow does not trigger layout reflow; use it instead of border for outline effects that shouldn't affect element sizing
-- `outline` (accessibility focus outline) is separate from `border` and is not controlled here; use custom CSS for outline styling
-- V4 moved border-radius from the Advanced tab (V3 "Border Radius" control) to the Style tab Border section — check both locations when debugging existing V3 pages
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

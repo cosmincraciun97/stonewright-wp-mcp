@@ -1,35 +1,31 @@
 ---
 title: Explore the Elementor Editor
 source_url: https://elementor.com/help/explore-the-elementor-editor/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:11:06.470Z
+content_hash: sha256-6f0fb071b33012ef352e1c38cd76d5e0ac99707d24f95fa09b685745017496b9
 applies_to: [editor:v3]
-related_widgets: []
+related_widgets: [heading, icon, tabs]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Elementor Editor is a visual drag-and-drop website builder that integrates with WordPress, enabling users to design and customize pages, posts, and templates without coding knowledge. It provides both free and premium capabilities for creating responsive, professional websites with extensive design flexibility.
+Whether you’re building your site from scratch or using one of our website kits, you’ll need to learn how to use the Elementor Editor. We’ll start by going over the basic layout of the editor. Elementor Editor layout The Editor consists of three main areas: the top bar, the panel, and the canvas. Top Bar This is where you’ll find the tools and settings you need to build and customize your page. For more details about the options available from the top bar, see, Elementor Top Bar. Panel The panel is where you’ll find the design elements, such as containers, and widgets, such as the Heading widget, used to build your page. For more details about moving elements from the panel to the canvas, see Add elements to a page. The panel is also where you adjust the settings for elements, pages and the site. Canvas The canvas is also known as the Content Area. This is where you’ll create your page/post/site part.If you want to increase canvas width, click the Hide Panel arrow to add more space. There are different views you can use when working on pages. For more details about these different views, see Change canvas views.If the page header and footer appear on your canvas, their color changes when you hover over them. Click inside either the header or footer, to switch from editing the page to editing that site part. Click the page area to return to editing that page. You are prompted to save before switching. A canvas with the Header and Footer highlighted. Creating a container On the canvas, click the + icon. You can now select a container layout.
 
 ## Use this when
-- Building or editing WordPress pages and posts visually
-- Designing responsive layouts for desktop, tablet, and mobile devices
-- Creating custom headers, footers, and reusable templates
-- Adding forms, ecommerce elements, and dynamic content to your site
-- Styling individual elements with advanced typography, spacing, and effects controls
+- Whether you’re building your site from scratch or using one of our website kits, you’ll need to learn how to use the Elementor Editor
+- We’ll start by going over the basic layout of the editor
+- Top Bar 
+ 
+ This is where you’ll find the tools and settings you need to build and customize your page
+- For more details about the options available from the top bar, see, Elementor Top Bar
 
 ## Settings highlights
-- Drag-and-drop widget library with 90+ pre-built elements
-- Container and Flexbox layout systems for responsive design
-- Global colors and fonts for consistent branding across pages
-- Display conditions to show/hide content based on user roles or visitor attributes
-- Revision history and undo/redo functionality for design changes
-- Responsive editing modes (desktop, tablet, mobile) with device-specific controls
-- Custom CSS and HTML support for advanced customization
-- Template library with pre-designed sections and full page layouts
-- Dynamic tags for pulling content from posts, users, and custom fields
-- Advanced tab settings for positioning, z-index, and CSS transforms
+- The Editor consists of three main areas – the top bar, the panel, and the canvas.
+- To edit a container – Click the settings icon in the container tab.The container settings menu opens in the panel with three tabs: Layout, Style and Advanced.To edit a widget:Click the widget handle.The widget settings menu opens in the panel with three tabs: Content, Style and Advanced.
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Elementor Pro license required for advanced features like popups, theme builder, and ecommerce widgets
-- Performance impacts possible with excessive animations or heavy custom code
-- Some third-party plugins may have compatibility conflicts with Elementor functionality
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

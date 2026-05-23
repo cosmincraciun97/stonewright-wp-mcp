@@ -1,33 +1,28 @@
 ---
 title: How can I get a full screen canvas in the editor?
 source_url: https://elementor.com/help/canvas-vs-full-width/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:11:13.394Z
+content_hash: sha256-0fad12d50a25a1276204461ea5c621676747094122d78d42911d2b68b347bc39
 applies_to: [editor:v3]
 related_widgets: []
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Canvas page layout removes WordPress theme elements (header, footer, sidebar) to provide a completely blank, full-screen editing environment. This template allows designers to build pages from scratch without theme constraints, ideal for landing pages, custom layouts, or designs requiring complete visual control.
+When selecting the Page Layout you have the options of Default, Elementor Canvas, Elementor Full Width, and Theme. Choose the best option based on the following usages:
 
 ## Use this when
-- Creating landing pages with custom designs
-- Building pages requiring full-screen layouts
-- Designing without WordPress theme elements
-- Needing maximum canvas space for creative projects
-- Working on specialized layouts incompatible with standard themes
+- Posts that use Canvas or Full Width template (or any template other than Default) will not have the Single Post Template applied to them
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- Canvas template selection in page settings
-- Full-width editing without sidebar restrictions
-- Theme header and footer removal options
-- Blank slate for custom element placement
-- Compatible with all Elementor design tools and containers
-- Responsive editing maintained across devices
-- Supports all widgets and design features
+- Note – Only posts that use the Default Template will have the Single Post Template applied to them, even if they otherwise meet the Display Conditions criteria. Posts that use Canvas or Full Width template (or any template other than Default) will not have the Single Post Template applied to them.
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Removes all theme navigation by default — requires manual menu creation
-- May affect site consistency if header/footer elements are needed elsewhere
-- Requires explicit addition of essential elements like navigation menus
-- Not ideal for pages requiring standard site branding elements
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

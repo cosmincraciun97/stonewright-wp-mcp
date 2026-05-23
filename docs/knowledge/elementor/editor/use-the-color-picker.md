@@ -1,37 +1,27 @@
 ---
 title: Use the color picker
 source_url: https://elementor.com/help/use-the-color-picker/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:14:19.004Z
+content_hash: sha256-c2ad3d93d386d97f1482ba5aefa9082428a2ae3c2c96a14864948dec342c2a19
 applies_to: [editor:v4]
 related_widgets: []
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-
-The Elementor V4 color picker is the universal color selection tool used across all color-accepting props in the Style tab. It provides HEX, RGB, HSL, and RGBA input modes, a global colors palette linked to the design system, a recently-used colors tray, and the ability to save new global colors — all accessible inline without leaving the element panel.
+Use the number field(s) to enter the code.The number field changes depending on what code type you are working with.
 
 ## Use this when
-
-- Selecting a specific color for text, background, border, shadow, or any color prop
-- Applying a global brand color from the design system palette to maintain consistency
-- Creating a new global color on the fly while working in an element
-- Checking or adjusting a color's opacity (alpha channel) without switching to RGBA hex
-- Picking a color from anywhere on the screen using the eyedropper
+- Use the color picker whenever you need to select a color
+- Use the slider to select a color range
+- (Optional) Use the opacity field to adjust the transparency
+- Use the dropdown menu to select the type of code you want to use
 
 ## Settings highlights
-
-- **Color modes** — HEX, RGB, HSL, RGBA; toggle via format selector in the picker
-- **Alpha channel** — RGBA mode exposes an opacity slider separate from element-level opacity
-- **Global colors palette** — swatches for all globally defined colors (Site Settings > Global Colors); click to apply
-- **Recently used** — last 8 recently picked colors shown for quick reuse
-- **Eyedropper** — sample any color from the editor canvas or the browser viewport
-- **Add to Global Colors** — "+" button saves the current color as a new global color with a custom name
-- **Variable binding** — in V4, color fields can also accept a CSS variable reference from the Variables Manager instead of a fixed value
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-
-- The color picker does not support LCH, LAB, or P3 color spaces natively; use hex or RGB for maximum browser compatibility
-- Global colors are site-wide; changing a global color updates every element using it — always preview before saving
-- The eyedropper tool requires a browser that supports the EyeDropper API (Chrome 95+, Edge 95+); Firefox and Safari do not yet support it
-- V4 color props can reference CSS variables (`var(--color-primary)`) but this requires manual entry in the HEX field; the picker does not have a dedicated variable picker UI beyond the Global Colors palette
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

@@ -1,34 +1,28 @@
 ---
 title: What is Shadow, Text Shadow and Boxed Shadow?
 source_url: https://elementor.com/help/shadow/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:12:16.913Z
+content_hash: sha256-37f13cb2684e47bdb465bdd767c23eaf6041fc4d5c4a6337a824595efdd913df
 applies_to: [editor:v3]
-related_widgets: []
+related_widgets: [icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Shadow effects enhance visual depth and hierarchy in web design by creating drop shadows, text shadows, and box shadows. These styling tools add dimension to elements, making them appear elevated or recessed from the page surface, improving visual appeal and content emphasis within Elementor designs.
+Shadow allows you to add a visual effect to an element giving it more depth and creating a 3D effect. Depending on the element it’s modifying, it can be called either Shadow, Boxed Shadow or Text Shadow. You can modify these shadows by changing their color, size, angle and position.
 
 ## Use this when
-- You want to emphasize specific text or headline elements
-- Creating card-based layouts that need visual separation
-- Designing buttons or interactive elements requiring depth perception
-- Building layered compositions with multiple focal points
-- Enhancing contrast between overlapping design components
+- Adjust the Color of your shadow
+- The shadow’s color can be used to help reinforce the illusion of depth for your element
+- To choose a color, either use the color picker
 
 ## Settings highlights
-- **Shadow offset controls** for horizontal and vertical positioning
-- **Blur radius adjustment** to soften or sharpen shadow edges
-- **Color selection** for shadow tinting and opacity values
-- **Spread radius** to expand or contract shadow dimensions
-- **Multiple shadow layers** allowing stacked effects on single elements
-- **Box shadow** for container and section depth effects
-- **Text shadow** specifically for typography styling
-- **Preset shadow templates** for quick application
+- Note – Not all these options are available for all types of shadows.
+- Note – To delete a shadow after you’ve created one, click the circular arrow (back to default) icon.
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Excessive shadows degrade performance and create visual clutter
-- Color contrast between shadows and backgrounds affects readability
-- Mobile responsiveness may require adjusted shadow parameters for smaller screens
-- Browser rendering differences can produce slight shadow variations across devices
+- Not all these options are available for all types of shadows.
+- To delete a shadow after you’ve created one, click the circular arrow (back to default) icon.

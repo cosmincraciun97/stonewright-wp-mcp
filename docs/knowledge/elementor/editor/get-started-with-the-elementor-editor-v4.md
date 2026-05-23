@@ -1,39 +1,28 @@
 ---
 title: Get started with the Elementor Editor V4
 source_url: https://elementor.com/help/get-started-with-the-elementor-editor-v4/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:13:38.867Z
+content_hash: sha256-57064b4457ee73423d4f98c02dc66b8821b7fb89855d267d02332cf96ce41f74
 applies_to: [editor:v4]
-related_widgets: []
+related_widgets: [heading]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-
-The Elementor Editor V4 represents a modernized website building interface introducing atomic element components, enhanced styling controls, and improved responsive design workflows compared to the legacy V3 architecture. This getting-started article orients new V4 users to the interface, atomic elements, and the unified Style tab system.
+The Elementor Editor V4 provides users with a far more efficient, streamlined approach to website building. While V4 is still in its Alpha stage, you can already start checking out its amazing new features. For now, these features work together with Elementor Editor 3.x so you can create a full web page using elements from both versions.
 
 ## Use this when
-
-- Opening Elementor V4 for the first time and needing orientation
-- Starting a new site build and choosing between V3 and V4 workflows
-- Onboarding team members to the V4 editor interface
-- Understanding how to access and enable V4 features
+- The Elementor Editor V4 provides users with a far more efficient, streamlined approach to website building
+- While V4 is still in its Alpha stage, you can already start checking out its amazing new features
+- For now, these features work together with Elementor Editor 3
+- x so you can create a full web page using elements from both versions
 
 ## Settings highlights
-
-- **Atomic element prop schemas** — replacing legacy widget control systems; props map 1:1 to CSS declarations
-- **Style tab organization** — Background, Border, Effects, Layout, Position, Size, Spacing, Typography in a single unified panel
-- **Element states** — manage hover, active, focus, disabled style variations per element without custom CSS
-- **Class Manager** — named CSS class sets with reusable styles across the design
-- **Variables and Variables Manager** — design tokens (color, spacing, font) for system-wide consistency
-- **Dynamic tags in V4** — updated API for binding post meta, site info, and custom fields to element props
-- **Interactions panel** — trigger animations and state changes via event-based rules
-- **Responsive editing** — viewport controls with desktop/tablet/mobile/custom breakpoints per prop
-- **Custom CSS at element level** — scoped CSS block with selector support in Advanced tab
-- **Nested links** — enabling complex interaction hierarchies within atomic elements
+- Example – You can add a V4 Heading element to the canvas and the editor will automatically add it to an Editor 3.x container.
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-
-- V4 fundamentally restructures the control architecture from V3; legacy widget workflows require migration
-- Sections and columns from V3 cannot be added as new elements in pure V4 mode
-- Some third-party plugins may lack V4 compatibility; verify each plugin before implementing
-- Logical properties and CSS transform features differ significantly from previous V3 control methodologies
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

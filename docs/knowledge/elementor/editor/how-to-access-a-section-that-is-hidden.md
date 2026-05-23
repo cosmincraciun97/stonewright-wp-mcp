@@ -1,33 +1,26 @@
 ---
 title: Access a section that is hidden
 source_url: https://elementor.com/help/how-to-access-a-section-that-is-hidden/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:10:31.195Z
+content_hash: sha256-e2b05c3aed5e50baf5213d6c89a7d95e93ff17dedd66edad34ff0ef925baf8b2
 applies_to: [editor:v3]
-related_widgets: []
+related_widgets: [icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Navigator feature in Elementor allows users to locate and access sections or elements that may be visually hidden on a page due to display settings, visibility conditions, or responsive design rules. This tool enables designers to manage hidden content without manually searching through the page structure.
+Sometimes, because of using Negative Margins, Z-Index, or Absolute Positioning, a section or the section’s handle can become hidden and inaccessible, making it seemingly impossible to edit it. This is because either another section overlaps it, or because it gets hidden behind the header that comes from the theme.
 
 ## Use this when
-- Elements are hidden via display conditions or responsive breakpoints
-- You need to access nested or obscured sections for editing
-- Working with complex page layouts with multiple hidden components
-- Troubleshooting visibility issues with page elements
-- Managing content that should only appear on specific devices or conditions
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- Navigator window provides hierarchical page structure view
-- Locate hidden elements by their position in the DOM tree
-- Click directly on hidden elements to select and edit them
-- View element indicators showing visibility status
-- Toggle element visibility on/off from the structure panel
-- Filter elements by type for faster navigation
-- Expand/collapse container groups to manage complex layouts
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Hidden elements may not be immediately obvious in the visual editor
-- Some conditional visibility settings require checking multiple tabs
-- Deep nesting can make navigation lengthy in very complex pages
-- Display conditions must be properly configured to hide intended content
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

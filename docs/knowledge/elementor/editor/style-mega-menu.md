@@ -1,35 +1,27 @@
 ---
 title: Style a mega menu
 source_url: https://elementor.com/help/style-mega-menu/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [editor:v3]
-related_widgets: []
+fetched_at: 2026-05-23T00:13:07.884Z
+content_hash: sha256-1307c9630721b9e89096ea7863cc6cd69aad41320fbbc3f7eab369b22ef67646
+applies_to: [editor:v4]
+related_widgets: [heading, image]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-This article teaches users how to apply custom styling to mega menus created in Elementor. It covers visual customization options that control the appearance and presentation of expanded menu panels, making mega menus match site branding and design systems.
+Mega menus present you with a huge range of styling options – almost all the options available to create web pages are available to design menus. Below is a small example of designing the content area of a mega menu. Check out our article on the Menu widget for a full view of all the ways you can style the Menu widget itself.
 
 ## Use this when
-- Customizing colors, spacing, and typography for mega menu dropdowns
-- Adjusting hover states and transitions for menu interactions
-- Applying backgrounds, borders, or shadow effects to menu panels
-- Ensuring mega menu styling matches your overall site design
-- Fine-tuning responsive behavior across different screen sizes
+- The article assumes you know how to create a mega menu
+- Again, for this example, we’ll be using the Bread Bakery Website Kit
+- This time we’re going to create a menu that has an image, a heading, and a description pop up when visitors hover over the menu item
+- Create a mega menu as outlined in the above mentioned article
 
 ## Settings highlights
-- Background color and gradient options for menu containers
-- Text color, font size, and typography controls for menu items
-- Padding and margin adjustments for internal spacing
-- Border styles, width, and color customization
-- Shadow effects (box-shadow) for depth and layering
-- Hover state styling for interactive feedback
-- Z-index management for stacking order
-- Width constraints and alignment options
-- Animation and transition timing for smooth interactions
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Mega menu styling requires understanding Flexbox container properties for proper layout control
-- Complex nested menu structures may require careful CSS specificity to avoid style conflicts
-- Mobile responsiveness requires separate style rules for different breakpoints
-- Performance can suffer if excessive animations or effects are applied to large menus
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

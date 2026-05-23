@@ -1,33 +1,30 @@
 ---
 title: Use page structure to navigate your page
 source_url: https://elementor.com/help/navigator/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:11:57.644Z
+content_hash: sha256-6d4067d690abde188873c83631ff6cc58a4903ac2178199e1118bd7e27b0913f
 applies_to: [editor:v3]
-related_widgets: []
+related_widgets: [button, icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Structure window (Navigator) provides a hierarchical, collapsible view of all page elements, enabling quick navigation and selection of nested or hard-to-reach components without manually searching the canvas.
+It can sometimes get complicated finding your way around a complex webpage filled with elements. Select Structure to open the Structure window, which displays the page’s structure using a navigation tree panel. The panel provides easy access to every element on the canvas with just one click. You can also use the Structure window to rearrange the elements on a page by dragging and dropping them.
 
 ## Use this when
-- Locating deeply nested elements within containers or sections
-- Selecting elements obscured by overlays or positioned off-canvas
-- Organizing and understanding your page's structural hierarchy
-- Bulk managing element visibility and properties
-- Working with complex, multi-layered page layouts
+- It can sometimes get complicated finding your way around a complex webpage filled with elements
+- Select Structure to open the Structure window, which displays the page’s structure using a navigation tree panel
+- The panel provides easy access to every element on the canvas with just one click
+- You can also use the Structure window to rearrange the elements on a page by dragging and dropping them
 
 ## Settings highlights
-- Expandable tree view showing all page sections, containers, and widgets
-- Click elements in the structure to select them on the canvas
-- Visual indicators showing element types and nesting levels
-- Search/filter functionality to locate specific elements quickly
-- Drag-and-drop reordering of elements within the hierarchy
-- Eye icon toggles for showing/hiding elements
-- Right-click context menus for element-specific actions
-- Responsive breakpoint indicators for device-specific settings
+- Right – click any element and then click Structure. This will automatically redirect you to the specific element in the navigation tree.
+- Right – click options
+- Right – click an element to enable all of its normal right-click menu options, such as Edit, Duplicate, Copy, Paste, etc.
+- Note – This will not affect the front end of your website.
+- Double – click the element name. The area will change to a blue highlight, indicating you are in insert/edit mode.
 
 ## Limits / gotchas
-- Very large pages with hundreds of elements may experience slower performance
-- Structure updates require editor refresh if elements are added externally
-- Deeply nested structures (10+ levels) can become difficult to visually parse
+- This will not affect the front end of your website.
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

@@ -1,36 +1,27 @@
 ---
 title: User roles and classes
 source_url: https://elementor.com/help/user-roles-and-classes/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:14:22.742Z
+content_hash: sha256-5e7154603d206980a291e7e507da293845e64b7f9c171bf52eeb3281167a656e
 applies_to: [editor:v4]
 related_widgets: []
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-
-This article covers how WordPress user roles interact with Elementor V4's Class Manager and class-based styling system. It explains which roles can create, edit, delete, or only apply classes — enabling site owners to allow content editors to apply predefined design styles without the risk of modifying or deleting shared class definitions.
+In order to protect the security and stability of your site, access to features relating to classes are limited according to the user’s role. For example, a site admin can to anything with class features while an editor can use the Style tab features but cannot create a new class.
 
 ## Use this when
-
-- Setting up a multi-editor workflow where designers own class definitions and editors only apply them
-- Restricting which user roles can access the Class Manager to prevent style system breakage
-- Configuring Elementor role-based access so clients can edit content but not modify global styles
-- Auditing which user role created or last modified a class definition
-- Building agency sites where the client should only see approved class options
+- In order to protect the security and stability of your site, access to features relating to classes are limited according to the user’s role
+- For example, a site admin can to anything with class features while an editor can use the Style tab features but cannot create a new class
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
 
 ## Settings highlights
-
-- **Role Manager** — accessible in Elementor > Settings > Roles (requires Elementor Pro)
-- **Editor capability** — "Design" capability grants full Style tab and Class Manager access
-- **Author/Contributor** — restricted roles can apply existing classes but cannot open Class Manager or edit class definitions
-- **Class visibility** — all defined classes appear in the class picker for all roles; only "Design" roles can modify them
-- **Administrator** — always has full access regardless of Role Manager settings
-- **Custom capabilities** — Elementor Pro allows defining custom role permission sets beyond the defaults
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-
-- Role-based class restrictions require Elementor Pro; free version has no Role Manager
-- Role restrictions apply to the Elementor editor only — direct database or PHP access bypasses them
-- If a restricted user applies a class and the class is later deleted by an admin, the element loses those styles silently
-- V4 class permissions are distinct from WordPress post/page capability management; the two systems operate independently
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

@@ -1,38 +1,28 @@
 ---
 title: The Elementor Editor Class Manager
 source_url: https://elementor.com/help/the-elementor-editor-class-manager/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:14:17.971Z
+content_hash: sha256-d16ddee90f5137d4e5e7f1749c4f9674b96a9bb3f909795e6101c480de7f008c
 applies_to: [editor:v4]
-related_widgets: []
+related_widgets: [heading, button, icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-
-The Class Manager is a V4 editor panel that provides a central view of all named CSS classes defined on the site, their style definitions, which elements use them, and management actions (rename, edit, delete, export). It enables design-system-like workflows where style changes to one class propagate to every element using it.
+Styling elements in the Elementor Editor is based on using classes. For general information about creating classes, see Classes in Elementor.
 
 ## Use this when
-
-- Reviewing all defined classes across the site to understand the design system
-- Bulk-editing a class's style so all elements using it update simultaneously
-- Renaming a class to match a new naming convention without manually updating each element
-- Deleting obsolete classes and checking which elements will be affected
-- Exporting class definitions to import into another site or share with a team
+- After you create a class, it is listed in the Class Manager
+- Use the Filter to declutter your class list by rendering any classes that are empty, unused site-wide, or used on a page
+- You can choose to delete, or use them
 
 ## Settings highlights
-
-- **Access** — editor toolbar icon (class icon) or via Style tab class field → "Manage Classes"
-- **Class list panel** — lists all site-wide classes with name, element count, and preview swatch
-- **Class editor** — click any class to open its Style definitions; same controls as element Style tab
-- **Usage indicator** — shows how many elements reference each class; click to highlight them in the canvas
-- **Rename class** — inline rename updates all references automatically without breaking element assignments
-- **Delete class** — removes class definition; all elements that used it lose those styles (fallback to element inline or global)
-- **Export/Import** — export class JSON for migration; import merges classes from another site's export
-- **Merge classes** — combine two classes into one (duplicate styles resolved by last-write-wins)
+- Unused – The class is not used anywhere on the site.
+- Empty – No properties are assigned to this. You can choose to delete, or use them.
+- On this page – Filtering to this helps you visualize and adjust classes on the page.
+- Note – When the filter is on, you can’t drag and drop a class in the Class manager.
 
 ## Limits / gotchas
-
-- Class Manager is V4-only; it does not appear in the V3 editor interface
-- User role access to Class Manager can be restricted (admins only) to prevent non-technical editors from breaking the design system
-- Deleting a class is irreversible from within Class Manager; undo is available only immediately after via editor undo history (Ctrl+Z)
-- Classes store style values, not dynamic or conditional logic; for conditional styling use element states or custom CSS
+- When the filter is on, you can’t drag and drop a class in the Class manager.
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

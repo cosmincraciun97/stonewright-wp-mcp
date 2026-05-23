@@ -1,33 +1,26 @@
 ---
 title: Locate pages, posts and templates
 source_url: https://elementor.com/help/the-finder/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:11:35.430Z
+content_hash: sha256-37bb9c6a1189af4b479ab41d34fc1c17b0e043b8d77af9313f9c2ca77f83fd73
 applies_to: [editor:v3]
-related_widgets: []
+related_widgets: [icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-This article documents how to use Elementor's Finder feature to quickly search for and access pages, posts, custom post types, and templates across your WordPress site. The Finder streamlines navigation within large sites by providing a centralized search interface rather than scrolling through WordPress admin menus.
+Elementor Finder is a search bar that pops up on when you click either CMD + E (Mac) or CTRL + E (Windows). Elementor Finder gives quick access to various areas across your site, within one window.
 
 ## Use this when
-- You need to quickly locate a specific page or post by name
-- Managing sites with many pages and want faster navigation
-- Searching for templates you've created
-- You prefer keyboard shortcuts over menu browsing
-- Working with custom post types that aren't easily accessible in standard menus
+- To Create A New Page, Post, Template, Product, etc
+- Likewise, search for Page, or Template, or Product, etc
+- to create a new page, template, product, etc
 
 ## Settings highlights
-- Search functionality for finding pages and posts by title
-- Direct access to templates without visiting the template library
-- Keyboard shortcut activation for rapid workflow
-- Display of search results with content type indicators
-- One-click navigation to open items in the editor
-- Filter options to narrow results by post type
-- Recently accessed items for quick re-access
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Search requires exact or partial title matching; keyword searching has limitations
-- The Finder may not display unpublished items depending on user permissions
-- Performance could slow with extremely large numbers of posts across the site
-- Custom post types must be properly registered to appear in search results
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

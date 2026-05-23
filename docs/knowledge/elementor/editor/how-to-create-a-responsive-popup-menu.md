@@ -1,36 +1,33 @@
 ---
 title: Create a responsive popup menu
 source_url: https://elementor.com/help/how-to-create-a-responsive-popup-menu/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [editor:v3]
-related_widgets: []
+fetched_at: 2026-05-23T00:12:33.841Z
+content_hash: sha256-73cac25b848f979804df20ec39cadd6ea8886d6c38bd22fb7b470887f830fd67
+applies_to: [editor:v4]
+related_widgets: [heading, button, image, icon, toggle]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Create responsive popup menus that adapt across different devices using Elementor's Off-Canvas widget and container elements. This approach enables developers to build collapsible navigation systems that automatically adjust layout based on screen size, improving user experience on mobile, tablet, and desktop viewports.
+Create a responsive popup menu that launches from a menu button in your site’s header.
 
 ## Use this when
-- Building mobile-friendly navigation that hides on smaller screens
-- Creating hamburger menu systems that expand on interaction
-- Designing menus that need different layouts per device
-- Implementing slide-in or overlay menu patterns
-- Requiring accessible menu structures with proper HTML semantics
+- Create a responsive popup menu that launches from a menu button in your site’s header
+- Click your menu button widget’s handle to edit the widget, if it exists, or create a new one
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
 
 ## Settings highlights
-- Off-Canvas widget for hidden menu containers that slide into view
-- Display conditions to show/hide menus per device breakpoint
-- Flexbox container alignment for vertical/horizontal menu layouts
-- Responsive spacing controls using padding and margin adjustments
-- Trigger actions on button clicks or link interactions
-- Z-index layering to position menus above page content
-- Animation effects for smooth menu entrance/exit transitions
-- Nested container support for multi-level dropdown organization
-- Custom CSS classes for additional styling flexibility
-- Mobile viewport detection through Elementor's responsive editing
+- Choose a pre – designed Popup template or close the Library overlay and design your Popup from scratch. For this example, we’ll design our own, but you can also find this template in your Elementor Pro Popups Templates Library. Just search for “menu” in the Popups library to find it.
+- Width – Set to 85vw
+- Box Shadow – Set these as you’d like.
+- Color – Set the color to #878787
+- Content Width – Full Width
+- Padding – 70 for top, bottom, left, and right.
+- Tip – Now is a good time to adjust the headings’ Mobile Settings.
+- Right – click the Heading widget’s handle , and choose Duplicate.
 
 ## Limits / gotchas
-- Menu performance depends on container structure complexity and animation settings
-- Off-Canvas positioning may conflict with fixed header elements without proper z-index management
-- Touch interactions on mobile require sufficient tap target sizing (minimum 44x44 pixels recommended)
-- Nested dropdowns need careful overflow handling to prevent content clipping on small screens
+- Although the new background color has been set, you won’t see it yet, because there is no content in the column yet.
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

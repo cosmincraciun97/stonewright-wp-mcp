@@ -1,32 +1,32 @@
 ---
 title: Define container layout
 source_url: https://elementor.com/help/container-layout-tab-settings/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:10:53.575Z
+content_hash: sha256-9996d22329a2dc1eafdae00478e06be5300d89f82930a3c580d147ad6a915412
 applies_to: [editor:v3]
-related_widgets: []
+related_widgets: [heading]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The container Layout tab defines how child elements arrange and distribute within a flexbox container. This tab controls directional flow, alignment, spacing, and responsive wrapping behavior to organize content systematically within Elementor containers.
+The container layout tab controls how items are arranged in a container. See below for a summary of these controls.
 
 ## Use this when
-- Arranging multiple elements horizontally or vertically within a container
-- Need precise control over element spacing and distribution
-- Building responsive designs that adapt across device sizes
-- Creating aligned grids or navigation structures
-- Controlling how content wraps or flows in limited space
+- Control the minimum height of the container’s content
+- Use the slider or manually enter a value to set the desired minimum container height in PX or VH
+- Use the Gap option to add space between the elements
+- it can be used along the align and justify properties for even more control of your design
 
 ## Settings highlights
-- **Direction**: Choose row (horizontal) or column (vertical) element arrangement
-- **Justify Content**: Distribute elements along main axis (space-between, center, flex-start)
-- **Align Items**: Position elements perpendicular to flow direction
-- **Gap/Spacing**: Control uniform distance between contained elements
-- **Flex Wrap**: Enable wrapping to prevent overflow
-- **Align Content**: Manage multiple rows/columns alignment behavior
-- **Flex Grow/Shrink**: Assign proportional growth/shrinkage to children
+- Row – Items are positioned horizontally
+- Column – Items are positioned vertically
+- Row Reverse – Items are positioned horizontally but in reverse order
+- Column Reverse – Items are positioned vertically but in reverse order
+- The following justify – content options are available in the editor:
+- Flex Start – This justifies the content to the starting edge of the container.
+- Center – This justifies the content to the center of the container
+- Flex End – This justifies the content to the ending edge of the container
 
 ## Limits / gotchas
-- Container must have defined width/height constraints for spacing to function predictably
-- Nested containers with conflicting flex settings may produce unexpected alignment results
-- Mobile responsiveness requires separate layout adjustments per breakpoint
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

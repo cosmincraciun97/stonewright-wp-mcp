@@ -1,39 +1,30 @@
 ---
 title: Image element
 source_url: https://elementor.com/help/image-element/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:13:43.673Z
+content_hash: sha256-ea51115434a841dc26c00870af25c6247657cbf33f94a525ad7932926b83c4c7
 applies_to: [editor:v4]
-related_widgets: []
+related_widgets: [image, toggle, tabs, gallery]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-
-The Image element is a V4 atomic element for rendering a single image with full control over source, sizing, link, alt text, caption, and style properties. Unlike the V3 Image widget it uses atomic props (`src`, `width`, `height`, `objectFit`, `objectPosition`) instead of grouped control sections, enabling precise CSS-driven image behavior within Flexbox and Grid containers.
+Use the dropdown menu to select the image quality. The higher the resolution, the higher the quality. High quality images have larger file sizes and may affect page loading times. Link
 
 ## Use this when
-
-- Adding hero images, product shots, team photos, or decorative graphics to a layout
-- Displaying dynamic featured images in Loop templates via dynamic tag binding on the `src` prop
-- Creating clickable image links (lightbox, external URL, or anchor)
-- Controlling image aspect ratio via `objectFit: cover` within a fixed-size container
-- Applying hover effects (scale, opacity, CSS filter) via element states
+- Press the delete key on your keyboard
+- For more information, see Delete elements from a page
+- What is Image element
+- Images play a crucial role in capturing attention on websites
 
 ## Settings highlights
-
-- **src** prop — image URL or media library picker; supports dynamic tags (Featured Image, ACF Image Field)
-- **alt** prop — alternative text for accessibility and SEO; supports dynamic tags
-- **link** prop — URL, lightbox, or dynamic tag; optional `target: _blank`
-- **caption** prop — rendered below image; optional
-- **width / height** props — explicit dimensions in px or % (affects rendered `<img>` size)
-- **objectFit** prop — `fill`, `contain`, `cover`, `none`, `scale-down` (controls image within its box)
-- **objectPosition** prop — X/Y focal point for `cover` cropping (e.g. `50% 20%` keeps top portion visible)
-- **Style tab** — Border, Border Radius, Box Shadow, Opacity, CSS Filters, Blend Mode
-- **Element states** — hover opacity, hover CSS filter (grayscale/blur), hover scale via Transform
+- To access and use a widget – In Elementor Editor, click +. All available widgets are displayed.Click or drag the widget to the canvas. For more information, see Add elements to a page.
+- To delete the widget – On the canvas, select the element by clicking it.Press the delete key on your keyboard. For more information, see Delete elements from a page.
+- Add a Image element – Step-by-step
+- Link – Click the plus sign to enter a link. Visitors clicking the Image will open the link. Open in a new tab: If the Image contains a link, toggle on if you want the link to open in a new tab.
+- Link – Click the plus sign to enter a link. Visitors clicking the Image will open the link. Open in a new tab: If the Image contains a link, toggle on if you want the link to open in a new tab.
 
 ## Limits / gotchas
-
-- Lazy loading is applied by default via `loading="lazy"`; above-the-fold hero images should have `loading="eager"` set via custom attribute
-- V4 Image element uses `objectFit` for cropping — V3 Image widget used a separate "Image Size" dropdown controlling WordPress thumbnail sizes; these are different mechanisms
-- Large original image files are served unless you configure WordPress image sizes and select the appropriate size in the `src` picker
-- SVG files need SVG support enabled in Elementor settings; use the SVG element for inline SVGs
+- Alex is building a website for a new cafe. At the top of the homepage they want a striking image that will draw the attention of potential customers.
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

@@ -1,39 +1,32 @@
 ---
 title: Style options for grid containers
 source_url: https://elementor.com/help/grid-container-style-options/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:13:07.583Z
+content_hash: sha256-9fb614485dd872eececd6075e474258c9ebcfad3f577c8371ec2ddcaff1f7d63
 applies_to: [editor:v4]
-related_widgets: []
+related_widgets: [image, toggle]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-
-The grid container style options in Elementor V4 define the visual presentation of CSS Grid-based containers, covering background, border, spacing, and responsive column/row track sizing directly in the Style tab. These controls use the atomic prop schema rather than legacy section/column overrides.
+Introduction Click on the hotspots below to explore the Grid Container’s style options. Style tab- Background Learn more about backgrounds. Normal: What the overlay will look like by default.Hover: What the overlay will look like when visitors mouse over it. Color: For more details, see Choose a color or Use global fonts and colors. Image: Learn how to add graphic elements.Scrolling Effects – Use the toggle to change the screen when visitors scroll up and down your page. For more information on scrolling effects see:Vertical ScrollHorizontal ScrollTransparencyBlurScaleYou can also list the device sizes this effects will occur on (e.g. desktop, tablet, mobile)Mouse effects – Have the container’s items move relative to a visitor’s mouse movement. Learn more about mouse tracking. Style tab - Background Overlay A partially transparent layer that covers the background to give it extra depth and texture. Normal – What the overlay will look like by default.Hover – What the overlay will look like when visitors mouse over it. Background type – Choose between a solid color or image (Classic) or a mix of two colors Gradient. Learn more about classic and gradient backgrounds. Opacity – Set how transparent the overlay will be.CSS Filters – Another option to add special effects to your overlay. Learn more about applying CSS filters.Blend Mode – Learn more about Blend Mode. Style tab - Border Normal – What the border will look like by default.Hover – What the border will look like when visitors mouse over it. Border types – Border type – Learn more about border types.Border Radius – For more details, see Border radius tools. Box Shadow – Learn more about shadows. Style tab - Shape Divider Shape Divider – Learn more about how to create custom borders for your container. Next steps Check out the layout options for Grid Containers.
 
 ## Use this when
-
-- Styling a grid container background (color, image, gradient) independently of its children
-- Adding borders or box shadows to the grid wrapper element
-- Controlling gap between grid cells via the unified gap control
-- Applying responsive-specific background or border overrides per breakpoint
-- Setting overflow behavior when grid items exceed container dimensions
+- Introduction 
+ 
+ Click on the hotspots below to explore the Grid Container’s style options
+- Style tab- Background 
+ 
+ Learn more about backgrounds
+- Scrolling Effects – Use the toggle to change the screen when visitors scroll up and down your page
+- desktop, tablet, mobile)Mouse effects – Have the container’s items move relative to a visitor’s mouse movement
 
 ## Settings highlights
-
-- **Background** — solid color, gradient, image, or video via layered background picker
-- **Border type/width/color/radius** — unified border control with per-side and corner overrides
-- **Box shadow** — offset, blur, spread, color for drop-shadow effects on the grid element
-- **Grid gap (row-gap / column-gap)** — separate row and column gap values supporting px/em/rem/% units
-- **Padding** — inset spacing inside the grid container before cells render
-- **Opacity** — element-level opacity distinct from background-color alpha
-- **CSS Filters** — blur, brightness, contrast, hue-rotate on the container
-- **Blend mode** — how the container composites with elements beneath it
-- **Responsive overrides** — all controls expose per-breakpoint variants in V4
+- Style tab – Background
+- Normal – What the overlay will look like by default.Hover: What the overlay will look like when visitors mouse over it. Color: For more details, see Choose a color or Use global fonts and colors. Image: Learn how to add graphic elements.Scrolling Effects – Use the toggle to change the screen when visitors scroll up and down your page. For more information on scrolling effects see:Vertical ScrollHorizontal ScrollTransparencyBlurScaleYou can also list the device sizes this effects will occur on (e.g. desktop, tablet, mobile)Mouse effects – Have the container’s items move relative to a visitor’s mouse movement. Learn more about mouse tracking.
+- Style tab – Background Overlay
+- Style tab – Shape Divider
 
 ## Limits / gotchas
-
-- V4 grid containers differ from V3 sections: there is no inner-section concept; gaps replace column gutters
-- Gap controls apply to all cells uniformly; for unequal spacing use custom CSS `grid-template-columns` overrides
-- Background video in V4 grid containers may require enabling SVG/video support in Site Settings
-- Some style properties do not cascade to nested atomic elements — set styles at the correct scope
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

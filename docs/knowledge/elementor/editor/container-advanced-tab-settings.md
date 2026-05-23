@@ -1,34 +1,32 @@
 ---
 title: Define advanced settings in Flexbox containers
 source_url: https://elementor.com/help/container-advanced-tab-settings/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [editor:v3]
-related_widgets: []
+fetched_at: 2026-05-23T00:12:40.097Z
+content_hash: sha256-b6e4b7c66d8dc1c35579a1e4a1dac4e74f5130704f92888f65188908f11f0fcc
+applies_to: [editor:v4]
+related_widgets: [icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Define advanced settings in Flexbox containers to control layout behavior, spacing, and alignment of child elements. This article covers the advanced tab settings that enable fine-tuned control over how elements distribute, wrap, and respond to content within flexible containers.
+Containers have additional options in the Advanced tab to increase design flexibility.
 
 ## Use this when
-- You need to adjust how child elements align and justify within a Flexbox container
-- Creating responsive layouts that require specific spacing and distribution rules
-- Setting up containers with nested elements that need precise positioning
-- Configuring gap, order, and flex properties for complex layouts
-- Fine-tuning element behavior across different device breakpoints
+- Use the slider to adjust the Width of the element within the container
+- The value may be set by adjusting the slider, or by entering a value in the field in PX, %, or VW
+- This is an important property and may be combined with the Wrap property to better optimize your design
+- By hovering over these indicators, it will allow you to identify items that use custom positioning or CSS
 
 ## Settings highlights
-- Flex direction control (row, column, and reverse variations)
-- Justify content options for horizontal alignment and space distribution
-- Align items settings for vertical alignment of children
-- Flex wrap behavior to control line wrapping of child elements
-- Gap property to establish consistent spacing between items
-- Individual element flex properties (flex-grow, flex-shrink, flex-basis)
-- Order property for reordering elements without changing HTML structure
-- Align self for overriding container alignment on specific items
-- Responsive setting adjustments per device type
+- Tip – Learn more about paddings and margins in this helpful guide.
+- Width (Value) – This is only available if Custom is chosen. Use the slider to adjust the Width of the element within the container. The value may be set by adjusting the slider, or by entering a value in the field in PX, %, or VW. This is an important property and may be combined with the Wrap property to better optimize your design.
+- Note – The Inline (auto) feature does not work with Containers. Instead, the Direction property of the Container is used.
+- Tip – If the Width property is set using Full Width, Inline or Custom rather than the Default, a blue indicator will be shown in the Structure window. By hovering over these indicators, it will allow you to identify items that use custom positioning or CSS.
+- The align – self property specifies the alignment for the selected item inside the flexible container. This property will override the flexible container’s align-items property.
+- flex – start: The element is positioned at the beginning of the container
+- center – The element is positioned at the center of the container
+- flex – end: The element is positioned at the end of the container
 
 ## Limits / gotchas
-- Advanced settings can override basic layout controls if not managed carefully
-- Nested containers may create unexpected behavior when flex properties cascade
-- Some settings may not display properly on certain older browsers without fallback styles
+- The Inline (auto) feature does not work with Containers. Instead, the Direction property of the Container is used.
+- Absolute positioning is not the recommended method for building web page layouts. Having said that, it does come in handy in many situations where you want to position the various page elements more freely.

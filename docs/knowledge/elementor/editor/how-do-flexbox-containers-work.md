@@ -1,39 +1,30 @@
 ---
 title: Understanding how Flexbox containers work
 source_url: https://elementor.com/help/how-do-flexbox-containers-work/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:13:13.397Z
+content_hash: sha256-50b9b957d3b439fdcbdfff384686ae1f88adf3360976b54b1398cdeea08a8e4d
 applies_to: [editor:v4]
 related_widgets: []
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-
-This article explains the CSS Flexbox model as implemented in Elementor's container element, covering how flex direction, alignment, wrapping, and gap interact to produce responsive one-dimensional layouts. Understanding flexbox is foundational for all V4 container-based design work.
+A container is a box that holds your web page elements, including widgets and other nested containers to provide the layout you need. You can create containers quickly and save them as recurring templates to streamline your web building process..
 
 ## Use this when
-
-- Building horizontal or vertical stacks of widgets and elements
-- Controlling how child items shrink or grow to fill available space
-- Centering elements both horizontally and vertically within a container
-- Creating responsive nav bars, card rows, or feature grids with wrapping
-- Replacing legacy V3 column percentage layouts with flex-based sizing
+- Note
+ You’ll also find these properties within the Advanced tab for containers
+- This is because nested containers have many of the same properties as widgets and you can use these properties to edit them
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
 
 ## Settings highlights
-
-- **Direction** (`flex-direction`) — Row (horizontal) or Column (vertical); governs the main axis
-- **Wrap** (`flex-wrap`) — No Wrap / Wrap / Wrap Reverse; controls overflow into new lines
-- **Justify Content** — Start, End, Center, Space Between, Space Around, Space Evenly on main axis
-- **Align Items** — Start, End, Center, Stretch, Baseline on cross axis
-- **Align Content** — applies when wrap is active; controls multi-line cross-axis distribution
-- **Gap** — unified row-gap + column-gap control in px/em/rem/%; replaces V3 gutter
-- **Flex Grow / Shrink / Basis** — per-child controls exposed in the child element's own Layout tab
-- **Min Height** — prevents collapse when children are empty; critical for hero sections
-- **Overflow** — Hidden clips children; Visible allows absolute-positioned children to escape
+- Container width has two options – Boxed and Full Width.
+- Note – You can change these properties after you’ve added elements to see how they’ll react to the edits.
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-
-- Flex containers arrange children on one axis only; use Grid containers for two-axis layouts
-- Justify-content Space Between on a Row container with a single child has no visible effect
-- Children set to `position: absolute` are removed from flex flow and do not participate in gap
-- V3 column widths (e.g. 33.33%) do not translate directly; use flex-basis or percentage width on children instead
+- [/callout type="note"]In addition to widgets, you can place containers inside another (parent) container. This is known as a ‘nested container’.[/callout]
+- You can change these properties after you’ve added elements to see how they’ll react to the edits.

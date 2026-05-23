@@ -1,37 +1,32 @@
 ---
 title: Style tab - Effects
 source_url: https://elementor.com/help/style-tab-effects/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:14:01.929Z
+content_hash: sha256-932ae01d2946b5a766ee5dc03b8c42b829f00da90f0b486c32b3ecc8b1b615a9
 applies_to: [editor:v4]
-related_widgets: []
+related_widgets: [heading, button, image, icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-
-The Effects section of the V4 Style tab controls CSS visual effects applied to the element as a whole — including opacity, CSS filters, box shadow, text shadow, blend mode, and CSS transform. These props replace scattered V3 controls (Advanced tab opacity, Motion Effects transforms) with a unified Effects section in the atomic Style tab.
+Adding a box shadow to your element can give it depth and allows the element to stand out on the page. For a more in depth look at shadows, see What is Shadow, Text Shadow and Boxed Shadow?
 
 ## Use this when
-
-- Applying a drop shadow to a card, image, or button for depth
-- Adding blur, brightness, contrast, or grayscale CSS filters to images
-- Setting element opacity for overlays or disabled states
-- Applying a CSS `transform` (scale, rotate, skew, translate) for decorative positioning
-- Blending an element with its background using CSS `mix-blend-mode`
+- For details, see Use the color picker
+- Use the number fields to move the shadow right and left (Horizontal) or up and down (Vertical)
+- Use the dropdown menu to add a filter
+- In this case, we’ll add a Drop shadow
 
 ## Settings highlights
-
-- **Opacity** — 0–1 slider affecting the entire element and all its children
-- **CSS Filters** — Blur (px), Brightness (%), Contrast (%), Saturate (%), Hue Rotate (deg), Invert (%), Grayscale (%); can be combined
-- **Box Shadow** — offset-X, offset-Y, blur, spread, color; supports multiple shadows per element
-- **Text Shadow** — applies to text-rendering elements; offset-X, offset-Y, blur, color
-- **Blend Mode** — `normal`, `multiply`, `screen`, `overlay`, `darken`, `lighten`, `color-dodge`, `color-burn`, `hard-light`, `soft-light`, `difference`, `exclusion`, `hue`, `saturation`, `color`, `luminosity`
-- **Transform** — scale (X/Y), rotate (Z), skew (X/Y), translate (X/Y/Z) in a unified transform builder
-- **Element states** — all Effects props support hover/active/focus state variants
+- Color – Set a color for the shadow. For details, see Use the color picker.
+- Position – There are two types of box shadow:
+- Outset – the shadow starts at the element border and flows outward.
+- Inset – The shadow starts at the element border and flows inward.
+- Horizontal and Vertical – You can achieve interesting effects by changing the position of the shadow. Use the number fields to move the shadow right and left (Horizontal) or up and down (Vertical).
+- Blur and Spread – The shadow effect is caused by starting with a solid color and then increasingly blurring the color.
+- Blur – Expands the area covered by the blurred color.
+- Spread – Expands the area covered by the solid color.
 
 ## Limits / gotchas
-
-- `opacity` on a parent creates a stacking context; absolutely positioned children will clip to it
-- CSS filters render on the GPU; overuse causes significant GPU memory consumption on mobile
-- `mix-blend-mode` only blends the element with what is directly beneath it in the stacking context — `isolation: isolate` on a parent may prevent expected blending
-- V4 Transform controls replace V3 Motion Effects static transforms; Motion Effects (scroll-driven) remain in the Advanced tab
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

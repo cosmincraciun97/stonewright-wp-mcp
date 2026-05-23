@@ -1,32 +1,26 @@
 ---
 title: Revision history, undo and redo
 source_url: https://elementor.com/help/revision-history-undo-and-redo/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:11:41.175Z
+content_hash: sha256-a5b850912fad3db806a0cfe4daf3f493bb6b599a1db51e0c1797cf1e765add37
 applies_to: [editor:v3]
-related_widgets: []
+related_widgets: [icon, tabs]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-This feature allows users to navigate through editing changes made to pages and posts within the Elementor editor. Users can view a complete history of revisions, undo recent actions, and redo previously undone changes to recover lost work or explore alternative design directions.
+Nobody is perfect and sometimes you need to bring back an old version of a webpage or undo a change you made. The Elementor Editor history feature tracks the changes you made to your page and allows you to restore previous versions.
 
 ## Use this when
-- You need to revert recent edits without losing the entire page
-- Comparing different design iterations of the same page
-- Recovering accidentally deleted elements or sections
-- Testing design changes with the ability to easily backtrack
-- Managing multiple revisions of client work before final approval
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- History icon accessible within the editor interface
-- Visual timeline of all revision points during editing session
-- Undo/redo keyboard shortcuts for rapid navigation
-- Ability to jump to specific revision points in the history
-- Storage of multiple page versions for recovery purposes
-- Clear distinction between saved and unsaved changes
-- Integration with WordPress's native revision system
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Revisions are session-based and may have storage limitations depending on server configuration
-- Refreshing the page or closing the editor may affect available revision history
-- Undo/redo history is not preserved after publishing changes to live site
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

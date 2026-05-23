@@ -1,35 +1,29 @@
 ---
-title: Advanced tab
+title: Advanced Tab: See Possible Settings.com
 source_url: https://elementor.com/help/advanced-tab/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:10:39.936Z
+content_hash: sha256-f5955246ba65f56ffbe87f952c1d34c56aba7eaee60bc01613f0f0b1baa7524f
 applies_to: [editor:v3]
-related_widgets: []
+related_widgets: [toggle]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Advanced tab in Elementor provides additional styling and layout controls for sections, columns, and widgets beyond standard settings. It enables fine-tuning of element behavior, positioning, visibility, and custom styling options to achieve precise design requirements.
+Set the Margin of the selected element in PX, EM, REM, or %. You can set values for top, right, bottom, and left margins. Positive values increase space, while negative values decrease space. Padding
 
 ## Use this when
-- You need to adjust spacing, sizing, or positioning beyond basic controls
-- Creating responsive designs requiring device-specific visibility rules
-- Applying custom CSS or HTML attributes to elements
-- Setting up display conditions or animation effects
-- Implementing advanced layout features like z-index or absolute positioning
+- The Advanced tab provides additional settings and customization options
+- The options in the Advanced tab are designed for users who want greater control over the design and functionality of their widgets and containers
+- Select the width of the widget, choosing from Full Width (100%), Inline (auto), or Custom
+- Use the slider or enter a value in PX, %, or VW to adjust the element’s width within the column
 
 ## Settings highlights
-- Custom CSS and HTML attribute configuration
-- Display conditions for conditional element visibility
-- Responsive settings for device-specific adjustments
-- Z-index control for element layering
-- Animation and motion effects options
-- Padding, margin, and spacing refinements
-- Element sizing and overflow controls
-- CSS classes and ID assignment
-- Absolute positioning parameters
-- Advanced layout and alignment options
+- Classic – Uses a solid color as the background. You can choose a color for the background from the color picker.
+- Gradient – Applies a gradient as the background. You can define a gradient by selecting two or more colors and adjusting the gradient type, angle, and position.
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Advanced settings require understanding of CSS concepts for custom implementations
-- Some features are exclusive to Elementor Pro subscriptions
-- Incorrect custom code can break element appearance or functionality
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

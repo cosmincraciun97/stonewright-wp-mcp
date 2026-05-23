@@ -1,33 +1,26 @@
 ---
 title: Restore a previous post
 source_url: https://elementor.com/help/restore-previous-version-of-a-post/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:11:40.474Z
+content_hash: sha256-446c9c9d2f5162425d9203e5571d21edf96080cc98ab2d98261e4e51a307aa7e
 applies_to: [editor:v3]
 related_widgets: []
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Restore a previous post allows you to revert your Elementor pages and posts to earlier saved versions. This feature provides version control by maintaining a history of your post revisions, enabling you to recover content if needed or compare different versions of your work.
+When you edit a post (posts, pages and custom post types) on your site, WordPress automatically saves the previous post as a revision. If you want to go back to an older copy of your post, you can simply revert to any of the saved revisions.
 
 ## Use this when
-- You accidentally made unwanted changes to page or post content
-- You need to compare different versions of your design
-- You want to roll back to a previous design iteration
-- A post was corrupted or contains errors requiring restoration
-- You're experimenting with changes but want to preserve the original
+- Navigate to the desired version using Next or Previous
+- You can also use the slider to find the desired version
+- Use the selectors to choose the two revisions that you want to compare
 
 ## Settings highlights
-- Access revision history from the editor interface
-- View timestamped versions of previous saves
-- Preview changes before restoring to a specific version
-- Select which revision to restore with one action
-- Automatic version creation on each save
-- Compare side-by-side revisions of your content
-- Restore functionality applies to pages, posts, and custom post types
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Elementor stores a limited number of post versions (check documentation for specific limits)
-- Restoring a version overwrites current changes permanently
-- Revision history may be cleared during site maintenance or backups
-- Some hosting configurations may limit available revision storage
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.
