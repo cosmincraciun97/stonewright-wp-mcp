@@ -1,35 +1,29 @@
 ---
 title: Icon List widget
 source_url: https://elementor.com/help/icon-list-widget/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:icon-list]
-related_widgets: [icon, icon-box, bullet-list]
+fetched_at: 2026-05-23T00:18:00.515Z
+content_hash: sha256-28e8589954d270970b86ffffc9cc981310186e86201d935d3fbdeef00bd2122c
+applies_to: [widget:icon-list-widget]
+related_widgets: [button, video, icon, tabs]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Icon List widget displays a repeater-based list where each item pairs an icon with a text label and optional link. It is the go-to widget for feature checklists, contact info rows (phone/email/address), nav link lists, and any content where short labeled icons repeat vertically or horizontally.
+Choose Default or Inline. Default displays items in a vertical list, while Inline displays items horizontally. Items
 
 ## Use this when
-- Building feature or benefit checklists (checkmark icons + text)
-- Displaying contact details (phone icon + number, envelope icon + email)
-- Creating a mini navigation list in a footer column
-- Showing step indicators or ordered process lists with numbered icons
-- Designing horizontal icon-tag rows (tags, categories) within cards
+- In Elementor Editor, click +
+- All available widgets are displayed
+- Click or drag the widget to the canvas
+- For more information, see Add elements to a page
 
 ## Settings highlights
-- **Items (Repeater)**: each item has Icon, Text, and Link fields; reorder via drag
-- **Layout**: Inline (horizontal) or Default (vertical stacked)
-- **Icon Size**: uniform px slider for all icons
-- **Icon Color** / **Icon Color Hover**: per icon or globally
-- **Text Typography** / **Text Color**: shared across all items; per-item override via Custom CSS
-- **Space Between Items**: gap control
-- **Divider**: optional horizontal rule between items with color, weight, style controls
-- **Alignment**: left, center, right for the whole list
-- **Icon Alignment**: flex-start / center / flex-end relative to multi-line text
+- Display product features on an e – commerce website.Highlight key services offered by a business.Showcase amenities at a hotel or resort.Present benefits of a subscription or membership.
+- Add an Icon List widget – Step-by-step
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Per-item text color differences require CSS targeting `.elementor-icon-list-item:nth-child(n)`
-- Inline layout may wrap awkwardly on mobile — set a responsive column break or switch to vertical on small screens
-- Icon List has no built-in animation per item; entrance animations apply to the whole widget
-- Cannot mix icon sizes per item without Custom CSS
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

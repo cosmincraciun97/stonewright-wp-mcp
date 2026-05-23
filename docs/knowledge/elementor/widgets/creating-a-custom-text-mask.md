@@ -1,33 +1,26 @@
 ---
 title: Create a Custom Text Mask
 source_url: https://elementor.com/help/creating-a-custom-text-mask/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [editor:v3, editor:v4]
-related_widgets: [heading, text-path]
+fetched_at: 2026-05-23T00:16:14.175Z
+content_hash: sha256-f420726bf8318c63de917e4431a8fb3cf973c3e1e90d19e2287e908fbe472b7d
+applies_to: [widget:creating-a-custom-text-mask]
+related_widgets: [image, video]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-A text mask is a design effect that uses an image, gradient, or pattern to fill text characters, creating visually striking typography. This technique allows you to display images or colors within the letterforms themselves, enhancing visual appeal and creating unique text-based designs for headers, titles, or featured content.
+By using the Mask function in the Elementor Advanced Tab you can easily upload a custom Text Mask to your video or image.
 
 ## Use this when
-- You want text to display with an image or gradient fill instead of solid color
-- Creating eye-catching headlines or hero section typography
-- Building branded designs that incorporate product images or patterns into text
-- Designing decorative sections where visual impact matters
-- You need to layer background imagery with text elements
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- Mask Source — choose image, gradient, or pattern to fill the text
-- Image Selection — upload or select from media library for image-based masks
-- Gradient Controls — define colors, direction, and angle for gradient fills
-- Text Element — apply mask to heading, title, or text widget
-- Responsive Adjustments — scale mask behavior across different breakpoints
-- Opacity/Blend Options — control transparency and blending modes
-- Positioning — adjust how the mask aligns within character shapes
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Complex masks may impact performance on mobile devices due to rendering overhead
-- Ensure sufficient contrast between masked content and surrounding design for readability
-- Text must be sufficiently large for mask details to display clearly
-- Some older browsers may not render CSS masks consistently
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

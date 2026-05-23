@@ -1,32 +1,30 @@
 ---
 title: Custom Link Attributes
 source_url: https://elementor.com/help/custom-link-attributes/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:16:53.456Z
+content_hash: sha256-9bec1654446ede82d52a940c6e9f9fd45eda32418efa9423618d8ace6c22a97f
 applies_to: [widget:custom-link-attributes]
-related_widgets: []
+related_widgets: [button, icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Custom link attributes allow you to add custom HTML attributes to links in Elementor widgets, enabling advanced functionality like tracking, analytics integration, and custom data attributes without requiring code modifications.
+With Elementor, you can add custom HTML attributes to the <a> element of every link. This enables the addition of data-* attributes, ARIA (accessibility) attributes and values, header, footer, sidebar, rel=*, and other attributes that can be found here
 
 ## Use this when
-- You need to add data attributes for JavaScript tracking or interactions
-- Integrating third-party analytics or marketing tools that require specific HTML attributes
-- Building accessible links with ARIA labels or custom accessibility attributes
-- Creating links with custom CSS classes for styling or JavaScript targeting
-- Adding rel attributes for SEO purposes (nofollow, sponsored, etc.)
+- In Custom Attributes text field, add download|60’s fashions
+- Visitors who click the button will download a pdf file called 60′ fashions
+- Now let’s create a tooltip for the button
+- Tip
+ You can add multiple Link Attributes separated with a comma (,)
 
 ## Settings highlights
-- Access custom attributes through widget link settings
-- Add multiple custom attributes to a single link element
-- Define attribute names and corresponding values independently
-- Apply attributes across different link types (buttons, text links, images)
-- Support for dynamic values through Elementor's dynamic content features
-- Preview custom attributes in the editor before publishing
+- For security reason, you cannot add JS – based attributes (like onclick) to your links.[\callout]
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Some HTML attributes may be restricted for security reasons depending on WordPress configuration
-- Custom attributes don't automatically validate; invalid syntax could break link functionality
-- Attributes are applied at the individual widget level, not globally across all links
-- Changes to custom attributes require republishing the page to take effect
+- There is no ability to add a custom attribute to a link created within a Text Editor widget. Custom attributes are only available for widgets that specifically have a link field.[\callout]
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

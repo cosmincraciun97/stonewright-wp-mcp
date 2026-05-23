@@ -1,35 +1,32 @@
 ---
 title: Loop Grid widget
 source_url: https://elementor.com/help/loop-grid/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:18:23.144Z
+content_hash: sha256-597b0f7817bd6b90c940e112b7900ebd30ad62c7b0ae553b7e255877b0ca5fb7
 applies_to: [widget:loop-grid]
-related_widgets: [loop-carousel, posts, archive-posts, taxonomy-filter]
+related_widgets: [icon, toggle, tabs]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Loop Grid widget dynamically displays multiple posts, products, or custom post types in a customizable grid layout. It queries and renders content based on specified conditions, allowing designers to create flexible archive pages, product galleries, and content showcases without manual item management. Each item's appearance is defined by a reusable Loop Template.
+News sites that want to display stories by type, such as Politics, Sports, Local. Stores that want to display different product lines. Portfolio sites to display different types of artwork.
 
 ## Use this when
-- Building archive, category, or tag pages that need dynamic content filtering
-- Creating product display grids for WooCommerce shops
-- Displaying related posts or custom post type collections
-- Requiring pagination or load-more functionality for content loops
-- Needing to customize which items appear through query builders and taxonomy filters
+- Many websites contain a page or pages with a list of posts
+- These posts can be anything from product listings to news stories to blog posts
+- The Loop Grid lets you customize the appearance of these lists, allowing you to build a design tailored to your specifications
+- Common use cases
+Alex has a site that hosts a blog about worldwide travel
 
 ## Settings highlights
-- **Template**: choose which Loop Template defines each card's appearance
-- **Query Builder**: define post types, taxonomies, author, date, order for displayed items
-- **Columns**: number of grid columns per responsive breakpoint
-- **Rows Gap / Columns Gap**: spacing between items
-- **Alternate Template**: apply a different Loop Template to specific Nth items (e.g. first item gets hero layout)
-- **Pagination**: choose between standard pagination, load-more button, or infinite scroll
-- **Taxonomy Filter**: display filterable tag/category buttons allowing visitors to narrow results
-- **No Results Message**: custom text/template when query returns empty
-- **Off-Canvas Integration**: embed Off-Canvas widgets within loop items for interactive overlays
+- Posts – A Loop Grid displaying regular posts, pages, or products.
+- Post Taxonomy – A Loop Grid displaying the different categories of posts.
+- Products – A Loop Grid displaying WooCommerce products.
+- Product Taxonomy – A Loop Grid displaying the different categories of products.
+- Edit template has two functions – If you have selected a template, you can edit that template.If you have not selected a template, you create a new template.
+- The Current Query – Used when you build a template that will be applied for several categories and or tags. This way you won’t have to write a new query for each category or tag.
+- Control the look of your loop – Gap between columns: Use the slider to control the distance between the columns in the loop.Gap between rows: Use the slider to control the distance between the rows in the loop.
 
 ## Limits / gotchas
-- Requires a pre-built Loop Template (Pro only) — cannot define card layout inline
-- Complex queries or large datasets impact page performance; set per-page limits and use pagination
-- Alternate template assignment is positional (1st, 2nd…) — no conditional logic per item content
-- Display conditions apply globally across all instances, not per individual item
+- This option is only available for Loop Grids displaying taxonomies with more than one level.
+- If you use page numbering, you can save page clutter by limiting the page numbers on the screen. For more details, see Paginate your loop.

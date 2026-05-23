@@ -1,34 +1,32 @@
 ---
 title: Login widget
 source_url: https://elementor.com/help/login-widget-pro/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:login]
-related_widgets: [form, template]
+fetched_at: 2026-05-23T00:18:17.651Z
+content_hash: sha256-470629d7964ddcbecc1f038fb0f0b4635d19765abfa30b1c948c4f77a54c09d9
+applies_to: [widget:login-widget-pro]
+related_widgets: [button, toggle]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Login widget (Elementor Pro) renders a styled WordPress authentication form directly on any Elementor-designed page, replacing the default `/wp-login.php` form. It supports custom redirect URLs after successful login, lost password links, and registration links, all styled within the Elementor design system.
+The Login Widget makes it easy to create a custom login page, instead of the default WordPress login page.
 
 ## Use this when
-- Building a branded login page that matches site design instead of bare WordPress default
-- Creating members-only landing pages where login is embedded in the hero section
-- Designing a popup or modal that contains the login form
-- Needing to redirect users to a specific page (dashboard, account, custom URL) after login
+- The Login Widget makes it easy to create a custom login page, instead of the default WordPress login page
+- Create a New Page, and add the Login Widget
+- You may also use the Dynamic Tags feature to call from the site’s metadata or custom field
 
 ## Settings highlights
-- **Username Label** / **Password Label**: customize field labels text
-- **Remember Me**: toggle the "Remember Me" checkbox on/off
-- **Button Text**: change the submit button label (default "Log In")
-- **Redirect To**: choose custom URL, home page, or last visited page after successful login
-- **Lost Password Link**: show/hide with customizable label and link text
-- **Registration Link**: show/hide link to registration page
-- **Form Fields Typography / Colors**: per-field styling
-- **Button Style**: full button widget styling (background, border, hover, typography)
-- **Separator Style**: divider between form and auxiliary links
+- Label – Show or Hide the form Label
+- Input size – Choose the Form Fields input size.
+- Text – Type the button’s text. You may also use the Dynamic Tags feature to call from the site’s metadata or custom field
+- Size – Choose the size of the button
+- Alignment – Set the button’s alignment
+- Redirect After Login – Set to ON or OFF.
+- Lost Your Password – Choose whether or not to display the “Lost Your Password” link
+- Remember me – Choose whether or not to display the “Remember Me” checkbox
 
 ## Limits / gotchas
-- Requires Elementor Pro — not available in Free
-- Does not include built-in two-factor authentication; requires a separate 2FA plugin
-- Conflict risk with security plugins that override the login form (Wordfence, iThemes Security) — test compatibility
-- Registration form functionality requires a separate Registration Form widget or a plugin like User Registration
+- Use your regular WordPress login credentials with the Login Widget
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

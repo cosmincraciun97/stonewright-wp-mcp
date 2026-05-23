@@ -1,33 +1,28 @@
 ---
 title: Create a Read More toggle in posts
 source_url: https://elementor.com/help/create-read-more-toggle-in-posts/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:toggle, widget:read-more]
-related_widgets: [accordion, toggle, text-editor]
+fetched_at: 2026-05-23T00:16:25.390Z
+content_hash: sha256-e6e67f2dfcde8f01b4da41f9a38b2e7762317ad91333bf5f84311a2e2bb4f732
+applies_to: [widget:create-read-more-toggle-in-posts]
+related_widgets: [heading, button, icon, toggle]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Create expandable "Read More" toggles in blog posts to hide lengthy content behind a clickable button, improving page layout and user experience by allowing visitors to reveal additional text on demand.
+Note Using the Read More widget, you can display excerpts of your blog posts on standard WordPress archive pages. However, if you want to add a Read More Toggle in your single post template, you can do it with a custom field. This custom field can be set up using the Advanced Custom Fields plugin, which you can download for free from the WordPress repository.
 
 ## Use this when
-- Blog posts contain substantial content that affects initial page appearance
-- You want to improve readability without removing content
-- Mobile users benefit from collapsed sections reducing scroll distance
-- Posts need multiple expandable sections for better organization
-- You're designing archive or listing pages with post previews
+- Create a custom field
+- After activating the plugin, you need to create a custom field group
+- Create at least one new post to populate the custom fields for the next step
+- Your custom field editor will be at the bottom of the block editor content
 
 ## Settings highlights
-- Toggle widget provides collapse/expand functionality for content sections
-- Text content can be placed within toggle items for reveal-on-click behavior
-- Custom button labels control toggle appearance ("Read More," "Show Details," etc.)
-- Animation options smooth the expand/collapse transitions
-- Styling controls adjust colors, fonts, and spacing of toggle elements
-- Icon options indicate expandable state (chevrons, plus signs, arrows)
-- Multiple toggles can be stacked within a single post template
+- Create one custom field (example – Read More Content). Give this a unique Field Label. The Field Name should auto-generate. This will be the permalink key.
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Toggle functionality requires JavaScript; verify it's enabled in visitor browsers
-- Initial collapsed state may reduce SEO visibility of hidden content for search engines
-- Mobile optimization requires testing expand/collapse behavior on various screen sizes
-- Excessive toggles can create cluttered interfaces; balance content density carefully
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

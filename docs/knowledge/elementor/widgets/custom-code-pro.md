@@ -1,31 +1,26 @@
 ---
 title: Add custom code
 source_url: https://elementor.com/help/custom-code-pro/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:html]
-related_widgets: [html, shortcode]
+fetched_at: 2026-05-23T00:15:06.448Z
+content_hash: sha256-ba09af55415a644ca161ab9bc498706ad083e1923b9081ecdc29e12aa044e28a
+applies_to: [widget:custom-code-pro]
+related_widgets: []
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Custom Code widget enables developers to insert custom HTML, CSS, or JavaScript directly into Elementor pages without leaving the editor, allowing advanced customization and functionality beyond native widget capabilities.
+The Custom Code feature allows you to add HTML, JavaScript and CSS code snippets to your site. For example, Google Analytics code or Facebook Pixel code. You can add any kind of JavaScript code to tweak the DOM, add events and dynamic features and much more. You can use CSS snippets to add custom styling to any element on the site.
 
 ## Use this when
-- You need to embed third-party scripts or tracking code
-- Building custom interactive features with JavaScript
-- Adding specialized styling that standard design tools can't achieve
-- Integrating external services or APIs into your page
-- Creating dynamic functionality tailored to specific business needs
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- **Code Type selector** – Choose between HTML, CSS, or JavaScript execution contexts
-- **Code editor panel** – Full syntax highlighting for writing and editing code
-- **Live preview toggle** – Test code changes in real-time without publishing
-- **Advanced settings** – Configure when code executes (on page load, on scroll, etc.)
-- **Device visibility controls** – Show/hide code output across desktop, tablet, mobile
-- **Render location options** – Insert code in page head, body, or specific element containers
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Malformed code can break page rendering; always preview before publishing
-- JavaScript errors won't display validation warnings in the editor—test thoroughly in browser console
-- Some hosting providers restrict certain script types for security; verify with your host
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

@@ -1,31 +1,27 @@
 ---
 title: Multi Select
 source_url: https://elementor.com/help/multi-select-feature/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:multi-select]
+fetched_at: 2026-05-23T00:18:45.503Z
+content_hash: sha256-8062bb4b64a661aa733641aed6fc4c8e9728b1bce31302c1e86c952645007faf
+applies_to: [widget:multi-select-feature]
 related_widgets: []
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Multi Select is an editor productivity feature that allows selecting multiple Elementor elements simultaneously in the canvas or Navigator, then performing batch operations (move, duplicate, copy style, delete, align) on all selected items at once. It replaces the need to repeat the same action on each element individually.
+Save valuable time by selecting multiple items on your page. Once selected, you may duplicate, copy/paste styles, or delete with ease.
 
 ## Use this when
-- Aligning multiple widgets to the same edge or distributing them evenly
-- Deleting a group of elements in one action
-- Duplicating several widgets at once to build a repeating pattern
-- Copying a shared style setting across multiple selected elements
-- Moving a set of widgets from one container to another in the Navigator
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- **Selection method**: hold `Ctrl` (Windows) or `Cmd` (macOS) and click elements in the canvas or Navigator
-- **Selection box**: click and drag on empty canvas space to rubber-band select a group
-- **Navigator multi-select**: `Ctrl/Cmd + click` rows in the Navigator panel
-- **Batch actions available**: Delete, Duplicate, Copy / Paste Style, Save as Template, Align (left, center, right, top, middle, bottom), Distribute (horizontal/vertical spacing)
-- **Edit panel**: when multiple elements are selected, the panel shows only settings that apply to all (padding, margin, responsive visibility)
+- Command – click another element (use Ctrl-click for Windows computers).Both elements are selected.
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Cannot multi-select elements across different parent containers using canvas rubber-band — elements must be siblings or the rubber-band must encompass their common parent
-- Style editing for multi-selected elements with different widget types shows only shared controls — widget-specific controls are not visible
-- Undo (Ctrl+Z) reverts the entire batch action as one step
-- Not available in the V4 editor alpha in early releases — check version compatibility
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

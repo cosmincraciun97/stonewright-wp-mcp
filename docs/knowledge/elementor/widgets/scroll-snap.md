@@ -1,33 +1,30 @@
 ---
 title: How do I get sections to snap in place on scrolling?
 source_url: https://elementor.com/help/scroll-snap/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:17:44.254Z
+content_hash: sha256-1a68df4fe48bc816eab3c3bb0b0c8bc014525ee081ef2ac1d228091e95b00afd
 applies_to: [widget:scroll-snap]
-related_widgets: []
+related_widgets: [icon, toggle]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Scroll Snap allows sections to lock into place as users scroll through a page, creating a full-screen scrolling experience where each section fills the viewport. This effect is commonly used for dramatic storytelling, product showcases, or step-by-step presentations where you want deliberate control over what visitors see at any given moment.
+The Scroll Snap feature allows you to stop the scroll of your page when the section reaches a defined point in the viewport. This is useful in full height sections where you wish to pause the user before they scroll to the next section similar to a slide.
 
 ## Use this when
-- Creating full-screen portfolio or case study presentations
-- Building landing pages with distinct narrative sections
-- Designing product showcases that reveal features sequentially
-- Making one-page websites with clearly defined content blocks
-- Developing mobile-optimized experiences with intentional pacing
+- The Scroll Snap feature allows you to stop the scroll of your page when the section reaches a defined point in the viewport
+- This is useful in full height sections where you wish to pause the user before they scroll to the next section similar to a slide
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
 
 ## Settings highlights
-- **Scroll Snap Type**: Configure whether snapping applies to the entire container or individual sections
-- **Snap Alignment**: Define how sections align within the viewport (start, center, end)
-- **Scroll Behavior**: Choose between smooth scrolling or instant snapping between sections
-- **Mandatory vs. Proximity**: Set whether users must snap to sections or if snapping occurs only when close
-- **Gap Handling**: Control spacing between snapped sections during scroll transitions
-- **Breakpoint Control**: Enable or disable scroll snap effects on specific device sizes
-- **Animation Duration**: Adjust the speed of snap transitions for smoother or snappier effects
+- Scroll Snap – Toggle to enable the feature on the page
+- Snap Position – From the dropdown menu select the position you wish to stop the scroll from the following options: Top, Center, or Bottom
+- Scroll Padding – Set the distance in PX you wish to offset the section from the position above (example: adjust to accommodate for a sticky header)
+- Scroll Snap Stop – From the dropdown menu choose the behavior of the scroll snap from Normal, which is the default value and allows an element to be scrolled past without snapping, or Always which will force the browser to snap to this element, even if the scroll would normally go past this element.
+- Note – Scroll Snap only works with Pages edited with Elementor. It does not currently function with Templates, or Theme Builder site parts.
 
 ## Limits / gotchas
-- Browser support varies; older browsers may not recognize scroll-snap CSS properties, requiring fallback designs
-- Mobile browsers handle scroll snap differently than desktop, potentially creating inconsistent experiences across devices
-- Very short sections may not snap properly if they're smaller than the viewport height
-- Overly aggressive snap settings can feel restrictive and frustrate users who prefer natural scrolling behavior
+- Scroll Snap only works with Pages edited with Elementor. It does not currently function with Templates, or Theme Builder site parts.
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

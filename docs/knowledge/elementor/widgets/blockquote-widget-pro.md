@@ -1,35 +1,30 @@
 ---
 title: Blockquote widget
 source_url: https://elementor.com/help/blockquote-widget-pro/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:blockquote]
-related_widgets: [testimonial, text-editor]
+fetched_at: 2026-05-23T00:15:36.521Z
+content_hash: sha256-42b479a1a69bb15ca362d8a07f2ae59cd4f3742c013aac8536424a540ade6ede
+applies_to: [widget:blockquote-widget-pro]
+related_widgets: [button, icon, toggle, tabs]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Blockquote widget displays quoted text with optional attribution, commonly used to highlight testimonials, famous quotes, or notable statements within your page design with visual distinction from regular content.
+Choose the Blockquote skin, selecting either Border, Quotation, Boxed, or Clean. Alignment
 
 ## Use this when
-- Featuring customer testimonials or reviews on your site
-- Highlighting inspirational or notable quotes that support your messaging
-- Drawing attention to key statements from authoritative sources
-- Creating emphasis on specific passages within blog posts or landing pages
-- Building credibility through attributed statements from recognized figures
+- In Elementor Editor, click +
+- All available widgets are displayed
+- Click or drag the widget to the canvas
+- For more information, see Add elements to a page
 
 ## Settings highlights
-- **Quote text field** – Primary area for entering the quoted content
-- **Author/Attribution** – Option to add source or speaker name below the quote
-- **Citation link** – Ability to hyperlink the attribution to a source URL
-- **Layout options** – Choose between different visual presentation styles
-- **Typography controls** – Adjust font size, family, weight, and color for quote text
-- **Author typography** – Separate styling options for attribution information
-- **Background styling** – Apply colors or gradients to the blockquote container
-- **Border options** – Add decorative borders, commonly used on the left side
-- **Spacing controls** – Configure padding and margins around the quoted content
-- **Advanced tab** – CSS classes, custom attributes, and responsive settings
+- Add a Blockquote widget – Step-by-step
+- Set the position of the blockquote – to the left centered to the right
+- Text Color – Choose the color of the author’s name.Typography: Set the font style for the author’s name. For more details, see Typography.
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Very long quotes may require responsive adjustments for mobile display readability
-- Attribution styling inherits some properties from main quote typography unless explicitly overridden
-- The widget doesn't automatically format or validate citation URLs
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

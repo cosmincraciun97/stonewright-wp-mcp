@@ -1,33 +1,27 @@
 ---
 title: Custom CSS in Elementor
 source_url: https://elementor.com/help/custom-css-in-elementor/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:16:47.043Z
+content_hash: sha256-3e5e61c6c49d6257559c95a1378b940d48dfa860d12220852ef85039d0f7d3cb
 applies_to: [widget:custom-css-in-elementor]
 related_widgets: []
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Custom CSS allows designers to apply personalized stylesheet rules to individual elements, sections, or entire pages within Elementor, extending styling capabilities beyond the visual builder's built-in controls and enabling precise design customization.
+Custom CSS lets you add custom code to your site, giving it a unique look and feel.
 
 ## Use this when
-- Built-in styling options don't achieve your specific design vision
-- You need to apply advanced CSS properties or selectors
-- Creating responsive designs with media queries for different breakpoints
-- Fine-tuning animations, transitions, or special effects
-- Targeting specific element classes or IDs for granular control
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- **Custom CSS Tab**: Found in advanced element settings for targeted styling
-- **Global Custom CSS**: Apply site-wide styles in universal settings
-- **CSS Selectors**: Target elements using class names, IDs, or element types
-- **CSS Classes**: Assign custom classes to elements for reusable styling
-- **CSS ID**: Add unique identifiers to elements for specific rule application
-- **Responsive CSS**: Write media queries to adjust styles across devices
-- **CSS Transform**: Add special effects like rotations, scaling, and skewing
-- **Inline Editor**: Edit CSS directly within the advanced panel
+- Tip – Users without CSS knowledge can use Elementor AI to generate CSS using the custom CSS feature.
+- Site Level – adding custom CSS here will affect your entire site
+- Page Level – adding custom CSS here will only affect a specific page
+- Element Level – adding custom CSS here will only affect a specific element
 
 ## Limits / gotchas
-- Improperly written CSS may conflict with Elementor's default styles — use specificity carefully
-- Changes made via custom CSS won't reflect in the visual builder preview until saved
-- Browser compatibility varies; test across different browsers and devices to ensure consistency
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

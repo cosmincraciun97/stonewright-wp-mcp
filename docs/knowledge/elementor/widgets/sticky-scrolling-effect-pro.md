@@ -1,35 +1,29 @@
 ---
-title: Implement sticky scrolling
+title: How to Use the Implement sticky scrolling
 source_url: https://elementor.com/help/sticky-scrolling-effect-pro/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:sticky-scrolling-effect]
-related_widgets: [motion-effects, scroll-snap]
+fetched_at: 2026-05-23T00:18:11.471Z
+content_hash: sha256-ee2bed995b32d1c5239624ad7d29b97cd408f5d0804ceabd9087bf708247053b
+applies_to: [widget:sticky-scrolling-effect-pro]
+related_widgets: [toggle]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Sticky scrolling (parallax) creates depth by moving elements at different speeds relative to the page scroll. In Elementor Pro, this is controlled via Advanced > Motion Effects > Scrolling Effects, which supports vertical scroll, horizontal scroll, scale, rotate, opacity, and blur — all keyed to scroll position. It makes hero sections and background layers feel dynamic without custom JS.
+The Sticky Scrolling Effect lets you set a Container/Widget as sticky, so that it sticks to the top or bottom of the screen.
 
 ## Use this when
-- You want backgrounds and foreground elements to scroll at different speeds (parallax depth)
-- Creating a cinematic hero section where content layers separate visually on scroll
-- Adding subtle entrance motion to sections or images as they enter the viewport
-- Building scroll-storytelling pages where elements animate as the user progresses
-- Highlighting a sticky sidebar or floating element that trails the scroll position
+- None – This removes the sticky header
+- Do not choose if you want to create a sticky header
+- Note
+ Effects Offset affects only if CSS was added to the sticky element
+- For details, see How To Create A Sticky Transparent Header Effect
 
 ## Settings highlights
-- **Vertical Scroll**: element moves up/down at a set speed relative to scroll (speed range -10 to 10)
-- **Horizontal Scroll**: element drifts left/right during page scroll
-- **Scale**: element grows or shrinks based on scroll position
-- **Rotate**: element rotates as user scrolls
-- **Opacity / Transparency**: fade in or out relative to scroll position
-- **Blur**: focus/defocus effect on scroll
-- **Viewport Range**: set start and end percentage of viewport where effect is active
-- **Devices Breakpoint**: enable/disable effect per device (mobile performance risk)
-- Combine multiple effects on one element for layered interactions
+- Set the following – (Displays only if Sticky is set to Top or Bottom)
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Requires Elementor Pro; not available in Free
-- Overuse on mobile devices causes scroll jank and battery drain — disable on small screens
-- Excessive blur or opacity transitions can trigger GPU compositing overhead; test on mid-range devices
-- Parallax on background images (CSS-only) is a separate Background Attachment setting, not a Motion Effect
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

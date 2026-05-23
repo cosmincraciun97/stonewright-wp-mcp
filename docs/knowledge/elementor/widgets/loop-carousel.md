@@ -1,34 +1,30 @@
 ---
 title: Loop Carousel
 source_url: https://elementor.com/help/loop-carousel/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:18:18.921Z
+content_hash: sha256-15cb44c2c69f9209b7b7e4b743e924fb8e93992be91a652a577b9e6e1ad33f95
 applies_to: [widget:loop-carousel]
-related_widgets: [loop-grid, carousel, posts, media-carousel]
+related_widgets: [button, icon, toggle, slides]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Loop Carousel widget displays dynamically queried posts, products, or custom post type items in a horizontally scrollable carousel, using a reusable Loop Template to define each item's appearance. It combines the Loop Grid's query-builder power with a swipeable carousel UX — ideal for featured posts, product spotlights, and testimonial carousels populated from real WordPress content.
+A Loop Carousel is essentially a Loop Grid where the individual entries scroll from side-to-side rather than up and down. Learn about Loop Grids.
 
 ## Use this when
-- Showing recent blog posts in a swipeable row instead of a static grid
-- Creating a WooCommerce product spotlight carousel driven by query (featured, on-sale, category)
-- Building a testimonials carousel backed by a CPT where content editors add entries
-- Displaying related items in a single-post sidebar carousel
+- Use the dropdown to select a template you designed or a premade template from the template library
+- Then click Edit Template
+- For more details, see What is a Template
+- Loop items are not limited to Posts
 
 ## Settings highlights
-- **Template**: choose which Loop Template defines the card/item design
-- **Query Builder**: post type, taxonomy filter, author, date range, order by
-- **Slides to Show**: number of cards visible simultaneously per breakpoint
-- **Slides to Scroll**: cards advanced per swipe/click
-- **Autoplay** / **Autoplay Speed**: cycling interval in ms with pause-on-hover
-- **Loop**: infinite cycling toggle
-- **Navigation Arrows / Dots**: position, size, color styling
-- **Spacing (Gap)**: gap between cards
-- **Pagination**: none (carousel handles navigation via arrows/dots)
+- Set items to scroll from left – to-right or from right-to-left (this basically changes which navigation is previous and which one is next).
+- Sets your items to move from left – to-right or right-to-left.
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Requires a pre-built Loop Template — cannot define card layout inline; must create template first in Theme Builder
-- Requires Elementor Pro (Loop Items and Loop Templates are Pro features)
-- Complex queries on large databases may slow initial render; set reasonable per-page limits
-- Autoplay combined with CSS animations inside cards can cause visual glitches — test thoroughly
+- Loop items are not limited to Posts. Use the dropdown to populate your loop with:
+- Date – You may want to limit your loop to more recent items. Use the dropdown to filter by:
+- Items placed earlier in the loop are more likely to attract attention. Use the dropdown to order the items by:

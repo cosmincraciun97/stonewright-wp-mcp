@@ -1,30 +1,27 @@
 ---
 title: Border radius tools
 source_url: https://elementor.com/help/border-radius-tools/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [editor:v3, editor:v4]
+fetched_at: 2026-05-23T00:15:40.090Z
+content_hash: sha256-e8b6186300fc46630d4b0c674294c2f759a336458de1fcf872bc94a594c6fce2
+applies_to: [widget:border-radius-tools]
 related_widgets: []
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Border radius tools enable you to round the corners of elements on your page. This feature allows precise control over corner curvature, letting you create soft, modern designs or maintain sharp edges as needed for your aesthetic.
+The border radius tool allows you to adjust the shape of elements by rounding their corners. There are two types of border radius controls – slider and counter.To adjust the radius with a slider control, slide the control back and forth until you have the desired effect.To adjust the radius with the counter control, use the four counters to adjust each individual corner.Depending on the element, these measurements can be based on percentage, pixels, or other measurements. Learn more about these measurement methods.
 
 ## Use this when
-- You want to soften the appearance of boxes, buttons, or containers with rounded corners
-- Creating modern, contemporary design styles that require curved edges
-- Needing different radius values for individual corners of a single element
-- Designing cards, image containers, or call-to-action sections
-- Building consistent branded experiences with specific corner treatments
+- The border radius tool allows you to adjust the shape of elements by rounding their corners
+- There are two types of border radius controls – slider and counter
+- To adjust the radius with a slider control, slide the control back and forth until you have the desired effect
+- To adjust the radius with the counter control, use the four counters to adjust each individual corner
 
 ## Settings highlights
-- **Uniform radius**: Apply the same border radius value to all four corners at once
-- **Individual corner control**: Set different radius values for top-left, top-right, bottom-left, and bottom-right corners independently
-- **Measurement units**: Choose from pixels (px), percentages (%), or other supported units for precise sizing
-- **Responsive adjustments**: Modify border radius values per device breakpoint (mobile, tablet, desktop)
-- **Preview**: Visual feedback showing corner curvature as you adjust values
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Extremely high radius values on small elements may create unexpected circular shapes
-- Border radius interacts with background images and borders — test combinations to ensure desired appearance
-- Some older browsers may not render border radius consistently; test across target audiences
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

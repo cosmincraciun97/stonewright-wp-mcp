@@ -1,34 +1,32 @@
 ---
 title: Add & edit a background video in Elementor
 source_url: https://elementor.com/help/section-background-video-options/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [editor:v3, editor:v4]
-related_widgets: [video, background-slideshow]
+fetched_at: 2026-05-23T00:14:55.862Z
+content_hash: sha256-e8652df258d2a0032a93a427f2f8d620c25e3a71666b48369a61d9d2302de5df
+applies_to: [widget:section-background-video-options]
+related_widgets: [image, video, icon, toggle]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Add background videos to sections or containers in Elementor to create dynamic, engaging visual elements. Videos autoplay and loop on page load, providing modern visual depth without requiring visitors to manually trigger playback.
+You can set a video as the background of a Section or Container, enabling you to create interesting hero headers and other engaging areas on your page.
 
 ## Use this when
-- Creating hero sections or landing pages that need eye-catching visual impact
-- Building full-width sections with atmospheric video backdrops
-- Designing pages where moving imagery enhances the message
-- You want better performance than animated GIFs or multiple image slides
-- Supporting responsive designs across desktop, tablet, and mobile devices
+- (Optional)Use the video options to customize the clip that appears in the background
+- See below for a list of these options
+- You can use the Background Overlay settings to further change the look of the video background
+- (Optional)Click the Hover tab to create a separate background overlay that activates when users mouse over the container
 
 ## Settings highlights
-- **Video Source**: Upload local files or link to external hosted videos
-- **Autoplay & Loop**: Enable automatic playback on page load with seamless looping
-- **Fallback Image**: Display a static image if video fails to load
-- **Video Scale**: Control how the video fills the container (cover, contain, fill options)
-- **Play on Mobile**: Toggle video playback on smaller devices to optimize performance
-- **Mute**: Audio automatically muted for autoplay compliance across browsers
-- **Start/End Time**: Trim video playback to specific segments
-- **Parallax Effect**: Optional motion effects synchronized with page scrolling
-- **Overlay Options**: Add color overlays or gradient filters over the video
+- Start time – If you don’t want the video to start at its beginning, use the text box to choose when the video begins.
+- End Time – If you don’t want the video to run to the end, use the text box to choose when the video stops.
+- Play Once – Toggle to Yes if you only want the video to display one time.
+- Play On Mobile – Toggle to Yes if you want don’t want the video to run on smaller screens.
+- Privacy Mode – Toggle to Yes if you want to limit this feature to YouTube videos.
+- Background Fallback – Select an image that will be used if the video is unavailable for some reason.
+- Your power – saving mode is on: Enabling power-saving mode prevents ANY video from auto-playing, as your phone is trying to save as much battery as possible.
+- Data Saver is on – It will prevent any videos from auto-playing.
 
 ## Limits / gotchas
-- Large video files significantly impact page load times; compress and optimize before uploading
-- Autoplay videos often require muting due to browser policies; sound won't play without user interaction
-- Not all video formats support mobile playback; use MP4 for maximum compatibility
+- Privacy Mode: Toggle to Yes if you want to limit this feature to YouTube videos.
+- Autoplay is affected by Google’s Autoplay policy on Chrome browsers.

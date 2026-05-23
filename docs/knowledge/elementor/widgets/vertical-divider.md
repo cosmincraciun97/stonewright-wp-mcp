@@ -1,32 +1,29 @@
 ---
 title: Add a vertical divider in Elementor
 source_url: https://elementor.com/help/vertical-divider/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:divider]
-related_widgets: [divider]
+fetched_at: 2026-05-23T00:15:01.148Z
+content_hash: sha256-95973fa928f2c181c1db9571b191075fe53c86131038ce5a927ebbc8776582a5
+applies_to: [widget:vertical-divider]
+related_widgets: []
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The vertical divider widget creates a visual line separator that runs from top to bottom within your Elementor layout, commonly used to divide content sections in columns or containers for improved visual organization and design clarity.
+In the Style Tab > Border of the desired column, select the style from the dropdown
 
 ## Use this when
-- Separating two adjacent columns of content visually
-- Creating distinction between related but distinct information sections
-- Designing multi-column layouts that need clear visual boundaries
-- Building comparison tables or side-by-side feature displays
-- Enhancing readability in complex layouts with multiple content areas
+- Create a multi-column layout by using sections or the Inner Section Widget
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- **Style options**: Choose line style (solid, dashed, dotted) for visual customization
-- **Color settings**: Adjust divider color to match your design system
-- **Width/thickness**: Control the divider's stroke width in pixels or other units
-- **Height**: Set how tall the divider extends within its container
-- **Spacing**: Add padding/margin around the divider element
-- **Alignment**: Position the divider horizontally within available space
-- **Responsive controls**: Adjust visibility and sizing per device breakpoint
+- Create a multi – column layout by using sections or the Inner Section Widget
+- Create a multi – column section (example: 3).
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Divider height is constrained by its parent container dimensions
-- May require specific column/container setup to display correctly and span full height
-- Styling limited to line-based visuals; cannot create filled shapes or complex graphical separators
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

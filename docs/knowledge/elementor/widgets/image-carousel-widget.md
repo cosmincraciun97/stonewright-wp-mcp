@@ -1,36 +1,32 @@
 ---
-title: Image Carousel widget
+title: How to Use the Image Carousel Widget
 source_url: https://elementor.com/help/image-carousel-widget/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:image-carousel]
-related_widgets: [basic-gallery, media-carousel, slides]
+fetched_at: 2026-05-23T00:18:06.249Z
+content_hash: sha256-1781379fca6129b00391c1b4f68bc797694ebc7105c0bd4050a7d98dd4bdda95
+applies_to: [widget:image-carousel-widget]
+related_widgets: [button, image, video, icon, toggle]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Image Carousel widget displays a horizontally scrollable series of images with navigation arrows and optional dots, auto-play, and caption support. It is designed for photo galleries, client logo strips, portfolio previews, or any scenario requiring a multi-image slideshow without full-screen lightbox behavior.
+Click the star button to replace the arrow with an icon from the icon library. Click the SVG button to replace the arrow with an uploaded SVG image. For more details, see Enable SVG Support in Elementor.
 
 ## Use this when
-- Showing a portfolio or product photo gallery inline in a page section
-- Displaying client logos in a horizontal rotating strip
-- Presenting team photos or testimonial headshots in a swipeable row
-- Creating an image slideshow within a contained section without the full Slides widget
-- Building mobile-friendly image galleries where swipe gesture is expected
+- All available widgets are displayed
+- Click or drag the widget to the canvas
+- For more information, see Add elements to a page
+- What is the Image Carousel widget
 
 ## Settings highlights
-- **Images**: multi-image picker from Media Library; reorder via drag
-- **Slides to Show**: number of images visible simultaneously (1–10)
-- **Slides to Scroll**: how many advance per navigation click
-- **Image Size**: thumbnail/medium/large/full/custom
-- **Caption**: none / title / caption — displayed below or over image
-- **Link**: each image links to custom URL, media file, or attachment page
-- **Autoplay**: on/off with pause-on-hover and speed (ms) control
-- **Pause on Interaction**: stops autoplay when user interacts
-- **Arrows / Dots**: navigation control toggles with custom styling
-- **Animation Speed**: transition duration in milliseconds
-- **Loop**: infinite cycling toggle
+- To access and use a widget – In Elementor Editor, click +. All available widgets are displayed.Click or drag the widget to the canvas. For more information, see Add elements to a page.
+- Add an Image Carousel widget – Step-by-step
+- Choose the carousel movement – from left or right
+- Position – Choose the position of the arrows inside or outside the slider.
+- Size – Use the slider to set the size of the arrows. Size can be in PX, EM, REM, or Custom. Learn more about Units of measurement.
+- Color – Select the arrow color.
+- Position – Choose the position of the dots inside or outside the slider.
+- Size – Define the dot size in PX, EM, REM or add custom size. Learn more about Units of measurement.
 
 ## Limits / gotchas
-- "Slides to Show > 1" on mobile requires explicit responsive breakpoint overrides — often needs to be set to 1 on mobile to avoid cropping
-- Caption styling options are limited; extensive caption customization requires Custom CSS
-- Lightbox/zoom requires the Basic Gallery widget or a third-party plugin — Image Carousel does not support native lightbox
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

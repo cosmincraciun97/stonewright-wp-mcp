@@ -1,31 +1,27 @@
 ---
 title: Customize the layout of a Loop Grid
 source_url: https://elementor.com/help/customize-layout-loop/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:loop-grid]
-related_widgets: [loop-grid, loop-carousel]
+fetched_at: 2026-05-23T00:16:53.670Z
+content_hash: sha256-a985c1ae81a43d1c6692ae6792a0a0d90a43f2052a3d18d2ea5acae3c291baa7
+applies_to: [widget:customize-layout-loop]
+related_widgets: []
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Customize the visual arrangement and structure of Loop Grid widgets to display post content in your desired layout pattern. This feature allows you to control how items from your query appear on the page, including grid dimensions, spacing, and item organization.
+Loop Grid allows you to build highly customized lists of posts, helping give your site a unique look.
 
 ## Use this when
-- You need to arrange blog posts, products, or custom post types in a grid format
-- You want to adjust the number of columns displayed across different device sizes
-- You're creating archive or category pages that showcase multiple items
-- You need to set custom spacing between grid items
-- You're designing responsive layouts that adapt to mobile, tablet, and desktop screens
+- Use the layout menu to customize how objects are arranged in your loop
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- **Columns setting**: Configure the number of columns in your grid layout
-- **Responsive controls**: Adjust column count separately for tablet and mobile devices
-- **Gap/spacing options**: Control the space between grid items
-- **Item sizing**: Set whether items have equal heights or variable heights
-- **Layout section**: Primary area where grid structure customization occurs
-- **Device-specific adjustments**: Apply different layouts per breakpoint
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Layout changes apply to all items in the loop; individual item customization requires alternate templates
-- Mobile column counts that are too narrow may require horizontal scrolling on very small screens
-- Performance can degrade with large numbers of items; consider pagination
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

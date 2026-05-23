@@ -1,32 +1,28 @@
 ---
 title: Inline Font Icons
 source_url: https://elementor.com/help/inline-font-awesome/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:inline-font-icons]
-related_widgets: [icon, text-editor, heading]
+fetched_at: 2026-05-23T00:18:11.891Z
+content_hash: sha256-b934afe908799665ed276fc2fb12a38f9cbd17e66eb061f79be0814c4836b526
+applies_to: [widget:inline-font-awesome]
+related_widgets: [image, icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Inline Font Icons enables Font Awesome icon glyphs to be embedded directly within text widgets (Heading, Text Editor) using a shortcode-like syntax. This allows a single icon to appear mid-sentence or as a leading inline element without placing a separate Icon widget in the layout.
+SVGs are vector-based images that are rendered using the browser’s engine. The benefit of using inline SVG icons, is that they do not increase server requests, which could have had an adverse effect on your site’s performance.
 
 ## Use this when
-- You need an icon inline within a sentence in a Heading or Text Editor widget
-- Building bullet-point text with leading icons inside rich text without an Icon List widget
-- Adding a small decorative glyph (star, arrow, checkmark) inline next to text
-- Creating icon + text combos without the overhead of additional widget nesting
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- **Activation**: enable the "Inline Icon" experiment in Elementor > Experiments or via Editor > Settings
-- **Syntax**: insert icon via the icon picker inside the Text Editor toolbar (inline icon button)
-- **Size**: inherits from surrounding text font-size; can be overridden with `font-size` CSS on the icon span
-- **Color**: inherits text color by default; override with inline `style` or Custom CSS
-- **Font Awesome classes**: rendered as `<i class="fa fa-..."></i>` inline within the paragraph
-- Works in Heading widget and Text Editor widget; not available in all widget text fields
-- Accessible via the TinyMCE toolbar or inline editing toolbar
+- SVGs are vector – based images that are rendered using the browser’s engine. The benefit of using inline SVG icons, is that they do not increase server requests, which could have had an adverse effect on your site’s performance.
+- Scalability – Icon fonts may use anti – aliasing techniques implemented by the browser making it less sharp. SVGs are treated as images by browsers, so no anti-aliasing rules are applied.
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Requires the Inline Icon experiment to be enabled; not on by default in all versions
-- Icon rendering depends on Font Awesome font files loading — if the icon font is disabled, icons show as empty boxes
-- Cannot use SVG icons inline this way; only icon-font glyphs (Font Awesome classes) are supported
-- Inline icon size cannot be set independently through the GUI — CSS required for size differences
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

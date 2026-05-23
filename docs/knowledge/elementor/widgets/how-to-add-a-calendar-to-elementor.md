@@ -1,34 +1,26 @@
 ---
 title: Add a Google calendar to an Elementor site
 source_url: https://elementor.com/help/how-to-add-a-calendar-to-elementor/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:html]
-related_widgets: [html]
+fetched_at: 2026-05-23T00:14:58.252Z
+content_hash: sha256-cedba1bfc746d157143233593f0df4f6ff37e48f4b589cf60239564c635d3648
+applies_to: [widget:how-to-add-a-calendar-to-elementor]
+related_widgets: []
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Embed Google Calendar into your Elementor site using the HTML widget. This integration allows visitors to view your calendar events directly on your website without leaving the page, enabling schedule visibility and event management in one location.
+Adding a Google calendar to your website is a good way to share events with your visitors.
 
 ## Use this when
-- You want to display your Google Calendar events on a specific page
-- You need visitors to see your availability or upcoming events
-- You're building a service-based business site that requires schedule transparency
-- You want to reduce friction by keeping calendar info embedded rather than linking externally
-- You need a read-only calendar view for appointment scheduling context
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- Drag the HTML widget onto your page canvas
-- Obtain your Google Calendar's public embed code from Calendar settings
-- Paste the embed code into the HTML widget's content field
-- Customize calendar display width and height via the embed code parameters
-- Set responsive sizing to ensure proper display on mobile devices
-- Configure timezone settings within Google Calendar before embedding
-- Apply custom styling through CSS if needed for brand consistency
-- Test across devices to verify calendar loads correctly in your design
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Calendar must be set to "public" in Google Calendar settings or embedding won't work
-- Some calendar features (like event editing) won't function in the embedded view
-- Embedded calendars may impact page load time; consider lazy-loading if needed
-- Google may periodically update embed code format, requiring re-verification
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

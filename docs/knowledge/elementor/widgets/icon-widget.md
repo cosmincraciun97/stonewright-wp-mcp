@@ -1,34 +1,31 @@
 ---
 title: Icon widget
 source_url: https://elementor.com/help/icon-widget/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:icon]
-related_widgets: [icon-box, icon-list, social-icons]
+fetched_at: 2026-05-23T00:18:01.670Z
+content_hash: sha256-7d6386dd018f7d394b2e44c6a3d0f30ab84568ab5338d60139f541bda4c433c4
+applies_to: [widget:icon-widget]
+related_widgets: [image, icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Icon widget displays a single icon from Elementor's icon library (Font Awesome or custom sets) with full style control over size, color, background, border, and hover state. It is used for standalone decorative icons, accent marks, and inline icon-only buttons or links.
+The Icon widget is useful for displaying FontAwesome icons in numerous styles on your page.
 
 ## Use this when
-- Placing a single decorative icon as a section accent or separator
-- Creating icon-only buttons or link targets (e.g. a search icon that opens a modal)
-- Building social-media-style icon rows without the Social Icons widget's predefined network list
-- Adding checkmarks, arrows, or symbols as inline visual cues within text areas
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- **Icon**: picker with search, from any active icon library or uploaded SVG
-- **Link**: URL wrapping the icon in an `<a>` tag; target (same/new tab) and rel controls
-- **Size**: px slider (applies to font-size of the icon glyph)
-- **Color**: fill color in normal and hover states
-- **Icon Background Color**: solid or gradient behind the icon
-- **Icon Background Type**: none / circle / square
-- **Padding**: space between icon glyph and background shape
-- **Border Type / Width / Color / Radius**: full border control
-- **Hover Animation**: built-in presets (grow, float, pulse, etc.)
-- **Rotate / Flip**: transform controls for orientation
+- Icon – Choose from a list of Font Awesome icons
+- View – Choose between default, stacked or framed
+- Link – Enter the URL for the item’s link. Click the Link Options cog to either add rel=nofollow to the link or to open the link in a new window.
+- Alignment – Align the icon to left, center or right.
+- Primary – Choose the main and secondary colors for the icon
+- Size – Increase or decrease the size of the icon
+- Rotate – Rotate the icon
+- Primary Color – Set colors for the hover
 
 ## Limits / gotchas
-- Icon widget does not include a text label — use Icon Box for icon + title + description combinations
-- SVG icons render inline and respect CSS `fill`; icon-font icons respond to `color` — mixing both in a list requires separate styling
-- Very small icons (under 16px) may lose legibility on retina displays if using icon fonts
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

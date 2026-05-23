@@ -1,33 +1,33 @@
 ---
 title: Archive Posts widget
 source_url: https://elementor.com/help/archive-posts-widget-pro/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:archive-posts]
-related_widgets: [posts, loop-grid]
+fetched_at: 2026-05-23T00:15:23.973Z
+content_hash: sha256-52181095ea9ae23cb6463a5013d22a77037bdb44c20515d7268ceb1924621576
+applies_to: [widget:archive-posts-widget-pro]
+related_widgets: [button, image, icon, toggle]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Archive Posts widget displays a list of posts grouped by date archives (years, months, or days), allowing visitors to browse content chronologically. It's useful for creating archive pages that help users navigate historical blog content through a structured timeline view.
+The Archive Posts Widget displays a list of any posts within Archive templates, which are created in Templates > Theme Builder > Archive.
 
 ## Use this when
-- Building dedicated archive or history pages for blogs
-- You want visitors to browse posts by specific time periods
-- Creating a traditional blog archive interface with date-based organization
-- You need to display post counts alongside archive dates
-- Designing sites where chronological content discovery is important
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- **Display type**: Choose between year, month, or day-based grouping
-- **Post type selection**: Filter archives by specific post types (posts, pages, custom types)
-- **Count display**: Toggle visibility of post count numbers next to each date
-- **Hierarchical layout**: Enable nested/indented structure for date hierarchies
-- **Dropdown format**: Option to display as expandable dropdown menu instead of list
-- **Order**: Sort archives by newest or oldest first
-- **Styling options**: Customize colors, fonts, spacing for archive links
+- Note – The number of posts per page is controlled from the WordPress Reading settings (Dashboard > Settings > Reading)
+- Skin – Select a pre-designed skin, either Classic or Cards
+- Columns – Set how many columns will be displayed, from 1 to 6
+- Image Position – Set the image position, relative to the content. Options include: Top / left / right / none
+- Masonry – Slide on or off
+- Image Resolution – Set the size of the image, from thumbnail to full
+- Image Ratio – Set the exact ratio of the images
+- Image Width – Set the exact width of the images
 
 ## Limits / gotchas
-- Archive organization depends on post publish dates; unpublished or scheduled posts won't appear
-- Hierarchical display (day under month under year) requires proper date grouping configuration
-- Performance may degrade with very large post libraries; consider pagination or filtering
-- Widget shows only date-based archives; category or tag-based browsing requires different widgets
+- The number of posts per page is controlled from the WordPress Reading settings (Dashboard > Settings > Reading)
+- Badge (Only available if Cards skin is selected): Slide to YES to show badge
+- Badge Taxonomy (Only available if Cards skin is selected): Select the taxonomy to be used for the badge, choosing from Categories, Tags, etc.
+- Avatar (Only available if Cards skin is selected): Show or Hide the Author avatar

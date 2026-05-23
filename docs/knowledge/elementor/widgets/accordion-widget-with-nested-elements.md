@@ -1,33 +1,28 @@
 ---
 title: Accordion widget with nested elements
 source_url: https://elementor.com/help/accordion-widget-with-nested-elements/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:accordion]
-related_widgets: [toggle, tabs, nested-elements]
+fetched_at: 2026-05-23T00:14:52.789Z
+content_hash: sha256-7c4651caa45e4f912ac202cc1ac48b00f6fc333c7557a504ff1318d328bcc8e7
+applies_to: [widget:accordion-widget-with-nested-elements]
+related_widgets: [button, image, video, icon, accordion]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Accordion widget displays collapsible content sections that expand when clicked, allowing users to organize information hierarchically. It supports nested elements within accordion items, enabling complex layouts with containers, widgets, and other content structures inside each expandable panel.
+Choose the HTML tag for your title. Choices include H1 to H6, Div, Span, or Paragraph. FAQ Schema
 
 ## Use this when
-- Organizing FAQs or multi-level information in a space-efficient format
-- Creating tabbed content where users need to reveal sections progressively
-- Building nested content structures with containers inside accordion panels
-- Designing documentation or knowledge bases with collapsible sections
-- Displaying product details, pricing tiers, or feature comparisons
+- In Elementor Editor, click +
+- All available widgets are displayed
+- Click or drag the widget to the canvas
+- For more information, see Add elements to a page
 
 ## Settings highlights
-- **Accordion Item Title** – Set the heading text for each collapsible section
-- **Accordion Item Content** – Add text, widgets, or nested containers inside panels
-- **Active Item** – Define which accordion section opens by default on page load
-- **Icon Display** – Choose icon position (left/right) and style for expand/collapse indicators
-- **Close Others** – Toggle whether opening one item automatically closes others
-- **Animation Speed** – Control expand/collapse transition duration
-- **Typography & Spacing** – Customize fonts, padding, margins, and background colors per item
-- **Responsive Behavior** – Adjust layout and spacing for mobile devices
+- Size – Use the slider to determine the size of the icon next to the tab title. For more details, see Units of measurement.Spacing: Use the slider to determine the amount of room between the tabs’ title and the icon.Color: Choose an icon color: either use the color picker or a global color.You get three styles to choose for:Normal – The default style.Hover – The style when users mouse over the tab.Active – The style when the tab is open.
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Nested elements inside accordion items may require additional styling to display correctly across breakpoints
-- Complex nested containers can impact page load performance if heavily used
-- Default active item settings apply only to the first load; user interactions aren't persisted after page refresh
+- The Accordion widget is not compatible with the Loop widget because nested elements do not work with repetitive elements.
+- Determines how many tabs can be opened simultaneously.One – Single tab can be opened at a time. Multiple – Unlimited number of tabs can be opened simultaneously.

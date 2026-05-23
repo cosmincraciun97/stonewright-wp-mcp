@@ -1,35 +1,31 @@
 ---
 title: Image Box widget
 source_url: https://elementor.com/help/image-box-widget/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:image-box]
-related_widgets: [image, icon-box, call-to-action]
+fetched_at: 2026-05-23T00:18:06.074Z
+content_hash: sha256-553a0c4379364fe7c2d82eb51ce7dffe28924ce395aa6be1747f1f5e3e66b870
+applies_to: [widget:image-box-widget]
+related_widgets: [button, image, icon, tabs]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Image Box widget combines an image with a title and description in a single linkable unit. It is the image-based equivalent of the Icon Box — used for team member cards, portfolio thumbnails, service tiles, or any pattern where a photo, a heading, and a brief text appear together as a clickable or static block.
+Click the default image to select an image from the media library or upload a new one. Image Resolution
 
 ## Use this when
-- Building team member / staff profile grids (photo + name + role)
-- Creating service or product tiles with a representative image
-- Designing portfolio card layouts with caption text
-- Building category showcase blocks with image + category name + excerpt
-- Any pattern needing image + title + description as an atomic card unit
+- All available widgets are displayed
+- Click or drag the widget to the canvas
+- For more information, see Add elements to a page
+- What is the Image Box widget
 
 ## Settings highlights
-- **Image**: Media Library picker with size selector (thumbnail/medium/large/full/custom)
-- **Title & Description**: separate text fields; title has HTML tag selector (h2–h6, div, span)
-- **Link To**: URL applied to the whole box; same/new tab control
-- **Image Position**: top (default), left, right, bottom — controls image placement relative to text
-- **Image Width** (when position is left/right): percentage slider
-- **Image Alignment**: left, center, right for top/bottom positions
-- **Image Size**: crop/scale dimension controls
-- **Title Typography / Color**: full font stack controls per state
-- **Description Typography / Color**: independent from title
-- **Hover Animation**: image and box hover transition presets
+- To access and use a widget – In Elementor Editor, click +. All available widgets are displayed.Click or drag the widget to the canvas. For more information, see Add elements to a page.
+- Add an Image Box widget – Step-by-step
+- Adjust image size – thumbnail, full, or your custom size.Does not appear if no image is chosen.
+- Spacing – Use the slider to adjust the gap between the title and the description.Color: Define the color of the title.Typography: Choose the font and adjust the size of the title. For more details, see Typography.Text Stroke: Click the 🖋️ icon to apply a stroke effect to the title. Learn more about Text Stroke.Text Shadow: Click the 🖋️ icon to add a shadow to the title. Learn more about Shadows.
+- Color – Change the color of the description text.
+- Typography – Customize the font and adjust the size for the description.
+- Text Shadow – Click on the 🖋️icon to apply a shadow effect to the description. For more details see, Shadows.
 
 ## Limits / gotchas
-- The entire box is wrapped in a single link — individual elements (image only, or title only) cannot have separate links without Custom CSS
-- Image dimensions should be consistent across a grid; mismatched image ratios break grid alignment — use a fixed image size setting or CSS `object-fit: cover`
-- Left/right image positions stack vertically on mobile automatically, but text alignment may need explicit responsive adjustments
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

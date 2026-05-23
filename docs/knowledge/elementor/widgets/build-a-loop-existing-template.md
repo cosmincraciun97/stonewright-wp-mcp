@@ -1,34 +1,26 @@
 ---
 title: Build a loop from an existing template
 source_url: https://elementor.com/help/build-a-loop-existing-template/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:loop-grid]
-related_widgets: [loop-grid, loop-carousel, posts]
+fetched_at: 2026-05-23T00:15:41.965Z
+content_hash: sha256-3d5dcf8ae670ffdd31a390dffc1bb09af5683247c7495ca6364791b3ad7e0df2
+applies_to: [widget:build-a-loop-existing-template]
+related_widgets: []
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Build dynamic template-based loops that automatically display content from your site's posts, products, or custom post types. This feature lets you create reusable loop layouts by converting an existing template into a repeating structure that populates with your data.
+Loop Grid allows you to build highly customized lists of posts, helping give your site a unique look. Once you’ve built a loop, you can reuse it or use it as the starting point for creating a new loop.
 
 ## Use this when
-- You want to display blog posts, products, or portfolio items in a grid or list format
-- You need consistent styling across multiple similar content items
-- You're creating archive pages, category pages, or shop displays
-- You want to reuse a single item design across many entries
-- You need to apply filters or sorting to displayed content
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- Template selection to choose which design to loop
-- Query builder to define which content appears (posts, products, custom types)
-- Layout customization for grid, carousel, or list arrangements
-- Pagination controls to manage how many items display per page
-- Alternate template option to vary styling for specific items
-- Dynamic tag integration for pulling post data (titles, excerpts, images)
-- Responsive breakpoints to adjust columns on different devices
-- Sort and filter settings to order content by date, title, or custom fields
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Template must be created first before building the loop
-- Some third-party plugins may conflict with loop rendering
-- Very large datasets can impact performance; use pagination strategically
-- Alternate templates require separate template creation for each variation
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

@@ -1,35 +1,33 @@
 ---
 title: Alert widget
 source_url: https://elementor.com/help/alert-widget/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:alert]
-related_widgets: [call-to-action, text-editor]
+fetched_at: 2026-05-23T00:15:19.186Z
+content_hash: sha256-56e1b77e429ccca0865f070de914c3f52e520e52c9f68d3109dee75d11b0c8e4
+applies_to: [widget:alert-widget]
+related_widgets: [button, icon, toggle, tabs]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Alert widget displays highlighted notification messages to site visitors, drawing attention to important announcements, warnings, or informational content. It helps communicate time-sensitive or critical information in a visually distinct container.
+If you choose to display the dismiss button, you can opt for the Default icon, Upload SVG, or select an icon from the Icon Library.
 
 ## Use this when
-- You need to highlight important notices, warnings, or announcements
-- Displaying time-sensitive information that requires visitor attention
-- Creating compliance messages or special alerts
-- Emphasizing specific content above surrounding page elements
-- Building alert banners for maintenance notices or special promotions
+- All available widgets are displayed
+- Click or drag the widget to the canvas
+- For more information, see Add elements to a page
+- What is the Alert widget
 
 ## Settings highlights
-- Alert type selection (info, success, warning, error) for different alert styles
-- Customizable title text for the alert heading
-- Main message body text area for detailed alert content
-- Icon options to visually reinforce the alert type
-- Background color and text color customization
-- Border styling including width, color, and radius controls
-- Dismissible alert option allowing visitors to close the notification
-- Spacing controls via padding and margins for layout flexibility
-- Typography settings for title and message text independently
+- To access and use a widget – In Elementor Editor, click +. All available widgets are displayed.Click or drag the widget to the canvas. For more information, see Add elements to a page.
+- Draw attention to limited – time promotions, discounts, or flash sales on your e-commerce site with a prominent alert.
+- Add an Alert widget – Step-by-step
+- Choose the alert type – Info, Success, Warning, or Danger.
+- Background Color – Pick the background color.
+- Border Color – Choose the color of the left border
+- Left Border Width – Set the width of the left border
+- Text Color – Choose the color of the title text.
 
 ## Limits / gotchas
-- Dismissed alerts may reappear on page refresh if not stored with persistent state
-- Alert visibility should be tested across responsive breakpoints to ensure readability on mobile devices
-- Multiple alerts on a single page can create visual clutter; use sparingly for maximum impact
-- Icon display depends on available icon library selections within Elementor
+- Draw attention to limited-time promotions, discounts, or flash sales on your e-commerce site with a prominent alert.
+- In the Content tab, under the Alert section, choose the pre-styled alert box type that best suits your message – options include Info, Success, Warning, and Danger.
+- Choose the alert type: Info, Success, Warning, or Danger.

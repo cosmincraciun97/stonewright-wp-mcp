@@ -1,32 +1,28 @@
 ---
 title: Add an alternate template in a loop grid
 source_url: https://elementor.com/help/how-do-i-add-an-alternate-template-in-a-loop-grid/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:loop-grid]
-related_widgets: [loop-grid, loop-carousel, posts]
+fetched_at: 2026-05-23T00:15:01.681Z
+content_hash: sha256-cede5ae3645d8da45677e18daf2546a0a3094ac5b500c30f6712796384b10fa3
+applies_to: [widget:how-do-i-add-an-alternate-template-in-a-loop-grid]
+related_widgets: [icon, toggle]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Add alternate templates to loop grids to display specific items differently from the rest. This feature allows you to create variation in how repeated content appears — for example, showing the first item in a different layout or styling than subsequent items.
+Loop grids are great for creating a consistent way to display a list of posts, products, listings and more. But sometimes you want to add something different to your loop. For instance, you may want to give every third product a special design.
 
 ## Use this when
-- You want the first post in a blog grid to stand out with a larger featured display
-- You need alternating layouts (e.g., every third item shows differently)
-- Creating portfolio or product grids where showcase items deserve distinct formatting
-- Building category pages where lead content requires special visual treatment
-- Designing masonry-style layouts with mixed content hierarchies
+- Alternate loop templates allow you to place customized templates inside your loop
+- Create an alternate loop template
+- Create a template for a loop item
+- Learn how to create a new loop item using the Theme Builder
 
 ## Settings highlights
-- **Alternate template selection** – Choose which template applies to designated items
-- **Item targeting** – Specify which loop items trigger the alternate design (first, every nth item, etc.)
-- **Template conditions** – Set rules determining when alternates display
-- **Preview functionality** – See how alternates render before publishing
-- **Template library integration** – Reuse saved alternate templates across multiple grids
-- **Responsive behavior** – Control how alternates adapt on mobile and tablet devices
-- **Fallback options** – Define behavior if alternate template conditions aren't met
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Alternate templates must be created separately and saved to your template library first
-- Performance can degrade with complex alternates applied to large loops (100+ items)
-- Mobile responsiveness requires separate alternate templates per breakpoint for best results
+- You are not limited to one alternative template. There are two ways to introduce more alternative templates:
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

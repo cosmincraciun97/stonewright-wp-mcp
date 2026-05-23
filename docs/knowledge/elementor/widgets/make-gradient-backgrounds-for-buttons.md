@@ -1,32 +1,27 @@
 ---
 title: Make gradient backgrounds for buttons
 source_url: https://elementor.com/help/make-gradient-backgrounds-for-buttons/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:18:24.496Z
+content_hash: sha256-0c981ad6722f60a40807fd87dbc2cd448ee21d3f1332f006b15ab133c1e23a9f
 applies_to: [widget:make-gradient-backgrounds-for-buttons]
-related_widgets: [button, gradient-background]
+related_widgets: [video]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Create visually appealing buttons with gradient color transitions instead of solid backgrounds. The Button widget's Style tab Background controls support linear and radial gradients via the standard Background Type selector, allowing multi-stop color blends across the button surface. Separate hover-state gradients can be configured for interactive feedback.
+A gradient background is a design element in which colors transition smoothly from one to another, creating a gradient effect. Instead of using a single, solid color, you can combine multiple colors and create a visually appealing blending effect in the background.
 
 ## Use this when
-- You want buttons to stand out with more dynamic, modern styling than flat solid colors
-- Implementing brand gradients from a design system on interactive CTA buttons
-- Creating hover states where the gradient shifts or intensifies on mouse-over
-- Building visually differentiated primary vs. secondary buttons using gradient vs. solid
+- A gradient background is a design element in which colors transition smoothly from one to another, creating a gradient effect
+- Instead of using a single, solid color, you can combine multiple colors and create a visually appealing blending effect in the background
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
 
 ## Settings highlights
-- **Background Type** (Style > Button > Background): select "Gradient" instead of "Classic"
-- **Color stops**: two or more color pickers with position (0–100%) and opacity sliders
-- **Gradient Type**: Linear (with angle control 0–360°) or Radial (with position control)
-- **Hover state**: separate Background Type and gradient config for `:hover`
-- **Transition Duration**: controls speed of normal-to-hover animation (ms)
-- **Border Radius**: round corners complement gradient backgrounds
-- **Box Shadow**: add depth beneath gradient button
-- **Text Color** / **Typography**: ensure contrast against gradient background
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Gradient backgrounds on buttons require CSS gradients — the Elementor color picker does not expose all CSS gradient functions (e.g. `conic-gradient` is not supported natively)
-- High contrast between gradient stop colors can make text hard to read — always check WCAG contrast ratio
-- IE11 (legacy) renders linear-gradient without vendor prefix support; not relevant for modern browsers
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

@@ -1,33 +1,28 @@
 ---
 title: Gradient Background
 source_url: https://elementor.com/help/gradient-background/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:17:26.891Z
+content_hash: sha256-7b43db69e8224f141f0bdbeff57ecac351e4028111ea7a9f5c45e8b4c73badaa
 applies_to: [widget:gradient-background]
-related_widgets: []
+related_widgets: [icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Gradient backgrounds allow designers to apply color transitions across sections, columns, containers, and buttons in Elementor. This feature enables sophisticated visual effects by blending multiple colors smoothly, creating depth and visual interest without requiring image files.
+Follow these steps to create a gradient background visually, without relying on CSS.
 
 ## Use this when
-- Creating visually appealing hero sections or call-to-action areas
-- Designing modern, contemporary website layouts
-- Needing color transitions without loading background images
-- Styling buttons with gradient overlays for enhanced aesthetics
-- Building responsive designs where file optimization matters
+- Follow these steps to create a gradient background visually, without relying on CSS
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- Multiple gradient angle/direction options (linear, radial)
-- Color stop controls for precise color placement
-- Opacity adjustments per color in the gradient
-- Reverse gradient toggle for quick direction changes
-- Scale and position adjustments for gradient placement
-- Global color palette integration for brand consistency
-- Hover state gradient options for interactive elements
-- Gradient animation capabilities with transitions
+- Color – set the first gradient colorLocation: set the location of the first color. This will affect the spreadSecond color: set the second gradient colorLocation: set the location of the second color. This will affect the spreadType: Choose between a linear or radial gradientAngle: Set the gradient angle
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Complex gradients with many color stops may impact performance on lower-end devices
-- Gradients don't export as part of template images; colors regenerate on import
-- Some older browsers may display gradients with reduced smoothness or color banding
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

@@ -1,33 +1,30 @@
 ---
 title: Create a background
 source_url: https://elementor.com/help/create-background/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [editor:v3, editor:v4]
-related_widgets: []
+fetched_at: 2026-05-23T00:16:08.355Z
+content_hash: sha256-46a369739147889397c28c46ca4313755410722fce16adcf4db4909fc43b9cd4
+applies_to: [widget:create-background]
+related_widgets: [image, video, toggle, slides]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Backgrounds in Elementor allow you to customize the visual appearance of sections, columns, and containers by adding colors, images, gradients, or videos. This fundamental design feature enables you to establish visual hierarchy, brand consistency, and engaging layouts throughout your website.
+After you select your background, you can add HOVER effects to animate the background when visitors mouse over it.
 
 ## Use this when
-- You want to apply solid colors or gradients to page sections
-- Adding images or video content as visual backdrops
-- Creating layered backgrounds for depth and visual interest
-- Establishing consistent branding across multiple page elements
-- Designing hero sections or featured content areas
+- The Classic background has one color or image
+- To use a color, either use the color picker or use a global color
+- Start Time, End Time – Often you don’t need the entire clip, just a short section will do
+- Use these control to select a portion of the video for the background
 
 ## Settings highlights
-- Color options — solid colors, gradient backgrounds, and color overlays
-- Image backgrounds — upload, position, and scale background images with sizing controls
-- Background video — embed video files or URLs as animated backdrops
-- Positioning controls — adjust background attachment, repeat, and position settings
-- Layered backgrounds — stack multiple background elements for complex visual effects
-- Opacity/transparency — control background visibility and blending
-- Responsive adjustments — set different backgrounds per device breakpoint
+- Gradient – a mix of two colors blending into one another
+- Video – link to a video clip
+- Slideshow – a series of images
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Large background images can impact page load performance; optimize file sizes
-- Video backgrounds require proper format support and may not display on all mobile devices
-- Layered backgrounds increase complexity; excessive layers may slow rendering
-- Background positioning behaves differently depending on background-attachment settings (fixed vs. scroll)
+- Video backgrounds are an excellent of drawing viewers attention to your page.
+- Play on Mobile – People using mobiles may be operating with limited bandwidth or data. Use this toggle to prevent the video from loading on these devices, helping decrease page load times and data usage for these visitors.

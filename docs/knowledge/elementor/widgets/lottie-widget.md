@@ -1,35 +1,31 @@
 ---
 title: Lottie widget
 source_url: https://elementor.com/help/lottie-widget/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:lottie]
-related_widgets: [image, animated-headline, video]
+fetched_at: 2026-05-23T00:18:24.472Z
+content_hash: sha256-2c122a15613c790f35bb0f716209845bce65af40a2cffd9ff8cc55907f2c8a9e
+applies_to: [widget:lottie-widget]
+related_widgets: [video, icon, toggle, tabs]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Lottie widget renders JSON-based Lottie animations (from LottieFiles or custom exports from After Effects via Bodymovin) directly on the page. It supports autoplay, loop, scroll-triggered playback, and hover-triggered playback, enabling high-quality vector animations without video file overhead.
+Enter text to the text box to add a caption to your animation. If you are using an external URL, this is renamed Custom Caption as it overrides the caption of the external site. Link
 
 ## Use this when
-- Placing animated illustrations (product explainers, icon animations, loading states) on a page
-- Adding scroll-triggered animation that plays as the element enters the viewport
-- Creating hover-activated micro-animations on feature cards or CTA sections
-- Replacing heavy GIF or MP4 animations with lightweight scalable JSON animations
-- Building interactive animated icons that respond to user scroll or mouse events
+- All available widgets are displayed
+- Click or drag the widget to the canvas
+- For more information, see Add elements to a page
+- What is the Lottie widget
 
 ## Settings highlights
-- **Source**: upload JSON file from Media Library, or external URL (e.g. LottieFiles CDN)
-- **Start Frame / End Frame**: trim the animation to a specific range
-- **Loop**: replay indefinitely or once
-- **Autoplay**: start on page load vs. on scroll/hover trigger
-- **Speed**: playback multiplier (0.1×–3×)
-- **Reverse**: play animation in reverse direction
-- **Trigger**: viewport enter, scroll progress, or hover interaction
-- **Scroll Scrub**: map animation frames to scroll position (scroll-driven animation)
-- **Link**: wrap animation in an `<a>` tag
+- To access and use a widget – In Elementor Editor, click +. All available widgets are displayed.Click or drag the widget to the canvas. For more information, see Add elements to a page.
+- Adding a Lottie widget – Step-by-step​
+- External URL – The Lottie animation is located on a different webpage. If you select External URL, you’ll need to enter the animation’s URl in the External URL field.Media File: Click the upload icon to add a json file to your website.
+- Width – The minimum size of the animation is from side to side.Maximum Width: The maximum size of the animation is from side to side.
+- Example of Width and Maximum Width – You can set the Width of an animation to 100% and the Maximum Width to 600 pixels. This means the animation will take up 100% of the parent container’s width but never be more than 600 pixels wide.
+- Normal/HoverNormal – Determine how the animation appears by default. Hover: Determine how the animation appears when moused over. When Hover is selected, you’ll be able to set a Transition Duration. This is the amount of time it takes the animation to change when the user mouses over it.
 
 ## Limits / gotchas
-- Lottie animations must be exported correctly from After Effects via Bodymovin; incompatible exports (missing assets, rasterized layers) appear broken
-- External hosted animations depend on third-party CDN uptime — host the JSON locally for reliability
-- Complex animations with many layers increase file size and CPU rendering cost; keep JSON under 200KB
-- Scroll scrub animation requires Elementor Pro Motion Effects; basic autoplay works in Free
+- Lottie animations help make a webpage come alive and draw visitors attention.
+- A travel website featuring an animated cyclist to attract attention to their bike tours.A web design agency showing a rocket ship taking off to symbolize how they launch their sites.
+- You don’t have to play the entire Lottie animation. Use the Start and End Point sliders to limit how much of the animation plays.

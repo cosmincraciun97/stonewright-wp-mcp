@@ -1,32 +1,29 @@
 ---
 title: HTML widget
 source_url: https://elementor.com/help/html-widget/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:html]
-related_widgets: [shortcode, text-editor]
+fetched_at: 2026-05-23T00:17:54.991Z
+content_hash: sha256-823c3c3514fead63ce3849728ce506f150787a032aa3fde1f17ea1244654f8ab
+applies_to: [widget:html-widget]
+related_widgets: [heading, icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The HTML widget provides a raw code editor inside Elementor where you can paste arbitrary HTML, JavaScript, or embed codes directly into a page without restrictions. The code is rendered as-is in the frontend, bypassing Elementor's widget abstraction layer — ideal for third-party embeds and snippets that Elementor has no native widget for.
+Inside the HTML Widget you can embed HTML, CSS, Shortcodes, and also include JS scripts.
 
 ## Use this when
-- Embedding third-party scripts or iframes (Typeform, Calendly, HubSpot, custom maps)
-- Injecting raw HTML structures not supported by any built-in widget
-- Pasting shortcode output that needs surrounding HTML context
-- Adding inline JavaScript that must run at a specific DOM position
-- Prototyping custom markup before building a proper custom widget
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- **Content (HTML Code)**: multi-line code editor accepting full HTML/JS/CSS `<script>` tags
-- **CSS ID** (Advanced tab): applies an ID attribute to the widget wrapper div
-- **CSS Classes** (Advanced tab): space-separated class list on the wrapper
-- **Custom CSS** (Advanced tab): scoped CSS targeting `.elementor-widget-html` selector
-- No style tab controls — all styling is via inline styles or the Custom CSS panel
-- Motion Effects, responsive visibility, and positioning controls available in the Advanced tab
-- Entrance animations can be applied like any other widget
+- Note – Elementor Pro subscribers can use Elementor AI to create Custom CSS and Custom Code.
+- Select Code with AI.Note – After your first use of Elementor AI, the Code with AI text will be replaced with the Elementor AI icon.
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Unfiltered HTML requires the `unfiltered_html` WordPress capability — Contributors and Authors cannot save raw scripts by default
-- Scripts inside the widget execute on page load; deferred execution must be handled in the code itself
-- The widget wraps output in a `<div>` — block-level wrapper may break certain inline-only HTML patterns
+- Elementor Pro subscribers can use Elementor AI to create Custom CSS and Custom Code.
+- Select Code with AI.Note: After your first use of Elementor AI, the Code with AI text will be replaced with the Elementor AI icon.
+- Select the prompt “Write a embed code for Google ads as HTML widget”Note: You could also enter your own request in the input box.

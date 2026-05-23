@@ -1,32 +1,31 @@
 ---
 title: Change the shape of a container or section's border
 source_url: https://elementor.com/help/shape-divider/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:shape-divider, editor:v3, editor:v4]
-related_widgets: [divider]
+fetched_at: 2026-05-23T00:15:52.921Z
+content_hash: sha256-862559e84c290c475e5e5b8b036567f907a4c6c10fc1a0e63a20cce7ce93df86
+applies_to: [widget:shape-divider]
+related_widgets: []
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Shape dividers enable you to modify the border appearance of containers or sections, allowing curved, wavy, or custom geometric boundaries instead of straight edges. This design technique creates visual separation and adds sophisticated styling to page layouts.
+Shape dividers are graphic shapes that separate the sections or containers of a page.
 
 ## Use this when
-- You want to create distinctive visual breaks between page sections
-- Designing hero sections or featured content areas that need to stand out
-- Building modern layouts with organic or geometric border shapes
-- Creating diagonal or angled transitions between page elements
-- Adding decorative elements that enhance brand aesthetics
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- Shape selection menu with multiple preset divider styles available
-- Width and height controls for adjusting shape dimensions and intensity
-- Flip and reverse options to mirror shape orientations
-- Color customization matching your site's design system
-- Opacity settings for layered or transparent effects
-- Z-index controls for managing shape stacking order
+- Type – Click the dropdown to choose your Shape Divider style
+- Color – Pick a color
+- Width – Set the width of your Shape Divider
+- Height – Set the height of your Shape Divider
+- Flip – Flip the direction of your Shape Divider
+- Bring to front – Force your Shape Divider to be in front of other objects
+- Type – Click the dropdown to choose your Shape Divider style
+- Color – Pick a color
 
 ## Limits / gotchas
-- Shape dividers render as SVG elements; performance may vary on mobile devices
-- Complex shapes with high opacity can impact page load times
-- Shape appearance depends on container height; insufficient height may distort effects
-- Browser compatibility issues may occur with older versions requiring fallback designs
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

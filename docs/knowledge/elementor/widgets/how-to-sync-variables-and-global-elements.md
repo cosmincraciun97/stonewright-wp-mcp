@@ -1,31 +1,28 @@
 ---
 title: How to sync variables and global elements
 source_url: https://elementor.com/help/how-to-sync-variables-and-global-elements/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:17:55.023Z
+content_hash: sha256-805f9ad647bbc562f30464c8c58007dbb1adbb5078551349dba18e03f833ff68
 applies_to: [widget:how-to-sync-variables-and-global-elements]
-related_widgets: [global-widget]
+related_widgets: [heading, icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Synchronise design variables (colors, fonts, spacing tokens) and global widgets across an Elementor site so that a single change propagates to every page and template that references them. Variables are defined in the Variables Manager and consumed via the style panel; global elements are widgets saved as "Global" that share one central definition.
+To sync variables between classic widgets and atomic elements, open the Variables Manager in the Elementor panel. Click the ellipses next to your chosen variable, select Sync to Global Colors or Sync to Global Fonts, and save changes. This makes atomic variables available as selectable global assets in classic widgets.
 
 ## Use this when
-- Updating a brand color across an entire site without touching each page manually
-- Keeping a header CTA button identical on 30+ pages via a single Global Widget
-- Migrating a design system token (e.g. `--color-primary`) to a new hex value
-- Sharing variables between multiple sites via export/import
+- Create a variable Green_bk and use it as the background for this element
+- For details, see Variables and Style tab- Background
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
 
 ## Settings highlights
-- **Variables Manager** (Site Settings > Variables): create, name, and assign color/font/number tokens
-- **Variable reference syntax**: `var(--e-global-color-primary)` in CSS controls
-- **Global Widget**: right-click any widget → Save as Global; subsequent edits sync to all instances
-- **Sync indicator**: Global Widget instances show a link icon in the navigator
-- **Unlink from Global**: breaks the sync for a specific instance without deleting the global definition
-- **Export variables**: download as JSON from Variables Manager for cross-site reuse
-- **Import variables**: upload JSON to a different site to replicate the token set
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Variables are a V4 / design system feature; older Elementor installs must upgrade to access them
-- Unlinking a widget from Global creates an independent copy — future global edits no longer propagate to it
-- Syncing variables does not automatically republish pages; a manual save/publish cycle is required per page
+- Syncing fonts is limited to Typography. Other font characteristics like color, size and weight cannot be synced.
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

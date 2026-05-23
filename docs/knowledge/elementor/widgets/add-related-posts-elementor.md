@@ -1,34 +1,26 @@
 ---
 title: Add Related Posts in Elementor
 source_url: https://elementor.com/help/add-related-posts-elementor/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:posts]
-related_widgets: [posts, loop-grid, archive-posts]
+fetched_at: 2026-05-23T00:15:18.451Z
+content_hash: sha256-be8fa00abd0229b439b4672d694cf58e1a9b44b84b894c3650b51f5f50bac033
+applies_to: [widget:add-related-posts-elementor]
+related_widgets: []
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Display a curated list of posts related to the current article, helping visitors discover relevant content and increase engagement. This widget automatically pulls posts based on shared categories or tags, creating contextual connections between your content.
+By using the Posts Widget in the Single Post Template, you can display Related Posts by terms. Terms include Categories, Tags, Types, and Formats.
 
 ## Use this when
-- You want to encourage visitors to explore additional related articles after reading a post
-- Building a blog with interconnected content that keeps users on your site longer
-- Improving SEO by creating internal linking structures through related content
-- Creating a content discovery experience that feels natural and contextual
-- You need to reduce bounce rates by offering relevant next-read suggestions
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- Query configuration to define which posts display as "related"
-- Category and tag-based filtering to match content relevance
-- Customizable number of posts shown (typically 3-6 recommended)
-- Layout options including grid, carousel, or list displays
-- Styling controls for post cards (images, titles, excerpts, meta information)
-- Sorting preferences (most recent, popular, or random selection)
-- Thumbnail image sizing and aspect ratio adjustments
-- Typography and spacing customization for post card elements
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Related posts won't display if the current post lacks categories or tags
-- Performance may suffer if querying too many related posts; keep to reasonable limits
-- Widget only functions on single post pages; won't work on archive or home pages
-- Requires posts to share taxonomy terms; orphaned content won't generate relations
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

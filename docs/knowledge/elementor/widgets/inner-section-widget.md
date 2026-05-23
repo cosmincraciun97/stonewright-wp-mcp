@@ -1,32 +1,30 @@
 ---
-title: Inner Section widget
+title: How to Use the Elementor Inner Section Widget
 source_url: https://elementor.com/help/inner-section-widget/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:inner-section]
-related_widgets: [section, column, container]
+fetched_at: 2026-05-23T00:18:12.565Z
+content_hash: sha256-e4b5ef2d55fae8c1c48107fca57d92565b287532f3a7264a2e7f8ac5919ab87e
+applies_to: [widget:inner-section-widget]
+related_widgets: [heading, button, image, video, icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Inner Section widget (also called "Inner Columns") allows nesting a multi-column section inside an existing column, creating multi-level column layouts within the legacy sections-and-columns architecture. It is the V3 answer to complex layouts that containers handle natively in V4.
+Note The inner section widget is only available for sites using sections and rows for layout. If your site uses containers, they are not available or necessary. To learn more about using containers, check out the containers topic in our Help Center.
 
 ## Use this when
-- Working within the legacy V3 sections/columns editor and need a column-within-a-column layout
-- Building a two-column section where one column itself splits into sub-columns
-- Creating sidebar + main content layouts with nested structure
-- Migrating older pages that use inner sections before converting to Flexbox containers
+- All available widgets are displayed
+- Click or drag the widget to the canvas
+- For more information, see Add elements to a page
+- What is the Inner Section widget
 
 ## Settings highlights
-- **Columns**: set the number of columns within the inner section (1–10)
-- **Column Width**: adjustable via drag handles or percentage input per column
-- **Gap**: column gap control (default, narrow, extended, wide, no gap)
-- **Vertical Align**: top, middle, bottom alignment of column content
-- **Background / Background Overlay**: color, image, gradient, video options on the inner section wrapper
-- **Border Type / Radius / Shadow**: standard box model controls
-- **Motion Effects, Responsive Visibility, Custom CSS**: all standard Advanced tab features apply
+- To access and use a widget – In Elementor Editor, click +. All available widgets are displayed.Click or drag the widget to the canvas. For more information, see Add elements to a page.
+- Add an Inner Section widget – Step-by-step
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Inner Section is a V3 legacy widget; Flexbox Containers supersede it for new builds — use containers for all new projects
-- Nesting inner sections more than 2 levels deep creates editor performance issues and is unsupported
-- Inner Section does not support the Container layout controls (flex-direction, justify-content, align-items)
-- Cannot convert a V3 Inner Section to a Container via the automatic conversion tool — must be rebuilt
+- The inner section widget is only available for sites using sections and rows for layout. If your site uses containers, they are not available or necessary. To learn more about using containers, check out the containers topic in our Help Center.
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

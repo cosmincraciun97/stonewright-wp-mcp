@@ -1,35 +1,29 @@
 ---
 title: Icon Box widget
 source_url: https://elementor.com/help/icon-box-widget/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:icon-box]
-related_widgets: [icon, image-box, icon-list]
+fetched_at: 2026-05-23T00:17:55.153Z
+content_hash: sha256-70240c36b66d98502e8722f3ac1141b918c8d68384d6c023b33dc884961f5edf
+applies_to: [widget:icon-box-widget]
+related_widgets: [button, image, icon, tabs]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Icon Box widget combines an icon, a title, and a description in a vertically or horizontally stacked layout, making it the canonical choice for feature grids, service cards, and benefit lists. It exposes independent typography and color controls for each sub-element, plus a link wrapper for the entire box.
+Choose the icon. Either select from Font Awesome’s entire icon library or upload SVG. View
 
 ## Use this when
-- Building a 3- or 4-column features/services section
-- Creating benefit callout cards with iconography
-- Presenting step-by-step process flows with numbered or thematic icons
-- Designing pricing feature lists at a glance
-- Any pattern where icon + headline + short copy appear as a unit
+- All available widgets are displayed
+- Click or drag the widget to the canvas
+- For more information, see Add elements to a page
+- What is the Icon Box widget
 
 ## Settings highlights
-- **Icon**: choose from icon library (Font Awesome, custom sets) or upload SVG
-- **Title**: text field with HTML tag selector (h2–h6, div, span)
-- **Description**: rich text area for body copy
-- **Link**: URL applied to the whole box; opens in same or new tab
-- **Icon Position**: before/after title, top/left/right alignment
-- **Icon Size**: px/em/rem slider
-- **Icon Color** / **Icon Background Color** / **Icon Border**: separate style controls per state (normal/hover)
-- **Title Typography** / **Description Typography**: full font controls
-- **Title Color** / **Description Color**: per-state color pickers
-- **Hover Animation**: built-in hover transition presets
+- To access and use a widget – In Elementor Editor, click +. All available widgets are displayed.Click or drag the widget to the canvas. For more information, see Add elements to a page.
+- Add an Icon Box widget – Step-by-step
+- Primary Color – Choose icon color. When using a stacked or framed box, also select a secondary color. For more details, see Choose a color or Use global fonts and colors.Size: Resize the icon as needed.Rotate: Turn the icon to your preferred angle.
+- Spacing – Adjust the gap between title and its description.Color: Modify the title’s color.Typography: Customize the font style of the title. For more details, see Typography.Text Stroke: Click the 🖋️ icon to apply a stroke effect to the title. Learn more about Text Stroke.Text Shadow: Click the 🖋️ icon to add a shadow to the title. Learn more about Shadows.
+- Color – Change the description’s color.Typography: Adjust the font style, and size for the description.Text Shadow: Click the 🖋️ icon to add a shadow to the title. Learn more about Shadows.
 
 ## Limits / gotchas
-- The link wraps the entire box including icon, title, and description — cannot link only part of the box without custom CSS
-- SVG icons require SVG support enabled in Elementor settings
-- Hover state color changes apply uniformly to all three elements unless overridden with Custom CSS
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

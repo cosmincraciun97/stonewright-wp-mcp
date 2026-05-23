@@ -1,33 +1,30 @@
 ---
 title: Menu widget
 source_url: https://elementor.com/help/the-menu-widget/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:menu]
-related_widgets: [nav-menu, menu-anchor, menu-cart]
+fetched_at: 2026-05-23T00:18:35.184Z
+content_hash: sha256-116724bd942303dae810d0a39dd4ca4d59998cfeb33c96804cae951c13694881
+applies_to: [widget:the-menu-widget]
+related_widgets: [image, video, icon, toggle, tabs]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Menu widget (distinct from Nav Menu Pro) displays a WordPress navigation menu registered in the Customizer within an Elementor-built section. It allows flexible menu placement and styling beyond the default theme header area — suitable for footer menus, sidebar navigation, inline text menus, and mobile drawer contents.
+Note Activating these features will replace the Nav Menu widget with two new widgets – the WordPress Menu widget (which functions like the Nav Menu widget), and the Menu widget Warning The menu widget is an experimental feature. If the widget does not appear in your panel, make sure it’s activated using the procedure described above. Add the widget Add the widget to the canvas
 
 ## Use this when
-- Displaying a secondary navigation menu (footer links, legal links, category nav) in a custom Elementor layout
-- Placing a site menu inside a Popup or Off-Canvas widget for a mobile drawer pattern
-- Building a simple horizontal or vertical nav without needing the full Nav Menu Pro widget
-- Embedding a WordPress menu in a Flexbox container for precise positioning alongside other elements
+- All available widgets are displayed
+- Click or drag the widget to the canvas
+- For more information, see Add elements to a page
+- What is the Menu widget
 
 ## Settings highlights
-- **Menu**: dropdown selector for any WordPress menu created in Appearance > Menus
-- **Layout**: Horizontal or Vertical orientation
-- **Alignment**: left, center, right
-- **Pointer**: highlight style for active/hovered menu items (underline, overline, framed, filled, text)
-- **Item Spacing**: gap between menu items
-- **Typography** / **Color** / **Hover Color** / **Active Color**: per-state styling
-- **Responsive Toggle**: show/hide hamburger icon on mobile with dropdown/flyout behavior
-- **Submenu Indicator**: arrow or custom icon indicating items with children
+- To access and use a widget – In Elementor Editor, click +. All available widgets are displayed.Click or drag the widget to the canvas. For more information, see Add elements to a page.
+- Adding a Menu widget – Step-by-step​
+- None – Don’t use a compact menu
+- Mobile Portrait (>767px) – Switch to a compact menu if the screen is less than 767 pixels wide.
+- Tablet Portrait (>1024) – Switch to a compact menu if the screen is less than 1024 pixels wide.
+- Icon – For Elementor Hosting users
 
 ## Limits / gotchas
-- Requires a WordPress menu pre-created in the WP admin — cannot build menu items from within Elementor
-- Advanced mega-menu layouts require the Nav Menu Pro widget (Elementor Pro), not this basic Menu widget
-- Mobile hamburger toggle is basic — for fully styled mobile menus use Nav Menu Pro or an Off-Canvas widget
-- Menu item styling (font, color) is global for the widget instance — per-item styling requires Custom CSS targeting `:nth-child`
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

@@ -1,32 +1,32 @@
 ---
 title: Basic Media Carousel widget
 source_url: https://elementor.com/help/elementor-33664/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
-applies_to: [widget:media-carousel]
-related_widgets: [image-carousel, carousel, gallery]
+fetched_at: 2026-05-23T00:15:35.293Z
+content_hash: sha256-9e4a183628600b2a69280d79264341e319b34b8cd0316efb42e6528ddcd60f31
+applies_to: [widget:elementor-33664]
+related_widgets: [button, image, video, icon, slides]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Basic Media Carousel widget displays a rotating collection of images or media files in an elegant, automated slideshow format. It allows visitors to browse through visual content sequentially with smooth transitions and intuitive navigation controls.
+Create a slideshow to feature a number of images one at a time Use the carousel to impress your visitors with features, options, or possibilities Use sliding image covers to provide extra information about your images without using extra space Encourage your visitors to learn more with a carousel full of informational videos The Media Carousel examples below highlights some of the interesting ways you can use the tool to get visitors excited about what you have to offer.
 
 ## Use this when
-- You need to showcase a portfolio, gallery, or product images in a compact rotating display
-- You want automatic slideshow functionality without requiring user interaction
-- You're building image-heavy pages where sequential browsing improves user engagement
-- You need basic carousel features without the advanced options of premium carousel widgets
-- Space is limited and you want multiple images in a contained, scrollable component
+- What is the Media Carousel widget
+- The Media Carousel widget is a slider tool that adds multiple videos and images to your website in a variety of beautiful styles
+- You can also add links to your images and create overlays for your images featuring text from your image captions, titles, or descriptions
+- Why use the Media Carousel widget
 
 ## Settings highlights
-- **Content tab (Slides)**: Add and manage individual slide images with upload or media library selection
-- **Autoplay settings**: Enable automatic rotation with customizable interval timing between slides
-- **Navigation controls**: Toggle arrow buttons, pagination dots, or both for manual slide advancement
-- **Transition effects**: Choose slide animation style and duration for visual polish
-- **Image sizing**: Configure how images scale and fit within carousel dimensions
-- **Loop behavior**: Set carousel to restart automatically or stop at final slide
-- **Responsive columns**: Adjust visible slides per breakpoint (desktop, tablet, mobile)
+- food – 712665_1920.jpg
+- catering – 179046_1920.jpg
+- pizza – 346985_1920.jpg
+- plate – 2802332_1920.jpg
+- food – 712665_1920.jpg
+- catering – 179046_1920.jpg
+- pizza – 346985_1920.jpg
+- plate – 2802332_1920.jpg
 
 ## Limits / gotchas
-- Limited styling compared to the Pro Media Carousel widget; fewer animation and effect options
-- Autoplay may create accessibility concerns for users with motion sensitivity — consider adding pause controls
-- Performance can degrade with large image files or excessive slides without optimization
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.

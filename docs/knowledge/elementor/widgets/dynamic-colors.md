@@ -1,32 +1,26 @@
 ---
 title: How do I use dynamic colors?
 source_url: https://elementor.com/help/dynamic-colors/
-fetched_at: 2026-05-22T15:30:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:17:44.174Z
+content_hash: sha256-31b81c89c121d508fbf3546546d19a8026fa085d56935e0e119aac6bb22eee9a
 applies_to: [widget:dynamic-colors]
-related_widgets: []
+related_widgets: [icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-Dynamic colors allow you to apply color values from your global color palette to elements throughout your site. This feature enables consistent, centralized color management — when you update a global color, all elements using that dynamic color update automatically across your pages.
+Elementor Pro’s Dynamic Content allows you to use content from custom fields and other sources, and dynamically display it on the page. This feature not only allows you to dynamically display data using text and numeric inputs, but also with any widget that has a color field, enabling you to dynamically style a widget’s color. The Dynamic Color control supports ACF (Advanced Custom Fields) color fields as well as custom field keys.
 
 ## Use this when
-- You want to maintain consistent branding colors across multiple pages and elements
-- You need to make site-wide color changes without manually updating each element
-- Building designs that rely on a coordinated color scheme
-- You want to leverage your theme's color system for faster styling
-- Managing large sites where color consistency is critical
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- Access global colors through the color picker in element styling options
-- Apply dynamic colors to text, backgrounds, borders, and other color-based properties
-- Create and edit your global color palette in Universal Settings
-- View which elements are impacted by specific global colors
-- Override individual element colors while maintaining global color defaults
-- Use the "View and edit global colors" panel to manage your complete palette
-- Connect dynamic colors to theme style settings for seamless integration
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- Not all elements support dynamic color application — check compatibility before relying on them
-- Changing a global color affects all elements using that dynamic color, which may require review
-- Individual color overrides on elements will take precedence over global color updates
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.
