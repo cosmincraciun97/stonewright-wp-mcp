@@ -156,6 +156,7 @@
 | `stonewright/elementor-widget-define` | `ElementorWidget\WidgetDefine` | Compiles a DSL template into a sandboxed Elementor widget PHP file. | Write | `Permissions::can_manage_sandbox()` | Yes | No | No | sandboxed | `tests/Unit/WidgetDefineTest.php` |
 | `stonewright/elementor-widget-register` | `ElementorWidget\WidgetRegister` | Activates a staged widget pending file. | Write | `Permissions::can_manage_sandbox()` | Yes | No | No | sandboxed | `tests/Unit/WidgetDefineTest.php` |
 | `stonewright/elementor-widget-list` | `ElementorWidget\WidgetList` | Enumerates Stonewright-managed Elementor widgets. | Read | `Permissions::can_view_sandbox()` | No | No | No | stable | `tests/Unit/WidgetDefineTest.php` |
+| `stonewright/elementor-create-custom-widget` | `ElementorWidget\CreateCustomWidget` | Creates a new sandboxed Elementor widget from a high-level spec. | Write | `Permissions::can_manage_sandbox()` | Yes | No | No | sandboxed | `tests/Unit/WidgetDefineTest.php` |
 
 ---
 
@@ -361,7 +362,7 @@
 
 ## Summary
 
-Total abilities registered: **218**
+Total abilities registered: **219**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

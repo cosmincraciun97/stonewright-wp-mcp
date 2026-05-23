@@ -1,0 +1,22 @@
+{
+    "_meta": {
+        "title": "Feature tile",
+        "description": "Icon + headline + paragraph block. Useful for 'why us' / 'features grid' sections where the built-in Icon Box doesn't quite fit (e.g. needs an extra CTA or a stat callout).",
+        "intended_for": [ "feature-grid", "value-prop-section", "service-card" ]
+    },
+    "slug": "feature-tile",
+    "title": "Feature Tile",
+    "icon": "eicon-star",
+    "category": "stonewright",
+    "keywords": [ "feature", "tile", "value", "service" ],
+    "props": [
+        { "name": "icon_class", "label": "Icon class", "type": "text",     "default": "fas fa-bolt" },
+        { "name": "headline",   "label": "Headline",   "type": "text",     "default": "Fast & reliable" },
+        { "name": "body",       "label": "Body",       "type": "textarea", "default": "Stonewright drops in via WP plugin install — no migration required." },
+        { "name": "stat_value", "label": "Stat value", "type": "text",     "default": "" },
+        { "name": "stat_label", "label": "Stat label", "type": "text",     "default": "" }
+    ],
+    "template": "<div class=\"sw-feature-tile\"><div class=\"sw-feature-tile__icon\"><i class=\"{{ icon_class }}\"></i></div><h4 class=\"sw-feature-tile__headline\">{{ headline }}</h4><p class=\"sw-feature-tile__body\">{{ body }}</p>{% if stat_value %}<div class=\"sw-feature-tile__stat\"><span class=\"sw-feature-tile__stat-value\">{{ stat_value }}</span><span class=\"sw-feature-tile__stat-label\">{{ stat_label }}</span></div>{% endif %}</div>",
+    "render_strategy": "twig",
+    "activate": false
+}
