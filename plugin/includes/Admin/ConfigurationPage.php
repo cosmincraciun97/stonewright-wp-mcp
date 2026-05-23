@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\Security\DomainLock;
+
 /**
  * Stonewright Configuration admin page (Page 1).
  *
@@ -23,6 +25,7 @@ final class ConfigurationPage {
 	public static function register(): void {
 		add_action( 'admin_menu', [ self::class, 'add_menu' ] );
 		add_action( 'admin_init', [ self::class, 'register_settings' ] );
+		add_action( 'admin_post_stonewright_reset_domain_lock', [ self::class, 'handle_reset_domain_lock' ] );
 	}
 
 	/**
@@ -333,6 +336,58 @@ hidden<?php endif; ?>
 					<?php endforeach; ?>
 				</div>
 
+				<?php if ( $enabled ) : ?>
+				<!-- Card 3.5: Paste to AI agent — onboarding block -->
+				<div class="stonewright-card stonewright-paste-card">
+					<h2>
+						<span class="stonewright-step">4</span>
+						<?php esc_html_e( 'Paste this to your AI agent', 'stonewright' ); ?>
+					</h2>
+					<p><?php esc_html_e( 'Copy the message below and paste it directly into your AI chat to have it set up the MCP connection automatically.', 'stonewright' ); ?></p>
+					<?php
+					$mcp_url   = esc_html( $server_url );
+					$wp_user   = esc_html( wp_get_current_user()->user_login );
+					$paste_msg = sprintf(
+						/* translators: %1$s: MCP server URL, %2$s: WP username */
+						__( 'Connect to Stonewright MCP at %1$s using username %2$s and application password. Once connected, run stonewright/ping to verify the connection.', 'stonewright' ),
+						$mcp_url,
+						$wp_user
+					);
+					?>
+					<div class="stonewright-paste-block">
+						<pre id="stonewright-paste-msg" class="stonewright-paste-pre"><?php echo esc_html( $paste_msg ); ?></pre>
+						<button
+							type="button"
+							class="button stonewright-copy-btn"
+							id="stonewright-copy-paste"
+							data-target="stonewright-paste-msg"
+						><?php esc_html_e( '📋 Copy', 'stonewright' ); ?></button>
+					</div>
+				</div>
+				<?php endif; ?>
+
+				<?php
+				// Domain-lock status row.
+				$locked_domain = DomainLock::locked_domain();
+				if ( '' !== $locked_domain ) :
+				?>
+				<div class="stonewright-domain-lock-status">
+					<span class="stonewright-lock-icon">🔒</span>
+					<?php
+					printf(
+						/* translators: %s: locked domain URL */
+						esc_html__( 'Abilities locked to: %s', 'stonewright' ),
+						'<code>' . esc_html( $locked_domain ) . '</code>'
+					);
+					?>
+					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;margin-left:8px;">
+						<input type="hidden" name="action" value="stonewright_reset_domain_lock"/>
+						<?php wp_nonce_field( 'stonewright_reset_domain_lock' ); ?>
+						<button type="submit" class="button button-small"><?php esc_html_e( 'Reset lock', 'stonewright' ); ?></button>
+					</form>
+				</div>
+				<?php endif; ?>
+
 				<?php submit_button( __( 'Save changes', 'stonewright' ) ); ?>
 			</form>
 
@@ -349,6 +404,12 @@ hidden<?php endif; ?>
 				.stonewright-client-panel[hidden] { display: none; }
 				.stonewright-client-panel pre { background: #f6f7f7; padding: 12px; overflow-x: auto; margin: 8px 0 0; }
 				.stonewright-client-config-path code { background: #f0f0f1; padding: 2px 6px; border-radius: 2px; font-size: 12px; }
+				.stonewright-paste-block { position: relative; }
+				.stonewright-paste-pre { background: #f6f7f7; padding: 12px; white-space: pre-wrap; word-wrap: break-word; border: 1px solid #c3c4c7; border-radius: 4px; margin: 8px 0; font-size: 13px; }
+				.stonewright-copy-btn { margin-top: 4px; }
+				.stonewright-copy-btn.copied { background: #00a32a; color: #fff; border-color: #00a32a; }
+				.stonewright-domain-lock-status { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f6f7f7; border: 1px solid #c3c4c7; border-radius: 4px; margin: 8px 0 12px; font-size: 13px; }
+				.stonewright-lock-icon { font-size: 16px; }
 			</style>
 			<script>
 				(function () {
@@ -372,9 +433,39 @@ hidden<?php endif; ?>
 							}
 						});
 					});
+
+					// Copy-to-clipboard for paste-to-agent block.
+					var copyBtn = document.getElementById('stonewright-copy-paste');
+					if (copyBtn) {
+						copyBtn.addEventListener('click', function () {
+							var target = document.getElementById(copyBtn.getAttribute('data-target'));
+							if (!target) return;
+							navigator.clipboard.writeText(target.textContent || '').then(function () {
+								copyBtn.textContent = '✅ Copied!';
+								copyBtn.classList.add('copied');
+								setTimeout(function () {
+									copyBtn.textContent = '📋 Copy';
+									copyBtn.classList.remove('copied');
+								}, 2000);
+							});
+						});
+					}
 				}());
 			</script>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Handle the "Reset lock" form POST — clears the stored domain lock.
+	 */
+	public static function handle_reset_domain_lock(): void {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
+		}
+		check_admin_referer( 'stonewright_reset_domain_lock' );
+		DomainLock::reset();
+		wp_safe_redirect( add_query_arg( [ 'page' => self::SLUG, 'lock_reset' => '1' ], admin_url( 'admin.php' ) ) );
+		exit;
 	}
 }

@@ -41,6 +41,17 @@ final class AgentInstructions {
 			$parts[] = $skills_block;
 		}
 
+		// Meta-skill: teach the LLM HOW to use skills regardless of whether
+		// any site skills are currently enabled.
+		$parts[] = '';
+		$parts[] = '## How to use Stonewright Skills';
+		$parts[] = '';
+		$parts[] = 'Skills are site-specific playbooks you MUST follow when the current task matches their description.';
+		$parts[] = 'Before ANY action, check if an enabled skill applies. If a matching skill exists, follow it exactly — skills override your default behaviour.';
+		$parts[] = 'To list all available skills: call `stonewright/skills-list`.';
+		$parts[] = 'To create or update a skill: call `stonewright/skills-save`.';
+		$parts[] = 'To read an individual skill: call `stonewright/skills-get` with the slug.';
+
 		return implode( "\n", $parts );
 	}
 }
