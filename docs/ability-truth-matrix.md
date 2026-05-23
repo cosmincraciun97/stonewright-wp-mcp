@@ -177,6 +177,7 @@
 | `stonewright/design-preview-render` | `Design\PreviewRender` | Validates a Stonewright Design Spec and renders it to an Elementor element array without writing to any post. | Read | `Permissions::can_view_design()` | No | No | Yes (DesignSpec) | stable | `tests/Integration/DesignIngestionTest.php` |
 | `stonewright/design-apply-to-post` | `Design\ApplyToPost` | Sideloads image assets, then applies a Stonewright Design Spec to an Elementor page. | Write | `Permissions::can_edit_post( $post_id )` | Yes | No | Yes (DesignSpec) | stable | `tests/Integration/DesignIngestionTest.php` |
 | `stonewright/design-figma-to-spec` | `Design\FigmaToSpec` | Adapts a raw Figma node JSON payload into a validated Stonewright DesignSpec without calling the companion. | Read | `Permissions::edit_posts()` | No | No | Yes (DesignSpec) | stable | `tests/Integration/DesignIngestionTest.php` |
+| `stonewright/widget-intent-resolve` | `Design\WidgetIntentResolve` | Maps a high-level design intent to the right Elementor widget choice + a settings template + the prerequisite steps to run first. | Read | `Permissions::read()` | No | No | No | stable | `tests/Integration/DesignIngestionTest.php` |
 
 ---
 
@@ -360,7 +361,7 @@
 
 ## Summary
 
-Total abilities registered: **217**
+Total abilities registered: **218**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

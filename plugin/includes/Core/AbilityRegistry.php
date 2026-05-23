@@ -25,6 +25,7 @@ use Stonewright\WpMcp\Abilities\Design\SpecToElementorV3;
 use Stonewright\WpMcp\Abilities\Design\SpecToElementorV4;
 use Stonewright\WpMcp\Abilities\Design\SpecToGutenberg;
 use Stonewright\WpMcp\Abilities\Design\ValidateSpec;
+use Stonewright\WpMcp\Abilities\Design\WidgetIntentResolve;
 use Stonewright\WpMcp\Abilities\ElementorV3\AddContainer;
 use Stonewright\WpMcp\Abilities\ElementorV3\AddWidget;
 use Stonewright\WpMcp\Abilities\ElementorV3\BackupPage;
@@ -248,6 +249,9 @@ final class AbilityRegistry {
 
 			// Design (Phase 2.5).
 			FigmaToSpec::class,
+
+			// Design (Phase D.4) — smart-detection intent resolver.
+			WidgetIntentResolve::class,
 
 			// QA.
 			ScreenshotPage::class,

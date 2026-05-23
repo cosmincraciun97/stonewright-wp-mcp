@@ -1,0 +1,6 @@
+{
+    "args": {
+        "intent": ""
+    },
+    "expect": "wp_error"
+}
