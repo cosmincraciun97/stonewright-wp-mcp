@@ -72,4 +72,32 @@ final class ValidatorTest extends TestCase {
 		$this->assertSame( '1.0.0', $normalized['version'] );
 		$this->assertSame( 'section_0', $normalized['sections'][0]['id'] );
 	}
+
+	public function test_validate_succeeds_with_form_block(): void {
+		$spec = [
+			'version' => '1.0.0',
+			'page'     => [ 'title' => 'Form Page' ],
+			'sections' => [
+				[
+					'id'     => 'sec_form',
+					'blocks' => [
+						[
+							'type' => 'form',
+							'id' => 'form_block_1',
+							'form_name' => 'Newsletter',
+							'button_text' => 'Subscribe',
+							'fields' => [
+								[ 'type' => 'text', 'label' => 'Name', 'placeholder' => 'Enter name', 'required' => true ]
+							],
+							'submit_actions' => [ 'email' ]
+						]
+					]
+				]
+			]
+		];
+
+		$result = Validator::validate( $spec );
+		$this->assertIsArray( $result, 'Expected form block spec to validate successfully' );
+	}
 }
+

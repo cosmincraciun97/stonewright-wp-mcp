@@ -217,6 +217,27 @@
         "style": {
           "type": "object",
           "additionalProperties": true
+        },
+        "form_name": { "type": "string" },
+        "button_text": { "type": "string" },
+        "submit_actions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "label"],
+            "properties": {
+              "type": { "type": "string", "enum": ["text", "email", "select", "textarea", "tel", "checkbox", "radio"] },
+              "label": { "type": "string" },
+              "placeholder": { "type": "string" },
+              "required": { "type": ["boolean", "string"] },
+              "default": { "type": "string" }
+            }
+          }
         }
       }
     },
