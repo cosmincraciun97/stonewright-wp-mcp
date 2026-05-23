@@ -9,6 +9,7 @@ use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Skills\Skills;
 
 /**
  * Stonewright-specific REST routes outside of the MCP transport.
@@ -693,6 +694,100 @@ final class RestRoutes {
 						] );
 					},
 				],
+			]
+		);
+
+		// -----------------------------------------------------------------
+		// Skills
+		// -----------------------------------------------------------------
+
+		register_rest_route(
+			'stonewright/v1',
+			'/skills',
+			[
+				[
+					'methods'             => 'GET',
+					'permission_callback' => [ Permissions::class, 'manage_options' ],
+					'args'                => [
+						'enabled_only' => [
+							'type'    => 'boolean',
+							'default' => false,
+						],
+					],
+					'callback'            => static function ( \WP_REST_Request $request ) {
+						$enabled_only = (bool) $request->get_param( 'enabled_only' );
+						$skills       = Skills::list( $enabled_only );
+						return rest_ensure_response( [ 'skills' => $skills, 'count' => count( $skills ) ] );
+					},
+				],
+				[
+					'methods'             => 'POST',
+					'permission_callback' => [ Permissions::class, 'manage_options' ],
+					'args'                => [
+						'slug'        => [ 'type' => 'string', 'required' => true ],
+						'title'       => [ 'type' => 'string', 'required' => true ],
+						'description' => [ 'type' => 'string', 'default' => '' ],
+						'content'     => [ 'type' => 'string', 'required' => true ],
+						'enabled'     => [ 'type' => 'boolean', 'default' => true ],
+					],
+					'callback'            => static function ( \WP_REST_Request $request ) {
+						$id = Skills::save( [
+							'slug'        => (string) $request->get_param( 'slug' ),
+							'title'       => (string) $request->get_param( 'title' ),
+							'description' => (string) $request->get_param( 'description' ),
+							'content'     => (string) $request->get_param( 'content' ),
+							'enabled'     => (bool) $request->get_param( 'enabled' ),
+							'source'      => 'user',
+						] );
+						if ( 0 === $id ) {
+							return new \WP_Error( 'stonewright_skills_save_failed', __( 'Failed to save skill.', 'stonewright' ), [ 'status' => 500 ] );
+						}
+						return rest_ensure_response( [ 'id' => $id ] );
+					},
+				],
+			]
+		);
+
+		register_rest_route(
+			'stonewright/v1',
+			'/skills/(?P<id>\d+)/toggle',
+			[
+				'methods'             => 'POST',
+				'permission_callback' => [ Permissions::class, 'manage_options' ],
+				'args'                => [
+					'id'      => [ 'type' => 'integer', 'required' => true ],
+					'enabled' => [ 'type' => 'boolean', 'required' => true ],
+				],
+				'callback'            => static function ( \WP_REST_Request $request ) {
+					$id      = absint( $request->get_param( 'id' ) );
+					$enabled = (bool) $request->get_param( 'enabled' );
+					Skills::toggle( $id, $enabled );
+					return rest_ensure_response( [ 'id' => $id, 'enabled' => $enabled ] );
+				},
+			]
+		);
+
+		register_rest_route(
+			'stonewright/v1',
+			'/skills/(?P<id>\d+)',
+			[
+				'methods'             => 'DELETE',
+				'permission_callback' => [ Permissions::class, 'manage_options' ],
+				'args'                => [
+					'id' => [ 'type' => 'integer', 'required' => true ],
+				],
+				'callback'            => static function ( \WP_REST_Request $request ) {
+					$id      = absint( $request->get_param( 'id' ) );
+					$skill   = Skills::get_by_id( $id );
+					if ( null === $skill ) {
+						return new \WP_Error( 'stonewright_skill_not_found', __( 'Skill not found.', 'stonewright' ), [ 'status' => 404 ] );
+					}
+					if ( 'builtin' === $skill['source'] ) {
+						return new \WP_Error( 'stonewright_skill_builtin', __( 'Built-in skills cannot be deleted. Disable them instead.', 'stonewright' ), [ 'status' => 403 ] );
+					}
+					Skills::delete( $id );
+					return rest_ensure_response( [ 'deleted' => true, 'id' => $id ] );
+				},
 			]
 		);
 	}

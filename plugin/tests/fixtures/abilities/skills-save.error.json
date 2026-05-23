@@ -1,0 +1,8 @@
+{
+    "args": {
+        "slug": "contract-test-skill",
+        "title": "Contract Test Skill",
+        "content": "Content"
+    },
+    "expect_permission_error": true
+}

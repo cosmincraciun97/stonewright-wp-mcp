@@ -133,4 +133,31 @@ final class CreateTemplateTest extends TestCase {
 		);
 		$this->assertNotEmpty( $matching );
 	}
+
+	public function test_template_store_set_conditions_primes_proelements_cache(): void {
+		$GLOBALS['stonewright_test_posts'][5051] = (object) [
+			'ID'        => 5051,
+			'post_type' => 'elementor_library',
+			'meta'      => [
+				'_elementor_template_type' => 'header',
+			],
+		];
+		$GLOBALS['stonewright_test_options']['elementor_pro_theme_builder_conditions'] = [
+			'footer' => [
+				5051 => [ 'include/general' ],
+			],
+		];
+
+		$ok = TemplateStore::set_conditions(
+			5051,
+			[
+				[ 'type' => 'include', 'name' => 'general' ],
+			]
+		);
+
+		$this->assertTrue( $ok );
+		$cache = get_option( 'elementor_pro_theme_builder_conditions', [] );
+		$this->assertSame( [ 'include/general' ], $cache['header'][5051] );
+		$this->assertArrayNotHasKey( 5051, $cache['footer'] );
+	}
 }

@@ -119,9 +119,9 @@ final class MenuStore {
 		$out = [];
 		foreach ( $menus as $menu ) {
 			$out[] = [
-				'id'   => (int) ( $menu->term_id ?? 0 ),
-				'name' => (string) ( $menu->name ?? '' ),
-				'slug' => (string) ( $menu->slug ?? '' ),
+				'id'   => (int) $menu->term_id,
+				'name' => (string) $menu->name,
+				'slug' => (string) $menu->slug,
 			];
 		}
 		return $out;

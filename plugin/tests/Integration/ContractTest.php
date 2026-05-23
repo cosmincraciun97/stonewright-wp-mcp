@@ -318,6 +318,18 @@ final class ContractTest extends TestCase {
 					],
 				],
 			],
+		// A published page used by site-set-front-page contract fixture.
+			5 => (object) [
+				'ID'           => 5,
+				'post_type'    => 'page',
+				'post_status'  => 'publish',
+				'post_title'   => 'Contract Front Page',
+				'post_content' => '',
+				'post_excerpt' => '',
+				'post_parent'  => 0,
+				'post_name'    => 'contract-front-page',
+				'meta'         => [],
+			],
 		];
 	}
 }

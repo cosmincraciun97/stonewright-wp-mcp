@@ -1,4 +1,4 @@
-﻿# nZ1 live build driver — Phase E.
+# nZ1 live build driver — Phase E.
 #
 # Builds the Figma "Editie-anterioara" page (node 97:8306) end-to-end at
 # http://mcp-test.local using ONLY stonewright/* abilities exposed via the
@@ -535,11 +535,13 @@ Step "4. Homepage (hero + aftermovie + speakers + gallery + newsletter)" {
         }
     } | Out-Null
 
-    # Set homepage as front page via raw REST options endpoint (no Stonewright ability for this yet).
-    try {
-        Invoke-WebRequest -Uri "$base/wp-json/wp/v2/settings" -Method POST -Headers $headers -Body (@{ show_on_front = 'page'; page_on_front = $home_id } | ConvertTo-Json -Compress) -UseBasicParsing -TimeoutSec 10 | Out-Null
-        Write-Host "  set front page to $home_id"
-    } catch { Write-Host "  (couldn't set front page — homepage still at /?page_id=$home_id)" -ForegroundColor Yellow }
+    # Set homepage as front page via stonewright/site-set-front-page ability.
+    $fp = Invoke-Ability -Name 'stonewright/site-set-front-page' -InputData @{ page_id = $home_id } -Continue
+    if ($fp) {
+        Write-Host "  set front page to $home_id (prev: $($fp.previous_page_id))"
+    } else {
+        Write-Host "  (site-set-front-page failed — continuing, homepage at /?page_id=$home_id)" -ForegroundColor Yellow
+    }
 
     Write-Host "  homepage built — $home_id"
 }

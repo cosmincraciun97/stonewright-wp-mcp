@@ -83,9 +83,8 @@ final class TemplateStore {
 
 	/**
 	 * Cached-conditions option key used by Elementor Pro / ProElements
-	 * theme-builder. Deleting this option forces a lazy re-scan of every
-	 * `_elementor_conditions`-bearing post on the next front-end request,
-	 * which is what actually wires our template into the page render.
+	 * theme-builder. Stonewright primes this cache after direct meta writes so
+	 * front-end requests can resolve header/footer templates immediately.
 	 */
 	private const PRO_CONDITIONS_CACHE_OPTION = 'elementor_pro_theme_builder_conditions';
 
@@ -98,11 +97,9 @@ final class TemplateStore {
 	 * to the slash-delimited string format Elementor Pro / ProElements
 	 * actually persists: `['include/general', 'exclude/archive/category/12']`.
 	 *
-	 * After writing the meta we delete the
-	 * `elementor_pro_theme_builder_conditions` cache option so ProElements'
-	 * Conditions_Cache regenerates from the fresh meta on next page load.
-	 * Without that bust the page keeps using the stale cache and our new
-	 * header / footer never reaches the front end.
+	 * After writing the meta we also prime ProElements' cached conditions
+	 * option. Without that cache update, a template can exist with correct
+	 * meta yet never replace the theme header/footer on the front end.
 	 *
 	 * Pass an empty array to clear all conditions.
 	 *
@@ -139,9 +136,7 @@ final class TemplateStore {
 			update_post_meta( $template_id, '_elementor_conditions', $serialised );
 		}
 
-		// Bust the ProElements cached conditions option so the next front-end
-		// request re-scans posts and picks up our template.
-		delete_option( self::PRO_CONDITIONS_CACHE_OPTION );
+		self::prime_conditions_cache( $template_id, $serialised );
 
 		return true;
 	}
@@ -152,5 +147,56 @@ final class TemplateStore {
 	 */
 	public static function get_type( int $template_id ): string {
 		return (string) get_post_meta( $template_id, '_elementor_template_type', true );
+	}
+
+	/**
+	 * ProElements reads Theme Builder display rules from a precomputed option
+	 * before it scans post meta. Directly writing `_elementor_conditions` is
+	 * therefore not enough on many installs; prime that cache immediately so
+	 * header/footer templates take effect on the next request.
+	 *
+	 * @param array<int, string> $serialised
+	 */
+	private static function prime_conditions_cache( int $template_id, array $serialised ): void {
+		$cache = get_option( self::PRO_CONDITIONS_CACHE_OPTION, [] );
+		if ( ! is_array( $cache ) ) {
+			$cache = [];
+		}
+
+		foreach ( $cache as $location => $entries ) {
+			if ( is_array( $entries ) && array_key_exists( $template_id, $entries ) ) {
+				unset( $entries[ $template_id ] );
+				$cache[ $location ] = $entries;
+			}
+		}
+
+		if ( [] === $serialised ) {
+			update_option( self::PRO_CONDITIONS_CACHE_OPTION, $cache, false );
+			return;
+		}
+
+		$location = self::location_for_template_type( self::get_type( $template_id ) );
+		if ( '' === $location ) {
+			delete_option( self::PRO_CONDITIONS_CACHE_OPTION );
+			return;
+		}
+
+		if ( ! isset( $cache[ $location ] ) || ! is_array( $cache[ $location ] ) ) {
+			$cache[ $location ] = [];
+		}
+		$cache[ $location ][ $template_id ] = $serialised;
+
+		update_option( self::PRO_CONDITIONS_CACHE_OPTION, $cache, false );
+	}
+
+	private static function location_for_template_type( string $type ): string {
+		return match ( $type ) {
+			'header' => 'header',
+			'footer' => 'footer',
+			'single', 'single-post', 'single-page' => 'single',
+			'archive', 'search-results', 'error-404' => 'archive',
+			'loop-item' => 'loop',
+			default => '',
+		};
 	}
 }

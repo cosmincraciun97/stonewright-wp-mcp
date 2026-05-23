@@ -1,0 +1,9 @@
+{
+    "args": {
+        "slug": "contract-test-skill",
+        "title": "Contract Test Skill",
+        "description": "Used by contract tests only",
+        "content": "# Contract Test\n\nThis is a test skill."
+    },
+    "expect": "ok"
+}

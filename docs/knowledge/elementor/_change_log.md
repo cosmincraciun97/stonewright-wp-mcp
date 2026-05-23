@@ -10,3 +10,4 @@ across a configurable lookback window.
 ---
 
 <!-- entries appended below this line -->
+- 2026-05-23T01:24:17+00:00 — `developer/widgets-controls.md` (created) — https://developers.elementor.com/docs/widgets/widgets-controls/

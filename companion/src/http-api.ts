@@ -66,10 +66,21 @@ const AXE_VENDOR_PATH = pathResolve(
 
 /**
  * Regex that artifact_path values MUST match.
- * Lowercase-only is safer and is the source of truth — schemas must mirror this.
- * Matches PHP-generated paths like /tmp/…/stonewright-qa/<uuid>/
+ * Accepts both Unix paths (/var/www/…) and Windows paths (C:/…) after
+ * normalizing backslashes to forward slashes.
+ * Pattern breakdown:
+ *   Unix:    /…/stonewright-qa/<uuid>/
+ *   Windows: /C:/…/stonewright-qa/<uuid>/  (after normalization)
  */
-const ARTIFACT_PATH_RE = /^\/[a-z0-9/_.-]+stonewright-qa\/[a-z0-9-]+\/?$/;
+const ARTIFACT_PATH_RE = /[/\\]stonewright-qa[/\\][a-z0-9-]+[/\\]?$/i;
+
+/**
+ * Normalize a filesystem path: convert Windows backslashes to forward slashes.
+ * Allows uniform regex matching across Unix and Windows environments.
+ */
+function normalizePath(p: string): string {
+  return p.replace(/\\/g, '/');
+}
 
 const ALLOWED_URL_RE = /^https?:\/\//;
 
@@ -95,10 +106,16 @@ function bad(res: ServerResponse, message: string): void {
 
 /** Validate artifact_path and ensure the directory exists. */
 function validateArtifactPath(path: string | undefined, res: ServerResponse): string | null {
-  if (typeof path !== 'string' || !ARTIFACT_PATH_RE.test(path)) {
+  if (typeof path !== 'string') {
     bad(res, 'artifact_path does not match the allowed pattern (must be a PHP-reserved stonewright-qa directory)');
     return null;
   }
+  const normalized = normalizePath(path);
+  if (!ARTIFACT_PATH_RE.test(normalized)) {
+    bad(res, 'artifact_path does not match the allowed pattern (must be a PHP-reserved stonewright-qa directory)');
+    return null;
+  }
+  // Use original path for filesystem operations (Windows needs backslashes or forward slashes — Node handles both).
   if (!existsSync(path)) {
     mkdirSync(path, { recursive: true, mode: 0o700 });
   }

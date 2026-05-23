@@ -12,6 +12,10 @@
 		"node": ">=20.0.0"
 	},
 	"main": "dist/index.js",
+	"bin": {
+		"stonewright-companion": "dist/index.js",
+		"stonewright-mcp": "dist/index.js"
+	},
 	"exports": {
 		".": "./dist/index.js"
 	},
@@ -20,6 +24,7 @@
 		"build:contracts": "node scripts/build-contracts.mjs",
 		"dev": "tsup src/index.ts --format esm --watch --onSuccess \"node dist/index.js\"",
 		"start": "node dist/index.js",
+		"mcp": "node dist/index.js",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"lint": "eslint src tests --ext .ts",

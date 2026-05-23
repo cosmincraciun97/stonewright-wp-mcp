@@ -45,7 +45,7 @@ class NavMenu {
 	 */
 	public static function render( array $node, Resolver $resolver, string $canonical_path, array &$diagnostics = [] ): array {
 		if ( ! static::pro_available() ) {
-			return static::render_fallback( $node, $resolver, $canonical_path, $diagnostics );
+			return self::render_fallback( $node, $resolver, $canonical_path, $diagnostics );
 		}
 
 		$settings = [];

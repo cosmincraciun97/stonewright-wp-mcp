@@ -488,6 +488,12 @@ if ( ! function_exists( 'sanitize_file_name' ) ) {
 	}
 }
 
+if ( ! function_exists( 'sanitize_textarea_field' ) ) {
+	function sanitize_textarea_field( string $text ): string {
+		return trim( strip_tags( $text ) );
+	}
+}
+
 // ---------------------------------------------------------------------------
 // WP_Error stub.
 // ---------------------------------------------------------------------------

@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Core;
 
 use Stonewright\WpMcp\Abilities\Ability;
 use Stonewright\WpMcp\Abilities\Content\BulkCreate;
+use Stonewright\WpMcp\Support\Utf8;
 use Stonewright\WpMcp\Abilities\Content\CreatePage;
 use Stonewright\WpMcp\Abilities\Content\CreatePost;
 use Stonewright\WpMcp\Abilities\Content\DuplicatePage;
@@ -12,6 +13,7 @@ use Stonewright\WpMcp\Abilities\Content\GetPage;
 use Stonewright\WpMcp\Abilities\Content\UpdatePage;
 use Stonewright\WpMcp\Abilities\Content\UpdatePost;
 use Stonewright\WpMcp\Abilities\Design\ApplyToPost;
+use Stonewright\WpMcp\Abilities\Design\BuildFromFigmaReference;
 use Stonewright\WpMcp\Abilities\Design\BuildSpec;
 use Stonewright\WpMcp\Abilities\Design\ChooseRenderer;
 use Stonewright\WpMcp\Abilities\Design\ExtractTokens;
@@ -80,7 +82,10 @@ use Stonewright\WpMcp\Abilities\Memory\MemoryList;
 use Stonewright\WpMcp\Abilities\Memory\MemorySave;
 use Stonewright\WpMcp\Abilities\ElementorWidget\CreateCustomWidget;
 use Stonewright\WpMcp\Abilities\ElementorWidget\WidgetDefine;
+use Stonewright\WpMcp\Abilities\Knowledge\DescribeWidget;
+use Stonewright\WpMcp\Abilities\Knowledge\ExplainEditor;
 use Stonewright\WpMcp\Abilities\Knowledge\KnowledgeRefresh;
+use Stonewright\WpMcp\Abilities\Knowledge\KnowledgeSearch;
 use Stonewright\WpMcp\Abilities\ElementorWidget\WidgetList as ElementorWidgetList;
 use Stonewright\WpMcp\Abilities\ElementorWidget\WidgetRegister;
 use Stonewright\WpMcp\Abilities\Sandbox\SandboxActivate;
@@ -92,6 +97,9 @@ use Stonewright\WpMcp\Abilities\Sandbox\SandboxRead;
 use Stonewright\WpMcp\Abilities\Sandbox\SandboxToggle;
 use Stonewright\WpMcp\Abilities\Sandbox\SandboxWrite;
 use Stonewright\WpMcp\Abilities\System\AbilitiesList;
+use Stonewright\WpMcp\Abilities\Skills\SkillsList;
+use Stonewright\WpMcp\Abilities\Skills\SkillsGet;
+use Stonewright\WpMcp\Abilities\Skills\SkillsSave;
 use Stonewright\WpMcp\Abilities\ThemeBuilder\CreateTemplate as ThemeBuilderCreateTemplate;
 use Stonewright\WpMcp\Abilities\ThemeBuilder\DeleteTemplate as ThemeBuilderDeleteTemplate;
 use Stonewright\WpMcp\Abilities\ThemeBuilder\GetTemplate as ThemeBuilderGetTemplate;
@@ -129,6 +137,7 @@ use Stonewright\WpMcp\Abilities\Site\Health;
 use Stonewright\WpMcp\Abilities\Site\Info;
 use Stonewright\WpMcp\Abilities\Site\ListPlugins;
 use Stonewright\WpMcp\Abilities\Site\Ping;
+use Stonewright\WpMcp\Abilities\Site\SetFrontPage;
 use Stonewright\WpMcp\Abilities\Site\Theme as SiteTheme;
 
 /**
@@ -152,6 +161,7 @@ final class AbilityRegistry {
 			Health::class,
 			ListPlugins::class,
 			SiteTheme::class,
+			SetFrontPage::class,
 			SiteBackupPage::class,
 			CreateRevision::class,
 
@@ -255,6 +265,9 @@ final class AbilityRegistry {
 			// Design (Phase D.4) — smart-detection intent resolver.
 			WidgetIntentResolve::class,
 
+			// Design (Phase D.5) — full-pipeline orchestrator.
+			BuildFromFigmaReference::class,
+
 			// QA.
 			ScreenshotPage::class,
 			DiffScreenshot::class,
@@ -278,6 +291,11 @@ final class AbilityRegistry {
 			InstructionsSet::class,
 			AbilitiesList::class,
 
+			// Skills (Novamira-inspired enhancement).
+			SkillsList::class,
+			SkillsGet::class,
+			SkillsSave::class,
+
 			// Elementor Widget Builder (Phase 5).
 			WidgetDefine::class,
 			WidgetRegister::class,
@@ -286,7 +304,10 @@ final class AbilityRegistry {
 			// Custom-widget high-level pipeline (Phase G.2).
 			CreateCustomWidget::class,
 
-			// Knowledge base self-update (Phase H.1).
+			// Elementor knowledge base query + self-update (Phase 0.4 / H.1).
+			KnowledgeSearch::class,
+			DescribeWidget::class,
+			ExplainEditor::class,
 			KnowledgeRefresh::class,
 
 			// Sandbox (Wave 3c).
@@ -341,6 +362,8 @@ final class AbilityRegistry {
 	 * listening on multiple Abilities API init actions (the wp_-prefixed core
 	 * pair and the un-prefixed vendor fallback) cannot re-register and trigger
 	 * `_doing_it_wrong( 'Ability already registered' )` notices.
+	 *
+	 * @var bool
 	 */
 	private static bool $registered_once = false;
 
@@ -383,7 +406,12 @@ final class AbilityRegistry {
 				'input_schema'        => $ability->input_schema(),
 				'output_schema'       => $ability->output_schema(),
 				'permission_callback' => [ $ability, 'permission_callback' ],
-				'execute_callback'    => [ $ability, 'execute' ],
+				// Wrap execute with UTF-8 deep_sanitize so all ability inputs
+				// are guaranteed valid UTF-8 regardless of client encoding.
+				// This transparently handles Windows PowerShell \uXXXX escapes.
+				'execute_callback'    => static function ( array $input ) use ( $ability ): mixed {
+					return $ability->execute( Utf8::deep_sanitize( $input ) );
+				},
 				'meta'                => array_merge(
 					[
 						'mcp'          => [ 'public' => true ],
@@ -448,6 +476,7 @@ final class AbilityRegistry {
 			'elementor' => __( 'Elementor', 'stonewright' ),
 			'design'    => __( 'Design', 'stonewright' ),
 			'qa'        => __( 'Quality Assurance', 'stonewright' ),
+			'knowledge' => __( 'Knowledge', 'stonewright' ),
 			'memory'    => __( 'Memory', 'stonewright' ),
 			'system'    => __( 'System', 'stonewright' ),
 			'sandbox'           => __( 'Sandbox', 'stonewright' ),

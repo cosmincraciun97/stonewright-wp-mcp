@@ -34,6 +34,7 @@
 | `stonewright/site-health` | `Site\Health` | Returns a summary of WordPress site-health tests for this installation. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/site-plugins-list` | `Site\ListPlugins` | Lists installed plugins with their status, name, and version. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/site-theme` | `Site\Theme` | Returns the active theme name, version, supports, and template hierarchy summary. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/site-set-front-page` | `Site\SetFrontPage` | Promote a published page to the WordPress front page. | Write | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/site-backup-page` | `Site\BackupPage` | Creates a Stonewright snapshot of a post or page (content, status, key meta) for safe rollback. | Write | `Permissions::edit_post( $post_id ) (compound)` | No | Yes | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/site-create-revision` | `Site\CreateRevision` | Creates a WordPress revision for a post or page. | Read | `Permissions::edit_post( $post_id )` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 
@@ -179,6 +180,7 @@
 | `stonewright/design-apply-to-post` | `Design\ApplyToPost` | Sideloads image assets, then applies a Stonewright Design Spec to an Elementor page. | Write | `Permissions::can_edit_post( $post_id )` | Yes | No | Yes (DesignSpec) | stable | `tests/Integration/DesignIngestionTest.php` |
 | `stonewright/design-figma-to-spec` | `Design\FigmaToSpec` | Adapts a raw Figma node JSON payload into a validated Stonewright DesignSpec without calling the companion. | Read | `Permissions::edit_posts()` | No | No | Yes (DesignSpec) | stable | `tests/Integration/DesignIngestionTest.php` |
 | `stonewright/widget-intent-resolve` | `Design\WidgetIntentResolve` | Maps a high-level design intent to the right Elementor widget choice + a settings template + the prerequisite steps to run first. | Read | `Permissions::read()` | No | No | No | stable | `tests/Integration/DesignIngestionTest.php` |
+| `stonewright/design-build-from-figma-reference` | `Design\BuildFromFigmaReference` | Orchestrates the full Figma → WordPress build pipeline: ingest Figma node, validate spec, choose renderer, apply to post, and optionally run QA screenshot + visual diff. | Read | `Permissions::can_edit_post( $post_id )` | No | No | No | stable | `tests/Integration/DesignIngestionTest.php` |
 
 ---
 
@@ -235,10 +237,23 @@
 
 ---
 
+## Skills
+
+| Slug | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
+|---|---|---|---|---|---|---|---|---|---|
+| `stonewright/skills-list` | `Skills\SkillsList` | Returns all registered site skills with their slug, title, description, enabled state, and source. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/skills-get` | `Skills\SkillsGet` | Returns the full content and metadata of a single site skill by its slug. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/skills-save` | `Skills\SkillsSave` | Creates or updates a site skill playbook. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+
+---
+
 ## Knowledge
 
 | Slug | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
 |---|---|---|---|---|---|---|---|---|---|
+| `stonewright/elementor-knowledge-search` | `Knowledge\KnowledgeSearch` | USE THIS WHEN implementing or debugging an Elementor/Figma build and you need current Stonewright knowledge about widgets, editor behavior, Theme Builder, or developer APIs. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/elementor-describe-widget` | `Knowledge\DescribeWidget` | USE THIS WHEN deciding how to render a Figma pattern as a real Elementor widget. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/elementor-explain-editor` | `Knowledge\ExplainEditor` | USE THIS WHEN an Elementor implementation depends on editor V3/V4 behavior, Theme Builder display rules, custom widgets, or developer API details. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/elementor-knowledge-refresh` | `Knowledge\KnowledgeRefresh` | Self-updates the Stonewright Elementor knowledge base from a canonical URL. | Write | `Permissions::manage_options()` | No | No | No | sandboxed | `tests/Unit/AbilityKernelAuditTest.php` |
 
 ---
@@ -370,7 +385,7 @@
 
 ## Summary
 
-Total abilities registered: **220**
+Total abilities registered: **228**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\Admin\AuditLogPage;
+use Stonewright\WpMcp\Admin\Pages\SandboxLibraryPage;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 
 /**
@@ -49,6 +51,47 @@ final class SandboxPage {
 			return;
 		}
 
+		// Tab routing — ?tab= query param selects the active tab.
+		$current_tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( (string) $_GET['tab'] ) ) : 'drafts'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$tabs = [
+			'drafts'         => __( 'Drafts', 'stonewright' ),
+			'library'        => __( 'Library', 'stonewright' ),
+			'mu-plugins'     => __( 'Active MU Plugins', 'stonewright' ),
+			'crash-recovery' => __( 'Crash Recovery', 'stonewright' ),
+			'audit'          => __( 'Audit Log', 'stonewright' ),
+		];
+		?>
+		<div class="wrap">
+			<h1><?php esc_html_e( 'Sandbox', 'stonewright' ); ?></h1>
+
+			<nav class="nav-tab-wrapper" aria-label="<?php esc_attr_e( 'Sandbox sections', 'stonewright' ); ?>">
+				<?php foreach ( $tabs as $slug => $label ) : ?>
+					<a
+						href="<?php echo esc_url( add_query_arg( [ 'page' => self::SLUG, 'tab' => $slug ], admin_url( 'admin.php' ) ) ); ?>"
+						class="nav-tab<?php echo $current_tab === $slug ? ' nav-tab-active' : ''; ?>"
+					><?php echo esc_html( $label ); ?></a>
+				<?php endforeach; ?>
+			</nav>
+
+			<div class="stonewright-tab-content" style="margin-top:1.5em;">
+				<?php
+				match ( $current_tab ) {
+					'library'        => SandboxLibraryPage::render(),
+					'mu-plugins'     => self::render_mu_plugins_tab(),
+					'crash-recovery' => self::render_crash_recovery_tab(),
+					'audit'          => self::render_audit_tab(),
+					default          => self::render_drafts_tab(), // 'drafts' + any unknown tab
+				};
+				?>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Renders the Drafts tab — the original sandbox file list + inline editor.
+	 */
+	private static function render_drafts_tab(): void {
 		$page_url  = admin_url( 'admin.php?page=' . self::SLUG );
 		$edit_name = isset( $_GET['edit'] ) ? sanitize_file_name( wp_unslash( (string) $_GET['edit'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$files     = SandboxFiles::list_files();
@@ -274,6 +317,67 @@ final class SandboxPage {
 			<?php endif; ?>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Renders Active MU Plugins tab — shows sandbox files currently active in mu-plugins/.
+	 */
+	private static function render_mu_plugins_tab(): void {
+		$sandbox_dir = defined( 'WP_CONTENT_DIR' ) ? WP_CONTENT_DIR . '/stonewright-sandbox/' : '';
+		$mu_dir      = defined( 'WPMU_PLUGIN_DIR' ) ? WPMU_PLUGIN_DIR . '/' : '';
+		if ( '' === $sandbox_dir || '' === $mu_dir ) {
+			echo '<p>' . esc_html__( 'MU plugin directories not defined.', 'stonewright' ) . '</p>';
+			return;
+		}
+		$files  = glob( $sandbox_dir . '*.php' ) ?: [];
+		$active = array_filter( $files, static fn( string $f ) => file_exists( $mu_dir . basename( $f ) ) );
+		if ( empty( $active ) ) {
+			echo '<p>' . esc_html__( 'No sandbox files are currently active as MU plugins.', 'stonewright' ) . '</p>';
+			return;
+		}
+		echo '<table class="wp-list-table widefat fixed striped"><thead><tr>';
+		echo '<th scope="col">' . esc_html__( 'File', 'stonewright' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Size', 'stonewright' ) . '</th>';
+		echo '</tr></thead><tbody>';
+		foreach ( $active as $f ) {
+			$name = basename( $f );
+			$size = size_format( (int) @filesize( $mu_dir . $name ) ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			echo '<tr><td>' . esc_html( $name ) . '</td><td>' . esc_html( $size ) . '</td></tr>';
+		}
+		echo '</tbody></table>';
+	}
+
+	/**
+	 * Renders Crash Recovery tab — lists entries from stonewright_crash_log option.
+	 */
+	private static function render_crash_recovery_tab(): void {
+		/** @var mixed[] $log */
+		$log = (array) get_option( 'stonewright_crash_log', [] );
+		if ( empty( $log ) ) {
+			echo '<p>' . esc_html__( 'No crashes recorded.', 'stonewright' ) . '</p>';
+			return;
+		}
+		echo '<table class="wp-list-table widefat fixed striped"><thead><tr>';
+		echo '<th scope="col">' . esc_html__( 'File', 'stonewright' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Time', 'stonewright' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Error', 'stonewright' ) . '</th>';
+		echo '</tr></thead><tbody>';
+		foreach ( $log as $entry ) {
+			$entry = (array) $entry;
+			echo '<tr>';
+			echo '<td>' . esc_html( (string) ( $entry['file'] ?? '' ) ) . '</td>';
+			echo '<td>' . esc_html( (string) wp_date( 'Y-m-d H:i', (int) ( $entry['time'] ?? 0 ) ) ) . '</td>';
+			echo '<td>' . esc_html( (string) ( $entry['error'] ?? '' ) ) . '</td>';
+			echo '</tr>';
+		}
+		echo '</tbody></table>';
+	}
+
+	/**
+	 * Renders Audit Log tab — delegates to AuditLogPage::render_inline().
+	 */
+	private static function render_audit_tab(): void {
+		AuditLogPage::render_inline();
 	}
 
 	// -------------------------------------------------------------------------

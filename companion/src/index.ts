@@ -30,6 +30,7 @@ import { handleProxy, proxyConfig, getProxyConfig } from './mcp-proxy.js';
 import { closeBrowser } from './playwright-runner.js';
 import { dispatchQaRoute } from './http-api.js';
 import { CONTRACT_VERSION } from './contracts/version.js';
+import { checkReadiness } from './first-run.js';
 
 // ---------------------------------------------------------------------------
 // Stdio transport (always on)
@@ -194,6 +195,15 @@ export async function startHttp(port: number): Promise<StartedHttpServer> {
 
 async function main(): Promise<void> {
 	log.info('Stonewright companion starting');
+
+	// First-run readiness check — verifies Playwright browsers are installed
+	// and prints clear setup instructions if they are not.
+	const readiness = checkReadiness();
+	if (!readiness.ok) {
+		// Write to stderr so it is always visible even in stdio MCP mode.
+		process.stderr.write(readiness.instructions);
+		process.exit(1);
+	}
 
 	const portRaw = process.env['PORT'];
 	const port = portRaw ? Number(portRaw) : null;

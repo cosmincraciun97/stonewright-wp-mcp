@@ -387,6 +387,143 @@ final class FigmaToSpecTest extends TestCase {
 		$this->assertStringContainsString( '"type":"heading"', $serialized );
 	}
 
+	public function test_nav_signature_becomes_nav_menu_block_with_prerequisites(): void {
+		$spec = FigmaToSpec::to_spec(
+			[
+				'id'       => '0:1',
+				'type'     => 'FRAME',
+				'name'     => 'Page',
+				'children' => [
+					[
+						'id'         => '1:1',
+						'type'       => 'FRAME',
+						'name'       => 'Main menu row',
+						'layoutMode' => 'HORIZONTAL',
+						'children'   => [
+							[ 'id' => '2:1', 'type' => 'TEXT', 'characters' => 'Acasa', 'style' => [ 'fontSize' => 16 ] ],
+							[ 'id' => '2:2', 'type' => 'TEXT', 'characters' => 'Program', 'style' => [ 'fontSize' => 16 ] ],
+							[ 'id' => '2:3', 'type' => 'TEXT', 'characters' => 'Speakeri', 'style' => [ 'fontSize' => 16 ] ],
+							[ 'id' => '2:4', 'type' => 'TEXT', 'characters' => 'Contact', 'style' => [ 'fontSize' => 16 ] ],
+						],
+					],
+				],
+			]
+		);
+
+		$block = $spec['sections'][0]['blocks'][0];
+		$this->assertSame( 'nav-menu', $block['type'] );
+		$this->assertSame( 'nav', $block['intent'] );
+		$this->assertSame( 'horizontal', $block['layout'] );
+		$this->assertContains( 'stonewright/menu-create', $block['required_steps'] );
+		$this->assertSame( 'Program', $block['items'][1]['text'] );
+		$this->assertNotInstanceOf( \WP_Error::class, Validator::validate( $spec ) );
+	}
+
+	public function test_countdown_signature_becomes_countdown_widget_block(): void {
+		$spec = FigmaToSpec::to_spec(
+			[
+				'id'       => '0:1',
+				'type'     => 'FRAME',
+				'name'     => 'Page',
+				'children' => [
+					[
+						'id'       => '1:1',
+						'type'     => 'FRAME',
+						'name'     => 'Event countdown',
+						'children' => [
+							[
+								'id'       => '2:1',
+								'type'     => 'FRAME',
+								'children' => [
+									[ 'id' => '3:1', 'type' => 'TEXT', 'characters' => '12', 'style' => [ 'fontSize' => 48 ] ],
+									[ 'id' => '3:2', 'type' => 'TEXT', 'characters' => 'Zile', 'style' => [ 'fontSize' => 12 ] ],
+								],
+							],
+							[
+								'id'       => '2:2',
+								'type'     => 'FRAME',
+								'children' => [
+									[ 'id' => '3:3', 'type' => 'TEXT', 'characters' => '08', 'style' => [ 'fontSize' => 48 ] ],
+									[ 'id' => '3:4', 'type' => 'TEXT', 'characters' => 'Ore', 'style' => [ 'fontSize' => 12 ] ],
+								],
+							],
+							[
+								'id'       => '2:3',
+								'type'     => 'FRAME',
+								'children' => [
+									[ 'id' => '3:5', 'type' => 'TEXT', 'characters' => '30', 'style' => [ 'fontSize' => 48 ] ],
+									[ 'id' => '3:6', 'type' => 'TEXT', 'characters' => 'Minute', 'style' => [ 'fontSize' => 12 ] ],
+								],
+							],
+						],
+					],
+				],
+			]
+		);
+
+		$block = $spec['sections'][0]['blocks'][0];
+		$this->assertSame( 'countdown', $block['type'] );
+		$this->assertSame( 'countdown', $block['intent'] );
+		$this->assertSame( 'due_date', $block['countdown_type'] );
+		$this->assertSame( 'Zile', $block['labels']['days'] );
+		$this->assertSame( 'Ore', $block['labels']['hours'] );
+		$this->assertSame( 'Minute', $block['labels']['minutes'] );
+		$this->assertNotInstanceOf( \WP_Error::class, Validator::validate( $spec ) );
+	}
+
+	public function test_social_signature_becomes_social_icons_block(): void {
+		$spec = FigmaToSpec::to_spec(
+			[
+				'id'       => '0:1',
+				'type'     => 'FRAME',
+				'name'     => 'Page',
+				'children' => [
+					[
+						'id'       => '1:1',
+						'type'     => 'FRAME',
+						'name'     => 'Social links',
+						'children' => [
+							[ 'id' => '2:1', 'type' => 'FRAME', 'name' => 'Facebook', 'children' => [ [ 'id' => '3:1', 'type' => 'VECTOR' ] ] ],
+							[ 'id' => '2:2', 'type' => 'FRAME', 'name' => 'Instagram', 'children' => [ [ 'id' => '3:2', 'type' => 'VECTOR' ] ] ],
+							[ 'id' => '2:3', 'type' => 'FRAME', 'name' => 'LinkedIn', 'children' => [ [ 'id' => '3:3', 'type' => 'VECTOR' ] ] ],
+						],
+					],
+				],
+			]
+		);
+
+		$block = $spec['sections'][0]['blocks'][0];
+		$this->assertSame( 'social-icons', $block['type'] );
+		$this->assertSame( 'social-row', $block['intent'] );
+		$this->assertCount( 3, $block['icons'] );
+		$this->assertSame( 'facebook', $block['icons'][0]['network'] );
+		$this->assertNotInstanceOf( \WP_Error::class, Validator::validate( $spec ) );
+	}
+
+	public function test_wide_figma_frame_defaults_to_full_width_section(): void {
+		$spec = FigmaToSpec::to_spec(
+			[
+				'id'       => '0:1',
+				'type'     => 'FRAME',
+				'name'     => 'Page',
+				'children' => [
+					[
+						'id'                  => '1:1',
+						'type'                => 'FRAME',
+						'name'                => 'Full bleed hero',
+						'absoluteBoundingBox' => [ 'width' => 1440, 'height' => 720 ],
+						'children'            => [
+							[ 'id' => '2:1', 'type' => 'TEXT', 'characters' => 'Hero', 'style' => [ 'fontSize' => 56 ] ],
+						],
+					],
+				],
+			]
+		);
+
+		$this->assertSame( 'full', $spec['sections'][0]['width'] );
+		$this->assertNotInstanceOf( \WP_Error::class, Validator::validate( $spec ) );
+	}
+
 	// ─────────────────────────────────────────────────────────────────────
 	// Ability-level tests
 	// ─────────────────────────────────────────────────────────────────────

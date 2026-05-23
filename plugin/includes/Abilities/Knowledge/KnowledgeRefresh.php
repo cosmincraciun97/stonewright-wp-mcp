@@ -43,7 +43,6 @@ use Stonewright\WpMcp\Security\Permissions;
 final class KnowledgeRefresh extends AbilityKernel {
 
 	private const ABILITY    = 'stonewright/elementor-knowledge-refresh';
-	private const OPTION_AGE = 'stonewright_knowledge_max_age_days';
 
 	public function name(): string {
 		return self::ABILITY;
@@ -61,7 +60,7 @@ final class KnowledgeRefresh extends AbilityKernel {
 	}
 
 	public function category(): string {
-		return 'system';
+		return 'knowledge';
 	}
 
 	public function input_schema(): array {

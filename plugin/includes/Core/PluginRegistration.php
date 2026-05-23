@@ -10,6 +10,9 @@ use Stonewright\WpMcp\Admin\AuditLogPage;
 use Stonewright\WpMcp\Admin\ConfigurationPage;
 use Stonewright\WpMcp\Admin\MemoryInstructionsPage;
 use Stonewright\WpMcp\Admin\SandboxPage;
+use Stonewright\WpMcp\Admin\SkillsPage;
+use Stonewright\WpMcp\Skills\SkillsSeeder;
+use Stonewright\WpMcp\Skills\SkillsTable;
 use Stonewright\WpMcp\Elementor\WidgetBuilder\Loader as WidgetLoader;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\QA\QaArtifactStore;
@@ -88,6 +91,7 @@ final class PluginRegistration {
 		}
 		add_action( 'init', [ Memory::class, 'maybe_install_table' ] );
 		add_action( 'init', [ AuditLog::class, 'maybe_install_table' ] );
+		add_action( 'init', [ SkillsTable::class, 'create_table' ] );
 		add_action( 'init', [ ResourceRegistry::class, 'register' ], 30 );
 		add_action( 'init', [ BlockRegistry::class, 'register' ], 40 );
 		add_action( 'init', [ QaArtifactStore::class, 'schedule_purge' ] );
@@ -99,6 +103,7 @@ final class PluginRegistration {
 		ConfigurationPage::register();
 		AbilitiesPage::register();
 		SandboxPage::register();
+		SkillsPage::register();
 		MemoryInstructionsPage::register();
 		AuditLogPage::register();
 		AdminBarIndicator::register();
@@ -110,6 +115,8 @@ final class PluginRegistration {
 	public function on_activate(): void {
 		Memory::maybe_install_table();
 		AuditLog::maybe_install_table();
+		SkillsTable::force_create_table();
+		SkillsSeeder::seed();
 		update_option( 'stonewright_version', STONEWRIGHT_VERSION );
 		if ( ! get_option( 'stonewright_mode' ) ) {
 			update_option( 'stonewright_mode', 'development' );

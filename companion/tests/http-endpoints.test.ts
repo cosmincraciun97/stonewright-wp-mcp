@@ -235,6 +235,18 @@ describe('POST /screenshot', () => {
     expect(status).toBe(400);
   });
 
+  it('Windows-style artifact_path (backslash) → accepted same as Unix path', async () => {
+    // The companion must accept Windows paths after normalization.
+    // We simulate what PHP sends on Windows: C:\...\stonewright-qa\<uuid>\
+    // Node.js mkdirSync handles forward-slash paths on Windows too, so we
+    // test validation only (not FS creation) by checking the regex utility.
+    const { ARTIFACT_PATH_RE } = await import('../src/http-api.js');
+    const winPath = 'C:\\inetpub\\wordpress\\wp-content\\uploads\\stonewright-qa\\' + UUID + '\\';
+    const normalized = winPath.replace(/\\/g, '/');
+    expect(ARTIFACT_PATH_RE.test(normalized)).toBe(true);
+  });
+
+
   it('valid request → 200 with schema-conformant response', async () => {
     const { status, data } = await postJson('/screenshot', {
       request_id: UUID,

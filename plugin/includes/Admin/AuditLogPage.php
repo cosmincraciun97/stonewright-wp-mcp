@@ -44,6 +44,36 @@ final class AuditLogPage {
 		echo '<h1>' . esc_html__( 'Audit Log', 'stonewright' ) . '</h1>';
 		echo '<p>' . esc_html__( 'Every write ability and REST call records a row here. The log is append-only.', 'stonewright' ) . '</p>';
 
+		self::render_log_table( $rows, $page, $per_page );
+
+		echo '</div>';
+	}
+
+	/**
+	 * Renders the audit log table without the outer wrap/h1.
+	 * Used when embedding inside another page (e.g. SandboxPage Audit tab).
+	 */
+	public static function render_inline(): void {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			return;
+		}
+
+		$page     = isset( $_GET['paged'] ) ? max( 1, (int) $_GET['paged'] ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$per_page = 50;
+		$rows     = AuditLog::recent( $per_page, $page );
+
+		echo '<p>' . esc_html__( 'Every write ability and REST call records a row here. The log is append-only.', 'stonewright' ) . '</p>';
+		self::render_log_table( $rows, $page, $per_page );
+	}
+
+	/**
+	 * Renders the log table and pagination. Used by both render() and render_inline().
+	 *
+	 * @param array<int, array<string, mixed>> $rows
+	 * @param int $page
+	 * @param int $per_page
+	 */
+	private static function render_log_table( array $rows, int $page, int $per_page ): void {
 		echo '<table class="wp-list-table widefat fixed striped">';
 		echo '<thead><tr>';
 		echo '<th>' . esc_html__( 'ID', 'stonewright' ) . '</th>';
@@ -84,7 +114,6 @@ final class AuditLogPage {
 			echo '<a class="button" href="' . esc_url( $next ) . '">' . esc_html__( 'Older', 'stonewright' ) . ' &raquo;</a>';
 		}
 		echo '</p>';
-
-		echo '</div>';
 	}
 }
+

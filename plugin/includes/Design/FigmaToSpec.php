@@ -43,12 +43,6 @@ final class FigmaToSpec {
 	private const CONTAINER_TYPES = [ 'FRAME', 'GROUP', 'SECTION', 'COMPONENT', 'INSTANCE' ];
 
 	/**
-	 * Figma types that should produce an `image` block when a fill of type
-	 * IMAGE is present on the node.
-	 */
-	private const IMAGEABLE_TYPES = [ 'RECTANGLE', 'ELLIPSE', 'POLYGON', 'IMAGE' ];
-
-	/**
 	 * Maximum recursion depth — caps pathological Figma trees so we never
 	 * stack-overflow on an unexpected cycle. Empirically Figma frames rarely
 	 * go beyond 12 levels deep.
@@ -140,12 +134,14 @@ final class FigmaToSpec {
 	 */
 	private static function node_to_section( array $node, int $index ): array {
 		$children = self::children( $node );
-		$blocks   = self::children_to_blocks( $children, 1 );
+		$intent   = WidgetIntentResolver::detect_from_figma_signature( $node );
+		$block    = self::intent_to_block( $intent, $node );
+		$blocks   = null !== $block ? [ $block ] : self::children_to_blocks( $children, 1 );
 
 		$section = [
 			'id'     => self::section_id( $node, $index ),
 			'name'   => self::node_name( $node, 'section_' . $index ),
-			'width'  => 'boxed',
+			'width'  => self::section_width( $node ),
 			'layout' => self::layout_for_node( $node ),
 			'blocks' => $blocks,
 		];
@@ -260,6 +256,14 @@ final class FigmaToSpec {
 			return self::frame_to_button( $node, $mobile_variant );
 		}
 
+		if ( in_array( $type, self::CONTAINER_TYPES, true ) ) {
+			$intent = WidgetIntentResolver::detect_from_figma_signature( $node );
+			$block  = self::intent_to_block( $intent, $node );
+			if ( null !== $block ) {
+				return $block;
+			}
+		}
+
 		switch ( $type ) {
 			case 'TEXT':
 				return self::text_to_block( $node, $mobile_variant );
@@ -296,6 +300,196 @@ final class FigmaToSpec {
 			default:
 				return self::unsupported_block( $node, $mobile_variant );
 		}
+	}
+
+	private static function intent_to_block( ?string $intent, array $node ): ?array {
+		if ( null === $intent ) {
+			return null;
+		}
+
+		$resolved = WidgetIntentResolver::resolve( $intent );
+		if ( [] === $resolved || empty( $resolved['widget'] ) ) {
+			return null;
+		}
+
+		$template       = is_array( $resolved['settings_template'] ?? null ) ? (array) $resolved['settings_template'] : [];
+		$required_steps = is_array( $resolved['required_steps'] ?? null ) ? array_values( (array) $resolved['required_steps'] ) : [];
+
+		switch ( (string) $resolved['widget'] ) {
+			case 'nav-menu':
+				$items = [];
+				foreach ( self::direct_text_children( $node ) as $text ) {
+					$items[] = [ 'text' => $text, 'url' => '#' ];
+				}
+				if ( [] === $items ) {
+					return null;
+				}
+				return [
+					'type'           => 'nav-menu',
+					'intent'         => $intent,
+					'menu'           => $template['menu'] ?? null,
+					'layout'         => (string) ( $template['layout'] ?? 'horizontal' ),
+					'align_items'    => (string) ( $template['align_items'] ?? 'center' ),
+					'pointer'        => (string) ( $template['pointer'] ?? 'underline' ),
+					'items'          => $items,
+					'required_steps' => $required_steps,
+				];
+
+			case 'countdown':
+				$labels = self::countdown_labels_from_node( $node );
+				return [
+					'type'           => 'countdown',
+					'intent'         => $intent,
+					'countdown_type' => (string) ( $template['countdown_type'] ?? 'due_date' ),
+					'due_date'       => (string) ( $template['due_date'] ?? '2026-12-31 09:00' ),
+					'show'           => [
+						'days'    => true,
+						'hours'   => true,
+						'minutes' => true,
+						'seconds' => array_key_exists( 'seconds', $labels ),
+					],
+					'labels'         => $labels,
+				];
+
+			case 'social-icons':
+				return [
+					'type'           => 'social-icons',
+					'intent'         => $intent,
+					'shape'          => (string) ( $template['shape'] ?? 'rounded' ),
+					'icons'          => self::social_icons_from_node( $node ),
+					'required_steps' => $required_steps,
+				];
+
+			case 'icon-list':
+				$items = self::icon_list_items_from_node( $node );
+				if ( [] === $items ) {
+					return null;
+				}
+				return [
+					'type'           => 'icon-list',
+					'intent'         => $intent,
+					'view'           => (string) ( $template['view'] ?? 'traditional' ),
+					'link_click'     => (string) ( $template['link_click'] ?? 'full_width' ),
+					'items'          => $items,
+					'required_steps' => $required_steps,
+				];
+		}
+
+		return null;
+	}
+
+	/**
+	 * @return array<int, string>
+	 */
+	private static function direct_text_children( array $node ): array {
+		$out = [];
+		foreach ( self::children( $node ) as $child ) {
+			if ( 'TEXT' !== ( $child['type'] ?? '' ) ) {
+				continue;
+			}
+			$text = trim( (string) ( $child['characters'] ?? '' ) );
+			if ( '' !== $text ) {
+				$out[] = $text;
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * @return array<int, string>
+	 */
+	private static function text_descendants( array $node ): array {
+		$out = [];
+		foreach ( self::children( $node ) as $child ) {
+			if ( 'TEXT' === ( $child['type'] ?? '' ) ) {
+				$text = trim( (string) ( $child['characters'] ?? '' ) );
+				if ( '' !== $text ) {
+					$out[] = $text;
+				}
+			}
+			foreach ( self::text_descendants( $child ) as $text ) {
+				$out[] = $text;
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * @return array<string, string>
+	 */
+	private static function countdown_labels_from_node( array $node ): array {
+		$keys   = [ 'days', 'hours', 'minutes', 'seconds' ];
+		$labels = [];
+		$index  = 0;
+
+		foreach ( self::children( $node ) as $child ) {
+			if ( $index >= count( $keys ) ) {
+				break;
+			}
+			$texts = self::text_descendants( $child );
+			foreach ( $texts as $text ) {
+				if ( preg_match( '/^\d{1,3}$/', trim( $text ) ) ) {
+					continue;
+				}
+				$labels[ $keys[ $index ] ] = $text;
+				++$index;
+				continue 2;
+			}
+		}
+
+		return array_merge(
+			[
+				'days'    => 'Days',
+				'hours'   => 'Hours',
+				'minutes' => 'Minutes',
+			],
+			$labels
+		);
+	}
+
+	/**
+	 * @return array<int, array<string, string>>
+	 */
+	private static function social_icons_from_node( array $node ): array {
+		$icons = [];
+		foreach ( self::children( $node ) as $child ) {
+			$name    = strtolower( self::node_name( $child, '' ) );
+			$network = match ( true ) {
+				str_contains( $name, 'instagram' ) => 'instagram',
+				str_contains( $name, 'linkedin' ) => 'linkedin',
+				str_contains( $name, 'youtube' ) => 'youtube',
+				str_contains( $name, 'twitter' ), str_contains( $name, 'x-' ), 'x' === $name => 'x-twitter',
+				default => 'facebook',
+			};
+			$icons[] = [
+				'network' => $network,
+				'url'     => '#',
+				'icon'    => 'fab fa-' . $network,
+			];
+		}
+		return $icons;
+	}
+
+	/**
+	 * @return array<int, array<string, mixed>>
+	 */
+	private static function icon_list_items_from_node( array $node ): array {
+		$items = [];
+		foreach ( self::children( $node ) as $row ) {
+			$texts = self::text_descendants( $row );
+			if ( [] === $texts ) {
+				continue;
+			}
+			$items[] = [
+				'text' => $texts[0],
+				'url'  => '#',
+				'icon' => [
+					'value'   => 'fas fa-check',
+					'library' => 'fa-solid',
+				],
+			];
+		}
+		return $items;
 	}
 
 	private static function text_to_block( array $node, ?array $mobile_variant ): array {
@@ -458,11 +652,11 @@ final class FigmaToSpec {
 		foreach ( $children as $child ) {
 			$ctype = (string) ( $child['type'] ?? '' );
 			if ( 'TEXT' === $ctype ) {
-				$text_count++;
+				++$text_count;
 				continue;
 			}
 			if ( in_array( $ctype, self::CONTAINER_TYPES, true ) ) {
-				$container_count++;
+				++$container_count;
 			}
 		}
 
@@ -709,6 +903,14 @@ final class FigmaToSpec {
 			return null;
 		}
 		return self::px( (float) $radius );
+	}
+
+	private static function section_width( array $node ): string {
+		$width = $node['absoluteBoundingBox']['width'] ?? null;
+		if ( is_numeric( $width ) && (float) $width >= 1024 ) {
+			return 'full';
+		}
+		return 'boxed';
 	}
 
 	private static function layout_for_node( array $node ): string {

@@ -19,6 +19,13 @@ declare( strict_types=1 );
 
 defined( 'ABSPATH' ) || exit;
 
+// Ensure mb_* string functions operate in UTF-8.
+// Critical for Windows PowerShell callers: ConvertTo-Json emits \uXXXX escapes
+// which PHP json_decode handles correctly only when internal encoding is UTF-8.
+if ( function_exists( 'mb_internal_encoding' ) ) {
+	mb_internal_encoding( 'UTF-8' );
+}
+
 if ( defined( 'STONEWRIGHT_FILE' ) ) {
 	return;
 }

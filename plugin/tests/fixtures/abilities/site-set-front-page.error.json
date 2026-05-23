@@ -1,0 +1,6 @@
+{
+    "args": {
+        "page_id": 999999
+    },
+    "expect": "wp_error"
+}

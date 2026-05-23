@@ -49,27 +49,21 @@ final class SandboxLibraryPage {
 	// -------------------------------------------------------------------------
 
 	public static function register(): void {
-		add_action( 'admin_menu', [ self::class, 'add_submenu' ] );
+		// Note: submenu is NOT added here — SandboxPage embeds this as a tab.
+		// Only form action handlers are registered.
 		add_action( 'admin_post_stonewright_sandbox_lib_action', [ self::class, 'handle_action' ] );
 		add_action( 'admin_post_stonewright_sandbox_view', [ self::class, 'handle_view' ] );
 		add_action( 'admin_post_stonewright_sandbox_widget_project', [ self::class, 'handle_widget_project' ] );
-	}
-
-	public static function add_submenu(): void {
-		add_submenu_page(
-			'stonewright',
-			__( 'Sandbox Library', 'stonewright' ),
-			__( 'Sandbox Library', 'stonewright' ),
-			self::CAPABILITY,
-			self::SLUG,
-			[ self::class, 'render' ]
-		);
 	}
 
 	// -------------------------------------------------------------------------
 	// Render
 	// -------------------------------------------------------------------------
 
+	/**
+	 * Renders the full Sandbox Library page with outer wrap/h1.
+	 * Also called by SandboxPage when the 'library' tab is selected.
+	 */
 	public static function render(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
 			wp_die(
