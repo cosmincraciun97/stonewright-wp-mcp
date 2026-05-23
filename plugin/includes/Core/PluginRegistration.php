@@ -18,6 +18,7 @@ use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\QA\QaArtifactStore;
 use Stonewright\WpMcp\Sandbox\CrashRecovery;
 use Stonewright\WpMcp\Security\AuditLog;
+use Stonewright\WpMcp\Security\DomainLock;
 use Stonewright\WpMcp\Security\StaticAnalysis;
 use Stonewright\WpMcp\Support\Logger;
 
@@ -54,6 +55,7 @@ final class PluginRegistration {
 		register_deactivation_hook( $this->plugin_file, [ $this, 'on_deactivate' ] );
 
 		add_action( 'plugins_loaded', [ $this, 'load_textdomain' ], 5 );
+		add_action( 'plugins_loaded', [ $this, 'check_domain_lock' ], 10 );
 		// Two flavours of the Abilities API exist in the wild and we must
 		// support both:
 		//
@@ -117,11 +119,40 @@ final class PluginRegistration {
 		AuditLog::maybe_install_table();
 		SkillsTable::force_create_table();
 		SkillsSeeder::seed();
+		// Record domain on first activation so subsequent boots can detect clones.
+		if ( (bool) get_option( 'stonewright_enabled', false ) ) {
+			DomainLock::lock();
+		}
 		update_option( 'stonewright_version', STONEWRIGHT_VERSION );
 		if ( ! get_option( 'stonewright_mode' ) ) {
 			update_option( 'stonewright_mode', 'development' );
 		}
 		Logger::info( 'activate', [ 'version' => STONEWRIGHT_VERSION ] );
+	}
+
+	/**
+	 * On every boot: if abilities are enabled, record the domain (first time)
+	 * and verify it still matches. Auto-disables on mismatch.
+	 */
+	public function check_domain_lock(): void {
+		if ( ! (bool) get_option( 'stonewright_enabled', false ) ) {
+			return;
+		}
+		DomainLock::lock();
+		if ( ! DomainLock::check() ) {
+			update_option( 'stonewright_enabled', false );
+			add_action(
+				'admin_notices',
+				static function (): void {
+					echo '<div class="notice notice-error"><p><strong>Stonewright:</strong> ' .
+						esc_html__(
+							'AI abilities have been automatically disabled because the site domain has changed. This is a security measure to prevent unauthorized access after a site migration or clone. Re-enable from the Configuration page after verifying the new domain.',
+							'stonewright'
+						) .
+						'</p></div>';
+				}
+			);
+		}
 	}
 
 	public function on_deactivate(): void {

@@ -20,6 +20,7 @@
 | Slug | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
 |---|---|---|---|---|---|---|---|---|---|
 | `stonewright/security-issue-confirmation-token` | `Security\IssueConfirmationToken` | Issues a short-lived token required by destructive abilities when stonewright_mode is production-safe. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/ConfirmationTokenTest.php` |
+| `stonewright/security-create-one-time-link` | `Security\CreateOneTimeLink` | Generates a short-lived, single-use admin login URL for browser automation tools. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/ConfirmationTokenTest.php` |
 
 ---
 
@@ -385,7 +386,7 @@
 
 ## Summary
 
-Total abilities registered: **228**
+Total abilities registered: **229**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

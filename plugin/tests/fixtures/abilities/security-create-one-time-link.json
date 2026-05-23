@@ -1,0 +1,6 @@
+{
+    "args": {
+        "ttl_seconds": 300
+    },
+    "expect": "ok"
+}

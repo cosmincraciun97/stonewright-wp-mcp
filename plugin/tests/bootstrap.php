@@ -304,7 +304,8 @@ if ( ! function_exists( 'rest_url' ) ) {
 
 if ( ! function_exists( 'home_url' ) ) {
 	function home_url( string $path = '' ): string {
-		return 'https://example.test/' . ltrim( $path, '/' );
+		$base = $GLOBALS['stonewright_test_home_url'] ?? 'https://example.test/';
+		return rtrim( $base, '/' ) . '/' . ltrim( $path, '/' );
 	}
 }
 
@@ -1450,9 +1451,19 @@ if ( ! function_exists( 'size_format' ) ) {
 if ( ! function_exists( 'add_query_arg' ) ) {
 	function add_query_arg( mixed $key, mixed $value = '', string $url = '' ): string {
 		if ( is_array( $key ) ) {
-			return $url . '?' . http_build_query( $key );
+			// Real WP: add_query_arg( array $args, string $url = '' )
+			// When called as add_query_arg( $arr, $url_string ), $url_string
+			// ends up in $value (2nd param). Detect and handle this.
+			$base = ( '' !== $url ) ? $url : ( is_string( $value ) ? $value : '' );
+			return $base . ( str_contains( $base, '?' ) ? '&' : '?' ) . http_build_query( $key );
 		}
-		return $url . '?' . urlencode( (string) $key ) . '=' . urlencode( (string) $value );
+		return $url . ( str_contains( $url, '?' ) ? '&' : '?' ) . urlencode( (string) $key ) . '=' . urlencode( (string) $value );
+	}
+}
+
+if ( ! function_exists( 'wp_generate_password' ) ) {
+	function wp_generate_password( int $length = 12, bool $special_chars = true, bool $extra_special_chars = false ): string {
+		return bin2hex( random_bytes( (int) ceil( $length / 2 ) ) );
 	}
 }
 

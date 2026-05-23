@@ -128,6 +128,7 @@ use Stonewright\WpMcp\Abilities\QA\ResponsiveCheck;
 use Stonewright\WpMcp\Abilities\QA\ScreenshotPage;
 use Stonewright\WpMcp\Abilities\QA\SuggestFixes;
 use Stonewright\WpMcp\Abilities\QA\VerifyAgainstReference;
+use Stonewright\WpMcp\Abilities\Security\CreateOneTimeLink;
 use Stonewright\WpMcp\Abilities\Security\IssueConfirmationToken;
 use Stonewright\WpMcp\Abilities\Site\BackupPage as SiteBackupPage;
 use Stonewright\WpMcp\Abilities\Site\Capabilities;
@@ -152,6 +153,7 @@ final class AbilityRegistry {
 		$base = [
 			// Security.
 			IssueConfirmationToken::class,
+			CreateOneTimeLink::class,
 
 			// Site.
 			Ping::class,
@@ -435,7 +437,7 @@ final class AbilityRegistry {
 	 * Returns metadata for ALL abilities regardless of enabled/disabled state.
 	 * Used by the admin Abilities page.
 	 *
-	 * @return array<int, array{name: string, label: string, description: string, category: string, enabled: bool}>
+	 * @return array<int, array{name: string, label: string, description: string, category: string, enabled: bool, input_schema: array<string, mixed>}>
 	 */
 	public static function enabled_abilities(): array {
 		$disabled_abilities = (array) get_option( 'stonewright_disabled_abilities', [] );
@@ -450,11 +452,12 @@ final class AbilityRegistry {
 			$ability  = new $class();
 			$name     = $ability->name();
 			$result[] = [
-				'name'        => $name,
-				'label'       => $ability->label(),
-				'description' => $ability->description(),
-				'category'    => $ability->category(),
-				'enabled'     => ! in_array( $name, $disabled_abilities, true ),
+				'name'         => $name,
+				'label'        => $ability->label(),
+				'description'  => $ability->description(),
+				'category'     => $ability->category(),
+				'enabled'      => ! in_array( $name, $disabled_abilities, true ),
+				'input_schema' => $ability->input_schema(),
 			];
 		}
 
