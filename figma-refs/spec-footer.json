@@ -1,0 +1,93 @@
+{
+  "version": "1.0.0",
+  "source": { "type": "figma", "node_id": "97:3646" },
+  "page": { "title": "Site Footer" },
+  "sections": [
+    {
+      "id": "footer-cols",
+      "width": "full",
+      "layout": "row",
+      "gap": "64px",
+      "background": { "color": "#0F1A2E" },
+      "padding": { "top": 64, "right": 80, "bottom": 32, "left": 80 },
+      "blocks": [
+        {
+          "type": "column",
+          "style": { "gap": "12px", "width": "33%" },
+          "blocks": [
+            { "type": "heading", "text": "nZEB Expo", "level": 3, "style": { "color": "#FFFFFF", "font_size": "20px", "margin_bottom": "16px" } },
+            { "type": "paragraph", "text": "Despre nZEB Expo", "style": { "color": "#9CA3B7" } },
+            { "type": "paragraph", "text": "Misiune", "style": { "color": "#9CA3B7" } },
+            { "type": "paragraph", "text": "Pentru cine este", "style": { "color": "#9CA3B7" } },
+            { "type": "paragraph", "text": "nZEB Expo în cifre", "style": { "color": "#9CA3B7" } },
+            { "type": "paragraph", "text": "Media Kit & Presă", "style": { "color": "#9CA3B7" } },
+            { "type": "paragraph", "text": "Ediții", "style": { "color": "#9CA3B7" } }
+          ]
+        },
+        {
+          "type": "column",
+          "style": { "gap": "12px", "width": "33%" },
+          "blocks": [
+            { "type": "heading", "text": "București 2026", "level": 3, "style": { "color": "#FFFFFF", "font_size": "20px", "margin_bottom": "16px" } },
+            { "type": "paragraph", "text": "Program", "style": { "color": "#9CA3B7" } },
+            { "type": "paragraph", "text": "Speakeri", "style": { "color": "#9CA3B7" } },
+            { "type": "paragraph", "text": "Parteneri", "style": { "color": "#9CA3B7" } },
+            { "type": "paragraph", "text": "Informații rapide", "style": { "color": "#9CA3B7" } },
+            { "type": "paragraph", "text": "Hartă eveniment", "style": { "color": "#9CA3B7" } },
+            { "type": "paragraph", "text": "Bilet gratuit", "style": { "color": "#9CA3B7" } },
+            { "type": "paragraph", "text": "Devino expozant", "style": { "color": "#9CA3B7" } }
+          ]
+        },
+        {
+          "type": "column",
+          "style": { "gap": "12px", "width": "33%" },
+          "blocks": [
+            { "type": "heading", "text": "Contact", "level": 3, "style": { "color": "#FFFFFF", "font_size": "20px", "margin_bottom": "16px" } },
+            { "type": "paragraph", "text": "✉  contact@nzebexpo.ro", "style": { "color": "#FFFFFF" } },
+            { "type": "paragraph", "text": "✆  +40 XXX XXX XXX", "style": { "color": "#FFFFFF", "margin_bottom": "24px" } },
+            {
+              "type": "row",
+              "style": { "gap": "12px" },
+              "blocks": [
+                { "type": "button", "text": "f", "url": "#facebook", "style": { "background": "#1A2942", "color": "#FFFFFF", "border_radius": "50%", "width": "40px", "height": "40px", "padding": "0" } },
+                { "type": "button", "text": "ig", "url": "#instagram", "style": { "background": "#1A2942", "color": "#FFFFFF", "border_radius": "50%", "width": "40px", "height": "40px", "padding": "0" } },
+                { "type": "button", "text": "yt", "url": "#youtube", "style": { "background": "#1A2942", "color": "#FFFFFF", "border_radius": "50%", "width": "40px", "height": "40px", "padding": "0" } },
+                { "type": "button", "text": "in", "url": "#linkedin", "style": { "background": "#1A2942", "color": "#FFFFFF", "border_radius": "50%", "width": "40px", "height": "40px", "padding": "0" } },
+                { "type": "button", "text": "tt", "url": "#tiktok", "style": { "background": "#1A2942", "color": "#FFFFFF", "border_radius": "50%", "width": "40px", "height": "40px", "padding": "0" } }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "footer-divider",
+      "width": "full",
+      "background": { "color": "#0F1A2E" },
+      "padding": { "top": 0, "right": 80, "bottom": 0, "left": 80 },
+      "blocks": [
+        { "type": "separator", "style": { "color": "#1F2A44" } }
+      ]
+    },
+    {
+      "id": "footer-legal",
+      "width": "full",
+      "layout": "row",
+      "gap": "32px",
+      "background": { "color": "#0F1A2E" },
+      "padding": { "top": 20, "right": 80, "bottom": 24, "left": 80 },
+      "blocks": [
+        { "type": "paragraph", "text": "© 2026 nZEB Expo. Toate drepturile rezervate.", "style": { "color": "#9CA3B7", "font_size": "14px" } },
+        {
+          "type": "row",
+          "style": { "gap": "24px" },
+          "blocks": [
+            { "type": "paragraph", "text": "Politică de confidențialitate", "style": { "color": "#9CA3B7", "font_size": "14px" } },
+            { "type": "paragraph", "text": "Termeni și condiții", "style": { "color": "#9CA3B7", "font_size": "14px" } },
+            { "type": "paragraph", "text": "Politică cookies", "style": { "color": "#9CA3B7", "font_size": "14px" } }
+          ]
+        }
+      ]
+    }
+  ]
+}
