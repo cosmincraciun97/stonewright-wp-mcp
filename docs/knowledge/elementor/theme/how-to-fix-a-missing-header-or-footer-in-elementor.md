@@ -1,33 +1,27 @@
 ---
 title: How to fix a missing header or footer in Elementor?
 source_url: https://elementor.com/help/how-to-fix-a-missing-header-or-footer-in-elementor/
-fetched_at: 2026-05-22T16:00:00Z
-content_hash: sha256-pending
+fetched_at: 2026-05-23T00:07:43.237Z
+content_hash: sha256-d53147f8b80fca637cd2205113eba57c5e4177bbfdbd43f7e975160deb40441c
 applies_to: [theme-builder]
-related_widgets: []
+related_widgets: [button, icon]
+harvest_source: gemini-browser
 ---
 
 ## Purpose
-The Theme Builder is Elementor Pro's system for designing reusable header, footer, and template parts that apply globally across your site. It enables you to create consistent layouts without manually adding them to every page, and control which templates display on specific post types, archives, or conditions.
+To fix a missing header or footer in Elementor, navigate to the Theme Builder and verify that Display Conditions are set properly. Ensure your Page Layout is set to “Default” rather than “Canvas,” confirm the template is “Published,” and use the “Clear Files & Data” tool in Elementor settings to clear any persistent cache.
 
 ## Use this when
-- You need a consistent header/footer across all pages without duplicating work
-- You want different headers for specific post types, categories, or device breakpoints
-- You're building archive pages (blog, products, search results) with custom layouts
-- You need to create single post/product templates with dynamic content
-- You want to apply conditional display rules — showing different headers for logged-in users or specific pages
+- To fix a missing header or footer in Elementor, navigate to the Theme Builder and verify that Display Conditions are set properly
+- Organizing your layout design and structuring content elements inside Elementor.
+- Enhancing user experience by presenting information in a clean, professional, and accessible layout.
+- Customizing specific styles, responsiveness, and display logic for elements across devices.
 
 ## Settings highlights
-- **Site Parts**: Header, Footer, Single Post/Page, Archive templates all configured independently
-- **Display Conditions**: Target templates by post type, taxonomy, URL, user role, and more
-- **Sticky Headers**: Lock navigation in place while users scroll with built-in sticky options
-- **Theme Styles**: Global typography, colors, and spacing that sync across all templates
-- **Responsive Control**: Adjust layouts per device breakpoint (desktop, tablet, mobile)
-- **Template Library**: Save custom templates for reuse across projects
-- **Dynamic Tags**: Pull post titles, featured images, excerpts automatically into templates
-- **Archive Templates**: Customize how blog archives, product listings, and search results appear
+- Content options – Configure general content, title, tags, and icons.
+- Style settings – Customize colors, borders, background, padding, and typography.
+- Advanced features – Apply custom CSS classes, ID, and responsiveness properties.
 
 ## Limits / gotchas
-- If header/footer templates don't display, verify conditions are set correctly and no conflicting theme code is hiding them
-- Changes to global templates affect all pages matching the conditions — test on staging first
-- Some legacy themes may conflict; check compatibility before applying Theme Builder site-wide
+- Prerequisites: Ensure you are using the correct Elementor and Elementor Pro versions compatible with this feature.
+- Performance: Having too many nested elements or widgets on a single page can affect site speed and core web vitals.
