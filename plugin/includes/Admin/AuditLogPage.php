@@ -116,4 +116,3 @@ final class AuditLogPage {
 		echo '</p>';
 	}
 }
-

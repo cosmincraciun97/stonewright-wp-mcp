@@ -73,7 +73,7 @@ final class SkillsTable {
 	 */
 	public static function drop_table(): void {
 		global $wpdb;
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared -- table names cannot be placeholders in prepare(); value is derived from $wpdb->prefix + a hard-coded constant.
 		$wpdb->query( 'DROP TABLE IF EXISTS ' . self::table_name() );
 		delete_option( self::VERSION_OPTION );
 	}

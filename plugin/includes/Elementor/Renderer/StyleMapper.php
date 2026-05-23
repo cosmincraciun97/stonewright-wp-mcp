@@ -181,32 +181,41 @@ final class StyleMapper {
 	 */
 	private static function group_rules(): array {
 		return [
-			'typography' => [ 'custom', [
-				'font_family',
-				'font_size',
-				'font_weight',
-				'font_style',
-				'text_transform',
-				'text_decoration',
-				'line_height',
-				'letter_spacing',
-				'word_spacing',
-			] ],
-			'border' => [ 'solid', [
-				'width',
-				'color',
-			] ],
-			'background' => [ 'classic', [
-				'color',
-				'image',
-				'position',
-				'size',
-				'repeat',
-				'attachment',
-				'xpos',
-				'ypos',
-				'bg_width',
-			] ],
+			'typography' => [
+				'custom',
+				[
+					'font_family',
+					'font_size',
+					'font_weight',
+					'font_style',
+					'text_transform',
+					'text_decoration',
+					'line_height',
+					'letter_spacing',
+					'word_spacing',
+				],
+			],
+			'border' => [
+				'solid',
+				[
+					'width',
+					'color',
+				],
+			],
+			'background' => [
+				'classic',
+				[
+					'color',
+					'image',
+					'position',
+					'size',
+					'repeat',
+					'attachment',
+					'xpos',
+					'ypos',
+					'bg_width',
+				],
+			],
 		];
 	}
 

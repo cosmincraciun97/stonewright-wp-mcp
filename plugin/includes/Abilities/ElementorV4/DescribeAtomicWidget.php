@@ -38,8 +38,8 @@ final class DescribeAtomicWidget extends AbilityKernel {
 	 */
 	private const PROP_CATALOG = [
 		'Heading'    => [
-			[ 'name' => 'text',  'type' => 'string',  'default' => '' ],
-			[ 'name' => 'level', 'type' => 'number',  'default' => 2 ],
+			[ 'name' => 'text', 'type' => 'string', 'default' => '' ],
+			[ 'name' => 'level', 'type' => 'number', 'default' => 2 ],
 		],
 		'TextEditor' => [
 			[ 'name' => 'text', 'type' => 'string', 'default' => '' ],
@@ -58,15 +58,15 @@ final class DescribeAtomicWidget extends AbilityKernel {
 		],
 		'Section'    => [
 			[ 'name' => 'direction', 'type' => 'string', 'default' => 'column' ],
-			[ 'name' => 'gap',       'type' => 'size',   'default' => '0px' ],
+			[ 'name' => 'gap', 'type' => 'size', 'default' => '0px' ],
 		],
 		'Column'     => [
 			[ 'name' => 'direction', 'type' => 'string', 'default' => 'column' ],
-			[ 'name' => 'gap',       'type' => 'size',   'default' => '0px' ],
+			[ 'name' => 'gap', 'type' => 'size', 'default' => '0px' ],
 		],
 		'Container'  => [
 			[ 'name' => 'direction', 'type' => 'string', 'default' => 'column' ],
-			[ 'name' => 'gap',       'type' => 'size',   'default' => '0px' ],
+			[ 'name' => 'gap', 'type' => 'size', 'default' => '0px' ],
 		],
 	];
 

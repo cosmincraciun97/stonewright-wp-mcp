@@ -71,7 +71,7 @@ final class AtomicCompiler {
 		$slug     = (string) ( $spec['slug'] ?? '' );
 		$title    = (string) ( $spec['title'] ?? $slug );
 		$template = (string) ( $spec['template'] ?? '' );
-		$props    = (array)  ( $spec['props'] ?? [] );
+		$props    = (array) ( $spec['props'] ?? [] );
 
 		$class_name      = self::slug_to_class( $slug );
 		$controls_source = self::build_controls_block( $props );

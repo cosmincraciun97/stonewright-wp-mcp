@@ -88,9 +88,9 @@ final class WidgetIntentResolver {
 				'widget'            => 'social-icons',
 				'settings_template' => [
 					'social_icon_list' => [
-						[ 'social_icon' => [ 'value' => 'fab fa-facebook',  'library' => 'fa-brands' ] ],
+						[ 'social_icon' => [ 'value' => 'fab fa-facebook', 'library' => 'fa-brands' ] ],
 						[ 'social_icon' => [ 'value' => 'fab fa-instagram', 'library' => 'fa-brands' ] ],
-						[ 'social_icon' => [ 'value' => 'fab fa-linkedin',  'library' => 'fa-brands' ] ],
+						[ 'social_icon' => [ 'value' => 'fab fa-linkedin', 'library' => 'fa-brands' ] ],
 					],
 					'shape'              => 'rounded',
 					'icon_size'          => [ 'unit' => 'px', 'size' => 24 ],
@@ -294,7 +294,7 @@ final class WidgetIntentResolver {
 					if ( ( $g['type'] ?? '' ) === 'TEXT' ) {
 						$chars = (string) ( $g['characters'] ?? '' );
 						if ( preg_match( '/^\s*\d{1,3}\s*$/', $chars ) ) {
-							$digit_groups++;
+							++$digit_groups;
 							break; // one match per group is enough
 						}
 					}
@@ -322,7 +322,7 @@ final class WidgetIntentResolver {
 					}
 				}
 				if ( $vector_only ) {
-					$social_glyphs++;
+					++$social_glyphs;
 				}
 			}
 		}
@@ -364,7 +364,7 @@ final class WidgetIntentResolver {
 				}
 			}
 			if ( $has_vector && $has_text ) {
-				$bullet_rows++;
+				++$bullet_rows;
 			}
 		}
 		if ( $bullet_rows >= 3 ) {

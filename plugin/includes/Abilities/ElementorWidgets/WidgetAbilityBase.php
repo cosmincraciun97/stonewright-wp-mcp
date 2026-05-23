@@ -424,5 +424,4 @@ abstract class WidgetAbilityBase extends AbilityKernel {
 		}
 		return implode( ' AND ', $parts );
 	}
-
 }
