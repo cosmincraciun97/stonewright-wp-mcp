@@ -20,11 +20,11 @@ final class AddWidget extends AbilityKernel {
 	}
 
 	public function label(): string {
-		return __( 'Add Elementor widget', 'stonewright' );
+		return __( 'Add raw Elementor widget', 'stonewright' );
 	}
 
 	public function description(): string {
-		return __( 'Adds a widget inside a container/column. Snapshots before write.', 'stonewright' );
+		return __( 'Adds a raw Elementor widget by writing the literal Elementor settings JSON for any widget_type. USE THIS WHEN the dedicated per-widget renderer doesn\'t cover a widget or a setting structure that DesignSpec can\'t express (custom widgets, third-party Pro widgets, experimental Elementor V3 controls). Bypasses DesignSpec validation entirely — caller is responsible for emitting a valid Elementor settings dict. Snapshots before write.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -41,6 +41,11 @@ final class AddWidget extends AbilityKernel {
 				'widget_type' => [ 'type' => 'string' ],
 				'settings'    => [ 'type' => 'object' ],
 				'position'    => [ 'type' => 'integer' ],
+				'allow_html_widget' => [
+					'type'        => 'boolean',
+					'description' => 'Must be true only when the user explicitly asked for widget_type=html. Native Elementor widgets must be used first.',
+					'default'     => false,
+				],
 			],
 			'required'             => [ 'post_id', 'parent_id', 'widget_type' ],
 		];
@@ -66,6 +71,15 @@ final class AddWidget extends AbilityKernel {
 		return $this->audit(
 			$args,
 			function ( array $args ) {
+				$widget_type = isset( $args['widget_type'] ) ? (string) $args['widget_type'] : '';
+				if ( 'html' === $widget_type && empty( $args['allow_html_widget'] ) ) {
+					return new \WP_Error(
+						'html_widget_requires_explicit_approval',
+						__( 'Elementor HTML widgets are disabled by default. Use native Elementor widgets first, or pass allow_html_widget=true only when the user explicitly requested HTML.', 'stonewright' ),
+						[ 'status' => 400 ]
+					);
+				}
+
 				$post_id = (int) $args['post_id'];
 				if ( ! get_post( $post_id ) ) {
 					return $this->error( 'not_found', __( 'Post not found.', 'stonewright' ) );
@@ -81,7 +95,7 @@ final class AddWidget extends AbilityKernel {
 				$widget = [
 					'id'         => ElementorData::generate_id(),
 					'elType'     => 'widget',
-					'widgetType' => (string) $args['widget_type'],
+					'widgetType' => $widget_type,
 					'settings'   => isset( $args['settings'] ) && is_array( $args['settings'] ) ? $args['settings'] : new \stdClass(),
 					'elements'   => [],
 				];

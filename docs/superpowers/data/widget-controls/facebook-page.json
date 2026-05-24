@@ -1,0 +1,122 @@
+{
+    "slug": "facebook-page",
+    "source": "pro",
+    "title": "Facebook Page",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/social/widgets/facebook-page.php",
+    "sections": [
+        {
+            "id": "section_content",
+            "label": "Page",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "widget_exclusively_web",
+                    "type": "alert",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "url",
+                    "type": null,
+                    "label": "Link",
+                    "default": "https://www.facebook.com/elemntor/",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": "Paste the URL of the Facebook page."
+                },
+                {
+                    "key": "tabs",
+                    "type": "select2",
+                    "label": "Layout",
+                    "default": [
+                        "timeline"
+                    ],
+                    "options": {
+                        "timeline": "Timeline",
+                        "events": "Events",
+                        "messages": "Messages"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "small_header",
+                    "type": "switcher",
+                    "label": "Small Header",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_cover",
+                    "type": "switcher",
+                    "label": "Cover Photo",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_facepile",
+                    "type": "switcher",
+                    "label": "Profile Photos",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_cta",
+                    "type": "switcher",
+                    "label": "Custom CTA Button",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "height",
+                    "type": "slider",
+                    "label": "Height",
+                    "default": {
+                        "size": 500
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:50+00:00"
+}

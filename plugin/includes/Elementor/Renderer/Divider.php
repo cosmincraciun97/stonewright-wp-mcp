@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Elementor\Renderer;
 
 use Stonewright\WpMcp\DesignTokens\Resolver;
+use Stonewright\WpMcp\Elementor\Renderer\Responsive;
 
 /**
  * Renders a DesignSpec `divider` node as an Elementor divider widget.
@@ -23,11 +24,27 @@ final class Divider {
 			$settings['style'] = (string) $node['style'];
 		}
 
+		if ( isset( $node['gap'] ) ) {
+			$settings = Responsive::apply( $settings, 'gap', $node['gap'] );
+		}
+
 		if ( isset( $node['weight'] ) ) {
-			$settings['weight'] = [
-				'unit' => 'px',
-				'size' => (int) $node['weight'],
-			];
+			// Scalar int: normalise into an Elementor size object (existing behaviour).
+			// Array with breakpoint keys (desktop/tablet/mobile): pass through
+			// Responsive::apply so each per-breakpoint value is written to the
+			// correct Elementor key.
+			if ( ! is_array( $node['weight'] ) ) {
+				$settings['weight'] = [
+					'unit' => 'px',
+					'size' => (int) $node['weight'],
+				];
+			} else {
+				$settings = Responsive::apply( $settings, 'weight', $node['weight'] );
+			}
+		}
+
+		if ( isset( $node['align'] ) ) {
+			$settings = Responsive::apply( $settings, 'align', $node['align'] );
 		}
 
 		if ( isset( $node['color'] ) ) {

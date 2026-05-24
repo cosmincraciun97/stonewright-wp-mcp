@@ -199,6 +199,56 @@ final class DesignApplyTest extends TestCase {
 
 	// ── Confirmation token enforcement ────────────────────────────────────────
 
+	public function test_background_image_ref_is_sideloaded_and_written_as_elementor_background(): void {
+		$source_url = 'https://cdn.figma.com/img/hero-glow.png';
+
+		$GLOBALS['stonewright_test_asset_responses'][ $source_url ] = [
+			'response' => [ 'code' => 200 ],
+			'headers'  => [ 'content-type' => 'image/png' ],
+			'body'     => str_repeat( 'G', 200 ),
+		];
+
+		$result = self::$ability->execute( [
+			'spec'    => [
+				'version'  => '1.0.0',
+				'page'     => [ 'title' => 'Background Asset Page' ],
+				'assets'   => [
+					[ 'id' => 'asset_glow_bg', 'url' => $source_url ],
+				],
+				'sections' => [
+					[
+						'id'         => 'hero',
+						'background' => [
+							'color'    => '#030712',
+							'imageRef' => 'asset_glow_bg',
+							'position' => 'center center',
+							'size'     => 'cover',
+						],
+						'blocks'     => [
+							[ 'type' => 'heading', 'text' => 'Hero', 'level' => 1 ],
+						],
+					],
+				],
+			],
+			'post_id' => self::POST_ID,
+		] );
+
+		$this->assertIsArray( $result );
+		$this->assertCount( 1, $result['sideloaded_assets'] );
+
+		$elementor_data_call = $this->elementor_data_call();
+		$tree                = json_decode( stripslashes( (string) $elementor_data_call['value'] ), true );
+
+		$this->assertIsArray( $tree );
+		$this->assertSame( 'classic', $tree[0]['settings']['background_background'] );
+		$attachment_id = (int) $result['sideloaded_assets'][0];
+		$this->assertSame( 'https://example.test/wp-content/uploads/attachment-' . $attachment_id . '.txt', $tree[0]['settings']['background_image']['url'] );
+		$this->assertSame( $attachment_id, $tree[0]['settings']['background_image']['id'] );
+		$this->assertSame( 'center center', $tree[0]['settings']['background_position'] );
+		$this->assertSame( 'cover', $tree[0]['settings']['background_size'] );
+		$this->assertStringNotContainsString( $source_url, (string) $elementor_data_call['value'] );
+	}
+
 	public function test_token_for_one_spec_rejected_with_different_spec(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
 
@@ -359,5 +409,18 @@ final class DesignApplyTest extends TestCase {
 			'post_name'    => 'apply-test-' . $id,
 			'meta'         => [],
 		];
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private function elementor_data_call(): array {
+		foreach ( $GLOBALS['stonewright_test_post_meta_calls'] as $call ) {
+			if ( '_elementor_data' === $call['meta_key'] ) {
+				return $call;
+			}
+		}
+
+		$this->fail( '_elementor_data meta call not found' );
 	}
 }

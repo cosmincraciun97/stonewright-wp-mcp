@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\Design;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\DesignSpec\AssetReferences;
 use Stonewright\WpMcp\DesignSpec\Validator;
 use Stonewright\WpMcp\Elementor\Renderer;
 use Stonewright\WpMcp\Security\Backup;
@@ -59,6 +60,7 @@ final class SpecToElementorV3 extends AbilityKernel {
 				'tree'        => [ 'type' => 'array' ],
 				'count'       => [ 'type' => 'integer' ],
 				'diagnostics' => [ 'type' => 'array' ],
+				'sideloaded_assets' => [ 'type' => 'array' ],
 			],
 		];
 	}
@@ -79,16 +81,19 @@ final class SpecToElementorV3 extends AbilityKernel {
 					return $normalized;
 				}
 
-				$diagnostics = [];
-				$tree        = Renderer::render( $normalized, $diagnostics );
-
 				if ( empty( $args['post_id'] ) || ! empty( $args['dry_run'] ) ) {
+					$resolved    = AssetReferences::resolve( $normalized, false );
+					$normalized  = $resolved['spec'];
+					$diagnostics = [];
+					$tree        = Renderer::render( $normalized, $diagnostics );
+
 					return [
-						'post_id'     => isset( $args['post_id'] ) ? (int) $args['post_id'] : 0,
-						'snapshot_id' => '',
-						'tree'        => $tree,
-						'count'       => count( ElementorData::flatten( $tree ) ),
-						'diagnostics' => $diagnostics,
+						'post_id'           => isset( $args['post_id'] ) ? (int) $args['post_id'] : 0,
+						'snapshot_id'       => '',
+						'tree'              => $tree,
+						'count'             => count( ElementorData::flatten( $tree ) ),
+						'diagnostics'       => $diagnostics,
+						'sideloaded_assets' => [],
 					];
 				}
 
@@ -109,6 +114,16 @@ final class SpecToElementorV3 extends AbilityKernel {
 						return $token_error;
 					}
 				}
+				$resolved          = AssetReferences::resolve( $normalized, true );
+				$normalized        = $resolved['spec'];
+				$sideloaded_assets = $resolved['sideloaded_assets'];
+				$validated         = Validator::validate( $normalized );
+				if ( is_wp_error( $validated ) ) {
+					return $validated;
+				}
+				$diagnostics = [];
+				$tree        = Renderer::render( $validated, $diagnostics );
+
 				$snapshot_id = Backup::snapshot_post( $post_id );
 				$existing    = ElementorData::read( $post_id );
 				$next_tree   = $replace ? $tree : array_merge( $existing, $tree );
@@ -116,15 +131,33 @@ final class SpecToElementorV3 extends AbilityKernel {
 				if ( ! ElementorData::write( $post_id, $next_tree ) ) {
 					return $this->error( 'write_failed', __( 'Could not save Elementor data.', 'stonewright' ) );
 				}
+				$this->apply_page_shell_settings( $post_id );
 
 				return [
-					'post_id'     => $post_id,
-					'snapshot_id' => $snapshot_id,
-					'tree'        => $next_tree,
-					'count'       => count( ElementorData::flatten( $next_tree ) ),
-					'diagnostics' => $diagnostics,
+					'post_id'           => $post_id,
+					'snapshot_id'       => $snapshot_id,
+					'tree'              => $next_tree,
+					'count'             => count( ElementorData::flatten( $next_tree ) ),
+					'diagnostics'       => $diagnostics,
+					'sideloaded_assets' => $sideloaded_assets,
 				];
 			}
 		);
+	}
+
+	private function apply_page_shell_settings( int $post_id ): void {
+		$post = get_post( $post_id );
+		if ( ! $post || 'page' !== $post->post_type ) {
+			return;
+		}
+
+		$page_settings = get_post_meta( $post_id, '_elementor_page_settings', true );
+		if ( ! is_array( $page_settings ) ) {
+			$page_settings = [];
+		}
+		$page_settings['hide_title'] = 'yes';
+
+		update_post_meta( $post_id, '_elementor_page_settings', $page_settings );
+		update_post_meta( $post_id, '_wp_page_template', 'elementor_header_footer' );
 	}
 }

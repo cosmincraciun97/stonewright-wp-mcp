@@ -38,12 +38,39 @@ final class ContractTest extends TestCase {
 			'stonewright_elementor_v4_atomic' => true,
 			'stonewright_memory_enabled'      => true,
 			'elementor_active_kit'            => 4,
+			'stonewright_reference_artifacts' => [
+				'contract-baseline' => [
+					'artifact_id' => '/tmp/wp-content/uploads/stonewright-qa/contract/baseline.png',
+					'path'        => '/tmp/wp-content/uploads/stonewright-qa/contract/baseline.png',
+					'registered'  => 1716336000,
+				],
+			],
 		];
 		$GLOBALS['stonewright_test_transients']      = [];
 		$GLOBALS['stonewright_test_wpdb_inserts']    = [];
 		$GLOBALS['stonewright_test_next_post_id']    = 1001;
 		$GLOBALS['stonewright_test_posts']           = $this->posts();
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
+		$GLOBALS['stonewright_test_companion_responses'] = [];
+		// Seed nav-menu state so menu-* contract fixtures have a real menu to
+		// reference (id=5001) and a real registered location to assign to.
+		// The menu-create fixture builds its own menu under a different name,
+		// so this baseline does not collide with it.
+		$GLOBALS['stonewright_test_nav_menus']             = [
+			5001 => (object) [
+				'term_id' => 5001,
+				'name'    => 'Contract Menu',
+				'slug'    => 'contract-menu',
+				'items'   => [],
+			],
+		];
+		$GLOBALS['stonewright_test_theme_mods']            = [];
+		$GLOBALS['stonewright_test_registered_nav_menus']  = [
+			'primary' => 'Primary Menu',
+			'footer'  => 'Footer Menu',
+		];
+		$GLOBALS['stonewright_test_next_nav_menu_id']      = 6001;
+		$GLOBALS['stonewright_test_next_nav_menu_item_id'] = 6101;
 		$this->prepare_sandbox_files();
 	}
 
@@ -291,6 +318,18 @@ final class ContractTest extends TestCase {
 						],
 					],
 				],
+			],
+		// A published page used by site-set-front-page contract fixture.
+			5 => (object) [
+				'ID'           => 5,
+				'post_type'    => 'page',
+				'post_status'  => 'publish',
+				'post_title'   => 'Contract Front Page',
+				'post_content' => '',
+				'post_excerpt' => '',
+				'post_parent'  => 0,
+				'post_name'    => 'contract-front-page',
+				'meta'         => [],
 			],
 		];
 	}

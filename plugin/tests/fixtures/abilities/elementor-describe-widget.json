@@ -1,0 +1,6 @@
+{
+    "args": {
+        "widget": "countdown"
+    },
+    "expect": "ok"
+}

@@ -1,0 +1,168 @@
+{
+    "slug": "facebook-button",
+    "source": "pro",
+    "title": "Facebook Button",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/social/widgets/facebook-button.php",
+    "sections": [
+        {
+            "id": "section_content",
+            "label": "Button",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "type",
+                    "type": "select",
+                    "label": "Type",
+                    "default": "like",
+                    "options": {
+                        "like": "Like",
+                        "recommend": "Recommend"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "layout",
+                    "type": "select",
+                    "label": "Layout",
+                    "default": "standard",
+                    "options": {
+                        "standard": "Standard",
+                        "button": "Button",
+                        "button_count": "Button Count",
+                        "box_count": "Box Count"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "size",
+                    "type": "select",
+                    "label": "Size",
+                    "default": "small",
+                    "options": {
+                        "small": "Small",
+                        "large": "Large"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "color_scheme",
+                    "type": "select",
+                    "label": "Color Scheme",
+                    "default": "light",
+                    "options": {
+                        "light": "Light",
+                        "dark": "Dark"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_share",
+                    "type": "switcher",
+                    "label": "Share Button",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "type!": "follow"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_faces",
+                    "type": "switcher",
+                    "label": "Faces",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "url_type",
+                    "type": "select",
+                    "label": "Target URL",
+                    "default": {
+                        "__unresolved__": "Module::URL_TYPE_CURRENT_PAGE"
+                    },
+                    "options": [
+                        "Current Page",
+                        "Custom"
+                    ],
+                    "condition": {
+                        "type": [
+                            "like",
+                            "recommend"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "url_format",
+                    "type": "select",
+                    "label": "URL Format",
+                    "default": {
+                        "__unresolved__": "Module::URL_FORMAT_PLAIN"
+                    },
+                    "options": [
+                        "Plain Permalink",
+                        "Pretty Permalink"
+                    ],
+                    "condition": {
+                        "url_type": {
+                            "__unresolved__": "Module::URL_TYPE_CURRENT_PAGE"
+                        }
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "url",
+                    "type": null,
+                    "label": "Link",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "type": [
+                            "like",
+                            "recommend"
+                        ],
+                        "url_type": {
+                            "__unresolved__": "Module::URL_TYPE_CUSTOM"
+                        }
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:50+00:00"
+}

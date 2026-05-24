@@ -1,0 +1,320 @@
+{
+    "slug": "image-gallery",
+    "source": "free",
+    "title": "Basic Gallery",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/image-gallery.php",
+    "sections": [
+        {
+            "id": "section_gallery",
+            "label": "Basic Gallery",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "wp_gallery",
+                    "type": "gallery",
+                    "label": "Add Images",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "gallery_columns",
+                    "type": "select",
+                    "label": "Columns",
+                    "default": 4,
+                    "options": {
+                        "__unresolved__": "$gallery_columns"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "gallery_display_caption",
+                    "type": "select",
+                    "label": "Caption",
+                    "default": "",
+                    "options": {
+                        "none": "None",
+                        "": "Attachment Caption"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "gallery_link",
+                    "type": "select",
+                    "label": "Link",
+                    "default": "file",
+                    "options": {
+                        "file": "Media File",
+                        "attachment": "Attachment Page",
+                        "none": "None"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "open_lightbox",
+                    "type": "select",
+                    "label": "Lightbox",
+                    "default": "default",
+                    "options": {
+                        "default": "Default",
+                        "yes": "Yes",
+                        "no": "No"
+                    },
+                    "condition": {
+                        "gallery_link": "file"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": {
+                        "__unresolved__": "sprintf()"
+                    }
+                },
+                {
+                    "key": "gallery_rand",
+                    "type": "select",
+                    "label": "Order By",
+                    "default": "",
+                    "options": {
+                        "": "Default",
+                        "rand": "Random"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "image-size",
+                    "name": "thumbnail",
+                    "label": null,
+                    "selector": null,
+                    "condition": null,
+                    "exclude": [
+                        "custom"
+                    ],
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_gallery_images",
+            "label": "Images",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "image_spacing",
+                    "type": "select",
+                    "label": "Gap",
+                    "default": "",
+                    "options": {
+                        "": "Default",
+                        "custom": "Custom"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "image_spacing_custom",
+                    "type": "slider",
+                    "label": "Custom Gap",
+                    "default": {
+                        "size": 15
+                    },
+                    "options": null,
+                    "condition": {
+                        "image_spacing": "custom"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "image_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "border",
+                    "name": "image_border",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .gallery-item img",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_caption",
+            "label": "Caption",
+            "tab": "style",
+            "condition": {
+                "gallery_display_caption": ""
+            },
+            "controls": [
+                {
+                    "key": "align",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": "center",
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        },
+                        "justify": {
+                            "title": "Justified",
+                            "icon": "eicon-text-align-justify"
+                        }
+                    },
+                    "condition": {
+                        "gallery_display_caption": ""
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "gallery_display_caption": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "caption_space",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "gallery_display_caption": ""
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .gallery-item .gallery-caption",
+                    "condition": {
+                        "gallery_display_caption": ""
+                    },
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "caption_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .gallery-item .gallery-caption",
+                    "condition": {
+                        "gallery_display_caption": ""
+                    },
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "image-size",
+            "name": "thumbnail",
+            "label": null,
+            "selector": null,
+            "condition": null,
+            "exclude": [
+                "custom"
+            ],
+            "include": null
+        },
+        {
+            "group": "border",
+            "name": "image_border",
+            "label": null,
+            "selector": "{{WRAPPER}} .gallery-item img",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .gallery-item .gallery-caption",
+            "condition": {
+                "gallery_display_caption": ""
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "caption_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .gallery-item .gallery-caption",
+            "condition": {
+                "gallery_display_caption": ""
+            },
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:48+00:00"
+}

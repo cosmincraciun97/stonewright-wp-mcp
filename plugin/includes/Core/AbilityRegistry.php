@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Core;
 
 use Stonewright\WpMcp\Abilities\Ability;
 use Stonewright\WpMcp\Abilities\Content\BulkCreate;
+use Stonewright\WpMcp\Support\Utf8;
 use Stonewright\WpMcp\Abilities\Content\CreatePage;
 use Stonewright\WpMcp\Abilities\Content\CreatePost;
 use Stonewright\WpMcp\Abilities\Content\DuplicatePage;
@@ -12,9 +13,11 @@ use Stonewright\WpMcp\Abilities\Content\GetPage;
 use Stonewright\WpMcp\Abilities\Content\UpdatePage;
 use Stonewright\WpMcp\Abilities\Content\UpdatePost;
 use Stonewright\WpMcp\Abilities\Design\ApplyToPost;
+use Stonewright\WpMcp\Abilities\Design\BuildFromFigmaReference;
 use Stonewright\WpMcp\Abilities\Design\BuildSpec;
 use Stonewright\WpMcp\Abilities\Design\ChooseRenderer;
 use Stonewright\WpMcp\Abilities\Design\ExtractTokens;
+use Stonewright\WpMcp\Abilities\Design\FigmaToSpec;
 use Stonewright\WpMcp\Abilities\Design\ImportFigmaNode;
 use Stonewright\WpMcp\Abilities\Design\ImportImage;
 use Stonewright\WpMcp\Abilities\Design\IngestFigma;
@@ -24,6 +27,7 @@ use Stonewright\WpMcp\Abilities\Design\SpecToElementorV3;
 use Stonewright\WpMcp\Abilities\Design\SpecToElementorV4;
 use Stonewright\WpMcp\Abilities\Design\SpecToGutenberg;
 use Stonewright\WpMcp\Abilities\Design\ValidateSpec;
+use Stonewright\WpMcp\Abilities\Design\WidgetIntentResolve;
 use Stonewright\WpMcp\Abilities\ElementorV3\AddContainer;
 use Stonewright\WpMcp\Abilities\ElementorV3\AddWidget;
 use Stonewright\WpMcp\Abilities\ElementorV3\BackupPage;
@@ -40,8 +44,11 @@ use Stonewright\WpMcp\Abilities\ElementorV3\UpdateElement;
 use Stonewright\WpMcp\Abilities\ElementorV3\UpdateKitColors;
 use Stonewright\WpMcp\Abilities\ElementorV3\UpdateKitTypography;
 use Stonewright\WpMcp\Abilities\ElementorV3\UpdatePageSettings;
+use Stonewright\WpMcp\Abilities\ElementorV4\AtomicWidgetDefine;
 use Stonewright\WpMcp\Abilities\ElementorV4\CreateClass;
 use Stonewright\WpMcp\Abilities\ElementorV4\CreateVariable;
+use Stonewright\WpMcp\Abilities\ElementorV4\DescribeAtomicWidget;
+use Stonewright\WpMcp\Abilities\ElementorV4\ListAtomicNodeTypes;
 use Stonewright\WpMcp\Abilities\ElementorV4\ListClasses;
 use Stonewright\WpMcp\Abilities\ElementorV4\ListVariables;
 use Stonewright\WpMcp\Abilities\ElementorV4\ReadAtomicTree;
@@ -73,7 +80,12 @@ use Stonewright\WpMcp\Abilities\Memory\MemoryDelete;
 use Stonewright\WpMcp\Abilities\Memory\MemoryGet;
 use Stonewright\WpMcp\Abilities\Memory\MemoryList;
 use Stonewright\WpMcp\Abilities\Memory\MemorySave;
+use Stonewright\WpMcp\Abilities\ElementorWidget\CreateCustomWidget;
 use Stonewright\WpMcp\Abilities\ElementorWidget\WidgetDefine;
+use Stonewright\WpMcp\Abilities\Knowledge\DescribeWidget;
+use Stonewright\WpMcp\Abilities\Knowledge\ExplainEditor;
+use Stonewright\WpMcp\Abilities\Knowledge\KnowledgeRefresh;
+use Stonewright\WpMcp\Abilities\Knowledge\KnowledgeSearch;
 use Stonewright\WpMcp\Abilities\ElementorWidget\WidgetList as ElementorWidgetList;
 use Stonewright\WpMcp\Abilities\ElementorWidget\WidgetRegister;
 use Stonewright\WpMcp\Abilities\Sandbox\SandboxActivate;
@@ -85,12 +97,27 @@ use Stonewright\WpMcp\Abilities\Sandbox\SandboxRead;
 use Stonewright\WpMcp\Abilities\Sandbox\SandboxToggle;
 use Stonewright\WpMcp\Abilities\Sandbox\SandboxWrite;
 use Stonewright\WpMcp\Abilities\System\AbilitiesList;
+use Stonewright\WpMcp\Abilities\System\KnowledgeExport;
+use Stonewright\WpMcp\Abilities\System\KnowledgeImport;
+use Stonewright\WpMcp\Abilities\Skills\SkillsList;
+use Stonewright\WpMcp\Abilities\Skills\SkillsGet;
+use Stonewright\WpMcp\Abilities\Skills\SkillsSave;
+use Stonewright\WpMcp\Abilities\ThemeBuilder\CreateTemplate as ThemeBuilderCreateTemplate;
+use Stonewright\WpMcp\Abilities\ThemeBuilder\DeleteTemplate as ThemeBuilderDeleteTemplate;
+use Stonewright\WpMcp\Abilities\ThemeBuilder\GetTemplate as ThemeBuilderGetTemplate;
+use Stonewright\WpMcp\Abilities\ThemeBuilder\ListTemplates as ThemeBuilderListTemplates;
+use Stonewright\WpMcp\Abilities\ThemeBuilder\SetConditions as ThemeBuilderSetConditions;
 use Stonewright\WpMcp\Abilities\System\InstructionsGet;
 use Stonewright\WpMcp\Abilities\System\InstructionsSet;
 use Stonewright\WpMcp\Abilities\Media\GetMedia;
 use Stonewright\WpMcp\Abilities\Media\OptimizeMedia;
 use Stonewright\WpMcp\Abilities\Media\SetAlt;
 use Stonewright\WpMcp\Abilities\Media\UploadMedia;
+use Stonewright\WpMcp\Abilities\Menu\MenuAddItem;
+use Stonewright\WpMcp\Abilities\Menu\MenuAssignLocation;
+use Stonewright\WpMcp\Abilities\Menu\MenuCreate;
+use Stonewright\WpMcp\Abilities\Menu\MenuDelete;
+use Stonewright\WpMcp\Abilities\Menu\MenuList;
 use Stonewright\WpMcp\Abilities\Patterns\CreatePattern;
 use Stonewright\WpMcp\Abilities\Patterns\ListPatterns;
 use Stonewright\WpMcp\Abilities\QA\AccessibilityCheck;
@@ -102,6 +129,8 @@ use Stonewright\WpMcp\Abilities\QA\Report as QaReport;
 use Stonewright\WpMcp\Abilities\QA\ResponsiveCheck;
 use Stonewright\WpMcp\Abilities\QA\ScreenshotPage;
 use Stonewright\WpMcp\Abilities\QA\SuggestFixes;
+use Stonewright\WpMcp\Abilities\QA\VerifyAgainstReference;
+use Stonewright\WpMcp\Abilities\Security\CreateOneTimeLink;
 use Stonewright\WpMcp\Abilities\Security\IssueConfirmationToken;
 use Stonewright\WpMcp\Abilities\Site\BackupPage as SiteBackupPage;
 use Stonewright\WpMcp\Abilities\Site\Capabilities;
@@ -111,6 +140,7 @@ use Stonewright\WpMcp\Abilities\Site\Health;
 use Stonewright\WpMcp\Abilities\Site\Info;
 use Stonewright\WpMcp\Abilities\Site\ListPlugins;
 use Stonewright\WpMcp\Abilities\Site\Ping;
+use Stonewright\WpMcp\Abilities\Site\SetFrontPage;
 use Stonewright\WpMcp\Abilities\Site\Theme as SiteTheme;
 
 /**
@@ -122,9 +152,10 @@ final class AbilityRegistry {
 	 * @return array<class-string<Ability>>
 	 */
 	public static function list(): array {
-		return [
+		$base = [
 			// Security.
 			IssueConfirmationToken::class,
+			CreateOneTimeLink::class,
 
 			// Site.
 			Ping::class,
@@ -134,6 +165,7 @@ final class AbilityRegistry {
 			Health::class,
 			ListPlugins::class,
 			SiteTheme::class,
+			SetFrontPage::class,
 			SiteBackupPage::class,
 			CreateRevision::class,
 
@@ -209,6 +241,13 @@ final class AbilityRegistry {
 			UpdateClass::class,
 			RenderV4FromSpec::class,
 
+			// Elementor V4 — atomic widget definer (Phase 2.3).
+			AtomicWidgetDefine::class,
+
+			// Elementor V4 — atomic introspection (Phase 2.4).
+			ListAtomicNodeTypes::class,
+			DescribeAtomicWidget::class,
+
 			// Design.
 			ValidateSpec::class,
 			ExtractTokens::class,
@@ -224,6 +263,15 @@ final class AbilityRegistry {
 			PreviewRender::class,
 			ApplyToPost::class,
 
+			// Design (Phase 2.5).
+			FigmaToSpec::class,
+
+			// Design (Phase D.4) — smart-detection intent resolver.
+			WidgetIntentResolve::class,
+
+			// Design (Phase D.5) — full-pipeline orchestrator.
+			BuildFromFigmaReference::class,
+
 			// QA.
 			ScreenshotPage::class,
 			DiffScreenshot::class,
@@ -234,6 +282,7 @@ final class AbilityRegistry {
 			SuggestFixes::class,
 			ApplyFixPlan::class,
 			QaReport::class,
+			VerifyAgainstReference::class,
 
 			// Memory (Wave 3a).
 			MemoryList::class,
@@ -244,12 +293,28 @@ final class AbilityRegistry {
 			// System (Wave 3b).
 			InstructionsGet::class,
 			InstructionsSet::class,
+			KnowledgeExport::class,
+			KnowledgeImport::class,
 			AbilitiesList::class,
+
+			// Skills.
+			SkillsList::class,
+			SkillsGet::class,
+			SkillsSave::class,
 
 			// Elementor Widget Builder (Phase 5).
 			WidgetDefine::class,
 			WidgetRegister::class,
 			ElementorWidgetList::class,
+
+			// Custom-widget high-level pipeline (Phase G.2).
+			CreateCustomWidget::class,
+
+			// Elementor knowledge base query + self-update (Phase 0.4 / H.1).
+			KnowledgeSearch::class,
+			DescribeWidget::class,
+			ExplainEditor::class,
+			KnowledgeRefresh::class,
 
 			// Sandbox (Wave 3c).
 			SandboxListAbility::class,
@@ -260,13 +325,63 @@ final class AbilityRegistry {
 			SandboxActivate::class,
 			SandboxDeactivate::class,
 			SandboxToggle::class,
+
+			// Theme Builder (Phase 1.6+).
+			ThemeBuilderCreateTemplate::class,
+			ThemeBuilderSetConditions::class,
+			ThemeBuilderListTemplates::class,
+			ThemeBuilderGetTemplate::class,
+			ThemeBuilderDeleteTemplate::class,
+
+			// Menu (Phase 1.x add-on).
+			MenuCreate::class,
+			MenuAddItem::class,
+			MenuList::class,
+			MenuDelete::class,
+			MenuAssignLocation::class,
 		];
+
+		// Phase C — auto-generated per-widget Elementor V3 abilities (one per
+		// slug in plugin/includes/Elementor/WidgetRegistry/manifest.json).
+		// Re-run plugin/bin/generate-widget-abilities.php after manifest changes.
+		return array_merge( $base, self::widget_ability_classes() );
 	}
+
+	/**
+	 * Returns the auto-generated per-widget ability class list emitted by
+	 * `plugin/bin/generate-widget-abilities.php`. Returns an empty array
+	 * if the file is missing (e.g. generator hasn't run yet).
+	 *
+	 * @return array<int, class-string<Ability>>
+	 */
+	private static function widget_ability_classes(): array {
+		$path = __DIR__ . '/../Abilities/ElementorWidgets/_class_list.php';
+		if ( ! is_file( $path ) ) {
+			return [];
+		}
+		$loaded = include $path;
+		return is_array( $loaded ) ? $loaded : [];
+	}
+
+	/**
+	 * Tracks whether register_all() has already run in this request, so that
+	 * listening on multiple Abilities API init actions (the wp_-prefixed core
+	 * pair and the un-prefixed vendor fallback) cannot re-register and trigger
+	 * `_doing_it_wrong( 'Ability already registered' )` notices.
+	 *
+	 * @var bool
+	 */
+	private static bool $registered_once = false;
 
 	public static function register_all(): void {
 		if ( ! function_exists( 'wp_register_ability' ) ) {
 			return;
 		}
+
+		if ( self::$registered_once ) {
+			return;
+		}
+		self::$registered_once = true;
 
 		$master_enabled     = (bool) get_option( 'stonewright_enabled', false );
 		$disabled_abilities = (array) get_option( 'stonewright_disabled_abilities', [] );
@@ -297,10 +412,22 @@ final class AbilityRegistry {
 				'input_schema'        => $ability->input_schema(),
 				'output_schema'       => $ability->output_schema(),
 				'permission_callback' => [ $ability, 'permission_callback' ],
-				'execute_callback'    => [ $ability, 'execute' ],
+				// Wrap execute with UTF-8 deep_sanitize so all ability inputs
+				// are guaranteed valid UTF-8 regardless of client encoding.
+				// This transparently handles Windows PowerShell \uXXXX escapes.
+				'execute_callback'    => static function ( array $input ) use ( $ability ): mixed {
+					return $ability->execute( Utf8::deep_sanitize( $input ) );
+				},
 				'meta'                => array_merge(
 					[
-						'mcp' => [ 'public' => true ],
+						'mcp'          => [ 'public' => true ],
+						// WordPress core's `/wp-json/wp-abilities/v1/abilities`
+						// list endpoint filters by `meta.show_in_rest === true`
+						// (see WP_REST_Abilities_V1_List_Controller::get_items).
+						// Without this, every Stonewright ability is invisible
+						// to standard MCP/REST clients even though they are
+						// registered. Per-ability `meta()` overrides can opt out.
+						'show_in_rest' => true,
 					],
 					$ability->meta()
 				),
@@ -314,7 +441,7 @@ final class AbilityRegistry {
 	 * Returns metadata for ALL abilities regardless of enabled/disabled state.
 	 * Used by the admin Abilities page.
 	 *
-	 * @return array<int, array{name: string, label: string, description: string, category: string, enabled: bool}>
+	 * @return array<int, array{name: string, label: string, description: string, category: string, enabled: bool, input_schema: array<string, mixed>}>
 	 */
 	public static function enabled_abilities(): array {
 		$disabled_abilities = (array) get_option( 'stonewright_disabled_abilities', [] );
@@ -329,11 +456,12 @@ final class AbilityRegistry {
 			$ability  = new $class();
 			$name     = $ability->name();
 			$result[] = [
-				'name'        => $name,
-				'label'       => $ability->label(),
-				'description' => $ability->description(),
-				'category'    => $ability->category(),
-				'enabled'     => ! in_array( $name, $disabled_abilities, true ),
+				'name'         => $name,
+				'label'        => $ability->label(),
+				'description'  => $ability->description(),
+				'category'     => $ability->category(),
+				'enabled'      => ! in_array( $name, $disabled_abilities, true ),
+				'input_schema' => $ability->input_schema(),
 			];
 		}
 
@@ -355,10 +483,13 @@ final class AbilityRegistry {
 			'elementor' => __( 'Elementor', 'stonewright' ),
 			'design'    => __( 'Design', 'stonewright' ),
 			'qa'        => __( 'Quality Assurance', 'stonewright' ),
+			'knowledge' => __( 'Knowledge', 'stonewright' ),
 			'memory'    => __( 'Memory', 'stonewright' ),
 			'system'    => __( 'System', 'stonewright' ),
 			'sandbox'           => __( 'Sandbox', 'stonewright' ),
 			'elementor-widget'  => __( 'Elementor Widget Builder', 'stonewright' ),
+			'theme-builder'     => __( 'Theme Builder', 'stonewright' ),
+			'menu'              => __( 'Menu', 'stonewright' ),
 		];
 	}
 
@@ -375,5 +506,14 @@ final class AbilityRegistry {
 				]
 			);
 		}
+	}
+
+	/**
+	 * Reset the in-process registration guard. For tests only.
+	 *
+	 * @internal
+	 */
+	public static function reset_for_tests(): void {
+		self::$registered_once = false;
 	}
 }

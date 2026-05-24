@@ -1,0 +1,140 @@
+{
+    "slug": "google_maps",
+    "source": "free",
+    "title": "Google Maps",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/google-maps.php",
+    "sections": [
+        {
+            "id": "section_map",
+            "label": "Google Maps",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "api_key_notification",
+                    "type": "alert",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "address",
+                    "type": "text",
+                    "label": "Location",
+                    "default": {
+                        "__unresolved__": "$default_address"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true,
+                        "categories": [
+                            {
+                                "__unresolved__": "TagsModule::POST_META_CATEGORY"
+                            }
+                        ]
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "zoom",
+                    "type": "slider",
+                    "label": "Zoom",
+                    "default": {
+                        "size": 10
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "height",
+                    "type": "slider",
+                    "label": "Height",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_map_style",
+            "label": "Google Maps",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "hover_transition",
+                    "type": "slider",
+                    "label": "Transition Duration (s)",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "css-filter",
+                    "name": "css_filters",
+                    "label": null,
+                    "selector": "{{WRAPPER}} iframe",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "css-filter",
+                    "name": "css_filters_hover",
+                    "label": null,
+                    "selector": "{{WRAPPER}}:hover iframe",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "css-filter",
+            "name": "css_filters",
+            "label": null,
+            "selector": "{{WRAPPER}} iframe",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "css-filter",
+            "name": "css_filters_hover",
+            "label": null,
+            "selector": "{{WRAPPER}}:hover iframe",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:47+00:00"
+}

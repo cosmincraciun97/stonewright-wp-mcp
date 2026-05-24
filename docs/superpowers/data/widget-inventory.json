@@ -1,0 +1,1651 @@
+﻿{
+    "version": "1.0.0",
+    "generated_at": "2026-05-22T23:04:16+00:00",
+    "generator": "plugin/bin/widget-inventory-extract.php",
+    "elementor_version": null,
+    "pro_version": null,
+    "summary": {
+        "free": 32,
+        "pro": 37,
+        "wc": 26,
+        "total": 95
+    },
+    "widgets": [
+        {
+            "slug": "accordion",
+            "title": "Accordion",
+            "icon": "eicon-accordion",
+            "categories": [],
+            "keywords": [
+                "accordion",
+                "tabs",
+                "toggle"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/accordion.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "alert",
+            "title": "Alert",
+            "icon": "eicon-alert",
+            "categories": [],
+            "keywords": [
+                "alert",
+                "notice",
+                "message"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/alert.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "audio",
+            "title": "SoundCloud",
+            "icon": "eicon-headphones",
+            "categories": [],
+            "keywords": [
+                "audio",
+                "player",
+                "soundcloud",
+                "embed"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/audio.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "button",
+            "title": "Button",
+            "icon": "eicon-button",
+            "categories": [
+                "basic"
+            ],
+            "keywords": [],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/button.php",
+            "inherits_categories": false,
+            "inherits_keywords": true
+        },
+        {
+            "slug": "counter",
+            "title": "Counter",
+            "icon": "eicon-counter",
+            "categories": [],
+            "keywords": [
+                "counter"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/counter.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "divider",
+            "title": "Divider",
+            "icon": "eicon-divider",
+            "categories": [
+                "basic"
+            ],
+            "keywords": [
+                "divider",
+                "hr",
+                "line",
+                "border"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/divider.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "google_maps",
+            "title": "Google Maps",
+            "icon": "eicon-google-maps",
+            "categories": [
+                "basic"
+            ],
+            "keywords": [
+                "google",
+                "map",
+                "embed",
+                "location"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/google-maps.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "heading",
+            "title": "Heading",
+            "icon": "eicon-t-letter",
+            "categories": [
+                "basic"
+            ],
+            "keywords": [
+                "heading",
+                "title",
+                "text"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/heading.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "html",
+            "title": "HTML",
+            "icon": "eicon-code",
+            "categories": [],
+            "keywords": [
+                "html",
+                "code",
+                "embed",
+                "script"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/html.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "icon",
+            "title": "Icon",
+            "icon": "eicon-favorite",
+            "categories": [
+                "basic"
+            ],
+            "keywords": [
+                "icon"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/icon.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "icon-box",
+            "title": "Icon Box",
+            "icon": "eicon-icon-box",
+            "categories": [],
+            "keywords": [
+                "icon box",
+                "icon"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/icon-box.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "icon-list",
+            "title": "Icon List",
+            "icon": "eicon-bullet-list",
+            "categories": [],
+            "keywords": [
+                "icon list",
+                "icon",
+                "list"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/icon-list.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "image",
+            "title": "Image",
+            "icon": "eicon-image",
+            "categories": [
+                "basic"
+            ],
+            "keywords": [
+                "image",
+                "photo",
+                "visual"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/image.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "image-box",
+            "title": "Image Box",
+            "icon": "eicon-image-box",
+            "categories": [],
+            "keywords": [
+                "image",
+                "photo",
+                "visual",
+                "box"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/image-box.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "image-carousel",
+            "title": "Image Carousel",
+            "icon": "eicon-slider-push",
+            "categories": [],
+            "keywords": [
+                "image",
+                "photo",
+                "visual",
+                "carousel",
+                "slider"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/image-carousel.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "image-gallery",
+            "title": "Basic Gallery",
+            "icon": "eicon-gallery-grid",
+            "categories": [],
+            "keywords": [
+                "image",
+                "photo",
+                "visual",
+                "gallery"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/image-gallery.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "inner-section",
+            "title": "Inner Section",
+            "icon": "eicon-columns",
+            "categories": [
+                "basic"
+            ],
+            "keywords": [
+                "row",
+                "columns",
+                "nested"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/inner-section.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "menu-anchor",
+            "title": "Menu Anchor",
+            "icon": "eicon-anchor",
+            "categories": [],
+            "keywords": [
+                "menu",
+                "anchor",
+                "link"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/menu-anchor.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "progress",
+            "title": "Progress Bar",
+            "icon": "eicon-skill-bar",
+            "categories": [],
+            "keywords": [
+                "progress",
+                "bar"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/progress.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "rating",
+            "title": "Rating",
+            "icon": "eicon-rating",
+            "categories": [],
+            "keywords": [
+                "star",
+                "rating",
+                "review",
+                "score",
+                "scale"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/rating.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "read-more",
+            "title": "Read More",
+            "icon": "eicon-post-excerpt",
+            "categories": [],
+            "keywords": [
+                "read",
+                "more",
+                "tag",
+                "excerpt"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/read-more.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "shortcode",
+            "title": "Shortcode",
+            "icon": "eicon-shortcode",
+            "categories": [],
+            "keywords": [
+                "shortcode",
+                "code"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/shortcode.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "sidebar",
+            "title": "Sidebar",
+            "icon": "eicon-sidebar",
+            "categories": [],
+            "keywords": [
+                "sidebar",
+                "widget"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/sidebar.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "social-icons",
+            "title": "Social Icons",
+            "icon": "eicon-social-icons",
+            "categories": [],
+            "keywords": [
+                "social",
+                "icon",
+                "link"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/social-icons.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "spacer",
+            "title": "Spacer",
+            "icon": "eicon-spacer",
+            "categories": [
+                "basic"
+            ],
+            "keywords": [
+                "space"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/spacer.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "star-rating",
+            "title": "Star Rating",
+            "icon": "eicon-rating",
+            "categories": [],
+            "keywords": [
+                "star",
+                "rating",
+                "rate",
+                "review"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/star-rating.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "tabs",
+            "title": "Tabs",
+            "icon": "eicon-tabs",
+            "categories": [],
+            "keywords": [
+                "tabs",
+                "accordion",
+                "toggle"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/tabs.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "testimonial",
+            "title": "Testimonial",
+            "icon": "eicon-testimonial",
+            "categories": [],
+            "keywords": [
+                "testimonial",
+                "blockquote"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/testimonial.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "text-editor",
+            "title": "Text Editor",
+            "icon": "eicon-text",
+            "categories": [
+                "basic"
+            ],
+            "keywords": [
+                "text",
+                "editor"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/text-editor.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "toggle",
+            "title": "Toggle",
+            "icon": "eicon-toggle",
+            "categories": [],
+            "keywords": [
+                "tabs",
+                "accordion",
+                "toggle"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/toggle.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "video",
+            "title": "Video",
+            "icon": "eicon-youtube",
+            "categories": [
+                "basic"
+            ],
+            "keywords": [
+                "video",
+                "player",
+                "embed",
+                "youtube",
+                "vimeo",
+                "dailymotion",
+                "videopress"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/video.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "wp-widget-",
+            "title": null,
+            "icon": "eicon-wordpress",
+            "categories": [
+                "wordpress"
+            ],
+            "keywords": [
+                "wordpress",
+                "widget"
+            ],
+            "source": "free",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/wordpress.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "animated-headline",
+            "title": "Animated Headline",
+            "icon": "eicon-animated-headline",
+            "categories": [],
+            "keywords": [
+                "headline",
+                "heading",
+                "animation",
+                "title",
+                "text"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/animated-headline/widgets/animated-headline.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "archive-posts",
+            "title": "Archive Posts",
+            "icon": "eicon-archive-posts",
+            "categories": [
+                "theme-elements-archive"
+            ],
+            "keywords": [
+                "posts",
+                "cpt",
+                "archive",
+                "loop",
+                "query",
+                "cards",
+                "custom post type"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/archive-posts.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "blockquote",
+            "title": "Blockquote",
+            "icon": "eicon-blockquote",
+            "categories": [],
+            "keywords": [
+                "blockquote",
+                "quote",
+                "paragraph",
+                "testimonial",
+                "text",
+                "twitter",
+                "tweet"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/blockquote/widgets/blockquote.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "call-to-action",
+            "title": "Call to Action",
+            "icon": "eicon-image-rollover",
+            "categories": [],
+            "keywords": [
+                "call to action",
+                "cta",
+                "button"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/call-to-action/widgets/call-to-action.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "code-highlight",
+            "title": "Code Highlight",
+            "icon": "eicon-code-highlight",
+            "categories": [],
+            "keywords": [
+                "code",
+                "highlight",
+                "syntax",
+                "highlighter",
+                "javascript",
+                "css",
+                "php",
+                "html",
+                "java",
+                "js"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/code-highlight/widgets/code-highlight.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "countdown",
+            "title": "Countdown",
+            "icon": "eicon-countdown",
+            "categories": [],
+            "keywords": [
+                "countdown",
+                "number",
+                "timer",
+                "time",
+                "date",
+                "evergreen"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/countdown/widgets/countdown.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "facebook-button",
+            "title": "Facebook Button",
+            "icon": "eicon-facebook-like-box",
+            "categories": [],
+            "keywords": [
+                "facebook",
+                "social",
+                "embed",
+                "button",
+                "like",
+                "share",
+                "recommend",
+                "follow"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/social/widgets/facebook-button.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "facebook-comments",
+            "title": "Facebook Comments",
+            "icon": "eicon-facebook-comments",
+            "categories": [],
+            "keywords": [
+                "facebook",
+                "comments",
+                "embed"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/social/widgets/facebook-comments.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "facebook-embed",
+            "title": "Facebook Embed",
+            "icon": "eicon-fb-embed",
+            "categories": [
+                "pro-elements"
+            ],
+            "keywords": [
+                "facebook",
+                "social",
+                "embed",
+                "video",
+                "post",
+                "comment"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/social/widgets/facebook-embed.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "facebook-page",
+            "title": "Facebook Page",
+            "icon": "eicon-fb-feed",
+            "categories": [],
+            "keywords": [
+                "facebook",
+                "social",
+                "embed",
+                "page"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/social/widgets/facebook-page.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "flip-box",
+            "title": "Flip Box",
+            "icon": "eicon-flip-box",
+            "categories": [],
+            "keywords": [],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/flip-box/widgets/flip-box.php",
+            "inherits_categories": true,
+            "inherits_keywords": true
+        },
+        {
+            "slug": "gallery",
+            "title": "Gallery",
+            "icon": "eicon-gallery-justified",
+            "categories": [],
+            "keywords": [],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/gallery/widgets/gallery.php",
+            "inherits_categories": true,
+            "inherits_keywords": true
+        },
+        {
+            "slug": "global",
+            "title": "Global",
+            "icon": null,
+            "categories": [],
+            "keywords": [],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/global-widget/widgets/global-widget.php",
+            "inherits_categories": true,
+            "inherits_keywords": true
+        },
+        {
+            "slug": "hotspot",
+            "title": "Hotspot",
+            "icon": "eicon-image-hotspot",
+            "categories": [],
+            "keywords": [
+                "image",
+                "tooltip",
+                "CTA",
+                "dot"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/hotspot/widgets/hotspot.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "login",
+            "title": "Login",
+            "icon": "eicon-lock-user",
+            "categories": [],
+            "keywords": [
+                "login",
+                "user",
+                "form"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/forms/widgets/login.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "lottie",
+            "title": "Lottie",
+            "icon": "eicon-lottie",
+            "categories": [],
+            "keywords": [],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/lottie/widgets/lottie.php",
+            "inherits_categories": true,
+            "inherits_keywords": true
+        },
+        {
+            "slug": "nav-menu",
+            "title": "WordPress Menu",
+            "icon": "eicon-nav-menu",
+            "categories": [
+                "pro-elements",
+                "theme-elements"
+            ],
+            "keywords": [
+                "menu",
+                "nav",
+                "button",
+                "nav menu"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/nav-menu/widgets/nav-menu.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "portfolio",
+            "title": "Portfolio",
+            "icon": "eicon-gallery-grid",
+            "categories": [],
+            "keywords": [
+                "posts",
+                "cpt",
+                "item",
+                "loop",
+                "query",
+                "portfolio",
+                "custom post type"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/posts/widgets/portfolio.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "posts",
+            "title": "Posts",
+            "icon": null,
+            "categories": [],
+            "keywords": [
+                "posts",
+                "cpt",
+                "item",
+                "loop",
+                "query",
+                "cards",
+                "custom post type"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/posts/widgets/posts.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "price-list",
+            "title": "Price List",
+            "icon": "eicon-price-list",
+            "categories": [],
+            "keywords": [
+                "pricing",
+                "list",
+                "product",
+                "image",
+                "menu"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/pricing/widgets/price-list.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "price-table",
+            "title": "Price Table",
+            "icon": "eicon-price-table",
+            "categories": [],
+            "keywords": [
+                "pricing",
+                "table",
+                "product",
+                "image",
+                "plan",
+                "button"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/pricing/widgets/price-table.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "progress-tracker",
+            "title": "Progress Tracker",
+            "icon": "eicon-progress-tracker",
+            "categories": [
+                "pro-elements",
+                "theme-elements-single"
+            ],
+            "keywords": [
+                "progress",
+                "tracker",
+                "read",
+                "scroll"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/progress-tracker/widgets/progress-tracker.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "search",
+            "title": "Search",
+            "icon": "eicon-site-search",
+            "categories": [
+                "pro-elements"
+            ],
+            "keywords": [
+                "search"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/search/widgets/search.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "share-buttons",
+            "title": "Share Buttons",
+            "icon": "eicon-share",
+            "categories": [],
+            "keywords": [
+                "sharing",
+                "social",
+                "icon",
+                "button",
+                "like"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/share-buttons/widgets/share-buttons.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "slides",
+            "title": "Slides",
+            "icon": "eicon-slides",
+            "categories": [],
+            "keywords": [
+                "slides",
+                "carousel",
+                "image",
+                "title",
+                "slider"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/slides/widgets/slides.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "table-of-contents",
+            "title": "Table of Contents",
+            "icon": "eicon-table-of-contents",
+            "categories": [
+                "pro-elements",
+                "theme-elements-single"
+            ],
+            "keywords": [
+                "toc"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/table-of-contents/widgets/table-of-contents.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "taxonomy-filter",
+            "title": "Taxonomy Filter",
+            "icon": "eicon-taxonomy-filter",
+            "categories": [],
+            "keywords": [
+                "filter",
+                "loop",
+                "filter bar",
+                "taxonomy",
+                "categories",
+                "tags"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/loop-filter/widgets/taxonomy-filter.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "template",
+            "title": "Template",
+            "icon": "eicon-document-file",
+            "categories": [],
+            "keywords": [
+                "elementor",
+                "template",
+                "library",
+                "block",
+                "page"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/library/widgets/template.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "theme-archive-title",
+            "title": "Archive Title",
+            "icon": "eicon-archive-title",
+            "categories": [
+                "theme-elements-archive"
+            ],
+            "keywords": [
+                "title",
+                "heading",
+                "archive"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/archive-title.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "theme-page-title",
+            "title": "Page Title",
+            "icon": "eicon-archive-title",
+            "categories": [
+                "theme-elements"
+            ],
+            "keywords": [
+                "title",
+                "heading",
+                "page"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/page-title.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "theme-post-content",
+            "title": "Post Content",
+            "icon": "eicon-post-content",
+            "categories": [
+                "theme-elements-single"
+            ],
+            "keywords": [
+                "content",
+                "post"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/post-content.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "theme-post-excerpt",
+            "title": "Post Excerpt",
+            "icon": "eicon-post-excerpt",
+            "categories": [
+                "theme-elements-single"
+            ],
+            "keywords": [
+                "post",
+                "excerpt",
+                "description"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/post-excerpt.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "theme-post-featured-image",
+            "title": "Featured Image",
+            "icon": "eicon-featured-image",
+            "categories": [
+                "theme-elements-single"
+            ],
+            "keywords": [
+                "image",
+                "featured",
+                "thumbnail"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/post-featured-image.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "theme-post-title",
+            "title": "Post Title",
+            "icon": "eicon-post-title",
+            "categories": [
+                "theme-elements-single"
+            ],
+            "keywords": [
+                "title",
+                "heading",
+                "post"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/post-title.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "theme-site-logo",
+            "title": "Site Logo",
+            "icon": "eicon-site-logo",
+            "categories": [
+                "theme-elements"
+            ],
+            "keywords": [
+                "site",
+                "logo",
+                "branding"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/site-logo.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "theme-site-title",
+            "title": "Site Title",
+            "icon": "eicon-site-title",
+            "categories": [
+                "theme-elements"
+            ],
+            "keywords": [
+                "site",
+                "title",
+                "name"
+            ],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/site-title.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "video-playlist",
+            "title": "Video Playlist",
+            "icon": "eicon-video-playlist",
+            "categories": [],
+            "keywords": [],
+            "source": "pro",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/video-playlist/widgets/video-playlist.php",
+            "inherits_categories": true,
+            "inherits_keywords": true
+        },
+        {
+            "slug": "wc-add-to-cart",
+            "title": "Custom Add To Cart",
+            "icon": "eicon-woocommerce",
+            "categories": [
+                "woocommerce-elements"
+            ],
+            "keywords": [
+                "woocommerce",
+                "shop",
+                "store",
+                "cart",
+                "product",
+                "button",
+                "add to cart"
+            ],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/add-to-cart.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "wc-categories",
+            "title": "Product Categories",
+            "icon": "eicon-product-categories",
+            "categories": [
+                "woocommerce-elements"
+            ],
+            "keywords": [
+                "woocommerce-elements",
+                "shop",
+                "store",
+                "categories",
+                "product"
+            ],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/categories.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "wc-elements",
+            "title": "WooCommerce Pages",
+            "icon": "eicon-product-pages",
+            "categories": [
+                "woocommerce-elements"
+            ],
+            "keywords": [
+                "woocommerce",
+                "shop",
+                "store",
+                "cart",
+                "checkout",
+                "account",
+                "order tracking",
+                "shortcode",
+                "product"
+            ],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/elements.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "wc-single-elements",
+            "title": "Woo - Single Elements",
+            "icon": "eicon-woocommerce",
+            "categories": [],
+            "keywords": [],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/single-elements.php",
+            "inherits_categories": true,
+            "inherits_keywords": true
+        },
+        {
+            "slug": "woocommerce-archive-description",
+            "title": "Archive Description",
+            "icon": "eicon-product-description",
+            "categories": [
+                "woocommerce-elements-archive"
+            ],
+            "keywords": [
+                "woocommerce",
+                "shop",
+                "store",
+                "text",
+                "description",
+                "category",
+                "product",
+                "archive"
+            ],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/archive-description.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "woocommerce-breadcrumb",
+            "title": "WooCommerce Breadcrumbs",
+            "icon": "eicon-product-breadcrumbs",
+            "categories": [
+                "woocommerce-elements",
+                "woocommerce-elements-single"
+            ],
+            "keywords": [
+                "woocommerce-elements",
+                "shop",
+                "store",
+                "breadcrumbs",
+                "internal links",
+                "product"
+            ],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/breadcrumb.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "woocommerce-cart",
+            "title": "Cart",
+            "icon": "eicon-woo-cart",
+            "categories": [
+                "woocommerce-elements"
+            ],
+            "keywords": [
+                "woocommerce",
+                "cart"
+            ],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/cart.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "woocommerce-category-image",
+            "title": "Category Image",
+            "icon": "eicon-featured-image",
+            "categories": [
+                "woocommerce-elements",
+                "woocommerce-elements-single"
+            ],
+            "keywords": [
+                "woocommerce",
+                "category",
+                "image",
+                "thumbnail"
+            ],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/category-image.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "woocommerce-checkout-page",
+            "title": "Checkout",
+            "icon": "eicon-checkout",
+            "categories": [
+                "woocommerce-elements"
+            ],
+            "keywords": [
+                "woocommerce",
+                "checkout"
+            ],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/checkout.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "woocommerce-menu-cart",
+            "title": "Menu Cart",
+            "icon": "eicon-cart",
+            "categories": [
+                "theme-elements",
+                "woocommerce-elements"
+            ],
+            "keywords": [],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/menu-cart.php",
+            "inherits_categories": false,
+            "inherits_keywords": true
+        },
+        {
+            "slug": "woocommerce-my-account",
+            "title": "My Account",
+            "icon": "eicon-my-account",
+            "categories": [
+                "woocommerce-elements"
+            ],
+            "keywords": [],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/my-account.php",
+            "inherits_categories": false,
+            "inherits_keywords": true
+        },
+        {
+            "slug": "woocommerce-notices",
+            "title": "WooCommerce Notices",
+            "icon": "eicon-woocommerce-notices",
+            "categories": [
+                "woocommerce-elements"
+            ],
+            "keywords": [
+                "woocommerce",
+                "notices",
+                "notifications"
+            ],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/notices.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "woocommerce-product-add-to-cart",
+            "title": "Add To Cart",
+            "icon": "eicon-product-add-to-cart",
+            "categories": [],
+            "keywords": [
+                "woocommerce",
+                "shop",
+                "store",
+                "cart",
+                "product",
+                "button",
+                "add to cart"
+            ],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-add-to-cart.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "woocommerce-product-additional-information",
+            "title": "Additional Information",
+            "icon": " eicon-product-info",
+            "categories": [],
+            "keywords": [],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-additional-information.php",
+            "inherits_categories": true,
+            "inherits_keywords": true
+        },
+        {
+            "slug": "woocommerce-product-data-tabs",
+            "title": "Product Data Tabs",
+            "icon": "eicon-product-tabs",
+            "categories": [],
+            "keywords": [
+                "woocommerce",
+                "shop",
+                "store",
+                "data",
+                "product",
+                "tabs"
+            ],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-data-tabs.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "woocommerce-product-images",
+            "title": "Product Images",
+            "icon": "eicon-product-images",
+            "categories": [],
+            "keywords": [
+                "woocommerce",
+                "shop",
+                "store",
+                "image",
+                "product",
+                "gallery",
+                "lightbox"
+            ],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-images.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "woocommerce-product-meta",
+            "title": "Product Meta",
+            "icon": "eicon-product-meta",
+            "categories": [],
+            "keywords": [
+                "woocommerce",
+                "shop",
+                "store",
+                "meta",
+                "data",
+                "product"
+            ],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-meta.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "woocommerce-product-price",
+            "title": "Product Price",
+            "icon": "eicon-product-price",
+            "categories": [],
+            "keywords": [
+                "woocommerce",
+                "shop",
+                "store",
+                "price",
+                "product",
+                "sale"
+            ],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-price.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "woocommerce-product-rating",
+            "title": "Product Rating",
+            "icon": "eicon-product-rating",
+            "categories": [],
+            "keywords": [
+                "woocommerce",
+                "shop",
+                "store",
+                "rating",
+                "review",
+                "comments",
+                "stars",
+                "product"
+            ],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-rating.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "woocommerce-product-related",
+            "title": "Product Related",
+            "icon": "eicon-product-related",
+            "categories": [],
+            "keywords": [
+                "woocommerce",
+                "shop",
+                "store",
+                "related",
+                "similar",
+                "product"
+            ],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-related.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "woocommerce-product-short-description",
+            "title": "Short Description",
+            "icon": "eicon-product-description",
+            "categories": [],
+            "keywords": [
+                "woocommerce",
+                "shop",
+                "store",
+                "text",
+                "description",
+                "product"
+            ],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-short-description.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "woocommerce-product-stock",
+            "title": "Product Stock",
+            "icon": "eicon-product-stock",
+            "categories": [],
+            "keywords": [
+                "woocommerce",
+                "shop",
+                "store",
+                "stock",
+                "quantity",
+                "product"
+            ],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-stock.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "woocommerce-product-title",
+            "title": "Product Title",
+            "icon": "eicon-product-title",
+            "categories": [
+                "woocommerce-elements-single"
+            ],
+            "keywords": [
+                "woocommerce",
+                "shop",
+                "store",
+                "title",
+                "heading",
+                "product"
+            ],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-title.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "woocommerce-product-upsell",
+            "title": "Upsells",
+            "icon": "eicon-product-upsell",
+            "categories": [],
+            "keywords": [
+                "woocommerce",
+                "shop",
+                "store",
+                "upsell",
+                "product"
+            ],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-upsell.php",
+            "inherits_categories": true,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "woocommerce-products",
+            "title": "Products",
+            "icon": "eicon-products",
+            "categories": [
+                "woocommerce-elements"
+            ],
+            "keywords": [
+                "woocommerce",
+                "shop",
+                "store",
+                "product",
+                "archive",
+                "upsells",
+                "cross-sells",
+                "cross sells",
+                "related"
+            ],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/products.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        },
+        {
+            "slug": "woocommerce-purchase-summary",
+            "title": "Purchase Summary",
+            "icon": "eicon-purchase-summary",
+            "categories": [
+                "woocommerce-elements"
+            ],
+            "keywords": [
+                "woocommerce",
+                "summary",
+                "thank you",
+                "confirmation",
+                "purchase"
+            ],
+            "source": "wc",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/purchase-summary.php",
+            "inherits_categories": false,
+            "inherits_keywords": false
+        }
+    ],
+    "skipped_files": [
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/common-base.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/common-optimized.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/common.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/carousel/widgets/base.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/carousel/widgets/media-carousel.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/carousel/widgets/reviews.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/carousel/widgets/testimonial-carousel.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/floating-buttons/widgets/contact-buttons-var-1.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/floating-buttons/widgets/contact-buttons-var-10.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/floating-buttons/widgets/contact-buttons-var-3.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/floating-buttons/widgets/contact-buttons-var-4.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/floating-buttons/widgets/contact-buttons-var-5.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/floating-buttons/widgets/contact-buttons-var-6.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/floating-buttons/widgets/contact-buttons-var-7.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/floating-buttons/widgets/contact-buttons-var-8.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/floating-buttons/widgets/contact-buttons-var-9.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/floating-buttons/widgets/floating-bars-var-2.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/floating-buttons/widgets/floating-bars-var-3.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/forms/widgets/form.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/link-in-bio/widgets/link-in-bio-var-2.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/link-in-bio/widgets/link-in-bio-var-3.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/link-in-bio/widgets/link-in-bio-var-4.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/link-in-bio/widgets/link-in-bio-var-5.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/link-in-bio/widgets/link-in-bio-var-6.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/link-in-bio/widgets/link-in-bio-var-7.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/loop-builder/widgets/base.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/loop-builder/widgets/loop-carousel.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/loop-builder/widgets/loop-grid.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/mega-menu/widgets/mega-menu.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/nested-carousel/widgets/nested-carousel.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/off-canvas/widgets/off-canvas.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/payments/widgets/paypal-button.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/payments/widgets/stripe-button.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/posts/widgets/posts-base.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/title-widget-base.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-elements/widgets/author-box.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-elements/widgets/base.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-elements/widgets/breadcrumbs.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-elements/widgets/post-comments.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-elements/widgets/post-info.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-elements/widgets/post-navigation.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-elements/widgets/search-form.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-elements/widgets/sitemap.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/archive-products-deprecated.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/archive-products.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/base-widget.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-content.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/products-base.php",
+        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/products-deprecated.php"
+    ],
+    "failed_files": []
+}

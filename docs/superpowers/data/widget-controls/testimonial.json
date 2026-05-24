@@ -1,0 +1,388 @@
+{
+    "slug": "testimonial",
+    "source": "free",
+    "title": "Testimonial",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/testimonial.php",
+    "sections": [
+        {
+            "id": "section_testimonial",
+            "label": "Testimonial",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "testimonial_content",
+                    "type": "textarea",
+                    "label": "Content",
+                    "default": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut elit tellus, luctus nec ullamcorper mattis, pulvinar dapibus leo.",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "testimonial_image",
+                    "type": "media",
+                    "label": "Choose Image",
+                    "default": {
+                        "url": {
+                            "__unresolved__": "Utils::get_placeholder_image_src()"
+                        }
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "testimonial_name",
+                    "type": "text",
+                    "label": "Name",
+                    "default": "John Doe",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "testimonial_job",
+                    "type": "text",
+                    "label": "Title",
+                    "default": "Designer",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "link",
+                    "type": "url",
+                    "label": "Link",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "testimonial_image_position",
+                    "type": "choose",
+                    "label": "Image Position",
+                    "default": "aside",
+                    "options": {
+                        "aside": {
+                            "title": "Aside",
+                            "icon": "eicon-h-align-left"
+                        },
+                        "top": {
+                            "title": "Top",
+                            "icon": "eicon-v-align-top"
+                        }
+                    },
+                    "condition": {
+                        "testimonial_image[url]!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "testimonial_alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": "center",
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "image-size",
+                    "name": "testimonial_image",
+                    "label": null,
+                    "selector": null,
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_style_testimonial_content",
+            "label": "Content",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "content_content_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "content_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-testimonial-content",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "content_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-testimonial-content",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_style_testimonial_image",
+            "label": "Image",
+            "tab": "style",
+            "condition": {
+                "testimonial_image[url]!": ""
+            },
+            "controls": [
+                {
+                    "key": "image_size",
+                    "type": "slider",
+                    "label": "Image Resolution",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "image_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "border",
+                    "name": "image_border",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-testimonial-wrapper .elementor-testimonial-image img",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_style_testimonial_name",
+            "label": "Name",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "name_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "name_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-testimonial-name",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "name_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-testimonial-name",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_style_testimonial_job",
+            "label": "Title",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "job_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "job_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-testimonial-job",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "job_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-testimonial-job",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "image-size",
+            "name": "testimonial_image",
+            "label": null,
+            "selector": null,
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "content_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-testimonial-content",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "content_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-testimonial-content",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "border",
+            "name": "image_border",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-testimonial-wrapper .elementor-testimonial-image img",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "name_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-testimonial-name",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "name_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-testimonial-name",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "job_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-testimonial-job",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "job_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-testimonial-job",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:49+00:00"
+}

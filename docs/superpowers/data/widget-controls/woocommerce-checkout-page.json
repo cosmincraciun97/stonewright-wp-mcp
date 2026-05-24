@@ -1,0 +1,3776 @@
+{
+    "slug": "woocommerce-checkout-page",
+    "source": "wc",
+    "title": "Checkout",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/checkout.php",
+    "sections": [
+        {
+            "id": "section_content",
+            "label": "General",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "checkout_layout",
+                    "type": "select",
+                    "label": "Layout",
+                    "default": "two-column",
+                    "options": {
+                        "two-column": "Two columns",
+                        "one-column": "One column"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sticky_right_column",
+                    "type": "switcher",
+                    "label": "Sticky Right Column",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "checkout_layout": "two-column"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": "The Order Summary and Payment sections will remain in place while scrolling."
+                },
+                {
+                    "key": "sticky_right_column_offset",
+                    "type": "number",
+                    "label": "Offset",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "relation": "and",
+                        "terms": [
+                            {
+                                "name": "sticky_right_column",
+                                "operator": "!==",
+                                "value": ""
+                            },
+                            {
+                                "name": "checkout_layout",
+                                "operator": "=",
+                                "value": "two-column"
+                            }
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "returning_customer_heading",
+            "label": "Returning Customer",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "returning_customer_section_title",
+                    "type": "text",
+                    "label": "Section Title",
+                    "default": "Returning customer?",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "returning_customer_link_text",
+                    "type": "text",
+                    "label": "Link Text",
+                    "default": "Click here to login",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "returning_customer_title_alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "login_button_title",
+                    "type": "heading",
+                    "label": "Login Button",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "login_button_alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        },
+                        "justify": {
+                            "title": "Justify",
+                            "icon": "eicon-text-align-justify"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "login_button_alignment_note",
+                    "type": "raw_html",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "billing_details_section",
+            "label": {
+                "__unresolved__": "PhpParser\\Node\\Expr\\Ternary"
+            },
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "billing_details_section_title",
+                    "type": "text",
+                    "label": "Section Title",
+                    "default": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\Ternary"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "billing_details_alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "billing_details_form_fields",
+                    "type": "repeater",
+                    "label": "Form Items",
+                    "default": {
+                        "__unresolved__": "->get_billing_field_defaults()"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "shipping_details_section",
+            "label": "Shipping Details",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "shipping_details_section_title",
+                    "type": "text",
+                    "label": "Section Title",
+                    "default": "Ship to a different address?",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "shipping_details_form_fields",
+                    "type": "repeater",
+                    "label": "Form Items",
+                    "default": {
+                        "__unresolved__": "->get_shipping_field_defaults()"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "additional_information_section",
+            "label": "Additional Information",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "additional_information_active",
+                    "type": "switcher",
+                    "label": "Additional Information",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "additional_information_section_title",
+                    "type": "text",
+                    "label": "Section Title",
+                    "default": "Additional Information",
+                    "options": null,
+                    "condition": {
+                        "additional_information_active!": ""
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "additional_information_alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        }
+                    },
+                    "condition": {
+                        "additional_information_active!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "additional_information_form_fields",
+                    "type": "repeater",
+                    "label": "Items",
+                    "default": [
+                        {
+                            "field_key": "order_comments",
+                            "field_label": "Order Notes",
+                            "label": "Order Notes",
+                            "placeholder": "Notes about your order, e.g. special notes for delivery."
+                        }
+                    ],
+                    "options": null,
+                    "condition": {
+                        "additional_information_active!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "create_account_section",
+            "label": "Create an Account",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "create_account_text",
+                    "type": "text",
+                    "label": "Section Title",
+                    "default": "Create an account?",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "order_summary_section",
+            "label": "Your Order",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "order_summary_section_title",
+                    "type": "text",
+                    "label": "Section Title",
+                    "default": "Your Order",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "coupon_section",
+            "label": "Coupon",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "coupon_section_display",
+                    "type": "switcher",
+                    "label": "Coupon",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "coupon_section_title_text",
+                    "type": "text",
+                    "label": "Section Title",
+                    "default": "Have a coupon?",
+                    "options": null,
+                    "condition": {
+                        "coupon_section_display": "yes"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "coupon_section_title_link_text",
+                    "type": "text",
+                    "label": "Link Text",
+                    "default": "Click here to enter your coupon code",
+                    "options": null,
+                    "condition": {
+                        "coupon_section_display": "yes"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "coupon_alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        }
+                    },
+                    "condition": {
+                        "coupon_section_display": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "coupon_button_title",
+                    "type": "heading",
+                    "label": "Apply Button",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "coupon_section_display": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "coupon_button_alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        },
+                        "justify": {
+                            "title": "Justify",
+                            "icon": "eicon-text-align-justify"
+                        }
+                    },
+                    "condition": {
+                        "coupon_section_display": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "coupon_button_alignment_note",
+                    "type": "raw_html",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "coupon_section_display": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "payment_section",
+            "label": "Payment",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "terms_conditions_heading",
+                    "type": "heading",
+                    "label": "Terms & Conditions",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "terms_conditions_message_text",
+                    "type": "text",
+                    "label": "Message",
+                    "default": "I have read and agree to the website",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "terms_conditions_link_text",
+                    "type": "text",
+                    "label": "Link Text",
+                    "default": "terms and conditions",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "purchase_buttom_heading",
+                    "type": "heading",
+                    "label": "Purchase Button",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "purchase_button_alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        },
+                        "justify": {
+                            "title": "Justify",
+                            "icon": "eicon-text-align-justify"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_checkout_tabs_style",
+            "label": "Sections",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "sections_background_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_border_type",
+                    "type": "select",
+                    "label": "Border Type",
+                    "default": null,
+                    "options": {
+                        "__unresolved__": "->get_custom_border_type_options()"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_border_width",
+                    "type": "dimensions",
+                    "label": "Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "sections_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "sections_border_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "sections_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "sections_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "sections_margin",
+                    "type": "dimensions",
+                    "label": "Margin",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "box-shadow",
+                    "name": "section_normal_box_shadow",
+                    "label": null,
+                    "selector": {
+                        "__unresolved__": "->get_main_woocommerce_sections_selectors()"
+                    },
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_checkout_tabs_typography",
+            "label": "Typography",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "sections_typography",
+                    "type": "heading",
+                    "label": "Titles",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_title_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_title_spacing",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "sections_secondary_typography",
+                    "type": "heading",
+                    "label": "Secondary Titles",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_secondary_title_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_secondary_title_spacing",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "sections_descriptions_title",
+                    "type": "heading",
+                    "label": "Descriptions",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_descriptions_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_descriptions_spacing",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "sections_messages_title",
+                    "type": "heading",
+                    "label": "Messages",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_messages_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_checkboxes_title",
+                    "type": "heading",
+                    "label": "Checkboxes",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_checkboxes_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_radio_buttons_title",
+                    "type": "heading",
+                    "label": "Radio Buttons",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_radio_buttons_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_links_title",
+                    "type": "heading",
+                    "label": "Links",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "links_normal_color",
+                    "type": "color",
+                    "label": "Link Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "links_hover_color",
+                    "type": "color",
+                    "label": "Link Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "sections_titles_typography",
+                    "label": null,
+                    "selector": {
+                        "__unresolved__": "->get_main_woocommerce_sections_title_selectors()"
+                    },
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "sections_titles_text_shadow",
+                    "label": null,
+                    "selector": {
+                        "__unresolved__": "->get_main_woocommerce_sections_title_selectors()"
+                    },
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "sections_secondary_titles_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-checkout-secondary-title",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "sections_descriptions_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-description",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "sections_messages_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-checkout #payment .payment_box, {{WRAPPER}} .woocommerce-privacy-policy-text p, {{WRAPPER}} .e-checkout-message",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "sections_checkboxes_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-form__label-for-checkbox span",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "sections_radio_buttons_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .wc_payment_method label, {{WRAPPER}} #shipping_method li label",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_checkout_tabs_forms",
+            "label": "Forms",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "forms_columns_gap",
+                    "type": "slider",
+                    "label": "Columns Gap",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "forms_rows_gap",
+                    "type": "slider",
+                    "label": "Rows Gap",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "forms_label_title",
+                    "type": "heading",
+                    "label": "Labels",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_label_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_label_spacing",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "forms_field_title",
+                    "type": "heading",
+                    "label": "Fields",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_fields_normal_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_fields_focus_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_fields_focus_border_color",
+                    "type": "color",
+                    "label": "Border Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "forms_fields_border_border!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_fields_focus_transition_duration",
+                    "type": "slider",
+                    "label": "Transition Duration (ms)",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_fields_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "forms_fields_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "forms_button_title",
+                    "type": "heading",
+                    "label": "Button",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_buttons_normal_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_buttons_hover_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_buttons_hover_border_color",
+                    "type": "color",
+                    "label": "Border Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "forms_buttons_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_buttons_hover_transition_duration",
+                    "type": "slider",
+                    "label": "Transition Duration (ms)",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_buttons_hover_animation",
+                    "type": "hover_animation",
+                    "label": "Hover Animation",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_buttons_border_type",
+                    "type": "select",
+                    "label": "Border Type",
+                    "default": null,
+                    "options": {
+                        "__unresolved__": "->get_custom_border_type_options()"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_buttons_border_width",
+                    "type": "dimensions",
+                    "label": "Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "forms_buttons_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "forms_buttons_border_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "forms_buttons_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_buttons_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "forms_buttons_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "forms_label_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-billing-fields .form-row label, {{WRAPPER}} .woocommerce-shipping-fields .form-row label, {{WRAPPER}} .woocommerce-additional-fields .form-row label, {{WRAPPER}} .e-woocommerce-login-anchor .form-row label, {{WRAPPER}} .e-coupon-anchor-description",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "forms_field_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} #customer_details .input-text, {{WRAPPER}} #customer_details .form-row textarea, {{WRAPPER}} #customer_details .form-row select, {{WRAPPER}} .e-woocommerce-login-anchor .input-text, {{WRAPPER}} #coupon_code, {{WRAPPER}} ::placeholder, {{WRAPPER}} .select2-container--default .select2-selection--single, .select2-results__option",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": "forms_fields_normal_background",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce #customer_details .form-row .input-text, {{WRAPPER}}  .woocommerce #customer_details .form-row textarea, {{WRAPPER}} .woocommerce form #customer_details select, {{WRAPPER}} .woocommerce .e-woocommerce-login-anchor .form-row .input-text, {{WRAPPER}} #coupon_code, {{WRAPPER}} .select2-container--default .select2-selection--single, {{WRAPPER}} .woocommerce-checkout #payment .payment_methods .payment_box",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "forms_fields_normal_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} #customer_details .input-text, {{WRAPPER}}  #customer_details .form-row textarea, {{WRAPPER}} .woocommerce form #customer_details select, {{WRAPPER}} .e-woocommerce-login-anchor .input-text, {{WRAPPER}} #coupon_code, {{WRAPPER}} .select2-container--default .select2-selection--single",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": "forms_fields_focus_background",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce #customer_details .form-row .input-text:focus, {{WRAPPER}}  .woocommerce #customer_details .form-row textarea:focus, {{WRAPPER}} #customer_details select:focus, {{WRAPPER}} .woocommerce .e-woocommerce-login-anchor .form-row .input-text:focus, {{WRAPPER}} #coupon_code:focus, {{WRAPPER}} .select2-container--default .select2-selection--single:focus",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "forms_fields_focus_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} #customer_details .input-text:focus, {{WRAPPER}} #customer_details textarea:focus, {{WRAPPER}} #customer_details select:focus, {{WRAPPER}} .e-woocommerce-login-anchor .input-text:focus, {{WRAPPER}} #coupon_code:focus, {{WRAPPER}} .select2-container--default .select2-selection--single:focus",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "border",
+                    "name": "forms_fields_border",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce #customer_details .form-row .input-text, {{WRAPPER}}  .woocommerce #customer_details .form-row textarea, {{WRAPPER}} .woocommerce form #customer_details select, {{WRAPPER}} .woocommerce .e-woocommerce-login-anchor .form-row .input-text, {{WRAPPER}} #coupon_code, {{WRAPPER}} .select2-container--default .select2-selection--single",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "forms_button_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-button",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "forms_button_text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-button",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": "forms_buttons_normal_background",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-button",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "forms_buttons_normal_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-button",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": "forms_buttons_hover_background",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-button:hover",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "forms_buttons_focus_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-button:hover",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_checkout_tabs_order_summary",
+            "label": "Order Summary",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "order_summary_rows_gap",
+                    "type": "slider",
+                    "label": "Rows Gap",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_items_title",
+                    "type": "heading",
+                    "label": "Items",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_items_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_variations_title",
+                    "type": "heading",
+                    "label": "Variations",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_variations_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_items_divider_title",
+                    "type": "heading",
+                    "label": "Dividers",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_items_divider_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_items_divider_weight",
+                    "type": "slider",
+                    "label": "Weight",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_totals_title",
+                    "type": "heading",
+                    "label": "Titles & Totals",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_totals_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_dividers_total_title",
+                    "type": "heading",
+                    "label": "Divider Total",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_totals_divider_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_totals_divider_weight",
+                    "type": "slider",
+                    "label": "Weight",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "order_summary_items_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-checkout-review-order-table .cart_item td",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "order_summary_variations_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .product-name .variation",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "order_summary_totals_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-checkout-review-order-table thead tr th, {{WRAPPER}} .woocommerce-checkout-review-order-table tfoot tr th, {{WRAPPER}} .woocommerce-checkout-review-order-table tfoot tr td",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_checkout_tabs_purchase_button",
+            "label": "Purchase Button",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "purchase_button_normal_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "purchase_button_hover_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "purchase_button_hover_border_color",
+                    "type": "color",
+                    "label": "Border Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "purchase_button_border_border!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "purchase_button_hover_transition_duration",
+                    "type": "slider",
+                    "label": "Transition Duration (ms)",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "purchase_button_hover_animation",
+                    "type": "hover_animation",
+                    "label": "Hover Animation",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "purchase_button_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "purchase_button_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "purchase_button_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce #payment #place_order",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "purchase_button_text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce #payment #place_order",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": "purchase_button_normal_background",
+                    "label": null,
+                    "selector": "{{WRAPPER}} #payment #place_order",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "purchase_button_normal_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} #place_order",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": "purchase_button_hover_background",
+                    "label": null,
+                    "selector": "{{WRAPPER}} #payment #place_order:hover",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "purchase_button_hover_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} #place_order:hover",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "border",
+                    "name": "purchase_button_border",
+                    "label": null,
+                    "selector": "{{WRAPPER}} #place_order",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_checkout_tabs_customize",
+            "label": "Customize",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "section_checkout_show_customize_elements",
+                    "type": "select2",
+                    "label": "Select sections of the checkout to customize:",
+                    "default": null,
+                    "options": {
+                        "__unresolved__": "$customize_options"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_checkout_tabs_customize_returning_customer",
+            "label": "Customize: Returning Customer",
+            "tab": "style",
+            "condition": {
+                "section_checkout_show_customize_elements": "customize_returning_customer"
+            },
+            "controls": [
+                {
+                    "key": "returning_customers_section_title",
+                    "type": "heading",
+                    "label": "Section",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "customize_returning_customer_background_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "returning_customers_border_type",
+                    "type": "select",
+                    "label": "Border Type",
+                    "default": null,
+                    "options": {
+                        "__unresolved__": "->get_custom_border_type_options()"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "returning_customers_border_width",
+                    "type": "dimensions",
+                    "label": "Border Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "returning_customers_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "returning_customers_border_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "returning_customers_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "returning_customers_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "returning_customers_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "returning_customers_margin",
+                    "type": "dimensions",
+                    "label": "Margin",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "returning_customers_secondary_title",
+                    "type": "heading",
+                    "label": "Secondary Title",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "returning_customers_secondary_title_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "returning_customers_description_title",
+                    "type": "heading",
+                    "label": "Description",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "returning_customers_description_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "returning_customers_checkboxes_title",
+                    "type": "heading",
+                    "label": "Checkbox",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "returning_customers_checkboxes_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "returning_customers_link_title",
+                    "type": "heading",
+                    "label": "Link",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "returning_customers_normal_links_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "returning_customers_hover_links_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "box-shadow",
+                    "name": "returning_customers_section_normal_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-woocommerce-login-section",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "returning_customers_content_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-form-login-toggle",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "returning_customers_description_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-woocommerce-login-nudge.e-description",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "returning_customers_checkboxes_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-woocommerce-login-section .woocommerce-form__label-for-checkbox span",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_checkout_tabs_customize_billing_details",
+            "label": "Customize: Billing Details",
+            "tab": "style",
+            "condition": {
+                "section_checkout_show_customize_elements": "customize_billing_details"
+            },
+            "controls": [
+                {
+                    "key": "customize_billing_details_section_title",
+                    "type": "heading",
+                    "label": "Section",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "customize_billing_details_background_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "billing_details_border_type",
+                    "type": "select",
+                    "label": "Border Type",
+                    "default": null,
+                    "options": {
+                        "__unresolved__": "->get_custom_border_type_options()"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "billing_details_border_width",
+                    "type": "dimensions",
+                    "label": "Border Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "billing_details_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "billing_details_border_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "billing_details_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "billing_details_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "billing_details_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "billing_details_margin",
+                    "type": "dimensions",
+                    "label": "Margin",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "billing_details_titles_title",
+                    "type": "heading",
+                    "label": "Title",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "billing_details_titles_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "billing_details_checkboxes_title",
+                    "type": "heading",
+                    "label": "Checkbox",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "billing_details_checkboxes_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "box-shadow",
+                    "name": "billing_details_section_normal_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-checkout__column-start .col2-set .col-1",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "billing_details_titles_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-billing-fields h3",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "billing_details_titles_text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-billing-fields h3",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "billing_details_checkboxes_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .col2-set .col-1 .woocommerce-form__label-for-checkbox span",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_checkout_tabs_customize_additional_info",
+            "label": "Customize: Additional Information",
+            "tab": "style",
+            "condition": {
+                "section_checkout_show_customize_elements": "customize_additional_info"
+            },
+            "controls": [
+                {
+                    "key": "customize_additional_information_section_title",
+                    "type": "heading",
+                    "label": "Section",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "customize_additional_information_background_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "additional_information_border_type",
+                    "type": "select",
+                    "label": "Border Type",
+                    "default": null,
+                    "options": {
+                        "__unresolved__": "->get_custom_border_type_options()"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "additional_information_border_width",
+                    "type": "dimensions",
+                    "label": "Border Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "additional_information_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "additional_information_border_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "additional_information_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "additional_information_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "additional_information_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "additional_information_margin",
+                    "type": "dimensions",
+                    "label": "Margin",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "additional_information_titles_title",
+                    "type": "heading",
+                    "label": "Title",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "additional_information_titles_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "box-shadow",
+                    "name": "additional_information_section_normal_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-additional-fields",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "additional_information_titles_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-additional-fields h3",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "additional_information_titles_text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-additional-fields h3",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_checkout_tabs_customize_shipping_address",
+            "label": "Customize: Shipping Address",
+            "tab": "style",
+            "condition": {
+                "section_checkout_show_customize_elements": "customize_shipping_address"
+            },
+            "controls": [
+                {
+                    "key": "shipping_address_section_title",
+                    "type": "heading",
+                    "label": "Section",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "customize_shipping_address_background_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "shipping_address_border_type",
+                    "type": "select",
+                    "label": "Border Type",
+                    "default": null,
+                    "options": {
+                        "__unresolved__": "->get_custom_border_type_options()"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "shipping_address_border_width",
+                    "type": "dimensions",
+                    "label": "Border Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "shipping_address_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "shipping_address_border_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "shipping_address_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "shipping_address_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "shipping_address_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "shipping_address_margin",
+                    "type": "dimensions",
+                    "label": "Margin",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "shipping_address_checkboxes_title",
+                    "type": "heading",
+                    "label": "Checkboxes",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "shipping_address_checkboxes_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "box-shadow",
+                    "name": "shipping_address_section_normal_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-shipping-fields .shipping_address",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "shipping_address_checkboxes_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-shipping-fields .woocommerce-form__label-for-checkbox span",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_checkout_tabs_customize_coupon",
+            "label": "Customize: Coupon",
+            "tab": "style",
+            "condition": {
+                "section_checkout_show_customize_elements": "customize_coupon"
+            },
+            "controls": [
+                {
+                    "key": "customize_coupon_section_title",
+                    "type": "heading",
+                    "label": "Section",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "customize_coupon_background_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "coupon_border_type",
+                    "type": "select",
+                    "label": "Border Type",
+                    "default": null,
+                    "options": {
+                        "__unresolved__": "->get_custom_border_type_options()"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "coupon_border_width",
+                    "type": "dimensions",
+                    "label": "Border Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "coupon_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "coupon_border_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "coupon_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "coupon_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "coupon_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "coupon_margin",
+                    "type": "dimensions",
+                    "label": "Margin",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "coupon_secondary_title",
+                    "type": "heading",
+                    "label": "Secondary Title",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "coupon_secondary_title_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "coupon_link_title",
+                    "type": "heading",
+                    "label": "Link",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "coupon_normal_links_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "coupon_hover_links_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "box-shadow",
+                    "name": "coupon_section_normal_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-coupon-box",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "coupon_content_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-woocommerce-coupon-nudge.e-checkout-secondary-title",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_checkout_tabs_customize_order_summary",
+            "label": "Customize: Order Summary",
+            "tab": "style",
+            "condition": {
+                "section_checkout_show_customize_elements": "customize_order_summary"
+            },
+            "controls": [
+                {
+                    "key": "customize_order_summary_section_title",
+                    "type": "heading",
+                    "label": "Section",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "customize_order_summary_background_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_border_type",
+                    "type": "select",
+                    "label": "Border Type",
+                    "default": null,
+                    "options": {
+                        "__unresolved__": "->get_custom_border_type_options()"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_border_width",
+                    "type": "dimensions",
+                    "label": "Border Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "order_summary_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_border_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "order_summary_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_margin",
+                    "type": "dimensions",
+                    "label": "Margin",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_titles_title",
+                    "type": "heading",
+                    "label": "Title",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_titles_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_descriptions_title",
+                    "type": "heading",
+                    "label": "Message",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_descriptions_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_radios_title",
+                    "type": "heading",
+                    "label": "Radio Button",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_radios_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "box-shadow",
+                    "name": "order_summary_section_normal_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-checkout__order_review",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "order_summary_titles_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} h3#order_review_heading",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "order_summary_titles_text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} h3#order_review_heading",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "order_summary_descriptions_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-no-shipping-available-html.e-description, {{WRAPPER}} .woocommerce-no-shipping-available-html.e-checkout-message",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "order_summary_radio_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce .e-checkout__order_review ul#shipping_method li label",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_checkout_tabs_customize_payment",
+            "label": "Customize: Payment",
+            "tab": "style",
+            "condition": {
+                "section_checkout_show_customize_elements": "customize_payment"
+            },
+            "controls": [
+                {
+                    "key": "customize_payment_section_title",
+                    "type": "heading",
+                    "label": "Section",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "customize_payment_background_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "payment_border_type",
+                    "type": "select",
+                    "label": "Border Type",
+                    "default": null,
+                    "options": {
+                        "__unresolved__": "->get_custom_border_type_options()"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "payment_border_width",
+                    "type": "dimensions",
+                    "label": "Border Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "payment_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "payment_border_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "payment_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "payment_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "payment_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "payment_margin",
+                    "type": "dimensions",
+                    "label": "Margin",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "payment_info_box_title",
+                    "type": "heading",
+                    "label": "Info Box",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "payment_description_title",
+                    "type": "heading",
+                    "label": "Description",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "payment_description_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "payment_messages_title",
+                    "type": "heading",
+                    "label": "Message",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "payment_messages_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "payment_checkboxes_title",
+                    "type": "heading",
+                    "label": "Checkbox",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "payment_checkboxes_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "payment_radio_title",
+                    "type": "heading",
+                    "label": "Radio Button",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "payment_radio_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "payment_links_title",
+                    "type": "heading",
+                    "label": "Links",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "payment_normal_color",
+                    "type": "color",
+                    "label": "Link Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "payment_hover_color",
+                    "type": "color",
+                    "label": "Link Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "box-shadow",
+                    "name": "payment_section_normal_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-checkout #payment",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": "payment_info_box_title_background",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-checkout #payment .payment_methods .payment_box",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "payment_description_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-checkout-payment .e-description",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "payment_messages_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-checkout #payment .payment_box, {{WRAPPER}} .woocommerce-privacy-policy-text p",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "payment_checkboxes_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-terms-and-conditions-wrapper .woocommerce-form__label-for-checkbox span",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "payment_radio_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-checkout-payment .wc_payment_method label",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "box-shadow",
+            "name": "section_normal_box_shadow",
+            "label": null,
+            "selector": {
+                "__unresolved__": "->get_main_woocommerce_sections_selectors()"
+            },
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "sections_titles_typography",
+            "label": null,
+            "selector": {
+                "__unresolved__": "->get_main_woocommerce_sections_title_selectors()"
+            },
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "sections_titles_text_shadow",
+            "label": null,
+            "selector": {
+                "__unresolved__": "->get_main_woocommerce_sections_title_selectors()"
+            },
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "sections_secondary_titles_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-checkout-secondary-title",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "sections_descriptions_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-description",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "sections_messages_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-checkout #payment .payment_box, {{WRAPPER}} .woocommerce-privacy-policy-text p, {{WRAPPER}} .e-checkout-message",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "sections_checkboxes_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-form__label-for-checkbox span",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "sections_radio_buttons_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .wc_payment_method label, {{WRAPPER}} #shipping_method li label",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "forms_label_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-billing-fields .form-row label, {{WRAPPER}} .woocommerce-shipping-fields .form-row label, {{WRAPPER}} .woocommerce-additional-fields .form-row label, {{WRAPPER}} .e-woocommerce-login-anchor .form-row label, {{WRAPPER}} .e-coupon-anchor-description",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "forms_field_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} #customer_details .input-text, {{WRAPPER}} #customer_details .form-row textarea, {{WRAPPER}} #customer_details .form-row select, {{WRAPPER}} .e-woocommerce-login-anchor .input-text, {{WRAPPER}} #coupon_code, {{WRAPPER}} ::placeholder, {{WRAPPER}} .select2-container--default .select2-selection--single, .select2-results__option",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "forms_fields_normal_background",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce #customer_details .form-row .input-text, {{WRAPPER}}  .woocommerce #customer_details .form-row textarea, {{WRAPPER}} .woocommerce form #customer_details select, {{WRAPPER}} .woocommerce .e-woocommerce-login-anchor .form-row .input-text, {{WRAPPER}} #coupon_code, {{WRAPPER}} .select2-container--default .select2-selection--single, {{WRAPPER}} .woocommerce-checkout #payment .payment_methods .payment_box",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "forms_fields_normal_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} #customer_details .input-text, {{WRAPPER}}  #customer_details .form-row textarea, {{WRAPPER}} .woocommerce form #customer_details select, {{WRAPPER}} .e-woocommerce-login-anchor .input-text, {{WRAPPER}} #coupon_code, {{WRAPPER}} .select2-container--default .select2-selection--single",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "forms_fields_focus_background",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce #customer_details .form-row .input-text:focus, {{WRAPPER}}  .woocommerce #customer_details .form-row textarea:focus, {{WRAPPER}} #customer_details select:focus, {{WRAPPER}} .woocommerce .e-woocommerce-login-anchor .form-row .input-text:focus, {{WRAPPER}} #coupon_code:focus, {{WRAPPER}} .select2-container--default .select2-selection--single:focus",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "forms_fields_focus_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} #customer_details .input-text:focus, {{WRAPPER}} #customer_details textarea:focus, {{WRAPPER}} #customer_details select:focus, {{WRAPPER}} .e-woocommerce-login-anchor .input-text:focus, {{WRAPPER}} #coupon_code:focus, {{WRAPPER}} .select2-container--default .select2-selection--single:focus",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "border",
+            "name": "forms_fields_border",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce #customer_details .form-row .input-text, {{WRAPPER}}  .woocommerce #customer_details .form-row textarea, {{WRAPPER}} .woocommerce form #customer_details select, {{WRAPPER}} .woocommerce .e-woocommerce-login-anchor .form-row .input-text, {{WRAPPER}} #coupon_code, {{WRAPPER}} .select2-container--default .select2-selection--single",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "forms_button_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-button",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "forms_button_text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-button",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "forms_buttons_normal_background",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-button",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "forms_buttons_normal_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-button",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "forms_buttons_hover_background",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-button:hover",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "forms_buttons_focus_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-button:hover",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "order_summary_items_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-checkout-review-order-table .cart_item td",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "order_summary_variations_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .product-name .variation",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "order_summary_totals_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-checkout-review-order-table thead tr th, {{WRAPPER}} .woocommerce-checkout-review-order-table tfoot tr th, {{WRAPPER}} .woocommerce-checkout-review-order-table tfoot tr td",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "purchase_button_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce #payment #place_order",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "purchase_button_text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce #payment #place_order",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "purchase_button_normal_background",
+            "label": null,
+            "selector": "{{WRAPPER}} #payment #place_order",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "purchase_button_normal_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} #place_order",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "purchase_button_hover_background",
+            "label": null,
+            "selector": "{{WRAPPER}} #payment #place_order:hover",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "purchase_button_hover_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} #place_order:hover",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "border",
+            "name": "purchase_button_border",
+            "label": null,
+            "selector": "{{WRAPPER}} #place_order",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "returning_customers_section_normal_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-woocommerce-login-section",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "returning_customers_content_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-form-login-toggle",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "returning_customers_description_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-woocommerce-login-nudge.e-description",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "returning_customers_checkboxes_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-woocommerce-login-section .woocommerce-form__label-for-checkbox span",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "billing_details_section_normal_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-checkout__column-start .col2-set .col-1",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "billing_details_titles_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-billing-fields h3",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "billing_details_titles_text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-billing-fields h3",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "billing_details_checkboxes_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .col2-set .col-1 .woocommerce-form__label-for-checkbox span",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "additional_information_section_normal_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-additional-fields",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "additional_information_titles_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-additional-fields h3",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "additional_information_titles_text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-additional-fields h3",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "shipping_address_section_normal_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-shipping-fields .shipping_address",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "shipping_address_checkboxes_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-shipping-fields .woocommerce-form__label-for-checkbox span",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "coupon_section_normal_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-coupon-box",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "coupon_content_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-woocommerce-coupon-nudge.e-checkout-secondary-title",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "order_summary_section_normal_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-checkout__order_review",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "order_summary_titles_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} h3#order_review_heading",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "order_summary_titles_text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} h3#order_review_heading",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "order_summary_descriptions_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-no-shipping-available-html.e-description, {{WRAPPER}} .woocommerce-no-shipping-available-html.e-checkout-message",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "order_summary_radio_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce .e-checkout__order_review ul#shipping_method li label",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "payment_section_normal_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-checkout #payment",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "payment_info_box_title_background",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-checkout #payment .payment_methods .payment_box",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "payment_description_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-checkout-payment .e-description",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "payment_messages_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-checkout #payment .payment_box, {{WRAPPER}} .woocommerce-privacy-policy-text p",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "payment_checkboxes_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-terms-and-conditions-wrapper .woocommerce-form__label-for-checkbox span",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "payment_radio_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-checkout-payment .wc_payment_method label",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [
+        {
+            "var": "repeater",
+            "fields": [
+                {
+                    "key": "label",
+                    "type": "text",
+                    "label": "Label",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "placeholder",
+                    "type": "text",
+                    "label": "Placeholder",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "default",
+                    "type": "text",
+                    "label": "Default Value",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                }
+            ]
+        }
+    ],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:53+00:00"
+}

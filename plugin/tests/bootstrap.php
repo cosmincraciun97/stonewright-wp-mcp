@@ -131,6 +131,25 @@ if ( ! function_exists( 'get_current_user_id' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_set_current_user' ) ) {
+	function wp_set_current_user( int $id, string $name = '' ): object {
+		$GLOBALS['stonewright_test_set_current_user'] = $id;
+		$GLOBALS['stonewright_test_current_user_id']  = $id;
+		return (object) [ 'ID' => $id ];
+	}
+}
+
+if ( ! function_exists( 'wp_set_auth_cookie' ) ) {
+	function wp_set_auth_cookie( int $user_id, bool $remember = false, mixed $secure = '', string $token = '' ): void {
+		$GLOBALS['stonewright_test_auth_cookie'] = [
+			'user_id'  => $user_id,
+			'remember' => $remember,
+			'secure'   => $secure,
+			'token'    => $token,
+		];
+	}
+}
+
 $GLOBALS['stonewright_test_transients'] ??= [];
 
 if ( ! function_exists( 'set_transient' ) ) {
@@ -167,6 +186,16 @@ if ( ! function_exists( 'get_option' ) ) {
 if ( ! function_exists( 'update_option' ) ) {
 	function update_option( string $option, mixed $value, bool|string $autoload = true ): bool {
 		$GLOBALS['stonewright_test_options'][ $option ] = $value;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'delete_option' ) ) {
+	function delete_option( string $option ): bool {
+		if ( ! array_key_exists( $option, $GLOBALS['stonewright_test_options'] ?? [] ) ) {
+			return false;
+		}
+		unset( $GLOBALS['stonewright_test_options'][ $option ] );
 		return true;
 	}
 }
@@ -294,7 +323,8 @@ if ( ! function_exists( 'rest_url' ) ) {
 
 if ( ! function_exists( 'home_url' ) ) {
 	function home_url( string $path = '' ): string {
-		return 'https://example.test/' . ltrim( $path, '/' );
+		$base = $GLOBALS['stonewright_test_home_url'] ?? 'https://example.test/';
+		return rtrim( $base, '/' ) . '/' . ltrim( $path, '/' );
 	}
 }
 
@@ -427,6 +457,12 @@ if ( ! function_exists( 'esc_attr' ) ) {
 	}
 }
 
+if ( ! function_exists( 'esc_textarea' ) ) {
+	function esc_textarea( string $text ): string {
+		return htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' );
+	}
+}
+
 if ( ! function_exists( 'esc_url' ) ) {
 	function esc_url( string $url ): string {
 		return filter_var( $url, FILTER_SANITIZE_URL ) ?: '';
@@ -475,6 +511,12 @@ if ( ! function_exists( 'sanitize_text_field' ) ) {
 if ( ! function_exists( 'sanitize_file_name' ) ) {
 	function sanitize_file_name( string $filename ): string {
 		return preg_replace( '/[^A-Za-z0-9._-]/', '-', $filename ) ?? '';
+	}
+}
+
+if ( ! function_exists( 'sanitize_textarea_field' ) ) {
+	function sanitize_textarea_field( string $text ): string {
+		return trim( strip_tags( $text ) );
 	}
 }
 
@@ -569,6 +611,17 @@ if ( ! function_exists( 'update_post_meta' ) ) {
 			'meta_key' => $meta_key,
 			'value'    => $meta_value,
 		];
+		// Also persist into the fake post's meta array so get_post_meta() can
+		// read it back. This mirrors how real WordPress behaves and lets
+		// round-trip read-after-write code paths (ElementorData::write
+		// post-verification, GetTemplate->get_post_meta, etc.) work under tests.
+		if ( isset( $GLOBALS['stonewright_test_posts'][ $post_id ] ) ) {
+			$post                              = $GLOBALS['stonewright_test_posts'][ $post_id ];
+			$meta                              = (array) ( $post->meta ?? [] );
+			$meta[ $meta_key ]                 = $meta_value;
+			$post->meta                        = $meta;
+			$GLOBALS['stonewright_test_posts'][ $post_id ] = $post;
+		}
 		return true;
 	}
 }
@@ -581,6 +634,25 @@ if ( ! function_exists( 'add_post_meta' ) ) {
 			'meta_key' => $meta_key,
 			'value'    => $meta_value,
 		];
+		return true;
+	}
+}
+
+if ( ! function_exists( 'delete_post_meta' ) ) {
+	function delete_post_meta( int $post_id, string $meta_key, mixed $meta_value = '' ): bool {
+		$GLOBALS['stonewright_test_post_meta_calls'][] = [
+			'action'   => 'delete',
+			'post_id'  => $post_id,
+			'meta_key' => $meta_key,
+			'value'    => $meta_value,
+		];
+		if ( isset( $GLOBALS['stonewright_test_posts'][ $post_id ] ) ) {
+			$post = $GLOBALS['stonewright_test_posts'][ $post_id ];
+			$meta = (array) ( $post->meta ?? [] );
+			unset( $meta[ $meta_key ] );
+			$post->meta = $meta;
+			$GLOBALS['stonewright_test_posts'][ $post_id ] = $post;
+		}
 		return true;
 	}
 }
@@ -672,6 +744,38 @@ if ( ! function_exists( 'wp_update_post' ) ) {
 if ( ! function_exists( 'post_type_supports' ) ) {
 	function post_type_supports( string $post_type, string $feature ): bool {
 		return false;
+	}
+}
+
+if ( ! function_exists( 'wp_delete_post' ) ) {
+	/**
+	 * @return \WP_Post|false|null
+	 */
+	function wp_delete_post( int $post_id, bool $force_delete = false ): mixed {
+		$post = $GLOBALS['stonewright_test_posts'][ $post_id ] ?? null;
+		if ( null === $post ) {
+			return false;
+		}
+		$GLOBALS['stonewright_test_deleted_posts'][] = [
+			'post_id' => $post_id,
+			'force'   => $force_delete,
+		];
+		if ( $force_delete ) {
+			unset( $GLOBALS['stonewright_test_posts'][ $post_id ] );
+		} else {
+			$GLOBALS['stonewright_test_posts'][ $post_id ]->post_status = 'trash';
+		}
+		return $post;
+	}
+}
+
+if ( ! function_exists( 'get_the_title' ) ) {
+	function get_the_title( int|object $post = 0 ): string {
+		if ( is_object( $post ) ) {
+			return (string) ( $post->post_title ?? '' );
+		}
+		$record = $GLOBALS['stonewright_test_posts'][ (int) $post ] ?? null;
+		return null === $record ? '' : (string) ( $record->post_title ?? '' );
 	}
 }
 
@@ -1372,9 +1476,19 @@ if ( ! function_exists( 'size_format' ) ) {
 if ( ! function_exists( 'add_query_arg' ) ) {
 	function add_query_arg( mixed $key, mixed $value = '', string $url = '' ): string {
 		if ( is_array( $key ) ) {
-			return $url . '?' . http_build_query( $key );
+			// Real WP: add_query_arg( array $args, string $url = '' )
+			// When called as add_query_arg( $arr, $url_string ), $url_string
+			// ends up in $value (2nd param). Detect and handle this.
+			$base = ( '' !== $url ) ? $url : ( is_string( $value ) ? $value : '' );
+			return $base . ( str_contains( $base, '?' ) ? '&' : '?' ) . http_build_query( $key );
 		}
-		return $url . '?' . urlencode( (string) $key ) . '=' . urlencode( (string) $value );
+		return $url . ( str_contains( $url, '?' ) ? '&' : '?' ) . urlencode( (string) $key ) . '=' . urlencode( (string) $value );
+	}
+}
+
+if ( ! function_exists( 'wp_generate_password' ) ) {
+	function wp_generate_password( int $length = 12, bool $special_chars = true, bool $extra_special_chars = false ): string {
+		return bin2hex( random_bytes( (int) ceil( $length / 2 ) ) );
 	}
 }
 
@@ -1514,6 +1628,165 @@ if ( ! function_exists( 'selected' ) ) {
 if ( ! function_exists( 'submit_button' ) ) {
 	function submit_button( string $text = '', string $type = 'primary', string $name = '', bool $wrap = true, mixed $other_attributes = null ): void {
 		echo '<input type="submit" value="' . esc_attr( $text ) . '" />'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Nav menu stubs — backed by $GLOBALS['stonewright_test_nav_menus'] (a map of
+// term_id => stdClass{ term_id, name, slug, items: array }) and the theme-mod
+// store $GLOBALS['stonewright_test_theme_mods'] (map of mod_key => mixed).
+//
+// The shape mirrors what real WordPress returns: wp_get_nav_menus yields
+// term-like objects, wp_update_nav_menu_item returns the new item's post_id,
+// is_nav_menu checks the term_id exists, etc. The registered-locations side
+// is backed by $GLOBALS['stonewright_test_registered_nav_menus'] (slug =>
+// label) which tests can override before calling the assign-location ability.
+// ---------------------------------------------------------------------------
+$GLOBALS['stonewright_test_nav_menus']             ??= [];
+$GLOBALS['stonewright_test_theme_mods']            ??= [];
+$GLOBALS['stonewright_test_registered_nav_menus']  ??= [];
+$GLOBALS['stonewright_test_next_nav_menu_id']      ??= 9001;
+$GLOBALS['stonewright_test_next_nav_menu_item_id'] ??= 9101;
+
+if ( ! function_exists( 'wp_create_nav_menu' ) ) {
+	function wp_create_nav_menu( string $menu_name ): int|\WP_Error {
+		// Honour explicit overrides so tests can force the WP_Error path
+		// without crafting a duplicate menu first.
+		if ( isset( $GLOBALS['stonewright_test_wp_create_nav_menu_return'] ) ) {
+			$ret = $GLOBALS['stonewright_test_wp_create_nav_menu_return'];
+			$GLOBALS['stonewright_test_wp_create_nav_menu_return'] = null;
+			return $ret;
+		}
+		$trimmed = trim( $menu_name );
+		if ( '' === $trimmed ) {
+			return new \WP_Error( 'menu_name_empty', 'Empty menu name.' );
+		}
+		// Reject duplicate names — mirrors real wp_create_nav_menu behaviour.
+		foreach ( (array) $GLOBALS['stonewright_test_nav_menus'] as $existing ) {
+			if ( isset( $existing->name ) && (string) $existing->name === $trimmed ) {
+				return new \WP_Error( 'menu_exists', 'Menu already exists.' );
+			}
+		}
+		$id   = (int) $GLOBALS['stonewright_test_next_nav_menu_id']++;
+		$slug = preg_replace( '/[^a-z0-9_\-]/', '-', strtolower( $trimmed ) ) ?? 'menu';
+		$GLOBALS['stonewright_test_nav_menus'][ $id ] = (object) [
+			'term_id' => $id,
+			'name'    => $trimmed,
+			'slug'    => $slug,
+			'items'   => [],
+		];
+		return $id;
+	}
+}
+
+if ( ! function_exists( 'wp_update_nav_menu_item' ) ) {
+	/**
+	 * @param array<string, mixed> $menu_item_data
+	 */
+	function wp_update_nav_menu_item( int $menu_id, int $menu_item_db_id = 0, array $menu_item_data = [], bool $wp_error = false ): int|\WP_Error {
+		if ( isset( $GLOBALS['stonewright_test_wp_update_nav_menu_item_return'] ) ) {
+			$ret = $GLOBALS['stonewright_test_wp_update_nav_menu_item_return'];
+			$GLOBALS['stonewright_test_wp_update_nav_menu_item_return'] = null;
+			return $ret;
+		}
+		if ( ! isset( $GLOBALS['stonewright_test_nav_menus'][ $menu_id ] ) ) {
+			return new \WP_Error( 'invalid_menu_id', 'Invalid menu id.' );
+		}
+		$item_id = 0 === $menu_item_db_id
+			? (int) $GLOBALS['stonewright_test_next_nav_menu_item_id']++
+			: $menu_item_db_id;
+
+		$GLOBALS['stonewright_test_nav_menus'][ $menu_id ]->items[ $item_id ] = [
+			'item_id' => $item_id,
+			'data'    => $menu_item_data,
+		];
+		return $item_id;
+	}
+}
+
+if ( ! function_exists( 'wp_get_nav_menus' ) ) {
+	/**
+	 * @param array<string, mixed> $args
+	 * @return array<int, object>
+	 */
+	function wp_get_nav_menus( array $args = [] ): array {
+		return array_values( (array) ( $GLOBALS['stonewright_test_nav_menus'] ?? [] ) );
+	}
+}
+
+if ( ! function_exists( 'wp_delete_nav_menu' ) ) {
+	function wp_delete_nav_menu( int|string $menu ): bool|\WP_Error {
+		if ( isset( $GLOBALS['stonewright_test_wp_delete_nav_menu_return'] ) ) {
+			$ret = $GLOBALS['stonewright_test_wp_delete_nav_menu_return'];
+			$GLOBALS['stonewright_test_wp_delete_nav_menu_return'] = null;
+			return $ret;
+		}
+		$id = (int) $menu;
+		if ( ! isset( $GLOBALS['stonewright_test_nav_menus'][ $id ] ) ) {
+			return false;
+		}
+		unset( $GLOBALS['stonewright_test_nav_menus'][ $id ] );
+		// Cascade: drop the menu from any theme-location assignment so tests
+		// can observe the cleanup that real WP performs.
+		$mods = $GLOBALS['stonewright_test_theme_mods']['nav_menu_locations'] ?? [];
+		if ( is_array( $mods ) ) {
+			foreach ( $mods as $loc => $menu_id ) {
+				if ( (int) $menu_id === $id ) {
+					unset( $mods[ $loc ] );
+				}
+			}
+			$GLOBALS['stonewright_test_theme_mods']['nav_menu_locations'] = $mods;
+		}
+		return true;
+	}
+}
+
+if ( ! function_exists( 'is_nav_menu' ) ) {
+	function is_nav_menu( int|string|object $menu ): bool {
+		if ( is_object( $menu ) ) {
+			$menu = $menu->term_id ?? 0;
+		}
+		return isset( $GLOBALS['stonewright_test_nav_menus'][ (int) $menu ] );
+	}
+}
+
+if ( ! function_exists( 'wp_get_nav_menu_object' ) ) {
+	function wp_get_nav_menu_object( int|string|object $menu ): object|false {
+		if ( is_object( $menu ) ) {
+			return $menu;
+		}
+		$id = (int) $menu;
+		return $GLOBALS['stonewright_test_nav_menus'][ $id ] ?? false;
+	}
+}
+
+if ( ! function_exists( 'get_nav_menu_locations' ) ) {
+	/** @return array<string, int> */
+	function get_nav_menu_locations(): array {
+		$locations = $GLOBALS['stonewright_test_theme_mods']['nav_menu_locations'] ?? [];
+		return is_array( $locations ) ? $locations : [];
+	}
+}
+
+if ( ! function_exists( 'get_registered_nav_menus' ) ) {
+	/** @return array<string, string> */
+	function get_registered_nav_menus(): array {
+		return (array) ( $GLOBALS['stonewright_test_registered_nav_menus'] ?? [] );
+	}
+}
+
+if ( ! function_exists( 'set_theme_mod' ) ) {
+	function set_theme_mod( string $name, mixed $value ): void {
+		$GLOBALS['stonewright_test_theme_mods'][ $name ] = $value;
+	}
+}
+
+if ( ! function_exists( 'get_theme_mod' ) ) {
+	function get_theme_mod( string $name, mixed $default = false ): mixed {
+		if ( array_key_exists( $name, (array) $GLOBALS['stonewright_test_theme_mods'] ) ) {
+			return $GLOBALS['stonewright_test_theme_mods'][ $name ];
+		}
+		return $default;
 	}
 }
 

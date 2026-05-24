@@ -1,0 +1,732 @@
+{
+    "slug": "login",
+    "source": "pro",
+    "title": "Login",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/forms/widgets/login.php",
+    "sections": [
+        {
+            "id": "section_fields_content",
+            "label": "Form Fields",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "show_labels",
+                    "type": "switcher",
+                    "label": "Label",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "input_size",
+                    "type": "select",
+                    "label": "Input Size",
+                    "default": "sm",
+                    "options": {
+                        "xs": "Extra Small",
+                        "sm": "Small",
+                        "md": "Medium",
+                        "lg": "Large",
+                        "xl": "Extra Large"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_button_content",
+            "label": "Button",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "button_text",
+                    "type": "text",
+                    "label": "Text",
+                    "default": "Log In",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_size",
+                    "type": "select",
+                    "label": "Size",
+                    "default": "sm",
+                    "options": {
+                        "xs": "Extra Small",
+                        "sm": "Small",
+                        "md": "Medium",
+                        "lg": "Large",
+                        "xl": "Extra Large"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "align",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": "",
+                    "options": {
+                        "start": {
+                            "title": "Left",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "Right",
+                            "icon": "eicon-text-align-right"
+                        },
+                        "stretch": {
+                            "title": "Justified",
+                            "icon": "eicon-text-align-justify"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_login_content",
+            "label": "Additional Options",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "redirect_after_login",
+                    "type": "switcher",
+                    "label": "Redirect After Login",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "redirect_url",
+                    "type": "url",
+                    "label": null,
+                    "default": null,
+                    "options": false,
+                    "condition": {
+                        "redirect_after_login": "yes"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": "Note: Because of security reasons, you can ONLY use your current domain here."
+                },
+                {
+                    "key": "redirect_after_logout",
+                    "type": "switcher",
+                    "label": "Redirect After Logout",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "redirect_logout_url",
+                    "type": "url",
+                    "label": null,
+                    "default": null,
+                    "options": false,
+                    "condition": {
+                        "redirect_after_logout": "yes"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": "Note: Because of security reasons, you can ONLY use your current domain here."
+                },
+                {
+                    "key": "show_lost_password",
+                    "type": "switcher",
+                    "label": "Lost your password?",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_register",
+                    "type": "switcher",
+                    "label": "Register",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_remember_me",
+                    "type": "switcher",
+                    "label": "Remember Me",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_logged_in_message",
+                    "type": "switcher",
+                    "label": "Logged in Message",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "custom_labels",
+                    "type": "switcher",
+                    "label": "Custom Label",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "user_label",
+                    "type": "text",
+                    "label": "Username Label",
+                    "default": "Username or Email Address",
+                    "options": null,
+                    "condition": {
+                        "relation": "or",
+                        "terms": [
+                            {
+                                "name": "show_labels",
+                                "operator": "===",
+                                "value": "yes"
+                            },
+                            {
+                                "name": "custom_labels",
+                                "operator": "===",
+                                "value": "yes"
+                            }
+                        ]
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "user_placeholder",
+                    "type": "text",
+                    "label": "Username Placeholder",
+                    "default": "Username or Email Address",
+                    "options": null,
+                    "condition": {
+                        "custom_labels": "yes"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "password_label",
+                    "type": "text",
+                    "label": "Password Label",
+                    "default": "Password",
+                    "options": null,
+                    "condition": {
+                        "relation": "or",
+                        "terms": [
+                            {
+                                "name": "show_labels",
+                                "operator": "===",
+                                "value": "yes"
+                            },
+                            {
+                                "name": "custom_labels",
+                                "operator": "===",
+                                "value": "yes"
+                            }
+                        ]
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "password_placeholder",
+                    "type": "text",
+                    "label": "Password Placeholder",
+                    "default": "Password",
+                    "options": null,
+                    "condition": {
+                        "custom_labels": "yes"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_style",
+            "label": "Form",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "row_gap",
+                    "type": "slider",
+                    "label": "Rows Gap",
+                    "default": {
+                        "size": 10
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "links_color",
+                    "type": "color",
+                    "label": "Links Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "links_hover_color",
+                    "type": "color",
+                    "label": "Links Hover Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_style_labels",
+            "label": "Label",
+            "tab": "style",
+            "condition": {
+                "show_labels!": ""
+            },
+            "controls": [
+                {
+                    "key": "label_spacing",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": {
+                        "size": 0
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "label_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "label_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-form-fields-wrapper label",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_field_style",
+            "label": "Fields",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "field_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "field_background_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": "#ffffff",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "field_border_color",
+                    "type": "color",
+                    "label": "Border Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "field_border_width",
+                    "type": "dimensions",
+                    "label": "Border Width",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "field_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "field_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-field-group .elementor-field, {{WRAPPER}} .elementor-field-subgroup label",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_button_style",
+            "label": "Button",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "button_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_text_padding",
+                    "type": "dimensions",
+                    "label": "Text Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_hover_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_hover_border_color",
+                    "type": "color",
+                    "label": "Border Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "button_border_border!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_hover_animation",
+                    "type": "hover_animation",
+                    "label": "Animation",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_hover_transition_duration",
+                    "type": "slider",
+                    "label": "Transition Duration",
+                    "default": {
+                        "unit": "ms"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "button_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-button",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": "button_background",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-button",
+                    "condition": null,
+                    "exclude": [
+                        "image"
+                    ],
+                    "include": null
+                },
+                {
+                    "group": "border",
+                    "name": "button_border",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-button",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": "button_background_hover",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-button:hover",
+                    "condition": null,
+                    "exclude": [
+                        "image"
+                    ],
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_style_message",
+            "label": "Logged in Message",
+            "tab": "style",
+            "condition": {
+                "show_logged_in_message": "yes"
+            },
+            "controls": [
+                {
+                    "key": "message_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "show_logged_in_message": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "message_typography",
+                    "label": null,
+                    "selector": {
+                        "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+                    },
+                    "condition": {
+                        "show_logged_in_message": "yes"
+                    },
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "typography",
+            "name": "label_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-form-fields-wrapper label",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "field_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-field-group .elementor-field, {{WRAPPER}} .elementor-field-subgroup label",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "button_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-button",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "button_background",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-button",
+            "condition": null,
+            "exclude": [
+                "image"
+            ],
+            "include": null
+        },
+        {
+            "group": "border",
+            "name": "button_border",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-button",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "button_background_hover",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-button:hover",
+            "condition": null,
+            "exclude": [
+                "image"
+            ],
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "message_typography",
+            "label": null,
+            "selector": {
+                "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+            },
+            "condition": {
+                "show_logged_in_message": "yes"
+            },
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:51+00:00"
+}

@@ -57,7 +57,10 @@ export interface MappedBlock {
 	typography?: FigmaTypography;
 	fills?: FigmaColor[];
 	imageExportUrl?: string;
+	isBackgroundCandidate?: boolean;
 	autoLayout?: 'HORIZONTAL' | 'VERTICAL' | 'NONE';
+	x?: number;
+	y?: number;
 	width?: number;
 	height?: number;
 }
@@ -118,8 +121,9 @@ export interface DesignSpecBlock {
 	url?: string;
 	width?: number;
 	height?: number;
-	layout?: 'horizontal' | 'vertical' | 'grid';
-	children?: DesignSpecBlock[];
+	layout?: 'flex' | 'grid';
+	direction?: 'row' | 'column';
+	blocks?: DesignSpecBlock[];
 	typography?: DesignTypographyToken;
 	styles?: Record<string, string>;
 	assetRef?: string;
@@ -128,9 +132,9 @@ export interface DesignSpecBlock {
 
 export interface DesignSpecSection {
 	id?: string;
-	label?: string;
+	name?: string;
 	blocks: DesignSpecBlock[];
-	background?: { color?: string; imageRef?: string };
+	background?: { color?: string; imageRef?: string; position?: string; size?: string; repeat?: string };
 	fullWidth?: boolean;
 }
 
@@ -158,6 +162,7 @@ interface FigmaFill {
 	type: string;
 	color?: FigmaColor;
 	imageRef?: string;
+	opacity?: number;
 }
 
 interface FigmaTypeStyle {
@@ -176,6 +181,7 @@ export interface FigmaNode {
 	characters?: string;
 	style?: FigmaTypeStyle;
 	fills?: FigmaFill[];
+	effects?: Array<{ type: string; [key: string]: unknown }>;
 	layoutMode?: 'HORIZONTAL' | 'VERTICAL' | 'NONE';
 	absoluteBoundingBox?: { width: number; height: number; x: number; y: number };
 }
@@ -299,8 +305,17 @@ export async function exportImages(
 function resolveKind(node: FigmaNode): BlockKind {
 	const type = node.type.toUpperCase();
 	const nameLower = node.name.toLowerCase();
+	const hasImageFill = node.fills?.some(f => f.type === 'IMAGE') ?? false;
+	const isEmptyVisualNode = !node.children || node.children.length === 0;
 
-	if (type === 'SECTION' || type === 'FRAME') {
+	if (hasImageFill && isEmptyVisualNode) {
+		return 'image';
+	}
+	if (shouldExportAsVectorIconAsset(node)) {
+		return 'image';
+	}
+
+	if (type === 'SECTION' || type === 'FRAME' || type === 'GROUP') {
 		if (nameLower.includes('section') || nameLower.includes('hero') || nameLower.includes('banner')) {
 			return 'section';
 		}
@@ -315,10 +330,9 @@ function resolveKind(node: FigmaNode): BlockKind {
 	}
 	if (type === 'RECTANGLE' || type === 'ELLIPSE' || type === 'VECTOR') {
 		// Check for image fills
-		const hasImageFill = node.fills?.some(f => f.type === 'IMAGE') ?? false;
 		if (hasImageFill) return 'image';
 	}
-	if (nameLower.includes('button') || nameLower.includes('btn') || nameLower.includes('cta')) {
+	if (/\b(button|btn|cta)\b/.test(nameLower)) {
 		return 'button';
 	}
 	if (type === 'COMPONENT' || type === 'INSTANCE') {
@@ -332,9 +346,86 @@ function mapFill(fill: FigmaFill): FigmaColor | null {
 	return null;
 }
 
+function hasComplexBackgroundVisual(node: FigmaNode): boolean {
+	const fills = node.fills ?? [];
+	const hasGradientOrBlendFill = fills.some(fill => fill.type !== 'SOLID' && fill.type !== 'IMAGE');
+	const hasMultipleFills = fills.length > 1;
+	const hasEffects = (node.effects?.length ?? 0) > 0;
+	return hasGradientOrBlendFill || hasMultipleFills || hasEffects;
+}
+
+function hasBlurOrShadowEffect(node: FigmaNode): boolean {
+	return (node.effects ?? []).some(effect => {
+		const effectType = String(effect.type ?? '').toUpperCase();
+		return effectType.includes('BLUR') || effectType.includes('SHADOW');
+	});
+}
+
+function hasLargeBlurEffect(node: FigmaNode): boolean {
+	return (node.effects ?? []).some(effect => {
+		const effectType = String(effect.type ?? '').toUpperCase();
+		const radius = typeof effect.radius === 'number' ? effect.radius : 0;
+		return effectType.includes('BLUR') && radius >= 40;
+	});
+}
+
+function hasNonImageFill(node: FigmaNode): boolean {
+	return (node.fills ?? []).some(fill => fill.type !== 'IMAGE');
+}
+
+function hasDecorativeBounds(node: FigmaNode): boolean {
+	const box = node.absoluteBoundingBox;
+	return Boolean(box && box.width >= 64 && box.height >= 64);
+}
+
+function isBackgroundLikeNode(node: FigmaNode): boolean {
+	const name = node.name.toLowerCase();
+	return [
+		'background',
+		'bg',
+		'glow',
+		'blur',
+		'orb',
+		'gradient',
+		'rectangle',
+	].some(token => name.includes(token));
+}
+
+function isDecorativeBackgroundSubtree(node: FigmaNode): boolean {
+	const type = node.type.toUpperCase();
+	if (!['FRAME', 'GROUP', 'RECTANGLE', 'VECTOR', 'ELLIPSE'].includes(type)) {
+		return false;
+	}
+	if (!hasDecorativeBounds(node) || !hasBlurOrShadowEffect(node) || !hasNonImageFill(node)) {
+		return false;
+	}
+
+	const children = node.children ?? [];
+	return children.length === 0 || children.every(child => isDecorativeBackgroundSubtree(child));
+}
+
+function isGenericDecorativeBlurNode(node: FigmaNode): boolean {
+	const type = node.type.toUpperCase();
+	if (!['FRAME', 'GROUP', 'RECTANGLE', 'VECTOR', 'ELLIPSE'].includes(type)) {
+		return false;
+	}
+	if (hasDecorativeBounds(node) && hasLargeBlurEffect(node) && hasNonImageFill(node)) {
+		return true;
+	}
+	return isDecorativeBackgroundSubtree(node);
+}
+
+function shouldExportAsBackgroundAsset(node: FigmaNode): boolean {
+	const type = node.type.toUpperCase();
+	if (!['FRAME', 'GROUP', 'RECTANGLE', 'VECTOR', 'ELLIPSE'].includes(type)) {
+		return false;
+	}
+	return hasComplexBackgroundVisual(node) && (isBackgroundLikeNode(node) || isGenericDecorativeBlurNode(node));
+}
+
 function mapNode(node: FigmaNode): MappedBlock[] {
-	// Skip invisible/utility nodes
-	if (node.name.startsWith('_') || node.name.toLowerCase() === 'bg') return [];
+	// Skip explicit utility nodes.
+	if (node.name.startsWith('_')) return [];
 
 	const kind = resolveKind(node);
 	const fills = (node.fills ?? []).map(mapFill).filter((c): c is FigmaColor => c !== null);
@@ -356,12 +447,15 @@ function mapNode(node: FigmaNode): MappedBlock[] {
 			},
 		} : {}),
 		...(fills.length > 0 ? { fills } : {}),
+		...(shouldExportAsBackgroundAsset(node) ? { isBackgroundCandidate: true } : {}),
 		...(node.layoutMode ? { autoLayout: node.layoutMode } : {}),
-		...(box ? { width: box.width, height: box.height } : {}),
+		...(box ? { x: box.x, y: box.y, width: box.width, height: box.height } : {}),
 	};
 
 	if (node.children) {
-		block.children = node.children.flatMap(mapNode);
+		block.children = kind === 'image' && shouldExportAsVectorIconAsset(node)
+			? []
+			: node.children.flatMap(mapNode);
 	}
 
 	return [block];
@@ -389,8 +483,13 @@ function mappedBlockToSpecBlock(
 	assets: AssetReference[],
 	warnings: string[],
 ): DesignSpecBlock | null {
+	if (block.kind === 'unknown') {
+		warnings.push(`Unsupported Figma node type for "${block.name}" (id: ${block.id}) — skipped.`);
+		return null;
+	}
+
 	const base: DesignSpecBlock = {
-		type: block.kind === 'unknown' ? 'unknown' : block.kind,
+		type: block.kind,
 		...(block.id ? { id: block.id } : {}),
 	};
 
@@ -404,10 +503,18 @@ function mappedBlockToSpecBlock(
 		};
 	}
 
-	if (block.fills && block.fills.length > 0) {
-		const primaryFill = block.fills[0];
-		base.styles = { backgroundColor: colorToCss(primaryFill) };
+	const primaryFill = block.fills?.[0];
+	if (primaryFill) {
+		const fillColor = colorToCss(primaryFill);
+		if (block.kind === 'heading' || block.kind === 'paragraph') {
+			base.styles = { color: fillColor };
+		} else {
+			base.styles = { backgroundColor: fillColor };
+		}
 	}
+
+	const nativeBlock = nativePatternToSpecBlock(block, base, assets, warnings);
+	if (nativeBlock) return nativeBlock;
 
 	switch (block.kind) {
 		case 'heading':
@@ -442,9 +549,8 @@ function mappedBlockToSpecBlock(
 				base.assetRef = assetId;
 				base.alt = block.name;
 			} else {
-				base.src = '';
-				base.alt = block.name;
 				warnings.push(`Image block "${block.name}" (id: ${block.id}) has no export URL — asset sideloading will be skipped.`);
+				return null;
 			}
 			if (block.width) base.width = block.width;
 			if (block.height) base.height = block.height;
@@ -453,21 +559,398 @@ function mappedBlockToSpecBlock(
 
 		case 'section':
 		case 'group': {
-			base.type = 'group';
-			base.layout = block.autoLayout === 'HORIZONTAL' ? 'horizontal' : 'vertical';
-			const children = block.children
-				.map(child => mappedBlockToSpecBlock(child, assets, warnings))
-				.filter((b): b is DesignSpecBlock => b !== null);
-			if (children.length > 0) base.children = children;
+			if (block.children.length === 0) {
+				warnings.push(`Skipped decorative empty Figma container "${block.name}" (id: ${block.id}).`);
+				return null;
+			}
+			base.type = 'container';
+			base.layout = 'flex';
+			base.direction = block.autoLayout === 'HORIZONTAL'
+				? 'row'
+				: block.autoLayout === 'VERTICAL'
+					? 'column'
+					: inferDirectionFromChildBounds(block.children);
+			if (block.width) base.width = block.width;
+			if (block.height) base.height = block.height;
+			const blocks = mapChildrenToSpecBlocks(block, assets, warnings);
+			if (blocks.length === 0) {
+				warnings.push(`Skipped decorative Figma container "${block.name}" (id: ${block.id}) because all children were decorative or unsupported.`);
+				return null;
+			}
+			const galleryImages = collectImageOnlyGalleryImages(blocks);
+			if (galleryImages.length >= 2) {
+				base.type = 'image-gallery';
+				delete base.layout;
+				delete base.direction;
+				base.images = galleryImages;
+				base.columns = inferGalleryColumns(galleryImages.length);
+				break;
+			}
+			if (blocks.length > 0) base.blocks = blocks;
 			break;
 		}
-
-		case 'unknown':
-			warnings.push(`Unsupported Figma node type for "${block.name}" (id: ${block.id}) — mapped as unknown block.`);
-			break;
 	}
 
 	return base;
+}
+
+function mapChildrenToSpecBlocks(
+	block: MappedBlock,
+	assets: AssetReference[],
+	warnings: string[],
+): DesignSpecBlock[] {
+	const videoComposition = findVideoSiblingComposition(block);
+	const blocks: DesignSpecBlock[] = [];
+
+	for (const child of block.children) {
+		if (videoComposition?.play.id === child.id) {
+			continue;
+		}
+		if (videoComposition?.poster.id === child.id) {
+			const video = videoPosterToSpecBlock(child, assets, warnings);
+			if (video) blocks.push(video);
+			continue;
+		}
+
+		const specBlock = mappedBlockToSpecBlock(child, assets, warnings);
+		if (specBlock) blocks.push(specBlock);
+	}
+
+	return blocks;
+}
+
+function findVideoSiblingComposition(block: MappedBlock): { poster: MappedBlock; play: MappedBlock } | null {
+	const blob = `${block.name} ${textDescendants(block).join(' ')}`.toLowerCase();
+	if (!/\b(video|aftermovie|poster)\b/.test(blob)) {
+		return null;
+	}
+
+	const poster = block.children
+		.filter(child => child.kind === 'image' && (child.width ?? 0) >= 320 && (child.height ?? 0) >= 180)
+		.sort((a, b) => blockArea(b) - blockArea(a))[0];
+	if (!poster) return null;
+
+	const play = block.children.find(child => child.id !== poster.id && looksLikePlayControl(child));
+	if (!play) return null;
+
+	return { poster, play };
+}
+
+function videoPosterToSpecBlock(
+	poster: MappedBlock,
+	assets: AssetReference[],
+	warnings: string[],
+): DesignSpecBlock | null {
+	if (!poster.imageExportUrl) {
+		warnings.push(`Video poster "${poster.name}" (id: ${poster.id}) has no export URL - native video poster skipped.`);
+		return null;
+	}
+
+	return {
+		type: 'video',
+		id: poster.id,
+		intent: 'video',
+		url: '',
+		...(poster.width ? { width: poster.width } : {}),
+		...(poster.height ? { height: poster.height } : {}),
+		poster: {
+			url: poster.imageExportUrl,
+			assetRef: addAssetReference(poster, assets),
+			alt: poster.name,
+		},
+	};
+}
+
+function inferDirectionFromChildBounds(children: MappedBlock[]): 'row' | 'column' {
+	const positioned = children.filter(child =>
+		child.x !== undefined
+		&& child.y !== undefined
+		&& child.width !== undefined
+		&& child.height !== undefined,
+	);
+	if (positioned.length < 2) return 'column';
+
+	const minX = Math.min(...positioned.map(child => child.x ?? 0));
+	const maxX = Math.max(...positioned.map(child => (child.x ?? 0) + (child.width ?? 0)));
+	const minY = Math.min(...positioned.map(child => child.y ?? 0));
+	const maxY = Math.max(...positioned.map(child => (child.y ?? 0) + (child.height ?? 0)));
+	const horizontalSpan = maxX - minX;
+	const verticalSpan = maxY - minY;
+
+	return horizontalSpan > verticalSpan * 1.2 ? 'row' : 'column';
+}
+
+function collectImageOnlyGalleryImages(blocks: DesignSpecBlock[]): Array<Record<string, unknown>> {
+	const images: Array<Record<string, unknown>> = [];
+
+	const visit = (node: DesignSpecBlock): boolean => {
+		if (node.type === 'image') {
+			const image: Record<string, unknown> = {};
+			if (node.assetRef) image.assetRef = node.assetRef;
+			if (node.src) {
+				image.src = node.src;
+				image.url = node.src;
+			}
+			if (node.url) image.url = node.url;
+			if (node.alt) image.alt = node.alt;
+			if (node.width) image.width = node.width;
+			if (node.height) image.height = node.height;
+			images.push(image);
+			return true;
+		}
+
+		if ((node.type === 'container' || node.type === 'group' || node.type === 'section') && Array.isArray(node.blocks)) {
+			return node.blocks.length > 0 && node.blocks.every(child => visit(child));
+		}
+
+		return false;
+	};
+
+	const imageOnly = blocks.length > 0 && blocks.every(block => visit(block));
+	return imageOnly ? images : [];
+}
+
+function inferGalleryColumns(imageCount: number): number {
+	if (imageCount >= 4) {
+		return 4;
+	}
+	return Math.max(1, imageCount);
+}
+
+function nativePatternToSpecBlock(
+	block: MappedBlock,
+	base: DesignSpecBlock,
+	assets: AssetReference[],
+	warnings: string[],
+): DesignSpecBlock | null {
+	if (looksLikeVideoPoster(block)) {
+		const poster = firstImageDescendant(block);
+		if (!poster?.imageExportUrl) {
+			warnings.push(`Video poster "${block.name}" (id: ${block.id}) has no export URL — native video poster skipped.`);
+			return null;
+		}
+		return {
+			...base,
+			type: 'video',
+			intent: 'video',
+			url: '',
+			poster: {
+				url: poster.imageExportUrl,
+				assetRef: addAssetReference(poster, assets),
+				alt: poster.name,
+			},
+		};
+	}
+
+	if (looksLikeSectionLabel(block)) {
+		return {
+			...base,
+			type: 'container',
+			intent: 'section-label',
+			layout: 'flex',
+			direction: 'column',
+			blocks: [
+				{
+					type: 'paragraph',
+					text: firstTextDescendant(block) ?? block.name,
+					styles: {
+						fontWeight: '600',
+						letterSpacing: '2px',
+						textTransform: 'uppercase',
+					},
+				},
+				{
+					type: 'divider',
+					weight: 1,
+				},
+			],
+		};
+	}
+
+	if (looksLikeNewsletterForm(block)) {
+		return {
+			...base,
+			type: 'form',
+			intent: 'newsletter-form',
+			form_name: 'Newsletter',
+			button_text: formButtonText(block) ?? 'Aboneaza-te la newsletter',
+			fields: formFields(block),
+		};
+	}
+
+	const gridColumns = inferGridColumnsFromBounds(block);
+	if (gridColumns !== null) {
+		const childBlocks = block.children
+			.map(child => mappedBlockToSpecBlock(child, assets, warnings))
+			.filter((child): child is DesignSpecBlock => child !== null);
+		if (childBlocks.length > 0) {
+			return {
+				...base,
+				type: 'container',
+				layout: 'grid',
+				columns: gridColumns,
+				blocks: childBlocks,
+			};
+		}
+	}
+
+	return null;
+}
+
+function textDescendants(block: MappedBlock): string[] {
+	const texts: string[] = [];
+	if (block.text?.trim()) texts.push(block.text.trim());
+	for (const child of block.children) {
+		texts.push(...textDescendants(child));
+	}
+	return texts;
+}
+
+function firstTextDescendant(block: MappedBlock): string | null {
+	return textDescendants(block).find(text => text.trim().length > 0) ?? null;
+}
+
+function looksLikeNewsletterForm(block: MappedBlock): boolean {
+	const blob = `${block.name} ${textDescendants(block).join(' ')}`.toLowerCase();
+	const hasFormHint = blob.includes('newsletter') || blob.includes('formular') || /\bform\b/.test(blob);
+	const hasEmail = blob.includes('email') || blob.includes('e-mail');
+	const hasSubmit = blob.includes('aboneaz') || blob.includes('subscribe') || blob.includes('trimite') || blob.includes('submit');
+	return hasFormHint && hasEmail && hasSubmit && textDescendants(block).length >= 3;
+}
+
+function looksLikeSectionLabel(block: MappedBlock): boolean {
+	const hasLabelText = textDescendants(block).some(text => /^\s*\d{2}\s*-/.test(text));
+	return hasLabelText && (hasLineOrThinRectangle(block) || isCompactSectionLabelFrame(block));
+}
+
+function hasLineOrThinRectangle(block: MappedBlock): boolean {
+	const name = block.name.toLowerCase();
+	if (name.includes('underline') || name.includes('line')) return true;
+	if ((block.width ?? 0) >= 24 && (block.height ?? 999) <= 2) return true;
+	return block.children.some(hasLineOrThinRectangle);
+}
+
+function isCompactSectionLabelFrame(block: MappedBlock): boolean {
+	const texts = textDescendants(block);
+	const firstText = texts[0] ?? '';
+	if (!/^\s*\d{2}\s*-/.test(firstText)) {
+		return false;
+	}
+	if (texts.length > 2) {
+		return false;
+	}
+	const width = block.width ?? 0;
+	const height = block.height ?? 0;
+	const hasCompactBounds = width > 0 && width <= 360 && height > 0 && height <= 96;
+	const hasTinyText = block.children.some(child =>
+		(child.kind === 'paragraph' || child.kind === 'heading')
+		&& (child.typography?.fontSize ?? 99) <= 18,
+	);
+	return hasCompactBounds || hasTinyText;
+}
+
+function looksLikeVideoPoster(block: MappedBlock): boolean {
+	const name = block.name.toLowerCase();
+	const hasVideoHint = name.includes('video') || name.includes('aftermovie') || name.includes('poster');
+	return hasVideoHint && firstImageDescendant(block) !== null && hasPlayControlDescendant(block);
+}
+
+function firstImageDescendant(block: MappedBlock): MappedBlock | null {
+	if (block.kind === 'image') return block;
+	for (const child of block.children) {
+		const image = firstImageDescendant(child);
+		if (image) return image;
+	}
+	return null;
+}
+
+function hasPlayControlDescendant(block: MappedBlock): boolean {
+	return looksLikePlayControl(block) || block.children.some(hasPlayControlDescendant);
+}
+
+function looksLikePlayControl(block: MappedBlock): boolean {
+	const name = block.name.toLowerCase();
+	if (/\b(play|playback)\b/.test(name)) return true;
+
+	const width = block.width ?? 0;
+	const height = block.height ?? 0;
+	const roughlySquare = width >= 48 && width <= 120 && height >= 48 && height <= 120 && Math.abs(width - height) <= 12;
+	const hasIconChild = block.children.some(child => {
+		const childName = child.name.toLowerCase();
+		return child.kind === 'image' || childName.includes('icon') || childName.includes('vector');
+	});
+	return roughlySquare && hasIconChild;
+}
+
+function formButtonText(block: MappedBlock): string | null {
+	return textDescendants(block).find(looksLikeSubmitText) ?? null;
+}
+
+function formFields(block: MappedBlock): Array<Record<string, unknown>> {
+	return textDescendants(block)
+		.filter(text => !looksLikeSubmitText(text))
+		.map(text => {
+			const label = text.replace(/\*/g, '').trim();
+			const lower = label.toLowerCase();
+			const type = lower.includes('email') || lower.includes('e-mail')
+				? 'email'
+				: lower.includes('interes') || lower.includes('categorie') || lower.includes('domeniu')
+					? 'select'
+					: 'text';
+			return {
+				type,
+				label,
+				required: text.includes('*'),
+			};
+		})
+		.filter(field => String(field.label).length > 0);
+}
+
+function looksLikeSubmitText(text: string): boolean {
+	const lower = text.toLowerCase();
+	return lower.includes('aboneaz') || lower.includes('subscribe') || lower.includes('trimite') || lower.includes('submit');
+}
+
+function inferGridColumnsFromBounds(block: MappedBlock): number | null {
+	const name = block.name.toLowerCase();
+	const hasGridHint = name.includes('grid') || name.includes('speaker') || name.includes('card') || name.includes('team');
+
+	const positioned = block.children.filter(child =>
+		child.x !== undefined
+		&& child.y !== undefined
+		&& child.width !== undefined
+		&& child.height !== undefined,
+	);
+	if (positioned.length < 4) return null;
+	if (!hasGridHint && !looksLikeRepeatedCardRow(positioned)) return null;
+
+	const sorted = [...positioned].sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0));
+	const firstY = sorted[0]?.y ?? 0;
+	const firstRow = sorted.filter(child => Math.abs((child.y ?? 0) - firstY) <= 4);
+	const columns = firstRow.length;
+	if (columns < 2) return null;
+
+	const widths = positioned.map(child => child.width ?? 0);
+	const heights = positioned.map(child => child.height ?? 0);
+	const maxWidth = Math.max(...widths);
+	const maxHeight = Math.max(...heights);
+	if (Math.max(...widths) - Math.min(...widths) > Math.max(8, maxWidth * 0.08)) return null;
+	if (Math.max(...heights) - Math.min(...heights) > Math.max(8, maxHeight * 0.08)) return null;
+
+	return Math.min(6, columns);
+}
+
+function looksLikeRepeatedCardRow(children: MappedBlock[]): boolean {
+	if (children.length < 4) return false;
+	const cardLike = children.filter(child => {
+		const width = child.width ?? 0;
+		const height = child.height ?? 0;
+		const name = child.name.toLowerCase();
+		const hasCardBounds = width >= 120 && height >= 180;
+		const hasContent = firstImageDescendant(child) !== null || textDescendants(child).length > 0;
+		return hasCardBounds && (hasContent || name.startsWith('frame '));
+	});
+	return cardLike.length >= 4;
 }
 
 /**
@@ -482,23 +965,33 @@ function buildSections(
 	warnings: string[],
 ): DesignSpecSection[] {
 	const sections: DesignSpecSection[] = [];
+	const pageBlocks = selectPageContentSections(blocks);
 
-	for (const block of blocks) {
+	for (const block of pageBlocks) {
 		if (block.kind === 'section' || block.kind === 'group') {
-			const sectionBlocks: DesignSpecBlock[] = [];
-			for (const child of block.children) {
-				const specBlock = mappedBlockToSpecBlock(child, assets, warnings);
-				if (specBlock) sectionBlocks.push(specBlock);
-			}
+			const backgroundBlocks = collectBackgroundAssetBlocks(block);
+			const backgroundBlock = selectPrimaryBackgroundBlock(backgroundBlocks);
+			const contentBlock: MappedBlock = backgroundBlocks.length > 0
+				? {
+						...block,
+						children: block.children.filter(child =>
+							!backgroundBlocks.some(candidate => containsBlock(child, candidate)),
+						),
+					}
+				: block;
+			const sectionBlocks = mapChildrenToSpecBlocks(contentBlock, assets, warnings);
+			const background = sectionBackground(block, backgroundBlock, assets);
 			// A section block with no children still produces a section — renderer handles empty.
 			sections.push({
 				id: block.id,
-				label: block.name,
+				name: block.name,
 				blocks: sectionBlocks.length > 0 ? sectionBlocks : [{
 					type: 'paragraph',
 					id: `placeholder_${block.id}`,
 					text: block.name,
 				}],
+				...(background ? { background } : {}),
+				...(block.width !== undefined && block.width >= 1024 ? { fullWidth: true } : {}),
 			});
 		} else {
 			// Non-container top-level block — fold into an implicit section.
@@ -522,6 +1015,151 @@ function buildSections(
 	}
 
 	return sections;
+}
+
+function selectPageContentSections(blocks: MappedBlock[]): MappedBlock[] {
+	if (blocks.length !== 1) {
+		return blocks.filter(block => !isTemplateOrOverlayBlock(block));
+	}
+
+	const root = blocks[0];
+	if (!root || !isProbablePageFrame(root)) {
+		return blocks;
+	}
+
+	const explicitSections = collectContentSections(root);
+	if (explicitSections.length > 0) {
+		return explicitSections;
+	}
+
+	return root.children.filter(block => !isTemplateOrOverlayBlock(block));
+}
+
+function isProbablePageFrame(block: MappedBlock): boolean {
+	if (block.kind !== 'group' && block.kind !== 'section') {
+		return false;
+	}
+	if (isTemplateOrOverlayBlock(block)) {
+		return false;
+	}
+	if (block.children.some(child => isPageBodyWrapper(child) || isHeaderFooterBlock(child))) {
+		return true;
+	}
+	return collectContentSections(block).length >= 2;
+}
+
+function collectContentSections(block: MappedBlock): MappedBlock[] {
+	const sections: MappedBlock[] = [];
+
+	const visit = (node: MappedBlock, insideBody: boolean): void => {
+		if (isTemplateOrOverlayBlock(node)) {
+			return;
+		}
+
+		const inBody = insideBody || isPageBodyWrapper(node);
+		if (node !== block && inBody && node.kind === 'section' && !isTemplateOrOverlayBlock(node)) {
+			sections.push(node);
+			return;
+		}
+
+		for (const child of node.children) {
+			visit(child, inBody);
+		}
+	};
+
+	visit(block, false);
+	return sections;
+}
+
+function isPageBodyWrapper(block: MappedBlock): boolean {
+	const name = block.name.trim().toLowerCase();
+	return name === 'body'
+		|| name === 'main'
+		|| name === 'content'
+		|| /^t\d+$/.test(name);
+}
+
+function isTemplateOrOverlayBlock(block: MappedBlock): boolean {
+	const name = block.name.trim().toLowerCase();
+	if (isHeaderFooterBlock(block)) {
+		return true;
+	}
+	if (name.startsWith('group ') || name.startsWith('rectangle ') || name.startsWith('vector ')) {
+		return true;
+	}
+	return false;
+}
+
+function isHeaderFooterBlock(block: MappedBlock): boolean {
+	const name = block.name.trim().toLowerCase();
+	return name.includes('header') || name.includes('footer');
+}
+
+function findBackgroundAssetBlock(block: MappedBlock): MappedBlock | null {
+	const candidates = collectBackgroundAssetBlocks(block);
+	return selectPrimaryBackgroundBlock(candidates);
+}
+
+function selectPrimaryBackgroundBlock(candidates: MappedBlock[]): MappedBlock | null {
+	if (candidates.length === 0) {
+		return null;
+	}
+
+	return candidates.sort((a, b) => blockArea(b) - blockArea(a))[0] ?? null;
+}
+
+function collectBackgroundAssetBlocks(block: MappedBlock): MappedBlock[] {
+	const candidates: MappedBlock[] = [];
+	if (block.isBackgroundCandidate && block.imageExportUrl) {
+		candidates.push(block);
+	}
+	for (const child of block.children) {
+		candidates.push(...collectBackgroundAssetBlocks(child));
+	}
+	return candidates;
+}
+
+function blockArea(block: MappedBlock): number {
+	return (block.width ?? 0) * (block.height ?? 0);
+}
+
+function containsBlock(root: MappedBlock, target: MappedBlock): boolean {
+	return root.id === target.id || root.children.some(child => containsBlock(child, target));
+}
+
+function sectionBackground(
+	sectionBlock: MappedBlock,
+	backgroundBlock: MappedBlock | null,
+	assets: AssetReference[],
+): DesignSpecSection['background'] | undefined {
+	const background: NonNullable<DesignSpecSection['background']> = {};
+	const color = sectionBlock.fills?.[0];
+	if (color) {
+		background.color = colorToCss(color);
+	}
+
+	if (backgroundBlock?.imageExportUrl) {
+		background.imageRef = addAssetReference(backgroundBlock, assets);
+		background.position = 'center center';
+		background.size = 'cover';
+		background.repeat = 'no-repeat';
+	}
+
+	return Object.keys(background).length > 0 ? background : undefined;
+}
+
+function addAssetReference(block: MappedBlock, assets: AssetReference[]): string {
+	const assetId = `asset_${block.id.replace(/[^a-z0-9]/gi, '_')}`;
+	if (!assets.some(asset => asset.id === assetId)) {
+		assets.push({
+			id: assetId,
+			url: block.imageExportUrl ?? '',
+			...(block.width ? { width: block.width } : {}),
+			...(block.height ? { height: block.height } : {}),
+			mimeType: 'image/png',
+		});
+	}
+	return assetId;
 }
 
 /**
@@ -567,15 +1205,16 @@ export async function ingestFigmaNode(
 	const fetchResult = await fetchNode(fileKey, nodeId, token);
 	const { blocks, rawNode } = fetchResult;
 
-	// 2. Export images for image-fill nodes.
-	const imageNodeIds = collectImageNodeIds(rawNode);
+	// 2. Export images for image-fill and complex background nodes.
+	const imageExportPlan = collectImageExportPlan(rawNode);
+	const imageNodeIds = imageExportPlan.ids;
 	let exportedImages: Record<string, string> = {};
 	if (imageNodeIds.length > 0) {
 		try {
 			const exportResult = await exportImages(fileKey, imageNodeIds, token);
 			exportedImages = exportResult.images;
 			// Attach export URLs to mapped blocks.
-			attachExportUrls(blocks, exportedImages);
+			attachExportUrls(blocks, exportedImages, imageExportPlan.aliases);
 		} catch (err) {
 			warnings.push(`Image export failed: ${err instanceof Error ? err.message : String(err)}`);
 		}
@@ -615,28 +1254,98 @@ export async function ingestFigmaNode(
 /**
  * Collect node IDs that have IMAGE fills — for batch export.
  */
-function collectImageNodeIds(node: FigmaNode): string[] {
-	const ids: string[] = [];
-	const hasImageFill = node.fills?.some(f => f.type === 'IMAGE') ?? false;
-	if (hasImageFill) ids.push(node.id);
-	if (node.children) {
-		for (const child of node.children) {
-			ids.push(...collectImageNodeIds(child));
+interface ImageExportPlan {
+	ids: string[];
+	aliases: Record<string, string>;
+}
+
+function collectImageExportPlan(node: FigmaNode): ImageExportPlan {
+	const ids = new Set<string>();
+	const aliases: Record<string, string> = {};
+
+	const visit = (current: FigmaNode, nearestInstanceId: string | null): void => {
+		const hasImageFill = current.fills?.some(f => f.type === 'IMAGE') ?? false;
+
+		if (shouldExportAsBackgroundAsset(current)) {
+			ids.add(current.id);
+			return;
 		}
+
+		if (hasImageFill) {
+			if (nearestInstanceId && current.id.startsWith('I')) {
+				ids.add(nearestInstanceId);
+				aliases[current.id] = nearestInstanceId;
+			} else {
+				ids.add(current.id);
+			}
+		}
+
+		if (shouldExportAsVectorIconAsset(current)) {
+			ids.add(current.id);
+		}
+
+		const nextInstanceId = current.type.toUpperCase() === 'INSTANCE' ? current.id : nearestInstanceId;
+		for (const child of current.children ?? []) {
+			visit(child, nextInstanceId);
+		}
+	};
+
+	visit(node, null);
+
+	return {
+		ids: Array.from(ids),
+		aliases,
+	};
+}
+
+function collectImageNodeIds(node: FigmaNode): string[] {
+	return collectImageExportPlan(node).ids;
+}
+
+function shouldExportAsVectorIconAsset(node: FigmaNode): boolean {
+	const type = node.type.toUpperCase();
+	if (!['FRAME', 'GROUP', 'COMPONENT', 'INSTANCE'].includes(type)) {
+		return false;
 	}
-	return ids;
+	const name = node.name.trim().toLowerCase();
+	if (!['icon', 'svg'].includes(name) && !name.includes('icon') && !name.includes('svg')) {
+		return false;
+	}
+	return hasOnlyVectorDescendants(node);
+}
+
+function hasOnlyVectorDescendants(node: FigmaNode): boolean {
+	const children = node.children ?? [];
+	if (children.length === 0) {
+		return false;
+	}
+	return children.every(child => {
+		const type = child.type.toUpperCase();
+		if (['VECTOR', 'BOOLEAN_OPERATION', 'STAR', 'LINE', 'POLYGON'].includes(type)) {
+			return true;
+		}
+		if (['FRAME', 'GROUP'].includes(type)) {
+			return hasOnlyVectorDescendants(child);
+		}
+		return false;
+	});
 }
 
 /**
  * Walk mapped blocks and attach export URL from the Figma images map.
  */
-function attachExportUrls(blocks: MappedBlock[], images: Record<string, string>): void {
+function attachExportUrls(
+	blocks: MappedBlock[],
+	images: Record<string, string>,
+	aliases: Record<string, string> = {},
+): void {
 	for (const block of blocks) {
-		if (block.kind === 'image' && images[block.id]) {
-			block.imageExportUrl = images[block.id];
+		const exportId = aliases[block.id] ?? block.id;
+		if (images[exportId]) {
+			block.imageExportUrl = images[exportId];
 		}
 		if (block.children.length > 0) {
-			attachExportUrls(block.children, images);
+			attachExportUrls(block.children, images, aliases);
 		}
 	}
 }

@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Elementor\Renderer;
 
 use Stonewright\WpMcp\DesignTokens\Resolver;
+use Stonewright\WpMcp\Elementor\Renderer\Responsive;
 
 /**
  * Renders a DesignSpec `icon` node as an Elementor icon widget.
@@ -28,10 +29,18 @@ final class Icon {
 		];
 
 		if ( isset( $node['size'] ) ) {
-			$settings['size'] = [
-				'unit' => isset( $node['size_unit'] ) ? (string) $node['size_unit'] : 'px',
-				'size' => (int) $node['size'],
-			];
+			// Scalar: normalise into Elementor size object (existing behaviour).
+			// Array with breakpoint keys: pass through Responsive::apply so each
+			// per-breakpoint value (expected to be a size object already) lands on
+			// the correct Elementor key (size, size_tablet, size_mobile).
+			if ( ! is_array( $node['size'] ) ) {
+				$settings['size'] = [
+					'unit' => isset( $node['size_unit'] ) ? (string) $node['size_unit'] : 'px',
+					'size' => (int) $node['size'],
+				];
+			} else {
+				$settings = Responsive::apply( $settings, 'size', $node['size'] );
+			}
 		}
 
 		if ( isset( $node['color'] ) ) {
@@ -39,7 +48,7 @@ final class Icon {
 		}
 
 		if ( isset( $node['align'] ) ) {
-			$settings['align'] = (string) $node['align'];
+			$settings = Responsive::apply( $settings, 'align', $node['align'] );
 		}
 
 		if ( isset( $node['link']['url'] ) ) {

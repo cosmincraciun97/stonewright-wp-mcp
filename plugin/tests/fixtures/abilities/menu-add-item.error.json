@@ -1,0 +1,8 @@
+{
+    "args": {
+        "menu_id": 5001,
+        "title": "Forbidden",
+        "url": "https://example.test/"
+    },
+    "expect_permission_error": true
+}

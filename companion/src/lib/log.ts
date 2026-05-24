@@ -1,6 +1,12 @@
 /**
  * Structured logger — thin wrapper around console with pino-style levels.
- * Writes JSON lines to stdout so any log aggregator can parse them.
+ *
+ * Writes JSON lines to **stderr** at every level. This is non-negotiable for the
+ * stdio MCP transport: stdout is the JSON-RPC channel, so any informational
+ * line on stdout corrupts the protocol stream (the client tries to parse
+ * `{level,time,msg}` records as JSON-RPC and rejects them with
+ * `unrecognized_keys` / `invalid_union`). Log aggregators tail stderr too, so
+ * we lose nothing by being strict here.
  */
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -26,11 +32,8 @@ function emit(level: LogLevel, msg: string, extra: Record<string, unknown> = {})
 	if (LEVEL_RANK[level] < minRank) return;
 	const record: LogRecord = { level, time: new Date().toISOString(), msg, ...extra };
 	const line = JSON.stringify(record);
-	if (level === 'error' || level === 'warn') {
-		process.stderr.write(line + '\n');
-	} else {
-		process.stdout.write(line + '\n');
-	}
+	// All levels go to stderr — stdout is reserved for the MCP JSON-RPC stream.
+	process.stderr.write(line + '\n');
 }
 
 export const log = {

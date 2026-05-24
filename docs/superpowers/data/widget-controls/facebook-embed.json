@@ -1,0 +1,165 @@
+{
+    "slug": "facebook-embed",
+    "source": "pro",
+    "title": "Facebook Embed",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/social/widgets/facebook-embed.php",
+    "sections": [
+        {
+            "id": "section_content",
+            "label": "Embed",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "widget_exclusively_web",
+                    "type": "alert",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "type",
+                    "type": "select",
+                    "label": "Type",
+                    "default": "post",
+                    "options": {
+                        "post": "Post",
+                        "video": "Video",
+                        "comment": "Comment"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "post_url",
+                    "type": null,
+                    "label": "URL",
+                    "default": "https://www.facebook.com/elemntor/posts/2624214124556197",
+                    "options": null,
+                    "condition": {
+                        "type": "post"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": "Hover over the date next to the post, and copy its link address."
+                },
+                {
+                    "key": "video_url",
+                    "type": null,
+                    "label": "URL",
+                    "default": "https://www.facebook.com/elemntor/videos/1683988961912056/",
+                    "options": null,
+                    "condition": {
+                        "type": "video"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": "Hover over the date next to the video, and copy its link address."
+                },
+                {
+                    "key": "comment_url",
+                    "type": null,
+                    "label": "URL",
+                    "default": "https://www.facebook.com/elemntor/videos/1811703749140576/?comment_id=1812873919023559",
+                    "options": null,
+                    "condition": {
+                        "type": "comment"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": "Hover over the date next to the comment, and copy its link address."
+                },
+                {
+                    "key": "include_parent",
+                    "type": "switcher",
+                    "label": "Parent Comment",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "type": "comment"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": "Set to include parent comment (if URL is a reply)."
+                },
+                {
+                    "key": "show_text",
+                    "type": "switcher",
+                    "label": "Full Post",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "type": [
+                            "post",
+                            "video"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": "Show the full text of the post"
+                },
+                {
+                    "key": "video_allowfullscreen",
+                    "type": "switcher",
+                    "label": "Allow Full Screen",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "type": "video"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "video_autoplay",
+                    "type": "switcher",
+                    "label": "Autoplay",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "type": "video"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "video_show_captions",
+                    "type": "switcher",
+                    "label": "Captions",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "type": "video"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": "Show captions if available (only on desktop)."
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:50+00:00"
+}

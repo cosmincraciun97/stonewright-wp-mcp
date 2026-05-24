@@ -13,6 +13,7 @@ use Stonewright\WpMcp\Elementor\Renderer\Counter;
 use Stonewright\WpMcp\Elementor\Renderer\Divider;
 use Stonewright\WpMcp\Elementor\Renderer\Form;
 use Stonewright\WpMcp\Elementor\Renderer\Heading;
+use Stonewright\WpMcp\Elementor\Renderer\ImageGallery;
 use Stonewright\WpMcp\Elementor\Renderer\ProGate;
 use Stonewright\WpMcp\Elementor\Renderer\Icon;
 use Stonewright\WpMcp\Elementor\Renderer\IconBox;
@@ -101,16 +102,238 @@ final class ElementorRendererTest extends TestCase {
 		$this->assertSame( $this->fixture( 'section' ), $result );
 	}
 
+	public function test_section_honors_companion_full_width_flag(): void {
+		$node   = [ 'type' => 'section', 'fullWidth' => true ];
+		$result = Section::render( $node, $this->resolver, 's0' );
+
+		$this->assertSame( 'full', $result['settings']['content_width'] );
+		$this->assertSame( '0', $result['settings']['padding']['top'] );
+		$this->assertSame( '0', $result['settings']['padding']['right'] );
+	}
+
+	public function test_section_maps_background_image_controls(): void {
+		$node   = [
+			'type'       => 'section',
+			'background' => [
+				'image'    => 'https://example.test/wp-content/uploads/hero-glow.png',
+				'image_id' => 42,
+				'position' => 'center center',
+				'size'     => 'cover',
+			],
+		];
+		$result = Section::render( $node, $this->resolver, 's0' );
+
+		$this->assertSame( 'classic', $result['settings']['background_background'] );
+		$this->assertSame( 'https://example.test/wp-content/uploads/hero-glow.png', $result['settings']['background_image']['url'] );
+		$this->assertSame( 42, $result['settings']['background_image']['id'] );
+		$this->assertSame( 'center center', $result['settings']['background_position'] );
+		$this->assertSame( 'cover', $result['settings']['background_size'] );
+	}
+
+	public function test_section_maps_sticky_header_settings(): void {
+		$node   = [
+			'type'          => 'section',
+			'fullWidth'     => true,
+			'sticky'        => 'top',
+			'sticky_on'     => [ 'desktop', 'tablet', 'mobile' ],
+			'sticky_offset' => 0,
+			'z_index'       => 999,
+			'hide_on'       => [ 'desktop' ],
+		];
+		$result = Section::render( $node, $this->resolver, 's0' );
+
+		$this->assertSame( 'top', $result['settings']['sticky'] );
+		$this->assertSame( [ 'desktop', 'tablet', 'mobile' ], $result['settings']['sticky_on'] );
+		$this->assertSame( 0, $result['settings']['sticky_offset'] );
+		$this->assertSame( 999, $result['settings']['z_index'] );
+		$this->assertSame( 'hidden-desktop', $result['settings']['hide_desktop'] );
+		$this->assertArrayNotHasKey( '_element_hide_desktop', $result['settings'] );
+	}
+
+	public function test_section_maps_flex_alignment_for_centered_full_width_wrappers(): void {
+		$node   = [
+			'type'            => 'section',
+			'layout'          => 'stack',
+			'align_items'     => 'center',
+			'justify_content' => 'center',
+		];
+		$result = Section::render( $node, $this->resolver, 's0' );
+
+		$this->assertSame( 'center', $result['settings']['flex_align_items'] );
+		$this->assertSame( 'center', $result['settings']['flex_justify_content'] );
+		$this->assertArrayNotHasKey( 'align_items', $result['settings'] );
+		$this->assertArrayNotHasKey( 'justify_content', $result['settings'] );
+	}
+
 	public function test_column_renderer(): void {
 		$node   = [ 'type' => 'column' ];
 		$result = Column::render( $node, $this->resolver, 's0' );
 		$this->assertSame( $this->fixture( 'column' ), $result );
 	}
 
+	public function test_column_accepts_nested_style_shape(): void {
+		$node   = [
+			'type'  => 'column',
+			'style' => [
+				'width'            => '50%',
+				'gap'              => '24px',
+				'background_color' => '#0a0526',
+				'padding'          => '20px 32px',
+			],
+		];
+		$result = Column::render( $node, $this->resolver, 's0' );
+
+		$this->assertSame( 50, $result['settings']['width']['size'] );
+		$this->assertSame( '#0a0526', $result['settings']['background_color'] );
+		$this->assertSame( '24', $result['settings']['flex_gap']['column'] );
+		$this->assertSame( '20', $result['settings']['padding']['top'] );
+		$this->assertSame( '32', $result['settings']['padding']['right'] );
+	}
+
 	public function test_container_renderer(): void {
 		$node   = [ 'type' => 'group' ];
 		$result = Container::render( $node, $this->resolver, 's0' );
 		$this->assertSame( $this->fixture( 'container' ), $result );
+	}
+
+	public function test_container_grid_layout_uses_elementor_grid_container_settings(): void {
+		$node   = [ 'type' => 'container', 'layout' => 'grid', 'columns' => 4, 'gap' => 16 ];
+		$result = Container::render( $node, $this->resolver, 's0' );
+
+		$this->assertSame( 'container', $result['elType'] );
+		$this->assertSame( 'grid', $result['settings']['container_type'] );
+		$this->assertSame( 4, $result['settings']['grid_columns_grid']['size'] );
+		$this->assertArrayNotHasKey( '_column_size', $result['settings'] );
+	}
+
+	public function test_container_flex_layout_uses_direction_without_legacy_column_size(): void {
+		$node   = [ 'type' => 'container', 'layout' => 'flex', 'direction' => 'row' ];
+		$result = Container::render( $node, $this->resolver, 's0' );
+
+		$this->assertSame( 'container', $result['elType'] );
+		$this->assertSame( 'flex', $result['settings']['container_type'] );
+		$this->assertSame( 'row', $result['settings']['flex_direction'] );
+		$this->assertArrayNotHasKey( '_column_size', $result['settings'] );
+	}
+
+	public function test_container_maps_flex_alignment_and_wrap(): void {
+		$node   = [
+			'type'            => 'container',
+			'layout'          => 'flex',
+			'direction'       => 'row',
+			'justify_content' => 'space-between',
+			'align_items'     => 'center',
+			'wrap'            => 'wrap',
+		];
+		$result = Container::render( $node, $this->resolver, 's0' );
+
+		$this->assertSame( 'space-between', $result['settings']['flex_justify_content'] );
+		$this->assertSame( 'center', $result['settings']['flex_align_items'] );
+		$this->assertSame( 'wrap', $result['settings']['flex_wrap'] );
+		$this->assertArrayNotHasKey( 'justify_content', $result['settings'] );
+		$this->assertArrayNotHasKey( 'align_items', $result['settings'] );
+	}
+
+	public function test_container_accepts_legacy_companion_horizontal_layout_value(): void {
+		$node   = [ 'type' => 'container', 'layout' => 'horizontal' ];
+		$result = Container::render( $node, $this->resolver, 's0' );
+
+		$this->assertSame( 'flex', $result['settings']['container_type'] );
+		$this->assertSame( 'row', $result['settings']['flex_direction'] );
+	}
+
+	public function test_dimensioned_companion_container_resets_elementor_default_padding(): void {
+		$node   = [
+			'type'      => 'container',
+			'layout'    => 'flex',
+			'direction' => 'row',
+			'width'     => 1216,
+			'height'    => 88,
+		];
+		$result = Container::render( $node, $this->resolver, 's0' );
+
+		$this->assertSame( 'full', $result['settings']['content_width'] );
+		$this->assertSame( '0', $result['settings']['padding']['top'] );
+		$this->assertSame( '0', $result['settings']['padding']['left'] );
+	}
+
+	public function test_container_maps_sticky_and_responsive_visibility_settings(): void {
+		$node   = [
+			'type'          => 'container',
+			'sticky'        => 'top',
+			'sticky_on'     => [ 'desktop', 'tablet', 'mobile' ],
+			'sticky_offset' => 0,
+			'z_index'       => 1000,
+			'hide_on'       => [ 'mobile' ],
+		];
+		$result = Container::render( $node, $this->resolver, 's0' );
+
+		$this->assertSame( 'top', $result['settings']['sticky'] );
+		$this->assertSame( [ 'desktop', 'tablet', 'mobile' ], $result['settings']['sticky_on'] );
+		$this->assertSame( 0, $result['settings']['sticky_offset'] );
+		$this->assertSame( 1000, $result['settings']['z_index'] );
+		$this->assertSame( 'hidden-mobile', $result['settings']['hide_mobile'] );
+		$this->assertArrayNotHasKey( '_element_hide_mobile', $result['settings'] );
+	}
+
+	public function test_container_maps_background_image_controls(): void {
+		$node   = [
+			'type'       => 'container',
+			'background' => [
+				'image'    => 'https://example.test/wp-content/uploads/section-bg.png',
+				'image_id' => 84,
+				'position' => 'top center',
+				'size'     => 'contain',
+			],
+		];
+		$result = Container::render( $node, $this->resolver, 's0' );
+
+		$this->assertSame( 'classic', $result['settings']['background_background'] );
+		$this->assertSame( 'https://example.test/wp-content/uploads/section-bg.png', $result['settings']['background_image']['url'] );
+		$this->assertSame( 84, $result['settings']['background_image']['id'] );
+		$this->assertSame( 'top center', $result['settings']['background_position'] );
+		$this->assertSame( 'contain', $result['settings']['background_size'] );
+	}
+
+	public function test_container_accepts_companion_dimensions_and_styles_shape(): void {
+		$node   = [
+			'type'      => 'container',
+			'layout'    => 'flex',
+			'direction' => 'row',
+			'width'     => 1280,
+			'height'    => 640,
+			'styles'    => [
+				'backgroundColor' => '#030712',
+				'padding'         => '80px 40px',
+				'gap'             => '48px',
+			],
+		];
+		$result = Container::render( $node, $this->resolver, 's0' );
+
+		$this->assertSame( '#030712', $result['settings']['background_color'] );
+		$this->assertSame( 1280, $result['settings']['width']['size'] );
+		$this->assertSame( 640, $result['settings']['height']['size'] );
+		$this->assertSame( 'full', $result['settings']['content_width'] );
+		$this->assertSame( '80', $result['settings']['padding']['top'] );
+		$this->assertSame( '40', $result['settings']['padding']['right'] );
+		$this->assertSame( '48', $result['settings']['flex_gap']['column'] );
+	}
+
+	public function test_container_maps_visual_frame_style_to_native_settings(): void {
+		$node   = [
+			'type'   => 'container',
+			'style'  => [
+				'border_radius' => 16,
+				'border'        => '1px solid rgba(255,255,255,0.15)',
+				'margin'        => '0 0 24px 0',
+			],
+		];
+		$result = Container::render( $node, $this->resolver, 's0' );
+
+		$this->assertSame( '16', $result['settings']['border_radius']['top'] );
+		$this->assertSame( 'solid', $result['settings']['border_border'] );
+		$this->assertSame( 'rgba(255,255,255,0.15)', $result['settings']['border_color'] );
+		$this->assertSame( '24', $result['settings']['_margin']['bottom'] );
 	}
 
 	// -------------------------------------------------------------------------
@@ -128,6 +351,31 @@ final class ElementorRendererTest extends TestCase {
 		$result = Heading::render( $node, $this->resolver, 's0.b0' );
 		$this->assertSame( 'p', $result['settings']['header_size'] );
 		$this->assertSame( 'heading', $result['widgetType'] );
+	}
+
+	public function test_heading_accepts_companion_typography_and_styles_shape(): void {
+		$node   = [
+			'type'       => 'heading',
+			'text'       => 'Companion heading',
+			'level'      => 1,
+			'typography' => [
+				'fontFamily'   => 'Montserrat',
+				'fontSize'     => 72,
+				'fontWeight'   => 700,
+				'lineHeightPx' => 79,
+			],
+			'styles'     => [
+				'color' => '#fdee17',
+			],
+		];
+		$result = Heading::render( $node, $this->resolver, 's0.b0' );
+
+		$this->assertSame( '#fdee17', $result['settings']['title_color'] );
+		$this->assertSame( 'Montserrat', $result['settings']['typography_font_family'] );
+		$this->assertSame( '700', $result['settings']['typography_font_weight'] );
+		$this->assertSame( 72, $result['settings']['typography_font_size']['size'] );
+		$this->assertSame( 79, $result['settings']['typography_line_height']['size'] );
+		$this->assertSame( 'custom', $result['settings']['typography_typography'] );
 	}
 
 	public function test_heading_level_zero_clamps_to_h1(): void {
@@ -154,6 +402,32 @@ final class ElementorRendererTest extends TestCase {
 		$this->assertStringContainsString( '<p>', $result['settings']['editor'] );
 	}
 
+	public function test_dispatcher_html_type_is_not_rendered_as_widget(): void {
+		$spec = [
+			'version'  => '1.0.0',
+			'page'     => [ 'title' => 'HTML Test' ],
+			'sections' => [
+				[
+					'id'     => 's0',
+					'blocks' => [
+						[
+							'type' => 'html',
+							'html' => '<style>.sw-test{color:#fdee17}</style><div class="sw-test">Styled</div>',
+						],
+					],
+				],
+			],
+		];
+
+		$diag   = [];
+		$output = Renderer::render( $spec, $diag );
+
+		$this->assertEmpty( $output[0]['elements'] );
+		$this->assertCount( 1, $diag );
+		$this->assertSame( 'unsupported_node', $diag[0]['code'] );
+		$this->assertSame( 'html', $diag[0]['type'] );
+	}
+
 	// -------------------------------------------------------------------------
 	// Media widgets
 	// -------------------------------------------------------------------------
@@ -166,6 +440,38 @@ final class ElementorRendererTest extends TestCase {
 		];
 		$result = Image::render( $node, $this->resolver, 's0.b0' );
 		$this->assertSame( $this->fixture( 'image' ), $result );
+	}
+
+	public function test_image_accepts_companion_src_and_dimensions(): void {
+		$node   = [
+			'type'   => 'image',
+			'src'    => 'https://example.com/figma-export.png',
+			'alt'    => 'Figma export',
+			'width'  => 631,
+			'height' => 441,
+		];
+		$result = Image::render( $node, $this->resolver, 's0.b0' );
+
+		$this->assertSame( 'https://example.com/figma-export.png', $result['settings']['image']['url'] );
+		$this->assertSame( 631, $result['settings']['width']['size'] );
+		$this->assertSame( 441, $result['settings']['height']['size'] );
+	}
+
+	public function test_image_gallery_renderer_uses_native_elementor_widget(): void {
+		$node   = [
+			'type'    => 'image-gallery',
+			'columns' => 4,
+			'images'  => [
+				[ 'id' => 11, 'url' => 'https://example.com/one.jpg' ],
+				[ 'id' => 12, 'url' => 'https://example.com/two.jpg' ],
+			],
+		];
+		$result = ImageGallery::render( $node, $this->resolver, 's0.b2' );
+
+		$this->assertSame( 'image-gallery', $result['widgetType'] );
+		$this->assertSame( 4, $result['settings']['gallery_columns'] );
+		$this->assertSame( 11, $result['settings']['wp_gallery'][0]['id'] );
+		$this->assertSame( 'https://example.com/two.jpg', $result['settings']['wp_gallery'][1]['url'] );
 	}
 
 	public function test_video_youtube_renderer(): void {
@@ -203,6 +509,33 @@ final class ElementorRendererTest extends TestCase {
 		];
 		$result = Button::render( $node, $this->resolver, 's0.b0' );
 		$this->assertSame( $this->fixture( 'button' ), $result );
+	}
+
+	public function test_button_accepts_companion_typography_and_styles_shape(): void {
+		$node   = [
+			'type'       => 'button',
+			'text'       => 'Free ticket',
+			'url'        => '#',
+			'typography' => [
+				'fontFamily' => 'Montserrat',
+				'fontSize'   => 16,
+				'fontWeight' => 700,
+			],
+			'styles'     => [
+				'color'           => '#000000',
+				'backgroundColor' => '#fdee17',
+				'padding'         => '14px 28px',
+			],
+		];
+		$result = Button::render( $node, $this->resolver, 's0.b0' );
+
+		$this->assertSame( '#000000', $result['settings']['button_text_color'] );
+		$this->assertSame( '#fdee17', $result['settings']['background_color'] );
+		$this->assertSame( 'Montserrat', $result['settings']['typography_font_family'] );
+		$this->assertSame( 16, $result['settings']['typography_font_size']['size'] );
+		$this->assertSame( '700', $result['settings']['typography_font_weight'] );
+		$this->assertSame( '14', $result['settings']['text_padding']['top'] );
+		$this->assertSame( '28', $result['settings']['text_padding']['right'] );
 	}
 
 	public function test_spacer_renderer(): void {
@@ -357,6 +690,38 @@ final class ElementorRendererTest extends TestCase {
 		$this->assertSame( $this->fixture( 'form-pro-fallback' ), $result );
 		$this->assertCount( 1, $diagnostics );
 		$this->assertSame( ProGate::DIAGNOSTIC_REQUIRED, $diagnostics[0]['code'] );
+	}
+
+	public function test_form_settings_map_newsletter_field_and_button_styles(): void {
+		$node     = [
+			'type'        => 'form',
+			'form_name'   => 'Newsletter',
+			'button_text' => 'Aboneaza-te',
+			'fields'      => [
+				[ 'type' => 'text', 'label' => 'Nume', 'required' => true ],
+				[ 'type' => 'email', 'label' => 'Email', 'required' => true ],
+			],
+			'field_style' => [
+				'background'    => '#ffffff',
+				'border_color'  => '#e5e7eb',
+				'border_radius' => 0,
+				'text_color'    => '#030712',
+			],
+			'button_style' => [
+				'background'  => '#fdee17',
+				'color'       => '#030712',
+				'font_family' => 'Montserrat',
+				'font_weight' => 700,
+			],
+		];
+		$settings = Form::settings_from_node( $node, $this->resolver, 's0.b0' );
+
+		$this->assertCount( 2, $settings['form_fields'] );
+		$this->assertSame( '#ffffff', $settings['field_background_color'] );
+		$this->assertSame( '#e5e7eb', $settings['field_border_color'] );
+		$this->assertSame( '#fdee17', $settings['button_background_color'] );
+		$this->assertSame( '#030712', $settings['button_text_color'] );
+		$this->assertSame( '700', $settings['button_typography_font_weight'] );
 	}
 
 	public function test_slides_falls_back_when_pro_unavailable(): void {

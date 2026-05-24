@@ -53,7 +53,9 @@ final class QaArtifactStorePurgeSymlinkTest extends TestCase {
 
 		// Place a symlink inside the artifact directory pointing at $target_dir.
 		$symlink_path = $artifact_dir . '/evil-link';
-		symlink( $target_dir, $symlink_path );
+		if ( ! @symlink( $target_dir, $symlink_path ) ) {
+			$this->markTestSkipped( 'symlink() is unavailable in this PHP/Windows environment.' );
+		}
 
 		// Force mtime to the past AFTER creating the symlink (symlink creation
 		// bumps the parent dir's mtime to now, which would evade the cutoff).

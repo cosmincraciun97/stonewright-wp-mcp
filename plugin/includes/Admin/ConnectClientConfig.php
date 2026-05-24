@@ -6,9 +6,13 @@ namespace Stonewright\WpMcp\Admin;
 /**
  * Generates per-client MCP connection snippets for Stonewright.
  *
- * All snippets use the universal @automattic/mcp-wordpress-remote transport.
- * Each client entry describes where the user should paste the resulting JSON
- * or CLI command.
+ * Transport options:
+ *   A) Native stdio — @stonewright/companion npm script (recommended for local dev)
+ *   B) Streamable HTTP — direct /wp-json/mcp/stonewright endpoint
+ *
+ * IMPORTANT: Do NOT use @automattic/mcp-wordpress-remote. That Automattic package
+ * routes through its own WP REST bridge and does not speak the Stonewright WP
+ * Abilities protocol. All snippets in this class use the correct transport.
  */
 final class ConnectClientConfig {
 
@@ -132,14 +136,28 @@ final class ConnectClientConfig {
 	}
 
 	// -------------------------------------------------------------------------
-	// Endpoint URL
+	// Endpoint URLs
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Returns the Stonewright MCP endpoint URL.
+	 * Returns the site URL, with a fallback for unit-test contexts where WP functions are not loaded.
+	 */
+	private static function site_url(): string {
+		return function_exists( 'get_site_url' ) ? (string) get_site_url() : '';
+	}
+
+	/**
+	 * Returns the Stonewright native MCP endpoint URL (Streamable HTTP transport).
 	 */
 	public static function mcp_endpoint_url(): string {
 		return rest_url( 'mcp/stonewright' );
+	}
+
+	/**
+	 * Returns the WP Abilities REST base for direct tool invocation.
+	 */
+	public static function abilities_base_url(): string {
+		return rest_url( 'wp-abilities/v1/abilities' );
 	}
 
 	// -------------------------------------------------------------------------
@@ -147,22 +165,26 @@ final class ConnectClientConfig {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Returns the universal mcpServers config block as a PHP array.
+	 * Returns the native stdio snippet using @stonewright/companion.
 	 *
-	 * @param string $username     WordPress username for authentication.
-	 * @param string $app_password Application Password (shown once after generation).
+	 * This is the RECOMMENDED transport for local development. The companion
+	 * package speaks the Stonewright WP Abilities protocol natively.
+	 *
+	 * @param string $username     WordPress username.
+	 * @param string $app_password Application Password.
 	 * @return array<string, mixed>
 	 */
-	public static function universal_snippet( string $username = '', string $app_password = '' ): array {
+	public static function native_stdio_snippet( string $username = '', string $app_password = '' ): array {
 		return [
 			'mcpServers' => [
 				'stonewright' => [
 					'command' => 'npx',
-					'args'    => [ '-y', '@automattic/mcp-wordpress-remote@latest' ],
+					'args'    => [ '-y', '@stonewright/companion@latest', 'mcp' ],
 					'env'     => [
-						'WP_API_URL'      => self::mcp_endpoint_url(),
-						'WP_API_USERNAME' => $username,
-						'WP_API_PASSWORD' => $app_password ?: '<your-application-password>',
+						'STONEWRIGHT_SITE_URL' => self::site_url(),
+						'WP_API_USERNAME'     => $username ?: 'your-wp-username',
+						'WP_API_PASSWORD'     => $app_password ?: '<your-application-password>',
+						'STONEWRIGHT_MCP_URL' => self::mcp_endpoint_url(),
 					],
 				],
 			],
@@ -170,59 +192,108 @@ final class ConnectClientConfig {
 	}
 
 	/**
-	 * Returns the connection snippet for a specific client.
+	 * Returns the Streamable HTTP snippet using the native Stonewright endpoint.
 	 *
-	 * Most clients receive the universal mcpServers block.
-	 * Claude Code receives a CLI command string instead.
+	 * Use when your AI client supports HTTP MCP transport (no Node.js required).
+	 *
+	 * @param string $username     WordPress username.
+	 * @param string $app_password Application Password.
+	 * @return array<string, mixed>
+	 */
+	public static function http_snippet( string $username = '', string $app_password = '' ): array {
+		$credentials = base64_encode( $username . ':' . ( $app_password ?: '<your-application-password>' ) );
+		return [
+			'mcpServers' => [
+				'stonewright' => [
+					'url'     => self::mcp_endpoint_url(),
+					'headers' => [
+						'Authorization' => 'Basic ' . $credentials,
+					],
+				],
+			],
+		];
+	}
+
+	/**
+	 * Backwards-compatible alias — returns the native stdio snippet.
+	 *
+	 * @param string $username     WordPress username.
+	 * @param string $app_password Application Password.
+	 * @return array<string, mixed>
+	 */
+	public static function universal_snippet( string $username = '', string $app_password = '' ): array {
+		return self::native_stdio_snippet( $username, $app_password );
+	}
+
+	/**
+	 * Returns the standard Stdio mcpServers config block (alias for native_stdio_snippet).
+	 *
+	 * @param string $username     WordPress username.
+	 * @param string $app_password Application Password.
+	 * @return array<string, mixed>
+	 */
+	public static function stdio_snippet( string $username = '', string $app_password = '' ): array {
+		return self::native_stdio_snippet( $username, $app_password );
+	}
+
+	/**
+	 * Returns the connection snippet for a specific client.
 	 *
 	 * @param string $client_slug  One of the slugs returned by clients().
 	 * @param string $username     WordPress username.
 	 * @param string $app_password Application Password.
+	 * @param string $transport    'stdio' (default) or 'http'.
 	 * @return array<string, mixed>|\WP_Error
 	 */
-	public static function snippet_for( string $client_slug, string $username = '', string $app_password = '' ): array|\WP_Error {
-		// Validate slug against the catalogue.
+	public static function snippet_for(
+		string $client_slug,
+		string $username = '',
+		string $app_password = '',
+		string $transport = 'stdio'
+	): array|\WP_Error {
 		$known_slugs = array_column( self::clients(), 'slug' );
 		if ( ! in_array( $client_slug, $known_slugs, true ) ) {
 			return new \WP_Error(
 				'stonewright_unknown_client',
-				sprintf(
-					/* translators: %s: unknown client slug */
-					__( 'Unknown client slug: %s', 'stonewright' ),
-					$client_slug
-				)
+				sprintf( __( 'Unknown client slug: %s', 'stonewright' ), $client_slug )
 			);
 		}
 
-		// Claude Code uses the CLI add command rather than a JSON file.
 		if ( 'claude-code' === $client_slug ) {
-			$url      = self::mcp_endpoint_url();
-			$password = $app_password ?: '<your-application-password>';
-
+			if ( 'http' === $transport ) {
+				$credentials = base64_encode( $username . ':' . ( $app_password ?: '<your-application-password>' ) );
+				return [
+					'command' => sprintf(
+						'claude mcp add stonewright --transport http --url %s --header "Authorization: Basic %s"',
+						escapeshellarg( self::mcp_endpoint_url() ),
+						$credentials
+					),
+				];
+			}
 			return [
 				'command' => sprintf(
-					'claude mcp add stonewright -- npx -y @automattic/mcp-wordpress-remote@latest --env WP_API_URL=%s --env WP_API_USERNAME=%s --env WP_API_PASSWORD=%s',
-					escapeshellarg( $url ),
+					'claude mcp add stonewright -- npx -y @stonewright/companion@latest mcp --env STONEWRIGHT_SITE_URL=%s --env WP_API_USERNAME=%s --env WP_API_PASSWORD=%s --env STONEWRIGHT_MCP_URL=%s',
+					escapeshellarg( self::site_url() ),
 					escapeshellarg( $username ),
-					escapeshellarg( $password )
+					escapeshellarg( $app_password ?: '<your-application-password>' ),
+					escapeshellarg( self::mcp_endpoint_url() )
 				),
 			];
 		}
 
-		// VS Code Copilot + GitHub Copilot use a "servers" top-level key per the VS Code MCP schema.
+		$snippet = 'http' === $transport
+			? self::http_snippet( $username, $app_password )
+			: self::native_stdio_snippet( $username, $app_password );
+
 		if ( in_array( $client_slug, [ 'vscode-copilot', 'github-copilot' ], true ) ) {
-			$universal = self::universal_snippet( $username, $app_password );
-			return [ 'servers' => $universal['mcpServers'] ];
+			return [ 'servers' => $snippet['mcpServers'] ];
 		}
 
-		// Zed uses context_servers per its settings schema.
 		if ( 'zed' === $client_slug ) {
-			$universal = self::universal_snippet( $username, $app_password );
-			return [ 'context_servers' => $universal['mcpServers'] ];
+			return [ 'context_servers' => $snippet['mcpServers'] ];
 		}
 
-		// All other clients: universal JSON snippet with mcpServers.
-		return self::universal_snippet( $username, $app_password );
+		return $snippet;
 	}
 
 	// -------------------------------------------------------------------------
@@ -230,28 +301,32 @@ final class ConnectClientConfig {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Returns a natural-language prompt the user can paste directly into an AI
-	 * chat to have the agent configure itself.
+	 * Returns a natural-language prompt for the user to configure the agent.
 	 *
 	 * @param string $username     WordPress username.
 	 * @param string $app_password Application Password.
 	 */
 	public static function paste_to_agent_prompt( string $username, string $app_password ): string {
-		$snippet_json = wp_json_encode(
-			self::universal_snippet( $username, $app_password ),
+		$stdio_json = wp_json_encode(
+			self::native_stdio_snippet( $username, $app_password ),
+			JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
+		);
+		$http_json  = wp_json_encode(
+			self::http_snippet( $username, $app_password ),
 			JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
 		);
 
+		$endpoint = self::mcp_endpoint_url();
+
 		return sprintf(
-			/* translators: 1: MCP endpoint URL, 2: username, 3: app password, 4: JSON config snippet */
+			/* translators: 1: MCP endpoint URL, 2: stdio JSON snippet, 3: HTTP JSON snippet */
 			__(
-				"Configure Stonewright as an MCP server. Endpoint: %1\$s. Auth: WordPress Application Password. Username: %2\$s. Password: %3\$s. Use the universal template:\n\n```json\n%4\$s\n```",
+				"Configure Stonewright as an MCP server.\nEndpoint: %1\$s\n\nOption A — Native stdio (recommended, Node.js required):\n```json\n%2\$s\n```\n\nOption B — Streamable HTTP (no Node.js required):\n```json\n%3\$s\n```\n\nDo NOT use @automattic/mcp-wordpress-remote — it does not speak the Stonewright WP Abilities protocol.",
 				'stonewright'
 			),
-			self::mcp_endpoint_url(),
-			$username,
-			$app_password,
-			(string) $snippet_json
+			$endpoint,
+			(string) $stdio_json,
+			(string) $http_json
 		);
 	}
 }

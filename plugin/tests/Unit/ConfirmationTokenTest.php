@@ -222,9 +222,14 @@ final class ConfirmationTokenTest extends TestCase {
 
 	public function test_verify_or_error_returns_invalid_for_hmac_mismatch(): void {
 		$token = ConfirmationToken::issue( 'stonewright/sandbox-delete', [ 'name' => 'a.php' ] );
-		// Tamper the signature.
-		$tampered = substr( $token, 0, -1 ) . ( substr( $token, -1 ) === 'a' ? 'b' : 'a' );
-		$result   = ConfirmationToken::verify_or_error( $tampered, 'stonewright/sandbox-delete', [ 'name' => 'a.php' ] );
+		// Tamper a mid-signature character. Flipping the last base64url char of a
+		// 32-byte HMAC is a no-op because the bottom 4 bits of that char are
+		// discarded on decode (43 chars * 6 bits = 258 bits, drop the last 2).
+		$dot             = strpos( $token, '.' );
+		$first_sig_char  = $token[ $dot + 1 ];
+		$replacement     = ( $first_sig_char === 'A' ) ? 'B' : 'A';
+		$tampered        = substr( $token, 0, $dot + 1 ) . $replacement . substr( $token, $dot + 2 );
+		$result          = ConfirmationToken::verify_or_error( $tampered, 'stonewright/sandbox-delete', [ 'name' => 'a.php' ] );
 		$this->assertInstanceOf( \WP_Error::class, $result );
 		$this->assertSame( 'stonewright_confirmation_invalid', $result->get_error_code() );
 	}

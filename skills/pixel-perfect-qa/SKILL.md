@@ -96,6 +96,14 @@ Re-run the screenshot and diff. If the diff score drops below threshold,
 report success. If drift persists on specific regions, loop again (max 3
 iterations before asking the user to review manually).
 
+## Completion gate
+
+Never report "pixel-perfect" from metadata alone. A page is not complete until
+desktop, tablet, and mobile screenshots have been compared against the Figma
+reference or exported baseline. If the Figma ingest produced many warnings,
+stop before writing or report the warnings as blockers; do not hide them behind
+a successful Elementor write.
+
 ## Ability summary
 
 | Ability | Purpose |

@@ -119,7 +119,7 @@ final class Memory {
 			return $default;
 		}
 
-		return Json::decode( (string) $row['value_json'] );
+		return self::decode_value( (string) $row['value_json'] );
 	}
 
 	public static function delete( string $scope, string $key ): void {
@@ -144,7 +144,7 @@ final class Memory {
 
 		$out = [];
 		foreach ( (array) $rows as $row ) {
-			$out[ $row['memory_key'] ] = Json::decode( (string) $row['value_json'] );
+			$out[ $row['memory_key'] ] = self::decode_value( (string) $row['value_json'] );
 		}
 		return $out;
 	}
@@ -166,11 +166,19 @@ final class Memory {
 			'scope'      => (string) $row['scope'],
 			'memory_key' => (string) $row['memory_key'],
 			'name'       => (string) $row['name'],
-			'value'      => Json::decode( (string) $row['value_json'] ),
+			'value'      => self::decode_value( (string) $row['value_json'] ),
 			'confidence' => (float) $row['confidence'],
 			'created_at' => (string) $row['created_at'],
 			'updated_at' => (string) $row['updated_at'],
 		];
+	}
+
+	private static function decode_value( string $json ): mixed {
+		try {
+			return json_decode( $json, true, 512, JSON_THROW_ON_ERROR );
+		} catch ( \JsonException ) {
+			return [];
+		}
 	}
 
 	/**
@@ -275,6 +283,68 @@ final class Memory {
 			$out[] = self::decode_row( $row );
 		}
 		return $out;
+	}
+
+	/**
+	 * Build a compact memory index for MCP discovery instructions.
+	 */
+	public static function instructions_block(): string {
+		if ( ! get_option( 'stonewright_memory_enabled', true ) ) {
+			return '';
+		}
+
+		$entries = self::list_all( 20, 0 );
+		if ( [] === $entries ) {
+			return '';
+		}
+
+		$lines = [
+			'',
+			'## Site Memory',
+			'',
+			'These persistent notes apply across agents. Treat project/feedback/reference memories as active constraints before planning or writing.',
+		];
+
+		foreach ( $entries as $entry ) {
+			$key  = (string) ( $entry['memory_key'] ?? '' );
+			$type = (string) ( $entry['type'] ?? 'generic' );
+			$name = (string) ( $entry['name'] ?? $key );
+			$hint = self::memory_hint( $entry['value'] ?? null );
+			$lines[] = sprintf(
+				'- `%s` [%s] %s%s',
+				$key,
+				$type,
+				$name,
+				'' !== $hint ? ': ' . $hint : ''
+			);
+		}
+
+		$lines[] = '';
+		$lines[] = 'For full details, call `stonewright/memory-get` or `stonewright/memory-list` before acting.';
+
+		return implode( "\n", $lines );
+	}
+
+	private static function memory_hint( mixed $value ): string {
+		if ( is_array( $value ) ) {
+			$pieces = [];
+			foreach ( $value as $item ) {
+				if ( is_scalar( $item ) ) {
+					$pieces[] = (string) $item;
+				}
+				if ( count( $pieces ) >= 2 ) {
+					break;
+				}
+			}
+			$value = implode( ' ', $pieces );
+		}
+
+		if ( ! is_scalar( $value ) ) {
+			return '';
+		}
+
+		$text = trim( preg_replace( '/\s+/', ' ', (string) $value ) ?? '' );
+		return mb_substr( $text, 0, 180 );
 	}
 
 	/**

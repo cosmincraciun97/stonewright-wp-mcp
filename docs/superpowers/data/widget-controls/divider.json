@@ -1,0 +1,538 @@
+{
+    "slug": "divider",
+    "source": "free",
+    "title": "Divider",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/divider.php",
+    "sections": [
+        {
+            "id": "section_divider",
+            "label": "Divider",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "style",
+                    "type": "select",
+                    "label": "Style",
+                    "default": "solid",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "separator_type",
+                    "type": "hidden",
+                    "label": null,
+                    "default": "pattern",
+                    "options": null,
+                    "condition": {
+                        "style!": [
+                            "",
+                            "solid",
+                            "double",
+                            "dotted",
+                            "dashed"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "pattern_spacing_flag",
+                    "type": "hidden",
+                    "label": null,
+                    "default": "no-spacing",
+                    "options": null,
+                    "condition": {
+                        "style": {
+                            "__unresolved__": "array_keys()"
+                        }
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "pattern_round_flag",
+                    "type": "hidden",
+                    "label": null,
+                    "default": "bg-round",
+                    "options": null,
+                    "condition": {
+                        "style": {
+                            "__unresolved__": "array_keys()"
+                        }
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "width",
+                    "type": "slider",
+                    "label": "Width",
+                    "default": {
+                        "size": 100,
+                        "unit": "%"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "align",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "left": {
+                            "title": "Left",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "right": {
+                            "title": "Right",
+                            "icon": "eicon-text-align-right"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "look",
+                    "type": "choose",
+                    "label": "Add Element",
+                    "default": "line",
+                    "options": {
+                        "line": {
+                            "title": "None",
+                            "icon": "eicon-ban"
+                        },
+                        "line_text": {
+                            "title": "Text",
+                            "icon": "eicon-t-letter-bold"
+                        },
+                        "line_icon": {
+                            "title": "Icon",
+                            "icon": "eicon-star"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "text",
+                    "type": "text",
+                    "label": "Text",
+                    "default": "Divider",
+                    "options": null,
+                    "condition": {
+                        "look": "line_text"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "html_tag",
+                    "type": "select",
+                    "label": "HTML Tag",
+                    "default": "span",
+                    "options": {
+                        "h1": "H1",
+                        "h2": "H2",
+                        "h3": "H3",
+                        "h4": "H4",
+                        "h5": "H5",
+                        "h6": "H6",
+                        "div": "div",
+                        "span": "span",
+                        "p": "p"
+                    },
+                    "condition": {
+                        "look": "line_text"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon",
+                    "type": "icons",
+                    "label": "Icon",
+                    "default": {
+                        "value": "fas fa-star",
+                        "library": "fa-solid"
+                    },
+                    "options": null,
+                    "condition": {
+                        "look": "line_icon"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_divider_style",
+            "label": "Divider",
+            "tab": "style",
+            "condition": {
+                "style!": "none"
+            },
+            "controls": [
+                {
+                    "key": "color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": "#000",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "weight",
+                    "type": "slider",
+                    "label": "Weight",
+                    "default": {
+                        "size": 1
+                    },
+                    "options": null,
+                    "condition": {
+                        "style": {
+                            "__unresolved__": "array_keys()"
+                        }
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "pattern_height",
+                    "type": "slider",
+                    "label": "Size",
+                    "default": {
+                        "size": 20
+                    },
+                    "options": null,
+                    "condition": {
+                        "style!": [
+                            "",
+                            "solid",
+                            "double",
+                            "dotted",
+                            "dashed"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "pattern_size",
+                    "type": "slider",
+                    "label": "Amount",
+                    "default": {
+                        "size": 20
+                    },
+                    "options": null,
+                    "condition": {
+                        "style!": {
+                            "__unresolved__": "array_merge()"
+                        }
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "gap",
+                    "type": "slider",
+                    "label": "Gap",
+                    "default": {
+                        "size": 15
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_text_style",
+            "label": "Text",
+            "tab": "style",
+            "condition": {
+                "look": "line_text"
+            },
+            "controls": [
+                {
+                    "key": "text_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "text_align",
+                    "type": "choose",
+                    "label": "Position",
+                    "default": "center",
+                    "options": {
+                        "left": {
+                            "title": "Left",
+                            "icon": "eicon-h-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-h-align-center"
+                        },
+                        "right": {
+                            "title": "Right",
+                            "icon": "eicon-h-align-right"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "text_spacing",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-divider__text",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-stroke",
+                    "name": "text_stroke",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-divider__text",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_icon_style",
+            "label": "Icon",
+            "tab": "style",
+            "condition": {
+                "look": "line_icon"
+            },
+            "controls": [
+                {
+                    "key": "icon_view",
+                    "type": "select",
+                    "label": "View",
+                    "default": "default",
+                    "options": {
+                        "default": "Default",
+                        "stacked": "Stacked",
+                        "framed": "Framed"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon_size",
+                    "type": "slider",
+                    "label": "Size",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "icon_padding",
+                    "type": "slider",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "icon_view!": "default"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "primary_color",
+                    "type": "color",
+                    "label": "Primary Color",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "secondary_color",
+                    "type": "color",
+                    "label": "Secondary Color",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "icon_view!": "default"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon_align",
+                    "type": "choose",
+                    "label": "Position",
+                    "default": "center",
+                    "options": {
+                        "left": {
+                            "title": "Left",
+                            "icon": "eicon-h-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-h-align-center"
+                        },
+                        "right": {
+                            "title": "Right",
+                            "icon": "eicon-h-align-right"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon_spacing",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "rotate",
+                    "type": "slider",
+                    "label": "Rotate",
+                    "default": {
+                        "unit": "deg"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "icon_border_width",
+                    "type": "slider",
+                    "label": "Border Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "icon_view": "framed"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "border_radius",
+                    "type": "slider",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "icon_view!": "default"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "typography",
+            "name": "typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-divider__text",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-stroke",
+            "name": "text_stroke",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-divider__text",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:47+00:00"
+}

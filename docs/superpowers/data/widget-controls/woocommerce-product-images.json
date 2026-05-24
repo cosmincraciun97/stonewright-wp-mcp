@@ -1,0 +1,141 @@
+{
+    "slug": "woocommerce-product-images",
+    "source": "wc",
+    "title": "Product Images",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-images.php",
+    "sections": [
+        {
+            "id": "section_product_gallery_style",
+            "label": "Style",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "wc_style_warning",
+                    "type": "alert",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sale_flash",
+                    "type": "switcher",
+                    "label": "Sale Flash",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "image_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "spacing",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_thumbs_style",
+                    "type": "heading",
+                    "label": "Thumbnails",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "thumbs_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "spacing_thumbs",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "border",
+                    "name": "image_border",
+                    "label": null,
+                    "selector": ".woocommerce {{WRAPPER}} .woocommerce-product-gallery__trigger + .woocommerce-product-gallery__wrapper,\n\t\t\t\t.woocommerce {{WRAPPER}} .flex-viewport, .woocommerce {{WRAPPER}} .flex-control-thumbs img",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "border",
+                    "name": "thumbs_border",
+                    "label": null,
+                    "selector": ".woocommerce {{WRAPPER}} .flex-control-thumbs img",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "border",
+            "name": "image_border",
+            "label": null,
+            "selector": ".woocommerce {{WRAPPER}} .woocommerce-product-gallery__trigger + .woocommerce-product-gallery__wrapper,\n\t\t\t\t.woocommerce {{WRAPPER}} .flex-viewport, .woocommerce {{WRAPPER}} .flex-control-thumbs img",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "border",
+            "name": "thumbs_border",
+            "label": null,
+            "selector": ".woocommerce {{WRAPPER}} .flex-control-thumbs img",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:54+00:00"
+}

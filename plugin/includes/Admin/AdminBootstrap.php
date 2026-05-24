@@ -66,6 +66,13 @@ final class AdminBootstrap {
 			$version
 		);
 
+		wp_enqueue_style(
+			'stonewright-admin-ds',
+			$url_base . 'assets/css/stonewright-admin.css',
+			[],
+			$version
+		);
+
 		wp_enqueue_script(
 			'stonewright-admin',
 			$url_base . 'assets/admin/admin.js',

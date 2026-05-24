@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Elementor\Renderer;
 
 use Stonewright\WpMcp\DesignTokens\Resolver;
+use Stonewright\WpMcp\Elementor\Renderer\Responsive;
 
 /**
  * Renders DesignSpec `video` and `embed` nodes as an Elementor video widget.
@@ -56,6 +57,10 @@ final class Video {
 
 		if ( isset( $node['controls'] ) && false === $node['controls'] ) {
 			$settings['controls'] = '';
+		}
+
+		if ( isset( $node['aspect_ratio'] ) ) {
+			$settings = Responsive::apply( $settings, 'aspect_ratio', $node['aspect_ratio'] );
 		}
 
 		if ( isset( $node['poster']['url'] ) ) {

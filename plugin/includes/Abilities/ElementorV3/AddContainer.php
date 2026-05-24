@@ -20,11 +20,11 @@ final class AddContainer extends AbilityKernel {
 	}
 
 	public function label(): string {
-		return __( 'Add Elementor container/section', 'stonewright' );
+		return __( 'Add Elementor container', 'stonewright' );
 	}
 
 	public function description(): string {
-		return __( 'Appends a new container or section to an Elementor page. Snapshots before write.', 'stonewright' );
+		return __( 'Appends a new flex or grid container to an Elementor page. Snapshots before write.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -39,7 +39,7 @@ final class AddContainer extends AbilityKernel {
 				'post_id'        => [ 'type' => 'integer', 'minimum' => 1 ],
 				'parent_id'      => [ 'type' => 'string' ],
 				'position'       => [ 'type' => 'integer' ],
-				'el_type'        => [ 'type' => 'string', 'enum' => [ 'section', 'container' ], 'default' => 'container' ],
+				'el_type'        => [ 'type' => 'string', 'enum' => [ 'container' ], 'default' => 'container' ],
 				'settings'       => [ 'type' => 'object' ],
 			],
 			'required'             => [ 'post_id' ],
@@ -74,19 +74,16 @@ final class AddContainer extends AbilityKernel {
 
 				$snapshot_id = Backup::snapshot_post( $post_id );
 				$tree        = ElementorData::read( $post_id );
-				$el_type     = (string) ( $args['el_type'] ?? 'container' );
+				$settings    = isset( $args['settings'] ) && is_array( $args['settings'] ) ? $args['settings'] : [];
+				$settings    = self::normalize_container_settings( $settings );
 
 				$element = [
 					'id'       => ElementorData::generate_id(),
-					'elType'   => $el_type,
-					'settings' => isset( $args['settings'] ) && is_array( $args['settings'] ) ? $args['settings'] : new \stdClass(),
+					'elType'   => 'container',
+					'settings' => $settings,
 					'elements' => [],
 				];
-				if ( 'section' === $el_type ) {
-					$element['isInner'] = false;
-				} else {
-					$element['isInner'] = false;
-				}
+				$element['isInner'] = false;
 
 				$parent_path = [];
 				if ( ! empty( $args['parent_id'] ) ) {
@@ -111,5 +108,24 @@ final class AddContainer extends AbilityKernel {
 				];
 			}
 		);
+	}
+
+	/**
+	 * @param array<string, mixed> $settings
+	 * @return array<string, mixed>
+	 */
+	private static function normalize_container_settings( array $settings ): array {
+		$layout = isset( $settings['layout'] ) ? (string) $settings['layout'] : '';
+		unset( $settings['layout'] );
+
+		if ( ! isset( $settings['container_type'] ) ) {
+			$settings['container_type'] = 'grid' === $layout ? 'grid' : 'flex';
+		}
+		if ( 'grid' !== $settings['container_type'] && ! isset( $settings['flex_direction'] ) ) {
+			$settings['flex_direction'] = 'row' === ( $settings['direction'] ?? '' ) ? 'row' : 'column';
+		}
+		unset( $settings['direction'] );
+
+		return $settings;
 	}
 }

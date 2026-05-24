@@ -1,0 +1,103 @@
+{
+    "slug": "woocommerce-breadcrumb",
+    "source": "wc",
+    "title": "WooCommerce Breadcrumbs",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/breadcrumb.php",
+    "sections": [
+        {
+            "id": "section_product_rating_style",
+            "label": "Style",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "wc_style_warning",
+                    "type": "alert",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "link_color",
+                    "type": "color",
+                    "label": "Link Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "text_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-breadcrumb",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "typography",
+            "name": "text_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-breadcrumb",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:53+00:00"
+}

@@ -93,6 +93,40 @@
         }
       }
     },
+    "breakpoints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "string" },
+          "label": { "type": "string" },
+          "maxWidth": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "url"],
+        "properties": {
+          "id": { "type": "string" },
+          "url": { "type": "string" },
+          "attachment_id": { "type": "integer" },
+          "altText": { "type": "string" },
+          "width": { "type": ["integer", "number"] },
+          "height": { "type": ["integer", "number"] },
+          "mimeType": { "type": "string" }
+        }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": true
+    },
     "sections": {
       "type": "array",
       "minItems": 1,
@@ -120,6 +154,22 @@
         "gap": { "type": ["string", "number"] },
         "padding": { "$ref": "#/$defs/dimensions" },
         "background": { "$ref": "#/$defs/background" },
+        "fullWidth": { "type": "boolean" },
+        "margin": { "type": "string" },
+        "sticky": { "type": "string" },
+        "sticky_on": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["desktop", "tablet", "mobile"] }
+        },
+        "sticky_offset": { "type": ["integer", "number", "string"] },
+        "z_index": { "type": ["integer", "number", "string"] },
+        "hide_on": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["desktop", "tablet", "mobile"] }
+        },
+        "css_classes": { "type": "string" },
+        "justify_content": { "type": "string" },
+        "align_items": { "type": "string" },
         "blocks": {
           "type": "array",
           "items": { "$ref": "#/$defs/block" }
@@ -137,26 +187,153 @@
             "heading",
             "paragraph",
             "image",
+            "image-box",
             "button",
             "spacer",
             "separator",
+            "divider",
             "list",
             "icon",
+            "icon-box",
             "video",
             "embed",
             "slider",
+            "slides",
             "card",
             "row",
-            "column"
+            "column",
+            "container",
+            "text-editor",
+            "image-gallery",
+            "gallery",
+            "countdown",
+            "nav-menu",
+            "icon-list",
+            "social-icons",
+            "tabs",
+            "accordion",
+            "toggle",
+            "progress-bar",
+            "counter",
+            "testimonial",
+            "form",
+            "form-placeholder"
           ]
+        },
+        "intent": { "type": "string" },
+        "required_steps": {
+          "type": "array",
+          "items": { "type": "string" }
         },
         "text": { "type": "string" },
         "level": { "type": "integer", "minimum": 1, "maximum": 6 },
         "url": { "type": "string" },
+        "poster": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "url": { "type": "string" },
+            "id": { "type": ["integer", "string"] },
+            "alt": { "type": "string" }
+          }
+        },
+        "autoplay": { "type": ["boolean", "string"] },
+        "mute": { "type": ["boolean", "string"] },
+        "loop": { "type": ["boolean", "string"] },
+        "controls": { "type": ["boolean", "string"] },
+        "aspect_ratio": { "type": "string" },
         "alt": { "type": "string" },
+        "link": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "url": { "type": "string" },
+            "is_external": { "type": "boolean" },
+            "nofollow": { "type": "boolean" }
+          }
+        },
+        "caption": { "type": "string" },
         "id": { "type": ["integer", "string"] },
-        "height": { "type": ["integer", "string"] },
+        "height": { "type": ["integer", "number", "string"] },
+        "gap": { "type": ["string", "number"] },
+        "padding": { "$ref": "#/$defs/dimensions" },
+        "background": { "$ref": "#/$defs/background" },
         "items": { "type": "array" },
+        "icons": { "type": "array" },
+        "images": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "id": { "type": ["integer", "string"] },
+              "url": { "type": "string" },
+              "src": { "type": "string" },
+              "alt": { "type": "string" }
+            }
+          }
+        },
+        "menu": { "type": ["integer", "string", "null"] },
+        "layout": { "type": "string" },
+        "direction": { "type": "string" },
+        "pointer": { "type": "string" },
+        "justify_content": { "type": "string" },
+        "align_items": { "type": "string" },
+        "wrap": { "type": "string" },
+        "columns": { "type": ["integer", "number", "string"] },
+        "image_size": { "type": "string" },
+        "spacing": { "type": ["integer", "number", "string"] },
+        "weight": { "type": ["integer", "number", "string", "object"] },
+        "link_to": { "type": "string" },
+        "orderby": { "type": "string" },
+        "full_width": { "type": ["boolean", "string"] },
+        "fullWidth": { "type": "boolean" },
+        "sticky": { "type": "string" },
+        "sticky_on": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["desktop", "tablet", "mobile"] }
+        },
+        "sticky_offset": { "type": ["integer", "number", "string"] },
+        "z_index": { "type": ["integer", "number", "string"] },
+        "hide_on": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["desktop", "tablet", "mobile"] }
+        },
+        "css_classes": { "type": "string" },
+        "dropdown": { "type": "string" },
+        "toggle": { "type": "string" },
+        "toggle_align": { "type": "string" },
+        "toggle_color": { "type": "string" },
+        "size": { "type": "string" },
+        "icon": { "type": "string" },
+        "color": { "type": "string" },
+        "background_color": { "type": "string" },
+        "external": { "type": "boolean" },
+        "nofollow": { "type": "boolean" },
+        "countdown_type": { "type": "string" },
+        "due_date": { "type": "string" },
+        "show": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "show_days": { "type": ["boolean", "string"] },
+        "show_hours": { "type": ["boolean", "string"] },
+        "show_minutes": { "type": ["boolean", "string"] },
+        "show_seconds": { "type": ["boolean", "string"] },
+        "label_days": { "type": "string" },
+        "label_hours": { "type": "string" },
+        "label_minutes": { "type": "string" },
+        "label_seconds": { "type": "string" },
+        "view": { "type": "string" },
+        "link_click": { "type": "string" },
+        "divider": { "type": ["boolean", "string"] },
+        "shape": { "type": "string" },
+        "align": { "type": "string" },
+        "html": { "type": "string" },
         "blocks": {
           "type": "array",
           "items": { "$ref": "#/$defs/block" }
@@ -164,6 +341,46 @@
         "style": {
           "type": "object",
           "additionalProperties": true
+        },
+        "styles": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "typography": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "src": { "type": "string" },
+        "assetRef": { "type": "string" },
+        "width": { "type": ["integer", "number", "string"] },
+        "form_name": { "type": "string" },
+        "button_text": { "type": "string" },
+        "field_style": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "button_style": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "submit_actions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "label"],
+            "properties": {
+              "type": { "type": "string", "enum": ["text", "email", "select", "textarea", "tel", "checkbox", "radio"] },
+              "label": { "type": "string" },
+              "placeholder": { "type": "string" },
+              "required": { "type": ["boolean", "string"] },
+              "default": { "type": "string" }
+            }
+          }
         }
       }
     },
@@ -173,10 +390,12 @@
       "properties": {
         "color": { "type": "string" },
         "image": { "type": "string" },
+        "imageRef": { "type": "string" },
         "image_id": { "type": "integer" },
         "overlay": { "type": "string" },
         "position": { "type": "string" },
-        "size": { "type": "string" }
+        "size": { "type": "string" },
+        "repeat": { "type": "string" }
       }
     },
     "dimensions": {

@@ -1,0 +1,330 @@
+{
+    "slug": "alert",
+    "source": "free",
+    "title": "Alert",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/alert.php",
+    "sections": [
+        {
+            "id": "section_alert",
+            "label": "Alert",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "alert_type",
+                    "type": "select",
+                    "label": "Type",
+                    "default": "info",
+                    "options": {
+                        "info": "Info",
+                        "success": "Success",
+                        "warning": "Warning",
+                        "danger": "Danger"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "alert_title",
+                    "type": "text",
+                    "label": "Title",
+                    "default": "This is an Alert",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "alert_description",
+                    "type": "textarea",
+                    "label": "Content",
+                    "default": "I am a description. Click the edit button to change this text.",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_dismiss",
+                    "type": "switcher",
+                    "label": "Dismiss Icon",
+                    "default": "show",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "dismiss_icon",
+                    "type": "icons",
+                    "label": "Icon",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "show_dismiss": "show"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_type",
+            "label": "Alert",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "background",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "border_color",
+                    "type": "color",
+                    "label": "Side Border Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "border_left-width",
+                    "type": "slider",
+                    "label": "Side Border Width",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_title",
+            "label": "Title",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "title_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "alert_title",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-alert-title",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "title_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-alert-title",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_description",
+            "label": "Description",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "description_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "alert_description",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-alert-description",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "description_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-alert-description",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_dismiss_icon",
+            "label": "Dismiss Icon",
+            "tab": "style",
+            "condition": {
+                "show_dismiss": "show"
+            },
+            "controls": [
+                {
+                    "key": "dismiss_icon_size",
+                    "type": "slider",
+                    "label": "Size",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "dismiss_icon_vertical_position",
+                    "type": "slider",
+                    "label": "Vertical Position",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "dismiss_icon_horizontal_position",
+                    "type": "slider",
+                    "label": "Horizontal Position",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "dismiss_icon_normal_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "dismiss_icon_hover_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "dismiss_icon_hover_transition_duration",
+                    "type": "slider",
+                    "label": "Transition Duration (s)",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "typography",
+            "name": "alert_title",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-alert-title",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "title_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-alert-title",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "alert_description",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-alert-description",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "description_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-alert-description",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:47+00:00"
+}

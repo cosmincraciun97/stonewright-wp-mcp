@@ -12,6 +12,10 @@
 		"node": ">=20.0.0"
 	},
 	"main": "dist/index.js",
+	"bin": {
+		"stonewright-companion": "dist/index.js",
+		"stonewright-mcp": "dist/index.js"
+	},
 	"exports": {
 		".": "./dist/index.js"
 	},
@@ -20,12 +24,14 @@
 		"build:contracts": "node scripts/build-contracts.mjs",
 		"dev": "tsup src/index.ts --format esm --watch --onSuccess \"node dist/index.js\"",
 		"start": "node dist/index.js",
+		"mcp": "node dist/index.js",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"lint": "eslint src tests --ext .ts",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@anthropic-ai/sdk": "^0.98.0",
 		"@modelcontextprotocol/sdk": "^1.0.0",
 		"dotenv": "^16.4.5",
 		"playwright": "^1.44.0",

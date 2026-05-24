@@ -1,0 +1,39 @@
+{
+    "slug": "shortcode",
+    "source": "free",
+    "title": "Shortcode",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/shortcode.php",
+    "sections": [
+        {
+            "id": "section_shortcode",
+            "label": "Shortcode",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "shortcode",
+                    "type": "textarea",
+                    "label": "Enter your shortcode",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:48+00:00"
+}

@@ -1,0 +1,40 @@
+{
+    "generated_at": "2026-05-23T00:56:45+00:00",
+    "generator": "plugin/bin/widget-controls-extract.php",
+    "inventory_source": "docs/superpowers/data/widget-inventory.json",
+    "widgets": 95,
+    "extracted": 90,
+    "with_no_register": 5,
+    "with_unresolved": 2,
+    "parse_errors": 0,
+    "failures": [
+        {
+            "slug": "inner-section",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/inner-section.php",
+            "reason": "no register_controls"
+        },
+        {
+            "slug": "global",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/global-widget/widgets/global-widget.php",
+            "reason": "no register_controls"
+        },
+        {
+            "slug": "theme-archive-title",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/archive-title.php",
+            "reason": "no register_controls"
+        },
+        {
+            "slug": "theme-page-title",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/page-title.php",
+            "reason": "no register_controls"
+        },
+        {
+            "slug": "theme-post-title",
+            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/post-title.php",
+            "reason": "no register_controls"
+        }
+    ],
+    "unresolved_helpers": {
+        "register_pagination_section_controls": 2
+    }
+}

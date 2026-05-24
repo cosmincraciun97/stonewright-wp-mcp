@@ -102,60 +102,94 @@ final class AbilitiesPage {
 				style="margin-bottom:1em;"
 			/>
 
-			<table class="wp-list-table widefat fixed striped stonewright-abilities-table">
-				<thead>
-					<tr>
-						<th scope="col"><?php esc_html_e( 'Name', 'stonewright' ); ?></th>
-						<th scope="col"><?php esc_html_e( 'Category', 'stonewright' ); ?></th>
-						<th scope="col"><?php esc_html_e( 'Description', 'stonewright' ); ?></th>
-						<th scope="col" style="width:100px;"><?php esc_html_e( 'Status', 'stonewright' ); ?></th>
-					</tr>
-				</thead>
-				<tbody>
-					<?php foreach ( $abilities as $ability ) : ?>
-					<?php
-					$is_disabled  = in_array( $ability['name'], $disabled_abilities, true );
-					$row_category = $ability['category'];
-					$row_style    = ( '' !== $active_category && $active_category !== $row_category ) ? ' style="display:none;"' : '';
-					?>
-					<tr
-						class="stonewright-ability-row"
-						data-name="<?php echo esc_attr( $ability['name'] ); ?>"
-						data-label="<?php echo esc_attr( $ability['label'] ); ?>"
-						data-category="<?php echo esc_attr( $row_category ); ?>"
-						<?php echo $row_style; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- constructed safely above. ?>
-					>
-						<td>
-							<strong><?php echo esc_html( $ability['label'] ); ?></strong><br/>
-							<code><?php echo esc_html( $ability['name'] ); ?></code>
-						</td>
-						<td><?php echo esc_html( ucfirst( $row_category ) ); ?></td>
-						<td><?php echo esc_html( $ability['description'] ); ?></td>
-						<td>
-							<?php if ( current_user_can( self::CAPABILITY ) ) : ?>
-							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-								<input type="hidden" name="action" value="stonewright_toggle_ability"/>
-								<input type="hidden" name="ability_name" value="<?php echo esc_attr( $ability['name'] ); ?>"/>
-								<?php wp_nonce_field( self::NONCE_ACTION ); ?>
-								<label>
-									<input
-										type="checkbox"
-										name="ability_enabled"
-										value="1"
-										onchange="this.form.submit()"
-										<?php checked( ! $is_disabled ); ?>
-									/>
-									<?php echo $is_disabled ? esc_html__( 'Disabled', 'stonewright' ) : esc_html__( 'Enabled', 'stonewright' ); ?>
-								</label>
-							</form>
-							<?php else : ?>
-							<?php echo $is_disabled ? esc_html__( 'Disabled', 'stonewright' ) : esc_html__( 'Enabled', 'stonewright' ); ?>
-							<?php endif; ?>
-						</td>
-					</tr>
-					<?php endforeach; ?>
-				</tbody>
-			</table>
+			<div class="sw-card-grid" id="stonewright-ability-grid">
+				<?php foreach ( $abilities as $ability ) : ?>
+				<?php
+				$is_disabled  = in_array( $ability['name'], $disabled_abilities, true );
+				$row_category = $ability['category'];
+				$row_style    = ( '' !== $active_category && $active_category !== $row_category ) ? ' style="display:none;"' : '';
+				$card_class   = 'sw-card' . ( $is_disabled ? ' sw-card--disabled' : ' sw-card--enabled' );
+				$card_id      = 'sw-ability-' . sanitize_html_class( str_replace( '/', '-', $ability['name'] ) );
+				?>
+				<div
+					id="<?php echo esc_attr( $card_id ); ?>"
+					class="<?php echo esc_attr( $card_class ); ?> stonewright-ability-row"
+					data-name="<?php echo esc_attr( $ability['name'] ); ?>"
+					data-label="<?php echo esc_attr( $ability['label'] ); ?>"
+					data-category="<?php echo esc_attr( $row_category ); ?>"
+					<?php echo $row_style; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- constructed safely above. ?>
+				>
+					<div class="sw-card__header">
+						<div class="sw-card__title-row">
+							<span class="sw-card__title"><?php echo esc_html( $ability['label'] ); ?></span>
+							<span class="sw-badge sw-badge--category"><?php echo esc_html( ucfirst( $row_category ) ); ?></span>
+							<span class="sw-badge <?php echo $is_disabled ? 'sw-badge--disabled' : 'sw-badge--active'; ?>">
+								<?php echo $is_disabled ? esc_html__( 'Disabled', 'stonewright' ) : esc_html__( 'Enabled', 'stonewright' ); ?>
+							</span>
+						</div>
+						<code class="sw-card__slug"><?php echo esc_html( $ability['name'] ); ?></code>
+					</div>
+					<div class="sw-card__body">
+						<p class="sw-card__description"><?php echo esc_html( $ability['description'] ); ?></p>
+					</div>
+					<div class="sw-card__footer">
+						<?php if ( current_user_can( self::CAPABILITY ) ) : ?>
+						<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+							<input type="hidden" name="action" value="stonewright_toggle_ability"/>
+							<input type="hidden" name="ability_name" value="<?php echo esc_attr( $ability['name'] ); ?>"/>
+							<?php wp_nonce_field( self::NONCE_ACTION ); ?>
+							<label class="sw-toggle" title="<?php esc_attr_e( 'Enable / Disable', 'stonewright' ); ?>">
+								<input
+									type="checkbox"
+									name="ability_enabled"
+									value="1"
+									onchange="this.form.submit()"
+									<?php checked( ! $is_disabled ); ?>
+								/>
+								<span class="sw-toggle__track"></span>
+							</label>
+						</form>
+						<?php endif; ?>
+						<button
+							type="button"
+							class="button button-small"
+							onclick="swToggleDetail('<?php echo esc_js( $card_id ); ?>')"
+						><?php esc_html_e( 'Details ▾', 'stonewright' ); ?></button>
+					</div>
+
+					<?php // Detail panel — hidden until toggled. ?>
+					<div class="sw-card__edit-panel" id="<?php echo esc_attr( $card_id ); ?>-detail" style="display:none;">
+						<?php
+						$schema = $ability['input_schema'] ?? [];
+						$props  = $schema['properties'] ?? [];
+						$req    = $schema['required'] ?? [];
+						if ( ! empty( $props ) ) :
+						?>
+						<table class="widefat fixed" style="font-size:12px;margin-top:8px;">
+							<thead><tr>
+								<th><?php esc_html_e( 'Parameter', 'stonewright' ); ?></th>
+								<th><?php esc_html_e( 'Type', 'stonewright' ); ?></th>
+								<th><?php esc_html_e( 'Required', 'stonewright' ); ?></th>
+								<th><?php esc_html_e( 'Description', 'stonewright' ); ?></th>
+							</tr></thead>
+							<tbody>
+							<?php foreach ( $props as $param => $def ) : ?>
+							<tr>
+								<td><code><?php echo esc_html( (string) $param ); ?></code></td>
+								<td><?php echo esc_html( is_array( $def['type'] ?? '' ) ? implode( '|', (array) $def['type'] ) : (string) ( $def['type'] ?? '?' ) ); ?></td>
+								<td><?php echo in_array( $param, $req, true ) ? '✅' : ''; ?></td>
+								<td><?php echo esc_html( (string) ( $def['description'] ?? '' ) ); ?></td>
+							</tr>
+							<?php endforeach; ?>
+							</tbody>
+						</table>
+						<?php else : ?>
+						<p style="color:#6b7280;font-size:12px;margin:8px 0 0;"><?php esc_html_e( 'No input parameters.', 'stonewright' ); ?></p>
+						<?php endif; ?>
+					</div>
+				</div>
+				<?php endforeach; ?>
+			</div>
 
 			<script>
 			(function () {
@@ -173,6 +207,19 @@ final class AbilitiesPage {
 					});
 				});
 			})();
+
+			function swToggleDetail(cardId) {
+				var panel = document.getElementById(cardId + '-detail');
+				if (!panel) return;
+				var btn = document.querySelector('#' + cardId + ' .sw-card__footer .button');
+				if (panel.style.display === 'none') {
+					panel.style.display = 'block';
+					if (btn) btn.textContent = 'Details ▴';
+				} else {
+					panel.style.display = 'none';
+					if (btn) btn.textContent = 'Details ▾';
+				}
+			}
 			</script>
 		</div>
 		<?php

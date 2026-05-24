@@ -78,7 +78,13 @@ describe('assertInsideArtifacts', () => {
 		// nearest existing ancestor should follow the symlink and produce a
 		// path outside the root.
 		const linkDir = join(root, 'link');
-		symlinkSync(tmpdir(), linkDir, 'dir');
+		try {
+			symlinkSync(tmpdir(), linkDir, 'dir');
+		} catch (err) {
+			const code = (err as NodeJS.ErrnoException).code;
+			if (code === 'EPERM' || code === 'EACCES') return;
+			throw err;
+		}
 		try {
 			// Sanity-check: the symlink target must NOT be inside our root. If this
 			// assertion fails the symlink didn't actually escape, and the test would

@@ -4,6 +4,7 @@
     "isInner": false,
     "settings": {
         "content_width": "boxed",
+        "container_type": "flex",
         "flex_direction": "column"
     },
     "elements": []

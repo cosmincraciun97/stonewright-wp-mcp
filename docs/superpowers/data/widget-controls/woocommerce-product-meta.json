@@ -1,0 +1,355 @@
+{
+    "slug": "woocommerce-product-meta",
+    "source": "wc",
+    "title": "Product Meta",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-meta.php",
+    "sections": [
+        {
+            "id": "section_product_meta_style",
+            "label": "Style",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "wc_style_warning",
+                    "type": "alert",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "view",
+                    "type": "select",
+                    "label": "View",
+                    "default": "inline",
+                    "options": {
+                        "table": "Table",
+                        "stacked": "Stacked",
+                        "inline": "Inline"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "space_between",
+                    "type": "slider",
+                    "label": "Space Between",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "divider",
+                    "type": "switcher",
+                    "label": "Divider",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "divider_style",
+                    "type": "select",
+                    "label": "Style",
+                    "default": "solid",
+                    "options": {
+                        "solid": "Solid",
+                        "double": "Double",
+                        "dotted": "Dotted",
+                        "dashed": "Dashed"
+                    },
+                    "condition": {
+                        "divider": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "divider_weight",
+                    "type": "slider",
+                    "label": "Weight",
+                    "default": {
+                        "size": 1
+                    },
+                    "options": null,
+                    "condition": {
+                        "divider": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "divider_width",
+                    "type": "slider",
+                    "label": "Width",
+                    "default": {
+                        "unit": "%"
+                    },
+                    "options": null,
+                    "condition": {
+                        "divider": "yes",
+                        "view!": "inline"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "divider_height",
+                    "type": "slider",
+                    "label": "Height",
+                    "default": {
+                        "unit": "%"
+                    },
+                    "options": null,
+                    "condition": {
+                        "divider": "yes",
+                        "view": "inline"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "divider_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": "#ddd",
+                    "options": null,
+                    "condition": {
+                        "divider": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_text_style",
+                    "type": "heading",
+                    "label": "Text",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "text_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_link_style",
+                    "type": "heading",
+                    "label": "Link",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "link_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "text_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}}",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "link_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} a",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_product_meta_captions",
+            "label": "Captions",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "heading_category_caption",
+                    "type": "heading",
+                    "label": "Category",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "category_caption_single",
+                    "type": "text",
+                    "label": "Singular",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "category_caption_plural",
+                    "type": "text",
+                    "label": "Plural",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_tag_caption",
+                    "type": "heading",
+                    "label": "Tag",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "tag_caption_single",
+                    "type": "text",
+                    "label": "Singular",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "tag_caption_plural",
+                    "type": "text",
+                    "label": "Plural",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_sku_caption",
+                    "type": "heading",
+                    "label": "SKU",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sku_caption",
+                    "type": "text",
+                    "label": "SKU",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sku_missing_caption",
+                    "type": "text",
+                    "label": "Missing",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "typography",
+            "name": "text_typography",
+            "label": null,
+            "selector": "{{WRAPPER}}",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "link_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} a",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:54+00:00"
+}

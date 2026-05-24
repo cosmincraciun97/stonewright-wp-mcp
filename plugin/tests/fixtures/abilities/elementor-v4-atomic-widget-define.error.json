@@ -1,0 +1,8 @@
+{
+    "args": {
+        "slug": "denied-card",
+        "template": "<div></div>",
+        "props": []
+    },
+    "expect_permission_error": true
+}

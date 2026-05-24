@@ -1,0 +1,349 @@
+{
+    "slug": "wc-categories",
+    "source": "wc",
+    "title": "Product Categories",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/categories.php",
+    "sections": [
+        {
+            "id": "section_layout",
+            "label": "Layout",
+            "tab": "content",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "number",
+                    "type": "number",
+                    "label": "Categories Count",
+                    "default": "4",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_filter",
+            "label": "Query",
+            "tab": "content",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "source",
+                    "type": "select",
+                    "label": "Source",
+                    "default": null,
+                    "options": {
+                        "": "Show All",
+                        "by_id": "Manual Selection",
+                        "by_parent": "By Parent",
+                        "current_subcategories": "Current Subcategories"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "categories",
+                    "type": "select2",
+                    "label": "Categories",
+                    "default": [],
+                    "options": {
+                        "__unresolved__": "$options"
+                    },
+                    "condition": {
+                        "source": "by_id"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "parent",
+                    "type": "select",
+                    "label": "Parent",
+                    "default": "0",
+                    "options": {
+                        "__unresolved__": "$parent_options"
+                    },
+                    "condition": {
+                        "source": "by_parent"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hide_empty",
+                    "type": "switcher",
+                    "label": "Hide Empty",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "orderby",
+                    "type": "select",
+                    "label": "Order By",
+                    "default": "name",
+                    "options": {
+                        "name": "Name",
+                        "slug": "Slug",
+                        "description": "Description",
+                        "count": "Count"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order",
+                    "type": "select",
+                    "label": "Order",
+                    "default": "desc",
+                    "options": {
+                        "asc": "ASC",
+                        "desc": "DESC"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_products_style",
+            "label": "Products",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "wc_style_warning",
+                    "type": "alert",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "products_class",
+                    "type": "hidden",
+                    "label": null,
+                    "default": "wc-products",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "column_gap",
+                    "type": "slider",
+                    "label": "Columns Gap",
+                    "default": {
+                        "size": 20
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "row_gap",
+                    "type": "slider",
+                    "label": "Rows Gap",
+                    "default": {
+                        "size": 40
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "align",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "left": {
+                            "title": "Left",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "right": {
+                            "title": "Right",
+                            "icon": "eicon-text-align-right"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "heading_image_style",
+                    "type": "heading",
+                    "label": "Image",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "image_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "image_spacing",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "heading_title_style",
+                    "type": "heading",
+                    "label": "Title",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "title_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_count_style",
+                    "type": "heading",
+                    "label": "Count",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "count_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "border",
+                    "name": "image_border",
+                    "label": null,
+                    "selector": "{{WRAPPER}} a > img",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "title_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce .woocommerce-loop-category__title",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "count_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce-loop-category__title .count",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "border",
+            "name": "image_border",
+            "label": null,
+            "selector": "{{WRAPPER}} a > img",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "title_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce .woocommerce-loop-category__title",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "count_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce-loop-category__title .count",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:53+00:00"
+}

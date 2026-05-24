@@ -1,0 +1,1460 @@
+{
+    "slug": "search",
+    "source": "pro",
+    "title": "Search",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/search/widgets/search.php",
+    "sections": [
+        {
+            "id": "content_section_search_field",
+            "label": "Search Field",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "heading_input",
+                    "type": "heading",
+                    "label": "Input",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "search_input_placeholder_text",
+                    "type": "text",
+                    "label": "Placeholder",
+                    "default": "Type to start searching...",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon_search",
+                    "type": "icons",
+                    "label": "Icon",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "autocomplete",
+                    "type": "switcher",
+                    "label": "Autocomplete",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_clear",
+                    "type": "heading",
+                    "label": "Clear",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon_clear",
+                    "type": "icons",
+                    "label": "Icon",
+                    "default": {
+                        "value": "fas fa-times",
+                        "library": "fa-solid"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_submit",
+                    "type": "heading",
+                    "label": "Submit",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "submit_trigger",
+                    "type": "select",
+                    "label": "Trigger",
+                    "default": "click_submit",
+                    "options": {
+                        "click_submit": "Submit button",
+                        "key_enter": "Enter key",
+                        "both": "Both"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "submit_button_text",
+                    "type": "text",
+                    "label": "Text",
+                    "default": "Search",
+                    "options": null,
+                    "condition": {
+                        "submit_trigger!": "key_enter"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon_submit",
+                    "type": "icons",
+                    "label": "Icon",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "submit_trigger!": "key_enter"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "content_section_results",
+            "label": "Results",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "live_results",
+                    "type": "switcher",
+                    "label": "Live Results",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "template_id",
+                    "type": {
+                        "__unresolved__": "Template_Query::CONTROL_ID"
+                    },
+                    "label": "Choose a template",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "live_results": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "minimum_search_characters",
+                    "type": "number",
+                    "label": "Minimum search characters",
+                    "default": 3,
+                    "options": null,
+                    "condition": {
+                        "live_results": "yes",
+                        "template_id!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "number_of_columns",
+                    "type": "number",
+                    "label": "Columns",
+                    "default": 1,
+                    "options": null,
+                    "condition": {
+                        "live_results": "yes",
+                        "template_id!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "number_of_items",
+                    "type": "number",
+                    "label": "Items",
+                    "default": 6,
+                    "options": null,
+                    "condition": {
+                        "live_results": "yes",
+                        "template_id!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "equal_height",
+                    "type": "switcher",
+                    "label": "Equal Height",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "live_results": "yes",
+                        "template_id!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "enable_loader",
+                    "type": "switcher",
+                    "label": "Loader",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "live_results": "yes",
+                        "template_id!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "enable_nothing_found_message",
+                    "type": "switcher",
+                    "label": "Nothing Found Message",
+                    "default": "yes",
+                    "options": null,
+                    "condition": {
+                        "live_results": "yes",
+                        "template_id!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "nothing_found_message_description",
+                    "type": "raw_html",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "__unresolved__": "->get_nothing_found_conditions()"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "nothing_found_message_text",
+                    "type": "textarea",
+                    "label": null,
+                    "default": "It seems we can’t find what you’re looking for.",
+                    "options": null,
+                    "condition": {
+                        "__unresolved__": "->get_nothing_found_conditions()"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "nothing_found_message_html_tag",
+                    "type": "select",
+                    "label": "HTML Tag",
+                    "default": "div",
+                    "options": {
+                        "h1": "H1",
+                        "h2": "H2",
+                        "h3": "H3",
+                        "h4": "H4",
+                        "h5": "H5",
+                        "h6": "H6",
+                        "div": "div",
+                        "span": "span"
+                    },
+                    "condition": {
+                        "__unresolved__": "->get_nothing_found_conditions()"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "content_section_query",
+            "label": "Query",
+            "tab": null,
+            "condition": null,
+            "controls": [],
+            "group_controls": [
+                {
+                    "group": null,
+                    "name": "search_query",
+                    "label": null,
+                    "selector": null,
+                    "condition": null,
+                    "exclude": [
+                        "avoid_duplicates",
+                        "offset",
+                        "posts_per_page"
+                    ],
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "content_section_additional_settings",
+            "label": "Additional Settings",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "heading_pagination",
+                    "type": "heading",
+                    "label": "Pagination",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "pagination_type_options",
+                    "type": "select",
+                    "label": "Type",
+                    "default": "none",
+                    "options": {
+                        "none": "None",
+                        "numbers": "Numbers",
+                        "previous_next": "Previous/Next",
+                        "numbers_previous_next": "Numbers + Previous/Next"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "pagination_prev_label",
+                    "type": null,
+                    "label": "Previous Label",
+                    "default": "Previous",
+                    "options": null,
+                    "condition": {
+                        "pagination_type_options": [
+                            "previous_next",
+                            "numbers_previous_next"
+                        ]
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "pagination_next_label",
+                    "type": null,
+                    "label": "Next Label",
+                    "default": "Next",
+                    "options": null,
+                    "condition": {
+                        "pagination_type_options": [
+                            "previous_next",
+                            "numbers_previous_next"
+                        ]
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "page_limit_settings",
+                    "type": "number",
+                    "label": "Page Limit",
+                    "default": 5,
+                    "options": null,
+                    "condition": {
+                        "pagination_type_options": [
+                            "numbers_previous_next",
+                            "numbers",
+                            "previous_next"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "pagination_shorten_settings",
+                    "type": "switcher",
+                    "label": "Shorten",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "pagination_type_options": [
+                            "numbers_previous_next",
+                            "numbers"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_search_field_style",
+            "label": "Search Field",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "placeholder_color",
+                    "type": "color",
+                    "label": "Placeholder Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "search_field_search_input_transition",
+                    "type": "slider",
+                    "label": "Transition Duration",
+                    "default": {
+                        "unit": "s"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "search_field_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "search_field_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "search_field_icon_label_size",
+                    "type": "slider",
+                    "label": "Icon Size",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "icon_search[value]!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "search_field_icon_gap",
+                    "type": "slider",
+                    "label": "Gap between text and icon",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "icon_search[value]!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "search_field_submit_gap",
+                    "type": "slider",
+                    "label": "Gap between input and button",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "search_field_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-search-input",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": {
+                        "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+                    },
+                    "label": null,
+                    "selector": {
+                        "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+                    },
+                    "condition": null,
+                    "exclude": [
+                        "image"
+                    ],
+                    "include": null
+                },
+                {
+                    "group": "border",
+                    "name": {
+                        "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+                    },
+                    "label": null,
+                    "selector": {
+                        "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+                    },
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": {
+                        "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+                    },
+                    "label": null,
+                    "selector": {
+                        "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+                    },
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "style_section_clear",
+            "label": "Clear",
+            "tab": "style",
+            "condition": {
+                "icon_clear[value]!": ""
+            },
+            "controls": [
+                {
+                    "key": "icon_clear_size",
+                    "type": "slider",
+                    "label": "Icon Size",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "icon_clear_normal_color",
+                    "type": "color",
+                    "label": "Icon Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon_clear_hover_color",
+                    "type": "color",
+                    "label": "Icon Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon_clear_hover_transition",
+                    "type": "slider",
+                    "label": "Transition Duration",
+                    "default": {
+                        "unit": "s"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "style_section_submit",
+            "label": "Submit Button",
+            "tab": "style",
+            "condition": {
+                "submit_trigger!": "key_enter"
+            },
+            "controls": [
+                {
+                    "key": "icon_submit_position",
+                    "type": "choose",
+                    "label": "Icon Position",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start (before)",
+                            "icon": "eicon-h-align-left"
+                        },
+                        "end": {
+                            "title": "End (after)",
+                            "icon": "eicon-h-align-right"
+                        }
+                    },
+                    "condition": {
+                        "icon_submit[value]!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "icon_submit_size",
+                    "type": "slider",
+                    "label": "Icon Size",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "icon_submit[value]!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "icon_submit_gap",
+                    "type": "slider",
+                    "label": "Gap between text and icon",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "icon_submit[value]!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "submit_hover_animation",
+                    "type": "hover_animation",
+                    "label": "Hover animation",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "submit_hover_transition",
+                    "type": "slider",
+                    "label": "Transition Duration",
+                    "default": {
+                        "unit": "s"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "submit_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "submit_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "submit_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-search-submit span",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": {
+                        "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+                    },
+                    "label": null,
+                    "selector": {
+                        "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+                    },
+                    "condition": null,
+                    "exclude": [
+                        "image"
+                    ],
+                    "include": null
+                },
+                {
+                    "group": "border",
+                    "name": {
+                        "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+                    },
+                    "label": null,
+                    "selector": {
+                        "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+                    },
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": {
+                        "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+                    },
+                    "label": null,
+                    "selector": {
+                        "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+                    },
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "style_section_results",
+            "label": "Results",
+            "tab": "style",
+            "condition": {
+                "live_results": "yes"
+            },
+            "controls": [
+                {
+                    "key": "results_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "results_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "results_distance_from_search_field",
+                    "type": "slider",
+                    "label": "Distance from search field",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "results_is_dropdown_width",
+                    "type": "select",
+                    "label": "Dropdown Width",
+                    "default": "search_field",
+                    "options": {
+                        "search_field": "Search Field",
+                        "widget_width": "Widget Width"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "results_is_custom_width",
+                    "type": "switcher",
+                    "label": "Custom Width",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "results_custom_width",
+                    "type": "slider",
+                    "label": "Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "results_is_custom_width": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "results_max_height",
+                    "type": "slider",
+                    "label": "Max height",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "results_alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-h-align-left"
+                        },
+                        "center": {
+                            "title": "Middle",
+                            "icon": "eicon-h-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-h-align-right"
+                        }
+                    },
+                    "condition": {
+                        "results_is_custom_width": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "search_result_column_gap",
+                    "type": "slider",
+                    "label": "Gap between columns",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "search_result_row_gap",
+                    "type": "slider",
+                    "label": "Gap between rows",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "heading_search_reasult_loader",
+                    "type": "heading",
+                    "label": "Loader",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "live_results": "yes",
+                        "template_id!": "",
+                        "enable_loader": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "search_result_loader_icon_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "live_results": "yes",
+                        "template_id!": "",
+                        "enable_loader": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "search_result_loader_icon_size",
+                    "type": "slider",
+                    "label": "Icon Size",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "live_results": "yes",
+                        "template_id!": "",
+                        "enable_loader": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "background",
+                    "name": "results_background",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-search-results-container",
+                    "condition": null,
+                    "exclude": [
+                        "image"
+                    ],
+                    "include": null
+                },
+                {
+                    "group": "border",
+                    "name": "results_border_type",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-search-results-container > div",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "results_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-search-results-container > div",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "style_additional_settings",
+            "label": "Additional Settings",
+            "tab": "style",
+            "condition": {
+                "pagination_type_options": [
+                    "numbers_previous_next",
+                    "previous_next",
+                    "numbers"
+                ]
+            },
+            "controls": [
+                {
+                    "key": "heading_style_additional_settings",
+                    "type": "heading",
+                    "label": "Pagination",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "style_additional_settings_alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "flex-start": {
+                            "title": "Start",
+                            "icon": "eicon-h-align-left"
+                        },
+                        "center": {
+                            "title": "Middle",
+                            "icon": "eicon-h-align-center"
+                        },
+                        "flex-end": {
+                            "title": "End",
+                            "icon": "eicon-h-align-right"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "style_additional_settings_vertical_position",
+                    "type": "choose",
+                    "label": "Vertical Position",
+                    "default": null,
+                    "options": {
+                        "top": {
+                            "title": "Top",
+                            "icon": "eicon-v-align-top"
+                        },
+                        "bottom": {
+                            "title": "Bottom",
+                            "icon": "eicon-v-align-bottom"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_style_additional_settings_colors",
+                    "type": "heading",
+                    "label": "Colors",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "style_additional_settings_normal_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "style_additional_settings_hover_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "style_button_color_icon_active",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "page_numbers_space_between",
+                    "type": "slider",
+                    "label": "Space Between",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "top_spacing",
+                    "type": "slider",
+                    "label": "Top Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "bottom_spacing",
+                    "type": "slider",
+                    "label": "Bottom Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "typography_title",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-pagination",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "style_section_nothing_found_message",
+            "label": "Nothing Found Message",
+            "tab": "style",
+            "condition": {
+                "__unresolved__": "->get_nothing_found_conditions()"
+            },
+            "controls": [
+                {
+                    "key": "nothing_found_message_space_from_top",
+                    "type": "slider",
+                    "label": "Space from top",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "nothing_found_message_space_from_bottom",
+                    "type": "slider",
+                    "label": "Space from bottom",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "nothing_found_message_alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Middle",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "nothing_found_message_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "nothing_found_message_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-search-nothing-found-message",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "nothing_found_message_text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-search-nothing-found-message",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-stroke",
+                    "name": "nothing_found_message_text_stroke",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-search-nothing-found-message",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": null,
+            "name": "search_query",
+            "label": null,
+            "selector": null,
+            "condition": null,
+            "exclude": [
+                "avoid_duplicates",
+                "offset",
+                "posts_per_page"
+            ],
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "search_field_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-search-input",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": {
+                "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+            },
+            "label": null,
+            "selector": {
+                "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+            },
+            "condition": null,
+            "exclude": [
+                "image"
+            ],
+            "include": null
+        },
+        {
+            "group": "border",
+            "name": {
+                "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+            },
+            "label": null,
+            "selector": {
+                "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+            },
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": {
+                "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+            },
+            "label": null,
+            "selector": {
+                "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+            },
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "submit_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-search-submit span",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": {
+                "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+            },
+            "label": null,
+            "selector": {
+                "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+            },
+            "condition": null,
+            "exclude": [
+                "image"
+            ],
+            "include": null
+        },
+        {
+            "group": "border",
+            "name": {
+                "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+            },
+            "label": null,
+            "selector": {
+                "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+            },
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": {
+                "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+            },
+            "label": null,
+            "selector": {
+                "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+            },
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "results_background",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-search-results-container",
+            "condition": null,
+            "exclude": [
+                "image"
+            ],
+            "include": null
+        },
+        {
+            "group": "border",
+            "name": "results_border_type",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-search-results-container > div",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "results_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-search-results-container > div",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "typography_title",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-pagination",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "nothing_found_message_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-search-nothing-found-message",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "nothing_found_message_text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-search-nothing-found-message",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-stroke",
+            "name": "nothing_found_message_text_stroke",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-search-nothing-found-message",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:52+00:00"
+}

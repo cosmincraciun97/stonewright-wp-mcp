@@ -1,0 +1,704 @@
+{
+    "slug": "countdown",
+    "source": "pro",
+    "title": "Countdown",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/countdown/widgets/countdown.php",
+    "sections": [
+        {
+            "id": "section_countdown",
+            "label": "Countdown",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "countdown_type",
+                    "type": "select",
+                    "label": "Type",
+                    "default": "due_date",
+                    "options": {
+                        "due_date": "Due Date",
+                        "evergreen": "Evergreen Timer"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "due_date",
+                    "type": "date_time",
+                    "label": "Due Date",
+                    "default": {
+                        "__unresolved__": "gmdate()"
+                    },
+                    "options": null,
+                    "condition": {
+                        "countdown_type": "due_date"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": {
+                        "__unresolved__": "sprintf()"
+                    }
+                },
+                {
+                    "key": "evergreen_counter_hours",
+                    "type": "number",
+                    "label": "Hours",
+                    "default": 47,
+                    "options": null,
+                    "condition": {
+                        "countdown_type": "evergreen"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "evergreen_counter_minutes",
+                    "type": "number",
+                    "label": "Minutes",
+                    "default": 59,
+                    "options": null,
+                    "condition": {
+                        "countdown_type": "evergreen"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_days",
+                    "type": "switcher",
+                    "label": "Days",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_hours",
+                    "type": "switcher",
+                    "label": "Hours",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_minutes",
+                    "type": "switcher",
+                    "label": "Minutes",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_seconds",
+                    "type": "switcher",
+                    "label": "Seconds",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_labels",
+                    "type": "switcher",
+                    "label": "Show Label",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "custom_labels",
+                    "type": "switcher",
+                    "label": "Custom Label",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "show_labels!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "label_days",
+                    "type": "text",
+                    "label": "Days",
+                    "default": "Days",
+                    "options": null,
+                    "condition": {
+                        "show_labels!": "",
+                        "custom_labels!": "",
+                        "show_days": "yes"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "label_hours",
+                    "type": "text",
+                    "label": "Hours",
+                    "default": "Hours",
+                    "options": null,
+                    "condition": {
+                        "show_labels!": "",
+                        "custom_labels!": "",
+                        "show_hours": "yes"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "label_minutes",
+                    "type": "text",
+                    "label": "Minutes",
+                    "default": "Minutes",
+                    "options": null,
+                    "condition": {
+                        "show_labels!": "",
+                        "custom_labels!": "",
+                        "show_minutes": "yes"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "label_seconds",
+                    "type": "text",
+                    "label": "Seconds",
+                    "default": "Seconds",
+                    "options": null,
+                    "condition": {
+                        "show_labels!": "",
+                        "custom_labels!": "",
+                        "show_seconds": "yes"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "expire_actions",
+                    "type": "select2",
+                    "label": "Actions After Expire",
+                    "default": null,
+                    "options": {
+                        "redirect": "Redirect",
+                        "hide": "Hide",
+                        "message": "Show Message"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "message_after_expire",
+                    "type": "textarea",
+                    "label": "Message",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "expire_actions": "message"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "expire_redirect_url",
+                    "type": "url",
+                    "label": "Redirect URL",
+                    "default": null,
+                    "options": false,
+                    "condition": {
+                        "expire_actions": "redirect"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_countdown_style",
+            "label": "Countdown",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "heading_container",
+                    "type": "heading",
+                    "label": "Container",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "label_display",
+                    "type": "choose",
+                    "label": "Layout",
+                    "default": "block",
+                    "options": {
+                        "block": {
+                            "title": "Block",
+                            "icon": "eicon-grow"
+                        },
+                        "inline": {
+                            "title": "Inline",
+                            "icon": "eicon-shrink"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "container_width",
+                    "type": "slider",
+                    "label": "Container Width",
+                    "default": {
+                        "unit": "%",
+                        "size": 100
+                    },
+                    "options": null,
+                    "condition": {
+                        "label_display": "block"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "boxes_alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        }
+                    },
+                    "condition": {
+                        "label_display": "inline"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "box_spacing",
+                    "type": "slider",
+                    "label": "Space Between",
+                    "default": {
+                        "size": 10
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "heading_boxes",
+                    "type": "heading",
+                    "label": "Boxes",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "box_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "box_background_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "box_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "border",
+                    "name": "box_border",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-countdown-item",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-countdown-item",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_content_style",
+            "label": "Content",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "heading_digits",
+                    "type": "heading",
+                    "label": "Digits",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "digits_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_label",
+                    "type": "heading",
+                    "label": "Label",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "show_labels!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "label_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "show_labels!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "digits_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-countdown-digits",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "digits_text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-countdown-digits",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "label_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-countdown-label",
+                    "condition": {
+                        "show_labels!": ""
+                    },
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "label_text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-countdown-label",
+                    "condition": {
+                        "show_labels!": ""
+                    },
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-stroke",
+                    "name": "text_stroke",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-countdown-label",
+                    "condition": {
+                        "show_labels!": ""
+                    },
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_expire_message_style",
+            "label": "Message",
+            "tab": "style",
+            "condition": {
+                "expire_actions": "message"
+            },
+            "controls": [
+                {
+                    "key": "align",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "message_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-countdown-expire--message",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "message_text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-countdown-expire--message",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "border",
+            "name": "box_border",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-countdown-item",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-countdown-item",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "digits_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-countdown-digits",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "digits_text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-countdown-digits",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "label_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-countdown-label",
+            "condition": {
+                "show_labels!": ""
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "label_text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-countdown-label",
+            "condition": {
+                "show_labels!": ""
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-stroke",
+            "name": "text_stroke",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-countdown-label",
+            "condition": {
+                "show_labels!": ""
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-countdown-expire--message",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "message_text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-countdown-expire--message",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:50+00:00"
+}

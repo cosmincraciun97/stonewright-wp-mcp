@@ -1,0 +1,6 @@
+{
+    "args": {
+        "reference_label": "nonexistent-label"
+    },
+    "expect_permission_error": true
+}

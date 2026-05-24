@@ -1,0 +1,15 @@
+{
+    "args": {
+        "post_id": 1,
+        "parent_id": "parent1",
+        "settings": {
+            "tabs": [
+                {
+                    "tab_title": "Tab 1",
+                    "tab_content": "<p>Content</p>"
+                }
+            ]
+        }
+    },
+    "expect": "ok"
+}

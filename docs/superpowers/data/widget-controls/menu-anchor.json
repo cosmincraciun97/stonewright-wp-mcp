@@ -1,0 +1,50 @@
+{
+    "slug": "menu-anchor",
+    "source": "free",
+    "title": "Menu Anchor",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/menu-anchor.php",
+    "sections": [
+        {
+            "id": "section_anchor",
+            "label": "Menu Anchor",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "anchor",
+                    "type": "text",
+                    "label": "The ID of Menu Anchor.",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": "This ID will be the CSS ID you will have to use in your own page, Without #."
+                },
+                {
+                    "key": "anchor_note",
+                    "type": "alert",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:48+00:00"
+}

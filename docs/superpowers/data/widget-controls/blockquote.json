@@ -1,0 +1,752 @@
+{
+    "slug": "blockquote",
+    "source": "pro",
+    "title": "Blockquote",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/blockquote/widgets/blockquote.php",
+    "sections": [
+        {
+            "id": "section_blockquote_content",
+            "label": "Blockquote",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "blockquote_skin",
+                    "type": "select",
+                    "label": "Skin",
+                    "default": "border",
+                    "options": {
+                        "border": "Border",
+                        "quotation": "Quotation",
+                        "boxed": "Boxed",
+                        "clean": "Clean"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "blockquote_content",
+                    "type": "textarea",
+                    "label": "Content",
+                    "default": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut elit tellus, luctus nec ullamcorper mattis, pulvinar dapibus leo.Lorem ipsum dolor sit amet consectetur adipiscing elit dolor",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "author_name",
+                    "type": "text",
+                    "label": "Author",
+                    "default": "John Doe",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "tweet_button",
+                    "type": "switcher",
+                    "label": "Tweet Button",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "tweet_button_view",
+                    "type": "select",
+                    "label": "View",
+                    "default": "icon-text",
+                    "options": {
+                        "icon-text": "Icon & Text",
+                        "icon": "Icon",
+                        "text": "Text"
+                    },
+                    "condition": {
+                        "tweet_button": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "tweet_button_skin",
+                    "type": "select",
+                    "label": "Skin",
+                    "default": "classic",
+                    "options": {
+                        "classic": "Classic",
+                        "bubble": "Bubble",
+                        "link": "Link"
+                    },
+                    "condition": {
+                        "tweet_button": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "tweet_button_label",
+                    "type": "text",
+                    "label": "Label",
+                    "default": "Tweet",
+                    "options": null,
+                    "condition": {
+                        "tweet_button": "yes",
+                        "tweet_button_view!": "icon"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "user_name",
+                    "type": "text",
+                    "label": "Username",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "tweet_button": "yes"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "url_type",
+                    "type": "select",
+                    "label": "Target URL",
+                    "default": "current_page",
+                    "options": {
+                        "current_page": "Current Page",
+                        "none": "None",
+                        "custom": "Custom"
+                    },
+                    "condition": {
+                        "tweet_button": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "url",
+                    "type": "text",
+                    "label": "Link",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "tweet_button": "yes",
+                        "url_type": "custom"
+                    },
+                    "dynamic": {
+                        "active": true,
+                        "categories": [
+                            {
+                                "__unresolved__": "TagsModule::POST_META_CATEGORY"
+                            },
+                            {
+                                "__unresolved__": "TagsModule::URL_CATEGORY"
+                            }
+                        ]
+                    },
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_content_style",
+            "label": "Content",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "left": {
+                            "title": "Left",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "right": {
+                            "title": "Right",
+                            "icon": "eicon-text-align-right"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "heading_content_style",
+                    "type": "heading",
+                    "label": "Content",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "content_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "content_gap",
+                    "type": "slider",
+                    "label": "Gap",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "heading_author_style",
+                    "type": "heading",
+                    "label": "Author",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "author_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "author_gap",
+                    "type": "slider",
+                    "label": "Gap",
+                    "default": {
+                        "size": 20
+                    },
+                    "options": null,
+                    "condition": {
+                        "alignment": "center",
+                        "tweet_button": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "content_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-blockquote__content",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "author_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-blockquote__author",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_button_style",
+            "label": "Button",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "button_size",
+                    "type": "slider",
+                    "label": "Size",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "button_border_radius",
+                    "type": "slider",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "button_background_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "tweet_button_skin!": "link"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_background_color_hover",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "tweet_button_skin!": "link"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_text_color_hover",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_transition_duration",
+                    "type": "slider",
+                    "label": "Transition Duration",
+                    "default": {
+                        "unit": "ms"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "button_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-blockquote__tweet-button span, {{WRAPPER}} .elementor-blockquote__tweet-button i",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_border_style",
+            "label": "Border",
+            "tab": "style",
+            "condition": {
+                "blockquote_skin": "border"
+            },
+            "controls": [
+                {
+                    "key": "border_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "border_width",
+                    "type": "slider",
+                    "label": "Width",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "border_gap",
+                    "type": "slider",
+                    "label": "Gap",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "border_color_hover",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "border_width_hover",
+                    "type": "slider",
+                    "label": "Width",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "border_gap_hover",
+                    "type": "slider",
+                    "label": "Gap",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "border_transition_duration",
+                    "type": "slider",
+                    "label": "Transition Duration",
+                    "default": {
+                        "unit": "ms"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "border_vertical_padding",
+                    "type": "slider",
+                    "label": "Vertical Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "blockquote_skin": "border"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_box_style",
+            "label": "Box",
+            "tab": "style",
+            "condition": {
+                "blockquote_skin!": "border"
+            },
+            "controls": [
+                {
+                    "key": "box_padding",
+                    "type": "slider",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "box_background_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "box_border_radius",
+                    "type": "slider",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "box_background_color_hover",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "box_border_radius_hover",
+                    "type": "slider",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "box_transition_duration",
+                    "type": "slider",
+                    "label": "Transition Duration",
+                    "default": {
+                        "unit": "ms"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "border",
+                    "name": "box_border",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-blockquote",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "box_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-blockquote",
+                    "condition": null,
+                    "exclude": [
+                        "box_shadow_position"
+                    ],
+                    "include": null
+                },
+                {
+                    "group": "border",
+                    "name": "box_border_hover",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-blockquote:hover",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "box_box_shadow_hover",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-blockquote:hover",
+                    "condition": null,
+                    "exclude": [
+                        "box_shadow_position"
+                    ],
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_quote_style",
+            "label": "Quote",
+            "tab": "style",
+            "condition": {
+                "blockquote_skin": "quotation"
+            },
+            "controls": [
+                {
+                    "key": "quote_text_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "quote_size",
+                    "type": "slider",
+                    "label": "Size",
+                    "default": {
+                        "size": 1
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "quote_gap",
+                    "type": "slider",
+                    "label": "Gap",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "typography",
+            "name": "content_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-blockquote__content",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "author_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-blockquote__author",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "button_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-blockquote__tweet-button span, {{WRAPPER}} .elementor-blockquote__tweet-button i",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "border",
+            "name": "box_border",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-blockquote",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "box_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-blockquote",
+            "condition": null,
+            "exclude": [
+                "box_shadow_position"
+            ],
+            "include": null
+        },
+        {
+            "group": "border",
+            "name": "box_border_hover",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-blockquote:hover",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "box_box_shadow_hover",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-blockquote:hover",
+            "condition": null,
+            "exclude": [
+                "box_shadow_position"
+            ],
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:49+00:00"
+}

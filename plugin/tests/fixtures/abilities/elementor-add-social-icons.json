@@ -1,0 +1,17 @@
+{
+    "args": {
+        "post_id": 1,
+        "parent_id": "parent1",
+        "settings": {
+            "social_icon_list": [
+                {
+                    "social_icon": {
+                        "value": "fab fa-facebook",
+                        "library": "fa-brands"
+                    }
+                }
+            ]
+        }
+    },
+    "expect": "ok"
+}

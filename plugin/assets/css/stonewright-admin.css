@@ -1,0 +1,378 @@
+/**
+ * Stonewright Admin — Shared design system.
+ * Provides card-grid layout, badge pills, status colours,
+ * and micro-animations for all Stonewright admin pages.
+ *
+ * Version: 1.0.0
+ */
+
+/* ------------------------------------------------------------------ */
+/* CSS Custom Properties                                                */
+/* ------------------------------------------------------------------ */
+:root {
+    --sw-radius:         8px;
+    --sw-radius-sm:      4px;
+    --sw-shadow:         0 2px 8px rgba(0, 0, 0, .08);
+    --sw-shadow-hover:   0 4px 16px rgba(0, 0, 0, .14);
+    --sw-transition:     0.18s cubic-bezier(.25, .46, .45, .94);
+
+    --sw-color-bg:       #f6f7f8;
+    --sw-color-card:     #ffffff;
+    --sw-color-border:   #e0e0e0;
+    --sw-color-border-hover: #b0b0b0;
+    --sw-color-text:     #1d2024;
+    --sw-color-muted:    #6b7280;
+    --sw-color-pre:      #f3f4f6;
+
+    /* Status badge palette */
+    --sw-active-bg:      #dcfce7;
+    --sw-active-fg:      #15803d;
+    --sw-disabled-bg:    #f3f4f6;
+    --sw-disabled-fg:    #6b7280;
+    --sw-crashed-bg:     #fee2e2;
+    --sw-crashed-fg:     #b91c1c;
+    --sw-draft-bg:       #fef9c3;
+    --sw-draft-fg:       #92400e;
+    --sw-builtin-bg:     #e0f2fe;
+    --sw-builtin-fg:     #0369a1;
+    --sw-user-bg:        #dcfce7;
+    --sw-user-fg:        #15803d;
+    --sw-uploaded-bg:    #fef9c3;
+    --sw-uploaded-fg:    #92400e;
+}
+
+/* ------------------------------------------------------------------ */
+/* Layout                                                               */
+/* ------------------------------------------------------------------ */
+.sw-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Card                                                                 */
+/* ------------------------------------------------------------------ */
+.sw-card {
+    background: var(--sw-color-card);
+    border: 1px solid var(--sw-color-border);
+    border-radius: var(--sw-radius);
+    overflow: hidden;
+    transition: box-shadow var(--sw-transition), border-color var(--sw-transition);
+    display: flex;
+    flex-direction: column;
+}
+
+.sw-card:hover {
+    box-shadow: var(--sw-shadow-hover);
+    border-color: var(--sw-color-border-hover);
+}
+
+.sw-card--disabled {
+    opacity: .6;
+}
+
+.sw-card--enabled {
+    border-left: 3px solid var(--sw-active-fg);
+}
+
+.sw-card__header {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--sw-color-border);
+}
+
+.sw-card__title-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.sw-card__title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--sw-color-text);
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sw-card__subtitle,
+.sw-card__slug {
+    font-size: 11px;
+    color: var(--sw-color-muted);
+    background: var(--sw-color-pre);
+    padding: 2px 7px;
+    border-radius: var(--sw-radius-sm);
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+}
+
+.sw-card__body {
+    padding: 12px 16px;
+    flex: 1;
+}
+
+.sw-card__description {
+    margin: 0 0 8px;
+    color: var(--sw-color-muted);
+    font-size: 13px;
+    font-style: italic;
+}
+
+.sw-card__preview {
+    margin: 0;
+    font-size: 11.5px;
+    color: #9ca3af;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+    white-space: pre-wrap;
+    background: var(--sw-color-pre);
+    border-radius: var(--sw-radius-sm);
+    padding: 8px 10px;
+    max-height: 72px;
+    overflow: hidden;
+    position: relative;
+}
+
+.sw-card__preview::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 24px;
+    background: linear-gradient(transparent, var(--sw-color-pre));
+}
+
+.sw-card__footer {
+    padding: 10px 16px;
+    border-top: 1px solid var(--sw-color-border);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.sw-card__edit-panel {
+    padding: 16px;
+    border-top: 1px solid var(--sw-color-border);
+    background: var(--sw-color-bg);
+    animation: sw-slide-in 0.18s ease;
+}
+
+@keyframes sw-slide-in {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ------------------------------------------------------------------ */
+/* Badges                                                               */
+/* ------------------------------------------------------------------ */
+.sw-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    padding: 2px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+    line-height: 1.5;
+}
+
+.sw-badge--active    { background: var(--sw-active-bg);   color: var(--sw-active-fg);   }
+.sw-badge--disabled  { background: var(--sw-disabled-bg); color: var(--sw-disabled-fg); }
+.sw-badge--crashed   { background: var(--sw-crashed-bg);  color: var(--sw-crashed-fg);  }
+.sw-badge--draft     { background: var(--sw-draft-bg);    color: var(--sw-draft-fg);    }
+.sw-badge--builtin   { background: var(--sw-builtin-bg);  color: var(--sw-builtin-fg);  }
+.sw-badge--user      { background: var(--sw-user-bg);     color: var(--sw-user-fg);     }
+.sw-badge--uploaded  { background: var(--sw-uploaded-bg); color: var(--sw-uploaded-fg); }
+.sw-badge--category  { background: #f3e8ff; color: #7c3aed; }
+.sw-badge--php       { background: #ede9fe; color: #5b21b6; }
+
+/* ------------------------------------------------------------------ */
+/* Toggle switch                                                        */
+/* ------------------------------------------------------------------ */
+.sw-toggle {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+    flex-shrink: 0;
+}
+
+.sw-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.sw-toggle__track {
+    position: absolute;
+    inset: 0;
+    background: #d1d5db;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background var(--sw-transition);
+}
+
+.sw-toggle__track::before {
+    content: '';
+    position: absolute;
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    top: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform var(--sw-transition);
+    box-shadow: 0 1px 3px rgba(0,0,0,.2);
+}
+
+.sw-toggle input:checked + .sw-toggle__track {
+    background: var(--sw-active-fg);
+}
+
+.sw-toggle input:checked + .sw-toggle__track::before {
+    transform: translateX(18px);
+}
+
+/* ------------------------------------------------------------------ */
+/* Page header                                                          */
+/* ------------------------------------------------------------------ */
+.sw-page-header {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 16px 0 20px;
+    padding: 20px 24px;
+    background: var(--sw-color-card);
+    border: 1px solid var(--sw-color-border);
+    border-radius: var(--sw-radius);
+    box-shadow: var(--sw-shadow);
+}
+
+.sw-page-title {
+    flex: 1 1 100%;
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin: 0 0 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--sw-color-text);
+}
+
+.sw-page-title__icon {
+    font-size: 1.6rem;
+    line-height: 1;
+}
+
+.sw-page-description {
+    flex: 1 1 100%;
+    color: var(--sw-color-muted);
+    margin: 0 0 12px;
+    font-size: 13px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Danger button                                                        */
+/* ------------------------------------------------------------------ */
+.sw-btn--danger {
+    color: #b91c1c !important;
+    border-color: #fecaca !important;
+    background: #fff !important;
+}
+
+.sw-btn--danger:hover {
+    background: #fef2f2 !important;
+    border-color: #b91c1c !important;
+}
+
+/* ------------------------------------------------------------------ */
+/* Empty state                                                          */
+/* ------------------------------------------------------------------ */
+.sw-empty-state {
+    background: var(--sw-color-card);
+    border: 2px dashed var(--sw-color-border);
+    border-radius: var(--sw-radius);
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--sw-color-muted);
+}
+
+.sw-empty-state__icon {
+    font-size: 2.5rem;
+    display: block;
+    margin-bottom: 12px;
+}
+
+/* ------------------------------------------------------------------ */
+/* New skill / form container                                           */
+/* ------------------------------------------------------------------ */
+.sw-new-skill-form {
+    background: var(--sw-color-card);
+    border: 1px solid var(--sw-color-border);
+    border-radius: var(--sw-radius);
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    box-shadow: var(--sw-shadow);
+    animation: sw-slide-in 0.2s ease;
+}
+
+/* ------------------------------------------------------------------ */
+/* Onboarding / paste block                                             */
+/* ------------------------------------------------------------------ */
+.sw-paste-block {
+    background: #0f172a;
+    color: #e2e8f0;
+    border-radius: var(--sw-radius);
+    padding: 16px 18px;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.7;
+    position: relative;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.sw-paste-block__copy {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: #334155;
+    color: #e2e8f0;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background var(--sw-transition);
+}
+
+.sw-paste-block__copy:hover {
+    background: #475569;
+}
+
+/* ------------------------------------------------------------------ */
+/* Domain lock indicator                                                */
+/* ------------------------------------------------------------------ */
+.sw-domain-lock {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--sw-color-muted);
+    margin-top: 6px;
+}
+
+.sw-domain-lock--locked::before {
+    content: '🔒';
+}
+
+.sw-domain-lock--unlocked::before {
+    content: '🔓';
+}

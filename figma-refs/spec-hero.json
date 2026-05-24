@@ -1,0 +1,68 @@
+{
+  "version": "1.0.0",
+  "source": { "type": "figma", "node_id": "97:2898" },
+  "page": { "title": "Homepage", "status": "publish" },
+  "tokens": {
+    "colors": {
+      "bg_primary": "#0F1A2E",
+      "accent_yellow": "#F3E600",
+      "text_white": "#FFFFFF",
+      "text_muted": "#9CA3B7"
+    }
+  },
+  "sections": [
+    {
+      "id": "hero",
+      "width": "full",
+      "layout": "row",
+      "gap": "48px",
+      "background": { "color": "#0F1A2E" },
+      "padding": { "top": 120, "right": 80, "bottom": 120, "left": 80 },
+      "blocks": [
+        {
+          "type": "column",
+          "style": { "width": "50%", "gap": "24px" },
+          "blocks": [
+            { "type": "heading", "text": "nZeb Expo București", "level": 1, "style": { "color": "#FFFFFF", "font_size": { "desktop": "72px", "tablet": "48px", "mobile": "36px" }, "line_height": "1.1", "font_weight": "700" } },
+            { "type": "paragraph", "text": "EVENIMENTUL ÎNCEPE ÎN:", "style": { "color": "#9CA3B7", "font_size": "14px", "letter_spacing": "0.1em", "text_transform": "uppercase" } },
+            {
+              "type": "row",
+              "style": { "gap": "24px", "align_items": "center" },
+              "blocks": [
+                { "type": "heading", "text": "63", "level": 2, "style": { "color": "#FFFFFF", "font_size": { "desktop": "56px", "mobile": "40px" }, "font_weight": "700" } },
+                { "type": "heading", "text": ":", "level": 2, "style": { "color": "#FFFFFF", "font_size": { "desktop": "56px", "mobile": "40px" } } },
+                { "type": "heading", "text": "11", "level": 2, "style": { "color": "#FFFFFF", "font_size": { "desktop": "56px", "mobile": "40px" }, "font_weight": "700" } },
+                { "type": "heading", "text": ":", "level": 2, "style": { "color": "#FFFFFF", "font_size": { "desktop": "56px", "mobile": "40px" } } },
+                { "type": "heading", "text": "18", "level": 2, "style": { "color": "#FFFFFF", "font_size": { "desktop": "56px", "mobile": "40px" }, "font_weight": "700" } }
+              ]
+            },
+            {
+              "type": "row",
+              "style": { "gap": "48px" },
+              "blocks": [
+                { "type": "paragraph", "text": "ZILE", "style": { "color": "#9CA3B7", "font_size": "12px", "letter_spacing": "0.1em" } },
+                { "type": "paragraph", "text": "ORE", "style": { "color": "#9CA3B7", "font_size": "12px", "letter_spacing": "0.1em" } },
+                { "type": "paragraph", "text": "MINUTE", "style": { "color": "#9CA3B7", "font_size": "12px", "letter_spacing": "0.1em" } }
+              ]
+            },
+            {
+              "type": "row",
+              "style": { "gap": "16px" },
+              "blocks": [
+                { "type": "button", "text": "Devino expozant", "url": "/devino-expozant", "style": { "background": "transparent", "color": "#FFFFFF", "border": "1px solid #FFFFFF", "padding": "14px 28px", "border_radius": "4px" } },
+                { "type": "button", "text": "Obține bilet gratuit", "url": "/bilet-gratuit", "style": { "background": "#F3E600", "color": "#0F1A2E", "padding": "14px 28px", "border_radius": "4px", "font_weight": "700" } }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "column",
+          "style": { "width": "50%" },
+          "blocks": [
+            { "type": "image", "url": "http://mcp-test.local/wp-content/uploads/stonewright-figma/hero.png", "alt": "nZeb Expo stage with nZEB EXPO backdrop", "style": { "border_radius": "12px", "width": "100%" } }
+          ]
+        }
+      ]
+    }
+  ]
+}

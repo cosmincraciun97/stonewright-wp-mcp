@@ -4,6 +4,14 @@ All notable changes to Stonewright are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Companion stdio MCP transport — logs no longer corrupt the JSON-RPC channel.** `info` and `debug` lines were being written to stdout, which is the MCP JSON-RPC stream when the companion runs under the stdio transport. Every stdio MCP client (Claude Desktop, Codex, Continue, Cursor, Cline, any MCP-capable IDE/CLI) tried to parse those `{level,time,msg}` lines as JSON-RPC messages and rejected the handshake with `invalid_union` / `unrecognized_keys: ["level","time","msg"]`. All log levels now write to stderr; a regression-guard test (`companion/tests/log.test.ts > never writes to stdout at any level`) fails the build if anything ever writes to stdout from the logger.
+
+---
+
 ## [1.0.0-alpha.2] - 2026-05-22
 
 This release is the "Elementor-first hardening" milestone. It expands the ability surface from ~67 to 108, hardens the entire security envelope, and ships comprehensive documentation.

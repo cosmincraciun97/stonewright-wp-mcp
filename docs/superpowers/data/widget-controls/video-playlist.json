@@ -1,0 +1,1547 @@
+{
+    "slug": "video-playlist",
+    "source": "pro",
+    "title": "Video Playlist",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/video-playlist/widgets/video-playlist.php",
+    "sections": [
+        {
+            "id": "section_playlist",
+            "label": "Playlist",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "tabs_direction",
+                    "type": "hidden",
+                    "label": "Position",
+                    "default": "vertical",
+                    "options": {
+                        "horizontal": "Horizontal",
+                        "vertical": "Vertical"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "playlist_title",
+                    "type": "text",
+                    "label": "Playlist Name",
+                    "default": "Playlist",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "playlist_title_tag",
+                    "type": "select",
+                    "label": "HTML Tag",
+                    "default": "h2",
+                    "options": {
+                        "h1": "H1",
+                        "h2": "H2",
+                        "h3": "H3",
+                        "h4": "H4",
+                        "h5": "H5",
+                        "h6": "H6",
+                        "div": "div",
+                        "span": "span"
+                    },
+                    "condition": {
+                        "playlist_title!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "tabs",
+                    "type": "repeater",
+                    "label": "Playlist Items",
+                    "default": [
+                        {
+                            "title": "Sample Video",
+                            "youtube_url": "https://www.youtube.com/watch?v=XHOmBV4js_E",
+                            "duration": "0:16",
+                            "thumbnail": {
+                                "url": "https://img.youtube.com/vi/XHOmBV4js_E/maxresdefault.jpg"
+                            }
+                        },
+                        {
+                            "title": "Sample Video",
+                            "youtube_url": "https://www.youtube.com/watch?v=XHOmBV4js_E",
+                            "duration": "0:16",
+                            "thumbnail": {
+                                "url": "https://img.youtube.com/vi/XHOmBV4js_E/maxresdefault.jpg"
+                            }
+                        },
+                        {
+                            "title": "Sample Video",
+                            "youtube_url": "https://www.youtube.com/watch?v=XHOmBV4js_E",
+                            "duration": "0:16",
+                            "thumbnail": {
+                                "url": "https://img.youtube.com/vi/XHOmBV4js_E/maxresdefault.jpg"
+                            }
+                        }
+                    ],
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_inner_tab",
+            "label": "Tabs",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "inner_tab_title_1",
+                    "type": "text",
+                    "label": "Tab 1 Name",
+                    "default": "Tab #1",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "inner_tab_title_2",
+                    "type": "text",
+                    "label": "Tab 2 Name",
+                    "default": "Tab #2",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "inner_tab_is_content_collapsible",
+                    "type": "switcher",
+                    "label": "Collapsible",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "inner_tab_label_show_more",
+                    "type": "text",
+                    "label": "Read More Label",
+                    "default": "Show More",
+                    "options": null,
+                    "condition": {
+                        "inner_tab_is_content_collapsible": "collapsible"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "inner_tab_label_show_less",
+                    "type": "text",
+                    "label": "Read Less Label",
+                    "default": "Show Less",
+                    "options": null,
+                    "condition": {
+                        "inner_tab_is_content_collapsible": "collapsible"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "inner_tab_collapsible_height",
+                    "type": "slider",
+                    "label": "Height",
+                    "default": {
+                        "size": 54
+                    },
+                    "options": null,
+                    "condition": {
+                        "inner_tab_is_content_collapsible": "collapsible"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_image_overlay",
+            "label": "Image Overlay",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "show_image_overlay",
+                    "type": "switcher",
+                    "label": "Image Overlay",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "image_overlay",
+                    "type": "media",
+                    "label": "Choose Image",
+                    "default": {
+                        "url": {
+                            "__unresolved__": "Utils::get_placeholder_image_src()"
+                        }
+                    },
+                    "options": null,
+                    "condition": {
+                        "show_image_overlay": "yes"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_play_icon",
+                    "type": "icons",
+                    "label": "Play Icon",
+                    "default": {
+                        "value": "far fa-play-circle",
+                        "library": "fa-regular"
+                    },
+                    "options": null,
+                    "condition": {
+                        "show_image_overlay": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "image-size",
+                    "name": "image_overlay",
+                    "label": null,
+                    "selector": null,
+                    "condition": {
+                        "show_image_overlay": "yes"
+                    },
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_additional_options",
+            "label": "Additional Options",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "heading_autoplay",
+                    "type": "heading",
+                    "label": "Autoplay",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "autoplay_on_load",
+                    "type": "switcher",
+                    "label": "On Load",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "autoplay_next",
+                    "type": "switcher",
+                    "label": "Next Up",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_watched_indication",
+                    "type": "switcher",
+                    "label": "Indicate Watched",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_video_count",
+                    "type": "switcher",
+                    "label": "Video Count",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_duration",
+                    "type": "switcher",
+                    "label": "Duration",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_thumbnail",
+                    "type": "switcher",
+                    "label": "Thumbnails",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "play_icon",
+                    "type": "icons",
+                    "label": "Play Icon",
+                    "default": {
+                        "value": "fas fa-play-circle",
+                        "library": "fa-solid"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "watched_icon",
+                    "type": "icons",
+                    "label": "Watched Icon",
+                    "default": {
+                        "value": "fas fa-check-circle",
+                        "library": "fa-solid"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "lazy_load",
+                    "type": "switcher",
+                    "label": "Lazy Load",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_style_layout",
+            "label": "Layout",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "tabs_alignment",
+                    "type": "choose",
+                    "label": "Video Position",
+                    "default": "end",
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": {
+                                "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+                            }
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": {
+                                "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+                            }
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "layout_height",
+                    "type": "slider",
+                    "label": "Height",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_style_top_bar",
+            "label": "Top Bar",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "heading_playlist_name",
+                    "type": "heading",
+                    "label": "Playlist Name",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "playlist_name_background",
+                    "type": "color",
+                    "label": "Background",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "playlist_name_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_videos_amount",
+                    "type": "heading",
+                    "label": "Video Count",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "videos_amount_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "playlist_name_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-tabs-header .e-tabs-title",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "videos_amount_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-tabs-header .e-tabs-videos-count",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_style_videos",
+            "label": "Videos",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "heading_tab_normal",
+                    "type": "heading",
+                    "label": "Item",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "normal_background",
+                    "type": "color",
+                    "label": "Background",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "normal_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_duration_normal",
+                    "type": "heading",
+                    "label": "Duration",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "normal_duration_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_icon_normal",
+                    "type": "heading",
+                    "label": "Icon",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "normal_icon_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "normal_icon_size",
+                    "type": "slider",
+                    "label": "Size",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "heading_separator_normal",
+                    "type": "heading",
+                    "label": "Separator",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "normal_separator_style",
+                    "type": "select",
+                    "label": "Style",
+                    "default": "",
+                    "options": {
+                        "": "None",
+                        "solid": "Solid",
+                        "double": "Double",
+                        "dotted": "Dotted",
+                        "dashed": "Dashed",
+                        "groove": "Groove"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "normal_separator_weight",
+                    "type": "slider",
+                    "label": "Weight",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "normal_separator_style!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "normal_separator_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "normal_separator_style!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_tab_active",
+                    "type": "heading",
+                    "label": "Item",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "active_background",
+                    "type": "color",
+                    "label": "Background",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "active_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": "#556068",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_duration_active",
+                    "type": "heading",
+                    "label": "Duration",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "active_duration_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_icon_active",
+                    "type": "heading",
+                    "label": "Icon",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "active_icon_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "active_icon_size",
+                    "type": "slider",
+                    "label": "Size",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "heading_separator_active",
+                    "type": "heading",
+                    "label": "Separator",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "active_separator_style",
+                    "type": "select",
+                    "label": "Style",
+                    "default": "",
+                    "options": {
+                        "": "None",
+                        "solid": "Solid",
+                        "double": "Double",
+                        "dotted": "Dotted",
+                        "dashed": "Dashed",
+                        "groove": "Groove"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "active_separator_weight",
+                    "type": "slider",
+                    "label": "Weight",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "active_separator_style!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "active_separator_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "active_separator_style!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "normal_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-tabs-items .e-tab-title .e-tab-title-text button",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "normal_duration_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-tab-title .e-tab-duration",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "normal_icon_top_text_shadow",
+                    "label": null,
+                    "selector": null,
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "active_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-tabs-items-wrapper .e-tab-title:where( .e-active, :hover ) .e-tab-title-text button",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "active_duration_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-tabs-items-wrapper .e-tab-title:where( .e-active, :hover ) .e-tab-duration",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "active_icon_top_text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-tab-title:where( .e-active, :hover ) i, {{WRAPPER}} .e-tab-title:where( .e-active, :hover ) svg",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_style_sections",
+            "label": "Sections",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "heading_section",
+                    "type": "heading",
+                    "label": "Section",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "section_background",
+                    "type": "color",
+                    "label": "Background",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "section_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "section_border_type",
+                    "type": "select",
+                    "label": "Border Type",
+                    "default": "solid",
+                    "options": {
+                        "": "None",
+                        "solid": "Solid",
+                        "double": "Double",
+                        "dotted": "Dotted",
+                        "dashed": "Dashed",
+                        "groove": "Groove"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "section_border_width",
+                    "type": "dimensions",
+                    "label": "Width",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "section_border_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "section_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-tabs-items-wrapper .e-section-title",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_inner_tab_style",
+            "label": "Tabs",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "inner_tab_border_width",
+                    "type": "slider",
+                    "label": "Border Width",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "inner_tab_border_color",
+                    "type": "color",
+                    "label": "Border Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "inner_tab_background_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_inner_tab_title",
+                    "type": "heading",
+                    "label": "Title",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "inner_tab_title_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "inner_tab_active_title_color",
+                    "type": "color",
+                    "label": "Active Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_inner_tab_content",
+                    "type": "heading",
+                    "label": "Content",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "inner_tab_content_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "inner_tab_content_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "heading_inner_tab_show_more",
+                    "type": "heading",
+                    "label": "Show More",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "inner_tab_normal_show_more_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "inner_tab_hover_show_more_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "inner_tab_hover_show_more_color_transition_duration",
+                    "type": "slider",
+                    "label": "Transition Duration",
+                    "default": {
+                        "unit": "ms"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "inner_tab_title_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-tabs-inner-tabs .e-inner-tabs-wrapper .e-inner-tab-title a",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "inner_tab_content_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-tabs-inner-tabs .e-inner-tabs-content-wrapper .e-inner-tab-content .e-inner-tab-text",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "inner_tab_show_more_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-tabs-inner-tabs .e-inner-tabs-content-wrapper .e-inner-tab-content button",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "image-size",
+            "name": "image_overlay",
+            "label": null,
+            "selector": null,
+            "condition": {
+                "show_image_overlay": "yes"
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "playlist_name_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-tabs-header .e-tabs-title",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "videos_amount_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-tabs-header .e-tabs-videos-count",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "normal_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-tabs-items .e-tab-title .e-tab-title-text button",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "normal_duration_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-tab-title .e-tab-duration",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "normal_icon_top_text_shadow",
+            "label": null,
+            "selector": null,
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "active_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-tabs-items-wrapper .e-tab-title:where( .e-active, :hover ) .e-tab-title-text button",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "active_duration_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-tabs-items-wrapper .e-tab-title:where( .e-active, :hover ) .e-tab-duration",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "active_icon_top_text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-tab-title:where( .e-active, :hover ) i, {{WRAPPER}} .e-tab-title:where( .e-active, :hover ) svg",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "section_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-tabs-items-wrapper .e-section-title",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "inner_tab_title_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-tabs-inner-tabs .e-inner-tabs-wrapper .e-inner-tab-title a",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "inner_tab_content_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-tabs-inner-tabs .e-inner-tabs-content-wrapper .e-inner-tab-content .e-inner-tab-text",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "inner_tab_show_more_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-tabs-inner-tabs .e-inner-tabs-content-wrapper .e-inner-tab-content button",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [
+        {
+            "var": "repeater",
+            "fields": [
+                {
+                    "key": "type",
+                    "type": "select",
+                    "label": "Type",
+                    "default": "youtube",
+                    "options": {
+                        "youtube": "YouTube",
+                        "vimeo": "Vimeo",
+                        "hosted": "Self Hosted",
+                        "section": "Section"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "youtube_url",
+                    "type": "text",
+                    "label": "Link",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "type": "youtube"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "vimeo_url",
+                    "type": "text",
+                    "label": "Link",
+                    "default": "https://vimeo.com/235215203",
+                    "options": null,
+                    "condition": {
+                        "type": "vimeo"
+                    },
+                    "dynamic": {
+                        "active": true,
+                        "categories": [
+                            {
+                                "__unresolved__": "TagsModule::POST_META_CATEGORY"
+                            },
+                            {
+                                "__unresolved__": "TagsModule::URL_CATEGORY"
+                            }
+                        ]
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "vimeo_fetch_data",
+                    "type": "button",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "type": [
+                            "youtube",
+                            "vimeo"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "is_external_url",
+                    "type": "switcher",
+                    "label": "External URL",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "type": "hosted"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hosted_url",
+                    "type": "media",
+                    "label": "Choose File",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "type": "hosted",
+                        "is_external_url": ""
+                    },
+                    "dynamic": {
+                        "active": true,
+                        "categories": [
+                            {
+                                "__unresolved__": "TagsModule::MEDIA_CATEGORY"
+                            }
+                        ]
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "external_url",
+                    "type": "url",
+                    "label": "URL",
+                    "default": null,
+                    "options": false,
+                    "condition": {
+                        "type": "hosted",
+                        "is_external_url": "yes"
+                    },
+                    "dynamic": {
+                        "active": true,
+                        "categories": [
+                            {
+                                "__unresolved__": "TagsModule::POST_META_CATEGORY"
+                            },
+                            {
+                                "__unresolved__": "TagsModule::URL_CATEGORY"
+                            }
+                        ]
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "title",
+                    "type": "text",
+                    "label": "Title",
+                    "default": "Title",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "section_html_tag",
+                    "type": "select",
+                    "label": "Title HTML Tag",
+                    "default": "h3",
+                    "options": {
+                        "h1": "H1",
+                        "h2": "H2",
+                        "h3": "H3",
+                        "h4": "H4",
+                        "h5": "H5",
+                        "h6": "H6",
+                        "div": "div",
+                        "span": "span"
+                    },
+                    "condition": {
+                        "type": "section"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "video_html_tag",
+                    "type": "select",
+                    "label": "Title HTML Tag",
+                    "default": "h4",
+                    "options": {
+                        "h1": "H1",
+                        "h2": "H2",
+                        "h3": "H3",
+                        "h4": "H4",
+                        "h5": "H5",
+                        "h6": "H6",
+                        "div": "div",
+                        "span": "span"
+                    },
+                    "condition": {
+                        "type!": "section"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "duration",
+                    "type": "text",
+                    "label": "Duration",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "type!": "section"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "thumbnail",
+                    "type": "media",
+                    "label": "Thumbnail",
+                    "default": {
+                        "url": {
+                            "__unresolved__": "Utils::get_placeholder_image_src()"
+                        }
+                    },
+                    "options": null,
+                    "condition": {
+                        "type!": "section"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "inner_tab_is_content_visible",
+                    "type": "switcher",
+                    "label": "Contents Tabs ",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "type": [
+                            "youtube",
+                            "hosted",
+                            "vimeo"
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "inner_tab_content_1",
+                    "type": "wysiwyg",
+                    "label": "",
+                    "default": "<p>Add some content for each one of your videos, like a description, transcript or external links.To add, remove or edit tab names, go to Tabs.</p>",
+                    "options": null,
+                    "condition": {
+                        "type": [
+                            "youtube",
+                            "hosted",
+                            "vimeo"
+                        ],
+                        "inner_tab_is_content_visible": "show"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "inner_tab_content_2",
+                    "type": "wysiwyg",
+                    "label": "",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "type": [
+                            "youtube",
+                            "hosted",
+                            "vimeo"
+                        ],
+                        "inner_tab_is_content_visible": "show"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ]
+        }
+    ],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:53+00:00"
+}

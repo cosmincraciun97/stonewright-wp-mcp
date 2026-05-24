@@ -1,0 +1,507 @@
+{
+    "slug": "price-list",
+    "source": "pro",
+    "title": "Price List",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/pricing/widgets/price-list.php",
+    "sections": [
+        {
+            "id": "section_list",
+            "label": "List",
+            "tab": "content",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "price_list",
+                    "type": "repeater",
+                    "label": "List Items",
+                    "default": [
+                        {
+                            "title": "First item on the list",
+                            "item_description": "Lorem ipsum dolor sit amet consectetur adipiscing elit dolor",
+                            "price": "$20",
+                            "link": {
+                                "url": "#"
+                            }
+                        },
+                        {
+                            "title": "Second item on the list",
+                            "item_description": "Lorem ipsum dolor sit amet consectetur adipiscing elit dolor",
+                            "price": "$9",
+                            "link": {
+                                "url": "#"
+                            }
+                        },
+                        {
+                            "title": "Third item on the list",
+                            "item_description": "Lorem ipsum dolor sit amet consectetur adipiscing elit dolor",
+                            "price": "$32",
+                            "link": {
+                                "url": "#"
+                            }
+                        }
+                    ],
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "title_tag",
+                    "type": "select",
+                    "label": "Title HTML Tag",
+                    "default": "span",
+                    "options": {
+                        "h1": "H1",
+                        "h2": "H2",
+                        "h3": "H3",
+                        "h4": "H4",
+                        "h5": "H5",
+                        "h6": "H6",
+                        "div": "div",
+                        "span": "span",
+                        "p": "p"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "description_tag",
+                    "type": "select",
+                    "label": "Description HTML Tag",
+                    "default": "p",
+                    "options": {
+                        "h1": "H1",
+                        "h2": "H2",
+                        "h3": "H3",
+                        "h4": "H4",
+                        "h5": "H5",
+                        "h6": "H6",
+                        "div": "div",
+                        "span": "span",
+                        "p": "p"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "image-size",
+                    "name": "image_size",
+                    "label": null,
+                    "selector": null,
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_list_style",
+            "label": "List",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "vertical_align",
+                    "type": "choose",
+                    "label": "Vertical Align",
+                    "default": "top",
+                    "options": {
+                        "top": {
+                            "title": "Top",
+                            "icon": "eicon-v-align-top"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-v-align-middle"
+                        },
+                        "bottom": {
+                            "title": "Bottom",
+                            "icon": "eicon-v-align-bottom"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "row_gap",
+                    "type": "slider",
+                    "label": "Space Between",
+                    "default": {
+                        "size": 20
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "image_spacing",
+                    "type": "slider",
+                    "label": "Image Spacing",
+                    "default": {
+                        "size": 20
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "content_spacing",
+                    "type": "slider",
+                    "label": "Content Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_content_style",
+            "label": "Content",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "heading__title",
+                    "type": "heading",
+                    "label": "Title",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "price_title",
+                    "type": "heading",
+                    "label": "Price",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "price_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_item_description",
+                    "type": "heading",
+                    "label": "Description",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "description_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_separator",
+                    "type": "heading",
+                    "label": "Separator",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "separator_style",
+                    "type": "select",
+                    "label": "Style",
+                    "default": "dotted",
+                    "options": {
+                        "none": "None",
+                        "solid": "Solid",
+                        "dotted": "Dotted",
+                        "dashed": "Dashed",
+                        "double": "Double"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "separator_weight",
+                    "type": "slider",
+                    "label": "Weight",
+                    "default": {
+                        "size": 2
+                    },
+                    "options": null,
+                    "condition": {
+                        "separator_style!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "separator_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "separator_style!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "separator_spacing",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "separator_style!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "heading_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-price-list-header",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-stroke",
+                    "name": "text_stroke",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-price-list-header",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "price_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-price-list-price",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "description_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-price-list-description",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_image_style",
+            "label": "Image",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "image-size",
+            "name": "image_size",
+            "label": null,
+            "selector": null,
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "heading_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-price-list-header",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-stroke",
+            "name": "text_stroke",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-price-list-header",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "price_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-price-list-price",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "description_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-price-list-description",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [
+        {
+            "var": "repeater",
+            "fields": [
+                {
+                    "key": "price",
+                    "type": "text",
+                    "label": "Price",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "title",
+                    "type": "text",
+                    "label": "Title",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "item_description",
+                    "type": "textarea",
+                    "label": "Description",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "image",
+                    "type": "media",
+                    "label": "Image",
+                    "default": [],
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "link",
+                    "type": "url",
+                    "label": "Link",
+                    "default": {
+                        "url": "#"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                }
+            ]
+        }
+    ],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:51+00:00"
+}

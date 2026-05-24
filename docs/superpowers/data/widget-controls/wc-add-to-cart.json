@@ -1,0 +1,88 @@
+{
+    "slug": "wc-add-to-cart",
+    "source": "wc",
+    "title": "Custom Add To Cart",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/add-to-cart.php",
+    "sections": [
+        {
+            "id": "section_product",
+            "label": "Product",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "product_id",
+                    "type": {
+                        "__unresolved__": "Module::QUERY_CONTROL_ID"
+                    },
+                    "label": "Product",
+                    "default": null,
+                    "options": [],
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "show_quantity",
+                    "type": "switcher",
+                    "label": "Show Quantity",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": "Please note that switching on this option will disable some of the design controls."
+                },
+                {
+                    "key": "quantity",
+                    "type": "number",
+                    "label": "Quantity",
+                    "default": 1,
+                    "options": null,
+                    "condition": {
+                        "show_quantity": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_layout",
+            "label": "Layout",
+            "tab": "content",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "layout",
+                    "type": "select",
+                    "label": "Layout",
+                    "default": null,
+                    "options": {
+                        "": "Inline",
+                        "stacked": "Stacked",
+                        "auto": "Auto"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:53+00:00"
+}

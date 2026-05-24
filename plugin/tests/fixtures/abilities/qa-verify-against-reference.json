@@ -1,0 +1,8 @@
+{
+    "args": {
+        "post_id": 1,
+        "url": "https://example.test/",
+        "reference_label": "contract-baseline"
+    },
+    "expect": "ok"
+}

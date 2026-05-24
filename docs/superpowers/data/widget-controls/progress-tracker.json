@@ -1,0 +1,553 @@
+{
+    "slug": "progress-tracker",
+    "source": "pro",
+    "title": "Progress Tracker",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/progress-tracker/widgets/progress-tracker.php",
+    "sections": [
+        {
+            "id": "section_content_scrolling_tracker",
+            "label": "Progress Tracker",
+            "tab": "content",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "type",
+                    "type": "select",
+                    "label": "Tracker Type",
+                    "default": "horizontal",
+                    "options": {
+                        "horizontal": "Horizontal",
+                        "circular": "Circular"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "relative_to",
+                    "type": "select",
+                    "label": "Progress relative to",
+                    "default": "entire_page",
+                    "options": {
+                        "entire_page": "Entire Page",
+                        "post_content": "Post Content",
+                        "selector": "Selector"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "selector",
+                    "type": "text",
+                    "label": "Selector",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "relative_to": "selector"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": "Add the CSS ID or Class of a specific element on this page to track its progress separately"
+                },
+                {
+                    "key": "relative_to_description",
+                    "type": "raw_html",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "relative_to": "post_content"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "direction",
+                    "type": "choose",
+                    "label": "Direction",
+                    "default": null,
+                    "options": {
+                        "ltr": {
+                            "title": "Left",
+                            "icon": "eicon-h-align-left"
+                        },
+                        "rtl": {
+                            "title": "Right",
+                            "icon": "eicon-h-align-right"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "percentage",
+                    "type": "switcher",
+                    "label": "Percentage",
+                    "default": "no",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "percentage_position",
+                    "type": "choose",
+                    "label": "Percentage Position",
+                    "default": null,
+                    "options": {
+                        "rtl": {
+                            "title": "Left",
+                            "icon": "eicon-h-align-left"
+                        },
+                        "ltr": {
+                            "title": "Right",
+                            "icon": "eicon-h-align-right"
+                        }
+                    },
+                    "condition": {
+                        "type": "horizontal",
+                        "percentage": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_style_scrolling_tracker",
+            "label": "Tracker",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "circular_size",
+                    "type": "slider",
+                    "label": "Size",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "type": "circular"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "heading_progress_style",
+                    "type": "heading",
+                    "label": "Progress Indicator",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "circular_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "type": "circular"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "circular_width",
+                    "type": "slider",
+                    "label": "Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "type": "circular"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "align",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "left": {
+                            "title": "Left",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "right": {
+                            "title": "Right",
+                            "icon": "eicon-text-align-right"
+                        }
+                    },
+                    "condition": {
+                        "type": "circular"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "horizontal_border_style",
+                    "type": "select",
+                    "label": "Border Type",
+                    "default": "none",
+                    "options": {
+                        "none": "None",
+                        "solid": "Solid",
+                        "double": "Double",
+                        "dotted": "Dotted",
+                        "dashed": "Dashed",
+                        "groove": "Groove"
+                    },
+                    "condition": {
+                        "type": "horizontal"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "horizontal_border_width",
+                    "type": "dimensions",
+                    "label": "Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "horizontal_border_style!": "none",
+                        "type": "horizontal"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "horizontal_border_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "horizontal_border_style!": "none",
+                        "type": "horizontal"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "horizontal_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "type": "horizontal"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "heading_tracker_background_style",
+                    "type": "heading",
+                    "label": "Tracker Background",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "circular_background_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "type": "circular"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "circular_background_width",
+                    "type": "slider",
+                    "label": "Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "type": "circular"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "horizontal_height",
+                    "type": "slider",
+                    "label": "Height",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "type": "horizontal"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "horizontal_tracker_border_style",
+                    "type": "select",
+                    "label": "Border Type",
+                    "default": "none",
+                    "options": {
+                        "none": "None",
+                        "solid": "Solid",
+                        "double": "Double",
+                        "dotted": "Dotted",
+                        "dashed": "Dashed",
+                        "groove": "Groove"
+                    },
+                    "condition": {
+                        "type": "horizontal"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "horizontal_tracker_border_width",
+                    "type": "dimensions",
+                    "label": "Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "horizontal_tracker_border_style!": "none",
+                        "type": "horizontal"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "horizontal_tracker_border_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "horizontal_tracker_border_style!": "none",
+                        "type": "horizontal"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "horizontal_tracker_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "type": "horizontal"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "horizontal_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "type": "horizontal"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "background",
+                    "name": "horizontal_color",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .current-progress",
+                    "condition": {
+                        "type": "horizontal"
+                    },
+                    "exclude": [
+                        "image"
+                    ],
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": "horizontal_background_color",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-scrolling-tracker-horizontal",
+                    "condition": {
+                        "type": "horizontal"
+                    },
+                    "exclude": [
+                        "image"
+                    ],
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-scrolling-tracker",
+                    "condition": {
+                        "type": "horizontal"
+                    },
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section__content_style_scrolling_tracker",
+            "label": "Content",
+            "tab": "style",
+            "condition": {
+                "percentage": "yes"
+            },
+            "controls": [
+                {
+                    "key": "heading_percentage_style",
+                    "type": "heading",
+                    "label": "Percentage",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "percentage_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "percentage_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .current-progress-percentage",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "percentage_text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .current-progress-percentage",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "background",
+            "name": "horizontal_color",
+            "label": null,
+            "selector": "{{WRAPPER}} .current-progress",
+            "condition": {
+                "type": "horizontal"
+            },
+            "exclude": [
+                "image"
+            ],
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "horizontal_background_color",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-scrolling-tracker-horizontal",
+            "condition": {
+                "type": "horizontal"
+            },
+            "exclude": [
+                "image"
+            ],
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-scrolling-tracker",
+            "condition": {
+                "type": "horizontal"
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "percentage_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .current-progress-percentage",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "percentage_text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .current-progress-percentage",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:51+00:00"
+}

@@ -1,0 +1,105 @@
+{
+    "slug": "facebook-comments",
+    "source": "pro",
+    "title": "Facebook Comments",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/social/widgets/facebook-comments.php",
+    "sections": [
+        {
+            "id": "section_content",
+            "label": "Comments Box",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "comments_number",
+                    "type": "number",
+                    "label": "Comment Count",
+                    "default": "10",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": "Minimum number of comments: 5"
+                },
+                {
+                    "key": "order_by",
+                    "type": "select",
+                    "label": "Order By",
+                    "default": "social",
+                    "options": {
+                        "social": "Social",
+                        "reverse_time": "Reverse Time",
+                        "time": "Time"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "url_type",
+                    "type": "select",
+                    "label": "Target URL",
+                    "default": {
+                        "__unresolved__": "Module::URL_TYPE_CURRENT_PAGE"
+                    },
+                    "options": [
+                        "Current Page",
+                        "Custom"
+                    ],
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "url_format",
+                    "type": "select",
+                    "label": "URL Format",
+                    "default": {
+                        "__unresolved__": "Module::URL_FORMAT_PLAIN"
+                    },
+                    "options": [
+                        "Plain Permalink",
+                        "Pretty Permalink"
+                    ],
+                    "condition": {
+                        "url_type": {
+                            "__unresolved__": "Module::URL_TYPE_CURRENT_PAGE"
+                        }
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "url",
+                    "type": null,
+                    "label": "Link",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "url_type": {
+                            "__unresolved__": "Module::URL_TYPE_CUSTOM"
+                        }
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:50+00:00"
+}

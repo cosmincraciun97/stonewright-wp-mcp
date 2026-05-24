@@ -1,0 +1,653 @@
+{
+    "slug": "hotspot",
+    "source": "pro",
+    "title": "Hotspot",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/hotspot/widgets/hotspot.php",
+    "sections": [
+        {
+            "id": "hotspot_section",
+            "label": "Hotspot",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "hotspot",
+                    "type": "repeater",
+                    "label": "Hotspot",
+                    "default": [
+                        []
+                    ],
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hotspot_animation",
+                    "type": "select",
+                    "label": "Animation",
+                    "default": "e-hotspot--expand",
+                    "options": {
+                        "e-hotspot--soft-beat": "Soft Beat",
+                        "e-hotspot--expand": "Expand",
+                        "e-hotspot--overlay": "Overlay",
+                        "": "None"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hotspot_sequenced_animation",
+                    "type": "switcher",
+                    "label": "Sequenced Animation",
+                    "default": "no",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hotspot_sequenced_animation_duration",
+                    "type": "slider",
+                    "label": "Sequence Duration (ms)",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "hotspot_sequenced_animation": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "tooltip_section",
+            "label": "Tooltip",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "tooltip_position",
+                    "type": "choose",
+                    "label": "Position",
+                    "default": "top",
+                    "options": {
+                        "right": {
+                            "title": "Left",
+                            "icon": "eicon-h-align-left"
+                        },
+                        "bottom": {
+                            "title": "Top",
+                            "icon": "eicon-v-align-top"
+                        },
+                        "left": {
+                            "title": "Right",
+                            "icon": "eicon-h-align-right"
+                        },
+                        "top": {
+                            "title": "Bottom",
+                            "icon": "eicon-v-align-bottom"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "tooltip_trigger",
+                    "type": "select",
+                    "label": "Trigger",
+                    "default": "click",
+                    "options": {
+                        "mouseenter": "Hover",
+                        "click": "Click",
+                        "none": "None"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "tooltip_animation",
+                    "type": "select",
+                    "label": "Animation",
+                    "default": "e-hotspot--fade-in-out",
+                    "options": {
+                        "e-hotspot--fade-in-out": "Fade In/Out",
+                        "e-hotspot--fade-grow": "Fade Grow",
+                        "e-hotspot--fade-direction": "Fade By Direction",
+                        "e-hotspot--slide-direction": "Slide By Direction"
+                    },
+                    "condition": {
+                        "tooltip_trigger!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "tooltip_animation_duration",
+                    "type": "slider",
+                    "label": "Animation Duration (ms)",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "tooltip_trigger!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_style_hotspot",
+            "label": "Hotspot",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "style_hotspot_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "style_hotspot_size",
+                    "type": "slider",
+                    "label": "Size",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "style_hotspot_width",
+                    "type": "slider",
+                    "label": "Min Width",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "style_hotspot_height",
+                    "type": "slider",
+                    "label": "Min Height",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "style_hotspot_box_color",
+                    "type": "color",
+                    "label": "Box Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "style_hotspot_padding",
+                    "type": "slider",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "style_hotspot_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "style_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-hotspot__label",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "style_hotspot_box_shadow",
+                    "label": null,
+                    "selector": "\n\t\t\t\t\t{{WRAPPER}} .e-hotspot:not(.e-hotspot--circle) .e-hotspot__button,\n\t\t\t\t\t{{WRAPPER}} .e-hotspot.e-hotspot--circle .e-hotspot__button .e-hotspot__outer-circle\n\t\t\t\t",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_style_tooltip",
+            "label": "Tooltip",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "style_tooltip_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "style_tooltip_align",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "left": {
+                            "title": "Left",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "right": {
+                            "title": "Right",
+                            "icon": "eicon-text-align-right"
+                        },
+                        "justify": {
+                            "title": "Justified",
+                            "icon": "eicon-text-align-justify"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "style_tooltip_heading",
+                    "type": "heading",
+                    "label": "Box",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "style_tooltip_width",
+                    "type": "slider",
+                    "label": "Min Width",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "style_tooltip_max_width",
+                    "type": "slider",
+                    "label": "Max Width",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "style_tooltip_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "style_tooltip_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "style_tooltip_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "style_tooltip_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-hotspot__tooltip",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "style_tooltip_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-hotspot__tooltip",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "typography",
+            "name": "style_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-hotspot__label",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "style_hotspot_box_shadow",
+            "label": null,
+            "selector": "\n\t\t\t\t\t{{WRAPPER}} .e-hotspot:not(.e-hotspot--circle) .e-hotspot__button,\n\t\t\t\t\t{{WRAPPER}} .e-hotspot.e-hotspot--circle .e-hotspot__button .e-hotspot__outer-circle\n\t\t\t\t",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "style_tooltip_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-hotspot__tooltip",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "style_tooltip_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-hotspot__tooltip",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [
+        {
+            "var": "repeater",
+            "fields": [
+                {
+                    "key": "hotspot_label",
+                    "type": "text",
+                    "label": "Label",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hotspot_link",
+                    "type": "url",
+                    "label": "Link",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hotspot_icon",
+                    "type": "icons",
+                    "label": "Icon",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hotspot_icon_position",
+                    "type": "choose",
+                    "label": "Icon Position",
+                    "default": "start",
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": {
+                                "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+                            }
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": {
+                                "__unresolved__": "PhpParser\\Node\\Scalar\\InterpolatedString"
+                            }
+                        }
+                    },
+                    "condition": {
+                        "hotspot_icon[value]!": "",
+                        "hotspot_label[value]!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hotspot_icon_spacing",
+                    "type": "slider",
+                    "label": "Icon Spacing",
+                    "default": {
+                        "size": 5
+                    },
+                    "options": null,
+                    "condition": {
+                        "hotspot_icon[value]!": "",
+                        "hotspot_label[value]!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hotspot_custom_size",
+                    "type": "switcher",
+                    "label": "Custom Hotspot Size",
+                    "default": "no",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": "Set custom Hotspot size that will only affect this specific hotspot."
+                },
+                {
+                    "key": "hotspot_width",
+                    "type": "slider",
+                    "label": "Min Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "hotspot_custom_size": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hotspot_height",
+                    "type": "slider",
+                    "label": "Min Height",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "hotspot_custom_size": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hotspot_tooltip_content",
+                    "type": "wysiwyg",
+                    "label": "Tooltip Content",
+                    "default": "Add Your Tooltip Text Here",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hotspot_horizontal",
+                    "type": "choose",
+                    "label": "Horizontal Orientation",
+                    "default": {
+                        "__unresolved__": "PhpParser\\Node\\Expr\\Ternary"
+                    },
+                    "options": {
+                        "left": {
+                            "title": "Left",
+                            "icon": "eicon-h-align-left"
+                        },
+                        "right": {
+                            "title": "Right",
+                            "icon": "eicon-h-align-right"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hotspot_vertical",
+                    "type": "choose",
+                    "label": "Vertical Orientation",
+                    "default": "top",
+                    "options": {
+                        "top": {
+                            "title": "Top",
+                            "icon": "eicon-v-align-top"
+                        },
+                        "bottom": {
+                            "title": "Bottom",
+                            "icon": "eicon-v-align-bottom"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hotspot_tooltip_position",
+                    "type": "switcher",
+                    "label": "Custom Tooltip Properties",
+                    "default": "no",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": "Set custom Tooltip opening that will only affect this specific hotspot."
+                },
+                {
+                    "key": "hotspot_heading",
+                    "type": "heading",
+                    "label": "Box",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "hotspot_tooltip_position": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hotspot_tooltip_text_wrap",
+                    "type": "switcher",
+                    "label": "Text Wrap",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "hotspot_tooltip_position": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ]
+        }
+    ],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:50+00:00"
+}

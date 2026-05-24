@@ -1,0 +1,2388 @@
+{
+    "slug": "woocommerce-cart",
+    "source": "wc",
+    "title": "Cart",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/cart.php",
+    "sections": [
+        {
+            "id": "section_content",
+            "label": "General",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "cart_layout",
+                    "type": "select",
+                    "label": "Layout",
+                    "default": "two-column",
+                    "options": {
+                        "two-column": "Two columns",
+                        "one-column": "One column"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sticky_right_column",
+                    "type": "switcher",
+                    "label": "Sticky Right Column",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "cart_layout!": "one-column"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": "This option will allow the right column (e.g, Cart Totals) to be sticky while scrolling."
+                },
+                {
+                    "key": "sticky_right_column_offset",
+                    "type": "number",
+                    "label": "Offset",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "relation": "and",
+                        "terms": [
+                            {
+                                "name": "sticky_right_column",
+                                "operator": "!==",
+                                "value": ""
+                            },
+                            {
+                                "name": "cart_layout",
+                                "operator": "!==",
+                                "value": "one-column"
+                            }
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_order_summary",
+            "label": "Order Summary",
+            "tab": null,
+            "condition": {
+                "update_cart_automatically": ""
+            },
+            "controls": [
+                {
+                    "key": "update_cart_button_heading",
+                    "type": "heading",
+                    "label": "Update Cart Button",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "update_cart_button_text",
+                    "type": "text",
+                    "label": "Text",
+                    "default": "Update Cart",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "update_cart_button_alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        },
+                        "justify": {
+                            "title": "Justify",
+                            "icon": "eicon-text-align-justify"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_coupon",
+            "label": "Coupon",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "section_coupon_display",
+                    "type": "switcher",
+                    "label": "Coupon",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "apply_coupon_heading",
+                    "type": "heading",
+                    "label": "Apply Coupon Button",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "section_coupon_display": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "apply_coupon_button_text",
+                    "type": "text",
+                    "label": "Text",
+                    "default": "Apply coupon",
+                    "options": null,
+                    "condition": {
+                        "section_coupon_display": "yes"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "apply_coupon_button_alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        },
+                        "justify": {
+                            "title": "Justify",
+                            "icon": "eicon-text-align-justify"
+                        }
+                    },
+                    "condition": {
+                        "section_coupon_display": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "coupon_button_alignment_note",
+                    "type": "raw_html",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "section_coupon_display": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_totals",
+            "label": "Totals",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "totals_section_title",
+                    "type": "text",
+                    "label": "Section Title",
+                    "default": "Cart Totals",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "totals_section_title_alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "update_shipping_button_heading",
+                    "type": "heading",
+                    "label": "Update Shipping Button",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "update_shipping_button_text",
+                    "type": "text",
+                    "label": "Text",
+                    "default": "Update",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "update_shipping_button_alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        },
+                        "justify": {
+                            "title": "Justify",
+                            "icon": "eicon-text-align-justify"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "checkout_button_heading",
+                    "type": "heading",
+                    "label": "Checkout Button",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "checkout_button_text",
+                    "type": "text",
+                    "label": "Text",
+                    "default": "Proceed to Checkout",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "checkout_button_alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        },
+                        "justify": {
+                            "title": "Justify",
+                            "icon": "eicon-text-align-justify"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_additional_options",
+            "label": "Additional Options",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "update_cart_automatically",
+                    "type": "switcher",
+                    "label": "Update Cart Automatically",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "update_cart_automatically_description",
+                    "type": "raw_html",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "additional_template_switch",
+                    "type": "switcher",
+                    "label": "Customize empty cart",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "additional_template_description",
+                    "type": "raw_html",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "additional_template_switch": "active"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "additional_template_select_heading",
+                    "type": "heading",
+                    "label": "Choose template",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "additional_template_switch": "active"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "additional_template_select",
+                    "type": {
+                        "__unresolved__": "QueryControlModule::QUERY_CONTROL_ID"
+                    },
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "additional_template_switch": "active"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "edit_button",
+                    "type": "raw_html",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "additional_template_switch": "active"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_cart_tabs_style",
+            "label": "Sections",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "sections_background_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_border_type",
+                    "type": "select",
+                    "label": "Border Type",
+                    "default": null,
+                    "options": {
+                        "__unresolved__": "->get_custom_border_type_options()"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_border_width",
+                    "type": "dimensions",
+                    "label": "Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "sections_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "sections_border_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "sections_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "sections_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "sections_margin",
+                    "type": "dimensions",
+                    "label": "Margin",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "box-shadow",
+                    "name": "section_normal_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-cart-section",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_cart_tabs_typography",
+            "label": "Typography",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "sections_typography",
+                    "type": "heading",
+                    "label": "Titles",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_title_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_title_spacing",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "sections_descriptions_title",
+                    "type": "heading",
+                    "label": "Descriptions",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_descriptions_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_descriptions_spacing",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "sections_links_title",
+                    "type": "heading",
+                    "label": "Links",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "links_normal_color",
+                    "type": "color",
+                    "label": "Link Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "links_hover_color",
+                    "type": "color",
+                    "label": "Link Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_radio_buttons_title",
+                    "type": "heading",
+                    "label": "Radio Buttons",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_radio_buttons_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "sections_titles_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .cart_totals h2",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "sections_titles_text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .cart_totals h2",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "sections_descriptions_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-cart-content, {{WRAPPER}} .woocommerce-shipping-destination, {{WRAPPER}} .shipping-calculator-button",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "sections_radio_buttons_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} #shipping_method li label",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_cart_tabs_forms",
+            "label": "Forms",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "forms_rows_gap",
+                    "type": "slider",
+                    "label": "Rows Gap",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "forms_field_title",
+                    "type": "heading",
+                    "label": "Field",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_fields_normal_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_fields_focus_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_fields_focus_border_color",
+                    "type": "color",
+                    "label": "Border Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "forms_fields_border_border!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_fields_focus_transition_duration",
+                    "type": "slider",
+                    "label": "Transition Duration (ms)",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_fields_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "forms_fields_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "forms_button_title",
+                    "type": "heading",
+                    "label": "Buttons",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_buttons_normal_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_buttons_hover_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_buttons_hover_border_color",
+                    "type": "color",
+                    "label": "Border Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "forms_buttons_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_buttons_hover_transition_duration",
+                    "type": "slider",
+                    "label": "Transition Duration (ms)",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_buttons_hover_animation",
+                    "type": "hover_animation",
+                    "label": "Hover Animation",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_buttons_border_type",
+                    "type": "select",
+                    "label": "Border Type",
+                    "default": null,
+                    "options": {
+                        "__unresolved__": "->get_custom_border_type_options()"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_buttons_border_width",
+                    "type": "dimensions",
+                    "label": "Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "forms_buttons_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "forms_buttons_border_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "forms_buttons_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "forms_buttons_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "forms_buttons_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "forms_field_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .coupon .input-text, {{WRAPPER}} .cart-collaterals .input-text, {{WRAPPER}} select, {{WRAPPER}} .select2-selection--single",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": "forms_fields_normal_background",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .coupon .input-text, {{WRAPPER}} .e-cart-totals .input-text, {{WRAPPER}} select, {{WRAPPER}} .select2-selection--single",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "forms_fields_normal_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .coupon .input-text, {{WRAPPER}} .e-cart-totals .input-text, {{WRAPPER}} select, {{WRAPPER}} .select2-selection--single",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": "forms_fields_focus_background",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .coupon .input-text:focus, {{WRAPPER}} .e-cart-totals .input-text:focus, {{WRAPPER}} select:focus, {{WRAPPER}} .select2-selection--single:focus",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "forms_fields_focus_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .coupon .input-text:focus, {{WRAPPER}} .e-cart-totals .input-text:focus, {{WRAPPER}} select:focus, {{WRAPPER}} .select2-selection--single:focus",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "border",
+                    "name": "forms_fields_border",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .coupon .input-text, {{WRAPPER}} .cart-collaterals .input-text, {{WRAPPER}} select, {{WRAPPER}} .select2-selection--single",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "forms_button_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .shop_table .button",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "forms_button_text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .shop_table .button",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": "forms_buttons_normal_background",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .shop_table .button",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "forms_buttons_normal_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .shop_table .button",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": "forms_buttons_hover_background",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .shop_table .button:hover, {{WRAPPER}} .shop_table .button:disabled[disabled]:hover",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "forms_buttons_focus_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .shop_table .button:hover",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "tabs_order_summary",
+            "label": "Order Summary",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "order_summary_rows_gap",
+                    "type": "slider",
+                    "label": "Rows Gap",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_titles_title",
+                    "type": "heading",
+                    "label": "Titles",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_title_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_title_spacing",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_items_title",
+                    "type": "heading",
+                    "label": "Items",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_variations_title",
+                    "type": "heading",
+                    "label": "Variations",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_variations_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_product_link_title",
+                    "type": "heading",
+                    "label": "Product Link",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "product_link_normal_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "product_link_hover_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_divider_title",
+                    "type": "heading",
+                    "label": "Dividers",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_items_divider_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_items_divider_weight",
+                    "type": "slider",
+                    "label": "Weight",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_quantity_border_title",
+                    "type": "heading",
+                    "label": "Quantity Borders",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_quantity_border_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_quantity_border_weight",
+                    "type": "slider",
+                    "label": "Weight",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_remove_icon_title",
+                    "type": "heading",
+                    "label": "Remove icon",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_remove_icon_normal_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_remove_icon_hover_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "order_summary_title_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-shop-table .cart th, {{WRAPPER}} .e-shop-table .cart td:before",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "order_summary_title_text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-shop-table .cart th, {{WRAPPER}} .e-shop-table .cart td:before",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "order_summary_items_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .cart td span, {{WRAPPER}} .cart td, {{WRAPPER}} .input-text.qty",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "order_summary_variations_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .product-name .variation",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_cart_totals",
+            "label": "Totals",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "totals_rows_gap",
+                    "type": "slider",
+                    "label": "Rows Gap",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "totals_title",
+                    "type": "heading",
+                    "label": "Titles & Totals",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "totals_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "totals_divider_title",
+                    "type": "heading",
+                    "label": "Divider Total",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "totals_divider_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "totals_divider_weight",
+                    "type": "slider",
+                    "label": "Weight",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "totals_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .cart_totals .shop_table td:before, {{WRAPPER}} .cart_totals .shop_table td .woocommerce-Price-amount",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_cart_tabs_checkout_button",
+            "label": "Checkout Button",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "checkout_button_normal_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "checkout_button_hover_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "checkout_button_hover_border_color",
+                    "type": "color",
+                    "label": "Border Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "checkout_button_border_border!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "checkout_button_hover_transition_duration",
+                    "type": "slider",
+                    "label": "Transition Duration (ms)",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "checkout_button_hover_animation",
+                    "type": "hover_animation",
+                    "label": "Hover Animation",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "checkout_button_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "checkout_button_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "checkout_button_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .checkout-button",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "checkout_button_text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .checkout-button",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": "checkout_button_normal_background",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce .wc-proceed-to-checkout .checkout-button",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "checkout_button_normal_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .checkout-button",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "background",
+                    "name": "checkout_button_hover_background",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .woocommerce .wc-proceed-to-checkout .checkout-button:hover",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "checkout_button_hover_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .checkout-button:hover",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "border",
+                    "name": "checkout_button_border",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .checkout-button",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_cart_tabs_customize",
+            "label": "Customize",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "section_cart_show_customize_elements",
+                    "type": "select2",
+                    "label": "Select sections of the cart to customize:",
+                    "default": null,
+                    "options": {
+                        "__unresolved__": "$customize_options"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_cart_tabs_customize_order_summary",
+            "label": "Customize: Order Summary",
+            "tab": "style",
+            "condition": {
+                "section_cart_show_customize_elements": "customize_order_summary"
+            },
+            "controls": [
+                {
+                    "key": "order_summary_section_title",
+                    "type": "heading",
+                    "label": "Section",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_section_background_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_section_border_type",
+                    "type": "select",
+                    "label": "Border Type",
+                    "default": null,
+                    "options": {
+                        "__unresolved__": "->get_custom_border_type_options()"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_section_border_width",
+                    "type": "dimensions",
+                    "label": "Border Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "order_summary_section_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_section_border_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "order_summary_section_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_section_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_section_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "order_summary_section_margin",
+                    "type": "dimensions",
+                    "label": "Margin",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "box-shadow",
+                    "name": "order_summary_section_normal_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-shop-table",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_cart_tabs_customize_totals",
+            "label": "Customize: Totals",
+            "tab": "style",
+            "condition": {
+                "section_cart_show_customize_elements": "customize_totals"
+            },
+            "controls": [
+                {
+                    "key": "customize_totals_section_title",
+                    "type": "heading",
+                    "label": "Section",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sections_totals_background_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "totals_section_border_type",
+                    "type": "select",
+                    "label": "Border Type",
+                    "default": null,
+                    "options": {
+                        "__unresolved__": "->get_custom_border_type_options()"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "totals_section_border_width",
+                    "type": "dimensions",
+                    "label": "Border Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "totals_section_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "totals_section_border_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "totals_section_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "totals_section_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "checkout_sections_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "totals_section_margin",
+                    "type": "dimensions",
+                    "label": "Margin",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "totals_section_titles_title",
+                    "type": "heading",
+                    "label": "Title",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "totals_section_titles_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "totals_section_content_title",
+                    "type": "heading",
+                    "label": "Description",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "totals_section_content_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "totals_section_link_title",
+                    "type": "heading",
+                    "label": "Link",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "totals_section_links_normal_color",
+                    "type": "color",
+                    "label": "Link Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "totals_section_links_hover_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "box-shadow",
+                    "name": "totals_section_normal_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-cart-totals",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "totals_section_titles_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .cart_totals h2",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "totals_section_titles_text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .cart_totals h2",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "totals_section_content_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .e-cart-totals .e-cart-content, {{WRAPPER}} .e-cart-totals .woocommerce-shipping-destination, {{WRAPPER}} .e-cart-totals .shipping-calculator-button",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_cart_tabs_customize_coupon",
+            "label": "Customize: Coupon",
+            "tab": "style",
+            "condition": {
+                "section_cart_show_customize_elements": "customize_coupon"
+            },
+            "controls": [
+                {
+                    "key": "coupon_section_title",
+                    "type": "heading",
+                    "label": "Section",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "customize_coupon_background_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "customize_coupon_section_border_type",
+                    "type": "select",
+                    "label": "Border Type",
+                    "default": null,
+                    "options": {
+                        "__unresolved__": "->get_custom_border_type_options()"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "customize_coupon_section_border_width",
+                    "type": "dimensions",
+                    "label": "Border Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "customize_coupon_section_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "customize_coupon_section_border_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "customize_coupon_section_border_type!": "none"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "customize_coupon_section_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "customize_coupon_section_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "customize_coupon_section_margin",
+                    "type": "dimensions",
+                    "label": "Margin",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "box-shadow",
+                    "name": "customize_coupon_section_normal_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .coupon",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "box-shadow",
+            "name": "section_normal_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-cart-section",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "sections_titles_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .cart_totals h2",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "sections_titles_text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .cart_totals h2",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "sections_descriptions_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-cart-content, {{WRAPPER}} .woocommerce-shipping-destination, {{WRAPPER}} .shipping-calculator-button",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "sections_radio_buttons_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} #shipping_method li label",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "forms_field_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .coupon .input-text, {{WRAPPER}} .cart-collaterals .input-text, {{WRAPPER}} select, {{WRAPPER}} .select2-selection--single",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "forms_fields_normal_background",
+            "label": null,
+            "selector": "{{WRAPPER}} .coupon .input-text, {{WRAPPER}} .e-cart-totals .input-text, {{WRAPPER}} select, {{WRAPPER}} .select2-selection--single",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "forms_fields_normal_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .coupon .input-text, {{WRAPPER}} .e-cart-totals .input-text, {{WRAPPER}} select, {{WRAPPER}} .select2-selection--single",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "forms_fields_focus_background",
+            "label": null,
+            "selector": "{{WRAPPER}} .coupon .input-text:focus, {{WRAPPER}} .e-cart-totals .input-text:focus, {{WRAPPER}} select:focus, {{WRAPPER}} .select2-selection--single:focus",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "forms_fields_focus_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .coupon .input-text:focus, {{WRAPPER}} .e-cart-totals .input-text:focus, {{WRAPPER}} select:focus, {{WRAPPER}} .select2-selection--single:focus",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "border",
+            "name": "forms_fields_border",
+            "label": null,
+            "selector": "{{WRAPPER}} .coupon .input-text, {{WRAPPER}} .cart-collaterals .input-text, {{WRAPPER}} select, {{WRAPPER}} .select2-selection--single",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "forms_button_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .shop_table .button",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "forms_button_text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .shop_table .button",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "forms_buttons_normal_background",
+            "label": null,
+            "selector": "{{WRAPPER}} .shop_table .button",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "forms_buttons_normal_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .shop_table .button",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "forms_buttons_hover_background",
+            "label": null,
+            "selector": "{{WRAPPER}} .shop_table .button:hover, {{WRAPPER}} .shop_table .button:disabled[disabled]:hover",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "forms_buttons_focus_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .shop_table .button:hover",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "order_summary_title_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-shop-table .cart th, {{WRAPPER}} .e-shop-table .cart td:before",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "order_summary_title_text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-shop-table .cart th, {{WRAPPER}} .e-shop-table .cart td:before",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "order_summary_items_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .cart td span, {{WRAPPER}} .cart td, {{WRAPPER}} .input-text.qty",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "order_summary_variations_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .product-name .variation",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "totals_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .cart_totals .shop_table td:before, {{WRAPPER}} .cart_totals .shop_table td .woocommerce-Price-amount",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "checkout_button_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .checkout-button",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "checkout_button_text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .checkout-button",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "checkout_button_normal_background",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce .wc-proceed-to-checkout .checkout-button",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "checkout_button_normal_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .checkout-button",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "background",
+            "name": "checkout_button_hover_background",
+            "label": null,
+            "selector": "{{WRAPPER}} .woocommerce .wc-proceed-to-checkout .checkout-button:hover",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "checkout_button_hover_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .checkout-button:hover",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "border",
+            "name": "checkout_button_border",
+            "label": null,
+            "selector": "{{WRAPPER}} .checkout-button",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "order_summary_section_normal_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-shop-table",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "totals_section_normal_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-cart-totals",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "totals_section_titles_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .cart_totals h2",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "totals_section_titles_text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .cart_totals h2",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "totals_section_content_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .e-cart-totals .e-cart-content, {{WRAPPER}} .e-cart-totals .woocommerce-shipping-destination, {{WRAPPER}} .e-cart-totals .shipping-calculator-button",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "customize_coupon_section_normal_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .coupon",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:53+00:00"
+}

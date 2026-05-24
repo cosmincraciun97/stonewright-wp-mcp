@@ -1,0 +1,380 @@
+{
+    "slug": "social-icons",
+    "source": "free",
+    "title": "Social Icons",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/social-icons.php",
+    "sections": [
+        {
+            "id": "section_social_icon",
+            "label": "Social Icons",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "social_icon_list",
+                    "type": "repeater",
+                    "label": "Social Icons",
+                    "default": [
+                        {
+                            "social_icon": {
+                                "value": "fab fa-facebook",
+                                "library": "fa-brands"
+                            }
+                        },
+                        {
+                            "social_icon": {
+                                "value": "fab fa-x-twitter",
+                                "library": "fa-brands"
+                            }
+                        },
+                        {
+                            "social_icon": {
+                                "value": "fab fa-youtube",
+                                "library": "fa-brands"
+                            }
+                        }
+                    ],
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "shape",
+                    "type": "select",
+                    "label": "Shape",
+                    "default": "rounded",
+                    "options": {
+                        "square": "Square",
+                        "rounded": "Rounded",
+                        "circle": "Circle"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "columns",
+                    "type": "select",
+                    "label": "Columns",
+                    "default": "0",
+                    "options": [
+                        "Auto",
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6"
+                    ],
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "align",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": "center",
+                    "options": {
+                        "left": {
+                            "title": "Left",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "right": {
+                            "title": "Right",
+                            "icon": "eicon-text-align-right"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_social_style",
+            "label": "Icon",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "icon_color",
+                    "type": "select",
+                    "label": "Color",
+                    "default": "default",
+                    "options": {
+                        "default": "Official Color",
+                        "custom": "Custom"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon_primary_color",
+                    "type": "color",
+                    "label": "Primary Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "icon_color": "custom"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon_secondary_color",
+                    "type": "color",
+                    "label": "Secondary Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "icon_color": "custom"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon_size",
+                    "type": "slider",
+                    "label": "Size",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "icon_padding",
+                    "type": "slider",
+                    "label": "Padding",
+                    "default": {
+                        "unit": "em"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "icon_spacing",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": {
+                        "size": 5
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "row_gap",
+                    "type": "slider",
+                    "label": "Rows Gap",
+                    "default": {
+                        "size": 0
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "border",
+                    "name": "image_border",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-social-icon",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_social_hover",
+            "label": "Icon Hover",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "hover_primary_color",
+                    "type": "color",
+                    "label": "Primary Color",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "icon_color": "custom"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hover_secondary_color",
+                    "type": "color",
+                    "label": "Secondary Color",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "icon_color": "custom"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hover_border_color",
+                    "type": "color",
+                    "label": "Border Color",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "image_border_border!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hover_animation",
+                    "type": "hover_animation",
+                    "label": "Hover Animation",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "border",
+            "name": "image_border",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-social-icon",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [
+        {
+            "var": "repeater",
+            "fields": [
+                {
+                    "key": "social_icon",
+                    "type": "icons",
+                    "label": "Icon",
+                    "default": {
+                        "value": "fab fa-wordpress",
+                        "library": "fa-brands"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "link",
+                    "type": "url",
+                    "label": "Link",
+                    "default": {
+                        "is_external": "true"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "item_icon_color",
+                    "type": "select",
+                    "label": "Color",
+                    "default": "default",
+                    "options": {
+                        "default": "Official Color",
+                        "custom": "Custom"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "item_icon_primary_color",
+                    "type": "color",
+                    "label": "Primary Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "item_icon_color": "custom"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "item_icon_secondary_color",
+                    "type": "color",
+                    "label": "Secondary Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "item_icon_color": "custom"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ]
+        }
+    ],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:48+00:00"
+}

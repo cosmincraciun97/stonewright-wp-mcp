@@ -1,0 +1,388 @@
+{
+    "slug": "text-editor",
+    "source": "free",
+    "title": "Text Editor",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/text-editor.php",
+    "sections": [
+        {
+            "id": "section_editor",
+            "label": "Text Editor",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "editor",
+                    "type": "wysiwyg",
+                    "label": "",
+                    "default": "<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut elit tellus, luctus nec ullamcorper mattis, pulvinar dapibus leo.</p>",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "drop_cap",
+                    "type": "switcher",
+                    "label": "Drop Cap",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "text_columns",
+                    "type": "select",
+                    "label": "Columns",
+                    "default": null,
+                    "options": {
+                        "": "Default",
+                        "1": "1",
+                        "2": "2",
+                        "3": "3",
+                        "4": "4",
+                        "5": "5",
+                        "6": "6",
+                        "7": "7",
+                        "8": "8",
+                        "9": "9",
+                        "10": "10"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "column_gap",
+                    "type": "slider",
+                    "label": "Columns Gap",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "relation": "or",
+                        "terms": [
+                            {
+                                "name": "text_columns",
+                                "operator": ">",
+                                "value": 1
+                            },
+                            {
+                                "name": "text_columns",
+                                "operator": "===",
+                                "value": ""
+                            }
+                        ]
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_style",
+            "label": "Text Editor",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "align",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": null,
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        },
+                        "justify": {
+                            "title": "Justified",
+                            "icon": "eicon-text-align-justify"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "paragraph_spacing",
+                    "type": "slider",
+                    "label": "Paragraph Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "separator",
+                    "type": "divider",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "link_color",
+                    "type": "color",
+                    "label": "Link Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "link_hover_color",
+                    "type": "color",
+                    "label": "Link Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "link_hover_color_transition_duration",
+                    "type": "slider",
+                    "label": "Transition Duration",
+                    "default": {
+                        "unit": "s"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "typography",
+                    "label": null,
+                    "selector": null,
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}}",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_drop_cap",
+            "label": "Drop Cap",
+            "tab": "style",
+            "condition": {
+                "drop_cap": "yes"
+            },
+            "controls": [
+                {
+                    "key": "drop_cap_view",
+                    "type": "select",
+                    "label": "View",
+                    "default": "default",
+                    "options": {
+                        "default": "Default",
+                        "stacked": "Stacked",
+                        "framed": "Framed"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "drop_cap_primary_color",
+                    "type": "color",
+                    "label": "Primary Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "drop_cap_secondary_color",
+                    "type": "color",
+                    "label": "Secondary Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "drop_cap_view!": "default"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "drop_cap_size",
+                    "type": "slider",
+                    "label": "Size",
+                    "default": {
+                        "size": 5
+                    },
+                    "options": null,
+                    "condition": {
+                        "drop_cap_view!": "default"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "drop_cap_space",
+                    "type": "slider",
+                    "label": "Space",
+                    "default": {
+                        "size": 10
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "drop_cap_border_radius",
+                    "type": "slider",
+                    "label": "Border Radius",
+                    "default": {
+                        "unit": "%"
+                    },
+                    "options": null,
+                    "condition": {
+                        "drop_cap_view!": "default"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "drop_cap_border_width",
+                    "type": "dimensions",
+                    "label": "Border Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "drop_cap_view": "framed"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "text-shadow",
+                    "name": "drop_cap_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-drop-cap",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "drop_cap_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-drop-cap-letter",
+                    "condition": null,
+                    "exclude": [
+                        "letter_spacing"
+                    ],
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "typography",
+            "name": "typography",
+            "label": null,
+            "selector": null,
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}}",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "drop_cap_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-drop-cap",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "drop_cap_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-drop-cap-letter",
+            "condition": null,
+            "exclude": [
+                "letter_spacing"
+            ],
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:49+00:00"
+}

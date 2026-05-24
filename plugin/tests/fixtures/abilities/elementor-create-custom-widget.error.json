@@ -1,0 +1,9 @@
+{
+    "args": {
+        "slug": "",
+        "title": "",
+        "props": [],
+        "template": ""
+    },
+    "expect": "wp_error"
+}

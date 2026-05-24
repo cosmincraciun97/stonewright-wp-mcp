@@ -1,0 +1,7 @@
+{
+    "args": {
+        "title": "Site Header",
+        "template_type": "header"
+    },
+    "expect": "ok"
+}

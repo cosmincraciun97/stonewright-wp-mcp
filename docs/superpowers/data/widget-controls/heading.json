@@ -1,0 +1,260 @@
+{
+    "slug": "heading",
+    "source": "free",
+    "title": "Heading",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/heading.php",
+    "sections": [
+        {
+            "id": "section_title",
+            "label": "Heading",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "title",
+                    "type": "textarea",
+                    "label": "Title",
+                    "default": "Add Your Heading Text Here",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "link",
+                    "type": "url",
+                    "label": "Link",
+                    "default": {
+                        "url": ""
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "size",
+                    "type": "select",
+                    "label": "Size",
+                    "default": "default",
+                    "options": {
+                        "default": "Default",
+                        "small": "Small",
+                        "medium": "Medium",
+                        "large": "Large",
+                        "xl": "XL",
+                        "xxl": "XXL"
+                    },
+                    "condition": {
+                        "size!": "default"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "header_size",
+                    "type": "select",
+                    "label": "HTML Tag",
+                    "default": "h2",
+                    "options": {
+                        "h1": "H1",
+                        "h2": "H2",
+                        "h3": "H3",
+                        "h4": "H4",
+                        "h5": "H5",
+                        "h6": "H6",
+                        "div": "div",
+                        "span": "span",
+                        "p": "p"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "section_title_style",
+            "label": "Heading",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "align",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": "",
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        },
+                        "justify": {
+                            "title": "Justified",
+                            "icon": "eicon-text-align-justify"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "blend_mode",
+                    "type": "select",
+                    "label": "Blend Mode",
+                    "default": null,
+                    "options": {
+                        "": "Normal",
+                        "multiply": "Multiply",
+                        "screen": "Screen",
+                        "overlay": "Overlay",
+                        "darken": "Darken",
+                        "lighten": "Lighten",
+                        "color-dodge": "Color Dodge",
+                        "saturation": "Saturation",
+                        "color": "Color",
+                        "difference": "Difference",
+                        "exclusion": "Exclusion",
+                        "hue": "Hue",
+                        "luminosity": "Luminosity"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "separator",
+                    "type": "divider",
+                    "label": null,
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "title_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "title_hover_color",
+                    "type": "color",
+                    "label": "Link Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "title_hover_color_transition_duration",
+                    "type": "slider",
+                    "label": "Transition Duration",
+                    "default": {
+                        "unit": "s"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-heading-title",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-stroke",
+                    "name": "text_stroke",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-heading-title",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-heading-title",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "typography",
+            "name": "typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-heading-title",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-stroke",
+            "name": "text_stroke",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-heading-title",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-heading-title",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:47+00:00"
+}

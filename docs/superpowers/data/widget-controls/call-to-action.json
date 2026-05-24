@@ -1,0 +1,1438 @@
+{
+    "slug": "call-to-action",
+    "source": "pro",
+    "title": "Call to Action",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/call-to-action/widgets/call-to-action.php",
+    "sections": [
+        {
+            "id": "section_main_image",
+            "label": "Image",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "skin",
+                    "type": "select",
+                    "label": "Skin",
+                    "default": "classic",
+                    "options": {
+                        "classic": "Classic",
+                        "cover": "Cover"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "layout",
+                    "type": "choose",
+                    "label": "Position",
+                    "default": null,
+                    "options": {
+                        "left": {
+                            "title": "Left",
+                            "icon": "eicon-h-align-left"
+                        },
+                        "above": {
+                            "title": "Above",
+                            "icon": "eicon-v-align-top"
+                        },
+                        "right": {
+                            "title": "Right",
+                            "icon": "eicon-h-align-right"
+                        },
+                        "below": {
+                            "title": "Below",
+                            "icon": "eicon-v-align-bottom"
+                        }
+                    },
+                    "condition": {
+                        "skin!": "cover"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "bg_image",
+                    "type": "media",
+                    "label": "Choose Image",
+                    "default": {
+                        "url": {
+                            "__unresolved__": "Utils::get_placeholder_image_src()"
+                        }
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "image-size",
+                    "name": "bg_image",
+                    "label": "Image Resolution",
+                    "selector": null,
+                    "condition": {
+                        "bg_image[id]!": ""
+                    },
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_content",
+            "label": "Content",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "graphic_element",
+                    "type": "choose",
+                    "label": "Graphic Element",
+                    "default": "none",
+                    "options": {
+                        "none": {
+                            "title": "None",
+                            "icon": "eicon-ban"
+                        },
+                        "image": {
+                            "title": "Image",
+                            "icon": "eicon-image-bold"
+                        },
+                        "icon": {
+                            "title": "Icon",
+                            "icon": "eicon-star"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "graphic_image",
+                    "type": "media",
+                    "label": "Choose Image",
+                    "default": {
+                        "url": {
+                            "__unresolved__": "Utils::get_placeholder_image_src()"
+                        }
+                    },
+                    "options": null,
+                    "condition": {
+                        "graphic_element": "image"
+                    },
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "selected_icon",
+                    "type": "icons",
+                    "label": "Icon",
+                    "default": {
+                        "value": "fas fa-star",
+                        "library": "fa-solid"
+                    },
+                    "options": null,
+                    "condition": {
+                        "graphic_element": "icon"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "title",
+                    "type": "text",
+                    "label": "Title",
+                    "default": "This is the heading",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "title_tag",
+                    "type": "select",
+                    "label": "Title HTML Tag",
+                    "default": "h2",
+                    "options": {
+                        "h1": "H1",
+                        "h2": "H2",
+                        "h3": "H3",
+                        "h4": "H4",
+                        "h5": "H5",
+                        "h6": "H6",
+                        "div": "div",
+                        "span": "span"
+                    },
+                    "condition": {
+                        "title!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "description",
+                    "type": "textarea",
+                    "label": "Description",
+                    "default": "Lorem ipsum dolor sit amet consectetur adipiscing elit dolor",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "description_tag",
+                    "type": "select",
+                    "label": "Description HTML Tag",
+                    "default": "div",
+                    "options": {
+                        "h1": "H1",
+                        "h2": "H2",
+                        "h3": "H3",
+                        "h4": "H4",
+                        "h5": "H5",
+                        "h6": "H6",
+                        "div": "div",
+                        "span": "span"
+                    },
+                    "condition": {
+                        "description!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button",
+                    "type": "text",
+                    "label": "Button Text",
+                    "default": "Click Here",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "link",
+                    "type": "url",
+                    "label": "Link",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "link_click",
+                    "type": "select",
+                    "label": "Apply Link On",
+                    "default": "button",
+                    "options": {
+                        "box": "Whole Box",
+                        "button": "Button Only"
+                    },
+                    "condition": {
+                        "link[url]!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "image-size",
+                    "name": "graphic_image",
+                    "label": null,
+                    "selector": null,
+                    "condition": {
+                        "graphic_element": "image",
+                        "graphic_image[id]!": ""
+                    },
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_ribbon",
+            "label": "Ribbon",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "ribbon_title",
+                    "type": "text",
+                    "label": "Title",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "ribbon_horizontal_position",
+                    "type": "choose",
+                    "label": "Position",
+                    "default": null,
+                    "options": {
+                        "left": {
+                            "title": "Left",
+                            "icon": "eicon-h-align-left"
+                        },
+                        "right": {
+                            "title": "Right",
+                            "icon": "eicon-h-align-right"
+                        }
+                    },
+                    "condition": {
+                        "ribbon_title!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "box_style",
+            "label": "Box",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "min-height",
+                    "type": "slider",
+                    "label": "Height",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "alignment",
+                    "type": "choose",
+                    "label": "Alignment",
+                    "default": "center",
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "vertical_position",
+                    "type": "choose",
+                    "label": "Vertical Position",
+                    "default": null,
+                    "options": {
+                        "top": {
+                            "title": "Top",
+                            "icon": "eicon-v-align-top"
+                        },
+                        "middle": {
+                            "title": "Middle",
+                            "icon": "eicon-v-align-middle"
+                        },
+                        "bottom": {
+                            "title": "Bottom",
+                            "icon": "eicon-v-align-bottom"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "heading_bg_image_style",
+                    "type": "heading",
+                    "label": "Image",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "bg_image[url]!": "",
+                        "skin": "classic"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "image_min_width",
+                    "type": "slider",
+                    "label": "Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "skin": "classic",
+                        "layout!": "above"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "image_min_height",
+                    "type": "slider",
+                    "label": "Height",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "skin": "classic"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "graphic_element_style",
+            "label": "Graphic Element",
+            "tab": "style",
+            "condition": {
+                "graphic_element!": [
+                    "none",
+                    ""
+                ]
+            },
+            "controls": [
+                {
+                    "key": "graphic_image_spacing",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "graphic_element": "image"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "graphic_image_width",
+                    "type": "slider",
+                    "label": "Width",
+                    "default": {
+                        "unit": "%"
+                    },
+                    "options": null,
+                    "condition": {
+                        "graphic_element": "image"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "graphic_image_border_radius",
+                    "type": "slider",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "graphic_element": "image"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon_view",
+                    "type": "select",
+                    "label": "View",
+                    "default": "default",
+                    "options": {
+                        "default": "Default",
+                        "stacked": "Stacked",
+                        "framed": "Framed"
+                    },
+                    "condition": {
+                        "graphic_element": "icon"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon_shape",
+                    "type": "select",
+                    "label": "Shape",
+                    "default": "circle",
+                    "options": {
+                        "circle": "Circle",
+                        "square": "Square"
+                    },
+                    "condition": {
+                        "icon_view!": "default",
+                        "graphic_element": "icon"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon_spacing",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "graphic_element": "icon"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon_primary_color",
+                    "type": "color",
+                    "label": "Primary Color",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "graphic_element": "icon"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon_secondary_color",
+                    "type": "color",
+                    "label": "Secondary Color",
+                    "default": "",
+                    "options": null,
+                    "condition": {
+                        "graphic_element": "icon",
+                        "icon_view!": "default"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon_size",
+                    "type": "slider",
+                    "label": "Icon Size",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "graphic_element": "icon"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon_padding",
+                    "type": "slider",
+                    "label": "Icon Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "graphic_element": "icon",
+                        "icon_view!": "default"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon_border_width",
+                    "type": "slider",
+                    "label": "Border Width",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "graphic_element": "icon",
+                        "icon_view": "framed"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon_border_radius",
+                    "type": "dimensions",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "graphic_element": "icon",
+                        "icon_view!": "default"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "border",
+                    "name": "graphic_image_border",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-cta__image img",
+                    "condition": {
+                        "graphic_element": "image"
+                    },
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_content_style",
+            "label": "Content",
+            "tab": "style",
+            "condition": {
+                "relation": "or",
+                "terms": [
+                    {
+                        "name": "title",
+                        "operator": "!==",
+                        "value": ""
+                    },
+                    {
+                        "name": "description",
+                        "operator": "!==",
+                        "value": ""
+                    }
+                ]
+            },
+            "controls": [
+                {
+                    "key": "heading_style_title",
+                    "type": "heading",
+                    "label": "Title",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "title!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "title_spacing",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "title!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "heading_style_description",
+                    "type": "heading",
+                    "label": "Description",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "description!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "description_spacing",
+                    "type": "slider",
+                    "label": "Spacing",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "description!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "heading_content_colors",
+                    "type": "heading",
+                    "label": "Colors",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "content_bg_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "skin": "classic"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "title_color",
+                    "type": "color",
+                    "label": "Title Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "title!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "description_color",
+                    "type": "color",
+                    "label": "Description Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "description!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_color",
+                    "type": "color",
+                    "label": "Button Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "button!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "content_bg_color_hover",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "skin": "classic"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "title_color_hover",
+                    "type": "color",
+                    "label": "Title Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "title!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "description_color_hover",
+                    "type": "color",
+                    "label": "Description Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "description!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_color_hover",
+                    "type": "color",
+                    "label": "Button Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "button!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "title_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-cta__title",
+                    "condition": {
+                        "title!": ""
+                    },
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-stroke",
+                    "name": "text_stroke",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-cta__title",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "title_text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-cta__title",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "typography",
+                    "name": "description_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-cta__description",
+                    "condition": {
+                        "description!": ""
+                    },
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "button_style",
+            "label": "Button",
+            "tab": "style",
+            "condition": {
+                "button!": ""
+            },
+            "controls": [
+                {
+                    "key": "button_size",
+                    "type": "select",
+                    "label": "Size",
+                    "default": "sm",
+                    "options": {
+                        "xs": "Extra Small",
+                        "sm": "Small",
+                        "md": "Medium",
+                        "lg": "Large",
+                        "xl": "Extra Large"
+                    },
+                    "condition": {
+                        "button_size!": "sm"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_background_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_border_color",
+                    "type": "color",
+                    "label": "Border Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_hover_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_hover_background_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_hover_border_color",
+                    "type": "color",
+                    "label": "Border Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_border_width",
+                    "type": "slider",
+                    "label": "Border Width",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_border_radius",
+                    "type": "slider",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "button_padding",
+                    "type": "dimensions",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "button_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-cta__button",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "text-shadow",
+                    "name": "button_text_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-cta__button",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "button_box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-cta__button",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "section_ribbon_style",
+            "label": "Ribbon",
+            "tab": "style",
+            "condition": {
+                "ribbon_title!": ""
+            },
+            "controls": [
+                {
+                    "key": "ribbon_bg_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "ribbon_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "ribbon_distance",
+                    "type": "slider",
+                    "label": "Distance",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "ribbon_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-ribbon-inner",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "box-shadow",
+                    "name": "box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-ribbon-inner",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "hover_effects",
+            "label": "Hover Effects",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "content_hover_heading",
+                    "type": "heading",
+                    "label": "Content",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "skin": "cover"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "content_animation",
+                    "type": "select",
+                    "label": "Hover Animation",
+                    "default": "grow",
+                    "options": null,
+                    "condition": {
+                        "skin": "cover"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "animation_class",
+                    "type": "hidden",
+                    "label": "Animation",
+                    "default": "animated-content",
+                    "options": null,
+                    "condition": {
+                        "content_animation!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "content_animation_duration",
+                    "type": "slider",
+                    "label": "Animation Duration (ms)",
+                    "default": {
+                        "size": 1000
+                    },
+                    "options": null,
+                    "condition": {
+                        "content_animation!": "",
+                        "skin": "cover"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "sequenced_animation",
+                    "type": "switcher",
+                    "label": "Sequenced Animation",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "content_animation!": "",
+                        "skin": "cover"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "background_hover_heading",
+                    "type": "heading",
+                    "label": "Background",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "skin": "cover"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "transformation",
+                    "type": "select",
+                    "label": "Hover Animation",
+                    "default": "zoom-in",
+                    "options": {
+                        "": "None",
+                        "zoom-in": "Zoom In",
+                        "zoom-out": "Zoom Out",
+                        "move-left": "Move Left",
+                        "move-right": "Move Right",
+                        "move-up": "Move Up",
+                        "move-down": "Move Down"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "overlay_color",
+                    "type": "color",
+                    "label": "Overlay Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "overlay_blend_mode",
+                    "type": "select",
+                    "label": "Blend Mode",
+                    "default": null,
+                    "options": {
+                        "": "Normal",
+                        "multiply": "Multiply",
+                        "screen": "Screen",
+                        "overlay": "Overlay",
+                        "darken": "Darken",
+                        "lighten": "Lighten",
+                        "color-dodge": "Color Dodge",
+                        "color-burn": "Color Burn",
+                        "hue": "Hue",
+                        "saturation": "Saturation",
+                        "color": "Color",
+                        "exclusion": "Exclusion",
+                        "luminosity": "Luminosity"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "overlay_color_hover",
+                    "type": "color",
+                    "label": "Overlay Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "effect_duration",
+                    "type": "slider",
+                    "label": "Transition Duration (ms)",
+                    "default": {
+                        "size": 1500
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "css-filter",
+                    "name": "bg_filters",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-cta__bg",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                },
+                {
+                    "group": "css-filter",
+                    "name": "bg_filters_hover",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-cta:hover .elementor-cta__bg",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "image-size",
+            "name": "bg_image",
+            "label": "Image Resolution",
+            "selector": null,
+            "condition": {
+                "bg_image[id]!": ""
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "image-size",
+            "name": "graphic_image",
+            "label": null,
+            "selector": null,
+            "condition": {
+                "graphic_element": "image",
+                "graphic_image[id]!": ""
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "border",
+            "name": "graphic_image_border",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-cta__image img",
+            "condition": {
+                "graphic_element": "image"
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "title_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-cta__title",
+            "condition": {
+                "title!": ""
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-stroke",
+            "name": "text_stroke",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-cta__title",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "title_text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-cta__title",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "description_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-cta__description",
+            "condition": {
+                "description!": ""
+            },
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "button_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-cta__button",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "text-shadow",
+            "name": "button_text_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-cta__button",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "button_box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-cta__button",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "ribbon_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-ribbon-inner",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "box-shadow",
+            "name": "box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-ribbon-inner",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "css-filter",
+            "name": "bg_filters",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-cta__bg",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "css-filter",
+            "name": "bg_filters_hover",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-cta:hover .elementor-cta__bg",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:50+00:00"
+}

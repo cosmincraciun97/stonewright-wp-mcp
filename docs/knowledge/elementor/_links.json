@@ -1,0 +1,1894 @@
+{
+  "version": "1.0.0",
+  "fetched_at": "2026-05-22T00:00:00Z",
+  "hubs": {
+    "custom_widget": [
+      {
+        "url": "https://elementor.com/blog/custom-wordpress-widget/",
+        "title": "How to Create a Custom WordPress Widget with Elementor"
+      }
+    ],
+    "widgets_index": [
+      {
+        "url": "https://elementor.com/widgets/star-rating-widget/",
+        "title": "Star Rating",
+        "slug": "star-rating"
+      },
+      {
+        "url": "https://elementor.com/widgets/counter-widget/",
+        "title": "Counter",
+        "slug": "counter"
+      },
+      {
+        "url": "https://elementor.com/widgets/testimonial-widget/",
+        "title": "Testimonial",
+        "slug": "testimonial"
+      },
+      {
+        "url": "https://elementor.com/widgets/pro/posts-widget/",
+        "title": "Posts",
+        "slug": "posts"
+      },
+      {
+        "url": "https://elementor.com/widgets/pro/portfolio-widget/",
+        "title": "Portfolio",
+        "slug": "portfolio"
+      },
+      {
+        "url": "https://elementor.com/widgets/pro/slides-widget/",
+        "title": "Slides",
+        "slug": "slides"
+      },
+      {
+        "url": "https://elementor.com/widgets/pro/login-widget/",
+        "title": "Login",
+        "slug": "login"
+      },
+      {
+        "url": "https://elementor.com/widgets/pro/nav-menu-widget/",
+        "title": "Nav Menu",
+        "slug": "nav-menu"
+      },
+      {
+        "url": "https://elementor.com/widgets/pro/animated-headline/",
+        "title": "Animated Headline",
+        "slug": "animated-headline"
+      },
+      {
+        "url": "https://elementor.com/widgets/pro/gallery-widget/",
+        "title": "Gallery",
+        "slug": "gallery"
+      },
+      {
+        "url": "https://elementor.com/widgets/pro/call-to-action-widget/",
+        "title": "Call to Action",
+        "slug": "call-to-action"
+      },
+      {
+        "url": "https://elementor.com/widgets/table-of-contents-widget/",
+        "title": "Table of Contents",
+        "slug": "table-of-contents"
+      },
+      {
+        "url": "https://elementor.com/widgets/pro/template-widget/",
+        "title": "Template",
+        "slug": "template"
+      },
+      {
+        "url": "https://elementor.com/widgets/reviews-widget/",
+        "title": "Reviews",
+        "slug": "reviews"
+      }
+    ],
+    "widgets_help": [
+      {
+        "url": "https://elementor.com/help/build-with-the-editor/widgets/",
+        "title": "Widgets"
+      },
+      {
+        "url": "https://elementor.com/help/right-click/",
+        "title": "Access element menus"
+      },
+      {
+        "url": "https://elementor.com/help/accordion-widget/",
+        "title": "Accordion widget"
+      },
+      {
+        "url": "https://elementor.com/help/accordion-widget-with-nested-elements/",
+        "title": "Accordion widget with nested elements"
+      },
+      {
+        "url": "https://elementor.com/help/section-background-video-options/",
+        "title": "Add & edit a background video in Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/floating-button/",
+        "title": "Add a Floating Button to your site"
+      },
+      {
+        "url": "https://elementor.com/help/how-to-add-a-calendar-to-elementor/",
+        "title": "Add a Google calendar to an Elementor site"
+      },
+      {
+        "url": "https://elementor.com/help/vertical-divider/",
+        "title": "Add a vertical divider in Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/how-do-i-add-an-alternate-template-in-a-loop-grid/",
+        "title": "Add an alternate template in a loop grid"
+      },
+      {
+        "url": "https://elementor.com/help/add-an-off-canvas-widget-to-a-loop-grid/",
+        "title": "Add an Off Canvas widget to a Loop Grid"
+      },
+      {
+        "url": "https://elementor.com/help/custom-code-pro/",
+        "title": "Add custom code"
+      },
+      {
+        "url": "https://elementor.com/help/how-to-add-custom-css/",
+        "title": "Add custom CSS"
+      },
+      {
+        "url": "https://elementor.com/help/dynamic-shortcode-pro/",
+        "title": "Add dynamic shortcodes"
+      },
+      {
+        "url": "https://elementor.com/help/entrance-animations/",
+        "title": "Add entrance animations to your page"
+      },
+      {
+        "url": "https://elementor.com/help/hover-effects/",
+        "title": "Add hover effects to your page"
+      },
+      {
+        "url": "https://elementor.com/help/how-to-add-html-tags-to-my-section-column/",
+        "title": "Add HTML tags to my section & column"
+      },
+      {
+        "url": "https://elementor.com/help/add-related-posts-elementor/",
+        "title": "Add Related Posts in Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/alert-widget/",
+        "title": "Alert widget"
+      },
+      {
+        "url": "https://elementor.com/help/animated-headline-pro/",
+        "title": "Animated Headline widget"
+      },
+      {
+        "url": "https://elementor.com/help/archive-posts-widget-pro/",
+        "title": "Archive Posts widget"
+      },
+      {
+        "url": "https://elementor.com/help/atomic-form-element/",
+        "title": "Atomic Form element"
+      },
+      {
+        "url": "https://elementor.com/help/using-the-author-box-widget/",
+        "title": "Author Box widget"
+      },
+      {
+        "url": "https://elementor.com/help/background-slideshow/",
+        "title": "Background slideshow"
+      },
+      {
+        "url": "https://elementor.com/help/basic-gallery-widget/",
+        "title": "Basic Gallery widget"
+      },
+      {
+        "url": "https://elementor.com/help/elementor-33664/",
+        "title": "Basic Media Carousel widget"
+      },
+      {
+        "url": "https://elementor.com/help/blend-mode-and-css-filters/",
+        "title": "Blend Mode and CSS Filters"
+      },
+      {
+        "url": "https://elementor.com/help/blockquote-widget-pro/",
+        "title": "Blockquote widget"
+      },
+      {
+        "url": "https://elementor.com/help/border-radius-tools/",
+        "title": "Border radius tools"
+      },
+      {
+        "url": "https://elementor.com/help/breadcrumbs-widget-pro/",
+        "title": "Breadcrumbs widget"
+      },
+      {
+        "url": "https://elementor.com/help/build-a-loop-existing-template/",
+        "title": "Build a loop from an existing template"
+      },
+      {
+        "url": "https://elementor.com/help/how-do-i-build-a-loop-grid/",
+        "title": "Build a loop grid"
+      },
+      {
+        "url": "https://elementor.com/help/building-query-loop-grid/",
+        "title": "Build a query with the loop grid"
+      },
+      {
+        "url": "https://elementor.com/help/button-widget/",
+        "title": "Button Widget"
+      },
+      {
+        "url": "https://elementor.com/help/call-to-action-widget/",
+        "title": "Call to Action widget"
+      },
+      {
+        "url": "https://elementor.com/help/carousel-widget/",
+        "title": "Carousel widget"
+      },
+      {
+        "url": "https://elementor.com/help/shape-divider/",
+        "title": "Change the shape of a container or section's border"
+      },
+      {
+        "url": "https://elementor.com/help/code-highlight-pro/",
+        "title": "Code Highlight widget"
+      },
+      {
+        "url": "https://elementor.com/help/components-2/",
+        "title": "Components"
+      },
+      {
+        "url": "https://elementor.com/help/copy-and-clear-display-conditions/",
+        "title": "Copy and clear display conditions"
+      },
+      {
+        "url": "https://elementor.com/help/countdown-widget-pro/",
+        "title": "Countdown widget"
+      },
+      {
+        "url": "https://elementor.com/help/counter-widget/",
+        "title": "Counter widget"
+      },
+      {
+        "url": "https://elementor.com/help/create-background/",
+        "title": "Create a background"
+      },
+      {
+        "url": "https://elementor.com/help/border-type/",
+        "title": "Create a border"
+      },
+      {
+        "url": "https://elementor.com/help/create-a-category-page-using-the-loop-grid-or-loop-carousel/",
+        "title": "Create a category page using the Loop Grid or Loop Carousel"
+      },
+      {
+        "url": "https://elementor.com/help/creating-a-custom-text-mask/",
+        "title": "Create a Custom Text Mask"
+      },
+      {
+        "url": "https://elementor.com/help/how-to-create-a-custom-text-path-shape/",
+        "title": "Create a Custom Text Path shape"
+      },
+      {
+        "url": "https://elementor.com/help/create-download-links/",
+        "title": "Create a download link with Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/global-widget-pro/",
+        "title": "Create a global widget"
+      },
+      {
+        "url": "https://elementor.com/help/popups-hello-bar/",
+        "title": "Create a Hello Bar"
+      },
+      {
+        "url": "https://elementor.com/help/creating-a-hero-image-gallery-container/",
+        "title": "Create a Hero Images gallery"
+      },
+      {
+        "url": "https://elementor.com/help/create-a-pdf-download-button/",
+        "title": "Create a PDF download button"
+      },
+      {
+        "url": "https://elementor.com/help/create-read-more-toggle-in-posts/",
+        "title": "Create a Read More toggle in posts"
+      },
+      {
+        "url": "https://elementor.com/help/create-a-tags-page-using-the-loop-grid-or-loop-carousel/",
+        "title": "Create a tags page using the Loop Grid or Loop Carousel"
+      },
+      {
+        "url": "https://elementor.com/help/create-audio-playlist/",
+        "title": "Create an audio playlist with Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/mask-option/",
+        "title": "Create masks for elements"
+      },
+      {
+        "url": "https://elementor.com/help/create-queries/",
+        "title": "Create queries"
+      },
+      {
+        "url": "https://elementor.com/help/css-classes-in-elementor/",
+        "title": "CSS classes in Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/css-id/",
+        "title": "CSS ID"
+      },
+      {
+        "url": "https://elementor.com/help/css-selectors-in-elementor/",
+        "title": "CSS selectors in Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/custom-add-to-cart-pro/",
+        "title": "Custom Add To Cart widget"
+      },
+      {
+        "url": "https://elementor.com/help/custom-attributes-pro/",
+        "title": "Custom attributes"
+      },
+      {
+        "url": "https://elementor.com/help/custom-css-in-elementor/",
+        "title": "Custom CSS in Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/custom-icons-pro/",
+        "title": "Custom icons"
+      },
+      {
+        "url": "https://elementor.com/help/custom-link-attributes/",
+        "title": "Custom Link Attributes"
+      },
+      {
+        "url": "https://elementor.com/help/customize-layout-loop/",
+        "title": "Customize the layout of a Loop Grid"
+      },
+      {
+        "url": "https://elementor.com/help/customize-the-search-results-archive/",
+        "title": "Customize the Search Results Archive"
+      },
+      {
+        "url": "https://elementor.com/help/customize-items-in-loop/",
+        "title": "Customize which items appearing your loop"
+      },
+      {
+        "url": "https://elementor.com/help/how-do-i-edit-elementor-widgets/",
+        "title": "Customize your widgets"
+      },
+      {
+        "url": "https://elementor.com/help/how-to-delete-a-widget/",
+        "title": "Delete elements from a page"
+      },
+      {
+        "url": "https://elementor.com/help/divider-widget/",
+        "title": "Divider widget"
+      },
+      {
+        "url": "https://elementor.com/help/dynamic-tags-pro-2/",
+        "title": "Dynamic tags"
+      },
+      {
+        "url": "https://elementor.com/help/elementor-ecommerce-widgets/",
+        "title": "eCommerce widgets"
+      },
+      {
+        "url": "https://elementor.com/help/edit-html-elementor/",
+        "title": "Edit HTML in Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/facebook-comments-widget/",
+        "title": "Facebook comments widget"
+      },
+      {
+        "url": "https://elementor.com/help/facebook-embed-widget-pro/",
+        "title": "Facebook embed widget"
+      },
+      {
+        "url": "https://elementor.com/help/facebook-like-button-widget-pro/",
+        "title": "Facebook Like Button widget"
+      },
+      {
+        "url": "https://elementor.com/help/facebook-page-feed-pro/",
+        "title": "Facebook Page Feed"
+      },
+      {
+        "url": "https://elementor.com/help/featured-image-widget/",
+        "title": "Featured Image widget"
+      },
+      {
+        "url": "https://elementor.com/help/flip-box-widget-pro/",
+        "title": "Flip Box widget"
+      },
+      {
+        "url": "https://elementor.com/help/form-widget/",
+        "title": "Form widget"
+      },
+      {
+        "url": "https://elementor.com/help/gallery-widget/",
+        "title": "Gallery widget"
+      },
+      {
+        "url": "https://elementor.com/help/google-maps-widget/",
+        "title": "Google Maps widget"
+      },
+      {
+        "url": "https://elementor.com/help/gradient-background/",
+        "title": "Gradient Background"
+      },
+      {
+        "url": "https://elementor.com/help/heading-widget/",
+        "title": "Heading widget"
+      },
+      {
+        "url": "https://elementor.com/help/hotspot-widget-pro/",
+        "title": "Hotspot widget"
+      },
+      {
+        "url": "https://elementor.com/help/hover-animations/",
+        "title": "Hover Animations"
+      },
+      {
+        "url": "https://elementor.com/help/dynamic-contact-url-pro/",
+        "title": "How can I create smart links from my widgets?"
+      },
+      {
+        "url": "https://elementor.com/help/scroll-snap/",
+        "title": "How do I get sections to snap in place on scrolling?"
+      },
+      {
+        "url": "https://elementor.com/help/dynamic-colors/",
+        "title": "How do I use dynamic colors?"
+      },
+      {
+        "url": "https://elementor.com/help/how-elementors-theme-style-and-design-system-options-work-together/",
+        "title": "How Elementor's theme style and design system options work together"
+      },
+      {
+        "url": "https://elementor.com/help/how-to-add-a-back-to-top-button-using-elementor/",
+        "title": "How To Add A Back To Top Button Using Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/how-to-export-and-import-variables-and-classes/",
+        "title": "How to export and import variables and classes"
+      },
+      {
+        "url": "https://elementor.com/help/clickable-phone-links/",
+        "title": "How to make clickable phone links or mailto links in Elementor widgets"
+      },
+      {
+        "url": "https://elementor.com/help/how-to-sync-variables-and-global-elements/",
+        "title": "How to sync variables and global elements"
+      },
+      {
+        "url": "https://elementor.com/help/html-widget/",
+        "title": "HTML widget"
+      },
+      {
+        "url": "https://elementor.com/help/icon-box-widget/",
+        "title": "Icon Box widget"
+      },
+      {
+        "url": "https://elementor.com/help/icon-library/",
+        "title": "Icon library"
+      },
+      {
+        "url": "https://elementor.com/help/icon-list-widget/",
+        "title": "Icon List widget"
+      },
+      {
+        "url": "https://elementor.com/help/icon-widget/",
+        "title": "Icon widget"
+      },
+      {
+        "url": "https://elementor.com/help/image-box-widget/",
+        "title": "Image Box widget"
+      },
+      {
+        "url": "https://elementor.com/help/image-carousel-widget/",
+        "title": "Image Carousel widget"
+      },
+      {
+        "url": "https://elementor.com/help/image-widget/",
+        "title": "Image widget"
+      },
+      {
+        "url": "https://elementor.com/help/sticky-scrolling-effect-pro/",
+        "title": "Implement sticky scrolling"
+      },
+      {
+        "url": "https://elementor.com/help/inline-font-awesome/",
+        "title": "Inline Font Icons"
+      },
+      {
+        "url": "https://elementor.com/help/inner-section-widget/",
+        "title": "Inner Section widget"
+      },
+      {
+        "url": "https://elementor.com/help/link-in-bio-widgets/",
+        "title": "Link In Bio widgets"
+      },
+      {
+        "url": "https://elementor.com/help/login-widget-pro/",
+        "title": "Login widget"
+      },
+      {
+        "url": "https://elementor.com/help/loop-carousel/",
+        "title": "Loop Carousel"
+      },
+      {
+        "url": "https://elementor.com/help/loop-grid/",
+        "title": "Loop Grid widget"
+      },
+      {
+        "url": "https://elementor.com/help/lottie-widget/",
+        "title": "Lottie widget"
+      },
+      {
+        "url": "https://elementor.com/help/make-gradient-backgrounds-for-buttons/",
+        "title": "Make gradient backgrounds for buttons"
+      },
+      {
+        "url": "https://elementor.com/help/media-carousel-widget-pro/",
+        "title": "Media Carousel widget"
+      },
+      {
+        "url": "https://elementor.com/help/menu-anchor-widget/",
+        "title": "Menu Anchor widget"
+      },
+      {
+        "url": "https://elementor.com/help/menu-cart-widget-pro/",
+        "title": "Menu Cart widget"
+      },
+      {
+        "url": "https://elementor.com/help/the-menu-widget/",
+        "title": "Menu widget"
+      },
+      {
+        "url": "https://elementor.com/help/motion-effects/",
+        "title": "Motion effects"
+      },
+      {
+        "url": "https://elementor.com/help/mouse-effects-3d-tilt/",
+        "title": "Mouse Effects - 3D Tilt"
+      },
+      {
+        "url": "https://elementor.com/help/mouse-effects-mouse-track/",
+        "title": "Mouse Effects - Mouse Track"
+      },
+      {
+        "url": "https://elementor.com/help/multi-select-feature/",
+        "title": "Multi Select"
+      },
+      {
+        "url": "https://elementor.com/help/nested-elements/",
+        "title": "Nested elements"
+      },
+      {
+        "url": "https://elementor.com/help/off-canvas-widget/",
+        "title": "Off-Canvas widget"
+      },
+      {
+        "url": "https://elementor.com/help/page-title-widget-pro/",
+        "title": "Page Title widget"
+      },
+      {
+        "url": "https://elementor.com/help/paginate-loop/",
+        "title": "Paginate your loop"
+      },
+      {
+        "url": "https://elementor.com/help/paypal-button-widget-pro/",
+        "title": "Paypal Button widget"
+      },
+      {
+        "url": "https://elementor.com/help/choose-color/",
+        "title": "Pick a color"
+      },
+      {
+        "url": "https://elementor.com/help/portfolio-widget-pro/",
+        "title": "Portfolio widget"
+      },
+      {
+        "url": "https://elementor.com/help/positioning-background-images/",
+        "title": "Positioning background images"
+      },
+      {
+        "url": "https://elementor.com/help/post-comments-widget/",
+        "title": "Post Comments widget"
+      },
+      {
+        "url": "https://elementor.com/help/post-content-widget/",
+        "title": "Post Content widget"
+      },
+      {
+        "url": "https://elementor.com/help/post-excerpt-widget/",
+        "title": "Post Excerpt widget"
+      },
+      {
+        "url": "https://elementor.com/help/post-info-widget/",
+        "title": "Post Info widget"
+      },
+      {
+        "url": "https://elementor.com/help/post-navigation-widget/",
+        "title": "Post Navigation widget"
+      },
+      {
+        "url": "https://elementor.com/help/post-title-widget/",
+        "title": "Post Title widget"
+      },
+      {
+        "url": "https://elementor.com/help/posts-widget-pro/",
+        "title": "Posts Widget"
+      },
+      {
+        "url": "https://elementor.com/help/price-list-widget-pro/",
+        "title": "Price List widget"
+      },
+      {
+        "url": "https://elementor.com/help/price-table-pro/",
+        "title": "Price Table widget"
+      },
+      {
+        "url": "https://elementor.com/help/progress-bar-widget/",
+        "title": "Progress Bar widget"
+      },
+      {
+        "url": "https://elementor.com/help/progress-tracker/",
+        "title": "Progress Tracker widget"
+      },
+      {
+        "url": "https://elementor.com/help/quickly-access-favorite-widgets/",
+        "title": "Quickly access your favorite widgets"
+      },
+      {
+        "url": "https://elementor.com/help/rating-widget/",
+        "title": "Rating widget"
+      },
+      {
+        "url": "https://elementor.com/help/read-more-widget/",
+        "title": "Read More widget"
+      },
+      {
+        "url": "https://elementor.com/help/reviews-widget-pro/",
+        "title": "Reviews widget"
+      },
+      {
+        "url": "https://elementor.com/help/scrolling-effects-scale/",
+        "title": "Scrolling Effects - Scale"
+      },
+      {
+        "url": "https://elementor.com/help/scrolling-effects-transparency/",
+        "title": "Scrolling Effects - Transparency"
+      },
+      {
+        "url": "https://elementor.com/help/scrolling-effects-vertical-scroll/",
+        "title": "Scrolling Effects - Vertical Scroll"
+      },
+      {
+        "url": "https://elementor.com/help/scrolling-effects-blur/",
+        "title": "Scrolling Effects - Blur"
+      },
+      {
+        "url": "https://elementor.com/help/scrolling-effects-horizontal-scroll/",
+        "title": "Scrolling Effects - Horizontal Scroll"
+      },
+      {
+        "url": "https://elementor.com/help/scrolling-effects-rotate/",
+        "title": "Scrolling Effects - Rotate"
+      },
+      {
+        "url": "https://elementor.com/help/search-form-widget/",
+        "title": "Search Form widget"
+      },
+      {
+        "url": "https://elementor.com/help/search-widget/",
+        "title": "Search widget"
+      },
+      {
+        "url": "https://elementor.com/help/section-column-vertical-and-horizontal-alignment/",
+        "title": "Section/Column Vertical and Horizontal Alignment"
+      },
+      {
+        "url": "https://elementor.com/help/how-to-set-absolute-position-for-an-element/",
+        "title": "Set absolute position for an element"
+      },
+      {
+        "url": "https://elementor.com/help/share-buttons-widget-pro/",
+        "title": "Share Buttons widget"
+      },
+      {
+        "url": "https://elementor.com/help/shortcode-widget/",
+        "title": "Shortcode widget"
+      },
+      {
+        "url": "https://elementor.com/help/show-and-hide-elements-on-a-page-display-conditions/",
+        "title": "Show and hide elements on a page (Display Conditions)"
+      },
+      {
+        "url": "https://elementor.com/help/show-or-hide-columns-per-device/",
+        "title": "Show or Hide Columns Per Device"
+      },
+      {
+        "url": "https://elementor.com/help/sidebar-widget/",
+        "title": "Sidebar widget"
+      },
+      {
+        "url": "https://elementor.com/help/single-post-widgets/",
+        "title": "Single Post widget"
+      },
+      {
+        "url": "https://elementor.com/help/site-logo-widget-pro/",
+        "title": "Site Logo widget"
+      },
+      {
+        "url": "https://elementor.com/help/site-title-widget-pro/",
+        "title": "Site Title widget"
+      },
+      {
+        "url": "https://elementor.com/help/sitemap-widget-pro/",
+        "title": "Sitemap widget"
+      },
+      {
+        "url": "https://elementor.com/help/slides-widget-pro/",
+        "title": "Slides widget"
+      },
+      {
+        "url": "https://elementor.com/help/social-icons-widget/",
+        "title": "Social Icons widget"
+      },
+      {
+        "url": "https://elementor.com/help/soundcloud-widget/",
+        "title": "SoundCloud widget"
+      },
+      {
+        "url": "https://elementor.com/help/spacer-widget/",
+        "title": "Spacer widget"
+      },
+      {
+        "url": "https://elementor.com/help/split-text-into-multiple-columns/",
+        "title": "Split text into multiple columns"
+      },
+      {
+        "url": "https://elementor.com/help/stripe-button/",
+        "title": "Stripe Button widget"
+      },
+      {
+        "url": "https://elementor.com/help/table-of-contents-pro/",
+        "title": "Table of Contents widget"
+      },
+      {
+        "url": "https://elementor.com/help/tabs-widget/",
+        "title": "Tabs widget"
+      },
+      {
+        "url": "https://elementor.com/help/tabs-with-nested-containers/",
+        "title": "Tabs widget with nested elements"
+      },
+      {
+        "url": "https://elementor.com/help/taxonomy-filter-widget/",
+        "title": "Taxonomy Filter widget"
+      },
+      {
+        "url": "https://elementor.com/help/template-widget-pro/",
+        "title": "Template widget"
+      },
+      {
+        "url": "https://elementor.com/help/testimonial-carousel-pro/",
+        "title": "Testimonial Carousel widget"
+      },
+      {
+        "url": "https://elementor.com/help/testimonial-widget/",
+        "title": "Testimonial widget"
+      },
+      {
+        "url": "https://elementor.com/help/text-editor-widget/",
+        "title": "Text Editor widget"
+      },
+      {
+        "url": "https://elementor.com/help/text-path-widget/",
+        "title": "Text Path widget"
+      },
+      {
+        "url": "https://elementor.com/help/text-stroke-feature/",
+        "title": "Text Stroke"
+      },
+      {
+        "url": "https://elementor.com/help/title/",
+        "title": "Title"
+      },
+      {
+        "url": "https://elementor.com/help/toggle-widget/",
+        "title": "Toggle widget"
+      },
+      {
+        "url": "https://elementor.com/help/track-the-number-of-button-clicks/",
+        "title": "Track the number of button clicks"
+      },
+      {
+        "url": "https://elementor.com/help/what-is-typography/",
+        "title": "Typography"
+      },
+      {
+        "url": "https://elementor.com/help/whats-the-difference-between-px-em-rem-vw-and-vh/",
+        "title": "Units of measurement"
+      },
+      {
+        "url": "https://elementor.com/help/use-ai-to-add-animation-effects/",
+        "title": "Use AI to add animation effects"
+      },
+      {
+        "url": "https://elementor.com/help/how-to-use-selector-in-the-custom-css-tab/",
+        "title": "Use selector In the custom CSS tab"
+      },
+      {
+        "url": "https://elementor.com/help/how-to-use-z-index-in-elementor/",
+        "title": "Use Z-Index in Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/video-element/",
+        "title": "Video element"
+      },
+      {
+        "url": "https://elementor.com/help/video-playlist-widget-pro/",
+        "title": "Video Playlist widget"
+      },
+      {
+        "url": "https://elementor.com/help/video-widget/",
+        "title": "Video widget"
+      },
+      {
+        "url": "https://elementor.com/help/dynamic-lightbox-pro/",
+        "title": "What is a dynamic lightbox?"
+      },
+      {
+        "url": "https://elementor.com/help/dynamic-content/",
+        "title": "What is dynamic content?"
+      },
+      {
+        "url": "https://elementor.com/help/what-is-the-viewport-control/",
+        "title": "What is the Viewport Control?"
+      },
+      {
+        "url": "https://elementor.com/help/advanced-widget-settings-order/",
+        "title": "Widget Advanced Settings: Order"
+      },
+      {
+        "url": "https://elementor.com/help/advanced-widget-settings-size/",
+        "title": "Widget Advanced Settings: Size"
+      },
+      {
+        "url": "https://elementor.com/help/widget-settings-deep-dive-finding-and-using-advanced-options/",
+        "title": "Widget Settings Deep Dive: Finding and Using Advanced Options"
+      },
+      {
+        "url": "https://elementor.com/help/word-spacing/",
+        "title": "Word Spacing"
+      },
+      {
+        "url": "https://elementor.com/help/nav-menu-widget-pro/",
+        "title": "WordPress Menu widget"
+      },
+      {
+        "url": "https://elementor.com/help/wrap-text-around-images/",
+        "title": "Wrap text around images"
+      }
+    ],
+    "editor": [
+      {
+        "url": "https://elementor.com/help/build-with-the-editor/getting-started-editor/",
+        "title": "Getting Started with the Editor"
+      },
+      {
+        "url": "https://elementor.com/help/how-to-access-a-section-that-is-hidden/",
+        "title": "Access a section that is hidden"
+      },
+      {
+        "url": "https://elementor.com/help/elementor-experiments-2/",
+        "title": "Activate Elementor experimental features"
+      },
+      {
+        "url": "https://elementor.com/help/add-elements-to-a-page/",
+        "title": "Add elements to a page"
+      },
+      {
+        "url": "https://elementor.com/help/text-over-image/",
+        "title": "Add text over image in Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/add-graphic-element/",
+        "title": "Adding images and icons"
+      },
+      {
+        "url": "https://elementor.com/help/advanced-tab/",
+        "title": "Advanced tab"
+      },
+      {
+        "url": "https://elementor.com/help/how-to-change-font-size/",
+        "title": "Change font size, color, family & style in Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/page-settings/",
+        "title": "Configure page settings"
+      },
+      {
+        "url": "https://elementor.com/help/creating-a-call-to-action-container/",
+        "title": "Create a Call to Action section"
+      },
+      {
+        "url": "https://elementor.com/help/creating-a-hero-section-with-containers/",
+        "title": "Create a Hero section"
+      },
+      {
+        "url": "https://elementor.com/help/creating-an-intro-container/",
+        "title": "Create an Intro section"
+      },
+      {
+        "url": "https://elementor.com/help/column-overview/",
+        "title": "Create, edit, & style columns in Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/container-layout-tab-settings/",
+        "title": "Define container layout"
+      },
+      {
+        "url": "https://elementor.com/help/design-a-webpage/",
+        "title": "Design a webpage"
+      },
+      {
+        "url": "https://elementor.com/help/elementor-pro-vs-free/",
+        "title": "Elementor Benefits - Pro VS Free"
+      },
+      {
+        "url": "https://elementor.com/help/elementor-faq/",
+        "title": "Elementor FAQ"
+      },
+      {
+        "url": "https://elementor.com/help/elementor-acf/",
+        "title": "Elementor Integration With ACF"
+      },
+      {
+        "url": "https://elementor.com/help/requirements/",
+        "title": "Elementor System Requirements"
+      },
+      {
+        "url": "https://elementor.com/help/elementor-top-bar/",
+        "title": "Elementor Top Bar"
+      },
+      {
+        "url": "https://elementor.com/help/exiting-elementor-editor/",
+        "title": "Exiting the Elementor Editor"
+      },
+      {
+        "url": "https://elementor.com/help/explore-the-elementor-editor/",
+        "title": "Explore the Elementor Editor"
+      },
+      {
+        "url": "https://elementor.com/help/get-started-with-the-elementor-plugin/",
+        "title": "Get started with the Elementor plugin"
+      },
+      {
+        "url": "https://elementor.com/help/height-snippet/",
+        "title": "Height snippet"
+      },
+      {
+        "url": "https://elementor.com/help/how-to-hide-page-titles-in-wordpress/",
+        "title": "Hide page titles"
+      },
+      {
+        "url": "https://elementor.com/help/canvas-vs-full-width/",
+        "title": "How can I get a full screen canvas in the editor?"
+      },
+      {
+        "url": "https://elementor.com/help/how-to-create-a-landing-page-with-elementor/",
+        "title": "How do I build a landing page?"
+      },
+      {
+        "url": "https://elementor.com/help/how-to-create-a-full-width-page/",
+        "title": "How do I create a full width page in my site?"
+      },
+      {
+        "url": "https://elementor.com/help/create-anchor-links/",
+        "title": "How do I create anchor links?"
+      },
+      {
+        "url": "https://elementor.com/help/how-to-move-sections-in-elementor/",
+        "title": "How to move sections in Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/icon-properties/",
+        "title": "Icon properties"
+      },
+      {
+        "url": "https://elementor.com/help/ideate-your-website-prepare-copy-and-assets/",
+        "title": "Ideate your website prepare copy and assets"
+      },
+      {
+        "url": "https://elementor.com/help/inline-editing/",
+        "title": "Inline editing"
+      },
+      {
+        "url": "https://elementor.com/help/find-install-wordpress-plugins/",
+        "title": "Install & activate Elementor Core"
+      },
+      {
+        "url": "https://elementor.com/help/installing-elementor-pro/",
+        "title": "Install & activate Elementor Pro"
+      },
+      {
+        "url": "https://elementor.com/help/layout-in-elementor/",
+        "title": "Layout in Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/the-finder/",
+        "title": "Locate pages, posts and templates"
+      },
+      {
+        "url": "https://elementor.com/help/preview-publish-your-page/",
+        "title": "Preview & publish your page"
+      },
+      {
+        "url": "https://elementor.com/help/what-is-responsive-design/",
+        "title": "Responsive design"
+      },
+      {
+        "url": "https://elementor.com/help/restore-previous-version-of-a-post/",
+        "title": "Restore a previous post"
+      },
+      {
+        "url": "https://elementor.com/help/revision-history-undo-and-redo/",
+        "title": "Revision history, undo and redo"
+      },
+      {
+        "url": "https://elementor.com/help/section-overview/",
+        "title": "Section Overview"
+      },
+      {
+        "url": "https://elementor.com/help/selecting-measurement-units/",
+        "title": "Selecting measurement units"
+      },
+      {
+        "url": "https://elementor.com/help/set-editor-language/",
+        "title": "Set the Editor's language to differ from the site's language"
+      },
+      {
+        "url": "https://elementor.com/help/settings/",
+        "title": "Settings"
+      },
+      {
+        "url": "https://elementor.com/help/navigator-indicators/",
+        "title": "Structure window indicators"
+      },
+      {
+        "url": "https://elementor.com/help/taking-your-site-live/",
+        "title": "Taking your site live"
+      },
+      {
+        "url": "https://elementor.com/help/elements-that-make-up-webpage/",
+        "title": "Understanding Elements in a web page"
+      },
+      {
+        "url": "https://elementor.com/help/build-first-page-containers/",
+        "title": "Use containers to build your first page"
+      },
+      {
+        "url": "https://elementor.com/help/navigator/",
+        "title": "Use page structure to navigate your page"
+      },
+      {
+        "url": "https://elementor.com/help/build-your-first-page/",
+        "title": "Use sections to build your first page"
+      },
+      {
+        "url": "https://elementor.com/help/using-elementors-canvas-page-template/",
+        "title": "Use the Elementor Canvas page layout"
+      },
+      {
+        "url": "https://elementor.com/help/inherited-responsive-values/",
+        "title": "What are inherited responsive values?"
+      },
+      {
+        "url": "https://elementor.com/help/landing-page-builder-experiment/",
+        "title": "What are landing pages?"
+      },
+      {
+        "url": "https://elementor.com/help/dynamic-tags-pro/",
+        "title": "What dynamic tags are available?"
+      },
+      {
+        "url": "https://elementor.com/help/dynamic-request-parameter-pro/",
+        "title": "What is a dynamic request parameter?"
+      },
+      {
+        "url": "https://elementor.com/help/what-is-elementor/",
+        "title": "What is Elementor?"
+      },
+      {
+        "url": "https://elementor.com/help/shadow/",
+        "title": "What is Shadow, Text Shadow and Boxed Shadow?"
+      },
+      {
+        "url": "https://elementor.com/help/adjusting-the-contained-elements/",
+        "title": "Arrange the elements in a Flexbox Container"
+      },
+      {
+        "url": "https://elementor.com/help/difference-between-containers-and-section-column/",
+        "title": "Compare grid containers and sections/columns"
+      },
+      {
+        "url": "https://elementor.com/help/container-style-tab-settings/",
+        "title": "Container Style tab settings"
+      },
+      {
+        "url": "https://elementor.com/help/convert-existing-sections-to-containers/",
+        "title": "Convert existing sections to containers"
+      },
+      {
+        "url": "https://elementor.com/help/dropdown-menu/",
+        "title": "Create a dropdown menu"
+      },
+      {
+        "url": "https://elementor.com/help/how-do-i-create-a-container/",
+        "title": "Create a Flexbox container"
+      },
+      {
+        "url": "https://elementor.com/help/create-a-grid-container/",
+        "title": "Create a Grid container"
+      },
+      {
+        "url": "https://elementor.com/help/create-mega-menu/",
+        "title": "Create a mega menu"
+      },
+      {
+        "url": "https://elementor.com/help/create-menu/",
+        "title": "Create a navigation menu"
+      },
+      {
+        "url": "https://elementor.com/help/how-to-create-a-responsive-popup-menu/",
+        "title": "Create a responsive popup menu"
+      },
+      {
+        "url": "https://elementor.com/help/basic-layouts-using-the-container/",
+        "title": "Create basic layouts"
+      },
+      {
+        "url": "https://elementor.com/help/responsive-design-using-containers/",
+        "title": "Create responsive design with containers"
+      },
+      {
+        "url": "https://elementor.com/help/deactivate-containers/",
+        "title": "Deactivate containers"
+      },
+      {
+        "url": "https://elementor.com/help/container-advanced-tab-settings/",
+        "title": "Define advanced settings in Flexbox containers"
+      },
+      {
+        "url": "https://elementor.com/help/container-element/",
+        "title": "How do I learn about Flexbox Containers?"
+      },
+      {
+        "url": "https://elementor.com/help/how-many-containers-page/",
+        "title": "How many containers should my page contain?"
+      },
+      {
+        "url": "https://elementor.com/help/include-submenus-in-mega-menu/",
+        "title": "Include submenus in a mega menu"
+      },
+      {
+        "url": "https://elementor.com/help/grid-container-layout-options/",
+        "title": "Layout options using a grid container"
+      },
+      {
+        "url": "https://elementor.com/help/making-a-container-clickable/",
+        "title": "Make a Flexbox container clickable"
+      },
+      {
+        "url": "https://elementor.com/help/reusing-containers/",
+        "title": "Reuse containers"
+      },
+      {
+        "url": "https://elementor.com/help/set-flexbox-container-size-behavior/",
+        "title": "Set a Flexbox Container's size and behavior"
+      },
+      {
+        "url": "https://elementor.com/help/spacing-identical-elements-in-a-container/",
+        "title": "Spacing identical elements in a container"
+      },
+      {
+        "url": "https://elementor.com/help/identical-elements-nested-containers/",
+        "title": "Spacing identical elements in a container with nested containers"
+      },
+      {
+        "url": "https://elementor.com/help/span-content-over-multiple-cells-in-a-grid-layout/",
+        "title": "Span content over multiple cells in a grid layout"
+      },
+      {
+        "url": "https://elementor.com/help/style-mega-menu/",
+        "title": "Style a mega menu"
+      },
+      {
+        "url": "https://elementor.com/help/grid-container-style-options/",
+        "title": "Style options for grid containers"
+      },
+      {
+        "url": "https://elementor.com/help/transitioning-from-sections-to-containers/",
+        "title": "Transitioning from sections to containers"
+      },
+      {
+        "url": "https://elementor.com/help/how-do-flexbox-containers-work/",
+        "title": "Understanding how Flexbox containers work"
+      },
+      {
+        "url": "https://elementor.com/help/using-sections-and-containers-on-the-same-site/",
+        "title": "Using sections and containers on the same site"
+      },
+      {
+        "url": "https://elementor.com/help/what-is-a-container/",
+        "title": "What is a Flexbox Container?"
+      },
+      {
+        "url": "https://elementor.com/help/what-is-a-grid-container/",
+        "title": "What is a Grid Container?"
+      },
+      {
+        "url": "https://elementor.com/help/what-is-mega-menu/",
+        "title": "What is a mega menu?"
+      },
+      {
+        "url": "https://elementor.com/help/build-with-the-editor/v4-editor/",
+        "title": "Editor Version 4"
+      },
+      {
+        "url": "https://elementor.com/help/add-a-layered-background/",
+        "title": "Add a layered background"
+      },
+      {
+        "url": "https://elementor.com/help/add-and-delete-attributes/",
+        "title": "Add and delete attributes"
+      },
+      {
+        "url": "https://elementor.com/help/add-custom-css-to-an-element/",
+        "title": "Add Custom CSS to an element"
+      },
+      {
+        "url": "https://elementor.com/help/button-element/",
+        "title": "Button element"
+      },
+      {
+        "url": "https://elementor.com/help/classes-in-elementor-2/",
+        "title": "Classes in Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/div-block-element/",
+        "title": "Div Block element"
+      },
+      {
+        "url": "https://elementor.com/help/dynamic-tags-in-v4/",
+        "title": "Dynamic tags in V4"
+      },
+      {
+        "url": "https://elementor.com/help/element-states/",
+        "title": "Element states"
+      },
+      {
+        "url": "https://elementor.com/help/explore-the-v4-features/",
+        "title": "Explore the V4 features"
+      },
+      {
+        "url": "https://elementor.com/help/flexbox-element/",
+        "title": "Flexbox element"
+      },
+      {
+        "url": "https://elementor.com/help/get-started-with-the-elementor-editor-v4/",
+        "title": "Get started with the Elementor Editor V4"
+      },
+      {
+        "url": "https://elementor.com/help/heading-element/",
+        "title": "Heading element"
+      },
+      {
+        "url": "https://elementor.com/help/image-element/",
+        "title": "Image element"
+      },
+      {
+        "url": "https://elementor.com/help/interactions/",
+        "title": "Interactions"
+      },
+      {
+        "url": "https://elementor.com/help/nested-links/",
+        "title": "Nested links"
+      },
+      {
+        "url": "https://elementor.com/help/paragraph-element/",
+        "title": "Paragraph element"
+      },
+      {
+        "url": "https://elementor.com/help/prioritize-conflicting-styles/",
+        "title": "Prioritize conflicting styles"
+      },
+      {
+        "url": "https://elementor.com/help/reset-style-settings/",
+        "title": "Reset style settings"
+      },
+      {
+        "url": "https://elementor.com/help/responsive-editing/",
+        "title": "Responsive editing"
+      },
+      {
+        "url": "https://elementor.com/help/style-tab-background/",
+        "title": "Style tab - Background"
+      },
+      {
+        "url": "https://elementor.com/help/style-tab-effects/",
+        "title": "Style tab - Effects"
+      },
+      {
+        "url": "https://elementor.com/help/style-tab-layout/",
+        "title": "Style tab - Layout"
+      },
+      {
+        "url": "https://elementor.com/help/style-tab-position/",
+        "title": "Style tab - Position"
+      },
+      {
+        "url": "https://elementor.com/help/style-tab-size/",
+        "title": "Style tab - Size"
+      },
+      {
+        "url": "https://elementor.com/help/style-tab-spacing/",
+        "title": "Style tab - Spacing"
+      },
+      {
+        "url": "https://elementor.com/help/style-tab-typography/",
+        "title": "Style tab Typography"
+      },
+      {
+        "url": "https://elementor.com/help/style-tab-border/",
+        "title": "Style tab - Border"
+      },
+      {
+        "url": "https://elementor.com/help/svg-element/",
+        "title": "SVG element"
+      },
+      {
+        "url": "https://elementor.com/help/tabs-element/",
+        "title": "Tabs Element"
+      },
+      {
+        "url": "https://elementor.com/help/the-elementor-editor-class-manager/",
+        "title": "The Elementor Editor Class Manager"
+      },
+      {
+        "url": "https://elementor.com/help/use-the-color-picker/",
+        "title": "Use the color picker"
+      },
+      {
+        "url": "https://elementor.com/help/user-roles-and-classes/",
+        "title": "User roles and classes"
+      },
+      {
+        "url": "https://elementor.com/help/variables/",
+        "title": "Variables"
+      },
+      {
+        "url": "https://elementor.com/help/variables-manager/",
+        "title": "Variables Manager"
+      },
+      {
+        "url": "https://elementor.com/help/what-are-logical-properties/",
+        "title": "What are logical properties?"
+      },
+      {
+        "url": "https://elementor.com/help/what-are-the-differences-between-the-elementor-editor-3-x-and-v4/",
+        "title": "What are the differences between the Elementor Editor V3 and V4?"
+      },
+      {
+        "url": "https://elementor.com/help/youtube-element/",
+        "title": "YouTube element"
+      }
+    ],
+    "theme_builder": [
+      {
+        "url": "https://elementor.com/help/design-your-theme/theme-builder/",
+        "title": "Theme Builder"
+      },
+      {
+        "url": "https://elementor.com/help/considerations-for-theme-builder-compatibility/",
+        "title": "Considerations for Theme Builder compatibility"
+      },
+      {
+        "url": "https://elementor.com/help/create-a-complete-website-using-elementor-kits-and-theme-builder/",
+        "title": "Create a complete website using Elementor website templates and Theme Builder"
+      },
+      {
+        "url": "https://elementor.com/help/how-to-fix-a-missing-header-or-footer-in-elementor/",
+        "title": "How to fix a missing header or footer in Elementor?"
+      },
+      {
+        "url": "https://elementor.com/help/theme-style-global-settings/",
+        "title": "Set a Theme Style"
+      },
+      {
+        "url": "https://elementor.com/help/the-elementor-theme-builder/",
+        "title": "What is the Theme Builder?"
+      },
+      {
+        "url": "https://elementor.com/help/design-your-theme/templates/",
+        "title": "Templates"
+      },
+      {
+        "url": "https://elementor.com/help/adding-templates/",
+        "title": "Add a template to your page"
+      },
+      {
+        "url": "https://elementor.com/help/conditions-triggers-and-advanced-rules/",
+        "title": "Conditions, triggers, and advanced rules"
+      },
+      {
+        "url": "https://elementor.com/help/connect-library/",
+        "title": "Connect to the Template Library"
+      },
+      {
+        "url": "https://elementor.com/help/create-archive-template/",
+        "title": "Create a Blog or any Archive Template with Elementor Pro"
+      },
+      {
+        "url": "https://elementor.com/help/creating-a-header-template-with-the-container/",
+        "title": "Create a header with containers"
+      },
+      {
+        "url": "https://elementor.com/help/how-to-create-sidebar-templates-with-hello-theme/",
+        "title": "Create a sidebar template"
+      },
+      {
+        "url": "https://elementor.com/help/single-product-site-part/",
+        "title": "Create a single product template"
+      },
+      {
+        "url": "https://elementor.com/help/sticky-headers/",
+        "title": "Create a sticky header"
+      },
+      {
+        "url": "https://elementor.com/help/sticky-transparent-header/",
+        "title": "Create a Sticky Transparent Header"
+      },
+      {
+        "url": "https://elementor.com/help/header-site-part/",
+        "title": "Create or edit your Header"
+      },
+      {
+        "url": "https://elementor.com/help/archive-site-part/",
+        "title": "Create or modify archive templates"
+      },
+      {
+        "url": "https://elementor.com/help/single-page-site-part/",
+        "title": "Create or modify single page templates"
+      },
+      {
+        "url": "https://elementor.com/help/footer-site-part/",
+        "title": "Create or modify your footer"
+      },
+      {
+        "url": "https://elementor.com/help/create-templates-for-faster-website-building/",
+        "title": "Create templates for faster website building"
+      },
+      {
+        "url": "https://elementor.com/help/the-template-library-is-empty/",
+        "title": "Empty template library issue"
+      },
+      {
+        "url": "https://elementor.com/help/how-to-add-html-tags-to-my-templates/",
+        "title": "How to Add HTML Tags to My Templates"
+      },
+      {
+        "url": "https://elementor.com/help/the-images-of-the-templates-are-missing/",
+        "title": "Images missing in template library"
+      },
+      {
+        "url": "https://elementor.com/help/how-to-duplicate-an-elementor-page/",
+        "title": "Make a template from an existing page"
+      },
+      {
+        "url": "https://elementor.com/help/conditions/",
+        "title": "Set conditions for site part templates"
+      },
+      {
+        "url": "https://elementor.com/help/my-page-is-blank-when-i-try-to-import-templates/",
+        "title": "Template import issue"
+      },
+      {
+        "url": "https://elementor.com/help/templates-menu/",
+        "title": "Templates menu"
+      },
+      {
+        "url": "https://elementor.com/help/the-difference-between-site-templates-and-cloud-templates/",
+        "title": "The difference between site templates and cloud templates"
+      },
+      {
+        "url": "https://elementor.com/help/transfer-a-site-template-to-your-cloud-template-library/",
+        "title": "Transfer a site template to your Cloud Template Library"
+      },
+      {
+        "url": "https://elementor.com/help/template-library/",
+        "title": "Use a template from the Template library"
+      },
+      {
+        "url": "https://elementor.com/help/using-elementor-pros-theme-builder-templates-with-wpml/",
+        "title": "Using Elementor Pro's Theme Builder Templates with WPML"
+      },
+      {
+        "url": "https://elementor.com/help/using-elementors-full-width-page-template/",
+        "title": "Using Elementor's Full Width Page template"
+      },
+      {
+        "url": "https://elementor.com/help/what-is-a-template/",
+        "title": "What is a Template?"
+      }
+    ],
+    "developer": [
+      {
+        "url": "https://developers.elementor.com/getting-started/",
+        "title": "Getting Started"
+      },
+      {
+        "url": "https://developers.elementor.com/getting-started/first-addon/",
+        "title": "Your First Addon"
+      },
+      {
+        "url": "https://developers.elementor.com/addons/",
+        "title": "Building Addons"
+      },
+      {
+        "url": "https://developers.elementor.com/editor/",
+        "title": "The Editor"
+      },
+      {
+        "url": "https://developers.elementor.com/editor-controls/",
+        "title": "Editor Controls"
+      },
+      {
+        "url": "https://developers.elementor.com/data-structure/",
+        "title": "Data Structure"
+      },
+      {
+        "url": "https://developers.elementor.com/managers/",
+        "title": "Managers"
+      },
+      {
+        "url": "https://developers.elementor.com/scripts-styles/",
+        "title": "Scripts & Styles"
+      },
+      {
+        "url": "https://developers.elementor.com/hooks/",
+        "title": "Hooks"
+      },
+      {
+        "url": "https://developers.elementor.com/deprecations/",
+        "title": "Deprecations"
+      },
+      {
+        "url": "https://developers.elementor.com/cli/",
+        "title": "CLI"
+      },
+      {
+        "url": "https://developers.elementor.com/widgets/",
+        "title": "Widgets"
+      },
+      {
+        "url": "https://developers.elementor.com/controls/",
+        "title": "Controls"
+      },
+      {
+        "url": "https://developers.elementor.com/dynamic-tags/",
+        "title": "Dynamic Tags"
+      },
+      {
+        "url": "https://developers.elementor.com/form-actions/",
+        "title": "Form Actions"
+      },
+      {
+        "url": "https://developers.elementor.com/form-fields/",
+        "title": "Form Fields"
+      },
+      {
+        "url": "https://developers.elementor.com/theme-conditions/",
+        "title": "Theme Conditions"
+      },
+      {
+        "url": "https://developers.elementor.com/themes/",
+        "title": "Theme Locations"
+      },
+      {
+        "url": "https://developers.elementor.com/context-menu/",
+        "title": "Context Menu"
+      },
+      {
+        "url": "https://developers.elementor.com/finder/",
+        "title": "Finder"
+      }
+    ],
+    "help_root": [
+      {
+        "url": "https://elementor.com/help/build-with-the-editor/",
+        "title": "Build with the Editor"
+      },
+      {
+        "url": "https://elementor.com/help/build-with-the-editor/getting-started-editor/",
+        "title": "Getting Started with the Editor"
+      },
+      {
+        "url": "https://elementor.com/help/build-with-the-editor/widgets/",
+        "title": "Widgets"
+      },
+      {
+        "url": "https://elementor.com/help/build-with-the-editor/layouts/",
+        "title": "Layouts"
+      },
+      {
+        "url": "https://elementor.com/help/build-with-the-editor/marketing-tools/",
+        "title": "Marketing Tools"
+      },
+      {
+        "url": "https://elementor.com/help/build-with-the-editor/v4-editor/",
+        "title": "Editor Version 4"
+      },
+      {
+        "url": "https://elementor.com/help/design-your-theme/",
+        "title": "Design your Theme"
+      },
+      {
+        "url": "https://elementor.com/help/sell-online-ecommerce/",
+        "title": "Sell Online (Ecommerce)"
+      },
+      {
+        "url": "https://elementor.com/help/generate-with-ai/",
+        "title": "Generate with AI"
+      },
+      {
+        "url": "https://elementor.com/help/generate-with-ai/angie/",
+        "title": "Angie AI"
+      },
+      {
+        "url": "https://elementor.com/help/what-is-global-privacy-control-gpc/",
+        "title": "What is Global Privacy Control (GPC)?"
+      },
+      {
+        "url": "https://elementor.com/help/understand-and-implement-gdpr-with-elementor-cookie-consent/",
+        "title": "Understand and implement GDPR with Elementor Cookie Consent"
+      },
+      {
+        "url": "https://elementor.com/help/classes-in-elementor-2/",
+        "title": "Classes in Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/use-elementor-to-design-your-cookie-consent-banner/",
+        "title": "Use Elementor to design your cookie consent banner"
+      },
+      {
+        "url": "https://elementor.com/help/having-problems-using-elementor/",
+        "title": "Common Elementor issues and solutions"
+      },
+      {
+        "url": "https://elementor.com/help/cant-edit-with-elementor/",
+        "title": "Can't edit with Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/server-errors/",
+        "title": "Troubleshooting forms server errors"
+      },
+      {
+        "url": "https://elementor.com/help/elementor-experiments-2/",
+        "title": "Activate Elementor experimental features"
+      },
+      {
+        "url": "https://elementor.com/help/add-a-floating-bar-to-your-site/",
+        "title": "Add a Floating Bar to your site"
+      },
+      {
+        "url": "https://elementor.com/help/elementor-acf/",
+        "title": "Elementor Integration With ACF"
+      },
+      {
+        "url": "https://elementor.com/help/element-manager/",
+        "title": "Element Manager"
+      },
+      {
+        "url": "https://elementor.com/help/what-is-import-export/",
+        "title": "Export and import Elementor sites"
+      },
+      {
+        "url": "https://elementor.com/help/global-custom-css/",
+        "title": "Global Custom CSS"
+      },
+      {
+        "url": "https://elementor.com/help/import-and-export-elementor-website-templates/",
+        "title": "Import and export Elementor website templates"
+      },
+      {
+        "url": "https://elementor.com/help/make-your-website-accessible/",
+        "title": "Make your website accessible"
+      },
+      {
+        "url": "https://elementor.com/help/site-settings/",
+        "title": "Configure Site Settings"
+      },
+      {
+        "url": "https://elementor.com/help/global-layout-settings/",
+        "title": "Control your global layout settings"
+      },
+      {
+        "url": "https://elementor.com/help/page-transitions/",
+        "title": "Create page transitions for your site"
+      },
+      {
+        "url": "https://elementor.com/help/disable-google-fonts/",
+        "title": "Disable Google Fonts"
+      },
+      {
+        "url": "https://elementor.com/help/enable-svg-support-in-elementor/",
+        "title": "Enable SVG Support in Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/site-identity/",
+        "title": "Site Identity"
+      },
+      {
+        "url": "https://elementor.com/help/use-variable-fonts/",
+        "title": "Use Variable Fonts"
+      },
+      {
+        "url": "https://elementor.com/help/view-and-edit-global-colors/",
+        "title": "View and edit global colors"
+      },
+      {
+        "url": "https://elementor.com/help/view-and-edit-global-fonts/",
+        "title": "View and edit global fonts"
+      },
+      {
+        "url": "https://elementor.com/help/yoast-seo-integration-with-elementor/",
+        "title": "Yoast SEO integration with Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/aioseo-integration-with-elementor/",
+        "title": "AIOSEO integration with Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/elementor-developer-edition/",
+        "title": "Download and use the Elementor Beta plugin"
+      },
+      {
+        "url": "https://elementor.com/help/intro-to-dynamic-content/",
+        "title": "Dynamic content and Post Types"
+      },
+      {
+        "url": "https://elementor.com/help/elementor-settings/",
+        "title": "Elementor settings"
+      },
+      {
+        "url": "https://elementor.com/help/rolling-back-to-a-previous-version-of-elementor/",
+        "title": "Rollback to a previous version of Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/maintenance-mode/",
+        "title": "Set up a custom maintenance mode page"
+      },
+      {
+        "url": "https://elementor.com/help/coming-soon-elementor/",
+        "title": "Set your site to Coming Soon"
+      },
+      {
+        "url": "https://elementor.com/help/requirements/",
+        "title": "Elementor System Requirements"
+      },
+      {
+        "url": "https://elementor.com/help/is-elementor-compatible-with-all-wordpress-themes/",
+        "title": "Is Elementor compatible with all WordPress themes?"
+      },
+      {
+        "url": "https://elementor.com/help/add-google-analytics-and-gtm/",
+        "title": "Add Google Analytics and Google Tag Manager to Elementor"
+      },
+      {
+        "url": "https://elementor.com/help/adobe-typekit-elementor-integration/",
+        "title": "Adobe Fonts & Elementor Integration"
+      },
+      {
+        "url": "https://elementor.com/help/dark-mode/",
+        "title": "Use Dark Mode"
+      },
+      {
+        "url": "https://elementor.com/help/list-of-supported-google-fonts/",
+        "title": "Supported Google fonts"
+      },
+      {
+        "url": "https://elementor.com/help/woocommerce-site-settings/",
+        "title": "Configure WooCommerce settings"
+      },
+      {
+        "url": "https://elementor.com/help/woocommerce-single-product-builder/",
+        "title": "Create a single product template for WooCommerce"
+      },
+      {
+        "url": "https://elementor.com/help/dynamic-woocommerce-tags/",
+        "title": "Create dynamic WooCommerce tags"
+      },
+      {
+        "url": "https://elementor.com/help/woocommerce-archive-products-pro/",
+        "title": "Create WooCommerce product archives"
+      },
+      {
+        "url": "https://elementor.com/help/woocommerce-products-pro/",
+        "title": "Display WooCommerce products"
+      },
+      {
+        "url": "https://elementor.com/help/product-archives-site-part/",
+        "title": "Create or modify a products archive"
+      },
+      {
+        "url": "https://elementor.com/help/woocommerce-widgets-pro/",
+        "title": "What widgets are part of WooCommerce products templates?"
+      },
+      {
+        "url": "https://elementor.com/help/how-to-create-custom-widgets-using-elementor-angie-ai/",
+        "title": "How to create custom widgets using Elementor Angie AI"
+      },
+      {
+        "url": "https://elementor.com/help/get-started-with-angie/",
+        "title": "Get started with Angie"
+      },
+      {
+        "url": "https://elementor.com/help/what-is-angie/",
+        "title": "What is Angie"
+      },
+      {
+        "url": "https://elementor.com/help/build-an-entire-website-from-scratch-with-elementor-ai/",
+        "title": "Build an entire website from scratch with Elementor AI's Site Planner"
+      },
+      {
+        "url": "https://elementor.com/help/create-containers-with-ai/",
+        "title": "Create containers with AI"
+      },
+      {
+        "url": "https://elementor.com/help/elementor-ai-copilot/",
+        "title": "Elementor AI Copilot"
+      },
+      {
+        "url": "https://elementor.com/help/write-text-elementor-ai/",
+        "title": "Write text using Elementor AI"
+      },
+      {
+        "url": "https://elementor.com/help/custom-code-elementor-ai/",
+        "title": "Add custom code using Elementor AI"
+      },
+      {
+        "url": "https://elementor.com/help/custom-css-elementor-ai/",
+        "title": "Add custom CSS using Elementor AI"
+      },
+      {
+        "url": "https://elementor.com/help/start-elementor-ai/",
+        "title": "Get started with Elementor AI"
+      },
+      {
+        "url": "https://elementor.com/help/what-is-elementor-ai/",
+        "title": "What is Elementor AI?"
+      }
+    ]
+  },
+  "totals": {
+    "custom_widget": 1,
+    "widgets_index": 14,
+    "widgets_help": 119,
+    "editor": 124,
+    "theme_builder": 34,
+    "developer": 20,
+    "help_root": 65,
+    "all": 377
+  },
+  "blocked_or_404": [
+    {
+      "url": "https://elementor.com/blog/custom-wordpress-widget/",
+      "reason": "Page returned related blog posts instead of child links — the article itself is the single content target; captured as custom_widget[0]"
+    },
+    {
+      "url": "https://elementor.com/widgets/",
+      "reason": "Most widget entries on the marketing index page lack explicit <a> href tags (rendered client-side); only 14 widget URLs with actual hyperlinks were captured. Phase 0.3 should supplement from the widgets_help hub which has per-widget help articles for ~80 widgets."
+    }
+  ]
+}

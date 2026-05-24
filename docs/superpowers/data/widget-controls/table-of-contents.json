@@ -1,0 +1,655 @@
+{
+    "slug": "table-of-contents",
+    "source": "pro",
+    "title": "Table of Contents",
+    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/table-of-contents/widgets/table-of-contents.php",
+    "sections": [
+        {
+            "id": "table_of_contents",
+            "label": "Table of Contents",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "title",
+                    "type": "text",
+                    "label": "Title",
+                    "default": "Table of Contents",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "html_tag",
+                    "type": "select",
+                    "label": "HTML Tag",
+                    "default": "h4",
+                    "options": {
+                        "h2": "H2",
+                        "h3": "H3",
+                        "h4": "H4",
+                        "h5": "H5",
+                        "h6": "H6",
+                        "div": "div"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "headings_by_tags",
+                    "type": "select2",
+                    "label": "Anchors By Tags",
+                    "default": [
+                        "h2",
+                        "h3",
+                        "h4",
+                        "h5",
+                        "h6"
+                    ],
+                    "options": {
+                        "h1": "H1",
+                        "h2": "H2",
+                        "h3": "H3",
+                        "h4": "H4",
+                        "h5": "H5",
+                        "h6": "H6"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "container",
+                    "type": "text",
+                    "label": "Container",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": "This control confines the Table of Contents to heading elements under a specific container"
+                },
+                {
+                    "key": "exclude_headings_by_selector",
+                    "type": "text",
+                    "label": "Anchors By Selector",
+                    "default": [],
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": "CSS selectors, in a comma-separated list"
+                },
+                {
+                    "key": "marker_view",
+                    "type": "select",
+                    "label": "Marker View",
+                    "default": "numbers",
+                    "options": {
+                        "numbers": "Numbers",
+                        "bullets": "Bullets"
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "icon",
+                    "type": "icons",
+                    "label": "Icon",
+                    "default": {
+                        "value": "fas fa-circle",
+                        "library": "fa-solid"
+                    },
+                    "options": null,
+                    "condition": {
+                        "marker_view": "bullets"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "no_headings_message",
+                    "type": "text",
+                    "label": "No Headings Found Message",
+                    "default": "No headings were found on this page.",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": {
+                        "active": true
+                    },
+                    "responsive": false,
+                    "description": null
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "additional_options",
+            "label": "Additional Options",
+            "tab": null,
+            "condition": null,
+            "controls": [
+                {
+                    "key": "word_wrap",
+                    "type": "switcher",
+                    "label": "Word Wrap",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "minimize_box",
+                    "type": "switcher",
+                    "label": "Minimize Box",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "expand_icon",
+                    "type": "icons",
+                    "label": "Expand Icon",
+                    "default": {
+                        "value": "fas fa-chevron-down",
+                        "library": "fa-solid"
+                    },
+                    "options": null,
+                    "condition": {
+                        "minimize_box": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "collapse_icon",
+                    "type": "icons",
+                    "label": "Collapse Icon",
+                    "default": {
+                        "value": "fas fa-chevron-up",
+                        "library": "fa-solid"
+                    },
+                    "options": null,
+                    "condition": {
+                        "minimize_box": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "minimized_on",
+                    "type": "select",
+                    "label": "Minimized On",
+                    "default": "tablet",
+                    "options": {
+                        "__unresolved__": "$minimized_on_options"
+                    },
+                    "condition": {
+                        "minimize_box!": ""
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "hierarchical_view",
+                    "type": "switcher",
+                    "label": "Hierarchical View",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "collapse_subitems",
+                    "type": "switcher",
+                    "label": "Collapse Subitems",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "hierarchical_view": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": "The \"Collapse\" option should only be used if the Table of Contents is made sticky"
+                }
+            ],
+            "group_controls": [],
+            "repeaters": []
+        },
+        {
+            "id": "box_style",
+            "label": "Box",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "background_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": "",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "border_color",
+                    "type": "color",
+                    "label": "Border Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "loader_color",
+                    "type": "color",
+                    "label": "Loader Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "border_width",
+                    "type": "slider",
+                    "label": "Border Width",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "border_radius",
+                    "type": "slider",
+                    "label": "Border Radius",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "header_separator_width",
+                    "type": "slider",
+                    "label": "Separator Width",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "padding",
+                    "type": "slider",
+                    "label": "Padding",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "min_height",
+                    "type": "slider",
+                    "label": "Min Height",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "box-shadow",
+                    "name": "box_shadow",
+                    "label": null,
+                    "selector": "{{WRAPPER}}",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "header_style",
+            "label": "Header",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "header_text_align",
+                    "type": "choose",
+                    "label": "Text Align",
+                    "default": "start",
+                    "options": {
+                        "start": {
+                            "title": "Start",
+                            "icon": "eicon-text-align-left"
+                        },
+                        "center": {
+                            "title": "Center",
+                            "icon": "eicon-text-align-center"
+                        },
+                        "end": {
+                            "title": "End",
+                            "icon": "eicon-text-align-right"
+                        }
+                    },
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "header_background_color",
+                    "type": "color",
+                    "label": "Background Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "header_text_color",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "toggle_button_color",
+                    "type": "color",
+                    "label": "Icon Color",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "minimize_box": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "toggle_button_position",
+                    "type": "choose",
+                    "label": "Icon Position",
+                    "default": "row",
+                    "options": {
+                        "row-reverse": {
+                            "title": "Start",
+                            "icon": "eicon-h-align-left"
+                        },
+                        "row": {
+                            "title": "End",
+                            "icon": "eicon-h-align-right"
+                        }
+                    },
+                    "condition": {
+                        "minimize_box": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "heading_gap",
+                    "type": "slider",
+                    "label": "Gap",
+                    "default": null,
+                    "options": null,
+                    "condition": {
+                        "minimize_box": "yes"
+                    },
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "header_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-toc__header, {{WRAPPER}} .elementor-toc__header-title",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        },
+        {
+            "id": "list_style",
+            "label": "List",
+            "tab": "style",
+            "condition": null,
+            "controls": [
+                {
+                    "key": "max_height",
+                    "type": "slider",
+                    "label": "Max Height",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "list_indent",
+                    "type": "slider",
+                    "label": "Indent",
+                    "default": {
+                        "unit": "em"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                },
+                {
+                    "key": "item_text_color_normal",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "item_text_underline_normal",
+                    "type": "switcher",
+                    "label": "Underline",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "item_text_color_hover",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "item_text_underline_hover",
+                    "type": "switcher",
+                    "label": "Underline",
+                    "default": "yes",
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "item_text_hover_transition_duration",
+                    "type": "slider",
+                    "label": "Transition Duration",
+                    "default": {
+                        "unit": "ms"
+                    },
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "item_text_color_active",
+                    "type": "color",
+                    "label": "Text Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "item_text_underline_active",
+                    "type": "switcher",
+                    "label": "Underline",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "heading_marker",
+                    "type": "heading",
+                    "label": "Marker",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "marker_color",
+                    "type": "color",
+                    "label": "Color",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": false,
+                    "description": null
+                },
+                {
+                    "key": "marker_size",
+                    "type": "slider",
+                    "label": "Size",
+                    "default": null,
+                    "options": null,
+                    "condition": null,
+                    "dynamic": null,
+                    "responsive": true,
+                    "description": null
+                }
+            ],
+            "group_controls": [
+                {
+                    "group": "typography",
+                    "name": "list_typography",
+                    "label": null,
+                    "selector": "{{WRAPPER}} .elementor-toc__list-item",
+                    "condition": null,
+                    "exclude": null,
+                    "include": null
+                }
+            ],
+            "repeaters": []
+        }
+    ],
+    "group_controls": [
+        {
+            "group": "box-shadow",
+            "name": "box_shadow",
+            "label": null,
+            "selector": "{{WRAPPER}}",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "header_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-toc__header, {{WRAPPER}} .elementor-toc__header-title",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        },
+        {
+            "group": "typography",
+            "name": "list_typography",
+            "label": null,
+            "selector": "{{WRAPPER}} .elementor-toc__list-item",
+            "condition": null,
+            "exclude": null,
+            "include": null
+        }
+    ],
+    "repeaters": [],
+    "diagnostics": {
+        "unresolved_args": 0,
+        "unresolved_helper_calls": [],
+        "recursion_depth_hits": 0
+    },
+    "extracted_at": "2026-05-23T00:56:52+00:00"
+}
