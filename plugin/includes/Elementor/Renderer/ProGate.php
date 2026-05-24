@@ -27,8 +27,15 @@ final class ProGate {
 			return true;
 		}
 
+		if ( class_exists( '\\ElementorPro\\Modules\\ThemeBuilder\\Module' )
+			|| defined( 'ELEMENTOR_PRO_VERSION' )
+			|| defined( 'PROELEMENTS_VERSION' ) ) {
+			return true;
+		}
+
 		if ( function_exists( 'is_plugin_active' ) ) {
-			return is_plugin_active( 'elementor-pro/elementor-pro.php' );
+			return is_plugin_active( 'elementor-pro/elementor-pro.php' )
+				|| is_plugin_active( 'pro-elements/pro-elements.php' );
 		}
 
 		return false;

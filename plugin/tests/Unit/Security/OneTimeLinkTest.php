@@ -66,4 +66,16 @@ final class OneTimeLinkTest extends TestCase {
 
 		$this->assertFalse( OneTimeLink::consume( $token ) );
 	}
+
+	public function test_authenticate_sets_current_user_and_auth_cookie(): void {
+		$url = OneTimeLink::create( 11 );
+		parse_str( (string) parse_url( $url, PHP_URL_QUERY ), $params );
+		$token = (string) ( $params['stonewright_otl'] ?? '' );
+
+		$user_id = OneTimeLink::authenticate( $token );
+
+		$this->assertSame( 11, $user_id );
+		$this->assertSame( 11, $GLOBALS['stonewright_test_set_current_user'] );
+		$this->assertSame( 11, $GLOBALS['stonewright_test_auth_cookie']['user_id'] );
+	}
 }

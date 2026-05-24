@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Design;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\DesignSpec\AssetReferences;
 use Stonewright\WpMcp\DesignSpec\AssetSideloader;
 use Stonewright\WpMcp\Elementor\ElementorWriter;
 use Stonewright\WpMcp\Security\ConfirmationToken;
@@ -132,7 +133,7 @@ final class ApplyToPost extends AbilityKernel {
 				$url_map           = []; // original URL → WP attachment URL
 
 				if ( ! empty( $raw_spec['assets'] ) && is_array( $raw_spec['assets'] ) ) {
-					foreach ( $raw_spec['assets'] as $asset ) {
+					foreach ( $raw_spec['assets'] as $asset_index => $asset ) {
 						if ( ! is_array( $asset ) || empty( $asset['url'] ) ) {
 							continue;
 						}
@@ -146,7 +147,9 @@ final class ApplyToPost extends AbilityKernel {
 						$wp_url = wp_get_attachment_url( $attachment_id );
 						if ( false !== $wp_url && '' !== $wp_url ) {
 							$url_map[ $source_url ] = $wp_url;
+							$raw_spec['assets'][ $asset_index ]['url'] = $wp_url;
 						}
+						$raw_spec['assets'][ $asset_index ]['attachment_id'] = (int) $attachment_id;
 						$sideloaded_assets[] = $attachment_id;
 					}
 				}
@@ -155,6 +158,8 @@ final class ApplyToPost extends AbilityKernel {
 				if ( [] !== $url_map ) {
 					$raw_spec = self::replace_asset_urls( $raw_spec, $url_map );
 				}
+				$resolved = AssetReferences::resolve( $raw_spec, false );
+				$raw_spec = $resolved['spec'];
 
 				// ── Write via ElementorWriter (Backup → Validate → Render → write) ─
 				$diagnostics = [];

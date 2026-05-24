@@ -3,6 +3,7 @@
     "elType": "container",
     "isInner": true,
     "settings": {
+        "container_type": "flex",
         "flex_direction": "column"
     },
     "elements": []

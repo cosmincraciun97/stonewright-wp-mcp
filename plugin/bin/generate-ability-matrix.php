@@ -174,6 +174,8 @@ const WRITE_PATTERNS = [
 	// Memory helper write delegates.
 	'Memory::put(', 'Memory::put_typed(', 'Memory::delete(',
 	'Memory::delete_by_id(', 'Memory::update_by_id(',
+	// Skills and design orchestrator delegates.
+	'Skills::save(', 'Skills::delete(', 'SpecToGutenberg()', 'SpecToElementorV3()',
 ];
 
 function detect_rw( string $source ): string {
@@ -325,7 +327,12 @@ function detect_token( string $source ): string {
 }
 
 function detect_backup( string $source ): string {
-	return strpos( $source, 'Backup::snapshot_post' ) !== false ? 'Yes' : 'No';
+	return (
+		strpos( $source, 'Backup::snapshot_post' ) !== false
+		|| strpos( $source, 'SpecToGutenberg()' ) !== false
+		|| strpos( $source, 'SpecToElementorV3()' ) !== false
+		|| strpos( $source, 'ApplyToPost()' ) !== false
+	) ? 'Yes' : 'No';
 }
 
 function detect_validator( string $source ): string {
@@ -333,6 +340,14 @@ function detect_validator( string $source ): string {
 		return 'Yes (ThemeJson)';
 	}
 	if ( strpos( $source, 'Validator::validate' ) !== false ) {
+		return 'Yes (DesignSpec)';
+	}
+	if (
+		strpos( $source, 'new ValidateSpec()' ) !== false
+		|| strpos( $source, 'SpecToGutenberg()' ) !== false
+		|| strpos( $source, 'SpecToElementorV3()' ) !== false
+		|| strpos( $source, 'ApplyToPost()' ) !== false
+	) {
 		return 'Yes (DesignSpec)';
 	}
 	return 'No';

@@ -131,6 +131,25 @@ if ( ! function_exists( 'get_current_user_id' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_set_current_user' ) ) {
+	function wp_set_current_user( int $id, string $name = '' ): object {
+		$GLOBALS['stonewright_test_set_current_user'] = $id;
+		$GLOBALS['stonewright_test_current_user_id']  = $id;
+		return (object) [ 'ID' => $id ];
+	}
+}
+
+if ( ! function_exists( 'wp_set_auth_cookie' ) ) {
+	function wp_set_auth_cookie( int $user_id, bool $remember = false, mixed $secure = '', string $token = '' ): void {
+		$GLOBALS['stonewright_test_auth_cookie'] = [
+			'user_id'  => $user_id,
+			'remember' => $remember,
+			'secure'   => $secure,
+			'token'    => $token,
+		];
+	}
+}
+
 $GLOBALS['stonewright_test_transients'] ??= [];
 
 if ( ! function_exists( 'set_transient' ) ) {
@@ -434,6 +453,12 @@ if ( ! function_exists( 'esc_html' ) ) {
 
 if ( ! function_exists( 'esc_attr' ) ) {
 	function esc_attr( string $text ): string {
+		return htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' );
+	}
+}
+
+if ( ! function_exists( 'esc_textarea' ) ) {
+	function esc_textarea( string $text ): string {
 		return htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' );
 	}
 }
@@ -1123,11 +1148,6 @@ if ( ! function_exists( 'wp_safe_remote_post' ) ) {
 				'alignment_diffs'        => [],
 				'has_horizontal_overflow' => false,
 				'has_element_overlap'    => false,
-			],
-			'/wpcli' => [
-				'stdout'    => "http://mcp-test.local\n",
-				'stderr'    => '',
-				'exit_code' => 0,
 			],
 			default => [
 				'ok'     => true,

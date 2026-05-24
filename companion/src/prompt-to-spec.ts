@@ -93,10 +93,13 @@ Your job: given a reference image of a webpage section (or full page) and a free
 Hard rules:
 - Output ONLY the JSON object. No prose, no markdown fences, no commentary.
 - The JSON MUST be valid and parseable by JSON.parse with no fix-ups.
-- Use only block types defined in the schema: heading, paragraph, image, button, group, spacer, video, embed, icon, card. Use "group" for arbitrary containers.
+- Use only block types defined in the schema. Use native Elementor-intent blocks whenever the visual pattern calls for them: nav-menu for navigation, image-gallery for photo galleries, form for newsletter/contact forms, social-icons for social icon rows, icon-list for footer link columns or icon bullet rows, countdown for countdown timers, tabs for tabbed content, accordion/toggle for FAQ stacks, testimonial for quote cards, divider for section label underlines, and container for layout wrappers.
+- Do NOT use HTML, html blocks, or arbitrary embed code as a fallback. If a native widget-intent block exists, use it.
 - Every section MUST contain a non-empty "blocks" array.
 - Prefer semantic block ordering that matches the image's visual reading order.
 - Image references should use the "assetRef" field on the block plus an entry in the top-level "assets" array; do NOT inline data: URIs.
+- Preserve layout intent: full-width outer sections, centered max-width inner containers, row containers for two-column heroes, native gallery widgets for galleries, native form widgets for forms, and exact image/SVG assets from the reference.
+- Background rule: flat colors belong in background.color; simple linear gradients should be represented in native style/background data when available; complex glow/radial blur/shadow backgrounds should be represented as exported background assets via background.imageRef.
 - Set "page.title" from the most prominent heading in the image.
 - Use the "tokens" object to capture named colours and typography when they appear consistently.
 - When in doubt about a property, omit it — the WordPress side fills defaults.`;
@@ -118,8 +121,15 @@ const DESIGN_SPEC_SCHEMA_REFERENCE = `Stonewright DesignSpec — top-level shape
         { "type": "heading",   "text": string, "level"?: 1..6 },
         { "type": "paragraph", "text": string },
         { "type": "image",     "src": string, "alt"?: string, "width"?: number, "height"?: number, "assetRef"?: string },
+        { "type": "image-gallery", "images": [{ "url"?: string, "src"?: string, "assetRef"?: string, "alt"?: string }], "columns"?: number },
         { "type": "button",    "text": string, "url"?: string, "variant"?: "primary"|"secondary"|"outline"|"link" },
-        { "type": "group",     "layout"?: "horizontal"|"vertical"|"grid", "children": [ /* nested blocks */ ] },
+        { "type": "nav-menu",  "items"?: [{ "text": string, "url": string }], "layout"?: "horizontal"|"vertical", "dropdown"?: "mobile", "toggle"?: "hamburger" },
+        { "type": "form",      "form_name"?: string, "button_text"?: string, "fields": [{ "type": "text"|"email"|"select"|"textarea"|"tel"|"checkbox"|"radio", "label": string, "required"?: boolean }] },
+        { "type": "icon-list", "items": [{ "text": string, "url"?: string }] },
+        { "type": "social-icons", "icons": [{ "network": string, "url": string }] },
+        { "type": "countdown", "due_date"?: string },
+        { "type": "divider",   "weight"?: number, "width"?: number, "color"?: string },
+        { "type": "container", "layout"?: "flex"|"grid", "direction"?: "row"|"column", "blocks": [ /* nested blocks */ ] },
         { "type": "spacer",    "height"?: string },
         { "type": "video",     "src": string, "poster"?: string, "autoplay"?: boolean },
         { "type": "embed",     "url": string },

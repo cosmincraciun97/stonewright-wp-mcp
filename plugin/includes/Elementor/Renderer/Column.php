@@ -20,8 +20,11 @@ final class Column {
 	 * @return array<string, mixed>
 	 */
 	public static function render( array $node, Resolver $resolver, string $canonical_path ): array {
+		$style = StyleMapper::node_style( $node, $resolver );
+
 		$settings = [
-			'flex_direction' => 'column',
+			'container_type' => 'flex',
+			'flex_direction' => isset( $style['flex_direction'] ) && 'row' === $style['flex_direction'] ? 'row' : 'column',
 		];
 
 		if ( isset( $node['width'] ) ) {
@@ -30,9 +33,42 @@ final class Column {
 				'size' => (int) $node['width'],
 			];
 		}
+		if ( array_key_exists( 'width', $style ) ) {
+			$width = StyleMapper::size( $style['width'] );
+			if ( null !== $width ) {
+				$settings['width'] = $width;
+			}
+		}
+		if ( array_key_exists( 'height', $style ) ) {
+			$height = StyleMapper::size( $style['height'] );
+			if ( null !== $height ) {
+				$settings['height'] = $height;
+			}
+		}
+		if ( array_key_exists( 'height', $node ) && ! array_key_exists( 'height', $style ) ) {
+			$height = StyleMapper::size( $node['height'] );
+			if ( null !== $height ) {
+				$settings['height'] = $height;
+			}
+		}
 
 		if ( isset( $node['padding'] ) && is_array( $node['padding'] ) ) {
 			$settings['padding'] = self::dimensions( $node['padding'] );
+		}
+		if ( array_key_exists( 'padding', $style ) ) {
+			$padding = StyleMapper::dimensions( $style['padding'] );
+			if ( null !== $padding ) {
+				$settings['padding'] = $padding;
+			}
+		}
+		$gap = $node['gap'] ?? ( $style['gap'] ?? null );
+		if ( null !== $gap ) {
+			$settings['flex_gap'] = self::gap( $gap );
+		}
+		$background = $style['background'] ?? ( $style['background_color'] ?? null );
+		if ( null !== $background ) {
+			$settings['background_background'] = 'classic';
+			$settings['background_color']      = (string) $background;
 		}
 
 		return [
@@ -56,6 +92,24 @@ final class Column {
 			'bottom'   => isset( $dim['bottom'] ) ? (string) (int) $dim['bottom'] : '0',
 			'left'     => isset( $dim['left'] ) ? (string) (int) $dim['left'] : '0',
 			'isLinked' => false,
+		];
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private static function gap( mixed $gap ): array {
+		if ( is_numeric( $gap ) ) {
+			$gap = (string) (int) $gap . 'px';
+		}
+		$value = preg_replace( '/[^0-9.]/', '', (string) $gap ) ?: '0';
+
+		return [
+			'unit'     => 'px',
+			'size'     => (int) $value,
+			'column'   => $value,
+			'row'      => $value,
+			'isLinked' => true,
 		];
 	}
 }

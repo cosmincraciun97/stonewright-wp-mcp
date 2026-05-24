@@ -28,6 +28,8 @@ final class WidgetCatalog {
 	/**
 	 * Path to the manifest file. Overridable in tests via
 	 * {@see self::set_manifest_path()}.
+	 *
+	 * @var string|null
 	 */
 	private static ?string $manifest_path = null;
 

@@ -29,7 +29,6 @@ import { createMcpServer } from './mcp-server.js';
 import { handleProxy, proxyConfig, getProxyConfig } from './mcp-proxy.js';
 import { closeBrowser } from './playwright-runner.js';
 import { dispatchQaRoute } from './http-api.js';
-import { validateCommand, runWpCli } from './wpcli.js';
 import { CONTRACT_VERSION } from './contracts/version.js';
 import { checkReadiness } from './first-run.js';
 
@@ -96,7 +95,7 @@ export async function startHttp(port: number): Promise<StartedHttpServer> {
 		}
 
 		// QA REST routes — POST only, body already size-limited.
-		if (['/screenshot', '/diff', '/axe', '/layout', '/lighthouse', '/prompt-to-spec'].includes(url)) {
+		if (['/screenshot', '/diff', '/axe', '/layout', '/lighthouse', '/prompt-to-spec', '/figma-ingest'].includes(url)) {
 			if (req.method !== 'POST') {
 				res.writeHead(405, { 'Content-Type': 'application/json' });
 				res.end(JSON.stringify({ error: 'Method not allowed' }));
@@ -114,47 +113,6 @@ export async function startHttp(port: number): Promise<StartedHttpServer> {
 			}
 			const handled = await dispatchQaRoute(url, req, res, parsed);
 			if (handled) return;
-		}
-
-		// WP-CLI bridge — POST only, body size-limited.
-		if (url === '/wpcli') {
-			if (req.method !== 'POST') {
-				res.writeHead(405, { 'Content-Type': 'application/json' });
-				res.end(JSON.stringify({ error: 'Method not allowed' }));
-				return;
-			}
-			const body = await readBodyWithLimit(req, res, config.maxBodyBytes);
-			if (body === null) return; // 413
-			let parsed: unknown;
-			try {
-				parsed = body.length > 0 ? JSON.parse(body.toString('utf8')) : {};
-			} catch {
-				res.writeHead(400, { 'Content-Type': 'application/json' });
-				res.end(JSON.stringify({ error: 'Invalid JSON body' }));
-				return;
-			}
-			const { command, args = [], cwd } = parsed as {
-				command?: string;
-				args?: string[];
-				cwd?: string;
-			};
-			if (typeof command !== 'string' || command.trim() === '') {
-				res.writeHead(400, { 'Content-Type': 'application/json' });
-				res.end(JSON.stringify({ error: 'Missing required field: command' }));
-				return;
-			}
-			const validationError = validateCommand(command);
-			if (validationError) {
-				res.writeHead(403, { 'Content-Type': 'application/json' });
-				res.end(JSON.stringify({ error: validationError }));
-				return;
-			}
-			const wpArgs = [command, ...(Array.isArray(args) ? args.map(String) : [])];
-			const result = await runWpCli(wpArgs, typeof cwd === 'string' ? cwd : undefined);
-			log.info('wpcli executed', { command, exit_code: result.exit_code });
-			res.writeHead(200, { 'Content-Type': 'application/json' });
-			res.end(JSON.stringify(result));
-			return;
 		}
 
 		// MCP route — only buffer POST bodies (GET / DELETE drive SSE streams

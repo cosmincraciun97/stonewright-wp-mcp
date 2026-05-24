@@ -19,6 +19,7 @@ use Stonewright\WpMcp\QA\QaArtifactStore;
 use Stonewright\WpMcp\Sandbox\CrashRecovery;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\DomainLock;
+use Stonewright\WpMcp\Security\OneTimeLink;
 use Stonewright\WpMcp\Security\StaticAnalysis;
 use Stonewright\WpMcp\Support\Logger;
 
@@ -93,6 +94,7 @@ final class PluginRegistration {
 		}
 		add_action( 'init', [ Memory::class, 'maybe_install_table' ] );
 		add_action( 'init', [ AuditLog::class, 'maybe_install_table' ] );
+		add_action( 'init', [ OneTimeLink::class, 'maybe_handle_request' ], 1 );
 		add_action( 'init', [ SkillsTable::class, 'create_table' ] );
 		add_action( 'init', [ ResourceRegistry::class, 'register' ], 30 );
 		add_action( 'init', [ BlockRegistry::class, 'register' ], 40 );

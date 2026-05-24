@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Elementor\Renderer;
 
+use Stonewright\WpMcp\DesignTokens\Resolver;
 use Stonewright\WpMcp\Elementor\Renderer\Responsive;
 
 /**
@@ -39,6 +40,62 @@ use Stonewright\WpMcp\Elementor\Renderer\Responsive;
  * `<key>_mobile` automatically.
  */
 final class StyleMapper {
+
+	/**
+	 * Normalise the two DesignSpec style dialects Stonewright currently sees:
+	 * plugin-native `style` keys and companion/Figma `styles` + `typography`
+	 * keys. The renderer consumes the plugin-native snake_case shape.
+	 *
+	 * @param array<string, mixed> $node
+	 * @return array<string, mixed>
+	 */
+	public static function node_style( array $node, Resolver $resolver ): array {
+		$style = [];
+
+		if ( isset( $node['style'] ) && is_array( $node['style'] ) ) {
+			$style = array_merge( $style, (array) $node['style'] );
+		}
+
+		if ( isset( $node['styles'] ) && is_array( $node['styles'] ) ) {
+			foreach ( (array) $node['styles'] as $key => $value ) {
+				$normalised_key = self::normalise_style_key( (string) $key );
+				$style[ $normalised_key ] = $value;
+			}
+		}
+
+		if ( isset( $node['typography'] ) && is_array( $node['typography'] ) ) {
+			$typography     = (array) $node['typography'];
+			$typography_map = [
+				'fontFamily'    => 'font_family',
+				'font_family'   => 'font_family',
+				'fontSize'      => 'font_size',
+				'font_size'     => 'font_size',
+				'fontWeight'    => 'font_weight',
+				'font_weight'   => 'font_weight',
+				'lineHeightPx'  => 'line_height',
+				'line_height'   => 'line_height',
+				'letterSpacing' => 'letter_spacing',
+				'letter_spacing' => 'letter_spacing',
+			];
+
+			foreach ( $typography_map as $source => $target ) {
+				if ( array_key_exists( $source, $typography ) ) {
+					$style[ $target ] = $typography[ $source ];
+				}
+			}
+		}
+
+		foreach ( $style as $key => $value ) {
+			if ( is_string( $value ) ) {
+				$style[ $key ] = $resolver->resolve( $value );
+			}
+			if ( 'font_weight' === $key && is_numeric( $style[ $key ] ) ) {
+				$style[ $key ] = (string) (int) $style[ $key ];
+			}
+		}
+
+		return $style;
+	}
 
 	/**
 	 * Apply DesignSpec style fields to an Elementor settings array.
@@ -263,10 +320,10 @@ final class StyleMapper {
 	 *   - Keyed array: `[ 'top' => 12, 'right' => 8, 'bottom' => 12, 'left' => 8 ]`.
 	 *   - null → null (caller should skip).
 	 *
-	 * @param string|int|array<string, mixed>|null $value
+	 * @param string|int|float|array<string, mixed>|null $value
 	 * @return array<string, mixed>|null
 	 */
-	public static function dimensions( string|int|array|null $value ): ?array {
+	public static function dimensions( string|int|float|array|null $value ): ?array {
 		if ( null === $value ) {
 			return null;
 		}
@@ -296,15 +353,21 @@ final class StyleMapper {
 
 		switch ( $count ) {
 			case 1:
-				$top = $right = $bottom = $left = $nums[0];
+				$top    = $nums[0];
+				$right  = $nums[0];
+				$bottom = $nums[0];
+				$left   = $nums[0];
 				break;
 			case 2:
-				$top = $bottom = $nums[0];
-				$right = $left = $nums[1];
+				$top    = $nums[0];
+				$bottom = $nums[0];
+				$right  = $nums[1];
+				$left   = $nums[1];
 				break;
 			case 3:
 				$top    = $nums[0];
-				$right  = $left = $nums[1];
+				$right  = $nums[1];
+				$left   = $nums[1];
 				$bottom = $nums[2];
 				break;
 			case 4:
@@ -337,10 +400,10 @@ final class StyleMapper {
 	 *   - bare 'NN'                 → { unit: px, size: <int> }.
 	 *   - { desktop: '32px', mobile: '24px' } → viewport-keyed dict of the above.
 	 *
-	 * @param string|int|array<string, mixed>|null $value
+	 * @param string|int|float|array<string, mixed>|null $value
 	 * @return array<string, mixed>|null
 	 */
-	public static function size( string|int|array|null $value ): mixed {
+	public static function size( string|int|float|array|null $value ): mixed {
 		if ( null === $value || '' === $value ) {
 			return null;
 		}
@@ -392,6 +455,33 @@ final class StyleMapper {
 			return (string) $value;
 		}
 		return '';
+	}
+
+	private static function normalise_style_key( string $key ): string {
+		$map = [
+			'backgroundColor'  => 'background',
+			'background-color' => 'background',
+			'background_color' => 'background',
+			'borderRadius'     => 'border_radius',
+			'border-radius'    => 'border_radius',
+			'fontFamily'       => 'font_family',
+			'font-family'      => 'font_family',
+			'fontSize'         => 'font_size',
+			'font-size'        => 'font_size',
+			'fontWeight'       => 'font_weight',
+			'font-weight'      => 'font_weight',
+			'lineHeight'       => 'line_height',
+			'lineHeightPx'     => 'line_height',
+			'line-height'      => 'line_height',
+			'letterSpacing'    => 'letter_spacing',
+			'letter-spacing'   => 'letter_spacing',
+			'textAlign'        => 'text_align',
+			'text-align'       => 'text_align',
+			'textTransform'    => 'text_transform',
+			'text-transform'   => 'text_transform',
+		];
+
+		return $map[ $key ] ?? $key;
 	}
 
 	/**

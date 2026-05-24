@@ -83,11 +83,11 @@ final class Button {
 		}
 
 		if ( isset( $node['background_color'] ) ) {
-			$settings['button_background_color'] = (string) $resolver->resolve( (string) $node['background_color'] );
+			$settings['background_color'] = (string) $resolver->resolve( (string) $node['background_color'] );
 		}
 
-		if ( isset( $node['style'] ) && is_array( $node['style'] ) ) {
-			$style    = self::resolve_style( (array) $node['style'], $resolver );
+		$style = StyleMapper::node_style( $node, $resolver );
+		if ( [] !== $style ) {
 			$settings = StyleMapper::apply( $settings, $style, self::style_map() );
 		}
 
@@ -98,18 +98,5 @@ final class Button {
 			'settings'   => $settings,
 			'elements'   => [],
 		];
-	}
-
-	/**
-	 * @param array<string, mixed> $style
-	 * @return array<string, mixed>
-	 */
-	private static function resolve_style( array $style, Resolver $resolver ): array {
-		foreach ( $style as $k => $v ) {
-			if ( is_string( $v ) ) {
-				$style[ $k ] = $resolver->resolve( $v );
-			}
-		}
-		return $style;
 	}
 }

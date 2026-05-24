@@ -122,6 +122,8 @@ PHP;
 	 * Map a kebab-case slug to the PascalCase class name the compiler emits.
 	 * Rejects slugs that do not match `[a-z0-9-]+` so a hostile slug cannot
 	 * inject namespace separators or PHP keywords into the generated source.
+	 *
+	 * @throws \InvalidArgumentException When the slug is empty or unsafe.
 	 */
 	public static function slug_to_class( string $slug ): string {
 		if ( '' === $slug || ! preg_match( '/^[a-z0-9-]+$/', $slug ) ) {

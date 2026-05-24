@@ -143,6 +143,10 @@ final class Skills {
 		if ( ! self::table_exists() ) {
 			return false;
 		}
+		$skill = self::get_by_id( $id );
+		if ( ! $skill || 'builtin' === (string) ( $skill['source'] ?? '' ) ) {
+			return false;
+		}
 
 		$table = SkillsTable::table_name();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -166,21 +170,18 @@ final class Skills {
 			'',
 			'## Site Skills',
 			'',
-			'The following skills are site-specific playbooks you MUST follow when the task matches their description.',
-			'Always check if a skill applies before acting. Skills override your default behaviour.',
+			'The following enabled site skills are available as short routing hints. To keep token usage low, only this index is injected.',
+			'Before acting, compare the task with these descriptions. If a skill applies, call `stonewright/skills-get` with its slug and follow the returned playbook.',
 			'',
 		];
 
 		foreach ( $skills as $skill ) {
-			$lines[] = '### ' . ( $skill['title'] ?: $skill['slug'] );
-			if ( ! empty( $skill['description'] ) ) {
-				$lines[] = $skill['description'];
-				$lines[] = '';
-			}
-			$lines[] = $skill['content'];
-			$lines[] = '';
-			$lines[] = '---';
-			$lines[] = '';
+			$slug        = (string) ( $skill['slug'] ?? '' );
+			$title       = (string) ( $skill['title'] ?: $slug );
+			$description = trim( (string) ( $skill['description'] ?? '' ) );
+			$summary     = '' !== $description ? ' - ' . $description : '';
+
+			$lines[] = sprintf( '- `%s` - %s%s', $slug, $title, $summary );
 		}
 
 		return implode( "\n", $lines );

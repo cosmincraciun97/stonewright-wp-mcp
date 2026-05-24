@@ -34,6 +34,28 @@ writing. The ability returns `{ "renderer": "gutenberg" | "elementor_v3" |
 "elementor_v4" }`. Pass the result to the correct spec-to-* ability. Never
 hard-code a renderer; site state may differ.
 
+## Figma fidelity rules
+
+- Use native Elementor/Gutenberg primitives first. Do not use Elementor HTML
+  widgets unless the user explicitly asks for HTML.
+- Build full-width outer sections with centered max-width inner containers.
+  Preserve Figma row/column intent, especially two-column hero/content sections.
+- Build responsive desktop, tablet, and mobile layouts before calling the work
+  complete. Mobile headers must use a native hamburger/dropdown pattern, not a
+  squeezed desktop menu.
+- Galleries must use native gallery/image-gallery widgets. Forms must use native
+  form widgets. Navigation must use menus/nav widgets. Footer link groups must
+  be real links, not plain text.
+- If an exported asset already includes decorative borders or clipped artwork,
+  do not add an extra Elementor border on top of it.
+- For flat backgrounds, set the background color in the builder. For simple
+  linear gradients, use builder gradient controls. For glow, radial blur,
+  blended shadow, or complex background effects, export the exact Figma
+  background artwork and set it on the relevant container.
+- Custom CSS is allowed only after confirming the available widgets/settings
+  cannot express the design and after explicit user approval. Approved CSS goes
+  in the active theme `style.css`, organized by section.
+
 ## Backup rule
 
 Before any write to an existing page, call `stonewright/elementor-v3-backup-page`

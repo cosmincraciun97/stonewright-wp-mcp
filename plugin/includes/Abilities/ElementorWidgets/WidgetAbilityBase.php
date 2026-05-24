@@ -41,7 +41,11 @@ abstract class WidgetAbilityBase extends AbilityKernel {
 	/** Each concrete subclass returns the widget slug it adds. */
 	abstract protected function slug(): string;
 
-	/** Manifest entry for this widget, lazily loaded once per instance. */
+	/**
+	 * Manifest entry for this widget, lazily loaded once per instance.
+	 *
+	 * @var array<string, mixed>|null
+	 */
 	private ?array $cached_entry = null;
 
 	protected function entry(): array {
@@ -161,7 +165,7 @@ abstract class WidgetAbilityBase extends AbilityKernel {
 			];
 		}
 
-		return [
+		$schema = [
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
@@ -187,6 +191,16 @@ abstract class WidgetAbilityBase extends AbilityKernel {
 			],
 			'required'             => [ 'post_id', 'parent_id' ],
 		];
+
+		if ( 'html' === $this->slug() ) {
+			$schema['properties']['allow_html_widget'] = [
+				'type'        => 'boolean',
+				'description' => 'Must be true only when the user explicitly asked for an Elementor HTML widget. Do not set this for fallback layout or styling.',
+				'default'     => false,
+			];
+		}
+
+		return $schema;
 	}
 
 	public function output_schema(): array {
@@ -214,6 +228,14 @@ abstract class WidgetAbilityBase extends AbilityKernel {
 		return $this->audit(
 			$args,
 			function ( array $args ) {
+				if ( 'html' === $this->slug() && empty( $args['allow_html_widget'] ) ) {
+					return new \WP_Error(
+						'html_widget_requires_explicit_approval',
+						__( 'Elementor HTML widgets are disabled by default. Use native Elementor widgets first, or pass allow_html_widget=true only when the user explicitly requested HTML.', 'stonewright' ),
+						[ 'status' => 400 ]
+					);
+				}
+
 				$post_id = (int) ( $args['post_id'] ?? 0 );
 				if ( $post_id < 1 ) {
 					return $this->error( 'invalid_post_id', __( 'post_id is required.', 'stonewright' ) );

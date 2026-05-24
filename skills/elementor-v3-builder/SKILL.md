@@ -35,6 +35,28 @@ Elementor V3 uses containers (flexbox) as the primary layout primitive. When
 building from scratch: create container -> add child containers for columns ->
 add widgets inside child containers.
 
+## Frontend layout contract
+
+- Use Elementor V3 containers and native widgets. Do not add HTML widgets unless
+  the user explicitly requests HTML.
+- Put every page section in a full-width outer container, then a centered inner
+  container with the design max-width. Do not leave content floating at page
+  edges or stacked as a single accidental column.
+- Use flex row containers for desktop two-column designs and responsive
+  direction/visibility settings for tablet and mobile.
+- Sticky headers must be sticky on desktop and mobile when requested. Mobile
+  navigation must use the native nav-menu hamburger/dropdown controls.
+- Use nav-menu for header menus, form for newsletter/contact forms,
+  image-gallery/gallery for photo galleries, social-icons for social rows, and
+  icon-list or linked text widgets for footer columns.
+- Preserve exported artwork. If a speaker/card image already contains the visual
+  border, do not add an Elementor border.
+- For section labels, copy typography, letter spacing, alignment, and underline
+  or border decorations from the design instead of approximating them with plain
+  text.
+- Custom CSS requires explicit user approval after widget/settings options are
+  exhausted. Approved CSS belongs in the active theme `style.css`.
+
 ## Kit changes
 
 Kit color and typography changes are global and affect every page. Confirm

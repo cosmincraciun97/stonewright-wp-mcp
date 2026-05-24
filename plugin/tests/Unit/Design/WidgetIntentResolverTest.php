@@ -13,7 +13,7 @@ final class WidgetIntentResolverTest extends TestCase {
 
 	public function test_intent_names_includes_all_canonical_intents(): void {
 		$names = WidgetIntentResolver::intent_names();
-		foreach ( [ 'nav', 'countdown', 'social-row', 'icon-bullet-list', 'logo+nav', 'header-template', 'footer-template' ] as $expected ) {
+		foreach ( [ 'nav', 'countdown', 'social-row', 'icon-bullet-list', 'image-gallery', 'newsletter-form', 'logo+nav', 'header-template', 'footer-template' ] as $expected ) {
 			$this->assertContains( $expected, $names, "Missing canonical intent: {$expected}" );
 		}
 	}
@@ -96,6 +96,50 @@ final class WidgetIntentResolverTest extends TestCase {
 		$this->assertSame( 'nav', WidgetIntentResolver::detect_from_figma_signature( $node ) );
 	}
 
+	public function test_figma_signature_detects_footer_link_column_before_nav(): void {
+		$text = static fn( string $t ): array => [
+			'type'       => 'TEXT',
+			'characters' => $t,
+			'style'      => [ 'fontSize' => 14 ],
+		];
+		$node = [
+			'type'       => 'FRAME',
+			'name'       => 'Footer useful links',
+			'layoutMode' => 'VERTICAL',
+			'children'   => [ $text( 'Despre nZEB Expo' ), $text( 'Misiune' ), $text( 'Media Kit & Presa' ), $text( 'Editii' ) ],
+		];
+		$this->assertSame( 'footer-link-column', WidgetIntentResolver::detect_from_figma_signature( $node ) );
+	}
+
+	public function test_figma_signature_detects_gallery_from_image_grid(): void {
+		$image = static fn( string $id ): array => [
+			'id'    => $id,
+			'type'  => 'RECTANGLE',
+			'name'  => 'Gallery image',
+			'fills' => [ [ 'type' => 'IMAGE', 'imageRef' => $id ] ],
+		];
+		$node = [
+			'type'     => 'FRAME',
+			'name'     => 'Galerie foto grid',
+			'children' => [ $image( 'a' ), $image( 'b' ), $image( 'c' ), $image( 'd' ) ],
+		];
+		$this->assertSame( 'image-gallery', WidgetIntentResolver::detect_from_figma_signature( $node ) );
+	}
+
+	public function test_figma_signature_detects_newsletter_form_from_labels(): void {
+		$text = static fn( string $t ): array => [
+			'type'       => 'TEXT',
+			'characters' => $t,
+			'style'      => [ 'fontSize' => 16 ],
+		];
+		$node = [
+			'type'     => 'FRAME',
+			'name'     => 'Newsletter form',
+			'children' => [ $text( 'Nume *' ), $text( 'Prenume *' ), $text( 'Email *' ), $text( 'Interes *' ), $text( 'Aboneaza-te la newsletter' ) ],
+		];
+		$this->assertSame( 'newsletter-form', WidgetIntentResolver::detect_from_figma_signature( $node ) );
+	}
+
 	public function test_figma_signature_detects_icon_bullet_list(): void {
 		$bullet = static fn( string $text ): array => [
 			'type'     => 'FRAME',
@@ -112,5 +156,46 @@ final class WidgetIntentResolverTest extends TestCase {
 	public function test_figma_signature_returns_null_for_unrecognised_node(): void {
 		$node = [ 'type' => 'TEXT', 'characters' => 'Just a heading' ];
 		$this->assertNull( WidgetIntentResolver::detect_from_figma_signature( $node ) );
+	}
+
+	public function test_prompt_detection_prefers_native_widget_intents(): void {
+		$this->assertSame( 'image-gallery', WidgetIntentResolver::detect_from_prompt( 'fa o galerie foto cu 8 imagini' ) );
+		$this->assertSame( 'newsletter-form', WidgetIntentResolver::detect_from_prompt( 'formular newsletter cu nume prenume email si interes' ) );
+		$this->assertSame( 'nav', WidgetIntentResolver::detect_from_prompt( 'meniu principal in header cu linkuri' ) );
+		$this->assertSame( 'footer-template', WidgetIntentResolver::detect_from_prompt( 'footer cu trei coloane si social media' ) );
+	}
+
+	public function test_prompt_detection_covers_real_elementor_patterns(): void {
+		$this->assertSame( 'video', WidgetIntentResolver::detect_from_prompt( 'sectiune aftermovie cu video poster si play button' ) );
+		$this->assertSame( 'section-label', WidgetIntentResolver::detect_from_prompt( 'label 01 - Aftermovie cu border bottom sub text' ) );
+		$this->assertSame( 'sticky-header', WidgetIntentResolver::detect_from_prompt( 'header sticky desktop si mobile cu doua meniuri' ) );
+		$this->assertSame( 'mobile-nav', WidgetIntentResolver::detect_from_prompt( 'header mobile cu hamburger dropdown' ) );
+		$this->assertSame( 'social-row', WidgetIntentResolver::detect_from_prompt( 'footer cu iconuri svg facebook instagram linkedin youtube tiktok' ) );
+	}
+
+	public function test_figma_signature_detects_section_label_with_underline(): void {
+		$node = [
+			'type'     => 'FRAME',
+			'name'     => 'Label',
+			'children' => [
+				[ 'type' => 'TEXT', 'characters' => '01 - AFTERMOVIE', 'style' => [ 'fontSize' => 14 ] ],
+				[ 'type' => 'LINE', 'absoluteBoundingBox' => [ 'width' => 136, 'height' => 1, 'x' => 0, 'y' => 24 ] ],
+			],
+		];
+
+		$this->assertSame( 'section-label', WidgetIntentResolver::detect_from_figma_signature( $node ) );
+	}
+
+	public function test_figma_signature_detects_video_poster(): void {
+		$node = [
+			'type'     => 'FRAME',
+			'name'     => 'Aftermovie video',
+			'children' => [
+				[ 'type' => 'RECTANGLE', 'fills' => [ [ 'type' => 'IMAGE', 'imageRef' => 'poster' ] ] ],
+				[ 'type' => 'VECTOR', 'name' => 'play' ],
+			],
+		];
+
+		$this->assertSame( 'video', WidgetIntentResolver::detect_from_figma_signature( $node ) );
 	}
 }

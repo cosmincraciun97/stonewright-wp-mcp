@@ -308,14 +308,52 @@ final class FigmaToSpec {
 		}
 
 		$resolved = WidgetIntentResolver::resolve( $intent );
-		if ( [] === $resolved || empty( $resolved['widget'] ) ) {
+		if ( [] === $resolved ) {
 			return null;
 		}
 
 		$template       = is_array( $resolved['settings_template'] ?? null ) ? (array) $resolved['settings_template'] : [];
 		$required_steps = is_array( $resolved['required_steps'] ?? null ) ? array_values( (array) $resolved['required_steps'] ) : [];
 
+		if ( 'section-label' === $intent ) {
+			$label = self::first_text_descendant( $node ) ?? self::node_name( $node, '' );
+			return [
+				'type'   => 'container',
+				'intent' => $intent,
+				'layout' => 'stack',
+				'blocks' => [
+					[
+						'type'  => 'paragraph',
+						'text'  => $label,
+						'style' => [
+							'font_weight'    => '600',
+							'letter_spacing' => '2px',
+							'text_transform' => 'uppercase',
+						],
+					],
+					[
+						'type'   => 'divider',
+						'weight' => 1,
+					],
+				],
+			];
+		}
+
+		if ( empty( $resolved['widget'] ) ) {
+			return null;
+		}
+
 		switch ( (string) $resolved['widget'] ) {
+			case 'video':
+				$poster = self::first_image_from_node( $node );
+				return [
+					'type'           => 'video',
+					'intent'         => $intent,
+					'url'            => (string) ( $template['url'] ?? '' ),
+					'poster'         => $poster,
+					'required_steps' => $required_steps,
+				];
+
 			case 'nav-menu':
 				$items = [];
 				foreach ( self::direct_text_children( $node ) as $text ) {
@@ -373,6 +411,39 @@ final class FigmaToSpec {
 					'items'          => $items,
 					'required_steps' => $required_steps,
 				];
+
+			case 'image-gallery':
+				$images = self::gallery_images_from_node( $node );
+				if ( [] === $images ) {
+					return null;
+				}
+				return [
+					'type'           => 'image-gallery',
+					'intent'         => $intent,
+					'images'         => $images,
+					'columns'        => min( 4, max( 1, count( $images ) ) ),
+					'image_size'     => (string) ( $template['image_size'] ?? 'full' ),
+					'link_to'        => (string) ( $template['link_to'] ?? 'none' ),
+					'orderby'        => (string) ( $template['orderby'] ?? 'default' ),
+					'required_steps' => $required_steps,
+				];
+
+			case 'form':
+				$fields = self::form_fields_from_node( $node );
+				if ( [] === $fields && isset( $template['fields'] ) && is_array( $template['fields'] ) ) {
+					$fields = (array) $template['fields'];
+				}
+				if ( [] === $fields ) {
+					return null;
+				}
+				return [
+					'type'           => 'form',
+					'intent'         => $intent,
+					'form_name'      => (string) ( $template['form_name'] ?? 'Form' ),
+					'button_text'    => self::form_button_text_from_node( $node ) ?? (string) ( $template['button_text'] ?? 'Trimite' ),
+					'fields'         => $fields,
+					'required_steps' => $required_steps,
+				];
 		}
 
 		return null;
@@ -412,6 +483,15 @@ final class FigmaToSpec {
 			}
 		}
 		return $out;
+	}
+
+	private static function first_text_descendant( array $node ): ?string {
+		foreach ( self::text_descendants( $node ) as $text ) {
+			if ( '' !== trim( $text ) ) {
+				return trim( $text );
+			}
+		}
+		return null;
 	}
 
 	/**
@@ -476,7 +556,10 @@ final class FigmaToSpec {
 	private static function icon_list_items_from_node( array $node ): array {
 		$items = [];
 		foreach ( self::children( $node ) as $row ) {
-			$texts = self::text_descendants( $row );
+			$texts = 'TEXT' === ( $row['type'] ?? '' )
+				? [ trim( (string) ( $row['characters'] ?? '' ) ) ]
+				: self::text_descendants( $row );
+			$texts = array_values( array_filter( $texts, static fn ( string $text ): bool => '' !== $text ) );
 			if ( [] === $texts ) {
 				continue;
 			}
@@ -490,6 +573,102 @@ final class FigmaToSpec {
 			];
 		}
 		return $items;
+	}
+
+	/**
+	 * @return array<int, array<string, mixed>>
+	 */
+	private static function gallery_images_from_node( array $node ): array {
+		$images = [];
+		self::collect_gallery_images( $node, $images );
+		return $images;
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private static function first_image_from_node( array $node ): array {
+		if ( self::has_image_fill( $node ) ) {
+			return [
+				'url' => self::extract_image_ref( $node ),
+				'alt' => self::node_name( $node, '' ),
+			];
+		}
+
+		foreach ( self::children( $node ) as $child ) {
+			$image = self::first_image_from_node( $child );
+			if ( ! empty( $image['url'] ) ) {
+				return $image;
+			}
+		}
+
+		return [];
+	}
+
+	/**
+	 * @param array<string, mixed> $node
+	 * @param array<int, array<string, mixed>> $images
+	 */
+	private static function collect_gallery_images( array $node, array &$images ): void {
+		if ( self::has_image_fill( $node ) ) {
+			$image = [
+				'url' => self::extract_image_ref( $node ),
+				'alt' => self::node_name( $node, '' ),
+			];
+			if ( isset( $node['absoluteBoundingBox']['width'] ) ) {
+				$image['width'] = self::px( (float) $node['absoluteBoundingBox']['width'] );
+			}
+			if ( isset( $node['absoluteBoundingBox']['height'] ) ) {
+				$image['height'] = self::px( (float) $node['absoluteBoundingBox']['height'] );
+			}
+			$images[] = $image;
+			return;
+		}
+		foreach ( self::children( $node ) as $child ) {
+			self::collect_gallery_images( $child, $images );
+		}
+	}
+
+	/**
+	 * @return array<int, array<string, mixed>>
+	 */
+	private static function form_fields_from_node( array $node ): array {
+		$fields = [];
+		foreach ( self::text_descendants( $node ) as $text ) {
+			$label = trim( str_replace( '*', '', $text ) );
+			if ( '' === $label || self::looks_like_submit_text( $label ) ) {
+				continue;
+			}
+			$lower = strtolower( $label );
+			$type  = match ( true ) {
+				str_contains( $lower, 'email' ), str_contains( $lower, 'e-mail' ) => 'email',
+				str_contains( $lower, 'interes' ), str_contains( $lower, 'categorie' ), str_contains( $lower, 'domeniu' ) => 'select',
+				default => 'text',
+			};
+			$fields[] = [
+				'type'     => $type,
+				'label'    => $label,
+				'required' => str_contains( $text, '*' ),
+			];
+		}
+		return $fields;
+	}
+
+	private static function form_button_text_from_node( array $node ): ?string {
+		foreach ( self::text_descendants( $node ) as $text ) {
+			if ( self::looks_like_submit_text( $text ) ) {
+				return trim( $text );
+			}
+		}
+		return null;
+	}
+
+	private static function looks_like_submit_text( string $text ): bool {
+		$lower = strtolower( $text );
+		return str_contains( $lower, 'aboneaz' )
+			|| str_contains( $lower, 'subscribe' )
+			|| str_contains( $lower, 'trimite' )
+			|| str_contains( $lower, 'submit' );
 	}
 
 	private static function text_to_block( array $node, ?array $mobile_variant ): array {
@@ -559,11 +738,16 @@ final class FigmaToSpec {
 	private static function frame_to_column( array $node, int $depth ): array {
 		$children = self::children( $node );
 		$blocks   = self::children_to_blocks( $children, $depth + 1 );
+		$grid_columns = self::infer_grid_columns_from_bounds( $node );
 
 		$block = [
-			'type'   => 'column',
+			'type'   => null !== $grid_columns ? 'container' : 'column',
 			'blocks' => $blocks,
 		];
+		if ( null !== $grid_columns ) {
+			$block['layout']  = 'grid';
+			$block['columns'] = $grid_columns;
+		}
 
 		$style = [];
 		$padding = self::extract_padding( $node );
@@ -587,6 +771,52 @@ final class FigmaToSpec {
 			$block['style'] = $style;
 		}
 		return $block;
+	}
+
+	private static function infer_grid_columns_from_bounds( array $node ): ?int {
+		$name = strtolower( self::node_name( $node, '' ) );
+		if ( ! str_contains( $name, 'grid' ) && ! str_contains( $name, 'speaker' ) && ! str_contains( $name, 'card' ) && ! str_contains( $name, 'team' ) ) {
+			return null;
+		}
+
+		$children = array_values(
+			array_filter(
+				self::children( $node ),
+				static fn( array $child ): bool => isset( $child['absoluteBoundingBox']['x'], $child['absoluteBoundingBox']['y'], $child['absoluteBoundingBox']['width'], $child['absoluteBoundingBox']['height'] )
+			)
+		);
+		if ( count( $children ) < 4 ) {
+			return null;
+		}
+
+		usort(
+			$children,
+			static fn( array $a, array $b ): int => ( (float) $a['absoluteBoundingBox']['y'] <=> (float) $b['absoluteBoundingBox']['y'] )
+				?: ( (float) $a['absoluteBoundingBox']['x'] <=> (float) $b['absoluteBoundingBox']['x'] )
+		);
+
+		$first_y = (float) $children[0]['absoluteBoundingBox']['y'];
+		$first_row = array_values(
+			array_filter(
+				$children,
+				static fn( array $child ): bool => abs( (float) $child['absoluteBoundingBox']['y'] - $first_y ) <= 4
+			)
+		);
+		$columns = count( $first_row );
+		if ( $columns < 2 ) {
+			return null;
+		}
+
+		$widths = array_map( static fn( array $child ): float => (float) $child['absoluteBoundingBox']['width'], $children );
+		$heights = array_map( static fn( array $child ): float => (float) $child['absoluteBoundingBox']['height'], $children );
+		if ( max( $widths ) - min( $widths ) > max( 8, max( $widths ) * 0.08 ) ) {
+			return null;
+		}
+		if ( max( $heights ) - min( $heights ) > max( 8, max( $heights ) * 0.08 ) ) {
+			return null;
+		}
+
+		return min( 6, $columns );
 	}
 
 	private static function frame_to_button( array $node, ?array $mobile_variant ): array {

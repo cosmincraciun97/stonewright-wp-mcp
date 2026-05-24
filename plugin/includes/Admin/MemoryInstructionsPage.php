@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\Knowledge\KnowledgeBundle;
 use Stonewright\WpMcp\Memory\Memory;
 
 /**
@@ -24,6 +25,8 @@ final class MemoryInstructionsPage {
 		add_action( 'admin_post_stonewright_memory_create', [ self::class, 'handle_create' ] );
 		add_action( 'admin_post_stonewright_memory_update', [ self::class, 'handle_update' ] );
 		add_action( 'admin_post_stonewright_memory_delete', [ self::class, 'handle_delete' ] );
+		add_action( 'admin_post_stonewright_knowledge_export', [ self::class, 'handle_export' ] );
+		add_action( 'admin_post_stonewright_knowledge_import', [ self::class, 'handle_import' ] );
 	}
 
 	public static function add_submenu(): void {
@@ -145,6 +148,33 @@ final class MemoryInstructionsPage {
 					<p class="description">Up to 4000 characters.</p>
 					<?php submit_button( 'Save instructions' ); ?>
 				</form>
+			</div>
+
+			<div class="stonewright-card">
+				<h2>Import / Export</h2>
+				<p class="description">Export or import custom instructions, memory entries, and skills as a portable Stonewright JSON bundle.</p>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-block;margin-right:12px;">
+					<input type="hidden" name="action" value="stonewright_knowledge_export">
+					<?php wp_nonce_field( 'stonewright_knowledge_bundle', '_stonewright_nonce' ); ?>
+					<button type="submit" class="button button-secondary">Export JSON</button>
+				</form>
+				<button
+					class="button button-secondary"
+					onclick="document.getElementById('stonewright-knowledge-import').style.display='block';return false;"
+				>Import JSON</button>
+				<div id="stonewright-knowledge-import" style="display:none; margin: 16px 0 0; padding: 12px; background: #f6f7f7;">
+					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+						<input type="hidden" name="action" value="stonewright_knowledge_import">
+						<?php wp_nonce_field( 'stonewright_knowledge_bundle', '_stonewright_nonce' ); ?>
+						<p>
+							<label>
+								Bundle JSON<br>
+								<textarea name="bundle_json" rows="10" class="large-text code" required></textarea>
+							</label>
+						</p>
+						<?php submit_button( 'Import JSON' ); ?>
+					</form>
+				</div>
 			</div>
 
 			<!-- Section 2: Memory entries -->
@@ -270,6 +300,11 @@ final class MemoryInstructionsPage {
 							<td><code><?php echo esc_html( $e['memory_key'] ); ?></code></td>
 							<td><?php echo esc_html( $e['updated_at'] ); ?></td>
 							<td>
+								<button
+									type="button"
+									class="button button-secondary"
+									onclick="var panel=document.getElementById('stonewright-memory-edit-<?php echo (int) $e['id']; ?>');panel.style.display=panel.style.display==='none'?'table-row':'none';return false;"
+								>Edit</button>
 								<form
 									method="post"
 									action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
@@ -280,6 +315,44 @@ final class MemoryInstructionsPage {
 									<input type="hidden" name="id" value="<?php echo (int) $e['id']; ?>">
 									<?php wp_nonce_field( 'stonewright_memory', '_stonewright_nonce' ); ?>
 									<button class="button button-link-delete">Delete</button>
+								</form>
+							</td>
+						</tr>
+						<tr id="stonewright-memory-edit-<?php echo (int) $e['id']; ?>" style="display:none;">
+							<td colspan="6">
+								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+									<input type="hidden" name="action" value="stonewright_memory_update">
+									<input type="hidden" name="id" value="<?php echo (int) $e['id']; ?>">
+									<?php wp_nonce_field( 'stonewright_memory', '_stonewright_nonce' ); ?>
+									<div class="stonewright-memory-edit-grid">
+										<label>
+											Name
+											<input type="text" name="name" value="<?php echo esc_attr( (string) $e['name'] ); ?>" class="regular-text">
+										</label>
+										<label>
+											Scope
+											<input type="text" name="scope" value="<?php echo esc_attr( (string) $e['scope'] ); ?>" class="regular-text">
+										</label>
+										<label>
+											Key
+											<input type="text" name="memory_key" value="<?php echo esc_attr( (string) $e['memory_key'] ); ?>" class="regular-text">
+										</label>
+										<label>
+											Type
+											<select name="type">
+												<?php foreach ( $valid as $type ) : ?>
+													<option value="<?php echo esc_attr( $type ); ?>" <?php selected( $e['type'], $type ); ?>><?php echo esc_html( ucfirst( $type ) ); ?></option>
+												<?php endforeach; ?>
+											</select>
+										</label>
+									</div>
+									<p>
+										<label>
+											Value (JSON or text)<br>
+											<textarea name="value" rows="8" class="large-text code"><?php echo esc_textarea( self::value_to_text( $e['value'] ?? null ) ); ?></textarea>
+										</label>
+									</p>
+									<?php submit_button( 'Save memory entry' ); ?>
 								</form>
 							</td>
 						</tr>
@@ -301,9 +374,20 @@ final class MemoryInstructionsPage {
 				.stonewright-type-project { background: #e0e7ff; color: #4338ca; }
 				.stonewright-type-reference { background: #ecfdf5; color: #047857; }
 				.stonewright-type-generic { background: #f3f4f6; color: #374151; }
+				.stonewright-memory-edit-grid { display: grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap: 12px; margin: 8px 0; }
+				.stonewright-memory-edit-grid label { display: grid; gap: 4px; font-weight: 600; }
 			</style>
 		</div>
 		<?php
+	}
+
+	private static function value_to_text( mixed $value ): string {
+		if ( is_string( $value ) ) {
+			return $value;
+		}
+
+		$encoded = wp_json_encode( $value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+		return false === $encoded ? '' : $encoded;
 	}
 
 	// ------------------------------------------------------------------
@@ -396,6 +480,52 @@ final class MemoryInstructionsPage {
 		wp_safe_redirect(
 			add_query_arg(
 				[ 'page' => self::SLUG, 'deleted' => '1' ],
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
+	}
+
+	public static function handle_export(): void {
+		if ( ! current_user_can( self::CAP ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'stonewright' ) );
+		}
+
+		check_admin_referer( 'stonewright_knowledge_bundle', '_stonewright_nonce' );
+
+		$json = wp_json_encode( KnowledgeBundle::export(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+		if ( false === $json ) {
+			wp_die( esc_html__( 'Failed to encode knowledge bundle.', 'stonewright' ) );
+		}
+
+		header( 'Content-Type: application/json; charset=utf-8' );
+		header( 'Content-Disposition: attachment; filename="stonewright-knowledge-bundle.json"' );
+		echo $json; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		exit;
+	}
+
+	public static function handle_import(): void {
+		if ( ! current_user_can( self::CAP ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'stonewright' ) );
+		}
+
+		check_admin_referer( 'stonewright_knowledge_bundle', '_stonewright_nonce' );
+
+		$raw = wp_unslash( (string) ( $_POST['bundle_json'] ?? '' ) );
+		try {
+			$bundle = json_decode( $raw, true, 512, JSON_THROW_ON_ERROR );
+			if ( ! is_array( $bundle ) ) {
+				throw new \JsonException( 'Bundle must decode to an object.' );
+			}
+			KnowledgeBundle::import( $bundle );
+			$args = [ 'page' => self::SLUG, 'imported' => '1' ];
+		} catch ( \Throwable ) {
+			$args = [ 'page' => self::SLUG, 'import_error' => '1' ];
+		}
+
+		wp_safe_redirect(
+			add_query_arg(
+				$args,
 				admin_url( 'admin.php' )
 			)
 		);

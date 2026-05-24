@@ -19,6 +19,7 @@ use Stonewright\WpMcp\Elementor\Renderer\Heading;
 use Stonewright\WpMcp\Elementor\Renderer\Icon;
 use Stonewright\WpMcp\Elementor\Renderer\IconBox;
 use Stonewright\WpMcp\Elementor\Renderer\Image;
+use Stonewright\WpMcp\Elementor\Renderer\ImageGallery;
 use Stonewright\WpMcp\Elementor\Renderer\ImageBox;
 use Stonewright\WpMcp\Elementor\Renderer\ProgressBar;
 use Stonewright\WpMcp\Elementor\Renderer\Section;
@@ -112,6 +113,10 @@ final class Renderer {
 			// ------- media -------
 			case 'image':
 				return Image::render( $block, $resolver, $path );
+
+			case 'image-gallery':
+			case 'gallery':
+				return ImageGallery::render( $block, $resolver, $path );
 
 			case 'video':
 				return Video::render( $block, $resolver, $path );

@@ -37,6 +37,24 @@ use Stonewright\WpMcp\Elementor\Renderer\StyleMapper;
 class NavMenu {
 
 	/**
+	 * @return array<string, string|array<string, mixed>>
+	 */
+	private static function style_map(): array {
+		return [
+			'color'              => [ 'key' => 'color_menu_item', 'is_color' => true ],
+			'hover_color'        => [ 'key' => 'color_menu_item_hover', 'is_color' => true ],
+			'active_color'       => [ 'key' => 'color_menu_item_active', 'is_color' => true ],
+			'font_family'        => 'typography_font_family',
+			'font_size'          => [ 'key' => 'typography_font_size', 'is_size' => true ],
+			'font_weight'        => 'typography_font_weight',
+			'line_height'        => [ 'key' => 'typography_line_height', 'is_size' => true ],
+			'letter_spacing'     => [ 'key' => 'typography_letter_spacing', 'is_size' => true ],
+			'text_transform'     => 'typography_text_transform',
+			'pointer_color'      => [ 'key' => 'pointer_color_menu_item_hover', 'is_color' => true ],
+		];
+	}
+
+	/**
 	 * @param array<string, mixed>             $node
 	 * @param Resolver                         $resolver
 	 * @param string                           $canonical_path
@@ -55,6 +73,9 @@ class NavMenu {
 		}
 
 		$layout = (string) ( $node['layout'] ?? 'horizontal' );
+		if ( 'dropdown' === $layout && 'hamburger' === (string) ( $node['toggle'] ?? '' ) ) {
+			$layout = 'horizontal';
+		}
 		$settings['layout'] = in_array( $layout, [ 'horizontal', 'vertical', 'dropdown' ], true )
 			? $layout
 			: 'horizontal';
@@ -78,6 +99,33 @@ class NavMenu {
 
 		if ( isset( $node['submenu_icon'] ) && is_array( $node['submenu_icon'] ) ) {
 			$settings['submenu_icon'] = $node['submenu_icon'];
+		}
+
+		if ( isset( $node['dropdown'] ) ) {
+			$dropdown = (string) $node['dropdown'];
+			$settings['dropdown'] = in_array( $dropdown, [ 'mobile', 'tablet', 'none' ], true ) ? $dropdown : 'mobile';
+		}
+
+		if ( isset( $node['toggle'] ) ) {
+			$toggle = (string) $node['toggle'];
+			if ( 'hamburger' === $toggle ) {
+				$toggle = 'burger';
+			}
+			$settings['toggle'] = in_array( $toggle, [ 'burger', '' ], true ) ? $toggle : 'burger';
+		}
+
+		if ( isset( $node['toggle_align'] ) ) {
+			$align = (string) $node['toggle_align'];
+			$settings['toggle_align'] = in_array( $align, [ 'start', 'center', 'end' ], true ) ? $align : 'end';
+		}
+
+		if ( isset( $node['toggle_color'] ) ) {
+			$settings['toggle_color'] = (string) $resolver->resolve( (string) $node['toggle_color'] );
+		}
+
+		$style = StyleMapper::node_style( $node, $resolver );
+		if ( [] !== $style ) {
+			$settings = StyleMapper::apply( $settings, $style, self::style_map() );
 		}
 
 		return [

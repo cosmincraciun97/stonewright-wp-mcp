@@ -267,6 +267,23 @@ describe('promptToSpec — request shape', () => {
 		const text = textBlock?.['text'] as string;
 		expect(text.toLowerCase()).toContain('desktop');
 	});
+
+	it('instructs the model to use native Elementor-intent block types instead of HTML fallbacks', async () => {
+		await promptToSpec({
+			prompt: 'Convert a landing page with header, gallery, newsletter and footer',
+			imageUrl: 'https://example.com/page.png',
+		});
+
+		const call = lastCreateParams();
+		const system = call['system'] as Array<Record<string, unknown>>;
+		const systemText = system.map((block) => String(block['text'] ?? '')).join('\n');
+
+		expect(systemText).toContain('nav-menu');
+		expect(systemText).toContain('image-gallery');
+		expect(systemText).toContain('form');
+		expect(systemText).toContain('social-icons');
+		expect(systemText).toContain('Do NOT use HTML');
+	});
 });
 
 describe('promptToSpec — prompt caching', () => {

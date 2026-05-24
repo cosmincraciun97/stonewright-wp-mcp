@@ -76,6 +76,7 @@ final class ListTemplates extends AbilityKernel {
 			function ( array $args ) {
 				$query_args = [
 					'post_type'      => 'elementor_library',
+					// phpcs:ignore WordPress.WP.PostsPerPage.posts_per_page_posts_per_page -- Theme templates are bounded admin metadata, not public pagination.
 					'posts_per_page' => 200,
 					'post_status'    => 'any',
 					'fields'         => 'ids',

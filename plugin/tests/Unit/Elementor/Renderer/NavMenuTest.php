@@ -132,6 +132,33 @@ final class NavMenuTest extends TestCase {
 
 		$this->assertSame( 'horizontal', $out['settings']['layout'] );
 	}
+
+	public function test_pro_path_maps_mobile_hamburger_dropdown_settings(): void {
+		$node = [
+			'type'          => 'nav-menu',
+			'menu'          => 'mobile',
+			'layout'        => 'dropdown',
+			'dropdown'      => 'mobile',
+			'toggle'        => 'hamburger',
+			'toggle_align'  => 'end',
+			'toggle_color'  => '#ffffff',
+			'style'         => [
+				'color'       => '#efefef',
+				'font_family' => 'Montserrat',
+				'font_weight' => 700,
+			],
+		];
+		$out = NavMenuProStub::render( $node, $this->resolver, 's0.b7', $this->diagnostics );
+
+		$this->assertSame( 'horizontal', $out['settings']['layout'] );
+		$this->assertSame( 'mobile', $out['settings']['dropdown'] );
+		$this->assertSame( 'burger', $out['settings']['toggle'] );
+		$this->assertSame( 'end', $out['settings']['toggle_align'] );
+		$this->assertSame( '#ffffff', $out['settings']['toggle_color'] );
+		$this->assertSame( '#efefef', $out['settings']['color_menu_item'] );
+		$this->assertSame( 'Montserrat', $out['settings']['typography_font_family'] );
+		$this->assertSame( '700', $out['settings']['typography_font_weight'] );
+	}
 }
 
 /**

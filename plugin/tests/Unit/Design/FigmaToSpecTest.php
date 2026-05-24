@@ -500,6 +500,207 @@ final class FigmaToSpecTest extends TestCase {
 		$this->assertNotInstanceOf( \WP_Error::class, Validator::validate( $spec ) );
 	}
 
+	public function test_gallery_signature_becomes_native_image_gallery_block(): void {
+		$image = static fn( string $id ): array => [
+			'id'                  => $id,
+			'type'                => 'RECTANGLE',
+			'name'                => 'Gallery image',
+			'fills'               => [ [ 'type' => 'IMAGE', 'imageRef' => $id ] ],
+			'absoluteBoundingBox' => [ 'width' => 294, 'height' => 294 ],
+		];
+		$spec  = FigmaToSpec::to_spec(
+			[
+				'id'       => '0:1',
+				'type'     => 'FRAME',
+				'name'     => 'Page',
+				'children' => [
+					[
+						'id'       => '1:1',
+						'type'     => 'FRAME',
+						'name'     => 'Galerie foto',
+						'children' => [ $image( 'img-a' ), $image( 'img-b' ), $image( 'img-c' ), $image( 'img-d' ) ],
+					],
+				],
+			]
+		);
+
+		$block = $spec['sections'][0]['blocks'][0];
+		$this->assertSame( 'image-gallery', $block['type'] );
+		$this->assertSame( 'image-gallery', $block['intent'] );
+		$this->assertSame( 4, $block['columns'] );
+		$this->assertCount( 4, $block['images'] );
+		$this->assertSame( 'figma-image:img-a', $block['images'][0]['url'] );
+		$this->assertNotInstanceOf( \WP_Error::class, Validator::validate( $spec ) );
+	}
+
+	public function test_newsletter_signature_becomes_native_form_block(): void {
+		$text = static fn( string $t ): array => [
+			'id'         => sanitize_title( $t ),
+			'type'       => 'TEXT',
+			'characters' => $t,
+			'style'      => [ 'fontSize' => 16 ],
+		];
+		$spec = FigmaToSpec::to_spec(
+			[
+				'id'       => '0:1',
+				'type'     => 'FRAME',
+				'name'     => 'Page',
+				'children' => [
+					[
+						'id'       => '1:1',
+						'type'     => 'FRAME',
+						'name'     => 'Newsletter form',
+						'children' => [ $text( 'Nume *' ), $text( 'Prenume *' ), $text( 'Email *' ), $text( 'Interes *' ), $text( 'Aboneaza-te la newsletter' ) ],
+					],
+				],
+			]
+		);
+
+		$block = $spec['sections'][0]['blocks'][0];
+		$this->assertSame( 'form', $block['type'] );
+		$this->assertSame( 'newsletter-form', $block['intent'] );
+		$this->assertSame( 'Newsletter', $block['form_name'] );
+		$this->assertSame( 'Aboneaza-te la newsletter', $block['button_text'] );
+		$this->assertSame( 'email', $block['fields'][2]['type'] );
+		$this->assertSame( 'select', $block['fields'][3]['type'] );
+		$this->assertNotInstanceOf( \WP_Error::class, Validator::validate( $spec ) );
+	}
+
+	public function test_video_poster_intent_maps_to_native_video_block(): void {
+		$spec = FigmaToSpec::to_spec(
+			[
+				'id'       => '0:1',
+				'name'     => 'Page',
+				'type'     => 'FRAME',
+				'children' => [
+					[
+						'id'       => 'video',
+						'name'     => 'Aftermovie video',
+						'type'     => 'FRAME',
+						'children' => [
+							[ 'id' => 'poster', 'name' => 'Poster', 'type' => 'RECTANGLE', 'fills' => [ [ 'type' => 'IMAGE', 'imageRef' => 'poster-ref' ] ] ],
+							[ 'id' => 'play', 'name' => 'play', 'type' => 'VECTOR' ],
+						],
+					],
+				],
+			]
+		);
+
+		$block = $spec['sections'][0]['blocks'][0];
+		$this->assertSame( 'video', $block['type'] );
+		$this->assertSame( 'video', $block['intent'] );
+		$this->assertSame( 'figma-image:poster-ref', $block['poster']['url'] );
+		$this->assertNotInstanceOf( \WP_Error::class, Validator::validate( $spec ) );
+	}
+
+	public function test_section_label_intent_maps_to_paragraph_and_divider_container(): void {
+		$spec = FigmaToSpec::to_spec(
+			[
+				'id'       => '0:1',
+				'name'     => 'Page',
+				'type'     => 'FRAME',
+				'children' => [
+					[
+						'id'       => 'label',
+						'name'     => 'Label',
+						'type'     => 'FRAME',
+						'children' => [
+							[ 'id' => 'text', 'type' => 'TEXT', 'characters' => '01 - AFTERMOVIE', 'style' => [ 'fontSize' => 14, 'fontWeight' => 600 ] ],
+							[ 'id' => 'line', 'type' => 'LINE', 'absoluteBoundingBox' => [ 'width' => 136, 'height' => 1 ] ],
+						],
+					],
+				],
+			]
+		);
+
+		$block = $spec['sections'][0]['blocks'][0];
+		$this->assertSame( 'container', $block['type'] );
+		$this->assertSame( 'section-label', $block['intent'] );
+		$this->assertSame( 'paragraph', $block['blocks'][0]['type'] );
+		$this->assertSame( '01 - AFTERMOVIE', $block['blocks'][0]['text'] );
+		$this->assertSame( 'divider', $block['blocks'][1]['type'] );
+		$this->assertNotInstanceOf( \WP_Error::class, Validator::validate( $spec ) );
+	}
+
+	public function test_speaker_grid_frame_maps_to_grid_container(): void {
+		$card = static fn( string $id, int $x, int $y ): array => [
+			'id'                  => $id,
+			'type'                => 'FRAME',
+			'name'                => 'Speaker card',
+			'absoluteBoundingBox' => [ 'x' => $x, 'y' => $y, 'width' => 294, 'height' => 394 ],
+			'children'            => [
+				[ 'id' => $id . '-img', 'type' => 'RECTANGLE', 'name' => 'Speaker photo', 'fills' => [ [ 'type' => 'IMAGE', 'imageRef' => $id . '-ref' ] ] ],
+				[ 'id' => $id . '-name', 'type' => 'TEXT', 'characters' => 'Adrian Stoichina', 'style' => [ 'fontSize' => 16 ] ],
+			],
+		];
+
+		$spec = FigmaToSpec::to_spec(
+			[
+				'id'       => '0:1',
+				'name'     => 'Page',
+				'type'     => 'FRAME',
+				'children' => [
+					[
+						'id'       => 'section',
+						'type'     => 'FRAME',
+						'name'     => 'Speaker section',
+						'children' => [
+							[
+								'id'       => 'speaker-grid',
+								'type'     => 'FRAME',
+								'name'     => 'Speaker grid',
+								'children' => [
+									$card( 'a', 0, 0 ),
+									$card( 'b', 318, 0 ),
+									$card( 'c', 636, 0 ),
+									$card( 'd', 954, 0 ),
+								],
+							],
+						],
+					],
+				],
+			]
+		);
+
+		$block = $spec['sections'][0]['blocks'][0];
+		$this->assertSame( 'container', $block['type'] );
+		$this->assertSame( 'grid', $block['layout'] );
+		$this->assertSame( 4, $block['columns'] );
+		$this->assertNotInstanceOf( \WP_Error::class, Validator::validate( $spec ) );
+	}
+
+	public function test_footer_link_column_signature_becomes_icon_list_block(): void {
+		$text = static fn( string $t ): array => [
+			'id'         => sanitize_title( $t ),
+			'type'       => 'TEXT',
+			'characters' => $t,
+			'style'      => [ 'fontSize' => 14 ],
+		];
+		$spec = FigmaToSpec::to_spec(
+			[
+				'id'       => '0:1',
+				'type'     => 'FRAME',
+				'name'     => 'Page',
+				'children' => [
+					[
+						'id'         => '1:1',
+						'type'       => 'FRAME',
+						'name'       => 'Footer useful links',
+						'layoutMode' => 'VERTICAL',
+						'children'   => [ $text( 'Despre nZEB Expo' ), $text( 'Misiune' ), $text( 'Media Kit & Presa' ), $text( 'Editii' ) ],
+					],
+				],
+			]
+		);
+
+		$block = $spec['sections'][0]['blocks'][0];
+		$this->assertSame( 'icon-list', $block['type'] );
+		$this->assertSame( 'footer-link-column', $block['intent'] );
+		$this->assertSame( 'inline', $block['link_click'] );
+		$this->assertSame( 'Misiune', $block['items'][1]['text'] );
+		$this->assertNotInstanceOf( \WP_Error::class, Validator::validate( $spec ) );
+	}
+
 	public function test_wide_figma_frame_defaults_to_full_width_section(): void {
 		$spec = FigmaToSpec::to_spec(
 			[

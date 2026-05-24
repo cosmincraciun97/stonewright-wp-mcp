@@ -41,14 +41,26 @@ final class Image {
 	public static function render( array $node, Resolver $resolver, string $canonical_path ): array {
 		$settings = [
 			'image' => [
-				'url' => (string) ( $node['url'] ?? '' ),
+				'url' => (string) ( $node['url'] ?? ( $node['src'] ?? '' ) ),
 				'id'  => isset( $node['id'] ) ? (int) $node['id'] : '',
 				'alt' => (string) ( $node['alt'] ?? '' ),
 			],
 		];
 
 		if ( isset( $node['width'] ) ) {
-			$settings = Responsive::apply( $settings, 'width', $node['width'] );
+			if ( is_int( $node['width'] ) || is_float( $node['width'] ) ) {
+				$settings['width'] = StyleMapper::size( $node['width'] );
+			} else {
+				$settings = Responsive::apply( $settings, 'width', $node['width'] );
+			}
+		}
+
+		if ( isset( $node['height'] ) ) {
+			if ( is_int( $node['height'] ) || is_float( $node['height'] ) ) {
+				$settings['height'] = StyleMapper::size( $node['height'] );
+			} else {
+				$settings = Responsive::apply( $settings, 'height', $node['height'] );
+			}
 		}
 
 		if ( isset( $node['align'] ) ) {
@@ -69,8 +81,8 @@ final class Image {
 			$settings['caption']        = (string) $node['caption'];
 		}
 
-		if ( isset( $node['style'] ) && is_array( $node['style'] ) ) {
-			$style    = self::resolve_style( (array) $node['style'], $resolver );
+		$style = StyleMapper::node_style( $node, $resolver );
+		if ( [] !== $style ) {
 			$settings = StyleMapper::apply( $settings, $style, self::style_map() );
 		}
 
@@ -81,18 +93,5 @@ final class Image {
 			'settings'   => $settings,
 			'elements'   => [],
 		];
-	}
-
-	/**
-	 * @param array<string, mixed> $style
-	 * @return array<string, mixed>
-	 */
-	private static function resolve_style( array $style, Resolver $resolver ): array {
-		foreach ( $style as $k => $v ) {
-			if ( is_string( $v ) ) {
-				$style[ $k ] = $resolver->resolve( $v );
-			}
-		}
-		return $style;
 	}
 }

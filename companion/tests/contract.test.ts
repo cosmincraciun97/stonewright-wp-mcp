@@ -225,6 +225,78 @@ describe('figma-ingest schema (Phase 6)', () => {
   });
 
   describe('/figma-ingest response', () => {
+    it('DesignSpec schema defines typed container blocks', () => {
+      const designSpecSchema = ajv.getSchema('https://stonewright.dev/companion/contracts/design-spec') as { schema: { definitions?: Record<string, unknown> } } | undefined;
+      const defs = designSpecSchema?.schema?.definitions ?? {};
+
+      expect(defs['ContainerBlock']).toBeDefined();
+    });
+
+    it('valid response may contain a flex container block', () => {
+      const defs = getIngestDefs();
+      const def = defs['FigmaIngestResponse'] as Record<string, unknown> | undefined;
+      if (!def) return;
+      const validate = ajv.compile({ ...def, definitions: defs });
+
+      const valid = validate({
+        spec: {
+          ...VALID_DESIGN_SPEC,
+          sections: [
+            {
+              id: 'hero',
+              blocks: [
+                {
+                  type: 'container',
+                  layout: 'flex',
+                  direction: 'row',
+                  blocks: [{ type: 'heading', text: 'Hello World', level: 1 }],
+                },
+              ],
+            },
+          ],
+        },
+        warnings: [],
+        asset_count: 0,
+      });
+
+      expect(validate.errors ?? []).toEqual([]);
+      expect(valid).toBe(true);
+    });
+
+    it('valid response may contain a native video block with poster asset', () => {
+      const defs = getIngestDefs();
+      const def = defs['FigmaIngestResponse'] as Record<string, unknown> | undefined;
+      if (!def) return;
+      const validate = ajv.compile({ ...def, definitions: defs });
+
+      const valid = validate({
+        spec: {
+          ...VALID_DESIGN_SPEC,
+          sections: [
+            {
+              id: 'aftermovie',
+              blocks: [
+                {
+                  type: 'video',
+                  url: '',
+                  poster: {
+                    url: 'https://figma-cdn.example.com/poster.png',
+                    assetRef: 'asset_poster',
+                    alt: 'Aftermovie poster',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+        warnings: [],
+        asset_count: 1,
+      });
+
+      expect(validate.errors ?? []).toEqual([]);
+      expect(valid).toBe(true);
+    });
+
     it('valid response passes', () => {
       const defs = getIngestDefs();
       const def = defs['FigmaIngestResponse'] as Record<string, unknown> | undefined;

@@ -51,7 +51,7 @@ final class SkillsSave extends AbilityKernel {
 				],
 				'content'     => [
 					'type'        => 'string',
-					'description' => 'Markdown playbook content. This is injected into the MCP server instructions when the skill is enabled.',
+					'description' => 'Markdown playbook content. Enabled skills are listed in MCP instructions; full content is loaded on demand with skills-get.',
 				],
 				'enabled'     => [
 					'type'        => 'boolean',

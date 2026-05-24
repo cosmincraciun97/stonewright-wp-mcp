@@ -51,7 +51,7 @@ final class SkillsTest extends TestCase {
 		$this->assertSame( '', $block );
 	}
 
-	public function test_instructions_block_includes_skill_title_and_content(): void {
+	public function test_instructions_block_includes_skill_index_without_full_content(): void {
 		$GLOBALS['wpdb'] = $this->make_wpdb_with_rows( [
 			[
 				'id'          => '1',
@@ -67,9 +67,11 @@ final class SkillsTest extends TestCase {
 		$block = Skills::instructions_block();
 
 		$this->assertStringContainsString( '## Site Skills', $block );
-		$this->assertStringContainsString( '### Test Skill', $block );
+		$this->assertStringContainsString( '- `test-skill` - Test Skill', $block );
 		$this->assertStringContainsString( 'Does something useful', $block );
-		$this->assertStringContainsString( '## Steps', $block );
+		$this->assertStringContainsString( 'stonewright/skills-get', $block );
+		$this->assertStringNotContainsString( '## Steps', $block );
+		$this->assertStringNotContainsString( 'Do X then Y', $block );
 	}
 
 	public function test_instructions_block_includes_multiple_skills(): void {
@@ -85,8 +87,57 @@ final class SkillsTest extends TestCase {
 		] );
 
 		$block = Skills::instructions_block();
-		$this->assertStringContainsString( '### Skill A', $block );
-		$this->assertStringContainsString( '### Skill B', $block );
+		$this->assertStringContainsString( '- `skill-a` - Skill A', $block );
+		$this->assertStringContainsString( '- `skill-b` - Skill B', $block );
+		$this->assertStringNotContainsString( 'Content A', $block );
+		$this->assertStringNotContainsString( 'Content B', $block );
+	}
+
+	public function test_memory_instructions_block_includes_compact_entries_without_raw_dump(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_with_memory_rows( [
+			[
+				'id'          => '1',
+				'type'        => 'feedback',
+				'scope'       => 'project',
+				'memory_key'  => 'elementor-no-html-widgets',
+				'name'        => 'Do not auto-render HTML widgets',
+				'value_json'  => wp_json_encode( [
+					'rule'  => 'Use native Elementor widgets first.',
+					'notes' => str_repeat( 'x', 500 ),
+				] ),
+				'confidence'  => '1.0000',
+				'created_at'  => '2026-05-24 00:00:00',
+				'updated_at'  => '2026-05-24 00:00:00',
+			],
+		] );
+
+		$block = \Stonewright\WpMcp\Memory\Memory::instructions_block();
+
+		$this->assertStringContainsString( '## Site Memory', $block );
+		$this->assertStringContainsString( 'elementor-no-html-widgets', $block );
+		$this->assertStringContainsString( 'Do not auto-render HTML widgets', $block );
+		$this->assertLessThan( 900, strlen( $block ) );
+	}
+
+	public function test_memory_instructions_block_preserves_scalar_memory_values(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_with_memory_rows( [
+			[
+				'id'          => '1',
+				'type'        => 'feedback',
+				'scope'       => 'nzeb-frontend',
+				'memory_key'  => 'custom-css-approval',
+				'name'        => 'Custom CSS requires approval',
+				'value_json'  => wp_json_encode( 'Custom CSS must be approved by the user before writing.' ),
+				'confidence'  => '1.0000',
+				'created_at'  => '2026-05-24 00:00:00',
+				'updated_at'  => '2026-05-24 00:00:00',
+			],
+		] );
+
+		$block = \Stonewright\WpMcp\Memory\Memory::instructions_block();
+
+		$this->assertStringContainsString( 'custom-css-approval', $block );
+		$this->assertStringContainsString( 'Custom CSS must be approved', $block );
 	}
 
 	// ------------------------------------------------------------------
@@ -114,6 +165,39 @@ final class SkillsTest extends TestCase {
 		$this->assertGreaterThan( 0, $id );
 	}
 
+	public function test_delete_refuses_builtin_skills(): void {
+		$GLOBALS['wpdb'] = new class() {
+			public string $prefix = 'wp_';
+			public bool $delete_called = false;
+
+			public function get_var( string $q ): string {
+				return 'wp_stonewright_skills';
+			}
+
+			public function prepare( string $q, mixed ...$args ): string {
+				return $q;
+			}
+
+			/** @return array<string, string> */
+			public function get_row( string $q, string $output = 'OBJECT' ): array {
+				return [
+					'id'     => '10',
+					'slug'   => 'builtin-skill',
+					'source' => 'builtin',
+				];
+			}
+
+			/** @param array<string, mixed> $where */
+			public function delete( string $table, array $where ): int {
+				$this->delete_called = true;
+				return 1;
+			}
+		};
+
+		$this->assertFalse( Skills::delete( 10 ) );
+		$this->assertFalse( $GLOBALS['wpdb']->delete_called );
+	}
+
 	// ------------------------------------------------------------------
 	// AgentInstructions integration — skills block injected
 	// ------------------------------------------------------------------
@@ -130,7 +214,7 @@ final class SkillsTest extends TestCase {
 		// We test the Skills::instructions_block() proxy instead.
 		$block = Skills::instructions_block();
 		$this->assertStringContainsString( '## Site Skills', $block );
-		$this->assertStringContainsString( 'MUST follow', $block );
+		$this->assertStringContainsString( 'stonewright/skills-get', $block );
 	}
 
 	// ------------------------------------------------------------------
@@ -183,6 +267,31 @@ final class SkillsTest extends TestCase {
 			/** @param array<string, mixed> $data @param array<string, mixed> $where */
 			public function update( string $table, array $data, array $where, array $format = [], array $where_format = [] ): int {
 				return 1;
+			}
+		};
+	}
+
+	/**
+	 * @param array<int, array<string, string>> $rows
+	 */
+	private function make_wpdb_with_memory_rows( array $rows ): object {
+		return new class( $rows ) {
+			/** @var array<int, array<string, string>> */
+			private array $rows;
+			public string $prefix = 'wp_';
+
+			/** @param array<int, array<string, string>> $rows */
+			public function __construct( array $rows ) {
+				$this->rows = $rows;
+			}
+
+			public function prepare( string $q, mixed ...$args ): string {
+				return $q;
+			}
+
+			/** @return array<int, array<string, string>> */
+			public function get_results( string $q, string $output = 'OBJECT' ): array {
+				return $this->rows;
 			}
 		};
 	}

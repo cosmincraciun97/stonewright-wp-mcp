@@ -53,4 +53,32 @@ final class OneTimeLink {
 		delete_transient( $key );
 		return (int) $data['user_id'];
 	}
+
+	public static function authenticate( string $token ): int|false {
+		$user_id = self::consume( $token );
+		if ( false === $user_id ) {
+			return false;
+		}
+
+		wp_set_current_user( $user_id );
+		wp_set_auth_cookie( $user_id, true, is_ssl() );
+		return $user_id;
+	}
+
+	public static function maybe_handle_request(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$token = isset( $_GET['stonewright_otl'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['stonewright_otl'] ) ) : '';
+		if ( '' === $token ) {
+			return;
+		}
+
+		$user_id = self::authenticate( $token );
+		if ( false === $user_id ) {
+			return;
+		}
+
+		$redirect = remove_query_arg( 'stonewright_otl' );
+		wp_safe_redirect( $redirect );
+		exit;
+	}
 }

@@ -97,6 +97,8 @@ use Stonewright\WpMcp\Abilities\Sandbox\SandboxRead;
 use Stonewright\WpMcp\Abilities\Sandbox\SandboxToggle;
 use Stonewright\WpMcp\Abilities\Sandbox\SandboxWrite;
 use Stonewright\WpMcp\Abilities\System\AbilitiesList;
+use Stonewright\WpMcp\Abilities\System\KnowledgeExport;
+use Stonewright\WpMcp\Abilities\System\KnowledgeImport;
 use Stonewright\WpMcp\Abilities\Skills\SkillsList;
 use Stonewright\WpMcp\Abilities\Skills\SkillsGet;
 use Stonewright\WpMcp\Abilities\Skills\SkillsSave;
@@ -107,7 +109,6 @@ use Stonewright\WpMcp\Abilities\ThemeBuilder\ListTemplates as ThemeBuilderListTe
 use Stonewright\WpMcp\Abilities\ThemeBuilder\SetConditions as ThemeBuilderSetConditions;
 use Stonewright\WpMcp\Abilities\System\InstructionsGet;
 use Stonewright\WpMcp\Abilities\System\InstructionsSet;
-use Stonewright\WpMcp\Abilities\System\RunWpCli;
 use Stonewright\WpMcp\Abilities\Media\GetMedia;
 use Stonewright\WpMcp\Abilities\Media\OptimizeMedia;
 use Stonewright\WpMcp\Abilities\Media\SetAlt;
@@ -292,10 +293,11 @@ final class AbilityRegistry {
 			// System (Wave 3b).
 			InstructionsGet::class,
 			InstructionsSet::class,
+			KnowledgeExport::class,
+			KnowledgeImport::class,
 			AbilitiesList::class,
-			RunWpCli::class,
 
-			// Skills (Novamira-inspired enhancement).
+			// Skills.
 			SkillsList::class,
 			SkillsGet::class,
 			SkillsSave::class,

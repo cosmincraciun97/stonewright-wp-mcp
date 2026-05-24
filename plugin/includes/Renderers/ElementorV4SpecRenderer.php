@@ -116,8 +116,8 @@ final class ElementorV4SpecRenderer {
 	 * @return array<string, mixed>
 	 */
 	private static function block_to_node( array $block ): array {
-		$type     = (string) ( $block['type'] ?? '' );
-		$nodeType = self::BLOCK_TYPE_TO_NODE_TYPE[ $type ] ?? $type;
+		$type      = (string) ( $block['type'] ?? '' );
+		$node_type = self::BLOCK_TYPE_TO_NODE_TYPE[ $type ] ?? $type;
 
 		$props = [];
 		switch ( $type ) {
@@ -173,7 +173,7 @@ final class ElementorV4SpecRenderer {
 		}
 
 		return [
-			'type'     => $nodeType,
+			'type'     => $node_type,
 			'props'    => $props,
 			'children' => $children,
 		];
