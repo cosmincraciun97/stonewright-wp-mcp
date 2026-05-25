@@ -12,7 +12,8 @@ Stonewright has two parts:
 - PHP 8.1+
 - Composer 2
 - Node.js 20+
-- WP-CLI for fast local WordPress work
+- WP-CLI for fast local WordPress work. The companion can use `wp` from `PATH`
+  or auto-detect LocalWP's `wp-cli.phar` plus PHP on Windows/macOS.
 - A WordPress Application Password
 
 ## WordPress Plugin
@@ -82,6 +83,37 @@ If you do not enable the HTTP bridge, agents should use the direct companion
 MCP tools `companion_wp_cli_status`, `companion_wp_cli_discover`, and
 `companion_wp_cli_run` instead of the WordPress-side `stonewright/wp-cli-*`
 abilities.
+
+When Stonewright is installed through the Node companion MCP, the companion also
+registers direct aliases named `stonewright-wp-cli-status`,
+`stonewright-wp-cli-discover`, and `stonewright-wp-cli-run`. Those aliases run
+WP-CLI inside the companion and do not require the WordPress-side HTTP bridge on
+port `8765`.
+
+### WP-CLI Discovery
+
+Discovery order:
+
+1. `STONEWRIGHT_WP_CLI_PHP_BIN` + `STONEWRIGHT_WP_CLI_PHAR_PATH`.
+2. `STONEWRIGHT_WP_CLI_BIN`.
+3. LocalWP-style `wp-cli.phar` near the WordPress root or common LocalWP install
+   locations, paired with LocalWP PHP from `lightning-services`.
+4. Fallback to `wp` from `PATH`.
+
+Optional env vars:
+
+| Variable | Purpose |
+|---|---|
+| `STONEWRIGHT_WP_ROOT` | WordPress root used for `cwd`, `--path`, and LocalWP discovery. |
+| `STONEWRIGHT_WP_ALLOWED_ROOTS` | Comma/semicolon list of roots allowed for `cwd` and `--path`. |
+| `STONEWRIGHT_WP_CLI_BIN` | Explicit `wp` executable when it is not on `PATH`. |
+| `STONEWRIGHT_WP_CLI_PHP_BIN` | Explicit PHP executable for `wp-cli.phar`. |
+| `STONEWRIGHT_WP_CLI_PHAR_PATH` | Explicit `wp-cli.phar` path. |
+| `STONEWRIGHT_WP_CLI_PHP_INI` | Optional PHP ini path for LocalWP/site PHP extensions. |
+
+If `STONEWRIGHT_WP_ROOT` is omitted, callers can pass an absolute `path` in
+`stonewright-wp-cli-*` input; the companion uses that path as the working
+directory and allowed root for that command.
 
 ## Browser MCP
 

@@ -66,6 +66,7 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertContains( 'When a task needs browser testing, screenshots, or visual inspection, ensure the external Playwright MCP is installed and connected before implementation.', $result['required_followups'] );
 		self::assertContains( 'If the external Playwright MCP is unavailable during a visual implementation task, stop before writing and tell the user the exact MCP setup command.', $result['required_followups'] );
 		self::assertContains( 'For design-derived backgrounds, create an asset selection plan and never use a full-page screenshot as a section background.', $result['required_followups'] );
+		self::assertContains( 'If SVG uploads are blocked, do not create sandbox or mu-plugin workarounds without explicit user approval.', $result['required_followups'] );
 
 		$verified = ContextToken::verify( (string) $result['context_token'], 'stonewright/elementor-add-heading' );
 		self::assertTrue( $verified );

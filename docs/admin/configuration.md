@@ -48,6 +48,16 @@ optional MCP proxy. It writes to WordPress only through guarded WP-CLI commands.
 | Bridge URL | `stonewright_companion_url` | `http://127.0.0.1:8765` |
 | Bearer token | `stonewright_companion_token` | _(empty)_ |
 
+The bridge URL is only required for WordPress-side abilities such as
+`stonewright/wp-cli-run` when the client talks directly to the WordPress MCP
+endpoint. When the client talks through the Node companion MCP, WP-CLI is also
+available as direct tools named `stonewright-wp-cli-status`,
+`stonewright-wp-cli-discover`, and `stonewright-wp-cli-run`; these do not need
+port `8765`.
+
+WP-CLI discovery uses explicit env vars first, then LocalWP-style `wp-cli.phar`
+and PHP paths, then `wp` from `PATH`.
+
 ### Elementor V4 atomic (experimental)
 
 Checking `stonewright_elementor_v4_atomic` enables the experimental V4

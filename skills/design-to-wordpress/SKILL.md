@@ -18,7 +18,8 @@ a separate design MCP when a design file must be inspected.
 3. If the task touches Elementor, call `stonewright-widget-intent-resolve` and
    `stonewright-elementor-widget-implementation-guide` before writing.
 4. Use `stonewright-wp-cli-status` and `stonewright-wp-cli-discover` when WP-CLI
-   can speed up debugging or site inspection.
+   can speed up debugging or site inspection. In the Node companion MCP, these
+   tools run directly and do not require the WordPress-side HTTP bridge.
 
 ## Pipeline
 
@@ -52,6 +53,9 @@ design reference / image / brief
 - For section backgrounds, never use a full-page screenshot. Export the exact
   layer/section asset or recreate simple colors and gradients with Elementor
   controls; write an asset selection plan before uploading the media.
+- If SVG upload is blocked, do not create sandbox or mu-plugin workarounds
+  without explicit user approval. Use native Elementor icon controls when an
+  equivalent icon is acceptable, or ask for a safe SVG enablement path.
 - Custom CSS requires explicit user approval and goes in the active theme
   `style.css`, not in an HTML widget.
 
@@ -68,3 +72,8 @@ Use `stonewright-wp-cli-run` for tokenized commands such as `post`, `option`,
 `plugin`, `theme`, `rewrite`, `cache`, `media`, `menu`, `term`, and installed
 plugin commands. Never use `wp eval`, `wp eval-file`, `wp shell`, `wp package`,
 `--exec`, or `--require`.
+
+If the companion MCP is installed, `stonewright-wp-cli-*` tools are direct
+companion aliases. If a WordPress-proxied status call reports the companion
+bridge offline on port `8765`, try the direct MCP tool before assuming WP-CLI is
+missing.

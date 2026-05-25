@@ -27,6 +27,7 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'stonewright/wp-cli-status', $instructions );
 		$this->assertStringContainsString( 'stonewright/wp-cli-discover', $instructions );
 		$this->assertStringContainsString( 'stonewright/wp-cli-run', $instructions );
+		$this->assertStringContainsString( 'do not require the WordPress-side HTTP bridge', $instructions );
 		$this->assertStringContainsString( 'Elementor, Gutenberg, ACF, CPT UI', $instructions );
 		$this->assertStringContainsString( 'wp eval', $instructions );
 		$this->assertStringContainsString( 'real Elementor widgets', $instructions );
@@ -46,6 +47,8 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'glow', $instructions );
 		$this->assertStringContainsString( 'native form widgets', $instructions );
 		$this->assertStringContainsString( 'native gallery widgets', $instructions );
+		$this->assertStringContainsString( 'If SVG upload is blocked', $instructions );
+		$this->assertStringContainsString( 'do not create sandbox', $instructions );
 		$this->assertStringNotContainsString( 'stonewright/qa-', $instructions );
 		$this->assertStringNotContainsString( 'Figma', $instructions );
 	}

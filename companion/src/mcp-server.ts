@@ -19,6 +19,7 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 		name: 'stonewright-companion',
 		version: '1.0.0-alpha.1',
 	});
+	const env = options.env ?? process.env;
 
 	const commonInput = {
 		cwd: z.string().optional(),
@@ -29,43 +30,57 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 		timeoutMs: z.number().int().positive().optional(),
 	};
 
-	server.registerTool(
-		'companion_wp_cli_status',
-		{
-			description: 'Check whether WP-CLI is available and return wp cli info diagnostics.',
-			inputSchema: commonInput,
-		},
-		async (input) => toolResponse(await wpCliStatus(toWpCliInput(input))),
-	);
+	registerWpCliTools(server, commonInput, env);
 
-	server.registerTool(
-		'companion_wp_cli_discover',
-		{
-			description: 'Dump installed WP-CLI command metadata with wp cli cmd-dump.',
-			inputSchema: commonInput,
-		},
-		async (input) => toolResponse(await wpCliDiscover(toWpCliInput(input))),
-	);
-
-	server.registerTool(
-		'companion_wp_cli_run',
-		{
-			description: 'Run a tokenized WP-CLI command through execFile. Allows WordPress write commands while blocking arbitrary PHP and shell entry points.',
-			inputSchema: {
-				...commonInput,
-				command: z.array(z.string()).min(1),
-				parseJson: z.boolean().optional(),
-			},
-		},
-		async (input) => toolResponse(await runWpCli(toWpCliInput(input) as WpCliRunInput)),
-	);
-
-	const wpMcpConfig = loadWordPressMcpConfig(options.env ?? process.env);
+	const wpMcpConfig = loadWordPressMcpConfig(env);
 	if (wpMcpConfig) {
 		await registerWordPressMcpTools(server, wpMcpConfig, options.fetchImpl ?? fetch);
 	}
 
 	return server;
+}
+
+function registerWpCliTools(
+	server: McpServer,
+	commonInput: Record<string, z.ZodOptional<z.ZodString> | z.ZodOptional<z.ZodNumber>>,
+	env: NodeJS.ProcessEnv,
+): void {
+	for (const name of ['companion_wp_cli_status', 'stonewright-wp-cli-status']) {
+		server.registerTool(
+			name,
+			{
+				description: 'Check whether WP-CLI is available and return wp cli info diagnostics. This runs directly inside the Stonewright companion.',
+				inputSchema: commonInput,
+			},
+			async (input) => toolResponse(await wpCliStatus(toWpCliInput(input), undefined, env)),
+		);
+	}
+
+	for (const name of ['companion_wp_cli_discover', 'stonewright-wp-cli-discover']) {
+		server.registerTool(
+			name,
+			{
+				description: 'Dump installed WP-CLI command metadata with wp cli cmd-dump. This runs directly inside the Stonewright companion.',
+				inputSchema: commonInput,
+			},
+			async (input) => toolResponse(await wpCliDiscover(toWpCliInput(input), undefined, env)),
+		);
+	}
+
+	for (const name of ['companion_wp_cli_run', 'stonewright-wp-cli-run']) {
+		server.registerTool(
+			name,
+			{
+				description: 'Run a tokenized WP-CLI command directly through the Stonewright companion with execFile. Allows WordPress write commands while blocking arbitrary PHP and shell entry points.',
+				inputSchema: {
+					...commonInput,
+					command: z.array(z.string()).min(1),
+					parseJson: z.boolean().optional(),
+				},
+			},
+			async (input) => toolResponse(await runWpCli(toWpCliInput(input) as WpCliRunInput, undefined, env)),
+		);
+	}
 }
 
 function toWpCliInput(input: Record<string, unknown>): Partial<WpCliRunInput> {

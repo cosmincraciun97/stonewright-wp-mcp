@@ -33,7 +33,8 @@ cp -r skills/wp-plugin-dev ~/.claude/plugins/
 - For V4 atomic skill: Elementor >= 4.0.0 and `stonewright_elementor_v4_atomic`
   enabled.
 - For FSE skills: a block theme active.
-- For WP-CLI acceleration: companion running with `wp` available.
+- For WP-CLI acceleration: companion running with `wp` available on `PATH` or
+  LocalWP-style PHP + `wp-cli.phar` discoverable from the WordPress root.
 
 ## Companion layer
 
@@ -46,3 +47,7 @@ npm install
 npm run build
 npm start
 ```
+
+The companion exposes both `companion_wp_cli_*` tools and direct
+`stonewright-wp-cli-*` aliases. The direct aliases do not require the optional
+HTTP bridge on port `8765`.

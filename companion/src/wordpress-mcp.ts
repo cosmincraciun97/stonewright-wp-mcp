@@ -35,6 +35,12 @@ interface ToolListResult {
 
 type FetchLike = typeof fetch;
 
+const COMPANION_OWNED_TOOL_NAMES = new Set([
+	'stonewright-wp-cli-status',
+	'stonewright-wp-cli-discover',
+	'stonewright-wp-cli-run',
+]);
+
 export function loadWordPressMcpConfig(env: NodeJS.ProcessEnv = process.env): WordPressMcpConfig | null {
 	const siteUrlAlias = env['NODE_ENV'] === 'test' && !env['STONEWRIGHT_MCP_URL'] && !env['WP_API_URL']
 		? ''
@@ -76,7 +82,7 @@ export async function registerWordPressMcpTools(
 	const tools = await client.listTools();
 
 	for (const tool of tools) {
-		if (!tool.name || tool.name.startsWith('companion_')) {
+		if (!tool.name || tool.name.startsWith('companion_') || COMPANION_OWNED_TOOL_NAMES.has(tool.name)) {
 			continue;
 		}
 

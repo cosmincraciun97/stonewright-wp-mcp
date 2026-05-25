@@ -22,46 +22,55 @@ describe('createMcpServer', () => {
 
 	it('registers WP-CLI tools', async () => {
 		const server = await createMcpServer();
-		const tools = (server as any)._registeredTools as Record<string, unknown>;
+		const toolNames = registeredToolNames(server);
 
-		expect(Object.keys(tools)).toEqual(
+		expect(toolNames).toEqual(
 			expect.arrayContaining([
 				'companion_wp_cli_status',
 				'companion_wp_cli_run',
 				'companion_wp_cli_discover',
+				'stonewright-wp-cli-status',
+				'stonewright-wp-cli-run',
+				'stonewright-wp-cli-discover',
 			]),
 		);
 	});
 
 	it('registers proxied WordPress MCP tools when endpoint env is configured', async () => {
-		const fetchImpl = async (_url: string | URL | Request, init?: RequestInit): Promise<Response> => {
+		const fetchImpl = (_url: string | URL | Request, init?: RequestInit): Promise<Response> => {
 			const body = JSON.parse(String(init?.body ?? '{}')) as { method?: string };
 			if (body.method === 'initialize') {
-				return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: { protocolVersion: '2025-06-18' } }), {
-					headers: { 'mcp-session-id': 'session-1', 'content-type': 'application/json' },
-				});
+				return Promise.resolve(
+					new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: { protocolVersion: '2025-06-18' } }), {
+						headers: { 'mcp-session-id': 'session-1', 'content-type': 'application/json' },
+					}),
+				);
 			}
 			if (body.method === 'notifications/initialized') {
-				return new Response('', { status: 202 });
+				return Promise.resolve(new Response('', { status: 202 }));
 			}
 			if (body.method === 'tools/list') {
-				return new Response(JSON.stringify({
-					jsonrpc: '2.0',
-					id: 2,
-					result: {
-						tools: [
-							{
-								name: 'stonewright-context-bootstrap',
-								description: 'Bootstrap agent context.',
-								inputSchema: { type: 'object', properties: { task: { type: 'string' } } },
-							},
-						],
-					},
-				}), { headers: { 'content-type': 'application/json' } });
+				return Promise.resolve(
+					new Response(JSON.stringify({
+						jsonrpc: '2.0',
+						id: 2,
+						result: {
+							tools: [
+								{
+									name: 'stonewright-context-bootstrap',
+									description: 'Bootstrap agent context.',
+									inputSchema: { type: 'object', properties: { task: { type: 'string' } } },
+								},
+							],
+						},
+					}), { headers: { 'content-type': 'application/json' } }),
+				);
 			}
-			return new Response(JSON.stringify({ jsonrpc: '2.0', id: 3, result: {} }), {
-				headers: { 'content-type': 'application/json' },
-			});
+			return Promise.resolve(
+				new Response(JSON.stringify({ jsonrpc: '2.0', id: 3, result: {} }), {
+					headers: { 'content-type': 'application/json' },
+				}),
+			);
 		};
 
 		const server = await createMcpServer({
@@ -72,8 +81,11 @@ describe('createMcpServer', () => {
 			},
 			fetchImpl,
 		});
-		const tools = (server as any)._registeredTools as Record<string, unknown>;
 
-		expect(Object.keys(tools)).toContain('stonewright-context-bootstrap');
+		expect(registeredToolNames(server)).toContain('stonewright-context-bootstrap');
 	});
 });
+
+function registeredToolNames(server: unknown): string[] {
+	return Object.keys((server as { _registeredTools?: Record<string, unknown> })._registeredTools ?? {});
+}

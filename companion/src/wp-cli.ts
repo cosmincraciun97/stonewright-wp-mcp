@@ -1,5 +1,7 @@
 import { execFile } from 'node:child_process';
-import { resolve, sep } from 'node:path';
+import { existsSync, readdirSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, join, resolve, sep } from 'node:path';
 
 export interface WpCliRunInput {
 	command: string[];
@@ -44,8 +46,15 @@ export interface WpCliResult extends Record<string, unknown> {
 	stderr: string;
 	exit_code: number;
 	duration_ms: number;
+	wp_cli_source: string;
 	parsed_json?: unknown;
 	error?: string;
+}
+
+export interface WpCliInvocation {
+	executable: string;
+	prefixArgs: string[];
+	source: string;
 }
 
 const DEFAULT_TIMEOUT_MS = 60_000;
@@ -102,25 +111,14 @@ export async function runWpCli(
 	env: NodeJS.ProcessEnv = process.env,
 ): Promise<WpCliResult> {
 	const started = Date.now();
-	const cwd = resolveWorkingDirectory(input.cwd, env);
-	let executable = (env['STONEWRIGHT_WP_CLI_BIN'] ?? 'wp').trim() || 'wp';
+	const cwdFromPath = input.cwd === undefined && input.path ? resolve(input.path) : undefined;
+	const cwd = resolveWorkingDirectory(input.cwd ?? cwdFromPath, env);
 	const safeInput = {
 		...input,
-		...(input.path ? { path: resolveAllowedPath(input.path, env, cwd) } : {}),
+		...(input.path ? { path: cwdFromPath ?? resolveAllowedPath(input.path, env, cwd) } : {}),
 	};
-	let args = buildWpCliArgs(safeInput);
-
-	if (env['STONEWRIGHT_WP_CLI_PHP_BIN'] && env['STONEWRIGHT_WP_CLI_PHAR_PATH']) {
-		executable = env['STONEWRIGHT_WP_CLI_PHP_BIN'].trim();
-		const pharPath = env['STONEWRIGHT_WP_CLI_PHAR_PATH'].trim();
-		const phpIni = env['STONEWRIGHT_WP_CLI_PHP_INI']?.trim();
-		const phpArgs: string[] = [];
-		if (phpIni) {
-			phpArgs.push('-c', phpIni);
-		}
-		phpArgs.push(pharPath);
-		args = [...phpArgs, ...args];
-	}
+	const invocation = resolveWpCliInvocation(env, cwd);
+	const args = [...invocation.prefixArgs, ...buildWpCliArgs(safeInput)];
 
 	const options: ExecFileOptions = {
 		cwd,
@@ -131,27 +129,65 @@ export async function runWpCli(
 		env: { ...process.env, ...env },
 	};
 
-	const result = await runner(executable, args, options);
+	const result = await runner(invocation.executable, args, options);
 	const parsed = input.parseJson ? parseJson(result.stdout) : undefined;
 	const unavailable = result.errorCode === 'ENOENT';
 
 	return {
 		ok: result.exitCode === 0 && !unavailable,
 		available: !unavailable,
-		command: [executable, ...args],
+		command: [invocation.executable, ...args],
 		cwd,
 		stdout: result.stdout,
 		stderr: result.stderr,
 		exit_code: result.exitCode,
 		duration_ms: Date.now() - started,
+		wp_cli_source: invocation.source,
 		...(parsed !== undefined ? { parsed_json: parsed } : {}),
 		...(result.errorMessage ? { error: result.errorMessage } : {}),
+	};
+}
+
+export function resolveWpCliInvocation(env: NodeJS.ProcessEnv, cwd: string): WpCliInvocation {
+	const explicitPhp = cleanEnvPath(env['STONEWRIGHT_WP_CLI_PHP_BIN']);
+	const explicitPhar = cleanEnvPath(env['STONEWRIGHT_WP_CLI_PHAR_PATH']);
+	if (explicitPhp && explicitPhar) {
+		return phpPharInvocation(explicitPhp, explicitPhar, cleanEnvPath(env['STONEWRIGHT_WP_CLI_PHP_INI']), 'env_php_phar');
+	}
+
+	const explicitBin = cleanEnvPath(env['STONEWRIGHT_WP_CLI_BIN']);
+	if (explicitBin) {
+		return {
+			executable: explicitBin,
+			prefixArgs: [],
+			source: 'env_bin',
+		};
+	}
+
+	const discoveredPhar = explicitPhar ?? discoverWpCliPhar(env, cwd);
+	if (discoveredPhar) {
+		const discoveredPhp = explicitPhp ?? discoverPhpBinary(env);
+		if (discoveredPhp) {
+			return phpPharInvocation(
+				discoveredPhp,
+				discoveredPhar,
+				cleanEnvPath(env['STONEWRIGHT_WP_CLI_PHP_INI']) ?? discoverPhpIni(cwd),
+				'discovered_php_phar',
+			);
+		}
+	}
+
+	return {
+		executable: 'wp',
+		prefixArgs: [],
+		source: 'path_wp',
 	};
 }
 
 export async function wpCliStatus(
 	input: Partial<WpCliRunInput> = {},
 	runner?: ExecFileRunner,
+	env: NodeJS.ProcessEnv = process.env,
 ): Promise<WpCliResult> {
 	return runWpCli(
 		{
@@ -160,12 +196,14 @@ export async function wpCliStatus(
 			parseJson: true,
 		},
 		runner,
+		env,
 	);
 }
 
 export async function wpCliDiscover(
 	input: Partial<WpCliRunInput> = {},
 	runner?: ExecFileRunner,
+	env: NodeJS.ProcessEnv = process.env,
 ): Promise<WpCliResult> {
 	return runWpCli(
 		{
@@ -174,6 +212,7 @@ export async function wpCliDiscover(
 			parseJson: true,
 		},
 		runner,
+		env,
 	);
 }
 
@@ -250,4 +289,138 @@ function allowedRoots(env: NodeJS.ProcessEnv, fallback: string): string[] {
 function isInside(candidate: string, root: string): boolean {
 	const rootWithSep = root.endsWith(sep) ? root : root + sep;
 	return candidate === root || candidate.startsWith(rootWithSep);
+}
+
+function cleanEnvPath(value: string | undefined): string | undefined {
+	const trimmed = value?.trim();
+	return trimmed ? trimmed : undefined;
+}
+
+function phpPharInvocation(phpBin: string, pharPath: string, phpIni: string | undefined, source: string): WpCliInvocation {
+	const prefixArgs: string[] = [];
+	if (phpIni) {
+		prefixArgs.push('-c', phpIni);
+	}
+	prefixArgs.push(pharPath);
+	return {
+		executable: phpBin,
+		prefixArgs,
+		source,
+	};
+}
+
+function discoverWpCliPhar(env: NodeJS.ProcessEnv, cwd: string): string | undefined {
+	return firstExisting([
+		...candidatePharsNearWordPressRoot(cwd),
+		...candidateLocalWpPhars(env),
+	]);
+}
+
+function candidatePharsNearWordPressRoot(cwd: string): string[] {
+	const candidates: string[] = [];
+	for (const root of ancestorDirectories(cwd)) {
+		candidates.push(
+			join(root, 'LocalWP', 'resources', 'extraResources', 'bin', 'wp-cli', 'wp-cli.phar'),
+			join(root, 'Local', 'resources', 'extraResources', 'bin', 'wp-cli', 'wp-cli.phar'),
+		);
+	}
+	return candidates;
+}
+
+function candidateLocalWpPhars(env: NodeJS.ProcessEnv): string[] {
+	return [
+		env['LOCALAPPDATA']
+			? join(env['LOCALAPPDATA'], 'Programs', 'Local', 'resources', 'extraResources', 'bin', 'wp-cli', 'wp-cli.phar')
+			: undefined,
+		env['PROGRAMFILES'] ? join(env['PROGRAMFILES'], 'Local', 'resources', 'extraResources', 'bin', 'wp-cli', 'wp-cli.phar') : undefined,
+		env['ProgramFiles(x86)']
+			? join(env['ProgramFiles(x86)'], 'Local', 'resources', 'extraResources', 'bin', 'wp-cli', 'wp-cli.phar')
+			: undefined,
+		'/Applications/Local.app/Contents/Resources/extraResources/bin/wp-cli/wp-cli.phar',
+	].filter((path): path is string => Boolean(path));
+}
+
+function discoverPhpBinary(env: NodeJS.ProcessEnv): string | undefined {
+	const explicitPhp = cleanEnvPath(env['STONEWRIGHT_WP_CLI_PHP_BIN']);
+	if (explicitPhp) {
+		return explicitPhp;
+	}
+
+	const candidates: string[] = [];
+	const appData = cleanEnvPath(env['APPDATA']);
+	const localAppData = cleanEnvPath(env['LOCALAPPDATA']);
+	const home = cleanEnvPath(env['HOME']) ?? homedir();
+
+	if (appData) {
+		candidates.push(...candidateLocalWpPhpBins(join(appData, 'Local', 'lightning-services')));
+	}
+	if (localAppData) {
+		candidates.push(...candidateLocalWpPhpBins(join(localAppData, 'Local', 'lightning-services')));
+		candidates.push(...candidateLocalWpPhpBins(join(localAppData, 'Programs', 'Local', 'lightning-services')));
+	}
+	if (home) {
+		candidates.push(
+			...candidateLocalWpPhpBins(join(home, 'Library', 'Application Support', 'Local', 'lightning-services')),
+			...candidateLocalWpPhpBins(join(home, 'Library', 'Application Support', 'Local by Flywheel', 'lightning-services')),
+			...candidateLocalWpPhpBins(join(home, '.config', 'Local', 'lightning-services')),
+		);
+	}
+
+	return firstExisting(candidates) ?? 'php';
+}
+
+function candidateLocalWpPhpBins(baseDir: string): string[] {
+	let entries: string[] = [];
+	try {
+		entries = readdirSync(baseDir, { withFileTypes: true })
+			.filter((entry) => entry.isDirectory() && entry.name.startsWith('php-'))
+			.map((entry) => entry.name)
+			.sort()
+			.reverse();
+	} catch {
+		return [];
+	}
+
+	return entries.flatMap((entry) => {
+		const dir = join(baseDir, entry);
+		return [
+			join(dir, 'bin', 'win64', 'php.exe'),
+			join(dir, 'bin', 'darwin', 'bin', 'php'),
+			join(dir, 'bin', 'linux', 'bin', 'php'),
+			join(dir, 'bin', 'php'),
+		];
+	});
+}
+
+function discoverPhpIni(cwd: string): string | undefined {
+	const candidates: string[] = [];
+	for (const root of ancestorDirectories(cwd)) {
+		candidates.push(join(root, 'conf', 'php', 'php.ini'));
+		if (root.endsWith(`${sep}app`)) {
+			candidates.push(join(dirname(root), 'conf', 'php', 'php.ini'));
+		}
+	}
+	return firstExisting(candidates);
+}
+
+function ancestorDirectories(start: string): string[] {
+	const roots: string[] = [];
+	let current = resolve(start);
+	for (;;) {
+		roots.push(current);
+		const parent = dirname(current);
+		if (parent === current) {
+			return roots;
+		}
+		current = parent;
+	}
+}
+
+function firstExisting(candidates: Array<string | undefined>): string | undefined {
+	for (const candidate of candidates) {
+		if (candidate && existsSync(candidate)) {
+			return candidate;
+		}
+	}
+	return undefined;
 }

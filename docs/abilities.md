@@ -53,6 +53,10 @@ The WP-CLI tools are:
 | `stonewright/wp-cli-discover` (`stonewright-wp-cli-discover`) | Returns `wp cli cmd-dump` data so agents can discover WordPress, Elementor, Gutenberg, ACF, CPT UI, and other installed command groups. |
 | `stonewright/wp-cli-run` (`stonewright-wp-cli-run`) | Runs a guarded WP-CLI command through the companion. It supports writes, but blocks arbitrary PHP and shell-like command groups such as `eval`, `eval-file`, `shell`, and `package`. |
 
+In the Node companion MCP, the same MCP names `stonewright-wp-cli-status`,
+`stonewright-wp-cli-discover`, and `stonewright-wp-cli-run` are direct companion
+aliases. They do not require the WordPress-side HTTP bridge on port `8765`.
+
 Agents should prefer native Stonewright abilities for structured writes. Use
 WP-CLI when it is faster, better documented by the installed plugin, or useful
 for debugging and operational tasks.
