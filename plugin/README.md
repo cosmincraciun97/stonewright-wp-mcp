@@ -22,6 +22,9 @@ wp plugin activate stonewright
 cd ../companion
 npm install
 npm run build
+set PORT=8765
+set COMPANION_BEARER_TOKEN=change-this-long-random-token
+set COMPANION_ALLOWED_ORIGINS=http://localhost,http://127.0.0.1
 node dist/index.js
 ```
 
@@ -29,6 +32,7 @@ Set the companion URL:
 
 ```bash
 wp option update stonewright_companion_url http://127.0.0.1:8765
+wp option update stonewright_companion_token change-this-long-random-token
 ```
 
 ## Local Development
@@ -64,6 +68,10 @@ Internal URL of the companion Node server. Required for WP-CLI abilities:
 - `stonewright/wp-cli-status`
 - `stonewright/wp-cli-discover`
 - `stonewright/wp-cli-run`
+
+When the companion HTTP bridge is not running, use direct MCP tools exposed by
+the companion instead: `companion_wp_cli_status`, `companion_wp_cli_discover`,
+and `companion_wp_cli_run`.
 
 ### Persistent Skills And Memory
 

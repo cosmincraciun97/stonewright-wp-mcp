@@ -39,9 +39,19 @@ add widgets inside child containers.
 
 - Use Elementor V3 containers and native widgets. Do not add HTML widgets unless
   the user explicitly requests HTML.
+- Start visual tasks by measuring the reference screenshot: viewport/canvas size,
+  section bounds, centered max-widths, typography, colors, spacing, and asset
+  crop bounds. Then build, screenshot the live page with external Playwright MCP
+  at the same viewport, compare deltas, and iterate.
 - Put every page section in a full-width outer container, then a centered inner
   container with the design max-width. Do not leave content floating at page
   edges or stacked as a single accidental column.
+- Use dedicated `stonewright/elementor-add-*` abilities for known Elementor
+  widgets. Use `stonewright/elementor-v3-add-widget` only for unknown or
+  third-party widgets after schema lookup.
+- Use exact control keys from widget schemas. For example, Icon Box uses
+  `selected_icon`, `primary_color`, and `secondary_color`; do not invent
+  aliases like `icon`, `icon_primary_color`, or `icon_background_color`.
 - Use flex row containers for desktop two-column designs and responsive
   direction/visibility settings for tablet and mobile.
 - Sticky headers must be sticky on desktop and mobile when requested. Mobile
@@ -88,7 +98,8 @@ Returns `{ "template_id": 150 }`.
 | `stonewright/elementor-v3-get-page-structure` | Read full element tree |
 | `stonewright/elementor-v3-get-element` | Read single element by ID |
 | `stonewright/elementor-v3-add-container` | Add flex container |
-| `stonewright/elementor-v3-add-widget` | Add widget to container |
+| `stonewright/elementor-add-*` | Add known native widgets with schema validation |
+| `stonewright/elementor-v3-add-widget` | Escape hatch for unknown/third-party widgets |
 | `stonewright/elementor-v3-update-element` | Update element settings |
 | `stonewright/elementor-v3-move-element` | Reorder/reparent element |
 | `stonewright/elementor-v3-remove-element` | Delete element |

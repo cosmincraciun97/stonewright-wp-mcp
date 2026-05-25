@@ -2,7 +2,7 @@
     "args": {
         "post_id": 1,
         "parent_id": "parent1",
-        "widget_type": "heading",
+        "widget_type": "third-party-card",
         "settings": {
             "title": "Hello"
         }

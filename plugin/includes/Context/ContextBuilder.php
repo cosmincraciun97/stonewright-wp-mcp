@@ -45,6 +45,7 @@ final class ContextBuilder {
 			),
 			'memory_entries'           => $matched_memory,
 			'recommended_external_mcps' => self::recommended_external_mcps(),
+			'visual_quality_contract'  => self::visual_quality_contract(),
 			'required_followups'       => self::required_followups( $surface, $intent ),
 		];
 	}
@@ -151,9 +152,36 @@ final class ContextBuilder {
 				'name'          => 'External Playwright MCP',
 				'purpose'       => 'Browser testing, screenshots, and visual inspection outside Stonewright.',
 				'command'       => 'npx',
-				'args'          => [ '@playwright/mcp@latest' ],
+				'args'          => [ '-y', '@playwright/mcp@latest', '--caps=testing,vision,devtools' ],
+				'claude_code'   => 'claude mcp add playwright -- npx -y @playwright/mcp@latest --caps=testing,vision,devtools',
 				'required_when' => 'Use when the task needs browser interaction, screenshots, visual checks, or front-end debugging.',
 				'boundary'      => 'Keep this as a separate MCP server; do not add browser or screenshot abilities back into Stonewright.',
+			],
+		];
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private static function visual_quality_contract(): array {
+		return [
+			'hard_stop_if_browser_unavailable' => true,
+			'principle'                        => 'Do not implement visual work blind. Measure the reference, build with native controls, screenshot the result, then iterate.',
+			'required_steps'                   => [
+				'Extract measured tokens from the reference screenshot before writing: canvas size, section bounds, max widths, colors, typography, spacing, and asset crop bounds.',
+				'Create a section-by-section implementation plan with outer section, inner max-width container, rows/columns, widget choices, and responsive breakpoints.',
+				'Use the exact Elementor control keys from widget schema or stonewright/elementor-describe-widget; do not invent CSS-like setting names.',
+				'Use dedicated stonewright/elementor-add-* widget abilities for known widgets. Use stonewright/elementor-v3-add-widget only for unknown or third-party widgets.',
+				'Set page template to Elementor Canvas when the user asks for no header and no footer.',
+				'After each write pass, capture a browser screenshot at the same viewport as the reference and list visible deltas: width, alignment, spacing, color, font size, overflow, and missing assets.',
+				'Iterate until the screenshot matches the reference in the main layout before declaring completion.',
+			],
+			'failure_patterns'                 => [
+				'Full-width inner content when the reference has a narrow centered canvas.',
+				'White/default form fields when the reference uses translucent fields.',
+				'Full-page screenshot used as a background asset.',
+				'Legacy or invented Elementor settings such as icon instead of selected_icon, icon_primary_color instead of primary_color, or width instead of Advanced layout width keys.',
+				'Skipping screenshot verification because the browser MCP is unavailable.',
 			],
 		];
 	}
@@ -167,6 +195,7 @@ final class ContextBuilder {
 			'If the user corrects the agent or a repeatable mistake is detected, call stonewright/learning-record.',
 			'Use MCP tool names with hyphens, for example stonewright-context-bootstrap, not slash-separated ability names.',
 			'When a task needs browser testing, screenshots, or visual inspection, ensure the external Playwright MCP is installed and connected before implementation.',
+			'If the external Playwright MCP is unavailable during a visual implementation task, stop before writing and tell the user the exact MCP setup command.',
 			'For design-derived backgrounds, create an asset selection plan and never use a full-page screenshot as a section background.',
 		];
 
@@ -180,6 +209,7 @@ final class ContextBuilder {
 		if ( in_array( $surface, [ 'wordpress', 'elementor', 'gutenberg', 'acf', 'cpt-ui', 'wp-cli' ], true ) ) {
 			$steps[] = 'Use stonewright/wp-cli-status and stonewright/wp-cli-discover before relying on WP-CLI commands that may not be installed.';
 			$steps[] = 'Use stonewright/wp-cli-run for safe tokenized WordPress commands; never use wp eval, wp eval-file, wp shell, wp package, --exec, or --require.';
+			$steps[] = 'If stonewright/wp-cli-status returns available=false, use direct companion_wp_cli_* MCP tools when exposed, otherwise use normal Stonewright REST abilities instead of sandbox/REST workarounds.';
 		}
 
 		if ( in_array( $intent, [ 'write', 'delete' ], true ) ) {

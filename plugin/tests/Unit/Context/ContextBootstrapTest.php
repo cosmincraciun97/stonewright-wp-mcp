@@ -59,7 +59,12 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertContains( 'Call stonewright/widget-intent-resolve before choosing Elementor widgets.', $result['required_followups'] );
 		self::assertSame( 'stonewright-context-bootstrap', $result['mcp_tool_naming']['examples']['stonewright/context-bootstrap'] );
 		self::assertSame( 'playwright', $result['recommended_external_mcps'][0]['id'] );
+		self::assertSame( [ '-y', '@playwright/mcp@latest', '--caps=testing,vision,devtools' ], $result['recommended_external_mcps'][0]['args'] );
+		self::assertIsArray( $result['visual_quality_contract'] );
+		self::assertTrue( $result['visual_quality_contract']['hard_stop_if_browser_unavailable'] );
+		self::assertContains( 'Extract measured tokens from the reference screenshot before writing: canvas size, section bounds, max widths, colors, typography, spacing, and asset crop bounds.', $result['visual_quality_contract']['required_steps'] );
 		self::assertContains( 'When a task needs browser testing, screenshots, or visual inspection, ensure the external Playwright MCP is installed and connected before implementation.', $result['required_followups'] );
+		self::assertContains( 'If the external Playwright MCP is unavailable during a visual implementation task, stop before writing and tell the user the exact MCP setup command.', $result['required_followups'] );
 		self::assertContains( 'For design-derived backgrounds, create an asset selection plan and never use a full-page screenshot as a section background.', $result['required_followups'] );
 
 		$verified = ContextToken::verify( (string) $result['context_token'], 'stonewright/elementor-add-heading' );

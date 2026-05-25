@@ -122,7 +122,7 @@ export function isOriginAllowed(
 	allowedOrigins: Set<string> | null,
 ): boolean {
 	if (allowedOrigins === null) return true; // dev-insecure mode only
-	if (!origin) return false;
+	if (!origin) return true; // Server-to-server requests such as WordPress loopback usually omit Origin.
 	return allowedOrigins.has(origin);
 }
 

@@ -22,7 +22,11 @@ abstract class WpCliAbility extends AbilityKernel {
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	protected function companion_post( string $endpoint, array $body = [] ): array|\WP_Error {
-		return CompanionClient::post( $endpoint, $body );
+		$result = CompanionClient::post( $endpoint, $body );
+		if ( $result instanceof \WP_Error && self::is_companion_unavailable( $result ) ) {
+			return self::unavailable_response( $endpoint, $body, $result );
+		}
+		return $result;
 	}
 
 	/**
@@ -42,6 +46,9 @@ abstract class WpCliAbility extends AbilityKernel {
 				'duration_ms' => [ 'type' => 'integer' ],
 				'parsed_json' => [ 'type' => [ 'object', 'array', 'null' ] ],
 				'error'       => [ 'type' => 'string' ],
+				'companion_url' => [ 'type' => 'string' ],
+				'recommended_fallbacks' => [ 'type' => 'array' ],
+				'setup_hint'  => [ 'type' => 'string' ],
 			],
 			'required'   => [ 'ok', 'available', 'stdout', 'stderr', 'exit_code' ],
 		];
@@ -77,6 +84,55 @@ abstract class WpCliAbility extends AbilityKernel {
 				'minimum'     => 1,
 				'description' => 'Optional timeout in milliseconds.',
 			],
+		];
+	}
+
+	private static function is_companion_unavailable( \WP_Error $error ): bool {
+		return in_array(
+			$error->get_error_code(),
+			[
+				'http_request_failed',
+				'connect_failed',
+			],
+			true
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $body
+	 * @return array<string, mixed>
+	 */
+	private static function unavailable_response( string $endpoint, array $body, \WP_Error $error ): array {
+		$base = rtrim( (string) get_option( 'stonewright_companion_url', 'http://127.0.0.1:8765' ), '/' );
+		$command = [];
+		if ( isset( $body['command'] ) && is_array( $body['command'] ) ) {
+			$command = array_values( array_map( 'strval', $body['command'] ) );
+		} elseif ( '/wp-cli/status' === $endpoint ) {
+			$command = [ 'cli', 'info', '--format=json' ];
+		} elseif ( '/wp-cli/discover' === $endpoint ) {
+			$command = [ 'cli', 'cmd-dump' ];
+		}
+
+		return [
+			'ok'                    => false,
+			'available'             => false,
+			'command'               => $command,
+			'cwd'                   => '',
+			'stdout'                => '',
+			'stderr'                => '',
+			'exit_code'             => 1,
+			'duration_ms'           => 0,
+			'error'                 => $error->get_error_message(),
+			'companion_url'         => $base,
+			'recommended_fallbacks' => [
+				'companion_wp_cli_status',
+				'companion_wp_cli_discover',
+				'companion_wp_cli_run',
+				'If the MCP client exposes companion_wp_cli_status / companion_wp_cli_run, use those direct companion tools.',
+				'If direct companion WP-CLI tools are unavailable, use normal Stonewright REST abilities for page/content/template writes.',
+				'Do not use sandbox files or arbitrary REST writes just to set page template or basic Elementor metadata.',
+			],
+			'setup_hint'            => 'Start the companion HTTP bridge with PORT=8765 and matching COMPANION_BEARER_TOKEN, or set stonewright_companion_url to the actual companion port.',
 		];
 	}
 }

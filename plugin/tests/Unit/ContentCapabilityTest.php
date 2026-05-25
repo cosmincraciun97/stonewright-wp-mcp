@@ -165,6 +165,34 @@ final class ContentCapabilityTest extends TestCase {
 		$this->assertTrue( (bool) $result );
 	}
 
+	public function test_update_page_sets_page_template_when_requested(): void {
+		$this->loginAs( [ 'edit_pages' ] );
+		$this->setPost( 88, 'page' );
+		$GLOBALS['stonewright_test_user_can_callback'] = static function ( string $cap, mixed ...$args ): bool {
+			if ( 'edit_post_meta' === $cap ) {
+				return 88 === (int) ( $args[0] ?? 0 ) && '_wp_page_template' === (string) ( $args[1] ?? '' );
+			}
+			return 'edit_post' === $cap;
+		};
+
+		$schema = ( new UpdatePage() )->input_schema();
+		$this->assertArrayHasKey( 'template', $schema['properties'] );
+
+		$result = ( new UpdatePage() )->execute(
+			[
+				'id'       => 88,
+				'template' => 'elementor_canvas',
+			]
+		);
+
+		$this->assertIsArray( $result );
+		$this->assertSame( [], $result['meta_skipped'] );
+		$this->assertSame(
+			'elementor_canvas',
+			$GLOBALS['stonewright_test_posts'][88]->meta['_wp_page_template'] ?? null
+		);
+	}
+
 	public function test_create_post_pending_status_no_publish_check(): void {
 		$this->loginAs( [ 'edit_posts' ] );
 

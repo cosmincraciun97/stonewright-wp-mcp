@@ -116,4 +116,29 @@ final class WpCliAbilitiesTest extends TestCase {
 		$this->assertSame( '/wp-cli/status', $GLOBALS['stonewright_test_companion_requests'][1]['path'] );
 		$this->assertSame( '/wp-cli/discover', $GLOBALS['stonewright_test_companion_requests'][2]['path'] );
 	}
+
+	public function test_wp_cli_companion_unavailable_returns_structured_fallbacks(): void {
+		$GLOBALS['stonewright_test_companion_responses']['/wp-cli/status'] = new \WP_Error(
+			'http_request_failed',
+			'Connection refused'
+		);
+		$GLOBALS['stonewright_test_companion_responses']['/wp-cli/run'] = new \WP_Error(
+			'http_request_failed',
+			'Connection refused'
+		);
+
+		$status = ( new Status() )->execute( [] );
+		$this->assertIsArray( $status );
+		$this->assertFalse( $status['ok'] );
+		$this->assertFalse( $status['available'] );
+		$this->assertSame( 'http://127.0.0.1:8765', $status['companion_url'] );
+		$this->assertContains( 'companion_wp_cli_run', $status['recommended_fallbacks'] );
+		$this->assertStringContainsString( 'PORT=8765', $status['setup_hint'] );
+
+		$run = ( new Run() )->execute( [ 'command' => [ 'post', 'list' ] ] );
+		$this->assertIsArray( $run );
+		$this->assertFalse( $run['ok'] );
+		$this->assertFalse( $run['available'] );
+		$this->assertSame( [ 'post', 'list' ], $run['command'] );
+	}
 }

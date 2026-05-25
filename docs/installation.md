@@ -54,7 +54,10 @@ For local stdio MCP clients, configure:
         "STONEWRIGHT_MCP_URL": "https://your-site.example.com/wp-json/mcp/stonewright",
         "WP_API_USERNAME": "your-wp-username",
         "WP_API_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_WP_ROOT": "/path/to/wordpress"
+        "STONEWRIGHT_WP_ROOT": "/path/to/wordpress",
+        "PORT": "8765",
+        "COMPANION_BEARER_TOKEN": "change-this-long-random-token",
+        "COMPANION_ALLOWED_ORIGINS": "http://localhost,http://127.0.0.1"
       }
     }
   }
@@ -67,6 +70,19 @@ Windows note: use a normal Windows path for `STONEWRIGHT_WP_ROOT`, for example
 macOS note: use the absolute WordPress root path, for example
 `/Users/me/Sites/example/app/public`.
 
+For the WordPress-side `stonewright/wp-cli-*` abilities, set the WordPress
+option to the same bridge URL and token:
+
+```bash
+wp option update stonewright_companion_url http://127.0.0.1:8765
+wp option update stonewright_companion_token change-this-long-random-token
+```
+
+If you do not enable the HTTP bridge, agents should use the direct companion
+MCP tools `companion_wp_cli_status`, `companion_wp_cli_discover`, and
+`companion_wp_cli_run` instead of the WordPress-side `stonewright/wp-cli-*`
+abilities.
+
 ## Browser MCP
 
 Stonewright does not include browser, screenshot, or visual-review tools. Add a
@@ -77,14 +93,16 @@ separate Playwright MCP server next to Stonewright:
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": ["@playwright/mcp@latest"]
+      "args": ["-y", "@playwright/mcp@latest", "--caps=testing,vision,devtools"]
     }
   }
 }
 ```
 
 Agents should connect this before implementation when a task needs browser
-testing, screenshots, or visual inspection.
+testing, screenshots, or visual inspection. If the MCP client cannot see a
+browser/screenshot tool, the agent should stop before visual implementation and
+ask the user to connect Playwright instead of building blind.
 
 ## Tool Names
 

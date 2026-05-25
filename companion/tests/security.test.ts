@@ -79,7 +79,7 @@ describe('isOriginAllowed', () => {
 		const allow = new Set(['https://app.example']);
 		expect(isOriginAllowed('https://app.example', allow)).toBe(true);
 		expect(isOriginAllowed('https://evil.example', allow)).toBe(false);
-		expect(isOriginAllowed(undefined, allow)).toBe(false);
+		expect(isOriginAllowed(undefined, allow)).toBe(true);
 	});
 });
 

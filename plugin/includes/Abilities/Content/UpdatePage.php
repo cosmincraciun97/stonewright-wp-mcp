@@ -40,6 +40,10 @@ final class UpdatePage extends AbilityKernel {
 				'content' => [ 'type' => 'string' ],
 				'excerpt' => [ 'type' => 'string' ],
 				'status'  => [ 'type' => 'string', 'enum' => [ 'draft', 'publish', 'private', 'pending', 'future' ] ],
+				'template' => [
+					'type'        => 'string',
+					'description' => 'Optional page template slug, e.g. elementor_canvas to remove theme header/footer.',
+				],
 				'meta'    => [ 'type' => 'object' ],
 			],
 			'required'             => [ 'id' ],
@@ -139,6 +143,15 @@ final class UpdatePage extends AbilityKernel {
 				}
 
 				$meta_skipped = [];
+				if ( ! empty( $args['template'] ) ) {
+					$template_key = '_wp_page_template';
+					if ( Permissions::can_edit_post_meta( $id, $template_key ) ) {
+						update_post_meta( $id, $template_key, sanitize_text_field( (string) $args['template'] ) );
+					} else {
+						$meta_skipped[] = $template_key;
+					}
+				}
+
 				if ( ! empty( $args['meta'] ) && is_array( $args['meta'] ) ) {
 					foreach ( $args['meta'] as $key => $value ) {
 						$key = sanitize_key( (string) $key );

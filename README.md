@@ -39,7 +39,7 @@ wp plugin activate stonewright
 cd ../companion
 npm install
 npm run build
-node dist/index.js
+PORT=8765 COMPANION_BEARER_TOKEN=change-this-long-random-token COMPANION_ALLOWED_ORIGINS=http://localhost,http://127.0.0.1 node dist/index.js
 ```
 
 MCP clients call hyphenated tool names. First smoke test:
@@ -50,7 +50,7 @@ stonewright-context-bootstrap
 ```
 
 For browser testing and screenshots, configure a separate Playwright MCP server
-next to Stonewright with `npx @playwright/mcp@latest`.
+next to Stonewright with `npx -y @playwright/mcp@latest --caps=testing,vision,devtools`.
 
 ## Companion Environment
 
@@ -60,7 +60,10 @@ Copy `companion/.env.example` to `companion/.env`.
 |---|---|---|
 | `COMPANION_BEARER_TOKEN` | production | Token callers send to the companion HTTP server |
 | `COMPANION_ALLOWED_ORIGINS` | production | Comma-separated allowed request origins |
-| `PORT` | optional | Enables companion HTTP transport |
+| `PORT` | optional | Enables companion HTTP transport; use `8765` for WordPress-side WP-CLI abilities |
+| `STONEWRIGHT_MCP_URL` | optional | WordPress MCP endpoint proxied into stdio MCP clients |
+| `WP_API_USERNAME` | optional | WordPress username for Application Password auth |
+| `WP_API_PASSWORD` | optional | WordPress Application Password |
 | `STONEWRIGHT_WP_CLI_BIN` | optional | WP-CLI executable path; defaults to `wp` |
 | `STONEWRIGHT_WP_ROOT` | optional | Default WP-CLI working directory |
 | `STONEWRIGHT_WP_ALLOWED_ROOTS` | optional | Comma- or semicolon-separated allowed WP-CLI roots |

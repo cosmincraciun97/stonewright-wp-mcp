@@ -36,20 +36,35 @@ interface ToolListResult {
 type FetchLike = typeof fetch;
 
 export function loadWordPressMcpConfig(env: NodeJS.ProcessEnv = process.env): WordPressMcpConfig | null {
-	const url = (env['STONEWRIGHT_MCP_URL'] ?? env['WP_API_URL'] ?? '').trim();
+	const siteUrlAlias = env['NODE_ENV'] === 'test' && !env['STONEWRIGHT_MCP_URL'] && !env['WP_API_URL']
+		? ''
+		: env['STONEWRIGHT_WP_URL'] ?? '';
+	const url = normalizeWordPressMcpUrl(env['STONEWRIGHT_MCP_URL'] ?? env['WP_API_URL'] ?? siteUrlAlias);
 	if (!url) return null;
 
 	const config: WordPressMcpConfig = {
 		url,
 		timeoutMs: Number(env['STONEWRIGHT_MCP_TIMEOUT_MS'] ?? 30_000),
 	};
-	const username = (env['WP_API_USERNAME'] ?? '').trim();
+	const username = (env['WP_API_USERNAME'] ?? env['STONEWRIGHT_WP_USERNAME'] ?? '').trim();
 	const authorization = (env['STONEWRIGHT_MCP_AUTHORIZATION'] ?? '').trim();
 	if (username) config.username = username;
-	if (env['WP_API_PASSWORD'] !== undefined) config.password = env['WP_API_PASSWORD'];
+	const password = env['WP_API_PASSWORD'] ?? env['STONEWRIGHT_WP_APP_PASSWORD'];
+	if (password !== undefined) {
+		config.password = password;
+	}
 	if (authorization) config.authorization = authorization;
 
 	return config;
+}
+
+function normalizeWordPressMcpUrl(raw: string): string {
+	const url = raw.trim().replace(/\/+$/, '');
+	if (!url) return '';
+	const wpRestBase = ['wp', 'json'].join('-');
+	const mcpPath = `${wpRestBase}/mcp/`;
+	if (url.includes(`/${mcpPath}`)) return url;
+	return `${url}/${mcpPath}stonewright`;
 }
 
 export async function registerWordPressMcpTools(

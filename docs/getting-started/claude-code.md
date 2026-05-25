@@ -40,13 +40,17 @@ claude mcp add stonewright -- npx -y --package @stonewright/companion@latest sto
   --env STONEWRIGHT_SITE_URL='https://your-site.example.com' \
   --env STONEWRIGHT_MCP_URL='https://your-site.example.com/wp-json/mcp/stonewright' \
   --env WP_API_USERNAME='your-wp-username' \
-  --env WP_API_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx'
+  --env WP_API_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx' \
+  --env STONEWRIGHT_WP_ROOT='/path/to/wordpress' \
+  --env PORT='8765' \
+  --env COMPANION_BEARER_TOKEN='change-this-long-random-token' \
+  --env COMPANION_ALLOWED_ORIGINS='http://localhost,http://127.0.0.1'
 ```
 
 Register the separate Playwright MCP for browser testing and screenshots:
 
 ```bash
-claude mcp add playwright -- npx @playwright/mcp@latest
+claude mcp add playwright -- npx -y @playwright/mcp@latest --caps=testing,vision,devtools
 ```
 
 Restart Claude Code after adding the servers.

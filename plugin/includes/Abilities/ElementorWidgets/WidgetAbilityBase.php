@@ -257,7 +257,7 @@ abstract class WidgetAbilityBase extends AbilityKernel {
 				// we ensure the matching activator key like `typography_typography`
 				// is also present. Caller-supplied activator wins.
 				foreach ( $activators as $activator_key => $activator_value ) {
-					$prefix = self::activator_prefix( (string) $activator_key );
+					$prefix = self::control_prefix_for_activator( (string) $activator_key );
 					if ( $prefix === null ) {
 						continue;
 					}
@@ -353,6 +353,17 @@ abstract class WidgetAbilityBase extends AbilityKernel {
 	 * prefix part — `typography`. Returns null if the key doesn't look
 	 * like an `<x>_<x>` activator pattern.
 	 */
+	private static function control_prefix_for_activator( string $activator_key ): ?string {
+		foreach ( [ 'typography', 'border', 'background', 'box_shadow', 'text_shadow', 'css_filter', 'text_stroke' ] as $base ) {
+			$suffix = '_' . $base;
+			if ( str_ends_with( $activator_key, $suffix ) ) {
+				$prefix = substr( $activator_key, 0, -strlen( $suffix ) );
+				return '' !== $prefix ? $prefix : null;
+			}
+		}
+		return null;
+	}
+
 	private static function activator_prefix( string $activator_key ): ?string {
 		// Match anything where the last segment is one of our known group bases.
 		foreach ( [ 'typography', 'border', 'background', 'box_shadow', 'text_shadow', 'css_filter', 'text_stroke' ] as $base ) {

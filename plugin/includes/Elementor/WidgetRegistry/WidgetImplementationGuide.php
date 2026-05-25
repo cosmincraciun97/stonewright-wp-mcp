@@ -26,8 +26,12 @@ final class WidgetImplementationGuide {
 			),
 			'global_required_steps' => [
 				'Call stonewright/elementor-describe-widget for every recommended widget before writing.',
+				'Use dedicated stonewright/elementor-add-* abilities for known widgets; reserve stonewright/elementor-v3-add-widget for unknown or third-party widgets.',
+				'Use exact setting keys from the widget schema. Do not invent CSS-like keys when Elementor expects a different control key.',
 				'Configure Content, Style, and Advanced controls; do not only insert the widget.',
 				'Use responsive desktop, tablet, and mobile values for width, alignment, spacing, order, and visibility where the design implies them.',
+				'Before writing visual work, extract measured reference tokens: viewport/canvas size, section bounds, max-widths, colors, type sizes, spacing, and asset crop bounds.',
+				'After writing, capture a browser screenshot with the external Playwright MCP at the same viewport and iterate on visible deltas.',
 				'When any recommendation has needs_online_research=true, research official Elementor documentation before writing.',
 				'Do not use Elementor HTML widgets unless the user explicitly requested HTML and the write ability passes allow_html_widget=true.',
 				'Before using background assets, write an asset selection plan: target section, source layer/node, crop bounds, WordPress media URL, and why it is not a full-page screenshot.',

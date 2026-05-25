@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetCatalog;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
@@ -46,6 +47,11 @@ final class AddWidget extends AbilityKernel {
 					'description' => 'Must be true only when the user explicitly asked for widget_type=html. Native Elementor widgets must be used first.',
 					'default'     => false,
 				],
+				'allow_raw_known_widget' => [
+					'type'        => 'boolean',
+					'description' => 'Escape hatch for built-in Elementor widgets already known to Stonewright. Default false so agents use the dedicated stonewright/elementor-add-* ability and exact schema.',
+					'default'     => false,
+				],
 			],
 			'required'             => [ 'post_id', 'parent_id', 'widget_type' ],
 		];
@@ -78,6 +84,35 @@ final class AddWidget extends AbilityKernel {
 						__( 'Elementor HTML widgets are disabled by default. Use native Elementor widgets first, or pass allow_html_widget=true only when the user explicitly requested HTML.', 'stonewright' ),
 						[ 'status' => 400 ]
 					);
+				}
+
+				if ( 'html' !== $widget_type && WidgetCatalog::has( $widget_type ) ) {
+					$settings_in = isset( $args['settings'] ) && is_array( $args['settings'] ) ? $args['settings'] : [];
+
+					if ( empty( $args['allow_raw_known_widget'] ) ) {
+						return $this->error(
+							'known_widget_requires_dedicated_ability',
+							__( 'This is a built-in Elementor widget known to Stonewright. Use the dedicated stonewright/elementor-add-* ability so widget settings are validated and editor-safe.', 'stonewright' ),
+							[
+								'widget'            => $widget_type,
+								'suggested_ability' => 'stonewright/elementor-add-' . $widget_type,
+								'required_settings' => WidgetCatalog::required_for_render( $widget_type ),
+							]
+						);
+					}
+
+					$violations = self::required_setting_violations( $widget_type, $settings_in );
+					if ( [] !== $violations ) {
+						return $this->error(
+							'invalid_settings',
+							__( 'Raw known-widget settings failed validation. Use the dedicated widget ability or provide the exact Elementor control keys.', 'stonewright' ),
+							[
+								'violations'        => $violations,
+								'widget'            => $widget_type,
+								'suggested_ability' => 'stonewright/elementor-add-' . $widget_type,
+							]
+						);
+					}
 				}
 
 				$post_id = (int) $args['post_id'];
@@ -114,5 +149,38 @@ final class AddWidget extends AbilityKernel {
 				];
 			}
 		);
+	}
+
+	/**
+	 * @param array<string, mixed> $settings
+	 * @return array<int, array<string, mixed>>
+	 */
+	private static function required_setting_violations( string $widget_type, array $settings ): array {
+		$violations = [];
+		foreach ( WidgetCatalog::required_for_render( $widget_type ) as $req_key ) {
+			$present = array_key_exists( $req_key, $settings )
+				&& self::setting_has_value( $settings[ $req_key ] );
+
+			if ( ! $present ) {
+				$violations[] = [
+					'path'     => 'settings.' . $req_key,
+					'code'     => 'required_missing',
+					'expected' => 'non-empty Elementor control value',
+					'got'      => array_key_exists( $req_key, $settings ) ? $settings[ $req_key ] : null,
+				];
+			}
+		}
+
+		return $violations;
+	}
+
+	private static function setting_has_value( mixed $value ): bool {
+		if ( null === $value || '' === $value ) {
+			return false;
+		}
+		if ( is_array( $value ) && array_key_exists( 'value', $value ) ) {
+			return null !== $value['value'] && '' !== $value['value'];
+		}
+		return true;
 	}
 }

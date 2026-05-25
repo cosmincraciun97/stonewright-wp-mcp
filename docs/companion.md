@@ -31,6 +31,9 @@ directories.
 | `STONEWRIGHT_MCP_URL` | WordPress MCP endpoint proxied into stdio, e.g. `/wp-json/mcp/stonewright` |
 | `WP_API_USERNAME` | WordPress username for Application Password auth |
 | `WP_API_PASSWORD` | WordPress Application Password |
+| `STONEWRIGHT_WP_URL` | Alias for the site URL; the companion derives `/wp-json/mcp/stonewright` when `STONEWRIGHT_MCP_URL` is absent |
+| `STONEWRIGHT_WP_USERNAME` | Alias for `WP_API_USERNAME` |
+| `STONEWRIGHT_WP_APP_PASSWORD` | Alias for `WP_API_PASSWORD` |
 | `STONEWRIGHT_MCP_AUTHORIZATION` | Optional full Authorization header override |
 | `STONEWRIGHT_WP_CLI_BIN` | WP-CLI executable; defaults to `wp` |
 | `STONEWRIGHT_WP_ROOT` | Default WP working directory |
@@ -43,6 +46,7 @@ Set:
 
 ```bash
 wp option update stonewright_companion_url http://127.0.0.1:8765
+wp option update stonewright_companion_token change-this-long-random-token
 ```
 
 Then use Stonewright abilities:
@@ -51,3 +55,9 @@ Then use Stonewright abilities:
 - `stonewright-wp-cli-status`
 - `stonewright-wp-cli-discover`
 - `stonewright-wp-cli-run`
+
+If the HTTP bridge is not running, use the direct companion MCP tools instead:
+
+- `companion_wp_cli_status`
+- `companion_wp_cli_discover`
+- `companion_wp_cli_run`
