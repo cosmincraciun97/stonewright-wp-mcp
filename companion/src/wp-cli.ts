@@ -351,18 +351,19 @@ export async function wpCliEnsureReady(
 
 	// Step 2: WP-CLI not on PATH / not found — try installing phar into cache.
 	const installResult = await wpCliInstall(
-		{ timeoutMs: input.timeoutMs },
+		{ ...(input.timeoutMs !== undefined ? { timeoutMs: input.timeoutMs } : {}) },
 		fetchImpl,
 		env,
 	);
 
 	if (!installResult.ok) {
-		return {
+		const result: WpCliEnsureReadyResult = {
 			ensured: false,
 			source: 'install_failed',
 			installed: false,
-			error: installResult.error,
 		};
+		if (installResult.error !== undefined) result.error = installResult.error;
+		return result;
 	}
 
 	// Step 3: Re-check — now the phar is in the install dir so discovery picks it up.
