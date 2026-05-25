@@ -17,7 +17,7 @@ use Stonewright\WpMcp\Security\Permissions;
  *   - vanilla wp_remote_get (works for `developers.elementor.com`
  *     and other SSR sites);
  *   - explicit `body` arg — the caller fetched the page with a real
- *     browser (Gemini/Playwright/Chrome MCP) and passes the rendered
+ *     browser automation tool and passes the rendered
  *     DOM text. Phase 0 surfaced that elementor.com/help/* is a SPA
  *     and plain WebFetch returns nav-only HTML, so this mode is the
  *     production path for those URLs.
@@ -169,7 +169,7 @@ final class KnowledgeRefresh extends AbilityKernel {
 							'hub'             => $hub,
 							'previous_hash'   => null,
 							'fetched_at'      => null,
-							'reason'          => __( 'Vanilla fetch returned an SPA shell. Re-run via the companion/scripts/scrape-page.js Playwright harvester and resubmit with `body`.', 'stonewright' ),
+							'reason'          => __( 'Vanilla fetch returned an SPA shell. Re-run with a browser-rendered harvester and resubmit with `body`.', 'stonewright' ),
 						];
 					}
 				} else {

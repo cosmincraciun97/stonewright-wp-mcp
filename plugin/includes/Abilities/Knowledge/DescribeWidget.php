@@ -23,7 +23,7 @@ final class DescribeWidget extends AbilityKernel {
 
 	public function description(): string {
 		return __(
-			'USE THIS WHEN deciding how to render a Figma pattern as a real Elementor widget. Returns the widget manifest entry, harvested documentation, stale flags, and refresh guidance. Prefer this over simulating widgets with headings/buttons.',
+			'USE THIS WHEN deciding how to render a design pattern as a real Elementor widget. Returns the widget manifest entry, harvested documentation, stale flags, and refresh guidance. Prefer this over simulating widgets with headings/buttons.',
 			'stonewright'
 		);
 	}

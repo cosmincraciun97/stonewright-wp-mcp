@@ -33,40 +33,36 @@ Give it a name like `Claude Code` and click **Add New Application Password**. Co
 
 ## 3. Configure Claude Code
 
-Add the MCP server to your Claude Code configuration. The config file is at:
+Register Stonewright:
 
-- macOS/Linux: `~/.claude/claude_desktop_config.json`
-- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
-
-```json
-{
-  "mcpServers": {
-    "stonewright": {
-      "url": "https://your-site.example.com/wp-json/stonewright/v1/mcp",
-      "headers": {
-        "Authorization": "Bearer your-username:xxxx xxxx xxxx xxxx xxxx xxxx"
-      }
-    }
-  }
-}
+```bash
+claude mcp add stonewright -- npx -y --package @stonewright/companion@latest stonewright-mcp \
+  --env STONEWRIGHT_SITE_URL='https://your-site.example.com' \
+  --env STONEWRIGHT_MCP_URL='https://your-site.example.com/wp-json/mcp/stonewright' \
+  --env WP_API_USERNAME='your-wp-username' \
+  --env WP_API_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx'
 ```
 
-Replace `your-site.example.com` with your site URL and the bearer value with your WordPress username and application password joined with a colon.
+Register the separate Playwright MCP for browser testing and screenshots:
 
-Restart Claude Code after saving the config.
+```bash
+claude mcp add playwright -- npx @playwright/mcp@latest
+```
+
+Restart Claude Code after adding the servers.
 
 ## 4. Verify the connection
 
 In Claude Code, run:
 
 ```
-Use the stonewright/site/ping ability.
+Use MCP tool stonewright-ping.
 ```
 
 Claude Code should call the ability and return something like:
 
 ```json
-{ "status": "pong", "timestamp": "2026-05-21T12:00:00Z" }
+{ "ok": true, "message": "pong" }
 ```
 
 If you get a 401, check the Application Password and the Authorization header format.
@@ -79,11 +75,14 @@ with a heading block saying "It works" and a paragraph block saying
 "Stonewright is connected."
 ```
 
-Claude Code will call `stonewright/content/create-page` and return the new post ID and URL.
+Claude Code should first call `stonewright-context-bootstrap`, then use the returned
+`stonewright_context_token` for write tools. WordPress ability names in the docs use
+slashes, but MCP tool names use hyphens: `stonewright/content-create-page`
+becomes `stonewright-content-create-page`.
 
 ## Next steps
 
 - Read [abilities.md](../abilities.md) to see everything Stonewright can do.
-- If you work with Figma, set up the [companion bridge](../companion.md).
+- If you need WP-CLI acceleration, set up the [companion bridge](../companion.md).
 - For Elementor workflows, review the [design-to-wordpress skill](../skills.md).
 - For production sites, set `stonewright_mode` to `production-safe` first.

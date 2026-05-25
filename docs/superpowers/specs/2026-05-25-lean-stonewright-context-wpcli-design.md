@@ -18,13 +18,15 @@ This change keeps the core builder surfaces:
 - Elementor V3 and V4 abilities.
 - Gutenberg and FSE abilities.
 - DesignSpec validation and renderers for manually supplied specs.
-- Widget intent, Elementor knowledge, memory, skills, sandbox, content, media, theme builder, menu, and system abilities.
+- Widget intent, Elementor knowledge, memory, skills, sandbox, content, media, theme builder, menu, online-research instructions, and system abilities.
 
 ## User Intent
 
 The user will handle Figma with a separate MCP and will give human visual feedback instead of asking Stonewright to run automated QA. Stonewright must focus on safe WordPress building primitives, native Elementor/Gutenberg output, persistent site knowledge, and fast local diagnostics.
 
 The user also wants Stonewright skills and memory to persist between sessions and be treated as mandatory context for every Stonewright task. When the user corrects the agent, or when the agent detects that it made a repeatable mistake, Stonewright should let the agent save that learning so the next session does not repeat the same error.
+
+For Elementor work, Stonewright must force the agent to plan and configure the right native widgets, not merely place approximate widgets on the page. The agent must inspect Stonewright's widget manifest, harvested Elementor marketing/help documentation, and every relevant widget control group before writing. If the internal documentation is missing, stale, or not specific enough for the desired design, Stonewright must instruct the agent to research current official Elementor documentation online before choosing settings.
 
 ## Architecture
 
@@ -153,7 +155,82 @@ Behavior:
 
 `AgentInstructions::default()` should instruct agents to call `stonewright/learning-record` after user corrections or after detecting that an existing memory/skill was violated.
 
-### 6. Full WP-CLI Integration
+### 6. Elementor Widget Implementation Discipline
+
+Elementor tasks must go through a repeatable widget-selection and configuration workflow.
+
+Required workflow for every Elementor implementation or edit:
+
+1. Call `stonewright/context-bootstrap` with the task.
+2. Call `stonewright/widget-intent-resolve` with the user request, design/image description, and any known content constraints.
+3. Call `stonewright/elementor-describe-widget` for every candidate widget that may be used.
+4. Call `stonewright/elementor-knowledge-search` for layout/control topics that affect the design.
+5. Build an implementation plan that maps each design part to native widgets and specific controls.
+6. Configure every relevant widget and container control group, including Content, Style, and Advanced controls.
+7. Only use `stonewright/elementor-v3-add-widget` as an escape hatch after dedicated widget abilities and knowledge lookup do not cover the widget or setting.
+8. Never use Elementor HTML widgets unless the user explicitly asks for HTML and `allow_html_widget=true` is present.
+
+The instructions must tell the agent to think through and configure, when relevant:
+
+- Content fields, repeaters, links, media, icons, menus, dynamic tags, query controls, and taxonomy/post selection.
+- Typography, color, alignment, spacing, layout, gap, width, height, min-height, max width, flex/order, align self, and responsive values.
+- Background, background overlay, gradients, image position/size, border, radius, box shadow, text shadow, transform, opacity, filters, and blend modes.
+- Motion effects, entrance animations, sticky behavior, position absolute/fixed, z-index, display conditions, responsive visibility, CSS classes, custom attributes, margin, padding, and cache-related controls when supported by the widget/site.
+
+Add a new read-only helper:
+
+```text
+stonewright/elementor-widget-implementation-guide
+```
+
+Input:
+
+```json
+{
+  "prompt": "Implement this hero with nav, CTA, image, and feature cards",
+  "candidate_widgets": ["nav-menu", "heading", "button", "image", "icon-box"],
+  "design_notes": "Desktop has two columns, mobile stacks, hero image overlaps card background."
+}
+```
+
+Output:
+
+```json
+{
+  "ok": true,
+  "recommendations": [
+    {
+      "widget": "nav-menu",
+      "ability": "stonewright/elementor-add-nav-menu",
+      "why": "Native menu and hamburger behavior",
+      "required_controls": {
+        "Content": ["menu", "layout"],
+        "Style": ["typography", "colors", "spacing"],
+        "Advanced": ["sticky/position if used", "responsive visibility"]
+      },
+      "docs": ["docs/knowledge/elementor/widgets/nav-menu-widget.md"],
+      "needs_online_research": false
+    }
+  ],
+  "global_required_steps": [
+    "Use native containers and widgets first.",
+    "Configure responsive desktop/tablet/mobile controls explicitly.",
+    "When needs_online_research is true, research official Elementor documentation before writing."
+  ]
+}
+```
+
+The helper should combine:
+
+- `WidgetRecommender` scores.
+- Widget manifest settings and `settings_highlights`.
+- `ElementorKnowledgeBase::describe_widget()` documents.
+- A static control-group checklist so the output reminds the agent to configure Style and Advanced controls, not only Content.
+- A `needs_online_research` flag when no documents exist, documents are stale, or required control guidance is missing.
+
+Stonewright cannot perform web research by itself through WordPress, but the MCP instructions must explicitly require the agent to use its available web/search tool when this flag is true. Research should prefer official Elementor documentation and current widget marketing/help pages.
+
+### 7. Full WP-CLI Integration
 
 Add WP-CLI support through the companion and PHP abilities.
 
@@ -216,7 +293,7 @@ Safety envelope:
 - If the command changes global site state, audit the exact argv and require an explicit `reason`.
 - In `production-safe` mode, destructive and global writes require confirmation tokens.
 
-### 7. Plugin-Specific WP-CLI Helpers
+### 8. Plugin-Specific WP-CLI Helpers
 
 Add higher-level abilities after the raw runner exists:
 
@@ -334,10 +411,11 @@ npm run build
 1. Remove Figma and QA surfaces.
 2. Add context bootstrap and write-token gate.
 3. Add learning-record persistence.
-4. Add companion WP-CLI runner and PHP bridge abilities.
-5. Add plugin-specific helpers for Elementor, Gutenberg, ACF, and CPT UI.
-6. Update docs, skills, and generated matrices.
-7. Run PHP and Node verification.
+4. Add Elementor widget implementation discipline and guide helper.
+5. Add companion WP-CLI runner and PHP bridge abilities.
+6. Add plugin-specific helpers for Elementor, Gutenberg, ACF, and CPT UI.
+7. Update docs, skills, and generated matrices.
+8. Run PHP and Node verification.
 
 ## Decisions
 

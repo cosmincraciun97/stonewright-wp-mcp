@@ -150,14 +150,14 @@ final class ValidatorTest extends TestCase {
 		$this->assertIsArray( $result, 'Expected block with additional properties and float width/height to validate successfully' );
 	}
 
-	public function test_validate_accepts_companion_figma_payload_shape(): void {
+	public function test_validate_accepts_external_design_payload_shape(): void {
 		$spec = [
 			'version' => '1.0.0',
-			'page'    => [ 'title' => 'Companion Figma Page' ],
+			'page'    => [ 'title' => 'Companion Design reference Page' ],
 			'assets' => [
 				[
 					'id'      => 'asset_1',
-					'url'     => 'https://figma-cdn.example.com/hero.png',
+					'url'     => 'https://assets.example.com/hero.png',
 					'altText' => 'Hero image',
 					'width'   => 631,
 					'height'  => 441,
@@ -168,8 +168,8 @@ final class ValidatorTest extends TestCase {
 				[ 'id' => 'desktop', 'label' => 'Desktop' ],
 			],
 			'meta' => [
-				'source'        => 'figma',
-				'figma_node_id' => '97:8306',
+				'source'        => 'image',
+				'source_node_id' => '97:8306',
 			],
 			'sections' => [
 				[
@@ -204,7 +204,7 @@ final class ValidatorTest extends TestCase {
 								[
 									'type'     => 'image',
 									'id'       => '97:8309',
-									'src'      => 'https://figma-cdn.example.com/hero.png',
+									'src'      => 'https://assets.example.com/hero.png',
 									'assetRef' => 'asset_1',
 									'alt'      => 'Hero',
 									'width'    => 631,
@@ -219,17 +219,17 @@ final class ValidatorTest extends TestCase {
 
 		$result = Validator::validate( $spec );
 
-		$this->assertIsArray( $result, 'Expected companion/Figma payload shape to validate successfully' );
+		$this->assertIsArray( $result, 'Expected external design payload shape to validate successfully' );
 	}
 
-	public function test_validate_accepts_figma_background_image_ref(): void {
+	public function test_validate_accepts_external_background_image_ref(): void {
 		$spec = [
 			'version'  => '1.0.0',
-			'page'     => [ 'title' => 'Figma Background Page' ],
+			'page'     => [ 'title' => 'Design reference Background Page' ],
 			'assets'   => [
 				[
 					'id'       => 'asset_glow_bg',
-					'url'      => 'https://figma-cdn.example.com/hero-glow.png',
+					'url'      => 'https://assets.example.com/hero-glow.png',
 					'mimeType' => 'image/png',
 				],
 			],
@@ -251,7 +251,7 @@ final class ValidatorTest extends TestCase {
 
 		$result = Validator::validate( $spec );
 
-		$this->assertIsArray( $result, 'Expected Figma background imageRef payload to validate successfully' );
+		$this->assertIsArray( $result, 'Expected Design reference background imageRef payload to validate successfully' );
 	}
 
 	public function test_validate_accepts_native_elementor_quality_controls(): void {

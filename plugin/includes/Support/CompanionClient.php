@@ -21,7 +21,7 @@ use Stonewright\WpMcp\Companion\CompanionContract;
  * Version checking:
  *   On the first call per request the companion's /health endpoint is queried
  *   and the contract_version is cached in transient `stonewright_companion_contract_version`
- *   (TTL 5 min). On major-version mismatch every QA call short-circuits with
+ *   (TTL 5 min). On major-version mismatch every companion call short-circuits with
  *   WP_Error('stonewright_companion_version_mismatch').
  */
 final class CompanionClient {
@@ -32,12 +32,12 @@ final class CompanionClient {
 	/**
 	 * POST to the companion service.
 	 *
-	 * @param string               $path e.g. '/screenshot'
+	 * @param string               $path e.g. '/wp-cli/status'
 	 * @param array<string, mixed> $body
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	public static function post( string $path, array $body ): array|\WP_Error {
-		// Version gate — check companion contract_version before any QA call.
+		// Version gate: check companion contract_version before any companion call.
 		$version_check = self::check_version();
 		if ( is_wp_error( $version_check ) ) {
 			return $version_check;
@@ -85,34 +85,6 @@ final class CompanionClient {
 		}
 
 		return (array) $data;
-	}
-
-	/**
-	 * Call the companion's /figma-ingest endpoint.
-	 *
-	 * Accepts either figma_url or file_key + node_id (plus optional token_override).
-	 * Validates the response against the FigmaIngest contract before returning.
-	 *
-	 * @param array<string, mixed> $args Accepted keys: figma_url, file_key, node_id, token_override.
-	 * @return array<string, mixed>|\WP_Error { spec, warnings, asset_count } on success.
-	 */
-	public static function companion_figma_fetch( array $args ): array|\WP_Error {
-		$body = [];
-
-		if ( ! empty( $args['figma_url'] ) ) {
-			$body['figma_url'] = (string) $args['figma_url'];
-		}
-		if ( ! empty( $args['file_key'] ) ) {
-			$body['file_key'] = (string) $args['file_key'];
-		}
-		if ( ! empty( $args['node_id'] ) ) {
-			$body['node_id'] = (string) $args['node_id'];
-		}
-		if ( ! empty( $args['token_override'] ) ) {
-			$body['token_override'] = (string) $args['token_override'];
-		}
-
-		return self::post( '/figma-ingest', $body );
 	}
 
 	/**

@@ -6,7 +6,7 @@ namespace Stonewright\WpMcp\Admin;
 /**
  * Stonewright admin settings page.
  *
- * Surfaces the production-safe mode toggle, Figma personal access token,
+ * Surfaces the production-safe mode toggle,
  * companion bridge URL/token, and the Elementor V4 atomic feature flag.
  * All option writes go through `register_setting()` so they participate
  * in normal WordPress capability + nonce checks.
@@ -39,12 +39,6 @@ final class SettingsPage {
 				$value = is_string( $value ) ? strtolower( trim( $value ) ) : '';
 				return in_array( $value, [ 'development', 'staging', 'production-safe' ], true ) ? $value : 'development';
 			},
-		] );
-
-		register_setting( self::OPTION_GROUP, 'stonewright_figma_token', [
-			'type'              => 'string',
-			'default'           => '',
-			'sanitize_callback' => 'sanitize_text_field',
 		] );
 
 		register_setting( self::OPTION_GROUP, 'stonewright_companion_url', [
@@ -95,18 +89,10 @@ final class SettingsPage {
 						</tr>
 
 						<tr>
-							<th scope="row"><label for="stonewright_figma_token"><?php esc_html_e( 'Figma personal access token', 'stonewright' ); ?></label></th>
-							<td>
-								<input type="password" class="regular-text" name="stonewright_figma_token" id="stonewright_figma_token" value="<?php echo esc_attr( (string) get_option( 'stonewright_figma_token', '' ) ); ?>" autocomplete="off"/>
-								<p class="description"><?php esc_html_e( 'Used by the Figma importer ability. Stored in wp_options.', 'stonewright' ); ?></p>
-							</td>
-						</tr>
-
-						<tr>
 							<th scope="row"><label for="stonewright_companion_url"><?php esc_html_e( 'Companion bridge URL', 'stonewright' ); ?></label></th>
 							<td>
 								<input type="url" class="regular-text" name="stonewright_companion_url" id="stonewright_companion_url" value="<?php echo esc_attr( (string) get_option( 'stonewright_companion_url', 'http://127.0.0.1:8765' ) ); ?>" autocomplete="off"/>
-								<p class="description"><?php esc_html_e( 'The Node companion endpoint used for screenshots, pixel diff, and Lighthouse.', 'stonewright' ); ?></p>
+								<p class="description"><?php esc_html_e( 'The Node companion endpoint used for local helper operations and optional MCP proxying.', 'stonewright' ); ?></p>
 							</td>
 						</tr>
 

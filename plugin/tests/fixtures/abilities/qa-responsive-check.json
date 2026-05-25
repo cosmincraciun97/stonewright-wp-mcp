@@ -1,7 +1,0 @@
-{
-    "args": {
-        "post_id": 1,
-        "url": "https://example.test/"
-    },
-    "expect": "ok"
-}

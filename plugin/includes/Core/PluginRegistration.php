@@ -15,7 +15,6 @@ use Stonewright\WpMcp\Skills\SkillsSeeder;
 use Stonewright\WpMcp\Skills\SkillsTable;
 use Stonewright\WpMcp\Elementor\WidgetBuilder\Loader as WidgetLoader;
 use Stonewright\WpMcp\Memory\Memory;
-use Stonewright\WpMcp\QA\QaArtifactStore;
 use Stonewright\WpMcp\Sandbox\CrashRecovery;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\DomainLock;
@@ -98,7 +97,6 @@ final class PluginRegistration {
 		add_action( 'init', [ SkillsTable::class, 'create_table' ] );
 		add_action( 'init', [ ResourceRegistry::class, 'register' ], 30 );
 		add_action( 'init', [ BlockRegistry::class, 'register' ], 40 );
-		add_action( 'init', [ QaArtifactStore::class, 'schedule_purge' ] );
 		add_action( 'rest_api_init', [ RestRoutes::class, 'register' ] );
 
 		CrashRecovery::register();
@@ -158,10 +156,6 @@ final class PluginRegistration {
 	}
 
 	public function on_deactivate(): void {
-		$timestamp = wp_next_scheduled( 'stonewright_qa_artifact_purge' );
-		if ( $timestamp ) {
-			wp_unschedule_event( $timestamp, 'stonewright_qa_artifact_purge' );
-		}
 		Logger::info( 'deactivate', [ 'version' => STONEWRIGHT_VERSION ] );
 	}
 

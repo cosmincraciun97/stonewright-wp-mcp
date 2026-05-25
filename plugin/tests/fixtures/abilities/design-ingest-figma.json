@@ -1,7 +1,0 @@
-{
-    "args": {
-        "file_key": "abc",
-        "node_id": "1:2"
-    },
-    "expect": "ok"
-}

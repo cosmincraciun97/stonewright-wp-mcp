@@ -12,7 +12,7 @@ use Stonewright\WpMcp\Elementor\Renderer\TextEditor;
 
 /**
  * Verifies that DesignSpec `block.style` actually reaches Elementor widget
- * settings — the bug behind the live Figma builds rendering headings in the
+ * settings — the bug behind the live Design reference builds rendering headings in the
  * default theme blue link colour and buttons in default Elementor green.
  *
  * @covers \Stonewright\WpMcp\Elementor\Renderer\Heading

@@ -69,7 +69,7 @@ CPT entries. They can be reused across pages via `<!-- wp:block {"ref":ID} -->`.
 `stonewright/blocks-insert`, `stonewright/blocks-update`, and
 `stonewright/blocks-remove` call `Backup::snapshot_post` internally.
 `stonewright/fse-update-global-styles` and `stonewright/fse-update-template`
-do not; call `stonewright/site-backup-page` before these.
+do not; call MCP tool `stonewright-site-backup-page` before these.
 
 ## Ability summary
 

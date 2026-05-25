@@ -20,12 +20,6 @@ use Stonewright\WpMcp\Security\Permissions;
  * should I use?" — instead of dumping the full catalog and asking the
  * model to pick, the model can ask the catalog to pick.
  *
- * Pairs with:
- *   - `stonewright/elementor-add-<slug>` per-widget abilities (Phase C)
- *   - `stonewright/elementor-v3-add-widget` escape hatch (Phase B.6)
- *   - `WidgetIntentResolver::detect_from_figma_signature()` for the
- *      FigmaToSpec walk (Phase D.2).
- *
  * @stonewright-status stable
  */
 final class WidgetIntentResolve extends AbilityKernel {
@@ -67,9 +61,9 @@ final class WidgetIntentResolve extends AbilityKernel {
 					'type'        => 'string',
 					'description' => 'Optional plain-language build request. When intent is omitted, Stonewright detects the widget intent from this prompt.',
 				],
-				'figma_node'  => [
+				'design_node'  => [
 					'type'        => 'object',
-					'description' => 'Optional Figma REST node payload. When intent is omitted, Stonewright detects the widget intent from this node signature.',
+					'description' => 'Optional structured design node. When intent is omitted, Stonewright detects the widget intent from this node signature.',
 				],
 				'context' => [
 					'type'        => 'object',
@@ -124,9 +118,9 @@ final class WidgetIntentResolve extends AbilityKernel {
 		$intent = isset( $args['intent'] ) && is_string( $args['intent'] ) ? $args['intent'] : '';
 		$source = 'intent';
 
-		if ( '' === $intent && isset( $args['figma_node'] ) && is_array( $args['figma_node'] ) ) {
-			$intent = WidgetIntentResolver::detect_from_figma_signature( $args['figma_node'] ) ?? '';
-			$source = 'figma_node';
+		if ( '' === $intent && isset( $args['design_node'] ) && is_array( $args['design_node'] ) ) {
+			$intent = WidgetIntentResolver::detect_from_design_tree( $args['design_node'] ) ?? '';
+			$source = 'design_node';
 		}
 
 		if ( '' === $intent && isset( $args['prompt'] ) && is_string( $args['prompt'] ) ) {
@@ -137,7 +131,7 @@ final class WidgetIntentResolve extends AbilityKernel {
 		if ( $intent === '' ) {
 			return new \WP_Error(
 				'stonewright_invalid_intent',
-				__( 'intent, prompt, or figma_node is required and must resolve to a known design intent.', 'stonewright' ),
+				__( 'intent, prompt, or design_node is required and must resolve to a known design intent.', 'stonewright' ),
 				[ 'status' => 400 ]
 			);
 		}

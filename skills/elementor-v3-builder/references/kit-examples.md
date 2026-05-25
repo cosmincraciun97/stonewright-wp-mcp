@@ -1,7 +1,7 @@
 # Kit Color and Typography Examples
 
 Kit mutations are global. Always confirm with the user before writing.
-Call `stonewright/elementor-v3-backup-page` on the kit post before mutating
+Call MCP tool `stonewright-elementor-v3-backup-page` on the kit post before mutating
 if you need a rollback point.
 
 ## Update kit colors

@@ -1,0 +1,7 @@
+{
+    "args": {
+        "command": ["post", "list", "--post_type=page", "--format=json"],
+        "parseJson": true
+    },
+    "expect": "ok"
+}

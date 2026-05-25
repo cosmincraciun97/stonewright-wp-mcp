@@ -7,7 +7,7 @@ namespace Stonewright\WpMcp\Security;
  * One-time admin access links.
  *
  * Allows AI agents to generate short-lived, single-use admin login URLs for
- * browser automation tools (e.g. Playwright) without exposing user passwords.
+ * browser automation tools without exposing user passwords.
  * Tokens are stored in WP transients and are consumed on first use.
  *
  * @stonewright-status stable

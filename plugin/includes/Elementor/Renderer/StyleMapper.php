@@ -43,7 +43,7 @@ final class StyleMapper {
 
 	/**
 	 * Normalise the two DesignSpec style dialects Stonewright currently sees:
-	 * plugin-native `style` keys and companion/Figma `styles` + `typography`
+	 * plugin-native `style` keys and external `styles` + `typography`
 	 * keys. The renderer consumes the plugin-native snake_case shape.
 	 *
 	 * @param array<string, mixed> $node

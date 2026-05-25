@@ -445,14 +445,14 @@ final class ElementorRendererTest extends TestCase {
 	public function test_image_accepts_companion_src_and_dimensions(): void {
 		$node   = [
 			'type'   => 'image',
-			'src'    => 'https://example.com/figma-export.png',
-			'alt'    => 'Figma export',
+			'src'    => 'https://example.com/design-export.png',
+			'alt'    => 'Design reference export',
 			'width'  => 631,
 			'height' => 441,
 		];
 		$result = Image::render( $node, $this->resolver, 's0.b0' );
 
-		$this->assertSame( 'https://example.com/figma-export.png', $result['settings']['image']['url'] );
+		$this->assertSame( 'https://example.com/design-export.png', $result['settings']['image']['url'] );
 		$this->assertSame( 631, $result['settings']['width']['size'] );
 		$this->assertSame( 441, $result['settings']['height']['size'] );
 	}
@@ -554,6 +554,25 @@ final class ElementorRendererTest extends TestCase {
 		$node   = [ 'type' => 'divider', 'style' => 'solid', 'weight' => 2 ];
 		$result = Divider::render( $node, $this->resolver, 's0.b0' );
 		$this->assertSame( $this->fixture( 'divider' ), $result );
+	}
+
+	public function test_divider_accepts_style_array(): void {
+		$node   = [
+			'type'  => 'divider',
+			'style' => [
+				'color'  => '#ff0000',
+				'width'  => '50%',
+				'margin' => '10px 20px',
+			],
+		];
+		$result = Divider::render( $node, $this->resolver, 's0.b0' );
+
+		$this->assertSame( '#ff0000', $result['settings']['color'] );
+		$this->assertSame( 50, $result['settings']['width']['size'] );
+		$this->assertSame( '%', $result['settings']['width']['unit'] );
+		$this->assertSame( '10', $result['settings']['_margin']['top'] );
+		$this->assertSame( '20', $result['settings']['_margin']['right'] );
+		$this->assertArrayNotHasKey( 'style', $result['settings'] );
 	}
 
 	// -------------------------------------------------------------------------

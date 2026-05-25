@@ -116,13 +116,13 @@ final class AbilityTruthMatrixTest extends TestCase {
 	// New tests — column count, Status column, no empty/??? cells
 	// -------------------------------------------------------------------------
 
-	public function test_every_ability_row_has_ten_columns(): void {
+	public function test_every_ability_row_has_eleven_columns(): void {
 		$bad = [];
 		foreach ( self::$matrix_rows as $row ) {
-			if ( count( $row['columns'] ) !== 10 ) {
-				// 10 cells = slug + class + desc + R/W + perm + token + backup + validator + status + tests
+			if ( count( $row['columns'] ) !== 11 ) {
+				// 11 cells = slug + MCP tool + class + desc + R/W + perm + token + backup + validator + status + tests
 				$bad[] = sprintf(
-					'%s has %d columns (expected 10)',
+					'%s has %d columns (expected 11)',
 					$row['slug'],
 					count( $row['columns'] )
 				);
@@ -131,16 +131,30 @@ final class AbilityTruthMatrixTest extends TestCase {
 
 		self::assertEmpty(
 			$bad,
-			"Some matrix rows do not have exactly 10 columns (including Status):\n  " .
+			"Some matrix rows do not have exactly 11 columns (including MCP Tool and Status):\n  " .
 			implode( "\n  ", $bad ) . "\n\nRun `composer docs:matrix` to regenerate."
+		);
+	}
+
+	public function test_context_bootstrap_row_documents_mcp_tool_name(): void {
+		$row = $this->find_row( 'stonewright/context-bootstrap' );
+
+		self::assertNotNull(
+			$row,
+			'stonewright/context-bootstrap is missing from the matrix. Run `composer docs:matrix`.'
+		);
+		self::assertSame(
+			'`stonewright-context-bootstrap`',
+			trim( $row['columns'][1] ?? '' ),
+			'Matrix must show the MCP tool name agents actually call.'
 		);
 	}
 
 	public function test_status_column_contains_at_least_one_experimental(): void {
 		$has_experimental = false;
 		foreach ( self::$matrix_rows as $row ) {
-			// Status is the 9th column (index 8, 0-based).
-			if ( isset( $row['columns'][8] ) && trim( $row['columns'][8] ) === 'experimental' ) {
+			// Status is the 10th column (index 9, 0-based).
+			if ( isset( $row['columns'][9] ) && trim( $row['columns'][9] ) === 'experimental' ) {
 				$has_experimental = true;
 				break;
 			}
@@ -157,7 +171,7 @@ final class AbilityTruthMatrixTest extends TestCase {
 	public function test_status_column_contains_at_least_one_sandboxed(): void {
 		$has_sandboxed = false;
 		foreach ( self::$matrix_rows as $row ) {
-			if ( isset( $row['columns'][8] ) && trim( $row['columns'][8] ) === 'sandboxed' ) {
+			if ( isset( $row['columns'][9] ) && trim( $row['columns'][9] ) === 'sandboxed' ) {
 				$has_sandboxed = true;
 				break;
 			}
@@ -179,20 +193,20 @@ final class AbilityTruthMatrixTest extends TestCase {
 			'stonewright/fse.write_template is missing from the matrix. Run `composer docs:matrix`.'
 		);
 
-		// Columns (0-indexed): slug, class, desc, R/W(3), perm(4), token(5), backup(6), validator(7), status(8), tests(9)
+		// Columns (0-indexed): slug, mcp tool, class, desc, R/W(4), perm(5), token(6), backup(7), validator(8), status(9), tests(10)
 		self::assertStringContainsString(
 			'can_manage_fse',
-			$row['columns'][4] ?? '',
+			$row['columns'][5] ?? '',
 			'WriteTemplate permission column should contain Permissions::can_manage_fse().'
 		);
 		self::assertSame(
 			'Yes',
-			trim( $row['columns'][5] ?? '' ),
+			trim( $row['columns'][6] ?? '' ),
 			'WriteTemplate should have Token=Yes (uses ConfirmationGuard via AbstractTemplateWriter).'
 		);
 		self::assertSame(
 			'Yes',
-			trim( $row['columns'][6] ?? '' ),
+			trim( $row['columns'][7] ?? '' ),
 			'WriteTemplate should have Backup=Yes (calls Backup::snapshot_post via AbstractTemplateWriter).'
 		);
 	}
@@ -207,7 +221,7 @@ final class AbilityTruthMatrixTest extends TestCase {
 
 		self::assertSame(
 			'Write',
-			trim( $row['columns'][3] ?? '' ),
+			trim( $row['columns'][4] ?? '' ),
 			'MemorySave R/W column should be "Write" (delegates to Memory::put_typed which uses wpdb->insert/update).'
 		);
 	}

@@ -5,6 +5,8 @@ namespace Stonewright\WpMcp\Core;
 
 use Stonewright\WpMcp\Abilities\Ability;
 use Stonewright\WpMcp\Abilities\Content\BulkCreate;
+use Stonewright\WpMcp\Abilities\System\ContextBootstrap;
+use Stonewright\WpMcp\Context\ContextToken;
 use Stonewright\WpMcp\Support\Utf8;
 use Stonewright\WpMcp\Abilities\Content\CreatePage;
 use Stonewright\WpMcp\Abilities\Content\CreatePost;
@@ -13,14 +15,10 @@ use Stonewright\WpMcp\Abilities\Content\GetPage;
 use Stonewright\WpMcp\Abilities\Content\UpdatePage;
 use Stonewright\WpMcp\Abilities\Content\UpdatePost;
 use Stonewright\WpMcp\Abilities\Design\ApplyToPost;
-use Stonewright\WpMcp\Abilities\Design\BuildFromFigmaReference;
 use Stonewright\WpMcp\Abilities\Design\BuildSpec;
 use Stonewright\WpMcp\Abilities\Design\ChooseRenderer;
 use Stonewright\WpMcp\Abilities\Design\ExtractTokens;
-use Stonewright\WpMcp\Abilities\Design\FigmaToSpec;
-use Stonewright\WpMcp\Abilities\Design\ImportFigmaNode;
 use Stonewright\WpMcp\Abilities\Design\ImportImage;
-use Stonewright\WpMcp\Abilities\Design\IngestFigma;
 use Stonewright\WpMcp\Abilities\Design\NormalizeAssets;
 use Stonewright\WpMcp\Abilities\Design\PreviewRender;
 use Stonewright\WpMcp\Abilities\Design\SpecToElementorV3;
@@ -80,12 +78,14 @@ use Stonewright\WpMcp\Abilities\Memory\MemoryDelete;
 use Stonewright\WpMcp\Abilities\Memory\MemoryGet;
 use Stonewright\WpMcp\Abilities\Memory\MemoryList;
 use Stonewright\WpMcp\Abilities\Memory\MemorySave;
+use Stonewright\WpMcp\Abilities\Memory\LearningRecord;
 use Stonewright\WpMcp\Abilities\ElementorWidget\CreateCustomWidget;
 use Stonewright\WpMcp\Abilities\ElementorWidget\WidgetDefine;
 use Stonewright\WpMcp\Abilities\Knowledge\DescribeWidget;
 use Stonewright\WpMcp\Abilities\Knowledge\ExplainEditor;
 use Stonewright\WpMcp\Abilities\Knowledge\KnowledgeRefresh;
 use Stonewright\WpMcp\Abilities\Knowledge\KnowledgeSearch;
+use Stonewright\WpMcp\Abilities\Knowledge\WidgetImplementationGuide;
 use Stonewright\WpMcp\Abilities\ElementorWidget\WidgetList as ElementorWidgetList;
 use Stonewright\WpMcp\Abilities\ElementorWidget\WidgetRegister;
 use Stonewright\WpMcp\Abilities\Sandbox\SandboxActivate;
@@ -107,6 +107,9 @@ use Stonewright\WpMcp\Abilities\ThemeBuilder\DeleteTemplate as ThemeBuilderDelet
 use Stonewright\WpMcp\Abilities\ThemeBuilder\GetTemplate as ThemeBuilderGetTemplate;
 use Stonewright\WpMcp\Abilities\ThemeBuilder\ListTemplates as ThemeBuilderListTemplates;
 use Stonewright\WpMcp\Abilities\ThemeBuilder\SetConditions as ThemeBuilderSetConditions;
+use Stonewright\WpMcp\Abilities\WpCli\Discover as WpCliDiscover;
+use Stonewright\WpMcp\Abilities\WpCli\Run as WpCliRun;
+use Stonewright\WpMcp\Abilities\WpCli\Status as WpCliStatus;
 use Stonewright\WpMcp\Abilities\System\InstructionsGet;
 use Stonewright\WpMcp\Abilities\System\InstructionsSet;
 use Stonewright\WpMcp\Abilities\Media\GetMedia;
@@ -120,16 +123,6 @@ use Stonewright\WpMcp\Abilities\Menu\MenuDelete;
 use Stonewright\WpMcp\Abilities\Menu\MenuList;
 use Stonewright\WpMcp\Abilities\Patterns\CreatePattern;
 use Stonewright\WpMcp\Abilities\Patterns\ListPatterns;
-use Stonewright\WpMcp\Abilities\QA\AccessibilityCheck;
-use Stonewright\WpMcp\Abilities\QA\ApplyFixPlan;
-use Stonewright\WpMcp\Abilities\QA\DiffLayout;
-use Stonewright\WpMcp\Abilities\QA\DiffScreenshot;
-use Stonewright\WpMcp\Abilities\QA\Lighthouse;
-use Stonewright\WpMcp\Abilities\QA\Report as QaReport;
-use Stonewright\WpMcp\Abilities\QA\ResponsiveCheck;
-use Stonewright\WpMcp\Abilities\QA\ScreenshotPage;
-use Stonewright\WpMcp\Abilities\QA\SuggestFixes;
-use Stonewright\WpMcp\Abilities\QA\VerifyAgainstReference;
 use Stonewright\WpMcp\Abilities\Security\CreateOneTimeLink;
 use Stonewright\WpMcp\Abilities\Security\IssueConfirmationToken;
 use Stonewright\WpMcp\Abilities\Site\BackupPage as SiteBackupPage;
@@ -154,6 +147,7 @@ final class AbilityRegistry {
 	public static function list(): array {
 		$base = [
 			// Security.
+			ContextBootstrap::class,
 			IssueConfirmationToken::class,
 			CreateOneTimeLink::class,
 
@@ -253,41 +247,26 @@ final class AbilityRegistry {
 			ExtractTokens::class,
 			BuildSpec::class,
 			NormalizeAssets::class,
-			ImportFigmaNode::class,
 			ImportImage::class,
 			ChooseRenderer::class,
 			SpecToGutenberg::class,
 			SpecToElementorV3::class,
 			SpecToElementorV4::class,
-			IngestFigma::class,
 			PreviewRender::class,
 			ApplyToPost::class,
 
 			// Design (Phase 2.5).
-			FigmaToSpec::class,
 
 			// Design (Phase D.4) — smart-detection intent resolver.
 			WidgetIntentResolve::class,
 
 			// Design (Phase D.5) — full-pipeline orchestrator.
-			BuildFromFigmaReference::class,
-
-			// QA.
-			ScreenshotPage::class,
-			DiffScreenshot::class,
-			DiffLayout::class,
-			ResponsiveCheck::class,
-			Lighthouse::class,
-			AccessibilityCheck::class,
-			SuggestFixes::class,
-			ApplyFixPlan::class,
-			QaReport::class,
-			VerifyAgainstReference::class,
 
 			// Memory (Wave 3a).
 			MemoryList::class,
 			MemoryGet::class,
 			MemorySave::class,
+			LearningRecord::class,
 			MemoryDelete::class,
 
 			// System (Wave 3b).
@@ -296,6 +275,11 @@ final class AbilityRegistry {
 			KnowledgeExport::class,
 			KnowledgeImport::class,
 			AbilitiesList::class,
+
+			// WP-CLI companion bridge.
+			WpCliStatus::class,
+			WpCliDiscover::class,
+			WpCliRun::class,
 
 			// Skills.
 			SkillsList::class,
@@ -314,6 +298,7 @@ final class AbilityRegistry {
 			KnowledgeSearch::class,
 			DescribeWidget::class,
 			ExplainEditor::class,
+			WidgetImplementationGuide::class,
 			KnowledgeRefresh::class,
 
 			// Sandbox (Wave 3c).
@@ -405,18 +390,19 @@ final class AbilityRegistry {
 				continue;
 			}
 
-			$args = [
+			$input_schema = self::input_schema_for_ability( $ability );
+			$args         = [
 				'label'               => $ability->label(),
 				'description'         => $ability->description(),
 				'category'            => $ability->category(),
-				'input_schema'        => $ability->input_schema(),
+				'input_schema'        => $input_schema,
 				'output_schema'       => $ability->output_schema(),
 				'permission_callback' => [ $ability, 'permission_callback' ],
 				// Wrap execute with UTF-8 deep_sanitize so all ability inputs
 				// are guaranteed valid UTF-8 regardless of client encoding.
 				// This transparently handles Windows PowerShell \uXXXX escapes.
 				'execute_callback'    => static function ( array $input ) use ( $ability ): mixed {
-					return $ability->execute( Utf8::deep_sanitize( $input ) );
+					return self::execute_with_context_guard( $ability, Utf8::deep_sanitize( $input ) );
 				},
 				'meta'                => array_merge(
 					[
@@ -438,10 +424,138 @@ final class AbilityRegistry {
 	}
 
 	/**
+	 * Execute an ability after enforcing Stonewright's task context bootstrap.
+	 *
+	 * Read-only discovery abilities remain callable without a token so an agent
+	 * can fetch context, skills, memory, and knowledge. Mutating or destructive
+	 * abilities require the short-lived token from stonewright/context-bootstrap.
+	 *
+	 * @param array<string, mixed> $input
+	 */
+	public static function execute_with_context_guard( Ability $ability, array $input ): mixed {
+		$name = $ability->name();
+		if ( ! self::requires_context_token( $ability ) ) {
+			unset( $input['stonewright_context_token'] );
+			return $ability->execute( $input );
+		}
+
+		$token = isset( $input['stonewright_context_token'] ) && is_string( $input['stonewright_context_token'] )
+			? $input['stonewright_context_token']
+			: '';
+
+		$verified = ContextToken::verify( $token, $name );
+		if ( $verified instanceof \WP_Error ) {
+			return $verified;
+		}
+
+		unset( $input['stonewright_context_token'] );
+		return $ability->execute( $input );
+	}
+
+	private static function requires_context_token( Ability $ability ): bool {
+		$name = $ability->name();
+		if ( in_array( $name, self::context_exempt_abilities(), true ) ) {
+			return false;
+		}
+
+		foreach ( self::read_only_name_markers() as $marker ) {
+			if ( str_contains( $name, $marker ) ) {
+				return false;
+			}
+		}
+
+		return ! in_array( $ability->category(), [ 'site', 'system', 'knowledge', 'skills', 'memory' ], true )
+			|| preg_match( '/(create|update|write|delete|remove|apply|insert|save|set|move|upload|optimize|activate|deactivate|toggle|register|define|bulk|record)/', $name ) === 1;
+	}
+
+	/**
+	 * Adds the mandatory Stonewright task context token to public schemas for
+	 * abilities that the execution gate will reject without it.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function input_schema_for_ability( Ability $ability ): array {
+		$schema = $ability->input_schema();
+		if ( ! self::requires_context_token( $ability ) ) {
+			return $schema;
+		}
+
+		if ( ! isset( $schema['properties'] ) || ! is_array( $schema['properties'] ) ) {
+			$schema['properties'] = [];
+		}
+
+		/** @var array<string, mixed> $properties */
+		$properties                              = $schema['properties'];
+			$properties['stonewright_context_token'] = [
+				'type'        => 'string',
+				'description' => 'Required. Call MCP tool stonewright-context-bootstrap (WordPress ability stonewright/context-bootstrap) at the start of the task and pass the returned context token.',
+			];
+		$schema['properties']                    = $properties;
+
+		$required = isset( $schema['required'] ) && is_array( $schema['required'] )
+			? array_values( array_map( 'strval', $schema['required'] ) )
+			: [];
+		if ( ! in_array( 'stonewright_context_token', $required, true ) ) {
+			$required[] = 'stonewright_context_token';
+		}
+		$schema['required'] = $required;
+
+		return $schema;
+	}
+
+	/**
+	 * @return array<int, string>
+	 */
+	private static function context_exempt_abilities(): array {
+		return [
+			'stonewright/context-bootstrap',
+			'stonewright/ping',
+			'stonewright/site-info',
+			'stonewright/site-capabilities',
+			'stonewright/site-environment',
+			'stonewright/site-health',
+			'stonewright/site-plugins-list',
+			'stonewright/site-theme',
+			'stonewright/system-abilities-list',
+			'stonewright/system-instructions-get',
+			'stonewright/knowledge-export',
+			'stonewright/skills-list',
+			'stonewright/skills-get',
+			'stonewright/memory-list',
+			'stonewright/memory-get',
+			'stonewright/elementor-knowledge-search',
+			'stonewright/elementor-describe-widget',
+			'stonewright/elementor-explain-editor',
+			'stonewright/widget-intent-resolve',
+			'stonewright/elementor-widget-implementation-guide',
+		];
+	}
+
+	/**
+	 * @return array<int, string>
+	 */
+	private static function read_only_name_markers(): array {
+		return [
+			'-get',
+			'-list',
+			'-read',
+			'-describe',
+			'-discover',
+			'-explain',
+			'-search',
+			'-validate',
+			'-status',
+			'-preview',
+			'-parse',
+			'-serialize',
+		];
+	}
+
+	/**
 	 * Returns metadata for ALL abilities regardless of enabled/disabled state.
 	 * Used by the admin Abilities page.
 	 *
-	 * @return array<int, array{name: string, label: string, description: string, category: string, enabled: bool, input_schema: array<string, mixed>}>
+	 * @return array<int, array{name: string, mcp_tool_name: string, label: string, description: string, category: string, enabled: bool, input_schema: array<string, mixed>}>
 	 */
 	public static function enabled_abilities(): array {
 		$disabled_abilities = (array) get_option( 'stonewright_disabled_abilities', [] );
@@ -456,16 +570,21 @@ final class AbilityRegistry {
 			$ability  = new $class();
 			$name     = $ability->name();
 			$result[] = [
-				'name'         => $name,
-				'label'        => $ability->label(),
-				'description'  => $ability->description(),
-				'category'     => $ability->category(),
-				'enabled'      => ! in_array( $name, $disabled_abilities, true ),
-				'input_schema' => $ability->input_schema(),
+				'name'          => $name,
+				'mcp_tool_name' => self::mcp_tool_name( $name ),
+				'label'         => $ability->label(),
+				'description'   => $ability->description(),
+				'category'      => $ability->category(),
+				'enabled'       => ! in_array( $name, $disabled_abilities, true ),
+				'input_schema'  => self::input_schema_for_ability( $ability ),
 			];
 		}
 
 		return $result;
+	}
+
+	public static function mcp_tool_name( string $ability_name ): string {
+		return str_replace( '/', '-', $ability_name );
 	}
 
 	/**
@@ -482,10 +601,10 @@ final class AbilityRegistry {
 			'fse'       => __( 'Full Site Editing', 'stonewright' ),
 			'elementor' => __( 'Elementor', 'stonewright' ),
 			'design'    => __( 'Design', 'stonewright' ),
-			'qa'        => __( 'Quality Assurance', 'stonewright' ),
 			'knowledge' => __( 'Knowledge', 'stonewright' ),
 			'memory'    => __( 'Memory', 'stonewright' ),
 			'system'    => __( 'System', 'stonewright' ),
+			'wp-cli'    => __( 'WP-CLI', 'stonewright' ),
 			'sandbox'           => __( 'Sandbox', 'stonewright' ),
 			'elementor-widget'  => __( 'Elementor Widget Builder', 'stonewright' ),
 			'theme-builder'     => __( 'Theme Builder', 'stonewright' ),

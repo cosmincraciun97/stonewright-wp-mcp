@@ -1,8 +1,0 @@
-{
-    "args": {
-        "figma_file_key": "",
-        "figma_node_id": "97:8306",
-        "post_id": 1
-    },
-    "expect": "wp_error"
-}

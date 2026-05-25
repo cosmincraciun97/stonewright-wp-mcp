@@ -13,7 +13,7 @@ for spec-driven builds; use individual element abilities for surgical edits.
 
 ## Pre-flight
 
-Always call `stonewright/elementor-v3-status` first. If Elementor is not active
+Always call MCP tool `stonewright-elementor-v3-status` first. If Elementor is not active
 or the post is not an Elementor page, stop and inform the user.
 
 ```json

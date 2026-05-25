@@ -47,8 +47,8 @@ Returns `{ "rendered": [...atomic_elements...], "dry_run": true }`.
 
 V4 does not yet have a dedicated `build-page-from-spec` ability. Use
 `stonewright/site-backup-page` before any manual write, then pass the
-`rendered` output through the companion Playwright layer or a custom
-WP-CLI command. Do not write Elementor V4 data directly via the V3 abilities.
+`rendered` output through a custom WP-CLI command or approved V4 writer. Do not
+write Elementor V4 data directly via the V3 abilities.
 
 ## Atomic element concepts
 

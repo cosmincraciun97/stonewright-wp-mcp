@@ -8,7 +8,7 @@ use Stonewright\WpMcp\Security\OneTimeLink;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
- * Creates a one-time admin access link for browser automation (e.g. Playwright).
+ * Creates a one-time admin access link for browser automation.
  *
  * @stonewright-status stable
  */

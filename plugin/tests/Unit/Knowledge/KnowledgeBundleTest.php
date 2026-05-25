@@ -50,7 +50,7 @@ final class KnowledgeBundleTest extends TestCase {
 					'id'          => '4',
 					'slug'        => 'elementor-native-first',
 					'title'       => 'Elementor native widgets first',
-					'description' => 'Use for Figma to Elementor builds.',
+					'description' => 'Use for Design reference to Elementor builds.',
 					'content'     => '# Rule',
 					'enabled'     => '1',
 					'source'      => 'user',
@@ -95,8 +95,8 @@ final class KnowledgeBundleTest extends TestCase {
 				'skills'       => [
 					'entries' => [
 						[
-							'slug'        => 'figma-elementor-quality',
-							'title'       => 'Figma Elementor quality',
+							'slug'        => 'design-elementor-quality',
+							'title'       => 'Design reference Elementor quality',
 							'description' => 'Use for page rebuilds.',
 							'content'     => '# Steps',
 							'enabled'     => true,

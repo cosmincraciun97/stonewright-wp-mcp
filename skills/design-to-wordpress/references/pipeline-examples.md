@@ -1,136 +1,56 @@
 # Pipeline Examples
 
-## 1. Figma URL to new page
+## Image or brief to page
 
-### Step 1: import Figma node
+1. Bootstrap context:
 
 ```json
 {
-  "ability": "stonewright/design-import-figma-node",
+  "ability": "stonewright/context-bootstrap",
+  "mcp_tool": "stonewright-context-bootstrap",
   "args": {
-    "url": "https://www.figma.com/file/ABC123/My-Site?node-id=10%3A42",
-    "figma_token": "figd_..."
+    "task": "Build a responsive Elementor landing section from this design reference",
+    "surface": "elementor",
+    "intent": "write"
   }
 }
 ```
 
-Response: a spec stub with `sections`, `tokens`, `page` keys.
-
-### Step 2: extract tokens (if Figma variables export available)
+2. Resolve widget intent before writing:
 
 ```json
 {
-  "ability": "stonewright/design-extract-tokens",
+  "ability": "stonewright/widget-intent-resolve",
+  "mcp_tool": "stonewright-widget-intent-resolve",
   "args": {
-    "source": "figma_variables",
-    "payload": { "variables": [...] }
+    "prompt": "Header with logo, desktop menu, CTA, and mobile hamburger"
   }
 }
 ```
 
-Response: `{ "colors": {...}, "typography": {...}, "spacing": {...} }`.
-
-### Step 3: build spec
+3. Generate a widget implementation guide:
 
 ```json
 {
-  "ability": "stonewright/design-build-spec",
+  "ability": "stonewright/elementor-widget-implementation-guide",
+  "mcp_tool": "stonewright-elementor-widget-implementation-guide",
   "args": {
-    "page": { "title": "Home", "slug": "home" },
-    "tokens": { "colors": { "primary": "#0057FF" } },
-    "sections": [
-      {
-        "type": "hero",
-        "heading": "Welcome",
-        "subheading": "Build faster.",
-        "background": { "color": "#0057FF" }
-      }
-    ]
+    "task": "Header navigation",
+    "candidate_widgets": ["nav-menu", "button", "image"],
+    "design_context": "Sticky desktop header with mobile hamburger"
   }
 }
 ```
 
-### Step 4: validate
+4. Use WP-CLI when useful:
 
 ```json
 {
-  "ability": "stonewright/design-validate-spec",
-  "args": { "spec": { ...spec from step 3... } }
-}
-```
-
-### Step 5: choose renderer
-
-```json
-{
-  "ability": "stonewright/design-choose-renderer",
-  "args": { "spec": { ...normalized spec... } }
-}
-```
-
-Returns: `{ "renderer": "gutenberg" }` or `{ "renderer": "elementor_v3" }`.
-
-### Step 6: normalize assets
-
-```json
-{
-  "ability": "stonewright/design-normalize-assets",
-  "args": { "spec": { ...normalized spec... } }
-}
-```
-
-### Step 7a: render to Gutenberg
-
-```json
-{
-  "ability": "stonewright/design-spec-to-gutenberg",
+  "ability": "stonewright/wp-cli-run",
+  "mcp_tool": "stonewright-wp-cli-run",
   "args": {
-    "spec": { ...normalized spec... },
-    "post_id": 0,
-    "dry_run": true
+    "command": ["post", "list", "--post_type=page", "--format=json"],
+    "parseJson": true
   }
 }
 ```
-
-Set `dry_run: false` only after confirming the output looks correct.
-
-### Step 7b: render to Elementor V3 (when active)
-
-```json
-{
-  "ability": "stonewright/design-spec-to-elementor-v3",
-  "args": {
-    "spec": { ...normalized spec... },
-    "post_id": 42
-  }
-}
-```
-
-### Step 8: create page
-
-```json
-{
-  "ability": "stonewright/content-create-page",
-  "args": {
-    "title": "Home",
-    "slug": "home",
-    "status": "draft",
-    "content": "<!-- wp:paragraph --><p>placeholder</p><!-- /wp:paragraph -->"
-  }
-}
-```
-
-## 2. Image reference to page
-
-```json
-{
-  "ability": "stonewright/design-import-image",
-  "args": {
-    "source": "url",
-    "url": "https://example.com/mockup.png"
-  }
-}
-```
-
-Returns a minimal spec stub. Complete the `sections` array using the vision
-pipeline, then follow steps 3-8 above.

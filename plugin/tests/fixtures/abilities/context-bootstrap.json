@@ -1,0 +1,8 @@
+{
+    "args": {
+        "task": "Build an Elementor header with native navigation",
+        "surface": "elementor",
+        "intent": "write"
+    },
+    "expect": "ok"
+}

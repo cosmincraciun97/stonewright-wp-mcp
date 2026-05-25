@@ -25,10 +25,10 @@ final class WidgetIntentResolveAbilityTest extends TestCase {
 		$this->assertSame( 'image-gallery', $result['recommendations'][0]['slug'] );
 	}
 
-	public function test_ability_detects_intent_from_figma_node(): void {
+	public function test_ability_detects_intent_from_design_node(): void {
 		$result = ( new WidgetIntentResolve() )->execute(
 			[
-				'figma_node' => [
+				'design_node' => [
 					'type'     => 'FRAME',
 					'name'     => 'Newsletter form',
 					'children' => [

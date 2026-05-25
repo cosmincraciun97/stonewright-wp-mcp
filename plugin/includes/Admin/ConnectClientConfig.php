@@ -179,7 +179,7 @@ final class ConnectClientConfig {
 			'mcpServers' => [
 				'stonewright' => [
 					'command' => 'npx',
-					'args'    => [ '-y', '@stonewright/companion@latest', 'mcp' ],
+					'args'    => [ '-y', '--package', '@stonewright/companion@latest', 'stonewright-mcp' ],
 					'env'     => [
 						'STONEWRIGHT_SITE_URL' => self::site_url(),
 						'WP_API_USERNAME'     => $username ?: 'your-wp-username',
@@ -209,6 +209,22 @@ final class ConnectClientConfig {
 					'headers' => [
 						'Authorization' => 'Basic ' . $credentials,
 					],
+				],
+			],
+		];
+	}
+
+	/**
+	 * Returns the separate browser MCP snippet to configure alongside Stonewright.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function playwright_mcp_snippet(): array {
+		return [
+			'mcpServers' => [
+				'playwright' => [
+					'command' => 'npx',
+					'args'    => [ '@playwright/mcp@latest' ],
 				],
 			],
 		];
@@ -272,7 +288,7 @@ final class ConnectClientConfig {
 			}
 			return [
 				'command' => sprintf(
-					'claude mcp add stonewright -- npx -y @stonewright/companion@latest mcp --env STONEWRIGHT_SITE_URL=%s --env WP_API_USERNAME=%s --env WP_API_PASSWORD=%s --env STONEWRIGHT_MCP_URL=%s',
+					'claude mcp add stonewright -- npx -y --package @stonewright/companion@latest stonewright-mcp --env STONEWRIGHT_SITE_URL=%s --env WP_API_USERNAME=%s --env WP_API_PASSWORD=%s --env STONEWRIGHT_MCP_URL=%s',
 					escapeshellarg( self::site_url() ),
 					escapeshellarg( $username ),
 					escapeshellarg( $app_password ?: '<your-application-password>' ),
@@ -315,10 +331,14 @@ final class ConnectClientConfig {
 			self::http_snippet( $username, $app_password ),
 			JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
 		);
+		$playwright_json = wp_json_encode(
+			self::playwright_mcp_snippet(),
+			JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
+		);
 
 		$endpoint = self::mcp_endpoint_url();
 
-		return sprintf(
+		$message = sprintf(
 			/* translators: 1: MCP endpoint URL, 2: stdio JSON snippet, 3: HTTP JSON snippet */
 			__(
 				"Configure Stonewright as an MCP server.\nEndpoint: %1\$s\n\nOption A — Native stdio (recommended, Node.js required):\n```json\n%2\$s\n```\n\nOption B — Streamable HTTP (no Node.js required):\n```json\n%3\$s\n```\n\nDo NOT use @automattic/mcp-wordpress-remote — it does not speak the Stonewright WP Abilities protocol.",
@@ -328,5 +348,10 @@ final class ConnectClientConfig {
 			(string) $stdio_json,
 			(string) $http_json
 		);
+
+		$message .= "\n\nAlso configure this separate Playwright MCP server for browser testing, screenshots, and visual inspection:\n```json\n" . (string) $playwright_json . "\n```";
+		$message .= "\n\nAfter connecting, call MCP tool stonewright-context-bootstrap before any Stonewright task.";
+
+		return $message;
 	}
 }

@@ -1,276 +1,88 @@
 /**
- * MCP server — registers all companion tools and wires them to the
- * underlying modules. Each tool validates its input with Zod before
- * calling into figma-bridge, playwright-runner, or pixel-diff.
+ * MCP server for the Stonewright companion.
  *
- * Transport: stdio (always) + optional Streamable HTTP (when PORT is set).
+ * WordPress-facing helpers such as WP-CLI are registered here.
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { log } from './lib/log.js';
-import { parseUrl, fetchNode, exportImages } from './figma-bridge.js';
-import { screenshot } from './playwright-runner.js';
-import { diff } from './pixel-diff.js';
-import { promptToSpec, PromptToSpecError } from './prompt-to-spec.js';
+import { runWpCli, wpCliDiscover, wpCliStatus, type WpCliResult, type WpCliRunInput } from './wp-cli.js';
+import { loadWordPressMcpConfig, registerWordPressMcpTools } from './wordpress-mcp.js';
 
-// ---------------------------------------------------------------------------
-// Schema definitions
-// ---------------------------------------------------------------------------
+export interface CreateMcpServerOptions {
+	env?: NodeJS.ProcessEnv;
+	fetchImpl?: typeof fetch;
+}
 
-const FigmaFetchSchema = z.object({
-	/** A Figma share URL or a raw "fileKey:nodeId" string. */
-	url: z.string().describe('Figma share URL or "fileKey:nodeId" pair'),
-	/** Override the Figma token for this request. Falls back to FIGMA_TOKEN env var. */
-	token: z.string().optional().describe('Figma personal access token (optional override)'),
-});
-
-const ScreenshotSchema = z.object({
-	url: z.string().url().describe('URL to screenshot'),
-	viewport_width: z.number().int().min(320).max(3840).default(1280),
-	viewport_height: z.number().int().min(240).max(2160).default(800),
-	full_page: z.boolean().default(false),
-	wait_for: z.enum(['load', 'domcontentloaded', 'networkidle', 'commit']).default('networkidle'),
-	selector: z.string().optional().describe('CSS selector — screenshot only this element'),
-	delay_ms: z.number().int().min(0).max(10_000).optional(),
-});
-
-const PixelDiffSchema = z.object({
-	reference_path: z.string().describe('Absolute path to the reference PNG'),
-	actual_path: z.string().describe('Absolute path to the actual PNG'),
-	threshold: z.number().min(0).max(1).default(0.1),
-	ignore_regions: z
-		.array(z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() }))
-		.optional(),
-	diff_output_path: z.string().optional(),
-});
-
-const PromptToSpecSchema = z.object({
-	prompt: z.string().min(1).describe('Free-form description of what to extract from the image'),
-	image_url: z.string().url().optional().describe('Public http/https URL of the reference image'),
-	image_base64: z.string().optional().describe('Base64-encoded image bytes (no data: prefix)'),
-	image_media_type: z
-		.enum(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
-		.optional()
-		.describe('MIME type when image_base64 is used; defaults to image/png'),
-	viewport: z
-		.enum(['desktop', 'mobile'])
-		.optional()
-		.describe('Target viewport hint — informs responsive choices in the spec'),
-});
-
-// ---------------------------------------------------------------------------
-// Server factory
-// ---------------------------------------------------------------------------
-
-export function createMcpServer(): McpServer {
+export async function createMcpServer(options: CreateMcpServerOptions = {}): Promise<McpServer> {
 	const server = new McpServer({
 		name: 'stonewright-companion',
 		version: '1.0.0-alpha.1',
 	});
 
-	// ------------------------------------------------------------------
-	// Tool: companion_figma_fetch
-	// ------------------------------------------------------------------
-	server.tool(
-		'companion_figma_fetch',
-		'Fetch a Figma node and map it to WordPress-friendly section/block descriptors.',
-		FigmaFetchSchema.shape,
-		async (args) => {
-			const params = FigmaFetchSchema.parse(args);
-			const token = params.token ?? process.env['FIGMA_TOKEN'] ?? '';
-			if (!token) {
-				return {
-					content: [{ type: 'text', text: JSON.stringify({ error: 'FIGMA_TOKEN is not set' }) }],
-					isError: true,
-				};
-			}
+	const commonInput = {
+		cwd: z.string().optional(),
+		path: z.string().optional(),
+		url: z.string().optional(),
+		user: z.string().optional(),
+		context: z.string().optional(),
+		timeoutMs: z.number().int().positive().optional(),
+	};
 
-			try {
-				const ref = parseUrl(params.url);
-				if (!ref.nodeId) {
-					return {
-						content: [{ type: 'text', text: JSON.stringify({ error: 'No node-id found in URL' }) }],
-						isError: true,
-					};
-				}
-				const result = await fetchNode(ref.fileKey, ref.nodeId, token);
-				log.info('companion_figma_fetch succeeded', { fileKey: ref.fileKey, nodeId: ref.nodeId });
-				return {
-					content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-				};
-			} catch (err) {
-				const msg = err instanceof Error ? err.message : String(err);
-				log.error('companion_figma_fetch failed', { error: msg });
-				return {
-					content: [{ type: 'text', text: JSON.stringify({ error: msg }) }],
-					isError: true,
-				};
-			}
-		},
-	);
-
-	// ------------------------------------------------------------------
-	// Tool: companion_figma_export
-	// ------------------------------------------------------------------
-	server.tool(
-		'companion_figma_export',
-		'Export images for a list of Figma node IDs.',
+	server.registerTool(
+		'companion_wp_cli_status',
 		{
-			file_key: z.string().describe('Figma file key'),
-			node_ids: z.array(z.string()).min(1).describe('List of node IDs to export'),
-			token: z.string().optional(),
+			description: 'Check whether WP-CLI is available and return wp cli info diagnostics.',
+			inputSchema: commonInput,
 		},
-		async (args) => {
-			const schema = z.object({
-				file_key: z.string(),
-				node_ids: z.array(z.string()).min(1),
-				token: z.string().optional(),
-			});
-			const params = schema.parse(args);
-			const token = params.token ?? process.env['FIGMA_TOKEN'] ?? '';
-			if (!token) {
-				return {
-					content: [{ type: 'text', text: JSON.stringify({ error: 'FIGMA_TOKEN is not set' }) }],
-					isError: true,
-				};
-			}
-			try {
-				const result = await exportImages(params.file_key, params.node_ids, token);
-				return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
-			} catch (err) {
-				const msg = err instanceof Error ? err.message : String(err);
-				return {
-					content: [{ type: 'text', text: JSON.stringify({ error: msg }) }],
-					isError: true,
-				};
-			}
-		},
+		async (input) => toolResponse(await wpCliStatus(toWpCliInput(input))),
 	);
 
-	// ------------------------------------------------------------------
-	// Tool: companion_screenshot
-	// ------------------------------------------------------------------
-	server.tool(
-		'companion_screenshot',
-		'Take a Playwright screenshot of a URL and return base64-encoded PNG + metadata.',
-		ScreenshotSchema.shape,
-		async (args) => {
-			const params = ScreenshotSchema.parse(args);
-			try {
-				// Build options without undefined-valued optional keys to satisfy
-				// exactOptionalPropertyTypes — only include selector / delay_ms when set.
-				const screenshotOpts = {
-					viewport: { width: params.viewport_width, height: params.viewport_height },
-					full_page: params.full_page,
-					wait_for: params.wait_for,
-					...(params.selector !== undefined ? { selector: params.selector } : {}),
-					...(params.delay_ms !== undefined ? { delay_ms: params.delay_ms } : {}),
-				};
-				const result = await screenshot(params.url, screenshotOpts);
-
-				const response = {
-					url: result.url,
-					width: result.width,
-					height: result.height,
-					tookMs: result.tookMs,
-					sizeBytes: result.png.length,
-					png_base64: result.png.toString('base64'),
-				};
-				log.info('companion_screenshot succeeded', { url: params.url, tookMs: result.tookMs });
-				return { content: [{ type: 'text', text: JSON.stringify(response) }] };
-			} catch (err) {
-				const msg = err instanceof Error ? err.message : String(err);
-				log.error('companion_screenshot failed', { error: msg, url: params.url });
-				return {
-					content: [{ type: 'text', text: JSON.stringify({ error: msg }) }],
-					isError: true,
-				};
-			}
+	server.registerTool(
+		'companion_wp_cli_discover',
+		{
+			description: 'Dump installed WP-CLI command metadata with wp cli cmd-dump.',
+			inputSchema: commonInput,
 		},
+		async (input) => toolResponse(await wpCliDiscover(toWpCliInput(input))),
 	);
 
-	// ------------------------------------------------------------------
-	// Tool: prompt_to_spec
-	// ------------------------------------------------------------------
-	server.tool(
-		'prompt_to_spec',
-		'Generate a DesignSpec node tree from a reference image + prompt using Anthropic vision (Claude). Use when you have a screenshot or Figma export but no machine-readable spec.',
-		PromptToSpecSchema.shape,
-		async (args) => {
-			const params = PromptToSpecSchema.parse(args);
-			try {
-				const promptToSpecInput: Parameters<typeof promptToSpec>[0] = {
-					prompt: params.prompt,
-					...(params.image_url !== undefined ? { imageUrl: params.image_url } : {}),
-					...(params.image_base64 !== undefined ? { imageBase64: params.image_base64 } : {}),
-					...(params.image_media_type !== undefined
-						? { imageMediaType: params.image_media_type }
-						: {}),
-					...(params.viewport !== undefined ? { viewport: params.viewport } : {}),
-				};
-				const spec = await promptToSpec(promptToSpecInput);
-				log.info('prompt_to_spec succeeded', { viewport: params.viewport ?? 'unspecified' });
-				return {
-					content: [{ type: 'text', text: JSON.stringify(spec, null, 2) }],
-				};
-			} catch (err) {
-				if (err instanceof PromptToSpecError) {
-					log.error('prompt_to_spec failed', { code: err.code, error: err.message });
-					return {
-						content: [
-							{
-								type: 'text',
-								text: JSON.stringify({
-									error: err.message,
-									code: err.code,
-									detail: err.detail,
-								}),
-							},
-						],
-						isError: true,
-					};
-				}
-				const msg = err instanceof Error ? err.message : String(err);
-				log.error('prompt_to_spec unexpected failure', { error: msg });
-				return {
-					content: [{ type: 'text', text: JSON.stringify({ error: msg, code: 'unknown' }) }],
-					isError: true,
-				};
-			}
+	server.registerTool(
+		'companion_wp_cli_run',
+		{
+			description: 'Run a tokenized WP-CLI command through execFile. Allows WordPress write commands while blocking arbitrary PHP and shell entry points.',
+			inputSchema: {
+				...commonInput,
+				command: z.array(z.string()).min(1),
+				parseJson: z.boolean().optional(),
+			},
 		},
+		async (input) => toolResponse(await runWpCli(toWpCliInput(input) as WpCliRunInput)),
 	);
 
-	// ------------------------------------------------------------------
-	// Tool: companion_pixel_diff
-	// ------------------------------------------------------------------
-	server.tool(
-		'companion_pixel_diff',
-		'Compare two PNG files pixel-by-pixel and return mismatch stats + diff image path.',
-		PixelDiffSchema.shape,
-		async (args) => {
-			const params = PixelDiffSchema.parse(args);
-			try {
-				// Build options without undefined-valued optional keys to satisfy
-				// exactOptionalPropertyTypes.
-				const diffOpts = {
-					threshold: params.threshold,
-					...(params.ignore_regions !== undefined ? { ignore_regions: params.ignore_regions } : {}),
-					...(params.diff_output_path !== undefined ? { diff_output_path: params.diff_output_path } : {}),
-				};
-				const result = await diff(params.reference_path, params.actual_path, diffOpts);
-				log.info('companion_pixel_diff succeeded', { ratio: result.ratio });
-				return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
-			} catch (err) {
-				const msg = err instanceof Error ? err.message : String(err);
-				log.error('companion_pixel_diff failed', { error: msg });
-				return {
-					content: [{ type: 'text', text: JSON.stringify({ error: msg }) }],
-					isError: true,
-				};
-			}
-		},
-	);
+	const wpMcpConfig = loadWordPressMcpConfig(options.env ?? process.env);
+	if (wpMcpConfig) {
+		await registerWordPressMcpTools(server, wpMcpConfig, options.fetchImpl ?? fetch);
+	}
 
 	return server;
+}
+
+function toWpCliInput(input: Record<string, unknown>): Partial<WpCliRunInput> {
+	return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined)) as Partial<WpCliRunInput>;
+}
+
+function toolResponse(result: WpCliResult): {
+	content: Array<{ type: 'text'; text: string }>;
+	structuredContent: WpCliResult;
+} {
+	return {
+		content: [
+			{
+				type: 'text',
+				text: JSON.stringify(result, null, 2),
+			},
+		],
+		structuredContent: result,
+	};
 }

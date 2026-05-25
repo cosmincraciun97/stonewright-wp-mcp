@@ -1,7 +1,7 @@
 /**
  * Path-safety helpers for the companion's filesystem operations.
  *
- * Anything the companion reads or writes (screenshots, pixel-diff output)
+ * Anything the companion reads or writes
  * MUST go through {@link assertInsideArtifacts}. The helper rejects
  * absolute paths outside the configured artifacts root and any traversal
  * (`..`) that would resolve outside the root. Realpath is used so symlinks

@@ -123,7 +123,7 @@ final class Permissions {
 	}
 
 	/**
-	 * Permission gate for design management abilities (read Figma, apply specs).
+	 * Permission gate for design management abilities (validate and apply specs).
 	 *
 	 * Requires manage_options + edit_pages — design writes affect live page content
 	 * so we gate at the same level as theme/global-styles mutations.

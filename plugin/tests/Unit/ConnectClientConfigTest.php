@@ -111,5 +111,14 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'pw1234', $prompt );
 		$this->assertStringContainsString( 'mcp/stonewright', $prompt );
 		$this->assertStringContainsString( 'mcpServers', $prompt );
+		$this->assertStringContainsString( '@playwright/mcp@latest', $prompt );
+		$this->assertStringContainsString( 'stonewright-context-bootstrap', $prompt );
+	}
+
+	public function test_playwright_mcp_snippet_is_separate_server(): void {
+		$snippet = ConnectClientConfig::playwright_mcp_snippet();
+
+		$this->assertSame( 'npx', $snippet['mcpServers']['playwright']['command'] );
+		$this->assertSame( [ '@playwright/mcp@latest' ], $snippet['mcpServers']['playwright']['args'] );
 	}
 }

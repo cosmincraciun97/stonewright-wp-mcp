@@ -22,7 +22,7 @@ final class ExtractTokens extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Extracts color, typography, and spacing tokens from a Figma variables export or theme.json blob.', 'stonewright' );
+		return __( 'Extracts color, typography, and spacing tokens from a theme.json blob or CSS custom properties.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -36,7 +36,7 @@ final class ExtractTokens extends AbilityKernel {
 			'properties'           => [
 				'source' => [
 					'type' => 'string',
-					'enum' => [ 'figma_variables', 'theme_json', 'css_vars' ],
+					'enum' => [ 'theme_json', 'css_vars' ],
 				],
 				'data'   => [ 'type' => 'object' ],
 			],
@@ -62,8 +62,6 @@ final class ExtractTokens extends AbilityKernel {
 		$data   = (array) $args['data'];
 
 		switch ( $source ) {
-			case 'figma_variables':
-				return [ 'tokens' => $this->from_figma( $data ) ];
 			case 'theme_json':
 				return [ 'tokens' => $this->from_theme_json( $data ) ];
 			case 'css_vars':
@@ -71,31 +69,6 @@ final class ExtractTokens extends AbilityKernel {
 			default:
 				return $this->error( 'unknown_source', __( 'Unsupported token source.', 'stonewright' ) );
 		}
-	}
-
-	private function from_figma( array $data ): array {
-		$tokens = [ 'colors' => [], 'typography' => [], 'spacing' => [], 'radius' => [], 'shadow' => [] ];
-		$collections = $data['variableCollections'] ?? [];
-		$variables   = $data['variables'] ?? [];
-
-		foreach ( (array) $variables as $var ) {
-			$name = (string) ( $var['name'] ?? '' );
-			$type = (string) ( $var['resolvedType'] ?? '' );
-			$value = $var['valuesByMode'] ?? null;
-			if ( '' === $name || null === $value ) {
-				continue;
-			}
-			$first = is_array( $value ) ? reset( $value ) : $value;
-			$slug  = sanitize_key( str_replace( [ '/', ' ' ], '-', $name ) );
-			if ( 'COLOR' === $type && is_array( $first ) ) {
-				$tokens['colors'][ $slug ] = $this->rgba_to_hex( $first );
-			} elseif ( 'FLOAT' === $type ) {
-				$tokens['spacing'][ $slug ] = ( (int) $first ) . 'px';
-			} elseif ( 'STRING' === $type ) {
-				$tokens['spacing'][ $slug ] = (string) $first;
-			}
-		}
-		return $tokens;
 	}
 
 	private function from_theme_json( array $data ): array {
@@ -137,16 +110,5 @@ final class ExtractTokens extends AbilityKernel {
 			}
 		}
 		return $tokens;
-	}
-
-	private function rgba_to_hex( array $color ): string {
-		$r = (int) round( (float) ( $color['r'] ?? 0 ) * 255 );
-		$g = (int) round( (float) ( $color['g'] ?? 0 ) * 255 );
-		$b = (int) round( (float) ( $color['b'] ?? 0 ) * 255 );
-		$a = isset( $color['a'] ) ? (float) $color['a'] : 1.0;
-		if ( $a < 1 ) {
-			return sprintf( 'rgba(%d,%d,%d,%.2f)', $r, $g, $b, $a );
-		}
-		return sprintf( '#%02x%02x%02x', $r, $g, $b );
 	}
 }

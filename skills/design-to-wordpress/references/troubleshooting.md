@@ -39,8 +39,8 @@ The `stonewright_elementor_v4_atomic` option is off.
 
 `elementor-v3-build-page-from-spec` could not save Elementor data.
 
-- Confirm post exists: call `stonewright/content-get-page` with the post_id.
-- Confirm Elementor is active: call `stonewright/elementor-v3-status`.
+- Confirm post exists: call `stonewright-content-get-page` with the post_id.
+- Confirm Elementor is active: call `stonewright-elementor-v3-status`.
 - Confirm the snapshot succeeded (snapshot_id is present in the response).
 
 ## Confirmation token flow

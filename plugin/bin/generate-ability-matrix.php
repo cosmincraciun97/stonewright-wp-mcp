@@ -10,6 +10,7 @@
  *
  * The script reads each ability class and detects:
  *   - Slug      : $ability->name()
+ *   - MCP Tool  : slash-separated ability slug as exposed by MCP Adapter
  *   - Class     : FQCN
  *   - Desc      : first sentence of description() return value
  *   - R/W       : presence of wp_update_post, update_post_meta, wp_insert_post,
@@ -176,6 +177,8 @@ const WRITE_PATTERNS = [
 	'Memory::delete_by_id(', 'Memory::update_by_id(',
 	// Skills and design orchestrator delegates.
 	'Skills::save(', 'Skills::delete(', 'SpecToGutenberg()', 'SpecToElementorV3()',
+	// WP-CLI runner can execute write commands through the guarded companion.
+	'stonewright/wp-cli-run',
 ];
 
 function detect_rw( string $source ): string {
@@ -382,7 +385,7 @@ function find_test_file( string $class ): string {
 		'Gutenberg'      => 'tests/Unit/GutenbergRendererTest.php',
 		'Content'        => 'tests/Unit/ContentCapabilityTest.php',
 		'Design'         => 'tests/Integration/DesignIngestionTest.php',
-		'QA'             => 'tests/Integration/QAContractTest.php',
+		'WpCli'          => 'tests/Unit/WpCli/WpCliAbilitiesTest.php',
 		'Sandbox'        => 'tests/Unit/SandboxManifestTest.php',
 		'Memory'         => 'tests/Unit/AbilityKernelAuditTest.php',
 		'System'         => 'tests/Unit/AbilityKernelAuditTest.php',
@@ -403,14 +406,14 @@ function short_class( string $class ): string {
 // Main
 // ---------------------------------------------------------------------------
 
-/** @var array<string, array<array{slug:string,class:string,desc:string,rw:string,perm:string,token:string,backup:string,validator:string,status:string,tests:string}>> */
+/** @var array<string, array<array{slug:string,mcp_tool:string,class:string,desc:string,rw:string,perm:string,token:string,backup:string,validator:string,status:string,tests:string}>> */
 $groups = [];
 
 $category_order = [
 	'Security', 'Site', 'Content', 'Media',
 	'Gutenberg', 'Patterns', 'FSE',
 	'ElementorV3', 'ElementorV4', 'ElementorWidget',
-	'Design', 'QA', 'Memory', 'System', 'Sandbox',
+	'Design', 'WpCli', 'Memory', 'System', 'Sandbox',
 ];
 
 $category_labels = [
@@ -425,7 +428,7 @@ $category_labels = [
 	'ElementorV4'     => 'Elementor V4 (Experimental)',
 	'ElementorWidget' => 'Elementor Widget Builder',
 	'Design'          => 'Design',
-	'QA'              => 'QA',
+	'WpCli'           => 'WP-CLI',
 	'Memory'          => 'Memory',
 	'System'          => 'System',
 	'Sandbox'         => 'Sandbox',
@@ -465,6 +468,7 @@ foreach ( get_registered_classes() as $class ) {
 
 	$groups[ $cat ][] = [
 		'slug'      => $slug,
+		'mcp_tool'  => str_replace( '/', '-', $slug ),
 		'class'     => short_class( $class ),
 		'desc'      => $desc,
 		'rw'        => detect_rw( $source ),
@@ -490,6 +494,7 @@ $lines[] = '';
 $lines[] = '**Legend**';
 $lines[] = '';
 $lines[] = '- **R/W**: `Read` = no WP state mutation; `Write` = mutates posts, options, meta, or files.';
+$lines[] = '- **MCP Tool**: the callable MCP tool name. The WordPress MCP Adapter exposes `stonewright/foo` as `stonewright-foo`.';
 $lines[] = '- **Permission**: the `Permissions::` method called from `permission_callback()`.';
 $lines[] = '- **Token**: `ConfirmationGuard` trait or explicit `ConfirmationToken::verify_or_error()` call.';
 $lines[] = '- **Backup**: calls `Backup::snapshot_post()` before mutation.';
@@ -512,11 +517,12 @@ foreach ( $category_order as $cat ) {
 	$lines[] = '';
 	$lines[] = '## ' . $label;
 	$lines[] = '';
-	$lines[] = '| Slug | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |';
-	$lines[] = '|---|---|---|---|---|---|---|---|---|---|';
+	$lines[] = '| Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |';
+	$lines[] = '|---|---|---|---|---|---|---|---|---|---|---|';
 
 	foreach ( $rows as $row ) {
 		$line    = '| `' . $row['slug'] . '` ';
+		$line   .= '| `' . $row['mcp_tool'] . '` ';
 		$line   .= '| `' . $row['class'] . '` ';
 		$line   .= '| ' . str_replace( '|', '\\|', $row['desc'] ) . ' ';
 		$line   .= '| ' . $row['rw'] . ' ';
@@ -542,10 +548,11 @@ foreach ( $groups as $cat => $rows ) {
 	$lines[] = '';
 	$lines[] = '## ' . $cat;
 	$lines[] = '';
-	$lines[] = '| Slug | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |';
-	$lines[] = '|---|---|---|---|---|---|---|---|---|---|';
+	$lines[] = '| Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |';
+	$lines[] = '|---|---|---|---|---|---|---|---|---|---|---|';
 	foreach ( $rows as $row ) {
 		$line    = '| `' . $row['slug'] . '` ';
+		$line   .= '| `' . $row['mcp_tool'] . '` ';
 		$line   .= '| `' . $row['class'] . '` ';
 		$line   .= '| ' . str_replace( '|', '\\|', $row['desc'] ) . ' ';
 		$line   .= '| ' . $row['rw'] . ' ';

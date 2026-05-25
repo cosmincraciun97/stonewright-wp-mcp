@@ -108,7 +108,7 @@ final class DesignApplyTest extends TestCase {
 	}
 
 	public function test_sideloaded_assets_returned(): void {
-		$source_url = 'https://cdn.figma.com/img/hero.png';
+		$source_url = 'https://cdn.example.com/img/hero.png';
 
 		$GLOBALS['stonewright_test_asset_responses'][ $source_url ] = [
 			'response' => [ 'code' => 200 ],
@@ -134,7 +134,7 @@ final class DesignApplyTest extends TestCase {
 	}
 
 	public function test_sideloaded_url_replaces_original_in_elementor_data(): void {
-		$source_url = 'https://cdn.figma.com/img/banner.png';
+		$source_url = 'https://cdn.example.com/img/banner.png';
 
 		$GLOBALS['stonewright_test_asset_responses'][ $source_url ] = [
 			'response' => [ 'code' => 200 ],
@@ -200,7 +200,7 @@ final class DesignApplyTest extends TestCase {
 	// ── Confirmation token enforcement ────────────────────────────────────────
 
 	public function test_background_image_ref_is_sideloaded_and_written_as_elementor_background(): void {
-		$source_url = 'https://cdn.figma.com/img/hero-glow.png';
+		$source_url = 'https://cdn.example.com/img/hero-glow.png';
 
 		$GLOBALS['stonewright_test_asset_responses'][ $source_url ] = [
 			'response' => [ 'code' => 200 ],

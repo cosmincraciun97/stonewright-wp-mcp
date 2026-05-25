@@ -87,12 +87,6 @@ final class ConfigurationPage {
 			},
 		] );
 
-		register_setting( self::OPTION_GROUP, 'stonewright_figma_token', [
-			'type'              => 'string',
-			'default'           => '',
-			'sanitize_callback' => 'sanitize_text_field',
-		] );
-
 		register_setting( self::OPTION_GROUP, 'stonewright_companion_url', [
 			'type'              => 'string',
 			'default'           => 'http://127.0.0.1:8765',
@@ -186,23 +180,6 @@ final class ConfigurationPage {
 
 							<tr>
 								<th scope="row">
-									<label for="stonewright_figma_token"><?php esc_html_e( 'Figma personal access token', 'stonewright' ); ?></label>
-								</th>
-								<td>
-									<input
-										type="password"
-										class="regular-text"
-										name="stonewright_figma_token"
-										id="stonewright_figma_token"
-										value="<?php echo esc_attr( (string) get_option( 'stonewright_figma_token', '' ) ); ?>"
-										autocomplete="off"
-									/>
-									<p class="description"><?php esc_html_e( 'Used by the Figma importer ability. Stored in wp_options.', 'stonewright' ); ?></p>
-								</td>
-							</tr>
-
-							<tr>
-								<th scope="row">
 									<label for="stonewright_companion_url"><?php esc_html_e( 'Companion bridge URL', 'stonewright' ); ?></label>
 								</th>
 								<td>
@@ -214,7 +191,7 @@ final class ConfigurationPage {
 										value="<?php echo esc_attr( (string) get_option( 'stonewright_companion_url', 'http://127.0.0.1:8765' ) ); ?>"
 										autocomplete="off"
 									/>
-									<p class="description"><?php esc_html_e( 'The Node companion endpoint used for screenshots, pixel diff, and Lighthouse.', 'stonewright' ); ?></p>
+									<p class="description"><?php esc_html_e( 'The Node companion endpoint used for local helper operations and optional MCP proxying.', 'stonewright' ); ?></p>
 								</td>
 							</tr>
 
@@ -349,7 +326,7 @@ hidden<?php endif; ?>
 					$wp_user   = esc_html( wp_get_current_user()->user_login );
 					$paste_msg = sprintf(
 						/* translators: %1$s: MCP server URL, %2$s: WP username */
-						__( 'Connect to Stonewright MCP at %1$s using username %2$s and application password. Once connected, run stonewright/ping to verify the connection.', 'stonewright' ),
+						__( 'Connect to Stonewright MCP at %1$s using username %2$s and application password. Also connect the separate Playwright MCP with command npx @playwright/mcp@latest for browser testing and screenshots. Once connected, run MCP tool stonewright-ping to verify the connection, then stonewright-context-bootstrap before any task.', 'stonewright' ),
 						$mcp_url,
 						$wp_user
 					);

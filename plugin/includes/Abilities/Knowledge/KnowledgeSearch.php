@@ -24,7 +24,7 @@ final class KnowledgeSearch extends AbilityKernel {
 
 	public function description(): string {
 		return __(
-			'USE THIS WHEN implementing or debugging an Elementor/Figma build and you need current Stonewright knowledge about widgets, editor behavior, Theme Builder, or developer APIs. Returns ranked harvested docs plus stale flags; call stonewright/elementor-knowledge-refresh when results are stale or missing.',
+			'USE THIS WHEN implementing or debugging an Elementor build and you need current Stonewright knowledge about widgets, editor behavior, Theme Builder, or developer APIs. Returns ranked harvested docs plus stale flags; call stonewright/elementor-knowledge-refresh when results are stale or missing.',
 			'stonewright'
 		);
 	}

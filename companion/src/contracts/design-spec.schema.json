@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://stonewright.dev/companion/contracts/design-spec",
   "title": "Stonewright Design Spec",
-  "description": "Canonical design specification consumed by both the companion (Figma ingestion) and the WordPress plugin (rendering, validation). Version 1.0.0.",
+  "description": "Canonical design specification consumed by Stonewright renderers and validators. Version 1.0.0.",
   "type": "object",
   "properties": {
     "spec": {
@@ -80,7 +80,7 @@
       "description": "Remote or local asset reference (image URL before sideloading).",
       "properties": {
         "id":          { "type": "string", "description": "Stable reference ID used to correlate across sideloading." },
-        "url":         { "type": "string", "description": "Source URL (http/https Figma CDN or public URL)." },
+        "url":         { "type": "string", "description": "Source URL (http/https public URL)." },
         "attachment_id": { "type": "integer", "description": "WordPress attachment ID after sideloading." },
         "altText":     { "type": "string" },
         "width":       { "type": "number" },

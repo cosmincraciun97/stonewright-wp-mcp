@@ -17,6 +17,9 @@ companion/test-results/
 .idea/
 .vscode/
 *.swp
+.superpowers/
+companion/.env
+companion/wp-cli-wrapper.bat
 
 # Research vault must never enter the repo
 research/

@@ -41,22 +41,21 @@ JSON Schema draft: 2020-12
 
 ## source
 
-Traceability metadata. Not required but recommended when the spec was generated from Figma or an image.
+Traceability metadata. Not required but recommended when the spec was generated from an image, URL, brief, or manual source.
 
 ```json
 "source": {
-  "type": "figma",
-  "url": "https://www.figma.com/file/...",
-  "node_id": "123:456",
+  "type": "image",
+  "url": "https://example.com/reference.png",
   "captured_at": "2026-05-21T12:00:00Z"
 }
 ```
 
 | Field | Type | Values |
 |---|---|---|
-| `type` | string | `figma`, `image`, `html`, `manual` |
+| `type` | string | `image`, `html`, `manual` |
 | `url` | string (URI) | Source URL |
-| `node_id` | string | Figma node ID |
+| `node_id` | string | Optional external source node ID |
 | `captured_at` | string (date-time) | ISO 8601 timestamp |
 
 ---
@@ -129,7 +128,7 @@ Color values must match the pattern `^(#|rgb|hsl|var\().*`. All other token valu
 }
 ```
 
-Integer pixel values. Used by `QA/ResponsiveCheck` to determine screenshot widths and by renderers that support responsive overrides.
+Integer pixel values used by renderers that support responsive overrides.
 
 ---
 

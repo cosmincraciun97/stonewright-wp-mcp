@@ -14,7 +14,7 @@ use Stonewright\WpMcp\Security\Permissions;
  * Stonewright Sandbox Library admin page.
  *
  * Lists all sandbox draft files with tabs (Snippets, Elementor Widgets,
- * Generated Plugins, QA Artifacts), category + status filters, manifest-driven
+ * Generated Plugins), category + status filters, manifest-driven
  * metadata, an inline code editor, diff view, and rollback.
  *
  * Security invariants:
@@ -36,7 +36,7 @@ final class SandboxLibraryPage {
 	private const MAX_EDIT_BYTES = 262144;
 
 	/** Allowed tab identifiers. */
-	private const VALID_TABS = [ 'snippets', 'widgets', 'plugins', 'qa-artifacts' ];
+	private const VALID_TABS = [ 'snippets', 'widgets', 'plugins' ];
 
 	/** Allowed category filter values. */
 	private const VALID_CATEGORIES = [ '', 'snippet', 'widget', 'plugin' ];
@@ -135,7 +135,6 @@ final class SandboxLibraryPage {
 				<?php endforeach; ?>
 			</nav>
 
-			<?php if ( 'qa-artifacts' !== $active_tab ) : ?>
 				<div style="margin-top:10px;">
 					<form method="get" action="">
 						<input type="hidden" name="page" value="<?php echo esc_attr( self::SLUG ); ?>"/>
@@ -154,7 +153,6 @@ final class SandboxLibraryPage {
 						<?php submit_button( __( 'Filter', 'stonewright' ), 'secondary', 'filter-submit', false ); ?>
 					</form>
 				</div>
-			<?php endif; ?>
 
 			<?php
 			switch ( $active_tab ) {
@@ -166,9 +164,6 @@ final class SandboxLibraryPage {
 					break;
 				case 'plugins':
 					self::render_plugins_tab( $filter_category, $filter_status );
-					break;
-				case 'qa-artifacts':
-					self::render_qa_artifacts_tab();
 					break;
 			}
 			?>
@@ -185,7 +180,6 @@ final class SandboxLibraryPage {
 			'snippets'     => __( 'Snippets', 'stonewright' ),
 			'widgets'      => __( 'Elementor Widgets', 'stonewright' ),
 			'plugins'      => __( 'Generated Plugins', 'stonewright' ),
-			'qa-artifacts' => __( 'QA Artifacts', 'stonewright' ),
 			default        => $tab,
 		};
 	}
@@ -342,43 +336,6 @@ final class SandboxLibraryPage {
 		$rows = self::apply_filters( array_values( $rows ), $filter_category, $filter_status, $registered_widgets, 'plugin' );
 
 		self::render_file_table( $rows, $registered_widgets );
-	}
-
-	/**
-	 * Render the QA Artifacts tab — read-only listing of files under the QA directory.
-	 */
-	private static function render_qa_artifacts_tab(): void {
-		$qa_dir = WP_CONTENT_DIR . '/stonewright-qa-artifacts';
-
-		echo '<h2>' . esc_html__( 'QA Artifacts', 'stonewright' ) . '</h2>';
-		echo '<p>' . esc_html__( 'These files are read-only artifacts produced by QA runs. No activation or deletion is available here.', 'stonewright' ) . '</p>';
-
-		if ( ! is_dir( $qa_dir ) ) {
-			echo '<p>' . esc_html__( 'QA artifacts directory does not exist yet.', 'stonewright' ) . '</p>';
-			return;
-		}
-
-		$files = glob( $qa_dir . '/*' );
-		if ( false === $files || empty( $files ) ) {
-			echo '<p>' . esc_html__( 'No QA artifacts found.', 'stonewright' ) . '</p>';
-			return;
-		}
-
-		echo '<table class="wp-list-table widefat fixed striped">';
-		echo '<thead><tr>';
-		echo '<th>' . esc_html__( 'Filename', 'stonewright' ) . '</th>';
-		echo '<th style="width:80px;">' . esc_html__( 'Size', 'stonewright' ) . '</th>';
-		echo '<th style="width:160px;">' . esc_html__( 'Modified', 'stonewright' ) . '</th>';
-		echo '</tr></thead><tbody>';
-
-		foreach ( $files as $path ) {
-			$fname = esc_html( basename( $path ) );
-			$size  = esc_html( size_format( (int) @filesize( $path ) ) ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
-			$mtime = esc_html( (string) wp_date( 'Y-m-d H:i', (int) @filemtime( $path ) ) ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
-			echo '<tr><td>' . $fname . '</td><td>' . $size . '</td><td>' . $mtime . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- all three vars pre-escaped via esc_html above.
-		}
-
-		echo '</tbody></table>';
 	}
 
 	// -------------------------------------------------------------------------

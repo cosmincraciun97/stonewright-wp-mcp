@@ -40,8 +40,8 @@ you are ready to accept the risk.
 
 ### Companion bridge
 
-The companion is a Node.js sidecar that handles Figma ingestion, Playwright
-screenshots, and pixel diff. It never writes to WordPress directly.
+The companion is a Node.js sidecar that handles WP-CLI, health checks, and the
+optional MCP proxy. It writes to WordPress only through guarded WP-CLI commands.
 
 | Setting | Option | Default |
 |---|---|---|
@@ -103,9 +103,9 @@ All supported clients use the same `npx` transport:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "@automattic/mcp-wordpress-remote@latest"],
+      "args": ["-y", "--package", "@stonewright/companion@latest", "stonewright-mcp"],
       "env": {
-        "WP_API_URL": "https://example.com/wp-json/mcp/stonewright",
+        "STONEWRIGHT_MCP_URL": "https://example.com/wp-json/mcp/stonewright",
         "WP_API_USERNAME": "your-wp-username",
         "WP_API_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx"
       }
@@ -114,9 +114,12 @@ All supported clients use the same `npx` transport:
 }
 ```
 
-Replace `WP_API_URL` with the endpoint shown on the page, `WP_API_USERNAME`
+Replace `STONEWRIGHT_MCP_URL` with the endpoint shown on the page, `WP_API_USERNAME`
 with your WordPress login, and `WP_API_PASSWORD` with the application password
 generated in Card 2.
+
+Also configure Playwright MCP separately with `npx @playwright/mcp@latest` when
+the agent needs browser testing, screenshots, or visual inspection.
 
 The tab strip on Card 3 shows the exact config file path and snippet for each
 of the 15 supported clients. See [connect-clients.md](./connect-clients.md)

@@ -43,7 +43,7 @@ Run through this list when producing a review report.
 ## Spec version
 
 - [ ] `spec.version` is present and matches the plugin's supported spec version
-- [ ] `spec.source` references the Figma file or image used as input (for audit trail)
+- [ ] `spec.source` references the image, brief, URL, or manual source used as input (for audit trail)
 
 ## After applying fixes
 
