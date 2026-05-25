@@ -310,6 +310,73 @@ export async function wpCliDiscover(
 	);
 }
 
+export interface WpCliEnsureReadyInput {
+	runner?: ExecFileRunner;
+	env?: NodeJS.ProcessEnv;
+	fetchImpl?: typeof fetch;
+	timeoutMs?: number;
+}
+
+export interface WpCliEnsureReadyResult {
+	ensured: boolean;
+	source: 'already_available' | 'installed' | 'install_failed' | 'status_error';
+	installed: boolean;
+	installPath?: string;
+	error?: string;
+}
+
+/**
+ * Ensures WP-CLI is available for use by the companion.
+ *
+ * 1. Runs `wp cli info` to check current availability.
+ * 2. If unavailable (ENOENT), downloads wp-cli.phar into the Stonewright
+ *    companion cache and re-checks.
+ * 3. Returns a structured result indicating whether WP-CLI is ready.
+ *
+ * This is called once at companion startup and is safe to call repeatedly
+ * (wpCliInstall is idempotent when the phar already exists).
+ */
+export async function wpCliEnsureReady(
+	input: WpCliEnsureReadyInput = {},
+): Promise<WpCliEnsureReadyResult> {
+	const env = input.env ?? process.env;
+	const runner = input.runner;
+	const fetchImpl = input.fetchImpl ?? fetch;
+
+	// Step 1: Check if WP-CLI is already reachable.
+	const status = await wpCliStatus({}, runner, env);
+	if (status.available) {
+		return { ensured: true, source: 'already_available', installed: false };
+	}
+
+	// Step 2: WP-CLI not on PATH / not found — try installing phar into cache.
+	const installResult = await wpCliInstall(
+		{ ...(input.timeoutMs !== undefined ? { timeoutMs: input.timeoutMs } : {}) },
+		fetchImpl,
+		env,
+	);
+
+	if (!installResult.ok) {
+		const result: WpCliEnsureReadyResult = {
+			ensured: false,
+			source: 'install_failed',
+			installed: false,
+		};
+		if (installResult.error !== undefined) result.error = installResult.error;
+		return result;
+	}
+
+	// Step 3: Re-check — now the phar is in the install dir so discovery picks it up.
+	const recheck = await wpCliStatus({}, runner, env);
+	return {
+		ensured: recheck.available,
+		source: 'installed',
+		installed: true,
+		installPath: installResult.path,
+		...(recheck.available ? {} : { error: recheck.error }),
+	};
+}
+
 const defaultExecFileRunner: ExecFileRunner = async (file, args, options) =>
 	new Promise<ExecFileResult>((resolveResult) => {
 		execFile(

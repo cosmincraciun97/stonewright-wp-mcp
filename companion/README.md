@@ -55,16 +55,33 @@ npm start
 
 The companion always starts stdio MCP. Set `PORT` to also expose HTTP routes.
 
-## WP-CLI
+## WP-CLI Auto-Bootstrap
 
-MCP tools:
+The companion automatically ensures WP-CLI is available at startup using a
+four-step resolution chain (first match wins):
 
-- proxied WordPress tools such as `stonewright-context-bootstrap` when `STONEWRIGHT_MCP_URL` is configured
-- `companion_wp_cli_status`
-- `companion_wp_cli_discover`
-- `companion_wp_cli_run`
+1. **`STONEWRIGHT_WP_CLI_BIN`** — use this exact binary (`wp` on PATH, or a full path).
+2. **`STONEWRIGHT_WP_CLI_PHP_BIN` + `STONEWRIGHT_WP_CLI_PHAR_PATH`** — run a specific phar through a specific PHP.
+3. **LocalWP auto-discovery** — scans `%APPDATA%`, `%LOCALAPPDATA%`, `%PROGRAMFILES%`,
+   and `~/Library/Application Support` for LocalWP's bundled PHP and `wp-cli.phar`.
+4. **Companion cache** — on `npm install` (via the `postinstall` script) **and** at each
+   startup, downloads the official `wp-cli.phar` into:
+   - Windows: `%LOCALAPPDATA%\Stonewright\wp-cli\wp-cli.phar`
+   - macOS/Linux: `~/.stonewright/wp-cli/wp-cli.phar`
 
-HTTP endpoints:
+**No manual WP-CLI installation is required** for most setups. The download is
+idempotent — if the phar already exists it is reused without re-downloading.
+
+### MCP tools
+
+- `stonewright-wp-cli-status` — check availability and show diagnostic info
+- `stonewright-wp-cli-discover` — dump installed WP-CLI command metadata
+- `stonewright-wp-cli-run` — run a tokenized WP-CLI command (no shell)
+- `stonewright-wp-cli-install` — manually trigger phar download into cache
+
+Alias names (`companion_wp_cli_*`) are also registered for backward compatibility.
+
+### HTTP endpoints (when `PORT` is set)
 
 - `POST /wp-cli/status`
 - `POST /wp-cli/discover`
@@ -79,6 +96,7 @@ Example body for `/wp-cli/run`:
   "user": "admin"
 }
 ```
+
 
 ## Contracts
 

@@ -28,7 +28,7 @@ import { buildHttpGuard, loadGuardConfig, readBodyWithLimit, type GuardConfig } 
 import { createMcpServer } from './mcp-server.js';
 import { handleProxy, proxyConfig, getProxyConfig } from './mcp-proxy.js';
 import { CONTRACT_VERSION } from './contracts/version.js';
-import { runWpCli, wpCliDiscover, wpCliStatus, type WpCliRunInput } from './wp-cli.js';
+import { runWpCli, wpCliDiscover, wpCliStatus, wpCliEnsureReady, type WpCliRunInput } from './wp-cli.js';
 
 // ---------------------------------------------------------------------------
 // Stdio transport (always on)
@@ -39,6 +39,16 @@ async function startStdio(): Promise<void> {
 	const transport = new StdioServerTransport();
 	await server.connect(transport);
 	log.info('MCP stdio transport ready');
+	// Non-blocking WP-CLI readiness probe — logs result, never blocks stdio startup.
+	void wpCliEnsureReady({ env: process.env }).then((result) => {
+		if (result.ensured) {
+			log.info('WP-CLI ready', { source: result.source, installed: result.installed, path: result.installPath });
+		} else {
+			log.warn('WP-CLI not available after bootstrap attempt', { source: result.source, error: result.error });
+		}
+	}).catch((err: unknown) => {
+		log.warn('WP-CLI bootstrap probe failed', { error: err instanceof Error ? err.message : String(err) });
+	});
 }
 
 // ---------------------------------------------------------------------------
@@ -67,6 +77,16 @@ export async function startHttp(port: number): Promise<StartedHttpServer> {
 		sessionIdGenerator: () => crypto.randomUUID(),
 	});
 	await server.connect(mcpTransport as Transport);
+	// Non-blocking WP-CLI readiness probe — auto-downloads phar if missing.
+	void wpCliEnsureReady({ env: process.env }).then((result) => {
+		if (result.ensured) {
+			log.info('WP-CLI ready', { source: result.source, installed: result.installed, path: result.installPath });
+		} else {
+			log.warn('WP-CLI not available after bootstrap attempt', { source: result.source, error: result.error });
+		}
+	}).catch((err: unknown) => {
+		log.warn('WP-CLI bootstrap probe failed', { error: err instanceof Error ? err.message : String(err) });
+	});
 
 	async function handleHttpRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
 		const url = req.url ?? '/';
