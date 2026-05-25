@@ -1,8 +1,0 @@
-{
-    "args": {
-        "file_key": "abc",
-        "node_id": "1:2",
-        "token": "secret"
-    },
-    "expect": "ok"
-}

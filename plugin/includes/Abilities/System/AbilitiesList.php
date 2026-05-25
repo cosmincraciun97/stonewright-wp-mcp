@@ -23,7 +23,7 @@ final class AbilitiesList extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Returns all registered Stonewright abilities with category and enabled status.', 'stonewright' );
+		return __( 'Returns all registered Stonewright abilities with category, enabled status, and the hyphenated MCP tool name clients actually call.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -44,7 +44,18 @@ final class AbilitiesList extends AbilityKernel {
 			'properties' => [
 				'abilities' => [
 					'type'  => 'array',
-					'items' => [ 'type' => 'object' ],
+					'items' => [
+						'type'       => 'object',
+						'properties' => [
+							'name'          => [ 'type' => 'string' ],
+							'mcp_tool_name' => [ 'type' => 'string' ],
+							'label'         => [ 'type' => 'string' ],
+							'description'   => [ 'type' => 'string' ],
+							'category'      => [ 'type' => 'string' ],
+							'enabled'       => [ 'type' => 'boolean' ],
+							'input_schema'  => [ 'type' => 'object' ],
+						],
+					],
 				],
 				'count'     => [ 'type' => 'integer' ],
 			],

@@ -81,7 +81,7 @@ final class CompanionClientEncodeTest extends TestCase {
 		try {
 			// Call the real production method — the bootstrap stub will intercept
 			// wp_json_encode() and return false, triggering the error guard.
-			$result = CompanionClient::post( '/screenshot', [ 'key' => 'value' ] );
+			$result = CompanionClient::post( '/wp-cli/status', [ 'key' => 'value' ] );
 
 			$this->assertInstanceOf(
 				\WP_Error::class,

@@ -30,9 +30,9 @@ abilities that are currently enabled and not blocked by the master toggle.
 | `gutenberg` | block operations |
 | `patterns` | pattern library |
 | `fse` | full-site editing templates |
-| `elementor` | element CRUD, design import |
-| `design` | Figma ingestion, spec validate |
-| `qa` | Playwright screenshot, pixel diff |
+| `elementor` | element CRUD, page structures |
+| `design` | spec validate, renderer selection |
+| `wp-cli` | status, discovery, command run |
 | `memory` | memory CRUD |
 | `system` | abilities list, instructions get |
 | `sandbox` | sandbox file lifecycle |

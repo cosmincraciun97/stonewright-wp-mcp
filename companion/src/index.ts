@@ -1,9 +1,9 @@
 /**
- * Stonewright Companion — entry point.
+ * Stonewright Companion - entry point.
  *
  * Boots the MCP server in two modes simultaneously:
- *   1. stdio — always active; used by Claude Code / local MCP clients.
- *   2. Streamable HTTP — activated when PORT is set; guarded by origin +
+ *   1. stdio - always active; used by Claude Code / local MCP clients.
+ *   2. Streamable HTTP - activated when PORT is set; guarded by origin +
  *      bearer auth + request-body size limit. Binds to 127.0.0.1 by default;
  *      set `COMPANION_BIND_HOST=0.0.0.0` (or another interface) to override.
  *
@@ -27,17 +27,15 @@ import { log } from './lib/log.js';
 import { buildHttpGuard, loadGuardConfig, readBodyWithLimit, type GuardConfig } from './lib/security.js';
 import { createMcpServer } from './mcp-server.js';
 import { handleProxy, proxyConfig, getProxyConfig } from './mcp-proxy.js';
-import { closeBrowser } from './playwright-runner.js';
-import { dispatchQaRoute } from './http-api.js';
 import { CONTRACT_VERSION } from './contracts/version.js';
-import { checkReadiness } from './first-run.js';
+import { runWpCli, wpCliDiscover, wpCliStatus, type WpCliRunInput } from './wp-cli.js';
 
 // ---------------------------------------------------------------------------
 // Stdio transport (always on)
 // ---------------------------------------------------------------------------
 
 async function startStdio(): Promise<void> {
-	const server = createMcpServer();
+	const server = await createMcpServer();
 	const transport = new StdioServerTransport();
 	await server.connect(transport);
 	log.info('MCP stdio transport ready');
@@ -58,13 +56,13 @@ interface StartedHttpServer {
  *
  * Loads {@link GuardConfig} eagerly and THROWS if the configuration is bad
  * (missing token / origins outside dev mode). The caller is responsible for
- * surfacing the error — `main()` logs and exits non-zero.
+ * surfacing the error - `main()` logs and exits non-zero.
  */
 export async function startHttp(port: number): Promise<StartedHttpServer> {
-	const config = loadGuardConfig(); // may throw — intentional
+	const config = loadGuardConfig(); // may throw - intentional
 	const httpGuard = buildHttpGuard(config);
 
-	const server = createMcpServer();
+	const server = await createMcpServer();
 	const mcpTransport = new StreamableHTTPServerTransport({
 		sessionIdGenerator: () => crypto.randomUUID(),
 	});
@@ -73,7 +71,7 @@ export async function startHttp(port: number): Promise<StartedHttpServer> {
 	async function handleHttpRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
 		const url = req.url ?? '/';
 
-		// Health check — no auth required; advertises contract_version
+		// Health check - no auth required; advertises contract_version
 		if (url === '/health') {
 			res.writeHead(200, { 'Content-Type': 'application/json' });
 			res.end(JSON.stringify({ status: 'ok', contract_version: CONTRACT_VERSION, version: '1.0.0-alpha.1' }));
@@ -84,7 +82,30 @@ export async function startHttp(port: number): Promise<StartedHttpServer> {
 		const allowed = await httpGuard(req, res);
 		if (!allowed) return; // guard already wrote the response
 
-		// Proxy route — buffer body with the configured size limit.
+		if (url === '/wp-cli/status' || url === '/wp-cli/discover' || url === '/wp-cli/run') {
+			if (req.method !== 'POST') {
+				writeJson(res, 405, { error: 'Method not allowed' });
+				return;
+			}
+
+			const body = await readJsonBody(req, res, config.maxBodyBytes);
+			if (body === null) return;
+
+			try {
+				const input = stripUndefined(body);
+				const result = url === '/wp-cli/status'
+					? await wpCliStatus(input as Partial<WpCliRunInput>)
+					: url === '/wp-cli/discover'
+						? await wpCliDiscover(input as Partial<WpCliRunInput>)
+						: await runWpCli(input as unknown as WpCliRunInput);
+				writeJson(res, 200, result);
+			} catch (err) {
+				writeJson(res, 400, { error: err instanceof Error ? err.message : String(err) });
+			}
+			return;
+		}
+
+		// Proxy route - buffer body with the configured size limit.
 		// getProxyConfig() is called here (not the module-level proxyConfig) so
 		// that env vars set after import are honoured (e.g. in tests).
 		if (url.startsWith('/proxy') && getProxyConfig()) {
@@ -94,28 +115,7 @@ export async function startHttp(port: number): Promise<StartedHttpServer> {
 			return;
 		}
 
-		// QA REST routes — POST only, body already size-limited.
-		if (['/screenshot', '/diff', '/axe', '/layout', '/lighthouse', '/prompt-to-spec', '/figma-ingest'].includes(url)) {
-			if (req.method !== 'POST') {
-				res.writeHead(405, { 'Content-Type': 'application/json' });
-				res.end(JSON.stringify({ error: 'Method not allowed' }));
-				return;
-			}
-			const body = await readBodyWithLimit(req, res, config.maxBodyBytes);
-			if (body === null) return; // 413
-			let parsed: unknown;
-			try {
-				parsed = body.length > 0 ? JSON.parse(body.toString('utf8')) : {};
-			} catch {
-				res.writeHead(400, { 'Content-Type': 'application/json' });
-				res.end(JSON.stringify({ error: 'Invalid JSON body' }));
-				return;
-			}
-			const handled = await dispatchQaRoute(url, req, res, parsed);
-			if (handled) return;
-		}
-
-		// MCP route — only buffer POST bodies (GET / DELETE drive SSE streams
+		// MCP route - only buffer POST bodies (GET / DELETE drive SSE streams
 		// the MCP transport manages itself).
 		if (url === '/mcp' || url.startsWith('/mcp/')) {
 			if (req.method === 'POST') {
@@ -177,7 +177,7 @@ export async function startHttp(port: number): Promise<StartedHttpServer> {
 		httpServer.once('error', reject);
 	});
 
-	// Graceful shutdown wiring — caller manages process-level signals when
+	// Graceful shutdown wiring - caller manages process-level signals when
 	// startHttp() is invoked from main(); tests just call .close().
 	return {
 		close: () =>
@@ -189,21 +189,49 @@ export async function startHttp(port: number): Promise<StartedHttpServer> {
 	};
 }
 
+async function readJsonBody(
+	req: IncomingMessage,
+	res: ServerResponse,
+	maxBodyBytes: number,
+): Promise<Record<string, unknown> | null> {
+	const body = await readBodyWithLimit(req, res, maxBodyBytes);
+	if (body === null) return null;
+	if (body.length === 0) return {};
+
+	try {
+		const decoded = JSON.parse(body.toString('utf8')) as unknown;
+		if (decoded && typeof decoded === 'object') {
+			if (Array.isArray(decoded)) {
+				if (decoded.length === 0) {
+					return {};
+				}
+			} else {
+				return decoded as Record<string, unknown>;
+			}
+		}
+		writeJson(res, 400, { error: 'JSON body must be an object' });
+		return null;
+	} catch {
+		writeJson(res, 400, { error: 'Invalid JSON body' });
+		return null;
+	}
+}
+
+function writeJson(res: ServerResponse, status: number, body: Record<string, unknown>): void {
+	res.writeHead(status, { 'Content-Type': 'application/json' });
+	res.end(JSON.stringify(body));
+}
+
+function stripUndefined(input: Record<string, unknown>): Record<string, unknown> {
+	return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined));
+}
+
 // ---------------------------------------------------------------------------
 // Bootstrap
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
 	log.info('Stonewright companion starting');
-
-	// First-run readiness check — verifies Playwright browsers are installed
-	// and prints clear setup instructions if they are not.
-	const readiness = checkReadiness();
-	if (!readiness.ok) {
-		// Write to stderr so it is always visible even in stdio MCP mode.
-		process.stderr.write(readiness.instructions);
-		process.exit(1);
-	}
 
 	const portRaw = process.env['PORT'];
 	const port = portRaw ? Number(portRaw) : null;
@@ -215,7 +243,6 @@ async function main(): Promise<void> {
 
 		const shutdown = async (): Promise<void> => {
 			log.info('Shutting down');
-			await closeBrowser();
 			await httpServer.close().catch(() => undefined);
 			process.exit(0);
 		};
@@ -229,11 +256,11 @@ async function main(): Promise<void> {
 }
 
 // Only run main() when this file is the entrypoint. Tests import the module
-// to invoke `startHttp()` directly — main() must not race with the test setup
+// to invoke `startHttp()` directly - main() must not race with the test setup
 // in that case.
 //
 // realpathSync is used so symlink-installed bins (npm link, pnpm) resolve to
-// the same physical file as import.meta.url — the naive endsWith check breaks
+// the same physical file as import.meta.url - the naive endsWith check breaks
 // when the argv[1] path differs from the module's canonical location.
 function isMainModule(): boolean {
 	try {

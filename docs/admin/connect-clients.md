@@ -42,28 +42,42 @@ Stonewright admin.
 
 ## Universal config block
 
-All clients use the same `npx` transport underneath. The universal
-`mcpServers` snippet is:
+For local development, use the Stonewright companion stdio transport:
 
 ```json
 {
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "@automattic/mcp-wordpress-remote@latest"],
+      "args": ["-y", "--package", "@stonewright/companion@latest", "stonewright-mcp"],
       "env": {
+        "STONEWRIGHT_SITE_URL": "https://your-site.com",
         "WP_API_URL": "https://your-site.com/wp-json/mcp/stonewright",
         "WP_API_USERNAME": "your-wp-username",
-        "WP_API_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx"
+        "WP_API_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
+        "STONEWRIGHT_MCP_URL": "https://your-site.com/wp-json/mcp/stonewright"
       }
     }
   }
 }
 ```
 
-The three `env` values are the only variables that differ between clients.
-The per-client instructions below only specify the config file path and any
-client-specific nesting.
+Also add the separate Playwright MCP server when the agent needs browser
+testing, screenshots, or visual inspection:
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"]
+    }
+  }
+}
+```
+
+Stonewright tool names are hyphenated in MCP clients. Example:
+`stonewright/context-bootstrap` is called as `stonewright-context-bootstrap`.
 
 ---
 
@@ -75,7 +89,9 @@ Run the generated `claude mcp add` command shown in the Stonewright admin page.
 The command takes this form:
 
 ```bash
-claude mcp add stonewright -- npx -y @automattic/mcp-wordpress-remote@latest \
+claude mcp add stonewright -- npx -y --package @stonewright/companion@latest stonewright-mcp \
+  --env STONEWRIGHT_SITE_URL='...' \
+  --env STONEWRIGHT_MCP_URL='...' \
   --env WP_API_URL='...' \
   --env WP_API_USERNAME='...' \
   --env WP_API_PASSWORD='...'
@@ -112,11 +128,12 @@ Config file: `.vscode/mcp.json` in the workspace root.
   "servers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "@automattic/mcp-wordpress-remote@latest"],
+      "args": ["-y", "--package", "@stonewright/companion@latest", "stonewright-mcp"],
       "env": {
         "WP_API_URL": "...",
         "WP_API_USERNAME": "...",
-        "WP_API_PASSWORD": "..."
+        "WP_API_PASSWORD": "...",
+        "STONEWRIGHT_MCP_URL": "..."
       }
     }
   }
@@ -144,9 +161,9 @@ Add inside the existing settings object:
     "stonewright": {
       "command": {
         "path": "npx",
-        "args": ["-y", "@automattic/mcp-wordpress-remote@latest"],
+        "args": ["-y", "--package", "@stonewright/companion@latest", "stonewright-mcp"],
         "env": {
-          "WP_API_URL": "...",
+          "STONEWRIGHT_MCP_URL": "...",
           "WP_API_USERNAME": "...",
           "WP_API_PASSWORD": "..."
         }
@@ -206,9 +223,9 @@ new chat after connecting the MCP server:
 ```
 You are connected to a Stonewright MCP server at {endpoint URL}.
 Your WordPress username is {username}.
-Please call stonewright/ping to confirm the connection, then call
-stonewright/abilities-list and summarise which ability categories are
-available.
+Please call MCP tool stonewright-ping to confirm the connection, then call
+stonewright-system-abilities-list and summarise which ability categories are
+available. At the start of the first real task, call stonewright-context-bootstrap.
 ```
 
 The agent will verify connectivity, enumerate available tools, and confirm

@@ -1,7 +1,7 @@
 {
 	"name": "@stonewright/companion",
 	"version": "1.0.0-alpha.1",
-	"description": "Node bridge for the Stonewright WordPress MCP plugin — Figma ingestion, Playwright screenshots, pixel diff, optional MCP HTTP proxy.",
+	"description": "Node companion for the Stonewright WordPress MCP plugin: WP-CLI, health checks, and optional MCP HTTP proxy.",
 	"type": "module",
 	"license": "MIT",
 	"repository": {
@@ -31,11 +31,8 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@anthropic-ai/sdk": "^0.98.0",
 		"@modelcontextprotocol/sdk": "^1.0.0",
 		"dotenv": "^16.4.5",
-		"playwright": "^1.44.0",
-		"sharp": "^0.33.4",
 		"zod": "^3.23.8"
 	},
 	"devDependencies": {

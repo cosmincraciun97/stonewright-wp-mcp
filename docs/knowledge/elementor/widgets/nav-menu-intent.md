@@ -36,6 +36,6 @@ The Nav Menu widget lets you display WordPress navigation menus with extensive c
 ## Limits / gotchas
 
 - Requires Elementor Pro; not available in the free version
-- The widget displays an existing WP menu; it does not create menu items — call `stonewright/menu-create` + `stonewright/menu-add-item` first, then point this widget at the resulting menu ID
+- The widget displays an existing WP menu; it does not create menu items; call `stonewright-menu-create` and `stonewright-menu-add-item` first, then point this widget at the resulting menu ID
 - Submenu display behavior varies by device breakpoint — always test dropdown behavior on mobile viewport
 - Advanced animations and full pointer customization require higher-tier Pro plans in some configurations

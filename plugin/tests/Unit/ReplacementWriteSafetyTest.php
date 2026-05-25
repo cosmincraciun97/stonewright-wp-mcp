@@ -103,7 +103,7 @@ final class ReplacementWriteSafetyTest extends TestCase {
 	public function test_elementor_v3_sideloads_background_image_refs_before_write(): void {
 		$GLOBALS['stonewright_test_options']         = [];
 		$GLOBALS['stonewright_test_asset_responses'] = [
-			'https://cdn.figma.com/bg/hero-glow.png' => [
+			'https://cdn.example.com/bg/hero-glow.png' => [
 				'response' => [ 'code' => 200 ],
 				'headers'  => [ 'content-type' => 'image/png' ],
 				'body'     => str_repeat( 'G', 200 ),
@@ -117,7 +117,7 @@ final class ReplacementWriteSafetyTest extends TestCase {
 				'spec'    => [
 					'page'     => [ 'title' => 'Background Page' ],
 					'assets'   => [
-						[ 'id' => 'asset_glow', 'url' => 'https://cdn.figma.com/bg/hero-glow.png' ],
+						[ 'id' => 'asset_glow', 'url' => 'https://cdn.example.com/bg/hero-glow.png' ],
 					],
 					'sections' => [
 						[
@@ -152,12 +152,12 @@ final class ReplacementWriteSafetyTest extends TestCase {
 	public function test_elementor_v3_sideloads_gallery_image_refs_before_write(): void {
 		$GLOBALS['stonewright_test_options']         = [];
 		$GLOBALS['stonewright_test_asset_responses'] = [
-			'https://cdn.figma.com/gallery/one.png' => [
+			'https://cdn.example.com/gallery/one.png' => [
 				'response' => [ 'code' => 200 ],
 				'headers'  => [ 'content-type' => 'image/png' ],
 				'body'     => str_repeat( 'A', 200 ),
 			],
-			'https://cdn.figma.com/gallery/two.png' => [
+			'https://cdn.example.com/gallery/two.png' => [
 				'response' => [ 'code' => 200 ],
 				'headers'  => [ 'content-type' => 'image/png' ],
 				'body'     => str_repeat( 'B', 200 ),
@@ -171,8 +171,8 @@ final class ReplacementWriteSafetyTest extends TestCase {
 				'spec'    => [
 					'page'     => [ 'title' => 'Gallery Page' ],
 					'assets'   => [
-						[ 'id' => 'asset_one', 'url' => 'https://cdn.figma.com/gallery/one.png' ],
-						[ 'id' => 'asset_two', 'url' => 'https://cdn.figma.com/gallery/two.png' ],
+						[ 'id' => 'asset_one', 'url' => 'https://cdn.example.com/gallery/one.png' ],
+						[ 'id' => 'asset_two', 'url' => 'https://cdn.example.com/gallery/two.png' ],
 					],
 					'sections' => [
 						[
@@ -182,8 +182,8 @@ final class ReplacementWriteSafetyTest extends TestCase {
 									'type'    => 'image-gallery',
 									'columns' => 2,
 									'images'  => [
-										[ 'assetRef' => 'asset_one', 'url' => 'https://cdn.figma.com/gallery/one.png' ],
-										[ 'assetRef' => 'asset_two', 'url' => 'https://cdn.figma.com/gallery/two.png' ],
+										[ 'assetRef' => 'asset_one', 'url' => 'https://cdn.example.com/gallery/one.png' ],
+										[ 'assetRef' => 'asset_two', 'url' => 'https://cdn.example.com/gallery/two.png' ],
 									],
 								],
 							],

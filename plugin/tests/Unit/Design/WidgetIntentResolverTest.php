@@ -43,17 +43,17 @@ final class WidgetIntentResolverTest extends TestCase {
 		$this->assertSame( [ 'image', 'nav-menu' ], $entry['widgets'] );
 	}
 
-	public function test_figma_signature_detects_footer_by_name(): void {
+	public function test_design_tree_detects_footer_by_name(): void {
 		$node = [ 'name' => 'Footer Section', 'type' => 'FRAME', 'children' => [] ];
-		$this->assertSame( 'footer-template', WidgetIntentResolver::detect_from_figma_signature( $node ) );
+		$this->assertSame( 'footer-template', WidgetIntentResolver::detect_from_design_tree( $node ) );
 	}
 
-	public function test_figma_signature_detects_header_by_name(): void {
+	public function test_design_tree_detects_header_by_name(): void {
 		$node = [ 'name' => 'Site Header', 'type' => 'FRAME', 'children' => [] ];
-		$this->assertSame( 'header-template', WidgetIntentResolver::detect_from_figma_signature( $node ) );
+		$this->assertSame( 'header-template', WidgetIntentResolver::detect_from_design_tree( $node ) );
 	}
 
-	public function test_figma_signature_detects_countdown_from_digit_pairs(): void {
+	public function test_design_tree_detects_countdown_from_digit_pairs(): void {
 		$digit_group = static fn( string $digits ): array => [
 			'type'     => 'FRAME',
 			'children' => [
@@ -66,10 +66,10 @@ final class WidgetIntentResolverTest extends TestCase {
 			'name'     => 'Countdown row',
 			'children' => [ $digit_group( '63' ), $digit_group( '11' ), $digit_group( '18' ) ],
 		];
-		$this->assertSame( 'countdown', WidgetIntentResolver::detect_from_figma_signature( $node ) );
+		$this->assertSame( 'countdown', WidgetIntentResolver::detect_from_design_tree( $node ) );
 	}
 
-	public function test_figma_signature_detects_social_row_from_vector_only_frames(): void {
+	public function test_design_tree_detects_social_row_from_vector_only_frames(): void {
 		$social = static fn(): array => [
 			'type'     => 'FRAME',
 			'children' => [ [ 'type' => 'VECTOR' ] ],
@@ -79,10 +79,10 @@ final class WidgetIntentResolverTest extends TestCase {
 			'name'     => 'Social row',
 			'children' => [ $social(), $social(), $social(), $social() ],
 		];
-		$this->assertSame( 'social-row', WidgetIntentResolver::detect_from_figma_signature( $node ) );
+		$this->assertSame( 'social-row', WidgetIntentResolver::detect_from_design_tree( $node ) );
 	}
 
-	public function test_figma_signature_detects_nav_from_text_siblings(): void {
+	public function test_design_tree_detects_nav_from_text_siblings(): void {
 		$text = static fn( string $t ): array => [
 			'type'       => 'TEXT',
 			'characters' => $t,
@@ -93,10 +93,10 @@ final class WidgetIntentResolverTest extends TestCase {
 			'name'     => 'Top row',
 			'children' => [ $text( 'About' ), $text( 'Services' ), $text( 'Pricing' ), $text( 'Contact' ) ],
 		];
-		$this->assertSame( 'nav', WidgetIntentResolver::detect_from_figma_signature( $node ) );
+		$this->assertSame( 'nav', WidgetIntentResolver::detect_from_design_tree( $node ) );
 	}
 
-	public function test_figma_signature_detects_footer_link_column_before_nav(): void {
+	public function test_design_tree_detects_footer_link_column_before_nav(): void {
 		$text = static fn( string $t ): array => [
 			'type'       => 'TEXT',
 			'characters' => $t,
@@ -108,10 +108,10 @@ final class WidgetIntentResolverTest extends TestCase {
 			'layoutMode' => 'VERTICAL',
 			'children'   => [ $text( 'Despre nZEB Expo' ), $text( 'Misiune' ), $text( 'Media Kit & Presa' ), $text( 'Editii' ) ],
 		];
-		$this->assertSame( 'footer-link-column', WidgetIntentResolver::detect_from_figma_signature( $node ) );
+		$this->assertSame( 'footer-link-column', WidgetIntentResolver::detect_from_design_tree( $node ) );
 	}
 
-	public function test_figma_signature_detects_gallery_from_image_grid(): void {
+	public function test_design_tree_detects_gallery_from_image_grid(): void {
 		$image = static fn( string $id ): array => [
 			'id'    => $id,
 			'type'  => 'RECTANGLE',
@@ -123,10 +123,10 @@ final class WidgetIntentResolverTest extends TestCase {
 			'name'     => 'Galerie foto grid',
 			'children' => [ $image( 'a' ), $image( 'b' ), $image( 'c' ), $image( 'd' ) ],
 		];
-		$this->assertSame( 'image-gallery', WidgetIntentResolver::detect_from_figma_signature( $node ) );
+		$this->assertSame( 'image-gallery', WidgetIntentResolver::detect_from_design_tree( $node ) );
 	}
 
-	public function test_figma_signature_detects_newsletter_form_from_labels(): void {
+	public function test_design_tree_detects_newsletter_form_from_labels(): void {
 		$text = static fn( string $t ): array => [
 			'type'       => 'TEXT',
 			'characters' => $t,
@@ -137,10 +137,10 @@ final class WidgetIntentResolverTest extends TestCase {
 			'name'     => 'Newsletter form',
 			'children' => [ $text( 'Nume *' ), $text( 'Prenume *' ), $text( 'Email *' ), $text( 'Interes *' ), $text( 'Aboneaza-te la newsletter' ) ],
 		];
-		$this->assertSame( 'newsletter-form', WidgetIntentResolver::detect_from_figma_signature( $node ) );
+		$this->assertSame( 'newsletter-form', WidgetIntentResolver::detect_from_design_tree( $node ) );
 	}
 
-	public function test_figma_signature_detects_icon_bullet_list(): void {
+	public function test_design_tree_detects_icon_bullet_list(): void {
 		$bullet = static fn( string $text ): array => [
 			'type'     => 'FRAME',
 			'children' => [ [ 'type' => 'VECTOR' ], [ 'type' => 'TEXT', 'characters' => $text ] ],
@@ -150,12 +150,12 @@ final class WidgetIntentResolverTest extends TestCase {
 			'name'     => 'Feature list',
 			'children' => [ $bullet( 'Fast' ), $bullet( 'Reliable' ), $bullet( 'Tested' ) ],
 		];
-		$this->assertSame( 'icon-bullet-list', WidgetIntentResolver::detect_from_figma_signature( $node ) );
+		$this->assertSame( 'icon-bullet-list', WidgetIntentResolver::detect_from_design_tree( $node ) );
 	}
 
-	public function test_figma_signature_returns_null_for_unrecognised_node(): void {
+	public function test_design_tree_returns_null_for_unrecognised_node(): void {
 		$node = [ 'type' => 'TEXT', 'characters' => 'Just a heading' ];
-		$this->assertNull( WidgetIntentResolver::detect_from_figma_signature( $node ) );
+		$this->assertNull( WidgetIntentResolver::detect_from_design_tree( $node ) );
 	}
 
 	public function test_prompt_detection_prefers_native_widget_intents(): void {
@@ -173,7 +173,7 @@ final class WidgetIntentResolverTest extends TestCase {
 		$this->assertSame( 'social-row', WidgetIntentResolver::detect_from_prompt( 'footer cu iconuri svg facebook instagram linkedin youtube tiktok' ) );
 	}
 
-	public function test_figma_signature_detects_section_label_with_underline(): void {
+	public function test_design_tree_detects_section_label_with_underline(): void {
 		$node = [
 			'type'     => 'FRAME',
 			'name'     => 'Label',
@@ -183,10 +183,10 @@ final class WidgetIntentResolverTest extends TestCase {
 			],
 		];
 
-		$this->assertSame( 'section-label', WidgetIntentResolver::detect_from_figma_signature( $node ) );
+		$this->assertSame( 'section-label', WidgetIntentResolver::detect_from_design_tree( $node ) );
 	}
 
-	public function test_figma_signature_detects_video_poster(): void {
+	public function test_design_tree_detects_video_poster(): void {
 		$node = [
 			'type'     => 'FRAME',
 			'name'     => 'Aftermovie video',
@@ -196,6 +196,6 @@ final class WidgetIntentResolverTest extends TestCase {
 			],
 		];
 
-		$this->assertSame( 'video', WidgetIntentResolver::detect_from_figma_signature( $node ) );
+		$this->assertSame( 'video', WidgetIntentResolver::detect_from_design_tree( $node ) );
 	}
 }

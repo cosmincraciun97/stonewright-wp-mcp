@@ -14,15 +14,15 @@ namespace Stonewright\WpMcp\Design;
  *      `stonewright/widget-intent-resolve` and by Phase E build scripts
  *      that want to say "give me the right thing for a footer column."
  *
- *   2. `detect_from_figma_signature( array $node ): ?string` — visual
- *      pattern matcher over a Figma node + its children. Used by the
- *      FigmaToSpec walk to decide whether a generic FRAME is actually
+ *   2. `detect_from_design_tree( array $node ): ?string` — visual
+ *      pattern matcher over a design tree + its children. Used to decide
+ *      whether a generic layout node is actually
  *      a countdown / nav-menu / social row / footer column. Returns
  *      the resolved intent name or null when no signature matches.
  *
  * Keep this class pure: no WP globals, no I/O. All knowledge lives in
  * the static intent map below. To add a new intent: extend `intents()`
- * + (optionally) `detect_from_figma_signature()`.
+ * + (optionally) `detect_from_design_tree()`.
  */
 final class WidgetIntentResolver {
 
@@ -428,16 +428,16 @@ final class WidgetIntentResolver {
 	}
 
 	/**
-	 * Detect a widget intent from a Figma sub-tree.
+	 * Detect a widget intent from a design tree.
 	 *
 	 * Looks for the per-plan signatures (countdown digit pairs, social
 	 * icon row, footer/header naming, icon-list bullets, button shape).
-	 * Pure read-only over the Figma node — never mutates.
+	 * Pure read-only over the supplied tree; never mutates.
 	 *
-	 * @param array<string, mixed> $node Figma node (with optional `children`).
+	 * @param array<string, mixed> $node Design node (with optional `children`).
 	 * @return string|null Intent name or null when no signature matches.
 	 */
-	public static function detect_from_figma_signature( array $node ): ?string {
+	public static function detect_from_design_tree( array $node ): ?string {
 		$name = isset( $node['name'] ) && is_string( $node['name'] ) ? strtolower( $node['name'] ) : '';
 		$children = ( isset( $node['children'] ) && is_array( $node['children'] ) ) ? $node['children'] : [];
 

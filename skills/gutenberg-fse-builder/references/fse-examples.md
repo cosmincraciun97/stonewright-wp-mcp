@@ -10,7 +10,7 @@ Returns the merged theme.json object (theme defaults + user overrides).
 
 ## Update global styles (colors + typography)
 
-Always call `stonewright/site-backup-page` on a representative page before
+Always call MCP tool `stonewright-site-backup-page` on a representative page before
 this, and confirm with the user. Changes are site-wide.
 
 ```json

@@ -1,0 +1,7 @@
+{
+    "args": {
+        "task": "",
+        "candidate_widgets": []
+    },
+    "expect": "wp_error"
+}

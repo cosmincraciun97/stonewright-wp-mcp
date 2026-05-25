@@ -21,7 +21,7 @@ persistent context: site purpose, preferred writing tone, content guidelines,
 or anything else the AI should know by default.
 
 The instructions are also included in the output of the
-`stonewright/abilities-list` MCP ability so agents can read them
+`stonewright-system-abilities-list` MCP tool so agents can read them
 programmatically.
 
 ### Enabling and disabling
@@ -81,7 +81,7 @@ collision. There is no per-WordPress-user isolation.
 
 ### How entries get created
 
-The AI explicitly calls `stonewright/memory-write` when it decides information
+The AI explicitly calls `stonewright-memory-save` when it decides information
 is worth retaining. Nothing is auto-saved based on conversation content.
 Admins can also create entries manually via the Add new form on this page, or
 via the REST API (`POST /stonewright/v1/memory`).
@@ -124,7 +124,8 @@ accidental removal. The handler calls `Memory::delete_by_id()`.
 ### Master memory toggle
 
 The **Enable memory abilities** checkbox saves to `stonewright_memory_enabled`.
-When `false`, the four memory MCP abilities (`stonewright/memory-list`,
-`stonewright/memory-read`, `stonewright/memory-write`,
-`stonewright/memory-delete`) are excluded from the `tools/list` response.
+When `false`, the memory MCP tools (`stonewright-memory-list`,
+`stonewright-memory-get`, `stonewright-memory-save`,
+`stonewright-learning-record`, `stonewright-memory-delete`) are excluded from
+the `tools/list` response.
 Existing entries in the database are unaffected.

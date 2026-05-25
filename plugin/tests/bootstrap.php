@@ -1069,6 +1069,15 @@ if ( ! function_exists( 'get_block_templates' ) ) {
 if ( ! function_exists( 'wp_safe_remote_post' ) ) {
 	function wp_safe_remote_post( string $url, array $args = [] ): array|\WP_Error {
 		$path = (string) parse_url( $url, PHP_URL_PATH );
+		$GLOBALS['stonewright_test_companion_requests'] ??= [];
+		$GLOBALS['stonewright_test_companion_requests'][] = [
+			'path'    => $path,
+			'url'     => $url,
+			'body'    => isset( $args['body'] ) && is_string( $args['body'] )
+				? ( json_decode( $args['body'], true ) ?: [] )
+				: [],
+			'headers' => (array) ( $args['headers'] ?? [] ),
+		];
 
 		// Per-test overrides: $GLOBALS['stonewright_test_companion_responses'][ $path ]
 		// A null value falls through to defaults; a WP_Error is returned directly so
@@ -1090,64 +1099,36 @@ if ( ! function_exists( 'wp_safe_remote_post' ) ) {
 				'status'           => 'ok',
 				'contract_version' => '1.0.0',
 			],
-			'/figma-ingest' => [
-				'spec'        => [
-					'version'  => '1.0.0',
-					'page'     => [ 'title' => 'Contract Figma Page' ],
-					'sections' => [
-						[
-							'id'     => 'hero',
-							'blocks' => [
-								[ 'type' => 'heading', 'text' => 'Hello', 'level' => 1 ],
-							],
-						],
-					],
-				],
-				'warnings'    => [],
-				'asset_count' => 0,
+			'/wp-cli/status' => [
+				'ok'          => true,
+				'available'   => true,
+				'command'     => [ 'wp', 'cli', 'info', '--format=json' ],
+				'cwd'         => 'D:/Sites/site',
+				'stdout'      => '{"wp_cli_version":"2.12.0"}',
+				'stderr'      => '',
+				'exit_code'   => 0,
+				'duration_ms' => 1,
 			],
-			'/screenshot' => [
-				'request_id'  => 'aabbccdd-0000-4000-8000-aabbccddeeff',
-				'artifact_id' => '/tmp/wp-content/uploads/stonewright-qa/aabbccdd/screenshot.png',
-				'path'        => '/tmp/wp-content/uploads/stonewright-qa/aabbccdd/screenshot.png',
-				'url'         => 'https://example.test/wp-content/uploads/stonewright-qa/screenshot.png',
-				'width'       => 1440,
-				'height'      => 900,
-				'viewport'    => [ 'width' => 1440, 'height' => 900 ],
-				'created_at'  => '2026-05-22T00:00:00.000Z',
+			'/wp-cli/discover' => [
+				'ok'          => true,
+				'available'   => true,
+				'command'     => [ 'wp', 'cli', 'cmd-dump' ],
+				'cwd'         => 'D:/Sites/site',
+				'stdout'      => '{"name":"wp"}',
+				'stderr'      => '',
+				'exit_code'   => 0,
+				'duration_ms' => 1,
+				'parsed_json' => [ 'name' => 'wp' ],
 			],
-			'/diff' => [
-				'request_id'      => 'aabbccdd-0000-4000-8000-aabbccddeeff',
-				'needs_reference' => false,
-				'diff_ratio'      => 0.0,
-				'passed'          => true,
-				'threshold'       => 0.1,
-				'diff_url'        => '/tmp/wp-content/uploads/stonewright-qa/aabbccdd/diff.png',
-				'mismatch_regions' => [],
-			],
-			'/lighthouse' => [
-				'request_id' => 'aabbccdd-0000-4000-8000-aabbccddeeff',
-				'available'  => true,
-				'scores'     => [
-					'performance'    => 1.0,
-					'accessibility'  => 1.0,
-					'best-practices' => 1.0,
-					'seo'            => 1.0,
-				],
-				'report_url'    => 'https://example.test/lighthouse.html',
-				'audits_failed' => [],
-			],
-			'/axe' => [
-				'request_id'   => 'aabbccdd-0000-4000-8000-aabbccddeeff',
-				'violations'   => [],
-				'passes_count' => 1,
-			],
-			'/layout' => [
-				'request_id'              => 'aabbccdd-0000-4000-8000-aabbccddeeff',
-				'sections'               => [],
-				'alignment_diffs'        => [],
-				'has_horizontal_overflow' => false,
-				'has_element_overlap'    => false,
+			'/wp-cli/run' => [
+				'ok'          => true,
+				'available'   => true,
+				'command'     => [ 'wp', 'post', 'list' ],
+				'cwd'         => 'D:/Sites/site',
+				'stdout'      => '[]',
+				'stderr'      => '',
+				'exit_code'   => 0,
+				'duration_ms' => 1,
 			],
 			default => [
 				'ok'     => true,

@@ -1,4 +1,4 @@
-# Contributing to Stonewright
+﻿# Contributing to Stonewright
 
 Thank you for considering a contribution. Before you open a PR, read this document.
 
@@ -6,29 +6,29 @@ Thank you for considering a contribution. Before you open a PR, read this docume
 
 ```
 stonewright-wp-mcp/
-├── plugin/                     PHP plugin (GPL-2.0-or-later)
-│   ├── includes/
-│   │   ├── Abilities/          One class per ability, grouped by category
-│   │   ├── Core/               MCP server registration, REST routes, DI container
-│   │   ├── DesignSpec/         Figma importer and JSON schema validator
-│   │   ├── Memory/             Agent memory helper
-│   │   ├── Renderers/          Gutenberg and Elementor V3 spec renderers
-│   │   ├── Security/           Permissions, Backup, ConfirmationToken, AuditLog
-│   │   └── Support/            Utility classes (Logger, Json, BlockTree, etc.)
-│   ├── schemas/                stonewright.schema.json (Design Spec)
-│   ├── tests/                  PHPUnit test suite
-│   ├── blocks/                 Custom block source (recipe-hero, recipe-slider)
-│   ├── composer.json
-│   ├── phpcs.xml
-│   ├── phpstan.neon
-│   └── phpunit.xml
-├── companion/                  Node bridge (MIT)
-│   ├── src/
-│   │   └── lib/
-│   ├── package.json
-│   └── tsconfig.json
-├── skills/                     Skill packs for Claude Code and Codex
-└── docs/                       Documentation (CC BY 4.0)
+â”œâ”€â”€ plugin/                     PHP plugin (GPL-2.0-or-later)
+â”‚   â”œâ”€â”€ includes/
+â”‚   â”‚   â”œâ”€â”€ Abilities/          One class per ability, grouped by category
+â”‚   â”‚   â”œâ”€â”€ Core/               MCP server registration, REST routes, DI container
+â”‚   â”‚   â”œâ”€â”€ DesignSpec/         JSON schema validator and spec helpers
+â”‚   â”‚   â”œâ”€â”€ Memory/             Agent memory helper
+â”‚   â”‚   â”œâ”€â”€ Renderers/          Gutenberg and Elementor V3 spec renderers
+â”‚   â”‚   â”œâ”€â”€ Security/           Permissions, Backup, ConfirmationToken, AuditLog
+â”‚   â”‚   â””â”€â”€ Support/            Utility classes (Logger, Json, BlockTree, etc.)
+â”‚   â”œâ”€â”€ schemas/                stonewright.schema.json (Design Spec)
+â”‚   â”œâ”€â”€ tests/                  PHPUnit test suite
+â”‚   â”œâ”€â”€ blocks/                 Custom block source (recipe-hero, recipe-slider)
+â”‚   â”œâ”€â”€ composer.json
+â”‚   â”œâ”€â”€ phpcs.xml
+â”‚   â”œâ”€â”€ phpstan.neon
+â”‚   â””â”€â”€ phpunit.xml
+â”œâ”€â”€ companion/                  Node bridge (MIT)
+â”‚   â”œâ”€â”€ src/
+â”‚   â”‚   â””â”€â”€ lib/
+â”‚   â”œâ”€â”€ package.json
+â”‚   â””â”€â”€ tsconfig.json
+â”œâ”€â”€ skills/                     Skill packs for Claude Code and Codex
+â””â”€â”€ docs/                       Documentation (CC BY 4.0)
 ```
 
 ## Development workflow
@@ -93,8 +93,8 @@ For new abilities:
 
 The plugin follows WordPress Coding Standards (`WordPress-Extra` + `WordPress-Docs`) with two overrides defined in `phpcs.xml`:
 
-- `WordPress.Files.FileName.InvalidClassFileName` — excluded because we use PascalCase filenames to match PSR-4 autoloading.
-- `WordPress.Files.FileName.NotHyphenatedLowercase` — same reason.
+- `WordPress.Files.FileName.InvalidClassFileName` â€” excluded because we use PascalCase filenames to match PSR-4 autoloading.
+- `WordPress.Files.FileName.NotHyphenatedLowercase` â€” same reason.
 
 All PHP files declare `strict_types=1` and use the `Stonewright\WpMcp` namespace.
 

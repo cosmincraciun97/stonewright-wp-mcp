@@ -5,11 +5,27 @@ namespace Stonewright\WpMcp\Elementor\Renderer;
 
 use Stonewright\WpMcp\DesignTokens\Resolver;
 use Stonewright\WpMcp\Elementor\Renderer\Responsive;
+use Stonewright\WpMcp\Elementor\Renderer\StyleMapper;
 
 /**
  * Renders a DesignSpec `divider` node as an Elementor divider widget.
  */
 final class Divider {
+
+	/**
+	 * Map from `style.*` keys to Elementor divider-widget settings.
+	 *
+	 * @return array<string, string|array<string, mixed>>
+	 */
+	private static function style_map(): array {
+		return [
+			'color'      => [ 'key' => 'color', 'is_color' => true ],
+			'width'      => [ 'key' => 'width', 'is_size' => true ],
+			'padding'    => [ 'key' => '_padding', 'is_dimension' => true ],
+			'margin'     => [ 'key' => '_margin', 'is_dimension' => true ],
+			'background' => [ 'key' => '_background_color', 'is_background' => true ],
+		];
+	}
 
 	/**
 	 * @param array<string, mixed> $node
@@ -20,8 +36,8 @@ final class Divider {
 	public static function render( array $node, Resolver $resolver, string $canonical_path ): array {
 		$settings = [];
 
-		if ( isset( $node['style'] ) ) {
-			$settings['style'] = (string) $node['style'];
+		if ( isset( $node['style'] ) && is_string( $node['style'] ) ) {
+			$settings['style'] = $node['style'];
 		}
 
 		if ( isset( $node['gap'] ) ) {
@@ -56,6 +72,11 @@ final class Divider {
 				'unit' => '%',
 				'size' => (int) $node['width'],
 			];
+		}
+
+		$style = StyleMapper::node_style( $node, $resolver );
+		if ( [] !== $style ) {
+			$settings = StyleMapper::apply( $settings, $style, self::style_map() );
 		}
 
 		return [

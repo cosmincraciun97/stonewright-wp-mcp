@@ -36,8 +36,8 @@ use Stonewright\WpMcp\Security\AuditLog;
  *   the token before any sideload is attempted. An attacker would need to obtain a
  *   valid token for the tampered URL, which requires compromising the signing secret.
  *
- *   For untrusted-source ingestion paths (e.g., user-supplied figma_url processed
- *   via IngestFigma without a subsequent confirmation token), DNS rebinding is a
+ *   For untrusted-source ingestion paths processed without a subsequent
+ *   confirmation token, DNS rebinding is a
  *   known limitation of the current implementation. The window is narrow (two DNS
  *   lookups within one HTTP request cycle) but non-zero in adversarial environments.
  *
@@ -234,7 +234,7 @@ final class AssetSideloader {
 	 *   (DNS rebinding). Defense relies on:
 	 *   - confirmation-token-signed spec content in production-safe mode, which
 	 *     binds asset URLs to a valid token before any sideload executes.
-	 *   - For untrusted-source ingestion paths (e.g., user-supplied figma_url),
+	 *   - For untrusted-source ingestion paths,
 	 *     DNS rebinding is a known limitation of this implementation.
 	 *   - Possible future hardening: use cURL CURLOPT_RESOLVE to force the fetch
 	 *     to use the same IP that was validated here, eliminating the second lookup.

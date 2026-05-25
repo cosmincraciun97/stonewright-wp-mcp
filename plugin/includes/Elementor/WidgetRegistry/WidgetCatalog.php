@@ -8,7 +8,7 @@ namespace Stonewright\WpMcp\Elementor\WidgetRegistry;
  *
  * Loads `manifest.json` (produced by `plugin/bin/manifest-synthesize.php`)
  * once per request and exposes per-widget lookups for the per-widget
- * abilities, the FigmaToSpec WidgetIntentResolver, the knowledge-base
+ * abilities, the WidgetIntentResolver, the knowledge-base
  * `elementor-describe-widget` ability, and any caller that needs the
  * canonical Elementor setting metadata.
  *

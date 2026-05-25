@@ -1,7 +1,0 @@
-{
-    "args": {
-        "reference_artifact_id": "/tmp/wp-content/uploads/stonewright-qa/aabbccdd/ref.png",
-        "actual_artifact_id": "/tmp/wp-content/uploads/stonewright-qa/aabbccdd/actual.png"
-    },
-    "expect": "ok"
-}

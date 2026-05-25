@@ -23,7 +23,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const contractsDir = join(__dirname, '..', 'src', 'contracts');
 const outputFile = join(contractsDir, 'generated.ts');
 
-const endpoints = ['screenshot', 'diff', 'axe', 'layout', 'lighthouse', 'health'];
+const endpoints = ['health'];
 
 const compileOptions = {
   bannerComment: '',

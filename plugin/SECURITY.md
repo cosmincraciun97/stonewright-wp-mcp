@@ -78,9 +78,9 @@ On plugin boot, `Stonewright\WpMcp\Security\StaticAnalysis::assert_environment()
 
 ### Transport security
 
-The MCP endpoint (`/wp-json/stonewright/v1/mcp`) is a standard WordPress REST route. It inherits the same SSL, nonce, and Application Password infrastructure as the WordPress REST API. Use HTTPS in all environments.
+The MCP endpoint (`/wp-json/mcp/stonewright`) is a standard WordPress REST route. It inherits the same SSL, nonce, and Application Password infrastructure as the WordPress REST API. Use HTTPS in all environments.
 
-The companion HTTP server enforces bearer token authentication (`COMPANION_BEARER_TOKEN`) and an origin allowlist (`COMPANION_ALLOWED_ORIGINS`). The companion never writes to WordPress directly; it communicates exclusively through the WordPress REST API using an Application Password.
+The companion HTTP server enforces bearer token authentication (`COMPANION_BEARER_TOKEN`) and an origin allowlist (`COMPANION_ALLOWED_ORIGINS`). The companion writes to WordPress only through guarded WP-CLI execution. It uses `execFile` with argv tokens and blocks arbitrary PHP or shell entry points such as `wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, and `--require`.
 
 ## Threat model
 
@@ -92,4 +92,4 @@ The companion HTTP server enforces bearer token authentication (`COMPANION_BEARE
 
 **Log tampering to hide malicious writes.** The audit table is append-only. Deletion of audit rows requires direct database access beyond the WordPress application layer.
 
-**Figma token leakage.** The `FIGMA_TOKEN` environment variable is read by the companion and never sent to the WordPress database unless the operator explicitly sets `stonewright_figma_token` as a fallback. Prefer the environment variable.
+**Unsafe WP-CLI command execution.** The companion rejects arbitrary PHP and interactive shell commands before process spawn, runs without a shell, and can restrict working directories with `STONEWRIGHT_WP_ROOT` or `STONEWRIGHT_WP_ALLOWED_ROOTS`.

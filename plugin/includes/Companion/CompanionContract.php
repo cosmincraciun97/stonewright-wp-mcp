@@ -3,19 +3,13 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Companion;
 
-use Stonewright\WpMcp\Companion\Contracts\Screenshot;
-use Stonewright\WpMcp\Companion\Contracts\Diff;
-use Stonewright\WpMcp\Companion\Contracts\Axe;
-use Stonewright\WpMcp\Companion\Contracts\Layout;
-use Stonewright\WpMcp\Companion\Contracts\Lighthouse;
 use Stonewright\WpMcp\Companion\Contracts\Health;
-use Stonewright\WpMcp\Companion\Contracts\FigmaIngest;
 
 /**
  * Runtime contract validator for companion request/response payloads.
  *
  * Usage:
- *   $result = CompanionContract::validate( 'screenshot', 'request', $payload );
+ *   $result = CompanionContract::validate( 'health', 'response', $payload );
  *   if ( is_wp_error( $result ) ) { return $result; }
  *
  * Returns true on success or a WP_Error with code
@@ -48,33 +42,9 @@ final class CompanionContract {
 	 */
 	private static function schema_map(): array {
 		return [
-			'screenshot' => [
-				'request'  => [ 'required' => Screenshot::REQUEST_REQUIRED, 'properties' => Screenshot::REQUEST_PROPERTIES ],
-				'response' => [ 'required' => Screenshot::RESPONSE_REQUIRED, 'properties' => Screenshot::RESPONSE_PROPERTIES ],
-			],
-			'diff' => [
-				'request'  => [ 'required' => Diff::REQUEST_REQUIRED, 'properties' => Diff::REQUEST_PROPERTIES ],
-				'response' => [ 'required' => Diff::RESPONSE_REQUIRED, 'properties' => Diff::RESPONSE_PROPERTIES ],
-			],
-			'axe' => [
-				'request'  => [ 'required' => Axe::REQUEST_REQUIRED, 'properties' => Axe::REQUEST_PROPERTIES ],
-				'response' => [ 'required' => Axe::RESPONSE_REQUIRED, 'properties' => Axe::RESPONSE_PROPERTIES ],
-			],
-			'layout' => [
-				'request'  => [ 'required' => Layout::REQUEST_REQUIRED, 'properties' => Layout::REQUEST_PROPERTIES ],
-				'response' => [ 'required' => Layout::RESPONSE_REQUIRED, 'properties' => Layout::RESPONSE_PROPERTIES ],
-			],
-			'lighthouse' => [
-				'request'  => [ 'required' => Lighthouse::REQUEST_REQUIRED, 'properties' => Lighthouse::REQUEST_PROPERTIES ],
-				'response' => [ 'required' => Lighthouse::RESPONSE_REQUIRED, 'properties' => Lighthouse::RESPONSE_PROPERTIES ],
-			],
 			'health' => [
 				'request'  => [ 'required' => Health::REQUEST_REQUIRED, 'properties' => Health::REQUEST_PROPERTIES ],
 				'response' => [ 'required' => Health::RESPONSE_REQUIRED, 'properties' => Health::RESPONSE_PROPERTIES ],
-			],
-			'figma-ingest' => [
-				'request'  => [ 'required' => FigmaIngest::REQUEST_REQUIRED, 'properties' => FigmaIngest::REQUEST_PROPERTIES ],
-				'response' => [ 'required' => FigmaIngest::RESPONSE_REQUIRED, 'properties' => FigmaIngest::RESPONSE_PROPERTIES ],
 			],
 		];
 	}
@@ -82,7 +52,7 @@ final class CompanionContract {
 	/**
 	 * Validate a request or response payload against the contract schema.
 	 *
-	 * @param string               $endpoint  One of: screenshot, diff, axe, layout, lighthouse, health.
+	 * @param string               $endpoint  One of: health.
 	 * @param string               $direction 'request' or 'response'.
 	 * @param array<string, mixed> $payload
 	 * @return true|\WP_Error

@@ -35,7 +35,7 @@ Stonewright depends on `wordpress/mcp-adapter`, `wordpress/abilities-api`, and `
 
 ### Companion exposure
 
-The companion Node server must not be exposed to the public internet. Run it on a private network or loopback interface and set `COMPANION_BEARER_TOKEN` and `COMPANION_ALLOWED_ORIGINS` before starting it. The companion has access to Playwright (a full browser) and to the WordPress REST API; a compromised companion is equivalent to an authenticated editor-level session.
+The companion Node server must not be exposed to the public internet. Run it on a private network or loopback interface and set `COMPANION_BEARER_TOKEN` and `COMPANION_ALLOWED_ORIGINS` before starting it. The companion can run guarded WP-CLI commands, including write commands, so treat access to it like access to a privileged local operator. It blocks arbitrary PHP execution groups such as `eval`, `eval-file`, and `shell`, and it does not call WordPress REST write endpoints.
 
 ## Hardening checklist
 
