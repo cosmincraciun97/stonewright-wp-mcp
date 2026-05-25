@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
 	buildWpCliArgs,
 	runWpCli,
 	validateWpCliCommand,
+	wpCliInstall,
 	wpCliDiscover,
 	type ExecFileRunner,
 } from '../src/wp-cli.js';
@@ -116,6 +117,70 @@ describe('WP-CLI runner', () => {
 			expect(calls[0]?.args[0]).toBe(pharPath);
 			expect(calls[0]?.args).toContain('cli');
 			expect(result.command[0]).toBe(phpPath);
+		} finally {
+			rmSync(temp, { recursive: true, force: true });
+		}
+	});
+
+	it('installs WP-CLI phar into the Stonewright cache and reuses it for future commands', async () => {
+		const temp = mkdtempSync(join(tmpdir(), 'stonewright-wpcli-install-'));
+		try {
+			const installDir = join(temp, 'cache');
+			const pharBytes = Buffer.from('fake wp-cli phar');
+			const fetchImpl = (): Promise<Response> => Promise.resolve(new Response(pharBytes));
+
+			const install = await wpCliInstall(
+				{ installDir },
+				fetchImpl,
+				{ STONEWRIGHT_WP_CLI_INSTALL_DIR: installDir } as NodeJS.ProcessEnv,
+			);
+
+			const pharPath = join(installDir, 'wp-cli.phar');
+			expect(install.ok).toBe(true);
+			expect(install.installed).toBe(true);
+			expect(install.path).toBe(resolve(pharPath));
+			expect(existsSync(pharPath)).toBe(true);
+			expect(readFileSync(pharPath)).toEqual(pharBytes);
+
+			const calls: Array<{ file: string; args: string[] }> = [];
+			const runner: ExecFileRunner = (file, args) => {
+				calls.push({ file, args });
+				return Promise.resolve({ stdout: '', stderr: '', exitCode: 0 });
+			};
+
+			await runWpCli(
+				{ command: ['cli', 'info'] },
+				runner,
+				{
+					STONEWRIGHT_WP_CLI_INSTALL_DIR: installDir,
+					STONEWRIGHT_WP_CLI_PHP_BIN: 'php-custom',
+				} as NodeJS.ProcessEnv,
+			);
+
+			expect(calls[0]?.file).toBe('php-custom');
+			expect(calls[0]?.args[0]).toBe(resolve(pharPath));
+		} finally {
+			rmSync(temp, { recursive: true, force: true });
+		}
+	});
+
+	it('keeps an existing WP-CLI phar when forced reinstall download fails', async () => {
+		const temp = mkdtempSync(join(tmpdir(), 'stonewright-wpcli-install-fail-'));
+		try {
+			const installDir = join(temp, 'cache');
+			const pharPath = join(installDir, 'wp-cli.phar');
+			mkdirSync(installDir, { recursive: true });
+			writeFileSync(pharPath, 'existing phar');
+			const fetchImpl = (): Promise<Response> => Promise.resolve(new Response('nope', { status: 500 }));
+
+			const install = await wpCliInstall(
+				{ installDir, force: true },
+				fetchImpl,
+				{ STONEWRIGHT_WP_CLI_INSTALL_DIR: installDir } as NodeJS.ProcessEnv,
+			);
+
+			expect(install.ok).toBe(false);
+			expect(readFileSync(pharPath, 'utf8')).toBe('existing phar');
 		} finally {
 			rmSync(temp, { recursive: true, force: true });
 		}

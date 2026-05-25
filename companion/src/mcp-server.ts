@@ -6,7 +6,14 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { runWpCli, wpCliDiscover, wpCliStatus, type WpCliResult, type WpCliRunInput } from './wp-cli.js';
+import {
+	runWpCli,
+	wpCliDiscover,
+	wpCliInstall,
+	wpCliStatus,
+	type WpCliInstallInput,
+	type WpCliRunInput,
+} from './wp-cli.js';
 import { loadWordPressMcpConfig, registerWordPressMcpTools } from './wordpress-mcp.js';
 
 export interface CreateMcpServerOptions {
@@ -81,15 +88,31 @@ function registerWpCliTools(
 			async (input) => toolResponse(await runWpCli(toWpCliInput(input) as WpCliRunInput, undefined, env)),
 		);
 	}
+
+	for (const name of ['companion_wp_cli_install', 'stonewright-wp-cli-install']) {
+		server.registerTool(
+			name,
+			{
+				description: 'Download the official WP-CLI phar into Stonewright companion cache so future stonewright-wp-cli-* calls can run even when wp is not on PATH.',
+				inputSchema: {
+					installDir: z.string().optional(),
+					force: z.boolean().optional(),
+					expectedSha256: z.string().optional(),
+					timeoutMs: z.number().int().positive().optional(),
+				},
+			},
+			async (input) => toolResponse(await wpCliInstall(input as WpCliInstallInput, fetch, env)),
+		);
+	}
 }
 
 function toWpCliInput(input: Record<string, unknown>): Partial<WpCliRunInput> {
 	return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined)) as Partial<WpCliRunInput>;
 }
 
-function toolResponse(result: WpCliResult): {
+function toolResponse<T extends Record<string, unknown>>(result: T): {
 	content: Array<{ type: 'text'; text: string }>;
-	structuredContent: WpCliResult;
+	structuredContent: T;
 } {
 	return {
 		content: [

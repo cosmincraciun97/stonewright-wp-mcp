@@ -63,9 +63,13 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertIsArray( $result['visual_quality_contract'] );
 		self::assertTrue( $result['visual_quality_contract']['hard_stop_if_browser_unavailable'] );
 		self::assertContains( 'Extract measured tokens from the reference screenshot before writing: canvas size, section bounds, max widths, colors, typography, spacing, and asset crop bounds.', $result['visual_quality_contract']['required_steps'] );
+		self::assertContains( 'Fail the implementation if document.documentElement.scrollWidth is greater than document.documentElement.clientWidth by more than 1px at desktop, tablet, or mobile viewport.', $result['visual_quality_contract']['required_steps'] );
+		self::assertContains( 'Horizontal scrollbar or page content wider than viewport.', $result['visual_quality_contract']['failure_patterns'] );
+		self::assertContains( 'WordPress page title or theme chrome visible when Elementor Canvas/no header/footer was requested.', $result['visual_quality_contract']['failure_patterns'] );
 		self::assertContains( 'When a task needs browser testing, screenshots, or visual inspection, ensure the external Playwright MCP is installed and connected before implementation.', $result['required_followups'] );
 		self::assertContains( 'If the external Playwright MCP is unavailable during a visual implementation task, stop before writing and tell the user the exact MCP setup command.', $result['required_followups'] );
 		self::assertContains( 'For design-derived backgrounds, create an asset selection plan and never use a full-page screenshot as a section background.', $result['required_followups'] );
+		self::assertContains( 'Before declaring a visual task done, verify no horizontal overflow with document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1 at all requested breakpoints.', $result['required_followups'] );
 		self::assertContains( 'If SVG uploads are blocked, do not create sandbox or mu-plugin workarounds without explicit user approval.', $result['required_followups'] );
 
 		$verified = ContextToken::verify( (string) $result['context_token'], 'stonewright/elementor-add-heading' );

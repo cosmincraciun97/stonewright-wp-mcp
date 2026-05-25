@@ -56,6 +56,9 @@ The WP-CLI tools are:
 In the Node companion MCP, the same MCP names `stonewright-wp-cli-status`,
 `stonewright-wp-cli-discover`, and `stonewright-wp-cli-run` are direct companion
 aliases. They do not require the WordPress-side HTTP bridge on port `8765`.
+The companion also exposes `stonewright-wp-cli-install`, which downloads the
+official `wp-cli.phar` into the Stonewright cache for users who do not have
+`wp` on `PATH` or a LocalWP-provided phar.
 
 Agents should prefer native Stonewright abilities for structured writes. Use
 WP-CLI when it is faster, better documented by the installed plugin, or useful

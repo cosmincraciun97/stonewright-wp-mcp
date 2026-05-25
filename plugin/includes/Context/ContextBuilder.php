@@ -173,11 +173,15 @@ final class ContextBuilder {
 				'Use the exact Elementor control keys from widget schema or stonewright/elementor-describe-widget; do not invent CSS-like setting names.',
 				'Use dedicated stonewright/elementor-add-* widget abilities for known widgets. Use stonewright/elementor-v3-add-widget only for unknown or third-party widgets.',
 				'Set page template to Elementor Canvas when the user asks for no header and no footer.',
+				'Do not use the design canvas width as a fixed live page width; translate it into max-width, percentage widths, and responsive padding.',
+				'Fail the implementation if document.documentElement.scrollWidth is greater than document.documentElement.clientWidth by more than 1px at desktop, tablet, or mobile viewport.',
 				'After each write pass, capture a browser screenshot at the same viewport as the reference and list visible deltas: width, alignment, spacing, color, font size, overflow, and missing assets.',
 				'Iterate until the screenshot matches the reference in the main layout before declaring completion.',
 			],
 			'failure_patterns'                 => [
 				'Full-width inner content when the reference has a narrow centered canvas.',
+				'Horizontal scrollbar or page content wider than viewport.',
+				'WordPress page title or theme chrome visible when Elementor Canvas/no header/footer was requested.',
 				'White/default form fields when the reference uses translucent fields.',
 				'Full-page screenshot used as a background asset.',
 				'Legacy or invented Elementor settings such as icon instead of selected_icon, icon_primary_color instead of primary_color, or width instead of Advanced layout width keys.',
@@ -197,6 +201,7 @@ final class ContextBuilder {
 			'When a task needs browser testing, screenshots, or visual inspection, ensure the external Playwright MCP is installed and connected before implementation.',
 			'If the external Playwright MCP is unavailable during a visual implementation task, stop before writing and tell the user the exact MCP setup command.',
 			'For design-derived backgrounds, create an asset selection plan and never use a full-page screenshot as a section background.',
+			'Before declaring a visual task done, verify no horizontal overflow with document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1 at all requested breakpoints.',
 			'If SVG uploads are blocked, do not create sandbox or mu-plugin workarounds without explicit user approval.',
 		];
 

@@ -34,7 +34,9 @@ cp -r skills/wp-plugin-dev ~/.claude/plugins/
   enabled.
 - For FSE skills: a block theme active.
 - For WP-CLI acceleration: companion running with `wp` available on `PATH` or
-  LocalWP-style PHP + `wp-cli.phar` discoverable from the WordPress root.
+  LocalWP-style PHP + `wp-cli.phar` discoverable from the WordPress root. If no
+  WP-CLI is available, the direct companion tool `stonewright-wp-cli-install`
+  can install `wp-cli.phar` into the Stonewright cache.
 
 ## Companion layer
 

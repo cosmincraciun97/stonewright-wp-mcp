@@ -28,6 +28,7 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'stonewright/wp-cli-discover', $instructions );
 		$this->assertStringContainsString( 'stonewright/wp-cli-run', $instructions );
 		$this->assertStringContainsString( 'do not require the WordPress-side HTTP bridge', $instructions );
+		$this->assertStringContainsString( 'stonewright-wp-cli-install', $instructions );
 		$this->assertStringContainsString( 'Elementor, Gutenberg, ACF, CPT UI', $instructions );
 		$this->assertStringContainsString( 'wp eval', $instructions );
 		$this->assertStringContainsString( 'real Elementor widgets', $instructions );
@@ -37,6 +38,10 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'official Elementor documentation', $instructions );
 		$this->assertStringContainsString( 'external Playwright MCP', $instructions );
 		$this->assertStringContainsString( '@playwright/mcp@latest', $instructions );
+		$this->assertStringContainsString( 'Horizontal scroll is a hard failure', $instructions );
+		$this->assertStringContainsString( 'document.documentElement.scrollWidth', $instructions );
+		$this->assertStringContainsString( 'Do not use the design canvas width as a fixed live page width', $instructions );
+		$this->assertStringContainsString( 'Subagents must call stonewright-context-bootstrap themselves', $instructions );
 		$this->assertStringContainsString( 'Do not use a full-page screenshot as a section background', $instructions );
 		$this->assertStringContainsString( 'asset selection plan', $instructions );
 		$this->assertStringContainsString( 'Custom CSS requires explicit user approval', $instructions );

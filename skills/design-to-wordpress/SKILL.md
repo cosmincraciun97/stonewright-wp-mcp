@@ -53,6 +53,13 @@ design reference / image / brief
 - For section backgrounds, never use a full-page screenshot. Export the exact
   layer/section asset or recreate simple colors and gradients with Elementor
   controls; write an asset selection plan before uploading the media.
+- Do not use the design canvas width as a fixed live page width. Convert it to
+  responsive max-width, percentage width, and padding rules.
+- Horizontal scroll is a hard failure. Before completion, verify
+  `document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1`
+  at desktop, tablet, and mobile viewports.
+- If Elementor Canvas/no header/footer was requested, fail the pass if a
+  WordPress page title or theme chrome is visible.
 - If SVG upload is blocked, do not create sandbox or mu-plugin workarounds
   without explicit user approval. Use native Elementor icon controls when an
   equivalent icon is acceptable, or ask for a safe SVG enablement path.
@@ -77,3 +84,7 @@ If the companion MCP is installed, `stonewright-wp-cli-*` tools are direct
 companion aliases. If a WordPress-proxied status call reports the companion
 bridge offline on port `8765`, try the direct MCP tool before assuming WP-CLI is
 missing.
+
+If WP-CLI is still unavailable and the user approves installing it, call
+`stonewright-wp-cli-install`. It downloads the official `wp-cli.phar` into the
+Stonewright companion cache and does not modify system `PATH`.

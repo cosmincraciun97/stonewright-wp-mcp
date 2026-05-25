@@ -55,8 +55,11 @@ available as direct tools named `stonewright-wp-cli-status`,
 `stonewright-wp-cli-discover`, and `stonewright-wp-cli-run`; these do not need
 port `8765`.
 
-WP-CLI discovery uses explicit env vars first, then LocalWP-style `wp-cli.phar`
-and PHP paths, then `wp` from `PATH`.
+WP-CLI discovery uses explicit env vars first, then the Stonewright companion
+cache, then LocalWP-style `wp-cli.phar` and PHP paths, then `wp` from `PATH`.
+If no phar exists, the direct companion tool `stonewright-wp-cli-install` can
+download the official `wp-cli.phar` into the companion cache without modifying
+system `PATH`.
 
 ### Elementor V4 atomic (experimental)
 

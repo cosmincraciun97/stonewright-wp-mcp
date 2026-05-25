@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { chmodSync, existsSync, mkdirSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 
@@ -57,10 +58,29 @@ export interface WpCliInvocation {
 	source: string;
 }
 
+export interface WpCliInstallInput {
+	installDir?: string;
+	force?: boolean;
+	expectedSha256?: string;
+	timeoutMs?: number;
+}
+
+export interface WpCliInstallResult extends Record<string, unknown> {
+	ok: boolean;
+	installed: boolean;
+	path: string;
+	url: string;
+	bytes: number;
+	sha256?: string;
+	skipped?: boolean;
+	error?: string;
+}
+
 const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_MAX_BUFFER = 10 * 1024 * 1024;
 const BLOCKED_COMMAND_GROUPS = new Set(['eval', 'eval-file', 'shell', 'package']);
 const BLOCKED_GLOBAL_FLAGS = ['--exec', '--require', '--prompt'];
+const WP_CLI_PHAR_URL = 'https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar';
 
 export function validateWpCliCommand(command: string[]): string[] {
 	if (!Array.isArray(command) || command.length === 0) {
@@ -182,6 +202,80 @@ export function resolveWpCliInvocation(env: NodeJS.ProcessEnv, cwd: string): WpC
 		prefixArgs: [],
 		source: 'path_wp',
 	};
+}
+
+export async function wpCliInstall(
+	input: WpCliInstallInput = {},
+	fetchImpl: typeof fetch = fetch,
+	env: NodeJS.ProcessEnv = process.env,
+): Promise<WpCliInstallResult> {
+	const installDir = resolveWpCliInstallDir(input.installDir, env);
+	const pharPath = join(installDir, 'wp-cli.phar');
+	const force = input.force === true;
+
+	if (!force && existsSync(pharPath)) {
+		const stats = statSync(pharPath);
+		return {
+			ok: true,
+			installed: false,
+			path: resolve(pharPath),
+			url: WP_CLI_PHAR_URL,
+			bytes: stats.size,
+			skipped: true,
+		};
+	}
+
+	mkdirSync(installDir, { recursive: true });
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort(), normaliseTimeout(input.timeoutMs));
+	let tempPath = '';
+	try {
+		const response = await fetchImpl(WP_CLI_PHAR_URL, { signal: controller.signal });
+		if (!response.ok) {
+			throw new Error(`WP-CLI download failed with HTTP ${response.status}.`);
+		}
+		const buffer = Buffer.from(await response.arrayBuffer());
+		const sha256 = createHash('sha256').update(buffer).digest('hex');
+		if (input.expectedSha256 && sha256.toLowerCase() !== input.expectedSha256.toLowerCase()) {
+			throw new Error('WP-CLI download checksum did not match expectedSha256.');
+		}
+
+		tempPath = `${pharPath}.tmp-${process.pid}-${Date.now()}`;
+		writeFileSync(tempPath, buffer, { flag: 'w' });
+		try {
+			chmodSync(tempPath, 0o755);
+		} catch {
+			// Windows does not need executable bits for phar execution through PHP.
+		}
+		renameSync(tempPath, pharPath);
+
+		return {
+			ok: true,
+			installed: true,
+			path: resolve(pharPath),
+			url: WP_CLI_PHAR_URL,
+			bytes: buffer.length,
+			sha256,
+		};
+	} catch (err) {
+		if (tempPath) {
+			try {
+				unlinkSync(tempPath);
+			} catch {
+				// Keep installer idempotent if no partial file exists.
+			}
+		}
+		return {
+			ok: false,
+			installed: false,
+			path: resolve(pharPath),
+			url: WP_CLI_PHAR_URL,
+			bytes: 0,
+			error: err instanceof Error ? err.message : String(err),
+		};
+	} finally {
+		clearTimeout(timeout);
+	}
 }
 
 export async function wpCliStatus(
@@ -311,6 +405,7 @@ function phpPharInvocation(phpBin: string, pharPath: string, phpIni: string | un
 
 function discoverWpCliPhar(env: NodeJS.ProcessEnv, cwd: string): string | undefined {
 	return firstExisting([
+		join(resolveWpCliInstallDir(undefined, env), 'wp-cli.phar'),
 		...candidatePharsNearWordPressRoot(cwd),
 		...candidateLocalWpPhars(env),
 	]);
@@ -423,4 +518,12 @@ function firstExisting(candidates: Array<string | undefined>): string | undefine
 		}
 	}
 	return undefined;
+}
+
+function resolveWpCliInstallDir(rawInstallDir: string | undefined, env: NodeJS.ProcessEnv): string {
+	return resolve(
+		rawInstallDir ??
+		cleanEnvPath(env['STONEWRIGHT_WP_CLI_INSTALL_DIR']) ??
+		(env['LOCALAPPDATA'] ? join(env['LOCALAPPDATA'], 'Stonewright', 'wp-cli') : join(homedir(), '.stonewright', 'wp-cli')),
+	);
 }

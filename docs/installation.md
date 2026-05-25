@@ -90,15 +90,20 @@ registers direct aliases named `stonewright-wp-cli-status`,
 WP-CLI inside the companion and do not require the WordPress-side HTTP bridge on
 port `8765`.
 
+The companion also registers `stonewright-wp-cli-install` and
+`companion_wp_cli_install`. The installer downloads the official `wp-cli.phar`
+into the Stonewright companion cache and does not modify system `PATH`.
+
 ### WP-CLI Discovery
 
 Discovery order:
 
 1. `STONEWRIGHT_WP_CLI_PHP_BIN` + `STONEWRIGHT_WP_CLI_PHAR_PATH`.
 2. `STONEWRIGHT_WP_CLI_BIN`.
-3. LocalWP-style `wp-cli.phar` near the WordPress root or common LocalWP install
+3. Stonewright companion cache from `stonewright-wp-cli-install`.
+4. LocalWP-style `wp-cli.phar` near the WordPress root or common LocalWP install
    locations, paired with LocalWP PHP from `lightning-services`.
-4. Fallback to `wp` from `PATH`.
+5. Fallback to `wp` from `PATH`.
 
 Optional env vars:
 
@@ -110,6 +115,7 @@ Optional env vars:
 | `STONEWRIGHT_WP_CLI_PHP_BIN` | Explicit PHP executable for `wp-cli.phar`. |
 | `STONEWRIGHT_WP_CLI_PHAR_PATH` | Explicit `wp-cli.phar` path. |
 | `STONEWRIGHT_WP_CLI_PHP_INI` | Optional PHP ini path for LocalWP/site PHP extensions. |
+| `STONEWRIGHT_WP_CLI_INSTALL_DIR` | Optional cache directory for `stonewright-wp-cli-install`. |
 
 If `STONEWRIGHT_WP_ROOT` is omitted, callers can pass an absolute `path` in
 `stonewright-wp-cli-*` input; the companion uses that path as the working
