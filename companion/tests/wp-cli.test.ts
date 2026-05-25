@@ -8,6 +8,7 @@ import {
 	validateWpCliCommand,
 	wpCliInstall,
 	wpCliDiscover,
+	wpCliEnsureReady,
 	type ExecFileRunner,
 } from '../src/wp-cli.js';
 
@@ -259,5 +260,78 @@ describe('WP-CLI runner', () => {
 
 		expect(result.ok).toBe(true);
 		expect(result.parsed_json).toEqual({ name: 'wp', subcommands: [{ name: 'post' }] });
+	});
+});
+
+describe('wpCliEnsureReady', () => {
+	it('returns {ensured: true, source: "already_available"} when wp is found', async () => {
+		const runner: ExecFileRunner = () =>
+			Promise.resolve({ stdout: '{"wp_cli_version":"2.10.0"}', stderr: '', exitCode: 0 });
+		const env = { STONEWRIGHT_WP_CLI_BIN: 'wp', STONEWRIGHT_WP_ROOT: process.cwd() } as NodeJS.ProcessEnv;
+
+		const result = await wpCliEnsureReady({ runner, env });
+
+		expect(result.ensured).toBe(true);
+		expect(result.source).toBe('already_available');
+		expect(result.installed).toBe(false);
+	});
+
+	it('downloads phar and returns {ensured: true, source: "installed"} when wp is unavailable', async () => {
+		const temp = mkdtempSync(join(tmpdir(), 'stonewright-ensure-'));
+		try {
+			const installDir = join(temp, 'cache');
+			let callCount = 0;
+			const runner: ExecFileRunner = () => {
+				callCount++;
+				if (callCount === 1) {
+					// First call (status check) — simulate ENOENT
+					return Promise.resolve({
+						stdout: '',
+						stderr: '',
+						exitCode: 1,
+						errorCode: 'ENOENT' as string | number,
+						errorMessage: 'wp: not found',
+					});
+				}
+				// Second call (re-check after install) — success
+				return Promise.resolve({ stdout: '{"wp_cli_version":"2.10.0"}', stderr: '', exitCode: 0 });
+			};
+			const pharBytes = Buffer.from('fake phar');
+			const fetchImpl = (): Promise<Response> => Promise.resolve(new Response(pharBytes));
+			const env = {
+				STONEWRIGHT_WP_CLI_INSTALL_DIR: installDir,
+				STONEWRIGHT_WP_ROOT: process.cwd(),
+			} as NodeJS.ProcessEnv;
+
+			const result = await wpCliEnsureReady({ runner, env, fetchImpl });
+
+			expect(result.ensured).toBe(true);
+			expect(result.source).toBe('installed');
+			expect(result.installed).toBe(true);
+			expect(existsSync(join(installDir, 'wp-cli.phar'))).toBe(true);
+		} finally {
+			rmSync(temp, { recursive: true, force: true });
+		}
+	});
+
+	it('returns {ensured: false} when wp is unavailable and phar download fails', async () => {
+		const temp = mkdtempSync(join(tmpdir(), 'stonewright-ensure-fail-'));
+		try {
+			const installDir = join(temp, 'cache');
+			const runner: ExecFileRunner = () =>
+				Promise.resolve({ stdout: '', stderr: '', exitCode: 1, errorCode: 'ENOENT' as string | number, errorMessage: 'not found' });
+			const fetchImpl = (): Promise<Response> => Promise.resolve(new Response('fail', { status: 500 }));
+			const env = {
+				STONEWRIGHT_WP_CLI_INSTALL_DIR: installDir,
+				STONEWRIGHT_WP_ROOT: process.cwd(),
+			} as NodeJS.ProcessEnv;
+
+			const result = await wpCliEnsureReady({ runner, env, fetchImpl });
+
+			expect(result.ensured).toBe(false);
+			expect(result.installed).toBe(false);
+		} finally {
+			rmSync(temp, { recursive: true, force: true });
+		}
 	});
 });
