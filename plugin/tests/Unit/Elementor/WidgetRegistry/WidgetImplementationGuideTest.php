@@ -37,8 +37,10 @@ final class WidgetImplementationGuideTest extends TestCase {
 		self::assertContains( 'Call stonewright/elementor-v3-get-widget-schema for every widget you intend to write and inspect controls grouped by Content, Style, and Advanced before choosing settings.', $result['global_required_steps'] );
 		self::assertContains( 'When any recommendation has needs_online_research=true, research official Elementor documentation before writing.', $result['global_required_steps'] );
 		self::assertContains( 'Name only major parent containers semantically; avoid naming every small inner utility container.', $result['global_required_steps'] );
+		self::assertContains( 'Before uploading or selecting media, audit existing WordPress media by filename, alt text, dimensions, and visible crop so matching assets are reused.', $result['global_required_steps'] );
 		self::assertContains( 'Before using background assets, write an asset selection plan: target section, source layer/node, crop bounds, WordPress media URL, and why it is not a full-page screenshot.', $result['global_required_steps'] );
 		self::assertContains( 'Do not use a full-page screenshot as a section background; export the exact layer/section asset or recreate simple colors/gradients with Elementor controls.', $result['global_required_steps'] );
+		self::assertContains( 'Before signoff, provide visual_build_gate evidence: token table, media audit, section plan, screenshot deltas, and logged-out viewport checks.', $result['global_required_steps'] );
 
 		$widgets = array_column( $result['recommendations'], 'widget' );
 		self::assertNotContains( 'html', $widgets, 'HTML must not be recommended unless explicitly approved.' );

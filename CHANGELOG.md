@@ -7,6 +7,19 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- Added a `visual_build_gate` contract to context bootstrap and workflow
+  preflight so pixel-matching tasks require a token table, media reuse audit,
+  section plan, screenshot deltas, and logged-out viewport checks before
+  signoff.
+
+### Changed
+
+- Strengthened visual workflow docs and Elementor guidance for faster native
+  first-pass builds, existing media reuse, section-sized fallbacks, and
+  screenshot-driven fixes.
+
 ## [1.0.0-alpha.9] - 2026-06-11
 
 ### Added

@@ -59,7 +59,7 @@ final class ContextBootstrap extends AbilityKernel {
 	public function output_schema(): array {
 		return [
 			'type'       => 'object',
-			'required'   => [ 'ok', 'context_token', 'instructions', 'mcp_tool_naming', 'matched_skill_playbooks', 'memory_entries', 'specializations', 'recommended_external_mcps', 'visual_quality_contract', 'required_followups' ],
+			'required'   => [ 'ok', 'context_token', 'instructions', 'mcp_tool_naming', 'matched_skill_playbooks', 'memory_entries', 'specializations', 'recommended_external_mcps', 'visual_quality_contract', 'visual_build_gate', 'required_followups' ],
 			'properties' => [
 				'ok'                      => [ 'type' => 'boolean' ],
 				'context_token'           => [ 'type' => 'string' ],
@@ -72,6 +72,7 @@ final class ContextBootstrap extends AbilityKernel {
 				'specializations'         => [ 'type' => 'array' ],
 				'recommended_external_mcps' => [ 'type' => 'array' ],
 				'visual_quality_contract' => [ 'type' => 'object' ],
+				'visual_build_gate'       => [ 'type' => 'object' ],
 				'required_followups'      => [ 'type' => 'array' ],
 			],
 		];

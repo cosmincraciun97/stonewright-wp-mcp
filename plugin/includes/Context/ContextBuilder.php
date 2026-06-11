@@ -47,6 +47,7 @@ final class ContextBuilder {
 			'specializations'          => SpecializationCatalog::match( $task, $surface ),
 			'recommended_external_mcps' => self::recommended_external_mcps(),
 			'visual_quality_contract'  => self::visual_quality_contract(),
+			'visual_build_gate'        => self::visual_build_gate(),
 			'required_followups'       => self::required_followups( $surface, $intent ),
 		];
 	}
@@ -182,14 +183,17 @@ final class ContextBuilder {
 			'required_steps'                   => [
 				'Extract measured tokens from the reference screenshot before writing: canvas size, section bounds, max widths, colors, typography, spacing, and asset crop bounds.',
 				'Before any visual write, verify Playwright/browser MCP is connected; if not, install it, restart the client, and stop until the tool appears.',
+				'Before uploading assets, audit existing WordPress media by filename, alt text, dimensions, and likely source layer so already-downloaded assets are reused.',
 				'Before the first Elementor write, create a global-style plan: reusable color/typography tokens, Elementor kit updates if approved, and page-local values that should remain local.',
 				'Create a section-by-section implementation plan with outer section, inner max-width container, rows/columns, widget choices, and responsive breakpoints.',
+				'Before the first write, produce a section-by-section plan mapping Figma nodes to native Elementor widgets, containers, breakpoints, assets, and any approved CSS classes.',
 				'Use the exact Elementor control keys from widget schema or stonewright/elementor-describe-widget; do not invent CSS-like setting names.',
 				'Use dedicated stonewright/elementor-add-* widget abilities for known widgets. Use stonewright/elementor-v3-add-widget only for unknown or third-party widgets.',
 				'Set page template to Elementor Canvas when the user asks for no header and no footer.',
 				'Do not use the design canvas width as a fixed live page width; translate it into max-width, percentage widths, and responsive padding.',
 				'Before full-page screenshots, scroll through the page or otherwise preload lazy-loaded media so missing assets are not mistaken for layout failures.',
 				'Fail the implementation if document.documentElement.scrollWidth is greater than document.documentElement.clientWidth by more than 1px at desktop, tablet, or mobile viewport.',
+				'Verify the public logged-out page at desktop, tablet, and mobile sizes; admin bars, editor chrome, and authenticated-only UI do not count as responsive proof.',
 				'After each write pass, capture a browser screenshot at the same viewport as the reference and list visible deltas: width, alignment, spacing, color, font size, overflow, and missing assets.',
 				'Iterate until the screenshot matches the reference in the main layout before declaring completion.',
 			],
@@ -202,6 +206,82 @@ final class ContextBuilder {
 				'Legacy or invented Elementor settings such as icon instead of selected_icon, icon_primary_color instead of primary_color, or width instead of Advanced layout width keys.',
 				'Skipping screenshot verification because the browser MCP is unavailable.',
 				'Starting repeated single-widget writes before proving the browser verification loop works.',
+				'Declaring pixel-perfect without a reference-to-live screenshot delta list for every requested breakpoint.',
+			],
+		];
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private static function visual_build_gate(): array {
+		return [
+			'blocks_completion_without_evidence' => true,
+			'required_before_discovery'          => [
+				'Call stonewright-context-bootstrap before Figma, browser, or write tools unless stonewright-workflow-preflight is the explicit bootstrap fast path.',
+				'Read matched skills, memory, visual_quality_contract, and required_followups before extracting design data.',
+			],
+			'evidence_required_before_first_write' => [
+				'figma_token_table',
+				'existing_media_asset_audit',
+				'section_implementation_plan',
+			],
+			'evidence_required_before_completion' => [
+				'desktop_screenshot_diff',
+				'tablet_screenshot_diff',
+				'mobile_screenshot_diff',
+				'logged_out_viewport_checks',
+			],
+			'completion_stop_conditions'        => [
+				'Do not write visual pages from memory; stop if no measured Figma/reference token table exists.',
+				'Do not upload duplicate assets until existing WordPress media has been checked by filename, alt text, dimensions, and visible crop.',
+				'Do not start repeated single-widget patching until a section plan maps reference nodes to native Elementor widgets and breakpoints.',
+				'Do not declare pixel-perfect or responsive unless logged-out desktop, tablet, and mobile viewport checks pass without theme/admin chrome contamination.',
+				'Do not sign off while any required visual delta lacks a status: matched, fixed, accepted limitation, or blocked by missing user approval.',
+			],
+			'evidence_template'                 => [
+				'figma_token_table'             => [
+					'section_id',
+					'node_id',
+					'viewport_width',
+					'section_bounds',
+					'max_width',
+					'colors',
+					'typography',
+					'spacing',
+					'assets',
+				],
+				'existing_media_asset_audit'    => [
+					'asset_name',
+					'figma_node_id',
+					'expected_dimensions',
+					'matched_media_id_or_url',
+					'reuse_or_upload_decision',
+				],
+				'section_implementation_plan'   => [
+					'section_id',
+					'outer_container',
+					'inner_container',
+					'native_widgets',
+					'responsive_breakpoints',
+					'approved_css_classes',
+				],
+				'screenshot_diff'              => [
+					'viewport',
+					'reference_screenshot',
+					'live_screenshot',
+					'delta_px',
+					'delta_type',
+					'status',
+				],
+				'logged_out_viewport_checks'    => [
+					'viewport',
+					'public_url',
+					'client_width',
+					'scroll_width',
+					'admin_bar_absent',
+					'overflow_passed',
+				],
 			],
 		];
 	}
@@ -218,6 +298,7 @@ final class ContextBuilder {
 			'If the external Playwright MCP is unavailable during a visual implementation task, stop before writing and tell the user the exact MCP setup command plus restart requirement.',
 			'For design-derived backgrounds, create an asset selection plan and never use a full-page screenshot as a section background.',
 			'Before declaring a visual task done, verify no horizontal overflow with document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1 at all requested breakpoints.',
+			'For pixel-perfect tasks, report the visual_build_gate evidence before completion: token table, asset audit, section plan, screenshot deltas, and logged-out viewport checks.',
 			'If SVG uploads are blocked, do not create sandbox or mu-plugin workarounds without explicit user approval.',
 		];
 

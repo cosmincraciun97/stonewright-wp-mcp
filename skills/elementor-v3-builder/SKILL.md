@@ -89,6 +89,8 @@ been tried with a valid spec.
 - Before capturing full-page screenshots, scroll through the page or otherwise
   preload lazy-loaded media so missing assets are not mistaken for layout
   failures.
+- Before the first write, satisfy the returned `visual_build_gate`: token table,
+  existing media audit, and section-by-section implementation plan.
 - Put every page section in a full-width outer container, then a centered inner
   container with the design max-width. Do not leave content floating at page
   edges or stacked as a single accidental column.
@@ -113,6 +115,11 @@ been tried with a valid spec.
   the first pass with `stonewright/elementor-v3-build-page-from-spec` or
   `stonewright/elementor-v3-apply-bundle`; use individual add/update calls for
   focused fixes after screenshot comparison.
+- If a full-page spec is too complex, split the work into section-sized specs or
+  bundle writes before falling back to many single-element updates.
+- When debugging Elementor V3 boxed containers, inspect the rendered DOM before
+  writing CSS. Boxed containers usually render children under `.e-con-inner`, so
+  direct-child selectors can miss the actual flex container.
 - Use flex row containers for desktop two-column designs and responsive
   direction/visibility settings for tablet and mobile.
 - Sticky headers must be sticky on desktop and mobile when requested. Mobile
@@ -126,7 +133,12 @@ been tried with a valid spec.
   or border decorations from the design instead of approximating them with plain
   text.
 - Custom CSS requires explicit user approval after widget/settings options are
-  exhausted. Approved CSS belongs in the active theme `style.css`.
+  exhausted. Approved CSS belongs in the active theme `style.css`, and should
+  target semantic classes or named containers instead of unstable generated
+  element IDs whenever possible.
+- Before signoff, capture desktop, tablet, and mobile screenshots on the
+  logged-out public page and report the visible deltas. Admin/editor chrome does
+  not count as viewport evidence.
 
 ## Kit changes
 

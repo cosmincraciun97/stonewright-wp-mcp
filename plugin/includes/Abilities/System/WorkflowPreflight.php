@@ -119,23 +119,26 @@ final class WorkflowPreflight extends AbilityKernel {
 				'recommended_mcp_tools' => array_map( [ self::class, 'mcp_tool_name' ], $recommended ),
 				'call_sequence'         => self::call_sequence( $task, $task_profile ),
 				'specializations'       => $specializations,
-				'visual_setup'       => [
+				'visual_build_gate'     => $context['visual_build_gate'] ?? [],
+				'visual_setup'          => [
 					'Install external Playwright MCP before visual work and restart the AI client so the browser tools appear.',
 					'Verify the Playwright/browser tool can open the target URL before the first Stonewright write.',
 				],
-				'batching_rules'     => [
+				'batching_rules'        => [
 					'Build the first page pass with stonewright/elementor-v3-build-page-from-spec or stonewright/elementor-v3-apply-bundle; avoid dozens of single-widget calls for repeated cards.',
 					'Use stonewright/media-upload-batch for multiple assets instead of one upload call per image.',
 					'Use individual add/update/move calls only for surgical fixes after screenshot comparison.',
 				],
-				'quality_gates'      => [
+				'quality_gates'         => [
 					'Stop before writing if a visual task has no connected external Playwright/browser MCP.',
+					'Provide visual_build_gate evidence before signoff: Figma token table, media reuse audit, section plan, screenshot deltas, and logged-out viewport checks.',
+					'Before uploading assets, audit existing media and reuse matching filenames, alt text, dimensions, and crops.',
 					'Validate the design spec before render.',
 					'Snapshot before each Elementor or global-style write.',
 					'Inspect renderer diagnostics before browser iteration.',
 					'Verify desktop, tablet, and mobile breakpoints with an external browser MCP.',
 				],
-				'external_mcps'      => [
+				'external_mcps'         => [
 					'Use external Figma MCP for design extraction.',
 					'Use external Playwright/browser MCP for screenshots and visual QA.',
 				],
@@ -259,6 +262,15 @@ final class WorkflowPreflight extends AbilityKernel {
 	private static function call_sequence( string $task, array $profile ): array {
 		$task = self::compact_task( $task );
 		$out  = [
+			self::call_step(
+				'stonewright/context-bootstrap',
+				'Bootstrap Stonewright context before Figma, browser, or write tools; workflow-preflight may serve as the explicit fast-path bootstrap when already called.',
+				[
+					'task'    => $task,
+					'surface' => $profile['surface'],
+					'intent'  => $profile['intent'],
+				]
+			),
 			self::call_step(
 				'stonewright/workflow-preflight',
 				'Issue context token and select the task-specific fast path.',

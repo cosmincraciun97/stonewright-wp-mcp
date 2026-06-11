@@ -35,9 +35,11 @@ final class WidgetImplementationGuide {
 				'After writing, capture a browser screenshot with the external Playwright MCP at the same viewport and iterate on visible deltas.',
 				'When any recommendation has needs_online_research=true, research official Elementor documentation before writing.',
 				'Name only major parent containers semantically; avoid naming every small inner utility container.',
+				'Before uploading or selecting media, audit existing WordPress media by filename, alt text, dimensions, and visible crop so matching assets are reused.',
 				'Do not use Elementor HTML widgets unless the user explicitly requested HTML and the write ability passes allow_html_widget=true.',
 				'Before using background assets, write an asset selection plan: target section, source layer/node, crop bounds, WordPress media URL, and why it is not a full-page screenshot.',
 				'Do not use a full-page screenshot as a section background; export the exact layer/section asset or recreate simple colors/gradients with Elementor controls.',
+				'Before signoff, provide visual_build_gate evidence: token table, media audit, section plan, screenshot deltas, and logged-out viewport checks.',
 			],
 		];
 	}

@@ -14,7 +14,8 @@ a separate design MCP when a design file must be inspected.
 ## Required bootstrap
 
 1. Call MCP tool `stonewright-context-bootstrap` with the user request, surface, and intent.
-2. Read all returned skill playbooks, memory entries, and followups.
+2. Read all returned skill playbooks, memory entries, `visual_quality_contract`,
+   `visual_build_gate`, and followups.
 3. For visual work, verify an external Playwright/browser MCP tool is visible
    before the first write. If missing, tell the user to add
    `npx -y @playwright/mcp@latest --caps=testing,vision,devtools`, restart the
@@ -136,3 +137,22 @@ missing.
 If WP-CLI is still unavailable and the user approves installing it, call
 `stonewright-wp-cli-install`. It downloads the official `wp-cli.phar` into the
 Stonewright companion cache and does not modify system `PATH`.
+
+## Visual build gate
+
+Pixel-matching tasks must not move straight from design extraction to page
+writes. Before the first write, produce and keep current:
+
+- A reference token table with section bounds, max widths, colors, typography,
+  spacing, and asset crop bounds for each target viewport.
+- An existing media audit by filename, alt text, dimensions, and visible crop so
+  matching WordPress media is reused instead of uploaded again.
+- A section implementation plan mapping reference nodes to native Elementor or
+  Gutenberg structures, responsive breakpoints, and any user-approved CSS
+  classes.
+
+Before completion, provide screenshot deltas for desktop, tablet, and mobile,
+plus logged-out public viewport checks. Admin bars, editor chrome, or
+authenticated-only UI do not count as responsive proof. Do not claim
+pixel-perfect when any delta is unclassified; each delta must be fixed,
+accepted by the user as a limitation, or blocked by missing approval.

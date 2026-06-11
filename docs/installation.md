@@ -197,7 +197,8 @@ The complete command list is generated in
 
 3. Confirm the response includes `context_token`, `mode`, `auth_guidance`,
    `fast_path.task_profile`, `fast_path.recommended_mcp_tools`, and
-   `fast_path.call_sequence`.
+   `fast_path.call_sequence`. For visual tasks, also confirm
+   `fast_path.visual_build_gate`.
 4. Call `stonewright-context-bootstrap` with:
 
 ```json
@@ -209,6 +210,7 @@ The complete command list is generated in
 ```
 
 5. Confirm the response includes `mcp_tool_naming`, instructions, skills,
-   memory, recommended external MCPs, and required followups.
+   memory, recommended external MCPs, `visual_quality_contract`,
+   `visual_build_gate`, and required followups.
 6. Call `stonewright-system-abilities-list` and confirm every row includes
    `name` and `mcp_tool_name`.

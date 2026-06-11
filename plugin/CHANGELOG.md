@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added visual-build gate output to context bootstrap and workflow preflight so
+  agents must provide design tokens, media reuse evidence, section plans,
+  screenshot deltas, and logged-out viewport checks before visual signoff.
+
+### Changed
+
+- Strengthened agent and Elementor implementation guidance for native first-pass
+  visual builds, asset reuse, and screenshot-driven corrections.
+
 ## [1.0.0-alpha.8] - 2026-06-11
 
 ### Fixed

@@ -118,9 +118,20 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertArrayHasKey( 'call_sequence', $result['fast_path'] );
 		$tools = array_column( $result['fast_path']['call_sequence'], 'tool' );
 		self::assertContains( 'stonewright-workflow-preflight', $tools );
+		self::assertContains( 'stonewright-context-bootstrap', $tools );
 		self::assertContains( 'stonewright-widget-intent-resolve', $tools );
 		self::assertContains( 'stonewright-elementor-widget-implementation-guide', $tools );
 		self::assertContains( 'stonewright-elementor-v3-build-page-from-spec', $tools );
+		self::assertArrayHasKey( 'visual_build_gate', $result['fast_path'] );
+		self::assertTrue( $result['fast_path']['visual_build_gate']['blocks_completion_without_evidence'] );
+		self::assertContains( 'figma_token_table', $result['fast_path']['visual_build_gate']['evidence_required_before_first_write'] );
+		self::assertContains( 'existing_media_asset_audit', $result['fast_path']['visual_build_gate']['evidence_required_before_first_write'] );
+		self::assertContains( 'section_implementation_plan', $result['fast_path']['visual_build_gate']['evidence_required_before_first_write'] );
+		self::assertContains( 'desktop_screenshot_diff', $result['fast_path']['visual_build_gate']['evidence_required_before_completion'] );
+		self::assertContains( 'logged_out_viewport_checks', $result['fast_path']['visual_build_gate']['evidence_required_before_completion'] );
+		self::assertContains( 'Do not declare pixel-perfect or responsive unless logged-out desktop, tablet, and mobile viewport checks pass without theme/admin chrome contamination.', $result['fast_path']['visual_build_gate']['completion_stop_conditions'] );
+		self::assertContains( 'Provide visual_build_gate evidence before signoff: Figma token table, media reuse audit, section plan, screenshot deltas, and logged-out viewport checks.', $result['fast_path']['quality_gates'] );
+		self::assertContains( 'Before uploading assets, audit existing media and reuse matching filenames, alt text, dimensions, and crops.', $result['fast_path']['quality_gates'] );
 
 		foreach ( $result['fast_path']['call_sequence'] as $call ) {
 			self::assertIsArray( $call );

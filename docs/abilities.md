@@ -33,13 +33,21 @@ matrix after changing the registry.
 
 Agents must call MCP tool `stonewright-context-bootstrap` at the start of every task. The
 response returns the active system instructions, persistent memory, enabled
-skills, relevant knowledge hints, and a short-lived `stonewright_context_token`.
-Write abilities require that token.
+skills, relevant knowledge hints, `visual_quality_contract`,
+`visual_build_gate`, and a short-lived `stonewright_context_token`. Write
+abilities require that token.
 
 Agents can call `stonewright-workflow-preflight` first when speed matters. It
 returns the same write token plus active mode, auth guidance, compact Elementor
 capabilities, plugin specialization guidance, task-aware recommended tools,
-hyphenated MCP tool names, and compact call examples in one low-token response.
+hyphenated MCP tool names, compact call examples, and the same visual-build
+gate in one low-token response.
+
+For pixel-matching tasks, `visual_build_gate` is a blocking signoff checklist.
+Agents must prepare a reference token table, existing media audit, and section
+implementation plan before the first write. Before completion they must provide
+desktop, tablet, and mobile screenshot deltas plus logged-out public viewport
+checks.
 
 `stonewright/skills-list` can filter skills by exposure mode: `all`, `agentic`
 for automatic matching, or `prompt` for explicit prompt/command entries.

@@ -56,14 +56,22 @@ For visual builds, treat screenshots as part of the workflow:
 
 - Measure the reference before writing: canvas size, section bounds, max
   widths, colors, type scale, spacing, and asset crop bounds.
+- For pixel-matching work, treat `visual_build_gate` as blocking. Before the
+  first write, prepare a token table, existing media audit, and section plan.
 - Create a global-style plan before the first Elementor write. Decide which
   colors and type styles belong in the Elementor kit and which should stay
   local to the page.
+- Audit existing WordPress media before uploading assets. Reuse matching
+  filename, alt text, dimensions, and crop when the asset is already present.
 - Use full-width outer sections, centered max-width inner containers, native
   rows/columns, and native widgets.
 - Before full-page screenshots, scroll through the page or otherwise preload
   lazy-loaded media so missing assets are not mistaken for layout failures.
-- Check every active Elementor or WordPress breakpoint used by the site.
+- Check every active Elementor or WordPress breakpoint used by the site on the
+  logged-out public page. Admin bars and editor chrome do not count as
+  responsive proof.
+- Before signoff, list screenshot deltas for desktop, tablet, and mobile. Each
+  delta must be fixed, accepted as a limitation, or blocked by missing approval.
 - Use a separate browser MCP for screenshots and visual inspection. Stonewright
   does not include browser or Figma tools.
 
