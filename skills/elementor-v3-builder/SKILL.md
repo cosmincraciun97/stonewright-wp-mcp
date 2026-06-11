@@ -91,6 +91,12 @@ been tried with a valid spec.
   failures.
 - Before the first write, satisfy the returned `visual_build_gate`: token table,
   existing media audit, and section-by-section implementation plan.
+- Treat the captured visual reference as the layout authority. Use design-tool
+  layers for tokens, styles, text, and assets, but do not mirror broken layer
+  nesting as Elementor containers when a cleaner native structure matches the
+  screenshot better.
+- For long reference pages, capture and compare section screenshots before
+  judging the full page.
 - Put every page section in a full-width outer container, then a centered inner
   container with the design max-width. Do not leave content floating at page
   edges or stacked as a single accidental column.

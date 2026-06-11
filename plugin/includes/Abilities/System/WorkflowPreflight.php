@@ -132,6 +132,8 @@ final class WorkflowPreflight extends AbilityKernel {
 				'quality_gates'         => [
 					'Stop before writing if a visual task has no connected external Playwright/browser MCP.',
 					'Provide visual_build_gate evidence before signoff: Figma token table, media reuse audit, section plan, screenshot deltas, and logged-out viewport checks.',
+					'Use design-tool structure for tokens and asset hints, but match implementation structure to the captured reference screenshots.',
+					'For long visual designs, capture multiple section reference screenshots and compare each section before full-page signoff.',
 					'Before uploading assets, audit existing media and reuse matching filenames, alt text, dimensions, and crops.',
 					'Validate the design spec before render.',
 					'Snapshot before each Elementor or global-style write.',

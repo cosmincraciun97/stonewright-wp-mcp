@@ -150,6 +150,13 @@ writes. Before the first write, produce and keep current:
 - A section implementation plan mapping reference nodes to native Elementor or
   Gutenberg structures, responsive breakpoints, and any user-approved CSS
   classes.
+- Section reference screenshots when the design is long or hard to compare as
+  one image.
+
+The visible reference screenshots are the source of truth for layout. Design
+tool structure is only a source for text, tokens, styles, assets, and useful
+node hints. If the layer tree or grouping conflicts with what the screenshot
+shows, build the cleaner native WordPress structure that matches the screenshot.
 
 Before completion, provide screenshot deltas for desktop, tablet, and mobile,
 plus logged-out public viewport checks. Admin bars, editor chrome, or

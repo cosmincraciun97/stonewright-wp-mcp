@@ -49,6 +49,12 @@ implementation plan before the first write. Before completion they must provide
 desktop, tablet, and mobile screenshot deltas plus logged-out public viewport
 checks.
 
+Reference screenshots are the layout authority. Design-tool structure is useful
+for tokens, text, styles, assets, and node hints, but agents should not copy a
+broken layer tree into WordPress when the visible design needs a cleaner native
+structure. For long designs, agents should capture multiple section reference
+screenshots and compare section-by-section before final full-page signoff.
+
 `stonewright/skills-list` can filter skills by exposure mode: `all`, `agentic`
 for automatic matching, or `prompt` for explicit prompt/command entries.
 

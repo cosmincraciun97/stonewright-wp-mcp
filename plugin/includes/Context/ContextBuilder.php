@@ -182,6 +182,8 @@ final class ContextBuilder {
 			'principle'                        => 'Do not implement visual work blind. Measure the reference, build with native controls, screenshot the result, then iterate.',
 			'required_steps'                   => [
 				'Extract measured tokens from the reference screenshot before writing: canvas size, section bounds, max widths, colors, typography, spacing, and asset crop bounds.',
+				'Treat the Figma layer tree as extraction context, not implementation authority; build the WordPress structure that best matches the visual reference images.',
+				'For long designs, capture section reference screenshots and compare section-by-section before attempting full-page signoff.',
 				'Before any visual write, verify Playwright/browser MCP is connected; if not, install it, restart the client, and stop until the tool appears.',
 				'Before uploading assets, audit existing WordPress media by filename, alt text, dimensions, and likely source layer so already-downloaded assets are reused.',
 				'Before the first Elementor write, create a global-style plan: reusable color/typography tokens, Elementor kit updates if approved, and page-local values that should remain local.',
@@ -207,6 +209,7 @@ final class ContextBuilder {
 				'Skipping screenshot verification because the browser MCP is unavailable.',
 				'Starting repeated single-widget writes before proving the browser verification loop works.',
 				'Declaring pixel-perfect without a reference-to-live screenshot delta list for every requested breakpoint.',
+				'Mirroring broken design-tool grouping instead of reproducing the visible layout in the reference screenshot.',
 			],
 		];
 	}
@@ -221,10 +224,25 @@ final class ContextBuilder {
 				'Call stonewright-context-bootstrap before Figma, browser, or write tools unless stonewright-workflow-preflight is the explicit bootstrap fast path.',
 				'Read matched skills, memory, visual_quality_contract, and required_followups before extracting design data.',
 			],
+			'source_authority'                  => [
+				'primary'           => 'reference_screenshots',
+				'secondary'         => [
+					'figma_styles',
+					'figma_tokens',
+					'figma_assets',
+					'figma_text',
+				],
+				'not_authoritative' => [
+					'figma_layer_structure',
+					'figma_group_names',
+					'figma_auto_layout_nesting',
+				],
+			],
 			'evidence_required_before_first_write' => [
 				'figma_token_table',
 				'existing_media_asset_audit',
 				'section_implementation_plan',
+				'section_reference_screenshots',
 			],
 			'evidence_required_before_completion' => [
 				'desktop_screenshot_diff',
@@ -234,6 +252,7 @@ final class ContextBuilder {
 			],
 			'completion_stop_conditions'        => [
 				'Do not write visual pages from memory; stop if no measured Figma/reference token table exists.',
+				'Do not copy the Figma layer tree as the WordPress or Elementor tree when the visual screenshot implies a different, cleaner structure.',
 				'Do not upload duplicate assets until existing WordPress media has been checked by filename, alt text, dimensions, and visible crop.',
 				'Do not start repeated single-widget patching until a section plan maps reference nodes to native Elementor widgets and breakpoints.',
 				'Do not declare pixel-perfect or responsive unless logged-out desktop, tablet, and mobile viewport checks pass without theme/admin chrome contamination.',
@@ -265,6 +284,13 @@ final class ContextBuilder {
 					'native_widgets',
 					'responsive_breakpoints',
 					'approved_css_classes',
+				],
+				'section_reference_screenshots' => [
+					'section_id',
+					'reference_image',
+					'crop_bounds',
+					'viewport',
+					'expected_visual_structure',
 				],
 				'screenshot_diff'              => [
 					'viewport',
