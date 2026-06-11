@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.10] - 2026-06-11
+
 ### Added
 
 - Added visual-build gate output to context bootstrap and workflow preflight so
