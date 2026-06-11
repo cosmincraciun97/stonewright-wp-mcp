@@ -62,9 +62,14 @@ jobs:
           if [ ! -f "$notes" ]; then
             notes="docs/releases/checklist.md"
           fi
+          release_flags=()
+          case "$version" in
+            *-alpha*|*-beta*|*-rc*) release_flags+=(--prerelease) ;;
+          esac
           gh release create "$GITHUB_REF_NAME" \
             "dist/stonewright-${version}.zip" \
             dist/stonewright-companion-*.tgz \
             dist/SHA256SUMS.txt \
             --title "Stonewright ${GITHUB_REF_NAME}" \
-            --notes-file "$notes"
+            --notes-file "$notes" \
+            "${release_flags[@]}"
