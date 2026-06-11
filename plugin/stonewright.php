@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Stonewright
- * Plugin URI: https://github.com/stonewright/stonewright-wp-mcp
+ * Plugin URI: https://github.com/cosmincraciun97/stonewright-wp-mcp
  * Description: Stonewright exposes WordPress building primitives to MCP clients for design-accurate Gutenberg and Elementor work.
  * Version: 1.0.0-alpha.2
  * Requires at least: 6.7

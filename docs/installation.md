@@ -20,7 +20,7 @@ Stonewright has two parts:
 
 ```bash
 cd /path/to/wp-content/plugins
-git clone https://github.com/stonewright/stonewright-wp-mcp.git stonewright
+git clone https://github.com/cosmincraciun97/stonewright-wp-mcp.git stonewright
 cd stonewright/plugin
 composer install --no-dev
 wp plugin activate stonewright

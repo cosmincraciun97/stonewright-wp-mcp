@@ -12,7 +12,7 @@ This guide gets you from zero to a working Claude Code + Stonewright setup in ab
 
 ```bash
 cd /path/to/wp-content/plugins
-git clone https://github.com/stonewright/stonewright-wp-mcp.git stonewright
+git clone https://github.com/cosmincraciun97/stonewright-wp-mcp.git stonewright
 cd stonewright/plugin
 composer install --no-dev
 ```
