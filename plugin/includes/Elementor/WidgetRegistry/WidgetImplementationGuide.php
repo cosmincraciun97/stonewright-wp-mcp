@@ -38,6 +38,8 @@ final class WidgetImplementationGuide {
 				'Before uploading or selecting media, audit existing WordPress media by filename, alt text, dimensions, and visible crop so matching assets are reused.',
 				'Treat design-tool layer hierarchy as a source for tokens and assets, not as the required Elementor container hierarchy; match the visible reference screenshot.',
 				'When a reference page is long, capture and compare section reference screenshots before full-page signoff.',
+				'Implement visual pages in batches of one section at a time, or two sections only when they are simple and tightly coupled.',
+				'Auto-continue to the next section batch after desktop, tablet, and mobile checks pass; do not wait for user approval between passing batches.',
 				'Do not use Elementor HTML widgets unless the user explicitly requested HTML and the write ability passes allow_html_widget=true.',
 				'Before using background assets, write an asset selection plan: target section, source layer/node, crop bounds, WordPress media URL, and why it is not a full-page screenshot.',
 				'Do not use a full-page screenshot as a section background; export the exact layer/section asset or recreate simple colors/gradients with Elementor controls.',

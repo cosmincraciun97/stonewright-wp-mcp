@@ -25,6 +25,12 @@ final class ResponsiveTest extends TestCase {
         $this->assertSame( '12px', $out['padding'] );
     }
 
+    public function test_apply_passthrough_non_viewport_array(): void {
+        $value = [ 'unit' => '%', 'size' => 50, 'sizes' => [] ];
+        $out = Responsive::apply( [], 'width', $value );
+        $this->assertSame( $value, $out['width'] );
+    }
+
     public function test_apply_ignores_unknown_breakpoint(): void {
         $out = Responsive::apply( [], 'gap', [ 'desktop' => '8px', 'foo' => 'x' ] );
         $this->assertArrayHasKey( 'gap', $out );

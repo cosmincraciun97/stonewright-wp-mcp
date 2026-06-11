@@ -67,6 +67,17 @@ final class WidgetCatalog {
 		if ( self::$manifest !== null ) {
 			return self::$manifest;
 		}
+
+		// Try loading pre-compiled PHP array first (much faster + OPcache-friendly)
+		$php_path = dirname( self::manifest_path() ) . '/manifest.php';
+		if ( is_file( $php_path ) ) {
+			$loaded = include $php_path;
+			if ( is_array( $loaded ) ) {
+				self::$manifest = $loaded;
+				return self::$manifest;
+			}
+		}
+
 		$path = self::manifest_path();
 		if ( ! is_file( $path ) ) {
 			self::$manifest = [

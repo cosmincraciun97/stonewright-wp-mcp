@@ -27,6 +27,10 @@ or Full Site Editing work:
    styles before adding custom blocks or CSS.
 5. Use `stonewright/design-spec-to-gutenberg` for page-like first passes and
    FSE abilities for templates/template parts/global styles.
+   For visual pages from Figma, images, prompts, or design systems, implement
+   one section per pass by default, or two sections only when simple and tightly
+   coupled. Verify desktop, tablet, and mobile screenshots plus overflow after
+   each batch, then auto-continue to the next batch when checks pass.
 6. Keep client editing intuitive: expose reusable patterns, name template parts
    clearly, avoid fragile custom markup, and keep styles visible in the Site
    Editor where possible.

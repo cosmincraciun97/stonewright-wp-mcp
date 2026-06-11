@@ -6,6 +6,8 @@ namespace Stonewright\WpMcp\Tests\Unit\Elementor\Renderer;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\DesignTokens\Resolver;
 use Stonewright\WpMcp\Elementor\Renderer\Button;
+use Stonewright\WpMcp\Elementor\Renderer\Column;
+use Stonewright\WpMcp\Elementor\Renderer\Container;
 use Stonewright\WpMcp\Elementor\Renderer\Divider;
 use Stonewright\WpMcp\Elementor\Renderer\Heading;
 use Stonewright\WpMcp\Elementor\Renderer\Icon;
@@ -20,6 +22,37 @@ final class ResponsiveIntegrationTest extends TestCase {
 
     protected function setUp(): void {
         $this->resolver = new Resolver( [] );
+    }
+
+    // -------------------------------------------------------------------------
+    // Containers
+    // -------------------------------------------------------------------------
+
+    public function test_container_emits_responsive_width_and_height(): void {
+        $node = [
+            'type'   => 'container',
+            'width'  => [ 'desktop' => '640px', 'tablet' => '520px', 'mobile' => '100%' ],
+            'height' => [ 'desktop' => '360px', 'mobile' => '240px' ],
+        ];
+        $element = Container::render( $node, $this->resolver, 'p0.s0.b0' );
+        $this->assertSame( 640, $element['settings']['width']['size'] );
+        $this->assertSame( 520, $element['settings']['width_tablet']['size'] );
+        $this->assertSame( 100, $element['settings']['width_mobile']['size'] );
+        $this->assertSame( 360, $element['settings']['height']['size'] );
+        $this->assertSame( 240, $element['settings']['height_mobile']['size'] );
+    }
+
+    public function test_column_emits_responsive_style_width(): void {
+        $node = [
+            'type'  => 'column',
+            'style' => [
+                'width' => [ 'desktop' => '48%', 'mobile' => '100%' ],
+            ],
+        ];
+        $element = Column::render( $node, $this->resolver, 'p0.s0.b0' );
+        $this->assertSame( 48, $element['settings']['width']['size'] );
+        $this->assertSame( 100, $element['settings']['width_mobile']['size'] );
+        $this->assertArrayNotHasKey( 'width_tablet', $element['settings'] );
     }
 
     // -------------------------------------------------------------------------

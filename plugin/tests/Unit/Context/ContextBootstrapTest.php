@@ -66,6 +66,14 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertContains( 'Verify a Playwright/browser tool is visible before the first Stonewright write.', $result['recommended_external_mcps'][0]['setup_steps'] );
 		self::assertIsArray( $result['visual_quality_contract'] );
 		self::assertTrue( $result['visual_quality_contract']['hard_stop_if_browser_unavailable'] );
+		self::assertSame( 2, $result['visual_quality_contract']['section_batching']['max_sections_per_pass'] );
+		self::assertSame( 1, $result['visual_quality_contract']['section_batching']['preferred_sections_per_pass'] );
+		self::assertTrue( $result['visual_quality_contract']['section_batching']['auto_continue_when_batch_passes'] );
+		self::assertContains( 'figma', $result['visual_quality_contract']['section_batching']['applies_to_sources'] );
+		self::assertContains( 'image', $result['visual_quality_contract']['section_batching']['applies_to_sources'] );
+		self::assertContains( 'prompt', $result['visual_quality_contract']['section_batching']['applies_to_sources'] );
+		self::assertContains( 'design_system', $result['visual_quality_contract']['section_batching']['applies_to_sources'] );
+		self::assertSame( [ 'desktop', 'tablet', 'mobile' ], $result['visual_quality_contract']['section_batching']['breakpoints']['elementor'] );
 		self::assertSame( 'before_first_write', $result['visual_quality_contract']['playwright_mcp_gate']['timing'] );
 		self::assertContains( 'elementor', $result['visual_quality_contract']['playwright_mcp_gate']['required_surfaces'] );
 		self::assertContains( 'figma', $result['visual_quality_contract']['playwright_mcp_gate']['task_keywords'] );
@@ -76,6 +84,7 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertContains( 'existing_media_asset_audit', $result['visual_build_gate']['evidence_required_before_first_write'] );
 		self::assertContains( 'section_implementation_plan', $result['visual_build_gate']['evidence_required_before_first_write'] );
 		self::assertContains( 'section_reference_screenshots', $result['visual_build_gate']['evidence_required_before_first_write'] );
+		self::assertContains( 'section_batch_plan', $result['visual_build_gate']['evidence_required_before_first_write'] );
 		self::assertContains( 'desktop_screenshot_diff', $result['visual_build_gate']['evidence_required_before_completion'] );
 		self::assertContains( 'tablet_screenshot_diff', $result['visual_build_gate']['evidence_required_before_completion'] );
 		self::assertContains( 'mobile_screenshot_diff', $result['visual_build_gate']['evidence_required_before_completion'] );
@@ -83,11 +92,15 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertSame( 'reference_screenshots', $result['visual_build_gate']['source_authority']['primary'] );
 		self::assertContains( 'figma_layer_structure', $result['visual_build_gate']['source_authority']['not_authoritative'] );
 		self::assertContains( 'Do not copy the Figma layer tree as the WordPress or Elementor tree when the visual screenshot implies a different, cleaner structure.', $result['visual_build_gate']['completion_stop_conditions'] );
+		self::assertContains( 'Do not implement more than two visual page sections in one write-and-verify batch.', $result['visual_build_gate']['completion_stop_conditions'] );
 		self::assertContains( 'Do not declare pixel-perfect or responsive unless logged-out desktop, tablet, and mobile viewport checks pass without theme/admin chrome contamination.', $result['visual_build_gate']['completion_stop_conditions'] );
 		self::assertArrayHasKey( 'figma_token_table', $result['visual_build_gate']['evidence_template'] );
 		self::assertContains( 'section_id', $result['visual_build_gate']['evidence_template']['figma_token_table'] );
 		self::assertArrayHasKey( 'section_reference_screenshots', $result['visual_build_gate']['evidence_template'] );
 		self::assertContains( 'reference_image', $result['visual_build_gate']['evidence_template']['section_reference_screenshots'] );
+		self::assertArrayHasKey( 'section_batch_plan', $result['visual_build_gate']['evidence_template'] );
+		self::assertContains( 'section_ids', $result['visual_build_gate']['evidence_template']['section_batch_plan'] );
+		self::assertContains( 'max_sections', $result['visual_build_gate']['evidence_template']['section_batch_plan'] );
 		self::assertArrayHasKey( 'screenshot_diff', $result['visual_build_gate']['evidence_template'] );
 		self::assertContains( 'delta_px', $result['visual_build_gate']['evidence_template']['screenshot_diff'] );
 		self::assertContains( 'Extract measured tokens from the reference screenshot before writing: canvas size, section bounds, max widths, colors, typography, spacing, and asset crop bounds.', $result['visual_quality_contract']['required_steps'] );
@@ -95,6 +108,9 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertContains( 'For long designs, capture section reference screenshots and compare section-by-section before attempting full-page signoff.', $result['visual_quality_contract']['required_steps'] );
 		self::assertContains( 'Before uploading assets, audit existing WordPress media by filename, alt text, dimensions, and likely source layer so already-downloaded assets are reused.', $result['visual_quality_contract']['required_steps'] );
 		self::assertContains( 'Before the first write, produce a section-by-section plan mapping Figma nodes to native Elementor widgets, containers, breakpoints, assets, and any approved CSS classes.', $result['visual_quality_contract']['required_steps'] );
+		self::assertContains( 'Implement visual pages in batches of one section at a time, or two sections only when they are simple and tightly coupled.', $result['visual_quality_contract']['required_steps'] );
+		self::assertContains( 'After each section batch, verify desktop, tablet, and mobile breakpoints before starting the next batch.', $result['visual_quality_contract']['required_steps'] );
+		self::assertContains( 'Auto-continue to the next section batch when screenshots, overflow checks, and diagnostics pass; do not wait for user approval between batches.', $result['visual_quality_contract']['required_steps'] );
 		self::assertContains( 'Before any visual write, verify Playwright/browser MCP is connected; if not, install it, restart the client, and stop until the tool appears.', $result['visual_quality_contract']['required_steps'] );
 		self::assertContains( 'Before the first Elementor write, create a global-style plan: reusable color/typography tokens, Elementor kit updates if approved, and page-local values that should remain local.', $result['visual_quality_contract']['required_steps'] );
 		self::assertContains( 'Before full-page screenshots, scroll through the page or otherwise preload lazy-loaded media so missing assets are not mistaken for layout failures.', $result['visual_quality_contract']['required_steps'] );
@@ -130,6 +146,41 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertContains( 'acf', $ids );
 		self::assertContains( 'woocommerce', $ids );
 		self::assertContains( 'For ACF, ACPT, Meta Box, ASE, Pods, WooCommerce, or custom field work, call stonewright/workflow-preflight and follow the returned specialization guidance before writing.', $result['required_followups'] );
+	}
+
+	public function test_returns_exempt_visual_contract_for_non_visual_tasks(): void {
+		$result = ( new ContextBootstrap() )->execute(
+			[
+				'task'    => 'Run wp cli command to list options.',
+				'surface' => 'wp-cli',
+				'intent'  => 'read',
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 'exempt', $result['visual_quality_contract']['status'] );
+		self::assertSame( 'Non-visual task', $result['visual_quality_contract']['reason'] );
+		self::assertSame( 'exempt', $result['visual_build_gate']['status'] );
+		self::assertSame( [], $result['recommended_external_mcps'] );
+		self::assertStringNotContainsString( 'visual_build_gate', $result['instructions'] );
+		self::assertStringNotContainsString( 'reference token table', $result['instructions'] );
+		self::assertNotContains( 'For pixel-perfect tasks, report the visual_build_gate evidence before completion: token table, asset audit, section plan, screenshot deltas, and logged-out viewport checks.', $result['required_followups'] );
+	}
+
+	public function test_elementor_discovery_without_visual_reference_uses_compact_visual_stub(): void {
+		$result = ( new ContextBootstrap() )->execute(
+			[
+				'task'    => 'List Elementor widgets and summarize their schema availability.',
+				'surface' => 'elementor',
+				'intent'  => 'read',
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 'exempt', $result['visual_quality_contract']['status'] );
+		self::assertSame( 'exempt', $result['visual_build_gate']['status'] );
+		self::assertContains( 'Call stonewright/widget-intent-resolve before choosing Elementor widgets.', $result['required_followups'] );
+		self::assertNotContains( 'Before declaring a visual task done, verify no horizontal overflow with document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1 at all requested breakpoints.', $result['required_followups'] );
 	}
 
 	private function make_wpdb(): object {

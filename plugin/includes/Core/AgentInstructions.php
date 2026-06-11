@@ -13,7 +13,7 @@ use Stonewright\WpMcp\Memory\Memory;
  */
 final class AgentInstructions {
 
-	public static function default(): string {
+	public static function default( bool $include_visual = true ): string {
 		$parts = [
 			'Stonewright build discipline:',
 			'- MCP clients expose Stonewright tools with hyphens. When calling tools via MCP, replace `/` with `-`: ability `stonewright/context-bootstrap` is MCP tool `stonewright-context-bootstrap`, and ability `stonewright/wp-cli-run` is MCP tool `stonewright-wp-cli-run`.',
@@ -26,6 +26,7 @@ final class AgentInstructions {
 			'- For visual implementation tasks, do not write blind. Extract measured tokens from the reference screenshot first: canvas size, section bounds, max widths, colors, typography, spacing, and asset crop bounds. Then build, screenshot the live page at the same viewport, list visible deltas, and iterate. Horizontal scroll is a hard failure.',
 			'- For design-tool references, visual reference screenshots are the source of truth. Use styles, spacing, colors, typography, backgrounds, assets, and text from the design data, but the design-tool layer tree is not implementation authority when it conflicts with the visible screenshot.',
 			'- If a visual reference is too long or hard to compare as one image, split it into section reference screenshots and match each section before full-page signoff.',
+			'- Implement visual pages in batches of one section at a time, or two sections only when they are simple and tightly coupled. After each batch, verify desktop, tablet, and mobile breakpoints. Auto-continue to the next section batch when screenshots, diagnostics, and overflow checks pass.',
 			'- For pixel-perfect work, treat visual_build_gate as a blocking signoff checklist: provide a reference token table, media reuse audit, section implementation plan, screenshot delta list, and logged-out desktop, tablet, and mobile viewport checks before completion.',
 			'- Before uploading or replacing visual assets, audit existing WordPress media by filename, alt text, dimensions, and visible crop. Reuse matching assets instead of downloading duplicates.',
 			'- Before the first Elementor write for a design build, create a global-style plan: map reusable colors and typography to the Elementor kit, decide which values stay local to one page, and only mutate global kit settings when the user request approves site-wide design changes. When approved, call stonewright/elementor-v3-update-kit-colors and stonewright/elementor-v3-update-kit-typography before building page elements so generated specs can reuse tokens instead of repeating raw values.',
@@ -68,6 +69,15 @@ final class AgentInstructions {
 			'- Validate every generated DesignSpec before render and snapshot before every Elementor or theme-backed write.',
 		];
 
+		if ( ! $include_visual ) {
+			$parts = array_values(
+				array_filter(
+					$parts,
+					static fn( string $part ): bool => ! self::is_visual_instruction( $part )
+				)
+			);
+		}
+
 		$instructions_enabled = (bool) get_option( 'stonewright_custom_instructions_enabled', true );
 		$custom_instructions  = (string) get_option( 'stonewright_custom_instructions', '' );
 
@@ -98,5 +108,42 @@ final class AgentInstructions {
 		$parts[] = 'To read an individual skill: call `stonewright/skills-get` with the slug.';
 
 		return implode( "\n", $parts );
+	}
+
+	private static function is_visual_instruction( string $instruction ): bool {
+		foreach (
+			[
+				'@playwright/mcp',
+				'asset selection plan',
+				'assets',
+				'browser testing',
+				'custom css requires',
+				'design build',
+				'design canvas',
+				'design-derived',
+				'design-tool',
+				'document.documentElement.scrollWidth',
+				'elementor implementation',
+				'external Playwright MCP',
+				'full-page screenshot',
+				'global-style plan',
+				'horizontal scroll',
+				'lazy-loaded media',
+				'media reuse audit',
+				'pixel-perfect',
+				'reference screenshot',
+				'reference token table',
+				'responsive desktop',
+				'screenshot',
+				'visual',
+				'visual_build_gate',
+			] as $needle
+		) {
+			if ( str_contains( strtolower( $instruction ), strtolower( $needle ) ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 }

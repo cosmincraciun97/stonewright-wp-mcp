@@ -36,19 +36,19 @@ final class Column {
 		if ( array_key_exists( 'width', $style ) ) {
 			$width = StyleMapper::size( $style['width'] );
 			if ( null !== $width ) {
-				$settings['width'] = $width;
+				$settings = Responsive::apply( $settings, 'width', $width );
 			}
 		}
 		if ( array_key_exists( 'height', $style ) ) {
 			$height = StyleMapper::size( $style['height'] );
 			if ( null !== $height ) {
-				$settings['height'] = $height;
+				$settings = Responsive::apply( $settings, 'height', $height );
 			}
 		}
 		if ( array_key_exists( 'height', $node ) && ! array_key_exists( 'height', $style ) ) {
 			$height = StyleMapper::size( $node['height'] );
 			if ( null !== $height ) {
-				$settings['height'] = $height;
+				$settings = Responsive::apply( $settings, 'height', $height );
 			}
 		}
 

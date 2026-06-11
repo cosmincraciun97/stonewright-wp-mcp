@@ -62,26 +62,73 @@
 		return target.textContent || '';
 	}
 
+	function setButtonFeedback( button, label ) {
+		var original = button.getAttribute( 'data-stonewright-original-label' );
+		if ( ! original ) {
+			original = button.textContent.trim() || 'Copy';
+			button.setAttribute( 'data-stonewright-original-label', original );
+		}
+
+		button.textContent = label;
+		window.clearTimeout( button.stonewrightFeedbackTimer );
+		button.stonewrightFeedbackTimer = window.setTimeout( function () {
+			button.textContent = original;
+		}, 1600 );
+	}
+
+	function copyWithTextarea( value ) {
+		if ( ! document.body ) {
+			window.prompt( 'Copy value', value ); // eslint-disable-line no-alert
+			return;
+		}
+
+		var textarea = document.createElement( 'textarea' );
+		textarea.value = value;
+		textarea.setAttribute( 'readonly', '' );
+		textarea.style.position = 'fixed';
+		textarea.style.top = '0';
+		textarea.style.left = '-9999px';
+		textarea.style.opacity = '0';
+		document.body.appendChild( textarea );
+		textarea.focus();
+		textarea.select();
+
+		var copied = false;
+		try {
+			copied = document.execCommand( 'copy' ); // eslint-disable-line deprecation/deprecation
+		} catch ( error ) {
+			copied = false;
+		}
+
+		if ( textarea.parentNode ) {
+			textarea.parentNode.removeChild( textarea );
+		}
+
+		if ( ! copied ) {
+			window.prompt( 'Copy value', value ); // eslint-disable-line no-alert
+		}
+	}
+
 	function initCopyButtons() {
 		document.querySelectorAll( '[data-stonewright-copy]' ).forEach( function ( button ) {
-			button.addEventListener( 'click', function () {
+			button.addEventListener( 'click', function ( event ) {
+				event.preventDefault();
 				var target = document.getElementById( button.getAttribute( 'data-stonewright-copy' ) );
 				var value = textFromTarget( target );
 				if ( ! value ) {
 					return;
 				}
 				var done = function () {
-					var original = button.textContent;
-					button.textContent = 'Copied';
-					window.setTimeout( function () {
-						button.textContent = original;
-					}, 1600 );
+					setButtonFeedback( button, 'Copied' );
+				};
+				var fallbackCopy = function () {
+					copyWithTextarea( value );
+					done();
 				};
 				if ( navigator.clipboard && navigator.clipboard.writeText ) {
-					navigator.clipboard.writeText( value ).then( done );
+					navigator.clipboard.writeText( value ).then( done ).catch( fallbackCopy );
 				} else {
-					window.prompt( 'Copy value', value ); // eslint-disable-line no-alert
-					done();
+					fallbackCopy();
 				}
 			} );
 		} );
@@ -89,7 +136,8 @@
 
 	function initSecretToggles() {
 		document.querySelectorAll( '[data-stonewright-secret-toggle]' ).forEach( function ( button ) {
-			button.addEventListener( 'click', function () {
+			button.addEventListener( 'click', function ( event ) {
+				event.preventDefault();
 				var input = document.getElementById( button.getAttribute( 'data-stonewright-secret-toggle' ) );
 				if ( ! input ) {
 					return;
@@ -103,7 +151,8 @@
 
 	function initClientTabs() {
 		document.querySelectorAll( '[data-stonewright-client-tab]' ).forEach( function ( tab ) {
-			tab.addEventListener( 'click', function () {
+			tab.addEventListener( 'click', function ( event ) {
+				event.preventDefault();
 				var targetId = tab.getAttribute( 'data-stonewright-client-tab' );
 				document.querySelectorAll( '[data-stonewright-client-tab]' ).forEach( function ( item ) {
 					item.classList.remove( 'is-active' );
@@ -183,7 +232,8 @@
 
 	function initDeclarativeToggles() {
 		document.querySelectorAll( '[data-stonewright-toggle-target]' ).forEach( function ( button ) {
-			button.addEventListener( 'click', function () {
+			button.addEventListener( 'click', function ( event ) {
+				event.preventDefault();
 				var target = document.getElementById( button.getAttribute( 'data-stonewright-toggle-target' ) );
 				if ( ! target ) {
 					return;
@@ -198,7 +248,8 @@
 		} );
 
 		document.querySelectorAll( '[data-stonewright-hide-target]' ).forEach( function ( button ) {
-			button.addEventListener( 'click', function () {
+			button.addEventListener( 'click', function ( event ) {
+				event.preventDefault();
 				var target = document.getElementById( button.getAttribute( 'data-stonewright-hide-target' ) );
 				if ( target ) {
 					target.hidden = true;
@@ -207,7 +258,8 @@
 		} );
 
 		document.querySelectorAll( '[data-stonewright-row-toggle]' ).forEach( function ( button ) {
-			button.addEventListener( 'click', function () {
+			button.addEventListener( 'click', function ( event ) {
+				event.preventDefault();
 				var target = document.getElementById( button.getAttribute( 'data-stonewright-row-toggle' ) );
 				if ( ! target ) {
 					return;
@@ -237,7 +289,8 @@
 		}
 
 		document.querySelectorAll( '[data-stonewright-skill-toggle]' ).forEach( function ( button ) {
-			button.addEventListener( 'click', function () {
+			button.addEventListener( 'click', function ( event ) {
+				event.preventDefault();
 				var target = document.getElementById( button.getAttribute( 'data-stonewright-skill-toggle' ) );
 				if ( ! target ) {
 					return;

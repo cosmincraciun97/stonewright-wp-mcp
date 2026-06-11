@@ -40,7 +40,14 @@ Name only major parent containers semantically: `hero`, `header`, `team grid`,
 Do not name every small inner utility container; inner wrappers should stay
 quiet unless their role matters during later edits.
 
-For complete pages and repeated structures, prefer the spec renderer first:
+For visual pages from Figma, images, prompts, or design systems, build in
+section batches: one section per pass by default, or two sections only when
+they are simple and tightly coupled. After each batch, verify desktop, tablet,
+and mobile screenshots plus overflow, then auto-continue to the next batch
+when checks pass. Do not wait for user approval between passing batches.
+
+For the current section batch and repeated structures inside it, prefer the
+spec renderer first:
 
 ```json
 {
@@ -96,7 +103,8 @@ been tried with a valid spec.
   nesting as Elementor containers when a cleaner native structure matches the
   screenshot better.
 - For long reference pages, capture and compare section screenshots before
-  judging the full page.
+  judging the full page. Never implement more than two visual page sections in
+  a single write-and-verify batch.
 - Put every page section in a full-width outer container, then a centered inner
   container with the design max-width. Do not leave content floating at page
   edges or stacked as a single accidental column.
@@ -118,11 +126,11 @@ been tried with a valid spec.
   background overlay, border, mask, responsive visibility, custom attributes,
   order, align self, width, padding, margin, CSS ID, and CSS classes.
 - For repeated cards, logos, sponsor grids, galleries, or pricing blocks, build
-  the first pass with `stonewright/elementor-v3-build-page-from-spec` or
-  `stonewright/elementor-v3-apply-bundle`; use individual add/update calls for
-  focused fixes after screenshot comparison.
-- If a full-page spec is too complex, split the work into section-sized specs or
-  bundle writes before falling back to many single-element updates.
+  the current section batch with `stonewright/elementor-v3-build-page-from-spec`
+  or `stonewright/elementor-v3-apply-bundle`; use individual add/update calls
+  for focused fixes after screenshot comparison.
+- If a full-page spec is too complex, split the work into one- or two-section
+  specs before falling back to many single-element updates.
 - When debugging Elementor V3 boxed containers, inspect the rendered DOM before
   writing CSS. Boxed containers usually render children under `.e-con-inner`, so
   direct-child selectors can miss the actual flex container.

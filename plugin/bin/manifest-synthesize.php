@@ -434,7 +434,14 @@ file_put_contents(
 	json_encode( $manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) . "\n"
 );
 
+$php_manifest_path = dirname( $manifest_path ) . '/manifest.php';
+file_put_contents(
+	$php_manifest_path,
+	"<?php\n// phpcs:ignoreFile -- generated manifest cache.\ndeclare( strict_types=1 );\nreturn " . var_export( $manifest, true ) . ";\n"
+);
+
 fwrite( STDOUT, "Manifest written: $manifest_path\n" );
+fwrite( STDOUT, "PHP Manifest written: $php_manifest_path\n" );
 fwrite( STDOUT, "  inventory_widgets:     " . $manifest['totals']['inventory_widgets'] . "\n" );
 fwrite( STDOUT, "  with_controls:         " . $manifest['totals']['with_controls'] . "\n" );
 fwrite( STDOUT, "  with_knowledge:        " . $manifest['totals']['with_knowledge'] . "\n" );

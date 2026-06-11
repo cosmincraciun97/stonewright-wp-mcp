@@ -64,5 +64,9 @@ final class MemoryInstructionsPageTest extends TestCase {
 		self::assertStringContainsString( 'Export JSON', $html );
 		self::assertStringContainsString( 'Import JSON', $html );
 		self::assertStringContainsString( 'Use native Elementor widgets first.', $html );
+		self::assertMatchesRegularExpression(
+			'/<button\b(?=[^>]*\btype="submit")(?=[^>]*\bdata-confirm="Delete this memory\?")/i',
+			$html
+		);
 	}
 }

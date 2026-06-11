@@ -45,8 +45,15 @@ design reference / image / brief
 
 ## Fast Elementor first pass
 
-For full pages or repeated sections, prefer one validated spec write over many
-single-widget calls. Minimal shape:
+For visual pages from Figma, an image, a written prompt, or a design system,
+implement one section at a time. Use two sections in one pass only when they
+are simple and tightly coupled. After each section batch, verify desktop,
+tablet, and mobile screenshots plus overflow, then auto-continue to the next
+batch when the checks pass. Do not wait for user approval between passing
+batches.
+
+For repeated structures inside the current batch, prefer one validated spec
+write over many single-widget calls. Minimal shape:
 
 ```json
 {
@@ -74,8 +81,8 @@ single-widget calls. Minimal shape:
 
 Call `stonewright-design-validate-spec` before rendering when building the spec
 manually. Use `stonewright-elementor-v3-build-page-from-spec` or
-`stonewright-elementor-v3-apply-bundle` for the first pass, then use individual
-Elementor update calls only for screenshot deltas.
+`stonewright-elementor-v3-apply-bundle` for the current one- or two-section
+batch, then use individual Elementor update calls only for screenshot deltas.
 
 ## Elementor implementation discipline
 
@@ -94,9 +101,9 @@ Elementor update calls only for screenshot deltas.
   navigation, background overlays, z-index/order, motion effects, transforms,
   attributes, display conditions, margin, and padding where the design requires.
 - For repeated cards, logos, sponsor grids, galleries, or pricing blocks, build
-  the first pass with `stonewright-elementor-v3-build-page-from-spec` or
-  `stonewright-elementor-v3-apply-bundle`; reserve many single-widget calls for
-  screenshot-driven corrections.
+  the current section batch with `stonewright-elementor-v3-build-page-from-spec`
+  or `stonewright-elementor-v3-apply-bundle`; reserve many single-widget calls
+  for screenshot-driven corrections.
 - If internal docs are insufficient, research official Elementor documentation
   before configuring a widget.
 - For section backgrounds, never use a full-page screenshot. Export the exact
@@ -152,14 +159,17 @@ writes. Before the first write, produce and keep current:
   classes.
 - Section reference screenshots when the design is long or hard to compare as
   one image.
+- A section batch plan with `max_sections` no higher than `2`, the exact
+  `section_ids` in the current pass, and the desktop/tablet/mobile checks that
+  must pass before the next batch starts.
 
 The visible reference screenshots are the source of truth for layout. Design
 tool structure is only a source for text, tokens, styles, assets, and useful
 node hints. If the layer tree or grouping conflicts with what the screenshot
 shows, build the cleaner native WordPress structure that matches the screenshot.
 
-Before completion, provide screenshot deltas for desktop, tablet, and mobile,
-plus logged-out public viewport checks. Admin bars, editor chrome, or
-authenticated-only UI do not count as responsive proof. Do not claim
-pixel-perfect when any delta is unclassified; each delta must be fixed,
-accepted by the user as a limitation, or blocked by missing approval.
+Before completion, provide screenshot deltas for every section batch at
+desktop, tablet, and mobile, plus logged-out public viewport checks. Admin
+bars, editor chrome, or authenticated-only UI do not count as responsive proof.
+Do not claim pixel-perfect when any delta is unclassified; each delta must be
+fixed, accepted by the user as a limitation, or blocked by missing approval.

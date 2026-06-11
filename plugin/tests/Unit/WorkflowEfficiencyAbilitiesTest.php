@@ -70,9 +70,27 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertArrayHasKey( 'elementor', $result );
 		self::assertArrayHasKey( 'fast_path', $result );
 		self::assertContains( 'stonewright/media-upload-batch', $result['fast_path']['recommended_tools'] );
-		self::assertContains( 'Build the first page pass with stonewright/elementor-v3-build-page-from-spec or stonewright/elementor-v3-apply-bundle; avoid dozens of single-widget calls for repeated cards.', $result['fast_path']['batching_rules'] );
+		self::assertContains( 'Implement visual pages in write-and-verify batches of one section, or two sections only when they are simple and tightly coupled.', $result['fast_path']['batching_rules'] );
+		self::assertContains( 'After each batch, verify desktop, tablet, and mobile screenshots plus overflow before starting the next batch.', $result['fast_path']['batching_rules'] );
+		self::assertContains( 'Auto-continue to the next section batch when screenshots, diagnostics, and overflow checks pass; do not wait for user approval between passing batches.', $result['fast_path']['batching_rules'] );
 		self::assertContains( 'Install external Playwright MCP before visual work and restart the AI client so the browser tools appear.', $result['fast_path']['visual_setup'] );
 		self::assertContains( 'Use a WordPress Application Password for HTTP MCP authentication.', $result['auth_guidance'] );
+	}
+
+	public function test_workflow_preflight_keeps_non_visual_elementor_discovery_compact(): void {
+		$result = ( new WorkflowPreflight() )->execute(
+			[
+				'task'    => 'List Elementor widgets and summarize schema availability.',
+				'surface' => 'elementor',
+				'intent'  => 'read',
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertFalse( $result['fast_path']['task_profile']['needs_visual_check'] );
+		self::assertSame( 'exempt', $result['fast_path']['visual_build_gate']['status'] );
+		self::assertSame( [], $result['fast_path']['visual_setup'] );
+		self::assertNotContains( 'stonewright/media-upload-batch', $result['fast_path']['recommended_tools'] );
 	}
 
 	public function test_workflow_preflight_returns_plugin_specialization_fast_path(): void {
@@ -124,6 +142,8 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright-elementor-v3-build-page-from-spec', $tools );
 		self::assertArrayHasKey( 'visual_build_gate', $result['fast_path'] );
 		self::assertTrue( $result['fast_path']['visual_build_gate']['blocks_completion_without_evidence'] );
+		self::assertSame( 2, $result['fast_path']['visual_build_gate']['section_batching']['max_sections_per_pass'] );
+		self::assertTrue( $result['fast_path']['visual_build_gate']['section_batching']['auto_continue_when_batch_passes'] );
 		self::assertContains( 'figma_token_table', $result['fast_path']['visual_build_gate']['evidence_required_before_first_write'] );
 		self::assertContains( 'existing_media_asset_audit', $result['fast_path']['visual_build_gate']['evidence_required_before_first_write'] );
 		self::assertContains( 'section_implementation_plan', $result['fast_path']['visual_build_gate']['evidence_required_before_first_write'] );
@@ -137,6 +157,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'Provide visual_build_gate evidence before signoff: Figma token table, media reuse audit, section plan, screenshot deltas, and logged-out viewport checks.', $result['fast_path']['quality_gates'] );
 		self::assertContains( 'Use design-tool structure for tokens and asset hints, but match implementation structure to the captured reference screenshots.', $result['fast_path']['quality_gates'] );
 		self::assertContains( 'For long visual designs, capture multiple section reference screenshots and compare each section before full-page signoff.', $result['fast_path']['quality_gates'] );
+		self::assertContains( 'Never write more than two visual page sections in a single implementation batch.', $result['fast_path']['quality_gates'] );
 		self::assertContains( 'Before uploading assets, audit existing media and reuse matching filenames, alt text, dimensions, and crops.', $result['fast_path']['quality_gates'] );
 
 		foreach ( $result['fast_path']['call_sequence'] as $call ) {
@@ -182,6 +203,8 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertArrayHasKey( 'first_pass_rules', $result );
 		self::assertContains( 'Prefer native widgets; do not use Elementor HTML widgets unless explicitly allowed.', $result['first_pass_rules'] );
 		self::assertContains( 'For visual work, verify external Playwright/browser MCP before the first write.', $result['first_pass_rules'] );
+		self::assertContains( 'For design-derived pages, implement at most two sections per write-and-verify batch; prefer one dense section per batch.', $result['first_pass_rules'] );
+		self::assertContains( 'Auto-continue to the next section batch only after desktop, tablet, and mobile checks pass.', $result['first_pass_rules'] );
 		self::assertContains( 'For repeated cards or grids, use a validated spec or bundle first pass instead of many single-widget calls.', $result['first_pass_rules'] );
 		self::assertContains( 'For every widget used, call stonewright/elementor-v3-get-widget-schema and inspect Content, Style, and Advanced controls before writing settings.', $result['first_pass_rules'] );
 		self::assertContains( 'Name major parent containers semantically; do not over-name every inner utility container.', $result['first_pass_rules'] );

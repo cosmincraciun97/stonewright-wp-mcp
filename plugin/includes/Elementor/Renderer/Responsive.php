@@ -21,6 +21,10 @@ final class Responsive {
             $settings[ $key ] = $value;
             return $settings;
         }
+        if ( ! self::is_viewport_array( $value ) ) {
+            $settings[ $key ] = $value;
+            return $settings;
+        }
         foreach ( $value as $bp => $bp_value ) {
             if ( ! in_array( $bp, self::ALLOWED_BREAKPOINTS, true ) ) {
                 continue;
@@ -29,5 +33,17 @@ final class Responsive {
             $settings[ $key . $suffix ] = $bp_value;
         }
         return $settings;
+    }
+
+    /**
+     * @param array<mixed> $value
+     */
+    private static function is_viewport_array( array $value ): bool {
+        foreach ( array_keys( $value ) as $key ) {
+            if ( is_string( $key ) && in_array( $key, self::ALLOWED_BREAKPOINTS, true ) ) {
+                return true;
+            }
+        }
+        return false;
     }
 }

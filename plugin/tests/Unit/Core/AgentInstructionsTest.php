@@ -64,6 +64,8 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'visual reference screenshots are the source of truth', $instructions );
 		$this->assertStringContainsString( 'design-tool layer tree is not implementation authority', $instructions );
 		$this->assertStringContainsString( 'split it into section reference screenshots', $instructions );
+		$this->assertStringContainsString( 'Implement visual pages in batches of one section at a time, or two sections only when they are simple and tightly coupled', $instructions );
+		$this->assertStringContainsString( 'Auto-continue to the next section batch', $instructions );
 		$this->assertStringContainsString( 'Do not use the design canvas width as a fixed live page width', $instructions );
 		$this->assertStringContainsString( 'Subagents must call stonewright-context-bootstrap themselves', $instructions );
 		$this->assertStringContainsString( 'Do not use a full-page screenshot as a section background', $instructions );
@@ -80,5 +82,17 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'do not create sandbox', $instructions );
 		$this->assertStringNotContainsString( 'stonewright/qa-', $instructions );
 		$this->assertStringNotContainsString( 'Figma', $instructions );
+	}
+
+	public function test_compact_instructions_omit_visual_build_rules_when_visual_context_is_disabled(): void {
+		$instructions = AgentInstructions::default( false );
+
+		$this->assertStringContainsString( 'stonewright/context-bootstrap', $instructions );
+		$this->assertStringContainsString( 'stonewright/wp-cli-run', $instructions );
+		$this->assertStringContainsString( 'Do not use wp eval', $instructions );
+		$this->assertStringNotContainsString( 'visual_build_gate', $instructions );
+		$this->assertStringNotContainsString( 'reference token table', $instructions );
+		$this->assertStringNotContainsString( 'document.documentElement.scrollWidth', $instructions );
+		$this->assertStringNotContainsString( 'external Playwright MCP', $instructions );
 	}
 }
