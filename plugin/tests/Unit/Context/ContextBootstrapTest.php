@@ -57,12 +57,15 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertNotEmpty( $result['memory_entries'] );
 		self::assertSame( 'no-html-widgets', $result['memory_entries'][0]['memory_key'] );
 		self::assertContains( 'Call stonewright/widget-intent-resolve before choosing Elementor widgets.', $result['required_followups'] );
+		self::assertContains( 'Before building design-derived pages, plan Elementor kit colors/typography first; if site-wide changes are approved, update the active kit before writing page elements.', $result['required_followups'] );
 		self::assertSame( 'stonewright-context-bootstrap', $result['mcp_tool_naming']['examples']['stonewright/context-bootstrap'] );
 		self::assertSame( 'playwright', $result['recommended_external_mcps'][0]['id'] );
 		self::assertSame( [ '-y', '@playwright/mcp@latest', '--caps=testing,vision,devtools' ], $result['recommended_external_mcps'][0]['args'] );
 		self::assertIsArray( $result['visual_quality_contract'] );
 		self::assertTrue( $result['visual_quality_contract']['hard_stop_if_browser_unavailable'] );
 		self::assertContains( 'Extract measured tokens from the reference screenshot before writing: canvas size, section bounds, max widths, colors, typography, spacing, and asset crop bounds.', $result['visual_quality_contract']['required_steps'] );
+		self::assertContains( 'Before the first Elementor write, create a global-style plan: reusable color/typography tokens, Elementor kit updates if approved, and page-local values that should remain local.', $result['visual_quality_contract']['required_steps'] );
+		self::assertContains( 'Before full-page screenshots, scroll through the page or otherwise preload lazy-loaded media so missing assets are not mistaken for layout failures.', $result['visual_quality_contract']['required_steps'] );
 		self::assertContains( 'Fail the implementation if document.documentElement.scrollWidth is greater than document.documentElement.clientWidth by more than 1px at desktop, tablet, or mobile viewport.', $result['visual_quality_contract']['required_steps'] );
 		self::assertContains( 'Horizontal scrollbar or page content wider than viewport.', $result['visual_quality_contract']['failure_patterns'] );
 		self::assertContains( 'WordPress page title or theme chrome visible when Elementor Canvas/no header/footer was requested.', $result['visual_quality_contract']['failure_patterns'] );
@@ -93,13 +96,26 @@ final class ContextBootstrapTest extends TestCase {
 				if ( str_contains( $query, 'stonewright_skills' ) ) {
 					return [
 						[
-							'id'          => '1',
-							'slug'        => 'stonewright-elementor-v3-builder',
-							'title'       => 'Elementor V3 Builder',
-							'description' => 'Build Elementor pages using native widgets',
-							'content'     => '# Elementor V3 Builder' . "\n\n" . 'Use native Elementor widgets and configure Style and Advanced.',
-							'enabled'     => '1',
-							'source'      => 'builtin',
+							'id'             => '1',
+							'slug'           => 'stonewright-manual-elementor-playbook',
+							'title'          => 'Manual Elementor Playbook',
+							'description'    => 'Build Elementor pages using native widgets',
+							'content'        => '# Manual Playbook',
+							'enabled'        => '1',
+							'enable_agentic' => '0',
+							'enable_prompt'  => '1',
+							'source'         => 'user',
+						],
+						[
+							'id'             => '2',
+							'slug'           => 'stonewright-elementor-v3-builder',
+							'title'          => 'Elementor V3 Builder',
+							'description'    => 'Build Elementor pages using native widgets',
+							'content'        => '# Elementor V3 Builder' . "\n\n" . 'Use native Elementor widgets and configure Style and Advanced.',
+							'enabled'        => '1',
+							'enable_agentic' => '1',
+							'enable_prompt'  => '1',
+							'source'         => 'builtin',
 						],
 					];
 				}

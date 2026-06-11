@@ -116,12 +116,31 @@ final class MemoryInstructionsPage {
 		}
 
 		?>
-		<div class="wrap">
-			<h1>Memory &amp; Instructions</h1>
-			<p>Custom instructions are prepended to every connected agent&rsquo;s discovery response. Memory entries persist across conversations.</p>
+		<div class="wrap stonewright-admin-shell stonewright-memory-page">
+			<div class="stonewright-page-header">
+				<div>
+					<h1>Memory &amp; Instructions</h1>
+					<p>Durable site knowledge for connected Stonewright sessions. Memory is saved only when an operator or ability writes it, and every entry stays auditable here.</p>
+				</div>
+			</div>
+
+			<div class="stonewright-guidance-grid">
+				<div class="stonewright-guidance-card">
+					<h2>What belongs here</h2>
+					<p>Store project conventions, builder rules, recurring user feedback, naming standards, and hard-won pitfalls that should survive across sessions.</p>
+				</div>
+				<div class="stonewright-guidance-card">
+					<h2>What stays out</h2>
+					<p>Do not store passwords, API keys, personal notes, or temporary task chatter. Memory is site-wide and visible to administrators.</p>
+				</div>
+				<div class="stonewright-guidance-card">
+					<h2>Token efficiency</h2>
+					<p>Prefer short, scoped entries. Discovery can find the right memory by type, scope, and key without loading a long briefing every time.</p>
+				</div>
+			</div>
 
 			<!-- Section 1: Custom Instructions -->
-			<div class="stonewright-card">
+			<div class="stonewright-panel">
 				<h2>Custom Instructions</h2>
 				<form method="post" action="options.php">
 					<?php settings_fields( self::OPT_GROUP ); ?>
@@ -136,7 +155,7 @@ final class MemoryInstructionsPage {
 							Enable custom instructions
 						</label>
 					</p>
-					<p class="description">When enabled, the text below is prepended to discover-abilities and to the MCP server description.</p>
+					<p class="description">Use for a short baseline rule set that should always be visible to connected agents. Keep larger procedures as skills instead.</p>
 					<p>
 						<textarea
 							name="stonewright_custom_instructions"
@@ -145,24 +164,25 @@ final class MemoryInstructionsPage {
 							maxlength="4000"
 						><?php echo esc_textarea( $instructions ); ?></textarea>
 					</p>
-					<p class="description">Up to 4000 characters.</p>
+					<p class="description">Up to 4000 characters. Shorter instructions keep discovery faster and cheaper.</p>
 					<?php submit_button( 'Save instructions' ); ?>
 				</form>
 			</div>
 
-			<div class="stonewright-card">
+			<div class="stonewright-panel">
 				<h2>Import / Export</h2>
 				<p class="description">Export or import custom instructions, memory entries, and skills as a portable Stonewright JSON bundle.</p>
-				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-block;margin-right:12px;">
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form stonewright-inline-form--spaced">
 					<input type="hidden" name="action" value="stonewright_knowledge_export">
 					<?php wp_nonce_field( 'stonewright_knowledge_bundle', '_stonewright_nonce' ); ?>
 					<button type="submit" class="button button-secondary">Export JSON</button>
 				</form>
 				<button
+					type="button"
 					class="button button-secondary"
-					onclick="document.getElementById('stonewright-knowledge-import').style.display='block';return false;"
+					data-stonewright-toggle-target="stonewright-knowledge-import"
 				>Import JSON</button>
-				<div id="stonewright-knowledge-import" style="display:none; margin: 16px 0 0; padding: 12px; background: #f6f7f7;">
+				<div id="stonewright-knowledge-import" class="stonewright-subpanel" hidden>
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 						<input type="hidden" name="action" value="stonewright_knowledge_import">
 						<?php wp_nonce_field( 'stonewright_knowledge_bundle', '_stonewright_nonce' ); ?>
@@ -178,16 +198,18 @@ final class MemoryInstructionsPage {
 			</div>
 
 			<!-- Section 2: Memory entries -->
-			<div class="stonewright-card">
+			<div class="stonewright-panel">
 				<h2>
 					Memory
 					<button
+						type="button"
 						class="button button-secondary"
-						onclick="document.getElementById('stonewright-new-memory').style.display='block';return false;"
+						data-stonewright-toggle-target="stonewright-new-memory"
+						data-stonewright-focus-target="stonewright_memory_name"
 					>Add new</button>
 				</h2>
 
-				<form method="post" action="options.php" style="margin-bottom:12px;">
+				<form method="post" action="options.php" class="stonewright-compact-form">
 					<?php settings_fields( self::OPT_GROUP ); ?>
 					<label>
 						<input
@@ -200,6 +222,7 @@ final class MemoryInstructionsPage {
 					</label>
 					<?php submit_button( 'Save', 'small', 'submit', false ); ?>
 				</form>
+				<p class="description stonewright-memory-note">Memory abilities let connected agents list, read, create, update, and delete these entries through guarded Stonewright tools.</p>
 
 				<!-- Tabs: All | User | Feedback | Project | Reference -->
 				<ul class="subsubsub">
@@ -231,14 +254,14 @@ final class MemoryInstructionsPage {
 				</ul>
 
 				<!-- Add new form (hidden by default) -->
-				<div id="stonewright-new-memory" style="display:none; margin: 16px 0; padding: 12px; background: #f6f7f7;">
+				<div id="stonewright-new-memory" class="stonewright-subpanel" hidden>
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 						<input type="hidden" name="action" value="stonewright_memory_create">
 						<?php wp_nonce_field( 'stonewright_memory', '_stonewright_nonce' ); ?>
 						<p>
 							<label>
 								Name
-								<input type="text" name="name" required class="regular-text">
+								<input type="text" id="stonewright_memory_name" name="name" required class="regular-text">
 							</label>
 						</p>
 						<p>
@@ -299,26 +322,25 @@ final class MemoryInstructionsPage {
 							<td><?php echo esc_html( $e['scope'] ); ?></td>
 							<td><code><?php echo esc_html( $e['memory_key'] ); ?></code></td>
 							<td><?php echo esc_html( $e['updated_at'] ); ?></td>
-							<td>
+							<td class="stonewright-action-cell">
 								<button
 									type="button"
 									class="button button-secondary"
-									onclick="var panel=document.getElementById('stonewright-memory-edit-<?php echo (int) $e['id']; ?>');panel.style.display=panel.style.display==='none'?'table-row':'none';return false;"
+									data-stonewright-row-toggle="stonewright-memory-edit-<?php echo (int) $e['id']; ?>"
 								>Edit</button>
 								<form
 									method="post"
 									action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
-									style="display:inline;"
-									onsubmit="return confirm('Delete this memory?');"
+									class="stonewright-inline-form"
 								>
 									<input type="hidden" name="action" value="stonewright_memory_delete">
 									<input type="hidden" name="id" value="<?php echo (int) $e['id']; ?>">
 									<?php wp_nonce_field( 'stonewright_memory', '_stonewright_nonce' ); ?>
-									<button class="button button-link-delete">Delete</button>
+									<button class="button button-link-delete" data-confirm="Delete this memory?">Delete</button>
 								</form>
 							</td>
 						</tr>
-						<tr id="stonewright-memory-edit-<?php echo (int) $e['id']; ?>" style="display:none;">
+						<tr id="stonewright-memory-edit-<?php echo (int) $e['id']; ?>" hidden>
 							<td colspan="6">
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 									<input type="hidden" name="action" value="stonewright_memory_update">
@@ -359,24 +381,14 @@ final class MemoryInstructionsPage {
 						<?php endforeach; ?>
 						<?php if ( empty( $entries ) ) : ?>
 						<tr>
-							<td colspan="6" style="text-align:center;color:#646970;padding:24px;">No memory entries.</td>
+							<td colspan="6">
+								<div class="stonewright-empty-state">No memory entries.</div>
+							</td>
 						</tr>
 						<?php endif; ?>
 					</tbody>
 				</table>
 			</div>
-
-			<style>
-				.stonewright-card { background: #fff; padding: 16px 20px; margin: 16px 0; border-left: 4px solid #2271b1; }
-				.stonewright-type-badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; text-transform: uppercase; font-weight: 600; }
-				.stonewright-type-user { background: #e0f2fe; color: #0369a1; }
-				.stonewright-type-feedback { background: #fef3c7; color: #92400e; }
-				.stonewright-type-project { background: #e0e7ff; color: #4338ca; }
-				.stonewright-type-reference { background: #ecfdf5; color: #047857; }
-				.stonewright-type-generic { background: #f3f4f6; color: #374151; }
-				.stonewright-memory-edit-grid { display: grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap: 12px; margin: 8px 0; }
-				.stonewright-memory-edit-grid label { display: grid; gap: 4px; font-weight: 600; }
-			</style>
 		</div>
 		<?php
 	}

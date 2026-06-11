@@ -9,6 +9,7 @@ Stonewright no longer includes design-tool ingestion or automated visual QA.
 ## Where To Start
 
 - [Getting started with Claude Code](getting-started/claude-code.md)
+- [Stonewright onboarding](onboarding.md)
 - [Installation for Windows and macOS](installation.md)
 - [All abilities by category](abilities.md)
 - [Design Spec reference](design-spec.md)
@@ -21,7 +22,8 @@ Stonewright no longer includes design-tool ingestion or automated visual QA.
 
 | Section | What is in it |
 |---|---|
-| `getting-started/` | Setup for Claude Code and Codex |
+| `getting-started/` | Setup guides for supported MCP clients |
+| `onboarding.md` | First run, prompt template, visual workflow, skills, and memory |
 | `builders/` | Gutenberg, Elementor V3, and FSE workflows |
 | `reference/` | Parameters and schema references |
 | `security/` | Threat model and hardening |

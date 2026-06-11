@@ -362,5 +362,62 @@ final class ValidatorTest extends TestCase {
 
 		$this->assertIsArray( $result, 'Expected native Elementor quality controls to validate successfully' );
 	}
-}
 
+	public function test_validate_accepts_renderer_supported_native_widget_fields(): void {
+		$spec = [
+			'version'  => '1.0.0',
+			'page'     => [ 'title' => 'Renderer Parity Page' ],
+			'sections' => [
+				[
+					'id'     => 'native_widgets',
+					'blocks' => [
+						[
+							'type'        => 'icon-box',
+							'icon'        => 'fas fa-bolt',
+							'library'     => 'fa-solid',
+							'title'       => 'Native controls',
+							'description' => 'Rendered by Elementor icon-box.',
+							'title_size'  => 'h3',
+							'icon_color'  => '#2b7fff',
+						],
+						[
+							'type'            => 'counter',
+							'starting_number' => 0,
+							'ending_number'   => 750,
+							'title'           => 'Expozanti',
+							'prefix'          => '',
+							'suffix'          => '+',
+							'duration'        => 1200,
+							'number_size'     => 60,
+						],
+						[
+							'type'          => 'countdown',
+							'countdown_type' => 'due_date',
+							'due_date'      => '2026-08-13 09:00:00',
+							'show_labels'   => true,
+							'custom_labels' => true,
+							'label_days'    => 'Zile',
+							'label_hours'   => 'Ore',
+							'label_minutes' => 'Minute',
+							'label_seconds' => 'Secunde',
+							'expire_actions' => [ 'message' ],
+							'expire_message' => 'Evenimentul a inceput.',
+						],
+						[
+							'type'          => 'icon-list',
+							'divider'       => true,
+							'divider_color' => '#1e2939',
+							'items'         => [
+								[ 'text' => 'Program', 'url' => '#program' ],
+							],
+						],
+					],
+				],
+			],
+		];
+
+		$result = Validator::validate( $spec );
+
+		$this->assertIsArray( $result, 'Expected renderer-supported native widget fields to validate successfully' );
+	}
+}

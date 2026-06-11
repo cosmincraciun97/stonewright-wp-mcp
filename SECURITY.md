@@ -1,4 +1,22 @@
-# Security model
+# Security Policy
+
+## Supported Versions
+
+Stonewright is pre-1.0. Security fixes target the latest public release and the
+main branch until a stable support matrix exists.
+
+## Reporting a Vulnerability
+
+Please report security issues privately to the project maintainer before opening
+a public issue. Include affected version, reproduction steps, impact, and any
+logs or screenshots that do not contain secrets.
+
+## Security Model
+
+Stonewright does not execute arbitrary PHP source. Write abilities use explicit
+permission callbacks, destructive production-safe operations require
+confirmation tokens, Elementor/theme writes snapshot first, and the companion
+runs WP-CLI through tokenized argv only.
 
 ## Principles
 
@@ -63,7 +81,3 @@ All write abilities log to `wp_stonewright_audit_log`:
 - timestamp
 
 The log table is created on activation. It is read-only via REST.
-
-## Reporting a vulnerability
-
-Email `security@stonewright.local` with steps to reproduce. Do not open public issues for security reports.

@@ -69,6 +69,7 @@ final class GetBlockSchema extends AbilityKernel {
 			'provides_context' => isset( $type->provides_context ) ? (array) $type->provides_context : [],
 			'uses_context'     => isset( $type->uses_context ) ? (array) $type->uses_context : [],
 			'supports'         => isset( $type->supports ) ? (array) $type->supports : [],
+			'example'          => isset( $type->example ) ? (array) $type->example : [],
 			'styles'           => isset( $type->styles ) ? (array) $type->styles : [],
 			'variations'       => isset( $type->variations ) ? (array) $type->variations : [],
 			'is_dynamic'       => is_callable( $type->render_callback ?? null ),

@@ -77,13 +77,6 @@ final class ConnectClientConfig {
 				'notes'       => 'The project-level file takes precedence. Add the snippet under the "mcp" key in the config.',
 			],
 			[
-				'slug'        => 'openai-codex-cli',
-				'label'       => 'OpenAI Codex CLI',
-				'config_path' => 'MCP server config file path varies by platform; check the Codex CLI docs for your OS.',
-				'kind'        => 'cli',
-				'notes'       => 'Use the standard mcpServers block. Codex CLI follows the same MCP transport protocol.',
-			],
-			[
 				'slug'        => 'cline',
 				'label'       => 'Cline',
 				'config_path' => 'VS Code extension settings → Cline → MCP Servers (GUI) or cline_mcp_settings.json',

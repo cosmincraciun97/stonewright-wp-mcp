@@ -36,27 +36,35 @@ final class SkillsSave extends AbilityKernel {
 			'additionalProperties' => false,
 			'required'             => [ 'slug', 'title', 'content' ],
 			'properties'           => [
-				'slug'        => [
+				'slug'           => [
 					'type'        => 'string',
 					'description' => 'Unique identifier for the skill (e.g. "my-landing-page-workflow"). Alphanumeric and hyphens only.',
 				],
-				'title'       => [
+				'title'          => [
 					'type'        => 'string',
 					'description' => 'Human-readable title shown in the Skills admin page.',
 				],
-				'description' => [
+				'description'    => [
 					'type'        => 'string',
 					'description' => 'One-line description of when this skill applies. Shown in the admin card.',
 					'default'     => '',
 				],
-				'content'     => [
+				'content'        => [
 					'type'        => 'string',
 					'description' => 'Markdown playbook content. Enabled skills are listed in MCP instructions; full content is loaded on demand with skills-get.',
 				],
-				'enabled'     => [
+				'enabled'        => [
 					'type'        => 'boolean',
 					'description' => 'Whether the skill is active. Defaults to true.',
 					'default'     => true,
+				],
+				'enable_agentic' => [
+					'type'        => 'boolean',
+					'description' => 'Whether the skill can be auto-matched from task descriptions. Defaults to enabled.',
+				],
+				'enable_prompt'  => [
+					'type'        => 'boolean',
+					'description' => 'Whether the skill should be exposed as an explicit prompt/command entry. Defaults to enabled.',
 				],
 			],
 		];
@@ -88,12 +96,14 @@ final class SkillsSave extends AbilityKernel {
 		$existing = Skills::get( $slug );
 
 		$id = Skills::save( [
-			'slug'        => $slug,
-			'title'       => (string) ( $args['title'] ?? '' ),
-			'description' => (string) ( $args['description'] ?? '' ),
-			'content'     => (string) ( $args['content'] ?? '' ),
-			'enabled'     => $args['enabled'] ?? true,
-			'source'      => 'user',
+			'slug'           => $slug,
+			'title'          => (string) ( $args['title'] ?? '' ),
+			'description'    => (string) ( $args['description'] ?? '' ),
+			'content'        => (string) ( $args['content'] ?? '' ),
+			'enabled'        => $args['enabled'] ?? true,
+			'enable_agentic' => $args['enable_agentic'] ?? ( $args['enabled'] ?? true ),
+			'enable_prompt'  => $args['enable_prompt'] ?? ( $args['enabled'] ?? true ),
+			'source'         => 'user',
 		] );
 
 		if ( 0 === $id ) {

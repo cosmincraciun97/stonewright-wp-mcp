@@ -43,6 +43,27 @@ response returns the active system instructions, persistent memory, enabled
 skills, relevant knowledge hints, and a short-lived `stonewright_context_token`.
 Write abilities require that token.
 
+`stonewright/skills-list` can filter skills by exposure mode: `all`, `agentic`
+for automatic matching, or `prompt` for explicit prompt/command entries.
+
+Authenticated admins can also execute registered Stonewright abilities through
+the Stonewright REST runner when a client cannot call the MCP ability transport
+directly:
+
+```http
+POST /wp-json/stonewright/v1/abilities/run
+Content-Type: application/json
+
+{
+  "name": "stonewright/ping",
+  "input": {}
+}
+```
+
+The runner uses the same registry, permission callbacks, master toggle,
+disabled-ability checks, UTF-8 sanitization, context-token gate, audit flow, and
+ability handlers as the MCP surface. It is not a bypass for write safety.
+
 ## WP-CLI
 
 The WP-CLI tools are:
@@ -63,3 +84,16 @@ official `wp-cli.phar` into the Stonewright cache for users who do not have
 Agents should prefer native Stonewright abilities for structured writes. Use
 WP-CLI when it is faster, better documented by the installed plugin, or useful
 for debugging and operational tasks.
+
+## Design And Elementor Contracts
+
+- `stonewright/widget-intent-resolve` accepts `forbid_html_widget`. When true,
+  any resolution to an Elementor HTML/raw-html widget returns
+  `stonewright_html_widget_forbidden`; callers must choose native Elementor
+  widgets and containers instead.
+- `stonewright/elementor-v3-status` and `stonewright/elementor-v4-status`
+  report Elementor version, Pro availability, active widget types, unsupported
+  required native widgets, and V4 atomic support state.
+- `stonewright/blocks-list-registered` and `stonewright/blocks-get-schema`
+  include third-party block inserter metadata such as keywords, examples,
+  supports, attributes, and variations when WordPress exposes them.

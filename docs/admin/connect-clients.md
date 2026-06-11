@@ -178,11 +178,6 @@ Config file: `.opencode/config.json` in the project root.
 
 Uses `mcpServers` at the top level.
 
-### OpenAI Codex CLI
-Config file: `~/.codex/config.json`.
-
-Uses `mcpServers` at the top level.
-
 ### Cline (VS Code extension)
 Config lives in VS Code settings. Open the Cline sidebar, click the MCP
 Servers icon, and add a new server with the `npx` command and the three env

@@ -33,12 +33,12 @@ final class SocialIcons {
 			$network   = (string) ( $icon_item['network'] ?? 'facebook' );
 			$icon_val  = (string) ( $icon_item['icon'] ?? 'fab fa-' . $network );
 			$social_items[] = [
-				'_id'      => Section::stable_id( $canonical_path . '.icon.' . $i ),
-				'social'   => [
+				'_id'         => Section::stable_id( $canonical_path . '.icon.' . $i ),
+				'social_icon' => [
 					'value'   => $icon_val,
 					'library' => 'fa-brands',
 				],
-				'link'     => [
+				'link'        => [
 					'url'         => (string) ( $icon_item['url'] ?? '' ),
 					'is_external' => ! empty( $icon_item['external'] ),
 					'nofollow'    => ! empty( $icon_item['nofollow'] ),

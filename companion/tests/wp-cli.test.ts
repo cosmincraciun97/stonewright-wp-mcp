@@ -37,8 +37,21 @@ describe('WP-CLI runner', () => {
 		expect(() => validateWpCliCommand(['eval', 'echo 1;'])).toThrow(/blocked/i);
 		expect(() => validateWpCliCommand(['eval-file', 'script.php'])).toThrow(/blocked/i);
 		expect(() => validateWpCliCommand(['shell'])).toThrow(/blocked/i);
+		expect(() => validateWpCliCommand(['package', 'install', 'x'])).toThrow(/blocked/i);
 		expect(() => validateWpCliCommand(['post', 'list', '--exec=echo 1;'])).toThrow(/blocked/i);
 		expect(() => validateWpCliCommand(['post', 'list', '--require=bootstrap.php'])).toThrow(/blocked/i);
+		expect(() => validateWpCliCommand(['option', 'get', 'home', '--exec=phpinfo()'])).toThrow(/blocked/i);
+		expect(() => validateWpCliCommand(['plugin', 'list', '--require=evil.php'])).toThrow(/blocked/i);
+	});
+
+	it('allows tokenized read-only WP-CLI examples', () => {
+		expect(validateWpCliCommand(['core', 'version'])).toEqual(['core', 'version']);
+		expect(validateWpCliCommand(['plugin', 'list', '--format=json'])).toEqual([
+			'plugin',
+			'list',
+			'--format=json',
+		]);
+		expect(validateWpCliCommand(['option', 'get', 'home'])).toEqual(['option', 'get', 'home']);
 	});
 
 	it('runs through execFile options with shell disabled', async () => {

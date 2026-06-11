@@ -1,34 +1,35 @@
-﻿# Contributing to Stonewright
+# Contributing to Stonewright
 
-Thank you for considering a contribution. Before you open a PR, read this document.
+Thank you for considering a contribution. Before you open a PR, read this
+document.
 
 ## Repository layout
 
-```
+```text
 stonewright-wp-mcp/
-â”œâ”€â”€ plugin/                     PHP plugin (GPL-2.0-or-later)
-â”‚   â”œâ”€â”€ includes/
-â”‚   â”‚   â”œâ”€â”€ Abilities/          One class per ability, grouped by category
-â”‚   â”‚   â”œâ”€â”€ Core/               MCP server registration, REST routes, DI container
-â”‚   â”‚   â”œâ”€â”€ DesignSpec/         JSON schema validator and spec helpers
-â”‚   â”‚   â”œâ”€â”€ Memory/             Agent memory helper
-â”‚   â”‚   â”œâ”€â”€ Renderers/          Gutenberg and Elementor V3 spec renderers
-â”‚   â”‚   â”œâ”€â”€ Security/           Permissions, Backup, ConfirmationToken, AuditLog
-â”‚   â”‚   â””â”€â”€ Support/            Utility classes (Logger, Json, BlockTree, etc.)
-â”‚   â”œâ”€â”€ schemas/                stonewright.schema.json (Design Spec)
-â”‚   â”œâ”€â”€ tests/                  PHPUnit test suite
-â”‚   â”œâ”€â”€ blocks/                 Custom block source (recipe-hero, recipe-slider)
-â”‚   â”œâ”€â”€ composer.json
-â”‚   â”œâ”€â”€ phpcs.xml
-â”‚   â”œâ”€â”€ phpstan.neon
-â”‚   â””â”€â”€ phpunit.xml
-â”œâ”€â”€ companion/                  Node bridge (MIT)
-â”‚   â”œâ”€â”€ src/
-â”‚   â”‚   â””â”€â”€ lib/
-â”‚   â”œâ”€â”€ package.json
-â”‚   â””â”€â”€ tsconfig.json
-â”œâ”€â”€ skills/                     Skill packs for Claude Code and Codex
-â””â”€â”€ docs/                       Documentation (CC BY 4.0)
+|-- plugin/                     PHP plugin (GPL-2.0-or-later)
+|   |-- includes/
+|   |   |-- Abilities/          One class per ability, grouped by category
+|   |   |-- Core/               MCP server registration, REST routes, DI container
+|   |   |-- DesignSpec/         JSON schema validator and spec helpers
+|   |   |-- Memory/             Agent memory helper
+|   |   |-- Renderers/          Gutenberg and Elementor V3 spec renderers
+|   |   |-- Security/           Permissions, Backup, ConfirmationToken, AuditLog
+|   |   `-- Support/            Utility classes (Logger, Json, BlockTree, etc.)
+|   |-- schemas/                stonewright.schema.json (Design Spec)
+|   |-- tests/                  PHPUnit test suite
+|   |-- blocks/                 Custom block source (recipe-hero, recipe-slider)
+|   |-- composer.json
+|   |-- phpcs.xml
+|   |-- phpstan.neon
+|   `-- phpunit.xml
+|-- companion/                  Node bridge (MIT)
+|   |-- src/
+|   |   `-- lib/
+|   |-- package.json
+|   `-- tsconfig.json
+|-- skills/                     Skill packs for AI coding agents
+`-- docs/                       Documentation (CC BY 4.0)
 ```
 
 ## Development workflow
@@ -44,7 +45,8 @@ composer phpcs       # WordPress Coding Standards
 composer phpcbf      # Auto-fix coding style where possible
 ```
 
-PHPUnit requires a running WordPress instance. Follow the `wp-phpunit/wp-phpunit` setup instructions or use a `wp-env` environment.
+PHPUnit requires a running WordPress instance. Follow the
+`wp-phpunit/wp-phpunit` setup instructions or use a `wp-env` environment.
 
 ### Node side (companion)
 
@@ -58,7 +60,8 @@ npm run typecheck    # tsc --noEmit
 
 ## Reproducing bugs
 
-Before submitting a fix, add a failing test in `plugin/tests/` that reproduces the bug. Fix the code. Verify both `composer test` and `composer phpstan` pass.
+Before submitting a fix, add a failing test in `plugin/tests/` that reproduces
+the bug. Fix the code. Verify both `composer test` and `composer phpstan` pass.
 
 ## Branch naming
 
@@ -82,6 +85,7 @@ A PR should include:
 5. An entry in `CHANGELOG.md` under `[Unreleased]`.
 
 For new abilities:
+
 - Place the class under the correct namespace in `includes/Abilities/<Category>/`.
 - Register it in `includes/Abilities/AbilityKernel.php`.
 - Declare the minimum capability in the `permission_callback` via `Permissions`.
@@ -91,15 +95,22 @@ For new abilities:
 
 ## Code style
 
-The plugin follows WordPress Coding Standards (`WordPress-Extra` + `WordPress-Docs`) with two overrides defined in `phpcs.xml`:
+The plugin follows WordPress Coding Standards (`WordPress-Extra` +
+`WordPress-Docs`) with two overrides defined in `phpcs.xml`:
 
-- `WordPress.Files.FileName.InvalidClassFileName` â€” excluded because we use PascalCase filenames to match PSR-4 autoloading.
-- `WordPress.Files.FileName.NotHyphenatedLowercase` â€” same reason.
+- `WordPress.Files.FileName.InvalidClassFileName` is excluded because we use
+  PascalCase filenames to match PSR-4 autoloading.
+- `WordPress.Files.FileName.NotHyphenatedLowercase` is excluded for the same
+  reason.
 
-All PHP files declare `strict_types=1` and use the `Stonewright\WpMcp` namespace.
+All PHP files declare `strict_types=1` and use the `Stonewright\WpMcp`
+namespace.
 
-PHPStan runs at level 8 with `szepeviktor/phpstan-wordpress` stubs. New code should not introduce PHPStan errors.
+PHPStan runs at level 8 with `szepeviktor/phpstan-wordpress` stubs. New code
+should not introduce PHPStan errors.
 
 ## License
 
-By contributing to the plugin you agree that your contribution is licensed under GPL-2.0-or-later. By contributing to the companion or skills you agree that your contribution is licensed under MIT.
+By contributing to the plugin you agree that your contribution is licensed
+under GPL-2.0-or-later. By contributing to the companion or skills you agree
+that your contribution is licensed under MIT.

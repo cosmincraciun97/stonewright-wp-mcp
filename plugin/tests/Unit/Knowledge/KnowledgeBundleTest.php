@@ -47,13 +47,15 @@ final class KnowledgeBundleTest extends TestCase {
 			],
 			[
 				[
-					'id'          => '4',
-					'slug'        => 'elementor-native-first',
-					'title'       => 'Elementor native widgets first',
-					'description' => 'Use for Design reference to Elementor builds.',
-					'content'     => '# Rule',
-					'enabled'     => '1',
-					'source'      => 'user',
+					'id'             => '4',
+					'slug'           => 'elementor-native-first',
+					'title'          => 'Elementor native widgets first',
+					'description'    => 'Use for Design reference to Elementor builds.',
+					'content'        => '# Rule',
+					'enabled'        => '1',
+					'enable_agentic' => '1',
+					'enable_prompt'  => '0',
+					'source'         => 'user',
 				],
 			]
 		);
@@ -66,6 +68,8 @@ final class KnowledgeBundleTest extends TestCase {
 		self::assertSame( 'no-html-widgets', $bundle['memory']['entries'][0]['memory_key'] );
 		self::assertSame( 'Use native Elementor widgets unless explicitly instructed.', $bundle['memory']['entries'][0]['value'] );
 		self::assertSame( 'elementor-native-first', $bundle['skills']['entries'][0]['slug'] );
+		self::assertSame( '1', $bundle['skills']['entries'][0]['enable_agentic'] );
+		self::assertSame( '0', $bundle['skills']['entries'][0]['enable_prompt'] );
 	}
 
 	public function test_import_updates_instructions_memory_and_skills(): void {
@@ -95,11 +99,13 @@ final class KnowledgeBundleTest extends TestCase {
 				'skills'       => [
 					'entries' => [
 						[
-							'slug'        => 'design-elementor-quality',
-							'title'       => 'Design reference Elementor quality',
-							'description' => 'Use for page rebuilds.',
-							'content'     => '# Steps',
-							'enabled'     => true,
+							'slug'           => 'design-elementor-quality',
+							'title'          => 'Design reference Elementor quality',
+							'description'    => 'Use for page rebuilds.',
+							'content'        => '# Steps',
+							'enabled'        => true,
+							'enable_agentic' => false,
+							'enable_prompt'  => true,
 						],
 					],
 				],
@@ -112,6 +118,8 @@ final class KnowledgeBundleTest extends TestCase {
 		self::assertSame( 1, $result['skills_imported'] );
 		self::assertNotEmpty( $GLOBALS['wpdb']->memory_writes );
 		self::assertNotEmpty( $GLOBALS['wpdb']->skill_writes );
+		self::assertSame( 0, $GLOBALS['wpdb']->skill_writes[0]['enable_agentic'] );
+		self::assertSame( 1, $GLOBALS['wpdb']->skill_writes[0]['enable_prompt'] );
 	}
 
 	/**

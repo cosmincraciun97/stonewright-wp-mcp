@@ -51,6 +51,29 @@ stonewright-context-bootstrap
 
 For browser testing and screenshots, configure a separate Playwright MCP server
 next to Stonewright with `npx -y @playwright/mcp@latest --caps=testing,vision,devtools`.
+In locked-down environments where `npx` cannot fetch packages or write to the
+user npm cache, use the already-connected Playwright MCP server rather than a
+one-off Playwright CLI install.
+
+## Prompting Stonewright
+
+Begin every task by asking the AI client to call `stonewright-context-bootstrap`.
+Good prompts name the target page, template, post, menu, or media item; the
+allowed editor surface; the safety mode; visual references or content sources;
+and the acceptance checks.
+
+Minimal task prompt:
+
+```text
+Use Stonewright for this WordPress task. Start with stonewright-context-bootstrap.
+Edit page {id or title}. Use native Gutenberg/Elementor abilities first.
+Snapshot before writes, validate design specs before rendering, and verify
+desktop, tablet, and mobile breakpoints with no horizontal overflow.
+```
+
+For visual work, include the design URL or screenshot, exact assets, whether
+global styles may be changed, and whether Elementor HTML widgets are allowed.
+By default, Stonewright should use native WordPress and Elementor widgets.
 
 ## Companion Environment
 
@@ -98,6 +121,7 @@ commands. It blocks arbitrary PHP and shell entry points such as `wp eval`,
 ## Further Reading
 
 - [Plugin documentation](plugin/README.md)
+- [Onboarding guide](docs/onboarding.md)
 - [Installation guide](docs/installation.md)
 - [Companion documentation](companion/README.md)
 - [Skill packs](skills/README.md)

@@ -60,4 +60,16 @@ final class WidgetIntentResolveAbilityTest extends TestCase {
 		$this->assertSame( 'nav-menu', $result['recommendations'][0]['slug'] );
 		$this->assertSame( 'stonewright/elementor-add-nav-menu', $result['recommendations'][0]['ability'] );
 	}
+
+	public function test_ability_rejects_html_widget_when_forbidden(): void {
+		$result = ( new WidgetIntentResolve() )->execute(
+			[
+				'intent'             => 'raw-html',
+				'forbid_html_widget' => true,
+			]
+		);
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'stonewright_html_widget_forbidden', $result->get_error_code() );
+	}
 }

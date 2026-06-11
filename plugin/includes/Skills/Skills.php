@@ -32,7 +32,39 @@ final class Skills {
 			$rows = $wpdb->get_results( "SELECT * FROM {$table} ORDER BY source ASC, title ASC", ARRAY_A );
 		}
 
-		return is_array( $rows ) ? $rows : [];
+		if ( ! is_array( $rows ) ) {
+			return [];
+		}
+
+		return array_map( [ self::class, 'normalize_row' ], $rows );
+	}
+
+	/**
+	 * List skills that should be included in automatic agentic matching.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function list_agentic(): array {
+		return array_values(
+			array_filter(
+				self::list( true ),
+				static fn( array $skill ): bool => (bool) ( $skill['enable_agentic'] ?? true )
+			)
+		);
+	}
+
+	/**
+	 * List skills that should be exposed as explicit prompt/command entries.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function list_prompt(): array {
+		return array_values(
+			array_filter(
+				self::list( true ),
+				static fn( array $skill ): bool => (bool) ( $skill['enable_prompt'] ?? true )
+			)
+		);
 	}
 
 	/**
@@ -51,7 +83,7 @@ final class Skills {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE slug = %s LIMIT 1", $slug ), ARRAY_A );
 
-		return is_array( $row ) ? $row : null;
+		return is_array( $row ) ? self::normalize_row( $row ) : null;
 	}
 
 	/**
@@ -70,13 +102,13 @@ final class Skills {
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d LIMIT 1", $id ), ARRAY_A );
 
-		return is_array( $row ) ? $row : null;
+		return is_array( $row ) ? self::normalize_row( $row ) : null;
 	}
 
 	/**
 	 * Insert or update a skill by slug (upsert).
 	 *
-	 * @param array<string, mixed> $data Keys: slug, title, description, content, enabled, source
+	 * @param array<string, mixed> $data Keys: slug, title, description, content, enabled, enable_agentic, enable_prompt, source
 	 * @return int The id of the inserted or updated row. 0 on failure.
 	 */
 	public static function save( array $data ): int {
@@ -90,16 +122,24 @@ final class Skills {
 		$existing = self::table_exists() ? self::get( $slug ) : null;
 		$now      = current_time( 'mysql', true );
 
+		$enabled = isset( $data['enabled'] ) ? (int) (bool) $data['enabled'] : 1;
+
 		$row = [
-			'slug'        => $slug,
-			'title'       => sanitize_text_field( (string) ( $data['title'] ?? '' ) ),
-			'description' => sanitize_textarea_field( (string) ( $data['description'] ?? '' ) ),
-			'content'     => (string) ( $data['content'] ?? '' ),
-			'enabled'     => isset( $data['enabled'] ) ? (int) (bool) $data['enabled'] : 1,
-			'source'      => in_array( $data['source'] ?? 'user', [ 'builtin', 'user', 'uploaded' ], true )
+			'slug'           => $slug,
+			'title'          => sanitize_text_field( (string) ( $data['title'] ?? '' ) ),
+			'description'    => sanitize_textarea_field( (string) ( $data['description'] ?? '' ) ),
+			'content'        => (string) ( $data['content'] ?? '' ),
+			'enabled'        => $enabled,
+			'enable_agentic' => isset( $data['enable_agentic'] )
+							? (int) (bool) $data['enable_agentic']
+							: $enabled,
+			'enable_prompt'  => isset( $data['enable_prompt'] )
+							? (int) (bool) $data['enable_prompt']
+							: $enabled,
+			'source'         => in_array( $data['source'] ?? 'user', [ 'builtin', 'user', 'uploaded' ], true )
 							? (string) ( $data['source'] ?? 'user' )
 							: 'user',
-			'updated_at'  => $now,
+			'updated_at'     => $now,
 		];
 
 		$table = SkillsTable::table_name();
@@ -160,7 +200,7 @@ final class Skills {
 	 * Returns an empty string when no enabled skills exist.
 	 */
 	public static function instructions_block(): string {
-		$skills = self::list( true );
+		$skills = self::list_agentic();
 
 		if ( empty( $skills ) ) {
 			return '';
@@ -210,5 +250,24 @@ final class Skills {
 		$table = SkillsTable::table_name();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		return (bool) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
+	}
+
+	/**
+	 * Normalise DB rows created before skill mode flags existed.
+	 *
+	 * @param array<string, mixed> $row
+	 * @return array<string, mixed>
+	 */
+	private static function normalize_row( array $row ): array {
+		$enabled = (bool) ( $row['enabled'] ?? true );
+
+		if ( ! array_key_exists( 'enable_agentic', $row ) ) {
+			$row['enable_agentic'] = $enabled ? '1' : '0';
+		}
+		if ( ! array_key_exists( 'enable_prompt', $row ) ) {
+			$row['enable_prompt'] = $enabled ? '1' : '0';
+		}
+
+		return $row;
 	}
 }

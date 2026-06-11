@@ -40,6 +40,7 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( '@playwright/mcp@latest', $instructions );
 		$this->assertStringContainsString( 'Horizontal scroll is a hard failure', $instructions );
 		$this->assertStringContainsString( 'document.documentElement.scrollWidth', $instructions );
+		$this->assertStringContainsString( 'preload lazy-loaded media', $instructions );
 		$this->assertStringContainsString( 'Do not use the design canvas width as a fixed live page width', $instructions );
 		$this->assertStringContainsString( 'Subagents must call stonewright-context-bootstrap themselves', $instructions );
 		$this->assertStringContainsString( 'Do not use a full-page screenshot as a section background', $instructions );

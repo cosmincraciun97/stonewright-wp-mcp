@@ -40,6 +40,8 @@ use Stonewright\WpMcp\Elementor\Renderer\Video;
  */
 final class Renderer {
 
+	private const DEFAULT_LAYOUT_WIDTH = 1280.0;
+
 	/**
 	 * @param array<string, mixed>              $spec        Validated DesignSpec (already through Validator::validate).
 	 * @param array<int, array<string, mixed>>  $diagnostics Unsupported/Pro-gated node diagnostics appended here.
@@ -65,7 +67,7 @@ final class Renderer {
 			}
 
 			$section_element['elements'] = $children;
-			$out[]                       = $section_element;
+			$out[]                       = self::normalise_container_layout( $section_element );
 		}
 
 		return $out;
@@ -87,7 +89,7 @@ final class Renderer {
 			// Container::render) always returned `'elements' => []`, so any
 			// widget nested inside a column or row block was silently dropped
 			// — only the top-level section's block list got processed by the
-			// outer render() loop. Caught during the nZeb Expo live build: the
+			// outer render() loop. Caught during nested layout verification: the
 			// hero section's two columns rendered as empty containers because
 			// their heading/paragraph/button children never reached Elementor.
 			case 'section':
@@ -222,7 +224,120 @@ final class Renderer {
 			}
 		}
 		$rendered['elements'] = $children;
+		return self::normalise_container_layout( $rendered );
+	}
+
+	/**
+	 * @param array<string, mixed> $rendered
+	 * @return array<string, mixed>
+	 */
+	private static function normalise_container_layout( array $rendered ): array {
+		$settings = isset( $rendered['settings'] ) && is_array( $rendered['settings'] )
+			? $rendered['settings']
+			: [];
+		$children = isset( $rendered['elements'] ) && is_array( $rendered['elements'] )
+			? $rendered['elements']
+			: [];
+
+		if (
+			'full' === ( $settings['content_width'] ?? null )
+			&& 'column' === ( $settings['flex_direction'] ?? null )
+			&& ! isset( $settings['flex_align_items'] )
+			&& self::has_fixed_width_child( $children )
+		) {
+			$settings['flex_align_items'] = 'center';
+		}
+
+		if ( 'row' === ( $settings['flex_direction'] ?? null ) ) {
+			$children = self::fit_percent_children_with_gap( $children, $settings );
+		}
+
+		$rendered['settings'] = $settings;
+		$rendered['elements'] = $children;
 		return $rendered;
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $children
+	 */
+	private static function has_fixed_width_child( array $children ): bool {
+		foreach ( $children as $child ) {
+			$width = $child['settings']['width'] ?? null;
+			if ( is_array( $width ) && 'px' === ( $width['unit'] ?? null ) && is_numeric( $width['size'] ?? null ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $children
+	 * @param array<string, mixed>            $settings
+	 * @return array<int, array<string, mixed>>
+	 */
+	private static function fit_percent_children_with_gap( array $children, array $settings ): array {
+		$child_count = count( $children );
+		if ( $child_count < 2 ) {
+			return $children;
+		}
+
+		$widths = [];
+		$total  = 0.0;
+		foreach ( $children as $index => $child ) {
+			$width = $child['settings']['width'] ?? null;
+			if ( ! is_array( $width ) || '%' !== ( $width['unit'] ?? null ) || ! is_numeric( $width['size'] ?? null ) ) {
+				return $children;
+			}
+
+			$size             = (float) $width['size'];
+			$widths[ $index ] = $size;
+			$total           += $size;
+		}
+
+		$gap_px     = self::gap_px( $settings['flex_gap'] ?? null );
+		$parent_px  = self::parent_width_px( $settings );
+		$gap_ratio  = ( $gap_px * ( $child_count - 1 ) / $parent_px ) * 100.0;
+		$available  = max( 0.0, 100.0 - $gap_ratio );
+		if ( $total <= $available || $available <= 0.0 ) {
+			return $children;
+		}
+
+		$scale = $available / $total;
+		foreach ( $widths as $index => $size ) {
+			$children[ $index ]['settings']['width']['size'] = round( $size * $scale, 3 );
+		}
+
+		return $children;
+	}
+
+	/**
+	 * @param mixed $gap
+	 */
+	private static function gap_px( mixed $gap ): float {
+		if ( ! is_array( $gap ) ) {
+			return 0.0;
+		}
+
+		foreach ( [ 'column', 'size' ] as $key ) {
+			if ( isset( $gap[ $key ] ) && is_numeric( $gap[ $key ] ) ) {
+				return (float) $gap[ $key ];
+			}
+		}
+
+		return 0.0;
+	}
+
+	/**
+	 * @param array<string, mixed> $settings
+	 */
+	private static function parent_width_px( array $settings ): float {
+		$width = $settings['width'] ?? null;
+		if ( is_array( $width ) && 'px' === ( $width['unit'] ?? null ) && is_numeric( $width['size'] ?? null ) ) {
+			return max( 1.0, (float) $width['size'] );
+		}
+
+		return self::DEFAULT_LAYOUT_WIDTH;
 	}
 
 	/**

@@ -43,6 +43,9 @@ add widgets inside child containers.
   section bounds, centered max-widths, typography, colors, spacing, and asset
   crop bounds. Then build, screenshot the live page with external Playwright MCP
   at the same viewport, compare deltas, and iterate.
+- Before capturing full-page screenshots, scroll through the page or otherwise
+  preload lazy-loaded media so missing assets are not mistaken for layout
+  failures.
 - Put every page section in a full-width outer container, then a centered inner
   container with the design max-width. Do not leave content floating at page
   edges or stacked as a single accidental column.
@@ -69,8 +72,12 @@ add widgets inside child containers.
 
 ## Kit changes
 
-Kit color and typography changes are global and affect every page. Confirm
-with the user before calling `update-kit-colors` or `update-kit-typography`.
+For design-derived builds, prepare the kit plan before the first page element
+write: reusable colors, reusable typography, and page-local exceptions. If the
+user has approved site-wide design changes, call `update-kit-colors` and
+`update-kit-typography` before building the page so later element payloads can
+reuse global tokens instead of repeating raw values. If approval is missing or
+the design is one-off, keep those values local in widget/container controls.
 These abilities do not take a post_id; they write to the active kit post.
 
 ## Save as template

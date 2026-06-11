@@ -394,6 +394,7 @@ final class AbilityRegistry {
 			$args         = [
 				'label'               => $ability->label(),
 				'description'         => $ability->description(),
+				'ability_class'       => RegisteredAbility::class,
 				'category'            => $ability->category(),
 				'input_schema'        => $input_schema,
 				'output_schema'       => $ability->output_schema(),
@@ -421,6 +422,22 @@ final class AbilityRegistry {
 
 			wp_register_ability( $name, $args );
 		}
+	}
+
+	public static function ability_by_name( string $name ): ?Ability {
+		foreach ( self::list() as $class ) {
+			if ( ! class_exists( $class ) ) {
+				continue;
+			}
+
+			/** @var Ability $ability */
+			$ability = new $class();
+			if ( $ability->name() === $name ) {
+				return $ability;
+			}
+		}
+
+		return null;
 	}
 
 	/**

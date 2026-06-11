@@ -1,0 +1,57 @@
+name: Bug report
+description: Report a reproducible Stonewright defect.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Stonewright. Do not include secrets,
+        application passwords, bearer tokens, or private site data.
+  - type: input
+    id: version
+    attributes:
+      label: Stonewright version
+      description: Plugin and companion versions, if known.
+      placeholder: 1.0.0-alpha.x
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What went wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: List the smallest steps that trigger the bug.
+      placeholder: |
+        1. Enable Stonewright
+        2. Call ...
+        3. See ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: WordPress, PHP, Node, Elementor, and browser details.
+  - type: textarea
+    id: verification
+    attributes:
+      label: Checks already run
+      description: Include relevant command output without secrets.

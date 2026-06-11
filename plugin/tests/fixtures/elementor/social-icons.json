@@ -6,7 +6,7 @@
         "social_icon_list": [
             {
                 "_id": "0b87b64",
-                "social": {
+                "social_icon": {
                     "value": "fab fa-facebook-f",
                     "library": "fa-brands"
                 },

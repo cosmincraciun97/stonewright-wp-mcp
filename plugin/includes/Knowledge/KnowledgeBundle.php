@@ -110,12 +110,14 @@ final class KnowledgeBundle {
 
 					$id = Skills::save(
 						[
-							'slug'        => $slug,
-							'title'       => (string) ( $entry['title'] ?? $slug ),
-							'description' => (string) ( $entry['description'] ?? '' ),
-							'content'     => (string) $entry['content'],
-							'enabled'     => (bool) ( $entry['enabled'] ?? true ),
-							'source'      => in_array( $source, [ 'user', 'uploaded' ], true ) ? $source : 'uploaded',
+							'slug'           => $slug,
+							'title'          => (string) ( $entry['title'] ?? $slug ),
+							'description'    => (string) ( $entry['description'] ?? '' ),
+							'content'        => (string) $entry['content'],
+							'enabled'        => (bool) ( $entry['enabled'] ?? true ),
+							'enable_agentic' => (bool) ( $entry['enable_agentic'] ?? ( $entry['enabled'] ?? true ) ),
+							'enable_prompt'  => (bool) ( $entry['enable_prompt'] ?? ( $entry['enabled'] ?? true ) ),
+							'source'         => in_array( $source, [ 'user', 'uploaded' ], true ) ? $source : 'uploaded',
 						]
 					);
 					if ( $id > 0 ) {

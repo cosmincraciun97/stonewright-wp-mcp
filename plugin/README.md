@@ -82,6 +82,14 @@ skills, memory, custom instructions, and required followups.
 Manual edits in the Stonewright admin Skills/Memory/Instructions pages persist
 between sessions because they are stored in WordPress options/custom tables.
 
+### Prompting Guide In Admin
+
+The Configuration page includes a copyable bootstrap prompt and a copyable
+prompting guide. Use them when onboarding a new AI client or explaining how a
+site owner should brief an agent. The guide asks for the target surface,
+allowed plugins, safety mode, design references, asset rules, and desktop,
+tablet, and mobile acceptance checks.
+
 ## Adding An Ability
 
 1. Create a class extending `AbilityKernel` in `includes/Abilities/<Category>/`.
@@ -129,3 +137,12 @@ Authentication uses WordPress Application Passwords.
 
 MCP tool names are hyphenated by the WordPress MCP Adapter. Example:
 `stonewright/context-bootstrap` is called as `stonewright-context-bootstrap`.
+
+Admins using authenticated REST directly can call:
+
+```http
+POST /wp-json/stonewright/v1/abilities/run
+```
+
+with a JSON body containing `name` and `input`. Write abilities still require
+the `stonewright_context_token` returned by `stonewright/context-bootstrap`.

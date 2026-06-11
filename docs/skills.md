@@ -4,6 +4,13 @@ Stonewright ships skill packs in `skills/`. Persistent site skills can also be
 created or edited in the WordPress admin and are loaded through
 MCP tool `stonewright-context-bootstrap` at the start of each task.
 
+Each skill has a master active toggle and two exposure flags:
+
+- **Auto-match** adds the skill description to the compact routing index used
+  during context bootstrap. Keep these descriptions short to reduce token use.
+- **Prompt/command** keeps the skill available for explicit user or client
+  selection without forcing it into automatic matching.
+
 | Skill | Directory | Description |
 |---|---|---|
 | `design-to-wordpress` | `skills/design-to-wordpress/` | Build pages from design references, images, briefs, or manual specs |
@@ -17,6 +24,8 @@ MCP tool `stonewright-context-bootstrap` at the start of each task.
 
 - Call `stonewright-context-bootstrap` before planning or writing.
 - If a returned skill matches the task, read and follow it.
+- Put large or rarely needed playbooks in prompt/command mode instead of
+  auto-match mode.
 - Call `stonewright-learning-record` when the user corrects a repeatable
   mistake so future sessions inherit the lesson.
 - For Elementor, use native widgets and call the widget intent and

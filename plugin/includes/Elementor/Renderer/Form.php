@@ -95,6 +95,7 @@ final class Form {
 			'submit_actions' => isset( $node['submit_actions'] ) && is_array( $node['submit_actions'] )
 				? $node['submit_actions']
 				: [ 'email' ],
+			'column_gap'     => StyleMapper::size( 0 ),
 		];
 
 		if ( isset( $node['field_style'] ) && is_array( $node['field_style'] ) ) {

@@ -61,8 +61,13 @@ final class SandboxPage {
 			'audit'          => __( 'Audit Log', 'stonewright' ),
 		];
 		?>
-		<div class="wrap">
-			<h1><?php esc_html_e( 'Sandbox', 'stonewright' ); ?></h1>
+		<div class="wrap stonewright-admin-shell stonewright-sandbox-page">
+			<div class="stonewright-page-header">
+				<div>
+					<h1><?php esc_html_e( 'Sandbox', 'stonewright' ); ?></h1>
+					<p><?php esc_html_e( 'Draft, inspect, and activate guarded PHP files without loading unreviewed code automatically.', 'stonewright' ); ?></p>
+				</div>
+			</div>
 
 			<nav class="nav-tab-wrapper" aria-label="<?php esc_attr_e( 'Sandbox sections', 'stonewright' ); ?>">
 				<?php foreach ( $tabs as $slug => $label ) : ?>
@@ -73,7 +78,7 @@ final class SandboxPage {
 				<?php endforeach; ?>
 			</nav>
 
-			<div class="stonewright-tab-content" style="margin-top:1.5em;">
+			<div class="stonewright-tab-content">
 				<?php
 				match ( $current_tab ) {
 					'library'        => SandboxLibraryPage::render(),
@@ -121,9 +126,8 @@ final class SandboxPage {
 			}
 		}
 		?>
-		<div class="wrap">
-			<h1><?php esc_html_e( 'Sandbox', 'stonewright' ); ?></h1>
-			<p><?php esc_html_e( "Drafts in wp-content/stonewright-sandbox/. Activating copies the file to mu-plugins/ after static analysis passes. Crashed files are auto-disabled.", 'stonewright' ); ?></p>
+		<div class="stonewright-sandbox-drafts">
+			<p class="description"><?php esc_html_e( 'Drafts in wp-content/stonewright-sandbox/. Activating copies the file to mu-plugins/ after static analysis passes. Crashed files are auto-disabled.', 'stonewright' ); ?></p>
 
 			<?php if ( isset( $_GET['updated'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 				<div class="notice notice-success is-dismissible">
@@ -137,15 +141,19 @@ final class SandboxPage {
 				</div>
 			<?php endif; ?>
 
-			<?php /* New File toggle form */ ?>
-			<div style="margin-bottom: 1em;">
-				<button type="button" class="button" onclick="document.getElementById('stonewright-new-file-form').style.display='block';this.style.display='none';">
-					<?php esc_html_e( '+ New File', 'stonewright' ); ?>
+			<div class="stonewright-toolbar">
+				<button
+					type="button"
+					class="button"
+					data-stonewright-toggle-target="stonewright-new-file-form"
+					data-stonewright-focus-target="stonewright_new_filename"
+				>
+					<?php esc_html_e( 'New File', 'stonewright' ); ?>
 				</button>
 			</div>
 
-			<div id="stonewright-new-file-form" style="display:none; background:#fff; border:1px solid #ccd0d4; padding:16px; margin-bottom:1.5em; max-width:640px;">
-				<h2 style="margin-top:0;"><?php esc_html_e( 'Create New Sandbox File', 'stonewright' ); ?></h2>
+			<div id="stonewright-new-file-form" class="stonewright-panel stonewright-sandbox-new-file" hidden>
+				<h2><?php esc_html_e( 'Create New Sandbox File', 'stonewright' ); ?></h2>
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 					<input type="hidden" name="action" value="stonewright_sandbox_create"/>
 					<?php wp_nonce_field( self::NONCE_ACTION, '_stonewright_nonce' ); ?>
@@ -165,22 +173,28 @@ final class SandboxPage {
 									<label for="stonewright_new_contents"><?php esc_html_e( 'Contents', 'stonewright' ); ?></label>
 								</th>
 								<td>
-									<textarea id="stonewright_new_contents" name="stonewright_contents" rows="12" cols="80" style="font-family:monospace;"></textarea>
+									<textarea id="stonewright_new_contents" name="stonewright_contents" rows="12" cols="80" class="large-text code"></textarea>
 								</td>
 							</tr>
 						</tbody>
 					</table>
 					<?php submit_button( __( 'Create File', 'stonewright' ), 'primary', 'submit', false ); ?>
 					&nbsp;
-					<button type="button" class="button" onclick="document.getElementById('stonewright-new-file-form').style.display='none';document.querySelector('.button[onclick]').style.display='';">
+					<button
+						type="button"
+						class="button"
+						data-stonewright-hide-target="stonewright-new-file-form"
+					>
 						<?php esc_html_e( 'Cancel', 'stonewright' ); ?>
 					</button>
 				</form>
-			</div>		<?php /* File card grid */ ?>
+			</div>
 			<?php if ( empty( $files ) ) : ?>
-				<p><?php esc_html_e( 'No sandbox files yet. Create one above.', 'stonewright' ); ?></p>
+				<div class="stonewright-empty-state">
+					<p><?php esc_html_e( 'No sandbox files yet. Create one above.', 'stonewright' ); ?></p>
+				</div>
 			<?php else : ?>
-				<div class="sw-card-grid">
+				<div class="stonewright-card-grid stonewright-sandbox-grid">
 					<?php foreach ( $files as $file ) : ?>
 					<?php
 					$fname  = $file['name'];
@@ -195,26 +209,26 @@ final class SandboxPage {
 						default    => 'sw-badge sw-badge--draft',
 					};
 					?>
-					<div class="sw-card">
-						<div class="sw-card__header">
-							<div class="sw-card__title-row">
-								<span class="sw-card__title"><?php echo esc_html( $fname ); ?></span>
+					<div class="stonewright-card">
+						<div class="stonewright-card__header">
+							<div class="stonewright-card__title-row">
+								<span class="stonewright-card__title"><?php echo esc_html( $fname ); ?></span>
 								<span class="<?php echo esc_attr( $badge_class ); ?>"><?php echo esc_html( ucfirst( $status ) ); ?></span>
 								<span class="sw-badge sw-badge--category">PHP</span>
 							</div>
 						</div>
-						<div class="sw-card__body">
-							<p class="sw-card__description">
-								<?php echo esc_html( $size ); ?> &mdash; <?php echo esc_html( (string) $mtime ); ?>
+						<div class="stonewright-card__body">
+							<p class="stonewright-card__description">
+								<?php echo esc_html( $size ); ?> - <?php echo esc_html( (string) $mtime ); ?>
 							</p>
 						</div>
-						<div class="sw-card__footer">
+						<div class="stonewright-card__footer">
 							<?php /* Edit link (GET) */ ?>
 							<a href="<?php echo esc_url( add_query_arg( [ 'page' => self::SLUG, 'edit' => rawurlencode( $fname ) ], admin_url( 'admin.php' ) ) ); ?>" class="button button-small"><?php esc_html_e( 'Edit', 'stonewright' ); ?></a>
 
 							<?php /* Activate */ ?>
 							<?php if ( 'draft' === $status ) : ?>
-							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form">
 								<input type="hidden" name="action" value="stonewright_sandbox_action"/>
 								<input type="hidden" name="stonewright_file_action" value="activate"/>
 								<input type="hidden" name="stonewright_filename" value="<?php echo esc_attr( $fname ); ?>"/>
@@ -225,7 +239,7 @@ final class SandboxPage {
 
 							<?php /* Deactivate */ ?>
 							<?php if ( 'active' === $status ) : ?>
-							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form">
 								<input type="hidden" name="action" value="stonewright_sandbox_action"/>
 								<input type="hidden" name="stonewright_file_action" value="deactivate"/>
 								<input type="hidden" name="stonewright_filename" value="<?php echo esc_attr( $fname ); ?>"/>
@@ -236,7 +250,7 @@ final class SandboxPage {
 
 							<?php /* Disable */ ?>
 							<?php if ( 'active' === $status ) : ?>
-							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form">
 								<input type="hidden" name="action" value="stonewright_sandbox_action"/>
 								<input type="hidden" name="stonewright_file_action" value="disable"/>
 								<input type="hidden" name="stonewright_filename" value="<?php echo esc_attr( $fname ); ?>"/>
@@ -247,7 +261,7 @@ final class SandboxPage {
 
 							<?php /* Enable */ ?>
 							<?php if ( 'disabled' === $status ) : ?>
-							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
+							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form">
 								<input type="hidden" name="action" value="stonewright_sandbox_action"/>
 								<input type="hidden" name="stonewright_file_action" value="enable"/>
 								<input type="hidden" name="stonewright_filename" value="<?php echo esc_attr( $fname ); ?>"/>
@@ -257,12 +271,16 @@ final class SandboxPage {
 							<?php endif; ?>
 
 							<?php /* Delete */ ?>
-							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;" onsubmit="return confirm('<?php echo esc_js( __( 'Delete this file? This cannot be undone.', 'stonewright' ) ); ?>');">
+							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form">
 								<input type="hidden" name="action" value="stonewright_sandbox_action"/>
 								<input type="hidden" name="stonewright_file_action" value="delete"/>
 								<input type="hidden" name="stonewright_filename" value="<?php echo esc_attr( $fname ); ?>"/>
 								<?php wp_nonce_field( self::NONCE_ACTION, '_stonewright_nonce' ); ?>
-								<button type="submit" class="button button-small button-link-delete"><?php esc_html_e( 'Delete', 'stonewright' ); ?></button>
+								<button
+									type="submit"
+									class="button button-small button-link-delete"
+									data-confirm="<?php esc_attr_e( 'Delete this file? This cannot be undone.', 'stonewright' ); ?>"
+								><?php esc_html_e( 'Delete', 'stonewright' ); ?></button>
 							</form>
 						</div>
 					</div>
@@ -272,7 +290,7 @@ final class SandboxPage {
 
 			<?php /* Inline editor */ ?>
 			<?php if ( '' !== $edit_name ) : ?>
-				<div style="margin-top:2em;">
+				<div class="stonewright-panel stonewright-editor-panel">
 					<h2><?php echo esc_html( __( 'Editing: ', 'stonewright' ) . $edit_name ); ?></h2>
 
 					<?php if ( '' !== $edit_error ) : ?>
@@ -296,7 +314,7 @@ final class SandboxPage {
 											<label for="stonewright_edit_contents"><?php esc_html_e( 'Contents', 'stonewright' ); ?></label>
 										</th>
 										<td>
-											<textarea id="stonewright_edit_contents" name="stonewright_contents" rows="25" cols="100" style="font-family:monospace;width:100%;max-width:900px;"><?php echo esc_textarea( $edit_contents ); ?></textarea>
+											<textarea id="stonewright_edit_contents" name="stonewright_contents" rows="25" cols="100" class="large-text code"><?php echo esc_textarea( $edit_contents ); ?></textarea>
 										</td>
 									</tr>
 								</tbody>
@@ -320,13 +338,13 @@ final class SandboxPage {
 		$sandbox_dir = defined( 'WP_CONTENT_DIR' ) ? WP_CONTENT_DIR . '/stonewright-sandbox/' : '';
 		$mu_dir      = defined( 'WPMU_PLUGIN_DIR' ) ? WPMU_PLUGIN_DIR . '/' : '';
 		if ( '' === $sandbox_dir || '' === $mu_dir ) {
-			echo '<p>' . esc_html__( 'MU plugin directories not defined.', 'stonewright' ) . '</p>';
+			echo '<div class="stonewright-empty-state"><p>' . esc_html__( 'MU plugin directories not defined.', 'stonewright' ) . '</p></div>';
 			return;
 		}
 		$files  = glob( $sandbox_dir . '*.php' ) ?: [];
 		$active = array_filter( $files, static fn( string $f ) => file_exists( $mu_dir . basename( $f ) ) );
 		if ( empty( $active ) ) {
-			echo '<p>' . esc_html__( 'No sandbox files are currently active as MU plugins.', 'stonewright' ) . '</p>';
+			echo '<div class="stonewright-empty-state"><p>' . esc_html__( 'No sandbox files are currently active as MU plugins.', 'stonewright' ) . '</p></div>';
 			return;
 		}
 		echo '<table class="wp-list-table widefat fixed striped"><thead><tr>';
@@ -348,7 +366,7 @@ final class SandboxPage {
 		/** @var mixed[] $log */
 		$log = (array) get_option( 'stonewright_crash_log', [] );
 		if ( empty( $log ) ) {
-			echo '<p>' . esc_html__( 'No crashes recorded.', 'stonewright' ) . '</p>';
+			echo '<div class="stonewright-empty-state"><p>' . esc_html__( 'No crashes recorded.', 'stonewright' ) . '</p></div>';
 			return;
 		}
 		echo '<table class="wp-list-table widefat fixed striped"><thead><tr>';

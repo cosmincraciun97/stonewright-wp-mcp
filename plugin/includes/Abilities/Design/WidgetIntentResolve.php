@@ -9,16 +9,7 @@ use Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetRecommender;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
- * Phase D.4 — `stonewright/widget-intent-resolve`.
- *
- * Smart-detection entry point: the LLM passes a design intent name
- * (`'nav'`, `'countdown'`, `'social-row'`, `'logo+nav'`, …) and gets
- * back the right Stonewright widget choice + a sensible settings
- * template + the upstream steps it must run first.
- *
- * This is how Stonewright surpasses competitor MCPs on "which widget
- * should I use?" — instead of dumping the full catalog and asking the
- * model to pick, the model can ask the catalog to pick.
+ * Design intent resolver ability.
  *
  * @stonewright-status stable
  */
@@ -69,6 +60,11 @@ final class WidgetIntentResolve extends AbilityKernel {
 					'type'        => 'object',
 					'description' => 'Optional free-form hints (e.g. { brand_color: "#FF0", menu_term_id: 5001, count: 4 }) the resolver may use in future versions to refine the template. Currently passed through verbatim.',
 				],
+				'forbid_html_widget' => [
+					'type'        => 'boolean',
+					'description' => 'When true, a resolution to Elementor HTML/raw-html widgets is rejected with stonewright_html_widget_forbidden.',
+					'default'     => false,
+				],
 			],
 		];
 	}
@@ -117,6 +113,7 @@ final class WidgetIntentResolve extends AbilityKernel {
 	public function execute( array $args ): array|\WP_Error {
 		$intent = isset( $args['intent'] ) && is_string( $args['intent'] ) ? $args['intent'] : '';
 		$source = 'intent';
+		$forbid_html_widget = ! empty( $args['forbid_html_widget'] );
 
 		if ( '' === $intent && isset( $args['design_node'] ) && is_array( $args['design_node'] ) ) {
 			$intent = WidgetIntentResolver::detect_from_design_tree( $args['design_node'] ) ?? '';
@@ -136,7 +133,17 @@ final class WidgetIntentResolve extends AbilityKernel {
 			);
 		}
 
-		$entry = WidgetIntentResolver::resolve( $intent );
+		$entry   = WidgetIntentResolver::resolve( $intent );
+		$widget  = isset( $entry['widget'] ) ? (string) $entry['widget'] : null;
+		$widgets = array_values( (array) ( $entry['widgets'] ?? [] ) );
+
+		if ( $forbid_html_widget && self::uses_html_widget( $intent, $widget, $widgets ) ) {
+			return new \WP_Error(
+				'stonewright_html_widget_forbidden',
+				__( 'The Elementor HTML widget is forbidden for this design task. Use native Elementor widgets or structured containers instead.', 'stonewright' ),
+				[ 'status' => 400 ]
+			);
+		}
 
 		// Recast `settings_template` to an object so the schema validates
 		// as `object` even when the resolved template is an empty array.
@@ -153,12 +160,24 @@ final class WidgetIntentResolve extends AbilityKernel {
 			'intent'            => $intent,
 			'matched'           => ! empty( $entry ),
 			'source'            => $source,
-			'widget'            => $entry['widget']  ?? null,
-			'widgets'           => array_values( (array) ( $entry['widgets'] ?? [] ) ),
+			'widget'            => $widget,
+			'widgets'           => $widgets,
 			'settings_template' => $template,
 			'required_steps'    => array_values( (array) ( $entry['required_steps'] ?? [] ) ),
 			'description'       => $entry['description'] ?? null,
 			'recommendations'   => $recommendations,
 		];
+	}
+
+	/**
+	 * @param list<mixed> $widgets
+	 */
+	private static function uses_html_widget( string $intent, ?string $widget, array $widgets ): bool {
+		$candidates = array_map(
+			static fn( mixed $value ): string => strtolower( str_replace( '_', '-', (string) $value ) ),
+			array_merge( [ $intent, $widget ], $widgets )
+		);
+
+		return [] !== array_intersect( $candidates, [ 'html', 'raw-html', 'custom-html', 'elementor-html' ] );
 	}
 }

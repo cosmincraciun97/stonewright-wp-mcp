@@ -131,6 +131,15 @@ if ( ! function_exists( 'get_current_user_id' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_get_current_user' ) ) {
+	function wp_get_current_user(): object {
+		return (object) [
+			'ID'         => (int) ( $GLOBALS['stonewright_test_current_user_id'] ?? 0 ),
+			'user_login' => (string) ( $GLOBALS['stonewright_test_current_user_login'] ?? 'admin' ),
+		];
+	}
+}
+
 if ( ! function_exists( 'wp_set_current_user' ) ) {
 	function wp_set_current_user( int $id, string $name = '' ): object {
 		$GLOBALS['stonewright_test_set_current_user'] = $id;
@@ -505,6 +514,14 @@ $GLOBALS['stonewright_test_filters'] ??= [];
 if ( ! function_exists( 'sanitize_text_field' ) ) {
 	function sanitize_text_field( string $text ): string {
 		return trim( strip_tags( $text ) );
+	}
+}
+
+if ( ! function_exists( 'sanitize_html_class' ) ) {
+	function sanitize_html_class( string $classname, string $fallback = '' ): string {
+		$sanitized = preg_replace( '/[^A-Za-z0-9_-]/', '-', $classname ) ?? '';
+		$sanitized = trim( $sanitized, '-' );
+		return '' !== $sanitized ? $sanitized : $fallback;
 	}
 }
 
@@ -1263,6 +1280,10 @@ if ( ! class_exists( 'WP_Block_Type_Registry' ) ) {
 		}
 
 		public function get_all_registered(): array {
+			if ( isset( $GLOBALS['stonewright_test_registered_blocks'] ) && is_array( $GLOBALS['stonewright_test_registered_blocks'] ) ) {
+				return $GLOBALS['stonewright_test_registered_blocks'];
+			}
+
 			return [
 				'core/paragraph' => (object) [
 					'title'       => 'Paragraph',

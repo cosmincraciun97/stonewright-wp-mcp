@@ -44,6 +44,11 @@ final class Status extends AbilityKernel {
 				'atomic_flag'  => [ 'type' => 'boolean' ],
 				'build'        => [ 'type' => 'string' ],
 				'capabilities' => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'elementor_version'        => [ 'type' => 'string' ],
+				'pro_elements_active'      => [ 'type' => 'boolean' ],
+				'active_widget_types'      => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'unsupported_widgets'      => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'v4_atomic_support_status' => [ 'type' => 'string' ],
 			],
 		];
 	}
@@ -60,6 +65,7 @@ final class Status extends AbilityKernel {
 				$v4_available = class_exists( '\\Elementor\\Modules\\AtomicWidgets\\Module' );
 				$atomic_flag  = (bool) get_option( 'stonewright_elementor_v4_atomic', false );
 				$build        = defined( 'ELEMENTOR_VERSION' ) ? (string) ELEMENTOR_VERSION : '';
+				$widgets      = self::active_widget_types();
 
 				$capabilities = [];
 				if ( $v4_available ) {
@@ -80,8 +86,60 @@ final class Status extends AbilityKernel {
 					'atomic_flag'  => $atomic_flag,
 					'build'        => $build,
 					'capabilities' => $capabilities,
+					'elementor_version'        => $build,
+					'pro_elements_active'      => defined( 'ELEMENTOR_PRO_VERSION' ) || class_exists( '\\ElementorPro\\Plugin' ),
+					'active_widget_types'      => $widgets,
+					'unsupported_widgets'      => self::unsupported_widgets( $widgets ),
+					'v4_atomic_support_status' => self::v4_support_status( $v4_available, $atomic_flag ),
 				];
 			}
 		);
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	private static function active_widget_types(): array {
+		if ( ! class_exists( '\\Elementor\\Plugin' ) ) {
+			return [];
+		}
+
+		$widgets_manager = \Elementor\Plugin::$instance->widgets_manager ?? null;
+		if ( ! is_object( $widgets_manager ) || ! method_exists( $widgets_manager, 'get_widget_types' ) ) {
+			return [];
+		}
+
+		$widgets = $widgets_manager->get_widget_types();
+		if ( ! is_array( $widgets ) ) {
+			return [];
+		}
+
+		return array_values( array_map( 'strval', array_keys( $widgets ) ) );
+	}
+
+	/**
+	 * @param list<string> $active_widgets
+	 * @return list<string>
+	 */
+	private static function unsupported_widgets( array $active_widgets ): array {
+		$active = array_map( 'strtolower', $active_widgets );
+		return array_values( array_diff( self::required_native_widgets(), $active ) );
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	private static function required_native_widgets(): array {
+		return [ 'button', 'container', 'heading', 'icon', 'icon-box', 'icon-list', 'image', 'text-editor' ];
+	}
+
+	private static function v4_support_status( bool $supported, bool $enabled ): string {
+		if ( $supported && $enabled ) {
+			return 'enabled';
+		}
+		if ( $supported ) {
+			return 'available-disabled';
+		}
+		return $enabled ? 'enabled-but-unavailable' : 'unavailable';
 	}
 }

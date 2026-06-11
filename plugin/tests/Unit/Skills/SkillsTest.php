@@ -93,6 +93,70 @@ final class SkillsTest extends TestCase {
 		$this->assertStringNotContainsString( 'Content B', $block );
 	}
 
+	public function test_instructions_block_omits_prompt_only_skills(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_with_rows( [
+			[
+				'id'             => '1',
+				'slug'           => 'agentic-skill',
+				'title'          => 'Agentic Skill',
+				'description'    => 'Auto routing hint',
+				'content'        => 'Auto content',
+				'enabled'        => '1',
+				'enable_agentic' => '1',
+				'enable_prompt'  => '1',
+				'source'         => 'user',
+			],
+			[
+				'id'             => '2',
+				'slug'           => 'prompt-only-skill',
+				'title'          => 'Prompt Only Skill',
+				'description'    => 'Manual playbook',
+				'content'        => 'Prompt content',
+				'enabled'        => '1',
+				'enable_agentic' => '0',
+				'enable_prompt'  => '1',
+				'source'         => 'user',
+			],
+		] );
+
+		$block = Skills::instructions_block();
+
+		$this->assertStringContainsString( 'agentic-skill', $block );
+		$this->assertStringNotContainsString( 'prompt-only-skill', $block );
+	}
+
+	public function test_list_prompt_returns_prompt_enabled_skills(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_with_rows( [
+			[
+				'id'             => '1',
+				'slug'           => 'agentic-only',
+				'title'          => 'Agentic Only',
+				'description'    => '',
+				'content'        => 'Auto content',
+				'enabled'        => '1',
+				'enable_agentic' => '1',
+				'enable_prompt'  => '0',
+				'source'         => 'user',
+			],
+			[
+				'id'             => '2',
+				'slug'           => 'prompt-skill',
+				'title'          => 'Prompt Skill',
+				'description'    => '',
+				'content'        => 'Prompt content',
+				'enabled'        => '1',
+				'enable_agentic' => '0',
+				'enable_prompt'  => '1',
+				'source'         => 'user',
+			],
+		] );
+
+		$skills = Skills::list_prompt();
+
+		$this->assertCount( 1, $skills );
+		$this->assertSame( 'prompt-skill', $skills[0]['slug'] );
+	}
+
 	public function test_memory_instructions_block_includes_compact_entries_without_raw_dump(): void {
 		$GLOBALS['wpdb'] = $this->make_wpdb_with_memory_rows( [
 			[
@@ -165,6 +229,47 @@ final class SkillsTest extends TestCase {
 		$this->assertGreaterThan( 0, $id );
 	}
 
+	public function test_save_defaults_skill_mode_flags_from_enabled(): void {
+		$GLOBALS['wpdb'] = new class() {
+			public string $prefix = 'wp_';
+			public int $insert_id = 100;
+
+			/** @var array<string, mixed> */
+			public array $inserted = [];
+
+			public function get_var( string $q ): string {
+				return 'wp_stonewright_skills';
+			}
+
+			public function prepare( string $q, mixed ...$args ): string {
+				return $q;
+			}
+
+			public function get_row( string $q, string $output = 'OBJECT' ): ?array {
+				return null;
+			}
+
+			/** @param array<string, mixed> $data */
+			public function insert( string $table, array $data, array $format = [] ): int {
+				$this->inserted = $data;
+				$this->insert_id++;
+				return 1;
+			}
+		};
+
+		$id = Skills::save( [
+			'slug'    => 'disabled-skill',
+			'title'   => 'Disabled Skill',
+			'content' => 'Content',
+			'enabled' => false,
+		] );
+
+		$this->assertGreaterThan( 0, $id );
+		$this->assertSame( 0, $GLOBALS['wpdb']->inserted['enabled'] );
+		$this->assertSame( 0, $GLOBALS['wpdb']->inserted['enable_agentic'] );
+		$this->assertSame( 0, $GLOBALS['wpdb']->inserted['enable_prompt'] );
+	}
+
 	public function test_delete_refuses_builtin_skills(): void {
 		$GLOBALS['wpdb'] = new class() {
 			public string $prefix = 'wp_';
@@ -224,14 +329,14 @@ final class SkillsTest extends TestCase {
 	/**
 	 * Creates a minimal wpdb mock where the table IS found and rows returned.
 	 *
-	 * @param array<int, array<string, string>> $rows
+	 * @param array<int, array<string, mixed>> $rows
 	 */
 	private function make_wpdb_with_rows( array $rows ): object {
 		return new class( $rows ) {
-			/** @var array<int, array<string, string>> */
+			/** @var array<int, array<string, mixed>> */
 			private array $rows;
 
-			/** @param array<int, array<string, string>> $rows */
+			/** @param array<int, array<string, mixed>> $rows */
 			public function __construct( array $rows ) {
 				$this->rows = $rows;
 			}
@@ -244,12 +349,12 @@ final class SkillsTest extends TestCase {
 				return 'wp_stonewright_skills';
 			}
 
-			/** @return array<int, array<string, string>> */
+			/** @return array<int, array<string, mixed>> */
 			public function get_results( string $q, string $output = 'OBJECT' ): array {
 				return $this->rows;
 			}
 
-			/** @return array<string, string>|null */
+			/** @return array<string, mixed>|null */
 			public function get_row( string $q, string $output = 'OBJECT' ): ?array {
 				return $this->rows[0] ?? null;
 			}

@@ -1,7 +1,7 @@
 # Stonewright agent rules
 
-These rules apply to every coding agent operating in this repository (Claude
-Code, Codex, Cursor, custom agents). They override default behavior.
+These rules apply to every coding agent operating in this repository. They
+override default behavior.
 
 ## Identity
 
@@ -27,9 +27,9 @@ Code, Codex, Cursor, custom agents). They override default behavior.
 3. **Backup before write.** Before mutating an Elementor post, a global
    styles record, a template, or any theme.json-backed content, call
    `Stonewright\WpMcp\Security\Backup::snapshot_post( $post_id )`.
-4. **Validator before render.** Before handing a design spec to any
-   renderer, call `Stonewright\WpMcp\DesignSpec\Validator::validate( $spec )`.
-   Reject invalid specs with a structured `WP_Error` whose code is
+4. **Validator before render.** Before handing a design spec to any renderer,
+   call `Stonewright\WpMcp\DesignSpec\Validator::validate( $spec )`. Reject
+   invalid specs with a structured `WP_Error` whose code is
    `stonewright_spec_invalid`.
 5. **Confirmation tokens for destructive operations.** When
    `get_option( 'stonewright_mode', 'development' ) === 'production-safe'`,
@@ -37,8 +37,8 @@ Code, Codex, Cursor, custom agents). They override default behavior.
    `ConfirmationToken::verify( $token, $ability_name, $args )`. Tokens are
    issued by `stonewright/security-issue-confirmation-token`.
 6. **Production-safe mode.** The plugin must always honor the three modes
-   `development`, `staging`, and `production-safe`. The admin UI exposes
-   the toggle. The Permissions and ability gates read the option.
+   `development`, `staging`, and `production-safe`. The admin UI exposes the
+   toggle. The Permissions and ability gates read the option.
 7. **Companion writes only through guarded WP-CLI.** The Node companion handles
    WP-CLI, health checks, and an optional MCP HTTP proxy. It must not call
    WordPress REST write endpoints, must run WP-CLI with `execFile` argv tokens
@@ -47,33 +47,34 @@ Code, Codex, Cursor, custom agents). They override default behavior.
 
 ## Clean-room rule
 
-The project was researched against existing MCP plugins (Automattic
-`wordpress-mcp`, msrbuilds `elementor-mcp`, Novamira, claudeus-wp-mcp).
-**Do not copy code, README text, prompts, schemas, identifiers, or
-documentation from any of these projects.** All naming, structure, and
-behavior must be original Stonewright work.
+The project may be compared with third-party WordPress automation and MCP tools
+only at the product-requirements level. Do not copy code, README text, prompts,
+schemas, identifiers, documentation, changelog text, UI copy, or proprietary
+workflow structure from third-party projects. Public Stonewright docs,
+changelog entries, commit messages, PR descriptions, skills, and agent guidance
+must describe original Stonewright work only.
 
 ## Required directory layout
 
-```
+```text
 stonewright-wp-mcp/
-├── plugin/                  WordPress plugin (source of truth)
-│   ├── stonewright.php      Bootstrap
-│   ├── composer.json
-│   ├── includes/
-│   │   ├── Core/            Bootstrap, hooks, registry, REST
-│   │   ├── Abilities/       One subdir per category
-│   │   ├── Admin/           Settings page
-│   │   ├── DesignSpec/      Validator + schema
-│   │   ├── Renderers/       Spec → Gutenberg / Elementor
-│   │   ├── Security/        Backup, ConfirmationToken, Permissions, AuditLog
-│   │   ├── Memory/          Site memory store
-│   │   └── Support/         Logger, Json helpers
-│   ├── blocks/              Dynamic Gutenberg blocks
-│   └── tests/
-├── companion/               Node bridge (WP-CLI, health, optional proxy)
-├── skills/                  Skill packs for Claude Code / Codex
-└── docs/
+|-- plugin/                  WordPress plugin (source of truth)
+|   |-- stonewright.php      Bootstrap
+|   |-- composer.json
+|   |-- includes/
+|   |   |-- Core/            Bootstrap, hooks, registry, REST
+|   |   |-- Abilities/       One subdir per category
+|   |   |-- Admin/           Settings page
+|   |   |-- DesignSpec/      Validator + schema
+|   |   |-- Renderers/       Spec to Gutenberg / Elementor
+|   |   |-- Security/        Backup, ConfirmationToken, Permissions, AuditLog
+|   |   |-- Memory/          Site memory store
+|   |   `-- Support/         Logger, Json helpers
+|   |-- blocks/              Dynamic Gutenberg blocks
+|   `-- tests/
+|-- companion/               Node bridge (WP-CLI, health, optional proxy)
+|-- skills/                  Skill packs for AI coding agents
+`-- docs/
 ```
 
 ## Build commands
@@ -96,10 +97,12 @@ npm test
 ## Branching and changes
 
 - Feature work happens on topic branches; main is always release-ready.
-- A change touching an ability also touches its test under
-  `plugin/tests/`. Reproduce bugs with a failing test first.
+- A change touching an ability also touches its test under `plugin/tests/`.
+  Reproduce bugs with a failing test first.
 - Every PR description must list which abilities changed and whether the
   security envelope (backup, token, permission) was affected.
+- Public commits, changelog entries, docs, skills, and PR text must not claim
+  automated authorship or disclose internal development tooling.
 
 ## When working in this repo (agent shortcut)
 
@@ -112,8 +115,8 @@ npm test
 - Persistent site skills and memory must be treated as active constraints
   across sessions. If the user corrects a repeatable mistake, record it with
   `stonewright/learning-record`.
-- Snapshot via `Backup::snapshot_post( $post_id )` before any Elementor
-  or theme.json write.
+- Snapshot via `Backup::snapshot_post( $post_id )` before any Elementor or
+  theme.json write.
 - Validate via `Validator::validate( $spec )` before rendering.
 - Run `composer test` before declaring a phase done.
 - Use `stonewright/wp-cli-status`, `stonewright/wp-cli-discover`, and

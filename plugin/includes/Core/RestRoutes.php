@@ -10,6 +10,7 @@ use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Skills\Skills;
+use Stonewright\WpMcp\Support\Utf8;
 
 /**
  * Stonewright-specific REST routes outside of the MCP transport.
@@ -64,6 +65,79 @@ final class RestRoutes {
 				'permission_callback' => [ Permissions::class, 'manage_options' ],
 				'callback'            => static function () {
 					return rest_ensure_response( AbilityRegistry::enabled_abilities() );
+				},
+			]
+		);
+
+		register_rest_route(
+			'stonewright/v1',
+			'/abilities/run',
+			[
+				'methods'             => 'POST',
+				'permission_callback' => [ Permissions::class, 'manage_options' ],
+				'args'                => [
+					'name'  => [
+						'type'     => 'string',
+						'required' => true,
+					],
+					'input' => [
+						'type'    => 'object',
+						'default' => [],
+					],
+				],
+				'callback'            => static function ( \WP_REST_Request $request ) {
+					$name  = sanitize_text_field( (string) $request->get_param( 'name' ) );
+					$input = $request->get_param( 'input' );
+					$input = is_array( $input ) ? Utf8::deep_sanitize( $input ) : [];
+
+					$ability = AbilityRegistry::ability_by_name( $name );
+					if ( null === $ability ) {
+						return new \WP_Error(
+							'stonewright_ability_not_found',
+							__( 'Ability not found.', 'stonewright' ),
+							[ 'status' => 404 ]
+						);
+					}
+
+					$master_enabled = (bool) get_option( 'stonewright_enabled', false );
+					if ( ! $master_enabled && 'stonewright/ping' !== $name ) {
+						return new \WP_Error(
+							'stonewright_disabled',
+							__( 'Master toggle is OFF.', 'stonewright' ),
+							[ 'status' => 403 ]
+						);
+					}
+
+					$disabled = (array) get_option( 'stonewright_disabled_abilities', [] );
+					if ( in_array( $name, $disabled, true ) ) {
+						return new \WP_Error(
+							'stonewright_ability_disabled',
+							__( 'Ability is disabled.', 'stonewright' ),
+							[ 'status' => 403 ]
+						);
+					}
+
+					$permission = $ability->permission_callback( $input );
+					if ( $permission instanceof \WP_Error ) {
+						return $permission;
+					}
+					if ( true !== $permission ) {
+						return new \WP_Error(
+							'stonewright_ability_forbidden',
+							__( 'You do not have permission to run this ability.', 'stonewright' ),
+							[ 'status' => 403 ]
+						);
+					}
+
+					$result = AbilityRegistry::execute_with_context_guard( $ability, $input );
+					if ( $result instanceof \WP_Error ) {
+						return $result;
+					}
+
+					return rest_ensure_response( [
+						'name'   => $name,
+						'result' => $result,
+					] );
 				},
 			]
 		);
@@ -713,31 +787,59 @@ final class RestRoutes {
 							'type'    => 'boolean',
 							'default' => false,
 						],
+						'mode'         => [
+							'type'    => 'string',
+							'default' => 'all',
+							'enum'    => [ 'all', 'agentic', 'prompt' ],
+						],
 					],
 					'callback'            => static function ( \WP_REST_Request $request ) {
 						$enabled_only = (bool) $request->get_param( 'enabled_only' );
-						$skills       = Skills::list( $enabled_only );
-						return rest_ensure_response( [ 'skills' => $skills, 'count' => count( $skills ) ] );
+						$mode         = (string) $request->get_param( 'mode' );
+
+						if ( 'agentic' === $mode ) {
+							$skills = Skills::list_agentic();
+						} elseif ( 'prompt' === $mode ) {
+							$skills = Skills::list_prompt();
+						} else {
+							$skills = Skills::list( $enabled_only );
+							$mode   = 'all';
+						}
+
+						return rest_ensure_response( [
+							'skills' => $skills,
+							'count'  => count( $skills ),
+							'mode'   => $mode,
+						] );
 					},
 				],
 				[
 					'methods'             => 'POST',
 					'permission_callback' => [ Permissions::class, 'manage_options' ],
 					'args'                => [
-						'slug'        => [ 'type' => 'string', 'required' => true ],
-						'title'       => [ 'type' => 'string', 'required' => true ],
-						'description' => [ 'type' => 'string', 'default' => '' ],
-						'content'     => [ 'type' => 'string', 'required' => true ],
-						'enabled'     => [ 'type' => 'boolean', 'default' => true ],
+						'slug'           => [ 'type' => 'string', 'required' => true ],
+						'title'          => [ 'type' => 'string', 'required' => true ],
+						'description'    => [ 'type' => 'string', 'default' => '' ],
+						'content'        => [ 'type' => 'string', 'required' => true ],
+						'enabled'        => [ 'type' => 'boolean', 'default' => true ],
+						'enable_agentic' => [ 'type' => 'boolean' ],
+						'enable_prompt'  => [ 'type' => 'boolean' ],
 					],
 					'callback'            => static function ( \WP_REST_Request $request ) {
-						$id = Skills::save( [
-							'slug'        => (string) $request->get_param( 'slug' ),
-							'title'       => (string) $request->get_param( 'title' ),
-							'description' => (string) $request->get_param( 'description' ),
-							'content'     => (string) $request->get_param( 'content' ),
-							'enabled'     => (bool) $request->get_param( 'enabled' ),
-							'source'      => 'user',
+						$enabled = (bool) $request->get_param( 'enabled' );
+						$id      = Skills::save( [
+							'slug'           => (string) $request->get_param( 'slug' ),
+							'title'          => (string) $request->get_param( 'title' ),
+							'description'    => (string) $request->get_param( 'description' ),
+							'content'        => (string) $request->get_param( 'content' ),
+							'enabled'        => $enabled,
+							'enable_agentic' => null !== $request->get_param( 'enable_agentic' )
+								? (bool) $request->get_param( 'enable_agentic' )
+								: $enabled,
+							'enable_prompt'  => null !== $request->get_param( 'enable_prompt' )
+								? (bool) $request->get_param( 'enable_prompt' )
+								: $enabled,
+							'source'         => 'user',
 						] );
 						if ( 0 === $id ) {
 							return new \WP_Error( 'stonewright_skills_save_failed', __( 'Failed to save skill.', 'stonewright' ), [ 'status' => 500 ] );

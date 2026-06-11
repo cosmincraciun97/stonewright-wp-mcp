@@ -30,7 +30,6 @@ final class SkillsSeeder {
 			}
 		}
 
-		// Seed the meta-skill that teaches the LLM how to write new skills.
 		self::seed_meta_skill();
 	}
 
@@ -40,9 +39,10 @@ final class SkillsSeeder {
 			return;
 		}
 
-		// Parse YAML front matter for name/description if present.
-		$title       = self::slug_to_title( $dir_name );
-		$description = '';
+		$title          = self::slug_to_title( $dir_name );
+		$description    = '';
+		$enable_agentic = true;
+		$enable_prompt  = true;
 
 		if ( str_starts_with( ltrim( $content ), '---' ) ) {
 			$end = strpos( $content, '---', 3 );
@@ -50,43 +50,48 @@ final class SkillsSeeder {
 				$front_matter = substr( $content, 3, $end - 3 );
 				$content      = ltrim( substr( $content, $end + 3 ) );
 
-				if ( preg_match( '/^name:\s*(.+)$/m', $front_matter, $m ) ) {
-					$title = trim( $m[1] );
-				}
-				if ( preg_match( '/^description:\s*>?\s*(.+)/s', $front_matter, $m ) ) {
-					$description = trim( preg_replace( '/\s+/', ' ', $m[1] ) ?? '' );
-				}
+				$title          = self::front_matter_string( $front_matter, 'name', $title );
+				$description    = self::front_matter_string( $front_matter, 'description', $description );
+				$enable_agentic = self::front_matter_bool( $front_matter, 'enable_agentic', $enable_agentic );
+				$enable_prompt  = self::front_matter_bool( $front_matter, 'enable_prompt', $enable_prompt );
 			}
 		}
 
 		Skills::save( [
-			'slug'        => 'stonewright-' . $dir_name,
-			'title'       => $title,
-			'description' => $description,
-			'content'     => trim( $content ),
-			'enabled'     => 1,
-			'source'      => 'builtin',
+			'slug'           => 'stonewright-' . $dir_name,
+			'title'          => $title,
+			'description'    => $description,
+			'content'        => trim( $content ),
+			'enabled'        => 1,
+			'enable_agentic' => $enable_agentic,
+			'enable_prompt'  => $enable_prompt,
+			'source'         => 'builtin',
 		] );
 	}
 
 	private static function seed_meta_skill(): void {
 		Skills::save( [
-			'slug'        => 'stonewright-how-to-write-skills',
-			'title'       => 'How to write Stonewright skills',
-			'description' => 'Teaches the AI how to create new site-specific skills and playbooks.',
-			'source'      => 'builtin',
-			'enabled'     => 1,
-			'content'     => <<<'MD'
+			'slug'           => 'stonewright-how-to-write-skills',
+			'title'          => 'How to write Stonewright skills',
+			'description'    => 'Teaches agents how to create new site-specific skills and playbooks.',
+			'source'         => 'builtin',
+			'enabled'        => 1,
+			'enable_agentic' => 1,
+			'enable_prompt'  => 1,
+			'content'        => <<<'MD'
 # How to Write Stonewright Skills
 
-A skill is a Markdown playbook stored in the Stonewright admin panel that the AI follows automatically when the current task matches its description.
+A skill is a Markdown playbook stored in the Stonewright admin panel. It can be auto-matched from a task description, exposed as an explicit prompt/command, or both.
 
 ## Structure
 
 A skill should have:
-- A clear, one-line **description** (shown in the admin card and used to match tasks)
+- A clear, one-line **description** (shown in the admin card and used for auto-match)
 - A **title** (short, human-readable)
 - **Content**: step-by-step instructions, rules, and examples
+- Exposure flags:
+  - `enable_agentic`: use for concise rules that should auto-match
+  - `enable_prompt`: use for playbooks users may open explicitly
 
 ## Creating a New Skill via MCP
 
@@ -96,21 +101,78 @@ Use the ability `stonewright/skills-save`:
   "slug": "my-skill-slug",
   "title": "My Skill Title",
   "description": "One-line description of when to use this skill",
-  "content": "# My Skill\n\nStep 1: ...\nStep 2: ..."
+  "content": "# My Skill\n\nStep 1: ...\nStep 2: ...",
+  "enable_agentic": true,
+  "enable_prompt": true
 }
 ```
 
-Or visit **WordPress Admin → Stonewright → Skills** to create one manually.
+Or visit **WordPress Admin -> Stonewright -> Skills** to create one manually.
 
 ## Tips
 
 - Keep skills focused on one workflow or domain
 - Include examples of correct ability calls (e.g. `stonewright/design-build-spec`)
 - Reference exact ability names the LLM should call
+- Put large, rarely needed playbooks in prompt mode instead of auto-match mode
 - Use headings and code blocks for clarity
 - Disable skills that don't apply to the current project to keep instructions lean
 MD,
 		] );
+	}
+
+	private static function front_matter_string( string $front_matter, string $key, string $default ): string {
+		$value = self::front_matter_value( $front_matter, $key );
+		if ( null === $value ) {
+			return $default;
+		}
+
+		return trim( $value, " \t\n\r\0\x0B\"'" );
+	}
+
+	private static function front_matter_bool( string $front_matter, string $key, bool $default ): bool {
+		$value = self::front_matter_value( $front_matter, $key );
+		if ( null === $value ) {
+			return $default;
+		}
+
+		return in_array( strtolower( trim( $value, " \t\n\r\0\x0B\"'" ) ), [ '1', 'true', 'yes', 'on' ], true );
+	}
+
+	private static function front_matter_value( string $front_matter, string $key ): ?string {
+		$lines = preg_split( '/\R/', $front_matter );
+		if ( ! is_array( $lines ) ) {
+			return null;
+		}
+
+		$pattern = '/^' . preg_quote( $key, '/' ) . ':\s*(.*)$/';
+		foreach ( $lines as $index => $line ) {
+			if ( ! preg_match( $pattern, trim( $line ), $match ) ) {
+				continue;
+			}
+
+			$value = trim( (string) ( $match[1] ?? '' ) );
+			if ( ! in_array( $value, [ '>', '|' ], true ) ) {
+				return preg_replace( '/\s+/', ' ', $value ) ?? $value;
+			}
+
+			$folded = [];
+			for ( $i = $index + 1, $total = count( $lines ); $i < $total; ++$i ) {
+				$next = (string) $lines[ $i ];
+				if ( '' !== trim( $next ) && preg_match( '/^[A-Za-z0-9_-]+:\s*/', $next ) ) {
+					break;
+				}
+				$folded[] = trim( $next );
+			}
+
+			$result = trim( implode( ' ', array_filter(
+				$folded,
+				static fn( string $line ): bool => '' !== $line
+			) ) );
+			return preg_replace( '/\s+/', ' ', $result ) ?? $result;
+		}
+
+		return null;
 	}
 
 	private static function slug_to_title( string $slug ): string {

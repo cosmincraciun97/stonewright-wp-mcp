@@ -319,6 +319,69 @@ final class ElementorRendererTest extends TestCase {
 		$this->assertSame( '48', $result['settings']['flex_gap']['column'] );
 	}
 
+	public function test_render_centers_fixed_width_inner_container_in_full_width_section(): void {
+		$spec        = [
+			'sections' => [
+				[
+					'type'      => 'section',
+					'fullWidth' => true,
+					'blocks'    => [
+						[
+							'type'      => 'container',
+							'layout'    => 'flex',
+							'direction' => 'column',
+							'width'     => 1280,
+						],
+					],
+				],
+			],
+		];
+		$diagnostics = [];
+		$result      = Renderer::render( $spec, $diagnostics );
+
+		$this->assertSame( 'center', $result[0]['settings']['flex_align_items'] ?? null );
+	}
+
+	public function test_render_shrinks_percent_row_children_when_gap_would_wrap(): void {
+		$spec        = [
+			'sections' => [
+				[
+					'type'   => 'section',
+					'blocks' => [
+						[
+							'type'      => 'container',
+							'layout'    => 'flex',
+							'direction' => 'row',
+							'gap'       => 80,
+							'width'     => 1280,
+							'blocks'    => [
+								[
+									'type'  => 'container',
+									'style' => [ 'width' => '49%' ],
+								],
+								[
+									'type'  => 'container',
+									'style' => [ 'width' => '49%' ],
+								],
+							],
+						],
+					],
+				],
+			],
+		];
+		$diagnostics = [];
+		$result      = Renderer::render( $spec, $diagnostics );
+
+		$row       = $result[0]['elements'][0];
+		$first     = $row['elements'][0]['settings']['width']['size'];
+		$second    = $row['elements'][1]['settings']['width']['size'];
+		$gap_ratio = 80 / 1280 * 100;
+
+		$this->assertLessThanOrEqual( 100, $first + $second + $gap_ratio );
+		$this->assertLessThan( 49, $first );
+		$this->assertSame( $first, $second );
+	}
+
 	public function test_container_maps_visual_frame_style_to_native_settings(): void {
 		$node   = [
 			'type'   => 'container',
@@ -668,6 +731,25 @@ final class ElementorRendererTest extends TestCase {
 		];
 		$result = SocialIcons::render( $node, $this->resolver, 's0.b0' );
 		$this->assertSame( $this->fixture( 'social-icons' ), $result );
+	}
+
+	public function test_social_icons_uses_elementor_social_icon_repeater_key(): void {
+		$node   = [
+			'type'  => 'social-icons',
+			'icons' => [
+				[
+					'network' => 'instagram',
+					'icon'    => 'fab fa-instagram',
+					'url'     => 'https://instagram.com/example',
+				],
+			],
+		];
+		$result = SocialIcons::render( $node, $this->resolver, 's0.b0' );
+		$item   = $result['settings']['social_icon_list'][0];
+
+		$this->assertArrayHasKey( 'social_icon', $item );
+		$this->assertArrayNotHasKey( 'social', $item );
+		$this->assertSame( 'fab fa-instagram', $item['social_icon']['value'] );
 	}
 
 	public function test_progress_bar_renderer(): void {

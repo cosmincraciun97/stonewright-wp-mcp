@@ -17,7 +17,7 @@ final class SkillsTable {
 	private const VERSION_OPTION = 'stonewright_skills_db_version';
 
 	/** @var string Current schema version */
-	private const SCHEMA_VERSION = '1.0';
+	private const SCHEMA_VERSION = '1.1';
 
 	public static function table_name(): string {
 		global $wpdb;
@@ -55,6 +55,8 @@ final class SkillsTable {
 			description text NOT NULL DEFAULT '',
 			content mediumtext NOT NULL,
 			enabled tinyint(1) NOT NULL DEFAULT 1,
+			enable_agentic tinyint(1) NOT NULL DEFAULT 1,
+			enable_prompt tinyint(1) NOT NULL DEFAULT 1,
 			source varchar(20) NOT NULL DEFAULT 'user',
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

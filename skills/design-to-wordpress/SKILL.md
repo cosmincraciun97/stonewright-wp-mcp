@@ -27,6 +27,7 @@ a separate design MCP when a design file must be inspected.
 design reference / image / brief
   -> stonewright/design-import-image OR manual Design Spec
   -> stonewright/design-extract-tokens
+  -> global-style preflight for Elementor/FSE when relevant
   -> stonewright/design-build-spec
   -> stonewright/design-validate-spec
   -> stonewright/design-choose-renderer
@@ -40,6 +41,11 @@ design reference / image / brief
 ## Elementor implementation discipline
 
 - Use real Elementor widgets for the detected intent.
+- Before the first page write, prepare a global-style plan from the measured
+  tokens: reusable kit colors, reusable kit typography, and values that should
+  stay local to this page. If the user has approved site-wide design changes,
+  update Elementor kit colors/typography before building page elements; otherwise
+  keep the values local in widget/container controls.
 - Do not use HTML widgets unless the user explicitly asks for HTML and the call
   includes `allow_html_widget=true`.
 - Configure Content, Style, and Advanced controls. Do not only insert widgets.

@@ -54,7 +54,7 @@ final class ContextBuilder {
 	 * @return array<int, array<string, mixed>>
 	 */
 	private static function matched_skills( string $task, string $surface ): array {
-		$skills = Skills::list( true );
+		$skills = Skills::list_agentic();
 		if ( [] === $skills ) {
 			return [];
 		}
@@ -169,11 +169,13 @@ final class ContextBuilder {
 			'principle'                        => 'Do not implement visual work blind. Measure the reference, build with native controls, screenshot the result, then iterate.',
 			'required_steps'                   => [
 				'Extract measured tokens from the reference screenshot before writing: canvas size, section bounds, max widths, colors, typography, spacing, and asset crop bounds.',
+				'Before the first Elementor write, create a global-style plan: reusable color/typography tokens, Elementor kit updates if approved, and page-local values that should remain local.',
 				'Create a section-by-section implementation plan with outer section, inner max-width container, rows/columns, widget choices, and responsive breakpoints.',
 				'Use the exact Elementor control keys from widget schema or stonewright/elementor-describe-widget; do not invent CSS-like setting names.',
 				'Use dedicated stonewright/elementor-add-* widget abilities for known widgets. Use stonewright/elementor-v3-add-widget only for unknown or third-party widgets.',
 				'Set page template to Elementor Canvas when the user asks for no header and no footer.',
 				'Do not use the design canvas width as a fixed live page width; translate it into max-width, percentage widths, and responsive padding.',
+				'Before full-page screenshots, scroll through the page or otherwise preload lazy-loaded media so missing assets are not mistaken for layout failures.',
 				'Fail the implementation if document.documentElement.scrollWidth is greater than document.documentElement.clientWidth by more than 1px at desktop, tablet, or mobile viewport.',
 				'After each write pass, capture a browser screenshot at the same viewport as the reference and list visible deltas: width, alignment, spacing, color, font size, overflow, and missing assets.',
 				'Iterate until the screenshot matches the reference in the main layout before declaring completion.',
@@ -208,6 +210,7 @@ final class ContextBuilder {
 		if ( 'elementor' === $surface ) {
 			$steps[] = 'Call stonewright/widget-intent-resolve before choosing Elementor widgets.';
 			$steps[] = 'Call stonewright/elementor-widget-implementation-guide before writing Elementor elements.';
+			$steps[] = 'Before building design-derived pages, plan Elementor kit colors/typography first; if site-wide changes are approved, update the active kit before writing page elements.';
 			$steps[] = 'Configure relevant Content, Style, and Advanced controls, including responsive values.';
 			$steps[] = 'When the guide asks for online research, use official Elementor documentation before writing.';
 		}

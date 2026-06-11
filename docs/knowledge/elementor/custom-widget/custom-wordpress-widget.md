@@ -9,7 +9,7 @@ harvest_source: gemini-browser
 ---
 
 ## Purpose
-Legacy Widgets – Rigid, sidebar-dependent, and heavily reliant on manual PHP registration. Gutenberg Blocks – React-based components requiring deep JavaScript knowledge to build from scratch. Elementor Widgets – Visual, drag-and-drop components offering granular design control without writing CSS. Headless Components – API-driven widgets pulling data into decoupled front-ends. AI-Generated Snippets – Dynamic code blocks created through natural language prompting.
+Legacy Widgets – Rigid, sidebar-dependent, and heavily reliant on manual PHP registration. Gutenberg Blocks – React-based components requiring deep JavaScript knowledge to build from scratch. Elementor Widgets – Visual, drag-and-drop components offering granular design control without writing CSS. Headless Components – API-driven widgets pulling data into decoupled front-ends. Generated Snippets – Dynamic code blocks created through natural language prompting.
 
 ## Use this when
 - Can I build a custom widget without knowing PHP

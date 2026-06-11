@@ -35,10 +35,16 @@ final class SkillsList extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
-				'enabled_only' => [
+				'enabled_only'    => [
 					'type'        => 'boolean',
 					'description' => 'When true, only return enabled skills.',
 					'default'     => false,
+				],
+				'mode'            => [
+					'type'        => 'string',
+					'enum'        => [ 'all', 'agentic', 'prompt' ],
+					'description' => 'Filter by exposure mode. agentic returns auto-matched skills; prompt returns explicit command/prompt skills.',
+					'default'     => 'all',
 				],
 				'include_content' => [
 					'type'        => 'boolean',
@@ -58,8 +64,9 @@ final class SkillsList extends AbilityKernel {
 					'items' => [ 'type' => 'object' ],
 				],
 				'count'  => [ 'type' => 'integer' ],
+				'mode'   => [ 'type' => 'string' ],
 			],
-			'required'   => [ 'skills', 'count' ],
+			'required'   => [ 'skills', 'count', 'mode' ],
 		];
 	}
 
@@ -69,8 +76,17 @@ final class SkillsList extends AbilityKernel {
 
 	public function execute( array $args ): array|\WP_Error {
 		$enabled_only    = (bool) ( $args['enabled_only'] ?? false );
+		$mode            = (string) ( $args['mode'] ?? 'all' );
 		$include_content = (bool) ( $args['include_content'] ?? false );
-		$skills          = Skills::list( $enabled_only );
+
+		if ( 'agentic' === $mode ) {
+			$skills = Skills::list_agentic();
+		} elseif ( 'prompt' === $mode ) {
+			$skills = Skills::list_prompt();
+		} else {
+			$skills = Skills::list( $enabled_only );
+			$mode   = 'all';
+		}
 
 		if ( ! $include_content ) {
 			$skills = array_map(
@@ -86,6 +102,7 @@ final class SkillsList extends AbilityKernel {
 		return [
 			'skills' => $skills,
 			'count'  => count( $skills ),
+			'mode'   => $mode,
 		];
 	}
 }

@@ -253,6 +253,8 @@
           }
         },
         "caption": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
         "id": { "type": ["integer", "string"] },
         "height": { "type": ["integer", "number", "string"] },
         "gap": { "type": ["string", "number"] },
@@ -334,6 +336,26 @@
         "shape": { "type": "string" },
         "align": { "type": "string" },
         "html": { "type": "string" },
+        "library": { "type": "string" },
+        "title_size": { "type": "string" },
+        "icon_color": { "type": "string" },
+        "divider_color": { "type": "string" },
+        "starting_number": { "type": ["integer", "number", "string"] },
+        "ending_number": { "type": ["integer", "number", "string"] },
+        "from": { "type": ["integer", "number", "string"] },
+        "to": { "type": ["integer", "number", "string"] },
+        "duration": { "type": ["integer", "number", "string"] },
+        "prefix": { "type": "string" },
+        "suffix": { "type": "string" },
+        "number_size": { "type": ["integer", "number", "string"] },
+        "show_labels": { "type": ["boolean", "string"] },
+        "custom_labels": { "type": ["boolean", "string"] },
+        "expire_actions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "expire_message": { "type": "string" },
+        "expire_redirect_url": { "type": "string" },
         "blocks": {
           "type": "array",
           "items": { "$ref": "#/$defs/block" }

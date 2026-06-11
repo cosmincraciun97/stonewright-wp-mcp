@@ -76,7 +76,9 @@ final class ListRegisteredBlocks extends AbilityKernel {
 				'category'    => isset( $type->category ) ? (string) $type->category : '',
 				'description' => isset( $type->description ) ? (string) $type->description : '',
 				'icon'        => isset( $type->icon ) ? (string) $type->icon : '',
+				'keywords'    => isset( $type->keywords ) ? (array) $type->keywords : [],
 				'supports'    => isset( $type->supports ) ? (array) $type->supports : [],
+				'example'     => isset( $type->example ) ? (array) $type->example : [],
 				'is_dynamic'  => is_callable( $type->render_callback ?? null ),
 			];
 		}

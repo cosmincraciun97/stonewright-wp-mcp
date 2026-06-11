@@ -67,7 +67,7 @@ key in the same scope replaces the record rather than creating a duplicate.
 | Type | Intended use |
 |---|---|
 | `user` | Facts about the site owner or their preferences |
-| `feedback` | AI-generated notes on what worked or didn't |
+| `feedback` | Notes on what worked or did not |
 | `project` | Project-specific context (goals, constraints, tech stack) |
 | `reference` | External references (URLs, IDs, codes) |
 | `generic` | Anything that doesn't fit a specific category |
@@ -110,11 +110,10 @@ text or JSON. Submitting posts to
 
 ### Editing an entry
 
-Editing inline is not yet in the current wave. To change a value, delete the
-existing entry and re-add it, or use the REST endpoint
-`POST /stonewright/v1/memory` with the same scope/key (an upsert will overwrite
-the existing row) or `POST /stonewright/v1/memory` passing `id` for a targeted
-update.
+Click **Edit** in the Actions column to reveal the entry form in place. Saving
+posts to `admin-post.php?action=stonewright_memory_update`, validates the
+nonce, and updates the existing row by ID. The REST endpoint
+`POST /stonewright/v1/memory` can also update by scope/key or by passing `id`.
 
 ### Deleting an entry
 
