@@ -1,35 +1,50 @@
-# Claude Code working notes for Stonewright
+# Stonewright Agent Guide
 
-Stonewright is a WordPress MCP plugin. See `AGENTS.md` for the hard rules.
+Stonewright is a WordPress MCP plugin with an optional Node companion.
 
-## When working in this repo
+## Identity
 
-- Use the `Stonewright\WpMcp` PHP namespace and the `stonewright/` ability prefix.
-- In MCP clients, call `stonewright-context-bootstrap` at the start of every Stonewright task and obey returned skills, memory, and instructions through the whole task. Slash names such as `stonewright/context-bootstrap` are WordPress ability names; MCP tool names use hyphens.
-- Use `stonewright/learning-record` when the user corrects a repeatable mistake so the lesson persists across sessions.
-- Use `Stonewright\WpMcp\Security\Backup::snapshot_post( $post_id )` before any Elementor or theme.json write.
-- Use `Stonewright\WpMcp\DesignSpec\Validator::validate( $spec )` before rendering. Reject invalid specs with a structured `WP_Error`.
-- Run `composer test` before declaring a phase done.
-- Use the companion (`companion/`) for WP-CLI, health checks, and the optional MCP HTTP proxy. WP-CLI must use argv tokens through `execFile`, never shell strings or arbitrary PHP entry points.
-- Do not add Figma ingestion or automated QA back into Stonewright; use separate tools and user feedback for those workflows.
+- PHP namespace: `Stonewright\WpMcp`
+- Ability prefix: `stonewright/`
+- MCP server id: `stonewright`
+- Composer package: `stonewright/wp-mcp`
+- NPM package: `@stonewright/companion`
+- Plugin license: `GPL-2.0-or-later`
+- Companion license: `MIT`
 
-## Useful project commands
+## Hard Rules
+
+- Do not add arbitrary PHP execution, dynamic PHP eval paths, or shell escape
+  hatches.
+- Write, update, and delete abilities must use real permission callbacks.
+- Snapshot posts, templates, Elementor data, and theme JSON-backed content
+  before mutation.
+- Validate design specs before rendering.
+- Honor `development`, `staging`, and `production-safe` modes.
+- Destructive production-safe operations require confirmation tokens.
+- Companion writes go through guarded WP-CLI only.
+- Keep public docs, changelogs, commits, and release notes original and free of
+  automated-authorship claims.
+
+## Checks
 
 ```bash
-# PHP side
 cd plugin
-composer install
 composer test
 composer phpstan
 composer phpcs
+composer security:audit
+composer dependencies:audit
 
-# Node side
-cd companion
-npm install
-npm run build
+cd ../companion
+npm run typecheck
 npm test
+npm run build
 ```
 
-## When fixing a bug
+## Task Start
 
-Reproduce with a failing test first under `plugin/tests/`. Then fix. Then verify.
+- Use `stonewright-context-bootstrap` or `stonewright-workflow-preflight` before
+  Stonewright MCP work.
+- Treat persistent memory and skills as active project constraints.
+- Record repeatable lessons with `stonewright/learning-record`.
