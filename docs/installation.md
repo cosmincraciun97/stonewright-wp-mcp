@@ -195,8 +195,9 @@ The complete command list is generated in
 }
 ```
 
-3. Confirm the response includes `context_token`, `mode`, `auth_guidance`, and
-   `fast_path`.
+3. Confirm the response includes `context_token`, `mode`, `auth_guidance`,
+   `fast_path.task_profile`, `fast_path.recommended_mcp_tools`, and
+   `fast_path.call_sequence`.
 4. Call `stonewright-context-bootstrap` with:
 
 ```json

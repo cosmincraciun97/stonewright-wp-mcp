@@ -38,8 +38,8 @@ Write abilities require that token.
 
 Agents can call `stonewright-workflow-preflight` first when speed matters. It
 returns the same write token plus active mode, auth guidance, compact Elementor
-capabilities, plugin specialization guidance, and first-pass tool choices in one
-low-token response.
+capabilities, plugin specialization guidance, task-aware recommended tools,
+hyphenated MCP tool names, and compact call examples in one low-token response.
 
 `stonewright/skills-list` can filter skills by exposure mode: `all`, `agentic`
 for automatic matching, or `prompt` for explicit prompt/command entries.

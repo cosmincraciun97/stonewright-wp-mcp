@@ -7,6 +7,21 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.9] - 2026-06-11
+
+### Added
+
+- Added task-aware `stonewright/workflow-preflight` output with compact
+  `task_profile`, hyphenated `recommended_mcp_tools`, and a `call_sequence`
+  containing example arguments for common Elementor, WP-CLI, and
+  production-safe destructive workflows.
+- Added release documentation for the alpha.9 preflight fast-path contract.
+
+### Changed
+
+- Updated the public README, plugin README, and installation docs to describe
+  the task-aware preflight response shape.
+
 ## [1.0.0-alpha.8] - 2026-06-11
 
 ### Fixed
@@ -138,6 +153,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.9]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.9
 [1.0.0-alpha.8]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.8
 [1.0.0-alpha.7]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.7
 [1.0.0-alpha.6]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.6

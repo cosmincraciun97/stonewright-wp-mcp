@@ -95,6 +95,68 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright/wp-cli-discover', $result['fast_path']['recommended_tools'] );
 	}
 
+	public function test_workflow_preflight_returns_task_aware_mcp_call_sequence(): void {
+		$result = ( new WorkflowPreflight() )->execute(
+			[
+				'task'    => 'Build a visual Elementor landing page from a design with native widgets.',
+				'surface' => 'elementor',
+				'intent'  => 'write',
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertArrayHasKey( 'task_profile', $result['fast_path'] );
+		self::assertSame( 'elementor', $result['fast_path']['task_profile']['surface'] );
+		self::assertSame( 'write', $result['fast_path']['task_profile']['intent'] );
+		self::assertTrue( $result['fast_path']['task_profile']['is_write'] );
+		self::assertTrue( $result['fast_path']['task_profile']['needs_visual_check'] );
+
+		self::assertArrayHasKey( 'recommended_mcp_tools', $result['fast_path'] );
+		self::assertContains( 'stonewright-widget-intent-resolve', $result['fast_path']['recommended_mcp_tools'] );
+		self::assertContains( 'stonewright-elementor-widget-implementation-guide', $result['fast_path']['recommended_mcp_tools'] );
+
+		self::assertArrayHasKey( 'call_sequence', $result['fast_path'] );
+		$tools = array_column( $result['fast_path']['call_sequence'], 'tool' );
+		self::assertContains( 'stonewright-workflow-preflight', $tools );
+		self::assertContains( 'stonewright-widget-intent-resolve', $tools );
+		self::assertContains( 'stonewright-elementor-widget-implementation-guide', $tools );
+		self::assertContains( 'stonewright-elementor-v3-build-page-from-spec', $tools );
+
+		foreach ( $result['fast_path']['call_sequence'] as $call ) {
+			self::assertIsArray( $call );
+			self::assertArrayHasKey( 'ability', $call );
+			self::assertArrayHasKey( 'tool', $call );
+			self::assertArrayHasKey( 'args', $call );
+			self::assertStringStartsWith( 'stonewright/', $call['ability'] );
+			self::assertStringNotContainsString( '/', $call['tool'] );
+		}
+	}
+
+	public function test_workflow_preflight_includes_confirmation_token_step_for_production_safe_destructive_tasks(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+
+		$result = ( new WorkflowPreflight() )->execute(
+			[
+				'task'    => 'Delete obsolete WooCommerce product variations.',
+				'surface' => 'wordpress',
+				'intent'  => 'delete',
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 'production-safe', $result['mode'] );
+		self::assertArrayHasKey( 'task_profile', $result['fast_path'] );
+		self::assertTrue( $result['fast_path']['task_profile']['is_destructive'] );
+		self::assertContains( 'stonewright/security-issue-confirmation-token', $result['fast_path']['recommended_tools'] );
+		self::assertContains( 'stonewright-security-issue-confirmation-token', $result['fast_path']['recommended_mcp_tools'] );
+
+		$tools = array_column( $result['fast_path']['call_sequence'], 'tool' );
+		self::assertContains( 'stonewright-site-plugins-list', $tools );
+		self::assertContains( 'stonewright-wp-cli-status', $tools );
+		self::assertContains( 'stonewright-wp-cli-discover', $tools );
+		self::assertContains( 'stonewright-security-issue-confirmation-token', $tools );
+	}
+
 	public function test_elementor_capabilities_summary_is_compact_and_actionable(): void {
 		$result = ( new CapabilitiesSummary() )->execute( [] );
 
