@@ -64,7 +64,7 @@ npm install
 npm run build
 ```
 
-For local stdio MCP clients, configure:
+For MCP clients that use a local stdio server, configure:
 
 ```json
 {

@@ -88,7 +88,7 @@ it globally:
 npm install -g ./stonewright-companion-<version>.tgz
 ```
 
-Then configure local stdio MCP clients with:
+Then configure MCP clients that use a local stdio server with:
 
 ```json
 {
@@ -105,6 +105,9 @@ Then configure local stdio MCP clients with:
   }
 }
 ```
+
+This starts the local Stonewright companion over stdio. The companion then
+proxies the WordPress MCP endpoint using the Application Password credentials.
 
 Set `PORT`, `COMPANION_BEARER_TOKEN`, and `COMPANION_ALLOWED_ORIGINS` when you
 also want the companion HTTP bridge for WordPress-side `stonewright/wp-cli-*`
