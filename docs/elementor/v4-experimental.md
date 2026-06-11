@@ -72,7 +72,7 @@ V4 write abilities follow the same AGENTS.md security rules as V3:
   - **Not yet supported:** any child block type (headings, text, images, buttons,
     columns, or any other widget). The Elementor V4 atomic widget API had not
     stabilised at the time of implementation; full child-block mapping is deferred to
-    Phase 10+.
+    a future Stonewright release.
 
 - Style class and variable writes are tested for CRUD correctness (kit meta
   round-trip) but not yet for Elementor runtime compatibility (i.e., whether
@@ -110,4 +110,4 @@ Primary test files:
 
 Coverage is shallow at the renderer level — the `e-flexbox` placeholder path is
 exercised but child-block rendering has no tests because it is not yet implemented.
-Expansion is pending Phase 10.
+Expansion is planned for a future Stonewright release.

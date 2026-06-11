@@ -10,13 +10,31 @@ Stonewright has two parts:
 
 - WordPress 6.7+
 - PHP 8.1+
-- Composer 2
-- Node.js 20+
+- Composer 2 for source installs
+- Node.js 20+ for the optional companion
 - WP-CLI for fast local WordPress work. The companion can use `wp` from `PATH`
   or auto-detect LocalWP's `wp-cli.phar` plus PHP on Windows/macOS.
 - A WordPress Application Password
 
-## WordPress Plugin
+## Install The WordPress Plugin From Release
+
+1. Download `stonewright-<version>.zip` from
+   <https://github.com/cosmincraciun97/stonewright-wp-mcp/releases>.
+2. In WordPress Admin, open **Plugins > Add New > Upload Plugin**.
+3. Upload the ZIP and activate **Stonewright**.
+4. Open **Stonewright > Configuration** and enable AI Abilities.
+5. Create an Application Password from **Users > Profile**. The MCP client
+   authenticates with `username:application-password`.
+
+The release ZIP includes production Composer dependencies.
+
+Endpoint:
+
+```text
+https://your-site.example.com/wp-json/mcp/stonewright
+```
+
+## Install The WordPress Plugin From Source
 
 ```bash
 cd /path/to/wp-content/plugins
@@ -26,16 +44,19 @@ composer install --no-dev
 wp plugin activate stonewright
 ```
 
-In WordPress Admin, open **Stonewright > Configuration** and enable AI
-Abilities.
+## Companion
 
-Endpoint:
+The companion is optional. Use it when your MCP client needs a local stdio
+server, WordPress MCP proxying, LocalWP/WP-CLI discovery, or the guarded
+`stonewright-wp-cli-*` tools.
 
-```text
-https://your-site.example.com/wp-json/mcp/stonewright
+From a release package:
+
+```bash
+npm install -g ./stonewright-companion-<version>.tgz
 ```
 
-## Companion
+From source:
 
 ```bash
 cd /path/to/wp-content/plugins/stonewright/companion
@@ -49,8 +70,7 @@ For local stdio MCP clients, configure:
 {
   "mcpServers": {
     "stonewright": {
-      "command": "npx",
-      "args": ["-y", "--package", "@stonewright/companion@latest", "stonewright-mcp"],
+      "command": "stonewright-mcp",
       "env": {
         "STONEWRIGHT_MCP_URL": "https://your-site.example.com/wp-json/mcp/stonewright",
         "WP_API_USERNAME": "your-wp-username",
@@ -100,9 +120,9 @@ Discovery order:
 
 1. `STONEWRIGHT_WP_CLI_PHP_BIN` + `STONEWRIGHT_WP_CLI_PHAR_PATH`.
 2. `STONEWRIGHT_WP_CLI_BIN`.
-3. Stonewright companion cache from `stonewright-wp-cli-install`.
-4. LocalWP-style `wp-cli.phar` near the WordPress root or common LocalWP install
+3. LocalWP-style `wp-cli.phar` near the WordPress root or common LocalWP install
    locations, paired with LocalWP PHP from `lightning-services`.
+4. Stonewright companion cache from `stonewright-wp-cli-install`.
 5. Fallback to `wp` from `PATH`.
 
 Optional env vars:
@@ -149,7 +169,11 @@ WordPress ability names use slashes. MCP tool names use hyphens.
 | WordPress ability | MCP tool |
 |---|---|
 | `stonewright/context-bootstrap` | `stonewright-context-bootstrap` |
+| `stonewright/workflow-preflight` | `stonewright-workflow-preflight` |
 | `stonewright/system-abilities-list` | `stonewright-system-abilities-list` |
+| `stonewright/media-upload-batch` | `stonewright-media-upload-batch` |
+| `stonewright/elementor-v3-capabilities-summary` | `stonewright-elementor-v3-capabilities-summary` |
+| `stonewright/elementor-v3-apply-bundle` | `stonewright-elementor-v3-apply-bundle` |
 | `stonewright/wp-cli-status` | `stonewright-wp-cli-status` |
 | `stonewright/wp-cli-discover` | `stonewright-wp-cli-discover` |
 | `stonewright/wp-cli-run` | `stonewright-wp-cli-run` |
@@ -160,7 +184,7 @@ The complete command list is generated in
 ## First Smoke Test
 
 1. Call `stonewright-ping`.
-2. Call `stonewright-context-bootstrap` with:
+2. Call `stonewright-workflow-preflight` with:
 
 ```json
 {
@@ -170,7 +194,19 @@ The complete command list is generated in
 }
 ```
 
-3. Confirm the response includes `mcp_tool_naming`, instructions, skills,
+3. Confirm the response includes `context_token`, `mode`, `auth_guidance`, and
+   `fast_path`.
+4. Call `stonewright-context-bootstrap` with:
+
+```json
+{
+  "task": "Test Stonewright connection",
+  "surface": "wordpress",
+  "intent": "read"
+}
+```
+
+5. Confirm the response includes `mcp_tool_naming`, instructions, skills,
    memory, recommended external MCPs, and required followups.
-4. Call `stonewright-system-abilities-list` and confirm every row includes
+6. Call `stonewright-system-abilities-list` and confirm every row includes
    `name` and `mcp_tool_name`.

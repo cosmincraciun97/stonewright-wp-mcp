@@ -15,6 +15,16 @@ Run from `plugin/` unless noted.
 - [ ] `cd ../companion && npm test` - all Vitest tests pass.
 - [ ] `cd ../companion && npm run build` - build succeeds.
 
+## Publish
+
+1. Update release notes under `docs/releases/<version>.md`.
+2. Tag the verified commit as `v<version>`.
+3. Push the tag. The release workflow packages:
+   - `stonewright-<version>.zip`
+   - `stonewright-companion-<version>.tgz`
+   - `SHA256SUMS.txt`
+4. Confirm the GitHub release links to the expected assets and checksums.
+
 ## Manual Verification
 
 ### 1. Clean Install

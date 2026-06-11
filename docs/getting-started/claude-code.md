@@ -5,7 +5,9 @@ This guide gets you from zero to a working Claude Code + Stonewright setup in ab
 ## Prerequisites
 
 - A WordPress site running locally or on a server you control (WordPress 6.7+, PHP 8.1+).
-- Composer 2 installed.
+- Composer 2 installed for source installs.
+- Stonewright companion installed from the release package with
+  `npm install -g ./stonewright-companion-<version>.tgz`.
 - Claude Code installed (`npm install -g @anthropic-ai/claude-code` or the desktop app).
 
 ## 1. Install the plugin
@@ -36,7 +38,7 @@ Give it a name like `Claude Code` and click **Add New Application Password**. Co
 Register Stonewright:
 
 ```bash
-claude mcp add stonewright -- npx -y --package @stonewright/companion@latest stonewright-mcp \
+claude mcp add stonewright -- stonewright-mcp \
   --env STONEWRIGHT_SITE_URL='https://your-site.example.com' \
   --env STONEWRIGHT_MCP_URL='https://your-site.example.com/wp-json/mcp/stonewright' \
   --env WP_API_USERNAME='your-wp-username' \

@@ -11,7 +11,7 @@ use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 
 /**
- * Phase 10 smoke test — boots the registry and exercises every ability without fatals.
+ * Registry smoke test — boots the registry and exercises every ability without fatals.
  *
  * Also asserts all 7 AGENTS.md hard rules hold at a structural level.
  *

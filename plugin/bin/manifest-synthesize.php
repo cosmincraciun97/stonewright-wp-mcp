@@ -1,14 +1,14 @@
 <?php
 /**
- * Phase A.4 — Widget manifest synthesizer (Stonewright Elementor Mastery).
+ * Widget manifest synthesizer.
  *
  * Merges three independent data sources into the canonical widget manifest
- * consumed by every downstream phase (C abilities, D smart detection, G
- * custom-widget creation, H self-update):
+ * consumed by widget abilities, smart detection, custom-widget creation, and
+ * knowledge refresh:
  *
- *   1. docs/superpowers/data/widget-inventory.json   (A.1)
- *   2. docs/superpowers/data/widget-controls/*.json  (A.2)
- *   3. docs/knowledge/elementor/widgets/*.md         (Phase 0 harvest)
+ *   1. docs/elementor/widget-registry-data/widget-inventory.json
+ *   2. docs/elementor/widget-registry-data/widget-controls/*.json
+ *   3. docs/knowledge/elementor/widgets/*.md
  *
  * Output: plugin/includes/Elementor/WidgetRegistry/manifest.json
  *
@@ -42,9 +42,9 @@
  *
  * `group_activators` maps the activator setting key (the `<prefix>_<group>`
  * Elementor toggle) to its required value (`'classic'` for background,
- * `'solid'` for border, `'custom'` for typography, etc.). Phase B.1's
+ * `'solid'` for border, `'custom'` for typography, etc.). The
  * StyleMapper::activate_groups() emits these whenever a sub-key of the
- * group is set; downstream Phase C abilities also fold them into the
+ * group is set; downstream widget abilities also fold them into the
  * settings dict for any group sub-key they accept.
  *
  * Usage: php plugin/bin/manifest-synthesize.php
@@ -52,8 +52,8 @@
 declare(strict_types=1);
 
 $repo_root        = realpath( __DIR__ . '/../..' );
-$inventory_path   = $repo_root . '/docs/superpowers/data/widget-inventory.json';
-$controls_dir     = $repo_root . '/docs/superpowers/data/widget-controls';
+$inventory_path   = $repo_root . '/docs/elementor/widget-registry-data/widget-inventory.json';
+$controls_dir     = $repo_root . '/docs/elementor/widget-registry-data/widget-controls';
 $knowledge_dir    = $repo_root . '/docs/knowledge/elementor/widgets';
 $manifest_dir     = $repo_root . '/plugin/includes/Elementor/WidgetRegistry';
 $manifest_path    = $manifest_dir . '/manifest.json';
@@ -91,7 +91,7 @@ $group_activator_suffix = [
 
 // ---------------------------------------------------------------------------
 // RENDER_HINTS — hand-curated minimum-keys-to-render hints for known widgets.
-// Phase E "build the page" relies on knowing which props must be present;
+// Page-building relies on knowing which props must be present;
 // for the rest, we leave required_for_render empty and let the renderer
 // fall back to defaults.
 // ---------------------------------------------------------------------------
@@ -340,8 +340,8 @@ $manifest = [
 	'elementor_version' => $inventory['elementor_version'] ?? null,
 	'pro_version'       => $inventory['pro_version']       ?? null,
 	'sources'           => [
-		'inventory'  => 'docs/superpowers/data/widget-inventory.json',
-		'controls'   => 'docs/superpowers/data/widget-controls/',
+		'inventory'  => 'docs/elementor/widget-registry-data/widget-inventory.json',
+		'controls'   => 'docs/elementor/widget-registry-data/widget-controls/',
 		'knowledge'  => 'docs/knowledge/elementor/widgets/',
 	],
 	'group_activator_rules' => [

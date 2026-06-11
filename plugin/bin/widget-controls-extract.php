@@ -1,9 +1,9 @@
 <?php
 /**
- * Phase A.2 — Per-widget control extractor (Stonewright Elementor Mastery).
+ * Per-widget control extractor.
  *
- * Reads the inventory produced by Phase A.1
- * (`docs/superpowers/data/widget-inventory.json`) and, for each widget,
+ * Reads the widget inventory
+ * (`docs/elementor/widget-registry-data/widget-inventory.json`) and, for each widget,
  * parses the PHP source with `nikic/php-parser` to extract the
  * `register_controls()` graph:
  *
@@ -19,8 +19,8 @@
  * lives next to the widget (Elementor's `traits/` subdir).
  *
  * Output: one file per widget at
- * `docs/superpowers/data/widget-controls/<slug>.json`
- * plus an aggregate `docs/superpowers/data/widget-controls/_summary.json`.
+ * `docs/elementor/widget-registry-data/widget-controls/<slug>.json`
+ * plus an aggregate `docs/elementor/widget-registry-data/widget-controls/_summary.json`.
  *
  * Resolution caveats — tolerant by design:
  *   - `Controls_Manager::TEXT` etc. resolved via a hard-coded map.
@@ -50,8 +50,8 @@ use PhpParser\ParserFactory;
 // ---------------------------------------------------------------------------
 
 $repo_root        = realpath( __DIR__ . '/../..' );
-$inventory_path   = $repo_root . '/docs/superpowers/data/widget-inventory.json';
-$output_dir       = $repo_root . '/docs/superpowers/data/widget-controls';
+$inventory_path   = $repo_root . '/docs/elementor/widget-registry-data/widget-inventory.json';
+$output_dir       = $repo_root . '/docs/elementor/widget-registry-data/widget-controls';
 $summary_path     = $output_dir . '/_summary.json';
 
 if ( ! is_dir( $output_dir ) ) {
@@ -645,7 +645,7 @@ if ( ! is_array( $inventory ) || empty( $inventory['widgets'] ) ) {
 $summary = [
 	'generated_at'       => gmdate( 'c' ),
 	'generator'          => 'plugin/bin/widget-controls-extract.php',
-	'inventory_source'   => 'docs/superpowers/data/widget-inventory.json',
+	'inventory_source'   => 'docs/elementor/widget-registry-data/widget-inventory.json',
 	'widgets'            => count( $inventory['widgets'] ),
 	'extracted'          => 0,
 	'with_no_register'   => 0,

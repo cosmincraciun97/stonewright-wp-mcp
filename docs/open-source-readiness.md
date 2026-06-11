@@ -31,9 +31,12 @@ Push-Location plugin
 composer test
 composer phpstan
 composer phpcs
+composer security:audit
+composer docs:matrix
 Pop-Location
 
 Push-Location companion
+npm run typecheck
 npm test
 npm run build
 Pop-Location

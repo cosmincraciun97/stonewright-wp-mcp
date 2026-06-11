@@ -67,7 +67,7 @@ final class Renderer {
 			}
 
 			$section_element['elements'] = $children;
-			$out[]                       = self::normalise_container_layout( $section_element );
+			$out[]                       = self::normalise_container_layout( $section_element, $diagnostics, $section_path );
 		}
 
 		return $out;
@@ -224,14 +224,15 @@ final class Renderer {
 			}
 		}
 		$rendered['elements'] = $children;
-		return self::normalise_container_layout( $rendered );
+		return self::normalise_container_layout( $rendered, $diagnostics, $path );
 	}
 
 	/**
 	 * @param array<string, mixed> $rendered
+	 * @param array<int, array<string, mixed>> $diagnostics
 	 * @return array<string, mixed>
 	 */
-	private static function normalise_container_layout( array $rendered ): array {
+	private static function normalise_container_layout( array $rendered, array &$diagnostics = [], string $path = '' ): array {
 		$settings = isset( $rendered['settings'] ) && is_array( $rendered['settings'] )
 			? $rendered['settings']
 			: [];
@@ -249,6 +250,7 @@ final class Renderer {
 		}
 
 		if ( 'row' === ( $settings['flex_direction'] ?? null ) ) {
+			self::report_fixed_width_overflow( $children, $settings, $diagnostics, $path );
 			$children = self::fit_percent_children_with_gap( $children, $settings );
 		}
 
@@ -312,6 +314,42 @@ final class Renderer {
 	}
 
 	/**
+	 * @param array<int, array<string, mixed>>  $children
+	 * @param array<string, mixed>             $settings
+	 * @param array<int, array<string, mixed>> $diagnostics
+	 */
+	private static function report_fixed_width_overflow( array $children, array $settings, array &$diagnostics, string $path ): void {
+		$child_count = count( $children );
+		if ( $child_count < 2 ) {
+			return;
+		}
+
+		$total_width = 0.0;
+		foreach ( $children as $child ) {
+			$width = $child['settings']['width'] ?? null;
+			if ( ! is_array( $width ) || 'px' !== ( $width['unit'] ?? null ) || ! is_numeric( $width['size'] ?? null ) ) {
+				return;
+			}
+			$total_width += (float) $width['size'];
+		}
+
+		$parent_width = self::parent_width_px( $settings );
+		$total        = $total_width + self::gap_px( $settings['flex_gap'] ?? null ) * ( $child_count - 1 );
+		if ( $total <= $parent_width ) {
+			return;
+		}
+
+		$diagnostics[] = [
+			'code'      => 'layout_width_overflow_risk',
+			'path'      => $path,
+			'renderer'  => 'elementor_v3',
+			'message'   => 'Fixed-width row children exceed parent width after gaps. Use wider parent, wrapping, smaller children, or responsive hide rules.',
+			'total_px'  => $total,
+			'parent_px' => $parent_width,
+		];
+	}
+
+	/**
 	 * @param mixed $gap
 	 */
 	private static function gap_px( mixed $gap ): float {
@@ -332,6 +370,11 @@ final class Renderer {
 	 * @param array<string, mixed> $settings
 	 */
 	private static function parent_width_px( array $settings ): float {
+		$content_width = $settings['content_width'] ?? null;
+		if ( is_numeric( $content_width ) ) {
+			return max( 1.0, (float) $content_width );
+		}
+
 		$width = $settings['width'] ?? null;
 		if ( is_array( $width ) && 'px' === ( $width['unit'] ?? null ) && is_numeric( $width['size'] ?? null ) ) {
 			return max( 1.0, (float) $width['size'] );

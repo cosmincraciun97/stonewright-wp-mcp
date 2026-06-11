@@ -14,6 +14,15 @@ Stonewright does not include design-tool ingestion or automated visual QA.
 
 ## Quick Start
 
+Release install:
+
+1. Download `stonewright-<version>.zip` from GitHub Releases.
+2. Upload it in WordPress Admin under **Plugins > Add New > Upload Plugin**.
+3. Activate Stonewright and open **Stonewright > Configuration**.
+4. Enable AI Abilities and create a WordPress Application Password for MCP auth.
+
+Source install:
+
 ```bash
 cd plugin
 composer install --no-dev
@@ -137,6 +146,8 @@ Authentication uses WordPress Application Passwords.
 
 MCP tool names are hyphenated by the WordPress MCP Adapter. Example:
 `stonewright/context-bootstrap` is called as `stonewright-context-bootstrap`.
+For a fast first pass, call `stonewright-workflow-preflight`; it returns a
+context token, auth guidance, mode, and compact capability summary.
 
 Admins using authenticated REST directly can call:
 

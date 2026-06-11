@@ -20,9 +20,18 @@ MIT License.
 
 ## Install
 
+From a GitHub release:
+
+```bash
+npm install -g ./stonewright-companion-<version>.tgz
+```
+
+From source:
+
 ```bash
 cd companion
 npm install
+npm run build
 ```
 
 ## Configure
@@ -46,7 +55,7 @@ cp .env.example .env
 | `MCP_PROXY_TARGET` | optional | Upstream MCP server URL to proxy to |
 | `MCP_PROXY_TOKEN` | optional | Bearer token for the proxy target |
 
-## Run
+## Run From Source
 
 ```bash
 npm run build
@@ -57,14 +66,15 @@ The companion always starts stdio MCP. Set `PORT` to also expose HTTP routes.
 
 ## WP-CLI Auto-Bootstrap
 
-The companion automatically ensures WP-CLI is available at startup using a
-four-step resolution chain (first match wins):
+The companion automatically ensures WP-CLI is available at startup using this
+resolution chain (first match wins):
 
-1. **`STONEWRIGHT_WP_CLI_BIN`** — use this exact binary (`wp` on PATH, or a full path).
-2. **`STONEWRIGHT_WP_CLI_PHP_BIN` + `STONEWRIGHT_WP_CLI_PHAR_PATH`** — run a specific phar through a specific PHP.
-3. **LocalWP auto-discovery** — scans `%APPDATA%`, `%LOCALAPPDATA%`, `%PROGRAMFILES%`,
+1. **`STONEWRIGHT_WP_CLI_PHP_BIN` + `STONEWRIGHT_WP_CLI_PHAR_PATH`** — run a specific phar through a specific PHP.
+2. **`STONEWRIGHT_WP_CLI_BIN`** — use this exact binary (`wp` on PATH, or a full path).
+3. **LocalWP near the WordPress root** — prefer the phar bundled with the local site environment.
+4. **LocalWP common locations** — scans `%APPDATA%`, `%LOCALAPPDATA%`, `%PROGRAMFILES%`,
    and `~/Library/Application Support` for LocalWP's bundled PHP and `wp-cli.phar`.
-4. **Companion cache** — on `npm install` (via the `postinstall` script) **and** at each
+5. **Companion cache** — on `npm install` (via the `postinstall` script) **and** at each
    startup, downloads the official `wp-cli.phar` into:
    - Windows: `%LOCALAPPDATA%\Stonewright\wp-cli\wp-cli.phar`
    - macOS/Linux: `~/.stonewright/wp-cli/wp-cli.phar`

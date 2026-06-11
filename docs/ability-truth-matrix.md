@@ -61,6 +61,7 @@
 | Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `stonewright/media-upload` | `stonewright-media-upload` | `Media\UploadMedia` | Sideloads a file from a URL or base64 payload into the media library. | Write | `Permissions::upload_files()` | No | No | No | stable | `tests/Unit/AssetSideloaderTest.php` |
+| `stonewright/media-upload-batch` | `stonewright-media-upload-batch` | `Media\UploadMediaBatch` | Uploads multiple media items in one request and returns per-item success or error details. | Write | `Permissions::upload_files()` | No | No | No | stable | `tests/Unit/AssetSideloaderTest.php` |
 | `stonewright/media-get` | `stonewright-media-get` | `Media\GetMedia` | Returns attachment metadata including sizes, mime, alt text, and parent. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AssetSideloaderTest.php` |
 | `stonewright/media-set-alt` | `stonewright-media-set-alt` | `Media\SetAlt` | Updates the alt text for an attachment. | Write | `Permissions::edit_post( $id )` | No | No | No | stable | `tests/Unit/AssetSideloaderTest.php` |
 | `stonewright/media-optimize` | `stonewright-media-optimize` | `Media\OptimizeMedia` | Regenerates attachment metadata and intermediate image sizes. | Read | `Permissions::edit_post( $id )` | No | No | No | stable | `tests/Unit/AssetSideloaderTest.php` |
@@ -115,6 +116,7 @@
 | Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `stonewright/elementor-v3-status` | `stonewright-elementor-v3-status` | `ElementorV3\Status` | Returns whether Elementor is installed/active, version/pro status, widget inventory, and V4 atomic readiness. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
+| `stonewright/elementor-v3-capabilities-summary` | `stonewright-elementor-v3-capabilities-summary` | `ElementorV3\CapabilitiesSummary` | Returns a compact Elementor V3 capability summary so agents can plan native-widget builds in one round trip. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-list-widgets` | `stonewright-elementor-v3-list-widgets` | `ElementorV3\ListWidgets` | Returns all registered Elementor V3 widget types including third-party widgets. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-get-widget-schema` | `stonewright-elementor-v3-get-widget-schema` | `ElementorV3\GetWidgetSchema` | Returns the control schema (name, type, defaults) for a single Elementor widget. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-get-page-structure` | `stonewright-elementor-v3-get-page-structure` | `ElementorV3\GetPageStructure` | Returns the full Elementor V3 element tree for a post. | Read | `Permissions::edit_post( $id )` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
@@ -125,6 +127,7 @@
 | `stonewright/elementor-v3-move-element` | `stonewright-elementor-v3-move-element` | `ElementorV3\MoveElement` | Moves an element to a new parent and position within the same page. | Write | `Permissions::edit_post( $id )` | No | Yes | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-remove-element` | `stonewright-elementor-v3-remove-element` | `ElementorV3\RemoveElement` | Removes an element from an Elementor page by id. | Write | `Permissions::edit_post( $id )` | Yes | Yes | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-build-page-from-spec` | `stonewright-elementor-v3-build-page-from-spec` | `ElementorV3\BuildPageFromSpec` | Renders a validated Stonewright Design Spec into Elementor V3 elements and writes it to a post. | Write | `Permissions::edit_post( $id )` | Yes | Yes | Yes (DesignSpec) | stable | `tests/Integration/ElementorWriterTest.php` |
+| `stonewright/elementor-v3-apply-bundle` | `stonewright-elementor-v3-apply-bundle` | `ElementorV3\ApplyBundle` | Applies multiple Elementor V3 page specs in one request. | Write | `Permissions::edit_posts()` | Yes | Yes | Yes (DesignSpec) | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-update-page-settings` | `stonewright-elementor-v3-update-page-settings` | `ElementorV3\UpdatePageSettings` | Updates _elementor_page_settings (background, layout, custom CSS). | Write | `Permissions::edit_post( $id )` | No | Yes | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-update-kit-colors` | `stonewright-elementor-v3-update-kit-colors` | `ElementorV3\UpdateKitColors` | Replaces or merges the global color palette in the Elementor active kit. | Write | `Permissions::edit_theme_options()` | Yes | Yes | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-update-kit-typography` | `stonewright-elementor-v3-update-kit-typography` | `ElementorV3\UpdateKitTypography` | Updates global typography (font family, weight, size, line height) in the Elementor active kit. | Write | `Permissions::edit_theme_options()` | Yes | Yes | No | stable | `tests/Integration/ElementorWriterTest.php` |
@@ -214,6 +217,7 @@
 | `stonewright/knowledge-export` | `stonewright-knowledge-export` | `System\KnowledgeExport` | Exports custom instructions, memory entries, and site skills in the Stonewright knowledge bundle format. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/knowledge-import` | `stonewright-knowledge-import` | `System\KnowledgeImport` | Imports custom instructions, memory entries, and site skills from a Stonewright knowledge bundle. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/system-abilities-list` | `stonewright-system-abilities-list` | `System\AbilitiesList` | Returns all registered Stonewright abilities with category, enabled status, and the hyphenated MCP tool name clients actually call. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/workflow-preflight` | `stonewright-workflow-preflight` | `System\WorkflowPreflight` | Returns compact task context, auth guidance, mode, and first-pass tool choices so MCP agents can start with fewer discovery calls. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 
 ---
 
@@ -381,7 +385,7 @@
 
 ## Summary
 
-Total abilities registered: **223**
+Total abilities registered: **227**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

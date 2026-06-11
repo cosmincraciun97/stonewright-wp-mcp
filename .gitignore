@@ -23,7 +23,7 @@ companion/test-results/
 .tmp-playwright-mcp-install-test-*/
 output/
 docs/local-dev-notes.md
-docs/superpowers/plans/2026-06-10-open-source-hardening-and-stonewright-roadmap.md
+docs/superpowers/
 scripts/install-playwright-mcp.ps1
 companion/.env
 companion/wp-cli-wrapper.bat

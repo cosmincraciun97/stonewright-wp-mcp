@@ -1,6 +1,6 @@
 <?php
 /**
- * Phase C generator — produces one ability class per widget plus the
+ * Widget ability generator — produces one ability class per widget plus the
  * two contract fixtures (positive + permission-error) the ContractTest
  * data-provider requires.
  *
@@ -212,7 +212,7 @@ PHP;
 
 file_put_contents( $class_list_path, $class_list_php );
 
-fwrite( STDOUT, "Phase C generation complete.\n" );
+fwrite( STDOUT, "Widget ability generation complete.\n" );
 fwrite( STDOUT, "  classes:   $created_classes\n" );
 fwrite( STDOUT, "  fixtures:  $created_fixtures\n" );
 fwrite( STDOUT, "  skipped:   " . count( $skipped ) . ( empty( $skipped ) ? '' : ' (' . implode( ', ', $skipped ) . ')' ) . "\n" );

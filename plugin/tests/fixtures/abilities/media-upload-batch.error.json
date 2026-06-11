@@ -1,0 +1,6 @@
+{
+    "args": {
+        "items": []
+    },
+    "expect": "wp_error"
+}

@@ -196,6 +196,19 @@ final class ElementorRendererTest extends TestCase {
 		$this->assertSame( $this->fixture( 'container' ), $result );
 	}
 
+	public function test_container_style_width_switches_to_full_content_width(): void {
+		$node   = [
+			'type'  => 'container',
+			'style' => [
+				'width' => '430px',
+			],
+		];
+		$result = Container::render( $node, $this->resolver, 's0' );
+
+		$this->assertSame( 'full', $result['settings']['content_width'] );
+		$this->assertSame( 430, $result['settings']['width']['size'] );
+	}
+
 	public function test_container_grid_layout_uses_elementor_grid_container_settings(): void {
 		$node   = [ 'type' => 'container', 'layout' => 'grid', 'columns' => 4, 'gap' => 16 ];
 		$result = Container::render( $node, $this->resolver, 's0' );
@@ -240,6 +253,31 @@ final class ElementorRendererTest extends TestCase {
 
 		$this->assertSame( 'flex', $result['settings']['container_type'] );
 		$this->assertSame( 'row', $result['settings']['flex_direction'] );
+	}
+
+	public function test_renderer_reports_fixed_width_row_overflow_risk(): void {
+		$diagnostics = [];
+		$spec = [
+			'sections' => [
+				[
+					'type'   => 'section',
+					'layout' => 'row',
+					'width'  => 300,
+					'gap'    => 32,
+					'blocks' => [
+						[ 'type' => 'container', 'width' => 200 ],
+						[ 'type' => 'container', 'width' => 200 ],
+					],
+				],
+			],
+		];
+
+		Renderer::render( $spec, $diagnostics );
+
+		$this->assertSame( 'layout_width_overflow_risk', $diagnostics[0]['code'] );
+		$this->assertSame( 's0', $diagnostics[0]['path'] );
+		$this->assertSame( 432.0, $diagnostics[0]['total_px'] );
+		$this->assertSame( 300.0, $diagnostics[0]['parent_px'] );
 	}
 
 	public function test_dimensioned_companion_container_resets_elementor_default_padding(): void {

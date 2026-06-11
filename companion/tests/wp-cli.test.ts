@@ -136,6 +136,65 @@ describe('WP-CLI runner', () => {
 		}
 	});
 
+	it('prefers a LocalWP phar near the WordPress root over the generic companion cache', async () => {
+		const temp = mkdtempSync(join(tmpdir(), 'stonewright-wpcli-priority-'));
+		try {
+			const wpRoot = join(temp, 'workspace', 'site', 'app', 'public');
+			const localPharPath = join(
+				temp,
+				'workspace',
+				'LocalWP',
+				'resources',
+				'extraResources',
+				'bin',
+				'wp-cli',
+				'wp-cli.phar',
+			);
+			const cachePharPath = join(temp, 'cache', 'wp-cli.phar');
+			const phpPath = join(
+				temp,
+				'roaming',
+				'Local',
+				'lightning-services',
+				'php-8.2.29+0',
+				'bin',
+				'win64',
+				'php.exe',
+			);
+			mkdirSync(wpRoot, { recursive: true });
+			mkdirSync(resolve(localPharPath, '..'), { recursive: true });
+			mkdirSync(resolve(cachePharPath, '..'), { recursive: true });
+			mkdirSync(resolve(phpPath, '..'), { recursive: true });
+			writeFileSync(localPharPath, 'localwp phar');
+			writeFileSync(cachePharPath, 'cache phar');
+			writeFileSync(phpPath, 'php-bin');
+
+			const calls: Array<{ file: string; args: string[] }> = [];
+			const runner: ExecFileRunner = (file, args) => {
+				calls.push({ file, args });
+				return Promise.resolve({ stdout: '{}', stderr: '', exitCode: 0 });
+			};
+
+			await runWpCli(
+				{
+					command: ['cli', 'info', '--format=json'],
+					path: wpRoot,
+				},
+				runner,
+				{
+					APPDATA: join(temp, 'roaming'),
+					STONEWRIGHT_WP_ROOT: wpRoot,
+					STONEWRIGHT_WP_CLI_INSTALL_DIR: join(temp, 'cache'),
+				} as NodeJS.ProcessEnv,
+			);
+
+			expect(calls[0]?.file).toBe(phpPath);
+			expect(calls[0]?.args[0]).toBe(localPharPath);
+		} finally {
+			rmSync(temp, { recursive: true, force: true });
+		}
+	});
+
 	it('installs WP-CLI phar into the Stonewright cache and reuses it for future commands', async () => {
 		const temp = mkdtempSync(join(tmpdir(), 'stonewright-wpcli-install-'));
 		try {
@@ -163,7 +222,7 @@ describe('WP-CLI runner', () => {
 			};
 
 			await runWpCli(
-				{ command: ['cli', 'info'] },
+				{ command: ['cli', 'info'], cwd: temp },
 				runner,
 				{
 					STONEWRIGHT_WP_CLI_INSTALL_DIR: installDir,

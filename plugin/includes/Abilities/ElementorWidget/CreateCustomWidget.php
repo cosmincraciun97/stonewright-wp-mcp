@@ -12,10 +12,10 @@ use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
- * Phase G.2 — `stonewright/elementor-create-custom-widget`.
+ * High-level `stonewright/elementor-create-custom-widget` surface.
  *
  * Single high-level surface for "create me a new Elementor widget."
- * Wraps the three building blocks from Phase 5 (WidgetDefine ↔
+ * Wraps the three building blocks (WidgetDefine ↔
  * Compiler / StaticGuard / SandboxFiles ↔ WidgetRegister) into one
  * call so the LLM doesn't have to orchestrate a three-step dance.
  *
@@ -33,7 +33,7 @@ use Stonewright\WpMcp\Security\Permissions;
  *
  * The official Elementor recipe at
  * `docs/knowledge/elementor/custom-widget/recipe.md` was harvested in
- * Phase 0; this ability is the executable, ready-to-call version of
+ * the knowledge base; this ability is the executable, ready-to-call version of
  * that recipe.
  *
  * @stonewright-status sandboxed

@@ -4,14 +4,14 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Design;
 
 /**
- * Phase D smart-detection layer — maps high-level design intents to the
+ * Smart-detection layer — maps high-level design intents to the
  * right Elementor widget choice + a settings template + the upstream
  * steps the caller must run first.
  *
  * Two surfaces:
  *
  *   1. `resolve( string $intent ): array` — named-intent lookup. Used by
- *      `stonewright/widget-intent-resolve` and by Phase E build scripts
+ *      `stonewright/widget-intent-resolve` and by page-building flows
  *      that want to say "give me the right thing for a footer column."
  *
  *   2. `detect_from_design_tree( array $node ): ?string` — visual

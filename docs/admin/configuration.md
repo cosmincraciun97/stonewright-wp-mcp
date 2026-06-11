@@ -109,14 +109,16 @@ For example: `https://example.com/wp-json/mcp/stonewright`
 
 ### Universal config block
 
-All supported clients use the same `npx` transport:
+Install the companion release package with
+`npm install -g ./stonewright-companion-<version>.tgz`, then use the same
+stdio transport in supported clients:
 
 ```json
 {
   "mcpServers": {
     "stonewright": {
-      "command": "npx",
-      "args": ["-y", "--package", "@stonewright/companion@latest", "stonewright-mcp"],
+      "command": "stonewright-mcp",
+      "args": [],
       "env": {
         "STONEWRIGHT_MCP_URL": "https://example.com/wp-json/mcp/stonewright",
         "WP_API_USERNAME": "your-wp-username",

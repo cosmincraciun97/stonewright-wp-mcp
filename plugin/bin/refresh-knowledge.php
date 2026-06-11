@@ -1,6 +1,6 @@
 <?php
 /**
- * Phase H.4 — Bulk knowledge refresh CLI.
+ * Bulk knowledge refresh CLI.
  *
  * Iterates docs/knowledge/elementor/_links.json and lists URLs whose
  * matching `.md` file is older than the configured threshold

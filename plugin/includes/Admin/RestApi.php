@@ -7,7 +7,7 @@ use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
- * REST API extensions for Phase 8 admin features.
+ * REST API extensions for admin features.
  *
  * Route: GET /wp-json/stonewright/v1/sandbox/files
  *   — listed in RestRoutes.php (which owns the primary /sandbox/* routes).

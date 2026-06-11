@@ -7,7 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
- * Phase H.1 — `stonewright/elementor-knowledge-refresh`.
+ * `stonewright/elementor-knowledge-refresh`.
  *
  * Self-update path: the LLM (or a cron job) hands Stonewright a URL
  * and Stonewright rewrites the matching `docs/knowledge/elementor/`
@@ -18,7 +18,7 @@ use Stonewright\WpMcp\Security\Permissions;
  *     and other SSR sites);
  *   - explicit `body` arg — the caller fetched the page with a real
  *     browser automation tool and passes the rendered
- *     DOM text. Phase 0 surfaced that elementor.com/help/* is a SPA
+ *     DOM text. Elementor help pages can be SPA-rendered,
  *     and plain WebFetch returns nav-only HTML, so this mode is the
  *     production path for those URLs.
  *
@@ -36,7 +36,7 @@ use Stonewright\WpMcp\Security\Permissions;
  *   6. Write new markdown body with refreshed frontmatter
  *      (title, source_url, fetched_at, content_hash, applies_to,
  *      related_widgets, harvest_source).
- *   7. Append a one-line entry to `_change_log.md` (H.3).
+ *   7. Append a one-line entry to `_change_log.md`.
  *
  * @stonewright-status sandboxed
  */

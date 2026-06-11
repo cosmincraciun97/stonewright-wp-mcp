@@ -177,6 +177,8 @@ const WRITE_PATTERNS = [
 	'Memory::delete_by_id(', 'Memory::update_by_id(',
 	// Skills and design orchestrator delegates.
 	'Skills::save(', 'Skills::delete(', 'SpecToGutenberg()', 'SpecToElementorV3()',
+	// Batch/orchestrator delegates.
+	'new UploadMedia()', 'new BuildPageFromSpec()',
 	// WP-CLI runner can execute write commands through the guarded companion.
 	'stonewright/wp-cli-run',
 ];
@@ -220,7 +222,7 @@ function extract_permission_body( string $source ): string {
 		}
 	}
 
-	// ----- Phase 1: find the 'function permission_callback' declaration -----
+	// ----- Step 1: find the 'function permission_callback' declaration -----
 	$found_function = false;
 	$i = 0;
 	while ( $i < $count ) {
@@ -244,7 +246,7 @@ function extract_permission_body( string $source ): string {
 		return '';
 	}
 
-	// ----- Phase 2: walk forward to the first '{' (opening brace of body) -----
+	// ----- Step 2: walk forward to the first '{' (opening brace of body) -----
 	while ( $i < $count ) {
 		$tok = $tokens[ $i ];
 		if ( $tok === '{' || ( is_array( $tok ) && $tok[1] === '{' ) ) {
@@ -254,7 +256,7 @@ function extract_permission_body( string $source ): string {
 		$i++;
 	}
 
-	// ----- Phase 3: collect body tokens, balancing braces -----
+	// ----- Step 3: collect body tokens, balancing braces -----
 	$depth  = 1;
 	$body   = '';
 
@@ -323,6 +325,7 @@ function detect_token( string $source ): string {
 		|| strpos( $source, 'require_sandbox_confirmation' ) !== false
 		|| strpos( $source, 'confirmation_token_error(' ) !== false
 		|| strpos( $source, 'production_safe_token_error(' ) !== false
+		|| strpos( $source, 'new BuildPageFromSpec()' ) !== false
 	) {
 		return 'Yes';
 	}
@@ -335,6 +338,7 @@ function detect_backup( string $source ): string {
 		|| strpos( $source, 'SpecToGutenberg()' ) !== false
 		|| strpos( $source, 'SpecToElementorV3()' ) !== false
 		|| strpos( $source, 'ApplyToPost()' ) !== false
+		|| strpos( $source, 'new BuildPageFromSpec()' ) !== false
 	) ? 'Yes' : 'No';
 }
 
@@ -350,6 +354,7 @@ function detect_validator( string $source ): string {
 		|| strpos( $source, 'SpecToGutenberg()' ) !== false
 		|| strpos( $source, 'SpecToElementorV3()' ) !== false
 		|| strpos( $source, 'ApplyToPost()' ) !== false
+		|| strpos( $source, 'new BuildPageFromSpec()' ) !== false
 	) {
 		return 'Yes (DesignSpec)';
 	}

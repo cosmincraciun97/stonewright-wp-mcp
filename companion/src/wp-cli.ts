@@ -472,9 +472,9 @@ function phpPharInvocation(phpBin: string, pharPath: string, phpIni: string | un
 
 function discoverWpCliPhar(env: NodeJS.ProcessEnv, cwd: string): string | undefined {
 	return firstExisting([
-		join(resolveWpCliInstallDir(undefined, env), 'wp-cli.phar'),
 		...candidatePharsNearWordPressRoot(cwd),
 		...candidateLocalWpPhars(env),
+		join(resolveWpCliInstallDir(undefined, env), 'wp-cli.phar'),
 	]);
 }
 

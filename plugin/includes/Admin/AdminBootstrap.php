@@ -9,10 +9,10 @@ use Stonewright\WpMcp\Admin\RestApi;
 use Stonewright\WpMcp\Sandbox\CrashRecovery;
 
 /**
- * Top-level bootstrap for Phase 8 admin features.
+ * Top-level bootstrap for admin features.
  *
  * Registers the Status page, Sandbox Library page, and REST API extensions
- * added in this phase. The existing admin pages (ConfigurationPage, SandboxPage,
+ * added for the current admin UI. The existing admin pages (ConfigurationPage, SandboxPage,
  * AuditLogPage, AbilitiesPage) continue to register themselves through
  * PluginRegistration::register_hooks(). AdminBootstrap supplements them.
  */
@@ -21,7 +21,7 @@ final class AdminBootstrap {
 	private static bool $registered = false;
 
 	/**
-	 * Register all Phase 8 hooks. Idempotent — safe to call multiple times.
+	 * Register all admin hooks. Idempotent — safe to call multiple times.
 	 */
 	public static function register(): void {
 		if ( self::$registered ) {

@@ -5,8 +5,8 @@
     "elementor_version": null,
     "pro_version": null,
     "sources": {
-        "inventory": "docs/superpowers/data/widget-inventory.json",
-        "controls": "docs/superpowers/data/widget-controls/",
+        "inventory": "docs/elementor/widget-registry-data/widget-inventory.json",
+        "controls": "docs/elementor/widget-registry-data/widget-controls/",
         "knowledge": "docs/knowledge/elementor/widgets/"
     },
     "group_activator_rules": {

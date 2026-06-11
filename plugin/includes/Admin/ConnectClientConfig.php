@@ -7,7 +7,7 @@ namespace Stonewright\WpMcp\Admin;
  * Generates per-client MCP connection snippets for Stonewright.
  *
  * Transport options:
- *   A) Native stdio — @stonewright/companion npm script (recommended for local dev)
+ *   A) Native stdio — installed Stonewright companion binary (recommended for local dev)
  *   B) Streamable HTTP — direct /wp-json/mcp/stonewright endpoint
  *
  * IMPORTANT: Do NOT use @automattic/mcp-wordpress-remote. That Automattic package
@@ -158,7 +158,7 @@ final class ConnectClientConfig {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Returns the native stdio snippet using @stonewright/companion.
+	 * Returns the native stdio snippet using the installed Stonewright companion.
 	 *
 	 * This is the RECOMMENDED transport for local development. The companion
 	 * package speaks the Stonewright WP Abilities protocol natively.
@@ -171,8 +171,8 @@ final class ConnectClientConfig {
 		return [
 			'mcpServers' => [
 				'stonewright' => [
-					'command' => 'npx',
-					'args'    => [ '-y', '--package', '@stonewright/companion@latest', 'stonewright-mcp' ],
+					'command' => 'stonewright-mcp',
+					'args'    => [],
 					'env'     => [
 						'STONEWRIGHT_SITE_URL' => self::site_url(),
 						'WP_API_USERNAME'     => $username ?: 'your-wp-username',
@@ -281,7 +281,7 @@ final class ConnectClientConfig {
 			}
 			return [
 				'command' => sprintf(
-					'claude mcp add stonewright -- npx -y --package @stonewright/companion@latest stonewright-mcp --env STONEWRIGHT_SITE_URL=%s --env WP_API_USERNAME=%s --env WP_API_PASSWORD=%s --env STONEWRIGHT_MCP_URL=%s',
+					'claude mcp add stonewright -- stonewright-mcp --env STONEWRIGHT_SITE_URL=%s --env WP_API_USERNAME=%s --env WP_API_PASSWORD=%s --env STONEWRIGHT_MCP_URL=%s',
 					escapeshellarg( self::site_url() ),
 					escapeshellarg( $username ),
 					escapeshellarg( $app_password ?: '<your-application-password>' ),

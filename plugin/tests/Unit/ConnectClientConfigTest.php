@@ -44,10 +44,8 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertArrayHasKey( 'stonewright', $snippet['mcpServers'] );
 
 		$server = $snippet['mcpServers']['stonewright'];
-		$this->assertSame( 'npx', $server['command'] );
-		$this->assertContains( '-y', $server['args'] );
-		// Must use @stonewright/companion, NOT @automattic/mcp-wordpress-remote
-		$this->assertContains( '@stonewright/companion@latest', $server['args'] );
+		$this->assertSame( 'stonewright-mcp', $server['command'] );
+		$this->assertSame( [], $server['args'] );
 		$this->assertNotContains( '@automattic/mcp-wordpress-remote@latest', $server['args'] );
 		$this->assertSame( 'admin', $server['env']['WP_API_USERNAME'] );
 		$this->assertSame( 'abcd 1234 efgh 5678', $server['env']['WP_API_PASSWORD'] );
@@ -72,8 +70,7 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertIsArray( $result );
 		$this->assertArrayHasKey( 'command', $result );
 		$this->assertStringContainsString( 'claude mcp add stonewright', $result['command'] );
-		// Must use @stonewright/companion, NOT @automattic/mcp-wordpress-remote
-		$this->assertStringContainsString( '@stonewright/companion', $result['command'] );
+		$this->assertStringContainsString( 'stonewright-mcp', $result['command'] );
 		$this->assertStringNotContainsString( '@automattic/mcp-wordpress-remote', $result['command'] );
 	}
 

@@ -47,7 +47,10 @@ final class Container {
 		$is_companion_sized = ! empty( $node['fullWidth'] )
 			|| ! empty( $node['full_width'] )
 			|| array_key_exists( 'width', $node )
-			|| array_key_exists( 'height', $node );
+			|| array_key_exists( 'height', $node )
+			|| array_key_exists( 'width', $style )
+			|| array_key_exists( 'height', $style )
+			|| array_key_exists( 'min_height', $style );
 
 		$settings = [
 			'container_type' => $layout,

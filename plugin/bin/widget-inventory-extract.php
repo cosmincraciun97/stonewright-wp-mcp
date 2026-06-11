@@ -1,13 +1,12 @@
 <?php
 /**
- * Phase A.1 — Widget Inventory Extractor (Stonewright Elementor Mastery).
+ * Widget Inventory Extractor.
  *
  * Scans the on-disk Elementor + Pro Elements widget files and emits a JSON
- * inventory consumed by Phase A.2 (per-widget control extraction) and Phase
- * A.4 (manifest synthesis).
+ * inventory consumed by per-widget control extraction and manifest synthesis.
  *
  * Usage:
- *   php plugin/bin/widget-inventory-extract.php > docs/superpowers/data/widget-inventory.json
+ *   php plugin/bin/widget-inventory-extract.php > docs/elementor/widget-registry-data/widget-inventory.json
  *
  * The script reads each PHP file's source and pulls:
  *   - get_name() return string
@@ -239,7 +238,7 @@ foreach ( $roots as $root ) {
 
 		// Some Pro widgets inherit get_categories() / get_keywords() from a
 		// base class — we'll know from the empty array. Mark them as
-		// inheriting so Phase A.4 can walk the parent chain manually.
+		// inheriting so manifest enrichment can walk the parent chain manually.
 		$widgets[] = [
 			'slug'                => $name,
 			'title'               => $title,

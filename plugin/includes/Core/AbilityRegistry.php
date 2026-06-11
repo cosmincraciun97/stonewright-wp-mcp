@@ -28,8 +28,10 @@ use Stonewright\WpMcp\Abilities\Design\ValidateSpec;
 use Stonewright\WpMcp\Abilities\Design\WidgetIntentResolve;
 use Stonewright\WpMcp\Abilities\ElementorV3\AddContainer;
 use Stonewright\WpMcp\Abilities\ElementorV3\AddWidget;
+use Stonewright\WpMcp\Abilities\ElementorV3\ApplyBundle as ElementorV3ApplyBundle;
 use Stonewright\WpMcp\Abilities\ElementorV3\BackupPage;
 use Stonewright\WpMcp\Abilities\ElementorV3\BuildPageFromSpec;
+use Stonewright\WpMcp\Abilities\ElementorV3\CapabilitiesSummary as ElementorV3CapabilitiesSummary;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetElement;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetPageStructure;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetWidgetSchema;
@@ -99,6 +101,7 @@ use Stonewright\WpMcp\Abilities\Sandbox\SandboxWrite;
 use Stonewright\WpMcp\Abilities\System\AbilitiesList;
 use Stonewright\WpMcp\Abilities\System\KnowledgeExport;
 use Stonewright\WpMcp\Abilities\System\KnowledgeImport;
+use Stonewright\WpMcp\Abilities\System\WorkflowPreflight;
 use Stonewright\WpMcp\Abilities\Skills\SkillsList;
 use Stonewright\WpMcp\Abilities\Skills\SkillsGet;
 use Stonewright\WpMcp\Abilities\Skills\SkillsSave;
@@ -116,6 +119,7 @@ use Stonewright\WpMcp\Abilities\Media\GetMedia;
 use Stonewright\WpMcp\Abilities\Media\OptimizeMedia;
 use Stonewright\WpMcp\Abilities\Media\SetAlt;
 use Stonewright\WpMcp\Abilities\Media\UploadMedia;
+use Stonewright\WpMcp\Abilities\Media\UploadMediaBatch;
 use Stonewright\WpMcp\Abilities\Menu\MenuAddItem;
 use Stonewright\WpMcp\Abilities\Menu\MenuAssignLocation;
 use Stonewright\WpMcp\Abilities\Menu\MenuCreate;
@@ -174,6 +178,7 @@ final class AbilityRegistry {
 
 			// Media.
 			UploadMedia::class,
+			UploadMediaBatch::class,
 			GetMedia::class,
 			SetAlt::class,
 			OptimizeMedia::class,
@@ -208,6 +213,7 @@ final class AbilityRegistry {
 
 			// Elementor V3.
 			ElementorStatus::class,
+			ElementorV3CapabilitiesSummary::class,
 			ListWidgets::class,
 			GetWidgetSchema::class,
 			GetPageStructure::class,
@@ -218,6 +224,7 @@ final class AbilityRegistry {
 			MoveElement::class,
 			RemoveElement::class,
 			BuildPageFromSpec::class,
+			ElementorV3ApplyBundle::class,
 			UpdatePageSettings::class,
 			UpdateKitColors::class,
 			UpdateKitTypography::class,
@@ -235,10 +242,10 @@ final class AbilityRegistry {
 			UpdateClass::class,
 			RenderV4FromSpec::class,
 
-			// Elementor V4 — atomic widget definer (Phase 2.3).
+			// Elementor V4 — atomic widget definer.
 			AtomicWidgetDefine::class,
 
-			// Elementor V4 — atomic introspection (Phase 2.4).
+			// Elementor V4 — atomic introspection.
 			ListAtomicNodeTypes::class,
 			DescribeAtomicWidget::class,
 
@@ -255,12 +262,8 @@ final class AbilityRegistry {
 			PreviewRender::class,
 			ApplyToPost::class,
 
-			// Design (Phase 2.5).
-
-			// Design (Phase D.4) — smart-detection intent resolver.
+			// Design — smart-detection intent resolver.
 			WidgetIntentResolve::class,
-
-			// Design (Phase D.5) — full-pipeline orchestrator.
 
 			// Memory (Wave 3a).
 			MemoryList::class,
@@ -275,6 +278,7 @@ final class AbilityRegistry {
 			KnowledgeExport::class,
 			KnowledgeImport::class,
 			AbilitiesList::class,
+			WorkflowPreflight::class,
 
 			// WP-CLI companion bridge.
 			WpCliStatus::class,
@@ -286,22 +290,22 @@ final class AbilityRegistry {
 			SkillsGet::class,
 			SkillsSave::class,
 
-			// Elementor Widget Builder (Phase 5).
+			// Elementor Widget Builder.
 			WidgetDefine::class,
 			WidgetRegister::class,
 			ElementorWidgetList::class,
 
-			// Custom-widget high-level pipeline (Phase G.2).
+			// Custom-widget high-level pipeline.
 			CreateCustomWidget::class,
 
-			// Elementor knowledge base query + self-update (Phase 0.4 / H.1).
+			// Elementor knowledge base query + self-update.
 			KnowledgeSearch::class,
 			DescribeWidget::class,
 			ExplainEditor::class,
 			WidgetImplementationGuide::class,
 			KnowledgeRefresh::class,
 
-			// Sandbox (Wave 3c).
+			// Sandbox.
 			SandboxListAbility::class,
 			SandboxRead::class,
 			SandboxWrite::class,
@@ -311,14 +315,14 @@ final class AbilityRegistry {
 			SandboxDeactivate::class,
 			SandboxToggle::class,
 
-			// Theme Builder (Phase 1.6+).
+			// Theme Builder.
 			ThemeBuilderCreateTemplate::class,
 			ThemeBuilderSetConditions::class,
 			ThemeBuilderListTemplates::class,
 			ThemeBuilderGetTemplate::class,
 			ThemeBuilderDeleteTemplate::class,
 
-			// Menu (Phase 1.x add-on).
+			// Menu.
 			MenuCreate::class,
 			MenuAddItem::class,
 			MenuList::class,
@@ -326,7 +330,7 @@ final class AbilityRegistry {
 			MenuAssignLocation::class,
 		];
 
-		// Phase C — auto-generated per-widget Elementor V3 abilities (one per
+		// Auto-generated per-widget Elementor V3 abilities (one per
 		// slug in plugin/includes/Elementor/WidgetRegistry/manifest.json).
 		// Re-run plugin/bin/generate-widget-abilities.php after manifest changes.
 		return array_merge( $base, self::widget_ability_classes() );
@@ -526,6 +530,7 @@ final class AbilityRegistry {
 	private static function context_exempt_abilities(): array {
 		return [
 			'stonewright/context-bootstrap',
+			'stonewright/workflow-preflight',
 			'stonewright/ping',
 			'stonewright/site-info',
 			'stonewright/site-capabilities',
@@ -544,6 +549,7 @@ final class AbilityRegistry {
 			'stonewright/elementor-describe-widget',
 			'stonewright/elementor-explain-editor',
 			'stonewright/widget-intent-resolve',
+			'stonewright/elementor-v3-capabilities-summary',
 			'stonewright/elementor-widget-implementation-guide',
 		];
 	}

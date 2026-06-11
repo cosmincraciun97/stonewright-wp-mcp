@@ -1,7 +1,7 @@
 {
     "generated_at": "2026-05-23T00:56:45+00:00",
     "generator": "plugin/bin/widget-controls-extract.php",
-    "inventory_source": "docs/superpowers/data/widget-inventory.json",
+    "inventory_source": "docs/elementor/widget-registry-data/widget-inventory.json",
     "widgets": 95,
     "extracted": 90,
     "with_no_register": 5,

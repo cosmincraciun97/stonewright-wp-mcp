@@ -1888,7 +1888,7 @@
     },
     {
       "url": "https://elementor.com/widgets/",
-      "reason": "Most widget entries on the marketing index page lack explicit <a> href tags (rendered client-side); only 14 widget URLs with actual hyperlinks were captured. Phase 0.3 should supplement from the widgets_help hub which has per-widget help articles for ~80 widgets."
+      "reason": "Most widget entries on the marketing index page lack explicit <a> href tags (rendered client-side); only 14 widget URLs with actual hyperlinks were captured. A future refresh should supplement from the widgets_help hub which has per-widget help articles for ~80 widgets."
     }
   ]
 }

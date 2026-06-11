@@ -42,14 +42,20 @@ Stonewright admin.
 
 ## Universal config block
 
-For local development, use the Stonewright companion stdio transport:
+For local development, install the companion release package first:
+
+```bash
+npm install -g ./stonewright-companion-<version>.tgz
+```
+
+Then use the Stonewright companion stdio transport:
 
 ```json
 {
   "mcpServers": {
     "stonewright": {
-      "command": "npx",
-      "args": ["-y", "--package", "@stonewright/companion@latest", "stonewright-mcp"],
+      "command": "stonewright-mcp",
+      "args": [],
       "env": {
         "STONEWRIGHT_SITE_URL": "https://your-site.com",
         "WP_API_URL": "https://your-site.com/wp-json/mcp/stonewright",
@@ -89,7 +95,7 @@ Run the generated `claude mcp add` command shown in the Stonewright admin page.
 The command takes this form:
 
 ```bash
-claude mcp add stonewright -- npx -y --package @stonewright/companion@latest stonewright-mcp \
+claude mcp add stonewright -- stonewright-mcp \
   --env STONEWRIGHT_SITE_URL='...' \
   --env STONEWRIGHT_MCP_URL='...' \
   --env WP_API_URL='...' \
@@ -127,8 +133,8 @@ Config file: `.vscode/mcp.json` in the workspace root.
 {
   "servers": {
     "stonewright": {
-      "command": "npx",
-      "args": ["-y", "--package", "@stonewright/companion@latest", "stonewright-mcp"],
+      "command": "stonewright-mcp",
+      "args": [],
       "env": {
         "WP_API_URL": "...",
         "WP_API_USERNAME": "...",
@@ -160,8 +166,8 @@ Add inside the existing settings object:
   "context_servers": {
     "stonewright": {
       "command": {
-        "path": "npx",
-        "args": ["-y", "--package", "@stonewright/companion@latest", "stonewright-mcp"],
+        "path": "stonewright-mcp",
+        "args": [],
         "env": {
           "STONEWRIGHT_MCP_URL": "...",
           "WP_API_USERNAME": "...",

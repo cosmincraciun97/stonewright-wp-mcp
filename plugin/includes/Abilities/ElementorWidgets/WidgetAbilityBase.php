@@ -32,7 +32,7 @@ use Stonewright\WpMcp\Support\ElementorData;
  * Subclasses MUST override `slug()` (it's abstract). Everything else
  * inherits.
  *
- * Validation returns structured Phase D.3 errors with
+ * Validation returns structured errors with
  * `data.violations = [{ path, code, expected, got }]` so the LLM can
  * self-correct in one round.
  */
@@ -278,7 +278,7 @@ abstract class WidgetAbilityBase extends AbilityKernel {
 					}
 				}
 
-				// Phase D.3 — structured validation against required_for_render.
+				// Structured validation against required_for_render.
 				$required = WidgetCatalog::required_for_render( $this->slug() );
 				$violations = [];
 				foreach ( $required as $req_key ) {

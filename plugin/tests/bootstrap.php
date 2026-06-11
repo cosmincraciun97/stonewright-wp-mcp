@@ -929,6 +929,10 @@ if ( ! function_exists( 'trailingslashit' ) ) {
 
 if ( ! function_exists( 'download_url' ) ) {
 	function download_url( string $url, int $timeout = 300, bool $signature_verification = false ): string|\WP_Error {
+		if ( isset( $GLOBALS['stonewright_test_download_url'] ) && is_callable( $GLOBALS['stonewright_test_download_url'] ) ) {
+			return ( $GLOBALS['stonewright_test_download_url'] )( $url, $timeout, $signature_verification );
+		}
+
 		$path = tempnam( sys_get_temp_dir(), 'stonewright-download-' );
 		if ( false === $path ) {
 			return new \WP_Error( 'download_failed', 'Could not create temp file.' );
@@ -940,6 +944,10 @@ if ( ! function_exists( 'download_url' ) ) {
 
 if ( ! function_exists( 'media_handle_sideload' ) ) {
 	function media_handle_sideload( array $file_array, int $post_id = 0, string $desc = '', array $post_data = [] ): int|\WP_Error {
+		if ( isset( $GLOBALS['stonewright_test_media_handle_sideload'] ) && is_callable( $GLOBALS['stonewright_test_media_handle_sideload'] ) ) {
+			return ( $GLOBALS['stonewright_test_media_handle_sideload'] )( $file_array, $post_id, $desc, $post_data );
+		}
+
 		$id = (int) $GLOBALS['stonewright_test_next_post_id']++;
 		$GLOBALS['stonewright_test_posts'][ $id ] = (object) [
 			'ID'             => $id,

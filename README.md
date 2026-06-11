@@ -21,12 +21,73 @@ separate design MCP for design files and user feedback for visual approval.
 
 - WordPress 6.7+ with `wordpress/mcp-adapter`
 - PHP 8.1+
-- Composer 2
-- Node.js 20+ for the companion
+- Composer 2 for source installs
+- Node.js 20+ for the optional companion
 - Elementor 3.21+ for Elementor abilities
-- WP-CLI for companion-assisted WordPress work
+- WP-CLI for companion-assisted WordPress work, or LocalWP with its bundled WP-CLI
 
-## Quickstart
+## Install From Release
+
+1. Download `stonewright-<version>.zip` from
+   [GitHub Releases](https://github.com/cosmincraciun97/stonewright-wp-mcp/releases).
+2. In WordPress Admin, open **Plugins > Add New > Upload Plugin** and upload
+   the ZIP.
+3. Activate **Stonewright**.
+4. Open **Stonewright > Configuration** and enable the plugin.
+5. Create a WordPress Application Password from **Users > Profile**. Use the
+   generated Application Password for MCP auth; do not use the wp-admin login
+   password.
+
+MCP endpoint:
+
+```text
+https://your-site.example.com/wp-json/mcp/stonewright
+```
+
+First calls:
+
+```text
+stonewright-ping
+stonewright-workflow-preflight
+stonewright-context-bootstrap
+```
+
+Use `stonewright-workflow-preflight` for fast task setup. It returns a context
+token, active mode, auth reminders, compact Elementor capability data, and
+first-pass tool choices.
+
+## Optional Companion
+
+Download `stonewright-companion-<version>.tgz` from the same release and install
+it globally:
+
+```bash
+npm install -g ./stonewright-companion-<version>.tgz
+```
+
+Then configure local stdio MCP clients with:
+
+```json
+{
+  "mcpServers": {
+    "stonewright": {
+      "command": "stonewright-mcp",
+      "env": {
+        "STONEWRIGHT_MCP_URL": "https://your-site.example.com/wp-json/mcp/stonewright",
+        "WP_API_USERNAME": "your-wp-username",
+        "WP_API_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
+        "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress"
+      }
+    }
+  }
+}
+```
+
+Set `PORT`, `COMPANION_BEARER_TOKEN`, and `COMPANION_ALLOWED_ORIGINS` when you
+also want the companion HTTP bridge for WordPress-side `stonewright/wp-cli-*`
+abilities.
+
+## Source Install
 
 ```bash
 cd /path/to/wp-content/plugins
@@ -46,6 +107,7 @@ MCP clients call hyphenated tool names. First smoke test:
 
 ```text
 stonewright-ping
+stonewright-workflow-preflight
 stonewright-context-bootstrap
 ```
 
