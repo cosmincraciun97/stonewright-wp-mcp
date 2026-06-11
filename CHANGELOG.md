@@ -7,6 +7,17 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.5] - 2026-06-11
+
+### Fixed
+
+- Made visual implementation tasks stop before the first write when external
+  Playwright/browser MCP is missing.
+- Expanded Antigravity and client onboarding with Playwright MCP setup, restart,
+  and tool-list verification.
+- Added fast-path guidance for spec/bundle first-pass Elementor builds to avoid
+  slow repeated single-widget loops.
+
 ## [1.0.0-alpha.4] - 2026-06-11
 
 ### Fixed
@@ -78,6 +89,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.5]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.5
 [1.0.0-alpha.4]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.4
 [1.0.0-alpha.3]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.3
 [1.0.0-alpha.2]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.2

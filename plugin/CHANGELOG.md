@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.5] - 2026-06-11
+
+### Fixed
+
+- Made visual implementation tasks stop before the first write when external
+  Playwright/browser MCP is missing.
+- Expanded Antigravity and client onboarding with Playwright MCP setup, restart,
+  and tool-list verification.
+- Added fast-path guidance for spec/bundle first-pass Elementor builds to avoid
+  slow repeated single-widget loops.
+
 ## [1.0.0-alpha.4] - 2026-06-11
 
 ### Fixed
