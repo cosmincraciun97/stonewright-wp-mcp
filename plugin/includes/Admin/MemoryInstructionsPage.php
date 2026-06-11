@@ -336,7 +336,7 @@ final class MemoryInstructionsPage {
 									<input type="hidden" name="action" value="stonewright_memory_delete">
 									<input type="hidden" name="id" value="<?php echo (int) $e['id']; ?>">
 									<?php wp_nonce_field( 'stonewright_memory', '_stonewright_nonce' ); ?>
-									<button class="button button-link-delete" data-confirm="Delete this memory?">Delete</button>
+									<button type="submit" class="button button-link-delete" data-confirm="Delete this memory?">Delete</button>
 								</form>
 							</td>
 						</tr>

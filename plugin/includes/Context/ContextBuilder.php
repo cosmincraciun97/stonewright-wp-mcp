@@ -21,11 +21,16 @@ final class ContextBuilder {
 		$matched_skills = self::matched_skills( $task, $surface );
 		$matched_memory = self::matched_memory( $task, $surface );
 
+		$is_visual = self::is_visual_task( $task, $surface, $intent );
+
+		$visual_quality_contract = $is_visual ? self::visual_quality_contract() : self::visual_context_stub();
+		$visual_build_gate       = $is_visual ? self::visual_build_gate() : self::visual_build_gate_stub();
+
 		return [
 			'ok'                       => true,
 			'context_token'            => $token['token'],
 			'expires_at'               => $token['expires_at'],
-			'instructions'             => AgentInstructions::default(),
+			'instructions'             => AgentInstructions::default( $is_visual ),
 			'mcp_tool_naming'          => self::mcp_tool_naming(),
 			'matched_skills'           => array_map(
 				static fn( array $skill ): array => [
@@ -45,11 +50,59 @@ final class ContextBuilder {
 			),
 			'memory_entries'           => $matched_memory,
 			'specializations'          => SpecializationCatalog::match( $task, $surface ),
-			'recommended_external_mcps' => self::recommended_external_mcps(),
-			'visual_quality_contract'  => self::visual_quality_contract(),
-			'visual_build_gate'        => self::visual_build_gate(),
-			'required_followups'       => self::required_followups( $surface, $intent ),
+			'recommended_external_mcps' => self::recommended_external_mcps( $is_visual ),
+			'visual_quality_contract'  => $visual_quality_contract,
+			'visual_build_gate'        => $visual_build_gate,
+			'required_followups'       => self::required_followups( $surface, $intent, $is_visual ),
 		];
+	}
+
+	public static function is_visual_task( string $task, string $surface = 'unknown', string $intent = 'unknown' ): bool {
+		$surface = strtolower( trim( $surface ) );
+		$intent  = strtolower( trim( $intent ) );
+		$query   = self::normalise( $task . ' ' . $surface . ' ' . $intent );
+
+		$visual_sources = [
+			'design',
+			'design system',
+			'figma',
+			'image',
+			'mockup',
+			'reference',
+			'screenshot',
+			'wireframe',
+		];
+		if ( self::has_any_term( $query, $visual_sources ) ) {
+			return true;
+		}
+
+		$visual_work_terms = [
+			'breakpoint',
+			'build',
+			'create',
+			'front end',
+			'frontend',
+			'hero',
+			'implement',
+			'landing page',
+			'layout',
+			'mobile',
+			'page',
+			'pixel',
+			'prompt',
+			'responsive',
+			'section',
+			'tablet',
+			'template',
+			'visual',
+		];
+
+		return in_array( $surface, [ 'elementor', 'gutenberg', 'wordpress' ], true )
+			&& (
+				in_array( $intent, [ 'write', 'create', 'update', 'design' ], true )
+				|| self::has_any_term( $query, $visual_work_terms )
+			)
+			&& self::has_any_term( $query, $visual_work_terms );
 	}
 
 	/**
@@ -147,7 +200,11 @@ final class ContextBuilder {
 	/**
 	 * @return array<int, array<string, mixed>>
 	 */
-	private static function recommended_external_mcps(): array {
+	private static function recommended_external_mcps( bool $is_visual ): array {
+		if ( ! $is_visual ) {
+			return [];
+		}
+
 		return [
 			[
 				'id'            => 'playwright',
@@ -173,6 +230,7 @@ final class ContextBuilder {
 	private static function visual_quality_contract(): array {
 		return [
 			'hard_stop_if_browser_unavailable' => true,
+			'section_batching'                 => self::section_batching_contract(),
 			'playwright_mcp_gate'              => [
 				'timing'            => 'before_first_write',
 				'required_surfaces' => [ 'elementor', 'gutenberg', 'wordpress' ],
@@ -189,6 +247,9 @@ final class ContextBuilder {
 				'Before the first Elementor write, create a global-style plan: reusable color/typography tokens, Elementor kit updates if approved, and page-local values that should remain local.',
 				'Create a section-by-section implementation plan with outer section, inner max-width container, rows/columns, widget choices, and responsive breakpoints.',
 				'Before the first write, produce a section-by-section plan mapping Figma nodes to native Elementor widgets, containers, breakpoints, assets, and any approved CSS classes.',
+				'Implement visual pages in batches of one section at a time, or two sections only when they are simple and tightly coupled.',
+				'After each section batch, verify desktop, tablet, and mobile breakpoints before starting the next batch.',
+				'Auto-continue to the next section batch when screenshots, overflow checks, and diagnostics pass; do not wait for user approval between batches.',
 				'Use the exact Elementor control keys from widget schema or stonewright/elementor-describe-widget; do not invent CSS-like setting names.',
 				'Use dedicated stonewright/elementor-add-* widget abilities for known widgets. Use stonewright/elementor-v3-add-widget only for unknown or third-party widgets.',
 				'Set page template to Elementor Canvas when the user asks for no header and no footer.',
@@ -220,6 +281,7 @@ final class ContextBuilder {
 	private static function visual_build_gate(): array {
 		return [
 			'blocks_completion_without_evidence' => true,
+			'section_batching'                   => self::section_batching_contract(),
 			'required_before_discovery'          => [
 				'Call stonewright-context-bootstrap before Figma, browser, or write tools unless stonewright-workflow-preflight is the explicit bootstrap fast path.',
 				'Read matched skills, memory, visual_quality_contract, and required_followups before extracting design data.',
@@ -243,6 +305,7 @@ final class ContextBuilder {
 				'existing_media_asset_audit',
 				'section_implementation_plan',
 				'section_reference_screenshots',
+				'section_batch_plan',
 			],
 			'evidence_required_before_completion' => [
 				'desktop_screenshot_diff',
@@ -255,6 +318,7 @@ final class ContextBuilder {
 				'Do not copy the Figma layer tree as the WordPress or Elementor tree when the visual screenshot implies a different, cleaner structure.',
 				'Do not upload duplicate assets until existing WordPress media has been checked by filename, alt text, dimensions, and visible crop.',
 				'Do not start repeated single-widget patching until a section plan maps reference nodes to native Elementor widgets and breakpoints.',
+				'Do not implement more than two visual page sections in one write-and-verify batch.',
 				'Do not declare pixel-perfect or responsive unless logged-out desktop, tablet, and mobile viewport checks pass without theme/admin chrome contamination.',
 				'Do not sign off while any required visual delta lacks a status: matched, fixed, accepted limitation, or blocked by missing user approval.',
 			],
@@ -292,6 +356,15 @@ final class ContextBuilder {
 					'viewport',
 					'expected_visual_structure',
 				],
+				'section_batch_plan'            => [
+					'batch_id',
+					'section_ids',
+					'max_sections',
+					'reference_viewports',
+					'write_tool',
+					'verification_breakpoints',
+					'auto_continue_when_passed',
+				],
 				'screenshot_diff'              => [
 					'viewport',
 					'reference_screenshot',
@@ -313,25 +386,74 @@ final class ContextBuilder {
 	}
 
 	/**
+	 * @return array<string, mixed>
+	 */
+	private static function section_batching_contract(): array {
+		return [
+			'preferred_sections_per_pass'       => 1,
+			'max_sections_per_pass'             => 2,
+			'auto_continue_when_batch_passes'   => true,
+			'applies_to_sources'                => [ 'figma', 'image', 'prompt', 'design_system' ],
+			'breakpoints'                       => [
+				'elementor' => [ 'desktop', 'tablet', 'mobile' ],
+				'gutenberg' => [ 'desktop', 'tablet', 'mobile' ],
+			],
+			'pass_condition'                    => 'Batch screenshots, renderer diagnostics, and overflow checks pass at all relevant breakpoints.',
+			'approval_policy'                   => 'Do not wait for user approval between passing section batches; continue automatically until all requested sections are implemented or a real safety blocker appears.',
+			'safety_boundaries_still_required'  => [
+				'production-safe confirmation tokens',
+				'missing credentials or unavailable MCP tools',
+				'explicit approval for custom CSS, SVG enablement, or other global/security-affecting changes',
+			],
+		];
+	}
+
+	/**
+	 * @return array<string, string>
+	 */
+	private static function visual_context_stub(): array {
+		return [
+			'status' => 'exempt',
+			'reason' => 'Non-visual task',
+		];
+	}
+
+	/**
+	 * @return array<string, string>
+	 */
+	private static function visual_build_gate_stub(): array {
+		return [
+			'status' => 'exempt',
+			'reason' => 'Non-visual task',
+		];
+	}
+
+	/**
 	 * @return array<int, string>
 	 */
-	private static function required_followups( string $surface, string $intent ): array {
+	private static function required_followups( string $surface, string $intent, bool $is_visual ): array {
 		$steps = [
 			'Read all matched skill playbooks and memory entries before acting.',
 			'If the user corrects the agent or a repeatable mistake is detected, call stonewright/learning-record.',
 			'Use MCP tool names with hyphens, for example stonewright-context-bootstrap, not slash-separated ability names.',
-			'When a task needs browser testing, screenshots, or visual inspection, ensure the external Playwright MCP is installed and connected before implementation.',
-			'If the external Playwright MCP is unavailable during a visual implementation task, stop before writing and tell the user the exact MCP setup command plus restart requirement.',
-			'For design-derived backgrounds, create an asset selection plan and never use a full-page screenshot as a section background.',
-			'Before declaring a visual task done, verify no horizontal overflow with document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1 at all requested breakpoints.',
-			'For pixel-perfect tasks, report the visual_build_gate evidence before completion: token table, asset audit, section plan, screenshot deltas, and logged-out viewport checks.',
-			'If SVG uploads are blocked, do not create sandbox or mu-plugin workarounds without explicit user approval.',
 		];
+
+		if ( $is_visual ) {
+			$steps[] = 'When a task needs browser testing, screenshots, or visual inspection, ensure the external Playwright MCP is installed and connected before implementation.';
+			$steps[] = 'If the external Playwright MCP is unavailable during a visual implementation task, stop before writing and tell the user the exact MCP setup command plus restart requirement.';
+			$steps[] = 'For design-derived backgrounds, create an asset selection plan and never use a full-page screenshot as a section background.';
+			$steps[] = 'Implement visual pages in one-section batches, or two sections only when simple and tightly coupled; auto-continue after passing desktop, tablet, and mobile verification.';
+			$steps[] = 'Before declaring a visual task done, verify no horizontal overflow with document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1 at all requested breakpoints.';
+			$steps[] = 'For pixel-perfect tasks, report the visual_build_gate evidence before completion: token table, asset audit, section plan, screenshot deltas, and logged-out viewport checks.';
+			$steps[] = 'If SVG uploads are blocked, do not create sandbox or mu-plugin workarounds without explicit user approval.';
+		}
 
 		if ( 'elementor' === $surface ) {
 			$steps[] = 'Call stonewright/widget-intent-resolve before choosing Elementor widgets.';
 			$steps[] = 'Call stonewright/elementor-widget-implementation-guide before writing Elementor elements.';
-			$steps[] = 'Before building design-derived pages, plan Elementor kit colors/typography first; if site-wide changes are approved, update the active kit before writing page elements.';
+			if ( $is_visual ) {
+				$steps[] = 'Before building design-derived pages, plan Elementor kit colors/typography first; if site-wide changes are approved, update the active kit before writing page elements.';
+			}
 			$steps[] = 'Configure relevant Content, Style, and Advanced controls, including responsive values.';
 			$steps[] = 'When the guide asks for online research, use official Elementor documentation before writing.';
 		}
@@ -362,6 +484,19 @@ final class ContextBuilder {
 
 	private static function normalise( string $text ): string {
 		return trim( preg_replace( '/[^a-z0-9]+/i', ' ', strtolower( $text ) ) ?? '' );
+	}
+
+	/**
+	 * @param list<string> $terms
+	 */
+	private static function has_any_term( string $normalised_text, array $terms ): bool {
+		foreach ( $terms as $term ) {
+			$needle = self::normalise( $term );
+			if ( '' !== $needle && preg_match( '/(^| )' . preg_quote( $needle, '/' ) . '( |$)/', $normalised_text ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static function score( string $query, string $haystack ): int {

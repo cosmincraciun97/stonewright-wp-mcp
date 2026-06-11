@@ -120,26 +120,9 @@ final class WorkflowPreflight extends AbilityKernel {
 				'call_sequence'         => self::call_sequence( $task, $task_profile ),
 				'specializations'       => $specializations,
 				'visual_build_gate'     => $context['visual_build_gate'] ?? [],
-				'visual_setup'          => [
-					'Install external Playwright MCP before visual work and restart the AI client so the browser tools appear.',
-					'Verify the Playwright/browser tool can open the target URL before the first Stonewright write.',
-				],
-				'batching_rules'        => [
-					'Build the first page pass with stonewright/elementor-v3-build-page-from-spec or stonewright/elementor-v3-apply-bundle; avoid dozens of single-widget calls for repeated cards.',
-					'Use stonewright/media-upload-batch for multiple assets instead of one upload call per image.',
-					'Use individual add/update/move calls only for surgical fixes after screenshot comparison.',
-				],
-				'quality_gates'         => [
-					'Stop before writing if a visual task has no connected external Playwright/browser MCP.',
-					'Provide visual_build_gate evidence before signoff: Figma token table, media reuse audit, section plan, screenshot deltas, and logged-out viewport checks.',
-					'Use design-tool structure for tokens and asset hints, but match implementation structure to the captured reference screenshots.',
-					'For long visual designs, capture multiple section reference screenshots and compare each section before full-page signoff.',
-					'Before uploading assets, audit existing media and reuse matching filenames, alt text, dimensions, and crops.',
-					'Validate the design spec before render.',
-					'Snapshot before each Elementor or global-style write.',
-					'Inspect renderer diagnostics before browser iteration.',
-					'Verify desktop, tablet, and mobile breakpoints with an external browser MCP.',
-				],
+				'visual_setup'          => self::visual_setup( $task_profile ),
+				'batching_rules'        => self::batching_rules( $task_profile ),
+				'quality_gates'         => self::quality_gates( $task_profile ),
 				'external_mcps'         => [
 					'Use external Figma MCP for design extraction.',
 					'Use external Playwright/browser MCP for screenshots and visual QA.',
@@ -193,7 +176,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			|| self::has_any_term( $query, [ 'add', 'apply', 'build', 'create', 'edit', 'import', 'publish', 'save', 'set', 'update', 'upload', 'write' ] );
 		$is_destructive = 'delete' === $intent
 			|| self::has_any_term( $query, [ 'delete', 'destroy', 'force delete', 'overwrite', 'permanent', 'remove', 'replace', 'reset', 'trash' ] );
-		$needs_visual_check = self::has_any_term( $query, [ 'browser', 'design', 'figma', 'front end', 'frontend', 'landing page', 'layout', 'mobile', 'page', 'pixel', 'responsive', 'screenshot', 'tablet', 'visual' ] );
+		$needs_visual_check = ContextBuilder::is_visual_task( $task, $surface, $intent );
 		$needs_wp_cli = [] !== $specializations || in_array(
 			$surface,
 			[ 'acf', 'acpt', 'ase', 'cpt-ui', 'fields', 'gutenberg', 'meta-box', 'metabox', 'pods', 'woocommerce', 'wordpress', 'wp-cli' ],
@@ -259,6 +242,75 @@ final class WorkflowPreflight extends AbilityKernel {
 
 	/**
 	 * @param array<string, bool|string> $profile
+	 * @return list<string>
+	 */
+	private static function visual_setup( array $profile ): array {
+		if ( empty( $profile['needs_visual_check'] ) ) {
+			return [];
+		}
+
+		return [
+			'Install external Playwright MCP before visual work and restart the AI client so the browser tools appear.',
+			'Verify the Playwright/browser tool can open the target URL before the first Stonewright write.',
+		];
+	}
+
+	/**
+	 * @param array<string, bool|string> $profile
+	 * @return list<string>
+	 */
+	private static function batching_rules( array $profile ): array {
+		$rules = [
+			'Use stonewright/media-upload-batch for multiple assets instead of one upload call per image.',
+			'Use individual add/update/move calls only for surgical fixes after screenshot comparison.',
+		];
+
+		if ( ! empty( $profile['needs_visual_check'] ) ) {
+			array_unshift(
+				$rules,
+				'Implement visual pages in write-and-verify batches of one section, or two sections only when they are simple and tightly coupled.',
+				'After each batch, verify desktop, tablet, and mobile screenshots plus overflow before starting the next batch.',
+				'Auto-continue to the next section batch when screenshots, diagnostics, and overflow checks pass; do not wait for user approval between passing batches.'
+			);
+		} elseif ( ! empty( $profile['is_write'] ) ) {
+			array_unshift(
+				$rules,
+				'Use stonewright/elementor-v3-build-page-from-spec or stonewright/elementor-v3-apply-bundle for structured first-pass writes instead of many single-widget calls.'
+			);
+		}
+
+		return $rules;
+	}
+
+	/**
+	 * @param array<string, bool|string> $profile
+	 * @return list<string>
+	 */
+	private static function quality_gates( array $profile ): array {
+		$gates = [
+			'Validate the design spec before render.',
+			'Snapshot before each Elementor or global-style write.',
+			'Inspect renderer diagnostics before browser iteration.',
+		];
+
+		if ( ! empty( $profile['needs_visual_check'] ) ) {
+			array_unshift(
+				$gates,
+				'Stop before writing if a visual task has no connected external Playwright/browser MCP.',
+				'Provide visual_build_gate evidence before signoff: Figma token table, media reuse audit, section plan, screenshot deltas, and logged-out viewport checks.',
+				'Use design-tool structure for tokens and asset hints, but match implementation structure to the captured reference screenshots.',
+				'For long visual designs, capture multiple section reference screenshots and compare each section before full-page signoff.',
+				'Never write more than two visual page sections in a single implementation batch.',
+				'Before uploading assets, audit existing media and reuse matching filenames, alt text, dimensions, and crops.'
+			);
+			$gates[] = 'Verify desktop, tablet, and mobile breakpoints with an external browser MCP.';
+		}
+
+		return $gates;
+	}
+
+	/**
+	 * @param array<string, bool|string> $profile
 	 * @return list<array<string, mixed>>
 	 */
 	private static function call_sequence( string $task, array $profile ): array {
@@ -310,10 +362,12 @@ final class WorkflowPreflight extends AbilityKernel {
 				);
 				$out[] = self::call_step(
 					'stonewright/elementor-v3-build-page-from-spec',
-					'Write one validated first-pass page spec instead of many single-widget calls.',
+					! empty( $profile['needs_visual_check'] )
+						? 'Write the current one- or two-section visual batch from a validated spec, then verify screenshots before the next batch.'
+						: 'Write one validated first-pass page spec instead of many single-widget calls.',
 					[
 						'post_id'                  => '<target post id>',
-						'spec'                     => '<validated Stonewright Design Spec>',
+						'spec'                     => ! empty( $profile['needs_visual_check'] ) ? '<validated Stonewright Design Spec for current section batch>' : '<validated Stonewright Design Spec>',
 						'replace'                  => true,
 						'stonewright_context_token' => '<context_token>',
 					]
