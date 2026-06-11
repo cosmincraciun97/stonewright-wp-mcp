@@ -1,6 +1,6 @@
 # Stonewright Plugin
 
-Version: 1.0.0-alpha.2
+Version: 1.0.0-alpha.8
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
 License: GPL-2.0-or-later
@@ -10,9 +10,16 @@ Stonewright registers WordPress Abilities as MCP tools through the official
 Elementor V4 atomic experiments, Design Spec rendering, Elementor widget
 building, persistent skills/memory, and companion-backed WP-CLI.
 
-Stonewright does not include design-tool ingestion or automated visual QA.
-
 ## Quick Start
+
+Release install:
+
+1. Download `stonewright-<version>.zip` from GitHub Releases.
+2. Upload it in WordPress Admin under **Plugins > Add New > Upload Plugin**.
+3. Activate Stonewright and open **Stonewright > Configuration**.
+4. Enable AI Abilities and create a WordPress Application Password for MCP auth.
+
+Source install:
 
 ```bash
 cd plugin
@@ -79,6 +86,16 @@ The plugin stores site skills and memory in WordPress tables. Agents must call
 MCP tool `stonewright-context-bootstrap` at the start of every task and follow returned
 skills, memory, custom instructions, and required followups.
 
+For visual work, connect external Playwright MCP before the first write:
+
+```bash
+claude mcp add playwright -- npx -y @playwright/mcp@latest --caps=testing,vision,devtools
+```
+
+Restart the AI client after adding Playwright. If the Playwright/browser tool is
+not visible, the agent should stop before visual implementation and ask for the
+client restart/setup instead of building blind.
+
 Manual edits in the Stonewright admin Skills/Memory/Instructions pages persist
 between sessions because they are stored in WordPress options/custom tables.
 
@@ -137,6 +154,8 @@ Authentication uses WordPress Application Passwords.
 
 MCP tool names are hyphenated by the WordPress MCP Adapter. Example:
 `stonewright/context-bootstrap` is called as `stonewright-context-bootstrap`.
+For a fast first pass, call `stonewright-workflow-preflight`; it returns a
+context token, auth guidance, mode, and compact capability summary.
 
 Admins using authenticated REST directly can call:
 
