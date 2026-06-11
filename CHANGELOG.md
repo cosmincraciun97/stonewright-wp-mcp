@@ -7,6 +7,35 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.12] - 2026-06-12
+
+### Added
+
+- Added an OPcache-friendly PHP manifest cache for the Elementor widget catalog
+  so large widget metadata can load without decoding the full JSON manifest on
+  every request.
+- Added visual section batching guidance so design-derived pages are built in
+  one-section passes, or two sections only when simple and tightly coupled, with
+  automatic continuation after desktop, tablet, and mobile checks pass.
+- Added admin JavaScript regression coverage for copy buttons and declarative
+  controls.
+
+### Changed
+
+- Context bootstrap and workflow preflight now omit heavy visual contracts for
+  non-visual tasks, reducing tokens for routine WordPress operations.
+- Elementor responsive rendering now preserves additional breakpoint-specific
+  sizing and spacing controls.
+- Admin copy, reveal, tab, panel, row, and skill controls now prevent accidental
+  form submission.
+
+### Fixed
+
+- Fixed admin copy buttons when the Clipboard API rejects writes by falling back
+  to a temporary textarea copy path and prompt fallback.
+- Fixed Memory admin delete confirmation markup so confirmation handling reliably
+  targets a submit button.
+
 ## [1.0.0-alpha.11] - 2026-06-11
 
 ### Added
@@ -184,6 +213,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.12]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.12
 [1.0.0-alpha.11]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.11
 [1.0.0-alpha.10]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.10
 [1.0.0-alpha.9]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.9

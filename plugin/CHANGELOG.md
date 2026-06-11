@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.12] - 2026-06-12
+
+### Added
+
+- Added a generated PHP cache for the Elementor widget manifest to avoid
+  repeated large JSON decoding during widget catalog loads.
+- Added one-section visual batching guidance with automatic continuation after
+  desktop, tablet, and mobile verification passes.
+- Added admin JavaScript tests for copy fallback and declarative button
+  behaviour.
+
+### Changed
+
+- Context bootstrap now returns compact visual stubs for non-visual tasks.
+- Admin copy, reveal, tab, panel, row, and skill controls now prevent accidental
+  form submission.
+
+### Fixed
+
+- Fixed admin copy buttons when browser clipboard permissions reject writes.
+- Fixed Memory admin delete confirmation button markup.
+
 ## [1.0.0-alpha.11] - 2026-06-11
 
 ### Added
