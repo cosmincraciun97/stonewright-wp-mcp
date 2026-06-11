@@ -43,11 +43,15 @@ claude mcp add stonewright -- stonewright-mcp \
   --env STONEWRIGHT_MCP_URL='https://your-site.example.com/wp-json/mcp/stonewright' \
   --env WP_API_USERNAME='your-wp-username' \
   --env WP_API_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx' \
-  --env STONEWRIGHT_WP_ROOT='/path/to/wordpress' \
   --env PORT='8765' \
   --env COMPANION_BEARER_TOKEN='change-this-long-random-token' \
   --env COMPANION_ALLOWED_ORIGINS='http://localhost,http://127.0.0.1'
 ```
+
+Add `--env STONEWRIGHT_WP_ROOT='...'` only when you want WP-CLI helper tools or
+LocalWP discovery. The value is the absolute WordPress install folder containing
+`wp-config.php`, such as `D:\\Sites\\example\\app\\public` or
+`/Users/me/Sites/example/app/public`; it is not the plugin folder.
 
 Register the separate Playwright MCP for browser testing and screenshots:
 

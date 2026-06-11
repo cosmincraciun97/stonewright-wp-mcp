@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.14] - 2026-06-12
+
+### Changed
+
+- Clarified install docs so `STONEWRIGHT_WP_ROOT` is optional and means the
+  absolute WordPress install folder containing `wp-config.php`.
+- Updated release metadata for the companion WP-CLI batch runner release.
+
 ## [1.0.0-alpha.13] - 2026-06-12
 
 ### Added

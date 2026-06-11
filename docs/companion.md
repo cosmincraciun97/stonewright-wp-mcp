@@ -20,7 +20,9 @@ arbitrary PHP and shell entry points: `wp eval`, `wp eval-file`, `wp shell`,
 `wp package`, `--exec`, and `--require`.
 
 Use `STONEWRIGHT_WP_ROOT` or `STONEWRIGHT_WP_ALLOWED_ROOTS` to restrict working
-directories.
+directories. `STONEWRIGHT_WP_ROOT` is optional; when set, it must be the
+absolute WordPress install folder containing `wp-config.php`, not the plugin
+folder or site URL.
 
 ## Configuration
 
@@ -41,7 +43,7 @@ directories.
 | `STONEWRIGHT_WP_APP_PASSWORD_AUTO` | Auto-create missing local credentials through guarded WP-CLI; default `local-only` |
 | `STONEWRIGHT_WP_APP_PASSWORD_NAME` | Label used when auto-creating the WordPress Application Password |
 | `STONEWRIGHT_WP_CLI_BIN` | WP-CLI executable; defaults to `wp` |
-| `STONEWRIGHT_WP_ROOT` | Default WP working directory |
+| `STONEWRIGHT_WP_ROOT` | Optional absolute WordPress install folder containing `wp-config.php`; default WP-CLI working directory |
 | `STONEWRIGHT_WP_ALLOWED_ROOTS` | Comma- or semicolon-separated allowed roots |
 | `MCP_PROXY_TARGET` | Optional upstream MCP server |
 

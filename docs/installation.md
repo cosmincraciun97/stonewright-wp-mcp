@@ -75,7 +75,6 @@ For MCP clients that use a local stdio server, configure:
         "STONEWRIGHT_MCP_URL": "https://your-site.example.com/wp-json/mcp/stonewright",
         "WP_API_USERNAME": "your-wp-username",
         "WP_API_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_WP_ROOT": "/path/to/wordpress",
         "PORT": "8765",
         "COMPANION_BEARER_TOKEN": "change-this-long-random-token",
         "COMPANION_ALLOWED_ORIGINS": "http://localhost,http://127.0.0.1"
@@ -85,11 +84,14 @@ For MCP clients that use a local stdio server, configure:
 }
 ```
 
-Windows note: use a normal Windows path for `STONEWRIGHT_WP_ROOT`, for example
-`D:\\Sites\\example\\app\\public`.
+`STONEWRIGHT_WP_ROOT` is optional. Add it only when the companion should run
+WP-CLI helper tools or discover LocalWP automatically. Use the absolute
+WordPress install folder containing `wp-config.php`, not the Stonewright plugin
+folder and not a URL.
 
-macOS note: use the absolute WordPress root path, for example
-`/Users/me/Sites/example/app/public`.
+Windows example: `D:\\Sites\\example\\app\\public`.
+
+macOS example: `/Users/me/Sites/example/app/public`.
 
 For the WordPress-side `stonewright/wp-cli-*` abilities, set the WordPress
 option to the same bridge URL and token:
@@ -106,9 +108,9 @@ abilities.
 
 When Stonewright is installed through the Node companion MCP, the companion also
 registers direct aliases named `stonewright-wp-cli-status`,
-`stonewright-wp-cli-discover`, and `stonewright-wp-cli-run`. Those aliases run
-WP-CLI inside the companion and do not require the WordPress-side HTTP bridge on
-port `8765`.
+`stonewright-wp-cli-discover`, `stonewright-wp-cli-run`, and
+`stonewright-wp-cli-batch-run`. Those aliases run WP-CLI inside the companion
+and do not require the WordPress-side HTTP bridge on port `8765`.
 
 The companion also registers `stonewright-wp-cli-install` and
 `companion_wp_cli_install`. The installer downloads the official `wp-cli.phar`
@@ -129,7 +131,7 @@ Optional env vars:
 
 | Variable | Purpose |
 |---|---|
-| `STONEWRIGHT_WP_ROOT` | WordPress root used for `cwd`, `--path`, and LocalWP discovery. |
+| `STONEWRIGHT_WP_ROOT` | Optional absolute WordPress install folder containing `wp-config.php`; used for `cwd`, `--path`, and LocalWP discovery. |
 | `STONEWRIGHT_WP_ALLOWED_ROOTS` | Comma/semicolon list of roots allowed for `cwd` and `--path`. |
 | `STONEWRIGHT_WP_CLI_BIN` | Explicit `wp` executable when it is not on `PATH`. |
 | `STONEWRIGHT_WP_CLI_PHP_BIN` | Explicit PHP executable for `wp-cli.phar`. |

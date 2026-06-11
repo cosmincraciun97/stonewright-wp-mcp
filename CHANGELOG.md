@@ -7,6 +7,38 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.14] - 2026-06-12
+
+### Added
+
+- Added a UTF-8 safe companion WP-CLI batch runner for repeated argv-based
+  commands, exposed as `stonewright-wp-cli-batch-run`,
+  `companion_wp_cli_batch_run`, and `POST /wp-cli/batch`.
+- Added guidance for agents to use the batch runner instead of large inline
+  shell scripts when writing repeated WordPress, CPT, ACF, media, or taxonomy
+  data with non-ASCII content.
+
+### Changed
+
+- Clarified onboarding docs so `STONEWRIGHT_WP_ROOT` is described as an
+  optional absolute WordPress install folder containing `wp-config.php`, not a
+  required URL or plugin path.
+
+## [1.0.0-alpha.13] - 2026-06-12
+
+### Added
+
+- Added MCP prompt discovery for prompt-enabled Stonewright skills.
+- Added a companion credential store fallback for per-project Application
+  Password reuse across local agent sessions.
+
+### Fixed
+
+- Fixed Sandbox Library routing, Sandbox action redirects, active MU plugin
+  detection, and Elementor Icon Box settings.
+- Confirmed admin copy buttons, skill panels, memory panels, sandbox actions,
+  and ability controls in browser QA.
+
 ## [1.0.0-alpha.12] - 2026-06-12
 
 ### Added
@@ -213,6 +245,8 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.14]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.14
+[1.0.0-alpha.13]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.13
 [1.0.0-alpha.12]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.12
 [1.0.0-alpha.11]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.11
 [1.0.0-alpha.10]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.10

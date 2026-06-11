@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.13-blue" /></a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.14-blue" /></a>
   <img alt="plugin license" src="https://img.shields.io/badge/plugin-GPL--2.0--or--later-green" />
   <img alt="companion license" src="https://img.shields.io/badge/companion-MIT-blue" />
   <img alt="php" src="https://img.shields.io/badge/PHP-%3E%3D8.1-777bb4" />
@@ -99,8 +99,7 @@ Then configure MCP clients that use a local stdio server with:
       "env": {
         "STONEWRIGHT_MCP_URL": "https://your-site.example.com/wp-json/mcp/stonewright",
         "WP_API_USERNAME": "your-wp-username",
-        "WP_API_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress"
+        "WP_API_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx"
       }
     }
   }
@@ -109,6 +108,14 @@ Then configure MCP clients that use a local stdio server with:
 
 This starts the local Stonewright companion over stdio. The companion then
 proxies the WordPress MCP endpoint using the Application Password credentials.
+
+`STONEWRIGHT_WP_ROOT` is optional. Add it only when you want the companion to run
+WP-CLI helper tools or auto-discover LocalWP. Set it to the absolute WordPress
+install folder that contains `wp-config.php`, for example
+`D:\\Local Sites\\example\\app\\public` on Windows or
+`/Users/me/Sites/example/app/public` on macOS. It is not a URL and it is not the
+Stonewright plugin folder. If omitted, agents can pass an absolute `path` in
+each WP-CLI tool call.
 
 Set `PORT`, `COMPANION_BEARER_TOKEN`, and `COMPANION_ALLOWED_ORIGINS` when you
 also want the companion HTTP bridge for WordPress-side `stonewright/wp-cli-*`
@@ -191,7 +198,7 @@ Copy `companion/.env.example` to `companion/.env`.
 | `STONEWRIGHT_CREDENTIAL_DIR` | optional | Directory for generated per-project credential files |
 | `STONEWRIGHT_WP_APP_PASSWORD_AUTO` | optional | Auto-create missing local credentials through guarded WP-CLI; default `local-only` |
 | `STONEWRIGHT_WP_CLI_BIN` | optional | WP-CLI executable path; defaults to `wp` |
-| `STONEWRIGHT_WP_ROOT` | optional | Default WP-CLI working directory |
+| `STONEWRIGHT_WP_ROOT` | optional | Absolute WordPress install folder containing `wp-config.php`; default WP-CLI working directory |
 | `STONEWRIGHT_WP_ALLOWED_ROOTS` | optional | Comma- or semicolon-separated allowed WP-CLI roots |
 | `MCP_PROXY_TARGET` | optional | Upstream MCP server to proxy requests to |
 | `MCP_PROXY_TOKEN` | optional | Bearer token for the proxy target |

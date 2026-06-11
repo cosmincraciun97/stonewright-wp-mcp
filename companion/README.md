@@ -54,7 +54,7 @@ cp .env.example .env
 | `STONEWRIGHT_WP_APP_PASSWORD_AUTO` | optional | `local-only` by default; set `never` to disable or `always` to permit remote auto-generation |
 | `STONEWRIGHT_WP_APP_PASSWORD_NAME` | optional | Label used when auto-creating the WordPress Application Password |
 | `STONEWRIGHT_WP_CLI_BIN` | optional | WP-CLI executable path; defaults to `wp` |
-| `STONEWRIGHT_WP_ROOT` | optional | Default WP-CLI working directory |
+| `STONEWRIGHT_WP_ROOT` | optional | Absolute WordPress install folder containing `wp-config.php`; default WP-CLI working directory |
 | `STONEWRIGHT_WP_ALLOWED_ROOTS` | optional | Comma- or semicolon-separated allowed working roots |
 | `MCP_PROXY_TARGET` | optional | Upstream MCP server URL to proxy to |
 | `MCP_PROXY_TOKEN` | optional | Bearer token for the proxy target |

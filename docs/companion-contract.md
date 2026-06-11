@@ -129,6 +129,8 @@ fixed upstream. Callers cannot choose arbitrary proxy targets.
 4. Unsafe flags are blocked: `--exec`, `--require`, and `--prompt`.
 5. `path`/cwd must resolve inside `STONEWRIGHT_WP_ROOT`,
    `STONEWRIGHT_WP_ALLOWED_ROOTS`, or the companion process cwd fallback.
+   `STONEWRIGHT_WP_ROOT` is optional and, when configured, is the absolute
+   WordPress install folder containing `wp-config.php`.
 6. The companion never calls WordPress REST write endpoints.
 
 ## Schema Files
