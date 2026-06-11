@@ -1,8 +1,8 @@
 ---
 name: design-to-wordpress
 description: >
-  Orchestrates the design-reference-to-WordPress pipeline from an image,
-  written brief, or manually supplied Design Spec.
+  Stonewright design-reference-to-WordPress pipeline from Figma, image,
+  written brief, screenshot, prompt, or manually supplied Design Spec.
 ---
 
 # Design to WordPress

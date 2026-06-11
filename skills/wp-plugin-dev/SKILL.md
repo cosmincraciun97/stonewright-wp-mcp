@@ -1,8 +1,8 @@
 ---
 name: wp-plugin-dev
 description: >
-  Generic WordPress + Stonewright plugin development helper. Scaffold abilities,
-  register MCP server hooks, apply security patterns, and run the test suite.
+  Stonewright WordPress plugin development helper. Scaffold abilities, register
+  MCP server hooks, apply security patterns, and run the test suite.
 ---
 
 # WordPress Plugin Development

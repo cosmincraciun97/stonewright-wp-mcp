@@ -1,8 +1,8 @@
 ---
 name: elementor-v3-builder
 description: >
-  Builds and edits Elementor V3 pages: containers, widgets, kit colors/
-  typography, templates. Requires Elementor V3 active on the site.
+  Stonewright Elementor V3 builder for pages, containers, widgets, kit colors,
+  typography, Loop Grid, templates, and responsive Elementor edits.
 ---
 
 # Elementor V3 Builder

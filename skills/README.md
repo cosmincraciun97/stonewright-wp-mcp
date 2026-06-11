@@ -7,6 +7,7 @@ workflow against the `stonewright/*` ability surface.
 
 | Skill | Description |
 |---|---|
+| `stonewright` | Searchable Stonewright entrypoint for WordPress, Elementor, Gutenberg, WooCommerce, content model, sandbox, memory, and workflow routing |
 | `design-to-wordpress` | Design reference, image, brief, or manual spec to WordPress page |
 | `content-model-integrations` | ACF, ACPT, Meta Box, ASE, Pods, custom fields, CPTs, taxonomies, option pages |
 | `elementor-v3-builder` | Elementor V3 container/widget tree, kit colors/typography, templates |
@@ -27,6 +28,22 @@ cp -r skills/elementor-v3-builder ~/.claude/plugins/
 cp -r skills/gutenberg-fse-builder ~/.claude/plugins/
 cp -r skills/woocommerce-catalog ~/.claude/plugins/
 cp -r skills/wp-plugin-dev ~/.claude/plugins/
+```
+
+## Install for Codex
+
+Copy the skill folders into the Codex skills directory, then restart Codex so
+slash and `$` search can index them:
+
+```powershell
+Copy-Item -Recurse -Force .\skills\stonewright "$env:USERPROFILE\.codex\skills\stonewright"
+Copy-Item -Recurse -Force .\skills\design-to-wordpress "$env:USERPROFILE\.codex\skills\design-to-wordpress"
+Copy-Item -Recurse -Force .\skills\content-model-integrations "$env:USERPROFILE\.codex\skills\content-model-integrations"
+Copy-Item -Recurse -Force .\skills\elementor-v3-builder "$env:USERPROFILE\.codex\skills\elementor-v3-builder"
+Copy-Item -Recurse -Force .\skills\gutenberg-fse-builder "$env:USERPROFILE\.codex\skills\gutenberg-fse-builder"
+Copy-Item -Recurse -Force .\skills\woocommerce-catalog "$env:USERPROFILE\.codex\skills\woocommerce-catalog"
+Copy-Item -Recurse -Force .\skills\wp-plugin-dev "$env:USERPROFILE\.codex\skills\wp-plugin-dev"
+Copy-Item -Recurse -Force .\skills\stonewright-review "$env:USERPROFILE\.codex\skills\stonewright-review"
 ```
 
 ## Requirements

@@ -1,8 +1,8 @@
 ---
 name: gutenberg-fse-builder
 description: >
-  Block editor + FSE skill. Inserts/updates blocks, manages theme.json global
-  styles, FSE templates, template parts, and synced patterns.
+  Stonewright Gutenberg and FSE builder. Inserts/updates blocks, manages
+  theme.json global styles, FSE templates, template parts, and synced patterns.
 ---
 
 # Gutenberg FSE Builder

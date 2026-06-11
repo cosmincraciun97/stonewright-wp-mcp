@@ -1,6 +1,6 @@
 ---
 name: woocommerce-catalog
-description: Use for WooCommerce products, product variations, SKUs, prices, stock, categories, tags, attributes, attribute terms, shipping classes, catalog audits, and bulk product updates.
+description: Use Stonewright for WooCommerce products, product variations, SKUs, prices, stock, categories, tags, attributes, attribute terms, shipping classes, catalog audits, and bulk product updates.
 ---
 
 # WooCommerce Catalog

@@ -1,7 +1,7 @@
 ---
 name: elementor-v4-atomic
 description: >
-  Experimental Elementor V4 atomic renderer. Gated behind the
+  Stonewright experimental Elementor V4 atomic renderer. Gated behind the
   stonewright_elementor_v4_atomic option. Use V3 on production.
 ---
 
