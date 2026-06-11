@@ -35,6 +35,11 @@ Elementor V3 uses containers (flexbox) as the primary layout primitive. When
 building from scratch: create container -> add child containers for columns ->
 add widgets inside child containers.
 
+Name only major parent containers semantically: `hero`, `header`, `team grid`,
+`pricing section`, `product gallery`, `footer`, or similarly useful labels.
+Do not name every small inner utility container; inner wrappers should stay
+quiet unless their role matters during later edits.
+
 For complete pages and repeated structures, prefer the spec renderer first:
 
 ```json
@@ -90,9 +95,20 @@ been tried with a valid spec.
 - Use dedicated `stonewright/elementor-add-*` abilities for known Elementor
   widgets. Use `stonewright/elementor-v3-add-widget` only for unknown or
   third-party widgets after schema lookup.
+- For every widget you intend to write, call
+  `stonewright/elementor-v3-get-widget-schema` and inspect Content, Style, and Advanced
+  controls before choosing settings. If the schema, local harvested docs, or
+  implementation guide are incomplete, research official Elementor documentation
+  online before writing that widget.
 - Use exact control keys from widget schemas. For example, Icon Box uses
   `selected_icon`, `primary_color`, and `secondary_color`; do not invent
   aliases like `icon`, `icon_primary_color`, or `icon_background_color`.
+- Configure all relevant tabs. Content holds source data, items, media, links,
+  and semantic choices. Style holds typography, colors, spacing, states,
+  borders, shadows, and widget-specific presentation. Advanced can use
+  position absolute/fixed, z-index, motion effects, transform, background,
+  background overlay, border, mask, responsive visibility, custom attributes,
+  order, align self, width, padding, margin, CSS ID, and CSS classes.
 - For repeated cards, logos, sponsor grids, galleries, or pricing blocks, build
   the first pass with `stonewright/elementor-v3-build-page-from-spec` or
   `stonewright/elementor-v3-apply-bundle`; use individual add/update calls for

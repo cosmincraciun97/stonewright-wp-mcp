@@ -38,6 +38,7 @@ final class AgentInstructions {
 			'- For WooCommerce catalog writes, verify WooCommerce is active, discover wp wc support, check SKU uniqueness, create attributes before variations, soft-delete by default, and read back parent products plus generated variations.',
 			'- Do not use wp eval, wp eval-file, wp shell, wp package, --exec, or --require through Stonewright. The companion blocks arbitrary PHP and shell entry points by design.',
 			'- Before Elementor implementation, call stonewright/elementor-knowledge-search or stonewright/elementor-describe-widget when widget behavior, settings, Theme Builder, editor V3/V4 behavior, or documentation freshness is uncertain.',
+			'- For every Elementor widget you intend to write, call stonewright/elementor-v3-get-widget-schema for every widget and inspect controls grouped by Content, Style, and Advanced before setting values.',
 			'- Before choosing a widget from a prompt, design reference, image, or task, call stonewright/widget-intent-resolve so Stonewright selects the native Elementor intent instead of the model guessing.',
 			'- Before writing Elementor elements, call stonewright/elementor-widget-implementation-guide with the task, candidate widgets, and design context.',
 			'- Use real Elementor widgets for the detected intent: nav-menu for navigation, countdown for countdowns, social-icons for social rows, icon-list for footer/link/bullet lists. Do not simulate these with headings, buttons, or arbitrary text blocks.',
@@ -45,8 +46,9 @@ final class AgentInstructions {
 			'- Do not use stonewright/elementor-v3-add-widget for built-in Elementor widgets unless the dedicated stonewright/elementor-add-* ability cannot express the widget. Raw known-widget writes can corrupt editor controls if the model invents setting names.',
 			'- For repeated visual structures such as team cards, speaker cards, logos, galleries, and pricing grids, build the first pass with stonewright/elementor-v3-build-page-from-spec or stonewright/elementor-v3-apply-bundle. Use dozens of single add/update calls only for post-screenshot surgical fixes.',
 			'- Use exact Elementor control keys from widget schemas and stonewright/elementor-describe-widget. Do not invent CSS-like setting keys such as `icon`, `icon_primary_color`, `icon_background_color`, or `width` when the schema expects keys such as `selected_icon`, `primary_color`, `secondary_color`, or Advanced layout keys.',
-			'- Do not only place widgets. Configure the relevant Content, Style, and Advanced controls, including animations, absolute/fixed positioning, width, z-index, motion effects, background and background overlay, borders, responsive values, attributes, transform, display conditions, cache settings, order, align self, margin, and padding.',
+			'- Do not only place widgets. Configure the relevant Content, Style, and Advanced controls, including animations, position absolute/fixed positioning, width, z-index, motion effects, background and background overlay, borders, mask, responsive values, attributes, transform, display conditions, cache settings, order, align self, margin, padding, CSS ID, and CSS classes.',
 			'- If internal widget docs, harvested marketing docs, or stonewright/elementor-describe-widget are incomplete or stale, research official Elementor documentation online before configuring the widget.',
+			'- Name only major parent containers semantically, such as hero, header, pricing grid, team section, footer, or product gallery. Do not name every inner utility container.',
 			'- Custom CSS requires explicit user approval before writing. When approved, write organized CSS to the active theme style.css, not inline HTML widgets.',
 			'- If SVG upload is blocked, do not create sandbox or mu-plugin workarounds without explicit user approval. Prefer Elementor icon-library controls when an equivalent native icon is acceptable, or ask approval for a safe SVG enablement path.',
 			'- Build responsive desktop, tablet, and mobile layouts. Headers must use sticky settings where requested, real desktop/tablet/mobile visibility controls, and mobile navigation must use the native hamburger/dropdown behavior.',
@@ -58,6 +60,7 @@ final class AgentInstructions {
 			'- Do not use a full-page screenshot as a section background. Before using a design-derived background image, write an asset selection plan that names the target section, source layer/node or crop bounds, WordPress media item, and why it is the exact section asset rather than a parent composite.',
 			'- For assets, place the exact asset required by the design. Do not use a parent composite image when a child asset is the actual asset.',
 			'- For headers and footers, create separate Theme Builder templates and set include/general conditions; do not leave theme chrome as a substitute.',
+			'- For Gutenberg and block-theme work, use native blocks first: read theme.json, registered blocks, templates, template parts, patterns, and block supports; plan tokens before writes; then use Stonewright Gutenberg/FSE abilities instead of arbitrary PHP.',
 			'- Validate every generated DesignSpec before render and snapshot before every Elementor or theme-backed write.',
 		];
 

@@ -67,6 +67,23 @@ For visual builds, treat screenshots as part of the workflow:
 - Use a separate browser MCP for screenshots and visual inspection. Stonewright
   does not include browser or Figma tools.
 
+## Gutenberg And Block Themes
+
+For Gutenberg-only or block-theme work, keep the client editing experience
+native:
+
+- Read the active theme, registered blocks, `theme.json`, templates, template
+  parts, and patterns before writing.
+- Plan reusable color, typography, spacing, layout, and block style tokens in
+  `theme.json` before editing templates.
+- Prefer core blocks, block supports, synced/unsynced patterns, and template
+  parts before custom blocks or custom CSS.
+- Use Stonewright Gutenberg/FSE abilities for writes and verify both the editor
+  structure and the front end at desktop, tablet, and mobile sizes.
+- Treat AI block/theme generators as prototype inspiration only; production
+  output still needs valid block markup, readable theme files, and browser
+  verification.
+
 ## Skills And Memory
 
 Stonewright has two persistent teaching surfaces:

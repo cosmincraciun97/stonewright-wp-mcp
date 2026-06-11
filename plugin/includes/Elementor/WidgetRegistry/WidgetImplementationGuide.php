@@ -26,6 +26,7 @@ final class WidgetImplementationGuide {
 			),
 			'global_required_steps' => [
 				'Call stonewright/elementor-describe-widget for every recommended widget before writing.',
+				'Call stonewright/elementor-v3-get-widget-schema for every widget you intend to write and inspect controls grouped by Content, Style, and Advanced before choosing settings.',
 				'Use dedicated stonewright/elementor-add-* abilities for known widgets; reserve stonewright/elementor-v3-add-widget for unknown or third-party widgets.',
 				'Use exact setting keys from the widget schema. Do not invent CSS-like keys when Elementor expects a different control key.',
 				'Configure Content, Style, and Advanced controls; do not only insert the widget.',
@@ -33,6 +34,7 @@ final class WidgetImplementationGuide {
 				'Before writing visual work, extract measured reference tokens: viewport/canvas size, section bounds, max-widths, colors, type sizes, spacing, and asset crop bounds.',
 				'After writing, capture a browser screenshot with the external Playwright MCP at the same viewport and iterate on visible deltas.',
 				'When any recommendation has needs_online_research=true, research official Elementor documentation before writing.',
+				'Name only major parent containers semantically; avoid naming every small inner utility container.',
 				'Do not use Elementor HTML widgets unless the user explicitly requested HTML and the write ability passes allow_html_widget=true.',
 				'Before using background assets, write an asset selection plan: target section, source layer/node, crop bounds, WordPress media URL, and why it is not a full-page screenshot.',
 				'Do not use a full-page screenshot as a section background; export the exact layer/section asset or recreate simple colors/gradients with Elementor controls.',
@@ -145,15 +147,7 @@ final class WidgetImplementationGuide {
 			'Content'  => self::limit_controls( $content, self::fallback_content_controls( $slug ) ),
 			'Style'    => self::limit_controls( $style, self::fallback_style_controls( $slug ) ),
 			'Advanced' => [
-				'margin and padding',
-				'width and custom width',
-				'position absolute/fixed when design requires it',
-				'z-index and order',
-				'responsive visibility',
-				'motion effects and transform',
-				'background and background overlay',
-				'border, radius, shadow, and CSS classes',
-				'attributes, display conditions, cache settings where available',
+				...EditorTabKnowledge::advanced_control_labels(),
 			],
 		];
 	}

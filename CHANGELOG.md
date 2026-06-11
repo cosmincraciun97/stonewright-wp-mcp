@@ -7,6 +7,31 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.7] - 2026-06-11
+
+### Added
+
+- Added Elementor widget schema tab grouping so agents can inspect Content,
+  Style, Advanced, and unknown controls before writing widget settings.
+- Added shared Advanced tab guidance for positioning, z-index, motion effects,
+  transform, background, borders, masks, responsive controls, attributes, CSS
+  IDs/classes, order, alignment, width, margin, and padding.
+- Added Gutenberg/block-theme workflow guidance for `theme.json`, templates,
+  template parts, patterns, block supports, and Create Block Theme handoff.
+
+### Changed
+
+- Strengthened the public README introduction with release badges and a compact
+  Stonewright capability summary.
+- Updated agent instructions and built-in skills to favor schema-driven
+  Elementor work, semantic naming for major parent containers, and native
+  block-theme editing flows.
+
+### Fixed
+
+- Fixed ability truth matrix write/read detection so tool references inside
+  guidance strings do not mark read-only abilities as write operations.
+
 ## [1.0.0-alpha.6] - 2026-06-11
 
 ### Added
@@ -105,6 +130,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.7]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.7
 [1.0.0-alpha.6]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.6
 [1.0.0-alpha.5]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.5
 [1.0.0-alpha.4]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.4

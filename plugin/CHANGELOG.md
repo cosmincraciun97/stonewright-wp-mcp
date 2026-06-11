@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.7] - 2026-06-11
+
+### Added
+
+- Added Elementor widget schema tab grouping for Content, Style, Advanced, and
+  unknown controls.
+- Added Advanced tab guidance for positioning, z-index, motion effects,
+  transform, backgrounds, borders, masks, responsive controls, attributes, CSS
+  IDs/classes, order, alignment, width, margin, and padding.
+- Added native Gutenberg/block-theme workflow guidance for `theme.json`,
+  templates, template parts, patterns, block supports, and Create Block Theme
+  handoff.
+
+### Changed
+
+- Updated built-in skills and agent instructions for schema-driven Elementor
+  work, major-container naming, and native block-theme editing flows.
+
+### Fixed
+
+- Fixed ability truth matrix write/read detection so guidance strings do not
+  mark read-only abilities as write operations.
+
 ## [1.0.0-alpha.6] - 2026-06-11
 
 ### Added

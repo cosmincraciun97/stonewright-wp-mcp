@@ -226,6 +226,56 @@ final class AbilityTruthMatrixTest extends TestCase {
 		);
 	}
 
+	public function test_design_apply_to_post_shows_write(): void {
+		$row = $this->find_row( 'stonewright/design-apply-to-post' );
+
+		self::assertNotNull(
+			$row,
+			'stonewright/design-apply-to-post is missing from the matrix. Run `composer docs:matrix`.'
+		);
+
+		self::assertSame(
+			'Write',
+			trim( $row['columns'][4] ?? '' ),
+			'ApplyToPost should be Write because it delegates to ElementorWriter::write().'
+		);
+	}
+
+	public function test_wp_cli_run_shows_write(): void {
+		$row = $this->find_row( 'stonewright/wp-cli-run' );
+
+		self::assertNotNull(
+			$row,
+			'stonewright/wp-cli-run is missing from the matrix. Run `composer docs:matrix`.'
+		);
+
+		self::assertSame(
+			'Write',
+			trim( $row['columns'][4] ?? '' ),
+			'WP-CLI Run should be Write because commands may mutate WordPress state through the guarded companion.'
+		);
+	}
+
+	public function test_workflow_preflight_shows_read_only(): void {
+		$row = $this->find_row( 'stonewright/workflow-preflight' );
+
+		self::assertNotNull(
+			$row,
+			'stonewright/workflow-preflight is missing from the matrix. Run `composer docs:matrix`.'
+		);
+
+		self::assertSame(
+			'Read',
+			trim( $row['columns'][4] ?? '' ),
+			'WorkflowPreflight only returns compact context and recommendations; string references to write tools must not mark the ability itself as Write.'
+		);
+		self::assertStringContainsString(
+			'read',
+			$row['columns'][5] ?? '',
+			'WorkflowPreflight permission column should contain Permissions::read().'
+		);
+	}
+
 	public function test_no_ability_row_contains_empty_or_placeholder_cells(): void {
 		$bad = [];
 		foreach ( self::$matrix_rows as $row ) {

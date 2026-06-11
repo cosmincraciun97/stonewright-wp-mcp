@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\WidgetRegistry\EditorTabKnowledge;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -41,7 +42,55 @@ final class GetWidgetSchema extends AbilityKernel {
 	}
 
 	public function output_schema(): array {
-		return [ 'type' => 'object' ];
+		$tab_group_schema = [
+			'type'       => 'object',
+			'properties' => [
+				'count'           => [ 'type' => 'integer' ],
+				'controls'        => [
+					'type'  => 'array',
+					'items' => [
+						'type'       => 'object',
+						'properties' => [
+							'name'    => [ 'type' => 'string' ],
+							'type'    => [ 'type' => 'string' ],
+							'label'   => [ 'type' => 'string' ],
+							'section' => [ 'type' => 'string' ],
+						],
+					],
+				],
+				'global_controls' => [
+					'type'  => 'array',
+					'items' => [ 'type' => 'string' ],
+				],
+			],
+		];
+
+		return [
+			'type'       => 'object',
+			'properties' => [
+				'name'              => [ 'type' => 'string' ],
+				'title'             => [ 'type' => 'string' ],
+				'categories'        => [
+					'type'  => 'array',
+					'items' => [ 'type' => 'string' ],
+				],
+				'controls'          => [
+					'type'  => 'array',
+					'items' => [ 'type' => 'object' ],
+				],
+				'tab_groups'        => [
+					'type'       => 'object',
+					'properties' => [
+						'Content'  => $tab_group_schema,
+						'Style'    => $tab_group_schema,
+						'Advanced' => $tab_group_schema,
+						'Unknown'  => $tab_group_schema,
+					],
+				],
+				'research_guidance' => [ 'type' => 'string' ],
+			],
+			'required'   => [ 'name', 'controls', 'tab_groups', 'research_guidance' ],
+		];
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
@@ -78,10 +127,12 @@ final class GetWidgetSchema extends AbilityKernel {
 		}
 
 		return [
-			'name'       => (string) $args['name'],
-			'title'      => method_exists( $widget, 'get_title' ) ? (string) $widget->get_title() : '',
-			'categories' => method_exists( $widget, 'get_categories' ) ? (array) $widget->get_categories() : [],
-			'controls'   => $controls,
+			'name'              => (string) $args['name'],
+			'title'             => method_exists( $widget, 'get_title' ) ? (string) $widget->get_title() : '',
+			'categories'        => method_exists( $widget, 'get_categories' ) ? (array) $widget->get_categories() : [],
+			'controls'          => $controls,
+			'tab_groups'        => EditorTabKnowledge::group_controls( $controls ),
+			'research_guidance' => 'Research official Elementor documentation online when this widget schema lacks enough Content or Style controls for the requested design.',
 		];
 	}
 }

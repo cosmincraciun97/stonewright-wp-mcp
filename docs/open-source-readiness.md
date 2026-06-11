@@ -64,6 +64,13 @@ co-author trailers, secrets, tokens, and local artifacts before publishing.
   Elementor writes, centered max-width inner containers, row gap/column width
   checks, native widgets for forms/galleries/social/menu/countdown, and
   persistent skills/memory for repeatable lessons.
+- Keep Elementor widget work schema-driven: every widget write should inspect
+  Content, Style, and Advanced controls first, use Advanced controls such as
+  positioning, z-index, responsive visibility, attributes, CSS ID/classes, and
+  motion effects when appropriate, and name only major parent containers.
+- Keep Gutenberg/block-theme work native: use `theme.json`, templates, template
+  parts, patterns, block supports, and external browser verification before
+  signoff.
 - Keep onboarding obvious in both public docs and the plugin admin UI:
   connection snippets, bootstrap prompt, task prompt template, and acceptance
   checks.

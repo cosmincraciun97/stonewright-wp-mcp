@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\ApplyBundle;
 use Stonewright\WpMcp\Abilities\ElementorV3\CapabilitiesSummary;
+use Stonewright\WpMcp\Abilities\ElementorV3\GetWidgetSchema;
 use Stonewright\WpMcp\Abilities\Media\UploadMediaBatch;
 use Stonewright\WpMcp\Abilities\System\WorkflowPreflight;
 use Stonewright\WpMcp\Core\AbilityRegistry;
@@ -103,7 +104,37 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'Prefer native widgets; do not use Elementor HTML widgets unless explicitly allowed.', $result['first_pass_rules'] );
 		self::assertContains( 'For visual work, verify external Playwright/browser MCP before the first write.', $result['first_pass_rules'] );
 		self::assertContains( 'For repeated cards or grids, use a validated spec or bundle first pass instead of many single-widget calls.', $result['first_pass_rules'] );
+		self::assertContains( 'For every widget used, call stonewright/elementor-v3-get-widget-schema and inspect Content, Style, and Advanced controls before writing settings.', $result['first_pass_rules'] );
+		self::assertContains( 'Name major parent containers semantically; do not over-name every inner utility container.', $result['first_pass_rules'] );
+		self::assertArrayHasKey( 'advanced_controls', $result );
+		self::assertContains( 'position_absolute', $result['advanced_controls'] );
+		self::assertContains( 'z_index', $result['advanced_controls'] );
+		self::assertContains( 'motion_effects', $result['advanced_controls'] );
+		self::assertContains( 'mask', $result['advanced_controls'] );
+		self::assertContains( 'css_id', $result['advanced_controls'] );
 		self::assertSame( 'stonewright/elementor-v3-build-page-from-spec', $result['primary_write_tool'] );
+	}
+
+	public function test_widget_schema_groups_controls_by_editor_tab_and_adds_advanced_guidance(): void {
+		$ability = new GetWidgetSchema();
+		$schema  = $ability->output_schema();
+
+		self::assertArrayHasKey( 'properties', $schema );
+		self::assertArrayHasKey( 'tab_groups', $schema['properties'] );
+		self::assertArrayHasKey( 'research_guidance', $schema['properties'] );
+
+		$result = $ability->execute( [ 'name' => 'Contract' ] );
+
+		self::assertIsArray( $result );
+		self::assertArrayHasKey( 'tab_groups', $result );
+		self::assertArrayHasKey( 'Content', $result['tab_groups'] );
+		self::assertArrayHasKey( 'Style', $result['tab_groups'] );
+		self::assertArrayHasKey( 'Advanced', $result['tab_groups'] );
+		self::assertSame( 1, $result['tab_groups']['Content']['count'] );
+		self::assertSame( 'title', $result['tab_groups']['Content']['controls'][0]['name'] );
+		self::assertContains( 'position_absolute', $result['tab_groups']['Advanced']['global_controls'] );
+		self::assertContains( 'css_classes', $result['tab_groups']['Advanced']['global_controls'] );
+		self::assertSame( 'Research official Elementor documentation online when this widget schema lacks enough Content or Style controls for the requested design.', $result['research_guidance'] );
 	}
 
 	public function test_media_upload_batch_returns_per_item_results(): void {

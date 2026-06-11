@@ -11,6 +11,36 @@ Covers the full Gutenberg surface: per-post block trees, FSE templates and
 template parts, global styles (theme.json), and synced patterns (wp_block CPT).
 All write operations that touch post content or theme.json take a snapshot first.
 
+## Block Theme Production Workflow
+
+Use this workflow when the user asks for a Gutenberg-only page, a block theme,
+or Full Site Editing work:
+
+1. Discover active theme state with `stonewright/site-theme`,
+   `stonewright/site-capabilities`, `stonewright/fse-get-theme-json`, and
+   `stonewright/blocks-list-registered`.
+2. Read current templates, template parts, patterns, and relevant post content
+   before writing.
+3. Plan design tokens first in `theme.json`: color palette, typography,
+   spacing scale, layout widths, custom CSS properties, and per-block styles.
+4. Prefer core blocks, block supports, patterns, template parts, and global
+   styles before adding custom blocks or CSS.
+5. Use `stonewright/design-spec-to-gutenberg` for page-like first passes and
+   FSE abilities for templates/template parts/global styles.
+6. Keep client editing intuitive: expose reusable patterns, name template parts
+   clearly, avoid fragile custom markup, and keep styles visible in the Site
+   Editor where possible.
+7. For theme export or handoff, use the WordPress Create Block Theme workflow
+   after Stonewright has produced valid templates, template parts, and
+   `theme.json`.
+8. Verify front end and editor output with an external browser MCP at desktop,
+   tablet, and mobile sizes.
+
+AI block/theme builders are useful as rapid prototypes and prompt references,
+but Stonewright uses a prototype-to-production workflow: valid `theme.json`,
+valid block markup, readable template files, no arbitrary PHP, and browser
+verification before signoff.
+
 ## FSE pre-flight
 
 Check block theme support before touching templates or global styles:
@@ -42,6 +72,10 @@ before calling.
 `stonewright/fse-get-theme-json` reads the merged theme.json (theme + user).
 Use it to inspect current values before writing.
 
+Use `theme.json` as the main design contract for block themes. Keep repeated
+colors, font sizes, spacing, layout widths, and block-level styles there so
+clients can keep editing through the Site Editor instead of editing custom CSS.
+
 ## Templates and template parts
 
 Templates are identified by ID in the format `theme//slug` (e.g. `twentytwentyfour//home`).
@@ -63,6 +97,11 @@ Template parts use `type: "wp_template_part"`.
 
 Patterns created with `stonewright/patterns-create` are stored as `wp_block`
 CPT entries. They can be reused across pages via `<!-- wp:block {"ref":ID} -->`.
+
+For client-friendly pages, package repeated page sections as synced or unsynced
+patterns where that matches the task. Use block supports for spacing, color,
+typography, layout, borders, and dimensions instead of hardcoded wrappers when
+the registered block supports them.
 
 ## Backup rule
 

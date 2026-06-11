@@ -1,15 +1,39 @@
-# Stonewright
+<h1 align="center">Stonewright</h1>
 
-Stonewright is a WordPress MCP plugin that exposes site-building primitives for
-Gutenberg, Full Site Editing, Elementor, content-model plugins, WooCommerce
-catalog work, media, menus, memory, skills, and WP-CLI-assisted debugging. It
-builds well-formed WordPress data with permission, backup, validation, context,
-and audit gates.
+<p align="center">
+  <strong>MCP tools for WordPress builders</strong><br />
+  Secure WordPress, Gutenberg, Elementor, WooCommerce, and content-model
+  automation for AI agents.
+</p>
+
+<p align="center">
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/github/v/release/cosmincraciun97/stonewright-wp-mcp?include_prereleases&label=version" /></a>
+  <img alt="plugin license" src="https://img.shields.io/badge/plugin-GPL--2.0--or--later-green" />
+  <img alt="companion license" src="https://img.shields.io/badge/companion-MIT-blue" />
+  <img alt="php" src="https://img.shields.io/badge/PHP-%3E%3D8.1-777bb4" />
+  <img alt="wordpress" src="https://img.shields.io/badge/WordPress-%3E%3D6.7-21759b" />
+  <img alt="abilities" src="https://img.shields.io/badge/MCP%20abilities-200%2B-6d5dfc" />
+  <img alt="ci" src="https://img.shields.io/github/actions/workflow/status/cosmincraciun97/stonewright-wp-mcp/ci.yml?branch=main&label=CI" />
+</p>
+
+Stonewright exposes guarded WordPress building primitives to MCP-compatible AI
+clients. It covers Gutenberg, Full Site Editing, Elementor, Elementor widget
+intelligence, content-model plugins, WooCommerce catalog work, media, menus,
+Persistent memory, skills, and WP-CLI-assisted debugging. It builds
+well-formed WordPress data with permission, backup, validation, context, and
+audit gates.
 
 Stonewright no longer owns design-tool ingestion or automated visual QA. Use a
 separate design MCP for design files and user feedback for visual approval.
 
 ## Components
+
+| Capability | What Stonewright gives the agent |
+|---|---|
+| Elementor widget intelligence | Reads widget schemas by Content, Style, and Advanced tabs before writing settings. |
+| Block themes and Gutenberg | Works with core blocks, `theme.json`, templates, template parts, patterns, and FSE global styles. |
+| Persistent memory | Stores project conventions and repeatable lessons across sessions. |
+| Safe WP-CLI | Runs tokenized WP-CLI commands through the companion while blocking arbitrary PHP/shell entry points. |
 
 | Component | Path | License |
 |---|---|---|

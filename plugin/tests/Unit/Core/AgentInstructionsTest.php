@@ -40,6 +40,16 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'allow_html_widget=true', $instructions );
 		$this->assertStringContainsString( 'Content, Style, and Advanced', $instructions );
 		$this->assertStringContainsString( 'official Elementor documentation', $instructions );
+		$this->assertStringContainsString( 'stonewright/elementor-v3-get-widget-schema for every widget', $instructions );
+		$this->assertStringContainsString( 'position absolute', $instructions );
+		$this->assertStringContainsString( 'CSS ID', $instructions );
+		$this->assertStringContainsString( 'CSS classes', $instructions );
+		$this->assertStringContainsString( 'Name only major parent containers semantically', $instructions );
+		$this->assertStringContainsString( 'Do not name every inner utility container', $instructions );
+		$this->assertStringContainsString( 'For Gutenberg and block-theme work', $instructions );
+		$this->assertStringContainsString( 'theme.json', $instructions );
+		$this->assertStringContainsString( 'template parts', $instructions );
+		$this->assertStringContainsString( 'block supports', $instructions );
 		$this->assertStringContainsString( 'external Playwright MCP', $instructions );
 		$this->assertStringContainsString( '@playwright/mcp@latest', $instructions );
 		$this->assertStringContainsString( 'restart the AI client', $instructions );

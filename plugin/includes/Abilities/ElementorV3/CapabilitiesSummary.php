@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\WidgetRegistry\EditorTabKnowledge;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -39,6 +40,7 @@ final class CapabilitiesSummary extends AbilityKernel {
 				'status'             => [ 'type' => 'object' ],
 				'native_widgets'     => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'responsive_controls'=> [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'advanced_controls'  => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'renderer_limits'    => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'first_pass_rules'   => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 			],
@@ -80,6 +82,7 @@ final class CapabilitiesSummary extends AbilityKernel {
 				'line_height',
 				'visibility',
 			],
+			'advanced_controls'   => EditorTabKnowledge::advanced_control_keys(),
 			'renderer_limits'     => [
 				'Validated Stonewright Design Spec only.',
 				'No arbitrary PHP, shell, JavaScript, or Elementor custom-code execution.',
@@ -93,6 +96,8 @@ final class CapabilitiesSummary extends AbilityKernel {
 				'Upload all known remote assets with stonewright/media-upload-batch before building the page.',
 				'Use one validated page spec and one build call for normal pages; use apply-bundle only when multiple posts must change together.',
 				'For repeated cards or grids, use a validated spec or bundle first pass instead of many single-widget calls.',
+				'For every widget used, call stonewright/elementor-v3-get-widget-schema and inspect Content, Style, and Advanced controls before writing settings.',
+				'Name major parent containers semantically; do not over-name every inner utility container.',
 				'Plan desktop, tablet, and mobile values before first write.',
 				'Use max-width, percentage width, gap, and responsive padding instead of fixed viewport-wide canvases.',
 				'Review renderer diagnostics before screenshot iteration.',

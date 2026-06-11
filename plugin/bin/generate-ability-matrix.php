@@ -177,19 +177,61 @@ const WRITE_PATTERNS = [
 	'Memory::delete_by_id(', 'Memory::update_by_id(',
 	// Skills and design orchestrator delegates.
 	'Skills::save(', 'Skills::delete(', 'SpecToGutenberg()', 'SpecToElementorV3()',
+	'ElementorWriter::write',
 	// Batch/orchestrator delegates.
 	'new UploadMedia()', 'new BuildPageFromSpec()',
-	// WP-CLI runner can execute write commands through the guarded companion.
-	'stonewright/wp-cli-run',
+	// Confirmation-guarded abilities can mutate or destroy state.
+	'ConfirmationGuard',
 ];
 
 function detect_rw( string $source ): string {
+	$source = source_without_strings_and_comments( $source );
+
 	foreach ( WRITE_PATTERNS as $pattern ) {
 		if ( strpos( $source, $pattern ) !== false ) {
 			return 'Write';
 		}
 	}
 	return 'Read';
+}
+
+/**
+ * Strip strings and comments before source-pattern detection.
+ *
+ * Ability classes may mention write tools inside guidance strings. Those
+ * references should not mark the ability itself as mutating state.
+ */
+function source_without_strings_and_comments( string $source ): string {
+	$tokens = @token_get_all( $source );
+	if ( ! is_array( $tokens ) ) {
+		return $source;
+	}
+
+	$skip_types = [
+		T_CONSTANT_ENCAPSED_STRING,
+		T_ENCAPSED_AND_WHITESPACE,
+		T_COMMENT,
+		T_DOC_COMMENT,
+	];
+	foreach ( [ 'T_START_HEREDOC', 'T_END_HEREDOC', 'T_NOWDOC' ] as $const ) {
+		if ( defined( $const ) ) {
+			$skip_types[] = constant( $const );
+		}
+	}
+
+	$clean = '';
+	foreach ( $tokens as $token ) {
+		if ( is_array( $token ) ) {
+			if ( in_array( $token[0], $skip_types, true ) ) {
+				continue;
+			}
+			$clean .= $token[1];
+			continue;
+		}
+		$clean .= $token;
+	}
+
+	return $clean;
 }
 
 /**
