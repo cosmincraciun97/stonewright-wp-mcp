@@ -16,7 +16,7 @@ use Stonewright\WpMcp\Sandbox\SandboxFiles;
  */
 final class SandboxPage {
 
-	private const SLUG       = 'stonewright-sandbox';
+	public const SLUG        = 'stonewright-sandbox';
 	private const CAPABILITY = 'manage_options';
 	private const NONCE_ACTION = 'stonewright_sandbox';
 
@@ -336,13 +336,17 @@ final class SandboxPage {
 	 */
 	private static function render_mu_plugins_tab(): void {
 		$sandbox_dir = defined( 'WP_CONTENT_DIR' ) ? WP_CONTENT_DIR . '/stonewright-sandbox/' : '';
-		$mu_dir      = defined( 'WPMU_PLUGIN_DIR' ) ? WPMU_PLUGIN_DIR . '/' : '';
-		if ( '' === $sandbox_dir || '' === $mu_dir ) {
+		$mu_dir      = SandboxFiles::mu_dir() . '/';
+		if ( '' === $sandbox_dir ) {
 			echo '<div class="stonewright-empty-state"><p>' . esc_html__( 'MU plugin directories not defined.', 'stonewright' ) . '</p></div>';
 			return;
 		}
+		if ( ! is_dir( $mu_dir ) ) {
+			echo '<div class="stonewright-empty-state"><p>' . esc_html__( 'No sandbox files are currently active as MU plugins.', 'stonewright' ) . '</p></div>';
+			return;
+		}
 		$files  = glob( $sandbox_dir . '*.php' ) ?: [];
-		$active = array_filter( $files, static fn( string $f ) => file_exists( $mu_dir . basename( $f ) ) );
+		$active = array_filter( $files, static fn( string $f ) => file_exists( $mu_dir . SandboxFiles::active_prefix() . basename( $f ) ) );
 		if ( empty( $active ) ) {
 			echo '<div class="stonewright-empty-state"><p>' . esc_html__( 'No sandbox files are currently active as MU plugins.', 'stonewright' ) . '</p></div>';
 			return;
@@ -353,7 +357,7 @@ final class SandboxPage {
 		echo '</tr></thead><tbody>';
 		foreach ( $active as $f ) {
 			$name = basename( $f );
-			$size = size_format( (int) @filesize( $mu_dir . $name ) ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			$size = size_format( (int) @filesize( $mu_dir . SandboxFiles::active_prefix() . $name ) ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 			echo '<tr><td>' . esc_html( $name ) . '</td><td>' . esc_html( $size ) . '</td></tr>';
 		}
 		echo '</tbody></table>';

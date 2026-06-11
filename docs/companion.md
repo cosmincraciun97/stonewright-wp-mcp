@@ -35,6 +35,10 @@ directories.
 | `STONEWRIGHT_WP_USERNAME` | Alias for `WP_API_USERNAME` |
 | `STONEWRIGHT_WP_APP_PASSWORD` | Alias for `WP_API_PASSWORD` |
 | `STONEWRIGHT_MCP_AUTHORIZATION` | Optional full Authorization header override |
+| `STONEWRIGHT_CREDENTIAL_STORE` | Per-project JSON file for a saved Application Password fallback |
+| `STONEWRIGHT_CREDENTIAL_DIR` | Directory for generated per-project credential files |
+| `STONEWRIGHT_WP_APP_PASSWORD_AUTO` | Auto-create missing local credentials through guarded WP-CLI; default `local-only` |
+| `STONEWRIGHT_WP_APP_PASSWORD_NAME` | Label used when auto-creating the WordPress Application Password |
 | `STONEWRIGHT_WP_CLI_BIN` | WP-CLI executable; defaults to `wp` |
 | `STONEWRIGHT_WP_ROOT` | Default WP working directory |
 | `STONEWRIGHT_WP_ALLOWED_ROOTS` | Comma- or semicolon-separated allowed roots |
@@ -61,3 +65,16 @@ If the HTTP bridge is not running, use the direct companion MCP tools instead:
 - `companion_wp_cli_status`
 - `companion_wp_cli_discover`
 - `companion_wp_cli_run`
+
+## Persistent Application Passwords
+
+Application Passwords are one-time-display credentials in WordPress. The
+companion therefore supports a local per-project credential store. If env
+credentials are missing, it reads the saved credential for the current
+Stonewright MCP URL and project root. For local development hosts it can create
+the password once through `stonewright-wp-cli-run`-equivalent guarded WP-CLI
+execution, save it outside the repo by default, and reuse it in future agent
+sessions.
+
+Do not store these credentials in Stonewright site memory, public docs, commits,
+or admin instructions.

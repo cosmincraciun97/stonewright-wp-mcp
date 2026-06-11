@@ -24,7 +24,7 @@ final class IconBox {
 		$icon_library = (string) ( $node['library'] ?? 'fa-solid' );
 
 		$settings = [
-			'icon'        => [
+			'selected_icon' => [
 				'value'   => $icon_value,
 				'library' => $icon_library,
 			],

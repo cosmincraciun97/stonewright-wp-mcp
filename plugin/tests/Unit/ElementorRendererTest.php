@@ -694,6 +694,9 @@ final class ElementorRendererTest extends TestCase {
 			'description' => 'Feature description goes here.',
 		];
 		$result = IconBox::render( $node, $this->resolver, 's0.b0' );
+		$this->assertSame( 'fas fa-rocket', $result['settings']['selected_icon']['value'] );
+		$this->assertSame( 'fa-solid', $result['settings']['selected_icon']['library'] );
+		$this->assertArrayNotHasKey( 'icon', $result['settings'] );
 		$this->assertSame( $this->fixture( 'icon-box' ), $result );
 	}
 

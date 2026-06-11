@@ -3,7 +3,7 @@
     "elType": "widget",
     "widgetType": "icon-box",
     "settings": {
-        "icon": {
+        "selected_icon": {
             "value": "fas fa-rocket",
             "library": "fa-solid"
         },

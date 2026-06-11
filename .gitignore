@@ -27,6 +27,9 @@ docs/superpowers/
 scripts/install-playwright-mcp.ps1
 companion/.env
 companion/wp-cli-wrapper.bat
+companion/credentials/
+.stonewright-credentials/
+stonewright-credential*.json
 
 # Research vault must never enter the repo
 research/

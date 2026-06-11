@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin\Pages;
 
+use Stonewright\WpMcp\Admin\SandboxPage;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Sandbox\SandboxManifest;
 use Stonewright\WpMcp\Sandbox\StaticGuard;
@@ -49,11 +50,51 @@ final class SandboxLibraryPage {
 	// -------------------------------------------------------------------------
 
 	public static function register(): void {
-		// Note: submenu is NOT added here — SandboxPage embeds this as a tab.
-		// Only form action handlers are registered.
+		// Register hidden direct route for legacy/bookmarked Library URLs.
+		// Direct route stays hidden; SandboxPage also embeds this as a tab.
+		add_action( 'admin_menu', [ self::class, 'add_hidden_submenu' ] );
 		add_action( 'admin_post_stonewright_sandbox_lib_action', [ self::class, 'handle_action' ] );
 		add_action( 'admin_post_stonewright_sandbox_view', [ self::class, 'handle_view' ] );
 		add_action( 'admin_post_stonewright_sandbox_widget_project', [ self::class, 'handle_widget_project' ] );
+	}
+
+	public static function add_hidden_submenu(): void {
+		add_submenu_page(
+			'',
+			__( 'Sandbox Library', 'stonewright' ),
+			__( 'Sandbox Library', 'stonewright' ),
+			self::CAPABILITY,
+			self::SLUG,
+			[ self::class, 'render' ]
+		);
+	}
+
+	/**
+	 * Builds URLs for Sandbox Library views.
+	 *
+	 * The Library normally lives inside SandboxPage at
+	 * page=stonewright-sandbox&tab=library. Direct legacy URLs with
+	 * page=stonewright-sandbox-library remain registered for bookmarks.
+	 *
+	 * @param array<string, string|int> $args     Query args to append.
+	 * @param bool                      $embedded True for the embedded Sandbox tab URL.
+	 */
+	public static function library_url( array $args = [], bool $embedded = true ): string {
+		if ( $embedded ) {
+			if ( isset( $args['tab'] ) ) {
+				$args['library_tab'] = $args['tab'];
+				unset( $args['tab'] );
+			}
+			$args = array_merge( [ 'page' => SandboxPage::SLUG, 'tab' => 'library' ], $args );
+		} else {
+			if ( isset( $args['library_tab'] ) ) {
+				$args['tab'] = $args['library_tab'];
+				unset( $args['library_tab'] );
+			}
+			$args = array_merge( [ 'page' => self::SLUG ], $args );
+		}
+
+		return add_query_arg( $args, admin_url( 'admin.php' ) );
 	}
 
 	// -------------------------------------------------------------------------
@@ -73,8 +114,11 @@ final class SandboxLibraryPage {
 			);
 		}
 
+		$embedded = self::is_embedded_request();
+
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended
-		$active_tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( (string) $_GET['tab'] ) ) : 'snippets';
+		$tab_param  = $embedded ? 'library_tab' : 'tab';
+		$active_tab = isset( $_GET[ $tab_param ] ) ? sanitize_key( wp_unslash( (string) $_GET[ $tab_param ] ) ) : 'snippets';
 		if ( ! in_array( $active_tab, self::VALID_TABS, true ) ) {
 			$active_tab = 'snippets';
 		}
@@ -97,7 +141,7 @@ final class SandboxLibraryPage {
 		$sub_to     = isset( $_GET['to'] ) ? (int) $_GET['to'] : 0;
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
-		$page_url = admin_url( 'admin.php?page=' . self::SLUG );
+		$page_url = self::library_url( [], $embedded );
 
 		// Transient notices.
 		$user_id     = get_current_user_id();
@@ -129,7 +173,7 @@ final class SandboxLibraryPage {
 			<nav class="nav-tab-wrapper" aria-label="<?php esc_attr_e( 'Sandbox Library tabs', 'stonewright' ); ?>">
 				<?php foreach ( self::VALID_TABS as $tab ) : ?>
 					<a
-						href="<?php echo esc_url( $page_url . '&tab=' . rawurlencode( $tab ) ); ?>"
+						href="<?php echo esc_url( self::library_url( [ 'library_tab' => $tab ], $embedded ) ); ?>"
 						class="nav-tab<?php echo $active_tab === $tab ? ' nav-tab-active' : ''; ?>"
 					><?php echo esc_html( self::tab_label( $tab ) ); ?></a>
 				<?php endforeach; ?>
@@ -137,8 +181,14 @@ final class SandboxLibraryPage {
 
 				<div style="margin-top:10px;">
 					<form method="get" action="">
-						<input type="hidden" name="page" value="<?php echo esc_attr( self::SLUG ); ?>"/>
-						<input type="hidden" name="tab" value="<?php echo esc_attr( $active_tab ); ?>"/>
+						<?php if ( $embedded ) : ?>
+							<input type="hidden" name="page" value="<?php echo esc_attr( SandboxPage::SLUG ); ?>"/>
+							<input type="hidden" name="tab" value="library"/>
+							<input type="hidden" name="library_tab" value="<?php echo esc_attr( $active_tab ); ?>"/>
+						<?php else : ?>
+							<input type="hidden" name="page" value="<?php echo esc_attr( self::SLUG ); ?>"/>
+							<input type="hidden" name="tab" value="<?php echo esc_attr( $active_tab ); ?>"/>
+						<?php endif; ?>
 						<select name="category">
 							<option value=""><?php esc_html_e( 'All Categories', 'stonewright' ); ?></option>
 							<option value="snippet"<?php selected( $filter_category, 'snippet' ); ?>><?php esc_html_e( 'Snippet', 'stonewright' ); ?></option>
@@ -157,13 +207,13 @@ final class SandboxLibraryPage {
 			<?php
 			switch ( $active_tab ) {
 				case 'snippets':
-					self::render_snippets_tab( $filter_category, $filter_status );
+					self::render_snippets_tab( $filter_category, $filter_status, $active_tab, $embedded );
 					break;
 				case 'widgets':
-					self::render_widgets_tab( $filter_category, $filter_status );
+					self::render_widgets_tab( $filter_category, $filter_status, $active_tab, $embedded );
 					break;
 				case 'plugins':
-					self::render_plugins_tab( $filter_category, $filter_status );
+					self::render_plugins_tab( $filter_category, $filter_status, $active_tab, $embedded );
 					break;
 			}
 			?>
@@ -190,7 +240,7 @@ final class SandboxLibraryPage {
 	 * @param string $filter_category Category filter value ('' = all).
 	 * @param string $filter_status   Status filter value ('' = all).
 	 */
-	private static function render_snippets_tab( string $filter_category, string $filter_status ): void {
+	private static function render_snippets_tab( string $filter_category, string $filter_status, string $active_tab, bool $embedded ): void {
 		$files              = SandboxFiles::list_files();
 		$registered_widgets = (array) get_option( 'stonewright_registered_widgets', [] );
 
@@ -214,7 +264,7 @@ final class SandboxLibraryPage {
 
 		$rows = self::apply_filters( array_values( $rows ), $filter_category, $filter_status, $registered_widgets, 'snippet' );
 
-		self::render_file_table( $rows, $registered_widgets );
+		self::render_file_table( $rows, $registered_widgets, $active_tab, $embedded );
 	}
 
 	/**
@@ -223,7 +273,7 @@ final class SandboxLibraryPage {
 	 * @param string $filter_category Category filter value.
 	 * @param string $filter_status   Status filter value.
 	 */
-	private static function render_widgets_tab( string $filter_category, string $filter_status ): void {
+	private static function render_widgets_tab( string $filter_category, string $filter_status, string $active_tab, bool $embedded ): void {
 		$files              = SandboxFiles::list_files();
 		$registered_widgets = (array) get_option( 'stonewright_registered_widgets', [] );
 
@@ -244,7 +294,7 @@ final class SandboxLibraryPage {
 
 		$rows = self::apply_filters( array_values( $rows ), $filter_category, $filter_status, $registered_widgets, 'widget' );
 
-		self::render_file_table( $rows, $registered_widgets );
+		self::render_file_table( $rows, $registered_widgets, $active_tab, $embedded );
 
 		// ---- Installed Elementor Widgets (read-only) ----
 		echo '<h2>' . esc_html__( 'Installed Elementor Widgets', 'stonewright' ) . '</h2>';
@@ -301,6 +351,7 @@ final class SandboxLibraryPage {
 					echo '<form method="post" action="' . $create_url . '" style="display:inline;">';  // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped via esc_url()
 					echo '<input type="hidden" name="action" value="stonewright_sandbox_widget_project"/>';
 					echo '<input type="hidden" name="base" value="' . esc_attr( $ew['name'] ) . '"/>';
+					self::render_return_fields( $active_tab, $embedded );
 					wp_nonce_field( 'stonewright_widget_project', '_stonewright_widget_nonce' );
 					echo '<button type="submit" class="button button-small">' . esc_html__( 'Create Widget Project', 'stonewright' ) . '</button>';
 					echo '</form>';
@@ -321,7 +372,7 @@ final class SandboxLibraryPage {
 	 * @param string $filter_category Category filter value.
 	 * @param string $filter_status   Status filter value.
 	 */
-	private static function render_plugins_tab( string $filter_category, string $filter_status ): void {
+	private static function render_plugins_tab( string $filter_category, string $filter_status, string $active_tab, bool $embedded ): void {
 		$files              = SandboxFiles::list_files();
 		$registered_widgets = (array) get_option( 'stonewright_registered_widgets', [] );
 
@@ -335,7 +386,7 @@ final class SandboxLibraryPage {
 
 		$rows = self::apply_filters( array_values( $rows ), $filter_category, $filter_status, $registered_widgets, 'plugin' );
 
-		self::render_file_table( $rows, $registered_widgets );
+		self::render_file_table( $rows, $registered_widgets, $active_tab, $embedded );
 	}
 
 	// -------------------------------------------------------------------------
@@ -393,7 +444,7 @@ final class SandboxLibraryPage {
 					)
 				);
 				echo '</p></div>';
-				echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=' . self::SLUG ) ) . '" class="button">' . esc_html__( 'Back', 'stonewright' ) . '</a></p>';
+				echo '<p><a href="' . esc_url( self::library_url( [], self::is_embedded_request() ) ) . '" class="button">' . esc_html__( 'Back', 'stonewright' ) . '</a></p>';
 				return;
 			}
 		}
@@ -422,7 +473,7 @@ final class SandboxLibraryPage {
 		// Backup versions list.
 		$versions = SandboxFiles::backup_versions( $file );
 
-		$page_url = admin_url( 'admin.php?page=' . self::SLUG );
+		$page_url = self::library_url( [], self::is_embedded_request() );
 
 		echo '<h2>' . esc_html( sprintf( __( 'Edit: %s', 'stonewright' ), $file ) ) . '</h2>';
 
@@ -434,6 +485,7 @@ final class SandboxLibraryPage {
 		echo '<input type="hidden" name="action" value="stonewright_sandbox_lib_action"/>';
 		echo '<input type="hidden" name="stonewright_lib_action" value="edit"/>';
 		echo '<input type="hidden" name="stonewright_filename" value="' . esc_attr( $file ) . '"/>';
+		self::render_return_fields( self::request_library_tab(), self::is_embedded_request() );
 		// content_hash_at_render is used to detect concurrent edits (optimistic lock).
 		echo '<input type="hidden" name="content_hash_at_render" value="' . esc_attr( $content_hash ) . '"/>';
 		if ( $prod && '' !== $token ) {
@@ -499,7 +551,7 @@ final class SandboxLibraryPage {
 						)
 					);
 					echo '</p></div>';
-					echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=' . self::SLUG ) ) . '" class="button">' . esc_html__( 'Back', 'stonewright' ) . '</a></p>';
+					echo '<p><a href="' . esc_url( self::library_url( [], self::is_embedded_request() ) ) . '" class="button">' . esc_html__( 'Back', 'stonewright' ) . '</a></p>';
 					return;
 				}
 			}
@@ -539,7 +591,7 @@ final class SandboxLibraryPage {
 		}
 
 		echo '</tbody></table>';
-		echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=' . self::SLUG ) ) . '" class="button">' . esc_html__( 'Back', 'stonewright' ) . '</a></p>';
+		echo '<p><a href="' . esc_url( self::library_url( [], self::is_embedded_request() ) ) . '" class="button">' . esc_html__( 'Back', 'stonewright' ) . '</a></p>';
 	}
 
 	/**
@@ -561,7 +613,7 @@ final class SandboxLibraryPage {
 			);
 		}
 
-		$page_url = admin_url( 'admin.php?page=' . self::SLUG );
+		$page_url = self::library_url( [], self::is_embedded_request() );
 
 		echo '<h2>' . esc_html( sprintf( __( 'Rollback: %s', 'stonewright' ), $file ) ) . '</h2>';
 
@@ -582,6 +634,7 @@ final class SandboxLibraryPage {
 		echo '<input type="hidden" name="stonewright_lib_action" value="rollback"/>';
 		echo '<input type="hidden" name="stonewright_filename" value="' . esc_attr( $file ) . '"/>';
 		echo '<input type="hidden" name="stonewright_rollback_ts" value="' . esc_attr( (string) $timestamp ) . '"/>';
+		self::render_return_fields( self::request_library_tab(), self::is_embedded_request() );
 		if ( $prod && '' !== $token ) {
 			echo '<input type="hidden" name="stonewright_confirmation_token" value="' . esc_attr( $token ) . '"/>';
 		}
@@ -601,8 +654,8 @@ final class SandboxLibraryPage {
 	 * @param array<int, array{name: string, status: string, size: int, modified: int, path: string}> $rows
 	 * @param array<mixed, mixed> $registered_widgets
 	 */
-	private static function render_file_table( array $rows, array $registered_widgets ): void {
-		$page_url = admin_url( 'admin.php?page=' . self::SLUG );
+	private static function render_file_table( array $rows, array $registered_widgets, string $active_tab, bool $embedded ): void {
+		$page_url = self::library_url( [ 'library_tab' => $active_tab ], $embedded );
 		$mode     = get_option( 'stonewright_mode', 'development' );
 		$prod     = 'production-safe' === $mode;
 
@@ -667,12 +720,12 @@ final class SandboxLibraryPage {
 
 			if ( Permissions::can_manage_sandbox() ) {
 				// Edit.
-				$edit_url = esc_url( admin_url( 'admin.php?page=' . self::SLUG . '&action=edit&file=' . rawurlencode( $fname ) ) );
+				$edit_url = esc_url( self::library_url( [ 'library_tab' => $active_tab, 'action' => 'edit', 'file' => rawurlencode( $fname ) ], $embedded ) );
 				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $edit_url pre-escaped via esc_url.
 				echo '<a href="' . $edit_url . '" class="button button-small">' . esc_html__( 'Edit', 'stonewright' ) . '</a> ';
 
 				// Diff (for .pending twins).
-				$diff_url = esc_url( admin_url( 'admin.php?page=' . self::SLUG . '&action=diff&file=' . rawurlencode( $fname ) ) );
+				$diff_url = esc_url( self::library_url( [ 'library_tab' => $active_tab, 'action' => 'diff', 'file' => rawurlencode( $fname ) ], $embedded ) );
 				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $diff_url pre-escaped via esc_url.
 				echo '<a href="' . $diff_url . '" class="button button-small">' . esc_html__( 'Diff', 'stonewright' ) . '</a> ';
 
@@ -682,6 +735,7 @@ final class SandboxLibraryPage {
 					echo '<input type="hidden" name="action" value="stonewright_sandbox_lib_action"/>';
 					echo '<input type="hidden" name="stonewright_lib_action" value="activate"/>';
 					echo '<input type="hidden" name="stonewright_filename" value="' . esc_attr( $fname ) . '"/>';
+					self::render_return_fields( $active_tab, $embedded );
 					if ( $prod && '' !== $activate_token ) {
 						echo '<input type="hidden" name="stonewright_confirmation_token" value="' . esc_attr( $activate_token ) . '"/>';
 					}
@@ -695,6 +749,7 @@ final class SandboxLibraryPage {
 				echo '<input type="hidden" name="action" value="stonewright_sandbox_lib_action"/>';
 				echo '<input type="hidden" name="stonewright_lib_action" value="delete"/>';
 				echo '<input type="hidden" name="stonewright_filename" value="' . esc_attr( $fname ) . '"/>';
+				self::render_return_fields( $active_tab, $embedded );
 				if ( $prod && '' !== $delete_token ) {
 					echo '<input type="hidden" name="stonewright_confirmation_token" value="' . esc_attr( $delete_token ) . '"/>';
 				}
@@ -737,7 +792,7 @@ final class SandboxLibraryPage {
 		$validated = self::resolve_sandbox_basename( $name );
 		if ( is_wp_error( $validated ) ) {
 			self::store_notice( 'error', $validated->get_error_message() );
-			wp_safe_redirect( admin_url( 'admin.php?page=' . self::SLUG ) );
+			wp_safe_redirect( self::redirect_url_from_request() );
 			exit;
 		}
 
@@ -761,7 +816,7 @@ final class SandboxLibraryPage {
 			self::store_notice( 'success', __( 'Action completed successfully.', 'stonewright' ) );
 		}
 
-		wp_safe_redirect( admin_url( 'admin.php?page=' . self::SLUG ) );
+		wp_safe_redirect( self::redirect_url_from_request() );
 		exit;
 	}
 
@@ -839,14 +894,14 @@ final class SandboxLibraryPage {
 
 		if ( ! Permissions::can_manage_sandbox() ) {
 			self::store_notice( 'error', __( 'Insufficient permissions to create widget project.', 'stonewright' ) );
-			wp_safe_redirect( admin_url( 'admin.php?page=' . self::SLUG . '&tab=widgets' ) );
+			wp_safe_redirect( self::redirect_url_from_request( 'widgets' ) );
 			exit;
 		}
 
 		$base = isset( $_POST['base'] ) ? sanitize_key( wp_unslash( (string) $_POST['base'] ) ) : '';
 		if ( '' === $base ) {
 			self::store_notice( 'error', __( 'Widget name is required.', 'stonewright' ) );
-			wp_safe_redirect( admin_url( 'admin.php?page=' . self::SLUG . '&tab=widgets' ) );
+			wp_safe_redirect( self::redirect_url_from_request( 'widgets' ) );
 			exit;
 		}
 
@@ -870,7 +925,7 @@ final class SandboxLibraryPage {
 		// When it IS active, the widget must be found.
 		if ( $widget_exists && ! $widget_found ) {
 			self::store_notice( 'error', sprintf( __( 'Widget "%s" not found in Elementor.', 'stonewright' ), $base ) );
-			wp_safe_redirect( admin_url( 'admin.php?page=' . self::SLUG . '&tab=widgets' ) );
+			wp_safe_redirect( self::redirect_url_from_request( 'widgets' ) );
 			exit;
 		}
 
@@ -880,7 +935,7 @@ final class SandboxLibraryPage {
 		// Validate name pattern.
 		if ( ! SandboxFiles::valid_name( $file_name ) ) {
 			self::store_notice( 'error', __( 'Generated filename is invalid.', 'stonewright' ) );
-			wp_safe_redirect( admin_url( 'admin.php?page=' . self::SLUG . '&tab=widgets' ) );
+			wp_safe_redirect( self::redirect_url_from_request( 'widgets' ) );
 			exit;
 		}
 
@@ -904,7 +959,7 @@ final class SandboxLibraryPage {
 			self::store_notice( 'success', sprintf( __( 'Widget project "%s" created.', 'stonewright' ), $file_name ) );
 		}
 
-		wp_safe_redirect( admin_url( 'admin.php?page=' . self::SLUG . '&tab=widgets' ) );
+		wp_safe_redirect( self::redirect_url_from_request( 'widgets' ) );
 		exit;
 	}
 
@@ -1099,6 +1154,51 @@ final class SandboxLibraryPage {
 	// -------------------------------------------------------------------------
 	// Private helpers
 	// -------------------------------------------------------------------------
+
+	private static function is_embedded_request(): bool {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( (string) $_GET['page'] ) ) : '';
+		$tab  = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( (string) $_GET['tab'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		return SandboxPage::SLUG === $page && 'library' === $tab;
+	}
+
+	private static function request_embedded_return(): bool {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- value only controls redirect target after nonce verification.
+		$return_tab = isset( $_POST['stonewright_return_tab'] ) ? sanitize_key( wp_unslash( (string) $_POST['stonewright_return_tab'] ) ) : '';
+		return 'library' === $return_tab;
+	}
+
+	private static function request_library_tab( string $default = 'snippets' ): string {
+		$tab = $default;
+
+		// phpcs:disable WordPress.Security.NonceVerification.Missing, WordPress.Security.NonceVerification.Recommended
+		if ( isset( $_POST['stonewright_library_tab'] ) ) {
+			$tab = sanitize_key( wp_unslash( (string) $_POST['stonewright_library_tab'] ) );
+		} elseif ( isset( $_GET['library_tab'] ) ) {
+			$tab = sanitize_key( wp_unslash( (string) $_GET['library_tab'] ) );
+		} elseif ( isset( $_GET['tab'] ) && ! self::is_embedded_request() ) {
+			$tab = sanitize_key( wp_unslash( (string) $_GET['tab'] ) );
+		}
+		// phpcs:enable WordPress.Security.NonceVerification.Missing, WordPress.Security.NonceVerification.Recommended
+
+		return in_array( $tab, self::VALID_TABS, true ) ? $tab : $default;
+	}
+
+	private static function redirect_url_from_request( string $default_tab = 'snippets' ): string {
+		$embedded = self::request_embedded_return();
+		$tab      = self::request_library_tab( $default_tab );
+
+		return self::library_url( [ 'library_tab' => $tab ], $embedded );
+	}
+
+	private static function render_return_fields( string $active_tab, bool $embedded ): void {
+		if ( $embedded ) {
+			echo '<input type="hidden" name="stonewright_return_tab" value="library"/>';
+		}
+		echo '<input type="hidden" name="stonewright_library_tab" value="' . esc_attr( $active_tab ) . '"/>';
+	}
 
 	/**
 	 * Applies category and status filters to a list of file rows.

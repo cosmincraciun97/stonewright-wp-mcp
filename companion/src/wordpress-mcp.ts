@@ -1,5 +1,10 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { createHash } from 'node:crypto';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { z, type ZodTypeAny } from 'zod';
+import { runWpCli, type ExecFileRunner } from './wp-cli.js';
 
 export interface WordPressMcpConfig {
 	url: string;
@@ -7,6 +12,8 @@ export interface WordPressMcpConfig {
 	password?: string;
 	authorization?: string;
 	timeoutMs: number;
+	credentialStorePath?: string;
+	credentialSource?: 'store' | 'generated';
 }
 
 interface JsonRpcResponse {
@@ -31,6 +38,26 @@ interface RemoteTool {
 
 interface ToolListResult {
 	tools?: RemoteTool[];
+}
+
+interface PromptSkill {
+	slug?: string;
+	title?: string;
+	description?: string;
+	content?: string;
+}
+
+interface PromptSkillsResult {
+	skills?: PromptSkill[];
+}
+
+interface StoredWordPressCredential {
+	url: string;
+	username: string;
+	password: string;
+	createdAt?: string;
+	appName?: string;
+	wpRoot?: string;
 }
 
 type FetchLike = typeof fetch;
@@ -61,7 +88,31 @@ export function loadWordPressMcpConfig(env: NodeJS.ProcessEnv = process.env): Wo
 	}
 	if (authorization) config.authorization = authorization;
 
+	if (!config.authorization && !(config.username && config.password)) {
+		const credentialStorePath = wordpressCredentialStorePath(env, url);
+		const stored = readStoredCredential(credentialStorePath, url);
+		if (stored) {
+			config.username = stored.username;
+			config.password = stored.password;
+			config.credentialStorePath = credentialStorePath;
+			config.credentialSource = 'store';
+		}
+	}
+
 	return config;
+}
+
+export async function resolveWordPressMcpConfig(
+	env: NodeJS.ProcessEnv = process.env,
+	runner?: ExecFileRunner,
+): Promise<WordPressMcpConfig | null> {
+	const config = loadWordPressMcpConfig(env);
+	if (!config) return null;
+	if (config.authorization || (config.username && config.password)) return config;
+	if (!shouldAutoCreateCredential(env, config.url)) return config;
+
+	const generated = await generateAndStoreCredential(config, env, runner);
+	return generated ?? config;
 }
 
 function normalizeWordPressMcpUrl(raw: string): string {
@@ -71,6 +122,156 @@ function normalizeWordPressMcpUrl(raw: string): string {
 	const mcpPath = `${wpRestBase}/mcp/`;
 	if (url.includes(`/${mcpPath}`)) return url;
 	return `${url}/${mcpPath}stonewright`;
+}
+
+function wordpressCredentialStorePath(env: NodeJS.ProcessEnv, mcpUrl: string): string {
+	const explicitStore = (env['STONEWRIGHT_CREDENTIAL_STORE'] ?? '').trim();
+	if (explicitStore) return resolve(explicitStore);
+
+	const explicitDir = (env['STONEWRIGHT_CREDENTIAL_DIR'] ?? '').trim();
+	const baseDir = explicitDir
+		? resolve(explicitDir)
+		: process.platform === 'win32'
+			? join(env['LOCALAPPDATA'] || join(homedir(), 'AppData', 'Local'), 'Stonewright', 'credentials')
+			: join(env['XDG_CONFIG_HOME'] || join(homedir(), '.config'), 'stonewright', 'credentials');
+
+	const projectRoot = (env['STONEWRIGHT_PROJECT_ROOT'] ?? env['STONEWRIGHT_WP_ROOT'] ?? process.cwd()).trim();
+	const key = createHash('sha256').update(`${mcpUrl}\n${projectRoot}`).digest('hex').slice(0, 24);
+	return join(baseDir, `${key}.json`);
+}
+
+function readStoredCredential(storePath: string, mcpUrl: string): StoredWordPressCredential | null {
+	if (!existsSync(storePath)) return null;
+
+	try {
+		const parsed = JSON.parse(readFileSync(storePath, 'utf8')) as Partial<StoredWordPressCredential>;
+		if (
+			typeof parsed.url === 'string'
+			&& normalizeWordPressMcpUrl(parsed.url) === mcpUrl
+			&& typeof parsed.username === 'string'
+			&& parsed.username.trim() !== ''
+			&& typeof parsed.password === 'string'
+			&& parsed.password.trim() !== ''
+		) {
+			return {
+				url: mcpUrl,
+				username: parsed.username,
+				password: parsed.password,
+				...(typeof parsed.createdAt === 'string' ? { createdAt: parsed.createdAt } : {}),
+				...(typeof parsed.appName === 'string' ? { appName: parsed.appName } : {}),
+				...(typeof parsed.wpRoot === 'string' ? { wpRoot: parsed.wpRoot } : {}),
+			};
+		}
+	} catch {
+		return null;
+	}
+
+	return null;
+}
+
+function writeStoredCredential(storePath: string, credential: StoredWordPressCredential): void {
+	mkdirSync(dirname(storePath), { recursive: true });
+	writeFileSync(
+		storePath,
+		`${JSON.stringify(credential, null, 2)}\n`,
+		{ flag: 'w', mode: 0o600 },
+	);
+	try {
+		chmodSync(storePath, 0o600);
+	} catch {
+		// Windows ACLs are managed by the user's profile; chmod is best-effort.
+	}
+}
+
+function shouldAutoCreateCredential(env: NodeJS.ProcessEnv, mcpUrl: string): boolean {
+	const setting = (env['STONEWRIGHT_WP_APP_PASSWORD_AUTO'] ?? 'local-only').trim().toLowerCase();
+	if (['0', 'false', 'off', 'no', 'never'].includes(setting)) return false;
+	if (['1', 'true', 'on', 'yes', 'always'].includes(setting)) return true;
+
+	const host = new URL(mcpUrl).hostname.toLowerCase();
+	return host === 'localhost'
+		|| host === '127.0.0.1'
+		|| host === '::1'
+		|| host.endsWith('.local')
+		|| host.endsWith('.test');
+}
+
+async function generateAndStoreCredential(
+	config: WordPressMcpConfig,
+	env: NodeJS.ProcessEnv,
+	runner?: ExecFileRunner,
+): Promise<WordPressMcpConfig | null> {
+	const username = config.username ?? await discoverAdminUsername(env, runner);
+	if (!username) return null;
+
+	const password = await createApplicationPassword(username, env, runner);
+	if (!password) return null;
+
+	const credentialStorePath = wordpressCredentialStorePath(env, config.url);
+	const credential: StoredWordPressCredential = {
+		url: config.url,
+		username,
+		password,
+		createdAt: new Date().toISOString(),
+		appName: appPasswordName(env),
+		...(env['STONEWRIGHT_WP_ROOT'] ? { wpRoot: env['STONEWRIGHT_WP_ROOT'] } : {}),
+	};
+	writeStoredCredential(credentialStorePath, credential);
+
+	return {
+		...config,
+		username,
+		password,
+		credentialStorePath,
+		credentialSource: 'generated',
+	};
+}
+
+async function discoverAdminUsername(env: NodeJS.ProcessEnv, runner?: ExecFileRunner): Promise<string | null> {
+	const result = await runWpCli(
+		{
+			command: ['user', 'list', '--role=administrator', '--field=user_login', '--number=1'],
+			...(env['STONEWRIGHT_WP_ROOT'] ? { path: env['STONEWRIGHT_WP_ROOT'] } : {}),
+			timeoutMs: Number(env['STONEWRIGHT_WP_APP_PASSWORD_TIMEOUT_MS'] ?? 30_000),
+		},
+		runner,
+		env,
+	);
+
+	if (!result.ok) return null;
+	return cleanWpCliStdout(result.stdout);
+}
+
+async function createApplicationPassword(
+	username: string,
+	env: NodeJS.ProcessEnv,
+	runner?: ExecFileRunner,
+): Promise<string | null> {
+	const result = await runWpCli(
+		{
+			command: ['user', 'application-password', 'create', username, appPasswordName(env), '--porcelain'],
+			...(env['STONEWRIGHT_WP_ROOT'] ? { path: env['STONEWRIGHT_WP_ROOT'] } : {}),
+			timeoutMs: Number(env['STONEWRIGHT_WP_APP_PASSWORD_TIMEOUT_MS'] ?? 30_000),
+		},
+		runner,
+		env,
+	);
+
+	if (!result.ok) return null;
+	return cleanWpCliStdout(result.stdout);
+}
+
+function appPasswordName(env: NodeJS.ProcessEnv): string {
+	const configured = (env['STONEWRIGHT_WP_APP_PASSWORD_NAME'] ?? '').trim();
+	return configured || 'Stonewright Companion';
+}
+
+function cleanWpCliStdout(stdout: string): string | null {
+	return stdout
+		.split(/\r?\n/)
+		.map((line) => line.trim())
+		.filter((line) => line !== '' && !line.startsWith('Warning:') && !line.startsWith('Success:'))
+		.at(-1) ?? null;
 }
 
 export async function registerWordPressMcpTools(
@@ -97,6 +298,60 @@ export async function registerWordPressMcpTools(
 	return tools;
 }
 
+export async function registerWordPressMcpPrompts(
+	server: McpServer,
+	config: WordPressMcpConfig,
+	fetchImpl: FetchLike = fetch,
+): Promise<PromptSkill[]> {
+	const client = new WordPressMcpClient(config, fetchImpl);
+	let skills: PromptSkill[] = [];
+
+	try {
+		skills = await client.listPromptSkills();
+	} catch {
+		return [];
+	}
+
+	for (const skill of skills) {
+		const slug = promptNameSuffix(skill.slug ?? '');
+		if (!slug) continue;
+
+		server.registerPrompt(
+			`stonewright-skill-${slug}`,
+			{
+				title: `Stonewright: ${skill.title || slug}`,
+				description: skill.description || `Use Stonewright site skill ${slug}.`,
+			},
+			() => ({
+				description: skill.description || undefined,
+				messages: [
+					{
+						role: 'user',
+						content: {
+							type: 'text',
+							text: promptSkillText(skill, slug),
+						},
+					},
+				],
+			}),
+		);
+	}
+
+	return skills;
+}
+
+export function wordpressRestUrlFromMcpUrl(mcpUrl: string, restPath: string): string {
+	const url = new URL(mcpUrl);
+	const wpRestBase = ['wp', 'json'].join('-');
+	const marker = `/${wpRestBase}/mcp/`;
+	const markerIndex = url.pathname.indexOf(marker);
+	const basePath = markerIndex >= 0 ? url.pathname.slice(0, markerIndex) : '';
+	const [pathPart, queryPart = ''] = restPath.replace(/^\/+/, '').split('?', 2);
+	url.pathname = `${basePath}/${wpRestBase}/${pathPart}`;
+	url.search = queryPart;
+	return url.toString();
+}
+
 class WordPressMcpClient {
 	private nextId = 1;
 	private sessionId = '';
@@ -119,6 +374,25 @@ class WordPressMcpClient {
 			name,
 			arguments: args,
 		});
+	}
+
+	public async listPromptSkills(): Promise<PromptSkill[]> {
+		const response = await this.fetchImpl(
+			wordpressRestUrlFromMcpUrl(this.config.url, 'stonewright/v1/skills?mode=prompt&enabled_only=1'),
+			{
+				method: 'GET',
+				headers: this.headers(),
+			},
+		);
+
+		if (!response.ok) {
+			return [];
+		}
+
+		const data = await response.json() as PromptSkillsResult;
+		return Array.isArray(data.skills)
+			? data.skills.filter((skill) => typeof skill.slug === 'string' && skill.slug.trim() !== '')
+			: [];
 	}
 
 	private async ensureInitialized(): Promise<void> {
@@ -211,6 +485,27 @@ class WordPressMcpClient {
 
 		return headers;
 	}
+}
+
+function promptNameSuffix(rawSlug: string): string {
+	return rawSlug
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9_-]+/g, '-')
+		.replace(/^-+|-+$/g, '');
+}
+
+function promptSkillText(skill: PromptSkill, fallbackSlug: string): string {
+	const title = skill.title || fallbackSlug;
+	const slug = skill.slug || fallbackSlug;
+	const content = skill.content || '';
+
+	return [
+		`Use Stonewright site skill "${title}" (${slug}).`,
+		'Follow this playbook for the current task:',
+		'',
+		content,
+	].join('\n');
 }
 
 function parseJsonRpcResponse(text: string, contentType: string): JsonRpcResponse {

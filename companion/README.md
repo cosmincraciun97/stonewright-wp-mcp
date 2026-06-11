@@ -49,6 +49,10 @@ cp .env.example .env
 | `WP_API_USERNAME` | with `STONEWRIGHT_MCP_URL` | WordPress username for Application Password auth |
 | `WP_API_PASSWORD` | with `STONEWRIGHT_MCP_URL` | WordPress Application Password |
 | `STONEWRIGHT_MCP_AUTHORIZATION` | optional | Full Authorization header override for the WordPress MCP endpoint |
+| `STONEWRIGHT_CREDENTIAL_STORE` | optional | Per-project JSON file for a saved Application Password fallback |
+| `STONEWRIGHT_CREDENTIAL_DIR` | optional | Directory for generated per-project credential files |
+| `STONEWRIGHT_WP_APP_PASSWORD_AUTO` | optional | `local-only` by default; set `never` to disable or `always` to permit remote auto-generation |
+| `STONEWRIGHT_WP_APP_PASSWORD_NAME` | optional | Label used when auto-creating the WordPress Application Password |
 | `STONEWRIGHT_WP_CLI_BIN` | optional | WP-CLI executable path; defaults to `wp` |
 | `STONEWRIGHT_WP_ROOT` | optional | Default WP-CLI working directory |
 | `STONEWRIGHT_WP_ALLOWED_ROOTS` | optional | Comma- or semicolon-separated allowed working roots |
@@ -63,6 +67,18 @@ npm start
 ```
 
 The companion always starts stdio MCP. Set `PORT` to also expose HTTP routes.
+
+## Persistent WordPress Credentials
+
+WordPress shows an Application Password only once. If `WP_API_PASSWORD` is not
+set, the companion looks for a saved per-project credential in
+`STONEWRIGHT_CREDENTIAL_STORE` or in the Stonewright user credential directory.
+For local development hosts (`localhost`, `127.0.0.1`, `.local`, `.test`), the
+companion can create one Application Password through guarded WP-CLI, save it,
+and reuse it in future agent sessions.
+
+Env credentials still win. Set `STONEWRIGHT_WP_APP_PASSWORD_AUTO=never` to
+disable generation, or `always` to allow generation for non-local sites.
 
 ## WP-CLI Auto-Bootstrap
 

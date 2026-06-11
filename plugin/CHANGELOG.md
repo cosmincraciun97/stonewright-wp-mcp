@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.13] - 2026-06-12
+
+### Added
+
+- Exposed prompt-enabled Stonewright skills as MCP prompts from the companion.
+- Added a companion credential store fallback for per-project Application
+  Password reuse across local agent sessions.
+
+### Fixed
+
+- Fixed Sandbox Library embedded and direct tab routing for Widgets and
+  Generated Plugins.
+- Fixed Sandbox Library View, Edit, Diff, Delete, Activate, Disable, and
+  Deactivate action redirects.
+- Fixed Elementor Icon Box rendering to use the current `selected_icon`
+  setting schema.
+
 ## [1.0.0-alpha.12] - 2026-06-12
 
 ### Added

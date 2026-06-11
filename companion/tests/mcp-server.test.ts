@@ -40,6 +40,22 @@ describe('createMcpServer', () => {
 
 	it('registers proxied WordPress MCP tools when endpoint env is configured', async () => {
 		const fetchImpl = (_url: string | URL | Request, init?: RequestInit): Promise<Response> => {
+			const url = String(_url);
+			if (url.endsWith('/wp-json/stonewright/v1/skills?mode=prompt&enabled_only=1')) {
+				return Promise.resolve(
+					new Response(JSON.stringify({
+						skills: [
+							{
+								slug: 'figma-quality-rules',
+								title: 'Figma Quality Rules',
+								description: 'Use after Figma import.',
+								content: '# Figma Quality Rules\n\nBuild one section at a time.',
+							},
+						],
+					}), { headers: { 'content-type': 'application/json' } }),
+				);
+			}
+
 			const body = JSON.parse(String(init?.body ?? '{}')) as { method?: string };
 			if (body.method === 'initialize') {
 				return Promise.resolve(
@@ -85,9 +101,14 @@ describe('createMcpServer', () => {
 		});
 
 		expect(registeredToolNames(server)).toContain('stonewright-context-bootstrap');
+		expect(registeredPromptNames(server)).toContain('stonewright-skill-figma-quality-rules');
 	});
 });
 
 function registeredToolNames(server: unknown): string[] {
 	return Object.keys((server as { _registeredTools?: Record<string, unknown> })._registeredTools ?? {});
+}
+
+function registeredPromptNames(server: unknown): string[] {
+	return Object.keys((server as { _registeredPrompts?: Record<string, unknown> })._registeredPrompts ?? {});
 }

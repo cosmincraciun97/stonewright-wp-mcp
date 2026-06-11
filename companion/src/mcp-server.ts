@@ -14,7 +14,7 @@ import {
 	type WpCliInstallInput,
 	type WpCliRunInput,
 } from './wp-cli.js';
-import { loadWordPressMcpConfig, registerWordPressMcpTools } from './wordpress-mcp.js';
+import { registerWordPressMcpPrompts, registerWordPressMcpTools, resolveWordPressMcpConfig } from './wordpress-mcp.js';
 
 export interface CreateMcpServerOptions {
 	env?: NodeJS.ProcessEnv;
@@ -39,9 +39,10 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 
 	registerWpCliTools(server, commonInput, env);
 
-	const wpMcpConfig = loadWordPressMcpConfig(env);
+	const wpMcpConfig = await resolveWordPressMcpConfig(env);
 	if (wpMcpConfig) {
 		await registerWordPressMcpTools(server, wpMcpConfig, options.fetchImpl ?? fetch);
+		await registerWordPressMcpPrompts(server, wpMcpConfig, options.fetchImpl ?? fetch);
 	}
 
 	return server;
