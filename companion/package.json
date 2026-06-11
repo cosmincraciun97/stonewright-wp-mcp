@@ -1,13 +1,19 @@
 {
 	"name": "@stonewright/companion",
-	"version": "1.0.0-alpha.1",
+	"version": "1.0.0-alpha.2",
 	"description": "Node companion for the Stonewright WordPress MCP plugin: WP-CLI, health checks, and optional MCP HTTP proxy.",
 	"type": "module",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/stonewright/stonewright-wp-mcp"
+		"url": "https://github.com/cosmincraciun97/stonewright-wp-mcp"
 	},
+	"files": [
+		"dist",
+		"scripts/postinstall.mjs",
+		"README.md",
+		"LICENSE"
+	],
 	"engines": {
 		"node": ">=20.0.0"
 	},
