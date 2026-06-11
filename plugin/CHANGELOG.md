@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.8] - 2026-06-11
+
+### Fixed
+
+- Made Composer dependency audit policy explicit for the WordPress Abilities API
+  compatibility package so abandoned-package reporting does not fail releases
+  when there are no vulnerability advisories.
+
 ## [1.0.0-alpha.7] - 2026-06-11
 
 ### Added

@@ -23,6 +23,7 @@ jobs:
       - run: composer phpstan
       - run: composer phpcs
       - run: composer security:audit
+      - run: composer dependencies:audit
 
   companion:
     runs-on: ubuntu-latest

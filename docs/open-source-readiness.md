@@ -32,6 +32,7 @@ composer test
 composer phpstan
 composer phpcs
 composer security:audit
+composer dependencies:audit
 composer docs:matrix
 Pop-Location
 

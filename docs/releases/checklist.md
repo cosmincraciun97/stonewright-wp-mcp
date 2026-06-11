@@ -10,6 +10,7 @@ Run from `plugin/` unless noted.
 - [ ] `composer phpstan` - zero errors at configured level.
 - [ ] `composer phpcs` - zero style violations.
 - [ ] `composer security:audit` - exits 0.
+- [ ] `composer dependencies:audit` - exits 0 and reports any abandoned compatibility packages.
 - [ ] `composer docs:matrix` - regenerates the ability matrix cleanly.
 - [ ] `cd ../companion && npm run typecheck` - zero TypeScript errors.
 - [ ] `cd ../companion && npm test` - all Vitest tests pass.

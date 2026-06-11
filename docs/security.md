@@ -31,7 +31,17 @@ If an MCP client is compromised, an attacker can issue ability calls on behalf o
 
 ### Supply chain
 
-Stonewright depends on `wordpress/mcp-adapter`, `wordpress/abilities-api`, and `opis/json-schema`. Check these dependencies for security advisories on each update. The Composer `composer.lock` file pins exact versions; review it when updating.
+Stonewright depends on `wordpress/mcp-adapter`, `wordpress/abilities-api`, and
+`opis/json-schema`. Check these dependencies for security advisories on each
+update. The Composer `composer.lock` file pins exact versions; review it when
+updating.
+
+`wordpress/abilities-api` is kept as a compatibility package for WordPress
+versions that do not yet ship the Abilities API in core. Packagist marks the
+package as abandoned with no replacement, so Stonewright configures Composer
+audit to report abandoned packages without failing when there are zero security
+advisories. Remove the compatibility package only when Stonewright's supported
+WordPress floor includes the core Abilities API.
 
 ### Companion exposure
 

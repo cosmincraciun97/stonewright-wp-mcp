@@ -36,6 +36,9 @@
             "dealerdirect/phpcodesniffer-composer-installer": true,
             "automattic/jetpack-autoloader": true
         },
+        "audit": {
+            "abandoned": "report"
+        },
         "sort-packages": true,
         "platform": {
             "php": "8.1.0"
@@ -47,6 +50,7 @@
         "phpcs": "phpcs",
         "phpcbf": "phpcbf",
         "docs:matrix": "php bin/generate-ability-matrix.php",
+        "dependencies:audit": "composer audit --abandoned=report",
         "security:audit": "php bin/security-audit.php"
     },
     "extra": {
