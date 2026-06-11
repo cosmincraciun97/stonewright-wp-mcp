@@ -44,6 +44,7 @@ final class ContextBuilder {
 				$matched_skills
 			),
 			'memory_entries'           => $matched_memory,
+			'specializations'          => SpecializationCatalog::match( $task, $surface ),
 			'recommended_external_mcps' => self::recommended_external_mcps(),
 			'visual_quality_contract'  => self::visual_quality_contract(),
 			'required_followups'       => self::required_followups( $surface, $intent ),
@@ -233,6 +234,16 @@ final class ContextBuilder {
 			$steps[] = 'When the Node companion exposes stonewright-wp-cli-* MCP tools, use those direct aliases before assuming the WordPress-side HTTP bridge on port 8765 is required.';
 			$steps[] = 'Use stonewright/wp-cli-run for safe tokenized WordPress commands; never use wp eval, wp eval-file, wp shell, wp package, --exec, or --require.';
 			$steps[] = 'If stonewright/wp-cli-status returns available=false, use direct companion_wp_cli_* MCP tools when exposed, otherwise use normal Stonewright REST abilities instead of sandbox/REST workarounds.';
+		}
+
+		if ( in_array(
+			$surface,
+			[ 'wordpress', 'acf', 'acpt', 'meta-box', 'metabox', 'ase', 'pods', 'woocommerce', 'fields', 'content-model' ],
+			true
+		) ) {
+			$steps[] = 'For ACF, ACPT, Meta Box, ASE, Pods, WooCommerce, or custom field work, call stonewright/workflow-preflight and follow the returned specialization guidance before writing.';
+			$steps[] = 'For content-model work, use stonewright/skills-get with stonewright-content-model-integrations when matched.';
+			$steps[] = 'For WooCommerce catalog work, use stonewright/skills-get with stonewright-woocommerce-catalog when matched.';
 		}
 
 		if ( in_array( $intent, [ 'write', 'delete' ], true ) ) {

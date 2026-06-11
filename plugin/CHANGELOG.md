@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.6] - 2026-06-11
+
+### Added
+
+- Added official-docs-based specialization guidance for ACF, ACPT, Meta Box,
+  ASE, Pods, and WooCommerce catalog workflows.
+- Added content-model integration and WooCommerce catalog skills for bootstrap
+  and preflight guidance.
+- Added compact specialization data to context bootstrap and workflow preflight
+  so agents spend fewer calls discovering plugin-specific workflows.
+
+### Fixed
+
+- Isolated sandbox admin tests from integration fixtures.
+
 ## [1.0.0-alpha.5] - 2026-06-11
 
 ### Fixed

@@ -8,9 +8,11 @@ workflow against the `stonewright/*` ability surface.
 | Skill | Description |
 |---|---|
 | `design-to-wordpress` | Design reference, image, brief, or manual spec to WordPress page |
+| `content-model-integrations` | ACF, ACPT, Meta Box, ASE, Pods, custom fields, CPTs, taxonomies, option pages |
 | `elementor-v3-builder` | Elementor V3 container/widget tree, kit colors/typography, templates |
 | `elementor-v4-atomic` | Experimental V4 atomic renderer, gated behind feature flag |
 | `gutenberg-fse-builder` | Block editor, FSE templates, theme.json, synced patterns |
+| `woocommerce-catalog` | WooCommerce products, variations, SKUs, attributes, terms, shipping classes |
 | `wp-plugin-dev` | Plugin scaffold, ability authoring, security patterns, test workflow |
 | `stonewright-review` | Review generated page structure against Design Spec and site state |
 
@@ -20,8 +22,10 @@ Copy or reference only the skills you need:
 
 ```bash
 cp -r skills/design-to-wordpress ~/.claude/plugins/
+cp -r skills/content-model-integrations ~/.claude/plugins/
 cp -r skills/elementor-v3-builder ~/.claude/plugins/
 cp -r skills/gutenberg-fse-builder ~/.claude/plugins/
+cp -r skills/woocommerce-catalog ~/.claude/plugins/
 cp -r skills/wp-plugin-dev ~/.claude/plugins/
 ```
 
@@ -33,6 +37,11 @@ cp -r skills/wp-plugin-dev ~/.claude/plugins/
 - For V4 atomic skill: Elementor >= 4.0.0 and `stonewright_elementor_v4_atomic`
   enabled.
 - For FSE skills: a block theme active.
+- For content-model skills: the target plugin active and discoverable through
+  `stonewright/site-plugins-list`, official REST routes, or WP-CLI command
+  discovery.
+- For WooCommerce catalog skills: WooCommerce active and official REST v3 or
+  `wp wc` commands available for the requested operation.
 - For WP-CLI acceleration: companion running with `wp` available on `PATH` or
   LocalWP-style PHP + `wp-cli.phar` discoverable from the WordPress root. If no
   WP-CLI is available, the direct companion tool `stonewright-wp-cli-install`

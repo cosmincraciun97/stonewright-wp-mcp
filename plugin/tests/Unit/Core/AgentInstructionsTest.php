@@ -30,6 +30,10 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'do not require the WordPress-side HTTP bridge', $instructions );
 		$this->assertStringContainsString( 'stonewright-wp-cli-install', $instructions );
 		$this->assertStringContainsString( 'Elementor, Gutenberg, ACF, CPT UI', $instructions );
+		$this->assertStringContainsString( 'ACF, ACPT, Meta Box, ASE, Pods, WooCommerce', $instructions );
+		$this->assertStringContainsString( 'stonewright-content-model-integrations', $instructions );
+		$this->assertStringContainsString( 'stonewright-woocommerce-catalog', $instructions );
+		$this->assertStringContainsString( 'Use plugin-specific official REST or WP-CLI surfaces when present', $instructions );
 		$this->assertStringContainsString( 'wp eval', $instructions );
 		$this->assertStringContainsString( 'real Elementor widgets', $instructions );
 		$this->assertStringContainsString( 'Do not use Elementor HTML widgets', $instructions );

@@ -74,6 +74,26 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'Use a WordPress Application Password for HTTP MCP authentication.', $result['auth_guidance'] );
 	}
 
+	public function test_workflow_preflight_returns_plugin_specialization_fast_path(): void {
+		$result = ( new WorkflowPreflight() )->execute(
+			[
+				'task'    => 'Audit ACF field groups, Pods fields, and WooCommerce product variations.',
+				'surface' => 'wordpress',
+				'intent'  => 'write',
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertArrayHasKey( 'specializations', $result['fast_path'] );
+
+		$ids = array_column( $result['fast_path']['specializations'], 'id' );
+		self::assertContains( 'acf', $ids );
+		self::assertContains( 'pods', $ids );
+		self::assertContains( 'woocommerce', $ids );
+		self::assertContains( 'stonewright/site-plugins-list', $result['fast_path']['recommended_tools'] );
+		self::assertContains( 'stonewright/wp-cli-discover', $result['fast_path']['recommended_tools'] );
+	}
+
 	public function test_elementor_capabilities_summary_is_compact_and_actionable(): void {
 		$result = ( new CapabilitiesSummary() )->execute( [] );
 

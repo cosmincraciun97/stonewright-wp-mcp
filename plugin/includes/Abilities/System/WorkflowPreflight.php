@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\ElementorV3\CapabilitiesSummary;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Context\ContextBuilder;
+use Stonewright\WpMcp\Context\SpecializationCatalog;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -111,11 +112,16 @@ final class WorkflowPreflight extends AbilityKernel {
 			'fast_path'     => [
 				'recommended_tools' => [
 					'stonewright/workflow-preflight',
+					'stonewright/site-plugins-list',
+					'stonewright/wp-cli-status',
+					'stonewright/wp-cli-discover',
+					'stonewright/wp-cli-run',
 					'stonewright/media-upload-batch',
 					'stonewright/elementor-v3-capabilities-summary',
 					'stonewright/elementor-v3-build-page-from-spec',
 					'stonewright/elementor-v3-apply-bundle',
 				],
+				'specializations'    => SpecializationCatalog::match( $task, $surface ),
 				'visual_setup'       => [
 					'Install external Playwright MCP before visual work and restart the AI client so the browser tools appear.',
 					'Verify the Playwright/browser tool can open the target URL before the first Stonewright write.',

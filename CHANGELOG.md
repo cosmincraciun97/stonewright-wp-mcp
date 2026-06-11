@@ -7,6 +7,22 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.6] - 2026-06-11
+
+### Added
+
+- Added official-docs-based specialization guidance for ACF, ACPT, Meta Box,
+  ASE, Pods, and WooCommerce catalog work.
+- Added content-model and WooCommerce built-in skills so task bootstrap can
+  steer agents toward the right REST, WP-CLI, and native WordPress surfaces.
+- Added preflight specialization summaries to reduce discovery loops before
+  custom-field, content-model, and catalog edits.
+
+### Fixed
+
+- Isolated sandbox admin tests from integration fixtures so the full PHPUnit
+  suite stays deterministic.
+
 ## [1.0.0-alpha.5] - 2026-06-11
 
 ### Fixed
@@ -89,6 +105,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.6]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.6
 [1.0.0-alpha.5]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.5
 [1.0.0-alpha.4]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.4
 [1.0.0-alpha.3]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.3

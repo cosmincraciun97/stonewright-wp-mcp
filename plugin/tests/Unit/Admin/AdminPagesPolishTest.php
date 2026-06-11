@@ -24,6 +24,7 @@ final class AdminPagesPolishTest extends TestCase {
 		$GLOBALS['stonewright_test_user_caps']['manage_options'] = true;
 		$GLOBALS['stonewright_test_options'] = [];
 		$GLOBALS['stonewright_test_transients'] = [];
+		$this->empty_sandbox_test_dirs();
 	}
 
 	protected function tearDown(): void {
@@ -36,6 +37,29 @@ final class AdminPagesPolishTest extends TestCase {
 		$GLOBALS['stonewright_test_options'] = [];
 		$GLOBALS['stonewright_test_transients'] = [];
 		$_GET = [];
+		$this->empty_sandbox_test_dirs();
+	}
+
+	private function empty_sandbox_test_dirs(): void {
+		$content_dir = realpath( WP_CONTENT_DIR );
+
+		if ( false === $content_dir ) {
+			return;
+		}
+
+		foreach ( [ 'stonewright-sandbox', 'mu-plugins' ] as $relative_dir ) {
+			$dir = realpath( WP_CONTENT_DIR . '/' . $relative_dir );
+
+			if ( false === $dir || ! str_starts_with( $dir, $content_dir . DIRECTORY_SEPARATOR ) ) {
+				continue;
+			}
+
+			foreach ( glob( $dir . '/*.php' ) ?: [] as $file ) {
+				if ( is_file( $file ) ) {
+					unlink( $file );
+				}
+			}
+		}
 	}
 
 	public function test_skills_page_uses_shared_shell_and_external_admin_controls(): void {

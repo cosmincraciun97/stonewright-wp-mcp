@@ -86,6 +86,23 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertTrue( $verified );
 	}
 
+	public function test_returns_specialization_guidance_for_field_and_catalog_tasks(): void {
+		$result = ( new ContextBootstrap() )->execute(
+			[
+				'task'    => 'Create ACF fields and WooCommerce product variations.',
+				'surface' => 'wordpress',
+				'intent'  => 'write',
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertArrayHasKey( 'specializations', $result );
+		$ids = array_column( $result['specializations'], 'id' );
+		self::assertContains( 'acf', $ids );
+		self::assertContains( 'woocommerce', $ids );
+		self::assertContains( 'For ACF, ACPT, Meta Box, ASE, Pods, WooCommerce, or custom field work, call stonewright/workflow-preflight and follow the returned specialization guidance before writing.', $result['required_followups'] );
+	}
+
 	private function make_wpdb(): object {
 		return new class() {
 			public string $prefix = 'wp_';

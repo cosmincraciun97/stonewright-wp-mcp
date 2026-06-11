@@ -16,6 +16,7 @@ Stonewright no longer includes design-tool ingestion or automated visual QA.
 - [Security model](security.md)
 - [Companion](companion.md)
 - [Skill packs](skills.md)
+- [Plugin specializations](specializations.md)
 - [Clean-room review notes](clean-room-review.md)
 
 ## Sections

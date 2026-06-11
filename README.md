@@ -1,9 +1,10 @@
 # Stonewright
 
 Stonewright is a WordPress MCP plugin that exposes site-building primitives for
-Gutenberg, Full Site Editing, Elementor, media, menus, memory, skills, and
-WP-CLI-assisted debugging. It builds well-formed WordPress data with permission,
-backup, validation, context, and audit gates.
+Gutenberg, Full Site Editing, Elementor, content-model plugins, WooCommerce
+catalog work, media, menus, memory, skills, and WP-CLI-assisted debugging. It
+builds well-formed WordPress data with permission, backup, validation, context,
+and audit gates.
 
 Stonewright no longer owns design-tool ingestion or automated visual QA. Use a
 separate design MCP for design files and user feedback for visual approval.
@@ -54,7 +55,8 @@ stonewright-context-bootstrap
 
 Use `stonewright-workflow-preflight` for fast task setup. It returns a context
 token, active mode, auth reminders, compact Elementor capability data, and
-first-pass tool choices.
+first-pass tool choices. For ACF, ACPT, Meta Box, ASE, Pods, WooCommerce, or
+custom field tasks, it also returns compact specialization guidance.
 
 ## Optional Companion
 
@@ -198,5 +200,6 @@ commands. It blocks arbitrary PHP and shell entry points such as `wp eval`,
 - [Installation guide](docs/installation.md)
 - [Companion documentation](companion/README.md)
 - [Skill packs](skills/README.md)
+- [Plugin specializations](docs/specializations.md)
 - [Documentation index](docs/index.md)
 - [Security model](plugin/SECURITY.md)
