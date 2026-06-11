@@ -1,14 +1,36 @@
-# Stonewright
+<h1 align="center">Stonewright</h1>
 
-Stonewright is a WordPress MCP plugin that exposes site-building primitives for
-Gutenberg, Full Site Editing, Elementor, media, menus, memory, skills, and
-WP-CLI-assisted debugging. It builds well-formed WordPress data with permission,
-backup, validation, context, and audit gates.
+<p align="center">
+  <strong>MCP tools for WordPress builders</strong><br />
+  Secure WordPress, Gutenberg, Elementor, WooCommerce, and content-model
+  automation for AI agents.
+</p>
 
-Stonewright no longer owns design-tool ingestion or automated visual QA. Use a
-separate design MCP for design files and user feedback for visual approval.
+<p align="center">
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.8-blue" /></a>
+  <img alt="plugin license" src="https://img.shields.io/badge/plugin-GPL--2.0--or--later-green" />
+  <img alt="companion license" src="https://img.shields.io/badge/companion-MIT-blue" />
+  <img alt="php" src="https://img.shields.io/badge/PHP-%3E%3D8.1-777bb4" />
+  <img alt="wordpress" src="https://img.shields.io/badge/WordPress-%3E%3D6.7-21759b" />
+  <img alt="abilities" src="https://img.shields.io/badge/MCP%20abilities-200%2B-6d5dfc" />
+  <img alt="ci" src="https://img.shields.io/github/actions/workflow/status/cosmincraciun97/stonewright-wp-mcp/ci.yml?branch=main&label=CI" />
+</p>
+
+Stonewright exposes guarded WordPress building primitives to MCP-compatible AI
+clients. It covers Gutenberg, Full Site Editing, Elementor, Elementor widget
+intelligence, content-model plugins, WooCommerce catalog work, media, menus,
+Persistent memory, skills, and WP-CLI-assisted debugging. It builds
+well-formed WordPress data with permission, backup, validation, context, and
+audit gates.
 
 ## Components
+
+| Capability | What Stonewright gives the agent |
+|---|---|
+| Elementor widget intelligence | Reads widget schemas by Content, Style, and Advanced tabs before writing settings. |
+| Block themes and Gutenberg | Works with core blocks, `theme.json`, templates, template parts, patterns, and FSE global styles. |
+| Persistent memory | Stores project conventions and repeatable lessons across sessions. |
+| Safe WP-CLI | Runs tokenized WP-CLI commands through the companion while blocking arbitrary PHP/shell entry points. |
 
 | Component | Path | License |
 |---|---|---|
@@ -54,7 +76,8 @@ stonewright-context-bootstrap
 
 Use `stonewright-workflow-preflight` for fast task setup. It returns a context
 token, active mode, auth reminders, compact Elementor capability data, and
-first-pass tool choices.
+first-pass tool choices. For ACF, ACPT, Meta Box, ASE, Pods, WooCommerce, or
+custom field tasks, it also returns compact specialization guidance.
 
 ## Optional Companion
 
@@ -112,10 +135,17 @@ stonewright-context-bootstrap
 ```
 
 For browser testing and screenshots, configure a separate Playwright MCP server
-next to Stonewright with `npx -y @playwright/mcp@latest --caps=testing,vision,devtools`.
-In locked-down environments where `npx` cannot fetch packages or write to the
-user npm cache, use the already-connected Playwright MCP server rather than a
-one-off Playwright CLI install.
+next to Stonewright before visual work:
+
+```bash
+claude mcp add playwright -- npx -y @playwright/mcp@latest --caps=testing,vision,devtools
+```
+
+Restart the AI client after adding Playwright so the tool list refreshes. If no
+Playwright/browser tool is visible, the agent should stop before the first
+visual write instead of building blind. In locked-down environments where `npx`
+cannot fetch packages or write to the user npm cache, use the already-connected
+Playwright MCP server rather than a one-off Playwright CLI install.
 
 ## Prompting Stonewright
 
@@ -129,6 +159,7 @@ Minimal task prompt:
 ```text
 Use Stonewright for this WordPress task. Start with stonewright-context-bootstrap.
 Edit page {id or title}. Use native Gutenberg/Elementor abilities first.
+For visual work, verify Playwright/browser MCP is connected before writing.
 Snapshot before writes, validate design specs before rendering, and verify
 desktop, tablet, and mobile breakpoints with no horizontal overflow.
 ```
@@ -136,6 +167,9 @@ desktop, tablet, and mobile breakpoints with no horizontal overflow.
 For visual work, include the design URL or screenshot, exact assets, whether
 global styles may be changed, and whether Elementor HTML widgets are allowed.
 By default, Stonewright should use native WordPress and Elementor widgets.
+For repeated cards, galleries, logos, or section grids, ask the agent to use a
+spec or bundle first pass and reserve single-widget calls for screenshot-driven
+corrections.
 
 ## Companion Environment
 
@@ -187,5 +221,6 @@ commands. It blocks arbitrary PHP and shell entry points such as `wp eval`,
 - [Installation guide](docs/installation.md)
 - [Companion documentation](companion/README.md)
 - [Skill packs](skills/README.md)
+- [Plugin specializations](docs/specializations.md)
 - [Documentation index](docs/index.md)
 - [Security model](plugin/SECURITY.md)

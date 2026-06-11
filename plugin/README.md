@@ -1,6 +1,6 @@
 # Stonewright Plugin
 
-Version: 1.0.0-alpha.3
+Version: 1.0.0-alpha.8
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
 License: GPL-2.0-or-later
@@ -9,8 +9,6 @@ Stonewright registers WordPress Abilities as MCP tools through the official
 `wordpress/mcp-adapter`. It supports Gutenberg, Full Site Editing, Elementor V3,
 Elementor V4 atomic experiments, Design Spec rendering, Elementor widget
 building, persistent skills/memory, and companion-backed WP-CLI.
-
-Stonewright does not include design-tool ingestion or automated visual QA.
 
 ## Quick Start
 
@@ -87,6 +85,16 @@ and `companion_wp_cli_run`.
 The plugin stores site skills and memory in WordPress tables. Agents must call
 MCP tool `stonewright-context-bootstrap` at the start of every task and follow returned
 skills, memory, custom instructions, and required followups.
+
+For visual work, connect external Playwright MCP before the first write:
+
+```bash
+claude mcp add playwright -- npx -y @playwright/mcp@latest --caps=testing,vision,devtools
+```
+
+Restart the AI client after adding Playwright. If the Playwright/browser tool is
+not visible, the agent should stop before visual implementation and ask for the
+client restart/setup instead of building blind.
 
 Manual edits in the Stonewright admin Skills/Memory/Instructions pages persist
 between sessions because they are stored in WordPress options/custom tables.
