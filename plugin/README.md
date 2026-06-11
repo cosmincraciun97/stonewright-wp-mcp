@@ -1,6 +1,6 @@
 # Stonewright Plugin
 
-Version: 1.0.0-alpha.8
+Version: 1.0.0-alpha.9
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
 License: GPL-2.0-or-later
@@ -155,7 +155,8 @@ Authentication uses WordPress Application Passwords.
 MCP tool names are hyphenated by the WordPress MCP Adapter. Example:
 `stonewright/context-bootstrap` is called as `stonewright-context-bootstrap`.
 For a fast first pass, call `stonewright-workflow-preflight`; it returns a
-context token, auth guidance, mode, and compact capability summary.
+context token, auth guidance, mode, compact capability summary,
+task-aware `recommended_mcp_tools`, and a `call_sequence` with example args.
 
 Admins using authenticated REST directly can call:
 

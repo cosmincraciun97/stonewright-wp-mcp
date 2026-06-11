@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.8-blue" /></a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.9-blue" /></a>
   <img alt="plugin license" src="https://img.shields.io/badge/plugin-GPL--2.0--or--later-green" />
   <img alt="companion license" src="https://img.shields.io/badge/companion-MIT-blue" />
   <img alt="php" src="https://img.shields.io/badge/PHP-%3E%3D8.1-777bb4" />
@@ -75,9 +75,10 @@ stonewright-context-bootstrap
 ```
 
 Use `stonewright-workflow-preflight` for fast task setup. It returns a context
-token, active mode, auth reminders, compact Elementor capability data, and
-first-pass tool choices. For ACF, ACPT, Meta Box, ASE, Pods, WooCommerce, or
-custom field tasks, it also returns compact specialization guidance.
+token, active mode, auth reminders, compact Elementor capability data,
+task-aware MCP tool names, and a compact call sequence. For ACF, ACPT, Meta
+Box, ASE, Pods, WooCommerce, or custom field tasks, it also returns compact
+specialization guidance.
 
 ## Optional Companion
 
