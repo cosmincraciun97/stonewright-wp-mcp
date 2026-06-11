@@ -10,8 +10,6 @@ Stonewright registers WordPress Abilities as MCP tools through the official
 Elementor V4 atomic experiments, Design Spec rendering, Elementor widget
 building, persistent skills/memory, and companion-backed WP-CLI.
 
-Stonewright does not include design-tool ingestion or automated visual QA.
-
 ## Quick Start
 
 Release install:

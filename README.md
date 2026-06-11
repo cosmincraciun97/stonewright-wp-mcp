@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/github/v/release/cosmincraciun97/stonewright-wp-mcp?include_prereleases&label=version" /></a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.8-blue" /></a>
   <img alt="plugin license" src="https://img.shields.io/badge/plugin-GPL--2.0--or--later-green" />
   <img alt="companion license" src="https://img.shields.io/badge/companion-MIT-blue" />
   <img alt="php" src="https://img.shields.io/badge/PHP-%3E%3D8.1-777bb4" />
@@ -22,9 +22,6 @@ intelligence, content-model plugins, WooCommerce catalog work, media, menus,
 Persistent memory, skills, and WP-CLI-assisted debugging. It builds
 well-formed WordPress data with permission, backup, validation, context, and
 audit gates.
-
-Stonewright no longer owns design-tool ingestion or automated visual QA. Use a
-separate design MCP for design files and user feedback for visual approval.
 
 ## Components
 

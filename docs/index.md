@@ -4,8 +4,6 @@ Stonewright exposes WordPress site-building primitives as MCP tools. Agents use
 those tools to create and edit Gutenberg blocks, Elementor pages, FSE templates,
 media, menus, skills, memory, and WP-CLI-assisted workflows with guardrails.
 
-Stonewright no longer includes design-tool ingestion or automated visual QA.
-
 ## Where To Start
 
 - [Getting started with Claude Code](getting-started/claude-code.md)

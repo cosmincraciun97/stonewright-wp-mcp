@@ -20,7 +20,7 @@ matrix after changing the registry.
 | Full Site Editing | 10 | Read/write theme.json, templates, template parts, and global styles. |
 | Elementor | 30 | Elementor V3 structure editing, compact capability preflight, V4 atomic helpers, Theme Builder adjacent work. |
 | Elementor Widget Builder | 98 | Generated per-widget builders and custom widget project helpers. |
-| Design | 12 | Validate Design Spec, build specs from manual/image/brief input, choose renderers, normalize assets, and apply to Gutenberg or Elementor. |
+| Design | 12 | Validate Design Spec, build specs from manual input, choose renderers, normalize assets, and apply to Gutenberg or Elementor. |
 | Knowledge | 5 | Elementor knowledge search, widget descriptions, implementation guidance, and refresh. |
 | Memory | 5 | Persistent project memory, user corrections, and learning records. |
 | System | 10 | Context bootstrap, workflow preflight, instructions, ability list, and knowledge import/export. |
@@ -28,13 +28,6 @@ matrix after changing the registry.
 | Sandbox | 8 | Admin-only generated code/artifact lifecycle. |
 | Theme Builder | 5 | Elementor Theme Builder templates and conditions. |
 | Menu | 5 | Menu creation, item management, locations, and deletion. |
-
-## Removed Surfaces
-
-Stonewright no longer exposes built-in design-tool ingestion or automated visual
-QA tools. There are no `stonewright/qa-*` abilities and no Figma abilities in the
-registry. Use a separate design MCP for Figma and use human feedback for visual
-review.
 
 ## Context Requirement
 
