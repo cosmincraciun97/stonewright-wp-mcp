@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.11] - 2026-06-11
+
+### Added
+
+- Added visual source-authority guidance so reference screenshots define layout
+  matching while design-tool layers remain token, style, text, and asset hints.
+- Added section reference screenshot evidence for long visual pages.
+
+### Changed
+
+- Strengthened Elementor implementation guidance to build native structures
+  from the visible reference layout instead of mirroring broken design-tool
+  hierarchy.
+
 ## [1.0.0-alpha.10] - 2026-06-11
 
 ### Added

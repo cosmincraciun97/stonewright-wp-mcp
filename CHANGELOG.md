@@ -7,6 +7,22 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.11] - 2026-06-11
+
+### Added
+
+- Added source-authority guidance to visual build gates so reference
+  screenshots are the layout truth, while design-tool layers remain hints for
+  styles, tokens, text, and assets.
+- Added section reference screenshot evidence for long visual pages so agents
+  compare complex designs section-by-section before full-page signoff.
+
+### Changed
+
+- Updated Elementor and design-to-WordPress guidance to avoid copying broken
+  design-tool hierarchy into WordPress structure when the visible layout calls
+  for a cleaner native implementation.
+
 ## [1.0.0-alpha.10] - 2026-06-11
 
 ### Added
@@ -168,6 +184,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.11]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.11
 [1.0.0-alpha.10]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.10
 [1.0.0-alpha.9]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.9
 [1.0.0-alpha.8]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.8
