@@ -125,9 +125,9 @@ final class SandboxManifest {
 	 *
 	 * @param string              $basename PHP basename (e.g. "my-snippet.php").
 	 * @param array<mixed, mixed> $data     Manifest data (must pass validate()).
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
-	public static function write( string $basename, array $data ): true|\WP_Error {
+	public static function write( string $basename, array $data ): bool|\WP_Error {
 		if ( ! Permissions::can_manage_sandbox() ) {
 			return new \WP_Error(
 				'stonewright_sandbox_manifest_permission',

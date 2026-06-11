@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.4] - 2026-06-11
+
+### Fixed
+
+- Restored PHP 8.1 syntax compatibility by replacing PHP 8.2 literal return
+  types in sandbox, security, companion, and test support code.
+
 ## [1.0.0-alpha.3] - 2026-06-11
 
 ### Added

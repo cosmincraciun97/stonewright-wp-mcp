@@ -65,16 +65,16 @@ final class SandboxLibraryEditorSizeTest extends TestCase {
 
 	/**
 	 * @param array<string, mixed> $extra_post
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
-	private function call_do_edit( string $name, bool $is_prod, string $raw_token, array $extra_post = [] ): true|\WP_Error {
+	private function call_do_edit( string $name, bool $is_prod, string $raw_token, array $extra_post = [] ): bool|\WP_Error {
 		foreach ( $extra_post as $k => $v ) {
 			$_POST[ $k ] = $v;
 		}
 
 		try {
 			$ref = new \ReflectionMethod( SandboxLibraryPage::class, 'do_edit' );
-			/** @var true|\WP_Error $result */
+			/** @var bool|\WP_Error $result */
 			$result = $ref->invoke( null, $name, $is_prod, $raw_token );
 		} finally {
 			$_POST = [];

@@ -62,9 +62,9 @@ final class ConfirmationToken {
 	 * @param string               $token   Token string as returned by issue().
 	 * @param string               $ability Expected ability name.
 	 * @param array<string, mixed> $args    Args the ability was called with.
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
-	public static function verify_or_error( string $token, string $ability, array $args ): true|\WP_Error {
+	public static function verify_or_error( string $token, string $ability, array $args ): bool|\WP_Error {
 		// 1. Parse the token structure.
 		$parsed = self::parse_token( $token );
 		if ( null === $parsed ) {

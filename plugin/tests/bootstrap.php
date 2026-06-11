@@ -393,7 +393,7 @@ if ( ! function_exists( 'wp_get_theme' ) ) {
 				return 'stonewright-theme';
 			}
 
-			public function parent(): false {
+			public function parent(): object|false {
 				return false;
 			}
 		};

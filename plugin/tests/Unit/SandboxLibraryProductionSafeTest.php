@@ -80,7 +80,7 @@ final class SandboxLibraryProductionSafeTest extends TestCase {
 	 * @param bool                 $is_prod     True when production-safe.
 	 * @param string               $raw_token   Confirmation token string.
 	 * @param array<string, mixed> $extra_post  Extra $_POST entries.
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
 	private function call_do_method(
 		string $method,
@@ -88,14 +88,14 @@ final class SandboxLibraryProductionSafeTest extends TestCase {
 		bool $is_prod,
 		string $raw_token,
 		array $extra_post = []
-	): true|\WP_Error {
+	): bool|\WP_Error {
 		foreach ( $extra_post as $k => $v ) {
 			$_POST[ $k ] = $v;
 		}
 
 		try {
 			$ref = new \ReflectionMethod( SandboxLibraryPage::class, $method );
-			/** @var true|\WP_Error $result */
+			/** @var bool|\WP_Error $result */
 			$result = $ref->invoke( null, $name, $is_prod, $raw_token );
 		} finally {
 			$_POST = [];

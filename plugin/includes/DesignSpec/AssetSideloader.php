@@ -240,9 +240,9 @@ final class AssetSideloader {
 	 *     to use the same IP that was validated here, eliminating the second lookup.
 	 *
 	 * @param string $host Hostname or IP from the URL.
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
-	private static function check_host_is_public( string $host ): true|\WP_Error {
+	private static function check_host_is_public( string $host ): bool|\WP_Error {
 		// Strip IPv6 brackets: [::1] → ::1
 		$bare_host = trim( $host, '[]' );
 

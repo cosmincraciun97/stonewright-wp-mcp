@@ -913,9 +913,9 @@ final class SandboxLibraryPage {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
-	private static function do_activate( string $name, bool $is_prod, string $raw_token ): true|\WP_Error {
+	private static function do_activate( string $name, bool $is_prod, string $raw_token ): bool|\WP_Error {
 		if ( ! Permissions::can_manage_sandbox() ) {
 			return new \WP_Error( 'stonewright_insufficient_permissions', __( 'Insufficient permissions for sandbox activation.', 'stonewright' ) );
 		}
@@ -931,9 +931,9 @@ final class SandboxLibraryPage {
 	}
 
 	/**
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
-	private static function do_delete( string $name, bool $is_prod, string $raw_token ): true|\WP_Error {
+	private static function do_delete( string $name, bool $is_prod, string $raw_token ): bool|\WP_Error {
 		if ( ! Permissions::can_manage_sandbox() ) {
 			return new \WP_Error( 'stonewright_insufficient_permissions', __( 'Insufficient permissions for sandbox delete.', 'stonewright' ) );
 		}
@@ -951,9 +951,9 @@ final class SandboxLibraryPage {
 	/**
 	 * Handles saving a file from the inline editor.
 	 *
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
-	private static function do_edit( string $name, bool $is_prod, string $raw_token ): true|\WP_Error {
+	private static function do_edit( string $name, bool $is_prod, string $raw_token ): bool|\WP_Error {
 		if ( ! Permissions::can_manage_sandbox() ) {
 			return new \WP_Error( 'stonewright_insufficient_permissions', __( 'Insufficient permissions for sandbox edit.', 'stonewright' ) );
 		}
@@ -1029,9 +1029,9 @@ final class SandboxLibraryPage {
 	/**
 	 * Handles rolling back to a prior backup version.
 	 *
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
-	private static function do_rollback( string $name, bool $is_prod, string $raw_token ): true|\WP_Error {
+	private static function do_rollback( string $name, bool $is_prod, string $raw_token ): bool|\WP_Error {
 		if ( ! Permissions::can_manage_sandbox() ) {
 			return new \WP_Error( 'stonewright_insufficient_permissions', __( 'Insufficient permissions for sandbox rollback.', 'stonewright' ) );
 		}
@@ -1179,9 +1179,9 @@ final class SandboxLibraryPage {
 	 * Validates that a caller-supplied basename resolves inside the sandbox dir.
 	 *
 	 * @param string $name Raw caller-supplied basename.
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
-	public static function resolve_sandbox_basename( string $name ): true|\WP_Error {
+	public static function resolve_sandbox_basename( string $name ): bool|\WP_Error {
 		if ( $name !== basename( $name ) ) {
 			return new \WP_Error(
 				'stonewright_sandbox_path_traversal',

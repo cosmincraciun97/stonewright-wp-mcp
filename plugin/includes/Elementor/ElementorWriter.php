@@ -28,9 +28,9 @@ final class ElementorWriter {
 	 * @param int                              $post_id     WordPress post ID to write to.
 	 * @param array<string, mixed>             $spec        Raw DesignSpec array (not yet validated).
 	 * @param array<int, array<string, mixed>> $diagnostics Diagnostics array populated with unsupported-node info.
-	 * @return true|\WP_Error  True on success; WP_Error on backup failure, validation failure, or encode failure.
+	 * @return bool|\WP_Error  True on success; WP_Error on backup failure, validation failure, or encode failure.
 	 */
-	public static function write( int $post_id, array $spec, array &$diagnostics = [] ): true|\WP_Error {
+	public static function write( int $post_id, array $spec, array &$diagnostics = [] ): bool|\WP_Error {
 		// Step 1: snapshot before any mutation.
 		$snapshot_id = Backup::snapshot_post( $post_id );
 		if ( '' === $snapshot_id ) {

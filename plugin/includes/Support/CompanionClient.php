@@ -93,7 +93,7 @@ final class CompanionClient {
 	 * The result is cached in a transient (TTL 5 min). On major-version mismatch
 	 * returns WP_Error('stonewright_companion_version_mismatch').
 	 *
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
 	public static function check_version(): bool|\WP_Error {
 		$cached = get_transient( self::VERSION_TRANSIENT );

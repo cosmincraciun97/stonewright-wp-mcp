@@ -474,10 +474,10 @@ final class SandboxPage {
 	 * Redirects to the sandbox page. On WP_Error, stores the message in a
 	 * transient and appends ?error=1. On success, appends ?updated=1.
 	 *
-	 * @param true|\WP_Error $result     Operation result.
+	 * @param bool|\WP_Error $result     Operation result.
 	 * @param string         $edit_name  If set, redirect to editor for that file on success.
 	 */
-	private static function redirect_with_result( true|\WP_Error $result, string $edit_name = '' ): void {
+	private static function redirect_with_result( bool|\WP_Error $result, string $edit_name = '' ): void {
 		$page_url = admin_url( 'admin.php?page=' . self::SLUG );
 
 		if ( is_wp_error( $result ) ) {

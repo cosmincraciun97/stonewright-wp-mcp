@@ -63,14 +63,14 @@ final class SandboxBackupVersionsTest extends TestCase {
 	 * Invoke SandboxLibraryPage::do_rollback() via reflection, optionally setting
 	 * $_POST['stonewright_rollback_ts'].
 	 *
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
-	private function call_do_rollback( string $name, bool $is_prod, string $token, int $ts ): true|\WP_Error {
+	private function call_do_rollback( string $name, bool $is_prod, string $token, int $ts ): bool|\WP_Error {
 		$_POST['stonewright_rollback_ts'] = (string) $ts;
 
 		try {
 			$ref = new \ReflectionMethod( SandboxLibraryPage::class, 'do_rollback' );
-			/** @var true|\WP_Error $result */
+			/** @var bool|\WP_Error $result */
 			$result = $ref->invoke( null, $name, $is_prod, $token );
 		} finally {
 			unset( $_POST['stonewright_rollback_ts'] );

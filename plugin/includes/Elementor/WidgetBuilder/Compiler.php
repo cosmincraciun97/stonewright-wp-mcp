@@ -176,9 +176,9 @@ final class Compiler {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
-	private static function pre_scan( string $template ): true|\WP_Error {
+	private static function pre_scan( string $template ): bool|\WP_Error {
 		if ( strlen( $template ) > self::MAX_TEMPLATE_BYTES ) {
 			return new \WP_Error(
 				'stonewright_compiler_template_too_large',

@@ -245,9 +245,9 @@ final class SandboxFiles {
 	 *
 	 * @param string $name     Basename (must match NAME_REGEX).
 	 * @param string $contents PHP source code.
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
-	public static function write( string $name, string $contents ): true|\WP_Error {
+	public static function write( string $name, string $contents ): bool|\WP_Error {
 		$guard = self::guard_name( $name );
 		if ( is_wp_error( $guard ) ) {
 			return $guard;
@@ -290,9 +290,9 @@ final class SandboxFiles {
 	 * @param string $name       Basename.
 	 * @param string $old_string The exact string to find.
 	 * @param string $new_string Replacement string.
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
-	public static function edit( string $name, string $old_string, string $new_string ): true|\WP_Error {
+	public static function edit( string $name, string $old_string, string $new_string ): bool|\WP_Error {
 		$guard = self::guard_name( $name );
 		if ( is_wp_error( $guard ) ) {
 			return $guard;
@@ -346,9 +346,9 @@ final class SandboxFiles {
 	 * Deletes a draft file and its active mu-plugins twin (if any).
 	 *
 	 * @param string $name Basename.
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
-	public static function delete( string $name ): true|\WP_Error {
+	public static function delete( string $name ): bool|\WP_Error {
 		$guard = self::guard_name( $name );
 		if ( is_wp_error( $guard ) ) {
 			return $guard;
@@ -379,9 +379,9 @@ final class SandboxFiles {
 	 * Runs StaticGuard on the draft and, if clean, copies it to mu-plugins.
 	 *
 	 * @param string $name Basename.
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
-	public static function activate( string $name ): true|\WP_Error {
+	public static function activate( string $name ): bool|\WP_Error {
 		$guard = self::guard_name( $name );
 		if ( is_wp_error( $guard ) ) {
 			return $guard;
@@ -420,9 +420,9 @@ final class SandboxFiles {
 	 * Removes the mu-plugins twin, leaving the draft intact.
 	 *
 	 * @param string $name Basename.
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
-	public static function deactivate( string $name ): true|\WP_Error {
+	public static function deactivate( string $name ): bool|\WP_Error {
 		$guard = self::guard_name( $name );
 		if ( is_wp_error( $guard ) ) {
 			return $guard;
@@ -449,9 +449,9 @@ final class SandboxFiles {
 	 * Renames the mu-plugins twin to add a .disabled suffix (stops PHP loading it).
 	 *
 	 * @param string $name Basename.
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
-	public static function disable( string $name ): true|\WP_Error {
+	public static function disable( string $name ): bool|\WP_Error {
 		$guard = self::guard_name( $name );
 		if ( is_wp_error( $guard ) ) {
 			return $guard;
@@ -476,9 +476,9 @@ final class SandboxFiles {
 	 * Removes the .disabled suffix from a mu-plugins twin.
 	 *
 	 * @param string $name Basename.
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
-	public static function enable( string $name ): true|\WP_Error {
+	public static function enable( string $name ): bool|\WP_Error {
 		$guard = self::guard_name( $name );
 		if ( is_wp_error( $guard ) ) {
 			return $guard;
@@ -520,9 +520,9 @@ final class SandboxFiles {
 	 * Validates a name parameter and rejects path traversal.
 	 *
 	 * @param string $name Raw caller-supplied name.
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
-	private static function guard_name( string $name ): true|\WP_Error {
+	private static function guard_name( string $name ): bool|\WP_Error {
 		// Only allow basenames — reject anything that contains a path separator.
 		if ( $name !== basename( $name ) ) {
 			return new \WP_Error( 'stonewright_sandbox_invalid_name', 'Path traversal detected in name.' );

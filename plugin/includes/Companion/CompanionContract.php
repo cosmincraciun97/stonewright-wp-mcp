@@ -55,7 +55,7 @@ final class CompanionContract {
 	 * @param string               $endpoint  One of: health.
 	 * @param string               $direction 'request' or 'response'.
 	 * @param array<string, mixed> $payload
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
 	public static function validate( string $endpoint, string $direction, array $payload ): bool|\WP_Error {
 		$map = self::schema_map();
@@ -116,7 +116,7 @@ final class CompanionContract {
 	 *
 	 * Short-circuits on major-version mismatch.
 	 *
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error
 	 */
 	public static function validate_version( string $received ): bool|\WP_Error {
 		$parts = explode( '.', $received, 3 );
