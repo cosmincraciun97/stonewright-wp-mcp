@@ -107,11 +107,17 @@ idempotent — if the phar already exists it is reused without re-downloading.
 
 Alias names (`companion_wp_cli_*`) are also registered for backward compatibility.
 
+Batch aliases (`stonewright-wp-cli-batch-run` and
+`companion_wp_cli_batch_run`) run multiple tokenized WP-CLI commands in one
+UTF-8 JSON request. Use them for repeated post/meta/term/media/option writes
+instead of large inline PowerShell/Node scripts.
+
 ### HTTP endpoints (when `PORT` is set)
 
 - `POST /wp-cli/status`
 - `POST /wp-cli/discover`
 - `POST /wp-cli/run`
+- `POST /wp-cli/batch`
 
 Example body for `/wp-cli/run`:
 
@@ -122,6 +128,21 @@ Example body for `/wp-cli/run`:
   "user": "admin"
 }
 ```
+
+Example body for `/wp-cli/batch`:
+
+```json
+{
+  "commands": [
+    ["post", "create", "--post_type=page", "--post_title=Marius Șoflete"],
+    ["term", "create", "echipa_rol", "Producție Media"]
+  ],
+  "stopOnError": true
+}
+```
+
+Batch requests preserve Unicode through JSON and still run each command through
+`execFile` argv tokens with the same blocked-command checks as single runs.
 
 
 ## Contracts

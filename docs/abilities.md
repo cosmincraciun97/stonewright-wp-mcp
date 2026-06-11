@@ -87,8 +87,11 @@ The WP-CLI tools are:
 | `stonewright/wp-cli-run` (`stonewright-wp-cli-run`) | Runs a guarded WP-CLI command through the companion. It supports writes, but blocks arbitrary PHP and shell-like command groups such as `eval`, `eval-file`, `shell`, and `package`. |
 
 In the Node companion MCP, the same MCP names `stonewright-wp-cli-status`,
-`stonewright-wp-cli-discover`, and `stonewright-wp-cli-run` are direct companion
-aliases. They do not require the WordPress-side HTTP bridge on port `8765`.
+`stonewright-wp-cli-discover`, `stonewright-wp-cli-run`, and
+`stonewright-wp-cli-batch-run` are direct companion aliases. They do not require
+the WordPress-side HTTP bridge on port `8765`. Use batch run for repeated
+commands or Unicode-heavy values so agents do not need large inline shell
+scripts.
 The companion also exposes `stonewright-wp-cli-install`, which downloads the
 official `wp-cli.phar` into the Stonewright cache for users who do not have
 `wp` on `PATH` or a LocalWP-provided phar.

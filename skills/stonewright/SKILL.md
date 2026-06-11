@@ -32,6 +32,9 @@ It routes the agent to the right specialized skill and MCP tools.
 
 - Use native Stonewright abilities before ad hoc code.
 - Use guarded `stonewright-wp-cli-run` only with argv tokens.
+- For repeated WP-CLI writes or non-ASCII values, use
+  `stonewright-wp-cli-batch-run` with JSON argv arrays instead of large inline
+  PowerShell/Node scripts.
 - Never use `wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, or
   `--require`.
 - For visual work, implement one or two sections at a time and verify desktop,

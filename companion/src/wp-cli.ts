@@ -15,6 +15,11 @@ export interface WpCliRunInput {
 	parseJson?: boolean;
 }
 
+export interface WpCliBatchRunInput extends Omit<WpCliRunInput, 'command'> {
+	commands: string[][];
+	stopOnError?: boolean;
+}
+
 export interface ExecFileOptions {
 	cwd: string;
 	timeout: number;
@@ -50,6 +55,15 @@ export interface WpCliResult extends Record<string, unknown> {
 	wp_cli_source: string;
 	parsed_json?: unknown;
 	error?: string;
+}
+
+export interface WpCliBatchResult extends Record<string, unknown> {
+	ok: boolean;
+	count: number;
+	succeeded: number;
+	failed: number;
+	stopped: boolean;
+	results: WpCliResult[];
 }
 
 export interface WpCliInvocation {
@@ -165,6 +179,49 @@ export async function runWpCli(
 		wp_cli_source: invocation.source,
 		...(parsed !== undefined ? { parsed_json: parsed } : {}),
 		...(result.errorMessage ? { error: result.errorMessage } : {}),
+	};
+}
+
+export async function runWpCliBatch(
+	input: WpCliBatchRunInput,
+	runner: ExecFileRunner = defaultExecFileRunner,
+	env: NodeJS.ProcessEnv = process.env,
+): Promise<WpCliBatchResult> {
+	if (!Array.isArray(input.commands) || input.commands.length === 0) {
+		throw new Error('WP-CLI batch requires a non-empty commands array.');
+	}
+	if (input.commands.length > 100) {
+		throw new Error('WP-CLI batch supports at most 100 commands.');
+	}
+
+	const { commands, stopOnError = true, ...sharedInput } = input;
+	const results: WpCliResult[] = [];
+
+	for (const command of commands) {
+		const result = await runWpCli(
+			{
+				...sharedInput,
+				command,
+			},
+			runner,
+			env,
+		);
+		results.push(result);
+
+		if (!result.ok && stopOnError) {
+			break;
+		}
+	}
+
+	const failed = results.filter((result) => !result.ok).length;
+
+	return {
+		ok: failed === 0 && results.length === commands.length,
+		count: commands.length,
+		succeeded: results.length - failed,
+		failed,
+		stopped: results.length < commands.length,
+		results,
 	};
 }
 

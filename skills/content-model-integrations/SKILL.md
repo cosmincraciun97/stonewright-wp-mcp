@@ -22,6 +22,9 @@ Then call:
 
 Use `stonewright/wp-cli-run` only with argv tokens. Never use `wp eval`,
 `wp eval-file`, `wp shell`, `wp package`, `--exec`, or `--require`.
+When the companion exposes `stonewright-wp-cli-batch-run`, prefer it for many
+post/meta/term/option writes or Romanian/non-ASCII values. Do not paste large
+inline shell scripts to simulate batching.
 
 ## Discovery
 

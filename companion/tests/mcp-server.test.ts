@@ -28,10 +28,12 @@ describe('createMcpServer', () => {
 			expect.arrayContaining([
 				'companion_wp_cli_status',
 				'companion_wp_cli_run',
+				'companion_wp_cli_batch_run',
 				'companion_wp_cli_discover',
 				'companion_wp_cli_install',
 				'stonewright-wp-cli-status',
 				'stonewright-wp-cli-run',
+				'stonewright-wp-cli-batch-run',
 				'stonewright-wp-cli-discover',
 				'stonewright-wp-cli-install',
 			]),

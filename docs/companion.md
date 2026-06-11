@@ -11,6 +11,7 @@ HTTP proxying, and guarded WP-CLI.
 - `POST /wp-cli/status`
 - `POST /wp-cli/discover`
 - `POST /wp-cli/run`
+- `POST /wp-cli/batch`
 
 ## WP-CLI Safety
 
@@ -59,12 +60,19 @@ Then use Stonewright abilities:
 - `stonewright-wp-cli-status`
 - `stonewright-wp-cli-discover`
 - `stonewright-wp-cli-run`
+- `stonewright-wp-cli-batch-run`
 
 If the HTTP bridge is not running, use the direct companion MCP tools instead:
 
 - `companion_wp_cli_status`
 - `companion_wp_cli_discover`
 - `companion_wp_cli_run`
+- `companion_wp_cli_batch_run`
+
+Use `stonewright-wp-cli-batch-run` for repeated post/meta/term/media/option
+operations, especially when values contain non-ASCII text. It accepts JSON
+arrays of argv tokens, preserves UTF-8, and avoids large inline PowerShell or
+Node scripts where shell encoding can corrupt diacritics.
 
 ## Persistent Application Passwords
 

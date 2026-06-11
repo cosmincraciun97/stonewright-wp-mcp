@@ -28,7 +28,15 @@ import { buildHttpGuard, loadGuardConfig, readBodyWithLimit, type GuardConfig } 
 import { createMcpServer } from './mcp-server.js';
 import { handleProxy, proxyConfig, getProxyConfig } from './mcp-proxy.js';
 import { CONTRACT_VERSION } from './contracts/version.js';
-import { runWpCli, wpCliDiscover, wpCliStatus, wpCliEnsureReady, type WpCliRunInput } from './wp-cli.js';
+import {
+	runWpCli,
+	runWpCliBatch,
+	wpCliDiscover,
+	wpCliStatus,
+	wpCliEnsureReady,
+	type WpCliBatchRunInput,
+	type WpCliRunInput,
+} from './wp-cli.js';
 
 // ---------------------------------------------------------------------------
 // Stdio transport (always on)
@@ -102,7 +110,7 @@ export async function startHttp(port: number): Promise<StartedHttpServer> {
 		const allowed = await httpGuard(req, res);
 		if (!allowed) return; // guard already wrote the response
 
-		if (url === '/wp-cli/status' || url === '/wp-cli/discover' || url === '/wp-cli/run') {
+		if (url === '/wp-cli/status' || url === '/wp-cli/discover' || url === '/wp-cli/run' || url === '/wp-cli/batch') {
 			if (req.method !== 'POST') {
 				writeJson(res, 405, { error: 'Method not allowed' });
 				return;
@@ -117,7 +125,9 @@ export async function startHttp(port: number): Promise<StartedHttpServer> {
 					? await wpCliStatus(input as Partial<WpCliRunInput>)
 					: url === '/wp-cli/discover'
 						? await wpCliDiscover(input as Partial<WpCliRunInput>)
-						: await runWpCli(input as unknown as WpCliRunInput);
+						: url === '/wp-cli/batch'
+							? await runWpCliBatch(input as unknown as WpCliBatchRunInput)
+							: await runWpCli(input as unknown as WpCliRunInput);
 				writeJson(res, 200, result);
 			} catch (err) {
 				writeJson(res, 400, { error: err instanceof Error ? err.message : String(err) });

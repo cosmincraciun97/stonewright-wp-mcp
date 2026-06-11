@@ -8,9 +8,11 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import {
 	runWpCli,
+	runWpCliBatch,
 	wpCliDiscover,
 	wpCliInstall,
 	wpCliStatus,
+	type WpCliBatchRunInput,
 	type WpCliInstallInput,
 	type WpCliRunInput,
 } from './wp-cli.js';
@@ -87,6 +89,22 @@ function registerWpCliTools(
 				},
 			},
 			async (input) => toolResponse(await runWpCli(toWpCliInput(input) as WpCliRunInput, undefined, env)),
+		);
+	}
+
+	for (const name of ['companion_wp_cli_batch_run', 'stonewright-wp-cli-batch-run']) {
+		server.registerTool(
+			name,
+			{
+				description: 'Run multiple tokenized WP-CLI commands through the Stonewright companion in one UTF-8 JSON request. Use this for repeated post/meta/term/media/option work instead of large inline shell scripts; it still blocks arbitrary PHP and shell entry points.',
+				inputSchema: {
+					...commonInput,
+					commands: z.array(z.array(z.string()).min(1)).min(1).max(100),
+					parseJson: z.boolean().optional(),
+					stopOnError: z.boolean().optional(),
+				},
+			},
+			async (input) => toolResponse(await runWpCliBatch(toWpCliInput(input) as WpCliBatchRunInput, undefined, env)),
 		);
 	}
 

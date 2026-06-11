@@ -76,6 +76,25 @@ Runs one WP-CLI command.
 | `timeoutMs` | integer | No | Command timeout in milliseconds. |
 | `parseJson` | boolean | No | Parse stdout as JSON and return it in `parsed_json`. |
 
+### POST /wp-cli/batch
+
+Runs up to 100 WP-CLI commands from one UTF-8 JSON request.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `commands` | string[][] | Yes | Tokenized WP-CLI command argv arrays. |
+| `path` | string | No | WordPress root passed as `--path`. Must stay inside allowed roots. |
+| `url` | string | No | Site URL passed as `--url`. |
+| `user` | string | No | WP user passed as `--user` when commands require auth context. |
+| `context` | string | No | WP-CLI context passed as `--context`. |
+| `timeoutMs` | integer | No | Per-command timeout in milliseconds. |
+| `parseJson` | boolean | No | Parse each stdout as JSON and return it in `parsed_json`. |
+| `stopOnError` | boolean | No | Defaults to true. Stop after the first failed command. |
+
+Each command is still validated and executed through `execFile` with shell
+disabled. Use this endpoint for repeated operations with UTF-8 data instead of
+large inline shell scripts.
+
 Response fields:
 
 | Field | Type | Description |

@@ -136,6 +136,10 @@ Use `stonewright-wp-cli-run` for tokenized commands such as `post`, `option`,
 plugin commands. Never use `wp eval`, `wp eval-file`, `wp shell`, `wp package`,
 `--exec`, or `--require`.
 
+For repeated writes or strings with diacritics, prefer
+`stonewright-wp-cli-batch-run`; do not paste large inline PowerShell/Node
+scripts with raw non-ASCII text.
+
 If the companion MCP is installed, `stonewright-wp-cli-*` tools are direct
 companion aliases. If a WordPress-proxied status call reports the companion
 bridge offline on port `8765`, try the direct MCP tool before assuming WP-CLI is
