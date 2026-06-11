@@ -7,6 +7,27 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.3] - 2026-06-11
+
+### Added
+
+- `stonewright/workflow-preflight` for compact one-call task setup.
+- `stonewright/media-upload-batch` for per-item batch media uploads.
+- `stonewright/elementor-v3-capabilities-summary` for fast native-widget planning.
+- `stonewright/elementor-v3-apply-bundle` for guarded multi-post Elementor writes.
+- Tag-driven GitHub release packaging for plugin ZIP, companion TGZ, and checksums.
+
+### Fixed
+
+- Pinned Composer's PHP platform to 8.1 so CI installs compatible dev dependencies.
+- Preferred LocalWP WP-CLI phars near the WordPress root before generic cache phars.
+- Added fixed-width Elementor row overflow diagnostics.
+
+### Changed
+
+- Expanded release and installation docs for GitHub release downloads.
+- Moved public widget registry data into a neutral documentation path and removed internal planning notes from tracked docs.
+
 ### Added
 
 - Mandatory task bootstrap through `stonewright/context-bootstrap`, returning
@@ -50,5 +71,6 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
-[1.0.0-alpha.2]: https://github.com/stonewright/wp-mcp/releases/tag/v1.0.0-alpha.2
-[1.0.0-alpha.1]: https://github.com/stonewright/wp-mcp/releases/tag/v1.0.0-alpha.1
+[1.0.0-alpha.3]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.3
+[1.0.0-alpha.2]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.2
+[1.0.0-alpha.1]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.1

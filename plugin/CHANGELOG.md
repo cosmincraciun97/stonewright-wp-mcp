@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.3] - 2026-06-11
+
+### Added
+
+- `stonewright/workflow-preflight` for compact one-call task setup.
+- `stonewright/media-upload-batch` and `stonewright/elementor-v3-apply-bundle`
+  for guarded batch workflows.
+- `stonewright/elementor-v3-capabilities-summary` for native-widget planning.
+
+### Fixed
+
+- Pinned Composer's PHP platform to 8.1 for CI-compatible dependency installs.
+- Added Elementor fixed-width row overflow diagnostics.
+
+### Changed
+
+- Expanded release installation docs and open-source packaging guidance.
+
 ### Added
 
 - `stonewright/context-bootstrap` for mandatory per-task context loading.
