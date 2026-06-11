@@ -38,6 +38,8 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'official Elementor documentation', $instructions );
 		$this->assertStringContainsString( 'external Playwright MCP', $instructions );
 		$this->assertStringContainsString( '@playwright/mcp@latest', $instructions );
+		$this->assertStringContainsString( 'restart the AI client', $instructions );
+		$this->assertStringContainsString( 'stop before the first visual write', $instructions );
 		$this->assertStringContainsString( 'Horizontal scroll is a hard failure', $instructions );
 		$this->assertStringContainsString( 'document.documentElement.scrollWidth', $instructions );
 		$this->assertStringContainsString( 'preload lazy-loaded media', $instructions );

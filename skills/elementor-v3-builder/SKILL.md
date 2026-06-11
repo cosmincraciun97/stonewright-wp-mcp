@@ -35,6 +35,41 @@ Elementor V3 uses containers (flexbox) as the primary layout primitive. When
 building from scratch: create container -> add child containers for columns ->
 add widgets inside child containers.
 
+For complete pages and repeated structures, prefer the spec renderer first:
+
+```json
+{
+  "post_id": 42,
+  "replace": true,
+  "spec": {
+    "version": "1.0.0",
+    "page": { "title": "Team", "template": "elementor_canvas" },
+    "sections": [
+      {
+        "id": "team",
+        "width": "full",
+        "layout": "grid",
+        "gap": "24px",
+        "blocks": [
+          {
+            "type": "card",
+            "blocks": [
+              { "type": "image", "id": 123, "alt": "Member name" },
+              { "type": "heading", "level": 3, "text": "Member name" },
+              { "type": "paragraph", "text": "Role" }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+If the spec validator rejects the payload, fix the spec shape first. Do not fall
+back to dozens of single-widget calls until the first-pass renderer path has
+been tried with a valid spec.
+
 ## Frontend layout contract
 
 - Use Elementor V3 containers and native widgets. Do not add HTML widgets unless
@@ -43,6 +78,9 @@ add widgets inside child containers.
   section bounds, centered max-widths, typography, colors, spacing, and asset
   crop bounds. Then build, screenshot the live page with external Playwright MCP
   at the same viewport, compare deltas, and iterate.
+- If no Playwright/browser MCP tool is visible, install/connect it with
+  `npx -y @playwright/mcp@latest --caps=testing,vision,devtools`, restart the AI
+  client, and stop before the first visual write until the tool appears.
 - Before capturing full-page screenshots, scroll through the page or otherwise
   preload lazy-loaded media so missing assets are not mistaken for layout
   failures.
@@ -55,6 +93,10 @@ add widgets inside child containers.
 - Use exact control keys from widget schemas. For example, Icon Box uses
   `selected_icon`, `primary_color`, and `secondary_color`; do not invent
   aliases like `icon`, `icon_primary_color`, or `icon_background_color`.
+- For repeated cards, logos, sponsor grids, galleries, or pricing blocks, build
+  the first pass with `stonewright/elementor-v3-build-page-from-spec` or
+  `stonewright/elementor-v3-apply-bundle`; use individual add/update calls for
+  focused fixes after screenshot comparison.
 - Use flex row containers for desktop two-column designs and responsive
   direction/visibility settings for tablet and mobile.
 - Sticky headers must be sticky on desktop and mobile when requested. Mobile

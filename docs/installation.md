@@ -158,7 +158,8 @@ separate Playwright MCP server next to Stonewright:
 ```
 
 Agents should connect this before implementation when a task needs browser
-testing, screenshots, or visual inspection. If the MCP client cannot see a
+testing, screenshots, or visual inspection. Restart the AI client after adding
+Playwright so the tool list refreshes. If the MCP client cannot see a
 browser/screenshot tool, the agent should stop before visual implementation and
 ask the user to connect Playwright instead of building blind.
 

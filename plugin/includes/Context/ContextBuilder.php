@@ -154,6 +154,11 @@ final class ContextBuilder {
 				'command'       => 'npx',
 				'args'          => [ '-y', '@playwright/mcp@latest', '--caps=testing,vision,devtools' ],
 				'claude_code'   => 'claude mcp add playwright -- npx -y @playwright/mcp@latest --caps=testing,vision,devtools',
+				'setup_steps'   => [
+					'Install external Playwright MCP before visual work: claude mcp add playwright -- npx -y @playwright/mcp@latest --caps=testing,vision,devtools',
+					'Restart the AI client after adding the MCP server so the tool list refreshes.',
+					'Verify a Playwright/browser tool is visible before the first Stonewright write.',
+				],
 				'required_when' => 'Use when the task needs browser interaction, screenshots, visual checks, or front-end debugging.',
 				'boundary'      => 'Keep this as a separate MCP server; do not add browser or screenshot abilities back into Stonewright.',
 			],
@@ -166,9 +171,16 @@ final class ContextBuilder {
 	private static function visual_quality_contract(): array {
 		return [
 			'hard_stop_if_browser_unavailable' => true,
+			'playwright_mcp_gate'              => [
+				'timing'            => 'before_first_write',
+				'required_surfaces' => [ 'elementor', 'gutenberg', 'wordpress' ],
+				'task_keywords'     => [ 'figma', 'design', 'pixel', 'responsive', 'visual', 'screenshot' ],
+				'pass_condition'    => 'A Playwright/browser MCP tool is visible in the AI client and can capture the target URL.',
+			],
 			'principle'                        => 'Do not implement visual work blind. Measure the reference, build with native controls, screenshot the result, then iterate.',
 			'required_steps'                   => [
 				'Extract measured tokens from the reference screenshot before writing: canvas size, section bounds, max widths, colors, typography, spacing, and asset crop bounds.',
+				'Before any visual write, verify Playwright/browser MCP is connected; if not, install it, restart the client, and stop until the tool appears.',
 				'Before the first Elementor write, create a global-style plan: reusable color/typography tokens, Elementor kit updates if approved, and page-local values that should remain local.',
 				'Create a section-by-section implementation plan with outer section, inner max-width container, rows/columns, widget choices, and responsive breakpoints.',
 				'Use the exact Elementor control keys from widget schema or stonewright/elementor-describe-widget; do not invent CSS-like setting names.',
@@ -188,6 +200,7 @@ final class ContextBuilder {
 				'Full-page screenshot used as a background asset.',
 				'Legacy or invented Elementor settings such as icon instead of selected_icon, icon_primary_color instead of primary_color, or width instead of Advanced layout width keys.',
 				'Skipping screenshot verification because the browser MCP is unavailable.',
+				'Starting repeated single-widget writes before proving the browser verification loop works.',
 			],
 		];
 	}
@@ -201,7 +214,7 @@ final class ContextBuilder {
 			'If the user corrects the agent or a repeatable mistake is detected, call stonewright/learning-record.',
 			'Use MCP tool names with hyphens, for example stonewright-context-bootstrap, not slash-separated ability names.',
 			'When a task needs browser testing, screenshots, or visual inspection, ensure the external Playwright MCP is installed and connected before implementation.',
-			'If the external Playwright MCP is unavailable during a visual implementation task, stop before writing and tell the user the exact MCP setup command.',
+			'If the external Playwright MCP is unavailable during a visual implementation task, stop before writing and tell the user the exact MCP setup command plus restart requirement.',
 			'For design-derived backgrounds, create an asset selection plan and never use a full-page screenshot as a section background.',
 			'Before declaring a visual task done, verify no horizontal overflow with document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1 at all requested breakpoints.',
 			'If SVG uploads are blocked, do not create sandbox or mu-plugin workarounds without explicit user approval.',

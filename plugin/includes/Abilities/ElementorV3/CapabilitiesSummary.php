@@ -88,9 +88,11 @@ final class CapabilitiesSummary extends AbilityKernel {
 			],
 			'first_pass_rules'    => [
 				'Call stonewright/workflow-preflight before write tasks.',
+				'For visual work, verify external Playwright/browser MCP before the first write.',
 				'Prefer native widgets; do not use Elementor HTML widgets unless explicitly allowed.',
 				'Upload all known remote assets with stonewright/media-upload-batch before building the page.',
 				'Use one validated page spec and one build call for normal pages; use apply-bundle only when multiple posts must change together.',
+				'For repeated cards or grids, use a validated spec or bundle first pass instead of many single-widget calls.',
 				'Plan desktop, tablet, and mobile values before first write.',
 				'Use max-width, percentage width, gap, and responsive padding instead of fixed viewport-wide canvases.',
 				'Review renderer diagnostics before screenshot iteration.',

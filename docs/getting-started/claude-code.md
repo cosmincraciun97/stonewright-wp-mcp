@@ -55,7 +55,8 @@ Register the separate Playwright MCP for browser testing and screenshots:
 claude mcp add playwright -- npx -y @playwright/mcp@latest --caps=testing,vision,devtools
 ```
 
-Restart Claude Code after adding the servers.
+Restart Claude Code after adding the servers. Before any visual Stonewright
+write, verify the Playwright/browser tool is visible in Claude Code.
 
 ## 4. Verify the connection
 

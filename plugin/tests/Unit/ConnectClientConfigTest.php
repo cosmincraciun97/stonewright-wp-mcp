@@ -33,6 +33,20 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertContains( 'vscode-copilot', $slugs );
 	}
 
+	public function test_antigravity_notes_require_playwright_and_restart(): void {
+		$clients = ConnectClientConfig::clients();
+		$match   = array_values(
+			array_filter(
+				$clients,
+				static fn ( array $client ): bool => 'antigravity' === $client['slug']
+			)
+		);
+
+		$this->assertNotEmpty( $match );
+		$this->assertStringContainsString( 'Playwright', $match[0]['notes'] );
+		$this->assertStringContainsString( 'restart', $match[0]['notes'] );
+	}
+
 	public function test_endpoint_url_uses_rest_url(): void {
 		$url = ConnectClientConfig::mcp_endpoint_url();
 		$this->assertStringContainsString( 'mcp/stonewright', $url );
@@ -109,6 +123,8 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'mcp/stonewright', $prompt );
 		$this->assertStringContainsString( 'mcpServers', $prompt );
 		$this->assertStringContainsString( '@playwright/mcp@latest', $prompt );
+		$this->assertStringContainsString( 'Restart your AI client after adding Playwright MCP', $prompt );
+		$this->assertStringContainsString( 'Do not start visual writes until the Playwright/browser tool is visible', $prompt );
 		$this->assertStringContainsString( 'stonewright-context-bootstrap', $prompt );
 	}
 
@@ -116,6 +132,6 @@ final class ConnectClientConfigTest extends TestCase {
 		$snippet = ConnectClientConfig::playwright_mcp_snippet();
 
 		$this->assertSame( 'npx', $snippet['mcpServers']['playwright']['command'] );
-		$this->assertSame( [ '@playwright/mcp@latest' ], $snippet['mcpServers']['playwright']['args'] );
+		$this->assertSame( [ '-y', '@playwright/mcp@latest', '--caps=testing,vision,devtools' ], $snippet['mcpServers']['playwright']['args'] );
 	}
 }

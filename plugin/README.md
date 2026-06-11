@@ -88,6 +88,16 @@ The plugin stores site skills and memory in WordPress tables. Agents must call
 MCP tool `stonewright-context-bootstrap` at the start of every task and follow returned
 skills, memory, custom instructions, and required followups.
 
+For visual work, connect external Playwright MCP before the first write:
+
+```bash
+claude mcp add playwright -- npx -y @playwright/mcp@latest --caps=testing,vision,devtools
+```
+
+Restart the AI client after adding Playwright. If the Playwright/browser tool is
+not visible, the agent should stop before visual implementation and ask for the
+client restart/setup instead of building blind.
+
 Manual edits in the Stonewright admin Skills/Memory/Instructions pages persist
 between sessions because they are stored in WordPress options/custom tables.
 

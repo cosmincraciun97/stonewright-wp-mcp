@@ -133,8 +133,15 @@ Replace `STONEWRIGHT_MCP_URL` with the endpoint shown on the page, `WP_API_USERN
 with your WordPress login, and `WP_API_PASSWORD` with the application password
 generated in Card 2.
 
-Also configure Playwright MCP separately with `npx @playwright/mcp@latest` when
-the agent needs browser testing, screenshots, or visual inspection.
+Also configure Playwright MCP separately when the agent needs browser testing,
+screenshots, or visual inspection:
+
+```bash
+npx -y @playwright/mcp@latest --caps=testing,vision,devtools
+```
+
+Restart the AI client after adding Playwright. If no Playwright/browser tool is
+visible, the agent should stop before the first visual write.
 
 The tab strip on Card 3 shows the exact config file path and snippet for each
 of the 15 supported clients. See [connect-clients.md](./connect-clients.md)

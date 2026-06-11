@@ -15,9 +15,13 @@ a separate design MCP when a design file must be inspected.
 
 1. Call MCP tool `stonewright-context-bootstrap` with the user request, surface, and intent.
 2. Read all returned skill playbooks, memory entries, and followups.
-3. If the task touches Elementor, call `stonewright-widget-intent-resolve` and
+3. For visual work, verify an external Playwright/browser MCP tool is visible
+   before the first write. If missing, tell the user to add
+   `npx -y @playwright/mcp@latest --caps=testing,vision,devtools`, restart the
+   AI client, and stop until the tool appears.
+4. If the task touches Elementor, call `stonewright-widget-intent-resolve` and
    `stonewright-elementor-widget-implementation-guide` before writing.
-4. Use `stonewright-wp-cli-status` and `stonewright-wp-cli-discover` when WP-CLI
+5. Use `stonewright-wp-cli-status` and `stonewright-wp-cli-discover` when WP-CLI
    can speed up debugging or site inspection. In the Node companion MCP, these
    tools run directly and do not require the WordPress-side HTTP bridge.
 
@@ -38,6 +42,40 @@ design reference / image / brief
   -> stonewright/content-create-page OR stonewright/content-update-page
 ```
 
+## Fast Elementor first pass
+
+For full pages or repeated sections, prefer one validated spec write over many
+single-widget calls. Minimal shape:
+
+```json
+{
+  "post_id": 42,
+  "replace": true,
+  "spec": {
+    "version": "1.0.0",
+    "page": { "title": "Team", "template": "elementor_canvas" },
+    "sections": [
+      {
+        "id": "hero",
+        "width": "full",
+        "layout": "stack",
+        "background": { "color": "#130d39" },
+        "padding": { "top": "96px", "right": "24px", "bottom": "96px", "left": "24px" },
+        "blocks": [
+          { "type": "heading", "level": 1, "text": "Team" },
+          { "type": "paragraph", "text": "Intro copy." }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Call `stonewright-design-validate-spec` before rendering when building the spec
+manually. Use `stonewright-elementor-v3-build-page-from-spec` or
+`stonewright-elementor-v3-apply-bundle` for the first pass, then use individual
+Elementor update calls only for screenshot deltas.
+
 ## Elementor implementation discipline
 
 - Use real Elementor widgets for the detected intent.
@@ -54,6 +92,10 @@ design reference / image / brief
   containers, Theme Builder templates, sticky settings, hamburger/dropdown
   navigation, background overlays, z-index/order, motion effects, transforms,
   attributes, display conditions, margin, and padding where the design requires.
+- For repeated cards, logos, sponsor grids, galleries, or pricing blocks, build
+  the first pass with `stonewright-elementor-v3-build-page-from-spec` or
+  `stonewright-elementor-v3-apply-bundle`; reserve many single-widget calls for
+  screenshot-driven corrections.
 - If internal docs are insufficient, research official Elementor documentation
   before configuring a widget.
 - For section backgrounds, never use a full-page screenshot. Export the exact

@@ -116,7 +116,17 @@ final class WorkflowPreflight extends AbilityKernel {
 					'stonewright/elementor-v3-build-page-from-spec',
 					'stonewright/elementor-v3-apply-bundle',
 				],
+				'visual_setup'       => [
+					'Install external Playwright MCP before visual work and restart the AI client so the browser tools appear.',
+					'Verify the Playwright/browser tool can open the target URL before the first Stonewright write.',
+				],
+				'batching_rules'     => [
+					'Build the first page pass with stonewright/elementor-v3-build-page-from-spec or stonewright/elementor-v3-apply-bundle; avoid dozens of single-widget calls for repeated cards.',
+					'Use stonewright/media-upload-batch for multiple assets instead of one upload call per image.',
+					'Use individual add/update/move calls only for surgical fixes after screenshot comparison.',
+				],
 				'quality_gates'      => [
+					'Stop before writing if a visual task has no connected external Playwright/browser MCP.',
 					'Validate the design spec before render.',
 					'Snapshot before each Elementor or global-style write.',
 					'Inspect renderer diagnostics before browser iteration.',

@@ -76,11 +76,15 @@ testing, screenshots, or visual inspection:
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": ["@playwright/mcp@latest"]
+      "args": ["-y", "@playwright/mcp@latest", "--caps=testing,vision,devtools"]
     }
   }
 }
 ```
+
+Restart the AI client after adding the Playwright MCP server so its tool list
+refreshes. For visual tasks, verify a Playwright/browser tool is visible before
+the first Stonewright write.
 
 Stonewright tool names are hyphenated in MCP clients. Example:
 `stonewright/context-bootstrap` is called as `stonewright-context-bootstrap`.

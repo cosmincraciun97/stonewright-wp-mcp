@@ -123,7 +123,7 @@ final class ConnectClientConfig {
 				'label'       => 'Antigravity',
 				'config_path' => 'Project or global MCP config file; consult the Antigravity documentation for your version.',
 				'kind'        => 'desktop',
-				'notes'       => 'Uses the universal mcpServers transport block. Follow the Antigravity setup wizard to point it at this config.',
+				'notes'       => 'Uses the universal mcpServers transport block. Add both Stonewright and Playwright entries, then restart or reload Antigravity so both tool sets appear before visual work.',
 			],
 		];
 	}
@@ -217,7 +217,7 @@ final class ConnectClientConfig {
 			'mcpServers' => [
 				'playwright' => [
 					'command' => 'npx',
-					'args'    => [ '@playwright/mcp@latest' ],
+					'args'    => [ '-y', '@playwright/mcp@latest', '--caps=testing,vision,devtools' ],
 				],
 			],
 		];
@@ -343,6 +343,8 @@ final class ConnectClientConfig {
 		);
 
 		$message .= "\n\nAlso configure this separate Playwright MCP server for browser testing, screenshots, and visual inspection:\n```json\n" . (string) $playwright_json . "\n```";
+		$message .= "\n\nRestart your AI client after adding Playwright MCP so the tool list refreshes.";
+		$message .= "\nDo not start visual writes until the Playwright/browser tool is visible and can open the target page.";
 		$message .= "\n\nAfter connecting, call MCP tool stonewright-context-bootstrap before any Stonewright task.";
 
 		return $message;

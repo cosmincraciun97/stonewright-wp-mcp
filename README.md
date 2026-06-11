@@ -112,10 +112,17 @@ stonewright-context-bootstrap
 ```
 
 For browser testing and screenshots, configure a separate Playwright MCP server
-next to Stonewright with `npx -y @playwright/mcp@latest --caps=testing,vision,devtools`.
-In locked-down environments where `npx` cannot fetch packages or write to the
-user npm cache, use the already-connected Playwright MCP server rather than a
-one-off Playwright CLI install.
+next to Stonewright before visual work:
+
+```bash
+claude mcp add playwright -- npx -y @playwright/mcp@latest --caps=testing,vision,devtools
+```
+
+Restart the AI client after adding Playwright so the tool list refreshes. If no
+Playwright/browser tool is visible, the agent should stop before the first
+visual write instead of building blind. In locked-down environments where `npx`
+cannot fetch packages or write to the user npm cache, use the already-connected
+Playwright MCP server rather than a one-off Playwright CLI install.
 
 ## Prompting Stonewright
 
@@ -129,6 +136,7 @@ Minimal task prompt:
 ```text
 Use Stonewright for this WordPress task. Start with stonewright-context-bootstrap.
 Edit page {id or title}. Use native Gutenberg/Elementor abilities first.
+For visual work, verify Playwright/browser MCP is connected before writing.
 Snapshot before writes, validate design specs before rendering, and verify
 desktop, tablet, and mobile breakpoints with no horizontal overflow.
 ```
@@ -136,6 +144,9 @@ desktop, tablet, and mobile breakpoints with no horizontal overflow.
 For visual work, include the design URL or screenshot, exact assets, whether
 global styles may be changed, and whether Elementor HTML widgets are allowed.
 By default, Stonewright should use native WordPress and Elementor widgets.
+For repeated cards, galleries, logos, or section grids, ask the agent to use a
+spec or bundle first pass and reserve single-widget calls for screenshot-driven
+corrections.
 
 ## Companion Environment
 
