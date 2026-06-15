@@ -3,8 +3,8 @@
 Stonewright has two parts:
 
 - WordPress plugin: registers the `stonewright/*` abilities.
-- Node companion: exposes local stdio MCP, proxies the WordPress MCP endpoint,
-  and runs guarded WP-CLI.
+- Node companion: exposes local stdio MCP through `npx`, proxies the WordPress
+  MCP endpoint, and runs guarded WP-CLI.
 
 ## Requirements
 
@@ -23,8 +23,8 @@ Stonewright has two parts:
 2. In WordPress Admin, open **Plugins > Add New > Upload Plugin**.
 3. Upload the ZIP and activate **Stonewright**.
 4. Open **Stonewright > Configuration** and enable AI Abilities.
-5. Create an Application Password from **Users > Profile**. The MCP client
-   authenticates with `username:application-password`.
+5. Generate an Application Password from **Stonewright > Configuration**. The
+   MCP client authenticates with `username:application-password`.
 
 The release ZIP includes production Composer dependencies.
 
@@ -50,11 +50,46 @@ The companion is optional. Use it when your MCP client needs a local stdio
 server, WordPress MCP proxying, LocalWP/WP-CLI discovery, or the guarded
 `stonewright-wp-cli-*` tools.
 
-From a release package:
+Fastest MCP-client setup uses `npx`, so Windows, macOS, and Linux do not need a
+shell wrapper, global install, or manual bridge:
 
-```bash
-npm install -g ./stonewright-companion-<version>.tgz
+```json
+{
+  "mcpServers": {
+    "stonewright": {
+      "command": "npx",
+      "args": ["-y", "@stonewright/companion@latest"],
+      "env": {
+        "STONEWRIGHT_WP_URL": "http://mcp-test.local",
+        "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
+        "STONEWRIGHT_WP_APP_PASSWORD_AUTO": "local-only"
+      }
+    }
+  }
+}
 ```
+
+After adding the server, call `stonewright-setup-profile`. It returns
+copy-paste MCP config, platform checks, credential status, and notes for the
+current machine. For local `.local` or `.test` sites, the companion can create
+one Application Password through guarded WP-CLI and save it in the user profile.
+
+## Fast Build Workflow
+
+For design-to-WordPress and Elementor work, start with one preflight call, then
+use composite writes before small corrective edits:
+
+1. `stonewright-workflow-preflight`
+2. `stonewright-content-bulk-upsert-posts` for repeated posts, CPT rows, and
+   custom fields.
+3. `stonewright-elementor-v3-build-page-from-spec` for first-pass page or
+   section rendering. Use `dry_run` before writing when the spec is generated.
+4. `stonewright-elementor-v3-batch-mutate` for grouped Elementor add, update,
+   move, and remove operations.
+
+This keeps MCP sessions fast and token-efficient because Stonewright validates,
+backs up, audits, measures timing, and writes related changes in a few guarded
+calls.
 
 From source:
 
@@ -70,14 +105,12 @@ For MCP clients that use a local stdio server, configure:
 {
   "mcpServers": {
     "stonewright": {
-      "command": "stonewright-mcp",
+      "command": "npx",
+      "args": ["-y", "@stonewright/companion@latest"],
       "env": {
-        "STONEWRIGHT_MCP_URL": "https://your-site.example.com/wp-json/mcp/stonewright",
-        "WP_API_USERNAME": "your-wp-username",
-        "WP_API_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "PORT": "8765",
-        "COMPANION_BEARER_TOKEN": "change-this-long-random-token",
-        "COMPANION_ALLOWED_ORIGINS": "http://localhost,http://127.0.0.1"
+        "STONEWRIGHT_WP_URL": "https://your-site.example.com",
+        "STONEWRIGHT_WP_USERNAME": "your-wp-username",
+        "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx"
       }
     }
   }
@@ -93,24 +126,16 @@ Windows example: `D:\\Sites\\example\\app\\public`.
 
 macOS example: `/Users/me/Sites/example/app/public`.
 
-For the WordPress-side `stonewright/wp-cli-*` abilities, set the WordPress
-option to the same bridge URL and token:
-
-```bash
-wp option update stonewright_companion_url http://127.0.0.1:8765
-wp option update stonewright_companion_token change-this-long-random-token
-```
-
-If you do not enable the HTTP bridge, agents should use the direct companion
-MCP tools `companion_wp_cli_status`, `companion_wp_cli_discover`, and
-`companion_wp_cli_run` instead of the WordPress-side `stonewright/wp-cli-*`
-abilities.
-
 When Stonewright is installed through the Node companion MCP, the companion also
 registers direct aliases named `stonewright-wp-cli-status`,
 `stonewright-wp-cli-discover`, `stonewright-wp-cli-run`, and
 `stonewright-wp-cli-batch-run`. Those aliases run WP-CLI inside the companion
 and do not require the WordPress-side HTTP bridge on port `8765`.
+
+Most users can ignore the optional HTTP bridge. Use **Stonewright >
+Configuration > Local WP-CLI bridge (advanced)** only when you deliberately run
+a local bridge for WordPress-side `stonewright/wp-cli-*` abilities. The page
+can generate a bridge token and copy matching launch env values.
 
 The companion also registers `stonewright-wp-cli-install` and
 `companion_wp_cli_install`. The installer downloads the official `wp-cli.phar`
@@ -165,6 +190,39 @@ Playwright so the tool list refreshes. If the MCP client cannot see a
 browser/screenshot tool, the agent should stop before visual implementation and
 ask the user to connect Playwright instead of building blind.
 
+## Example Prompts
+
+```text
+Use Stonewright to implement the attached Figma design in Elementor V3. Start
+with stonewright-context-bootstrap and stonewright-workflow-preflight, extract
+layout, spacing, colors, typography, and responsive behavior, render with
+stonewright-elementor-v3-build-page-from-spec, then use
+stonewright-elementor-v3-batch-mutate for polish. Verify desktop, tablet, and
+mobile screenshots against the design.
+```
+
+```text
+Use Stonewright to create an ACF field group for Case Studies with client logo,
+industry, challenge, solution, results metrics, testimonial, gallery, and CTA
+fields. Attach it to the case-study post type, add three sample entries, and
+verify fields are available for dynamic Elementor templates.
+```
+
+```text
+Use Stonewright with CPT UI to create a Projects post type and Project Type
+taxonomy. Add labels, archive support, featured images, REST visibility, and
+sensible rewrite slugs. Then seed sample projects and build a responsive
+archive layout that can be filtered by taxonomy.
+```
+
+## Privacy Boundary
+
+Release ZIPs and the npm companion contain public Stonewright code, docs, and
+built-in skills only. Site-specific memory, site skills, and custom
+instructions live in that WordPress install and are returned only to authorized
+MCP clients. Keep credentials and private site memory out of public issues,
+commits, docs, release notes, and examples.
+
 ## Tool Names
 
 WordPress ability names use slashes. MCP tool names use hyphens.
@@ -174,12 +232,16 @@ WordPress ability names use slashes. MCP tool names use hyphens.
 | `stonewright/context-bootstrap` | `stonewright-context-bootstrap` |
 | `stonewright/workflow-preflight` | `stonewright-workflow-preflight` |
 | `stonewright/system-abilities-list` | `stonewright-system-abilities-list` |
+| `stonewright/content-bulk-upsert-posts` | `stonewright-content-bulk-upsert-posts` |
 | `stonewright/media-upload-batch` | `stonewright-media-upload-batch` |
 | `stonewright/elementor-v3-capabilities-summary` | `stonewright-elementor-v3-capabilities-summary` |
+| `stonewright/elementor-v3-build-page-from-spec` | `stonewright-elementor-v3-build-page-from-spec` |
+| `stonewright/elementor-v3-batch-mutate` | `stonewright-elementor-v3-batch-mutate` |
 | `stonewright/elementor-v3-apply-bundle` | `stonewright-elementor-v3-apply-bundle` |
 | `stonewright/wp-cli-status` | `stonewright-wp-cli-status` |
 | `stonewright/wp-cli-discover` | `stonewright-wp-cli-discover` |
 | `stonewright/wp-cli-run` | `stonewright-wp-cli-run` |
+| Companion setup profile | `stonewright-setup-profile` |
 
 The complete command list is generated in
 [`ability-truth-matrix.md`](ability-truth-matrix.md).

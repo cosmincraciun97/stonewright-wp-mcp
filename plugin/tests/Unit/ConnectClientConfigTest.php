@@ -58,18 +58,18 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertArrayHasKey( 'stonewright', $snippet['mcpServers'] );
 
 		$server = $snippet['mcpServers']['stonewright'];
-		$this->assertSame( 'stonewright-mcp', $server['command'] );
-		$this->assertSame( [], $server['args'] );
+		$this->assertSame( 'npx', $server['command'] );
+		$this->assertSame( [ '-y', '@stonewright/companion@latest' ], $server['args'] );
 		$this->assertNotContains( '@automattic/mcp-wordpress-remote@latest', $server['args'] );
-		$this->assertSame( 'admin', $server['env']['WP_API_USERNAME'] );
-		$this->assertSame( 'abcd 1234 efgh 5678', $server['env']['WP_API_PASSWORD'] );
+		$this->assertSame( 'admin', $server['env']['STONEWRIGHT_WP_USERNAME'] );
+		$this->assertSame( 'abcd 1234 efgh 5678', $server['env']['STONEWRIGHT_WP_APP_PASSWORD'] );
 	}
 
 	public function test_universal_snippet_password_placeholder_when_empty(): void {
 		$snippet = ConnectClientConfig::universal_snippet( 'admin', '' );
 		$this->assertSame(
 			'<your-application-password>',
-			$snippet['mcpServers']['stonewright']['env']['WP_API_PASSWORD']
+			$snippet['mcpServers']['stonewright']['env']['STONEWRIGHT_WP_APP_PASSWORD']
 		);
 	}
 
@@ -84,7 +84,7 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertIsArray( $result );
 		$this->assertArrayHasKey( 'command', $result );
 		$this->assertStringContainsString( 'claude mcp add stonewright', $result['command'] );
-		$this->assertStringContainsString( 'stonewright-mcp', $result['command'] );
+		$this->assertStringContainsString( '@stonewright/companion@latest', $result['command'] );
 		$this->assertStringNotContainsString( '@automattic/mcp-wordpress-remote', $result['command'] );
 	}
 
@@ -121,10 +121,13 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'admin', $prompt );
 		$this->assertStringContainsString( 'pw1234', $prompt );
 		$this->assertStringContainsString( 'mcp/stonewright', $prompt );
-		$this->assertStringContainsString( 'mcpServers', $prompt );
+		$this->assertStringContainsString( '@stonewright/companion@latest', $prompt );
+		$this->assertStringContainsString( 'STONEWRIGHT_WP_APP_PASSWORD', $prompt );
+		$this->assertStringContainsString( 'npx downloads and runs the Stonewright companion', $prompt );
+		$this->assertStringContainsString( 'Playwright MCP', $prompt );
 		$this->assertStringContainsString( '@playwright/mcp@latest', $prompt );
-		$this->assertStringContainsString( 'Restart your AI client after adding Playwright MCP', $prompt );
-		$this->assertStringContainsString( 'Do not start visual writes until the Playwright/browser tool is visible', $prompt );
+		$this->assertStringContainsString( 'browser testing, screenshots, and visual QA', $prompt );
+		$this->assertStringContainsString( 'Restart or reload the MCP session', $prompt );
 		$this->assertStringContainsString( 'stonewright-context-bootstrap', $prompt );
 	}
 

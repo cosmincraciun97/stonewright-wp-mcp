@@ -8,8 +8,9 @@ description: >
 # Elementor V3 Builder
 
 Operates on the Elementor V3 widget tree using the container model. All write
-operations take a backup snapshot before executing. Use `design-spec-to-elementor-v3`
-for spec-driven builds; use individual element abilities for surgical edits.
+operations take a backup snapshot before executing. Use
+`stonewright/elementor-v3-build-page-from-spec` for spec-driven builds and
+`stonewright/elementor-v3-batch-mutate` for surgical edits to an existing tree.
 
 ## Pre-flight
 
@@ -47,12 +48,15 @@ and mobile screenshots plus overflow, then auto-continue to the next batch
 when checks pass. Do not wait for user approval between passing batches.
 
 For the current section batch and repeated structures inside it, prefer the
-spec renderer first:
+spec renderer first. Use `dry_run: true` to validate, inspect diagnostics, and
+count generated elements without writing; then repeat the call with
+`dry_run: false` and `mode` set to `replace`, `append`, or `replace_section`.
 
 ```json
 {
   "post_id": 42,
-  "replace": true,
+  "mode": "replace_section",
+  "dry_run": true,
   "spec": {
     "version": "1.0.0",
     "page": { "title": "Team", "template": "elementor_canvas" },
@@ -81,6 +85,39 @@ spec renderer first:
 If the spec validator rejects the payload, fix the spec shape first. Do not fall
 back to dozens of single-widget calls until the first-pass renderer path has
 been tried with a valid spec.
+
+For an existing page where the task is to add, update, move, or remove several
+elements, use one `stonewright/elementor-v3-batch-mutate` call. Use `op_id`
+refs to chain generated IDs inside the same request:
+
+```json
+{
+  "post_id": 42,
+  "dry_run": true,
+  "operations": [
+    { "action": "add_container", "op_id": "row", "settings": { "layout": "row" } },
+    {
+      "action": "add_widget",
+      "parent_ref": "row",
+      "op_id": "headline",
+      "widget_type": "heading",
+      "settings": { "title": "Fast native Elementor" }
+    },
+    {
+      "action": "update_element",
+      "element_ref": "headline",
+      "settings": { "header_size": "h2" }
+    }
+  ]
+}
+```
+
+For Loop Grid sections backed by CPT/custom fields, keep the data path compact:
+confirm/register the CPT, write rows and meta with
+`stonewright/content-bulk-upsert-posts`, create the loop item template, then add
+or update the Loop Grid with one `stonewright/elementor-v3-batch-mutate` call.
+Use Elementor dynamic tags (`__dynamic__`) for post title or custom-field
+headings inside loop templates; do not rely on many manual meta updates.
 
 ## Frontend layout contract
 
@@ -127,8 +164,8 @@ been tried with a valid spec.
   order, align self, width, padding, margin, CSS ID, and CSS classes.
 - For repeated cards, logos, sponsor grids, galleries, or pricing blocks, build
   the current section batch with `stonewright/elementor-v3-build-page-from-spec`
-  or `stonewright/elementor-v3-apply-bundle`; use individual add/update calls
-  for focused fixes after screenshot comparison.
+  dry-run/write. Use `stonewright/elementor-v3-batch-mutate` for focused fixes
+  after screenshot comparison.
 - If a full-page spec is too complex, split the work into one- or two-section
   specs before falling back to many single-element updates.
 - When debugging Elementor V3 boxed containers, inspect the rendered DOM before
@@ -201,12 +238,14 @@ Returns `{ "template_id": 150 }`.
 | `stonewright/elementor-v3-update-kit-colors` | Mutate kit color palette |
 | `stonewright/elementor-v3-update-kit-typography` | Mutate kit typography |
 | `stonewright/elementor-v3-update-page-settings` | Page-level settings |
-| `stonewright/elementor-v3-build-page-from-spec` | Full spec-driven build |
+| `stonewright/elementor-v3-build-page-from-spec` | Spec-driven build with dry_run, metrics, append/replace modes |
+| `stonewright/elementor-v3-batch-mutate` | Many add/update/move/remove operations in one guarded write |
+| `stonewright/elementor-v3-apply-bundle` | Multi-post spec bundle |
 
 ## Confirmation token for destructive writes
 
-Before calling `build-page-from-spec` with `replace: true` or
-`remove-element`, emit:
+Before calling `build-page-from-spec` with `mode: "replace"` or
+`mode: "replace_section"`, or before `batch-mutate` with `remove_element`, emit:
 
 ```
 "Confirm:

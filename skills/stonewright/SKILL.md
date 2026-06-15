@@ -18,6 +18,10 @@ It routes the agent to the right specialized skill and MCP tools.
 3. If authentication or MCP visibility fails, check companion credentials
    before falling back to WP-CLI.
 
+If `stonewright_essential_tools_mode` is enabled, expect a compact tool list.
+Use the fast-path tools returned by preflight instead of rediscovering the full
+ability surface.
+
 ## Route
 
 - Design/image/Figma-to-WordPress: use `design-to-wordpress`.
@@ -31,6 +35,15 @@ It routes the agent to the right specialized skill and MCP tools.
 ## Rules
 
 - Use native Stonewright abilities before ad hoc code.
+- Prefer one-call fast paths: `stonewright/elementor-v3-build-page-from-spec`
+  with `dry_run`, `stonewright/elementor-v3-batch-mutate` for existing
+  Elementor tree edits, `stonewright/content-bulk-upsert-posts` for repeated
+  post/CPT/custom-field rows, `stonewright/media-upload-batch`, and guarded
+  `stonewright-wp-cli-run` for plugin/theme/content operations.
+- For CPT rows plus many meta/custom-field values, use
+  `stonewright/content-bulk-upsert-posts` after the post type exists. Do not
+  fan out into dozens of `wp post meta update` calls unless the bulk ability is
+  unavailable.
 - Use guarded `stonewright-wp-cli-run` only with argv tokens.
 - For repeated WP-CLI writes or non-ASCII values, use
   `stonewright-wp-cli-batch-run` with JSON argv arrays instead of large inline

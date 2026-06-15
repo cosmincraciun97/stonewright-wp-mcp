@@ -1,6 +1,6 @@
 # Stonewright Plugin
 
-Version: 1.0.0-alpha.14
+Version: 1.0.0-alpha.16
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
 License: GPL-2.0-or-later
@@ -17,7 +17,8 @@ Release install:
 1. Download `stonewright-<version>.zip` from GitHub Releases.
 2. Upload it in WordPress Admin under **Plugins > Add New > Upload Plugin**.
 3. Activate Stonewright and open **Stonewright > Configuration**.
-4. Enable AI Abilities and create a WordPress Application Password for MCP auth.
+4. Enable AI Abilities, generate a WordPress Application Password, and copy the
+   MCP client setup note.
 
 Source install:
 
@@ -29,18 +30,11 @@ wp plugin activate stonewright
 cd ../companion
 npm install
 npm run build
-set PORT=8765
-set COMPANION_BEARER_TOKEN=change-this-long-random-token
-set COMPANION_ALLOWED_ORIGINS=http://localhost,http://127.0.0.1
-node dist/index.js
 ```
 
-Set the companion URL:
-
-```bash
-wp option update stonewright_companion_url http://127.0.0.1:8765
-wp option update stonewright_companion_token change-this-long-random-token
-```
+Normal MCP clients launch the companion with `npx @stonewright/companion@latest`.
+Use the admin **Local WP-CLI bridge (advanced)** controls only when you
+deliberately run the optional HTTP bridge for WordPress-side WP-CLI abilities.
 
 ## Local Development
 
@@ -98,14 +92,16 @@ client restart/setup instead of building blind.
 
 Manual edits in the Stonewright admin Skills/Memory/Instructions pages persist
 between sessions because they are stored in WordPress options/custom tables.
+They are site-local and are not included in release ZIPs or the npm companion.
+Do not publish credentials, private memory, or client-specific instructions in
+public docs, commits, issues, or release notes.
 
-### Prompting Guide In Admin
+### Client Setup In Admin
 
-The Configuration page includes a copyable bootstrap prompt and a copyable
-prompting guide. Use them when onboarding a new AI client or explaining how a
-site owner should brief an agent. The guide asks for the target surface,
-allowed plugins, safety mode, design references, asset rules, and desktop,
-tablet, and mobile acceptance checks.
+The Configuration page has a three-step setup flow: enable abilities, generate a
+WordPress Application Password for the current user, then copy a client setup
+note or a per-client JSON snippet. It also includes copyable real-world prompt
+examples for Elementor, content modeling, WooCommerce, and Gutenberg/FSE work.
 
 ## Adding An Ability
 

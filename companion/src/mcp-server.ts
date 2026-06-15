@@ -16,6 +16,7 @@ import {
 	type WpCliInstallInput,
 	type WpCliRunInput,
 } from './wp-cli.js';
+import { buildSetupProfile } from './setup-profile.js';
 import { registerWordPressMcpPrompts, registerWordPressMcpTools, resolveWordPressMcpConfig } from './wordpress-mcp.js';
 
 export interface CreateMcpServerOptions {
@@ -40,6 +41,7 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 	};
 
 	registerWpCliTools(server, commonInput, env);
+	registerSetupTools(server, env);
 
 	const wpMcpConfig = await resolveWordPressMcpConfig(env);
 	if (wpMcpConfig) {
@@ -48,6 +50,31 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 	}
 
 	return server;
+}
+
+function registerSetupTools(server: McpServer, env: NodeJS.ProcessEnv): void {
+	server.registerTool(
+		'stonewright-setup-profile',
+		{
+			description: 'Return a compact cross-platform Stonewright companion setup profile with copy-paste MCP config, environment checks, and credential guidance.',
+			inputSchema: {
+				siteUrl: z.string().optional(),
+				wpRoot: z.string().optional(),
+				username: z.string().optional(),
+				appPassword: z.string().optional(),
+			},
+		},
+		async (input) => {
+			const mergedEnv = {
+				...env,
+				...(typeof input.siteUrl === 'string' ? { STONEWRIGHT_WP_URL: input.siteUrl } : {}),
+				...(typeof input.wpRoot === 'string' ? { STONEWRIGHT_WP_ROOT: input.wpRoot } : {}),
+				...(typeof input.username === 'string' ? { STONEWRIGHT_WP_USERNAME: input.username } : {}),
+				...(typeof input.appPassword === 'string' ? { STONEWRIGHT_WP_APP_PASSWORD: input.appPassword } : {}),
+			};
+			return toolResponse(buildSetupProfile(mergedEnv));
+		},
+	);
 }
 
 function registerWpCliTools(

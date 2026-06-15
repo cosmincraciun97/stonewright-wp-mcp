@@ -1,0 +1,12 @@
+{
+    "args": {
+        "post_id": 999999,
+        "operations": [
+            {
+                "action": "add_container",
+                "settings": []
+            }
+        ]
+    },
+    "expect": "wp_error"
+}

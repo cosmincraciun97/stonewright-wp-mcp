@@ -43,6 +43,12 @@ design reference / image / brief
   -> stonewright/content-create-page OR stonewright/content-update-page
 ```
 
+When the design also needs repeated CPT/post rows with custom fields, create or
+confirm the post type first, then use `stonewright/content-bulk-upsert-posts`
+for the rows and meta in one call. Avoid many `wp post meta update` commands
+for page-section libraries, team cards, pricing tables, locations, testimonials,
+or similar structured content.
+
 ## Fast Elementor first pass
 
 For visual pages from Figma, an image, a written prompt, or a design system,
@@ -80,9 +86,10 @@ write over many single-widget calls. Minimal shape:
 ```
 
 Call `stonewright-design-validate-spec` before rendering when building the spec
-manually. Use `stonewright-elementor-v3-build-page-from-spec` or
-`stonewright-elementor-v3-apply-bundle` for the current one- or two-section
-batch, then use individual Elementor update calls only for screenshot deltas.
+manually. Use `stonewright-elementor-v3-build-page-from-spec` with `dry_run`
+for the current one- or two-section batch, then write the same spec. Use
+`stonewright-elementor-v3-batch-mutate` for screenshot deltas on an existing
+Elementor tree.
 
 ## Elementor implementation discipline
 
@@ -102,8 +109,8 @@ batch, then use individual Elementor update calls only for screenshot deltas.
   attributes, display conditions, margin, and padding where the design requires.
 - For repeated cards, logos, sponsor grids, galleries, or pricing blocks, build
   the current section batch with `stonewright-elementor-v3-build-page-from-spec`
-  or `stonewright-elementor-v3-apply-bundle`; reserve many single-widget calls
-  for screenshot-driven corrections.
+  dry-run/write; reserve `stonewright-elementor-v3-batch-mutate` for
+  screenshot-driven corrections.
 - If internal docs are insufficient, research official Elementor documentation
   before configuring a widget.
 - For section backgrounds, never use a full-page screenshot. Export the exact

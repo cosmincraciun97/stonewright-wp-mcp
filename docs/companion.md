@@ -31,12 +31,12 @@ folder or site URL.
 | `COMPANION_BEARER_TOKEN` | Required outside local/dev mode |
 | `COMPANION_ALLOWED_ORIGINS` | Required outside local/dev mode |
 | `PORT` | Enables HTTP transport |
-| `STONEWRIGHT_MCP_URL` | WordPress MCP endpoint proxied into stdio, e.g. `/wp-json/mcp/stonewright` |
-| `WP_API_USERNAME` | WordPress username for Application Password auth |
-| `WP_API_PASSWORD` | WordPress Application Password |
-| `STONEWRIGHT_WP_URL` | Alias for the site URL; the companion derives `/wp-json/mcp/stonewright` when `STONEWRIGHT_MCP_URL` is absent |
-| `STONEWRIGHT_WP_USERNAME` | Alias for `WP_API_USERNAME` |
-| `STONEWRIGHT_WP_APP_PASSWORD` | Alias for `WP_API_PASSWORD` |
+| `STONEWRIGHT_WP_URL` | WordPress site URL; the companion derives `/wp-json/mcp/stonewright` when `STONEWRIGHT_MCP_URL` is absent |
+| `STONEWRIGHT_WP_USERNAME` | WordPress username for Application Password auth |
+| `STONEWRIGHT_WP_APP_PASSWORD` | WordPress Application Password |
+| `STONEWRIGHT_MCP_URL` | Explicit WordPress MCP endpoint override |
+| `WP_API_USERNAME` | Legacy alias for `STONEWRIGHT_WP_USERNAME` |
+| `WP_API_PASSWORD` | Legacy alias for `STONEWRIGHT_WP_APP_PASSWORD` |
 | `STONEWRIGHT_MCP_AUTHORIZATION` | Optional full Authorization header override |
 | `STONEWRIGHT_CREDENTIAL_STORE` | Per-project JSON file for a saved Application Password fallback |
 | `STONEWRIGHT_CREDENTIAL_DIR` | Directory for generated per-project credential files |
@@ -49,7 +49,12 @@ folder or site URL.
 
 ## Plugin Integration
 
-Set:
+The normal `npx @stonewright/companion@latest` setup does not need the
+WordPress-side HTTP bridge. Use the bridge only when a site deliberately wants
+WordPress-side `stonewright/wp-cli-*` abilities to call a local companion HTTP
+process.
+
+When needed, set:
 
 ```bash
 wp option update stonewright_companion_url http://127.0.0.1:8765

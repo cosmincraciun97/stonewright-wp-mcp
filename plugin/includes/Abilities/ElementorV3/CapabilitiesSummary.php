@@ -36,7 +36,9 @@ final class CapabilitiesSummary extends AbilityKernel {
 			'properties' => [
 				'primary_write_tool' => [ 'type' => 'string' ],
 				'batch_write_tool'   => [ 'type' => 'string' ],
+				'mutation_batch_tool'=> [ 'type' => 'string' ],
 				'media_batch_tool'   => [ 'type' => 'string' ],
+				'content_batch_tool' => [ 'type' => 'string' ],
 				'status'             => [ 'type' => 'object' ],
 				'native_widgets'     => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'responsive_controls'=> [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
@@ -61,7 +63,9 @@ final class CapabilitiesSummary extends AbilityKernel {
 		return [
 			'primary_write_tool'  => 'stonewright/elementor-v3-build-page-from-spec',
 			'batch_write_tool'    => 'stonewright/elementor-v3-apply-bundle',
+			'mutation_batch_tool' => 'stonewright/elementor-v3-batch-mutate',
 			'media_batch_tool'    => 'stonewright/media-upload-batch',
+			'content_batch_tool'  => 'stonewright/content-bulk-upsert-posts',
 			'status'              => [
 				'installed'                => (bool) ( $status['installed'] ?? false ),
 				'active'                   => (bool) ( $status['active'] ?? false ),
@@ -94,10 +98,12 @@ final class CapabilitiesSummary extends AbilityKernel {
 				'For visual work, verify external Playwright/browser MCP before the first write.',
 				'Prefer native widgets; do not use Elementor HTML widgets unless explicitly allowed.',
 				'Upload all known remote assets with stonewright/media-upload-batch before building the page.',
+				'For Loop Grid or repeated dynamic cards backed by CPT/meta, write rows with stonewright/content-bulk-upsert-posts before the Elementor tree write.',
 				'For design-derived pages, implement at most two sections per write-and-verify batch; prefer one dense section per batch.',
 				'Auto-continue to the next section batch only after desktop, tablet, and mobile checks pass.',
 				'Use one validated section-batch spec per visual pass; use apply-bundle only when multiple posts must change together.',
-				'For repeated cards or grids, use a validated spec or bundle first pass instead of many single-widget calls.',
+				'For repeated cards or grids, use a validated spec first pass; use stonewright/elementor-v3-batch-mutate for surgical add/update/move/remove edits on an existing page.',
+				'Use build-page-from-spec dry_run before writes when the agent needs element_count, diagnostics, or a no-write preview.',
 				'For every widget used, call stonewright/elementor-v3-get-widget-schema and inspect Content, Style, and Advanced controls before writing settings.',
 				'Name major parent containers semantically; do not over-name every inner utility container.',
 				'Plan desktop, tablet, and mobile values before first write.',

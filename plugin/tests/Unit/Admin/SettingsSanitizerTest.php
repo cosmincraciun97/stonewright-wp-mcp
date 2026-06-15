@@ -4,6 +4,8 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Admin;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Admin\ConfigurationPage;
+use Stonewright\WpMcp\Admin\SettingsPage;
 
 /**
  * Tests for the sanitize callbacks registered by the settings pages.
@@ -172,6 +174,24 @@ final class SettingsSanitizerTest extends TestCase {
 		$sanitizer = $this->mode_sanitizer();
 		// Everything not in the whitelist falls back to 'development'.
 		$this->assertSame( 'development', $sanitizer( 'unknown-mode' ) );
+	}
+
+	public function test_configuration_page_registers_essential_tools_mode_setting(): void {
+		$GLOBALS['stonewright_test_registered_settings'] = [];
+
+		ConfigurationPage::register_settings();
+
+		$options = array_column( $GLOBALS['stonewright_test_registered_settings'], 'option' );
+		$this->assertContains( 'stonewright_essential_tools_mode', $options );
+	}
+
+	public function test_settings_page_registers_essential_tools_mode_setting(): void {
+		$GLOBALS['stonewright_test_registered_settings'] = [];
+
+		SettingsPage::register_settings();
+
+		$options = array_column( $GLOBALS['stonewright_test_registered_settings'], 'option' );
+		$this->assertContains( 'stonewright_essential_tools_mode', $options );
 	}
 
 	// -------------------------------------------------------------------------
