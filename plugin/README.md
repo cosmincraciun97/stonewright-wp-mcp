@@ -1,6 +1,6 @@
 # Stonewright Plugin
 
-Version: 1.0.0-alpha.16
+Version: 1.0.0-alpha.17
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
 License: GPL-2.0-or-later
@@ -79,6 +79,12 @@ and `companion_wp_cli_run`.
 The plugin stores site skills and memory in WordPress tables. Agents must call
 MCP tool `stonewright-context-bootstrap` at the start of every task and follow returned
 skills, memory, custom instructions, and required followups.
+
+If `stonewright-context-bootstrap` is not visible in the MCP tool list, the
+client did not load Stonewright yet. Restart or reload the AI client and fix the
+MCP config before WordPress work. Local agent skills, repository files, private
+client config files, and `/wp-json/stonewright/v1/abilities/run` shell calls
+are not substitutes for live Stonewright MCP tools.
 
 For visual work, connect external Playwright MCP before the first write:
 

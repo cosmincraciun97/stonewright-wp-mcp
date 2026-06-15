@@ -56,6 +56,13 @@ Most clients can run the Stonewright companion with `npx`:
 Stonewright tool names are hyphenated in MCP clients. Example:
 `stonewright/context-bootstrap` is called as `stonewright-context-bootstrap`.
 
+After restart, the AI client should show `stonewright-context-bootstrap` in the
+MCP tool list. If that tool is missing, Stonewright is not connected yet: reload
+the client or fix the MCP config before asking the agent to edit WordPress. Do
+not use local agent skills, repository files, private client config files, or
+manual JSON-RPC or `/wp-json/stonewright/v1/abilities/run` shell calls as
+substitutes for the live MCP server.
+
 ---
 
 ## Claude Code
@@ -156,13 +163,19 @@ Stonewright write.
 
 ## First Calls
 
-After connecting, verify Stonewright with:
+After connecting, verify Stonewright with the real MCP tools:
 
 ```text
 Use MCP tool stonewright-ping.
-Then call stonewright-context-bootstrap and stonewright-workflow-preflight
-before the first real task.
+Verify the tool list includes stonewright-context-bootstrap.
+Then call stonewright-context-bootstrap and stonewright-workflow-preflight before
+the first real task.
 ```
+
+If `stonewright-context-bootstrap` is not visible, stop and restart or reload
+the AI client. A good agent should not begin by only announcing named skills,
+searching repository files, or calling Stonewright REST endpoints from shell; it
+should call the live Stonewright MCP tools.
 
 For visual work, include the target URL, screenshot or design reference, allowed
 plugins, safety mode, and desktop/tablet/mobile acceptance checks.

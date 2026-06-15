@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.16-blue" /></a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.17-blue" /></a>
   <img alt="plugin license" src="https://img.shields.io/badge/plugin-GPL--2.0--or--later-green" />
   <img alt="companion license" src="https://img.shields.io/badge/companion-MIT-blue" />
   <img alt="php" src="https://img.shields.io/badge/PHP-%3E%3D8.1-777bb4" />
@@ -71,9 +71,15 @@ First calls:
 
 ```text
 stonewright-ping
+verify stonewright-context-bootstrap is visible in the MCP tool list
 stonewright-workflow-preflight
 stonewright-context-bootstrap
 ```
+
+If `stonewright-context-bootstrap` is missing, reload or fix the MCP client
+config before WordPress work. Local agent skills, repository files, private
+client config files, and `/wp-json/stonewright/v1/abilities/run` shell calls
+are not substitutes for the live Stonewright MCP server.
 
 Use `stonewright-workflow-preflight` for fast task setup. It returns a context
 token, active mode, auth reminders, compact Elementor capability data,
@@ -119,6 +125,10 @@ the WordPress MCP endpoint using the Application Password credentials.
 For local WordPress sites, add `STONEWRIGHT_WP_ROOT` when you want guarded
 WP-CLI helper tools or LocalWP discovery. Call `stonewright-setup-profile` once
 for copy-paste config, platform checks, credential status, and WP-CLI notes.
+
+After adding the companion, restart or reload the AI client and verify the
+tool list includes `stonewright-context-bootstrap` before the first WordPress
+task.
 
 `STONEWRIGHT_WP_ROOT` is optional. Add it only when you want the companion to run
 WP-CLI helper tools or auto-discover LocalWP. Set it to the absolute WordPress
@@ -179,6 +189,8 @@ Minimal task prompt:
 
 ```text
 Use Stonewright for this WordPress task. Start with stonewright-context-bootstrap.
+If stonewright-context-bootstrap is not visible in the MCP tool list, stop and
+ask me to reload or fix the Stonewright MCP config.
 Edit page {id or title}. Use native Gutenberg/Elementor abilities first.
 For visual work, verify Playwright/browser MCP is connected before writing.
 Snapshot before writes, validate design specs before rendering, and verify

@@ -74,6 +74,13 @@ copy-paste MCP config, platform checks, credential status, and notes for the
 current machine. For local `.local` or `.test` sites, the companion can create
 one Application Password through guarded WP-CLI and save it in the user profile.
 
+Before the first WordPress task, verify the client tool list includes
+`stonewright-context-bootstrap`. If that tool is missing, reload or fix the MCP
+client config before continuing. Local agent skills, repository files, private
+client config files, and manual JSON-RPC or
+`/wp-json/stonewright/v1/abilities/run` shell calls are not substitutes for a
+loaded Stonewright MCP server.
+
 ## Fast Build Workflow
 
 For design-to-WordPress and Elementor work, start with one preflight call, then
@@ -249,7 +256,10 @@ The complete command list is generated in
 ## First Smoke Test
 
 1. Call `stonewright-ping`.
-2. Call `stonewright-workflow-preflight` with:
+2. Confirm the MCP tool list includes `stonewright-context-bootstrap`. If it is
+   missing, restart or reload the AI client and fix the Stonewright MCP config
+   before WordPress work.
+3. Call `stonewright-workflow-preflight` with:
 
 ```json
 {
@@ -259,11 +269,11 @@ The complete command list is generated in
 }
 ```
 
-3. Confirm the response includes `context_token`, `mode`, `auth_guidance`,
+4. Confirm the response includes `context_token`, `mode`, `auth_guidance`,
    `fast_path.task_profile`, `fast_path.recommended_mcp_tools`, and
    `fast_path.call_sequence`. For visual tasks, also confirm
    `fast_path.visual_build_gate`.
-4. Call `stonewright-context-bootstrap` with:
+5. Call `stonewright-context-bootstrap` with:
 
 ```json
 {
@@ -273,8 +283,8 @@ The complete command list is generated in
 }
 ```
 
-5. Confirm the response includes `mcp_tool_naming`, instructions, skills,
+6. Confirm the response includes `mcp_tool_naming`, instructions, skills,
    memory, recommended external MCPs, `visual_quality_contract`,
    `visual_build_gate`, and required followups.
-6. Call `stonewright-system-abilities-list` and confirm every row includes
+7. Call `stonewright-system-abilities-list` and confirm every row includes
    `name` and `mcp_tool_name`.

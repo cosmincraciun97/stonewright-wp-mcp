@@ -7,6 +7,20 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.17] - 2026-06-16
+
+### Changed
+
+- Strengthened the generated MCP setup note, default agent instructions, and
+  companion setup profile so agents verify `stonewright-context-bootstrap` is
+  visible before WordPress work.
+- Updated onboarding, installation, admin client-connection docs, and README
+  prompts to stop when the Stonewright MCP server is not loaded instead of
+  treating local skills, repository files, private client config files, or
+  manual endpoint calls as substitutes.
+- Clarified that agents should not call
+  `/wp-json/stonewright/v1/abilities/run` from shell as an MCP workaround.
+
 ## [1.0.0-alpha.16] - 2026-06-15
 
 ### Added
@@ -292,6 +306,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.17]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.17
 [1.0.0-alpha.16]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.16
 [1.0.0-alpha.15]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.15
 [1.0.0-alpha.14]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.14

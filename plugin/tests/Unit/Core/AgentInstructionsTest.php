@@ -17,6 +17,11 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'stonewright/context-bootstrap', $instructions );
 		$this->assertStringContainsString( 'stonewright-context-bootstrap', $instructions );
 		$this->assertStringContainsString( 'replace `/` with `-`', $instructions );
+		$this->assertStringContainsString( 'Do not start a Stonewright task by only announcing named skills', $instructions );
+		$this->assertStringContainsString( 'Do not treat local client skills, prompt snippets, or repository files as a substitute for live Stonewright MCP tools', $instructions );
+		$this->assertStringContainsString( 'If stonewright-context-bootstrap is not visible in the MCP tool list, stop', $instructions );
+		$this->assertStringContainsString( 'Do not parse private AI-client config files or hand-roll JSON-RPC calls to bypass a missing MCP server', $instructions );
+		$this->assertStringContainsString( 'Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround', $instructions );
 		$this->assertStringContainsString( 'stonewright/skills-get', $instructions );
 		$this->assertStringContainsString( 'stonewright/memory-get', $instructions );
 		$this->assertStringContainsString( 'stonewright/learning-record', $instructions );

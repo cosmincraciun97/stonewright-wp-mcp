@@ -11,12 +11,20 @@ edit WordPress sites through MCP.
 4. Add the Stonewright MCP server to your AI client.
 5. In wp-admin, open **Stonewright > Configuration**, enable Stonewright, and
    choose the safety mode.
-6. Smoke test the connection with `stonewright-ping`, then call
+6. Reload or restart the AI client and confirm the tool list includes
+   `stonewright-context-bootstrap`.
+7. Smoke test the connection with `stonewright-ping`, then call
    `stonewright-context-bootstrap`.
 
 Every real task should start with `stonewright-context-bootstrap`. The response
 contains active instructions, relevant skills, persistent memory, safety
 followups, and the short-lived token needed by write abilities.
+
+If `stonewright-context-bootstrap` is missing, the MCP server is not loaded yet.
+Stop and fix the MCP config or reload the client before WordPress work. Local
+agent skills, prompt snippets, repository files, private client config files,
+and `/wp-json/stonewright/v1/abilities/run` shell calls do not replace live
+Stonewright MCP tools.
 
 ## Prompt Template
 
@@ -38,6 +46,8 @@ Design or content reference:
 
 Safety:
 - Start with stonewright-context-bootstrap.
+- If stonewright-context-bootstrap is not visible in the MCP tool list, stop and
+  ask me to reload or fix the Stonewright MCP config.
 - Use native WordPress or Elementor abilities first.
 - Validate design specs before rendering.
 - Snapshot before Elementor, template, global style, or theme-backed writes.
