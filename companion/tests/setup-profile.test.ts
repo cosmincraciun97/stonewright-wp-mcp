@@ -21,6 +21,9 @@ describe('buildSetupProfile', () => {
 			STONEWRIGHT_WP_ROOT: '/Users/me/Local Sites/mcp-test/app/public',
 			STONEWRIGHT_WP_APP_PASSWORD_AUTO: 'local-only',
 		});
+		expect(profile.notes.join('\n')).toContain('Verify the MCP tool list includes stonewright-context-bootstrap before starting WordPress work');
+		expect(profile.notes.join('\n')).toContain('Do not treat local client skills or repository files as a substitute for live Stonewright MCP tools');
+		expect(profile.notes.join('\n')).toContain('Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround');
 		expect(profile.checks).toContainEqual(
 			expect.objectContaining({
 				id: 'credentials',

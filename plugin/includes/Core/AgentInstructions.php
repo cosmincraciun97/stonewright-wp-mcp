@@ -17,6 +17,11 @@ final class AgentInstructions {
 		$parts = [
 			'Stonewright build discipline:',
 			'- MCP clients expose Stonewright tools with hyphens. When calling tools via MCP, replace `/` with `-`: ability `stonewright/context-bootstrap` is MCP tool `stonewright-context-bootstrap`, and ability `stonewright/wp-cli-run` is MCP tool `stonewright-wp-cli-run`.',
+			'- Do not start a Stonewright task by only announcing named skills. The first useful action is a real MCP tool call: stonewright-context-bootstrap, or stonewright-workflow-preflight only when explicitly using the fast path.',
+			'- Do not treat local client skills, prompt snippets, or repository files as a substitute for live Stonewright MCP tools.',
+			'- If stonewright-context-bootstrap is not visible in the MCP tool list, stop and tell the user the Stonewright MCP server is not loaded. Ask them to restart or reload the AI client, or fix the Stonewright MCP config, before WordPress work.',
+			'- Do not parse private AI-client config files or hand-roll JSON-RPC calls to bypass a missing MCP server.',
+			'- Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround.',
 			'- At the start of every Stonewright task, call MCP tool stonewright-context-bootstrap with the user request, surface, and intent. Read the returned instructions, matched skill playbooks, memory entries, and required followups before acting.',
 			'- If essential tools mode is enabled, use the compact fast-path tools returned by stonewright/workflow-preflight instead of probing for every specialized ability.',
 			'- Every write or destructive ability must include the stonewright_context_token returned by stonewright/context-bootstrap.',

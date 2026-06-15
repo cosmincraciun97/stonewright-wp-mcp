@@ -129,6 +129,12 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'browser testing, screenshots, and visual QA', $prompt );
 		$this->assertStringContainsString( 'Restart or reload the MCP session', $prompt );
 		$this->assertStringContainsString( 'stonewright-context-bootstrap', $prompt );
+		$this->assertStringContainsString( 'Verify the MCP tool list includes stonewright-context-bootstrap', $prompt );
+		$this->assertStringContainsString( 'Do not start by only announcing named skills', $prompt );
+		$this->assertStringContainsString( 'Do not treat local agent skills as a substitute for live Stonewright MCP tools', $prompt );
+		$this->assertStringContainsString( 'If stonewright-context-bootstrap is missing, stop', $prompt );
+		$this->assertStringContainsString( 'Do not inspect private AI-client config files, parse repository files, or hand-roll JSON-RPC calls', $prompt );
+		$this->assertStringContainsString( 'Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround', $prompt );
 	}
 
 	public function test_playwright_mcp_snippet_is_separate_server(): void {
