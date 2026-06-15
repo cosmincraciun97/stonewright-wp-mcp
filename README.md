@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.14-blue" /></a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.15-blue" /></a>
   <img alt="plugin license" src="https://img.shields.io/badge/plugin-GPL--2.0--or--later-green" />
   <img alt="companion license" src="https://img.shields.io/badge/companion-MIT-blue" />
   <img alt="php" src="https://img.shields.io/badge/PHP-%3E%3D8.1-777bb4" />
@@ -28,6 +28,7 @@ audit gates.
 | Capability | What Stonewright gives the agent |
 |---|---|
 | Elementor widget intelligence | Reads widget schemas by Content, Style, and Advanced tabs before writing settings. |
+| Fast Elementor and content builds | Applies full page specs, Elementor batch mutations, and CPT/custom-field bulk upserts in a few guarded calls instead of many tiny writes. |
 | Block themes and Gutenberg | Works with core blocks, `theme.json`, templates, template parts, patterns, and FSE global styles. |
 | Persistent memory | Stores project conventions and repeatable lessons across sessions. |
 | Safe WP-CLI | Runs tokenized WP-CLI commands through the companion while blocking arbitrary PHP/shell entry points. |
@@ -80,16 +81,51 @@ task-aware MCP tool names, and a compact call sequence. For ACF, ACPT, Meta
 Box, ASE, Pods, WooCommerce, or custom field tasks, it also returns compact
 specialization guidance.
 
+For Elementor or design-to-WordPress work, prefer the fast path:
+
+```text
+stonewright-workflow-preflight
+stonewright-elementor-v3-build-page-from-spec
+stonewright-elementor-v3-batch-mutate
+stonewright-content-bulk-upsert-posts
+```
+
+Those tools keep token use low by doing validation, backup, diagnostics,
+timing, and many related writes in one guarded call.
+
 ## Optional Companion
 
-Download `stonewright-companion-<version>.tgz` from the same release and install
-it globally:
+Fastest MCP-client setup uses `npx`, with no global install:
+
+```json
+{
+  "mcpServers": {
+    "stonewright": {
+      "command": "npx",
+      "args": ["-y", "@stonewright/companion@latest"],
+      "env": {
+        "STONEWRIGHT_WP_URL": "https://your-site.example.com",
+        "STONEWRIGHT_MCP_URL": "https://your-site.example.com/wp-json/mcp/stonewright",
+        "WP_API_USERNAME": "your-wp-username",
+        "WP_API_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx"
+      }
+    }
+  }
+}
+```
+
+For local WordPress sites, add `STONEWRIGHT_WP_ROOT` and call
+`stonewright-setup-profile` once. It returns copy-paste config, platform checks,
+credential status, and WP-CLI notes for Windows, macOS, and Linux.
+
+Release packages also include `stonewright-companion-<version>.tgz` for global
+installs:
 
 ```bash
 npm install -g ./stonewright-companion-<version>.tgz
 ```
 
-Then configure MCP clients that use a local stdio server with:
+Global install config:
 
 ```json
 {

@@ -733,9 +733,10 @@ final class RestRoutes {
 					'permission_callback' => [ Permissions::class, 'manage_options' ],
 					'callback'            => static function () {
 						return rest_ensure_response( [
-							'mode'           => get_option( 'stonewright_mode', 'development' ),
-							'feature_flags'  => get_option( 'stonewright_feature_flags', [] ),
-							'version'        => STONEWRIGHT_VERSION,
+							'mode'                 => get_option( 'stonewright_mode', 'development' ),
+							'essential_tools_mode' => (bool) get_option( 'stonewright_essential_tools_mode', false ),
+							'feature_flags'        => get_option( 'stonewright_feature_flags', [] ),
+							'version'              => STONEWRIGHT_VERSION,
 						] );
 					},
 				],
@@ -750,11 +751,19 @@ final class RestRoutes {
 						'feature_flags' => [
 							'type' => 'object',
 						],
+						'essential_tools_mode' => [
+							'type' => 'boolean',
+						],
 					],
 					'callback'            => static function ( \WP_REST_Request $request ) {
 						$mode = $request->get_param( 'mode' );
 						if ( $mode ) {
 							update_option( 'stonewright_mode', $mode );
+						}
+
+						$essential_tools_mode = $request->get_param( 'essential_tools_mode' );
+						if ( null !== $essential_tools_mode ) {
+							update_option( 'stonewright_essential_tools_mode', (bool) $essential_tools_mode );
 						}
 
 						$flags = $request->get_param( 'feature_flags' );
@@ -763,8 +772,9 @@ final class RestRoutes {
 						}
 
 						return rest_ensure_response( [
-							'mode'          => get_option( 'stonewright_mode', 'development' ),
-							'feature_flags' => get_option( 'stonewright_feature_flags', [] ),
+							'mode'                 => get_option( 'stonewright_mode', 'development' ),
+							'essential_tools_mode' => (bool) get_option( 'stonewright_essential_tools_mode', false ),
+							'feature_flags'        => get_option( 'stonewright_feature_flags', [] ),
 						] );
 					},
 				],

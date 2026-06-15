@@ -7,6 +7,34 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.15] - 2026-06-15
+
+### Added
+
+- Added Safe Fast Apply v1 for Elementor with
+  `stonewright/elementor-v3-batch-mutate`, allowing many guarded add, update,
+  move, and remove operations on one page in one request.
+- Added `stonewright/content-bulk-upsert-posts` for fast CPT, post, and custom
+  field seeding without repeated WP-CLI/meta calls.
+- Added an essential tools mode so agents can expose a smaller high-value tool
+  set for lower token use and faster discovery.
+- Added `stonewright-setup-profile` in the companion for cross-platform MCP
+  setup guidance on Windows, macOS, and Linux.
+
+### Changed
+
+- Extended `stonewright/elementor-v3-build-page-from-spec` with dry runs,
+  timing metrics, diagnostics, element counts, and `replace`, `append`, and
+  `replace_section` write modes.
+- Updated workflow preflight, skills, and installation docs so agents prefer
+  spec, batch, and bulk content paths before single-widget or repeated WP-CLI
+  writes.
+
+### Fixed
+
+- Treated idempotent Elementor page-settings writes as successful when the
+  stored value already matches the requested value.
+
 ## [1.0.0-alpha.14] - 2026-06-12
 
 ### Added
@@ -245,6 +273,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.15]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.15
 [1.0.0-alpha.14]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.14
 [1.0.0-alpha.13]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.13
 [1.0.0-alpha.12]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.12

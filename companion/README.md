@@ -20,6 +20,28 @@ MIT License.
 
 ## Install
 
+Fast path for MCP clients:
+
+```json
+{
+  "mcpServers": {
+    "stonewright": {
+      "command": "npx",
+      "args": ["-y", "@stonewright/companion@latest"],
+      "env": {
+        "STONEWRIGHT_WP_URL": "http://mcp-test.local",
+        "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
+        "STONEWRIGHT_WP_APP_PASSWORD_AUTO": "local-only"
+      }
+    }
+  }
+}
+```
+
+After the MCP server starts, call `stonewright-setup-profile` once. It returns
+the same config shape plus platform checks, credential status, and notes for
+Windows, macOS, and Linux.
+
 From a GitHub release:
 
 ```bash
@@ -104,6 +126,8 @@ idempotent — if the phar already exists it is reused without re-downloading.
 - `stonewright-wp-cli-discover` — dump installed WP-CLI command metadata
 - `stonewright-wp-cli-run` — run a tokenized WP-CLI command (no shell)
 - `stonewright-wp-cli-install` — manually trigger phar download into cache
+
+- `stonewright-setup-profile` - one-call setup diagnostics and copy-paste MCP config
 
 Alias names (`companion_wp_cli_*`) are also registered for backward compatibility.
 

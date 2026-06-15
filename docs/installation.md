@@ -50,6 +50,47 @@ The companion is optional. Use it when your MCP client needs a local stdio
 server, WordPress MCP proxying, LocalWP/WP-CLI discovery, or the guarded
 `stonewright-wp-cli-*` tools.
 
+Fastest MCP-client setup uses `npx`, so Windows, macOS, and Linux do not need a
+shell wrapper or global install:
+
+```json
+{
+  "mcpServers": {
+    "stonewright": {
+      "command": "npx",
+      "args": ["-y", "@stonewright/companion@latest"],
+      "env": {
+        "STONEWRIGHT_WP_URL": "http://mcp-test.local",
+        "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
+        "STONEWRIGHT_WP_APP_PASSWORD_AUTO": "local-only"
+      }
+    }
+  }
+}
+```
+
+After adding the server, call `stonewright-setup-profile`. It returns
+copy-paste MCP config, platform checks, credential status, and notes for the
+current machine. For local `.local` or `.test` sites, the companion can create
+one Application Password through guarded WP-CLI and save it in the user profile.
+
+## Fast Build Workflow
+
+For design-to-WordPress and Elementor work, start with one preflight call, then
+use composite writes before small corrective edits:
+
+1. `stonewright-workflow-preflight`
+2. `stonewright-content-bulk-upsert-posts` for repeated posts, CPT rows, and
+   custom fields.
+3. `stonewright-elementor-v3-build-page-from-spec` for first-pass page or
+   section rendering. Use `dry_run` before writing when the spec is generated.
+4. `stonewright-elementor-v3-batch-mutate` for grouped Elementor add, update,
+   move, and remove operations.
+
+This keeps MCP sessions fast and token-efficient because Stonewright validates,
+backs up, audits, measures timing, and writes related changes in a few guarded
+calls.
+
 From a release package:
 
 ```bash
@@ -174,12 +215,16 @@ WordPress ability names use slashes. MCP tool names use hyphens.
 | `stonewright/context-bootstrap` | `stonewright-context-bootstrap` |
 | `stonewright/workflow-preflight` | `stonewright-workflow-preflight` |
 | `stonewright/system-abilities-list` | `stonewright-system-abilities-list` |
+| `stonewright/content-bulk-upsert-posts` | `stonewright-content-bulk-upsert-posts` |
 | `stonewright/media-upload-batch` | `stonewright-media-upload-batch` |
 | `stonewright/elementor-v3-capabilities-summary` | `stonewright-elementor-v3-capabilities-summary` |
+| `stonewright/elementor-v3-build-page-from-spec` | `stonewright-elementor-v3-build-page-from-spec` |
+| `stonewright/elementor-v3-batch-mutate` | `stonewright-elementor-v3-batch-mutate` |
 | `stonewright/elementor-v3-apply-bundle` | `stonewright-elementor-v3-apply-bundle` |
 | `stonewright/wp-cli-status` | `stonewright-wp-cli-status` |
 | `stonewright/wp-cli-discover` | `stonewright-wp-cli-discover` |
 | `stonewright/wp-cli-run` | `stonewright-wp-cli-run` |
+| Companion setup profile | `stonewright-setup-profile` |
 
 The complete command list is generated in
 [`ability-truth-matrix.md`](ability-truth-matrix.md).

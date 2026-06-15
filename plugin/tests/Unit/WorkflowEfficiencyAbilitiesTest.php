@@ -205,7 +205,8 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'For visual work, verify external Playwright/browser MCP before the first write.', $result['first_pass_rules'] );
 		self::assertContains( 'For design-derived pages, implement at most two sections per write-and-verify batch; prefer one dense section per batch.', $result['first_pass_rules'] );
 		self::assertContains( 'Auto-continue to the next section batch only after desktop, tablet, and mobile checks pass.', $result['first_pass_rules'] );
-		self::assertContains( 'For repeated cards or grids, use a validated spec or bundle first pass instead of many single-widget calls.', $result['first_pass_rules'] );
+		self::assertContains( 'For repeated cards or grids, use a validated spec first pass; use stonewright/elementor-v3-batch-mutate for surgical add/update/move/remove edits on an existing page.', $result['first_pass_rules'] );
+		self::assertContains( 'Use build-page-from-spec dry_run before writes when the agent needs element_count, diagnostics, or a no-write preview.', $result['first_pass_rules'] );
 		self::assertContains( 'For every widget used, call stonewright/elementor-v3-get-widget-schema and inspect Content, Style, and Advanced controls before writing settings.', $result['first_pass_rules'] );
 		self::assertContains( 'Name major parent containers semantically; do not over-name every inner utility container.', $result['first_pass_rules'] );
 		self::assertArrayHasKey( 'advanced_controls', $result );
@@ -215,6 +216,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'mask', $result['advanced_controls'] );
 		self::assertContains( 'css_id', $result['advanced_controls'] );
 		self::assertSame( 'stonewright/elementor-v3-build-page-from-spec', $result['primary_write_tool'] );
+		self::assertSame( 'stonewright/elementor-v3-batch-mutate', $result['mutation_batch_tool'] );
 	}
 
 	public function test_widget_schema_groups_controls_by_editor_tab_and_adds_advanced_guidance(): void {

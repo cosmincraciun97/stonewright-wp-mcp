@@ -1,0 +1,13 @@
+{
+    "args": {
+        "post_type": "page",
+        "items": [
+            {
+                "slug": "bulk-upsert-denied",
+                "title": "Bulk Upsert Denied",
+                "status": "draft"
+            }
+        ]
+    },
+    "expect_permission_error": true
+}

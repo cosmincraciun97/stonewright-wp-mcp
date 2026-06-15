@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Core;
 
 use Stonewright\WpMcp\Abilities\Ability;
 use Stonewright\WpMcp\Abilities\Content\BulkCreate;
+use Stonewright\WpMcp\Abilities\Content\BulkUpsertPosts;
 use Stonewright\WpMcp\Abilities\System\ContextBootstrap;
 use Stonewright\WpMcp\Context\ContextToken;
 use Stonewright\WpMcp\Support\Utf8;
@@ -30,6 +31,7 @@ use Stonewright\WpMcp\Abilities\ElementorV3\AddContainer;
 use Stonewright\WpMcp\Abilities\ElementorV3\AddWidget;
 use Stonewright\WpMcp\Abilities\ElementorV3\ApplyBundle as ElementorV3ApplyBundle;
 use Stonewright\WpMcp\Abilities\ElementorV3\BackupPage;
+use Stonewright\WpMcp\Abilities\ElementorV3\BatchMutate;
 use Stonewright\WpMcp\Abilities\ElementorV3\BuildPageFromSpec;
 use Stonewright\WpMcp\Abilities\ElementorV3\CapabilitiesSummary as ElementorV3CapabilitiesSummary;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetElement;
@@ -175,6 +177,7 @@ final class AbilityRegistry {
 			CreatePost::class,
 			UpdatePost::class,
 			BulkCreate::class,
+			BulkUpsertPosts::class,
 
 			// Media.
 			UploadMedia::class,
@@ -224,6 +227,7 @@ final class AbilityRegistry {
 			MoveElement::class,
 			RemoveElement::class,
 			BuildPageFromSpec::class,
+			BatchMutate::class,
 			ElementorV3ApplyBundle::class,
 			UpdatePageSettings::class,
 			UpdateKitColors::class,
@@ -375,7 +379,7 @@ final class AbilityRegistry {
 		$master_enabled     = (bool) get_option( 'stonewright_enabled', false );
 		$disabled_abilities = (array) get_option( 'stonewright_disabled_abilities', [] );
 
-		foreach ( self::list() as $class ) {
+		foreach ( self::public_classes() as $class ) {
 			if ( ! class_exists( $class ) ) {
 				continue;
 			}
@@ -584,7 +588,7 @@ final class AbilityRegistry {
 		$disabled_abilities = (array) get_option( 'stonewright_disabled_abilities', [] );
 		$result             = [];
 
-		foreach ( self::list() as $class ) {
+		foreach ( self::public_classes() as $class ) {
 			if ( ! class_exists( $class ) ) {
 				continue;
 			}
@@ -604,6 +608,132 @@ final class AbilityRegistry {
 		}
 
 		return $result;
+	}
+
+	/**
+	 * @return array<int, class-string<Ability>>
+	 */
+	private static function public_classes(): array {
+		$classes = self::list();
+		if ( ! (bool) get_option( 'stonewright_essential_tools_mode', false ) ) {
+			return $classes;
+		}
+
+		$allowed = array_fill_keys(
+			array_merge(
+				self::essential_ability_names(),
+				self::essential_extra_ability_names()
+			),
+			true
+		);
+
+		return array_values(
+			array_filter(
+				$classes,
+				static function ( string $class ) use ( $allowed ): bool {
+					if ( ! class_exists( $class ) ) {
+						return false;
+					}
+
+					/** @var Ability $ability */
+					$ability = new $class();
+					return isset( $allowed[ $ability->name() ] );
+				}
+			)
+		);
+	}
+
+	/**
+	 * Compact public MCP surface for fast startup and low-token discovery.
+	 *
+	 * @return list<string>
+	 */
+	private static function essential_ability_names(): array {
+		return [
+			// Bootstrap, safety, and site context.
+			'stonewright/context-bootstrap',
+			'stonewright/security-issue-confirmation-token',
+			'stonewright/ping',
+			'stonewright/site-info',
+			'stonewright/site-capabilities',
+			'stonewright/site-environment',
+			'stonewright/site-health',
+			'stonewright/site-plugins-list',
+			'stonewright/site-theme',
+
+			// Fast workflow and compact instructions.
+			'stonewright/workflow-preflight',
+			'stonewright/system-abilities-list',
+			'stonewright/system-instructions-get',
+
+			// Content and media.
+			'stonewright/content-create-page',
+			'stonewright/content-get-page',
+			'stonewright/content-update-page',
+			'stonewright/content-bulk-create',
+			'stonewright/content-bulk-upsert-posts',
+			'stonewright/media-upload',
+			'stonewright/media-upload-batch',
+			'stonewright/media-get',
+
+			// Elementor V3 fast paths and discovery.
+			'stonewright/elementor-v3-status',
+			'stonewright/elementor-v3-capabilities-summary',
+			'stonewright/elementor-v3-list-widgets',
+			'stonewright/elementor-v3-get-widget-schema',
+			'stonewright/elementor-v3-get-page-structure',
+			'stonewright/elementor-v3-get-element',
+			'stonewright/widget-intent-resolve',
+			'stonewright/elementor-widget-implementation-guide',
+			'stonewright/elementor-v3-build-page-from-spec',
+			'stonewright/elementor-v3-batch-mutate',
+			'stonewright/elementor-v3-apply-bundle',
+			'stonewright/elementor-v3-update-page-settings',
+			'stonewright/elementor-v3-update-kit-colors',
+			'stonewright/elementor-v3-update-kit-typography',
+			'stonewright/elementor-v3-save-template',
+
+			// Design pipeline.
+			'stonewright/design-validate-spec',
+			'stonewright/design-build-spec',
+			'stonewright/design-choose-renderer',
+			'stonewright/design-spec-to-elementor-v3',
+			'stonewright/design-spec-to-gutenberg',
+			'stonewright/design-preview-render',
+			'stonewright/design-apply-to-post',
+
+			// Gutenberg and FSE fast paths.
+			'stonewright/blocks-list-registered',
+			'stonewright/blocks-get-schema',
+			'stonewright/blocks-parse',
+			'stonewright/blocks-serialize',
+			'stonewright/gutenberg-render-blocks',
+			'stonewright/gutenberg-apply-to-post',
+			'stonewright/fse-get-theme-json',
+			'stonewright/fse-list-templates',
+			'stonewright/fse-read-template',
+			'stonewright/fse-write-template',
+			'stonewright/fse-write-global-styles',
+
+			// Plugin/theme/CPT/Woo operations stay fast via guarded WP-CLI.
+			'stonewright/wp-cli-status',
+			'stonewright/wp-cli-discover',
+			'stonewright/wp-cli-run',
+		];
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	private static function essential_extra_ability_names(): array {
+		$extra = (array) get_option( 'stonewright_essential_extra_abilities', [] );
+
+		return array_values(
+			array_filter(
+				array_map( 'strval', $extra ),
+				static fn( string $name ): bool => str_starts_with( $name, 'stonewright/' )
+			)
+		);
 	}
 
 	public static function mcp_tool_name( string $ability_name ): string {

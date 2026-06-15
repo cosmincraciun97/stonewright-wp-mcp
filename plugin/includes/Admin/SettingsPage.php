@@ -53,6 +53,14 @@ final class SettingsPage {
 			'sanitize_callback' => 'sanitize_text_field',
 		] );
 
+		register_setting( self::OPTION_GROUP, 'stonewright_essential_tools_mode', [
+			'type'              => 'boolean',
+			'default'           => false,
+			'sanitize_callback' => static function ( $value ): bool {
+				return (bool) $value;
+			},
+		] );
+
 		register_setting( self::OPTION_GROUP, 'stonewright_elementor_v4_atomic', [
 			'type'              => 'boolean',
 			'default'           => false,
@@ -100,6 +108,16 @@ final class SettingsPage {
 							<th scope="row"><label for="stonewright_companion_token"><?php esc_html_e( 'Companion bearer token', 'stonewright' ); ?></label></th>
 							<td>
 								<input type="password" class="regular-text" name="stonewright_companion_token" id="stonewright_companion_token" value="<?php echo esc_attr( (string) get_option( 'stonewright_companion_token', '' ) ); ?>" autocomplete="off"/>
+							</td>
+						</tr>
+
+						<tr>
+							<th scope="row"><label for="stonewright_essential_tools_mode"><?php esc_html_e( 'Essential tools mode', 'stonewright' ); ?></label></th>
+							<td>
+								<label>
+									<input type="checkbox" name="stonewright_essential_tools_mode" id="stonewright_essential_tools_mode" value="1" <?php checked( (bool) get_option( 'stonewright_essential_tools_mode', false ) ); ?>/>
+									<?php esc_html_e( 'Expose a compact fast-path toolset for lower token use and faster MCP startup.', 'stonewright' ); ?>
+								</label>
 							</td>
 						</tr>
 

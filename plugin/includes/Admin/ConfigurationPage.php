@@ -54,6 +54,12 @@ final class ConfigurationPage {
 			'sanitize_callback' => static fn( mixed $value ): bool => (bool) $value,
 		] );
 
+		register_setting( self::OPTION_GROUP, 'stonewright_essential_tools_mode', [
+			'type'              => 'boolean',
+			'default'           => false,
+			'sanitize_callback' => static fn( mixed $value ): bool => (bool) $value,
+		] );
+
 		register_setting( self::OPTION_GROUP, 'stonewright_mode', [
 			'type'              => 'string',
 			'default'           => 'development',
@@ -94,6 +100,7 @@ final class ConfigurationPage {
 		$companion_url   = (string) get_option( 'stonewright_companion_url', 'http://127.0.0.1:8765' );
 		$companion_token = (string) get_option( 'stonewright_companion_token', '' );
 		$atomic_enabled  = (bool) get_option( 'stonewright_elementor_v4_atomic', false );
+		$essential_mode  = (bool) get_option( 'stonewright_essential_tools_mode', false );
 		$server_url      = get_rest_url( null, 'mcp/stonewright' );
 		$status_class    = $enabled ? 'stonewright-badge--ok' : 'stonewright-badge--neutral';
 		$status_label    = $enabled ? __( 'Enabled', 'stonewright' ) : __( 'Disabled', 'stonewright' );
@@ -164,6 +171,16 @@ final class ConfigurationPage {
 							<div class="stonewright-risk-notice <?php echo esc_attr( $risk_class ); ?>">
 								<?php esc_html_e( 'Production-safe mode requires confirmation tokens for destructive operations.', 'stonewright' ); ?>
 							</div>
+							<label class="stonewright-switch">
+								<input
+									type="checkbox"
+									name="stonewright_essential_tools_mode"
+									id="stonewright_essential_tools_mode"
+									value="1"
+									<?php checked( $essential_mode ); ?>
+								/>
+								<span><?php esc_html_e( 'Enable essential tools mode for faster MCP startup', 'stonewright' ); ?></span>
+							</label>
 							<label class="stonewright-switch">
 								<input
 									type="checkbox"

@@ -130,9 +130,11 @@ final class WorkflowPreflight extends AbilityKernel {
 			],
 			'elementor'     => $elementor,
 			'site'          => [
-				'ability_count' => count( AbilityRegistry::list() ),
-				'mcp_server_id' => 'stonewright',
-				'ability_prefix'=> 'stonewright/',
+				'ability_count'        => count( AbilityRegistry::list() ),
+				'public_ability_count' => count( AbilityRegistry::enabled_abilities() ),
+				'essential_tools_mode' => (bool) get_option( 'stonewright_essential_tools_mode', false ),
+				'mcp_server_id'        => 'stonewright',
+				'ability_prefix'       => 'stonewright/',
 			],
 			'context'       => [
 				'matched_skills'          => $context['matched_skills'] ?? [],
@@ -176,6 +178,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			|| self::has_any_term( $query, [ 'add', 'apply', 'build', 'create', 'edit', 'import', 'publish', 'save', 'set', 'update', 'upload', 'write' ] );
 		$is_destructive = 'delete' === $intent
 			|| self::has_any_term( $query, [ 'delete', 'destroy', 'force delete', 'overwrite', 'permanent', 'remove', 'replace', 'reset', 'trash' ] );
+		$is_surgical = self::has_any_term( $query, [ 'adjust', 'fix', 'insert', 'move', 'remove', 'surgical', 'tweak', 'update existing' ] );
 		$needs_visual_check = ContextBuilder::is_visual_task( $task, $surface, $intent );
 		$needs_wp_cli = [] !== $specializations || in_array(
 			$surface,
@@ -188,6 +191,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			'intent'                          => $intent,
 			'is_write'                        => $is_write,
 			'is_destructive'                  => $is_destructive,
+			'is_surgical_mutation'            => $is_surgical,
 			'needs_visual_check'              => $needs_visual_check,
 			'needs_wp_cli_discovery'          => $needs_wp_cli,
 			'production_safe_token_required'  => 'production-safe' === $mode && $is_destructive,
@@ -209,7 +213,9 @@ final class WorkflowPreflight extends AbilityKernel {
 			$tools[] = 'stonewright/elementor-v3-get-widget-schema';
 			if ( $profile['is_write'] ) {
 				$tools[] = 'stonewright/media-upload-batch';
+				$tools[] = 'stonewright/content-bulk-upsert-posts';
 				$tools[] = 'stonewright/elementor-v3-build-page-from-spec';
+				$tools[] = 'stonewright/elementor-v3-batch-mutate';
 				$tools[] = 'stonewright/elementor-v3-apply-bundle';
 			}
 		}
@@ -229,6 +235,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			$tools[] = 'stonewright/wp-cli-status';
 			$tools[] = 'stonewright/wp-cli-discover';
 			if ( $profile['is_write'] ) {
+				$tools[] = 'stonewright/content-bulk-upsert-posts';
 				$tools[] = 'stonewright/wp-cli-run';
 			}
 		}
@@ -262,7 +269,9 @@ final class WorkflowPreflight extends AbilityKernel {
 	private static function batching_rules( array $profile ): array {
 		$rules = [
 			'Use stonewright/media-upload-batch for multiple assets instead of one upload call per image.',
-			'Use individual add/update/move calls only for surgical fixes after screenshot comparison.',
+			'Use stonewright/content-bulk-upsert-posts for repeated post/CPT/custom-field rows instead of many post/meta commands.',
+			'Use stonewright/elementor-v3-batch-mutate for surgical Elementor add/update/move/remove edits instead of many single calls.',
+			'Use individual add/update/move calls only for one-off debugging when batch diagnostics are not enough.',
 		];
 
 		if ( ! empty( $profile['needs_visual_check'] ) ) {
@@ -275,7 +284,7 @@ final class WorkflowPreflight extends AbilityKernel {
 		} elseif ( ! empty( $profile['is_write'] ) ) {
 			array_unshift(
 				$rules,
-				'Use stonewright/elementor-v3-build-page-from-spec or stonewright/elementor-v3-apply-bundle for structured first-pass writes instead of many single-widget calls.'
+				'Use stonewright/elementor-v3-build-page-from-spec dry_run first, then write with mode append, replace, or replace_section; use apply-bundle only when multiple posts must change together.'
 			);
 		}
 
@@ -361,14 +370,34 @@ final class WorkflowPreflight extends AbilityKernel {
 					[ 'items' => [ '<remote assets>' ] ]
 				);
 				$out[] = self::call_step(
+					'stonewright/content-bulk-upsert-posts',
+					'Create or update repeated CPT/post rows and custom fields in one guarded call when the Elementor page uses dynamic content.',
+					[
+						'post_type'                 => '<post type>',
+						'items'                     => [ '<rows with slug/title/meta>' ],
+						'stonewright_context_token' => '<context_token>',
+					]
+				);
+				$out[] = self::call_step(
 					'stonewright/elementor-v3-build-page-from-spec',
 					! empty( $profile['needs_visual_check'] )
-						? 'Write the current one- or two-section visual batch from a validated spec, then verify screenshots before the next batch.'
-						: 'Write one validated first-pass page spec instead of many single-widget calls.',
+						? 'Dry-run the current visual section batch, then write the same validated spec after checking diagnostics.'
+						: 'Dry-run one validated first-pass page spec, then write it instead of many single-widget calls.',
 					[
 						'post_id'                  => '<target post id>',
 						'spec'                     => ! empty( $profile['needs_visual_check'] ) ? '<validated Stonewright Design Spec for current section batch>' : '<validated Stonewright Design Spec>',
-						'replace'                  => true,
+						'mode'                     => '<replace|append|replace_section>',
+						'dry_run'                  => true,
+						'stonewright_context_token' => '<context_token>',
+					]
+				);
+				$out[] = self::call_step(
+					'stonewright/elementor-v3-batch-mutate',
+					'Apply surgical Elementor add/update/move/remove changes in one guarded request when editing an existing tree.',
+					[
+						'post_id'                  => '<target post id>',
+						'operations'               => [ '<batched mutations>' ],
+						'dry_run'                  => true,
 						'stonewright_context_token' => '<context_token>',
 					]
 				);
@@ -405,6 +434,17 @@ final class WorkflowPreflight extends AbilityKernel {
 		}
 
 		if ( $profile['needs_wp_cli_discovery'] && $profile['is_write'] ) {
+			if ( 'elementor' !== $profile['surface'] ) {
+				$out[] = self::call_step(
+					'stonewright/content-bulk-upsert-posts',
+					'Prefer this for repeated post/CPT rows and meta after the post type exists; reserve WP-CLI for plugin-specific commands and discovery.',
+					[
+						'post_type'                 => '<post type>',
+						'items'                     => [ '<rows with slug/title/meta>' ],
+						'stonewright_context_token' => '<context_token>',
+					]
+				);
+			}
 			$out[] = self::call_step(
 				'stonewright/wp-cli-run',
 				'Run only tokenized WP-CLI argv after discovery; no shell or eval entry points.',

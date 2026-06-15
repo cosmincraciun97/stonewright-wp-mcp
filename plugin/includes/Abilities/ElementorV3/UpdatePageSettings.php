@@ -75,7 +75,7 @@ final class UpdatePageSettings extends AbilityKernel {
 					? (array) $args['settings']
 					: array_merge( $existing, (array) $args['settings'] );
 
-				if ( false === update_post_meta( $post_id, '_elementor_page_settings', $next ) ) {
+				if ( false === update_post_meta( $post_id, '_elementor_page_settings', $next ) && $next !== $existing ) {
 					return $this->error( 'write_failed', __( 'Could not save Elementor page settings.', 'stonewright' ) );
 				}
 
