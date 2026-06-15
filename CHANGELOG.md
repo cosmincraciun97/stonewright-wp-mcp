@@ -7,6 +7,25 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.16] - 2026-06-15
+
+### Added
+
+- Added a guided Configuration flow with a Stonewright brand banner, in-page
+  Application Password generation, copyable client setup notes, per-client JSON
+  snippets, and real-world prompt examples.
+- Added admin controls for revoking existing Application Passwords and a
+  browser-generated bridge token helper for the optional local WP-CLI bridge.
+- Added default MCP instructions that keep site-specific memory, skills, and
+  custom instructions local to the current WordPress install.
+
+### Changed
+
+- Simplified client setup docs around the `npx @stonewright/companion@latest`
+  path and moved the companion HTTP bridge into an advanced-only workflow.
+- Updated public docs with ACF, CPT UI, WooCommerce, Gutenberg/FSE, and Figma
+  to Elementor V3 prompt examples.
+
 ## [1.0.0-alpha.15] - 2026-06-15
 
 ### Added
@@ -273,6 +292,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.16]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.16
 [1.0.0-alpha.15]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.15
 [1.0.0-alpha.14]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.14
 [1.0.0-alpha.13]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.13

@@ -588,6 +588,54 @@ if ( ! class_exists( 'WP_Error' ) ) {
 // Post type object stubs — backed by $GLOBALS['stonewright_test_post_types'].
 // Tests set: $GLOBALS['stonewright_test_post_types']['page'] = (object)['cap' => (object)['create_posts' => 'edit_pages', 'publish_posts' => 'publish_pages']];
 // ---------------------------------------------------------------------------
+if ( ! class_exists( 'WP_Application_Passwords' ) ) {
+	class WP_Application_Passwords {
+		/**
+		 * @param array<string, mixed> $args
+		 * @return array{0: string, 1: array<string, mixed>}|\WP_Error
+		 */
+		public static function create_new_application_password( int $user_id, array $args = [] ): array|\WP_Error {
+			if ( isset( $GLOBALS['stonewright_test_app_password_error'] ) ) {
+				return $GLOBALS['stonewright_test_app_password_error'];
+			}
+
+			$password = (string) ( $GLOBALS['stonewright_test_next_app_password'] ?? 'test app password 1234' );
+			$item     = [
+				'uuid'    => 'test-app-password-uuid',
+				'name'    => (string) ( $args['name'] ?? 'Stonewright' ),
+				'created' => 1710000000,
+			];
+			$GLOBALS['stonewright_test_app_passwords'][ $user_id ][] = $item;
+
+			return [ $password, $item ];
+		}
+
+		/**
+		 * @return array<int, array<string, mixed>>
+		 */
+		public static function get_user_application_passwords( int $user_id ): array {
+			return array_values( $GLOBALS['stonewright_test_app_passwords'][ $user_id ] ?? [] );
+		}
+
+		public static function delete_application_password( int $user_id, string $uuid ): bool|\WP_Error {
+			if ( isset( $GLOBALS['stonewright_test_app_password_delete_error'] ) ) {
+				return $GLOBALS['stonewright_test_app_password_delete_error'];
+			}
+
+			$passwords = $GLOBALS['stonewright_test_app_passwords'][ $user_id ] ?? [];
+			foreach ( $passwords as $index => $item ) {
+				if ( (string) ( $item['uuid'] ?? '' ) === $uuid ) {
+					unset( $GLOBALS['stonewright_test_app_passwords'][ $user_id ][ $index ] );
+					$GLOBALS['stonewright_test_app_passwords'][ $user_id ] = array_values( $GLOBALS['stonewright_test_app_passwords'][ $user_id ] );
+					return true;
+				}
+			}
+
+			return false;
+		}
+	}
+}
+
 $GLOBALS['stonewright_test_post_types'] ??= [];
 
 if ( ! function_exists( 'get_post_type_object' ) ) {

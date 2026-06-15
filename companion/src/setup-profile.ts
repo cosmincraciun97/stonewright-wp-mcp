@@ -87,7 +87,7 @@ export function buildSetupProfile(
 			'Use this MCP config on Windows, macOS, and Linux; env vars carry paths safely.',
 			'No shell script wrapper required; the companion uses Node and execFile argv tokens.',
 			'For local .local/.test sites, Application Passwords can be generated through guarded WP-CLI.',
-			'For production sites, provide WP_API_USERNAME plus WP_API_PASSWORD or STONEWRIGHT_MCP_AUTHORIZATION.',
+			'For production sites, provide STONEWRIGHT_WP_USERNAME plus STONEWRIGHT_WP_APP_PASSWORD or STONEWRIGHT_MCP_AUTHORIZATION.',
 		],
 	};
 }
@@ -115,8 +115,8 @@ function credentialsCheck(
 		label: 'Credentials',
 		status: 'warning',
 		message: local
-			? 'Set STONEWRIGHT_WP_ROOT for local auto credentials, or provide WP_API_USERNAME and WP_API_PASSWORD.'
-			: 'Remote sites need WP_API_USERNAME plus WP_API_PASSWORD, or STONEWRIGHT_MCP_AUTHORIZATION.',
+			? 'Set STONEWRIGHT_WP_ROOT for local auto credentials, or provide STONEWRIGHT_WP_USERNAME and STONEWRIGHT_WP_APP_PASSWORD.'
+			: 'Remote sites need STONEWRIGHT_WP_USERNAME plus STONEWRIGHT_WP_APP_PASSWORD, or STONEWRIGHT_MCP_AUTHORIZATION.',
 	};
 }
 

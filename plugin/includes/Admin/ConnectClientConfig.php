@@ -5,23 +5,11 @@ namespace Stonewright\WpMcp\Admin;
 
 /**
  * Generates per-client MCP connection snippets for Stonewright.
- *
- * Transport options:
- *   A) Native stdio — installed Stonewright companion binary (recommended for local dev)
- *   B) Streamable HTTP — direct /wp-json/mcp/stonewright endpoint
- *
- * IMPORTANT: Do NOT use @automattic/mcp-wordpress-remote. That Automattic package
- * routes through its own WP REST bridge and does not speak the Stonewright WP
- * Abilities protocol. All snippets in this class use the correct transport.
  */
 final class ConnectClientConfig {
 
-	// -------------------------------------------------------------------------
-	// Client catalogue
-	// -------------------------------------------------------------------------
-
 	/**
-	 * Returns the full list of supported AI clients and their config metadata.
+	 * Returns supported AI clients and their config metadata.
 	 *
 	 * @return array<int, array{slug: string, label: string, config_path: string, kind: string, notes: string}>
 	 */
@@ -32,77 +20,77 @@ final class ConnectClientConfig {
 				'label'       => 'Claude Code',
 				'config_path' => 'Terminal command: claude mcp add',
 				'kind'        => 'cli',
-				'notes'       => 'Uses the claude CLI; run the generated command in any terminal. The MCP server is registered globally for your user.',
+				'notes'       => 'Uses the claude CLI; run the generated command in any terminal.',
 			],
 			[
 				'slug'        => 'claude-desktop',
 				'label'       => 'Claude Desktop',
 				'config_path' => '~/Library/Application Support/Claude/claude_desktop_config.json (macOS) or %APPDATA%\\Claude\\claude_desktop_config.json (Windows)',
 				'kind'        => 'desktop',
-				'notes'       => 'Paste the JSON block into the mcpServers object in the config file, then restart Claude Desktop.',
+				'notes'       => 'Paste the JSON block into the mcpServers object, then restart Claude Desktop.',
 			],
 			[
 				'slug'        => 'cursor',
 				'label'       => 'Cursor',
 				'config_path' => '.cursor/mcp.json (project) or ~/.cursor/mcp.json (global)',
 				'kind'        => 'editor',
-				'notes'       => 'Create the file if it does not exist. A project-level file takes precedence over the global one.',
+				'notes'       => 'Create the file if it does not exist. Project config wins over global config.',
 			],
 			[
 				'slug'        => 'vscode-copilot',
 				'label'       => 'VS Code (Copilot)',
 				'config_path' => '.vscode/mcp.json (workspace) or VS Code user settings under "mcp.servers"',
 				'kind'        => 'editor',
-				'notes'       => 'The workspace file is version-controlled and shared with your team. Use user settings for a personal global entry.',
+				'notes'       => 'Workspace config can be shared with a team. Use user settings for private credentials.',
 			],
 			[
 				'slug'        => 'windsurf',
 				'label'       => 'Windsurf',
 				'config_path' => '~/.codeium/windsurf/mcp_config.json',
 				'kind'        => 'editor',
-				'notes'       => 'Merge the snippet into the existing file if one already exists; do not overwrite the whole file.',
+				'notes'       => 'Merge the snippet into the existing file if one already exists.',
 			],
 			[
 				'slug'        => 'zed',
 				'label'       => 'Zed',
 				'config_path' => '~/.config/zed/settings.json (under the "context_servers" key)',
 				'kind'        => 'editor',
-				'notes'       => 'Zed uses a context_servers key rather than mcpServers; adapt the snippet accordingly when pasting.',
+				'notes'       => 'Zed uses context_servers rather than mcpServers.',
 			],
 			[
 				'slug'        => 'opencode',
 				'label'       => 'OpenCode',
 				'config_path' => '.opencode/config.json (project) or ~/.config/opencode/config.json (global)',
 				'kind'        => 'cli',
-				'notes'       => 'The project-level file takes precedence. Add the snippet under the "mcp" key in the config.',
+				'notes'       => 'Add the snippet under the mcp key in the config file.',
 			],
 			[
 				'slug'        => 'cline',
 				'label'       => 'Cline',
-				'config_path' => 'VS Code extension settings → Cline → MCP Servers (GUI) or cline_mcp_settings.json',
+				'config_path' => 'VS Code extension settings > Cline > MCP Servers',
 				'kind'        => 'editor',
-				'notes'       => 'Cline can manage MCP servers through its settings UI — paste the snippet there or edit the JSON file directly.',
+				'notes'       => 'Paste the snippet in the settings UI or the backing JSON file.',
 			],
 			[
 				'slug'        => 'roo-code',
 				'label'       => 'Roo Code',
-				'config_path' => 'VS Code extension settings → Roo Code → MCP Servers, or the equivalent JSON settings file.',
+				'config_path' => 'VS Code extension settings > Roo Code > MCP Servers',
 				'kind'        => 'editor',
-				'notes'       => 'Follows the same pattern as Cline; use the extension settings panel or the backing JSON file.',
+				'notes'       => 'Uses the same MCP server shape as other VS Code agent extensions.',
 			],
 			[
 				'slug'        => 'amazon-q',
 				'label'       => 'Amazon Q',
 				'config_path' => '~/.aws/amazonq/mcp.json',
 				'kind'        => 'desktop',
-				'notes'       => 'Amazon Q Developer supports MCP via a dedicated config file. Paste the stonewright entry under mcpServers.',
+				'notes'       => 'Paste the stonewright entry under mcpServers.',
 			],
 			[
 				'slug'        => 'kilo-code',
 				'label'       => 'Kilo Code',
-				'config_path' => 'VS Code extension settings → Kilo Code → MCP Servers config',
+				'config_path' => 'VS Code extension settings > Kilo Code > MCP Servers config',
 				'kind'        => 'editor',
-				'notes'       => 'Uses the standard MCP protocol. Configure via the extension panel or its backing JSON settings file.',
+				'notes'       => 'Configure through the extension panel or its backing JSON settings file.',
 			],
 			[
 				'slug'        => 'gemini-cli',
@@ -114,54 +102,34 @@ final class ConnectClientConfig {
 			[
 				'slug'        => 'github-copilot',
 				'label'       => 'GitHub Copilot',
-				'config_path' => '.vscode/mcp.json (workspace) when using Copilot Chat in VS Code with MCP support enabled.',
+				'config_path' => '.vscode/mcp.json (workspace) when MCP support is enabled.',
 				'kind'        => 'editor',
-				'notes'       => 'MCP support in Copilot Chat requires VS Code 1.99+ and the MCP feature flag enabled.',
+				'notes'       => 'Requires VS Code with MCP support enabled.',
 			],
 			[
 				'slug'        => 'antigravity',
 				'label'       => 'Antigravity',
-				'config_path' => 'Project or global MCP config file; consult the Antigravity documentation for your version.',
+				'config_path' => 'Project or global MCP config file.',
 				'kind'        => 'desktop',
-				'notes'       => 'Uses the universal mcpServers transport block. Add both Stonewright and Playwright entries, then restart or reload Antigravity so both tool sets appear before visual work.',
+				'notes'       => 'Add Stonewright and Playwright entries, then restart or reload Antigravity before visual work.',
 			],
 		];
 	}
 
-	// -------------------------------------------------------------------------
-	// Endpoint URLs
-	// -------------------------------------------------------------------------
-
-	/**
-	 * Returns the site URL, with a fallback for unit-test contexts where WP functions are not loaded.
-	 */
 	private static function site_url(): string {
 		return function_exists( 'get_site_url' ) ? (string) get_site_url() : '';
 	}
 
-	/**
-	 * Returns the Stonewright native MCP endpoint URL (Streamable HTTP transport).
-	 */
 	public static function mcp_endpoint_url(): string {
 		return rest_url( 'mcp/stonewright' );
 	}
 
-	/**
-	 * Returns the WP Abilities REST base for direct tool invocation.
-	 */
 	public static function abilities_base_url(): string {
 		return rest_url( 'wp-abilities/v1/abilities' );
 	}
 
-	// -------------------------------------------------------------------------
-	// Snippet generators
-	// -------------------------------------------------------------------------
-
 	/**
-	 * Returns the native stdio snippet using the installed Stonewright companion.
-	 *
-	 * This is the RECOMMENDED transport for local development. The companion
-	 * package speaks the Stonewright WP Abilities protocol natively.
+	 * Returns the recommended local stdio snippet using npx.
 	 *
 	 * @param string $username     WordPress username.
 	 * @param string $app_password Application Password.
@@ -171,13 +139,12 @@ final class ConnectClientConfig {
 		return [
 			'mcpServers' => [
 				'stonewright' => [
-					'command' => 'stonewright-mcp',
-					'args'    => [],
+					'command' => 'npx',
+					'args'    => [ '-y', '@stonewright/companion@latest' ],
 					'env'     => [
-						'STONEWRIGHT_SITE_URL' => self::site_url(),
-						'WP_API_USERNAME'     => $username ?: 'your-wp-username',
-						'WP_API_PASSWORD'     => $app_password ?: '<your-application-password>',
-						'STONEWRIGHT_MCP_URL' => self::mcp_endpoint_url(),
+						'STONEWRIGHT_WP_URL'          => self::site_url(),
+						'STONEWRIGHT_WP_USERNAME'     => $username ?: 'your-wp-username',
+						'STONEWRIGHT_WP_APP_PASSWORD' => $app_password ?: '<your-application-password>',
 					],
 				],
 			],
@@ -185,9 +152,7 @@ final class ConnectClientConfig {
 	}
 
 	/**
-	 * Returns the Streamable HTTP snippet using the native Stonewright endpoint.
-	 *
-	 * Use when your AI client supports HTTP MCP transport (no Node.js required).
+	 * Returns the direct Streamable HTTP snippet.
 	 *
 	 * @param string $username     WordPress username.
 	 * @param string $app_password Application Password.
@@ -224,7 +189,7 @@ final class ConnectClientConfig {
 	}
 
 	/**
-	 * Backwards-compatible alias — returns the native stdio snippet.
+	 * Backwards-compatible alias for the recommended stdio snippet.
 	 *
 	 * @param string $username     WordPress username.
 	 * @param string $app_password Application Password.
@@ -235,7 +200,7 @@ final class ConnectClientConfig {
 	}
 
 	/**
-	 * Returns the standard Stdio mcpServers config block (alias for native_stdio_snippet).
+	 * Alias for the recommended stdio snippet.
 	 *
 	 * @param string $username     WordPress username.
 	 * @param string $app_password Application Password.
@@ -281,11 +246,10 @@ final class ConnectClientConfig {
 			}
 			return [
 				'command' => sprintf(
-					'claude mcp add stonewright -- stonewright-mcp --env STONEWRIGHT_SITE_URL=%s --env WP_API_USERNAME=%s --env WP_API_PASSWORD=%s --env STONEWRIGHT_MCP_URL=%s',
+					'claude mcp add stonewright --env STONEWRIGHT_WP_URL=%s --env STONEWRIGHT_WP_USERNAME=%s --env STONEWRIGHT_WP_APP_PASSWORD=%s -- npx -y @stonewright/companion@latest',
 					escapeshellarg( self::site_url() ),
 					escapeshellarg( $username ),
-					escapeshellarg( $app_password ?: '<your-application-password>' ),
-					escapeshellarg( self::mcp_endpoint_url() )
+					escapeshellarg( $app_password ?: '<your-application-password>' )
 				),
 			];
 		}
@@ -305,10 +269,6 @@ final class ConnectClientConfig {
 		return $snippet;
 	}
 
-	// -------------------------------------------------------------------------
-	// Paste-to-agent prompt
-	// -------------------------------------------------------------------------
-
 	/**
 	 * Returns a natural-language prompt for the user to configure the agent.
 	 *
@@ -316,37 +276,16 @@ final class ConnectClientConfig {
 	 * @param string $app_password Application Password.
 	 */
 	public static function paste_to_agent_prompt( string $username, string $app_password ): string {
-		$stdio_json = wp_json_encode(
-			self::native_stdio_snippet( $username, $app_password ),
-			JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
-		);
-		$http_json  = wp_json_encode(
-			self::http_snippet( $username, $app_password ),
-			JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
-		);
-		$playwright_json = wp_json_encode(
-			self::playwright_mcp_snippet(),
-			JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
-		);
-
-		$endpoint = self::mcp_endpoint_url();
-
-		$message = sprintf(
-			/* translators: 1: MCP endpoint URL, 2: stdio JSON snippet, 3: HTTP JSON snippet */
+		return sprintf(
+			/* translators: 1: site URL, 2: MCP endpoint URL, 3: username, 4: Application Password. */
 			__(
-				"Configure Stonewright as an MCP server.\nEndpoint: %1\$s\n\nOption A — Native stdio (recommended, Node.js required):\n```json\n%2\$s\n```\n\nOption B — Streamable HTTP (no Node.js required):\n```json\n%3\$s\n```\n\nDo NOT use @automattic/mcp-wordpress-remote — it does not speak the Stonewright WP Abilities protocol.",
+				"Configure Stonewright MCP for this WordPress install in the current AI client.\n\nUse these connection values:\n- WordPress URL: %1\$s\n- MCP endpoint: %2\$s\n- Username: %3\$s\n- Application Password: %4\$s\n- MCP server name: stonewright\n- Local transport: npx @stonewright/companion@latest\n\nConfiguration rules:\n- Store credentials as env vars only: STONEWRIGHT_WP_URL, STONEWRIGHT_WP_USERNAME, STONEWRIGHT_WP_APP_PASSWORD.\n- Use command `npx` with args `[\"-y\", \"@stonewright/companion@latest\"]`; npx downloads and runs the Stonewright companion, so no global companion install is required.\n- Do not use arbitrary PHP execution, wp eval, wp shell, --exec, or --require.\n- Restart or reload the MCP session after saving the config.\n- First Stonewright calls after connection: stonewright-context-bootstrap, then stonewright-workflow-preflight.\n\nBrowser testing:\n- If this client does not already have browser tools, also add Playwright MCP for browser testing, screenshots, and visual QA.\n- Playwright MCP config: command `npx`, args `[\"-y\", \"@playwright/mcp@latest\", \"--caps=testing,vision,devtools\"]`.\n- For visual WordPress or Elementor work, confirm Playwright/browser tools are visible before the first write.\n\nIf you cannot edit the client config here, ask me to open the Stonewright JSON snippets panel.",
 				'stonewright'
 			),
-			$endpoint,
-			(string) $stdio_json,
-			(string) $http_json
+			self::site_url(),
+			self::mcp_endpoint_url(),
+			$username,
+			$app_password
 		);
-
-		$message .= "\n\nAlso configure this separate Playwright MCP server for browser testing, screenshots, and visual inspection:\n```json\n" . (string) $playwright_json . "\n```";
-		$message .= "\n\nRestart your AI client after adding Playwright MCP so the tool list refreshes.";
-		$message .= "\nDo not start visual writes until the Playwright/browser tool is visible and can open the target page.";
-		$message .= "\n\nAfter connecting, call MCP tool stonewright-context-bootstrap before any Stonewright task.";
-
-		return $message;
 	}
 }

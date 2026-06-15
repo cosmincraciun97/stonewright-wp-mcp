@@ -1,75 +1,141 @@
-# Connect Your AI Client
+# Connect MCP Client
 
-This guide walks through generating credentials and wiring up any of the 15
-supported AI clients to your Stonewright MCP endpoint.
+This guide covers wiring supported AI clients to Stonewright. The shortest path
+is the **Stonewright > Configuration** page:
+
+1. Enable Stonewright abilities.
+2. Generate a WordPress Application Password in the page.
+3. Copy the setup note, or expand the JSON snippets for your client.
 
 ---
 
 ## Prerequisites
 
-### 1. Generate an Application Password
+### WordPress Application Password
 
-WordPress Application Passwords are the authentication mechanism. Each
-password is a one-time-display credential tied to your WordPress user account.
+WordPress Application Passwords are one-time-display credentials tied to the
+current WordPress user. Generate one from **Stonewright > Configuration >
+Application Password**. Copy it immediately; WordPress will not show it again.
 
-Steps:
+### Endpoint
 
-1. Log in to wp-admin.
-2. Go to **Users > Profile** (or navigate directly to
-   `wp-admin/profile.php#application-passwords-section`).
-3. Scroll to the **Application Passwords** section.
-4. Enter a descriptive name (e.g. `Claude Code – dev laptop`).
-5. Click **Add New Application Password**.
-6. Copy the displayed password — it will not be shown again.
+The MCP endpoint is displayed on the Configuration page:
 
-### 2. Find your endpoint URL
-
-The MCP endpoint is displayed on the Stonewright Configuration page:
-
-```
+```text
 https://{your-site}/wp-json/mcp/stonewright
 ```
 
-### 3. HTTPS
+### HTTPS
 
-Production sites must use HTTPS. Application Password credentials travel in
-the HTTP Authorization header; over plain HTTP they are readable in transit.
-For local development with no HTTPS, set `WP_ENVIRONMENT_TYPE=local` in
-`wp-config.php` — this suppresses the production warning banner in the
-Stonewright admin.
+Production sites must use HTTPS. Application Password credentials travel in the
+HTTP Authorization header. For local development with no HTTPS, set
+`WP_ENVIRONMENT_TYPE=local` in `wp-config.php`.
 
 ---
 
-## Universal config block
+## Recommended stdio config
 
-For local development, install the companion release package first:
-
-```bash
-npm install -g ./stonewright-companion-<version>.tgz
-```
-
-Then use the Stonewright companion stdio transport:
+Most clients can run the Stonewright companion with `npx`:
 
 ```json
 {
   "mcpServers": {
     "stonewright": {
-      "command": "stonewright-mcp",
-      "args": [],
+      "command": "npx",
+      "args": ["-y", "@stonewright/companion@latest"],
       "env": {
-        "STONEWRIGHT_SITE_URL": "https://your-site.com",
-        "WP_API_URL": "https://your-site.com/wp-json/mcp/stonewright",
-        "WP_API_USERNAME": "your-wp-username",
-        "WP_API_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_MCP_URL": "https://your-site.com/wp-json/mcp/stonewright"
+        "STONEWRIGHT_WP_URL": "https://your-site.com",
+        "STONEWRIGHT_WP_USERNAME": "your-wp-username",
+        "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx"
       }
     }
   }
 }
 ```
 
-Also add the separate Playwright MCP server when the agent needs browser
-testing, screenshots, or visual inspection:
+Stonewright tool names are hyphenated in MCP clients. Example:
+`stonewright/context-bootstrap` is called as `stonewright-context-bootstrap`.
+
+---
+
+## Claude Code
+
+Claude Code registers MCP servers through its CLI:
+
+```bash
+claude mcp add stonewright \
+  --env STONEWRIGHT_WP_URL='https://your-site.com' \
+  --env STONEWRIGHT_WP_USERNAME='your-wp-username' \
+  --env STONEWRIGHT_WP_APP_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx' \
+  -- npx -y @stonewright/companion@latest
+```
+
+The server is registered for the current user. Restart or reload the client
+after adding it.
+
+---
+
+## JSON Clients
+
+Use the recommended stdio block for these clients unless their UI requests the
+fields separately:
+
+| Client | Config location |
+|---|---|
+| Claude Desktop | `%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `~/.config/Claude/claude_desktop_config.json` on Linux |
+| Cursor | `.cursor/mcp.json` in the project or `~/.cursor/mcp.json` globally |
+| Windsurf | `~/.codeium/windsurf/mcp_config.json` |
+| OpenCode | `.opencode/config.json` or global OpenCode config |
+| Roo Code | `~/.roo/mcp.json` or the extension settings panel |
+| Amazon Q Developer | `~/.aws/amazonq/mcp.json` |
+| Kilo Code | `~/.kilo/mcp.json` or the extension settings panel |
+| Gemini CLI | `~/.gemini/settings.json` |
+| Antigravity | project or global MCP config |
+
+VS Code-style clients use a `servers` top-level key instead of `mcpServers`:
+
+```json
+{
+  "servers": {
+    "stonewright": {
+      "command": "npx",
+      "args": ["-y", "@stonewright/companion@latest"],
+      "env": {
+        "STONEWRIGHT_WP_URL": "https://your-site.com",
+        "STONEWRIGHT_WP_USERNAME": "your-wp-username",
+        "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx"
+      }
+    }
+  }
+}
+```
+
+Zed uses `context_servers`:
+
+```json
+{
+  "context_servers": {
+    "stonewright": {
+      "command": {
+        "path": "npx",
+        "args": ["-y", "@stonewright/companion@latest"],
+        "env": {
+          "STONEWRIGHT_WP_URL": "https://your-site.com",
+          "STONEWRIGHT_WP_USERNAME": "your-wp-username",
+          "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx"
+        }
+      }
+    }
+  }
+}
+```
+
+---
+
+## Browser MCP
+
+Add a separate Playwright MCP server when the task needs browser testing,
+screenshots, or visual inspection:
 
 ```json
 {
@@ -82,156 +148,63 @@ testing, screenshots, or visual inspection:
 }
 ```
 
-Restart the AI client after adding the Playwright MCP server so its tool list
-refreshes. For visual tasks, verify a Playwright/browser tool is visible before
-the first Stonewright write.
-
-Stonewright tool names are hyphenated in MCP clients. Example:
-`stonewright/context-bootstrap` is called as `stonewright-context-bootstrap`.
+Restart the AI client after adding Playwright so its tool list refreshes. For
+visual tasks, verify a browser or screenshot tool is visible before the first
+Stonewright write.
 
 ---
 
-## Per-client config paths
+## First Calls
 
-### Claude Code
-Claude Code does not use a JSON config file — it registers MCP servers via its CLI.
-Run the generated `claude mcp add` command shown in the Stonewright admin page.
-The command takes this form:
+After connecting, verify Stonewright with:
 
-```bash
-claude mcp add stonewright -- stonewright-mcp \
-  --env STONEWRIGHT_SITE_URL='...' \
-  --env STONEWRIGHT_MCP_URL='...' \
-  --env WP_API_URL='...' \
-  --env WP_API_USERNAME='...' \
-  --env WP_API_PASSWORD='...'
+```text
+Use MCP tool stonewright-ping.
+Then call stonewright-context-bootstrap and stonewright-workflow-preflight
+before the first real task.
 ```
 
-The server is registered globally for the user. No file edits required.
-
-### Claude Desktop
-Config file:
-- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
-- Linux: `~/.config/Claude/claude_desktop_config.json`
-
-Paste the universal `mcpServers` block at the top level of the JSON object.
-Restart Claude Desktop after saving.
-
-### Cursor
-Config file: `.cursor/mcp.json` in the project root, or
-`~/.cursor/mcp.json` globally.
-
-```json
-{
-  "mcpServers": {
-    "stonewright": { ... }
-  }
-}
-```
-
-### VS Code (Copilot / GitHub Copilot MCP)
-Config file: `.vscode/mcp.json` in the workspace root.
-
-```json
-{
-  "servers": {
-    "stonewright": {
-      "command": "stonewright-mcp",
-      "args": [],
-      "env": {
-        "WP_API_URL": "...",
-        "WP_API_USERNAME": "...",
-        "WP_API_PASSWORD": "...",
-        "STONEWRIGHT_MCP_URL": "..."
-      }
-    }
-  }
-}
-```
-
-Note: VS Code uses `"servers"` rather than `"mcpServers"` at the top level.
-
-### GitHub Copilot (standalone)
-Same as VS Code — `.vscode/mcp.json` with `"servers"` key.
-
-### Windsurf
-Config file: `~/.codeium/windsurf/mcp_config.json`.
-
-Uses the standard `mcpServers` top-level key.
-
-### Zed
-Config file: `~/.config/zed/settings.json`.
-
-Add inside the existing settings object:
-
-```json
-{
-  "context_servers": {
-    "stonewright": {
-      "command": {
-        "path": "stonewright-mcp",
-        "args": [],
-        "env": {
-          "STONEWRIGHT_MCP_URL": "...",
-          "WP_API_USERNAME": "...",
-          "WP_API_PASSWORD": "..."
-        }
-      }
-    }
-  }
-}
-```
-
-### OpenCode
-Config file: `.opencode/config.json` in the project root.
-
-Uses `mcpServers` at the top level.
-
-### Cline (VS Code extension)
-Config lives in VS Code settings. Open the Cline sidebar, click the MCP
-Servers icon, and add a new server with the `npx` command and the three env
-variables.
-
-### Roo Code
-Config file: `~/.roo/mcp.json` or via the Roo Code settings panel in VS Code.
-
-Uses `mcpServers` at the top level.
-
-### Amazon Q Developer
-Config file: `~/.aws/amazonq/mcp.json`.
-
-Uses `mcpServers` at the top level.
-
-### Kilo Code
-Config file: `~/.kilo/mcp.json` or via the Kilo Code extension settings.
-
-Uses `mcpServers` at the top level.
-
-### Gemini CLI
-Config file: `~/.gemini/settings.json`.
-
-Add under the `"mcpServers"` key.
-
-### Antigravity
-Config file: `~/.antigravity/mcp.json`.
-
-Uses `mcpServers` at the top level.
+For visual work, include the target URL, screenshot or design reference, allowed
+plugins, safety mode, and desktop/tablet/mobile acceptance checks.
 
 ---
 
-## Paste-to-agent onboarding prompt
+## Example Prompts
 
-If you would rather let the AI configure itself, paste the following into a
-new chat after connecting the MCP server:
+### Figma to Elementor V3
 
+```text
+Use Stonewright to implement the attached Figma design in Elementor V3. Start
+with stonewright-context-bootstrap and stonewright-workflow-preflight, extract
+layout, spacing, colors, typography, and responsive behavior, create a validated
+design spec, render with stonewright-elementor-v3-build-page-from-spec, then
+use stonewright-elementor-v3-batch-mutate for polish. Verify desktop, tablet,
+and mobile screenshots against the design.
 ```
-You are connected to a Stonewright MCP server at {endpoint URL}.
-Your WordPress username is {username}.
-Please call MCP tool stonewright-ping to confirm the connection, then call
-stonewright-system-abilities-list and summarise which ability categories are
-available. At the start of the first real task, call stonewright-context-bootstrap.
+
+### ACF field group
+
+```text
+Use Stonewright to create an ACF field group for Case Studies with client logo,
+industry, challenge, solution, results metrics, testimonial, gallery, and CTA
+fields. Attach it to the case-study post type, add three sample entries, and
+verify fields are available for dynamic Elementor templates.
 ```
 
-The agent will verify connectivity, enumerate available tools, and confirm
-it is ready to work.
+### CPT UI content model
+
+```text
+Use Stonewright with CPT UI to create a Projects post type and Project Type
+taxonomy. Add labels, archive support, featured images, REST visibility, and
+sensible rewrite slugs. Then seed sample projects and build a responsive
+archive layout that can be filtered by taxonomy.
+```
+
+### WooCommerce cleanup
+
+```text
+Use Stonewright to inspect WooCommerce catalog data, normalize product titles,
+SKUs, prices, categories, and stock for the provided list, then verify the shop
+and product pages still render correctly. Use bulk or batch tools where
+possible and report changed products.
+```

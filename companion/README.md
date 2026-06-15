@@ -67,9 +67,12 @@ cp .env.example .env
 | `COMPANION_BEARER_TOKEN` | recommended | Protects the HTTP transport |
 | `COMPANION_ALLOWED_ORIGINS` | recommended | Comma-separated allowed origins |
 | `PORT` | optional | Enables HTTP transport on this port |
-| `STONEWRIGHT_MCP_URL` | recommended for stdio | WordPress MCP endpoint, e.g. `https://site.test/wp-json/mcp/stonewright` |
-| `WP_API_USERNAME` | with `STONEWRIGHT_MCP_URL` | WordPress username for Application Password auth |
-| `WP_API_PASSWORD` | with `STONEWRIGHT_MCP_URL` | WordPress Application Password |
+| `STONEWRIGHT_WP_URL` | recommended for stdio | WordPress site URL; the companion derives `/wp-json/mcp/stonewright` |
+| `STONEWRIGHT_WP_USERNAME` | with `STONEWRIGHT_WP_URL` | WordPress username for Application Password auth |
+| `STONEWRIGHT_WP_APP_PASSWORD` | with `STONEWRIGHT_WP_URL` | WordPress Application Password |
+| `STONEWRIGHT_MCP_URL` | optional | Explicit WordPress MCP endpoint override |
+| `WP_API_USERNAME` | optional legacy alias | Alias for `STONEWRIGHT_WP_USERNAME` |
+| `WP_API_PASSWORD` | optional legacy alias | Alias for `STONEWRIGHT_WP_APP_PASSWORD` |
 | `STONEWRIGHT_MCP_AUTHORIZATION` | optional | Full Authorization header override for the WordPress MCP endpoint |
 | `STONEWRIGHT_CREDENTIAL_STORE` | optional | Per-project JSON file for a saved Application Password fallback |
 | `STONEWRIGHT_CREDENTIAL_DIR` | optional | Directory for generated per-project credential files |
@@ -92,8 +95,9 @@ The companion always starts stdio MCP. Set `PORT` to also expose HTTP routes.
 
 ## Persistent WordPress Credentials
 
-WordPress shows an Application Password only once. If `WP_API_PASSWORD` is not
-set, the companion looks for a saved per-project credential in
+WordPress shows an Application Password only once. If
+`STONEWRIGHT_WP_APP_PASSWORD` is not set, the companion looks for a saved
+per-project credential in
 `STONEWRIGHT_CREDENTIAL_STORE` or in the Stonewright user credential directory.
 For local development hosts (`localhost`, `127.0.0.1`, `.local`, `.test`), the
 companion can create one Application Password through guarded WP-CLI, save it,
@@ -101,6 +105,11 @@ and reuse it in future agent sessions.
 
 Env credentials still win. Set `STONEWRIGHT_WP_APP_PASSWORD_AUTO=never` to
 disable generation, or `always` to allow generation for non-local sites.
+
+Most users do not need the HTTP bridge. Standard MCP clients should launch the
+companion with `npx @stonewright/companion@latest`. Use the WordPress admin
+**Local WP-CLI bridge (advanced)** controls only when you deliberately run the
+optional HTTP bridge for WordPress-side WP-CLI abilities.
 
 ## WP-CLI Auto-Bootstrap
 

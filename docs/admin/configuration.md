@@ -1,23 +1,23 @@
 # Configuration
 
 The Configuration page is the first sub-page under the **Stonewright** menu
-(`dashicons-hammer`, position 76). It owns three numbered cards: master
-enable, application password, and client connection config.
+(`dashicons-hammer`, position 76). It owns three numbered cards: master enable,
+Application Password generation, and MCP client connection.
 
 Source: `plugin/includes/Admin/ConfigurationPage.php`
 
 ---
 
-## Card 1 — Enable AI Abilities
+## Card 1 - Enable AI Abilities
 
 ### Master toggle
 
-The `stonewright_enabled` option (boolean, default `false`) is a site-wide
-kill switch. When it is `false` the MCP server rejects every inbound tool
-call with an error — the only exception is the built-in `ping` ability,
-which always responds so clients can test connectivity.
+The `stonewright_enabled` option (boolean, default `false`) is a site-wide kill
+switch. When it is `false`, the MCP server rejects inbound tool calls except for
+the built-in `ping` ability, which always responds so clients can test
+connectivity.
 
-Flip the toggle, click **Save changes**, and all registered abilities become
+Flip the toggle, click **Save Settings**, and registered abilities become
 available on the next tool-call attempt.
 
 ### Mode selector
@@ -30,110 +30,113 @@ Three modes are stored in the `stonewright_mode` option:
 | `staging` | Same as development; useful for labelling deployments. |
 | `production-safe` | Destructive operations require a `confirmation_token` obtained from `stonewright/security-issue-confirmation-token`. Without the token, those calls are rejected before execution. |
 
-### Production warning banner
+### Essential tools mode
 
-When `wp_get_environment_type()` returns `'production'` **and** the master
-toggle is `true`, a yellow notice appears at the top of the page. This is
-purely informational — it does not block saving. The recommended response is
-either to switch to `production-safe` mode or to disable AI Abilities until
-you are ready to accept the risk.
+`stonewright_essential_tools_mode` keeps MCP startup and tool discovery compact
+by exposing the most common Stonewright tools first. Agents can still use the
+broader ability list when a task needs it.
 
-### Companion bridge
+### Local WP-CLI bridge (advanced)
 
 The companion is a Node.js sidecar that handles WP-CLI, health checks, and the
 optional MCP proxy. It writes to WordPress only through guarded WP-CLI commands.
 
-| Setting | Option | Default |
-|---|---|---|
-| Bridge URL | `stonewright_companion_url` | `http://127.0.0.1:8765` |
-| Bearer token | `stonewright_companion_token` | _(empty)_ |
+Most users can skip this section. The setup note in Card 3 already runs
+Stonewright through `npx @stonewright/companion@latest`, and direct companion
+tools such as `stonewright-wp-cli-status`, `stonewright-wp-cli-discover`, and
+`stonewright-wp-cli-run` do not need port `8765`.
 
-The bridge URL is only required for WordPress-side abilities such as
-`stonewright/wp-cli-run` when the client talks directly to the WordPress MCP
-endpoint. When the client talks through the Node companion MCP, WP-CLI is also
-available as direct tools named `stonewright-wp-cli-status`,
-`stonewright-wp-cli-discover`, and `stonewright-wp-cli-run`; these do not need
-port `8765`.
+Use **Local WP-CLI bridge (advanced)** only when you deliberately run a local
+HTTP bridge for WordPress-side abilities such as `stonewright/wp-cli-run`.
+Click **Generate token**, save settings, then copy **Developer launch values**
+into the bridge process. The bridge token must match the saved token.
 
-WP-CLI discovery uses explicit env vars first, then the Stonewright companion
-cache, then LocalWP-style `wp-cli.phar` and PHP paths, then `wp` from `PATH`.
-If no phar exists, the direct companion tool `stonewright-wp-cli-install` can
-download the official `wp-cli.phar` into the companion cache without modifying
-system `PATH`.
+### Elementor V4 atomic
 
-### Elementor V4 atomic (experimental)
-
-Checking `stonewright_elementor_v4_atomic` enables the experimental V4
-renderer and related abilities. Off by default. Only relevant on sites
-running Elementor 3.18+.
-
-### Custom Instructions toggle
-
-`stonewright_custom_instructions_enabled` is registered on this page (boolean,
-default `true`) so it persists even before the Memory & Instructions sub-page
-is visited. The actual text is managed on the Memory & Instructions page;
-this option only controls whether that text is injected into the MCP server
-description and ability-list responses.
+Checking `stonewright_elementor_v4_atomic` enables the experimental V4 renderer
+and related abilities. It is off by default and only relevant on sites running
+Elementor 3.18+.
 
 ---
 
-## Card 2 — Application Password
+## Card 2 - Application Password
 
 AI clients authenticate using a WordPress Application Password sent as HTTP
 Basic Auth with every request (`username:app-password`).
 
-**To generate one:**
+To generate one from the Configuration page:
 
-1. Click **Manage application passwords** — this opens your WordPress profile
-   at `wp-admin/profile.php#application-passwords-section`.
-2. Enter a name (e.g. "Stonewright Claude Code") and click **Add New
-   Application Password**.
-3. Copy the displayed password immediately — WordPress will not show it again.
-4. Paste the username and password into your client config (see Card 3).
+1. Enter a required label for the client, such as `Claude Code laptop` or
+   `Cursor`.
+2. Click **Generate application password**.
+3. Copy the displayed password immediately. WordPress only shows it once.
+4. The generated password is embedded into the setup note in Card 3 for the
+   current page load.
 
-You can revoke individual passwords from the same profile section at any time.
-Application Passwords are always generated for the currently logged-in user;
-you cannot create them on behalf of another user from this page.
+The page also lists existing Application Password names for the current user so
+site owners can see whether a client credential already exists. Each row can be
+revoked from this table. Passwords are created only for the currently logged-in
+WordPress user.
 
 ---
 
-## Card 3 — Connect Your AI Client
+## Card 3 - Connect MCP Client
 
 ### MCP endpoint URL
 
-```
+```text
 {site_url}/wp-json/mcp/stonewright
 ```
 
-For example: `https://example.com/wp-json/mcp/stonewright`
+For example: `https://example.com/wp-json/mcp/stonewright`.
 
-### Universal config block
+### Recommended config block
 
-Install the companion release package with
-`npm install -g ./stonewright-companion-<version>.tgz`, then use the same
-stdio transport in supported clients:
+Most local MCP clients can launch the companion through `npx` without a global
+install:
 
 ```json
 {
   "mcpServers": {
     "stonewright": {
-      "command": "stonewright-mcp",
-      "args": [],
+      "command": "npx",
+      "args": ["-y", "@stonewright/companion@latest"],
       "env": {
-        "STONEWRIGHT_MCP_URL": "https://example.com/wp-json/mcp/stonewright",
-        "WP_API_USERNAME": "your-wp-username",
-        "WP_API_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx"
+        "STONEWRIGHT_WP_URL": "https://example.com",
+        "STONEWRIGHT_WP_USERNAME": "your-wp-username",
+        "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx"
       }
     }
   }
 }
 ```
 
-Replace `STONEWRIGHT_MCP_URL` with the endpoint shown on the page, `WP_API_USERNAME`
-with your WordPress login, and `WP_API_PASSWORD` with the application password
-generated in Card 2.
+Use the WordPress URL, username, and Application Password from Cards 2 and 3.
+The admin page also exposes per-client snippets for clients that use a slightly
+different top-level key, such as VS Code's `servers`.
 
-Also configure Playwright MCP separately when the agent needs browser testing,
+### Copyable setup note
+
+The setup note is a short prompt for the current AI client. It includes the
+site URL, MCP endpoint, username, generated Application Password when present,
+the `npx` transport, and the required first Stonewright calls:
+`stonewright-context-bootstrap` and `stonewright-workflow-preflight`.
+
+The note also tells agents that `npx` downloads and runs
+`@stonewright/companion@latest`, and that Playwright MCP should be added for
+browser testing, screenshots, and visual QA when the client does not already
+have browser tools.
+
+### Examples
+
+The **Examples** expander contains copyable real-world Stonewright prompts for
+Elementor page builds, ACF field groups, CPT UI content models, Figma to
+Elementor V3 implementation, WooCommerce catalog cleanup, and Gutenberg/FSE
+updates.
+
+### Browser MCP
+
+Configure Playwright MCP separately when the agent needs browser testing,
 screenshots, or visual inspection:
 
 ```bash
@@ -143,14 +146,20 @@ npx -y @playwright/mcp@latest --caps=testing,vision,devtools
 Restart the AI client after adding Playwright. If no Playwright/browser tool is
 visible, the agent should stop before the first visual write.
 
-The tab strip on Card 3 shows the exact config file path and snippet for each
-of the 15 supported clients. See [connect-clients.md](./connect-clients.md)
-for full per-client details.
+See [connect-clients.md](./connect-clients.md) for per-client details.
+
+## Site-Local Memory And Skills
+
+Built-in skills shipped in `skills/` are public Stonewright assets. Skills,
+memory, and custom instructions created in the admin UI are stored in the
+current WordPress database and are not bundled into release ZIPs or the npm
+companion. Keep credentials, private memory, and client-specific instructions
+out of public examples, commits, issues, and release notes.
 
 ### HTTPS requirement
 
 On a production site (or any site with `wp_get_environment_type()` returning
-anything other than `'local'`) the endpoint should be served over HTTPS.
-Basic Auth credentials sent over plain HTTP are trivially intercepted. Set
+anything other than `'local'`) the endpoint should be served over HTTPS. Basic
+Auth credentials sent over plain HTTP are trivially intercepted. Set
 `WP_ENVIRONMENT_TYPE=local` in `wp-config.php` only on local-only dev
 environments where HTTPS is unavailable.

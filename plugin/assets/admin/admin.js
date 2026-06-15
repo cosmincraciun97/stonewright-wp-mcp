@@ -59,6 +59,9 @@
 		if ( 'value' in target ) {
 			return target.value || '';
 		}
+		if ( target.dataset && target.dataset.stonewrightTextFull ) {
+			return target.dataset.stonewrightTextFull || '';
+		}
 		return target.textContent || '';
 	}
 
@@ -74,6 +77,38 @@
 		button.stonewrightFeedbackTimer = window.setTimeout( function () {
 			button.textContent = original;
 		}, 1600 );
+	}
+
+	function bridgeEnvText( token ) {
+		var value = token || '<choose-a-long-random-token>';
+		return [
+			'PORT=8765',
+			'COMPANION_BEARER_TOKEN=' + value,
+			'COMPANION_ALLOWED_ORIGINS=http://localhost,http://127.0.0.1',
+		].join( '\n' );
+	}
+
+	function updateBridgeEnvBlocks( tokenInput ) {
+		if ( ! tokenInput ) {
+			return;
+		}
+		document.querySelectorAll( '[data-stonewright-bridge-token-source="' + tokenInput.id + '"]' ).forEach( function ( block ) {
+			block.textContent = bridgeEnvText( tokenInput.value || '' );
+		} );
+	}
+
+	function generateToken() {
+		var bytes = new Uint8Array( 32 );
+		if ( window.crypto && window.crypto.getRandomValues ) {
+			window.crypto.getRandomValues( bytes );
+		} else {
+			for ( var i = 0; i < bytes.length; i++ ) {
+				bytes[ i ] = Math.floor( Math.random() * 256 );
+			}
+		}
+		return Array.prototype.map.call( bytes, function ( byte ) {
+			return byte.toString( 16 ).padStart( 2, '0' );
+		} ).join( '' );
 	}
 
 	function copyWithTextarea( value ) {
@@ -146,6 +181,32 @@
 				input.setAttribute( 'type', hidden ? 'text' : 'password' );
 				button.textContent = hidden ? 'Hide' : 'Reveal';
 			} );
+		} );
+	}
+
+	function initTokenGenerators() {
+		document.querySelectorAll( '[data-stonewright-generate-token]' ).forEach( function ( button ) {
+			button.addEventListener( 'click', function ( event ) {
+				event.preventDefault();
+				var input = document.getElementById( button.getAttribute( 'data-stonewright-generate-token' ) );
+				if ( ! input ) {
+					return;
+				}
+				input.value = generateToken();
+				updateBridgeEnvBlocks( input );
+				setButtonFeedback( button, 'Generated' );
+			} );
+		} );
+
+		document.querySelectorAll( '[data-stonewright-bridge-token-source]' ).forEach( function ( block ) {
+			var input = document.getElementById( block.getAttribute( 'data-stonewright-bridge-token-source' ) );
+			if ( ! input ) {
+				return;
+			}
+			input.addEventListener( 'input', function () {
+				updateBridgeEnvBlocks( input );
+			} );
+			updateBridgeEnvBlocks( input );
 		} );
 	}
 
@@ -231,6 +292,41 @@
 	}
 
 	function initDeclarativeToggles() {
+		document.querySelectorAll( '[data-stonewright-text-toggle]' ).forEach( function ( button ) {
+			button.addEventListener( 'click', function ( event ) {
+				event.preventDefault();
+				var target = document.getElementById( button.getAttribute( 'data-stonewright-text-toggle' ) );
+				if ( ! target || ! target.dataset ) {
+					return;
+				}
+				var expanded = target.dataset.stonewrightExpanded === 'true';
+				target.textContent = expanded ? target.dataset.stonewrightTextPreview || '' : target.dataset.stonewrightTextFull || '';
+				target.dataset.stonewrightExpanded = expanded ? 'false' : 'true';
+				button.textContent = expanded ? 'Show full text' : 'Show less';
+				button.setAttribute( 'aria-expanded', expanded ? 'false' : 'true' );
+				document.querySelectorAll( '[data-stonewright-text-collapse="' + target.id + '"]' ).forEach( function ( collapse ) {
+					collapse.hidden = expanded;
+				} );
+			} );
+		} );
+
+		document.querySelectorAll( '[data-stonewright-text-collapse]' ).forEach( function ( button ) {
+			button.addEventListener( 'click', function ( event ) {
+				event.preventDefault();
+				var target = document.getElementById( button.getAttribute( 'data-stonewright-text-collapse' ) );
+				if ( ! target || ! target.dataset ) {
+					return;
+				}
+				target.textContent = target.dataset.stonewrightTextPreview || '';
+				target.dataset.stonewrightExpanded = 'false';
+				document.querySelectorAll( '[data-stonewright-text-toggle="' + target.id + '"]' ).forEach( function ( toggle ) {
+					toggle.textContent = 'Show full text';
+					toggle.setAttribute( 'aria-expanded', 'false' );
+				} );
+				button.hidden = true;
+			} );
+		} );
+
 		document.querySelectorAll( '[data-stonewright-toggle-target]' ).forEach( function ( button ) {
 			button.addEventListener( 'click', function ( event ) {
 				event.preventDefault();
@@ -307,6 +403,7 @@
 		initAutoDismissNotices();
 		initCopyButtons();
 		initSecretToggles();
+		initTokenGenerators();
 		initClientTabs();
 		initAbilitySearch();
 		initAbilityBulkControls();

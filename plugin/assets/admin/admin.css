@@ -86,6 +86,26 @@
 	max-width: 760px;
 }
 
+.stonewright-brand-banner {
+	align-items: center;
+	background: #000;
+	box-sizing: border-box;
+	color: #fff;
+	display: flex;
+	min-height: 64px;
+	padding: 16px 22px;
+	width: 100%;
+}
+
+.stonewright-brand-banner span {
+	color: #fff;
+	font-family: "Arial Black", Impact, system-ui, sans-serif;
+	font-size: 30px;
+	font-weight: 900;
+	letter-spacing: 0;
+	line-height: 1;
+}
+
 .stonewright-panel {
 	background: #fff;
 	border: 1px solid #dcdcde;
@@ -414,6 +434,176 @@
 	color: #0a4b22;
 }
 
+.stonewright-risk-notice--info {
+	border-left-color: #3858e9;
+	background: #f8fbff;
+	color: #1d2327;
+}
+
+.stonewright-advanced-bridge {
+	border-top: 1px solid #f0f0f1;
+	margin-top: 12px;
+	padding-top: 10px;
+}
+
+.stonewright-bridge-steps {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	margin: 10px 0 12px;
+	padding: 10px 12px 10px 28px;
+}
+
+.stonewright-bridge-steps li {
+	margin: 2px 0;
+}
+
+.stonewright-bridge-env-panel {
+	background: #fbfbfc;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	margin: 12px 0 0;
+	padding: 10px 12px;
+}
+
+.stonewright-bridge-env-panel summary {
+	cursor: pointer;
+	font-weight: 600;
+}
+
+.stonewright-advanced-bridge [hidden],
+.stonewright-example-prompts[hidden],
+#stonewright-client-configs[hidden],
+.stonewright-connect-prompt[hidden] {
+	display: none;
+}
+
+.stonewright-app-password-form {
+	margin-top: 12px;
+}
+
+.stonewright-app-password-success {
+	background: #edfaef;
+	border-left: 4px solid #00a32a;
+	display: grid;
+	gap: 8px;
+	margin: 12px 0;
+	padding: 10px 12px;
+}
+
+.stonewright-app-password-success strong {
+	color: #0a4b22;
+}
+
+.stonewright-app-passwords-list {
+	border-top: 1px solid #f0f0f1;
+	margin-top: 14px;
+	padding-top: 10px;
+}
+
+.stonewright-app-passwords-list summary {
+	cursor: pointer;
+	font-weight: 600;
+}
+
+.stonewright-app-password-table {
+	margin-top: 10px;
+}
+
+.stonewright-share-warning {
+	background: #f8fbff;
+	border-left: 4px solid #3858e9;
+	margin: 12px 0;
+	padding: 10px 12px;
+}
+
+.stonewright-connect-prompt {
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	font-family: Consolas, Monaco, monospace;
+	font-size: 12px;
+	line-height: 1.55;
+	margin: 8px 0;
+	max-height: 360px;
+	overflow: auto;
+	padding: 12px;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+#stonewright-connect-prompt-preview {
+	max-height: 180px;
+}
+
+.stonewright-bridge-env {
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	font-family: Consolas, Monaco, monospace;
+	font-size: 12px;
+	line-height: 1.55;
+	margin: 8px 0;
+	max-height: 140px;
+	overflow: auto;
+	padding: 10px;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.stonewright-connect-actions {
+	margin: 8px 0 10px;
+}
+
+.stonewright-link-stack {
+	display: grid;
+	gap: 8px;
+	justify-items: start;
+	margin-top: 12px;
+}
+
+.stonewright-link-stack .button-link {
+	color: #2271b1;
+}
+
+.stonewright-example-prompts,
+#stonewright-client-configs {
+	margin-top: 12px;
+}
+
+.stonewright-example-grid {
+	display: grid;
+	gap: 12px;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.stonewright-example-card {
+	background: #fbfbfc;
+	border: 1px solid #dcdcde;
+	border-radius: 6px;
+	padding: 12px;
+}
+
+.stonewright-example-card h3 {
+	font-size: 13px;
+	line-height: 1.35;
+	margin: 0 0 8px;
+}
+
+.stonewright-example-card pre {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	font-size: 12px;
+	line-height: 1.5;
+	margin: 0 0 8px;
+	max-height: 180px;
+	overflow: auto;
+	padding: 10px;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
 .stonewright-client-tabs {
 	display: flex;
 	flex-wrap: wrap;
@@ -643,9 +833,14 @@
 	}
 
 	.stonewright-card-grid,
+	.stonewright-example-grid,
 	.stonewright-guidance-grid,
 	.stonewright-memory-edit-grid {
 		grid-template-columns: 1fr;
+	}
+
+	.stonewright-brand-banner span {
+		font-size: 24px;
 	}
 
 	.stonewright-ability-table__head {

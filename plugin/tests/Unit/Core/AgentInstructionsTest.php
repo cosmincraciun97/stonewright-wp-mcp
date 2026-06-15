@@ -20,6 +20,8 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'stonewright/skills-get', $instructions );
 		$this->assertStringContainsString( 'stonewright/memory-get', $instructions );
 		$this->assertStringContainsString( 'stonewright/learning-record', $instructions );
+		$this->assertStringContainsString( 'Site-specific skills, memory, and custom instructions stay local to this WordPress install', $instructions );
+		$this->assertStringContainsString( 'Do not publish credentials, private memory, site-specific prompts, or custom instructions', $instructions );
 		$this->assertStringContainsString( 'stonewright/elementor-knowledge-search', $instructions );
 		$this->assertStringContainsString( 'stonewright/elementor-describe-widget', $instructions );
 		$this->assertStringContainsString( 'stonewright/widget-intent-resolve', $instructions );

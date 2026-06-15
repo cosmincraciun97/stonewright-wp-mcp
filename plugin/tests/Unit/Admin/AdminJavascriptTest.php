@@ -24,6 +24,9 @@ final class AdminJavascriptTest extends TestCase {
 		foreach ( [
 			'data-stonewright-copy',
 			'data-stonewright-secret-toggle',
+			'data-stonewright-generate-token',
+			'data-stonewright-text-toggle',
+			'data-stonewright-text-collapse',
 			'data-stonewright-toggle-target',
 			'data-stonewright-hide-target',
 			'data-stonewright-row-toggle',
@@ -35,5 +38,14 @@ final class AdminJavascriptTest extends TestCase {
 				$attribute . ' click handler should prevent accidental form submission.'
 			);
 		}
+	}
+
+	public function test_bridge_token_generator_uses_browser_crypto(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
+
+		self::assertStringContainsString( 'data-stonewright-generate-token', $script );
+		self::assertStringContainsString( 'crypto.getRandomValues', $script );
+		self::assertStringContainsString( 'data-stonewright-bridge-token-source', $script );
+		self::assertStringContainsString( 'COMPANION_BEARER_TOKEN=', $script );
 	}
 }
