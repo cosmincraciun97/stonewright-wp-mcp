@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Core;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Abilities\Ability;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 
 /**
@@ -94,6 +95,25 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 		self::assertSame( [], $errors );
 	}
 
+	public function test_public_output_schema_arrays_declare_items_for_strict_clients(): void {
+		$errors = [];
+		foreach ( AbilityRegistry::list() as $class ) {
+			if ( ! class_exists( $class ) ) {
+				continue;
+			}
+
+			/** @var Ability $ability */
+			$ability = new $class();
+			self::collect_missing_array_items(
+				self::registry_output_schema_for_ability( $ability ),
+				$ability->name() . '.output_schema',
+				$errors
+			);
+		}
+
+		self::assertSame( [], $errors );
+	}
+
 	/**
 	 * @param mixed             $schema
 	 * @param array<int,string> $errors
@@ -110,5 +130,17 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 		foreach ( $schema as $key => $value ) {
 			self::collect_missing_array_items( $value, $path . '.' . (string) $key, $errors );
 		}
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private static function registry_output_schema_for_ability( Ability $ability ): array {
+		$method = new \ReflectionMethod( AbilityRegistry::class, 'output_schema_for_ability' );
+		$method->setAccessible( true );
+
+		/** @var array<string, mixed> $schema */
+		$schema = $method->invoke( null, $ability );
+		return $schema;
 	}
 }

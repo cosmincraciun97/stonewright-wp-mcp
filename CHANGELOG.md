@@ -7,6 +7,16 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.55] - 2026-06-17
+
+### Fixed
+
+- Normalized public ability output schemas before registration so permissive
+  arrays declare `items` and strict MCP clients do not reject Stonewright tools
+  during schema validation.
+- Added a registry guard that keeps future public output schemas compatible
+  with strict client discovery.
+
 ## [1.0.0-alpha.54] - 2026-06-17
 
 ### Changed

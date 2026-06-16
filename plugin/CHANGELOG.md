@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.55] - 2026-06-17
+
+### Fixed
+
+- Normalized ability output schemas through the registry before public
+  registration, keeping array shapes strict-client safe.
+- Added test coverage that prevents future public output schemas from omitting
+  `items` on array schemas.
+
 ## [1.0.0-alpha.54] - 2026-06-17
 
 ### Changed

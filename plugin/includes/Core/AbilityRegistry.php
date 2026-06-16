@@ -421,7 +421,7 @@ final class AbilityRegistry {
 				'ability_class'       => RegisteredAbility::class,
 				'category'            => $ability->category(),
 				'input_schema'        => $input_schema,
-				'output_schema'       => $ability->output_schema(),
+				'output_schema'       => self::output_schema_for_ability( $ability ),
 				'permission_callback' => [ $ability, 'permission_callback' ],
 				// Wrap execute with UTF-8 deep_sanitize so all ability inputs
 				// are guaranteed valid UTF-8 regardless of client encoding.
@@ -579,6 +579,15 @@ final class AbilityRegistry {
 
 		/** @var array<string, mixed> $schema */
 		$schema = self::normalise_schema_object_maps( $schema );
+		return $schema;
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private static function output_schema_for_ability( Ability $ability ): array {
+		/** @var array<string, mixed> $schema */
+		$schema = self::normalise_schema_object_maps( $ability->output_schema() );
 		return $schema;
 	}
 
