@@ -14,6 +14,11 @@ const packageJson = JSON.parse(
 ) as CompanionPackageJson;
 
 describe('package startup safety', () => {
+	it('keeps the published MCP entrypoint executable through npm bin shims', () => {
+		const sourceEntry = readFileSync(join(companionRoot, 'src', 'index.ts'), 'utf8');
+		expect(sourceEntry.startsWith('#!/usr/bin/env node\n')).toBe(true);
+	});
+
 	it('builds dist before packing release tarballs', () => {
 		expect(packageJson.files).toContain('dist');
 		expect(packageJson.scripts?.prepack).toBe('npm run build');

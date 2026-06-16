@@ -62,7 +62,9 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertSame(
 			[
 				'-y',
+				'--package',
 				'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v0.0.0-test/stonewright-companion-0.0.0-test.tgz',
+				'stonewright-mcp',
 			],
 			$server['args']
 		);
@@ -92,6 +94,8 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertArrayHasKey( 'command', $result );
 		$this->assertStringContainsString( 'claude mcp add stonewright', $result['command'] );
 		$this->assertStringContainsString( 'stonewright-companion-0.0.0-test.tgz', $result['command'] );
+		$this->assertStringContainsString( '--package', $result['command'] );
+		$this->assertStringContainsString( 'stonewright-mcp', $result['command'] );
 		$this->assertStringContainsString( '--env STONEWRIGHT_MCP_TOOL_PROFILE=essential', $result['command'] );
 		$this->assertStringNotContainsString( '@automattic/mcp-wordpress-remote', $result['command'] );
 	}
@@ -140,6 +144,8 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'pw1234', $prompt );
 		$this->assertStringContainsString( 'mcp/stonewright', $prompt );
 		$this->assertStringContainsString( 'stonewright-companion-0.0.0-test.tgz', $prompt );
+		$this->assertStringContainsString( '["-y", "--package"', $prompt );
+		$this->assertStringContainsString( 'stonewright-mcp', $prompt );
 		$this->assertStringContainsString( 'STONEWRIGHT_WP_APP_PASSWORD', $prompt );
 		$this->assertStringContainsString( 'STONEWRIGHT_MCP_TOOL_PROFILE', $prompt );
 		$this->assertStringContainsString( 'Use STONEWRIGHT_MCP_TOOL_PROFILE=low-tools for Antigravity, Gemini API, or other strict tool-cap clients', $prompt );

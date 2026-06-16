@@ -2,12 +2,16 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.56] - 2026-06-17
+
 ### Fixed
 
 - Hardened MCP client setup prompts to warn against fragile
   `node companion/dist/index.js` configs and generic WordPress MCP adapters,
-  preferring the versioned `npx` companion tarball or source-development
-  `mcp:source` command.
+  preferring the explicit `npx -y --package <tarball> stonewright-mcp`
+  companion launch or source-development `mcp:source` command.
+- Added a shebang to the companion MCP entrypoint so release tarball bin shims
+  execute through Node instead of silently exiting on Windows.
 
 ## [1.0.0-alpha.55] - 2026-06-17
 

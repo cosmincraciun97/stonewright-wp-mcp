@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * Stonewright Companion - entry point.
  *

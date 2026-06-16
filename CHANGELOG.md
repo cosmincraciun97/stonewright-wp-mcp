@@ -7,6 +7,8 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.56] - 2026-06-17
+
 ### Added
 
 - Added Antigravity setup documentation with `low-tools` config, refresh steps,
@@ -20,6 +22,12 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `dist` before packing, source-development MCP configs use `mcp:source`, and
   docs/admin prompts warn against generic WordPress MCP adapters and fragile
   `node companion/dist/index.js` IDE configs.
+- Added a Node shebang to the companion MCP entrypoint so npm-generated bin
+  shims execute the published tarball through Node on Windows, macOS, and
+  Linux.
+- Updated setup-profile, admin snippets, and public docs to run the explicit
+  `stonewright-mcp` bin through `npx -y --package <tarball> stonewright-mcp`,
+  avoiding ambiguous npx bin inference for scoped release tarballs.
 - Updated the Codex skill sync script so backups are stored outside
   `~/.codex/skills`, stale nested skill copies are cleaned, and older indexed
   backup directories are relocated instead of appearing as duplicate slash
@@ -766,6 +774,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.56]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.56
 [1.0.0-alpha.55]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.55
 [1.0.0-alpha.54]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.54
 [1.0.0-alpha.53]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.53

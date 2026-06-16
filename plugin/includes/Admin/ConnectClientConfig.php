@@ -149,7 +149,7 @@ final class ConnectClientConfig {
 			'mcpServers' => [
 				'stonewright' => [
 					'command' => 'npx',
-					'args'    => [ '-y', self::companion_package_spec() ],
+					'args'    => self::companion_mcp_args(),
 					'env'     => [
 						'STONEWRIGHT_WP_URL'          => self::site_url(),
 						'STONEWRIGHT_WP_USERNAME'     => $username ?: 'your-wp-username',
@@ -256,7 +256,7 @@ final class ConnectClientConfig {
 			}
 			return [
 				'command' => sprintf(
-					'claude mcp add stonewright --env STONEWRIGHT_WP_URL=%s --env STONEWRIGHT_WP_USERNAME=%s --env STONEWRIGHT_WP_APP_PASSWORD=%s --env STONEWRIGHT_MCP_TOOL_PROFILE=essential -- npx -y %s',
+					'claude mcp add stonewright --env STONEWRIGHT_WP_URL=%s --env STONEWRIGHT_WP_USERNAME=%s --env STONEWRIGHT_WP_APP_PASSWORD=%s --env STONEWRIGHT_MCP_TOOL_PROFILE=essential -- npx -y --package %s stonewright-mcp',
 					escapeshellarg( self::site_url() ),
 					escapeshellarg( $username ),
 					escapeshellarg( $app_password ?: '<your-application-password>' ),
@@ -290,7 +290,7 @@ final class ConnectClientConfig {
 		$prompt = sprintf(
 			/* translators: 1: site URL, 2: MCP endpoint URL, 3: username, 4: Application Password, 5: companion package URL. */
 			__(
-				"Configure Stonewright MCP for this WordPress install in the current AI client.\n\nUse these connection values:\n- WordPress URL: %1\$s\n- MCP endpoint: %2\$s\n- Username: %3\$s\n- Application Password: %4\$s\n- MCP server name: stonewright\n- Local transport: npx %5\$s\n\nConfiguration rules:\n- Store credentials as env vars only: STONEWRIGHT_WP_URL, STONEWRIGHT_WP_USERNAME, STONEWRIGHT_WP_APP_PASSWORD.\n- Set STONEWRIGHT_MCP_TOOL_PROFILE=essential so new MCP sessions start with the compact Stonewright fast-path tool surface.\n- Use STONEWRIGHT_MCP_TOOL_PROFILE=low-tools for Antigravity, Gemini API, or other strict tool-cap clients.\n- Use command `npx` with args `[\"-y\", \"%5\$s\"]`; npx downloads and runs the versioned GitHub release tarball, so no global companion install or npm registry publishing is required.\n- Do not configure generic WordPress MCP adapters such as `@automattic/mcp-wordpress-remote` as the `stonewright` server; use the Stonewright companion so setup, status, compact profiles, and guarded WP-CLI tools stay visible during endpoint recovery.\n- Do not use `node companion/dist/index.js` in IDE MCP configs; dist is a source build artifact and is intentionally not committed. For source development, use `npm --prefix <repo>/companion run mcp:source`.\n- Do not use arbitrary PHP execution, wp eval, wp shell, --exec, or --require.\n- Restart or reload the MCP session after saving the config.\n\nAfter reload:\n- Verify the MCP tool list includes stonewright-context-bootstrap before starting WordPress work.\n- First Stonewright calls after connection: stonewright-context-bootstrap, then stonewright-workflow-preflight.\n- Do not start by only announcing named skills. Stonewright skills are guidance returned by MCP; they do not replace live tool calls.\n- Do not treat local agent skills as a substitute for live Stonewright MCP tools.\n- If stonewright-context-bootstrap is missing, stop and tell me the Stonewright MCP server did not load. Ask me to reload or fix the MCP config, or to open the Stonewright JSON snippets panel.\n- Do not inspect private AI-client config files, parse repository files, or hand-roll JSON-RPC calls to the WordPress MCP endpoint as a workaround for a missing MCP server.\n- Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround.\n\nBrowser testing:\n- If this client does not already have browser tools, also add Playwright MCP for browser testing, screenshots, and visual QA.\n- Playwright MCP config: command `npx`, args `[\"-y\", \"@playwright/mcp@latest\", \"--caps=testing,vision,devtools\"]`.\n- For visual WordPress or Elementor work, confirm Playwright/browser tools are visible before the first write.\n\nIf you cannot edit the client config here, ask me to open the Stonewright JSON snippets panel.",
+				"Configure Stonewright MCP for this WordPress install in the current AI client.\n\nUse these connection values:\n- WordPress URL: %1\$s\n- MCP endpoint: %2\$s\n- Username: %3\$s\n- Application Password: %4\$s\n- MCP server name: stonewright\n- Local transport: npx -y --package %5\$s stonewright-mcp\n\nConfiguration rules:\n- Store credentials as env vars only: STONEWRIGHT_WP_URL, STONEWRIGHT_WP_USERNAME, STONEWRIGHT_WP_APP_PASSWORD.\n- Set STONEWRIGHT_MCP_TOOL_PROFILE=essential so new MCP sessions start with the compact Stonewright fast-path tool surface.\n- Use STONEWRIGHT_MCP_TOOL_PROFILE=low-tools for Antigravity, Gemini API, or other strict tool-cap clients.\n- Use command `npx` with args `[\"-y\", \"--package\", \"%5\$s\", \"stonewright-mcp\"]`; npx downloads the versioned GitHub release tarball and runs the explicit companion bin, so no global companion install or npm registry publishing is required.\n- Do not configure generic WordPress MCP adapters such as `@automattic/mcp-wordpress-remote` as the `stonewright` server; use the Stonewright companion so setup, status, compact profiles, and guarded WP-CLI tools stay visible during endpoint recovery.\n- Do not use `node companion/dist/index.js` in IDE MCP configs; dist is a source build artifact and is intentionally not committed. For source development, use `npm --prefix <repo>/companion run mcp:source`.\n- Do not use arbitrary PHP execution, wp eval, wp shell, --exec, or --require.\n- Restart or reload the MCP session after saving the config.\n\nAfter reload:\n- Verify the MCP tool list includes stonewright-context-bootstrap before starting WordPress work.\n- First Stonewright calls after connection: stonewright-context-bootstrap, then stonewright-workflow-preflight.\n- Do not start by only announcing named skills. Stonewright skills are guidance returned by MCP; they do not replace live tool calls.\n- Do not treat local agent skills as a substitute for live Stonewright MCP tools.\n- If stonewright-context-bootstrap is missing, stop and tell me the Stonewright MCP server did not load. Ask me to reload or fix the MCP config, or to open the Stonewright JSON snippets panel.\n- Do not inspect private AI-client config files, parse repository files, or hand-roll JSON-RPC calls to the WordPress MCP endpoint as a workaround for a missing MCP server.\n- Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround.\n\nBrowser testing:\n- If this client does not already have browser tools, also add Playwright MCP for browser testing, screenshots, and visual QA.\n- Playwright MCP config: command `npx`, args `[\"-y\", \"@playwright/mcp@latest\", \"--caps=testing,vision,devtools\"]`.\n- For visual WordPress or Elementor work, confirm Playwright/browser tools are visible before the first write.\n\nIf you cannot edit the client config here, ask me to open the Stonewright JSON snippets panel.",
 				'stonewright'
 			),
 			self::site_url(),
@@ -305,6 +305,15 @@ final class ConnectClientConfig {
 
 	private static function profile_for_client( string $client_slug ): string {
 		return in_array( $client_slug, [ 'antigravity', 'gemini-cli' ], true ) ? 'low-tools' : 'essential';
+	}
+
+	/**
+	 * Returns explicit npx args for the companion stdio MCP server.
+	 *
+	 * @return array<int, string>
+	 */
+	private static function companion_mcp_args(): array {
+		return [ '-y', '--package', self::companion_package_spec(), 'stonewright-mcp' ];
 	}
 
 	private static function normalise_tool_profile( string $tool_profile ): string {

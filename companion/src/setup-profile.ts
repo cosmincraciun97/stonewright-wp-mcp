@@ -132,7 +132,7 @@ export function buildSetupProfile(
 		install_command: `npm install -g ${companionPackageSpec()}`,
 		mcp_server: {
 			command: 'npx',
-			args: ['-y', companionPackageSpec()],
+			args: companionMcpArgs(),
 			env: mcpEnv,
 		},
 		checks,
@@ -147,7 +147,7 @@ export function buildSetupProfile(
 		notes: [
 			'Use this MCP config on Windows, macOS, and Linux; env vars carry paths safely.',
 			'No shell script wrapper required; the companion uses Node and execFile argv tokens.',
-			'The npx target is the versioned GitHub release tarball so fresh sessions work even before npm package publishing is configured.',
+			'Use npx -y --package <versioned GitHub release tarball> stonewright-mcp so MCP clients run the explicit companion bin instead of relying on npx bin inference.',
 			'Do not point IDE MCP configs at companion/dist/index.js; dist is a build artifact and is intentionally not committed.',
 			'For source development, use npm --prefix <repo>/companion run mcp:source so the companion rebuilds before the MCP server starts.',
 			'Do not configure generic WordPress MCP adapters such as @automattic/mcp-wordpress-remote as the stonewright server; use the Stonewright companion so setup, status, compact profiles, and guarded WP-CLI tools stay visible during endpoint recovery.',
@@ -164,6 +164,10 @@ export function buildSetupProfile(
 			'For production sites, provide STONEWRIGHT_WP_USERNAME plus STONEWRIGHT_WP_APP_PASSWORD or STONEWRIGHT_MCP_AUTHORIZATION.',
 		],
 	};
+}
+
+function companionMcpArgs(): string[] {
+	return ['-y', '--package', companionPackageSpec(), 'stonewright-mcp'];
 }
 
 export function agentUseInstead(env: NodeJS.ProcessEnv = process.env): string[] {
