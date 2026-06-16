@@ -276,6 +276,7 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/context-bootstrap',
 			'stonewright/workflow-preflight',
 			'stonewright/tool-profile',
+			'stonewright/skills-get',
 		];
 
 		return match ( $profile ) {
@@ -392,6 +393,7 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/context-bootstrap' => 'Issue the task token and load live site instructions, memory, skills, and visual gates.',
 			'stonewright/workflow-preflight' => 'Choose the task-aware fast path and first call sequence.',
 			'stonewright/tool-profile' => 'Keep the MCP tool surface compact for the current model, client, and task.',
+			'stonewright/skills-get' => 'Load one matched site playbook on demand instead of injecting every skill into startup context.',
 			'stonewright/security-create-one-time-link' => 'Create a short-lived wp-admin login URL for external browser MCP verification when needed.',
 			'stonewright/design-implementation-contract' => 'Load global-style, native-widget, section-batch, and verification rules.',
 			'stonewright/widget-intent-resolve' => 'Map visual intent to native Elementor widgets before writing controls.',

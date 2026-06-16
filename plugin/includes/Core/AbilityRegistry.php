@@ -750,6 +750,7 @@ final class AbilityRegistry {
 			// Fast workflow and compact instructions.
 			'stonewright/workflow-preflight',
 			'stonewright/tool-profile',
+			'stonewright/skills-get',
 			'stonewright/system-abilities-list',
 			'stonewright/system-instructions-get',
 
@@ -760,7 +761,6 @@ final class AbilityRegistry {
 			'stonewright/content-bulk-upsert-posts',
 			'stonewright/media-list',
 			'stonewright/media-upload-batch',
-			'stonewright/media-get',
 
 			// Elementor V3 fast paths and discovery.
 			'stonewright/elementor-v3-status',

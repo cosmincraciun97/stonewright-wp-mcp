@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.43] - 2026-06-16
+
+### Changed
+
+- Kept `stonewright/skills-get` visible in essential and compact tool profiles
+  so agents can load one matched site playbook without full ability discovery.
+- Updated workflow preflight to recommend `stonewright/skills-get` when matched
+  skills or content-model specializations are present.
+
 ## [1.0.0-alpha.14] - 2026-06-12
 
 ### Changed

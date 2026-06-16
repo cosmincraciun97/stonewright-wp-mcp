@@ -27,7 +27,7 @@ Fast path for MCP clients:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.42/stonewright-companion-1.0.0-alpha.42.tgz"],
+      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.43/stonewright-companion-1.0.0-alpha.43.tgz"],
       "env": {
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
@@ -44,8 +44,8 @@ the same config shape plus platform checks, credential status, and notes for
 Windows, macOS, and Linux. Use its `first_calls` and
 `tool_visibility_checks` fields to verify `stonewright-context-bootstrap`,
 `stonewright-workflow-preflight`, `stonewright-tool-profile`,
-`stonewright-wordpress-mcp-status`, and direct WP-CLI aliases are visible before
-real work.
+`stonewright-skills-get`, `stonewright-wordpress-mcp-status`, and direct WP-CLI
+aliases are visible before real work.
 
 From a GitHub release:
 
@@ -145,6 +145,7 @@ idempotent — if the phar already exists it is reused without re-downloading.
 
 - `stonewright-setup-profile` - one-call setup diagnostics and copy-paste MCP config
 - `stonewright-wordpress-mcp-status` - inspect proxied WordPress MCP connection status
+- `stonewright-skills-get` - load one matched site playbook on demand when proxied through WordPress MCP
 
 Alias names (`companion_wp_cli_*`) are also registered for backward compatibility.
 

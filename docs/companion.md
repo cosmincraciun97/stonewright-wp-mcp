@@ -67,6 +67,7 @@ Then use Stonewright abilities:
 - `stonewright-context-bootstrap`
 - `stonewright-workflow-preflight`
 - `stonewright-tool-profile`
+- `stonewright-skills-get`
 - `stonewright-wordpress-mcp-status`
 - `stonewright-wp-cli-status`
 - `stonewright-wp-cli-discover`
@@ -87,7 +88,8 @@ Node scripts where shell encoding can corrupt diacritics.
 
 Call `stonewright-setup-profile` once after connecting. Its `first_calls` and
 `tool_visibility_checks` fields show the compact startup path: bootstrap,
-preflight, tool profile, WordPress MCP proxy status, and direct WP-CLI aliases. Use
+preflight, tool profile, skill playbook retrieval, WordPress MCP proxy status,
+and direct WP-CLI aliases. Use
 `stonewright-tool-profile` before broad tool discovery when a client has a tool
 cap, slow startup, or a token-sensitive task.
 

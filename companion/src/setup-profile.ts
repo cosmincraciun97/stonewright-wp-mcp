@@ -97,6 +97,7 @@ export function buildSetupProfile(
 			'stonewright-context-bootstrap',
 			'stonewright-workflow-preflight',
 			'stonewright-tool-profile',
+			'stonewright-skills-get',
 			'stonewright-wordpress-mcp-status',
 			'stonewright-wp-cli-status',
 			'stonewright-wp-cli-discover',

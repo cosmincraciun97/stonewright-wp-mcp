@@ -119,6 +119,11 @@ final class WorkflowPreflight extends AbilityKernel {
 		$specializations = SpecializationCatalog::match( $task, $surface );
 		$task_profile    = self::task_profile( $task, $surface, $intent, $mode, $specializations );
 		$recommended     = self::recommended_tools( $task_profile );
+		if ( self::should_offer_skill_get( $context, $specializations ) ) {
+			$recommended[] = 'stonewright/skills-get';
+			$recommended   = array_values( array_unique( $recommended ) );
+		}
+		$compact_playbooks = self::compact_playbooks( $context['matched_skill_playbooks'] ?? [] );
 
 		$elementor = self::elementor_context( $task_profile, $task, $surface, $intent );
 		if ( is_wp_error( $elementor ) ) {
@@ -129,7 +134,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			'task_profile'          => $task_profile,
 			'recommended_tools'     => $recommended,
 			'recommended_mcp_tools' => array_map( [ self::class, 'mcp_tool_name' ], $recommended ),
-			'call_sequence'         => self::call_sequence( $task, $task_profile ),
+			'call_sequence'         => self::call_sequence( $task, $task_profile, $compact_playbooks, $specializations ),
 			'specializations'       => $specializations,
 			'visual_build_gate'     => $context['visual_build_gate'] ?? [],
 			'visual_setup'          => self::visual_setup( $task_profile ),
@@ -168,11 +173,21 @@ final class WorkflowPreflight extends AbilityKernel {
 			],
 			'context'       => [
 				'matched_skills'          => $context['matched_skills'] ?? [],
-				'matched_skill_playbooks' => self::compact_playbooks( $context['matched_skill_playbooks'] ?? [] ),
+				'matched_skill_playbooks' => $compact_playbooks,
 				'memory_entries'          => $context['memory_entries'] ?? [],
 				'required_followups'      => $context['required_followups'] ?? [],
 			],
 		];
+	}
+
+	/**
+	 * @param array<string, mixed> $context
+	 * @param list<array<string, mixed>> $specializations
+	 */
+	private static function should_offer_skill_get( array $context, array $specializations ): bool {
+		return ! empty( $context['matched_skills'] )
+			|| ! empty( $context['matched_skill_playbooks'] )
+			|| [] !== $specializations;
 	}
 
 	/**
@@ -409,9 +424,11 @@ final class WorkflowPreflight extends AbilityKernel {
 
 	/**
 	 * @param array<string, bool|string> $profile
+	 * @param list<array<string, mixed>> $compact_playbooks
+	 * @param list<array<string, mixed>> $specializations
 	 * @return list<array<string, mixed>>
 	 */
-	private static function call_sequence( string $task, array $profile ): array {
+	private static function call_sequence( string $task, array $profile, array $compact_playbooks = [], array $specializations = [] ): array {
 		$task = self::compact_task( $task );
 		$out  = [
 			self::call_step(
@@ -444,6 +461,15 @@ final class WorkflowPreflight extends AbilityKernel {
 				]
 			),
 		];
+		if ( [] !== $compact_playbooks || [] !== $specializations ) {
+			$out[] = self::call_step(
+				'stonewright/skills-get',
+				'Load one matched site playbook only when its compact preflight summary applies.',
+				[
+					'slug' => self::primary_skill_slug( $compact_playbooks, $specializations ),
+				]
+			);
+		}
 
 		if ( 'elementor' === $profile['surface'] ) {
 			$out[] = self::call_step(
@@ -590,6 +616,28 @@ final class WorkflowPreflight extends AbilityKernel {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $compact_playbooks
+	 * @param list<array<string, mixed>> $specializations
+	 */
+	private static function primary_skill_slug( array $compact_playbooks, array $specializations ): string {
+		$first = $compact_playbooks[0]['slug'] ?? '';
+		if ( is_string( $first ) && '' !== $first ) {
+			return $first;
+		}
+
+		$ids = array_filter(
+			array_map(
+				static fn( array $specialization ): string => is_string( $specialization['id'] ?? null ) ? $specialization['id'] : '',
+				$specializations
+			)
+		);
+
+		return in_array( 'woocommerce', $ids, true )
+			? 'stonewright-woocommerce-catalog'
+			: 'stonewright-content-model-integrations';
 	}
 
 	/**

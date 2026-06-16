@@ -150,10 +150,12 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertSame( 'content-model', $result['profile'] );
 		self::assertLessThanOrEqual( 30, $result['tool_count'] );
 		self::assertContains( 'stonewright/site-plugins-list', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/skills-get', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/wp-cli-status', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/wp-cli-discover', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/wp-cli-batch-run', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/content-bulk-upsert-posts', $result['recommended_tools'] );
+		self::assertContains( 'stonewright-skills-get', $result['recommended_mcp_tools'] );
 		self::assertContains( 'Discover plugin command groups once, then batch repeated CPT, field, post, meta, term, option, cache, and rewrite work.', $result['workflow_rules'] );
 	}
 
@@ -215,8 +217,10 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'pods', $ids );
 		self::assertContains( 'woocommerce', $ids );
 		self::assertContains( 'stonewright/site-plugins-list', $result['fast_path']['recommended_tools'] );
+		self::assertContains( 'stonewright/skills-get', $result['fast_path']['recommended_tools'] );
 		self::assertContains( 'stonewright/wp-cli-discover', $result['fast_path']['recommended_tools'] );
 		self::assertContains( 'stonewright/wp-cli-batch-run', $result['fast_path']['recommended_tools'] );
+		self::assertContains( 'stonewright-skills-get', $result['fast_path']['recommended_mcp_tools'] );
 		self::assertContains( 'Use stonewright-wp-cli-batch-run with responseMode=summary for repeated CPT UI, ACF, post, meta, term, option, and plugin command work.', $result['fast_path']['batching_rules'] );
 	}
 

@@ -17,7 +17,7 @@ describe('createMcpServer', () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
 		const info = (server as any).server._serverInfo as { name: string; version: string };
 		expect(info.name).toBe('stonewright-companion');
-		expect(info.version).toBe('1.0.0-alpha.42');
+		expect(info.version).toBe('1.0.0-alpha.43');
 	});
 
 	it('registers WP-CLI tools', async () => {
@@ -227,6 +227,7 @@ describe('createMcpServer', () => {
 			{ name: 'stonewright-context-bootstrap' },
 			{ name: 'stonewright-workflow-preflight' },
 			{ name: 'stonewright-tool-profile' },
+			{ name: 'stonewright-skills-get' },
 			{ name: 'stonewright-media-list' },
 			{ name: 'stonewright-media-upload-batch' },
 			{ name: 'stonewright-content-bulk-upsert-posts' },
@@ -254,11 +255,13 @@ describe('createMcpServer', () => {
 		});
 
 		expect(registeredToolNames(elementorServer)).toEqual(expect.arrayContaining([
+			'stonewright-skills-get',
 			'stonewright-media-list',
 			'stonewright-media-upload-batch',
 			'stonewright-elementor-v3-build-page-from-spec',
 		]));
 		expect(registeredToolNames(contentServer)).toEqual(expect.arrayContaining([
+			'stonewright-skills-get',
 			'stonewright-media-list',
 			'stonewright-media-upload-batch',
 			'stonewright-content-bulk-upsert-posts',

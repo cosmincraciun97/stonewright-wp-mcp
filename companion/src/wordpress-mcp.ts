@@ -86,6 +86,7 @@ const BASE_PROXY_TOOL_NAMES = [
 	'stonewright-context-bootstrap',
 	'stonewright-workflow-preflight',
 	'stonewright-tool-profile',
+	'stonewright-skills-get',
 ] as const;
 
 const ESSENTIAL_PROXY_TOOL_NAMES = [
@@ -107,7 +108,6 @@ const ESSENTIAL_PROXY_TOOL_NAMES = [
 	'stonewright-content-bulk-upsert-posts',
 	'stonewright-media-list',
 	'stonewright-media-upload-batch',
-	'stonewright-media-get',
 	'stonewright-design-implementation-contract',
 	'stonewright-elementor-v3-status',
 	'stonewright-elementor-v3-capabilities-summary',
