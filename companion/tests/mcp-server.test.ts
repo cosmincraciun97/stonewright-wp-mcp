@@ -17,7 +17,7 @@ describe('createMcpServer', () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
 		const info = (server as any).server._serverInfo as { name: string; version: string };
 		expect(info.name).toBe('stonewright-companion');
-		expect(info.version).toBe('1.0.0-alpha.46');
+		expect(info.version).toBe('1.0.0-alpha.47');
 	});
 
 	it('registers WP-CLI tools', async () => {
@@ -439,6 +439,43 @@ describe('createMcpServer', () => {
 
 		expect(response.structuredContent?.startup_ready).toBe(true);
 		expect(response.structuredContent?.startup_missing_tool_names).toEqual([]);
+	});
+
+	it('reports missing selected profile tools after startup tools are ready', async () => {
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+				STONEWRIGHT_MCP_TOOL_PROFILE: 'elementor-design',
+			},
+			fetchImpl: stonewrightMcpFetch([
+				{ name: 'stonewright-context-bootstrap' },
+				{ name: 'stonewright-workflow-preflight' },
+				{ name: 'stonewright-tool-profile' },
+				{ name: 'stonewright-skills-get' },
+				{ name: 'stonewright-site-info' },
+				{ name: 'stonewright-site-plugins-list' },
+				{ name: 'stonewright-design-implementation-contract' },
+				{ name: 'stonewright-elementor-v3-container-schema' },
+			]),
+		});
+
+		const tools = (server as { _registeredTools?: Record<string, { handler?: (input: unknown) => Promise<unknown> }> })._registeredTools ?? {};
+		const response = await tools['stonewright-wordpress-mcp-status']?.handler?.({}) as {
+			structuredContent?: {
+				startup_ready?: boolean;
+				profile_expected_tool_count?: number;
+				profile_missing_tool_names?: string[];
+				recovery?: string[];
+			};
+		};
+
+		expect(response.structuredContent?.startup_ready).toBe(true);
+		expect(response.structuredContent?.profile_expected_tool_count).toBeGreaterThan(20);
+		expect(response.structuredContent?.profile_missing_tool_names).toContain('stonewright-elementor-v3-build-page-from-spec');
+		expect(response.structuredContent?.profile_missing_tool_names).not.toContain('stonewright-wp-cli-batch-run');
+		expect(response.structuredContent?.recovery).toContain('If profile_missing_tool_names is not empty, update or enable those WordPress Stonewright tools, or switch STONEWRIGHT_MCP_TOOL_PROFILE to full for specialist recovery.');
 	});
 });
 

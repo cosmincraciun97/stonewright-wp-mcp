@@ -100,7 +100,9 @@ even when the WordPress MCP endpoint cannot be reached.
 When the endpoint connects, the status response reports `startup_ready`,
 `startup_missing_tool_names`, `local_recovery_tool_names`, and
 `local_tool_names` so agents can see whether bootstrap, preflight, profile,
-skill-playbook, and direct WP-CLI tools are ready.
+skill-playbook, and direct WP-CLI tools are ready. It also reports
+`profile_expected_tool_count` and `profile_missing_tool_names` for the selected
+compact proxy profile.
 
 For new stdio sessions, the companion defaults to
 `STONEWRIGHT_MCP_TOOL_PROFILE=essential`. It proxies only the compact

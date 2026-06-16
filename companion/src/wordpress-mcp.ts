@@ -226,6 +226,13 @@ const PROXY_TOOL_PROFILE_SETS = Object.fromEntries(
 	Object.entries(PROXY_TOOL_PROFILE_NAMES).map(([profile, names]) => [profile, new Set(names)]),
 ) as Record<Exclude<ProxyToolProfile, 'full'>, Set<string>>;
 
+export function proxyToolNamesForProfile(profile: ProxyToolProfile): string[] {
+	if (profile === 'full') {
+		return [];
+	}
+	return Array.from(PROXY_TOOL_PROFILE_NAMES[profile]);
+}
+
 const PROXY_TOOL_PROFILE_ALIASES: Record<string, ProxyToolProfile> = {
 	'elementor': 'elementor-design',
 	'elementor-v3': 'elementor-design',

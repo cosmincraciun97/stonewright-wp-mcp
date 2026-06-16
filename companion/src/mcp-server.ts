@@ -19,6 +19,7 @@ import {
 import { buildSetupProfile } from './setup-profile.js';
 import {
 	STARTUP_REQUIRED_PROXY_TOOL_NAMES,
+	proxyToolNamesForProfile,
 	registerWordPressMcpPrompts,
 	registerWordPressMcpTools,
 	resolveWordPressMcpConfig,
@@ -36,6 +37,8 @@ interface WordPressMcpConnectionStatus extends Record<string, unknown> {
 	startup_missing_tool_names: string[];
 	local_recovery_tool_names: string[];
 	local_tool_names: string[];
+	profile_expected_tool_count: number;
+	profile_missing_tool_names: string[];
 	remote_tool_count: number;
 	proxied_tool_count: number;
 	profile_filtered_tool_count: number;
@@ -112,8 +115,18 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 			wpMcpStatus.profile_filtered_tool_names = registration.profileFilteredToolNames;
 			wpMcpStatus.startup_missing_tool_names = missingStartupTools(registration.registeredTools.map((tool) => tool.name));
 			wpMcpStatus.startup_ready = wpMcpStatus.startup_missing_tool_names.length === 0;
+			const profileExpectedToolNames = proxyToolNamesForProfile(registration.profile);
+			wpMcpStatus.profile_expected_tool_count = profileExpectedToolNames.length;
+			wpMcpStatus.profile_missing_tool_names = missingProfileTools(
+				profileExpectedToolNames,
+				registration.registeredTools.map((tool) => tool.name),
+			);
 			wpMcpStatus.prompt_skill_count = promptSkills.length;
-			wpMcpStatus.recovery = recoveryHints(registration.filteredToolCount, wpMcpStatus.startup_missing_tool_names.length);
+			wpMcpStatus.recovery = recoveryHints(
+				registration.filteredToolCount,
+				wpMcpStatus.startup_missing_tool_names.length,
+				wpMcpStatus.profile_missing_tool_names.length,
+			);
 			wpMcpStatus.error = null;
 		} catch (err) {
 			wpMcpStatus.ok = false;
@@ -141,13 +154,15 @@ function createWordPressMcpConnectionStatus(): WordPressMcpConnectionStatus {
 		startup_missing_tool_names: Array.from(STARTUP_REQUIRED_PROXY_TOOL_NAMES),
 		local_recovery_tool_names: Array.from(LOCAL_RECOVERY_TOOL_NAMES),
 		local_tool_names: Array.from(LOCAL_TOOL_NAMES),
+		profile_expected_tool_count: 0,
+		profile_missing_tool_names: [],
 		remote_tool_count: 0,
 		proxied_tool_count: 0,
 		profile_filtered_tool_count: 0,
 		profile_filtered_tool_names: [],
 		prompt_skill_count: 0,
 		error: null,
-		recovery: recoveryHints(0, STARTUP_REQUIRED_PROXY_TOOL_NAMES.length),
+		recovery: recoveryHints(0, STARTUP_REQUIRED_PROXY_TOOL_NAMES.length, 0),
 	};
 }
 
@@ -156,7 +171,12 @@ function missingStartupTools(registeredToolNames: string[]): string[] {
 	return STARTUP_REQUIRED_PROXY_TOOL_NAMES.filter((name) => !registered.has(name));
 }
 
-function recoveryHints(profileFilteredToolCount: number, startupMissingToolCount: number): string[] {
+function missingProfileTools(profileToolNames: string[], registeredToolNames: string[]): string[] {
+	const available = new Set([...registeredToolNames, ...LOCAL_TOOL_NAMES]);
+	return profileToolNames.filter((name) => !available.has(name));
+}
+
+function recoveryHints(profileFilteredToolCount: number, startupMissingToolCount: number, profileMissingToolCount: number): string[] {
 	const hints = [
 		'Verify STONEWRIGHT_WP_URL or STONEWRIGHT_MCP_URL points to /wp-json/mcp/stonewright.',
 		'Verify STONEWRIGHT_WP_USERNAME plus STONEWRIGHT_WP_APP_PASSWORD or STONEWRIGHT_MCP_AUTHORIZATION.',
@@ -167,6 +187,9 @@ function recoveryHints(profileFilteredToolCount: number, startupMissingToolCount
 	}
 	if (profileFilteredToolCount > 0) {
 		hints.push('If a needed WordPress MCP tool is absent and profile_filtered_tool_count is greater than 0, switch STONEWRIGHT_MCP_TOOL_PROFILE to a narrower task profile or full, then restart the MCP session.');
+	}
+	if (profileMissingToolCount > 0) {
+		hints.push('If profile_missing_tool_names is not empty, update or enable those WordPress Stonewright tools, or switch STONEWRIGHT_MCP_TOOL_PROFILE to full for specialist recovery.');
 	}
 	return hints;
 }

@@ -7,6 +7,16 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.47] - 2026-06-16
+
+### Changed
+
+- `stonewright-wordpress-mcp-status` now reports
+  `profile_expected_tool_count` and `profile_missing_tool_names` for the active
+  compact proxy profile.
+- Recovery hints now tell agents how to repair missing non-startup profile tools
+  without blind retries or broad discovery.
+
 ## [1.0.0-alpha.46] - 2026-06-16
 
 ### Changed

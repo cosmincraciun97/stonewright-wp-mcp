@@ -27,7 +27,7 @@ Fast path for MCP clients:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.46/stonewright-companion-1.0.0-alpha.46.tgz"],
+      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.47/stonewright-companion-1.0.0-alpha.47.tgz"],
       "env": {
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
@@ -150,7 +150,9 @@ idempotent — if the phar already exists it is reused without re-downloading.
 `stonewright-wordpress-mcp-status` reports `startup_ready`,
 `startup_missing_tool_names`, `local_recovery_tool_names`, and
 `local_tool_names` so agents can recover when bootstrap, preflight, profile,
-skill, or WP-CLI tools are missing.
+skill, or WP-CLI tools are missing. It also reports
+`profile_expected_tool_count` and `profile_missing_tool_names` for the selected
+compact proxy profile.
 
 Alias names (`companion_wp_cli_*`) are also registered for backward compatibility.
 
