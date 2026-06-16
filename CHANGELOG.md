@@ -7,6 +7,24 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.37] - 2026-06-16
+
+### Added
+
+- Added `stonewright/elementor-v3-container-schema`, a compact read-only guide
+  for Elementor container layout, style, Advanced, alias, and blocked setting
+  keys so agents can write section containers without broad schema discovery.
+
+### Changed
+
+- Elementor design profiles, workflow preflight, and capabilities summary now
+  recommend the container schema before section layout writes.
+- Direct Elementor container writes now map common flex aliases like
+  `justify_content`, `align_items`, and `align_content` to Elementor's
+  `flex_*` container keys while keeping risky flex sizing keys stripped.
+- Essential tools mode stays below the compact-tool limit by replacing the
+  less common save-template fast-path slot with the new container schema.
+
 ## [1.0.0-alpha.36] - 2026-06-16
 
 ### Fixed
@@ -548,6 +566,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.37]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.37
 [1.0.0-alpha.36]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.36
 [1.0.0-alpha.27]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.27
 [1.0.0-alpha.26]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.26

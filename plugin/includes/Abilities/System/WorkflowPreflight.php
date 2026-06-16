@@ -294,6 +294,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			$tools[] = 'stonewright/widget-intent-resolve';
 			$tools[] = 'stonewright/elementor-widget-implementation-guide';
 			$tools[] = 'stonewright/elementor-v3-capabilities-summary';
+			$tools[] = 'stonewright/elementor-v3-container-schema';
 			$tools[] = 'stonewright/elementor-v3-get-widget-schema';
 			if ( $profile['is_write'] ) {
 				$tools[] = 'stonewright/media-list';
@@ -466,6 +467,11 @@ final class WorkflowPreflight extends AbilityKernel {
 					'candidate_widgets' => [ '<widgets from widget-intent-resolve>' ],
 					'design_context'    => '<short design notes>',
 				]
+			);
+			$out[] = self::call_step(
+				'stonewright/elementor-v3-container-schema',
+				'Get safe container layout, style, Advanced, alias, and blocked-key guidance before section layout writes.',
+				[ 'include_controls' => false ]
 			);
 			if ( $profile['is_write'] ) {
 				$out[] = self::call_step(

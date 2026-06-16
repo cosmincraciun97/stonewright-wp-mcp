@@ -119,6 +119,7 @@
 |---|---|---|---|---|---|---|---|---|---|---|
 | `stonewright/elementor-v3-status` | `stonewright-elementor-v3-status` | `ElementorV3\Status` | Returns whether Elementor is installed/active, version/pro status, widget inventory, and V4 atomic readiness. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-capabilities-summary` | `stonewright-elementor-v3-capabilities-summary` | `ElementorV3\CapabilitiesSummary` | Returns a compact Elementor V3 capability summary so agents can plan native-widget builds in one round trip. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
+| `stonewright/elementor-v3-container-schema` | `stonewright-elementor-v3-container-schema` | `ElementorV3\ContainerSchema` | Returns compact safe Elementor container controls, aliases, and blocked settings for faster section layout writes. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-list-widgets` | `stonewright-elementor-v3-list-widgets` | `ElementorV3\ListWidgets` | Returns all registered Elementor V3 widget types including third-party widgets. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-get-widget-schema` | `stonewright-elementor-v3-get-widget-schema` | `ElementorV3\GetWidgetSchema` | Returns the control schema (name, type, defaults) for a single Elementor widget. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-get-page-structure` | `stonewright-elementor-v3-get-page-structure` | `ElementorV3\GetPageStructure` | Returns the full Elementor V3 element tree for a post. | Read | `Permissions::edit_post( $id )` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
@@ -391,7 +392,7 @@
 
 ## Summary
 
-Total abilities registered: **233**
+Total abilities registered: **234**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

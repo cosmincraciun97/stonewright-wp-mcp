@@ -35,6 +35,7 @@ use Stonewright\WpMcp\Abilities\ElementorV3\BackupPage;
 use Stonewright\WpMcp\Abilities\ElementorV3\BatchMutate;
 use Stonewright\WpMcp\Abilities\ElementorV3\BuildPageFromSpec;
 use Stonewright\WpMcp\Abilities\ElementorV3\CapabilitiesSummary as ElementorV3CapabilitiesSummary;
+use Stonewright\WpMcp\Abilities\ElementorV3\ContainerSchema;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetElement;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetPageStructure;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetWidgetSchema;
@@ -222,6 +223,7 @@ final class AbilityRegistry {
 			// Elementor V3.
 			ElementorStatus::class,
 			ElementorV3CapabilitiesSummary::class,
+			ContainerSchema::class,
 			ListWidgets::class,
 			GetWidgetSchema::class,
 			GetPageStructure::class,
@@ -598,6 +600,7 @@ final class AbilityRegistry {
 			'stonewright/elementor-explain-editor',
 			'stonewright/widget-intent-resolve',
 			'stonewright/elementor-v3-capabilities-summary',
+			'stonewright/elementor-v3-container-schema',
 			'stonewright/elementor-widget-implementation-guide',
 		];
 	}
@@ -724,6 +727,7 @@ final class AbilityRegistry {
 			// Elementor V3 fast paths and discovery.
 			'stonewright/elementor-v3-status',
 			'stonewright/elementor-v3-capabilities-summary',
+			'stonewright/elementor-v3-container-schema',
 			'stonewright/elementor-v3-list-widgets',
 			'stonewright/elementor-v3-get-widget-schema',
 			'stonewright/elementor-v3-get-page-structure',
@@ -736,7 +740,6 @@ final class AbilityRegistry {
 			'stonewright/elementor-v3-update-page-settings',
 			'stonewright/elementor-v3-update-kit-colors',
 			'stonewright/elementor-v3-update-kit-typography',
-			'stonewright/elementor-v3-save-template',
 
 			// Design pipeline.
 			'stonewright/design-implementation-contract',

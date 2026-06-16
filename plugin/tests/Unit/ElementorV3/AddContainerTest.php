@@ -92,4 +92,49 @@ final class AddContainerTest extends TestCase {
 		self::assertArrayNotHasKey( '_flex_grow', $settings );
 		self::assertArrayNotHasKey( '_flex_shrink', $settings );
 	}
+
+	public function test_execute_maps_common_flex_aliases_to_elementor_container_keys(): void {
+		$GLOBALS['stonewright_test_posts'][125] = (object) [
+			'ID'           => 125,
+			'post_type'    => 'page',
+			'post_status'  => 'draft',
+			'post_title'   => 'Target',
+			'post_content' => '',
+			'post_excerpt' => '',
+		];
+		$GLOBALS['stonewright_test_post_meta_calls'] = [];
+
+		$result = ( new AddContainer() )->execute( [
+			'post_id'  => 125,
+			'settings' => [
+				'layout'          => 'flex',
+				'justify_content' => 'center',
+				'align_items'     => 'stretch',
+				'align_content'   => 'space-between',
+			],
+		] );
+
+		self::assertIsArray( $result );
+		$data_call = null;
+		foreach ( $GLOBALS['stonewright_test_post_meta_calls'] as $call ) {
+			if ( '_elementor_data' === $call['meta_key'] ) {
+				$data_call = $call;
+				break;
+			}
+		}
+
+		self::assertNotNull( $data_call );
+		$tree     = json_decode( stripslashes( (string) $data_call['value'] ), true );
+		$settings = $tree[0]['settings'];
+
+		self::assertArrayHasKey( 'flex_justify_content', $settings );
+		self::assertArrayHasKey( 'flex_align_items', $settings );
+		self::assertArrayHasKey( 'flex_align_content', $settings );
+		self::assertSame( 'center', $settings['flex_justify_content'] );
+		self::assertSame( 'stretch', $settings['flex_align_items'] );
+		self::assertSame( 'space-between', $settings['flex_align_content'] );
+		self::assertArrayNotHasKey( 'justify_content', $settings );
+		self::assertArrayNotHasKey( 'align_items', $settings );
+		self::assertArrayNotHasKey( 'align_content', $settings );
+	}
 }
