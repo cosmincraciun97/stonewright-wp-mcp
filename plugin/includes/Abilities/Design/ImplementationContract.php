@@ -78,10 +78,12 @@ final class ImplementationContract extends AbilityKernel {
 			'global_styles_first' => [
 				'status' => 'required_before_first_elementor_write',
 				'tools'  => [
+					'stonewright/elementor-v3-get-kit-globals',
 					'stonewright/elementor-v3-update-kit-colors',
 					'stonewright/elementor-v3-update-kit-typography',
 				],
 				'rules'  => [
+					'read_active_elementor_kit_colors_and_typography',
 					'map_reusable_design_colors_and_typography_to_elementor_kit',
 					'keep_one_off_values_local_unless_user_approved_site_wide_changes',
 					'reuse_global_tokens_in_specs_after_kit_update',

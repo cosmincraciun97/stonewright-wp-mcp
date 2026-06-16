@@ -194,12 +194,13 @@ headings inside loop templates; do not rely on many manual meta updates.
 ## Kit changes
 
 For design-derived builds, prepare the kit plan before the first page element
-write: reusable colors, reusable typography, and page-local exceptions. If the
+write: call `stonewright/elementor-v3-get-kit-globals`, compare reusable colors
+and typography against the design, then decide page-local exceptions. If the
 user has approved site-wide design changes, call `update-kit-colors` and
 `update-kit-typography` before building the page so later element payloads can
 reuse global tokens instead of repeating raw values. If approval is missing or
 the design is one-off, keep those values local in widget/container controls.
-These abilities do not take a post_id; they write to the active kit post.
+Mutation abilities do not take a post_id; they write to the active kit post.
 
 ## Save as template
 
@@ -235,6 +236,7 @@ Returns `{ "template_id": 150 }`.
 | `stonewright/elementor-v3-save-template` | Save to Elementor library |
 | `stonewright/elementor-v3-list-widgets` | List all registered widgets |
 | `stonewright/elementor-v3-get-widget-schema` | Get widget control schema |
+| `stonewright/elementor-v3-get-kit-globals` | Read active kit colors and typography |
 | `stonewright/elementor-v3-update-kit-colors` | Mutate kit color palette |
 | `stonewright/elementor-v3-update-kit-typography` | Mutate kit typography |
 | `stonewright/elementor-v3-update-page-settings` | Page-level settings |

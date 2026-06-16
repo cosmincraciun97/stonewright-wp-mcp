@@ -32,6 +32,7 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 		self::assertContains( 'stonewright/tool-profile', $names );
 		self::assertContains( 'stonewright/wp-cli-batch-run', $names );
 		self::assertContains( 'stonewright/security-create-one-time-link', $names );
+		self::assertContains( 'stonewright/elementor-v3-get-kit-globals', $names );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $names );
 		self::assertContains( 'stonewright/media-list', $names );
 		self::assertNotContains( 'stonewright/sandbox-write', $names );
@@ -45,6 +46,7 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 
 		self::assertContains( 'stonewright/workflow-preflight', $names );
 		self::assertContains( 'stonewright/tool-profile', $names );
+		self::assertContains( 'stonewright/elementor-v3-get-kit-globals', $names );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $names );
 		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $names );
 		self::assertContains( 'stonewright/content-bulk-upsert-posts', $names );

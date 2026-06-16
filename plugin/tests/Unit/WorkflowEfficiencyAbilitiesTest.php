@@ -185,6 +185,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright/content-bulk-upsert-posts', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/media-upload-batch', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/design-implementation-contract', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/elementor-v3-get-kit-globals', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/gutenberg-apply-to-post', $result['recommended_tools'] );
@@ -342,6 +343,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertSame( 1, $result['fast_path']['design_contract_ref']['section_batch']['default_sections_per_pass'] );
 		self::assertSame( 2, $result['fast_path']['design_contract_ref']['section_batch']['max_sections_per_pass'] );
 		self::assertSame( 'stonewright/elementor-v3-build-page-from-spec', $result['fast_path']['design_contract_ref']['section_batch']['primary_write_tool'] );
+		self::assertContains( 'stonewright/elementor-v3-get-kit-globals', $result['fast_path']['design_contract_ref']['global_style_tools'] );
 		self::assertContains( 'stonewright/elementor-v3-update-kit-colors', $result['fast_path']['design_contract_ref']['global_style_tools'] );
 		self::assertContains( 'stonewright/elementor-v3-update-kit-typography', $result['fast_path']['design_contract_ref']['global_style_tools'] );
 
@@ -425,6 +427,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertSame( 'stonewright/elementor-v3-build-page-from-spec', $result['primary_write_tool'] );
 		self::assertSame( 'stonewright/elementor-v3-batch-mutate', $result['mutation_batch_tool'] );
 		self::assertSame( 'stonewright-wp-cli-batch-run', $result['wp_cli_batch_tool'] );
+		self::assertSame( 'stonewright/elementor-v3-get-kit-globals', $result['global_style_read_tool'] );
 		self::assertSame( 'stonewright/elementor-v3-container-schema', $result['container_schema_tool'] );
 		self::assertSame( 'summary', $result['default_response_mode'] );
 		self::assertArrayHasKey( 'design_implementation_contract', $result );
@@ -474,6 +477,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertSame( 2, $result['section_batch']['max_sections_per_pass'] );
 		self::assertSame( 'stonewright/elementor-v3-build-page-from-spec', $result['section_batch']['primary_write_tool'] );
 		self::assertSame( 'stonewright/elementor-v3-batch-mutate', $result['section_batch']['surgical_fix_tool'] );
+		self::assertContains( 'stonewright/elementor-v3-get-kit-globals', $result['global_styles_first']['tools'] );
 		self::assertSame( 'image-gallery', $result['native_widget_map']['gallery'] );
 		self::assertSame( 'countdown', $result['native_widget_map']['countdown'] );
 		self::assertSame( 'loop-grid', $result['native_widget_map']['dynamic_cards'] );

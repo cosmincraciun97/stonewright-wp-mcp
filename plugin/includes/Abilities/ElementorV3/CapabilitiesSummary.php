@@ -42,6 +42,7 @@ final class CapabilitiesSummary extends AbilityKernel {
 				'media_batch_tool'               => [ 'type' => 'string' ],
 				'content_batch_tool'             => [ 'type' => 'string' ],
 				'wp_cli_batch_tool'              => [ 'type' => 'string' ],
+				'global_style_read_tool'         => [ 'type' => 'string' ],
 				'default_response_mode'          => [ 'type' => 'string' ],
 				'status'                         => [ 'type' => 'object' ],
 				'design_implementation_contract' => [ 'type' => 'object' ],
@@ -73,6 +74,7 @@ final class CapabilitiesSummary extends AbilityKernel {
 			'media_batch_tool'               => 'stonewright/media-upload-batch',
 			'content_batch_tool'             => 'stonewright/content-bulk-upsert-posts',
 			'wp_cli_batch_tool'              => 'stonewright-wp-cli-batch-run',
+			'global_style_read_tool'         => 'stonewright/elementor-v3-get-kit-globals',
 			'default_response_mode'          => 'summary',
 			'design_implementation_contract' => ImplementationContract::contract(),
 			'status'                         => [
@@ -105,6 +107,7 @@ final class CapabilitiesSummary extends AbilityKernel {
 			'first_pass_rules'    => [
 				'Call stonewright/workflow-preflight before write tasks.',
 				'For visual work, verify external Playwright/browser MCP before the first write.',
+				'Read active Elementor kit globals with stonewright/elementor-v3-get-kit-globals before updating kit colors or typography.',
 				'Prefer native widgets; do not use Elementor HTML widgets unless explicitly allowed.',
 				'Upload all known remote assets with stonewright/media-upload-batch before building the page.',
 				'For Loop Grid or repeated dynamic cards backed by CPT/meta, write rows with stonewright/content-bulk-upsert-posts before the Elementor tree write.',

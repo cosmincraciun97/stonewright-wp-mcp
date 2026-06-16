@@ -309,6 +309,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			$tools[] = 'stonewright/widget-intent-resolve';
 			$tools[] = 'stonewright/elementor-widget-implementation-guide';
 			$tools[] = 'stonewright/elementor-v3-capabilities-summary';
+			$tools[] = 'stonewright/elementor-v3-get-kit-globals';
 			$tools[] = 'stonewright/elementor-v3-container-schema';
 			$tools[] = 'stonewright/elementor-v3-get-widget-schema';
 			if ( $profile['is_write'] ) {

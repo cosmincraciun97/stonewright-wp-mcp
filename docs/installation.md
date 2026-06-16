@@ -270,6 +270,7 @@ WordPress ability names use slashes. MCP tool names use hyphens.
 | `stonewright/content-bulk-upsert-posts` | `stonewright-content-bulk-upsert-posts` |
 | `stonewright/media-upload-batch` | `stonewright-media-upload-batch` |
 | `stonewright/elementor-v3-capabilities-summary` | `stonewright-elementor-v3-capabilities-summary` |
+| `stonewright/elementor-v3-get-kit-globals` | `stonewright-elementor-v3-get-kit-globals` |
 | `stonewright/elementor-v3-build-page-from-spec` | `stonewright-elementor-v3-build-page-from-spec` |
 | `stonewright/elementor-v3-batch-mutate` | `stonewright-elementor-v3-batch-mutate` |
 | `stonewright/elementor-v3-apply-bundle` | `stonewright-elementor-v3-apply-bundle` |

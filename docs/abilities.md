@@ -120,6 +120,9 @@ for debugging and operational tasks.
 - `stonewright/elementor-v3-status` and `stonewright/elementor-v4-status`
   report Elementor version, Pro availability, active widget types, unsupported
   required native widgets, and V4 atomic support state.
+- `stonewright/elementor-v3-get-kit-globals` returns a compact active-kit color
+  and typography snapshot so agents can compare Figma tokens before updating
+  Elementor kit globals or writing section specs.
 - `stonewright/blocks-list-registered` and `stonewright/blocks-get-schema`
   include third-party block inserter metadata such as keywords, examples,
   supports, attributes, and variations when WordPress exposes them.
