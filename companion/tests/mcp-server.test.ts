@@ -17,7 +17,7 @@ describe('createMcpServer', () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
 		const info = (server as any).server._serverInfo as { name: string; version: string };
 		expect(info.name).toBe('stonewright-companion');
-		expect(info.version).toBe('1.0.0-alpha.47');
+		expect(info.version).toBe('1.0.0-alpha.48');
 	});
 
 	it('registers WP-CLI tools', async () => {
@@ -82,6 +82,7 @@ describe('createMcpServer', () => {
 				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
 				WP_API_USERNAME: 'admin',
 				WP_API_PASSWORD: 'pw',
+				STONEWRIGHT_MCP_TOOL_PROFILE: 'elementor',
 			},
 			fetchImpl: () => Promise.reject(new Error('network down')),
 		});
@@ -102,6 +103,9 @@ describe('createMcpServer', () => {
 				ok?: boolean;
 				connected?: boolean;
 				error?: { message?: string };
+				tool_profile?: string | null;
+				profile_expected_tool_count?: number;
+				profile_missing_tool_names?: string[];
 				local_tool_names?: string[];
 				recovery?: string[];
 			};
@@ -110,6 +114,10 @@ describe('createMcpServer', () => {
 		expect(response.structuredContent?.ok).toBe(false);
 		expect(response.structuredContent?.connected).toBe(false);
 		expect(response.structuredContent?.error?.message).toContain('network down');
+		expect(response.structuredContent?.tool_profile).toBe('elementor-design');
+		expect(response.structuredContent?.profile_expected_tool_count).toBeGreaterThan(20);
+		expect(response.structuredContent?.profile_missing_tool_names).toContain('stonewright-elementor-v3-build-page-from-spec');
+		expect(response.structuredContent?.profile_missing_tool_names).not.toContain('stonewright-wp-cli-batch-run');
 		expect(response.structuredContent?.local_tool_names).toEqual(expect.arrayContaining([
 			'stonewright-setup-profile',
 			'stonewright-wordpress-mcp-status',

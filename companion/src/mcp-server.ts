@@ -19,6 +19,7 @@ import {
 import { buildSetupProfile } from './setup-profile.js';
 import {
 	STARTUP_REQUIRED_PROXY_TOOL_NAMES,
+	proxyToolProfileFromEnv,
 	proxyToolNamesForProfile,
 	registerWordPressMcpPrompts,
 	registerWordPressMcpTools,
@@ -90,7 +91,7 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 
 	registerWpCliTools(server, commonInput, env);
 	registerSetupTools(server, env);
-	const wpMcpStatus = createWordPressMcpConnectionStatus();
+	const wpMcpStatus = createWordPressMcpConnectionStatus(env);
 	registerWordPressMcpStatusTool(server, wpMcpStatus);
 
 	let wpMcpConfig = null;
@@ -142,27 +143,31 @@ function hasWordPressMcpConfig(env: NodeJS.ProcessEnv): boolean {
 	return Boolean((env['STONEWRIGHT_MCP_URL'] ?? env['WP_API_URL'] ?? env['STONEWRIGHT_WP_URL'] ?? '').trim());
 }
 
-function createWordPressMcpConnectionStatus(): WordPressMcpConnectionStatus {
+function createWordPressMcpConnectionStatus(env: NodeJS.ProcessEnv): WordPressMcpConnectionStatus {
+	const profile = proxyToolProfileFromEnv(env);
+	const profileExpectedToolNames = proxyToolNamesForProfile(profile);
+	const profileMissingToolNames = missingProfileTools(profileExpectedToolNames, []);
+
 	return {
 		ok: false,
 		configured: false,
 		connected: false,
 		url: null,
-		tool_profile: null,
+		tool_profile: profile,
 		startup_ready: false,
 		startup_required_tool_names: Array.from(STARTUP_REQUIRED_PROXY_TOOL_NAMES),
 		startup_missing_tool_names: Array.from(STARTUP_REQUIRED_PROXY_TOOL_NAMES),
 		local_recovery_tool_names: Array.from(LOCAL_RECOVERY_TOOL_NAMES),
 		local_tool_names: Array.from(LOCAL_TOOL_NAMES),
-		profile_expected_tool_count: 0,
-		profile_missing_tool_names: [],
+		profile_expected_tool_count: profileExpectedToolNames.length,
+		profile_missing_tool_names: profileMissingToolNames,
 		remote_tool_count: 0,
 		proxied_tool_count: 0,
 		profile_filtered_tool_count: 0,
 		profile_filtered_tool_names: [],
 		prompt_skill_count: 0,
 		error: null,
-		recovery: recoveryHints(0, STARTUP_REQUIRED_PROXY_TOOL_NAMES.length, 0),
+		recovery: recoveryHints(0, STARTUP_REQUIRED_PROXY_TOOL_NAMES.length, profileMissingToolNames.length),
 	};
 }
 

@@ -7,6 +7,16 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.48] - 2026-06-16
+
+### Changed
+
+- `stonewright-wordpress-mcp-status` now reports the normalized compact
+  `tool_profile`, expected profile tool count, and missing profile tools even
+  when the WordPress MCP endpoint fails before tool registration.
+- Failed connections now keep profile repair hints specific to the selected
+  compact profile instead of returning a null profile.
+
 ## [1.0.0-alpha.47] - 2026-06-16
 
 ### Changed

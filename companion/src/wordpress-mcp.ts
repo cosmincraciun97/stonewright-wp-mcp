@@ -508,7 +508,7 @@ export async function registerWordPressMcpTools(
 	};
 }
 
-function proxyToolProfileFromEnv(env: NodeJS.ProcessEnv): ProxyToolProfile {
+export function proxyToolProfileFromEnv(env: NodeJS.ProcessEnv): ProxyToolProfile {
 	const raw = (env['STONEWRIGHT_MCP_TOOL_PROFILE'] ?? env['STONEWRIGHT_MCP_PROXY_PROFILE'] ?? 'essential')
 		.trim()
 		.toLowerCase();
