@@ -17,7 +17,7 @@ describe('createMcpServer', () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
 		const info = (server as any).server._serverInfo as { name: string; version: string };
 		expect(info.name).toBe('stonewright-companion');
-		expect(info.version).toBe('1.0.0-alpha.40');
+		expect(info.version).toBe('1.0.0-alpha.41');
 	});
 
 	it('registers WP-CLI tools', async () => {
@@ -313,11 +313,17 @@ describe('createMcpServer', () => {
 		const tools = (server as { _registeredTools?: Record<string, { handler?: (input: unknown) => Promise<unknown> }> })._registeredTools ?? {};
 		const response = await tools['stonewright-wordpress-mcp-status']?.handler?.({}) as {
 			structuredContent?: {
+				tool_profile?: string;
+				remote_tool_count?: number;
 				proxied_tool_count?: number;
+				profile_filtered_tool_count?: number;
 			};
 		};
 
+		expect(response.structuredContent?.tool_profile).toBe('essential');
+		expect(response.structuredContent?.remote_tool_count).toBe(4);
 		expect(response.structuredContent?.proxied_tool_count).toBe(3);
+		expect(response.structuredContent?.profile_filtered_tool_count).toBe(1);
 	});
 });
 

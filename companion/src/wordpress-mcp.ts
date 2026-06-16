@@ -41,6 +41,13 @@ interface ToolListResult {
 	tools?: RemoteTool[];
 }
 
+export interface WordPressMcpRegistrationResult {
+	profile: ProxyToolProfile;
+	remoteTools: RemoteTool[];
+	registeredTools: RemoteTool[];
+	filteredToolCount: number;
+}
+
 interface PromptSkill {
 	slug?: string;
 	title?: string;
@@ -72,7 +79,7 @@ const COMPANION_OWNED_TOOL_NAMES = new Set([
 	'stonewright-wordpress-mcp-status',
 ]);
 
-type ProxyToolProfile = 'full' | 'essential' | 'elementor-design' | 'content-model' | 'gutenberg' | 'wp-cli' | 'site-admin';
+export type ProxyToolProfile = 'full' | 'essential' | 'elementor-design' | 'content-model' | 'gutenberg' | 'wp-cli' | 'site-admin';
 
 const BASE_PROXY_TOOL_NAMES = [
 	'stonewright-context-bootstrap',
@@ -428,7 +435,7 @@ export async function registerWordPressMcpTools(
 	config: WordPressMcpConfig,
 	fetchImpl: FetchLike = fetch,
 	env: NodeJS.ProcessEnv = process.env,
-): Promise<RemoteTool[]> {
+): Promise<WordPressMcpRegistrationResult> {
 	const client = new WordPressMcpClient(config, fetchImpl);
 	const tools = await client.listTools();
 	const profile = proxyToolProfileFromEnv(env);
@@ -451,7 +458,12 @@ export async function registerWordPressMcpTools(
 		registeredTools.push(tool);
 	}
 
-	return registeredTools;
+	return {
+		profile,
+		remoteTools: tools,
+		registeredTools,
+		filteredToolCount: Math.max(0, tools.length - registeredTools.length),
+	};
 }
 
 function proxyToolProfileFromEnv(env: NodeJS.ProcessEnv): ProxyToolProfile {

@@ -7,6 +7,15 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.41] - 2026-06-16
+
+### Fixed
+
+- `stonewright-wordpress-mcp-status` now reports the active compact proxy
+  profile, total remote WordPress MCP tools, registered proxied tools, and
+  profile-filtered tools so agents can diagnose missing tools without broad
+  discovery or blind retries.
+
 ## [1.0.0-alpha.40] - 2026-06-16
 
 ### Fixed
@@ -605,6 +614,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.41]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.41
 [1.0.0-alpha.40]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.40
 [1.0.0-alpha.39]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.39
 [1.0.0-alpha.38]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.38

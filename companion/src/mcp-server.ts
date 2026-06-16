@@ -25,7 +25,10 @@ interface WordPressMcpConnectionStatus extends Record<string, unknown> {
 	configured: boolean;
 	connected: boolean;
 	url: string | null;
+	tool_profile: string | null;
+	remote_tool_count: number;
 	proxied_tool_count: number;
+	profile_filtered_tool_count: number;
 	prompt_skill_count: number;
 	error: { message: string } | null;
 	recovery: string[];
@@ -68,11 +71,14 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 		wpMcpStatus.configured = true;
 		wpMcpStatus.url = wpMcpConfig.url;
 		try {
-			const tools = await registerWordPressMcpTools(server, wpMcpConfig, options.fetchImpl ?? fetch, env);
+			const registration = await registerWordPressMcpTools(server, wpMcpConfig, options.fetchImpl ?? fetch, env);
 			const promptSkills = await registerWordPressMcpPrompts(server, wpMcpConfig, options.fetchImpl ?? fetch);
 			wpMcpStatus.ok = true;
 			wpMcpStatus.connected = true;
-			wpMcpStatus.proxied_tool_count = tools.length;
+			wpMcpStatus.tool_profile = registration.profile;
+			wpMcpStatus.remote_tool_count = registration.remoteTools.length;
+			wpMcpStatus.proxied_tool_count = registration.registeredTools.length;
+			wpMcpStatus.profile_filtered_tool_count = registration.filteredToolCount;
 			wpMcpStatus.prompt_skill_count = promptSkills.length;
 			wpMcpStatus.error = null;
 		} catch (err) {
@@ -95,7 +101,10 @@ function createWordPressMcpConnectionStatus(): WordPressMcpConnectionStatus {
 		configured: false,
 		connected: false,
 		url: null,
+		tool_profile: null,
+		remote_tool_count: 0,
 		proxied_tool_count: 0,
+		profile_filtered_tool_count: 0,
 		prompt_skill_count: 0,
 		error: null,
 		recovery: [
