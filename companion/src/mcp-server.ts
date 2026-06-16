@@ -35,6 +35,7 @@ interface WordPressMcpConnectionStatus extends Record<string, unknown> {
 	startup_required_tool_names: string[];
 	startup_missing_tool_names: string[];
 	local_recovery_tool_names: string[];
+	local_tool_names: string[];
 	remote_tool_count: number;
 	proxied_tool_count: number;
 	profile_filtered_tool_count: number;
@@ -54,7 +55,18 @@ const LOCAL_RECOVERY_TOOL_NAMES = [
 	'stonewright-wordpress-mcp-status',
 	'stonewright-wp-cli-status',
 	'stonewright-wp-cli-discover',
+	'stonewright-wp-cli-run',
 	'stonewright-wp-cli-batch-run',
+	'stonewright-wp-cli-install',
+] as const;
+
+const LOCAL_TOOL_NAMES = [
+	'companion_wp_cli_status',
+	'companion_wp_cli_discover',
+	'companion_wp_cli_run',
+	'companion_wp_cli_batch_run',
+	'companion_wp_cli_install',
+	...LOCAL_RECOVERY_TOOL_NAMES,
 ] as const;
 
 export async function createMcpServer(options: CreateMcpServerOptions = {}): Promise<McpServer> {
@@ -128,6 +140,7 @@ function createWordPressMcpConnectionStatus(): WordPressMcpConnectionStatus {
 		startup_required_tool_names: Array.from(STARTUP_REQUIRED_PROXY_TOOL_NAMES),
 		startup_missing_tool_names: Array.from(STARTUP_REQUIRED_PROXY_TOOL_NAMES),
 		local_recovery_tool_names: Array.from(LOCAL_RECOVERY_TOOL_NAMES),
+		local_tool_names: Array.from(LOCAL_TOOL_NAMES),
 		remote_tool_count: 0,
 		proxied_tool_count: 0,
 		profile_filtered_tool_count: 0,

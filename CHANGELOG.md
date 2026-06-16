@@ -7,6 +7,16 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.46] - 2026-06-16
+
+### Changed
+
+- `stonewright-wordpress-mcp-status` now reports `local_tool_names`, covering
+  setup, proxy status, direct Stonewright WP-CLI tools, and legacy companion
+  WP-CLI aliases so agents can recover without broad tool discovery.
+- `local_recovery_tool_names` and `stonewright-setup-profile` visibility checks
+  now include direct `stonewright-wp-cli-run` and `stonewright-wp-cli-install`.
+
 ## [1.0.0-alpha.45] - 2026-06-16
 
 ### Changed

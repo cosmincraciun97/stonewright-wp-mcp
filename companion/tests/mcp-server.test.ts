@@ -17,7 +17,7 @@ describe('createMcpServer', () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
 		const info = (server as any).server._serverInfo as { name: string; version: string };
 		expect(info.name).toBe('stonewright-companion');
-		expect(info.version).toBe('1.0.0-alpha.45');
+		expect(info.version).toBe('1.0.0-alpha.46');
 	});
 
 	it('registers WP-CLI tools', async () => {
@@ -102,6 +102,7 @@ describe('createMcpServer', () => {
 				ok?: boolean;
 				connected?: boolean;
 				error?: { message?: string };
+				local_tool_names?: string[];
 				recovery?: string[];
 			};
 		};
@@ -109,6 +110,20 @@ describe('createMcpServer', () => {
 		expect(response.structuredContent?.ok).toBe(false);
 		expect(response.structuredContent?.connected).toBe(false);
 		expect(response.structuredContent?.error?.message).toContain('network down');
+		expect(response.structuredContent?.local_tool_names).toEqual(expect.arrayContaining([
+			'stonewright-setup-profile',
+			'stonewright-wordpress-mcp-status',
+			'stonewright-wp-cli-status',
+			'stonewright-wp-cli-discover',
+			'stonewright-wp-cli-run',
+			'stonewright-wp-cli-batch-run',
+			'stonewright-wp-cli-install',
+			'companion_wp_cli_status',
+			'companion_wp_cli_discover',
+			'companion_wp_cli_run',
+			'companion_wp_cli_batch_run',
+			'companion_wp_cli_install',
+		]));
 		expect(response.structuredContent?.recovery).toContain('Verify STONEWRIGHT_WP_URL or STONEWRIGHT_MCP_URL points to /wp-json/mcp/stonewright.');
 	});
 
@@ -361,6 +376,7 @@ describe('createMcpServer', () => {
 				startup_required_tool_names?: string[];
 				startup_missing_tool_names?: string[];
 				local_recovery_tool_names?: string[];
+				local_tool_names?: string[];
 				recovery?: string[];
 			};
 		};
@@ -383,8 +399,16 @@ describe('createMcpServer', () => {
 			'stonewright-wordpress-mcp-status',
 			'stonewright-wp-cli-status',
 			'stonewright-wp-cli-discover',
+			'stonewright-wp-cli-run',
 			'stonewright-wp-cli-batch-run',
+			'stonewright-wp-cli-install',
 		]);
+		expect(response.structuredContent?.local_tool_names).toEqual(expect.arrayContaining([
+			'stonewright-wp-cli-run',
+			'stonewright-wp-cli-install',
+			'companion_wp_cli_run',
+			'companion_wp_cli_install',
+		]));
 		expect(response.structuredContent?.recovery).toContain('If a needed WordPress MCP tool is absent and profile_filtered_tool_count is greater than 0, switch STONEWRIGHT_MCP_TOOL_PROFILE to a narrower task profile or full, then restart the MCP session.');
 		expect(response.structuredContent?.recovery).toContain('If startup_ready is false, update/enable the missing startup tools in the WordPress Stonewright plugin, then restart the MCP session.');
 	});

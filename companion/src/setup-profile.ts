@@ -101,7 +101,9 @@ export function buildSetupProfile(
 			'stonewright-wordpress-mcp-status',
 			'stonewright-wp-cli-status',
 			'stonewright-wp-cli-discover',
+			'stonewright-wp-cli-run',
 			'stonewright-wp-cli-batch-run',
+			'stonewright-wp-cli-install',
 		],
 		notes: [
 			'Use this MCP config on Windows, macOS, and Linux; env vars carry paths safely.',

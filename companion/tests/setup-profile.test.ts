@@ -17,7 +17,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.mcp_server.command).toBe('npx');
 		expect(profile.mcp_server.args).toEqual([
 			'-y',
-			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.45/stonewright-companion-1.0.0-alpha.45.tgz',
+			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.46/stonewright-companion-1.0.0-alpha.46.tgz',
 		]);
 		expect(profile.mcp_server.env).toMatchObject({
 			STONEWRIGHT_WP_URL: 'http://mcp-test.local',
@@ -38,7 +38,9 @@ describe('buildSetupProfile', () => {
 			'stonewright-wordpress-mcp-status',
 			'stonewright-wp-cli-status',
 			'stonewright-wp-cli-discover',
+			'stonewright-wp-cli-run',
 			'stonewright-wp-cli-batch-run',
+			'stonewright-wp-cli-install',
 		]);
 		expect(profile.notes.join('\n')).toContain('Use stonewright-wordpress-mcp-status if proxied WordPress tools are missing');
 		expect(profile.notes.join('\n')).toContain('Verify the MCP tool list includes stonewright-context-bootstrap before starting WordPress work');
@@ -69,7 +71,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.platform).toBe('win32');
 		expect(profile.mcp_server.env.STONEWRIGHT_WP_ROOT).toBe('D:\\Sites\\mcp-test\\app\\public');
 		expect(profile.mcp_server.env.STONEWRIGHT_WP_USERNAME).toBe('admin');
-		expect(profile.install_command).toBe('npm install -g https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.45/stonewright-companion-1.0.0-alpha.45.tgz');
+		expect(profile.install_command).toBe('npm install -g https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.46/stonewright-companion-1.0.0-alpha.46.tgz');
 		expect(profile.notes.join('\n')).toContain('No shell script wrapper required');
 	});
 
