@@ -100,6 +100,34 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		}
 	}
 
+	public function test_tool_profile_reports_required_profile_tools_hidden_by_settings(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_disabled_abilities'] = [
+			'stonewright/elementor-v3-build-page-from-spec',
+		];
+
+		$ability = AbilityRegistry::ability_by_name( 'stonewright/tool-profile' );
+
+		self::assertNotNull( $ability );
+
+		$result = $ability->execute(
+			[
+				'profile'   => 'elementor-design',
+				'task'      => 'Build a pixel perfect design in Elementor from a Figma reference.',
+				'surface'   => 'elementor',
+				'intent'    => 'write',
+				'max_tools' => 40,
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertNotContains( 'stonewright/elementor-v3-build-page-from-spec', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $result['missing_profile_tools'] );
+		self::assertContains( 'stonewright-elementor-v3-build-page-from-spec', $result['missing_mcp_tools'] );
+		self::assertContains( 'Use stonewright/system-abilities-list to inspect disabled or gated abilities before falling back to slower single-call workflows.', $result['recovery_hints'] );
+		self::assertGreaterThanOrEqual( 1, $result['counts']['missing'] );
+	}
+
 	public function test_tool_profile_auto_routes_content_model_work_to_compact_wp_cli_path(): void {
 		$ability = AbilityRegistry::ability_by_name( 'stonewright/tool-profile' );
 

@@ -7,6 +7,15 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.29] - 2026-06-16
+
+### Changed
+
+- `stonewright/tool-profile` now filters recommendations to actually enabled
+  abilities and reports missing profile tools with MCP names plus recovery
+  hints, preventing agents from silently planning around disabled or gated
+  tools.
+
 ## [1.0.0-alpha.28] - 2026-06-16
 
 ### Changed

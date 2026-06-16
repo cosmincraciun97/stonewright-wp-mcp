@@ -40,7 +40,9 @@ ability surface.
 Agents should call `stonewright-tool-profile` after bootstrap or preflight when
 the client has a tool cap or the user asks for token-efficient implementation.
 The profile response keeps Elementor, Gutenberg, content-model, and WP-CLI
-tasks on a compact set of batch-first tools.
+tasks on a compact set of batch-first tools. If a profile expects a disabled or
+gated tool, the response includes `missing_profile_tools`, `missing_mcp_tools`,
+and `recovery_hints` so the agent can recover without broad discovery loops.
 
 ### Local WP-CLI bridge (advanced)
 
@@ -106,7 +108,7 @@ install:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.28/stonewright-companion-1.0.0-alpha.28.tgz"],
+      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.29/stonewright-companion-1.0.0-alpha.29.tgz"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",

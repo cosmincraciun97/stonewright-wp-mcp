@@ -131,6 +131,8 @@ final class ToolProfile extends AbilityKernel {
 				'profiles_available'    => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'recommended_tools'     => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'recommended_mcp_tools' => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'missing_profile_tools' => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'missing_mcp_tools'     => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'tools'                 => [
 					'type'  => 'array',
 					'items' => [
@@ -144,6 +146,7 @@ final class ToolProfile extends AbilityKernel {
 						'required'   => [ 'ability', 'mcp_tool', 'priority', 'why' ],
 					],
 				],
+				'recovery_hints'        => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'workflow_rules'        => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'token_rules'           => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'counts'                => [ 'type' => 'object' ],
@@ -159,7 +162,10 @@ final class ToolProfile extends AbilityKernel {
 				'profiles_available',
 				'recommended_tools',
 				'recommended_mcp_tools',
+				'missing_profile_tools',
+				'missing_mcp_tools',
 				'tools',
+				'recovery_hints',
 				'workflow_rules',
 				'token_rules',
 			],
@@ -197,11 +203,26 @@ final class ToolProfile extends AbilityKernel {
 		$max_tools = max( 5, min( 200, $max_tools ) );
 		$profile   = 'auto' === $requested ? self::suggest_profile( $task, $surface, $intent ) : $requested;
 
-		$all_visible = array_fill_keys( array_column( AbilityRegistry::enabled_abilities(), 'name' ), true );
-		$names       = 'full' === $profile ? array_keys( $all_visible ) : self::profile_tools( $profile );
-		$names       = array_values(
+		$visible_rows = array_values(
 			array_filter(
-				array_unique( $names ),
+				AbilityRegistry::enabled_abilities(),
+				static fn( array $ability ): bool => (bool) $ability['enabled']
+			)
+		);
+		$all_visible  = array_fill_keys( array_column( $visible_rows, 'name' ), true );
+		$profile_names = 'full' === $profile ? array_keys( $all_visible ) : self::profile_tools( $profile );
+		$profile_names = array_values( array_unique( $profile_names ) );
+		$missing_names = 'full' === $profile
+			? []
+			: array_values(
+				array_filter(
+					$profile_names,
+					static fn( string $name ): bool => ! isset( $all_visible[ $name ] )
+				)
+			);
+		$names         = array_values(
+			array_filter(
+				$profile_names,
 				static fn( string $name ): bool => isset( $all_visible[ $name ] )
 			)
 		);
@@ -231,7 +252,10 @@ final class ToolProfile extends AbilityKernel {
 			'profiles_available'    => self::profile_names(),
 			'recommended_tools'     => $limited_names,
 			'recommended_mcp_tools' => array_map( [ AbilityRegistry::class, 'mcp_tool_name' ], $limited_names ),
+			'missing_profile_tools' => $missing_names,
+			'missing_mcp_tools'     => array_map( [ AbilityRegistry::class, 'mcp_tool_name' ], $missing_names ),
 			'tools'                 => $tools,
+			'recovery_hints'        => self::recovery_hints( $missing_names ),
 			'workflow_rules'        => self::workflow_rules( $profile ),
 			'token_rules'           => self::token_rules(),
 			'counts'                => [
@@ -239,6 +263,7 @@ final class ToolProfile extends AbilityKernel {
 				'visible'        => count( $all_visible ),
 				'profile'        => $profile_tool_count,
 				'returned'       => count( $limited_names ),
+				'missing'        => count( $missing_names ),
 			],
 		];
 	}
@@ -411,6 +436,22 @@ final class ToolProfile extends AbilityKernel {
 			'Read schemas for only the widgets or block types used in the current section batch.',
 			'Prefer dry_run diagnostics and one section write over many exploratory writes.',
 			'Use system-abilities-list only when the selected profile is missing a needed capability.',
+		];
+	}
+
+	/**
+	 * @param list<string> $missing_names
+	 * @return list<string>
+	 */
+	private static function recovery_hints( array $missing_names ): array {
+		if ( [] === $missing_names ) {
+			return [];
+		}
+
+		return [
+			'Use stonewright/system-abilities-list to inspect disabled or gated abilities before falling back to slower single-call workflows.',
+			'If a required profile tool is intentionally disabled, re-enable it in Stonewright AI Abilities or choose the closest available batch tool from this profile.',
+			'Use full ability discovery only for specialist recovery sessions; keep compact profiles for normal implementation work.',
 		];
 	}
 
