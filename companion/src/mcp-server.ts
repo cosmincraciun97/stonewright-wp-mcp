@@ -98,12 +98,14 @@ const LOCAL_TOOL_NAMES = [
 ] as const;
 
 export async function createMcpServer(options: CreateMcpServerOptions = {}): Promise<McpServer> {
+	const env = options.env ?? process.env;
+	const profile = proxyToolProfileFromEnv(env);
 	const server = new McpServer({
 		name: 'stonewright-companion',
 		version: APP_VERSION,
+	}, {
+		instructions: companionInstructions(profile),
 	});
-	const env = options.env ?? process.env;
-	const profile = proxyToolProfileFromEnv(env);
 
 	const commonInput = {
 		cwd: z.string().optional(),
@@ -167,6 +169,25 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 	}
 
 	return server;
+}
+
+function companionInstructions(profile: ProxyToolProfile): string {
+	const lines = [
+		'Stonewright companion fast start:',
+		`- Current compact profile: ${profile}.`,
+		'- First call stonewright-setup-profile if connection, credentials, or tool visibility is unclear.',
+		'- For WordPress work, call stonewright-context-bootstrap, then stonewright-workflow-preflight. Use stonewright-tool-profile before broad discovery or tool-cap work.',
+		'- If stonewright-context-bootstrap is missing, call stonewright-wordpress-mcp-status and use direct stonewright-wp-cli-* recovery tools while fixing the WordPress MCP proxy.',
+		'- Use stonewright-wp-cli-status, stonewright-wp-cli-discover, stonewright-wp-cli-run, and stonewright-wp-cli-batch-run for guarded WP-CLI work.',
+		'- Use stonewright-wp-cli-job-start and stonewright-wp-cli-job-status for long imports, plugin operations, cache rebuilds, media work, or large batches when those tools are visible.',
+		'- Do not run wp commands in a normal shell. Do not use wp eval, wp eval-file, wp shell, wp package, --exec, or --require.',
+	];
+
+	if (profile === 'low-tools') {
+		lines.push('- This session is strict-cap mode: keep STONEWRIGHT_MCP_TOOL_PROFILE=low-tools, use the visible fast-path tools, and switch to a specialist profile only when required.');
+	}
+
+	return lines.join('\n');
 }
 
 function hasWordPressMcpConfig(env: NodeJS.ProcessEnv): boolean {

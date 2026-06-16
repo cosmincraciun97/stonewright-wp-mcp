@@ -46,6 +46,9 @@ Windows, macOS, and Linux. Use its `first_calls` and
 `stonewright-workflow-preflight`, `stonewright-tool-profile`,
 `stonewright-skills-get`, `stonewright-wordpress-mcp-status`, and direct WP-CLI
 aliases are visible before real work.
+The companion also publishes compact MCP handshake instructions, so clients get
+the first-call, recovery, low-tools, and guarded WP-CLI rules before any tool is
+called.
 For Antigravity, Gemini API, or other strict tool-cap clients, set
 `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` before startup. It keeps the total
 client-visible tool surface under 30 by hiding legacy duplicate aliases while
@@ -167,6 +170,8 @@ skill, or WP-CLI tools are missing. It also reports
 `profile_expected_tool_count`, `client_visible_expected_tool_count`, and
 `profile_missing_tool_names` for the selected compact profile even when the
 WordPress MCP endpoint cannot be reached.
+The same fast-start policy is present in the MCP server instructions, which
+helps clients that read server instructions before listing or calling tools.
 
 Alias names (`companion_wp_cli_*`) are also registered for backward compatibility.
 

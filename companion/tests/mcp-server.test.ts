@@ -21,6 +21,26 @@ describe('createMcpServer', () => {
 		expect(info.version).toBe('1.0.0-alpha.48');
 	});
 
+	it('publishes compact handshake instructions before any tool is called', async () => {
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MCP_TOOL_PROFILE: 'antigravity',
+			},
+		});
+		// _instructions lives on the inner Server instance (SDK internal).
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
+		const instructions = (server as any).server._instructions as string | undefined;
+
+		expect(instructions).toContain('stonewright-setup-profile');
+		expect(instructions).toContain('stonewright-context-bootstrap');
+		expect(instructions).toContain('stonewright-workflow-preflight');
+		expect(instructions).toContain('stonewright-wordpress-mcp-status');
+		expect(instructions).toContain('stonewright-wp-cli-batch-run');
+		expect(instructions).toContain('STONEWRIGHT_MCP_TOOL_PROFILE=low-tools');
+		expect(instructions).toContain('Do not run wp commands in a normal shell');
+		expect(instructions).not.toContain('companion_wp_cli_run');
+	});
+
 	it('registers WP-CLI tools', async () => {
 		const server = await createMcpServer();
 		const toolNames = registeredToolNames(server);

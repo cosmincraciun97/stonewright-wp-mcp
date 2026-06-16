@@ -112,6 +112,10 @@ preflight, tool profile, skill playbook retrieval, WordPress MCP proxy status,
 and direct WP-CLI aliases. Use
 `stonewright-tool-profile` before broad tool discovery when a client has a tool
 cap, slow startup, or a token-sensitive task.
+The companion also sets compact MCP server instructions at handshake time. They
+tell clients to call setup/profile/bootstrap tools first, use direct
+`stonewright-wp-cli-*` recovery tools, keep low-tools sessions compact, and
+avoid shell WP-CLI or arbitrary PHP workarounds before the first tool call.
 
 If `stonewright-context-bootstrap` or other proxied WordPress tools are missing,
 call `stonewright-wordpress-mcp-status`. The companion keeps this diagnostic,
