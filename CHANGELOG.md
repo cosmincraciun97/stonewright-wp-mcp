@@ -7,6 +7,16 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.26] - 2026-06-16
+
+### Changed
+
+- Companion proxied WordPress MCP tools now default to the compact `essential`
+  profile when `STONEWRIGHT_MCP_TOOL_PROFILE` is unset, reducing first-session
+  tool surface and token use for clients that omit setup-profile env guidance.
+- Explicit `STONEWRIGHT_MCP_TOOL_PROFILE=full`, `all`, `off`, `false`, or `0`
+  still proxies every WordPress MCP tool for specialist sessions.
+
 ## [1.0.0-alpha.25] - 2026-06-16
 
 ### Changed
@@ -425,6 +435,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.26]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.26
 [1.0.0-alpha.25]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.25
 [1.0.0-alpha.24]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.24
 [1.0.0-alpha.23]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.23

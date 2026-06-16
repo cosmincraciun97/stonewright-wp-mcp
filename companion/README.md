@@ -27,7 +27,7 @@ Fast path for MCP clients:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.25/stonewright-companion-1.0.0-alpha.25.tgz"],
+      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.26/stonewright-companion-1.0.0-alpha.26.tgz"],
       "env": {
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
@@ -75,7 +75,7 @@ cp .env.example .env
 | `STONEWRIGHT_WP_URL` | recommended for stdio | WordPress site URL; the companion derives `/wp-json/mcp/stonewright` |
 | `STONEWRIGHT_WP_USERNAME` | with `STONEWRIGHT_WP_URL` | WordPress username for Application Password auth |
 | `STONEWRIGHT_WP_APP_PASSWORD` | with `STONEWRIGHT_WP_URL` | WordPress Application Password |
-| `STONEWRIGHT_MCP_TOOL_PROFILE` | optional | Compact proxied tool surface; use `essential` for fast startup or `full` for every WordPress MCP tool |
+| `STONEWRIGHT_MCP_TOOL_PROFILE` | optional | Compact proxied tool surface; defaults to `essential` for fast startup; set `full` for every WordPress MCP tool |
 | `STONEWRIGHT_MCP_URL` | optional | Explicit WordPress MCP endpoint override |
 | `WP_API_USERNAME` | optional legacy alias | Alias for `STONEWRIGHT_WP_USERNAME` |
 | `WP_API_PASSWORD` | optional legacy alias | Alias for `STONEWRIGHT_WP_APP_PASSWORD` |

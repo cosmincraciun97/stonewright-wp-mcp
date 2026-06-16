@@ -447,19 +447,19 @@ export async function registerWordPressMcpTools(
 }
 
 function proxyToolProfileFromEnv(env: NodeJS.ProcessEnv): ProxyToolProfile {
-	const raw = (env['STONEWRIGHT_MCP_TOOL_PROFILE'] ?? env['STONEWRIGHT_MCP_PROXY_PROFILE'] ?? 'full')
+	const raw = (env['STONEWRIGHT_MCP_TOOL_PROFILE'] ?? env['STONEWRIGHT_MCP_PROXY_PROFILE'] ?? 'essential')
 		.trim()
 		.toLowerCase();
-	if (raw === '' || ['0', 'false', 'off', 'full', 'all'].includes(raw)) {
+	if (['0', 'false', 'off', 'full', 'all'].includes(raw)) {
 		return 'full';
 	}
-	if (raw === 'auto' || raw === 'fast' || raw === 'general' || raw === 'compact') {
+	if (raw === '' || raw === 'auto' || raw === 'fast' || raw === 'general' || raw === 'compact') {
 		return 'essential';
 	}
 	if (raw in PROXY_TOOL_PROFILE_SETS) {
 		return raw as Exclude<ProxyToolProfile, 'full'>;
 	}
-	return 'full';
+	return 'essential';
 }
 
 function proxyToolAllowed(toolName: string, profile: ProxyToolProfile): boolean {
