@@ -133,6 +133,19 @@ final class ToolProfile extends AbilityKernel {
 				'recommended_mcp_tools' => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'missing_profile_tools' => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'missing_mcp_tools'     => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'tool_groups'           => [ 'type' => 'object' ],
+				'next_best_tools'       => [
+					'type'  => 'array',
+					'items' => [
+						'type'       => 'object',
+						'properties' => [
+							'ability'  => [ 'type' => 'string' ],
+							'mcp_tool' => [ 'type' => 'string' ],
+							'group'    => [ 'type' => 'string' ],
+						],
+						'required'   => [ 'ability', 'mcp_tool', 'group' ],
+					],
+				],
 				'tools'                 => [
 					'type'  => 'array',
 					'items' => [
@@ -147,6 +160,7 @@ final class ToolProfile extends AbilityKernel {
 					],
 				],
 				'recovery_hints'        => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'discovery_policy'      => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'workflow_rules'        => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'token_rules'           => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'counts'                => [ 'type' => 'object' ],
@@ -164,8 +178,11 @@ final class ToolProfile extends AbilityKernel {
 				'recommended_mcp_tools',
 				'missing_profile_tools',
 				'missing_mcp_tools',
+				'tool_groups',
+				'next_best_tools',
 				'tools',
 				'recovery_hints',
+				'discovery_policy',
 				'workflow_rules',
 				'token_rules',
 			],
@@ -230,6 +247,7 @@ final class ToolProfile extends AbilityKernel {
 		$profile_tool_count = count( $names );
 		$limited_names      = array_slice( $names, 0, $max_tools );
 		$tools              = [];
+		$tool_groups        = self::tool_groups( $limited_names );
 
 		foreach ( $limited_names as $index => $name ) {
 			$tools[] = [
@@ -254,8 +272,11 @@ final class ToolProfile extends AbilityKernel {
 			'recommended_mcp_tools' => array_map( [ AbilityRegistry::class, 'mcp_tool_name' ], $limited_names ),
 			'missing_profile_tools' => $missing_names,
 			'missing_mcp_tools'     => array_map( [ AbilityRegistry::class, 'mcp_tool_name' ], $missing_names ),
+			'tool_groups'           => $tool_groups,
+			'next_best_tools'       => self::next_best_tools( $profile, $tool_groups ),
 			'tools'                 => $tools,
 			'recovery_hints'        => self::recovery_hints( $missing_names ),
+			'discovery_policy'      => self::discovery_policy(),
 			'workflow_rules'        => self::workflow_rules( $profile ),
 			'token_rules'           => self::token_rules(),
 			'counts'                => [
@@ -441,6 +462,167 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/wp-cli-job-status' => 'Poll a WP-CLI background job until the compact result is ready.',
 			default => 'Use this tool only when it is needed by the selected profile step.',
 		};
+	}
+
+	/**
+	 * @param list<string> $names
+	 * @return array<string,array{abilities:list<string>,mcp_tools:list<string>,count:int}>
+	 */
+	private static function tool_groups( array $names ): array {
+		$groups = [
+			'startup'          => [],
+			'elementor_design' => [],
+			'content_media'    => [],
+			'gutenberg_fse'    => [],
+			'wp_cli'           => [],
+			'site_admin'       => [],
+			'other'            => [],
+		];
+
+		foreach ( $names as $name ) {
+			$groups[ self::tool_group_name( $name ) ][] = $name;
+		}
+
+		$out = [];
+		foreach ( $groups as $group => $abilities ) {
+			if ( [] === $abilities ) {
+				continue;
+			}
+
+			$out[ $group ] = [
+				'abilities' => array_values( $abilities ),
+				'mcp_tools' => array_map( [ AbilityRegistry::class, 'mcp_tool_name' ], $abilities ),
+				'count'     => count( $abilities ),
+			];
+		}
+
+		return $out;
+	}
+
+	private static function tool_group_name( string $name ): string {
+		if ( in_array( $name, [ 'stonewright/context-bootstrap', 'stonewright/workflow-preflight', 'stonewright/tool-profile', 'stonewright/skills-get' ], true ) ) {
+			return 'startup';
+		}
+
+		if ( str_contains( $name, '/wp-cli-' ) ) {
+			return 'wp_cli';
+		}
+
+		if ( str_contains( $name, 'elementor' ) || str_contains( $name, 'design' ) || str_contains( $name, 'widget' ) ) {
+			return 'elementor_design';
+		}
+
+		if ( str_contains( $name, 'content' ) || str_contains( $name, 'media' ) ) {
+			return 'content_media';
+		}
+
+		if ( str_contains( $name, 'gutenberg' ) || str_contains( $name, 'blocks' ) || str_contains( $name, 'fse' ) ) {
+			return 'gutenberg_fse';
+		}
+
+		if ( str_contains( $name, 'site' ) || str_contains( $name, 'system' ) || str_contains( $name, 'security' ) || str_contains( $name, 'menu' ) || 'stonewright/ping' === $name ) {
+			return 'site_admin';
+		}
+
+		return 'other';
+	}
+
+	/**
+	 * @param array<string,array{abilities:list<string>,mcp_tools:list<string>,count:int}> $tool_groups
+	 * @return list<array{ability:string,mcp_tool:string,group:string}>
+	 */
+	private static function next_best_tools( string $profile, array $tool_groups ): array {
+		$preferred_abilities = match ( $profile ) {
+			'elementor-design', 'low-tools' => [
+				'stonewright/elementor-v3-build-page-from-spec',
+				'stonewright/elementor-v3-batch-mutate',
+				'stonewright/elementor-v3-get-kit-globals',
+				'stonewright/content-bulk-upsert-posts',
+				'stonewright/media-upload-batch',
+				'stonewright/wp-cli-batch-run',
+				'stonewright/wp-cli-job-start',
+			],
+			'content-model' => [
+				'stonewright/content-bulk-upsert-posts',
+				'stonewright/wp-cli-discover',
+				'stonewright/wp-cli-batch-run',
+				'stonewright/wp-cli-job-start',
+			],
+			'gutenberg' => [
+				'stonewright/gutenberg-apply-to-post',
+				'stonewright/design-spec-to-gutenberg',
+				'stonewright/blocks-get-schema',
+			],
+			'wp-cli' => [
+				'stonewright/wp-cli-status',
+				'stonewright/wp-cli-discover',
+				'stonewright/wp-cli-batch-run',
+				'stonewright/wp-cli-job-start',
+			],
+			default => [],
+		};
+		$preferred_groups = match ( $profile ) {
+			'elementor-design', 'low-tools' => [ 'elementor_design', 'content_media', 'wp_cli', 'gutenberg_fse', 'startup' ],
+			'content-model' => [ 'content_media', 'wp_cli', 'site_admin', 'startup' ],
+			'gutenberg' => [ 'gutenberg_fse', 'content_media', 'startup' ],
+			'wp-cli' => [ 'wp_cli', 'site_admin', 'startup' ],
+			'site-admin' => [ 'site_admin', 'wp_cli', 'startup' ],
+			default => [ 'startup', 'site_admin', 'elementor_design', 'content_media', 'wp_cli' ],
+		};
+
+		$out = [];
+		$ability_to_group = [];
+		foreach ( $tool_groups as $group => $data ) {
+			foreach ( $data['abilities'] as $ability ) {
+				$ability_to_group[ $ability ] = $group;
+			}
+		}
+
+		foreach ( $preferred_abilities as $ability ) {
+			if ( ! isset( $ability_to_group[ $ability ] ) ) {
+				continue;
+			}
+
+			$out[] = [
+				'ability'  => $ability,
+				'mcp_tool' => AbilityRegistry::mcp_tool_name( $ability ),
+				'group'    => $ability_to_group[ $ability ],
+			];
+		}
+
+		foreach ( $preferred_groups as $group ) {
+			foreach ( $tool_groups[ $group ]['abilities'] ?? [] as $ability ) {
+				if ( in_array( $ability, [ 'stonewright/context-bootstrap', 'stonewright/workflow-preflight', 'stonewright/tool-profile', 'stonewright/skills-get' ], true ) ) {
+					continue;
+				}
+				if ( in_array( $ability, array_column( $out, 'ability' ), true ) ) {
+					continue;
+				}
+
+				$out[] = [
+					'ability'  => $ability,
+					'mcp_tool' => AbilityRegistry::mcp_tool_name( $ability ),
+					'group'    => $group,
+				];
+
+				if ( count( $out ) >= 8 ) {
+					return $out;
+				}
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	private static function discovery_policy(): array {
+		return [
+			'Use tool_groups before system-abilities-list or full tools/list discovery.',
+			'Use next_best_tools for the next write/read step when the selected profile matches the task.',
+			'Use system-abilities-list only when a required group is missing or a plugin-specific specialist tool is needed.',
+		];
 	}
 
 	/**

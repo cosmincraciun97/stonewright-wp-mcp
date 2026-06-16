@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.52] - 2026-06-17
+
+### Added
+
+- Added grouped `tool_groups`, `next_best_tools`, and `discovery_policy` data
+  to `stonewright/tool-profile` so direct WordPress MCP sessions can choose
+  compact task tools without broad discovery.
+
 ## [1.0.0-alpha.51] - 2026-06-17
 
 ### Added

@@ -192,6 +192,14 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright-wp-cli-batch-run', $result['recommended_mcp_tools'] );
 		self::assertContains( 'stonewright/wp-cli-job-start', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/wp-cli-job-status', $result['recommended_tools'] );
+		self::assertArrayHasKey( 'tool_groups', $result );
+		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $result['tool_groups']['elementor_design']['abilities'] );
+		self::assertContains( 'stonewright-elementor-v3-build-page-from-spec', $result['tool_groups']['elementor_design']['mcp_tools'] );
+		self::assertContains( 'stonewright/content-bulk-upsert-posts', $result['tool_groups']['content_media']['abilities'] );
+		self::assertContains( 'stonewright/wp-cli-job-start', $result['tool_groups']['wp_cli']['abilities'] );
+		self::assertSame( 'Use tool_groups before system-abilities-list or full tools/list discovery.', $result['discovery_policy'][0] );
+		self::assertSame( 'stonewright/elementor-v3-build-page-from-spec', $result['next_best_tools'][0]['ability'] );
+		self::assertSame( 'stonewright-elementor-v3-build-page-from-spec', $result['next_best_tools'][0]['mcp_tool'] );
 		self::assertNotContains( 'stonewright/system-abilities-list', $result['recommended_tools'] );
 		self::assertNotContains( 'stonewright/content-create-page', $result['recommended_tools'] );
 		self::assertNotContains( 'stonewright/media-list', $result['recommended_tools'] );
