@@ -103,6 +103,7 @@ const ESSENTIAL_PROXY_TOOL_NAMES = [
 	'stonewright-design-implementation-contract',
 	'stonewright-elementor-v3-status',
 	'stonewright-elementor-v3-capabilities-summary',
+	'stonewright-elementor-v3-container-schema',
 	'stonewright-elementor-v3-list-widgets',
 	'stonewright-elementor-v3-get-widget-schema',
 	'stonewright-elementor-v3-get-page-structure',
@@ -148,6 +149,7 @@ const PROXY_TOOL_PROFILE_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, readon
 		'stonewright-elementor-widget-implementation-guide',
 		'stonewright-elementor-v3-status',
 		'stonewright-elementor-v3-capabilities-summary',
+		'stonewright-elementor-v3-container-schema',
 		'stonewright-elementor-v3-list-widgets',
 		'stonewright-elementor-v3-get-widget-schema',
 		'stonewright-elementor-describe-widget',
@@ -430,6 +432,7 @@ export async function registerWordPressMcpTools(
 	const client = new WordPressMcpClient(config, fetchImpl);
 	const tools = await client.listTools();
 	const profile = proxyToolProfileFromEnv(env);
+	const registeredTools: RemoteTool[] = [];
 
 	for (const tool of tools) {
 		if (!tool.name || tool.name.startsWith('companion_') || COMPANION_OWNED_TOOL_NAMES.has(tool.name)) {
@@ -445,9 +448,10 @@ export async function registerWordPressMcpTools(
 			zodShapeFromJsonSchema(tool.inputSchema ?? emptyObjectSchema()),
 			async (input) => normalizeToolResponse(await client.callTool(tool.name, input)),
 		);
+		registeredTools.push(tool);
 	}
 
-	return tools;
+	return registeredTools;
 }
 
 function proxyToolProfileFromEnv(env: NodeJS.ProcessEnv): ProxyToolProfile {

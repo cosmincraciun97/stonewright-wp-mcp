@@ -7,6 +7,18 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.40] - 2026-06-16
+
+### Fixed
+
+- The companion compact `essential` and `elementor-design` proxy profiles now
+  expose `stonewright-elementor-v3-container-schema`, matching the PHP
+  `tool-profile` and `workflow-preflight` recommendations so new MCP sessions
+  do not hide the container schema tool during Elementor design work.
+- `stonewright-wordpress-mcp-status` now reports the number of proxied tools
+  actually registered after compact profile filtering, instead of the larger
+  remote tool count.
+
 ## [1.0.0-alpha.39] - 2026-06-16
 
 ### Fixed
@@ -593,6 +605,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.40]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.40
 [1.0.0-alpha.39]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.39
 [1.0.0-alpha.38]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.38
 [1.0.0-alpha.37]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.37
