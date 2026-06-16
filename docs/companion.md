@@ -34,7 +34,7 @@ folder or site URL.
 | `STONEWRIGHT_WP_URL` | WordPress site URL; the companion derives `/wp-json/mcp/stonewright` when `STONEWRIGHT_MCP_URL` is absent |
 | `STONEWRIGHT_WP_USERNAME` | WordPress username for Application Password auth |
 | `STONEWRIGHT_WP_APP_PASSWORD` | WordPress Application Password |
-| `STONEWRIGHT_MCP_TOOL_PROFILE` | Optional compact proxied tool surface. Defaults to `essential` for fast startup with Stonewright fast-path tools; set `full` to proxy every WordPress MCP tool |
+| `STONEWRIGHT_MCP_TOOL_PROFILE` | Optional compact proxied tool surface. Defaults to `essential` for fast startup with Stonewright fast-path tools; aliases like `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli` normalize to canonical compact profiles; set `full` to proxy every WordPress MCP tool |
 | `STONEWRIGHT_MCP_URL` | Explicit WordPress MCP endpoint override |
 | `WP_API_USERNAME` | Legacy alias for `STONEWRIGHT_WP_USERNAME` |
 | `WP_API_PASSWORD` | Legacy alias for `STONEWRIGHT_WP_APP_PASSWORD` |
@@ -106,6 +106,9 @@ For new stdio sessions, the companion defaults to
 Stonewright fast-path surface while keeping direct `stonewright-wp-cli-*` tools
 local and deduplicated. Set it to `full` when a specialist session needs every
 registered WordPress MCP tool.
+Common aliases normalize before filtering, so `elementor`, `design`, `acf`,
+`cpt-ui`, `fse`, and `wp cli` select the closest compact canonical profile
+instead of silently falling back to `essential`.
 
 ## Persistent Application Passwords
 

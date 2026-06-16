@@ -58,7 +58,7 @@ shell wrapper, global install, or manual bridge:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.44/stonewright-companion-1.0.0-alpha.44.tgz"],
+      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.45/stonewright-companion-1.0.0-alpha.45.tgz"],
       "env": {
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
@@ -77,6 +77,9 @@ one Application Password through guarded WP-CLI and save it in the user profile.
 `STONEWRIGHT_MCP_TOOL_PROFILE=essential` keeps startup compact while preserving
 the general Stonewright fast paths for Elementor, Gutenberg, content-model, and
 WP-CLI work.
+Aliases such as `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli`
+normalize to the closest compact profile, so agents do not need exact canonical
+profile names to avoid broad discovery.
 
 Before the first WordPress task, verify the client tool list includes
 `stonewright-context-bootstrap`. If that tool is missing, reload or fix the MCP
@@ -117,7 +120,7 @@ For MCP clients that use a local stdio server, configure:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.44/stonewright-companion-1.0.0-alpha.44.tgz"],
+      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.45/stonewright-companion-1.0.0-alpha.45.tgz"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",

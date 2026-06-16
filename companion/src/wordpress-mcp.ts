@@ -226,6 +226,36 @@ const PROXY_TOOL_PROFILE_SETS = Object.fromEntries(
 	Object.entries(PROXY_TOOL_PROFILE_NAMES).map(([profile, names]) => [profile, new Set(names)]),
 ) as Record<Exclude<ProxyToolProfile, 'full'>, Set<string>>;
 
+const PROXY_TOOL_PROFILE_ALIASES: Record<string, ProxyToolProfile> = {
+	'elementor': 'elementor-design',
+	'elementor-v3': 'elementor-design',
+	'elementor-v4': 'elementor-design',
+	'design': 'elementor-design',
+	'visual': 'elementor-design',
+	'acf': 'content-model',
+	'acpt': 'content-model',
+	'content': 'content-model',
+	'custom-fields': 'content-model',
+	'cpt': 'content-model',
+	'cpt-ui': 'content-model',
+	'fields': 'content-model',
+	'meta-box': 'content-model',
+	'metabox': 'content-model',
+	'pods': 'content-model',
+	'woocommerce': 'content-model',
+	'woo': 'content-model',
+	'block': 'gutenberg',
+	'blocks': 'gutenberg',
+	'fse': 'gutenberg',
+	'theme-json': 'gutenberg',
+	'cli': 'wp-cli',
+	'wpcli': 'wp-cli',
+	'wp-cli': 'wp-cli',
+	'admin': 'site-admin',
+	'site': 'site-admin',
+	'settings': 'site-admin',
+};
+
 export function loadWordPressMcpConfig(env: NodeJS.ProcessEnv = process.env): WordPressMcpConfig | null {
 	const siteUrlAlias = env['NODE_ENV'] === 'test' && !env['STONEWRIGHT_MCP_URL'] && !env['WP_API_URL']
 		? ''
@@ -475,14 +505,18 @@ function proxyToolProfileFromEnv(env: NodeJS.ProcessEnv): ProxyToolProfile {
 	const raw = (env['STONEWRIGHT_MCP_TOOL_PROFILE'] ?? env['STONEWRIGHT_MCP_PROXY_PROFILE'] ?? 'essential')
 		.trim()
 		.toLowerCase();
-	if (['0', 'false', 'off', 'full', 'all'].includes(raw)) {
+	const normalized = raw.replace(/[\s_]+/g, '-');
+	if (['0', 'false', 'off', 'full', 'all'].includes(normalized)) {
 		return 'full';
 	}
-	if (raw === '' || raw === 'auto' || raw === 'fast' || raw === 'general' || raw === 'compact') {
+	if (normalized === '' || normalized === 'auto' || normalized === 'fast' || normalized === 'general' || normalized === 'compact') {
 		return 'essential';
 	}
-	if (raw in PROXY_TOOL_PROFILE_SETS) {
-		return raw as Exclude<ProxyToolProfile, 'full'>;
+	if (normalized in PROXY_TOOL_PROFILE_SETS) {
+		return normalized as Exclude<ProxyToolProfile, 'full'>;
+	}
+	if (normalized in PROXY_TOOL_PROFILE_ALIASES) {
+		return PROXY_TOOL_PROFILE_ALIASES[normalized] ?? 'essential';
 	}
 	return 'essential';
 }

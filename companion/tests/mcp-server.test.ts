@@ -17,7 +17,7 @@ describe('createMcpServer', () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
 		const info = (server as any).server._serverInfo as { name: string; version: string };
 		expect(info.name).toBe('stonewright-companion');
-		expect(info.version).toBe('1.0.0-alpha.44');
+		expect(info.version).toBe('1.0.0-alpha.45');
 	});
 
 	it('registers WP-CLI tools', async () => {
@@ -182,6 +182,41 @@ describe('createMcpServer', () => {
 		expect(names).not.toContain('stonewright-sandbox-write');
 		expect(names).not.toContain('stonewright-memory-list');
 		expect(names).not.toContain('stonewright-experimental-heavy-tool');
+	});
+
+	it('normalizes common compact profile aliases before filtering proxied tools', async () => {
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+				STONEWRIGHT_MCP_TOOL_PROFILE: 'elementor',
+			},
+			fetchImpl: stonewrightMcpFetch([
+				{ name: 'stonewright-context-bootstrap' },
+				{ name: 'stonewright-workflow-preflight' },
+				{ name: 'stonewright-tool-profile' },
+				{ name: 'stonewright-skills-get' },
+				{ name: 'stonewright-elementor-v4-status' },
+				{ name: 'stonewright-experimental-heavy-tool' },
+			]),
+		});
+
+		const names = registeredToolNames(server);
+
+		expect(names).toContain('stonewright-elementor-v4-status');
+		expect(names).not.toContain('stonewright-experimental-heavy-tool');
+
+		const tools = (server as { _registeredTools?: Record<string, { handler?: (input: unknown) => Promise<unknown> }> })._registeredTools ?? {};
+		const response = await tools['stonewright-wordpress-mcp-status']?.handler?.({}) as {
+			structuredContent?: {
+				tool_profile?: string;
+				startup_ready?: boolean;
+			};
+		};
+
+		expect(response.structuredContent?.tool_profile).toBe('elementor-design');
+		expect(response.structuredContent?.startup_ready).toBe(true);
 	});
 
 	it('keeps design fast-path tools in the essential proxied profile', async () => {

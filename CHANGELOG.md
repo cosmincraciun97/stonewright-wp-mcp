@@ -7,6 +7,17 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.45] - 2026-06-16
+
+### Changed
+
+- Companion compact proxy profiles now accept common aliases such as
+  `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli`, normalizing them
+  to canonical compact profiles before WordPress MCP tool filtering.
+- `stonewright-setup-profile` now tells agents about these profile aliases so
+  new sessions can choose task-specific compact tool surfaces without exact
+  profile-name memorization.
+
 ## [1.0.0-alpha.42] - 2026-06-16
 
 ### Fixed

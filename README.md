@@ -258,7 +258,7 @@ Copy `companion/.env.example` to `companion/.env`.
 | `STONEWRIGHT_WP_URL` | recommended | WordPress site URL; companion derives `/wp-json/mcp/stonewright` |
 | `STONEWRIGHT_WP_USERNAME` | recommended | WordPress username for Application Password auth |
 | `STONEWRIGHT_WP_APP_PASSWORD` | recommended | WordPress Application Password |
-| `STONEWRIGHT_MCP_TOOL_PROFILE` | optional | Compact proxied tool surface for new MCP sessions; defaults to `essential`; set `full` only when a specialist session needs every WordPress MCP tool |
+| `STONEWRIGHT_MCP_TOOL_PROFILE` | optional | Compact proxied tool surface for new MCP sessions; defaults to `essential`; aliases like `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli` normalize to canonical compact profiles; set `full` only when a specialist session needs every WordPress MCP tool |
 | `STONEWRIGHT_MCP_URL` | optional | Explicit WordPress MCP endpoint override |
 | `STONEWRIGHT_CREDENTIAL_STORE` | optional | Per-project JSON file for saved Application Password fallback |
 | `STONEWRIGHT_CREDENTIAL_DIR` | optional | Directory for generated per-project credential files |

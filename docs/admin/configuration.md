@@ -108,7 +108,7 @@ install:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.44/stonewright-companion-1.0.0-alpha.44.tgz"],
+      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.45/stonewright-companion-1.0.0-alpha.45.tgz"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -123,6 +123,8 @@ install:
 Use the WordPress URL, username, and Application Password from Cards 2 and 3.
 The `STONEWRIGHT_MCP_TOOL_PROFILE=essential` env value keeps new MCP sessions
 compact while preserving Stonewright fast-path tools.
+Aliases such as `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli`
+normalize to compact canonical profiles before tool filtering.
 The admin page also exposes per-client snippets for clients that use a slightly
 different top-level key, such as VS Code's `servers`.
 
