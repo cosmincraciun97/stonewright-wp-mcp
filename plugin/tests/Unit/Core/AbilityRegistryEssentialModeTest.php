@@ -74,4 +74,35 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 
 		self::assertInstanceOf( \stdClass::class, $decoded->properties );
 	}
+
+	public function test_public_input_schema_arrays_declare_items_for_strict_clients(): void {
+		$errors = [];
+		foreach ( AbilityRegistry::enabled_abilities() as $ability ) {
+			self::collect_missing_array_items(
+				$ability['input_schema'],
+				(string) $ability['name'] . '.input_schema',
+				$errors
+			);
+		}
+
+		self::assertSame( [], $errors );
+	}
+
+	/**
+	 * @param mixed             $schema
+	 * @param array<int,string> $errors
+	 */
+	private static function collect_missing_array_items( mixed $schema, string $path, array &$errors ): void {
+		if ( ! is_array( $schema ) ) {
+			return;
+		}
+
+		if ( 'array' === ( $schema['type'] ?? null ) && ! array_key_exists( 'items', $schema ) ) {
+			$errors[] = $path . ' is array without items';
+		}
+
+		foreach ( $schema as $key => $value ) {
+			self::collect_missing_array_items( $value, $path . '.' . (string) $key, $errors );
+		}
+	}
 }

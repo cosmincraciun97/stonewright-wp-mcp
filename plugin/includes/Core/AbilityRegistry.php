@@ -537,12 +537,20 @@ final class AbilityRegistry {
 	}
 
 	/**
-	 * Keeps empty JSON Schema maps encoded as `{}` instead of `[]`.
+	 * Keeps MCP JSON Schema shapes accepted by stricter clients.
+	 *
+	 * Empty object maps encode as `{}` instead of `[]`, and permissive arrays
+	 * still declare `items: {}` so clients that require an items schema do not
+	 * hide the tool during discovery.
 	 *
 	 * @param array<int|string, mixed> $schema JSON Schema fragment.
 	 * @return array<int|string, mixed>
 	 */
 	private static function normalise_schema_object_maps( array $schema ): array {
+		if ( 'array' === ( $schema['type'] ?? null ) && ! array_key_exists( 'items', $schema ) ) {
+			$schema['items'] = new \stdClass();
+		}
+
 		foreach ( $schema as $key => $value ) {
 			if ( ! is_array( $value ) ) {
 				continue;

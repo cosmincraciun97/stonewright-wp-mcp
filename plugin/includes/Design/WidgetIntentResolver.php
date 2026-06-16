@@ -133,7 +133,7 @@ final class WidgetIntentResolver {
 					'link_to'    => 'none',
 					'orderby'    => 'default',
 				],
-				'required_steps'    => [ 'stonewright/media-upload' ],
+				'required_steps'    => [ 'stonewright/media-list', 'stonewright/media-upload-batch' ],
 				'description'       => 'Native Elementor image gallery. Use for photo grids/galleries; never emit separate image widgets for a gallery grid.',
 			],
 			'video' => [
@@ -143,7 +143,7 @@ final class WidgetIntentResolver {
 					'url'        => '',
 					'poster'     => null,
 				],
-				'required_steps'    => [ 'stonewright/media-upload' ],
+				'required_steps'    => [ 'stonewright/media-list', 'stonewright/media-upload-batch' ],
 				'description'       => 'Native Elementor Video widget. Use for aftermovie/video poster/play patterns; do not fake video with image plus custom HTML.',
 			],
 			'section-label' => [
@@ -199,7 +199,7 @@ final class WidgetIntentResolver {
 				'settings_template' => [
 					'container' => [ 'layout' => 'grid', 'columns' => 4 ],
 				],
-				'required_steps'    => [ 'stonewright/media-upload' ],
+				'required_steps'    => [ 'stonewright/media-list', 'stonewright/media-upload-batch' ],
 				'description'       => 'Speaker/team card grid composed with native containers, images, heading/text widgets, and link rows. Do not add borders when exported speaker artwork already contains its border.',
 			],
 			'sticky-header' => [
@@ -235,7 +235,8 @@ final class WidgetIntentResolver {
 					'nav-menu'  => [ 'menu' => null, 'layout' => 'horizontal' ],
 				],
 				'required_steps'    => [
-					'stonewright/media-upload',
+					'stonewright/media-list',
+					'stonewright/media-upload-batch',
 					'stonewright/menu-create',
 					'stonewright/menu-add-item',
 				],
@@ -289,7 +290,7 @@ final class WidgetIntentResolver {
 					'caption_source'  => 'custom',
 					'caption'         => '',
 				],
-				'required_steps'    => [ 'stonewright/media-upload' ],
+				'required_steps'    => [ 'stonewright/media-list', 'stonewright/media-upload-batch' ],
 				'description'       => 'Standalone image with optional caption. Use sub-node export — never composite the parent frame.',
 			],
 			'tabs' => [

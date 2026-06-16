@@ -7,6 +7,17 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.35] - 2026-06-16
+
+### Fixed
+
+- Public input schemas now add permissive `items: {}` to array parameters that
+  intentionally accept any item shape, preventing stricter MCP clients from
+  hiding tools during discovery.
+- Widget intent media prerequisites now use `stonewright/media-list` before
+  `stonewright/media-upload-batch`, avoiding slower single-upload guidance for
+  Elementor galleries, videos, speaker grids, logo/nav, and image widgets.
+
 ## [1.0.0-alpha.34] - 2026-06-16
 
 ### Fixed

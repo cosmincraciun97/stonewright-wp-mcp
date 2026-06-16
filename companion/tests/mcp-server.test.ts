@@ -17,7 +17,7 @@ describe('createMcpServer', () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
 		const info = (server as any).server._serverInfo as { name: string; version: string };
 		expect(info.name).toBe('stonewright-companion');
-		expect(info.version).toBe('1.0.0-alpha.34');
+		expect(info.version).toBe('1.0.0-alpha.35');
 	});
 
 	it('registers WP-CLI tools', async () => {

@@ -43,6 +43,19 @@ final class WidgetIntentResolverTest extends TestCase {
 		$this->assertSame( [ 'image', 'nav-menu' ], $entry['widgets'] );
 	}
 
+	public function test_media_intents_require_search_then_batch_upload(): void {
+		foreach ( WidgetIntentResolver::intents() as $intent => $entry ) {
+			$steps = (array) ( $entry['required_steps'] ?? [] );
+			if ( ! in_array( 'stonewright/media-upload', $steps, true ) && ! in_array( 'stonewright/media-list', $steps, true ) && ! in_array( 'stonewright/media-upload-batch', $steps, true ) ) {
+				continue;
+			}
+
+			$this->assertContains( 'stonewright/media-list', $steps, "{$intent} should search existing media first." );
+			$this->assertContains( 'stonewright/media-upload-batch', $steps, "{$intent} should batch upload only missing media." );
+			$this->assertNotContains( 'stonewright/media-upload', $steps, "{$intent} should not recommend slower single media upload." );
+		}
+	}
+
 	public function test_design_tree_detects_footer_by_name(): void {
 		$node = [ 'name' => 'Footer Section', 'type' => 'FRAME', 'children' => [] ];
 		$this->assertSame( 'footer-template', WidgetIntentResolver::detect_from_design_tree( $node ) );
