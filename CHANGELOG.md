@@ -7,6 +7,17 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.31] - 2026-06-16
+
+### Changed
+
+- Public MCP input schemas now normalize empty JSON Schema maps such as
+  `properties` to JSON objects, preventing strict MCP clients from treating
+  no-input abilities as array-shaped schemas during tool discovery.
+- Added registry coverage so future no-input abilities keep encoding
+  `properties: {}` correctly for faster, more reliable startup in new agent
+  sessions.
+
 ## [1.0.0-alpha.30] - 2026-06-16
 
 ### Changed

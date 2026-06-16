@@ -60,4 +60,16 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 
 		self::assertContains( 'stonewright/sandbox-write', $names );
 	}
+
+	public function test_empty_schema_properties_encode_as_json_objects(): void {
+		$abilities = [];
+		foreach ( AbilityRegistry::enabled_abilities() as $ability ) {
+			$abilities[ (string) $ability['name'] ] = $ability;
+		}
+
+		$json    = json_encode( $abilities['stonewright/system-instructions-get']['input_schema'], JSON_THROW_ON_ERROR );
+		$decoded = json_decode( $json, false, 512, JSON_THROW_ON_ERROR );
+
+		self::assertInstanceOf( \stdClass::class, $decoded->properties );
+	}
 }

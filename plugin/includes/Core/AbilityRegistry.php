@@ -507,31 +507,58 @@ final class AbilityRegistry {
 	 */
 	private static function input_schema_for_ability( Ability $ability ): array {
 		$schema = $ability->input_schema();
-		if ( ! self::requires_context_token( $ability ) ) {
-			return $schema;
-		}
+		if ( self::requires_context_token( $ability ) ) {
+			if ( ! isset( $schema['properties'] ) || ! is_array( $schema['properties'] ) ) {
+				$schema['properties'] = [];
+			}
 
-		if ( ! isset( $schema['properties'] ) || ! is_array( $schema['properties'] ) ) {
-			$schema['properties'] = [];
-		}
-
-		/** @var array<string, mixed> $properties */
-		$properties                              = $schema['properties'];
+			/** @var array<string, mixed> $properties */
+			$properties                              = $schema['properties'];
 			$properties['stonewright_context_token'] = [
 				'type'        => 'string',
 				'description' => 'Required. Call MCP tool stonewright-context-bootstrap (WordPress ability stonewright/context-bootstrap) at the start of the task and pass the returned context token.',
 			];
-		$schema['properties']                    = $properties;
+			$schema['properties']                    = $properties;
 
-		$required = isset( $schema['required'] ) && is_array( $schema['required'] )
-			? array_values( array_map( 'strval', $schema['required'] ) )
-			: [];
-		if ( ! in_array( 'stonewright_context_token', $required, true ) ) {
-			$required[] = 'stonewright_context_token';
+			$required = isset( $schema['required'] ) && is_array( $schema['required'] )
+				? array_values( array_map( 'strval', $schema['required'] ) )
+				: [];
+			if ( ! in_array( 'stonewright_context_token', $required, true ) ) {
+				$required[] = 'stonewright_context_token';
+			}
+			$schema['required'] = $required;
 		}
-		$schema['required'] = $required;
+
+		/** @var array<string, mixed> $schema */
+		$schema = self::normalise_schema_object_maps( $schema );
+		return $schema;
+	}
+
+	/**
+	 * Keeps empty JSON Schema maps encoded as `{}` instead of `[]`.
+	 *
+	 * @param array<int|string, mixed> $schema JSON Schema fragment.
+	 * @return array<int|string, mixed>
+	 */
+	private static function normalise_schema_object_maps( array $schema ): array {
+		foreach ( $schema as $key => $value ) {
+			if ( ! is_array( $value ) ) {
+				continue;
+			}
+
+			if ( [] === $value && self::is_schema_object_map_key( (string) $key ) ) {
+				$schema[ $key ] = new \stdClass();
+				continue;
+			}
+
+			$schema[ $key ] = self::normalise_schema_object_maps( $value );
+		}
 
 		return $schema;
+	}
+
+	private static function is_schema_object_map_key( string $key ): bool {
+		return in_array( $key, [ '$defs', 'definitions', 'dependentSchemas', 'patternProperties', 'properties' ], true );
 	}
 
 	/**
