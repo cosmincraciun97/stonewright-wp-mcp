@@ -45,6 +45,9 @@ export const AGENT_USE_INSTEAD = [
 	'stonewright-wp-cli-install',
 ];
 
+const LOW_TOOLS_AGENT_USE_INSTEAD = AGENT_USE_INSTEAD.filter((name) => name !== 'stonewright-wp-cli-install');
+const LOW_TOOL_PROFILE_ALIASES = new Set(['antigravity', 'gemini', 'low', 'low-tools', 'minimal', 'strict', 'tiny']);
+
 export function buildSetupProfile(
 	env: NodeJS.ProcessEnv = process.env,
 	platform: SetupPlatform = process.platform,
@@ -115,20 +118,9 @@ export function buildSetupProfile(
 			'stonewright-workflow-preflight',
 			'stonewright-tool-profile',
 		],
-		tool_visibility_checks: [
-			'stonewright-context-bootstrap',
-			'stonewright-workflow-preflight',
-			'stonewright-tool-profile',
-			'stonewright-skills-get',
-			'stonewright-wordpress-mcp-status',
-			'stonewright-wp-cli-status',
-			'stonewright-wp-cli-discover',
-			'stonewright-wp-cli-run',
-			'stonewright-wp-cli-batch-run',
-			'stonewright-wp-cli-install',
-		],
+		tool_visibility_checks: toolVisibilityChecks(env),
 		agent_do_not_use: AGENT_DO_NOT_USE,
-		agent_use_instead: AGENT_USE_INSTEAD,
+		agent_use_instead: agentUseInstead(env),
 		notes: [
 			'Use this MCP config on Windows, macOS, and Linux; env vars carry paths safely.',
 			'No shell script wrapper required; the companion uses Node and execFile argv tokens.',
@@ -146,6 +138,36 @@ export function buildSetupProfile(
 			'For production sites, provide STONEWRIGHT_WP_USERNAME plus STONEWRIGHT_WP_APP_PASSWORD or STONEWRIGHT_MCP_AUTHORIZATION.',
 		],
 	};
+}
+
+export function agentUseInstead(env: NodeJS.ProcessEnv = process.env): string[] {
+	return isLowToolsProfile(env) ? LOW_TOOLS_AGENT_USE_INSTEAD : AGENT_USE_INSTEAD;
+}
+
+function toolVisibilityChecks(env: NodeJS.ProcessEnv): string[] {
+	const tools = [
+			'stonewright-context-bootstrap',
+			'stonewright-workflow-preflight',
+			'stonewright-tool-profile',
+			'stonewright-skills-get',
+			'stonewright-wordpress-mcp-status',
+			'stonewright-wp-cli-status',
+			'stonewright-wp-cli-discover',
+			'stonewright-wp-cli-run',
+			'stonewright-wp-cli-batch-run',
+	];
+
+	if (!isLowToolsProfile(env)) {
+		tools.push('stonewright-wp-cli-install');
+	}
+
+	return tools;
+}
+
+function isLowToolsProfile(env: NodeJS.ProcessEnv): boolean {
+	const raw = (env['STONEWRIGHT_MCP_TOOL_PROFILE'] ?? env['STONEWRIGHT_MCP_PROXY_PROFILE'] ?? '').trim().toLowerCase();
+	const normalized = raw.replace(/[\s_]+/g, '-');
+	return LOW_TOOL_PROFILE_ALIASES.has(normalized);
 }
 
 function credentialsCheck(

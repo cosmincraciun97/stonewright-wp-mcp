@@ -82,7 +82,8 @@ one Application Password through guarded WP-CLI and save it in the user profile.
 the general Stonewright fast paths for Elementor, Gutenberg, content-model, and
 WP-CLI work.
 Use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` for Antigravity, Gemini API, or
-other strict tool-cap clients. Aliases such as `antigravity`, `gemini`,
+other strict tool-cap clients. It keeps the client-visible startup surface under
+30 tools. Aliases such as `antigravity`, `gemini`,
 `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli` normalize to the
 closest compact profile, so agents do not need exact canonical profile names to
 avoid broad discovery.

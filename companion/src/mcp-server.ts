@@ -16,9 +16,10 @@ import {
 	type WpCliInstallInput,
 	type WpCliRunInput,
 } from './wp-cli.js';
-import { AGENT_DO_NOT_USE, AGENT_USE_INSTEAD, buildSetupProfile } from './setup-profile.js';
+import { AGENT_DO_NOT_USE, agentUseInstead, buildSetupProfile } from './setup-profile.js';
 import {
 	STARTUP_REQUIRED_PROXY_TOOL_NAMES,
+	type ProxyToolProfile,
 	proxyToolProfileFromEnv,
 	proxyToolNamesForProfile,
 	registerWordPressMcpPrompts,
@@ -66,12 +67,25 @@ const LOCAL_RECOVERY_TOOL_NAMES = [
 	'stonewright-wp-cli-install',
 ] as const;
 
-const LOCAL_TOOL_NAMES = [
+const LOW_TOOLS_LOCAL_RECOVERY_TOOL_NAMES = [
+	'stonewright-setup-profile',
+	'stonewright-wordpress-mcp-status',
+	'stonewright-wp-cli-status',
+	'stonewright-wp-cli-discover',
+	'stonewright-wp-cli-run',
+	'stonewright-wp-cli-batch-run',
+] as const;
+
+const LEGACY_LOCAL_TOOL_NAMES = [
 	'companion_wp_cli_status',
 	'companion_wp_cli_discover',
 	'companion_wp_cli_run',
 	'companion_wp_cli_batch_run',
 	'companion_wp_cli_install',
+] as const;
+
+const LOCAL_TOOL_NAMES = [
+	...LEGACY_LOCAL_TOOL_NAMES,
 	...LOCAL_RECOVERY_TOOL_NAMES,
 ] as const;
 
@@ -81,6 +95,7 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 		version: APP_VERSION,
 	});
 	const env = options.env ?? process.env;
+	const profile = proxyToolProfileFromEnv(env);
 
 	const commonInput = {
 		cwd: z.string().optional(),
@@ -91,9 +106,9 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 		timeoutMs: z.number().int().positive().optional(),
 	};
 
-	registerWpCliTools(server, commonInput, env);
+	registerWpCliTools(server, commonInput, env, profile);
 	registerSetupTools(server, env);
-	const wpMcpStatus = createWordPressMcpConnectionStatus(env);
+	const wpMcpStatus = createWordPressMcpConnectionStatus(profile);
 	registerWordPressMcpStatusTool(server, wpMcpStatus);
 
 	let wpMcpConfig = null;
@@ -119,11 +134,15 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 			wpMcpStatus.startup_missing_tool_names = missingStartupTools(registration.registeredTools.map((tool) => tool.name));
 			wpMcpStatus.startup_ready = wpMcpStatus.startup_missing_tool_names.length === 0;
 			const profileExpectedToolNames = proxyToolNamesForProfile(registration.profile);
+			const localToolNames = localToolNamesForProfile(registration.profile);
 			wpMcpStatus.profile_expected_tool_count = profileExpectedToolNames.length;
 			wpMcpStatus.profile_missing_tool_names = missingProfileTools(
 				profileExpectedToolNames,
 				registration.registeredTools.map((tool) => tool.name),
+				localToolNames,
 			);
+			wpMcpStatus.local_recovery_tool_names = Array.from(localRecoveryToolNamesForProfile(registration.profile));
+			wpMcpStatus.local_tool_names = Array.from(localToolNames);
 			wpMcpStatus.prompt_skill_count = promptSkills.length;
 			wpMcpStatus.recovery = recoveryHints(
 				registration.filteredToolCount,
@@ -145,10 +164,10 @@ function hasWordPressMcpConfig(env: NodeJS.ProcessEnv): boolean {
 	return Boolean((env['STONEWRIGHT_MCP_URL'] ?? env['WP_API_URL'] ?? env['STONEWRIGHT_WP_URL'] ?? '').trim());
 }
 
-function createWordPressMcpConnectionStatus(env: NodeJS.ProcessEnv): WordPressMcpConnectionStatus {
-	const profile = proxyToolProfileFromEnv(env);
+function createWordPressMcpConnectionStatus(profile: ProxyToolProfile): WordPressMcpConnectionStatus {
 	const profileExpectedToolNames = proxyToolNamesForProfile(profile);
-	const profileMissingToolNames = missingProfileTools(profileExpectedToolNames, []);
+	const localToolNames = localToolNamesForProfile(profile);
+	const profileMissingToolNames = missingProfileTools(profileExpectedToolNames, [], localToolNames);
 
 	return {
 		ok: false,
@@ -159,8 +178,8 @@ function createWordPressMcpConnectionStatus(env: NodeJS.ProcessEnv): WordPressMc
 		startup_ready: false,
 		startup_required_tool_names: Array.from(STARTUP_REQUIRED_PROXY_TOOL_NAMES),
 		startup_missing_tool_names: Array.from(STARTUP_REQUIRED_PROXY_TOOL_NAMES),
-		local_recovery_tool_names: Array.from(LOCAL_RECOVERY_TOOL_NAMES),
-		local_tool_names: Array.from(LOCAL_TOOL_NAMES),
+		local_recovery_tool_names: Array.from(localRecoveryToolNamesForProfile(profile)),
+		local_tool_names: Array.from(localToolNames),
 		profile_expected_tool_count: profileExpectedToolNames.length,
 		profile_missing_tool_names: profileMissingToolNames,
 		remote_tool_count: 0,
@@ -170,7 +189,7 @@ function createWordPressMcpConnectionStatus(env: NodeJS.ProcessEnv): WordPressMc
 		prompt_skill_count: 0,
 		error: null,
 		agent_do_not_use: Array.from(AGENT_DO_NOT_USE),
-		agent_use_instead: Array.from(AGENT_USE_INSTEAD),
+		agent_use_instead: agentUseInstead({ STONEWRIGHT_MCP_TOOL_PROFILE: profile }),
 		recovery: recoveryHints(0, STARTUP_REQUIRED_PROXY_TOOL_NAMES.length, profileMissingToolNames.length),
 	};
 }
@@ -180,9 +199,17 @@ function missingStartupTools(registeredToolNames: string[]): string[] {
 	return STARTUP_REQUIRED_PROXY_TOOL_NAMES.filter((name) => !registered.has(name));
 }
 
-function missingProfileTools(profileToolNames: string[], registeredToolNames: string[]): string[] {
-	const available = new Set([...registeredToolNames, ...LOCAL_TOOL_NAMES]);
+function missingProfileTools(profileToolNames: string[], registeredToolNames: string[], localToolNames: readonly string[]): string[] {
+	const available = new Set([...registeredToolNames, ...localToolNames]);
 	return profileToolNames.filter((name) => !available.has(name));
+}
+
+function localRecoveryToolNamesForProfile(profile: ProxyToolProfile): readonly string[] {
+	return profile === 'low-tools' ? LOW_TOOLS_LOCAL_RECOVERY_TOOL_NAMES : LOCAL_RECOVERY_TOOL_NAMES;
+}
+
+function localToolNamesForProfile(profile: ProxyToolProfile): readonly string[] {
+	return profile === 'low-tools' ? LOW_TOOLS_LOCAL_RECOVERY_TOOL_NAMES : LOCAL_TOOL_NAMES;
 }
 
 function recoveryHints(profileFilteredToolCount: number, startupMissingToolCount: number, profileMissingToolCount: number): string[] {
@@ -243,8 +270,9 @@ function registerWpCliTools(
 	server: McpServer,
 	commonInput: Record<string, z.ZodOptional<z.ZodString> | z.ZodOptional<z.ZodNumber>>,
 	env: NodeJS.ProcessEnv,
+	profile: ProxyToolProfile,
 ): void {
-	for (const name of ['companion_wp_cli_status', 'stonewright-wp-cli-status']) {
+	for (const name of localAliases(profile, 'stonewright-wp-cli-status', 'companion_wp_cli_status')) {
 		server.registerTool(
 			name,
 			{
@@ -255,7 +283,7 @@ function registerWpCliTools(
 		);
 	}
 
-	for (const name of ['companion_wp_cli_discover', 'stonewright-wp-cli-discover']) {
+	for (const name of localAliases(profile, 'stonewright-wp-cli-discover', 'companion_wp_cli_discover')) {
 		server.registerTool(
 			name,
 			{
@@ -266,7 +294,7 @@ function registerWpCliTools(
 		);
 	}
 
-	for (const name of ['companion_wp_cli_run', 'stonewright-wp-cli-run']) {
+	for (const name of localAliases(profile, 'stonewright-wp-cli-run', 'companion_wp_cli_run')) {
 		server.registerTool(
 			name,
 			{
@@ -282,7 +310,7 @@ function registerWpCliTools(
 		);
 	}
 
-	for (const name of ['companion_wp_cli_batch_run', 'stonewright-wp-cli-batch-run']) {
+	for (const name of localAliases(profile, 'stonewright-wp-cli-batch-run', 'companion_wp_cli_batch_run')) {
 		server.registerTool(
 			name,
 			{
@@ -299,7 +327,11 @@ function registerWpCliTools(
 		);
 	}
 
-	for (const name of ['companion_wp_cli_install', 'stonewright-wp-cli-install']) {
+	if (profile === 'low-tools') {
+		return;
+	}
+
+	for (const name of localAliases(profile, 'stonewright-wp-cli-install', 'companion_wp_cli_install')) {
 		server.registerTool(
 			name,
 			{
@@ -314,6 +346,10 @@ function registerWpCliTools(
 			async (input) => toolResponse(await wpCliInstall(input as WpCliInstallInput, fetch, env)),
 		);
 	}
+}
+
+function localAliases(profile: ProxyToolProfile, canonical: string, legacy: string): string[] {
+	return profile === 'low-tools' ? [canonical] : [legacy, canonical];
 }
 
 function toWpCliInput(input: Record<string, unknown>): Partial<WpCliRunInput> {

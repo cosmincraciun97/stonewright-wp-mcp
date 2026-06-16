@@ -5,6 +5,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { createMcpServer } from '../src/mcp-server.js';
+import { proxyToolNamesForProfile } from '../src/wordpress-mcp.js';
 
 describe('createMcpServer', () => {
 	it('returns an McpServer instance without throwing', async () => {
@@ -345,19 +346,7 @@ describe('createMcpServer', () => {
 				STONEWRIGHT_MCP_TOOL_PROFILE: 'antigravity',
 			},
 			fetchImpl: stonewrightMcpFetch([
-				{ name: 'stonewright-context-bootstrap' },
-				{ name: 'stonewright-workflow-preflight' },
-				{ name: 'stonewright-tool-profile' },
-				{ name: 'stonewright-skills-get' },
-				{ name: 'stonewright-site-info' },
-				{ name: 'stonewright-site-plugins-list' },
-				{ name: 'stonewright-content-bulk-upsert-posts' },
-				{ name: 'stonewright-media-upload-batch' },
-				{ name: 'stonewright-design-implementation-contract' },
-				{ name: 'stonewright-elementor-v3-container-schema' },
-				{ name: 'stonewright-elementor-v3-build-page-from-spec' },
-				{ name: 'stonewright-elementor-v3-batch-mutate' },
-				{ name: 'stonewright-gutenberg-apply-to-post' },
+				...proxyToolNamesForProfile('low-tools').map((name) => ({ name })),
 				{ name: 'stonewright-elementor-describe-widget' },
 				{ name: 'stonewright-memory-list' },
 				{ name: 'stonewright-sandbox-write' },
@@ -370,12 +359,25 @@ describe('createMcpServer', () => {
 			structuredContent?: {
 				tool_profile?: string;
 				profile_expected_tool_count?: number;
+				local_tool_names?: string[];
 			};
 		};
 
 		expect(response.structuredContent?.tool_profile).toBe('low-tools');
-		expect(response.structuredContent?.profile_expected_tool_count).toBeLessThanOrEqual(30);
+		expect(response.structuredContent?.profile_expected_tool_count).toBeLessThanOrEqual(24);
+		expect(names.length).toBeLessThanOrEqual(30);
+		expect(response.structuredContent?.local_tool_names).toEqual(expect.not.arrayContaining([
+			'companion_wp_cli_run',
+			'companion_wp_cli_batch_run',
+			'stonewright-wp-cli-install',
+		]));
 		expect(names).toEqual(expect.arrayContaining([
+			'stonewright-setup-profile',
+			'stonewright-wordpress-mcp-status',
+			'stonewright-wp-cli-status',
+			'stonewright-wp-cli-discover',
+			'stonewright-wp-cli-run',
+			'stonewright-wp-cli-batch-run',
 			'stonewright-context-bootstrap',
 			'stonewright-workflow-preflight',
 			'stonewright-tool-profile',
@@ -387,6 +389,10 @@ describe('createMcpServer', () => {
 			'stonewright-elementor-v3-batch-mutate',
 			'stonewright-gutenberg-apply-to-post',
 		]));
+		expect(names).not.toContain('companion_wp_cli_run');
+		expect(names).not.toContain('companion_wp_cli_batch_run');
+		expect(names).not.toContain('companion_wp_cli_install');
+		expect(names).not.toContain('stonewright-wp-cli-install');
 		expect(names).not.toContain('stonewright-elementor-describe-widget');
 		expect(names).not.toContain('stonewright-memory-list');
 		expect(names).not.toContain('stonewright-sandbox-write');

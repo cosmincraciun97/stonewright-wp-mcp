@@ -70,7 +70,7 @@ occupied, stdio MCP should stay active and the bridge is skipped unless
 `STONEWRIGHT_HTTP_REQUIRED=1` is set.
 For Antigravity, Gemini API, or another strict tool-cap client, set
 `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` in the same env block. It keeps the
-proxied WordPress tool list small while preserving composite writes and direct
+client-visible tool list under 30 while preserving composite writes and direct
 `stonewright-wp-cli-*` recovery tools.
 
 Do not recover by running `wp cli info`, `wp plugin activate`,

@@ -95,14 +95,9 @@ const LOW_TOOLS_PROXY_TOOL_NAMES = [
 	'stonewright-security-create-one-time-link',
 	'stonewright-site-info',
 	'stonewright-site-plugins-list',
-	'stonewright-system-abilities-list',
-	'stonewright-content-create-page',
-	'stonewright-content-update-page',
 	'stonewright-content-bulk-upsert-posts',
-	'stonewright-media-list',
 	'stonewright-media-upload-batch',
 	'stonewright-design-implementation-contract',
-	'stonewright-design-validate-spec',
 	'stonewright-widget-intent-resolve',
 	'stonewright-elementor-widget-implementation-guide',
 	'stonewright-elementor-v3-status',
@@ -115,7 +110,6 @@ const LOW_TOOLS_PROXY_TOOL_NAMES = [
 	'stonewright-elementor-v3-update-kit-colors',
 	'stonewright-elementor-v3-update-kit-typography',
 	'stonewright-blocks-list-registered',
-	'stonewright-blocks-get-schema',
 	'stonewright-gutenberg-apply-to-post',
 ] as const;
 

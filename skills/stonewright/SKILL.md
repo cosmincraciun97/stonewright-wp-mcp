@@ -26,7 +26,8 @@ Use the fast-path tools returned by preflight instead of rediscovering the full
 ability surface. Use `stonewright-tool-profile` to lock the current task to a
 compact low-tools, Elementor, content-model, Gutenberg, WP-CLI, or site-admin
 profile. Use `low-tools` for Antigravity, Gemini API, or other strict tool-cap
-clients before switching to a specialist profile.
+clients; it keeps the client-visible startup surface under 30 tools before the
+agent switches to a specialist profile.
 
 ## Route
 

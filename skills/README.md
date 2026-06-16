@@ -91,6 +91,7 @@ HTTP bridge on port `8765`.
 Leave `PORT` unset for stdio-only clients. It enables the optional HTTP bridge;
 stdio MCP remains the primary transport for normal agent sessions.
 Use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` for Antigravity, Gemini API, or
-other strict tool-cap clients; use `essential` for normal fast-path sessions and
-specialist aliases such as `elementor`, `acf`, `cpt-ui`, `fse`, or `wp cli`
-when a session needs one narrow surface.
+other strict tool-cap clients; it keeps the client-visible startup surface under
+30 tools. Use `essential` for normal fast-path sessions and specialist aliases
+such as `elementor`, `acf`, `cpt-ui`, `fse`, or `wp cli` when a session needs
+one narrow surface.

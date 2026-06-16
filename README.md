@@ -135,9 +135,10 @@ The companion defaults to the compact `essential` tool profile, so new MCP
 sessions stay on the Stonewright fast-path surface instead of registering every
 specialized tool.
 For strict tool-cap clients such as Antigravity or Gemini API, set
-`STONEWRIGHT_MCP_TOOL_PROFILE=low-tools`. It keeps the startup surface smaller
-while preserving composite page, content, media, Gutenberg, Elementor, and
-direct WP-CLI batch paths.
+`STONEWRIGHT_MCP_TOOL_PROFILE=low-tools`. It keeps the whole client-visible
+startup surface under 30 tools by hiding legacy duplicate aliases while
+preserving composite page, content, media, Gutenberg, Elementor, and direct
+WP-CLI batch paths.
 
 For local WordPress sites, add `STONEWRIGHT_WP_ROOT` when you want guarded
 WP-CLI helper tools or LocalWP discovery. Call `stonewright-setup-profile` once
@@ -270,7 +271,7 @@ Copy `companion/.env.example` to `companion/.env`.
 | `STONEWRIGHT_WP_URL` | recommended | WordPress site URL; companion derives `/wp-json/mcp/stonewright` |
 | `STONEWRIGHT_WP_USERNAME` | recommended | WordPress username for Application Password auth |
 | `STONEWRIGHT_WP_APP_PASSWORD` | recommended | WordPress Application Password |
-| `STONEWRIGHT_MCP_TOOL_PROFILE` | optional | Compact proxied tool surface for new MCP sessions; defaults to `essential`; use `low-tools` for strict tool-cap clients; aliases like `antigravity`, `gemini`, `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli` normalize to canonical compact profiles; set `full` only when a specialist session needs every WordPress MCP tool |
+| `STONEWRIGHT_MCP_TOOL_PROFILE` | optional | Compact client-visible tool surface for new MCP sessions; defaults to `essential`; use `low-tools` for strict tool-cap clients; aliases like `antigravity`, `gemini`, `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli` normalize to canonical compact profiles; set `full` only when a specialist session needs every WordPress MCP tool |
 | `STONEWRIGHT_MCP_URL` | optional | Explicit WordPress MCP endpoint override |
 | `STONEWRIGHT_CREDENTIAL_STORE` | optional | Per-project JSON file for saved Application Password fallback |
 | `STONEWRIGHT_CREDENTIAL_DIR` | optional | Directory for generated per-project credential files |

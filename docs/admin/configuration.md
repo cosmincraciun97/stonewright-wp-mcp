@@ -45,7 +45,7 @@ gated tool, the response includes `missing_profile_tools`, `missing_mcp_tools`,
 and `recovery_hints` so the agent can recover without broad discovery loops.
 For Antigravity, Gemini API, or another strict tool-cap client, set the
 companion env `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools`. This is stricter than
-`essential` and keeps the startup surface near the minimum composite build path.
+`essential` and keeps the client-visible startup surface under 30 tools.
 
 ### Local WP-CLI bridge (advanced)
 
