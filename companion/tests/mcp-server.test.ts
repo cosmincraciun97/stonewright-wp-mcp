@@ -17,7 +17,7 @@ describe('createMcpServer', () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
 		const info = (server as any).server._serverInfo as { name: string; version: string };
 		expect(info.name).toBe('stonewright-companion');
-		expect(info.version).toBe('1.0.0-alpha.33');
+		expect(info.version).toBe('1.0.0-alpha.34');
 	});
 
 	it('registers WP-CLI tools', async () => {
@@ -194,6 +194,9 @@ describe('createMcpServer', () => {
 				{ name: 'stonewright-context-bootstrap' },
 				{ name: 'stonewright-security-create-one-time-link' },
 				{ name: 'stonewright-design-implementation-contract' },
+				{ name: 'stonewright-media-list' },
+				{ name: 'stonewright-media-upload' },
+				{ name: 'stonewright-media-upload-batch' },
 				{ name: 'stonewright-elementor-v3-build-page-from-spec' },
 				{ name: 'stonewright-content-bulk-upsert-posts' },
 				{ name: 'stonewright-experimental-heavy-tool' },
@@ -206,10 +209,56 @@ describe('createMcpServer', () => {
 			'stonewright-context-bootstrap',
 			'stonewright-security-create-one-time-link',
 			'stonewright-design-implementation-contract',
+			'stonewright-media-list',
+			'stonewright-media-upload-batch',
 			'stonewright-elementor-v3-build-page-from-spec',
 			'stonewright-content-bulk-upsert-posts',
 		]));
+		expect(names).not.toContain('stonewright-media-upload');
 		expect(names).not.toContain('stonewright-experimental-heavy-tool');
+	});
+
+	it('keeps media discovery visible in Elementor and content-model proxied profiles', async () => {
+		const tools = [
+			{ name: 'stonewright-context-bootstrap' },
+			{ name: 'stonewright-workflow-preflight' },
+			{ name: 'stonewright-tool-profile' },
+			{ name: 'stonewright-media-list' },
+			{ name: 'stonewright-media-upload-batch' },
+			{ name: 'stonewright-content-bulk-upsert-posts' },
+			{ name: 'stonewright-elementor-v3-build-page-from-spec' },
+			{ name: 'stonewright-experimental-heavy-tool' },
+		];
+
+		const elementorServer = await createMcpServer({
+			env: {
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+				STONEWRIGHT_MCP_TOOL_PROFILE: 'elementor-design',
+			},
+			fetchImpl: stonewrightMcpFetch(tools),
+		});
+		const contentServer = await createMcpServer({
+			env: {
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+				STONEWRIGHT_MCP_TOOL_PROFILE: 'content-model',
+			},
+			fetchImpl: stonewrightMcpFetch(tools),
+		});
+
+		expect(registeredToolNames(elementorServer)).toEqual(expect.arrayContaining([
+			'stonewright-media-list',
+			'stonewright-media-upload-batch',
+			'stonewright-elementor-v3-build-page-from-spec',
+		]));
+		expect(registeredToolNames(contentServer)).toEqual(expect.arrayContaining([
+			'stonewright-media-list',
+			'stonewright-media-upload-batch',
+			'stonewright-content-bulk-upsert-posts',
+		]));
 	});
 
 	it('defaults proxied WordPress MCP tools to the essential profile', async () => {

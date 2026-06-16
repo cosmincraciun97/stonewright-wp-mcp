@@ -7,6 +7,17 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.34] - 2026-06-16
+
+### Fixed
+
+- Companion compact proxy profiles now expose `stonewright-media-list` wherever
+  PHP-side profiles recommend `stonewright/media-list`, so fresh MCP sessions can
+  search existing media before uploading design assets.
+- Essential companion proxy discovery now keeps the compact `media-list` plus
+  `media-upload-batch` path instead of exposing the slower single
+  `media-upload` tool.
+
 ## [1.0.0-alpha.33] - 2026-06-16
 
 ### Added
