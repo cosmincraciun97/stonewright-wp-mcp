@@ -111,6 +111,7 @@ final class ConfigurationPage {
 		$bridge_launch_env   = implode(
 			"\n",
 			[
+				'STONEWRIGHT_HTTP_ENABLE=1',
 				'PORT=8765',
 				'COMPANION_BEARER_TOKEN=' . $bridge_token,
 				'COMPANION_ALLOWED_ORIGINS=http://localhost,http://127.0.0.1',

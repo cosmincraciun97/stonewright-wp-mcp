@@ -285,6 +285,7 @@ final class WpCliAbilitiesTest extends TestCase {
 		$this->assertFalse( $status['available'] );
 		$this->assertSame( 'http://127.0.0.1:8765', $status['companion_url'] );
 		$this->assertContains( 'companion_wp_cli_run', $status['recommended_fallbacks'] );
+		$this->assertStringContainsString( 'STONEWRIGHT_HTTP_ENABLE=1', $status['setup_hint'] );
 		$this->assertStringContainsString( 'PORT=8765', $status['setup_hint'] );
 
 		$run = ( new Run() )->execute( [ 'command' => [ 'post', 'list' ] ] );

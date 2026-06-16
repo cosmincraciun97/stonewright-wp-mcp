@@ -64,10 +64,10 @@ not use local agent skills, repository files, private client config files, or
 manual JSON-RPC or `/wp-json/stonewright/v1/abilities/run` shell calls as
 substitutes for the live MCP server.
 
-Leave `PORT` out of normal stdio configs, including Antigravity. `PORT` enables
-only the optional HTTP bridge; if a `.env` file sets it and the port is already
-occupied, stdio MCP should stay active and the bridge is skipped unless
-`STONEWRIGHT_HTTP_REQUIRED=1` is set.
+Leave `PORT` out of normal stdio configs, including Antigravity. A stale `.env`
+`PORT` is ignored by stdio startup unless `STONEWRIGHT_HTTP_ENABLE=1` or
+`STONEWRIGHT_HTTP_REQUIRED=1` is also set. Use `STONEWRIGHT_HTTP_REQUIRED=1`
+only when the optional HTTP bridge must start or startup should fail.
 For Antigravity, Gemini API, or another strict tool-cap client, set
 `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` in the same env block. It keeps the
 client-visible tool list under 30 while preserving composite writes and direct

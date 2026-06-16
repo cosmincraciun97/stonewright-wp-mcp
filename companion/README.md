@@ -75,8 +75,9 @@ cp .env.example .env
 |---|---|---|
 | `COMPANION_BEARER_TOKEN` | recommended | Protects the HTTP transport |
 | `COMPANION_ALLOWED_ORIGINS` | recommended | Comma-separated allowed origins |
-| `PORT` | optional | Enables the optional HTTP transport on this port; leave unset for stdio-only MCP clients |
-| `STONEWRIGHT_HTTP_REQUIRED` | optional | Set to `1` only when a failed HTTP bridge should make startup fail; by default stdio remains active if the HTTP port is busy |
+| `STONEWRIGHT_HTTP_ENABLE` | optional | Set to `1` to enable the optional HTTP bridge; stdio MCP does not need this |
+| `PORT` | with HTTP bridge | Port for the optional HTTP transport; ignored unless `STONEWRIGHT_HTTP_ENABLE=1` or `STONEWRIGHT_HTTP_REQUIRED=1` |
+| `STONEWRIGHT_HTTP_REQUIRED` | optional | Set to `1` only when the HTTP bridge must start or startup should fail; this also enables the bridge |
 | `STONEWRIGHT_WP_URL` | recommended for stdio | WordPress site URL; the companion derives `/wp-json/mcp/stonewright` |
 | `STONEWRIGHT_WP_USERNAME` | with `STONEWRIGHT_WP_URL` | WordPress username for Application Password auth |
 | `STONEWRIGHT_WP_APP_PASSWORD` | with `STONEWRIGHT_WP_URL` | WordPress Application Password |
@@ -102,11 +103,11 @@ npm run build
 npm start
 ```
 
-The companion always starts stdio MCP. Set `PORT` to also expose HTTP routes.
-For normal MCP-client stdio use, leave `PORT` unset. If a `.env` file sets
-`PORT` and that port is already occupied, the optional HTTP bridge is skipped
-and stdio MCP remains active. Set `STONEWRIGHT_HTTP_REQUIRED=1` only for
-deployments where the HTTP bridge must be available or startup should fail.
+The companion always starts stdio MCP. For normal MCP-client stdio use, leave
+`PORT` unset. If a `.env` file sets `PORT`, stdio startup ignores it unless
+`STONEWRIGHT_HTTP_ENABLE=1` or `STONEWRIGHT_HTTP_REQUIRED=1` is also set.
+Set `STONEWRIGHT_HTTP_REQUIRED=1` only for deployments where the HTTP bridge
+must be available or startup should fail.
 
 ## Persistent WordPress Credentials
 
@@ -176,12 +177,14 @@ instead of large inline PowerShell/Node scripts. Use background jobs only for
 long imports, cache rebuilds, plugin operations, or large batches where a
 single MCP request would otherwise block.
 
-### HTTP endpoints (when `PORT` is set)
+### HTTP endpoints (when `STONEWRIGHT_HTTP_ENABLE=1` and `PORT` are set)
 
 - `POST /wp-cli/status`
 - `POST /wp-cli/discover`
 - `POST /wp-cli/run`
 - `POST /wp-cli/batch`
+- `POST /wp-cli/job-start`
+- `POST /wp-cli/job-status`
 
 Example body for `/wp-cli/run`:
 

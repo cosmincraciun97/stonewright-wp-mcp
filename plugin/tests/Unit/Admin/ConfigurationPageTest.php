@@ -78,6 +78,7 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringContainsString( 'Most users can skip this.', $html );
 		self::assertStringContainsString( 'Step 3 already runs Stonewright through npx.', $html );
 		self::assertStringContainsString( 'Developer launch values', $html );
+		self::assertStringContainsString( 'STONEWRIGHT_HTTP_ENABLE=1', $html );
 		self::assertStringContainsString( 'COMPANION_BEARER_TOKEN', $html );
 		self::assertStringContainsString( 'Copy bridge launch env', $html );
 		self::assertStringContainsString( 'Generate token', $html );

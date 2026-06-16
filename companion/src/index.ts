@@ -2,10 +2,12 @@
  * Stonewright Companion - entry point.
  *
  * Boots the MCP server in two modes simultaneously:
- *   1. stdio - always active; used by Claude Code / local MCP clients.
- *   2. Streamable HTTP - activated when PORT is set; guarded by origin +
- *      bearer auth + request-body size limit. Binds to 127.0.0.1 by default;
- *      set `COMPANION_BIND_HOST=0.0.0.0` (or another interface) to override.
+ *   1. stdio - always active; used by local MCP clients.
+ *   2. Streamable HTTP - activated only when STONEWRIGHT_HTTP_ENABLE=1 and
+ *      PORT is set; guarded by origin + bearer auth + request-body size limit.
+ *      STONEWRIGHT_HTTP_REQUIRED=1 also enables HTTP and fails startup if the
+ *      bridge cannot bind. Binds to 127.0.0.1 by default; set
+ *      `COMPANION_BIND_HOST=0.0.0.0` (or another interface) to override.
  *
  * The proxy route (/proxy) is additionally activated when MCP_PROXY_TARGET is set.
  *
@@ -248,6 +250,10 @@ export async function startOptionalHttpFromEnv(
 	env: NodeJS.ProcessEnv = process.env,
 	starter: (port: number) => Promise<StartedHttpServer> = startHttp,
 ): Promise<OptionalHttpStartResult> {
+	if (!httpEnabled(env)) {
+		return { requested: false, started: false, port: null };
+	}
+
 	const port = optionalHttpPort(env['PORT']);
 	if (port === null) {
 		return { requested: false, started: false, port: null };
@@ -275,6 +281,11 @@ function optionalHttpPort(raw: string | undefined): number | null {
 
 function httpRequired(env: NodeJS.ProcessEnv): boolean {
 	return ['1', 'true', 'yes', 'on'].includes((env['STONEWRIGHT_HTTP_REQUIRED'] ?? '').trim().toLowerCase());
+}
+
+function httpEnabled(env: NodeJS.ProcessEnv): boolean {
+	return httpRequired(env)
+		|| ['1', 'true', 'yes', 'on'].includes((env['STONEWRIGHT_HTTP_ENABLE'] ?? '').trim().toLowerCase());
 }
 
 async function readJsonBody(

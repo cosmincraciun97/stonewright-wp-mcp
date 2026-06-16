@@ -125,7 +125,7 @@ abstract class WpCliAbility extends AbilityKernel {
 					'stonewright-wp-cli-batch-run',
 					'Use direct companion WP-CLI tools when they are visible in the MCP client.',
 				],
-				'setup_hint'            => 'For WordPress-side WP-CLI job abilities, start the optional companion HTTP bridge with PORT and matching COMPANION_BEARER_TOKEN, or use direct companion MCP tools.',
+				'setup_hint'            => 'For WordPress-side WP-CLI job abilities, start the optional companion HTTP bridge with STONEWRIGHT_HTTP_ENABLE=1, PORT, and matching COMPANION_BEARER_TOKEN, or use direct companion MCP tools.',
 			];
 		}
 
@@ -157,7 +157,7 @@ abstract class WpCliAbility extends AbilityKernel {
 				'If direct companion WP-CLI tools are unavailable, use normal Stonewright REST abilities for page/content/template writes.',
 				'Do not use sandbox files or arbitrary REST writes just to set page template or basic Elementor metadata.',
 			],
-			'setup_hint'            => 'Start the companion HTTP bridge with PORT=8765 and matching COMPANION_BEARER_TOKEN, or set stonewright_companion_url to the actual companion port.',
+			'setup_hint'            => 'Start the companion HTTP bridge with STONEWRIGHT_HTTP_ENABLE=1, PORT=8765, and matching COMPANION_BEARER_TOKEN, or set stonewright_companion_url to the actual companion port.',
 		];
 	}
 }

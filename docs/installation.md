@@ -164,10 +164,10 @@ registers direct aliases named `stonewright-wp-cli-status`,
 `stonewright-wp-cli-job-status`. Those aliases run WP-CLI inside the companion
 and do not require the WordPress-side HTTP bridge on port `8765`.
 
-For stdio MCP clients, leave `PORT` unset. `PORT` enables only the optional HTTP
-bridge; if a `.env` file sets it and the port is already occupied, stdio MCP
-continues and the bridge is skipped. Set `STONEWRIGHT_HTTP_REQUIRED=1` only when
-an HTTP bridge bind failure should fail startup.
+For stdio MCP clients, leave `PORT` unset. A stale `.env` `PORT` is ignored by
+stdio startup unless `STONEWRIGHT_HTTP_ENABLE=1` or
+`STONEWRIGHT_HTTP_REQUIRED=1` is also set. Set `STONEWRIGHT_HTTP_REQUIRED=1`
+only when an HTTP bridge bind failure should fail startup.
 
 Most users can ignore the optional HTTP bridge. Use **Stonewright >
 Configuration > Local WP-CLI bridge (advanced)** only when you deliberately run

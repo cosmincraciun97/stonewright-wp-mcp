@@ -89,7 +89,8 @@ The companion exposes both `companion_wp_cli_*` tools and direct
 `stonewright-wp-cli-*` aliases. The direct aliases do not require the optional
 HTTP bridge on port `8765`.
 
-Leave `PORT` unset for stdio-only clients. It enables the optional HTTP bridge;
+Leave `PORT` unset for stdio-only clients. A stale `.env` `PORT` is ignored
+unless `STONEWRIGHT_HTTP_ENABLE=1` or `STONEWRIGHT_HTTP_REQUIRED=1` is also set;
 stdio MCP remains the primary transport for normal agent sessions.
 Use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` for Antigravity, Gemini API, or
 other strict tool-cap clients; it keeps the client-visible startup surface under

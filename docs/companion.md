@@ -12,6 +12,8 @@ HTTP proxying, and guarded WP-CLI.
 - `POST /wp-cli/discover`
 - `POST /wp-cli/run`
 - `POST /wp-cli/batch`
+- `POST /wp-cli/job-start`
+- `POST /wp-cli/job-status`
 
 ## WP-CLI Safety
 
@@ -30,8 +32,9 @@ folder or site URL.
 |---|---|
 | `COMPANION_BEARER_TOKEN` | Required outside local/dev mode |
 | `COMPANION_ALLOWED_ORIGINS` | Required outside local/dev mode |
-| `PORT` | Enables the optional HTTP transport; leave unset for normal stdio MCP clients |
-| `STONEWRIGHT_HTTP_REQUIRED` | Set to `1` only when an HTTP bridge bind failure should make startup fail |
+| `STONEWRIGHT_HTTP_ENABLE` | Set to `1` to enable the optional HTTP bridge; stdio MCP does not need it |
+| `PORT` | Port for the optional HTTP transport; ignored unless `STONEWRIGHT_HTTP_ENABLE=1` or `STONEWRIGHT_HTTP_REQUIRED=1` |
+| `STONEWRIGHT_HTTP_REQUIRED` | Set to `1` only when an HTTP bridge bind failure should make startup fail; this also enables the bridge |
 | `STONEWRIGHT_WP_URL` | WordPress site URL; the companion derives `/wp-json/mcp/stonewright` when `STONEWRIGHT_MCP_URL` is absent |
 | `STONEWRIGHT_WP_USERNAME` | WordPress username for Application Password auth |
 | `STONEWRIGHT_WP_APP_PASSWORD` | WordPress Application Password |
@@ -56,8 +59,8 @@ need the WordPress-side HTTP bridge. Use the bridge only when a site
 deliberately wants WordPress-side `stonewright/wp-cli-*` abilities to call a
 local companion HTTP process.
 
-If a `.env` file sets `PORT` and the port is already occupied, stdio MCP stays
-active and the optional HTTP bridge is skipped. Set
+If a `.env` file sets `PORT`, stdio MCP ignores it unless
+`STONEWRIGHT_HTTP_ENABLE=1` or `STONEWRIGHT_HTTP_REQUIRED=1` is also set. Set
 `STONEWRIGHT_HTTP_REQUIRED=1` only for bridge-only deployments where a bind
 failure should stop startup.
 

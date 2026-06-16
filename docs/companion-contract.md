@@ -139,11 +139,12 @@ Command response fields for `/wp-cli/run` and each batch/job result item:
 
 ## MCP HTTP Transport
 
-When `PORT` is set, the companion exposes MCP Streamable HTTP routes at
-`/mcp`. The route is guarded by the same bearer token. This transport is
-optional for stdio MCP clients. If the requested HTTP port is already in use,
-the companion keeps stdio MCP active and skips the HTTP bridge unless
-`STONEWRIGHT_HTTP_REQUIRED=1` is set.
+When `STONEWRIGHT_HTTP_ENABLE=1` and `PORT` are set, the companion exposes MCP
+Streamable HTTP routes at `/mcp`. The route is guarded by the same bearer
+token. This transport is optional for stdio MCP clients. `PORT` alone is
+ignored by stdio startup so stale `.env` files cannot block MCP loading.
+`STONEWRIGHT_HTTP_REQUIRED=1` also enables the bridge and turns bind failures
+into startup failures.
 
 ## Optional MCP Proxy
 

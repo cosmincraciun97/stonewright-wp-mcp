@@ -82,6 +82,7 @@
 	function bridgeEnvText( token ) {
 		var value = token || '<choose-a-long-random-token>';
 		return [
+			'STONEWRIGHT_HTTP_ENABLE=1',
 			'PORT=8765',
 			'COMPANION_BEARER_TOKEN=' + value,
 			'COMPANION_ALLOWED_ORIGINS=http://localhost,http://127.0.0.1',

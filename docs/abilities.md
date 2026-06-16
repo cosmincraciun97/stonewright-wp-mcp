@@ -101,7 +101,8 @@ In the Node companion MCP, the same MCP names `stonewright-wp-cli-status`,
 `stonewright-wp-cli-discover`, `stonewright-wp-cli-run`,
 `stonewright-wp-cli-batch-run`, `stonewright-wp-cli-job-start`, and
 `stonewright-wp-cli-job-status` are direct companion aliases. They do not
-require the WordPress-side HTTP bridge on port `8765`. Use batch run for
+require the WordPress-side HTTP bridge explicitly enabled with
+`STONEWRIGHT_HTTP_ENABLE=1` plus `PORT`. Use batch run for
 repeated commands or Unicode-heavy values so agents do not need large inline
 shell scripts. Use background jobs for long guarded WP-CLI work that should not
 block one MCP request.
