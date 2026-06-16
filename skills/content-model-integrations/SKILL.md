@@ -18,7 +18,8 @@ Read `fast_path.specializations` before choosing tools.
 Then call:
 - `stonewright-site-plugins-list`
 - `stonewright-wp-cli-status`
-- `stonewright-wp-cli-discover`
+- `stonewright-wp-cli-discover` with `responseMode: "summary"` and
+  `commandFilter` such as `["acf","cpt","post","term","option","pod"]`
 
 Use `stonewright-wp-cli-run` only with argv tokens. Do not run `wp ...` in a
 normal shell as recovery, and do not use arbitrary PHP execution from another

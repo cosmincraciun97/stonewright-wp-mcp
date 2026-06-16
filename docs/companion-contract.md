@@ -57,10 +57,13 @@ Request fields:
 
 ### POST /wp-cli/discover
 
-Runs `wp cli cmd-dump --format=json` so agents can discover installed command
-groups and plugin-provided commands.
+Runs `wp cli cmd-dump` so agents can discover installed command groups and
+plugin-provided commands. Use `responseMode: "summary"` with `commandFilter`
+for token-efficient command paths; use `responseMode: "full"` only when the raw
+command tree is required.
 
-Request fields are the same as `/wp-cli/status`.
+Request fields are the same as `/wp-cli/status`, plus optional `responseMode`,
+`commandFilter`, and `maxCommands`.
 
 ### POST /wp-cli/run
 

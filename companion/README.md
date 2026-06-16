@@ -148,7 +148,7 @@ idempotent — if the phar already exists it is reused without re-downloading.
 ### MCP tools
 
 - `stonewright-wp-cli-status` — check availability and show diagnostic info
-- `stonewright-wp-cli-discover` — dump installed WP-CLI command metadata
+- `stonewright-wp-cli-discover` — summarize installed WP-CLI command metadata; use `commandFilter` for ACF/CPT UI/plugin command paths
 - `stonewright-wp-cli-run` — run a tokenized WP-CLI command (no shell)
 - `stonewright-wp-cli-install` — manually trigger phar download into cache
 

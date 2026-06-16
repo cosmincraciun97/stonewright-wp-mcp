@@ -21,6 +21,11 @@ export interface WpCliBatchRunInput extends Omit<WpCliRunInput, 'command'> {
 	stopOnError?: boolean;
 }
 
+export interface WpCliDiscoverInput extends Partial<WpCliRunInput> {
+	commandFilter?: string[];
+	maxCommands?: number;
+}
+
 export interface ExecFileOptions {
 	cwd: string;
 	timeout: number;
@@ -45,6 +50,7 @@ export type ExecFileRunner = (
 ) => Promise<ExecFileResult>;
 
 export type WpCliCommandResult = WpCliResult | WpCliResultSummary;
+export type WpCliDiscoverResult = WpCliCommandResult | WpCliDiscoverSummary;
 
 export interface WpCliResult extends Record<string, unknown> {
 	ok: boolean;
@@ -79,6 +85,22 @@ export interface WpCliResultSummary extends Record<string, unknown> {
 	stdout_bytes: number;
 	stderr_bytes: number;
 	parsed_json?: unknown;
+	error?: string;
+}
+
+export interface WpCliDiscoverSummary extends Record<string, unknown> {
+	ok: boolean;
+	available: boolean;
+	exit_code: number;
+	duration_ms: number;
+	stdout_bytes: number;
+	stderr_bytes: number;
+	command_count: number;
+	returned_command_count: number;
+	truncated: boolean;
+	command_paths: string[];
+	root_commands: string[];
+	command_filter: string[];
 	error?: string;
 }
 
@@ -257,6 +279,74 @@ function summarizeWpCliResult(result: WpCliResult): WpCliResultSummary {
 	};
 }
 
+function summarizeWpCliDiscoverResult(result: WpCliResult, input: WpCliDiscoverInput): WpCliDiscoverSummary {
+	const allPaths = extractCommandPaths(result.parsed_json);
+	const filters = normalizeCommandFilter(input.commandFilter);
+	const filteredPaths = filters.length === 0
+		? allPaths
+		: allPaths.filter((path) => filters.some((filter) => path.toLowerCase().includes(filter)));
+	const maxCommands = normalizeMaxCommands(input.maxCommands);
+	const returned = filteredPaths.slice(0, maxCommands);
+
+	return {
+		ok: result.ok,
+		available: result.available,
+		exit_code: result.exit_code,
+		duration_ms: result.duration_ms,
+		stdout_bytes: Buffer.byteLength(result.stdout, 'utf8'),
+		stderr_bytes: Buffer.byteLength(result.stderr, 'utf8'),
+		command_count: allPaths.length,
+		returned_command_count: returned.length,
+		truncated: filteredPaths.length > returned.length,
+		command_paths: returned,
+		root_commands: extractRootCommands(allPaths),
+		command_filter: filters,
+		...(result.error ? { error: result.error } : {}),
+	};
+}
+
+function normalizeCommandFilter(filter: unknown): string[] {
+	if (!Array.isArray(filter)) return [];
+	return filter
+		.map((item) => String(item).trim().toLowerCase())
+		.filter((item) => item !== '')
+		.slice(0, 20);
+}
+
+function normalizeMaxCommands(maxCommands: unknown): number {
+	const value = Number(maxCommands);
+	if (!Number.isFinite(value) || value <= 0) return 80;
+	return Math.min(Math.floor(value), 500);
+}
+
+function extractCommandPaths(tree: unknown): string[] {
+	const paths: string[] = [];
+	walkCommandTree(tree, [], paths);
+	return Array.from(new Set(paths)).sort((a, b) => a.localeCompare(b));
+}
+
+function walkCommandTree(node: unknown, parent: string[], paths: string[]): void {
+	if (!node || typeof node !== 'object') return;
+	const record = node as Record<string, unknown>;
+	const name = typeof record.name === 'string' ? record.name.trim() : '';
+	const current = name === '' ? parent : [...parent, name];
+	if (current.length > 0) {
+		paths.push(current.join(' '));
+	}
+
+	const children = Array.isArray(record.subcommands) ? record.subcommands : [];
+	for (const child of children) {
+		walkCommandTree(child, current, paths);
+	}
+}
+
+function extractRootCommands(paths: string[]): string[] {
+	const roots = paths
+		.map((path) => path.split(' ')[0])
+		.filter((root): root is string => Boolean(root));
+	return Array.from(new Set(roots)).sort((a, b) => a.localeCompare(b));
+}
+
 export function resolveWpCliInvocation(env: NodeJS.ProcessEnv, cwd: string): WpCliInvocation {
 	const explicitPhp = cleanEnvPath(env['STONEWRIGHT_WP_CLI_PHP_BIN']);
 	const explicitPhar = cleanEnvPath(env['STONEWRIGHT_WP_CLI_PHAR_PATH']);
@@ -389,19 +479,26 @@ export async function wpCliStatus(
 }
 
 export async function wpCliDiscover(
-	input: Partial<WpCliRunInput> = {},
+	input: WpCliDiscoverInput = {},
 	runner?: ExecFileRunner,
 	env: NodeJS.ProcessEnv = process.env,
-): Promise<WpCliCommandResult> {
-	return runWpCli(
+): Promise<WpCliDiscoverResult> {
+	const result = await runWpCli(
 		{
 			...input,
 			command: ['cli', 'cmd-dump'],
 			parseJson: true,
+			responseMode: 'full',
 		},
 		runner,
 		env,
-	);
+	) as WpCliResult;
+
+	if (input.responseMode !== 'full') {
+		return summarizeWpCliDiscoverResult(result, input);
+	}
+
+	return result;
 }
 
 export interface WpCliEnsureReadyInput {

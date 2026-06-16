@@ -196,7 +196,7 @@
 | Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `stonewright/wp-cli-status` | `stonewright-wp-cli-status` | `WpCli\Status` | Checks whether the companion can run WP-CLI and returns wp cli info diagnostics. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/WpCli/WpCliAbilitiesTest.php` |
-| `stonewright/wp-cli-discover` | `stonewright-wp-cli-discover` | `WpCli\Discover` | Runs wp cli cmd-dump through the companion so the agent can discover WordPress, Elementor, Gutenberg, ACF, CPT UI, and plugin-specific WP-CLI commands before choosing a command. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/WpCli/WpCliAbilitiesTest.php` |
+| `stonewright/wp-cli-discover` | `stonewright-wp-cli-discover` | `WpCli\Discover` | Runs wp cli cmd-dump through the companion. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/WpCli/WpCliAbilitiesTest.php` |
 | `stonewright/wp-cli-run` | `stonewright-wp-cli-run` | `WpCli\Run` | Runs a tokenized WP-CLI command through the companion. | Write | `Permissions::manage_options()` | Yes | No | No | stable | `tests/Unit/WpCli/WpCliAbilitiesTest.php` |
 | `stonewright/wp-cli-batch-run` | `stonewright-wp-cli-batch-run` | `WpCli\BatchRun` | Runs multiple tokenized WP-CLI commands through the companion in one request. | Write | `Permissions::manage_options()` | Yes | No | No | stable | `tests/Unit/WpCli/WpCliAbilitiesTest.php` |
 

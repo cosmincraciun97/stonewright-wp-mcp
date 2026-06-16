@@ -36,6 +36,7 @@ import {
 	wpCliStatus,
 	wpCliEnsureReady,
 	type WpCliBatchRunInput,
+	type WpCliDiscoverInput,
 	type WpCliRunInput,
 } from './wp-cli.js';
 
@@ -133,7 +134,7 @@ export async function startHttp(port: number): Promise<StartedHttpServer> {
 				const result = url === '/wp-cli/status'
 					? await wpCliStatus(input as Partial<WpCliRunInput>)
 					: url === '/wp-cli/discover'
-						? await wpCliDiscover(input as Partial<WpCliRunInput>)
+						? await wpCliDiscover(input as WpCliDiscoverInput)
 						: url === '/wp-cli/batch'
 							? await runWpCliBatch(input as unknown as WpCliBatchRunInput)
 							: await runWpCli(input as unknown as WpCliRunInput);

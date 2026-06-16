@@ -404,7 +404,7 @@ describe('WP-CLI runner', () => {
 		}
 	});
 
-	it('discovers installed command metadata with wp cli cmd-dump', async () => {
+	it('discovers installed command metadata as a compact summary by default', async () => {
 		const runner: ExecFileRunner = (_file, args) => {
 			expect(args.slice(-2)).toEqual(['cli', 'cmd-dump']);
 			return Promise.resolve({
@@ -417,7 +417,63 @@ describe('WP-CLI runner', () => {
 		const result = await wpCliDiscover({}, runner);
 
 		expect(result.ok).toBe(true);
+		expect(result.command_paths).toEqual(['wp', 'wp post']);
+		expect(result).not.toHaveProperty('stdout');
+		expect(result).not.toHaveProperty('parsed_json');
+	});
+
+	it('can return the raw wp cli cmd-dump tree when explicitly requested', async () => {
+		const runner: ExecFileRunner = (_file, args) => {
+			expect(args.slice(-2)).toEqual(['cli', 'cmd-dump']);
+			return Promise.resolve({
+				stdout: JSON.stringify({ name: 'wp', subcommands: [{ name: 'post' }] }),
+				stderr: '',
+				exitCode: 0,
+			});
+		};
+
+		const result = await wpCliDiscover({ responseMode: 'full' }, runner);
+
+		expect(result.ok).toBe(true);
 		expect(result.parsed_json).toEqual({ name: 'wp', subcommands: [{ name: 'post' }] });
+	});
+
+	it('summarizes command discovery for token-efficient plugin command planning', async () => {
+		const runner: ExecFileRunner = () => Promise.resolve({
+			stdout: JSON.stringify({
+				name: 'wp',
+				subcommands: [
+					{ name: 'post', subcommands: [{ name: 'create' }, { name: 'meta' }] },
+					{ name: 'acf', subcommands: [{ name: 'field-group' }, { name: 'field' }] },
+					{ name: 'plugin', subcommands: [{ name: 'list' }] },
+				],
+			}),
+			stderr: '',
+			exitCode: 0,
+		});
+
+		const result = await wpCliDiscover(
+			{
+				responseMode: 'summary',
+				commandFilter: ['acf', 'post meta'],
+				maxCommands: 4,
+			},
+			runner,
+			{ STONEWRIGHT_WP_CLI_BIN: 'wp' } as NodeJS.ProcessEnv,
+		);
+
+		expect(result).toMatchObject({
+			ok: true,
+			available: true,
+			command_count: 9,
+			returned_command_count: 4,
+			truncated: false,
+			command_filter: ['acf', 'post meta'],
+		});
+		expect(result.command_paths).toEqual(['wp acf', 'wp acf field', 'wp acf field-group', 'wp post meta']);
+		expect(result.root_commands).toEqual(['wp']);
+		expect(result).not.toHaveProperty('stdout');
+		expect(result).not.toHaveProperty('parsed_json');
 	});
 });
 

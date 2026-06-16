@@ -12,6 +12,7 @@ import {
 	wpCliDiscover,
 	wpCliInstall,
 	wpCliStatus,
+	type WpCliDiscoverInput,
 	type WpCliBatchRunInput,
 	type WpCliInstallInput,
 	type WpCliRunInput,
@@ -290,10 +291,15 @@ function registerWpCliTools(
 		server.registerTool(
 			name,
 			{
-				description: 'Dump installed WP-CLI command metadata with wp cli cmd-dump. This runs directly inside the Stonewright companion.',
-				inputSchema: commonInput,
+				description: 'Discover installed WP-CLI command metadata. Use responseMode=summary with commandFilter for token-efficient ACF, CPT UI, plugin, post, term, and option command discovery.',
+				inputSchema: {
+					...commonInput,
+					commandFilter: z.array(z.string()).max(20).optional(),
+					maxCommands: z.number().int().positive().max(500).optional(),
+					responseMode: z.enum(['summary', 'full']).default('summary').optional(),
+				},
 			},
-			async (input) => toolResponse(await wpCliDiscover(toWpCliInput(input), undefined, env)),
+			async (input) => toolResponse(await wpCliDiscover(toWpCliInput(input) as WpCliDiscoverInput, undefined, env)),
 		);
 	}
 

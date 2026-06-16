@@ -185,6 +185,39 @@ final class WpCliAbilitiesTest extends TestCase {
 		$this->assertSame( 'wp', $discover['parsed_json']['name'] );
 		$this->assertSame( '/wp-cli/status', $GLOBALS['stonewright_test_companion_requests'][1]['path'] );
 		$this->assertSame( '/wp-cli/discover', $GLOBALS['stonewright_test_companion_requests'][2]['path'] );
+		$this->assertSame( 'summary', $GLOBALS['stonewright_test_companion_requests'][2]['body']['responseMode'] );
+		$this->assertSame( 80, $GLOBALS['stonewright_test_companion_requests'][2]['body']['maxCommands'] );
+	}
+
+	public function test_discover_forwards_summary_filters_to_companion(): void {
+		$GLOBALS['stonewright_test_companion_responses']['/wp-cli/discover'] = [
+			'ok'                     => true,
+			'available'              => true,
+			'exit_code'              => 0,
+			'duration_ms'            => 9,
+			'stdout_bytes'           => 120000,
+			'stderr_bytes'           => 0,
+			'command_count'          => 140,
+			'returned_command_count' => 3,
+			'truncated'              => false,
+			'command_paths'          => [ 'wp acf', 'wp acf field', 'wp post meta' ],
+			'root_commands'          => [ 'wp' ],
+			'command_filter'         => [ 'acf', 'post meta' ],
+		];
+
+		$result = ( new Discover() )->execute(
+			[
+				'commandFilter' => [ 'acf', 'post meta' ],
+				'maxCommands'   => 10,
+				'responseMode'  => 'summary',
+			]
+		);
+
+		$this->assertIsArray( $result );
+		$this->assertTrue( $result['ok'] );
+		$this->assertSame( [ 'wp acf', 'wp acf field', 'wp post meta' ], $result['command_paths'] );
+		$this->assertSame( [ 'acf', 'post meta' ], $GLOBALS['stonewright_test_companion_requests'][1]['body']['commandFilter'] );
+		$this->assertSame( 10, $GLOBALS['stonewright_test_companion_requests'][1]['body']['maxCommands'] );
 	}
 
 	public function test_wp_cli_companion_unavailable_returns_structured_fallbacks(): void {

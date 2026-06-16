@@ -91,7 +91,7 @@ The WP-CLI tools are:
 | Ability | Purpose |
 |---|---|
 | `stonewright/wp-cli-status` (`stonewright-wp-cli-status`) | Checks that WP-CLI is available through the companion and returns `wp cli info --format=json`. |
-| `stonewright/wp-cli-discover` (`stonewright-wp-cli-discover`) | Returns `wp cli cmd-dump` data so agents can discover WordPress, Elementor, Gutenberg, ACF, CPT UI, and other installed command groups. |
+| `stonewright/wp-cli-discover` (`stonewright-wp-cli-discover`) | Returns compact `wp cli cmd-dump` command paths by default; use `responseMode=full` only when the raw command tree is required. |
 | `stonewright/wp-cli-run` (`stonewright-wp-cli-run`) | Runs a guarded WP-CLI command through the companion. It supports writes, but blocks arbitrary PHP and shell-like command groups such as `eval`, `eval-file`, `shell`, and `package`. |
 | `stonewright/wp-cli-batch-run` (`stonewright-wp-cli-batch-run`) | Runs repeated guarded WP-CLI commands in one request for faster content, meta, term, media, option, and plugin-command work. |
 
