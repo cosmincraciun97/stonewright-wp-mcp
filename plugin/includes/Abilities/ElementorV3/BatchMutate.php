@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Elementor\ContainerSettings;
 use Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetCatalog;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
@@ -245,7 +246,7 @@ final class BatchMutate extends AbilityKernel {
 			'id'       => ElementorData::generate_id(),
 			'elType'   => 'container',
 			'isInner'  => [] !== $parent_path,
-			'settings' => self::normalize_container_settings( $settings ),
+			'settings' => ContainerSettings::normalize( $settings ),
 			'elements' => [],
 		];
 
@@ -329,8 +330,13 @@ final class BatchMutate extends AbilityKernel {
 		$incoming = isset( $operation['settings'] ) && is_array( $operation['settings'] ) ? $operation['settings'] : [];
 		$existing = isset( $element['settings'] ) && is_array( $element['settings'] ) ? $element['settings'] : [];
 		$mode     = isset( $operation['mode'] ) ? (string) $operation['mode'] : 'merge';
-		$element['settings'] = 'replace' === $mode ? $incoming : array_merge( $existing, $incoming );
-		$tree = ElementorData::set( $tree, $path, $element );
+		$settings = 'replace' === $mode ? $incoming : array_merge( $existing, $incoming );
+		if ( 'container' === ( $element['elType'] ?? '' ) ) {
+			$settings = ContainerSettings::normalize( $settings );
+		}
+
+		$element['settings'] = $settings;
+		$tree                = ElementorData::set( $tree, $path, $element );
 
 		return [
 			'action'     => 'update_element',
@@ -466,25 +472,6 @@ final class BatchMutate extends AbilityKernel {
 			'action'     => 'add_' . $kind,
 			'element_id' => $element_id,
 		];
-	}
-
-	/**
-	 * @param array<string, mixed> $settings
-	 * @return array<string, mixed>
-	 */
-	private static function normalize_container_settings( array $settings ): array {
-		$layout = isset( $settings['layout'] ) ? (string) $settings['layout'] : '';
-		unset( $settings['layout'] );
-
-		if ( ! isset( $settings['container_type'] ) ) {
-			$settings['container_type'] = 'grid' === $layout ? 'grid' : 'flex';
-		}
-		if ( 'grid' !== $settings['container_type'] && ! isset( $settings['flex_direction'] ) ) {
-			$settings['flex_direction'] = 'row' === ( $settings['direction'] ?? '' ) ? 'row' : 'column';
-		}
-		unset( $settings['direction'] );
-
-		return $settings;
 	}
 
 	/**

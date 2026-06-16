@@ -7,6 +7,17 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.36] - 2026-06-16
+
+### Fixed
+
+- Direct Elementor container writes now normalize risky agent-supplied flex
+  settings before saving, preventing `flex_wrap` and `_flex_*` guesses from
+  causing overflow or unstable section layouts.
+- Batch Elementor mutations and single-element updates now share the same
+  container normalization path, so section-by-section design builds stay
+  consistent across fast batch writes and targeted fixes.
+
 ## [1.0.0-alpha.35] - 2026-06-16
 
 ### Fixed
@@ -537,6 +548,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.36]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.36
 [1.0.0-alpha.27]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.27
 [1.0.0-alpha.26]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.26
 [1.0.0-alpha.25]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.25

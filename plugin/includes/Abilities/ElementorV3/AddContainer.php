@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\ContainerSettings;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
@@ -75,7 +76,7 @@ final class AddContainer extends AbilityKernel {
 				$snapshot_id = Backup::snapshot_post( $post_id );
 				$tree        = ElementorData::read( $post_id );
 				$settings    = isset( $args['settings'] ) && is_array( $args['settings'] ) ? $args['settings'] : [];
-				$settings    = self::normalize_container_settings( $settings );
+				$settings    = ContainerSettings::normalize( $settings );
 
 				$element = [
 					'id'       => ElementorData::generate_id(),
@@ -108,24 +109,5 @@ final class AddContainer extends AbilityKernel {
 				];
 			}
 		);
-	}
-
-	/**
-	 * @param array<string, mixed> $settings
-	 * @return array<string, mixed>
-	 */
-	private static function normalize_container_settings( array $settings ): array {
-		$layout = isset( $settings['layout'] ) ? (string) $settings['layout'] : '';
-		unset( $settings['layout'] );
-
-		if ( ! isset( $settings['container_type'] ) ) {
-			$settings['container_type'] = 'grid' === $layout ? 'grid' : 'flex';
-		}
-		if ( 'grid' !== $settings['container_type'] && ! isset( $settings['flex_direction'] ) ) {
-			$settings['flex_direction'] = 'row' === ( $settings['direction'] ?? '' ) ? 'row' : 'column';
-		}
-		unset( $settings['direction'] );
-
-		return $settings;
 	}
 }

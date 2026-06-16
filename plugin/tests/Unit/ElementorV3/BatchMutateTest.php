@@ -121,6 +121,56 @@ final class BatchMutateTest extends TestCase {
 		self::assertArrayHasKey( 'preview', $result );
 	}
 
+	public function test_batch_normalizes_container_settings_on_add_and_update(): void {
+		self::assertTrue( class_exists( BatchMutate::class ), 'BatchMutate ability must exist.' );
+
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 501,
+				'dry_run'    => true,
+				'operations' => [
+					[
+						'action'    => 'add_container',
+						'op_id'     => 'inner',
+						'parent_id' => 'root',
+						'settings'  => [
+							'layout'       => 'flex',
+							'direction'    => 'row',
+							'flex_wrap'    => 'wrap',
+							'_flex_size'   => 'grow',
+							'_flex_grow'   => '1',
+							'_flex_shrink' => '0',
+						],
+					],
+					[
+						'action'     => 'update_element',
+						'element_id' => 'root',
+						'settings'   => [
+							'direction'  => 'row',
+							'flex_wrap'  => 'wrap',
+							'_flex_size' => 'grow',
+						],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		$root_settings  = $result['preview'][0]['settings'];
+		$inner_settings = $result['preview'][0]['elements'][0]['settings'];
+
+		foreach ( [ $root_settings, $inner_settings ] as $settings ) {
+			self::assertSame( 'flex', $settings['container_type'] );
+			self::assertArrayHasKey( 'flex_direction', $settings );
+			self::assertSame( 'row', $settings['flex_direction'] );
+			self::assertArrayNotHasKey( 'direction', $settings );
+			self::assertArrayNotHasKey( 'flex_wrap', $settings );
+			self::assertArrayNotHasKey( '_flex_size', $settings );
+			self::assertArrayNotHasKey( '_flex_grow', $settings );
+			self::assertArrayNotHasKey( '_flex_shrink', $settings );
+		}
+	}
+
 	public function test_remove_requires_confirmation_in_production_safe_mode(): void {
 		self::assertTrue( class_exists( BatchMutate::class ), 'BatchMutate ability must exist.' );
 		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';

@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\ContainerSettings;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
@@ -84,8 +85,12 @@ final class UpdateElement extends AbilityKernel {
 				$settings = isset( $existing['settings'] ) && is_array( $existing['settings'] ) ? $existing['settings'] : [];
 				$mode     = isset( $args['mode'] ) ? (string) $args['mode'] : 'merge';
 				$incoming = (array) $args['settings'];
+				$next     = 'replace' === $mode ? $incoming : array_merge( $settings, $incoming );
+				if ( 'container' === ( $existing['elType'] ?? '' ) ) {
+					$next = ContainerSettings::normalize( $next );
+				}
 
-				$existing['settings'] = 'replace' === $mode ? $incoming : array_merge( $settings, $incoming );
+				$existing['settings'] = $next;
 
 				$new_tree = ElementorData::set( $tree, $path, $existing );
 				if ( ! ElementorData::write( $post_id, $new_tree ) ) {
