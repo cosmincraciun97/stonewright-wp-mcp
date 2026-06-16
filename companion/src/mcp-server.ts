@@ -18,6 +18,7 @@ import {
 } from './wp-cli.js';
 import { buildSetupProfile } from './setup-profile.js';
 import { registerWordPressMcpPrompts, registerWordPressMcpTools, resolveWordPressMcpConfig } from './wordpress-mcp.js';
+import { APP_VERSION } from './version.js';
 
 export interface CreateMcpServerOptions {
 	env?: NodeJS.ProcessEnv;
@@ -27,7 +28,7 @@ export interface CreateMcpServerOptions {
 export async function createMcpServer(options: CreateMcpServerOptions = {}): Promise<McpServer> {
 	const server = new McpServer({
 		name: 'stonewright-companion',
-		version: '1.0.0-alpha.1',
+		version: APP_VERSION,
 	});
 	const env = options.env ?? process.env;
 

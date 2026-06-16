@@ -5,6 +5,7 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { z, type ZodTypeAny } from 'zod';
 import { runWpCli, type ExecFileRunner } from './wp-cli.js';
+import { APP_VERSION } from './version.js';
 
 export interface WordPressMcpConfig {
 	url: string;
@@ -572,7 +573,7 @@ class WordPressMcpClient {
 			capabilities: {},
 			clientInfo: {
 				name: 'stonewright-companion',
-				version: '1.0.0-alpha.1',
+				version: APP_VERSION,
 			},
 		});
 

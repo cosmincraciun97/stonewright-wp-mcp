@@ -59,7 +59,13 @@ final class ConnectClientConfigTest extends TestCase {
 
 		$server = $snippet['mcpServers']['stonewright'];
 		$this->assertSame( 'npx', $server['command'] );
-		$this->assertSame( [ '-y', '@stonewright/companion@latest' ], $server['args'] );
+		$this->assertSame(
+			[
+				'-y',
+				'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v0.0.0-test/stonewright-companion-0.0.0-test.tgz',
+			],
+			$server['args']
+		);
 		$this->assertNotContains( '@automattic/mcp-wordpress-remote@latest', $server['args'] );
 		$this->assertSame( 'admin', $server['env']['STONEWRIGHT_WP_USERNAME'] );
 		$this->assertSame( 'abcd 1234 efgh 5678', $server['env']['STONEWRIGHT_WP_APP_PASSWORD'] );
@@ -85,7 +91,7 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertIsArray( $result );
 		$this->assertArrayHasKey( 'command', $result );
 		$this->assertStringContainsString( 'claude mcp add stonewright', $result['command'] );
-		$this->assertStringContainsString( '@stonewright/companion@latest', $result['command'] );
+		$this->assertStringContainsString( 'stonewright-companion-0.0.0-test.tgz', $result['command'] );
 		$this->assertStringContainsString( '--env STONEWRIGHT_MCP_TOOL_PROFILE=essential', $result['command'] );
 		$this->assertStringNotContainsString( '@automattic/mcp-wordpress-remote', $result['command'] );
 	}
@@ -123,10 +129,10 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'admin', $prompt );
 		$this->assertStringContainsString( 'pw1234', $prompt );
 		$this->assertStringContainsString( 'mcp/stonewright', $prompt );
-		$this->assertStringContainsString( '@stonewright/companion@latest', $prompt );
+		$this->assertStringContainsString( 'stonewright-companion-0.0.0-test.tgz', $prompt );
 		$this->assertStringContainsString( 'STONEWRIGHT_WP_APP_PASSWORD', $prompt );
 		$this->assertStringContainsString( 'STONEWRIGHT_MCP_TOOL_PROFILE', $prompt );
-		$this->assertStringContainsString( 'npx downloads and runs the Stonewright companion', $prompt );
+		$this->assertStringContainsString( 'versioned GitHub release tarball', $prompt );
 		$this->assertStringContainsString( 'Playwright MCP', $prompt );
 		$this->assertStringContainsString( '@playwright/mcp@latest', $prompt );
 		$this->assertStringContainsString( 'browser testing, screenshots, and visual QA', $prompt );

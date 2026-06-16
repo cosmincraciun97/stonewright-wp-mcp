@@ -15,7 +15,10 @@ describe('buildSetupProfile', () => {
 		expect(profile.ok).toBe(true);
 		expect(profile.platform).toBe('darwin');
 		expect(profile.mcp_server.command).toBe('npx');
-		expect(profile.mcp_server.args).toEqual(['-y', '@stonewright/companion@latest']);
+		expect(profile.mcp_server.args).toEqual([
+			'-y',
+			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.23/stonewright-companion-1.0.0-alpha.23.tgz',
+		]);
 		expect(profile.mcp_server.env).toMatchObject({
 			STONEWRIGHT_WP_URL: 'http://mcp-test.local',
 			STONEWRIGHT_WP_ROOT: '/Users/me/Local Sites/mcp-test/app/public',
@@ -38,6 +41,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.notes.join('\n')).toContain('Verify the MCP tool list includes stonewright-context-bootstrap before starting WordPress work');
 		expect(profile.notes.join('\n')).toContain('Call stonewright-tool-profile for tool-cap, slow-startup, or token-sensitive clients before broad discovery');
 		expect(profile.notes.join('\n')).toContain('STONEWRIGHT_MCP_TOOL_PROFILE=essential keeps new MCP sessions compact');
+		expect(profile.notes.join('\n')).toContain('GitHub release tarball');
 		expect(profile.notes.join('\n')).toContain('Do not treat local client skills or repository files as a substitute for live Stonewright MCP tools');
 		expect(profile.notes.join('\n')).toContain('Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround');
 		expect(profile.checks).toContainEqual(
@@ -61,7 +65,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.platform).toBe('win32');
 		expect(profile.mcp_server.env.STONEWRIGHT_WP_ROOT).toBe('D:\\Sites\\mcp-test\\app\\public');
 		expect(profile.mcp_server.env.STONEWRIGHT_WP_USERNAME).toBe('admin');
-		expect(profile.install_command).toBe('npm install -g @stonewright/companion');
+		expect(profile.install_command).toBe('npm install -g https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.23/stonewright-companion-1.0.0-alpha.23.tgz');
 		expect(profile.notes.join('\n')).toContain('No shell script wrapper required');
 	});
 

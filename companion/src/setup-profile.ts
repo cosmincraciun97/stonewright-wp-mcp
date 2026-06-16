@@ -1,3 +1,5 @@
+import { companionPackageSpec } from './version.js';
+
 export type SetupPlatform = NodeJS.Platform | 'linux' | 'darwin' | 'win32';
 
 export interface SetupCheck {
@@ -79,10 +81,10 @@ export function buildSetupProfile(
 	return {
 		ok: checks.every((check) => check.status === 'ok'),
 		platform,
-		install_command: 'npm install -g @stonewright/companion',
+		install_command: `npm install -g ${companionPackageSpec()}`,
 		mcp_server: {
 			command: 'npx',
-			args: ['-y', '@stonewright/companion@latest'],
+			args: ['-y', companionPackageSpec()],
 			env: mcpEnv,
 		},
 		checks,
@@ -102,6 +104,7 @@ export function buildSetupProfile(
 		notes: [
 			'Use this MCP config on Windows, macOS, and Linux; env vars carry paths safely.',
 			'No shell script wrapper required; the companion uses Node and execFile argv tokens.',
+			'The npx target is the versioned GitHub release tarball so fresh sessions work even before npm package publishing is configured.',
 			'Verify the MCP tool list includes stonewright-context-bootstrap before starting WordPress work.',
 			'STONEWRIGHT_MCP_TOOL_PROFILE=essential keeps new MCP sessions compact while preserving Stonewright fast-path tools.',
 			'Call stonewright-tool-profile for tool-cap, slow-startup, or token-sensitive clients before broad discovery.',

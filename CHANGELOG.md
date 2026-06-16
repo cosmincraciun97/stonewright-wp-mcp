@@ -7,6 +7,17 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.23] - 2026-06-16
+
+### Changed
+
+- Switched generated companion setup snippets from the unpublished npm package
+  name to the versioned GitHub release tarball, so fresh MCP sessions can start
+  without npm publishing credentials.
+- Added a companion app-version constant and wired MCP server info,
+  WordPress-MCP client initialization, and HTTP health responses to the current
+  package version instead of the old alpha.1 placeholder.
+
 ## [1.0.0-alpha.22] - 2026-06-16
 
 ### Added
@@ -388,6 +399,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.23]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.23
 [1.0.0-alpha.22]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.22
 [1.0.0-alpha.21]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.21
 [1.0.0-alpha.20]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.20

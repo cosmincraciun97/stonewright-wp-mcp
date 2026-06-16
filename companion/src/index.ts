@@ -28,6 +28,7 @@ import { buildHttpGuard, loadGuardConfig, readBodyWithLimit, type GuardConfig } 
 import { createMcpServer } from './mcp-server.js';
 import { handleProxy, proxyConfig, getProxyConfig } from './mcp-proxy.js';
 import { CONTRACT_VERSION } from './contracts/version.js';
+import { APP_VERSION } from './version.js';
 import {
 	runWpCli,
 	runWpCliBatch,
@@ -102,7 +103,7 @@ export async function startHttp(port: number): Promise<StartedHttpServer> {
 		// Health check - no auth required; advertises contract_version
 		if (url === '/health') {
 			res.writeHead(200, { 'Content-Type': 'application/json' });
-			res.end(JSON.stringify({ status: 'ok', contract_version: CONTRACT_VERSION, version: '1.0.0-alpha.1' }));
+			res.end(JSON.stringify({ status: 'ok', contract_version: CONTRACT_VERSION, version: APP_VERSION }));
 			return;
 		}
 

@@ -50,10 +50,10 @@ folder or site URL.
 
 ## Plugin Integration
 
-The normal `npx @stonewright/companion@latest` setup does not need the
-WordPress-side HTTP bridge. Use the bridge only when a site deliberately wants
-WordPress-side `stonewright/wp-cli-*` abilities to call a local companion HTTP
-process.
+The normal `npx` setup uses the versioned GitHub release tarball and does not
+need the WordPress-side HTTP bridge. Use the bridge only when a site
+deliberately wants WordPress-side `stonewright/wp-cli-*` abilities to call a
+local companion HTTP process.
 
 When needed, set:
 

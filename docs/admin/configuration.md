@@ -47,7 +47,7 @@ The companion is a Node.js sidecar that handles WP-CLI, health checks, and the
 optional MCP proxy. It writes to WordPress only through guarded WP-CLI commands.
 
 Most users can skip this section. The setup note in Card 3 already runs
-Stonewright through `npx @stonewright/companion@latest`, and direct companion
+Stonewright through `npx` with the versioned GitHub release tarball, and direct companion
 tools such as `stonewright-wp-cli-status`, `stonewright-wp-cli-discover`, and
 `stonewright-wp-cli-run` do not need port `8765`.
 
@@ -105,7 +105,7 @@ install:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "@stonewright/companion@latest"],
+      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.23/stonewright-companion-1.0.0-alpha.23.tgz"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -130,10 +130,9 @@ site URL, MCP endpoint, username, generated Application Password when present,
 the `npx` transport, and the required first Stonewright calls:
 `stonewright-context-bootstrap` and `stonewright-workflow-preflight`.
 
-The note also tells agents that `npx` downloads and runs
-`@stonewright/companion@latest`, and that Playwright MCP should be added for
-browser testing, screenshots, and visual QA when the client does not already
-have browser tools.
+The note also tells agents that `npx` downloads and runs the versioned GitHub
+release tarball, and that Playwright MCP should be added for browser testing,
+screenshots, and visual QA when the client does not already have browser tools.
 
 ### Examples
 

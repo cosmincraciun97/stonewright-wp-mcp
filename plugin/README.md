@@ -1,6 +1,6 @@
 # Stonewright Plugin
 
-Version: 1.0.0-alpha.22
+Version: 1.0.0-alpha.23
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
 License: GPL-2.0-or-later
@@ -32,7 +32,7 @@ npm install
 npm run build
 ```
 
-Normal MCP clients launch the companion with `npx @stonewright/companion@latest`.
+Normal MCP clients launch the versioned companion release tarball with `npx`.
 Use the admin **Local WP-CLI bridge (advanced)** controls only when you
 deliberately run the optional HTTP bridge for WordPress-side WP-CLI abilities.
 
