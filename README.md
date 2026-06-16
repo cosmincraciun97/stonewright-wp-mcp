@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.21-blue" /></a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.22-blue" /></a>
   <img alt="plugin license" src="https://img.shields.io/badge/plugin-GPL--2.0--or--later-green" />
   <img alt="companion license" src="https://img.shields.io/badge/companion-MIT-blue" />
   <img alt="php" src="https://img.shields.io/badge/PHP-%3E%3D8.1-777bb4" />
@@ -112,7 +112,8 @@ Fastest MCP-client setup uses `npx`, with no global install:
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
-        "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx"
+        "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
       }
     }
   }
@@ -121,6 +122,8 @@ Fastest MCP-client setup uses `npx`, with no global install:
 
 This starts the local Stonewright companion over stdio. The companion proxies
 the WordPress MCP endpoint using the Application Password credentials.
+`STONEWRIGHT_MCP_TOOL_PROFILE=essential` keeps new MCP sessions on the compact
+Stonewright fast-path surface instead of registering every specialized tool.
 
 For local WordPress sites, add `STONEWRIGHT_WP_ROOT` when you want guarded
 WP-CLI helper tools or LocalWP discovery. Call `stonewright-setup-profile` once
@@ -249,6 +252,7 @@ Copy `companion/.env.example` to `companion/.env`.
 | `STONEWRIGHT_WP_URL` | recommended | WordPress site URL; companion derives `/wp-json/mcp/stonewright` |
 | `STONEWRIGHT_WP_USERNAME` | recommended | WordPress username for Application Password auth |
 | `STONEWRIGHT_WP_APP_PASSWORD` | recommended | WordPress Application Password |
+| `STONEWRIGHT_MCP_TOOL_PROFILE` | optional | Compact proxied tool surface for new MCP sessions; use `essential` for fast general WordPress, Elementor, Gutenberg, and content-model work |
 | `STONEWRIGHT_MCP_URL` | optional | Explicit WordPress MCP endpoint override |
 | `STONEWRIGHT_CREDENTIAL_STORE` | optional | Per-project JSON file for saved Application Password fallback |
 | `STONEWRIGHT_CREDENTIAL_DIR` | optional | Directory for generated per-project credential files |

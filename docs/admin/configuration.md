@@ -109,7 +109,8 @@ install:
       "env": {
         "STONEWRIGHT_WP_URL": "https://example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
-        "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx"
+        "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
       }
     }
   }
@@ -117,6 +118,8 @@ install:
 ```
 
 Use the WordPress URL, username, and Application Password from Cards 2 and 3.
+The `STONEWRIGHT_MCP_TOOL_PROFILE=essential` env value keeps new MCP sessions
+compact while preserving Stonewright fast-path tools.
 The admin page also exposes per-client snippets for clients that use a slightly
 different top-level key, such as VS Code's `servers`.
 

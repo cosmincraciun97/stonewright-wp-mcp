@@ -44,6 +44,7 @@ claude mcp add stonewright \
   --env STONEWRIGHT_WP_URL='https://your-site.example.com' \
   --env STONEWRIGHT_WP_USERNAME='your-wp-username' \
   --env STONEWRIGHT_WP_APP_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx' \
+  --env STONEWRIGHT_MCP_TOOL_PROFILE=essential \
   -- npx -y @stonewright/companion@latest
 ```
 

@@ -66,7 +66,148 @@ const COMPANION_OWNED_TOOL_NAMES = new Set([
 	'stonewright-wp-cli-status',
 	'stonewright-wp-cli-discover',
 	'stonewright-wp-cli-run',
+	'stonewright-wp-cli-batch-run',
+	'stonewright-wp-cli-install',
 ]);
+
+type ProxyToolProfile = 'full' | 'essential' | 'elementor-design' | 'content-model' | 'gutenberg' | 'wp-cli' | 'site-admin';
+
+const BASE_PROXY_TOOL_NAMES = [
+	'stonewright-context-bootstrap',
+	'stonewright-workflow-preflight',
+	'stonewright-tool-profile',
+] as const;
+
+const ESSENTIAL_PROXY_TOOL_NAMES = [
+	...BASE_PROXY_TOOL_NAMES,
+	'stonewright-security-issue-confirmation-token',
+	'stonewright-ping',
+	'stonewright-site-info',
+	'stonewright-site-capabilities',
+	'stonewright-site-environment',
+	'stonewright-site-health',
+	'stonewright-site-plugins-list',
+	'stonewright-site-theme',
+	'stonewright-system-abilities-list',
+	'stonewright-system-instructions-get',
+	'stonewright-content-create-page',
+	'stonewright-content-get-page',
+	'stonewright-content-update-page',
+	'stonewright-content-bulk-create',
+	'stonewright-content-bulk-upsert-posts',
+	'stonewright-media-upload',
+	'stonewright-media-upload-batch',
+	'stonewright-media-get',
+	'stonewright-design-implementation-contract',
+	'stonewright-elementor-v3-status',
+	'stonewright-elementor-v3-capabilities-summary',
+	'stonewright-elementor-v3-list-widgets',
+	'stonewright-elementor-v3-get-widget-schema',
+	'stonewright-elementor-v3-get-page-structure',
+	'stonewright-elementor-v3-get-element',
+	'stonewright-widget-intent-resolve',
+	'stonewright-elementor-widget-implementation-guide',
+	'stonewright-elementor-v3-build-page-from-spec',
+	'stonewright-elementor-v3-batch-mutate',
+	'stonewright-elementor-v3-apply-bundle',
+	'stonewright-elementor-v3-update-page-settings',
+	'stonewright-elementor-v3-update-kit-colors',
+	'stonewright-elementor-v3-update-kit-typography',
+	'stonewright-elementor-v3-save-template',
+	'stonewright-design-validate-spec',
+	'stonewright-design-build-spec',
+	'stonewright-design-choose-renderer',
+	'stonewright-design-spec-to-elementor-v3',
+	'stonewright-design-spec-to-gutenberg',
+	'stonewright-design-preview-render',
+	'stonewright-design-apply-to-post',
+	'stonewright-blocks-list-registered',
+	'stonewright-blocks-get-schema',
+	'stonewright-blocks-parse',
+	'stonewright-blocks-serialize',
+	'stonewright-gutenberg-render-blocks',
+	'stonewright-gutenberg-apply-to-post',
+	'stonewright-fse-get-theme-json',
+	'stonewright-fse-list-templates',
+	'stonewright-fse-read-template',
+	'stonewright-fse-write-template',
+	'stonewright-fse-write-global-styles',
+] as const;
+
+const PROXY_TOOL_PROFILE_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, readonly string[]> = {
+	essential: ESSENTIAL_PROXY_TOOL_NAMES,
+	'elementor-design': [
+		...BASE_PROXY_TOOL_NAMES,
+		'stonewright-site-info',
+		'stonewright-site-plugins-list',
+		'stonewright-design-implementation-contract',
+		'stonewright-widget-intent-resolve',
+		'stonewright-elementor-widget-implementation-guide',
+		'stonewright-elementor-v3-status',
+		'stonewright-elementor-v3-capabilities-summary',
+		'stonewright-elementor-v3-list-widgets',
+		'stonewright-elementor-v3-get-widget-schema',
+		'stonewright-elementor-describe-widget',
+		'stonewright-elementor-v4-status',
+		'stonewright-elementor-v4-list-variables',
+		'stonewright-elementor-v4-list-classes',
+		'stonewright-elementor-v4-list-atomic-node-types',
+		'stonewright-media-upload-batch',
+		'stonewright-content-create-page',
+		'stonewright-content-update-page',
+		'stonewright-content-bulk-upsert-posts',
+		'stonewright-elementor-v3-update-page-settings',
+		'stonewright-elementor-v3-update-kit-colors',
+		'stonewright-elementor-v3-update-kit-typography',
+		'stonewright-design-validate-spec',
+		'stonewright-elementor-v3-build-page-from-spec',
+		'stonewright-elementor-v3-batch-mutate',
+		'stonewright-elementor-v3-apply-bundle',
+	],
+	'content-model': [
+		...BASE_PROXY_TOOL_NAMES,
+		'stonewright-site-capabilities',
+		'stonewright-site-plugins-list',
+		'stonewright-system-abilities-list',
+		'stonewright-content-bulk-upsert-posts',
+		'stonewright-media-upload-batch',
+	],
+	gutenberg: [
+		...BASE_PROXY_TOOL_NAMES,
+		'stonewright-site-theme',
+		'stonewright-fse-get-theme-json',
+		'stonewright-fse-read-template',
+		'stonewright-fse-write-template',
+		'stonewright-fse-write-global-styles',
+		'stonewright-blocks-list-registered',
+		'stonewright-blocks-get-schema',
+		'stonewright-blocks-parse',
+		'stonewright-blocks-serialize',
+		'stonewright-gutenberg-render-blocks',
+		'stonewright-design-validate-spec',
+		'stonewright-design-spec-to-gutenberg',
+		'stonewright-gutenberg-apply-to-post',
+	],
+	'wp-cli': [
+		...BASE_PROXY_TOOL_NAMES,
+		'stonewright-site-info',
+		'stonewright-site-plugins-list',
+	],
+	'site-admin': [
+		...BASE_PROXY_TOOL_NAMES,
+		'stonewright-site-info',
+		'stonewright-site-environment',
+		'stonewright-site-health',
+		'stonewright-site-plugins-list',
+		'stonewright-site-theme',
+		'stonewright-system-abilities-list',
+		'stonewright-menu-list',
+	],
+};
+
+const PROXY_TOOL_PROFILE_SETS = Object.fromEntries(
+	Object.entries(PROXY_TOOL_PROFILE_NAMES).map(([profile, names]) => [profile, new Set(names)]),
+) as Record<Exclude<ProxyToolProfile, 'full'>, Set<string>>;
 
 export function loadWordPressMcpConfig(env: NodeJS.ProcessEnv = process.env): WordPressMcpConfig | null {
 	const siteUrlAlias = env['NODE_ENV'] === 'test' && !env['STONEWRIGHT_MCP_URL'] && !env['WP_API_URL']
@@ -278,12 +419,17 @@ export async function registerWordPressMcpTools(
 	server: McpServer,
 	config: WordPressMcpConfig,
 	fetchImpl: FetchLike = fetch,
+	env: NodeJS.ProcessEnv = process.env,
 ): Promise<RemoteTool[]> {
 	const client = new WordPressMcpClient(config, fetchImpl);
 	const tools = await client.listTools();
+	const profile = proxyToolProfileFromEnv(env);
 
 	for (const tool of tools) {
 		if (!tool.name || tool.name.startsWith('companion_') || COMPANION_OWNED_TOOL_NAMES.has(tool.name)) {
+			continue;
+		}
+		if (!proxyToolAllowed(tool.name, profile)) {
 			continue;
 		}
 
@@ -296,6 +442,29 @@ export async function registerWordPressMcpTools(
 	}
 
 	return tools;
+}
+
+function proxyToolProfileFromEnv(env: NodeJS.ProcessEnv): ProxyToolProfile {
+	const raw = (env['STONEWRIGHT_MCP_TOOL_PROFILE'] ?? env['STONEWRIGHT_MCP_PROXY_PROFILE'] ?? 'full')
+		.trim()
+		.toLowerCase();
+	if (raw === '' || ['0', 'false', 'off', 'full', 'all'].includes(raw)) {
+		return 'full';
+	}
+	if (raw === 'auto' || raw === 'fast' || raw === 'general' || raw === 'compact') {
+		return 'essential';
+	}
+	if (raw in PROXY_TOOL_PROFILE_SETS) {
+		return raw as Exclude<ProxyToolProfile, 'full'>;
+	}
+	return 'full';
+}
+
+function proxyToolAllowed(toolName: string, profile: ProxyToolProfile): boolean {
+	if (profile === 'full') {
+		return true;
+	}
+	return PROXY_TOOL_PROFILE_SETS[profile].has(toolName);
 }
 
 export async function registerWordPressMcpPrompts(

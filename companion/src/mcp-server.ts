@@ -45,7 +45,7 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 
 	const wpMcpConfig = await resolveWordPressMcpConfig(env);
 	if (wpMcpConfig) {
-		await registerWordPressMcpTools(server, wpMcpConfig, options.fetchImpl ?? fetch);
+		await registerWordPressMcpTools(server, wpMcpConfig, options.fetchImpl ?? fetch, env);
 		await registerWordPressMcpPrompts(server, wpMcpConfig, options.fetchImpl ?? fetch);
 	}
 

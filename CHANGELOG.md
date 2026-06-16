@@ -7,6 +7,23 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.22] - 2026-06-16
+
+### Added
+
+- Added companion-side proxied tool profiles with `STONEWRIGHT_MCP_TOOL_PROFILE`
+  so new stdio MCP sessions can start on a compact fast-path surface instead of
+  registering every WordPress MCP tool.
+
+### Changed
+
+- The companion now keeps direct `stonewright-wp-cli-*` tools local and
+  deduplicated when the WordPress MCP endpoint exposes abilities with the same
+  names.
+- Updated setup profile, admin snippets, and docs to recommend
+  `STONEWRIGHT_MCP_TOOL_PROFILE=essential` for faster startup and lower-token
+  WordPress, Elementor, Gutenberg, content-model, and WP-CLI workflows.
+
 ## [1.0.0-alpha.21] - 2026-06-16
 
 ### Changed
@@ -371,6 +388,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.22]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.22
 [1.0.0-alpha.21]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.21
 [1.0.0-alpha.20]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.20
 [1.0.0-alpha.19]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.19

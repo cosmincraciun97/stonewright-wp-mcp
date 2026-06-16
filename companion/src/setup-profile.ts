@@ -36,6 +36,7 @@ export function buildSetupProfile(
 
 	const mcpEnv: Record<string, string> = {
 		STONEWRIGHT_WP_APP_PASSWORD_AUTO: canAutoCredentials ? 'local-only' : 'never',
+		STONEWRIGHT_MCP_TOOL_PROFILE: 'essential',
 	};
 	if (siteUrl !== '') {
 		mcpEnv.STONEWRIGHT_WP_URL = siteUrl;
@@ -102,6 +103,7 @@ export function buildSetupProfile(
 			'Use this MCP config on Windows, macOS, and Linux; env vars carry paths safely.',
 			'No shell script wrapper required; the companion uses Node and execFile argv tokens.',
 			'Verify the MCP tool list includes stonewright-context-bootstrap before starting WordPress work.',
+			'STONEWRIGHT_MCP_TOOL_PROFILE=essential keeps new MCP sessions compact while preserving Stonewright fast-path tools.',
 			'Call stonewright-tool-profile for tool-cap, slow-startup, or token-sensitive clients before broad discovery.',
 			'Do not treat local client skills or repository files as a substitute for live Stonewright MCP tools; if the tool is missing, reload the MCP client instead of bypassing the server.',
 			'Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround.',

@@ -63,6 +63,7 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertNotContains( '@automattic/mcp-wordpress-remote@latest', $server['args'] );
 		$this->assertSame( 'admin', $server['env']['STONEWRIGHT_WP_USERNAME'] );
 		$this->assertSame( 'abcd 1234 efgh 5678', $server['env']['STONEWRIGHT_WP_APP_PASSWORD'] );
+		$this->assertSame( 'essential', $server['env']['STONEWRIGHT_MCP_TOOL_PROFILE'] );
 	}
 
 	public function test_universal_snippet_password_placeholder_when_empty(): void {
@@ -85,6 +86,7 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertArrayHasKey( 'command', $result );
 		$this->assertStringContainsString( 'claude mcp add stonewright', $result['command'] );
 		$this->assertStringContainsString( '@stonewright/companion@latest', $result['command'] );
+		$this->assertStringContainsString( '--env STONEWRIGHT_MCP_TOOL_PROFILE=essential', $result['command'] );
 		$this->assertStringNotContainsString( '@automattic/mcp-wordpress-remote', $result['command'] );
 	}
 
@@ -123,6 +125,7 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'mcp/stonewright', $prompt );
 		$this->assertStringContainsString( '@stonewright/companion@latest', $prompt );
 		$this->assertStringContainsString( 'STONEWRIGHT_WP_APP_PASSWORD', $prompt );
+		$this->assertStringContainsString( 'STONEWRIGHT_MCP_TOOL_PROFILE', $prompt );
 		$this->assertStringContainsString( 'npx downloads and runs the Stonewright companion', $prompt );
 		$this->assertStringContainsString( 'Playwright MCP', $prompt );
 		$this->assertStringContainsString( '@playwright/mcp@latest', $prompt );

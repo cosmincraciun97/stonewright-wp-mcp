@@ -46,7 +46,8 @@ Most clients can run the Stonewright companion with `npx`:
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
-        "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx"
+        "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
       }
     }
   }
@@ -74,6 +75,7 @@ claude mcp add stonewright \
   --env STONEWRIGHT_WP_URL='https://your-site.com' \
   --env STONEWRIGHT_WP_USERNAME='your-wp-username' \
   --env STONEWRIGHT_WP_APP_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx' \
+  --env STONEWRIGHT_MCP_TOOL_PROFILE=essential \
   -- npx -y @stonewright/companion@latest
 ```
 
@@ -110,7 +112,8 @@ VS Code-style clients use a `servers` top-level key instead of `mcpServers`:
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
-        "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx"
+        "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
       }
     }
   }
@@ -129,7 +132,8 @@ Zed uses `context_servers`:
         "env": {
           "STONEWRIGHT_WP_URL": "https://your-site.com",
           "STONEWRIGHT_WP_USERNAME": "your-wp-username",
-          "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx"
+          "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
+          "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
         }
       }
     }

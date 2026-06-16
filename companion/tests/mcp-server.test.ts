@@ -57,69 +57,89 @@ describe('createMcpServer', () => {
 	});
 
 	it('registers proxied WordPress MCP tools when endpoint env is configured', async () => {
-		const fetchImpl = (_url: string | URL | Request, init?: RequestInit): Promise<Response> => {
-			const url = String(_url);
-			if (url.endsWith('/wp-json/stonewright/v1/skills?mode=prompt&enabled_only=1')) {
-				return Promise.resolve(
-					new Response(JSON.stringify({
-						skills: [
-							{
-								slug: 'figma-quality-rules',
-								title: 'Figma Quality Rules',
-								description: 'Use after Figma import.',
-								content: '# Figma Quality Rules\n\nBuild one section at a time.',
-							},
-						],
-					}), { headers: { 'content-type': 'application/json' } }),
-				);
-			}
-
-			const body = JSON.parse(String(init?.body ?? '{}')) as { method?: string };
-			if (body.method === 'initialize') {
-				return Promise.resolve(
-					new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: { protocolVersion: '2025-06-18' } }), {
-						headers: { 'mcp-session-id': 'session-1', 'content-type': 'application/json' },
-					}),
-				);
-			}
-			if (body.method === 'notifications/initialized') {
-				return Promise.resolve(new Response('', { status: 202 }));
-			}
-			if (body.method === 'tools/list') {
-				return Promise.resolve(
-					new Response(JSON.stringify({
-						jsonrpc: '2.0',
-						id: 2,
-						result: {
-							tools: [
-								{
-									name: 'stonewright-context-bootstrap',
-									description: 'Bootstrap agent context.',
-									inputSchema: { type: 'object', properties: { task: { type: 'string' } } },
-								},
-							],
-						},
-					}), { headers: { 'content-type': 'application/json' } }),
-				);
-			}
-			return Promise.resolve(
-				new Response(JSON.stringify({ jsonrpc: '2.0', id: 3, result: {} }), {
-					headers: { 'content-type': 'application/json' },
-				}),
-			);
-		};
-
 		const server = await createMcpServer({
 			env: {
 				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
 				WP_API_USERNAME: 'admin',
 				WP_API_PASSWORD: 'pw',
 			},
-			fetchImpl,
+			fetchImpl: stonewrightMcpFetch([
+				{
+					name: 'stonewright-context-bootstrap',
+					description: 'Bootstrap agent context.',
+					inputSchema: { type: 'object', properties: { task: { type: 'string' } } },
+				},
+			]),
 		});
 
 		expect(registeredToolNames(server)).toContain('stonewright-context-bootstrap');
 		expect(registeredPromptNames(server)).toContain('stonewright-skill-figma-quality-rules');
+	});
+
+	it('filters proxied WordPress MCP tools to the configured compact profile before registration', async () => {
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+				STONEWRIGHT_MCP_TOOL_PROFILE: 'elementor-design',
+			},
+			fetchImpl: stonewrightMcpFetch([
+				{ name: 'stonewright-context-bootstrap' },
+				{ name: 'stonewright-workflow-preflight' },
+				{ name: 'stonewright-tool-profile' },
+				{ name: 'stonewright-design-implementation-contract' },
+				{ name: 'stonewright-elementor-v3-build-page-from-spec' },
+				{ name: 'stonewright-elementor-v3-batch-mutate' },
+				{ name: 'stonewright-wp-cli-batch-run' },
+				{ name: 'stonewright-sandbox-write' },
+				{ name: 'stonewright-memory-list' },
+				{ name: 'stonewright-experimental-heavy-tool' },
+			]),
+		});
+
+		const names = registeredToolNames(server);
+
+		expect(names).toEqual(expect.arrayContaining([
+			'stonewright-context-bootstrap',
+			'stonewright-workflow-preflight',
+			'stonewright-tool-profile',
+			'stonewright-design-implementation-contract',
+			'stonewright-elementor-v3-build-page-from-spec',
+			'stonewright-elementor-v3-batch-mutate',
+			'stonewright-wp-cli-batch-run',
+		]));
+		expect(names).not.toContain('stonewright-sandbox-write');
+		expect(names).not.toContain('stonewright-memory-list');
+		expect(names).not.toContain('stonewright-experimental-heavy-tool');
+	});
+
+	it('keeps design fast-path tools in the essential proxied profile', async () => {
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+				STONEWRIGHT_MCP_TOOL_PROFILE: 'essential',
+			},
+			fetchImpl: stonewrightMcpFetch([
+				{ name: 'stonewright-context-bootstrap' },
+				{ name: 'stonewright-design-implementation-contract' },
+				{ name: 'stonewright-elementor-v3-build-page-from-spec' },
+				{ name: 'stonewright-content-bulk-upsert-posts' },
+				{ name: 'stonewright-experimental-heavy-tool' },
+			]),
+		});
+
+		const names = registeredToolNames(server);
+
+		expect(names).toEqual(expect.arrayContaining([
+			'stonewright-context-bootstrap',
+			'stonewright-design-implementation-contract',
+			'stonewright-elementor-v3-build-page-from-spec',
+			'stonewright-content-bulk-upsert-posts',
+		]));
+		expect(names).not.toContain('stonewright-experimental-heavy-tool');
 	});
 });
 
@@ -129,4 +149,56 @@ function registeredToolNames(server: unknown): string[] {
 
 function registeredPromptNames(server: unknown): string[] {
 	return Object.keys((server as { _registeredPrompts?: Record<string, unknown> })._registeredPrompts ?? {});
+}
+
+function stonewrightMcpFetch(tools: Array<{ name: string; description?: string; inputSchema?: Record<string, unknown> }>): typeof fetch {
+	return (_url: string | URL | Request, init?: RequestInit): Promise<Response> => {
+		const url = String(_url);
+		if (url.endsWith('/wp-json/stonewright/v1/skills?mode=prompt&enabled_only=1')) {
+			return Promise.resolve(
+				new Response(JSON.stringify({
+					skills: [
+						{
+							slug: 'figma-quality-rules',
+							title: 'Figma Quality Rules',
+							description: 'Use after Figma import.',
+							content: '# Figma Quality Rules\n\nBuild one section at a time.',
+						},
+					],
+				}), { headers: { 'content-type': 'application/json' } }),
+			);
+		}
+
+		const body = JSON.parse(String(init?.body ?? '{}')) as { method?: string };
+		if (body.method === 'initialize') {
+			return Promise.resolve(
+				new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: { protocolVersion: '2025-06-18' } }), {
+					headers: { 'mcp-session-id': 'session-1', 'content-type': 'application/json' },
+				}),
+			);
+		}
+		if (body.method === 'notifications/initialized') {
+			return Promise.resolve(new Response('', { status: 202 }));
+		}
+		if (body.method === 'tools/list') {
+			return Promise.resolve(
+				new Response(JSON.stringify({
+					jsonrpc: '2.0',
+					id: 2,
+					result: {
+						tools: tools.map((tool) => ({
+							description: 'Proxied Stonewright test tool.',
+							inputSchema: { type: 'object', properties: {} },
+							...tool,
+						})),
+					},
+				}), { headers: { 'content-type': 'application/json' } }),
+			);
+		}
+		return Promise.resolve(
+			new Response(JSON.stringify({ jsonrpc: '2.0', id: 3, result: {} }), {
+				headers: { 'content-type': 'application/json' },
+			}),
+		);
+	};
 }
