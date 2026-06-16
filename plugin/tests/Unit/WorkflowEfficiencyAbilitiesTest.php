@@ -189,6 +189,26 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'Use stonewright-wp-cli-batch-run with responseMode=summary for repeated CPT UI, ACF, post, meta, term, option, and plugin command work.', $result['fast_path']['batching_rules'] );
 	}
 
+	public function test_workflow_preflight_omits_elementor_summary_for_content_model_tasks(): void {
+		$result = ( new WorkflowPreflight() )->execute(
+			[
+				'task'    => 'Create CPT UI post types, ACF fields, and repeated speaker rows.',
+				'surface' => 'wordpress',
+				'intent'  => 'write',
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertArrayHasKey( 'elementor', $result );
+		self::assertArrayHasKey( 'included', $result['elementor'] );
+		self::assertSame( false, $result['elementor']['included'] );
+		self::assertSame( 'stonewright/elementor-v3-capabilities-summary', $result['elementor']['request_tool'] );
+		self::assertArrayNotHasKey( 'native_widgets', $result['elementor'] );
+		self::assertArrayNotHasKey( 'design_implementation_contract', $result['elementor'] );
+		self::assertContains( 'stonewright/content-bulk-upsert-posts', $result['fast_path']['recommended_tools'] );
+		self::assertContains( 'stonewright/wp-cli-batch-run', $result['fast_path']['recommended_tools'] );
+	}
+
 	public function test_workflow_preflight_returns_task_aware_mcp_call_sequence(): void {
 		$result = ( new WorkflowPreflight() )->execute(
 			[

@@ -60,6 +60,19 @@ final class WorkflowPreflight extends AbilityKernel {
 	}
 
 	public function output_schema(): array {
+		$elementor_summary_schema = ( new CapabilitiesSummary() )->output_schema();
+		$elementor_properties     = is_array( $elementor_summary_schema['properties'] ?? null )
+			? $elementor_summary_schema['properties']
+			: [];
+		$elementor_properties     = array_merge(
+			[
+				'included'     => [ 'type' => 'boolean' ],
+				'reason'       => [ 'type' => 'string' ],
+				'request_tool' => [ 'type' => 'string' ],
+			],
+			$elementor_properties
+		);
+
 		return [
 			'type'       => 'object',
 			'properties' => [
@@ -69,7 +82,10 @@ final class WorkflowPreflight extends AbilityKernel {
 				'mode'          => [ 'type' => 'string' ],
 				'auth_guidance' => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'fast_path'     => [ 'type' => 'object' ],
-				'elementor'     => [ 'type' => 'object' ],
+				'elementor'     => [
+					'type'       => 'object',
+					'properties' => $elementor_properties,
+				],
 				'site'          => [ 'type' => 'object' ],
 				'context'       => [ 'type' => 'object' ],
 			],
@@ -99,7 +115,7 @@ final class WorkflowPreflight extends AbilityKernel {
 		$task_profile    = self::task_profile( $task, $surface, $intent, $mode, $specializations );
 		$recommended     = self::recommended_tools( $task_profile );
 
-		$elementor = ( new CapabilitiesSummary() )->execute( [] );
+		$elementor = self::elementor_context( $task_profile, $task, $surface, $intent );
 		if ( is_wp_error( $elementor ) ) {
 			return $elementor;
 		}
@@ -144,6 +160,29 @@ final class WorkflowPreflight extends AbilityKernel {
 				'memory_entries'          => $context['memory_entries'] ?? [],
 				'required_followups'      => $context['required_followups'] ?? [],
 			],
+		];
+	}
+
+	/**
+	 * @param array<string, bool|string> $profile
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private static function elementor_context( array $profile, string $task, string $surface, string $intent ): array|\WP_Error {
+		$should_include = 'elementor' === $profile['surface']
+			|| 'elementor-design' === ToolProfile::suggest_profile( $task, $surface, $intent );
+
+		if ( $should_include ) {
+			$summary = ( new CapabilitiesSummary() )->execute( [] );
+			if ( is_wp_error( $summary ) ) {
+				return $summary;
+			}
+			return array_merge( [ 'included' => true ], $summary );
+		}
+
+		return [
+			'included'     => false,
+			'reason'       => 'Omitted for non-Elementor preflight to keep content-model, Gutenberg, WP-CLI, and site-admin startup compact.',
+			'request_tool' => 'stonewright/elementor-v3-capabilities-summary',
 		];
 	}
 
