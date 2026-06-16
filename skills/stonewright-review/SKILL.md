@@ -27,7 +27,7 @@ has been edited manually and you need to verify it still matches the spec.
 ```
 1. stonewright/design-validate-spec      validate the reference spec is still well-formed
 2. Read live page state:
-     - elementor_v3: stonewright/elementor-v3-get-page-structure
+     - elementor_v3: stonewright/elementor-v3-get-page-structure with `responseMode: "summary"` first; request `full` only for raw setting drift
      - gutenberg:    stonewright/blocks-parse
      - fse template: stonewright/fse-list-templates + stonewright/fse-get-theme-json
 3. Compare spec sections to live elements -> find missing, extra, or drifted sections
@@ -102,7 +102,7 @@ Take a backup before applying fixes:
 | Ability | Purpose |
 |---|---|
 | `stonewright/design-validate-spec` | Validate reference spec |
-| `stonewright/elementor-v3-get-page-structure` | Read live Elementor tree |
+| `stonewright/elementor-v3-get-page-structure` | Read live Elementor outline; use `responseMode: "full"` for raw tree drift checks |
 | `stonewright/blocks-parse` | Read live Gutenberg blocks |
 | `stonewright/fse-get-theme-json` | Read global styles |
 | `stonewright/fse-list-templates` | List FSE templates |

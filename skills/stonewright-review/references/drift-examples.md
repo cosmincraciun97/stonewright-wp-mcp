@@ -2,9 +2,10 @@
 
 ## Comparing spec sections to Elementor V3 page structure
 
-After `stonewright/elementor-v3-get-page-structure` returns the live tree,
-walk the spec `sections` array and attempt to match each section to a top-level
-container by type hint or heading text.
+After `stonewright/elementor-v3-get-page-structure` returns the live summary
+outline, walk the spec `sections` array and attempt to match each section to a
+top-level container by type hint or heading text. Request `responseMode: "full"`
+only when raw settings are needed to classify a drift.
 
 Spec:
 ```json
@@ -37,7 +38,7 @@ Spec tokens:
 { "colors": { "primary": "#0057FF", "secondary": "#1A1A2E" } }
 ```
 
-Kit colors from `stonewright/elementor-v3-get-page-structure` (kit section):
+Kit colors from `stonewright/elementor-v3-get-kit-globals`:
 ```json
 [
   { "id": "primary",   "color": "#0044CC" },

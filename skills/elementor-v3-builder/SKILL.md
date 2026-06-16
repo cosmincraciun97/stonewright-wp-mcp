@@ -87,8 +87,13 @@ back to dozens of single-widget calls until the first-pass renderer path has
 been tried with a valid spec.
 
 For an existing page where the task is to add, update, move, or remove several
-elements, use one `stonewright/elementor-v3-batch-mutate` call. Use `op_id`
-refs to chain generated IDs inside the same request:
+elements, read the page with
+`stonewright/elementor-v3-get-page-structure` in summary mode first. It returns
+IDs, paths, widget types, labels, child counts, and setting keys without loading
+the raw Elementor tree. Request `responseMode: "full"` only when raw settings
+are required for the next edit. Then use one
+`stonewright/elementor-v3-batch-mutate` call. Use `op_id` refs to chain
+generated IDs inside the same request:
 
 ```json
 {
@@ -224,7 +229,7 @@ Returns `{ "template_id": 150 }`.
 | Ability | Purpose |
 |---|---|
 | `stonewright/elementor-v3-status` | Check Elementor active + version |
-| `stonewright/elementor-v3-get-page-structure` | Read full element tree |
+| `stonewright/elementor-v3-get-page-structure` | Read compact page outline by default; use `responseMode: "full"` for raw tree |
 | `stonewright/elementor-v3-get-element` | Read single element by ID |
 | `stonewright/elementor-v3-add-container` | Add flex container |
 | `stonewright/elementor-add-*` | Add known native widgets with schema validation |

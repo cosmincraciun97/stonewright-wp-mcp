@@ -123,6 +123,9 @@ for debugging and operational tasks.
 - `stonewright/elementor-v3-get-kit-globals` returns a compact active-kit color
   and typography snapshot so agents can compare Figma tokens before updating
   Elementor kit globals or writing section specs.
+- `stonewright/elementor-v3-get-page-structure` returns a compact Elementor
+  outline by default; use `responseMode=full` only when the raw element tree is
+  required.
 - `stonewright/blocks-list-registered` and `stonewright/blocks-get-schema`
   include third-party block inserter metadata such as keywords, examples,
   supports, attributes, and variations when WordPress exposes them.

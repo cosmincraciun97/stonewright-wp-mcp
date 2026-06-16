@@ -425,6 +425,7 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/widget-intent-resolve' => 'Map visual intent to native Elementor widgets before writing controls.',
 			'stonewright/elementor-widget-implementation-guide' => 'Get Content, Style, and Advanced controls before Elementor writes.',
 			'stonewright/elementor-v3-get-kit-globals' => 'Read active Elementor kit colors and typography before global-style writes.',
+			'stonewright/elementor-v3-get-page-structure' => 'Read a compact Elementor outline first; request full tree only for raw setting drift or difficult edits.',
 			'stonewright/elementor-v3-build-page-from-spec' => 'Render a validated Elementor section or page spec in one request.',
 			'stonewright/elementor-v3-container-schema' => 'Get safe container layout, style, Advanced, alias, and blocked-key guidance before section writes.',
 			'stonewright/elementor-v3-batch-mutate' => 'Apply grouped surgical Elementor mutations after screenshot review.',
@@ -448,6 +449,7 @@ final class ToolProfile extends AbilityKernel {
 			$rules[] = 'Set global colors and typography first when site-wide style changes are approved.';
 			$rules[] = 'Implement one visual section per write-and-verify pass, or two only when simple and coupled.';
 			$rules[] = 'Use native Elementor widgets and schema-confirmed Content, Style, and Advanced controls.';
+			$rules[] = 'Use get-page-structure summary before existing-page edits; request full tree only when raw settings are needed.';
 		}
 
 		if ( 'low-tools' === $profile ) {

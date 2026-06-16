@@ -120,6 +120,7 @@ final class CapabilitiesSummary extends AbilityKernel {
 				'For custom container layout settings, call stonewright/elementor-v3-container-schema before writing flex, spacing, or responsive container controls.',
 				'Set style_policy=strict for design-derived visual specs and include style_source or style._source before applying borders, radius, shadows, or filters.',
 				'For every widget used, call stonewright/elementor-v3-get-widget-schema and inspect Content, Style, and Advanced controls before writing settings.',
+				'For existing pages, call stonewright/elementor-v3-get-page-structure in summary mode before surgical edits; request responseMode=full only when raw settings are required.',
 				'Name major parent containers semantically; do not over-name every inner utility container.',
 				'Plan desktop, tablet, and mobile values before first write.',
 				'Use max-width, percentage width, gap, and responsive padding instead of fixed viewport-wide canvases.',

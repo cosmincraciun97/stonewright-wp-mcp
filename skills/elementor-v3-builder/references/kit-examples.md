@@ -49,13 +49,15 @@ if you need a rollback point.
 
 ## Read current page structure before editing
 
-Always read the tree before making surgical edits:
+Always read the compact outline before making surgical edits:
 
 ```json
 {
   "ability": "stonewright/elementor-v3-get-page-structure",
-  "args": { "post_id": 42 }
+  "args": { "post_id": 42, "responseMode": "summary" }
 }
 ```
 
-Returns the full element tree with IDs, types, and settings.
+Returns IDs, paths, widget types, labels, child counts, and setting keys without
+the raw Elementor tree. Use `responseMode: "full"` only when raw settings are
+needed for the next edit.
