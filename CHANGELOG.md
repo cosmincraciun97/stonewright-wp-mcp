@@ -7,6 +7,16 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.25] - 2026-06-16
+
+### Changed
+
+- Companion startup now also degrades gracefully when WordPress MCP config
+  resolution fails before proxy discovery, such as malformed site URLs during
+  local auto-credential checks.
+- `stonewright-wordpress-mcp-status` reports configuration-resolution failures
+  while setup-profile and direct WP-CLI tools remain visible.
+
 ## [1.0.0-alpha.24] - 2026-06-16
 
 ### Added
@@ -415,6 +425,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.25]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.25
 [1.0.0-alpha.24]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.24
 [1.0.0-alpha.23]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.23
 [1.0.0-alpha.22]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.22

@@ -27,7 +27,7 @@ Fast path for MCP clients:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.24/stonewright-companion-1.0.0-alpha.24.tgz"],
+      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.25/stonewright-companion-1.0.0-alpha.25.tgz"],
       "env": {
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",

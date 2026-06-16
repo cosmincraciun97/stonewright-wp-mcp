@@ -57,7 +57,13 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 	const wpMcpStatus = createWordPressMcpConnectionStatus();
 	registerWordPressMcpStatusTool(server, wpMcpStatus);
 
-	const wpMcpConfig = await resolveWordPressMcpConfig(env);
+	let wpMcpConfig = null;
+	try {
+		wpMcpConfig = await resolveWordPressMcpConfig(env);
+	} catch (err) {
+		wpMcpStatus.configured = hasWordPressMcpConfig(env);
+		wpMcpStatus.error = { message: err instanceof Error ? err.message : String(err) };
+	}
 	if (wpMcpConfig) {
 		wpMcpStatus.configured = true;
 		wpMcpStatus.url = wpMcpConfig.url;
@@ -77,6 +83,10 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 	}
 
 	return server;
+}
+
+function hasWordPressMcpConfig(env: NodeJS.ProcessEnv): boolean {
+	return Boolean((env['STONEWRIGHT_MCP_URL'] ?? env['WP_API_URL'] ?? env['STONEWRIGHT_WP_URL'] ?? '').trim());
 }
 
 function createWordPressMcpConnectionStatus(): WordPressMcpConnectionStatus {

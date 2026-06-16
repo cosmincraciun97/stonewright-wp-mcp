@@ -17,7 +17,7 @@ describe('createMcpServer', () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
 		const info = (server as any).server._serverInfo as { name: string; version: string };
 		expect(info.name).toBe('stonewright-companion');
-		expect(info.version).toBe('1.0.0-alpha.24');
+		expect(info.version).toBe('1.0.0-alpha.25');
 	});
 
 	it('registers WP-CLI tools', async () => {
@@ -110,6 +110,38 @@ describe('createMcpServer', () => {
 		expect(response.structuredContent?.connected).toBe(false);
 		expect(response.structuredContent?.error?.message).toContain('network down');
 		expect(response.structuredContent?.recovery).toContain('Verify STONEWRIGHT_WP_URL or STONEWRIGHT_MCP_URL points to /wp-json/mcp/stonewright.');
+	});
+
+	it('keeps local tools available when WordPress MCP config resolution fails', async () => {
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_WP_URL: 'not a url',
+			},
+		});
+
+		const names = registeredToolNames(server);
+
+		expect(names).toEqual(expect.arrayContaining([
+			'stonewright-setup-profile',
+			'stonewright-wordpress-mcp-status',
+			'stonewright-wp-cli-status',
+		]));
+		expect(names).not.toContain('stonewright-context-bootstrap');
+
+		const tools = (server as { _registeredTools?: Record<string, { handler?: (input: unknown) => Promise<unknown> }> })._registeredTools ?? {};
+		const response = await tools['stonewright-wordpress-mcp-status']?.handler?.({}) as {
+			structuredContent?: {
+				ok?: boolean;
+				configured?: boolean;
+				connected?: boolean;
+				error?: { message?: string };
+			};
+		};
+
+		expect(response.structuredContent?.ok).toBe(false);
+		expect(response.structuredContent?.configured).toBe(true);
+		expect(response.structuredContent?.connected).toBe(false);
+		expect(response.structuredContent?.error?.message).toMatch(/Invalid URL|Invalid WordPress MCP URL/);
 	});
 
 	it('filters proxied WordPress MCP tools to the configured compact profile before registration', async () => {
