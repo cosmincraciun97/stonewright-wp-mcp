@@ -7,6 +7,17 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.42] - 2026-06-16
+
+### Fixed
+
+- `stonewright-wordpress-mcp-status` now counts only profile-hidden WordPress
+  tools in `profile_filtered_tool_count`, excluding companion-owned local tools
+  such as `stonewright-wp-cli-status`.
+- Status responses now include a compact `profile_filtered_tool_names` sample
+  and a profile-aware recovery hint so agents can switch
+  `STONEWRIGHT_MCP_TOOL_PROFILE` only when needed.
+
 ## [1.0.0-alpha.41] - 2026-06-16
 
 ### Fixed
@@ -614,6 +625,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.42]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.42
 [1.0.0-alpha.41]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.41
 [1.0.0-alpha.40]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.40
 [1.0.0-alpha.39]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.39

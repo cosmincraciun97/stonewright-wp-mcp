@@ -17,7 +17,7 @@ describe('createMcpServer', () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
 		const info = (server as any).server._serverInfo as { name: string; version: string };
 		expect(info.name).toBe('stonewright-companion');
-		expect(info.version).toBe('1.0.0-alpha.41');
+		expect(info.version).toBe('1.0.0-alpha.42');
 	});
 
 	it('registers WP-CLI tools', async () => {
@@ -306,6 +306,7 @@ describe('createMcpServer', () => {
 				{ name: 'stonewright-context-bootstrap' },
 				{ name: 'stonewright-workflow-preflight' },
 				{ name: 'stonewright-tool-profile' },
+				{ name: 'stonewright-wp-cli-status' },
 				{ name: 'stonewright-experimental-heavy-tool' },
 			]),
 		});
@@ -317,13 +318,17 @@ describe('createMcpServer', () => {
 				remote_tool_count?: number;
 				proxied_tool_count?: number;
 				profile_filtered_tool_count?: number;
+				profile_filtered_tool_names?: string[];
+				recovery?: string[];
 			};
 		};
 
 		expect(response.structuredContent?.tool_profile).toBe('essential');
-		expect(response.structuredContent?.remote_tool_count).toBe(4);
+		expect(response.structuredContent?.remote_tool_count).toBe(5);
 		expect(response.structuredContent?.proxied_tool_count).toBe(3);
 		expect(response.structuredContent?.profile_filtered_tool_count).toBe(1);
+		expect(response.structuredContent?.profile_filtered_tool_names).toEqual(['stonewright-experimental-heavy-tool']);
+		expect(response.structuredContent?.recovery).toContain('If a needed WordPress MCP tool is absent and profile_filtered_tool_count is greater than 0, switch STONEWRIGHT_MCP_TOOL_PROFILE to a narrower task profile or full, then restart the MCP session.');
 	});
 });
 

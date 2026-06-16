@@ -29,6 +29,7 @@ interface WordPressMcpConnectionStatus extends Record<string, unknown> {
 	remote_tool_count: number;
 	proxied_tool_count: number;
 	profile_filtered_tool_count: number;
+	profile_filtered_tool_names: string[];
 	prompt_skill_count: number;
 	error: { message: string } | null;
 	recovery: string[];
@@ -79,7 +80,9 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 			wpMcpStatus.remote_tool_count = registration.remoteTools.length;
 			wpMcpStatus.proxied_tool_count = registration.registeredTools.length;
 			wpMcpStatus.profile_filtered_tool_count = registration.filteredToolCount;
+			wpMcpStatus.profile_filtered_tool_names = registration.profileFilteredToolNames;
 			wpMcpStatus.prompt_skill_count = promptSkills.length;
+			wpMcpStatus.recovery = recoveryHints(registration.filteredToolCount);
 			wpMcpStatus.error = null;
 		} catch (err) {
 			wpMcpStatus.ok = false;
@@ -105,14 +108,23 @@ function createWordPressMcpConnectionStatus(): WordPressMcpConnectionStatus {
 		remote_tool_count: 0,
 		proxied_tool_count: 0,
 		profile_filtered_tool_count: 0,
+		profile_filtered_tool_names: [],
 		prompt_skill_count: 0,
 		error: null,
-		recovery: [
-			'Verify STONEWRIGHT_WP_URL or STONEWRIGHT_MCP_URL points to /wp-json/mcp/stonewright.',
-			'Verify STONEWRIGHT_WP_USERNAME plus STONEWRIGHT_WP_APP_PASSWORD or STONEWRIGHT_MCP_AUTHORIZATION.',
-			'Keep using stonewright-setup-profile and stonewright-wp-cli-status while fixing the WordPress MCP connection.',
-		],
+		recovery: recoveryHints(0),
 	};
+}
+
+function recoveryHints(profileFilteredToolCount: number): string[] {
+	const hints = [
+		'Verify STONEWRIGHT_WP_URL or STONEWRIGHT_MCP_URL points to /wp-json/mcp/stonewright.',
+		'Verify STONEWRIGHT_WP_USERNAME plus STONEWRIGHT_WP_APP_PASSWORD or STONEWRIGHT_MCP_AUTHORIZATION.',
+		'Keep using stonewright-setup-profile and stonewright-wp-cli-status while fixing the WordPress MCP connection.',
+	];
+	if (profileFilteredToolCount > 0) {
+		hints.push('If a needed WordPress MCP tool is absent and profile_filtered_tool_count is greater than 0, switch STONEWRIGHT_MCP_TOOL_PROFILE to a narrower task profile or full, then restart the MCP session.');
+	}
+	return hints;
 }
 
 function registerSetupTools(server: McpServer, env: NodeJS.ProcessEnv): void {

@@ -45,6 +45,7 @@ export interface WordPressMcpRegistrationResult {
 	profile: ProxyToolProfile;
 	remoteTools: RemoteTool[];
 	registeredTools: RemoteTool[];
+	profileFilteredToolNames: string[];
 	filteredToolCount: number;
 }
 
@@ -440,12 +441,14 @@ export async function registerWordPressMcpTools(
 	const tools = await client.listTools();
 	const profile = proxyToolProfileFromEnv(env);
 	const registeredTools: RemoteTool[] = [];
+	const profileFilteredToolNames: string[] = [];
 
 	for (const tool of tools) {
 		if (!tool.name || tool.name.startsWith('companion_') || COMPANION_OWNED_TOOL_NAMES.has(tool.name)) {
 			continue;
 		}
 		if (!proxyToolAllowed(tool.name, profile)) {
+			profileFilteredToolNames.push(tool.name);
 			continue;
 		}
 
@@ -462,7 +465,8 @@ export async function registerWordPressMcpTools(
 		profile,
 		remoteTools: tools,
 		registeredTools,
-		filteredToolCount: Math.max(0, tools.length - registeredTools.length),
+		profileFilteredToolNames: profileFilteredToolNames.slice(0, 12),
+		filteredToolCount: profileFilteredToolNames.length,
 	};
 }
 
