@@ -7,6 +7,23 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.18] - 2026-06-16
+
+### Added
+
+- Added strict DesignSpec style fidelity validation for design-derived builds.
+  When `style_policy` is `strict`, decorative borders, radius, shadows, and
+  filters require measured style provenance before render.
+- Added compact MCP guidance for section-by-section visual builds that avoids
+  invented card chrome and keeps fast paths on batch writes.
+
+### Changed
+
+- Updated the Elementor Basic Gallery renderer to use native gallery link and
+  lightbox controls for media-file galleries.
+- Improved companion WP-CLI output controls and batch command flow for faster,
+  lower-token CPT UI, ACF, post, meta, option, and plugin command work.
+
 ## [1.0.0-alpha.17] - 2026-06-16
 
 ### Changed
@@ -306,6 +323,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.18]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.18
 [1.0.0-alpha.17]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.17
 [1.0.0-alpha.16]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.16
 [1.0.0-alpha.15]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.15

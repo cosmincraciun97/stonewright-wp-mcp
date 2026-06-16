@@ -112,6 +112,7 @@ use Stonewright\WpMcp\Abilities\ThemeBuilder\DeleteTemplate as ThemeBuilderDelet
 use Stonewright\WpMcp\Abilities\ThemeBuilder\GetTemplate as ThemeBuilderGetTemplate;
 use Stonewright\WpMcp\Abilities\ThemeBuilder\ListTemplates as ThemeBuilderListTemplates;
 use Stonewright\WpMcp\Abilities\ThemeBuilder\SetConditions as ThemeBuilderSetConditions;
+use Stonewright\WpMcp\Abilities\WpCli\BatchRun as WpCliBatchRun;
 use Stonewright\WpMcp\Abilities\WpCli\Discover as WpCliDiscover;
 use Stonewright\WpMcp\Abilities\WpCli\Run as WpCliRun;
 use Stonewright\WpMcp\Abilities\WpCli\Status as WpCliStatus;
@@ -288,6 +289,7 @@ final class AbilityRegistry {
 			WpCliStatus::class,
 			WpCliDiscover::class,
 			WpCliRun::class,
+			WpCliBatchRun::class,
 
 			// Skills.
 			SkillsList::class,
@@ -719,6 +721,7 @@ final class AbilityRegistry {
 			'stonewright/wp-cli-status',
 			'stonewright/wp-cli-discover',
 			'stonewright/wp-cli-run',
+			'stonewright/wp-cli-batch-run',
 		];
 	}
 

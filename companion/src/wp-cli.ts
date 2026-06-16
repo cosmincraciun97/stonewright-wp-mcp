@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmodSync, existsSync, mkdirSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 
@@ -13,6 +13,7 @@ export interface WpCliRunInput {
 	context?: string;
 	timeoutMs?: number;
 	parseJson?: boolean;
+	responseMode?: 'full' | 'summary';
 }
 
 export interface WpCliBatchRunInput extends Omit<WpCliRunInput, 'command'> {
@@ -43,6 +44,8 @@ export type ExecFileRunner = (
 	options: ExecFileOptions,
 ) => Promise<ExecFileResult>;
 
+export type WpCliCommandResult = WpCliResult | WpCliResultSummary;
+
 export interface WpCliResult extends Record<string, unknown> {
 	ok: boolean;
 	available: boolean;
@@ -63,7 +66,20 @@ export interface WpCliBatchResult extends Record<string, unknown> {
 	succeeded: number;
 	failed: number;
 	stopped: boolean;
-	results: WpCliResult[];
+	results: WpCliBatchItemResult[];
+}
+
+export type WpCliBatchItemResult = WpCliResult | WpCliResultSummary;
+
+export interface WpCliResultSummary extends Record<string, unknown> {
+	ok: boolean;
+	available: boolean;
+	exit_code: number;
+	duration_ms: number;
+	stdout_bytes: number;
+	stderr_bytes: number;
+	parsed_json?: unknown;
+	error?: string;
 }
 
 export interface WpCliInvocation {
@@ -143,7 +159,7 @@ export async function runWpCli(
 	input: WpCliRunInput,
 	runner: ExecFileRunner = defaultExecFileRunner,
 	env: NodeJS.ProcessEnv = process.env,
-): Promise<WpCliResult> {
+): Promise<WpCliCommandResult> {
 	const started = Date.now();
 	const cwdFromPath = input.cwd === undefined && input.path ? resolve(input.path) : undefined;
 	const cwd = resolveWorkingDirectory(input.cwd ?? cwdFromPath, env);
@@ -167,7 +183,7 @@ export async function runWpCli(
 	const parsed = input.parseJson ? parseJson(result.stdout) : undefined;
 	const unavailable = result.errorCode === 'ENOENT';
 
-	return {
+	const fullResult: WpCliResult = {
 		ok: result.exitCode === 0 && !unavailable,
 		available: !unavailable,
 		command: [invocation.executable, ...args],
@@ -180,6 +196,8 @@ export async function runWpCli(
 		...(parsed !== undefined ? { parsed_json: parsed } : {}),
 		...(result.errorMessage ? { error: result.errorMessage } : {}),
 	};
+
+	return input.responseMode === 'summary' ? summarizeWpCliResult(fullResult) : fullResult;
 }
 
 export async function runWpCliBatch(
@@ -195,18 +213,19 @@ export async function runWpCliBatch(
 	}
 
 	const { commands, stopOnError = true, ...sharedInput } = input;
-	const results: WpCliResult[] = [];
+	const results: WpCliBatchItemResult[] = [];
 
 	for (const command of commands) {
 		const result = await runWpCli(
 			{
 				...sharedInput,
 				command,
+				responseMode: 'full',
 			},
 			runner,
 			env,
-		);
-		results.push(result);
+		) as WpCliResult;
+		results.push(sharedInput.responseMode === 'summary' ? summarizeWpCliResult(result) : result);
 
 		if (!result.ok && stopOnError) {
 			break;
@@ -225,11 +244,29 @@ export async function runWpCliBatch(
 	};
 }
 
+function summarizeWpCliResult(result: WpCliResult): WpCliResultSummary {
+	return {
+		ok: result.ok,
+		available: result.available,
+		exit_code: result.exit_code,
+		duration_ms: result.duration_ms,
+		stdout_bytes: Buffer.byteLength(result.stdout, 'utf8'),
+		stderr_bytes: Buffer.byteLength(result.stderr, 'utf8'),
+		...(result.parsed_json !== undefined ? { parsed_json: result.parsed_json } : {}),
+		...(result.error ? { error: result.error } : {}),
+	};
+}
+
 export function resolveWpCliInvocation(env: NodeJS.ProcessEnv, cwd: string): WpCliInvocation {
 	const explicitPhp = cleanEnvPath(env['STONEWRIGHT_WP_CLI_PHP_BIN']);
 	const explicitPhar = cleanEnvPath(env['STONEWRIGHT_WP_CLI_PHAR_PATH']);
 	if (explicitPhp && explicitPhar) {
-		return phpPharInvocation(explicitPhp, explicitPhar, cleanEnvPath(env['STONEWRIGHT_WP_CLI_PHP_INI']), 'env_php_phar');
+		return phpPharInvocation(
+			explicitPhp,
+			explicitPhar,
+			resolvePhpIniForInvocation(cleanEnvPath(env['STONEWRIGHT_WP_CLI_PHP_INI']), explicitPhp, env),
+			'env_php_phar',
+		);
 	}
 
 	const explicitBin = cleanEnvPath(env['STONEWRIGHT_WP_CLI_BIN']);
@@ -248,7 +285,7 @@ export function resolveWpCliInvocation(env: NodeJS.ProcessEnv, cwd: string): WpC
 			return phpPharInvocation(
 				discoveredPhp,
 				discoveredPhar,
-				cleanEnvPath(env['STONEWRIGHT_WP_CLI_PHP_INI']) ?? discoverPhpIni(cwd),
+				resolvePhpIniForInvocation(cleanEnvPath(env['STONEWRIGHT_WP_CLI_PHP_INI']) ?? discoverPhpIni(cwd), discoveredPhp, env),
 				'discovered_php_phar',
 			);
 		}
@@ -339,7 +376,7 @@ export async function wpCliStatus(
 	input: Partial<WpCliRunInput> = {},
 	runner?: ExecFileRunner,
 	env: NodeJS.ProcessEnv = process.env,
-): Promise<WpCliResult> {
+): Promise<WpCliCommandResult> {
 	return runWpCli(
 		{
 			...input,
@@ -355,7 +392,7 @@ export async function wpCliDiscover(
 	input: Partial<WpCliRunInput> = {},
 	runner?: ExecFileRunner,
 	env: NodeJS.ProcessEnv = process.env,
-): Promise<WpCliResult> {
+): Promise<WpCliCommandResult> {
 	return runWpCli(
 		{
 			...input,
@@ -525,6 +562,73 @@ function phpPharInvocation(phpBin: string, pharPath: string, phpIni: string | un
 		prefixArgs,
 		source,
 	};
+}
+
+function resolvePhpIniForInvocation(
+	phpIni: string | undefined,
+	phpBin: string,
+	env: NodeJS.ProcessEnv,
+): string | undefined {
+	if (!phpIni || env['STONEWRIGHT_WP_CLI_SANITIZE_PHP_INI'] === '0') {
+		return phpIni;
+	}
+	return sanitizePhpIniMissingExtensions(phpIni, phpBin, env) ?? phpIni;
+}
+
+function sanitizePhpIniMissingExtensions(
+	phpIni: string,
+	phpBin: string,
+	env: NodeJS.ProcessEnv,
+): string | undefined {
+	try {
+		const original = readFileSync(phpIni, 'utf8');
+		const extensionDir = resolvePhpExtensionDir(original, phpIni, phpBin);
+		const lines = original.split(/\r?\n/);
+		let changed = false;
+		const sanitized = lines.filter((line) => {
+			const extension = parsePhpExtensionLine(line);
+			if (!extension) return true;
+			const extensionPath = resolvePhpExtensionPath(extension, extensionDir);
+			if (existsSync(extensionPath)) return true;
+			changed = true;
+			return false;
+		}).join('\n');
+
+		if (!changed) {
+			return phpIni;
+		}
+
+		const cacheDir = join(resolveWpCliInstallDir(undefined, env), 'php-ini');
+		mkdirSync(cacheDir, { recursive: true });
+		const hash = createHash('sha256').update(`${phpIni}\0${original}`).digest('hex').slice(0, 16);
+		const sanitizedPath = join(cacheDir, `wp-cli-${hash}.ini`);
+		writeFileSync(sanitizedPath, sanitized, { flag: 'w' });
+		return sanitizedPath;
+	} catch {
+		return undefined;
+	}
+}
+
+function resolvePhpExtensionDir(ini: string, phpIni: string, phpBin: string): string {
+	for (const line of ini.split(/\r?\n/)) {
+		const match = line.match(/^\s*extension_dir\s*=\s*"?([^"\r\n;]+)"?\s*(?:;.*)?$/i);
+		if (match?.[1]) {
+			return resolve(dirname(phpIni), match[1]);
+		}
+	}
+	return join(dirname(phpBin), 'ext');
+}
+
+function parsePhpExtensionLine(line: string): string | undefined {
+	const match = line.match(/^\s*extension\s*=\s*"?([^"\r\n;]+)"?\s*(?:;.*)?$/i);
+	if (!match?.[1]) return undefined;
+	const value = match[1].trim();
+	if (value === '' || value.includes(sep) || value.includes('/') || value.includes('\\')) return undefined;
+	return value;
+}
+
+function resolvePhpExtensionPath(extension: string, extensionDir: string): string {
+	return resolve(extensionDir, extension);
 }
 
 function discoverWpCliPhar(env: NodeJS.ProcessEnv, cwd: string): string | undefined {

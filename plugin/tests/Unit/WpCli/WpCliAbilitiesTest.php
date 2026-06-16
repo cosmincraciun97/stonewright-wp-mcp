@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\WpCli;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Abilities\WpCli\BatchRun;
 use Stonewright\WpMcp\Abilities\WpCli\Discover;
 use Stonewright\WpMcp\Abilities\WpCli\Run;
 use Stonewright\WpMcp\Abilities\WpCli\Status;
@@ -11,6 +12,7 @@ use Stonewright\WpMcp\Security\ConfirmationToken;
 
 /**
  * @covers \Stonewright\WpMcp\Abilities\WpCli\Run
+ * @covers \Stonewright\WpMcp\Abilities\WpCli\BatchRun
  * @covers \Stonewright\WpMcp\Abilities\WpCli\Status
  * @covers \Stonewright\WpMcp\Abilities\WpCli\Discover
  */
@@ -62,6 +64,43 @@ final class WpCliAbilitiesTest extends TestCase {
 		$this->assertSame( [ 'post', 'create', '--post_type=page', '--post_title=Home' ], $GLOBALS['stonewright_test_companion_requests'][1]['body']['command'] );
 	}
 
+	public function test_batch_run_posts_commands_to_companion_batch_endpoint_with_summary_mode(): void {
+		$GLOBALS['stonewright_test_companion_responses']['/wp-cli/batch'] = [
+			'ok'        => true,
+			'count'     => 2,
+			'succeeded' => 2,
+			'failed'    => 0,
+			'stopped'   => false,
+			'results'   => [
+				[
+					'ok'           => true,
+					'available'    => true,
+					'exit_code'    => 0,
+					'duration_ms'  => 12,
+					'stdout_bytes' => 1200,
+					'stderr_bytes' => 0,
+				],
+			],
+		];
+
+		$result = ( new BatchRun() )->execute(
+			[
+				'commands'     => [
+					[ 'post', 'create', '--post_type=page', '--post_title=Home' ],
+					[ 'post', 'meta', 'update', '42', '_elementor_edit_mode', 'builder' ],
+				],
+				'path'         => 'D:/Sites/site',
+				'responseMode' => 'summary',
+			]
+		);
+
+		$this->assertIsArray( $result );
+		$this->assertTrue( $result['ok'] );
+		$this->assertSame( '/wp-cli/batch', $GLOBALS['stonewright_test_companion_requests'][1]['path'] );
+		$this->assertSame( 'summary', $GLOBALS['stonewright_test_companion_requests'][1]['body']['responseMode'] );
+		$this->assertSame( [ 'post', 'meta', 'update', '42', '_elementor_edit_mode', 'builder' ], $GLOBALS['stonewright_test_companion_requests'][1]['body']['commands'][1] );
+	}
+
 	public function test_run_requires_confirmation_in_production_safe_mode_and_does_not_forward_token(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
 
@@ -86,6 +125,37 @@ final class WpCliAbilitiesTest extends TestCase {
 
 		$this->assertIsArray( $result );
 		$this->assertSame( '/wp-cli/run', $GLOBALS['stonewright_test_companion_requests'][1]['path'] );
+		$this->assertArrayNotHasKey( 'confirmation_token', $GLOBALS['stonewright_test_companion_requests'][1]['body'] );
+	}
+
+	public function test_batch_run_requires_confirmation_in_production_safe_mode_and_does_not_forward_token(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+
+		$args = [
+			'commands' => [
+				[ 'option', 'update', 'cptui_post_types', '{"speaker":{"name":"speaker"}}', '--format=json' ],
+				[ 'post', 'delete', '42' ],
+			],
+		];
+
+		$missing = ( new BatchRun() )->execute( $args );
+		$this->assertInstanceOf( \WP_Error::class, $missing );
+		$this->assertSame( 'stonewright_confirmation_required', $missing->get_error_code() );
+
+		$GLOBALS['stonewright_test_companion_responses']['/wp-cli/batch'] = [
+			'ok'        => true,
+			'count'     => 2,
+			'succeeded' => 2,
+			'failed'    => 0,
+			'stopped'   => false,
+			'results'   => [],
+		];
+
+		$token  = ConfirmationToken::issue( 'stonewright/wp-cli-batch-run', $args );
+		$result = ( new BatchRun() )->execute( $args + [ 'confirmation_token' => $token ] );
+
+		$this->assertIsArray( $result );
+		$this->assertSame( '/wp-cli/batch', $GLOBALS['stonewright_test_companion_requests'][1]['path'] );
 		$this->assertArrayNotHasKey( 'confirmation_token', $GLOBALS['stonewright_test_companion_requests'][1]['body'] );
 	}
 

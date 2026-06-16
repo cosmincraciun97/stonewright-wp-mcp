@@ -11,6 +11,11 @@
       "type": "string",
       "const": "1.0.0"
     },
+    "style_policy": {
+      "type": "string",
+      "enum": ["default", "strict", "pixel", "pixel-perfect"],
+      "description": "When strict, decorative styles such as borders, radius, shadows, and filters require measured design provenance."
+    },
     "source": {
       "type": "object",
       "description": "Where this spec came from. Optional but recommended for traceability.",
@@ -18,7 +23,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["image", "html", "manual"]
+          "enum": ["figma", "image", "html", "manual"]
         },
         "url": { "type": "string", "format": "uri" },
         "node_id": { "type": "string" },
@@ -287,6 +292,7 @@
         "spacing": { "type": ["integer", "number", "string"] },
         "weight": { "type": ["integer", "number", "string", "object"] },
         "link_to": { "type": "string" },
+        "open_lightbox": { "type": "string" },
         "orderby": { "type": "string" },
         "full_width": { "type": ["boolean", "string"] },
         "fullWidth": { "type": "boolean" },
@@ -363,6 +369,10 @@
         "style": {
           "type": "object",
           "additionalProperties": true
+        },
+        "style_source": {
+          "type": "string",
+          "description": "Source of measured style values, for example figma, screenshot, measured, explicit, or user."
         },
         "styles": {
           "type": "object",

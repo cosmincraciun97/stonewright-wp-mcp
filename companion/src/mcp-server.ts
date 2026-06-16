@@ -113,6 +113,7 @@ function registerWpCliTools(
 					...commonInput,
 					command: z.array(z.string()).min(1),
 					parseJson: z.boolean().optional(),
+					responseMode: z.enum(['full', 'summary']).optional(),
 				},
 			},
 			async (input) => toolResponse(await runWpCli(toWpCliInput(input) as WpCliRunInput, undefined, env)),
@@ -129,6 +130,7 @@ function registerWpCliTools(
 					commands: z.array(z.array(z.string()).min(1)).min(1).max(100),
 					parseJson: z.boolean().optional(),
 					stopOnError: z.boolean().optional(),
+					responseMode: z.enum(['full', 'summary']).optional(),
 				},
 			},
 			async (input) => toolResponse(await runWpCliBatch(toWpCliInput(input) as WpCliBatchRunInput, undefined, env)),
@@ -164,7 +166,7 @@ function toolResponse<T extends Record<string, unknown>>(result: T): {
 		content: [
 			{
 				type: 'text',
-				text: JSON.stringify(result, null, 2),
+				text: JSON.stringify(result),
 			},
 		],
 		structuredContent: result,

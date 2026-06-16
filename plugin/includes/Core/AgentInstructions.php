@@ -33,6 +33,8 @@ final class AgentInstructions {
 			'- For browser testing, screenshots, or visual inspection, use an external Playwright MCP. If the MCP client has no browser tool available, install/connect the external Playwright MCP with command `npx -y @playwright/mcp@latest --caps=testing,vision,devtools`, restart the AI client so the tool list refreshes, and stop before the first visual write until the browser tool is visible. Stonewright itself does not expose browser or screenshot tools.',
 			'- For visual implementation tasks, do not write blind. Extract measured tokens from the reference screenshot first: canvas size, section bounds, max widths, colors, typography, spacing, and asset crop bounds. Then build, screenshot the live page at the same viewport, list visible deltas, and iterate. Horizontal scroll is a hard failure.',
 			'- For design-tool references, visual reference screenshots are the source of truth. Use styles, spacing, colors, typography, backgrounds, assets, and text from the design data, but the design-tool layer tree is not implementation authority when it conflicts with the visible screenshot.',
+			'- For design-derived visual DesignSpecs, set style_policy=strict. Add style_source on the node or style._source inside the style map before applying measured borders, border radius, shadows, or filters.',
+			'- Do not invent borders, border radius, shadows, filters, or card chrome. If the reference screenshot or design measurements do not show that decoration, omit it.',
 			'- If a visual reference is too long or hard to compare as one image, split it into section reference screenshots and match each section before full-page signoff.',
 			'- Implement visual pages in batches of one section at a time, or two sections only when they are simple and tightly coupled. After each batch, verify desktop, tablet, and mobile breakpoints. Auto-continue to the next section batch when screenshots, diagnostics, and overflow checks pass.',
 			'- For pixel-perfect work, treat visual_build_gate as a blocking signoff checklist: provide a reference token table, media reuse audit, section implementation plan, screenshot delta list, and logged-out desktop, tablet, and mobile viewport checks before completion.',
@@ -144,6 +146,7 @@ final class AgentInstructions {
 				'reference token table',
 				'responsive desktop',
 				'screenshot',
+				'style_policy',
 				'visual',
 				'visual_build_gate',
 			] as $needle

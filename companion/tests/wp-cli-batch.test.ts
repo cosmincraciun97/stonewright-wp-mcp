@@ -57,4 +57,39 @@ describe('WP-CLI batch runner', () => {
 		expect(result.results).toHaveLength(1);
 		expect(calls).toHaveLength(1);
 	});
+
+	it('can return compact per-command summaries for token-efficient MCP output', async () => {
+		const runner: ExecFileRunner = (_file, _args) => Promise.resolve({
+			stdout: JSON.stringify({ id: 10, title: 'Speaker', payload: 'x'.repeat(5000) }),
+			stderr: 'warning '.repeat(100),
+			exitCode: 0,
+		});
+
+		const result = await runWpCliBatch(
+			{
+				commands: [
+					['post', 'list', '--format=json'],
+					['post', 'meta', 'list', '10', '--format=json'],
+				],
+				parseJson: true,
+				responseMode: 'summary',
+			},
+			runner,
+			{ STONEWRIGHT_WP_CLI_BIN: 'wp' } as NodeJS.ProcessEnv,
+		);
+
+		expect(result.ok).toBe(true);
+		expect(result.results).toHaveLength(2);
+		expect(result.results[0]).toMatchObject({
+			ok: true,
+			available: true,
+			exit_code: 0,
+			stdout_bytes: expect.any(Number) as unknown as number,
+			stderr_bytes: 800,
+		});
+		expect(Number(result.results[0]?.stdout_bytes)).toBeGreaterThan(5000);
+		expect(result.results[0]).not.toHaveProperty('stdout');
+		expect(result.results[0]).not.toHaveProperty('stderr');
+		expect(result.results[0]).toHaveProperty('parsed_json');
+	});
 });

@@ -562,6 +562,7 @@ final class ElementorRendererTest extends TestCase {
 		$node   = [
 			'type'    => 'image-gallery',
 			'columns' => 4,
+			'link_to' => 'file',
 			'images'  => [
 				[ 'id' => 11, 'url' => 'https://example.com/one.jpg' ],
 				[ 'id' => 12, 'url' => 'https://example.com/two.jpg' ],
@@ -571,6 +572,9 @@ final class ElementorRendererTest extends TestCase {
 
 		$this->assertSame( 'image-gallery', $result['widgetType'] );
 		$this->assertSame( 4, $result['settings']['gallery_columns'] );
+		$this->assertSame( 'file', $result['settings']['gallery_link'] );
+		$this->assertSame( 'yes', $result['settings']['open_lightbox'] );
+		$this->assertArrayNotHasKey( 'link_to', $result['settings'] );
 		$this->assertSame( 11, $result['settings']['wp_gallery'][0]['id'] );
 		$this->assertSame( 'https://example.com/two.jpg', $result['settings']['wp_gallery'][1]['url'] );
 	}

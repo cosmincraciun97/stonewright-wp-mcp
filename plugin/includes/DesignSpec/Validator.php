@@ -61,6 +61,15 @@ final class Validator {
 			);
 		}
 
+		$style_errors = StyleFidelityGuard::validate( $normalized );
+		if ( ! empty( $style_errors ) ) {
+			return new \WP_Error(
+				'stonewright_spec_invalid',
+				'Design spec failed validation.',
+				[ 'errors' => $style_errors ]
+			);
+		}
+
 		return $normalized;
 	}
 

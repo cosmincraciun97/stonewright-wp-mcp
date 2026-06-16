@@ -50,6 +50,37 @@ final class ValidatorTest extends TestCase {
 		$this->assertSame( 'stonewright_spec_invalid', $result->get_error_code() );
 	}
 
+	public function test_strict_style_policy_rejects_unproven_decorative_styles(): void {
+		$spec = self::minimal_valid_spec();
+		$spec['style_policy'] = 'strict';
+		$spec['sections'][0]['blocks'][0]['style'] = [
+			'border_radius' => '12px',
+		];
+
+		$result = Validator::validate( $spec );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'stonewright_spec_invalid', $result->get_error_code() );
+
+		$data = $result->get_error_data();
+		$this->assertIsArray( $data );
+		$this->assertSame( 'style_fidelity', $data['errors'][0]['keyword'] ?? '' );
+		$this->assertSame( [ 'sections', 0, 'blocks', 0, 'style', 'border_radius' ], $data['errors'][0]['path'] ?? [] );
+	}
+
+	public function test_strict_style_policy_allows_design_sourced_decorative_styles(): void {
+		$spec = self::minimal_valid_spec();
+		$spec['style_policy'] = 'strict';
+		$spec['sections'][0]['blocks'][0]['style_source'] = 'figma';
+		$spec['sections'][0]['blocks'][0]['style'] = [
+			'border_radius' => '12px',
+		];
+
+		$result = Validator::validate( $spec );
+
+		$this->assertIsArray( $result, 'Expected design-sourced decorative style to validate successfully.' );
+	}
+
 	public function test_validate_wp_error_does_not_contain_spec_in_data(): void {
 		// Regression: Validator must never embed the raw spec in error data (information disclosure).
 		$result = Validator::validate( [] );

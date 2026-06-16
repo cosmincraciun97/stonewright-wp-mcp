@@ -78,6 +78,35 @@ describe('WP-CLI runner', () => {
 		expect(calls[0]?.shell).toBe(false);
 	});
 
+	it('can summarize a single command response for token efficiency', async () => {
+		const runner: ExecFileRunner = () => Promise.resolve({
+			stdout: JSON.stringify({ id: 42, payload: 'x'.repeat(4000) }),
+			stderr: 'notice '.repeat(50),
+			exitCode: 0,
+		});
+
+		const result = await runWpCli(
+			{
+				command: ['post', 'get', '42', '--format=json'],
+				parseJson: true,
+				responseMode: 'summary',
+			},
+			runner,
+			{ STONEWRIGHT_WP_CLI_BIN: 'wp' } as NodeJS.ProcessEnv,
+		);
+
+		expect(result).toMatchObject({
+			ok: true,
+			available: true,
+			exit_code: 0,
+			stdout_bytes: expect.any(Number),
+			stderr_bytes: 350,
+		});
+		expect(result).not.toHaveProperty('stdout');
+		expect(result).not.toHaveProperty('stderr');
+		expect(result).toHaveProperty('parsed_json');
+	});
+
 	it('auto-discovers LocalWP PHP and WP-CLI phar when wp is not on PATH', async () => {
 		const temp = mkdtempSync(join(tmpdir(), 'stonewright-wpcli-'));
 		try {
@@ -190,6 +219,63 @@ describe('WP-CLI runner', () => {
 
 			expect(calls[0]?.file).toBe(phpPath);
 			expect(calls[0]?.args[0]).toBe(localPharPath);
+		} finally {
+			rmSync(temp, { recursive: true, force: true });
+		}
+	});
+
+	it('uses a sanitized php.ini copy when LocalWP references missing extensions', async () => {
+		const temp = mkdtempSync(join(tmpdir(), 'stonewright-wpcli-ini-'));
+		try {
+			const wpRoot = join(temp, 'site', 'app', 'public');
+			const pharPath = join(temp, 'LocalWP', 'resources', 'extraResources', 'bin', 'wp-cli', 'wp-cli.phar');
+			const phpPath = join(temp, 'php', 'php.exe');
+			const iniPath = join(temp, 'conf', 'php', 'php.ini');
+			const extDir = join(temp, 'php', 'ext');
+			mkdirSync(wpRoot, { recursive: true });
+			mkdirSync(resolve(pharPath, '..'), { recursive: true });
+			mkdirSync(resolve(phpPath, '..'), { recursive: true });
+			mkdirSync(resolve(iniPath, '..'), { recursive: true });
+			mkdirSync(extDir, { recursive: true });
+			writeFileSync(pharPath, 'wp-cli-phar');
+			writeFileSync(phpPath, 'php-bin');
+			writeFileSync(join(extDir, 'php_mysqli.dll'), 'mysqli');
+			writeFileSync(
+				iniPath,
+				[
+					`extension_dir="${extDir.replaceAll('\\', '/')}"`,
+					'extension=php_mysqli.dll',
+					'extension=php_imagick.dll',
+				].join('\n'),
+			);
+
+			const calls: Array<{ args: string[] }> = [];
+			const runner: ExecFileRunner = (_file, args) => {
+				calls.push({ args });
+				return Promise.resolve({ stdout: '{}', stderr: '', exitCode: 0 });
+			};
+
+			await runWpCli(
+				{
+					command: ['cli', 'info', '--format=json'],
+					path: wpRoot,
+				},
+				runner,
+				{
+					STONEWRIGHT_WP_ROOT: wpRoot,
+					STONEWRIGHT_WP_CLI_PHP_BIN: phpPath,
+					STONEWRIGHT_WP_CLI_PHAR_PATH: pharPath,
+					STONEWRIGHT_WP_CLI_PHP_INI: iniPath,
+					STONEWRIGHT_WP_CLI_INSTALL_DIR: join(temp, 'cache'),
+				} as NodeJS.ProcessEnv,
+			);
+
+			const usedIni = calls[0]?.args[1];
+			expect(calls[0]?.args[0]).toBe('-c');
+			expect(usedIni).not.toBe(iniPath);
+			expect(readFileSync(String(usedIni), 'utf8')).toContain('extension=php_mysqli.dll');
+			expect(readFileSync(String(usedIni), 'utf8')).not.toContain('extension=php_imagick.dll');
+			expect(calls[0]?.args[2]).toBe(pharPath);
 		} finally {
 			rmSync(temp, { recursive: true, force: true });
 		}

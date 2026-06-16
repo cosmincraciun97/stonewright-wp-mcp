@@ -40,6 +40,22 @@ describe('createMcpServer', () => {
 		);
 	});
 
+	it('returns compact text content for MCP tool responses', async () => {
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_WP_CLI_BIN: 'missing-stonewright-wp',
+			},
+		});
+		const tools = (server as { _registeredTools?: Record<string, { handler?: (input: unknown) => Promise<unknown> }> })._registeredTools ?? {};
+		const tool = tools['stonewright-wp-cli-status'];
+		expect(tool?.handler).toBeTypeOf('function');
+
+		const response = await tool.handler?.({ cwd: process.cwd() }) as { content: Array<{ text: string }> };
+
+		expect(response.content[0]?.text).not.toContain('\n  "');
+		expect(response.content[0]?.text).toMatch(/^\{"ok":/);
+	});
+
 	it('registers proxied WordPress MCP tools when endpoint env is configured', async () => {
 		const fetchImpl = (_url: string | URL | Request, init?: RequestInit): Promise<Response> => {
 			const url = String(_url);

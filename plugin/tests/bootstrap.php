@@ -1203,6 +1203,23 @@ if ( ! function_exists( 'wp_safe_remote_post' ) ) {
 				'exit_code'   => 0,
 				'duration_ms' => 1,
 			],
+			'/wp-cli/batch' => [
+				'ok'        => true,
+				'count'     => 2,
+				'succeeded' => 2,
+				'failed'    => 0,
+				'stopped'   => false,
+				'results'   => [
+					[
+						'ok'           => true,
+						'available'    => true,
+						'exit_code'    => 0,
+						'duration_ms'  => 1,
+						'stdout_bytes' => 0,
+						'stderr_bytes' => 0,
+					],
+				],
+			],
 			default => [
 				'ok'     => true,
 				'issues' => [],

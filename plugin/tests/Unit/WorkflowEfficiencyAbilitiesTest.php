@@ -111,6 +111,8 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'woocommerce', $ids );
 		self::assertContains( 'stonewright/site-plugins-list', $result['fast_path']['recommended_tools'] );
 		self::assertContains( 'stonewright/wp-cli-discover', $result['fast_path']['recommended_tools'] );
+		self::assertContains( 'stonewright/wp-cli-batch-run', $result['fast_path']['recommended_tools'] );
+		self::assertContains( 'Use stonewright-wp-cli-batch-run with responseMode=summary for repeated CPT UI, ACF, post, meta, term, option, and plugin command work.', $result['fast_path']['batching_rules'] );
 	}
 
 	public function test_workflow_preflight_returns_task_aware_mcp_call_sequence(): void {
@@ -158,6 +160,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'Use design-tool structure for tokens and asset hints, but match implementation structure to the captured reference screenshots.', $result['fast_path']['quality_gates'] );
 		self::assertContains( 'For long visual designs, capture multiple section reference screenshots and compare each section before full-page signoff.', $result['fast_path']['quality_gates'] );
 		self::assertContains( 'Never write more than two visual page sections in a single implementation batch.', $result['fast_path']['quality_gates'] );
+		self::assertContains( 'For design-derived visual specs, set style_policy=strict and include style_source or style._source for any measured border, radius, shadow, or filter values; do not invent card chrome.', $result['fast_path']['quality_gates'] );
 		self::assertContains( 'Before uploading assets, audit existing media and reuse matching filenames, alt text, dimensions, and crops.', $result['fast_path']['quality_gates'] );
 
 		foreach ( $result['fast_path']['call_sequence'] as $call ) {
@@ -192,6 +195,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright-site-plugins-list', $tools );
 		self::assertContains( 'stonewright-wp-cli-status', $tools );
 		self::assertContains( 'stonewright-wp-cli-discover', $tools );
+		self::assertContains( 'stonewright-wp-cli-batch-run', $tools );
 		self::assertContains( 'stonewright-security-issue-confirmation-token', $tools );
 	}
 
@@ -207,6 +211,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'Auto-continue to the next section batch only after desktop, tablet, and mobile checks pass.', $result['first_pass_rules'] );
 		self::assertContains( 'For repeated cards or grids, use a validated spec first pass; use stonewright/elementor-v3-batch-mutate for surgical add/update/move/remove edits on an existing page.', $result['first_pass_rules'] );
 		self::assertContains( 'Use build-page-from-spec dry_run before writes when the agent needs element_count, diagnostics, or a no-write preview.', $result['first_pass_rules'] );
+		self::assertContains( 'Set style_policy=strict for design-derived visual specs and include style_source or style._source before applying borders, radius, shadows, or filters.', $result['first_pass_rules'] );
 		self::assertContains( 'For every widget used, call stonewright/elementor-v3-get-widget-schema and inspect Content, Style, and Advanced controls before writing settings.', $result['first_pass_rules'] );
 		self::assertContains( 'Name major parent containers semantically; do not over-name every inner utility container.', $result['first_pass_rules'] );
 		self::assertArrayHasKey( 'advanced_controls', $result );
@@ -217,6 +222,8 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'css_id', $result['advanced_controls'] );
 		self::assertSame( 'stonewright/elementor-v3-build-page-from-spec', $result['primary_write_tool'] );
 		self::assertSame( 'stonewright/elementor-v3-batch-mutate', $result['mutation_batch_tool'] );
+		self::assertSame( 'stonewright-wp-cli-batch-run', $result['wp_cli_batch_tool'] );
+		self::assertSame( 'summary', $result['default_response_mode'] );
 	}
 
 	public function test_widget_schema_groups_controls_by_editor_tab_and_adds_advanced_guidance(): void {

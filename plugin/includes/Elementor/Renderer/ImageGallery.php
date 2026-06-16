@@ -31,11 +31,24 @@ final class ImageGallery {
 			];
 		}
 
+		$gallery_link = (string) ( $node['gallery_link'] ?? $node['link_to'] ?? 'file' );
+		if ( ! in_array( $gallery_link, [ 'file', 'attachment', 'none' ], true ) ) {
+			$gallery_link = 'file';
+		}
+
 		$settings = [
-			'wp_gallery' => $images,
-			'link_to'    => (string) ( $node['link_to'] ?? 'file' ),
-			'orderby'    => (string) ( $node['orderby'] ?? 'default' ),
+			'wp_gallery'   => $images,
+			'gallery_link' => $gallery_link,
+			'gallery_rand' => self::gallery_rand( (string) ( $node['orderby'] ?? 'default' ) ),
 		];
+
+		if ( 'file' === $gallery_link ) {
+			$lightbox = (string) ( $node['open_lightbox'] ?? $node['lightbox'] ?? 'yes' );
+			if ( ! in_array( $lightbox, [ 'default', 'yes', 'no' ], true ) ) {
+				$lightbox = 'yes';
+			}
+			$settings['open_lightbox'] = $lightbox;
+		}
 
 		if ( isset( $node['columns'] ) ) {
 			$settings['gallery_columns'] = max( 1, min( 10, (int) $node['columns'] ) );
@@ -59,5 +72,9 @@ final class ImageGallery {
 			'settings'   => $settings,
 			'elements'   => [],
 		];
+	}
+
+	private static function gallery_rand( string $orderby ): string {
+		return in_array( strtolower( $orderby ), [ 'rand', 'random' ], true ) ? 'rand' : '';
 	}
 }

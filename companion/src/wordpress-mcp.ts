@@ -238,7 +238,7 @@ async function discoverAdminUsername(env: NodeJS.ProcessEnv, runner?: ExecFileRu
 		env,
 	);
 
-	if (!result.ok) return null;
+	if (!result.ok || typeof result.stdout !== 'string') return null;
 	return cleanWpCliStdout(result.stdout);
 }
 
@@ -257,7 +257,7 @@ async function createApplicationPassword(
 		env,
 	);
 
-	if (!result.ok) return null;
+	if (!result.ok || typeof result.stdout !== 'string') return null;
 	return cleanWpCliStdout(result.stdout);
 }
 

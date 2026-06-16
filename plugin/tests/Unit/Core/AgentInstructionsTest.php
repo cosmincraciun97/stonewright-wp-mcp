@@ -69,6 +69,8 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'media reuse audit', $instructions );
 		$this->assertStringContainsString( 'logged-out desktop, tablet, and mobile viewport checks', $instructions );
 		$this->assertStringContainsString( 'visual reference screenshots are the source of truth', $instructions );
+		$this->assertStringContainsString( 'style_policy=strict', $instructions );
+		$this->assertStringContainsString( 'Do not invent borders, border radius, shadows, filters, or card chrome', $instructions );
 		$this->assertStringContainsString( 'design-tool layer tree is not implementation authority', $instructions );
 		$this->assertStringContainsString( 'split it into section reference screenshots', $instructions );
 		$this->assertStringContainsString( 'Implement visual pages in batches of one section at a time, or two sections only when they are simple and tightly coupled', $instructions );

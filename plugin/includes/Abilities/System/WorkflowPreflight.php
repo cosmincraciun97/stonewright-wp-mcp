@@ -236,6 +236,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			$tools[] = 'stonewright/wp-cli-discover';
 			if ( $profile['is_write'] ) {
 				$tools[] = 'stonewright/content-bulk-upsert-posts';
+				$tools[] = 'stonewright/wp-cli-batch-run';
 				$tools[] = 'stonewright/wp-cli-run';
 			}
 		}
@@ -270,6 +271,7 @@ final class WorkflowPreflight extends AbilityKernel {
 		$rules = [
 			'Use stonewright/media-upload-batch for multiple assets instead of one upload call per image.',
 			'Use stonewright/content-bulk-upsert-posts for repeated post/CPT/custom-field rows instead of many post/meta commands.',
+			'Use stonewright-wp-cli-batch-run with responseMode=summary for repeated CPT UI, ACF, post, meta, term, option, and plugin command work.',
 			'Use stonewright/elementor-v3-batch-mutate for surgical Elementor add/update/move/remove edits instead of many single calls.',
 			'Use individual add/update/move calls only for one-off debugging when batch diagnostics are not enough.',
 		];
@@ -310,6 +312,7 @@ final class WorkflowPreflight extends AbilityKernel {
 				'Use design-tool structure for tokens and asset hints, but match implementation structure to the captured reference screenshots.',
 				'For long visual designs, capture multiple section reference screenshots and compare each section before full-page signoff.',
 				'Never write more than two visual page sections in a single implementation batch.',
+				'For design-derived visual specs, set style_policy=strict and include style_source or style._source for any measured border, radius, shadow, or filter values; do not invent card chrome.',
 				'Before uploading assets, audit existing media and reuse matching filenames, alt text, dimensions, and crops.'
 			);
 			$gates[] = 'Verify desktop, tablet, and mobile breakpoints with an external browser MCP.';
@@ -446,11 +449,25 @@ final class WorkflowPreflight extends AbilityKernel {
 				);
 			}
 			$out[] = self::call_step(
+				'stonewright/wp-cli-batch-run',
+				'Run repeated tokenized WP-CLI commands in one request with compact output; use for CPT UI/ACF option updates, repeated post/meta/term commands, and plugin commands after discovery.',
+				[
+					'commands'                 => [
+						[ '<command-group>', '<subcommand>', '--format=json' ],
+						[ '<command-group>', '<subcommand>', '--format=json' ],
+					],
+					'parseJson'                => true,
+					'responseMode'             => 'summary',
+					'stonewright_context_token' => '<context_token>',
+				]
+			);
+			$out[] = self::call_step(
 				'stonewright/wp-cli-run',
-				'Run only tokenized WP-CLI argv after discovery; no shell or eval entry points.',
+				'Run one tokenized WP-CLI argv after discovery; prefer batch-run for repeated work. No shell or eval entry points.',
 				[
 					'command'                  => [ '<command-group>', '<subcommand>', '--format=json' ],
 					'parseJson'                => true,
+					'responseMode'             => 'summary',
 					'stonewright_context_token' => '<context_token>',
 				]
 			);
