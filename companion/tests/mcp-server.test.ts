@@ -17,7 +17,7 @@ describe('createMcpServer', () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
 		const info = (server as any).server._serverInfo as { name: string; version: string };
 		expect(info.name).toBe('stonewright-companion');
-		expect(info.version).toBe('1.0.0-alpha.23');
+		expect(info.version).toBe('1.0.0-alpha.24');
 	});
 
 	it('registers WP-CLI tools', async () => {
@@ -74,6 +74,42 @@ describe('createMcpServer', () => {
 
 		expect(registeredToolNames(server)).toContain('stonewright-context-bootstrap');
 		expect(registeredPromptNames(server)).toContain('stonewright-skill-figma-quality-rules');
+	});
+
+	it('keeps local setup and WP-CLI tools available when the WordPress MCP endpoint fails', async () => {
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+			},
+			fetchImpl: () => Promise.reject(new Error('network down')),
+		});
+
+		const names = registeredToolNames(server);
+
+		expect(names).toEqual(expect.arrayContaining([
+			'stonewright-setup-profile',
+			'stonewright-wp-cli-status',
+			'stonewright-wp-cli-batch-run',
+			'stonewright-wordpress-mcp-status',
+		]));
+		expect(names).not.toContain('stonewright-context-bootstrap');
+
+		const tools = (server as { _registeredTools?: Record<string, { handler?: (input: unknown) => Promise<unknown> }> })._registeredTools ?? {};
+		const response = await tools['stonewright-wordpress-mcp-status']?.handler?.({}) as {
+			structuredContent?: {
+				ok?: boolean;
+				connected?: boolean;
+				error?: { message?: string };
+				recovery?: string[];
+			};
+		};
+
+		expect(response.structuredContent?.ok).toBe(false);
+		expect(response.structuredContent?.connected).toBe(false);
+		expect(response.structuredContent?.error?.message).toContain('network down');
+		expect(response.structuredContent?.recovery).toContain('Verify STONEWRIGHT_WP_URL or STONEWRIGHT_MCP_URL points to /wp-json/mcp/stonewright.');
 	});
 
 	it('filters proxied WordPress MCP tools to the configured compact profile before registration', async () => {

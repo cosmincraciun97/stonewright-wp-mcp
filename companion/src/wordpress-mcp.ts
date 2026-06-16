@@ -69,6 +69,7 @@ const COMPANION_OWNED_TOOL_NAMES = new Set([
 	'stonewright-wp-cli-run',
 	'stonewright-wp-cli-batch-run',
 	'stonewright-wp-cli-install',
+	'stonewright-wordpress-mcp-status',
 ]);
 
 type ProxyToolProfile = 'full' | 'essential' | 'elementor-design' | 'content-model' | 'gutenberg' | 'wp-cli' | 'site-admin';

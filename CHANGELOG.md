@@ -7,6 +7,22 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.24] - 2026-06-16
+
+### Added
+
+- Added `stonewright-wordpress-mcp-status`, a local companion diagnostic tool
+  that stays available even when the proxied WordPress MCP endpoint is down or
+  misconfigured.
+
+### Changed
+
+- Companion startup now degrades gracefully when WordPress MCP proxy discovery
+  fails, keeping setup-profile and direct WP-CLI tools visible so agents can
+  recover without losing the MCP session.
+- Setup profile now includes `stonewright-wordpress-mcp-status` in tool
+  visibility checks.
+
 ## [1.0.0-alpha.23] - 2026-06-16
 
 ### Changed
@@ -399,6 +415,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.24]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.24
 [1.0.0-alpha.23]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.23
 [1.0.0-alpha.22]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.22
 [1.0.0-alpha.21]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.21

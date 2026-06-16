@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.23-blue" /></a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.24-blue" /></a>
   <img alt="plugin license" src="https://img.shields.io/badge/plugin-GPL--2.0--or--later-green" />
   <img alt="companion license" src="https://img.shields.io/badge/companion-MIT-blue" />
   <img alt="php" src="https://img.shields.io/badge/PHP-%3E%3D8.1-777bb4" />
@@ -72,6 +72,7 @@ First calls:
 ```text
 stonewright-ping
 verify stonewright-context-bootstrap is visible in the MCP tool list
+stonewright-wordpress-mcp-status
 stonewright-workflow-preflight
 stonewright-context-bootstrap
 ```
@@ -80,6 +81,9 @@ If `stonewright-context-bootstrap` is missing, reload or fix the MCP client
 config before WordPress work. Local agent skills, repository files, private
 client config files, and `/wp-json/stonewright/v1/abilities/run` shell calls
 are not substitutes for the live Stonewright MCP server.
+If the companion is visible but proxied WordPress tools are missing, call
+`stonewright-wordpress-mcp-status`; setup-profile and direct `stonewright-wp-cli-*`
+tools remain available while you fix credentials or endpoint URLs.
 
 Use `stonewright-workflow-preflight` for fast task setup. It returns a context
 token, active mode, auth reminders, compact Elementor capability data,
@@ -109,7 +113,7 @@ Fastest MCP-client setup uses the versioned GitHub release tarball through
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.23/stonewright-companion-1.0.0-alpha.23.tgz"],
+      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.24/stonewright-companion-1.0.0-alpha.24.tgz"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",

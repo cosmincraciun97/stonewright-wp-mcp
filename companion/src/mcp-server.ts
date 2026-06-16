@@ -20,6 +20,17 @@ import { buildSetupProfile } from './setup-profile.js';
 import { registerWordPressMcpPrompts, registerWordPressMcpTools, resolveWordPressMcpConfig } from './wordpress-mcp.js';
 import { APP_VERSION } from './version.js';
 
+interface WordPressMcpConnectionStatus extends Record<string, unknown> {
+	ok: boolean;
+	configured: boolean;
+	connected: boolean;
+	url: string | null;
+	proxied_tool_count: number;
+	prompt_skill_count: number;
+	error: { message: string } | null;
+	recovery: string[];
+}
+
 export interface CreateMcpServerOptions {
 	env?: NodeJS.ProcessEnv;
 	fetchImpl?: typeof fetch;
@@ -43,14 +54,46 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 
 	registerWpCliTools(server, commonInput, env);
 	registerSetupTools(server, env);
+	const wpMcpStatus = createWordPressMcpConnectionStatus();
+	registerWordPressMcpStatusTool(server, wpMcpStatus);
 
 	const wpMcpConfig = await resolveWordPressMcpConfig(env);
 	if (wpMcpConfig) {
-		await registerWordPressMcpTools(server, wpMcpConfig, options.fetchImpl ?? fetch, env);
-		await registerWordPressMcpPrompts(server, wpMcpConfig, options.fetchImpl ?? fetch);
+		wpMcpStatus.configured = true;
+		wpMcpStatus.url = wpMcpConfig.url;
+		try {
+			const tools = await registerWordPressMcpTools(server, wpMcpConfig, options.fetchImpl ?? fetch, env);
+			const promptSkills = await registerWordPressMcpPrompts(server, wpMcpConfig, options.fetchImpl ?? fetch);
+			wpMcpStatus.ok = true;
+			wpMcpStatus.connected = true;
+			wpMcpStatus.proxied_tool_count = tools.length;
+			wpMcpStatus.prompt_skill_count = promptSkills.length;
+			wpMcpStatus.error = null;
+		} catch (err) {
+			wpMcpStatus.ok = false;
+			wpMcpStatus.connected = false;
+			wpMcpStatus.error = { message: err instanceof Error ? err.message : String(err) };
+		}
 	}
 
 	return server;
+}
+
+function createWordPressMcpConnectionStatus(): WordPressMcpConnectionStatus {
+	return {
+		ok: false,
+		configured: false,
+		connected: false,
+		url: null,
+		proxied_tool_count: 0,
+		prompt_skill_count: 0,
+		error: null,
+		recovery: [
+			'Verify STONEWRIGHT_WP_URL or STONEWRIGHT_MCP_URL points to /wp-json/mcp/stonewright.',
+			'Verify STONEWRIGHT_WP_USERNAME plus STONEWRIGHT_WP_APP_PASSWORD or STONEWRIGHT_MCP_AUTHORIZATION.',
+			'Keep using stonewright-setup-profile and stonewright-wp-cli-status while fixing the WordPress MCP connection.',
+		],
+	};
 }
 
 function registerSetupTools(server: McpServer, env: NodeJS.ProcessEnv): void {
@@ -75,6 +118,17 @@ function registerSetupTools(server: McpServer, env: NodeJS.ProcessEnv): void {
 			};
 			return toolResponse(buildSetupProfile(mergedEnv));
 		},
+	);
+}
+
+function registerWordPressMcpStatusTool(server: McpServer, status: WordPressMcpConnectionStatus): void {
+	server.registerTool(
+		'stonewright-wordpress-mcp-status',
+		{
+			description: 'Return whether the companion successfully proxied the WordPress Stonewright MCP endpoint. Available even when the endpoint is down so agents can recover without losing setup and WP-CLI tools.',
+			inputSchema: {},
+		},
+		async () => toolResponse(status),
 	);
 }
 

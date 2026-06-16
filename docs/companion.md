@@ -67,6 +67,7 @@ Then use Stonewright abilities:
 - `stonewright-context-bootstrap`
 - `stonewright-workflow-preflight`
 - `stonewright-tool-profile`
+- `stonewright-wordpress-mcp-status`
 - `stonewright-wp-cli-status`
 - `stonewright-wp-cli-discover`
 - `stonewright-wp-cli-run`
@@ -86,9 +87,14 @@ Node scripts where shell encoding can corrupt diacritics.
 
 Call `stonewright-setup-profile` once after connecting. Its `first_calls` and
 `tool_visibility_checks` fields show the compact startup path: bootstrap,
-preflight, tool profile, and direct WP-CLI aliases. Use
+preflight, tool profile, WordPress MCP proxy status, and direct WP-CLI aliases. Use
 `stonewright-tool-profile` before broad tool discovery when a client has a tool
 cap, slow startup, or a token-sensitive task.
+
+If `stonewright-context-bootstrap` or other proxied WordPress tools are missing,
+call `stonewright-wordpress-mcp-status`. The companion keeps this diagnostic,
+`stonewright-setup-profile`, and direct `stonewright-wp-cli-*` tools available
+even when the WordPress MCP endpoint cannot be reached.
 
 For new stdio sessions, set `STONEWRIGHT_MCP_TOOL_PROFILE=essential` in the
 companion env. The companion then proxies only the compact Stonewright
