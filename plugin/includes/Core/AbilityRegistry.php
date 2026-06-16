@@ -121,6 +121,7 @@ use Stonewright\WpMcp\Abilities\WpCli\Status as WpCliStatus;
 use Stonewright\WpMcp\Abilities\System\InstructionsGet;
 use Stonewright\WpMcp\Abilities\System\InstructionsSet;
 use Stonewright\WpMcp\Abilities\Media\GetMedia;
+use Stonewright\WpMcp\Abilities\Media\ListMedia;
 use Stonewright\WpMcp\Abilities\Media\OptimizeMedia;
 use Stonewright\WpMcp\Abilities\Media\SetAlt;
 use Stonewright\WpMcp\Abilities\Media\UploadMedia;
@@ -183,6 +184,7 @@ final class AbilityRegistry {
 			BulkUpsertPosts::class,
 
 			// Media.
+			ListMedia::class,
 			UploadMedia::class,
 			UploadMediaBatch::class,
 			GetMedia::class,
@@ -707,7 +709,7 @@ final class AbilityRegistry {
 			'stonewright/content-get-page',
 			'stonewright/content-update-page',
 			'stonewright/content-bulk-upsert-posts',
-			'stonewright/media-upload',
+			'stonewright/media-list',
 			'stonewright/media-upload-batch',
 			'stonewright/media-get',
 

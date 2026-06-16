@@ -61,6 +61,7 @@
 
 | Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
 |---|---|---|---|---|---|---|---|---|---|---|
+| `stonewright/media-list` | `stonewright-media-list` | `Media\ListMedia` | Searches existing media by title, alt text, caption, mime, and filename before uploading duplicates. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AssetSideloaderTest.php` |
 | `stonewright/media-upload` | `stonewright-media-upload` | `Media\UploadMedia` | Sideloads a file from a URL or base64 payload into the media library. | Write | `Permissions::upload_files()` | No | No | No | stable | `tests/Unit/AssetSideloaderTest.php` |
 | `stonewright/media-upload-batch` | `stonewright-media-upload-batch` | `Media\UploadMediaBatch` | Uploads multiple media items in one request and returns per-item success or error details. | Write | `Permissions::upload_files()` | No | No | No | stable | `tests/Unit/AssetSideloaderTest.php` |
 | `stonewright/media-get` | `stonewright-media-get` | `Media\GetMedia` | Returns attachment metadata including sizes, mime, alt text, and parent. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AssetSideloaderTest.php` |
@@ -390,7 +391,7 @@
 
 ## Summary
 
-Total abilities registered: **232**
+Total abilities registered: **233**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

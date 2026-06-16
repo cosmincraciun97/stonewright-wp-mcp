@@ -7,6 +7,22 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.33] - 2026-06-16
+
+### Added
+
+- Added `stonewright/media-list`, a compact read-only media-library search
+  ability that finds existing assets by title, filename slug, caption,
+  description, alt text, and mime before agents upload duplicate design assets.
+
+### Changed
+
+- Essential and Elementor design profiles now expose `media-list` while keeping
+  compact discovery below 60 tools by relying on `media-upload-batch` for both
+  single and multi-file uploads.
+- Workflow preflight now places `media-list` before `media-upload-batch` in
+  visual Elementor call sequences, making asset reuse the fast default.
+
 ## [1.0.0-alpha.32] - 2026-06-16
 
 ### Changed

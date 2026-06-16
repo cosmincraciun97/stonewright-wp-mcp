@@ -1116,7 +1116,61 @@ if ( ! function_exists( 'serialize_block' ) ) {
 
 if ( ! function_exists( 'get_posts' ) ) {
 	function get_posts( array $args = [] ): array {
-		return [];
+		$posts = array_values( $GLOBALS['stonewright_test_posts'] ?? [] );
+
+		if ( isset( $args['post_type'] ) ) {
+			$post_types = (array) $args['post_type'];
+			$posts      = array_values(
+				array_filter(
+					$posts,
+					static fn( object $post ): bool => in_array( (string) ( $post->post_type ?? '' ), $post_types, true )
+				)
+			);
+		}
+
+		if ( isset( $args['post_status'] ) ) {
+			$statuses = (array) $args['post_status'];
+			$posts    = array_values(
+				array_filter(
+					$posts,
+					static fn( object $post ): bool => in_array( (string) ( $post->post_status ?? '' ), $statuses, true )
+				)
+			);
+		}
+
+		if ( isset( $args['post_mime_type'] ) && null !== $args['post_mime_type'] && '' !== $args['post_mime_type'] ) {
+			$mime_filter = (string) $args['post_mime_type'];
+			$posts       = array_values(
+				array_filter(
+					$posts,
+					static function ( object $post ) use ( $mime_filter ): bool {
+						$mime = (string) ( $post->post_mime_type ?? '' );
+						if ( str_ends_with( $mime_filter, '/*' ) ) {
+							return str_starts_with( $mime, rtrim( $mime_filter, '*' ) );
+						}
+						if ( ! str_contains( $mime_filter, '/' ) ) {
+							return str_starts_with( $mime, $mime_filter . '/' );
+						}
+						return $mime === $mime_filter;
+					}
+				)
+			);
+		}
+
+		usort(
+			$posts,
+			static fn( object $a, object $b ): int => ( (int) ( $b->ID ?? 0 ) <=> (int) ( $a->ID ?? 0 ) )
+		);
+
+		$offset = isset( $args['offset'] ) ? max( 0, (int) $args['offset'] ) : 0;
+		$limit  = isset( $args['posts_per_page'] ) ? (int) $args['posts_per_page'] : -1;
+		if ( $limit >= 0 ) {
+			$posts = array_slice( $posts, $offset, $limit );
+		} elseif ( $offset > 0 ) {
+			$posts = array_slice( $posts, $offset );
+		}
+
+		return $posts;
 	}
 }
 

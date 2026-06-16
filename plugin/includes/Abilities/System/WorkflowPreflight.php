@@ -296,6 +296,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			$tools[] = 'stonewright/elementor-v3-capabilities-summary';
 			$tools[] = 'stonewright/elementor-v3-get-widget-schema';
 			if ( $profile['is_write'] ) {
+				$tools[] = 'stonewright/media-list';
 				$tools[] = 'stonewright/media-upload-batch';
 				$tools[] = 'stonewright/content-bulk-upsert-posts';
 				$tools[] = 'stonewright/elementor-v3-build-page-from-spec';
@@ -467,6 +468,15 @@ final class WorkflowPreflight extends AbilityKernel {
 				]
 			);
 			if ( $profile['is_write'] ) {
+				$out[] = self::call_step(
+					'stonewright/media-list',
+					'Search existing WordPress media by title, alt text, caption, mime, and filename before uploading design assets.',
+					[
+						'search'    => '<asset filename or alt clue>',
+						'mime_type' => 'image',
+						'per_page'  => 20,
+					]
+				);
 				$out[] = self::call_step(
 					'stonewright/media-upload-batch',
 					'Upload all known remote assets in one call before page render.',

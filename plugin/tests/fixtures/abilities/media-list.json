@@ -1,0 +1,8 @@
+{
+  "args": {
+    "search": "Attachment",
+    "mime_type": "text",
+    "per_page": 5
+  },
+  "expect": "ok"
+}
