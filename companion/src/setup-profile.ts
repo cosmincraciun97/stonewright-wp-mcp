@@ -1,4 +1,5 @@
 import { companionPackageSpec } from './version.js';
+import { proxyToolNamesForProfile, proxyToolProfileFromEnv, type ProxyToolProfile } from './wordpress-mcp.js';
 
 export type SetupPlatform = NodeJS.Platform | 'linux' | 'darwin' | 'win32';
 
@@ -21,9 +22,26 @@ export interface SetupProfile extends Record<string, unknown> {
 	checks: SetupCheck[];
 	first_calls: string[];
 	tool_visibility_checks: string[];
+	tool_inventory: ToolInventory;
 	agent_do_not_use: string[];
 	agent_use_instead: string[];
 	notes: string[];
+}
+
+export interface ToolInventory {
+	profile: ProxyToolProfile;
+	startup_budget: {
+		strict_client_tool_cap: number;
+		client_visible_expected_tool_count: number;
+		under_low_tools_cap: boolean;
+	};
+	first_call_tool_names: string[];
+	diagnostic_tool_names: string[];
+	direct_wp_cli_tool_names: string[];
+	direct_wp_cli_long_running_tool_names: string[];
+	proxied_profile_tool_count: number;
+	proxied_profile_tool_groups: Record<string, string[]>;
+	token_notes: string[];
 }
 
 export const AGENT_DO_NOT_USE = [
@@ -85,6 +103,7 @@ export function buildSetupProfile(
 		mcpEnv.STONEWRIGHT_MCP_AUTHORIZATION = authorization;
 	}
 
+	const visibilityChecks = toolVisibilityChecks(env);
 	const checks: SetupCheck[] = [
 		{
 			id: 'site_url',
@@ -122,7 +141,8 @@ export function buildSetupProfile(
 			'stonewright-workflow-preflight',
 			'stonewright-tool-profile',
 		],
-		tool_visibility_checks: toolVisibilityChecks(env),
+		tool_visibility_checks: visibilityChecks,
+		tool_inventory: buildToolInventory(proxyToolProfileFromEnv(env), visibilityChecks),
 		agent_do_not_use: AGENT_DO_NOT_USE,
 		agent_use_instead: agentUseInstead(env),
 		notes: [
@@ -146,6 +166,75 @@ export function buildSetupProfile(
 
 export function agentUseInstead(env: NodeJS.ProcessEnv = process.env): string[] {
 	return isLowToolsProfile(env) ? LOW_TOOLS_AGENT_USE_INSTEAD : AGENT_USE_INSTEAD;
+}
+
+export function buildToolInventory(
+	profile: ProxyToolProfile,
+	localToolNames: readonly string[],
+): ToolInventory {
+	const proxiedProfileToolNames = proxyToolNamesForProfile(profile);
+	const clientVisibleExpectedToolCount = new Set([...proxiedProfileToolNames, ...localToolNames]).size;
+
+	return {
+		profile,
+		startup_budget: {
+			strict_client_tool_cap: 30,
+			client_visible_expected_tool_count: clientVisibleExpectedToolCount,
+			under_low_tools_cap: profile !== 'low-tools' || clientVisibleExpectedToolCount <= 30,
+		},
+		first_call_tool_names: [
+			'stonewright-context-bootstrap',
+			'stonewright-workflow-preflight',
+			'stonewright-tool-profile',
+		],
+		diagnostic_tool_names: localToolNames.filter((name) => [
+			'stonewright-setup-profile',
+			'stonewright-wordpress-mcp-status',
+			'stonewright-wp-cli-status',
+			'stonewright-wp-cli-discover',
+		].includes(name)),
+		direct_wp_cli_tool_names: localToolNames.filter((name) => name.startsWith('stonewright-wp-cli-')),
+		direct_wp_cli_long_running_tool_names: localToolNames.filter((name) => [
+			'stonewright-wp-cli-job-start',
+			'stonewright-wp-cli-job-status',
+		].includes(name)),
+		proxied_profile_tool_count: proxiedProfileToolNames.length,
+		proxied_profile_tool_groups: groupProxiedToolNames(proxiedProfileToolNames),
+		token_notes: [
+			'Use this inventory before broad tools/list discovery.',
+			'Use direct_wp_cli_tool_names for guarded local WP-CLI; never run wp commands in a normal shell.',
+			'Use proxied_profile_tool_groups to pick the next Stonewright WordPress tool without loading the full ability matrix.',
+		],
+	};
+}
+
+function groupProxiedToolNames(toolNames: string[]): Record<string, string[]> {
+	const groups: Record<string, string[]> = {
+		startup: [],
+		elementor_design: [],
+		content_media: [],
+		gutenberg_fse: [],
+		site_admin: [],
+		other: [],
+	};
+
+	for (const name of toolNames) {
+		if (['stonewright-context-bootstrap', 'stonewright-workflow-preflight', 'stonewright-tool-profile', 'stonewright-skills-get'].includes(name)) {
+			groups.startup.push(name);
+		} else if (name.includes('elementor') || name.includes('design') || name.includes('widget')) {
+			groups.elementor_design.push(name);
+		} else if (name.includes('content') || name.includes('media')) {
+			groups.content_media.push(name);
+		} else if (name.includes('gutenberg') || name.includes('blocks') || name.includes('fse')) {
+			groups.gutenberg_fse.push(name);
+		} else if (name.includes('site') || name.includes('system') || name.includes('security') || name.includes('menu') || name === 'stonewright-ping') {
+			groups.site_admin.push(name);
+		} else {
+			groups.other.push(name);
+		}
+	}
+
+	return Object.fromEntries(Object.entries(groups).filter(([, names]) => names.length > 0));
 }
 
 function toolVisibilityChecks(env: NodeJS.ProcessEnv): string[] {

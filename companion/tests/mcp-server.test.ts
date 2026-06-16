@@ -18,7 +18,7 @@ describe('createMcpServer', () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
 		const info = (server as any).server._serverInfo as { name: string; version: string };
 		expect(info.name).toBe('stonewright-companion');
-		expect(info.version).toBe('1.0.0-alpha.50');
+		expect(info.version).toBe('1.0.0-alpha.51');
 	});
 
 	it('publishes compact handshake instructions before any tool is called', async () => {
@@ -385,6 +385,13 @@ describe('createMcpServer', () => {
 				profile_expected_tool_count?: number;
 				client_visible_expected_tool_count?: number;
 				local_tool_names?: string[];
+				tool_inventory?: {
+					profile?: string;
+					startup_budget?: { under_low_tools_cap?: boolean };
+					direct_wp_cli_tool_names?: string[];
+					direct_wp_cli_long_running_tool_names?: string[];
+					proxied_profile_tool_groups?: Record<string, string[]>;
+				};
 			};
 		};
 
@@ -401,6 +408,18 @@ describe('createMcpServer', () => {
 			'stonewright-wp-cli-job-start',
 			'stonewright-wp-cli-job-status',
 		]));
+		expect(response.structuredContent?.tool_inventory?.profile).toBe('low-tools');
+		expect(response.structuredContent?.tool_inventory?.startup_budget?.under_low_tools_cap).toBe(true);
+		expect(response.structuredContent?.tool_inventory?.direct_wp_cli_tool_names).toEqual(expect.arrayContaining([
+			'stonewright-wp-cli-batch-run',
+			'stonewright-wp-cli-job-start',
+			'stonewright-wp-cli-job-status',
+		]));
+		expect(response.structuredContent?.tool_inventory?.direct_wp_cli_long_running_tool_names).toEqual([
+			'stonewright-wp-cli-job-start',
+			'stonewright-wp-cli-job-status',
+		]);
+		expect(response.structuredContent?.tool_inventory?.proxied_profile_tool_groups?.elementor_design).toContain('stonewright-elementor-v3-build-page-from-spec');
 		expect(names).toEqual(expect.arrayContaining([
 			'stonewright-setup-profile',
 			'stonewright-wordpress-mcp-status',

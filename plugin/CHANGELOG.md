@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.51] - 2026-06-17
+
+### Added
+
+- Added compact `tool_inventory` data to companion setup and WordPress MCP
+  status responses so agents can choose first-call, diagnostic, direct WP-CLI,
+  long-running WP-CLI, and proxied profile tools without broad discovery.
+
 ## [1.0.0-alpha.50] - 2026-06-17
 
 ### Changed

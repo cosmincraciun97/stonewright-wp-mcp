@@ -27,7 +27,7 @@ Fast path for MCP clients:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.50/stonewright-companion-1.0.0-alpha.50.tgz"],
+      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.51/stonewright-companion-1.0.0-alpha.51.tgz"],
       "env": {
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
@@ -170,6 +170,10 @@ skill, or WP-CLI tools are missing. It also reports
 `profile_expected_tool_count`, `client_visible_expected_tool_count`, and
 `profile_missing_tool_names` for the selected compact profile even when the
 WordPress MCP endpoint cannot be reached.
+Both `stonewright-setup-profile` and `stonewright-wordpress-mcp-status` also
+return `tool_inventory`, a compact grouped map of first-call, diagnostic,
+direct WP-CLI, long-running WP-CLI, and proxied profile tools. Agents should use
+that inventory before broad tool discovery.
 The same fast-start policy is present in the MCP server instructions, which
 helps clients that read server instructions before listing or calling tools.
 

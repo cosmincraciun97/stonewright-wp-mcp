@@ -21,7 +21,7 @@ import {
 	type WpCliJobStartInput,
 	type WpCliRunInput,
 } from './wp-cli.js';
-import { AGENT_DO_NOT_USE, agentUseInstead, buildSetupProfile } from './setup-profile.js';
+import { AGENT_DO_NOT_USE, agentUseInstead, buildSetupProfile, buildToolInventory, type ToolInventory } from './setup-profile.js';
 import {
 	STARTUP_REQUIRED_PROXY_TOOL_NAMES,
 	type ProxyToolProfile,
@@ -51,6 +51,7 @@ interface WordPressMcpConnectionStatus extends Record<string, unknown> {
 	proxied_tool_count: number;
 	profile_filtered_tool_count: number;
 	profile_filtered_tool_names: string[];
+	tool_inventory: ToolInventory;
 	prompt_skill_count: number;
 	error: { message: string } | null;
 	agent_do_not_use: string[];
@@ -149,6 +150,7 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 			const localToolNames = localToolNamesForProfile(registration.profile);
 			wpMcpStatus.profile_expected_tool_count = profileExpectedToolNames.length;
 			wpMcpStatus.client_visible_expected_tool_count = profileExpectedToolNames.length + localToolNames.length;
+			wpMcpStatus.tool_inventory = buildToolInventory(registration.profile, localToolNames);
 			wpMcpStatus.profile_missing_tool_names = missingProfileTools(
 				profileExpectedToolNames,
 				registration.registeredTools.map((tool) => tool.name),
@@ -219,6 +221,7 @@ function createWordPressMcpConnectionStatus(profile: ProxyToolProfile): WordPres
 		proxied_tool_count: 0,
 		profile_filtered_tool_count: 0,
 		profile_filtered_tool_names: [],
+		tool_inventory: buildToolInventory(profile, localToolNames),
 		prompt_skill_count: 0,
 		error: null,
 		agent_do_not_use: Array.from(AGENT_DO_NOT_USE),

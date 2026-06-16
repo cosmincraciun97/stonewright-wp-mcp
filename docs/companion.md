@@ -128,6 +128,9 @@ skill-playbook, and direct WP-CLI tools are ready. It also reports
 `profile_expected_tool_count`, `client_visible_expected_tool_count`, and
 `profile_missing_tool_names` for the selected compact profile even when the
 WordPress MCP endpoint cannot be reached.
+Both setup and status responses include `tool_inventory`, a compact grouped map
+of first-call, diagnostic, direct WP-CLI, long-running WP-CLI, and proxied
+profile tools. Use it before broad tool discovery in token-sensitive sessions.
 
 For new stdio sessions, the companion defaults to
 `STONEWRIGHT_MCP_TOOL_PROFILE=essential`. It proxies only the compact

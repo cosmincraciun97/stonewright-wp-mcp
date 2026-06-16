@@ -17,7 +17,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.mcp_server.command).toBe('npx');
 		expect(profile.mcp_server.args).toEqual([
 			'-y',
-			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.50/stonewright-companion-1.0.0-alpha.50.tgz',
+			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.51/stonewright-companion-1.0.0-alpha.51.tgz',
 		]);
 		expect(profile.mcp_server.env).toMatchObject({
 			STONEWRIGHT_WP_URL: 'http://mcp-test.local',
@@ -44,6 +44,22 @@ describe('buildSetupProfile', () => {
 			'stonewright-wp-cli-job-status',
 			'stonewright-wp-cli-install',
 		]);
+		expect(profile.tool_inventory.profile).toBe('essential');
+		expect(profile.tool_inventory.first_call_tool_names).toEqual([
+			'stonewright-context-bootstrap',
+			'stonewright-workflow-preflight',
+			'stonewright-tool-profile',
+		]);
+		expect(profile.tool_inventory.direct_wp_cli_tool_names).toEqual(expect.arrayContaining([
+			'stonewright-wp-cli-status',
+			'stonewright-wp-cli-discover',
+			'stonewright-wp-cli-run',
+			'stonewright-wp-cli-batch-run',
+			'stonewright-wp-cli-job-start',
+			'stonewright-wp-cli-job-status',
+			'stonewright-wp-cli-install',
+		]));
+		expect(profile.tool_inventory.proxied_profile_tool_groups.elementor_design).toContain('stonewright-elementor-v3-build-page-from-spec');
 		expect(profile.notes.join('\n')).toContain('Use stonewright-wordpress-mcp-status if proxied WordPress tools are missing');
 		expect(profile.notes.join('\n')).toContain('Verify the MCP tool list includes stonewright-context-bootstrap before starting WordPress work');
 		expect(profile.notes.join('\n')).toContain('Call stonewright-tool-profile for tool-cap, slow-startup, or token-sensitive clients before broad discovery');
@@ -84,7 +100,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.platform).toBe('win32');
 		expect(profile.mcp_server.env.STONEWRIGHT_WP_ROOT).toBe('D:\\Sites\\mcp-test\\app\\public');
 		expect(profile.mcp_server.env.STONEWRIGHT_WP_USERNAME).toBe('admin');
-		expect(profile.install_command).toBe('npm install -g https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.50/stonewright-companion-1.0.0-alpha.50.tgz');
+		expect(profile.install_command).toBe('npm install -g https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.51/stonewright-companion-1.0.0-alpha.51.tgz');
 		expect(profile.notes.join('\n')).toContain('No shell script wrapper required');
 	});
 
@@ -107,6 +123,13 @@ describe('buildSetupProfile', () => {
 		expect(profile.tool_visibility_checks).toContain('stonewright-wp-cli-job-status');
 		expect(profile.agent_use_instead).toContain('stonewright-wp-cli-job-start');
 		expect(profile.agent_use_instead).toContain('stonewright-wp-cli-job-status');
+		expect(profile.tool_inventory.profile).toBe('low-tools');
+		expect(profile.tool_inventory.startup_budget.under_low_tools_cap).toBe(true);
+		expect(profile.tool_inventory.direct_wp_cli_tool_names).not.toContain('stonewright-wp-cli-install');
+		expect(profile.tool_inventory.direct_wp_cli_long_running_tool_names).toEqual([
+			'stonewright-wp-cli-job-start',
+			'stonewright-wp-cli-job-status',
+		]);
 	});
 
 	it('normalizes legacy proxy profile input into the emitted tool profile', () => {
