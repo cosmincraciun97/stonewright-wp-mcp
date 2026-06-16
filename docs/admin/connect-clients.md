@@ -73,6 +73,11 @@ For Antigravity, Gemini API, or another strict tool-cap client, set
 client-visible tool list under 30 while preserving composite writes and direct
 `stonewright-wp-cli-*` recovery tools, including background jobs.
 
+For Antigravity 2.0, Antigravity IDE, and Antigravity CLI, use the shared
+`~/.gemini/config/mcp_config.json` file. See
+[Getting started with Antigravity](../getting-started/antigravity.md) for a
+`low-tools` config, refresh steps, and `/mcp` validation.
+
 Do not recover by running `wp cli info`, `wp plugin activate`,
 `wp option update`, or other `wp` commands in a normal shell, and do not switch
 to another adapter's arbitrary PHP execution. Use `stonewright-wordpress-mcp-status`
@@ -113,7 +118,7 @@ fields separately:
 | Amazon Q Developer | `~/.aws/amazonq/mcp.json` |
 | Kilo Code | `~/.kilo/mcp.json` or the extension settings panel |
 | Gemini CLI | `~/.gemini/settings.json` |
-| Antigravity | project or global MCP config |
+| Antigravity 2.0, IDE, CLI | `~/.gemini/config/mcp_config.json`; in IDE use **MCP Servers > Manage MCP Servers > View raw config** |
 
 VS Code-style clients use a `servers` top-level key instead of `mcpServers`:
 

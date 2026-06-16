@@ -23,6 +23,23 @@ persistent memory, skills, and WP-CLI-assisted debugging. It builds
 well-formed WordPress data with permission, backup, validation, context, and
 audit gates.
 
+## Why Stonewright
+
+Stonewright is built for agents that need to edit real WordPress sites without
+turning every task into shell access or fragile one-off PHP snippets.
+
+- **Broad WordPress surface:** Gutenberg, FSE, Elementor V3, experimental
+  Elementor V4, WooCommerce, media, menus, content models, skills, memory, and
+  guarded WP-CLI.
+- **Safety-first writes:** permissions, backups, confirmation tokens,
+  validators, audit logs, and production-safe mode are part of the ability
+  layer.
+- **Fast agent workflows:** context bootstrap, workflow preflight, compact tool
+  profiles, batch Elementor mutations, bulk content upserts, and background
+  WP-CLI jobs keep MCP sessions small and useful.
+- **Transparent releases:** release notes list shipped assets, compatibility
+  work, safety-impacting changes, and verification commands.
+
 ## Components
 
 | Capability | What Stonewright gives the agent |
@@ -139,6 +156,12 @@ For strict tool-cap clients such as Antigravity or Gemini API, set
 startup surface under 30 tools by hiding legacy duplicate aliases while
 preserving composite page, content, media, Gutenberg, Elementor, and direct
 WP-CLI batch/background-job paths.
+
+Antigravity 2.0, Antigravity IDE, and Antigravity CLI use the shared
+`~/.gemini/config/mcp_config.json` location. See
+[Antigravity setup](docs/getting-started/antigravity.md) for a copy-paste
+config, refresh steps, and troubleshooting when Stonewright does not appear in
+`/mcp`.
 
 For local WordPress sites, add `STONEWRIGHT_WP_ROOT` when you want guarded
 WP-CLI helper tools or LocalWP discovery. Call `stonewright-setup-profile` once
@@ -309,15 +332,17 @@ commands. It blocks arbitrary PHP and shell entry points such as `wp eval`,
 
 ## Further Reading
 
-If Stonewright helps your WordPress build workflow, star the repository and
-share a real use case. It helps the project earn trust with WordPress and AI
-tooling communities.
+If Stonewright helps your WordPress build workflow, share a real use case or
+open an issue with what worked and what did not. Practical feedback is the best
+way to harden the tool.
 
 - [Plugin documentation](plugin/README.md)
 - [Onboarding guide](docs/onboarding.md)
 - [Installation guide](docs/installation.md)
+- [Antigravity setup](docs/getting-started/antigravity.md)
 - [Companion documentation](companion/README.md)
 - [Skill packs](skills/README.md)
 - [Plugin specializations](docs/specializations.md)
+- [Release notes](docs/releases/README.md)
 - [Documentation index](docs/index.md)
 - [Security model](plugin/SECURITY.md)

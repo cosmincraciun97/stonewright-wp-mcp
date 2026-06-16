@@ -7,6 +7,20 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- Added Antigravity setup documentation with `low-tools` config, refresh steps,
+  and troubleshooting for missing Stonewright MCP tools.
+- Added a release notes index for the existing alpha release notes and release
+  checklist.
+
+### Fixed
+
+- Updated the Codex skill sync script so backups are stored outside
+  `~/.codex/skills`, stale nested skill copies are cleaned, and older indexed
+  backup directories are relocated instead of appearing as duplicate slash
+  commands.
+
 ## [1.0.0-alpha.55] - 2026-06-17
 
 ### Fixed
@@ -36,6 +50,43 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   summary with profile counts, grouped tools, next-best tool recommendations,
   and discovery policy so token-sensitive agents can skip a separate
   `stonewright/tool-profile` call when the preflight profile is sufficient.
+
+## [1.0.0-alpha.52] - 2026-06-17
+
+### Added
+
+- `stonewright/tool-profile` now returns grouped tool inventory,
+  `next_best_tools`, and a discovery policy so direct HTTP MCP sessions can pick
+  the next Elementor, content/media, Gutenberg/FSE, WP-CLI, or site-admin tool
+  without broad discovery.
+
+## [1.0.0-alpha.51] - 2026-06-17
+
+### Added
+
+- `stonewright-setup-profile` and `stonewright-wordpress-mcp-status` now return
+  a compact grouped `tool_inventory` for first-call, diagnostic, direct WP-CLI,
+  long-running WP-CLI, and proxied profile tools.
+
+## [1.0.0-alpha.50] - 2026-06-17
+
+### Changed
+
+- `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` now exposes direct WP-CLI background
+  job tools while staying under the strict startup budget for Antigravity,
+  Gemini API, and similar clients.
+
+## [1.0.0-alpha.49] - 2026-06-17
+
+### Added
+
+- Added guarded companion WP-CLI background jobs through
+  `stonewright-wp-cli-job-start` and `stonewright-wp-cli-job-status`.
+
+### Fixed
+
+- Stale `.env` `PORT` values no longer start the optional HTTP bridge during
+  stdio MCP startup unless HTTP bridge opt-in is explicit.
 
 ## [1.0.0-alpha.48] - 2026-06-16
 
@@ -77,6 +128,21 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `stonewright-setup-profile` now tells agents about these profile aliases so
   new sessions can choose task-specific compact tool surfaces without exact
   profile-name memorization.
+
+## [1.0.0-alpha.44] - 2026-06-16
+
+### Added
+
+- `stonewright-wordpress-mcp-status` now reports startup readiness, required
+  startup tools, missing startup tools, and local recovery tool names for
+  compact client repair.
+
+## [1.0.0-alpha.43] - 2026-06-16
+
+### Changed
+
+- `stonewright/skills-get` is included in compact profiles so token-sensitive
+  clients can load one matched playbook without full tool discovery.
 
 ## [1.0.0-alpha.42] - 2026-06-16
 
@@ -696,6 +762,19 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.55]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.55
+[1.0.0-alpha.54]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.54
+[1.0.0-alpha.53]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.53
+[1.0.0-alpha.52]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.52
+[1.0.0-alpha.51]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.51
+[1.0.0-alpha.50]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.50
+[1.0.0-alpha.49]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.49
+[1.0.0-alpha.48]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.48
+[1.0.0-alpha.47]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.47
+[1.0.0-alpha.46]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.46
+[1.0.0-alpha.45]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.45
+[1.0.0-alpha.44]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.44
+[1.0.0-alpha.43]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.43
 [1.0.0-alpha.42]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.42
 [1.0.0-alpha.41]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.41
 [1.0.0-alpha.40]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.40
@@ -703,6 +782,14 @@ Initial tagged release of Stonewright WP MCP.
 [1.0.0-alpha.38]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.38
 [1.0.0-alpha.37]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.37
 [1.0.0-alpha.36]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.36
+[1.0.0-alpha.35]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.35
+[1.0.0-alpha.34]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.34
+[1.0.0-alpha.33]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.33
+[1.0.0-alpha.32]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.32
+[1.0.0-alpha.31]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.31
+[1.0.0-alpha.30]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.30
+[1.0.0-alpha.29]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.29
+[1.0.0-alpha.28]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.28
 [1.0.0-alpha.27]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.27
 [1.0.0-alpha.26]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.26
 [1.0.0-alpha.25]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.25
@@ -715,7 +802,6 @@ Initial tagged release of Stonewright WP MCP.
 [1.0.0-alpha.18]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.18
 [1.0.0-alpha.17]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.17
 [1.0.0-alpha.16]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.16
-[1.0.0-alpha.15]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.15
 [1.0.0-alpha.14]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.14
 [1.0.0-alpha.13]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.13
 [1.0.0-alpha.12]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.12
@@ -729,4 +815,3 @@ Initial tagged release of Stonewright WP MCP.
 [1.0.0-alpha.4]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.4
 [1.0.0-alpha.3]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.3
 [1.0.0-alpha.2]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.2
-[1.0.0-alpha.1]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.1

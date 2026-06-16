@@ -88,6 +88,10 @@ other strict tool-cap clients. It keeps the client-visible startup surface under
 closest compact profile, so agents do not need exact canonical profile names to
 avoid broad discovery.
 
+For Antigravity 2.0, Antigravity IDE, and Antigravity CLI, use
+`~/.gemini/config/mcp_config.json` and the dedicated
+[Antigravity setup guide](getting-started/antigravity.md).
+
 Before the first WordPress task, verify the client tool list includes
 `stonewright-context-bootstrap`. If that tool is missing, reload or fix the MCP
 client config before continuing. Local agent skills, repository files, private

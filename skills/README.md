@@ -34,7 +34,8 @@ cp -r skills/wp-plugin-dev ~/.claude/plugins/
 
 Use the sync script from the repository root. It compares each bundled
 Stonewright skill against the installed Codex skill folder, creates backups for
-changed skills, then copies only the Stonewright skill pack:
+changed skills outside the indexed skill root, then copies only the Stonewright
+skill pack:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\sync-codex-skills.ps1 -WhatIf
@@ -43,6 +44,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\sync-codex-skills.
 
 Restart Codex after syncing so slash and `$` search can index the updated
 skills. To sync one skill only, pass `-SkillName stonewright`.
+
+The script also fixes older local installs that caused duplicate `/stonewright`
+entries in Codex. It removes stale nested skill copies such as
+`~/.codex/skills/stonewright/stonewright/SKILL.md` and relocates old
+`*.backup-*` skill directories from `~/.codex/skills` to
+`~/.codex/skill-backups/stonewright`, where Codex does not index them as active
+skills. Use `-SkipIndexedBackupCleanup` only if you deliberately want to inspect
+old indexed backups before moving them.
 
 ## Requirements
 
