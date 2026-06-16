@@ -28,6 +28,8 @@ adapter to replace Stonewright tools. Never use `wp eval`,
 When the companion exposes `stonewright-wp-cli-batch-run`, prefer it for many
 post/meta/term/option writes or Romanian/non-ASCII values. Do not paste large
 inline shell scripts to simulate batching.
+For long imports, cache rebuilds, or plugin maintenance commands, use
+`stonewright-wp-cli-job-start` and poll `stonewright-wp-cli-job-status`.
 
 ## Discovery
 

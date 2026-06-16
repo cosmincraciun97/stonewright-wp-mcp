@@ -98,7 +98,31 @@ Each command is still validated and executed through `execFile` with shell
 disabled. Use this endpoint for repeated operations with UTF-8 data instead of
 large inline shell scripts.
 
-Response fields:
+### POST /wp-cli/job-start
+
+Starts one command or one batch in the companion background queue. The job uses
+the same guarded `execFile` runner as `/wp-cli/run` and `/wp-cli/batch`.
+
+Request fields combine `/wp-cli/run` and `/wp-cli/batch`: provide either
+`command` or `commands`, plus optional `path`, `url`, `user`, `context`,
+`timeoutMs`, `parseJson`, `stopOnError`, and `responseMode`.
+
+### POST /wp-cli/job-status
+
+Polls a background job by `jobId` or `job_id`.
+
+Job response fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `job_id` | string | Background job id. |
+| `status` | string | `running`, `succeeded`, or `failed`. |
+| `kind` | string | `command` or `batch`. |
+| `command_count` | integer | Number of queued commands. |
+| `result` | object/null | Completed command or batch result; null while running. |
+| `error` | string | Present when the job failed before producing a result. |
+
+Command response fields for `/wp-cli/run` and each batch/job result item:
 
 | Field | Type | Description |
 |---|---|---|

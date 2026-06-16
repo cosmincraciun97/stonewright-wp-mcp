@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
@@ -24,6 +24,17 @@ export interface WpCliBatchRunInput extends Omit<WpCliRunInput, 'command'> {
 export interface WpCliDiscoverInput extends Partial<WpCliRunInput> {
 	commandFilter?: string[];
 	maxCommands?: number;
+}
+
+export interface WpCliJobStartInput extends Partial<WpCliRunInput> {
+	command?: string[];
+	commands?: string[][];
+	stopOnError?: boolean;
+}
+
+export interface WpCliJobGetInput {
+	jobId?: string;
+	job_id?: string;
 }
 
 export interface ExecFileOptions {
@@ -51,6 +62,9 @@ export type ExecFileRunner = (
 
 export type WpCliCommandResult = WpCliResult | WpCliResultSummary;
 export type WpCliDiscoverResult = WpCliCommandResult | WpCliDiscoverSummary;
+export type WpCliJobKind = 'command' | 'batch';
+export type WpCliJobState = 'queued' | 'running' | 'succeeded' | 'failed';
+export type WpCliJobPayloadResult = WpCliCommandResult | WpCliBatchResult;
 
 export interface WpCliResult extends Record<string, unknown> {
 	ok: boolean;
@@ -104,6 +118,19 @@ export interface WpCliDiscoverSummary extends Record<string, unknown> {
 	error?: string;
 }
 
+export interface WpCliJobStatusResult extends Record<string, unknown> {
+	ok: boolean;
+	job_id: string;
+	status: WpCliJobState;
+	kind: WpCliJobKind;
+	command_count: number;
+	started_at: string;
+	completed_at: string | null;
+	duration_ms: number;
+	result: WpCliJobPayloadResult | null;
+	error?: string;
+}
+
 export interface WpCliInvocation {
 	executable: string;
 	prefixArgs: string[];
@@ -130,9 +157,24 @@ export interface WpCliInstallResult extends Record<string, unknown> {
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_MAX_BUFFER = 10 * 1024 * 1024;
+const MAX_JOBS = 100;
 const BLOCKED_COMMAND_GROUPS = new Set(['eval', 'eval-file', 'shell', 'package']);
 const BLOCKED_GLOBAL_FLAGS = ['--exec', '--require', '--prompt'];
 const WP_CLI_PHAR_URL = 'https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar';
+
+interface WpCliJobRecord {
+	jobId: string;
+	status: WpCliJobState;
+	kind: WpCliJobKind;
+	commandCount: number;
+	startedAt: string;
+	completedAt: string | null;
+	startedMs: number;
+	result: WpCliJobPayloadResult | null;
+	error?: string;
+}
+
+const wpCliJobs = new Map<string, WpCliJobRecord>();
 
 export function validateWpCliCommand(command: string[]): string[] {
 	if (!Array.isArray(command) || command.length === 0) {
@@ -264,6 +306,109 @@ export async function runWpCliBatch(
 		stopped: results.length < commands.length,
 		results,
 	};
+}
+
+export function startWpCliJob(
+	input: WpCliJobStartInput,
+	runner: ExecFileRunner = defaultExecFileRunner,
+	env: NodeJS.ProcessEnv = process.env,
+): WpCliJobStatusResult {
+	const kind = Array.isArray(input.commands) ? 'batch' : 'command';
+	const commandCount = kind === 'batch' ? input.commands?.length ?? 0 : 1;
+	if (kind === 'batch') {
+		if (!Array.isArray(input.commands) || input.commands.length === 0) {
+			throw new Error('WP-CLI job batch requires a non-empty commands array.');
+		}
+		for (const command of input.commands) {
+			validateWpCliCommand(command);
+		}
+	} else if (Array.isArray(input.command)) {
+		validateWpCliCommand(input.command);
+	} else {
+		throw new Error('WP-CLI job requires command or commands.');
+	}
+
+	pruneWpCliJobs();
+	const now = new Date();
+	const record: WpCliJobRecord = {
+		jobId: `wpcli_${randomUUID().replaceAll('-', '')}`,
+		status: 'running',
+		kind,
+		commandCount,
+		startedAt: now.toISOString(),
+		completedAt: null,
+		startedMs: Date.now(),
+		result: null,
+	};
+	wpCliJobs.set(record.jobId, record);
+
+	void (async () => {
+		try {
+			const jobInput = { ...input, responseMode: input.responseMode ?? 'summary' };
+			record.result = kind === 'batch'
+				? await runWpCliBatch(jobInput as WpCliBatchRunInput, runner, env)
+				: await runWpCli(jobInput as WpCliRunInput, runner, env);
+			record.status = record.result.ok ? 'succeeded' : 'failed';
+			if (!record.result.ok && typeof record.result.error === 'string') {
+				record.error = record.result.error;
+			}
+		} catch (err) {
+			record.status = 'failed';
+			record.error = err instanceof Error ? err.message : String(err);
+		} finally {
+			record.completedAt = new Date().toISOString();
+		}
+	})();
+
+	return serializeWpCliJob(record);
+}
+
+export function getWpCliJob(input: WpCliJobGetInput): WpCliJobStatusResult {
+	const jobId = String(input.jobId ?? input.job_id ?? '').trim();
+	if (jobId === '') {
+		throw new Error('WP-CLI job status requires jobId.');
+	}
+	const record = wpCliJobs.get(jobId);
+	if (!record) {
+		return {
+			ok: false,
+			job_id: jobId,
+			status: 'failed',
+			kind: 'command',
+			command_count: 0,
+			started_at: '',
+			completed_at: null,
+			duration_ms: 0,
+			result: null,
+			error: 'WP-CLI job not found.',
+		};
+	}
+	return serializeWpCliJob(record);
+}
+
+function serializeWpCliJob(record: WpCliJobRecord): WpCliJobStatusResult {
+	const duration = record.completedAt === null ? Date.now() - record.startedMs : Date.parse(record.completedAt) - record.startedMs;
+	return {
+		ok: record.status === 'succeeded' || record.status === 'running' || record.status === 'queued',
+		job_id: record.jobId,
+		status: record.status,
+		kind: record.kind,
+		command_count: record.commandCount,
+		started_at: record.startedAt,
+		completed_at: record.completedAt,
+		duration_ms: Math.max(0, duration),
+		result: record.result,
+		...(record.error ? { error: record.error } : {}),
+	};
+}
+
+function pruneWpCliJobs(): void {
+	if (wpCliJobs.size < MAX_JOBS) return;
+	for (const [jobId, record] of wpCliJobs) {
+		if (record.status === 'running' || record.status === 'queued') continue;
+		wpCliJobs.delete(jobId);
+		if (wpCliJobs.size < MAX_JOBS) return;
+	}
 }
 
 function summarizeWpCliResult(result: WpCliResult): WpCliResultSummary {

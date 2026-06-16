@@ -148,6 +148,9 @@ another adapter's arbitrary PHP execution to replace Stonewright tools.
 For repeated writes or strings with diacritics, prefer
 `stonewright-wp-cli-batch-run`; do not paste large inline PowerShell/Node
 scripts with raw non-ASCII text.
+For long guarded WP-CLI work such as imports, cache rebuilds, plugin
+maintenance, or large content batches, use `stonewright-wp-cli-job-start` and
+poll `stonewright-wp-cli-job-status` so one MCP request does not block.
 
 If the companion MCP is installed, `stonewright-wp-cli-*` tools are direct
 companion aliases. If a WordPress-proxied status call reports the companion

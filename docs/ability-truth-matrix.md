@@ -199,6 +199,8 @@
 | `stonewright/wp-cli-discover` | `stonewright-wp-cli-discover` | `WpCli\Discover` | Runs wp cli cmd-dump through the companion. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/WpCli/WpCliAbilitiesTest.php` |
 | `stonewright/wp-cli-run` | `stonewright-wp-cli-run` | `WpCli\Run` | Runs a tokenized WP-CLI command through the companion. | Write | `Permissions::manage_options()` | Yes | No | No | stable | `tests/Unit/WpCli/WpCliAbilitiesTest.php` |
 | `stonewright/wp-cli-batch-run` | `stonewright-wp-cli-batch-run` | `WpCli\BatchRun` | Runs multiple tokenized WP-CLI commands through the companion in one request. | Write | `Permissions::manage_options()` | Yes | No | No | stable | `tests/Unit/WpCli/WpCliAbilitiesTest.php` |
+| `stonewright/wp-cli-job-start` | `stonewright-wp-cli-job-start` | `WpCli\JobStart` | Starts a guarded WP-CLI command or batch in the companion background queue so long plugin, import, cache, media, or content operations do not block the MCP request. | Write | `Permissions::manage_options()` | Yes | No | No | stable | `tests/Unit/WpCli/WpCliAbilitiesTest.php` |
+| `stonewright/wp-cli-job-status` | `stonewright-wp-cli-job-status` | `WpCli\JobStatus` | Polls a Stonewright companion WP-CLI background job and returns compact status plus the completed result when available. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/WpCli/WpCliAbilitiesTest.php` |
 
 ---
 
@@ -393,7 +395,7 @@
 
 ## Summary
 
-Total abilities registered: **235**
+Total abilities registered: **237**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

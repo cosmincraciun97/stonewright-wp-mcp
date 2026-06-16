@@ -6,6 +6,8 @@ namespace Stonewright\WpMcp\Tests\Unit\WpCli;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\WpCli\BatchRun;
 use Stonewright\WpMcp\Abilities\WpCli\Discover;
+use Stonewright\WpMcp\Abilities\WpCli\JobStart;
+use Stonewright\WpMcp\Abilities\WpCli\JobStatus;
 use Stonewright\WpMcp\Abilities\WpCli\Run;
 use Stonewright\WpMcp\Abilities\WpCli\Status;
 use Stonewright\WpMcp\Security\ConfirmationToken;
@@ -15,6 +17,8 @@ use Stonewright\WpMcp\Security\ConfirmationToken;
  * @covers \Stonewright\WpMcp\Abilities\WpCli\BatchRun
  * @covers \Stonewright\WpMcp\Abilities\WpCli\Status
  * @covers \Stonewright\WpMcp\Abilities\WpCli\Discover
+ * @covers \Stonewright\WpMcp\Abilities\WpCli\JobStart
+ * @covers \Stonewright\WpMcp\Abilities\WpCli\JobStatus
  */
 final class WpCliAbilitiesTest extends TestCase {
 
@@ -218,6 +222,51 @@ final class WpCliAbilitiesTest extends TestCase {
 		$this->assertSame( [ 'wp acf', 'wp acf field', 'wp post meta' ], $result['command_paths'] );
 		$this->assertSame( [ 'acf', 'post meta' ], $GLOBALS['stonewright_test_companion_requests'][1]['body']['commandFilter'] );
 		$this->assertSame( 10, $GLOBALS['stonewright_test_companion_requests'][1]['body']['maxCommands'] );
+	}
+
+	public function test_wp_cli_background_jobs_proxy_to_companion(): void {
+		$GLOBALS['stonewright_test_companion_responses']['/wp-cli/job-start'] = [
+			'ok'            => true,
+			'job_id'        => 'wpcli_123',
+			'status'        => 'running',
+			'kind'          => 'batch',
+			'command_count' => 2,
+			'started_at'    => '2026-06-16T20:00:00.000Z',
+			'completed_at'  => null,
+			'duration_ms'   => 1,
+			'result'        => null,
+		];
+		$GLOBALS['stonewright_test_companion_responses']['/wp-cli/job-status'] = [
+			'ok'            => true,
+			'job_id'        => 'wpcli_123',
+			'status'        => 'succeeded',
+			'kind'          => 'batch',
+			'command_count' => 2,
+			'started_at'    => '2026-06-16T20:00:00.000Z',
+			'completed_at'  => '2026-06-16T20:00:02.000Z',
+			'duration_ms'   => 2000,
+			'result'        => [ 'ok' => true, 'count' => 2, 'succeeded' => 2, 'failed' => 0 ],
+		];
+
+		$start = ( new JobStart() )->execute(
+			[
+				'commands'     => [
+					[ 'post', 'list' ],
+					[ 'cache', 'flush' ],
+				],
+				'responseMode' => 'summary',
+			]
+		);
+		$status = ( new JobStatus() )->execute( [ 'jobId' => 'wpcli_123' ] );
+
+		$this->assertIsArray( $start );
+		$this->assertSame( 'wpcli_123', $start['job_id'] );
+		$this->assertSame( '/wp-cli/job-start', $GLOBALS['stonewright_test_companion_requests'][1]['path'] );
+		$this->assertSame( 'summary', $GLOBALS['stonewright_test_companion_requests'][1]['body']['responseMode'] );
+		$this->assertIsArray( $status );
+		$this->assertSame( 'succeeded', $status['status'] );
+		$this->assertSame( '/wp-cli/job-status', $GLOBALS['stonewright_test_companion_requests'][2]['path'] );
+		$this->assertSame( 'wpcli_123', $GLOBALS['stonewright_test_companion_requests'][2]['body']['jobId'] );
 	}
 
 	public function test_wp_cli_companion_unavailable_returns_structured_fallbacks(): void {

@@ -68,7 +68,8 @@ Skills are routing guidance, not substitutes for live MCP tools. If
 `stonewright-context-bootstrap` is missing, restart or fix the MCP client
 instead of reading repository files as a replacement. For WP-CLI work, use
 `stonewright-wp-cli-status`, `stonewright-wp-cli-discover`,
-`stonewright-wp-cli-run`, `stonewright-wp-cli-batch-run`, or
+`stonewright-wp-cli-run`, `stonewright-wp-cli-batch-run`,
+`stonewright-wp-cli-job-start`, `stonewright-wp-cli-job-status`, or
 `stonewright-wp-cli-install`; do not recover by running `wp ...` in a normal
 shell or by using arbitrary PHP execution from another adapter.
 

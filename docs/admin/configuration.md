@@ -54,8 +54,10 @@ optional MCP proxy. It writes to WordPress only through guarded WP-CLI commands.
 
 Most users can skip this section. The setup note in Card 3 already runs
 Stonewright through `npx` with the versioned GitHub release tarball, and direct companion
-tools such as `stonewright-wp-cli-status`, `stonewright-wp-cli-discover`, and
-`stonewright-wp-cli-run` do not need port `8765`.
+tools such as `stonewright-wp-cli-status`, `stonewright-wp-cli-discover`,
+`stonewright-wp-cli-run`, `stonewright-wp-cli-batch-run`,
+`stonewright-wp-cli-job-start`, and `stonewright-wp-cli-job-status` do not need
+port `8765`.
 
 Use **Local WP-CLI bridge (advanced)** only when you deliberately run a local
 HTTP bridge for WordPress-side abilities such as `stonewright/wp-cli-run`.

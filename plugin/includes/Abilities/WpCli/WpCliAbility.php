@@ -104,6 +104,31 @@ abstract class WpCliAbility extends AbilityKernel {
 	 */
 	private static function unavailable_response( string $endpoint, array $body, \WP_Error $error ): array {
 		$base = rtrim( (string) get_option( 'stonewright_companion_url', 'http://127.0.0.1:8765' ), '/' );
+		if ( str_starts_with( $endpoint, '/wp-cli/job-' ) ) {
+			$commands = isset( $body['commands'] ) && is_array( $body['commands'] ) ? $body['commands'] : [];
+			$job_id   = (string) ( $body['jobId'] ?? $body['job_id'] ?? '' );
+			return [
+				'ok'                    => false,
+				'job_id'                => '' !== $job_id ? $job_id : 'unavailable',
+				'status'                => 'failed',
+				'kind'                  => [] !== $commands ? 'batch' : 'command',
+				'command_count'         => [] !== $commands ? count( $commands ) : 1,
+				'started_at'            => '',
+				'completed_at'          => null,
+				'duration_ms'           => 0,
+				'result'                => null,
+				'error'                 => $error->get_error_message(),
+				'companion_url'         => $base,
+				'recommended_fallbacks' => [
+					'stonewright-wp-cli-job-start',
+					'stonewright-wp-cli-job-status',
+					'stonewright-wp-cli-batch-run',
+					'Use direct companion WP-CLI tools when they are visible in the MCP client.',
+				],
+				'setup_hint'            => 'For WordPress-side WP-CLI job abilities, start the optional companion HTTP bridge with PORT and matching COMPANION_BEARER_TOKEN, or use direct companion MCP tools.',
+			];
+		}
+
 		$command = [];
 		if ( isset( $body['command'] ) && is_array( $body['command'] ) ) {
 			$command = array_values( array_map( 'strval', $body['command'] ) );

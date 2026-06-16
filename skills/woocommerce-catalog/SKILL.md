@@ -53,6 +53,8 @@ Use `stonewright-wp-cli-run` with argv tokens only. Do not run `wp ...` in a
 normal shell as Stonewright recovery, and do not use arbitrary PHP execution
 from another adapter to replace Stonewright tools. Never use `wp eval`,
 `wp eval-file`, `wp shell`, `wp package`, `--exec`, or `--require`.
+For long imports, cache rebuilds, or bulk catalog maintenance, use
+`stonewright-wp-cli-job-start` and poll `stonewright-wp-cli-job-status`.
 
 ## Delete Policy
 

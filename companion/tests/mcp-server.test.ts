@@ -37,6 +37,8 @@ describe('createMcpServer', () => {
 				'stonewright-wp-cli-batch-run',
 				'stonewright-wp-cli-discover',
 				'stonewright-wp-cli-install',
+				'stonewright-wp-cli-job-start',
+				'stonewright-wp-cli-job-status',
 			]),
 		);
 	});
@@ -398,6 +400,8 @@ describe('createMcpServer', () => {
 		expect(names).not.toContain('companion_wp_cli_batch_run');
 		expect(names).not.toContain('companion_wp_cli_install');
 		expect(names).not.toContain('stonewright-wp-cli-install');
+		expect(names).not.toContain('stonewright-wp-cli-job-start');
+		expect(names).not.toContain('stonewright-wp-cli-job-status');
 		expect(names).not.toContain('stonewright-elementor-describe-widget');
 		expect(names).not.toContain('stonewright-memory-list');
 		expect(names).not.toContain('stonewright-sandbox-write');
@@ -486,6 +490,8 @@ describe('createMcpServer', () => {
 			'stonewright-wp-cli-discover',
 			'stonewright-wp-cli-run',
 			'stonewright-wp-cli-batch-run',
+			'stonewright-wp-cli-job-start',
+			'stonewright-wp-cli-job-status',
 			'stonewright-wp-cli-install',
 		]);
 		expect(response.structuredContent?.local_tool_names).toEqual(expect.arrayContaining([

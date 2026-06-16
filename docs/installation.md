@@ -100,7 +100,8 @@ activate`, `wp option update`, or other `wp` commands in a normal shell, and do
 not replace Stonewright with another adapter's arbitrary PHP execution. Use the
 live Stonewright MCP tools: `stonewright-wordpress-mcp-status`,
 `stonewright-wp-cli-status`, `stonewright-wp-cli-discover`,
-`stonewright-wp-cli-run`, `stonewright-wp-cli-batch-run`, or
+`stonewright-wp-cli-run`, `stonewright-wp-cli-batch-run`,
+`stonewright-wp-cli-job-start`, `stonewright-wp-cli-job-status`, or
 `stonewright-wp-cli-install`.
 
 ## Fast Build Workflow
@@ -158,8 +159,9 @@ macOS example: `/Users/me/Sites/example/app/public`.
 
 When Stonewright is installed through the Node companion MCP, the companion also
 registers direct aliases named `stonewright-wp-cli-status`,
-`stonewright-wp-cli-discover`, `stonewright-wp-cli-run`, and
-`stonewright-wp-cli-batch-run`. Those aliases run WP-CLI inside the companion
+`stonewright-wp-cli-discover`, `stonewright-wp-cli-run`,
+`stonewright-wp-cli-batch-run`, `stonewright-wp-cli-job-start`, and
+`stonewright-wp-cli-job-status`. Those aliases run WP-CLI inside the companion
 and do not require the WordPress-side HTTP bridge on port `8765`.
 
 For stdio MCP clients, leave `PORT` unset. `PORT` enables only the optional HTTP
@@ -277,6 +279,9 @@ WordPress ability names use slashes. MCP tool names use hyphens.
 | `stonewright/wp-cli-status` | `stonewright-wp-cli-status` |
 | `stonewright/wp-cli-discover` | `stonewright-wp-cli-discover` |
 | `stonewright/wp-cli-run` | `stonewright-wp-cli-run` |
+| `stonewright/wp-cli-batch-run` | `stonewright-wp-cli-batch-run` |
+| `stonewright/wp-cli-job-start` | `stonewright-wp-cli-job-start` |
+| `stonewright/wp-cli-job-status` | `stonewright-wp-cli-job-status` |
 | Companion setup profile | `stonewright-setup-profile` |
 
 The complete command list is generated in

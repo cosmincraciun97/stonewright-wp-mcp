@@ -55,6 +55,9 @@ agent switches to a specialist profile.
 - For repeated WP-CLI writes or non-ASCII values, use
   `stonewright-wp-cli-batch-run` with JSON argv arrays instead of large inline
   PowerShell/Node scripts.
+- For long WP-CLI imports, plugin operations, cache rebuilds, or large content
+  batches, use `stonewright-wp-cli-job-start` and poll with
+  `stonewright-wp-cli-job-status` instead of blocking one MCP request.
 - Do not run `wp ...` in a normal shell as Stonewright recovery, and do not use
   another adapter's arbitrary PHP execution to replace Stonewright tools.
 - Never use `wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, or

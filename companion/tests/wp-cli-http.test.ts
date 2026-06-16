@@ -58,4 +58,20 @@ describe('WP-CLI HTTP endpoints', () => {
 		const body = await res.json() as Record<string, unknown>;
 		expect(String(body['error'])).toMatch(/blocked/i);
 	});
+
+	it('rejects blocked WP-CLI commands in background jobs before queueing', async () => {
+		const res = await fetch(`${baseUrl}/wp-cli/job-start`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${bearer}`,
+				Origin: origin,
+			},
+			body: JSON.stringify({ command: ['eval', 'echo 1;'] }),
+		});
+
+		expect(res.status).toBe(400);
+		const body = await res.json() as Record<string, unknown>;
+		expect(String(body['error'])).toMatch(/blocked/i);
+	});
 });

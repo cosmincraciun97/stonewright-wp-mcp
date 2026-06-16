@@ -150,6 +150,9 @@ idempotent — if the phar already exists it is reused without re-downloading.
 - `stonewright-wp-cli-status` — check availability and show diagnostic info
 - `stonewright-wp-cli-discover` — summarize installed WP-CLI command metadata; use `commandFilter` for ACF/CPT UI/plugin command paths
 - `stonewright-wp-cli-run` — run a tokenized WP-CLI command (no shell)
+- `stonewright-wp-cli-batch-run` — run repeated tokenized commands in one request
+- `stonewright-wp-cli-job-start` — start long guarded WP-CLI work without blocking the MCP request
+- `stonewright-wp-cli-job-status` — poll a WP-CLI background job
 - `stonewright-wp-cli-install` — manually trigger phar download into cache
 
 - `stonewright-setup-profile` - one-call setup diagnostics and copy-paste MCP config
@@ -169,7 +172,9 @@ Alias names (`companion_wp_cli_*`) are also registered for backward compatibilit
 Batch aliases (`stonewright-wp-cli-batch-run` and
 `companion_wp_cli_batch_run`) run multiple tokenized WP-CLI commands in one
 UTF-8 JSON request. Use them for repeated post/meta/term/media/option writes
-instead of large inline PowerShell/Node scripts.
+instead of large inline PowerShell/Node scripts. Use background jobs only for
+long imports, cache rebuilds, plugin operations, or large batches where a
+single MCP request would otherwise block.
 
 ### HTTP endpoints (when `PORT` is set)
 

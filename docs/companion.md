@@ -80,6 +80,8 @@ Then use Stonewright abilities:
 - `stonewright-wp-cli-discover`
 - `stonewright-wp-cli-run`
 - `stonewright-wp-cli-batch-run`
+- `stonewright-wp-cli-job-start`
+- `stonewright-wp-cli-job-status`
 
 If the HTTP bridge is not running, use the direct companion MCP tools instead:
 
@@ -97,6 +99,9 @@ Use `stonewright-wp-cli-batch-run` for repeated post/meta/term/media/option
 operations, especially when values contain non-ASCII text. It accepts JSON
 arrays of argv tokens, preserves UTF-8, and avoids large inline PowerShell or
 Node scripts where shell encoding can corrupt diacritics.
+Use `stonewright-wp-cli-job-start` plus `stonewright-wp-cli-job-status` only
+for long imports, cache rebuilds, plugin operations, or large batches that
+should not block a single MCP request.
 
 Call `stonewright-setup-profile` once after connecting. Its `first_calls` and
 `tool_visibility_checks` fields show the compact startup path: bootstrap,

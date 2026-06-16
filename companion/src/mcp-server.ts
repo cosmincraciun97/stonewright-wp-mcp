@@ -9,12 +9,16 @@ import { z } from 'zod';
 import {
 	runWpCli,
 	runWpCliBatch,
+	getWpCliJob,
+	startWpCliJob,
 	wpCliDiscover,
 	wpCliInstall,
 	wpCliStatus,
 	type WpCliDiscoverInput,
 	type WpCliBatchRunInput,
 	type WpCliInstallInput,
+	type WpCliJobGetInput,
+	type WpCliJobStartInput,
 	type WpCliRunInput,
 } from './wp-cli.js';
 import { AGENT_DO_NOT_USE, agentUseInstead, buildSetupProfile } from './setup-profile.js';
@@ -66,6 +70,8 @@ const LOCAL_RECOVERY_TOOL_NAMES = [
 	'stonewright-wp-cli-discover',
 	'stonewright-wp-cli-run',
 	'stonewright-wp-cli-batch-run',
+	'stonewright-wp-cli-job-start',
+	'stonewright-wp-cli-job-status',
 	'stonewright-wp-cli-install',
 ] as const;
 
@@ -339,6 +345,34 @@ function registerWpCliTools(
 	if (profile === 'low-tools') {
 		return;
 	}
+
+	server.registerTool(
+		'stonewright-wp-cli-job-start',
+		{
+			description: 'Start a guarded WP-CLI command or batch as an in-process background job. Use for long plugin, import, cache, media, or content operations so the MCP request returns immediately.',
+			inputSchema: {
+				...commonInput,
+				command: z.array(z.string()).min(1).optional(),
+				commands: z.array(z.array(z.string()).min(1)).min(1).max(100).optional(),
+				parseJson: z.boolean().optional(),
+				stopOnError: z.boolean().optional(),
+				responseMode: z.enum(['full', 'summary']).optional(),
+			},
+		},
+		async (input) => toolResponse(startWpCliJob(toWpCliInput(input) as WpCliJobStartInput, undefined, env)),
+	);
+
+	server.registerTool(
+		'stonewright-wp-cli-job-status',
+		{
+			description: 'Poll a Stonewright companion WP-CLI background job by jobId and return compact status plus result when complete.',
+			inputSchema: {
+				jobId: z.string().optional(),
+				job_id: z.string().optional(),
+			},
+		},
+		async (input) => toolResponse(getWpCliJob(input as WpCliJobGetInput)),
+	);
 
 	for (const name of localAliases(profile, 'stonewright-wp-cli-install', 'companion_wp_cli_install')) {
 		server.registerTool(

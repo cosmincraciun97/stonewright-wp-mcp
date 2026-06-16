@@ -41,6 +41,8 @@ describe('buildSetupProfile', () => {
 			'stonewright-wp-cli-run',
 			'stonewright-wp-cli-batch-run',
 			'stonewright-wp-cli-install',
+			'stonewright-wp-cli-job-start',
+			'stonewright-wp-cli-job-status',
 		]);
 		expect(profile.notes.join('\n')).toContain('Use stonewright-wordpress-mcp-status if proxied WordPress tools are missing');
 		expect(profile.notes.join('\n')).toContain('Verify the MCP tool list includes stonewright-context-bootstrap before starting WordPress work');
@@ -57,6 +59,8 @@ describe('buildSetupProfile', () => {
 			'stonewright-wp-cli-discover',
 			'stonewright-wp-cli-run',
 			'stonewright-wp-cli-batch-run',
+			'stonewright-wp-cli-job-start',
+			'stonewright-wp-cli-job-status',
 			'stonewright-wp-cli-install',
 		]));
 		expect(profile.checks).toContainEqual(

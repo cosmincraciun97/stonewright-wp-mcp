@@ -355,6 +355,8 @@ final class ToolProfile extends AbilityKernel {
 					'stonewright/wp-cli-discover',
 					'stonewright/wp-cli-batch-run',
 					'stonewright/wp-cli-run',
+					'stonewright/wp-cli-job-start',
+					'stonewright/wp-cli-job-status',
 				]
 			),
 			'gutenberg' => array_merge(
@@ -384,6 +386,8 @@ final class ToolProfile extends AbilityKernel {
 					'stonewright/wp-cli-discover',
 					'stonewright/wp-cli-batch-run',
 					'stonewright/wp-cli-run',
+					'stonewright/wp-cli-job-start',
+					'stonewright/wp-cli-job-status',
 				]
 			),
 			'site-admin' => array_merge(
@@ -432,6 +436,8 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/elementor-v3-batch-mutate' => 'Apply grouped surgical Elementor mutations after screenshot review.',
 			'stonewright/content-bulk-upsert-posts' => 'Create or update repeated posts, CPT rows, and meta values in one call.',
 			'stonewright/wp-cli-batch-run' => 'Run repeated guarded WP-CLI argv commands with compact output.',
+			'stonewright/wp-cli-job-start' => 'Start long guarded WP-CLI command or batch work without blocking the MCP request.',
+			'stonewright/wp-cli-job-status' => 'Poll a WP-CLI background job until the compact result is ready.',
 			default => 'Use this tool only when it is needed by the selected profile step.',
 		};
 	}
@@ -461,6 +467,7 @@ final class ToolProfile extends AbilityKernel {
 		if ( 'content-model' === $profile ) {
 			$rules[] = 'Discover plugin command groups once, then batch repeated CPT, field, post, meta, term, option, cache, and rewrite work.';
 			$rules[] = 'Use content-bulk-upsert-posts for repeated rows after the post type exists.';
+			$rules[] = 'Use WP-CLI background jobs for long imports, cache rebuilds, or plugin-maintenance commands.';
 		}
 
 		if ( 'gutenberg' === $profile ) {
@@ -478,6 +485,7 @@ final class ToolProfile extends AbilityKernel {
 			'Use profile tools before full ability discovery when the client has a strict tool cap.',
 			'Use low-tools for Antigravity, Gemini API, or other strict tool-cap clients before switching to a specialist profile.',
 			'Use responseMode=summary for WP-CLI and batch tools unless full JSON is needed for the next write.',
+			'Use WP-CLI background jobs only for long-running guarded commands; keep short commands synchronous.',
 			'Read schemas for only the widgets or block types used in the current section batch.',
 			'Prefer dry_run diagnostics and one section write over many exploratory writes.',
 			'Use system-abilities-list only when the selected profile is missing a needed capability.',

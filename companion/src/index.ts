@@ -32,11 +32,15 @@ import { APP_VERSION } from './version.js';
 import {
 	runWpCli,
 	runWpCliBatch,
+	getWpCliJob,
+	startWpCliJob,
 	wpCliDiscover,
 	wpCliStatus,
 	wpCliEnsureReady,
 	type WpCliBatchRunInput,
 	type WpCliDiscoverInput,
+	type WpCliJobGetInput,
+	type WpCliJobStartInput,
 	type WpCliRunInput,
 } from './wp-cli.js';
 
@@ -120,7 +124,14 @@ export async function startHttp(port: number): Promise<StartedHttpServer> {
 		const allowed = await httpGuard(req, res);
 		if (!allowed) return; // guard already wrote the response
 
-		if (url === '/wp-cli/status' || url === '/wp-cli/discover' || url === '/wp-cli/run' || url === '/wp-cli/batch') {
+		if (
+			url === '/wp-cli/status'
+			|| url === '/wp-cli/discover'
+			|| url === '/wp-cli/run'
+			|| url === '/wp-cli/batch'
+			|| url === '/wp-cli/job-start'
+			|| url === '/wp-cli/job-status'
+		) {
 			if (req.method !== 'POST') {
 				writeJson(res, 405, { error: 'Method not allowed' });
 				return;
@@ -135,9 +146,13 @@ export async function startHttp(port: number): Promise<StartedHttpServer> {
 					? await wpCliStatus(input as Partial<WpCliRunInput>)
 					: url === '/wp-cli/discover'
 						? await wpCliDiscover(input as WpCliDiscoverInput)
-						: url === '/wp-cli/batch'
-							? await runWpCliBatch(input as unknown as WpCliBatchRunInput)
-							: await runWpCli(input as unknown as WpCliRunInput);
+						: url === '/wp-cli/job-start'
+							? startWpCliJob(input as WpCliJobStartInput)
+							: url === '/wp-cli/job-status'
+								? getWpCliJob(input as WpCliJobGetInput)
+								: url === '/wp-cli/batch'
+									? await runWpCliBatch(input as unknown as WpCliBatchRunInput)
+									: await runWpCli(input as unknown as WpCliRunInput);
 				writeJson(res, 200, result);
 			} catch (err) {
 				writeJson(res, 400, { error: err instanceof Error ? err.message : String(err) });

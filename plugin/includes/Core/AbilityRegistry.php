@@ -118,6 +118,8 @@ use Stonewright\WpMcp\Abilities\ThemeBuilder\ListTemplates as ThemeBuilderListTe
 use Stonewright\WpMcp\Abilities\ThemeBuilder\SetConditions as ThemeBuilderSetConditions;
 use Stonewright\WpMcp\Abilities\WpCli\BatchRun as WpCliBatchRun;
 use Stonewright\WpMcp\Abilities\WpCli\Discover as WpCliDiscover;
+use Stonewright\WpMcp\Abilities\WpCli\JobStart as WpCliJobStart;
+use Stonewright\WpMcp\Abilities\WpCli\JobStatus as WpCliJobStatus;
 use Stonewright\WpMcp\Abilities\WpCli\Run as WpCliRun;
 use Stonewright\WpMcp\Abilities\WpCli\Status as WpCliStatus;
 use Stonewright\WpMcp\Abilities\System\InstructionsGet;
@@ -300,6 +302,8 @@ final class AbilityRegistry {
 			WpCliDiscover::class,
 			WpCliRun::class,
 			WpCliBatchRun::class,
+			WpCliJobStart::class,
+			WpCliJobStatus::class,
 
 			// Skills.
 			SkillsList::class,

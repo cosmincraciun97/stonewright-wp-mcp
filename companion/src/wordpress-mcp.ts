@@ -76,6 +76,8 @@ const COMPANION_OWNED_TOOL_NAMES = new Set([
 	'stonewright-wp-cli-discover',
 	'stonewright-wp-cli-run',
 	'stonewright-wp-cli-batch-run',
+	'stonewright-wp-cli-job-start',
+	'stonewright-wp-cli-job-status',
 	'stonewright-wp-cli-install',
 	'stonewright-wordpress-mcp-status',
 ]);

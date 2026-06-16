@@ -46,7 +46,7 @@ Run from `plugin/` unless noted.
 
 - [ ] Call `stonewright-system-abilities-list`.
 - [ ] Confirm there are no `stonewright/qa-*` tools and no Figma tools.
-- [ ] Confirm the three WP-CLI tools are present.
+- [ ] Confirm the WP-CLI status, discover, run, batch, job-start, and job-status tools are present.
 
 ### 4. Gutenberg Write
 

@@ -42,10 +42,14 @@ export const AGENT_USE_INSTEAD = [
 	'stonewright-wp-cli-discover',
 	'stonewright-wp-cli-run',
 	'stonewright-wp-cli-batch-run',
+	'stonewright-wp-cli-job-start',
+	'stonewright-wp-cli-job-status',
 	'stonewright-wp-cli-install',
 ];
 
-const LOW_TOOLS_AGENT_USE_INSTEAD = AGENT_USE_INSTEAD.filter((name) => name !== 'stonewright-wp-cli-install');
+const LOW_TOOLS_AGENT_USE_INSTEAD = AGENT_USE_INSTEAD.filter(
+	(name) => !['stonewright-wp-cli-install', 'stonewright-wp-cli-job-start', 'stonewright-wp-cli-job-status'].includes(name),
+);
 const LOW_TOOL_PROFILE_ALIASES = new Set(['antigravity', 'gemini', 'low', 'low-tools', 'minimal', 'strict', 'tiny']);
 
 export function buildSetupProfile(
@@ -159,6 +163,8 @@ function toolVisibilityChecks(env: NodeJS.ProcessEnv): string[] {
 
 	if (!isLowToolsProfile(env)) {
 		tools.push('stonewright-wp-cli-install');
+		tools.push('stonewright-wp-cli-job-start');
+		tools.push('stonewright-wp-cli-job-status');
 	}
 
 	return tools;
