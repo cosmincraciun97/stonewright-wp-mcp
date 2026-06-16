@@ -56,6 +56,7 @@ final class AgentInstructions {
 			'- Before Elementor implementation, call stonewright/elementor-knowledge-search or stonewright/elementor-describe-widget when widget behavior, settings, Theme Builder, editor V3/V4 behavior, or documentation freshness is uncertain.',
 			'- For every Elementor widget you intend to write, call stonewright/elementor-v3-get-widget-schema for every widget and inspect controls grouped by Content, Style, and Advanced before setting values.',
 			'- Before choosing a widget from a prompt, design reference, image, or task, call stonewright/widget-intent-resolve so Stonewright selects the native Elementor intent instead of the model guessing.',
+			'- Before planning a design-derived Elementor build, call stonewright/design-implementation-contract and follow its global_styles_first, section_batch, native_widget_map, token_efficiency, and hard_failures contract.',
 			'- Before writing Elementor elements, call stonewright/elementor-widget-implementation-guide with the task, candidate widgets, and design context.',
 			'- Use real Elementor widgets for the detected intent: nav-menu for navigation, countdown for countdowns, social-icons for social rows, icon-list for footer/link/bullet lists. Do not simulate these with headings, buttons, or arbitrary text blocks.',
 			'- Do not use Elementor HTML widgets unless the user explicitly asks for HTML and the ability call passes allow_html_widget=true. Use Elementor V3 containers and native widgets first.',

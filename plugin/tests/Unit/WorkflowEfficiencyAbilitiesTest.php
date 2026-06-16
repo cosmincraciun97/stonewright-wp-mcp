@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
 use Stonewright\WpMcp\Abilities\ElementorV3\ApplyBundle;
 use Stonewright\WpMcp\Abilities\ElementorV3\CapabilitiesSummary;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetWidgetSchema;
@@ -50,6 +51,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 
 		self::assertContains( 'stonewright/workflow-preflight', $names );
 		self::assertContains( 'stonewright/elementor-v3-capabilities-summary', $names );
+		self::assertContains( 'stonewright/design-implementation-contract', $names );
 		self::assertContains( 'stonewright/media-upload-batch', $names );
 		self::assertContains( 'stonewright/elementor-v3-apply-bundle', $names );
 	}
@@ -162,6 +164,16 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'Never write more than two visual page sections in a single implementation batch.', $result['fast_path']['quality_gates'] );
 		self::assertContains( 'For design-derived visual specs, set style_policy=strict and include style_source or style._source for any measured border, radius, shadow, or filter values; do not invent card chrome.', $result['fast_path']['quality_gates'] );
 		self::assertContains( 'Before uploading assets, audit existing media and reuse matching filenames, alt text, dimensions, and crops.', $result['fast_path']['quality_gates'] );
+		self::assertArrayHasKey( 'design_implementation_contract', $result['fast_path'] );
+		self::assertSame( 'global_styles_first', $result['fast_path']['design_implementation_contract']['sequence'][0] );
+		self::assertSame( 1, $result['fast_path']['design_implementation_contract']['section_batch']['default_sections_per_pass'] );
+		self::assertSame( 2, $result['fast_path']['design_implementation_contract']['section_batch']['max_sections_per_pass'] );
+		self::assertContains( 'desktop_screenshot_same_viewport', $result['fast_path']['design_implementation_contract']['section_batch']['required_evidence_before_next_batch'] );
+		self::assertSame( 'stonewright/elementor-v3-update-kit-colors', $result['fast_path']['design_implementation_contract']['global_styles_first']['tools'][0] );
+		self::assertSame( 'image-gallery', $result['fast_path']['design_implementation_contract']['native_widget_map']['gallery']);
+		self::assertSame( 'loop-grid', $result['fast_path']['design_implementation_contract']['native_widget_map']['dynamic_cards']);
+		self::assertContains( 'invented_border_radius_shadow_filter', $result['fast_path']['design_implementation_contract']['hard_failures'] );
+		self::assertSame( 'summary', $result['fast_path']['design_implementation_contract']['token_efficiency']['wp_cli_response_mode'] );
 
 		foreach ( $result['fast_path']['call_sequence'] as $call ) {
 			self::assertIsArray( $call );
@@ -224,6 +236,38 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertSame( 'stonewright/elementor-v3-batch-mutate', $result['mutation_batch_tool'] );
 		self::assertSame( 'stonewright-wp-cli-batch-run', $result['wp_cli_batch_tool'] );
 		self::assertSame( 'summary', $result['default_response_mode'] );
+		self::assertArrayHasKey( 'design_implementation_contract', $result );
+		self::assertSame( 'global_styles_first', $result['design_implementation_contract']['sequence'][0] );
+		self::assertContains( 'no_full_page_screenshot_backgrounds', $result['design_implementation_contract']['hard_failures'] );
+	}
+
+	public function test_design_implementation_contract_is_compact_and_native_widget_first(): void {
+		$result = ( new ImplementationContract() )->execute( [] );
+
+		self::assertIsArray( $result );
+		self::assertSame( '1.0.0', $result['version'] );
+		self::assertSame(
+			[
+				'global_styles_first',
+				'section_reference_tokens',
+				'native_widget_map',
+				'one_section_build',
+				'screenshot_delta',
+				'next_section_or_surgical_batch',
+			],
+			$result['sequence']
+		);
+		self::assertSame( 1, $result['section_batch']['default_sections_per_pass'] );
+		self::assertSame( 2, $result['section_batch']['max_sections_per_pass'] );
+		self::assertSame( 'stonewright/elementor-v3-build-page-from-spec', $result['section_batch']['primary_write_tool'] );
+		self::assertSame( 'stonewright/elementor-v3-batch-mutate', $result['section_batch']['surgical_fix_tool'] );
+		self::assertSame( 'image-gallery', $result['native_widget_map']['gallery'] );
+		self::assertSame( 'countdown', $result['native_widget_map']['countdown'] );
+		self::assertSame( 'loop-grid', $result['native_widget_map']['dynamic_cards'] );
+		self::assertContains( 'invented_border_radius_shadow_filter', $result['hard_failures'] );
+		self::assertContains( 'html_widget_without_explicit_allow_html_widget', $result['hard_failures'] );
+		self::assertSame( 'summary', $result['token_efficiency']['wp_cli_response_mode'] );
+		self::assertContains( 'stonewright/wp-cli-batch-run', $result['token_efficiency']['batch_tools'] );
 	}
 
 	public function test_widget_schema_groups_controls_by_editor_tab_and_adds_advanced_guidance(): void {

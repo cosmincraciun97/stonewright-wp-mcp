@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\System;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
 use Stonewright\WpMcp\Abilities\ElementorV3\CapabilitiesSummary;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Context\ContextBuilder;
@@ -115,15 +116,16 @@ final class WorkflowPreflight extends AbilityKernel {
 			],
 			'fast_path'     => [
 				'task_profile'          => $task_profile,
-				'recommended_tools'     => $recommended,
-				'recommended_mcp_tools' => array_map( [ self::class, 'mcp_tool_name' ], $recommended ),
-				'call_sequence'         => self::call_sequence( $task, $task_profile ),
-				'specializations'       => $specializations,
-				'visual_build_gate'     => $context['visual_build_gate'] ?? [],
-				'visual_setup'          => self::visual_setup( $task_profile ),
-				'batching_rules'        => self::batching_rules( $task_profile ),
-				'quality_gates'         => self::quality_gates( $task_profile ),
-				'external_mcps'         => [
+				'recommended_tools'              => $recommended,
+				'recommended_mcp_tools'          => array_map( [ self::class, 'mcp_tool_name' ], $recommended ),
+				'call_sequence'                  => self::call_sequence( $task, $task_profile ),
+				'design_implementation_contract' => ImplementationContract::contract(),
+				'specializations'                => $specializations,
+				'visual_build_gate'              => $context['visual_build_gate'] ?? [],
+				'visual_setup'                   => self::visual_setup( $task_profile ),
+				'batching_rules'                 => self::batching_rules( $task_profile ),
+				'quality_gates'                  => self::quality_gates( $task_profile ),
+				'external_mcps'                  => [
 					'Use external Figma MCP for design extraction.',
 					'Use external Playwright/browser MCP for screenshots and visual QA.',
 				],
@@ -207,6 +209,7 @@ final class WorkflowPreflight extends AbilityKernel {
 		$tools = [ 'stonewright/workflow-preflight' ];
 
 		if ( 'elementor' === $profile['surface'] ) {
+			$tools[] = 'stonewright/design-implementation-contract';
 			$tools[] = 'stonewright/widget-intent-resolve';
 			$tools[] = 'stonewright/elementor-widget-implementation-guide';
 			$tools[] = 'stonewright/elementor-v3-capabilities-summary';
@@ -349,6 +352,11 @@ final class WorkflowPreflight extends AbilityKernel {
 		];
 
 		if ( 'elementor' === $profile['surface'] ) {
+			$out[] = self::call_step(
+				'stonewright/design-implementation-contract',
+				'Load the compact section-batch, global-style, native-widget, and token-efficiency contract before planning writes.',
+				[]
+			);
 			$out[] = self::call_step(
 				'stonewright/widget-intent-resolve',
 				'Map design intent to native Elementor widgets before writing settings.',

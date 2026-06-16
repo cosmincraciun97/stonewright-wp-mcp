@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Context;
 
+use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
 use Stonewright\WpMcp\Core\AgentInstructions;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Skills\Skills;
@@ -50,10 +51,11 @@ final class ContextBuilder {
 			),
 			'memory_entries'           => $matched_memory,
 			'specializations'          => SpecializationCatalog::match( $task, $surface ),
-			'recommended_external_mcps' => self::recommended_external_mcps( $is_visual ),
-			'visual_quality_contract'  => $visual_quality_contract,
-			'visual_build_gate'        => $visual_build_gate,
-			'required_followups'       => self::required_followups( $surface, $intent, $is_visual ),
+			'recommended_external_mcps'      => self::recommended_external_mcps( $is_visual ),
+			'visual_quality_contract'        => $visual_quality_contract,
+			'visual_build_gate'              => $visual_build_gate,
+			'design_implementation_contract' => ImplementationContract::contract(),
+			'required_followups'             => self::required_followups( $surface, $intent, $is_visual ),
 		];
 	}
 

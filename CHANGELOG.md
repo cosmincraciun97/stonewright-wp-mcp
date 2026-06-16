@@ -7,6 +7,23 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.19] - 2026-06-16
+
+### Added
+
+- Added `stonewright/design-implementation-contract`, a compact read-only MCP
+  tool that gives agents a global-styles-first, section-batch, native-widget,
+  token-efficiency, and hard-failure contract for design implementation work.
+- Added the design implementation contract to context bootstrap, workflow
+  preflight, Elementor capabilities summary, default agent instructions, and
+  the ability truth matrix so new MCP sessions receive the same fast-path
+  guidance before writes.
+
+### Changed
+
+- Tightened strict DesignSpec style fidelity checks so radius aliases are
+  treated as decorative styles and require measured provenance.
+
 ## [1.0.0-alpha.18] - 2026-06-16
 
 ### Added
@@ -323,6 +340,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.19]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.19
 [1.0.0-alpha.18]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.18
 [1.0.0-alpha.17]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.17
 [1.0.0-alpha.16]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.16

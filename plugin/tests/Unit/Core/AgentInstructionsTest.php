@@ -30,6 +30,7 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'stonewright/elementor-knowledge-search', $instructions );
 		$this->assertStringContainsString( 'stonewright/elementor-describe-widget', $instructions );
 		$this->assertStringContainsString( 'stonewright/widget-intent-resolve', $instructions );
+		$this->assertStringContainsString( 'stonewright/design-implementation-contract', $instructions );
 		$this->assertStringContainsString( 'stonewright/elementor-widget-implementation-guide', $instructions );
 		$this->assertStringContainsString( 'stonewright/wp-cli-status', $instructions );
 		$this->assertStringContainsString( 'stonewright/wp-cli-discover', $instructions );

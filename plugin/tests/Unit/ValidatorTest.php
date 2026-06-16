@@ -68,6 +68,37 @@ final class ValidatorTest extends TestCase {
 		$this->assertSame( [ 'sections', 0, 'blocks', 0, 'style', 'border_radius' ], $data['errors'][0]['path'] ?? [] );
 	}
 
+	public function test_strict_style_policy_does_not_allow_section_style_escape_hatch(): void {
+		$spec = self::minimal_valid_spec();
+		$spec['style_policy'] = 'strict';
+		$spec['sections'][0]['style'] = [
+			'border_radius' => '12px',
+		];
+
+		$result = Validator::validate( $spec );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$data = $result->get_error_data();
+		$this->assertIsArray( $data );
+		$this->assertNotSame( [], $data['errors'] ?? [] );
+	}
+
+	public function test_strict_style_policy_rejects_unproven_radius_alias(): void {
+		$spec = self::minimal_valid_spec();
+		$spec['style_policy'] = 'strict';
+		$spec['sections'][0]['blocks'][0]['style'] = [
+			'radius' => '10px',
+		];
+
+		$result = Validator::validate( $spec );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$data = $result->get_error_data();
+		$this->assertIsArray( $data );
+		$this->assertSame( 'style_fidelity', $data['errors'][0]['keyword'] ?? '' );
+		$this->assertSame( [ 'sections', 0, 'blocks', 0, 'style', 'radius' ], $data['errors'][0]['path'] ?? [] );
+	}
+
 	public function test_strict_style_policy_allows_design_sourced_decorative_styles(): void {
 		$spec = self::minimal_valid_spec();
 		$spec['style_policy'] = 'strict';

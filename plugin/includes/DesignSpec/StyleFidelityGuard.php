@@ -114,7 +114,7 @@ final class StyleFidelityGuard {
 
 	private static function is_decorative_key( string $key ): bool {
 		$normalised = str_replace( [ '-', '_' ], '', strtolower( $key ) );
-		if ( str_contains( $normalised, 'border' ) || str_contains( $normalised, 'shadow' ) ) {
+		if ( str_contains( $normalised, 'border' ) || str_contains( $normalised, 'radius' ) || str_contains( $normalised, 'shadow' ) ) {
 			return true;
 		}
 

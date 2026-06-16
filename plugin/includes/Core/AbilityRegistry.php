@@ -19,6 +19,7 @@ use Stonewright\WpMcp\Abilities\Design\ApplyToPost;
 use Stonewright\WpMcp\Abilities\Design\BuildSpec;
 use Stonewright\WpMcp\Abilities\Design\ChooseRenderer;
 use Stonewright\WpMcp\Abilities\Design\ExtractTokens;
+use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
 use Stonewright\WpMcp\Abilities\Design\ImportImage;
 use Stonewright\WpMcp\Abilities\Design\NormalizeAssets;
 use Stonewright\WpMcp\Abilities\Design\PreviewRender;
@@ -256,6 +257,7 @@ final class AbilityRegistry {
 
 			// Design.
 			ValidateSpec::class,
+			ImplementationContract::class,
 			ExtractTokens::class,
 			BuildSpec::class,
 			NormalizeAssets::class,

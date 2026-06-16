@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
 use Stonewright\WpMcp\Elementor\WidgetRegistry\EditorTabKnowledge;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -34,19 +35,20 @@ final class CapabilitiesSummary extends AbilityKernel {
 		return [
 			'type'       => 'object',
 			'properties' => [
-				'primary_write_tool' => [ 'type' => 'string' ],
-				'batch_write_tool'   => [ 'type' => 'string' ],
-				'mutation_batch_tool'=> [ 'type' => 'string' ],
-				'media_batch_tool'   => [ 'type' => 'string' ],
-				'content_batch_tool' => [ 'type' => 'string' ],
-				'wp_cli_batch_tool'  => [ 'type' => 'string' ],
-				'default_response_mode' => [ 'type' => 'string' ],
-				'status'             => [ 'type' => 'object' ],
-				'native_widgets'     => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
-				'responsive_controls'=> [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
-				'advanced_controls'  => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
-				'renderer_limits'    => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
-				'first_pass_rules'   => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'primary_write_tool'             => [ 'type' => 'string' ],
+				'batch_write_tool'               => [ 'type' => 'string' ],
+				'mutation_batch_tool'            => [ 'type' => 'string' ],
+				'media_batch_tool'               => [ 'type' => 'string' ],
+				'content_batch_tool'             => [ 'type' => 'string' ],
+				'wp_cli_batch_tool'              => [ 'type' => 'string' ],
+				'default_response_mode'          => [ 'type' => 'string' ],
+				'status'                         => [ 'type' => 'object' ],
+				'design_implementation_contract' => [ 'type' => 'object' ],
+				'native_widgets'                 => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'responsive_controls'            => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'advanced_controls'              => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'renderer_limits'                => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'first_pass_rules'               => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 			],
 			'required'   => [ 'primary_write_tool', 'renderer_limits', 'first_pass_rules' ],
 		];
@@ -63,14 +65,15 @@ final class CapabilitiesSummary extends AbilityKernel {
 		}
 
 		return [
-			'primary_write_tool'  => 'stonewright/elementor-v3-build-page-from-spec',
-			'batch_write_tool'    => 'stonewright/elementor-v3-apply-bundle',
-			'mutation_batch_tool' => 'stonewright/elementor-v3-batch-mutate',
-			'media_batch_tool'    => 'stonewright/media-upload-batch',
-			'content_batch_tool'  => 'stonewright/content-bulk-upsert-posts',
-			'wp_cli_batch_tool'   => 'stonewright-wp-cli-batch-run',
-			'default_response_mode' => 'summary',
-			'status'              => [
+			'primary_write_tool'             => 'stonewright/elementor-v3-build-page-from-spec',
+			'batch_write_tool'               => 'stonewright/elementor-v3-apply-bundle',
+			'mutation_batch_tool'            => 'stonewright/elementor-v3-batch-mutate',
+			'media_batch_tool'               => 'stonewright/media-upload-batch',
+			'content_batch_tool'             => 'stonewright/content-bulk-upsert-posts',
+			'wp_cli_batch_tool'              => 'stonewright-wp-cli-batch-run',
+			'default_response_mode'          => 'summary',
+			'design_implementation_contract' => ImplementationContract::contract(),
+			'status'                         => [
 				'installed'                => (bool) ( $status['installed'] ?? false ),
 				'active'                   => (bool) ( $status['active'] ?? false ),
 				'version'                  => (string) ( $status['version'] ?? '' ),

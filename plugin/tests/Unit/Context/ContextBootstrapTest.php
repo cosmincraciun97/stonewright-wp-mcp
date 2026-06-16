@@ -78,6 +78,10 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertContains( 'elementor', $result['visual_quality_contract']['playwright_mcp_gate']['required_surfaces'] );
 		self::assertContains( 'figma', $result['visual_quality_contract']['playwright_mcp_gate']['task_keywords'] );
 		self::assertIsArray( $result['visual_build_gate'] );
+		self::assertArrayHasKey( 'design_implementation_contract', $result );
+		self::assertSame( 'global_styles_first', $result['design_implementation_contract']['sequence'][0] );
+		self::assertSame( 'loop-grid', $result['design_implementation_contract']['native_widget_map']['dynamic_cards'] );
+		self::assertContains( 'invented_border_radius_shadow_filter', $result['design_implementation_contract']['hard_failures'] );
 		self::assertTrue( $result['visual_build_gate']['blocks_completion_without_evidence'] );
 		self::assertContains( 'Call stonewright-context-bootstrap before Figma, browser, or write tools unless stonewright-workflow-preflight is the explicit bootstrap fast path.', $result['visual_build_gate']['required_before_discovery'] );
 		self::assertContains( 'figma_token_table', $result['visual_build_gate']['evidence_required_before_first_write'] );
