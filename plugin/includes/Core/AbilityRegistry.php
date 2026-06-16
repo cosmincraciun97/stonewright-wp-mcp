@@ -660,6 +660,7 @@ final class AbilityRegistry {
 			// Bootstrap, safety, and site context.
 			'stonewright/context-bootstrap',
 			'stonewright/security-issue-confirmation-token',
+			'stonewright/security-create-one-time-link',
 			'stonewright/ping',
 			'stonewright/site-info',
 			'stonewright/site-capabilities',
@@ -678,7 +679,6 @@ final class AbilityRegistry {
 			'stonewright/content-create-page',
 			'stonewright/content-get-page',
 			'stonewright/content-update-page',
-			'stonewright/content-bulk-create',
 			'stonewright/content-bulk-upsert-posts',
 			'stonewright/media-upload',
 			'stonewright/media-upload-batch',

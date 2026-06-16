@@ -284,6 +284,7 @@ final class ToolProfile extends AbilityKernel {
 				[
 					'stonewright/site-info',
 					'stonewright/site-plugins-list',
+					'stonewright/security-create-one-time-link',
 					'stonewright/design-implementation-contract',
 					'stonewright/widget-intent-resolve',
 					'stonewright/elementor-widget-implementation-guide',
@@ -363,6 +364,7 @@ final class ToolProfile extends AbilityKernel {
 					'stonewright/site-health',
 					'stonewright/site-plugins-list',
 					'stonewright/site-theme',
+					'stonewright/security-create-one-time-link',
 					'stonewright/system-abilities-list',
 					'stonewright/menu-list',
 					'stonewright/wp-cli-status',
@@ -387,6 +389,7 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/context-bootstrap' => 'Issue the task token and load live site instructions, memory, skills, and visual gates.',
 			'stonewright/workflow-preflight' => 'Choose the task-aware fast path and first call sequence.',
 			'stonewright/tool-profile' => 'Keep the MCP tool surface compact for the current model, client, and task.',
+			'stonewright/security-create-one-time-link' => 'Create a short-lived wp-admin login URL for external browser MCP verification when needed.',
 			'stonewright/design-implementation-contract' => 'Load global-style, native-widget, section-batch, and verification rules.',
 			'stonewright/widget-intent-resolve' => 'Map visual intent to native Elementor widgets before writing controls.',
 			'stonewright/elementor-widget-implementation-guide' => 'Get Content, Style, and Advanced controls before Elementor writes.',

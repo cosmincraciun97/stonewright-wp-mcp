@@ -7,6 +7,17 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.30] - 2026-06-16
+
+### Changed
+
+- Essential tool profiles now expose `stonewright/security-create-one-time-link`
+  so browser automation can obtain a short-lived wp-admin login URL without
+  switching to full tool discovery.
+- Removed the older `content-bulk-create` helper from the essential profile in
+  favor of `content-bulk-upsert-posts`, keeping compact discovery below 60
+  tools while preserving the faster repeated-row workflow.
+
 ## [1.0.0-alpha.29] - 2026-06-16
 
 ### Changed
