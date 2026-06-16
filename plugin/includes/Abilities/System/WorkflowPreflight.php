@@ -55,6 +55,11 @@ final class WorkflowPreflight extends AbilityKernel {
 					'default'     => 'unknown',
 					'description' => 'Task intent, e.g. read, write, delete, debug.',
 				],
+				'include_design_contract' => [
+					'type'        => 'boolean',
+					'default'     => false,
+					'description' => 'Inline the full design implementation contract. Defaults to false; use design_contract_ref for compact startup.',
+				],
 			],
 		];
 	}
@@ -119,6 +124,28 @@ final class WorkflowPreflight extends AbilityKernel {
 		if ( is_wp_error( $elementor ) ) {
 			return $elementor;
 		}
+		$include_design_contract = true === ( $args['include_design_contract'] ?? false );
+		$fast_path               = [
+			'task_profile'          => $task_profile,
+			'recommended_tools'     => $recommended,
+			'recommended_mcp_tools' => array_map( [ self::class, 'mcp_tool_name' ], $recommended ),
+			'call_sequence'         => self::call_sequence( $task, $task_profile ),
+			'specializations'       => $specializations,
+			'visual_build_gate'     => $context['visual_build_gate'] ?? [],
+			'visual_setup'          => self::visual_setup( $task_profile ),
+			'batching_rules'        => self::batching_rules( $task_profile ),
+			'quality_gates'         => self::quality_gates( $task_profile ),
+			'external_mcps'         => [
+				'Use external Figma MCP for design extraction.',
+				'Use external Playwright/browser MCP for screenshots and visual QA.',
+			],
+		];
+		if ( self::should_reference_design_contract( $task_profile ) ) {
+			$fast_path['design_contract_ref'] = self::design_contract_ref( $include_design_contract );
+			if ( $include_design_contract ) {
+				$fast_path['design_implementation_contract'] = ImplementationContract::contract();
+			}
+		}
 
 		return [
 			'ok'            => true,
@@ -130,22 +157,7 @@ final class WorkflowPreflight extends AbilityKernel {
 				'Keep the Mcp-Session-Id response header on later JSON-RPC calls.',
 				'Use MCP tool names with hyphens, for example stonewright-context-bootstrap.',
 			],
-			'fast_path'     => [
-				'task_profile'          => $task_profile,
-				'recommended_tools'              => $recommended,
-				'recommended_mcp_tools'          => array_map( [ self::class, 'mcp_tool_name' ], $recommended ),
-				'call_sequence'                  => self::call_sequence( $task, $task_profile ),
-				'design_implementation_contract' => ImplementationContract::contract(),
-				'specializations'                => $specializations,
-				'visual_build_gate'              => $context['visual_build_gate'] ?? [],
-				'visual_setup'                   => self::visual_setup( $task_profile ),
-				'batching_rules'                 => self::batching_rules( $task_profile ),
-				'quality_gates'                  => self::quality_gates( $task_profile ),
-				'external_mcps'                  => [
-					'Use external Figma MCP for design extraction.',
-					'Use external Playwright/browser MCP for screenshots and visual QA.',
-				],
-			],
+			'fast_path'     => $fast_path,
 			'elementor'     => $elementor,
 			'site'          => [
 				'ability_count'        => count( AbilityRegistry::list() ),
@@ -159,6 +171,36 @@ final class WorkflowPreflight extends AbilityKernel {
 				'matched_skill_playbooks' => self::compact_playbooks( $context['matched_skill_playbooks'] ?? [] ),
 				'memory_entries'          => $context['memory_entries'] ?? [],
 				'required_followups'      => $context['required_followups'] ?? [],
+			],
+		];
+	}
+
+	/**
+	 * @param array<string, bool|string> $profile
+	 */
+	private static function should_reference_design_contract( array $profile ): bool {
+		return ! empty( $profile['needs_visual_check'] )
+			|| ( 'elementor' === $profile['surface'] && ! empty( $profile['is_write'] ) );
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private static function design_contract_ref( bool $inlined ): array {
+		$contract = ImplementationContract::contract();
+
+		return [
+			'inlined'            => $inlined,
+			'ability'            => 'stonewright/design-implementation-contract',
+			'mcp_tool'           => self::mcp_tool_name( 'stonewright/design-implementation-contract' ),
+			'load_when'          => 'Before the first visual Elementor write, or when planning native widget and global-style mapping.',
+			'sequence'           => $contract['sequence'],
+			'global_style_tools' => $contract['global_styles_first']['tools'],
+			'section_batch'      => [
+				'default_sections_per_pass' => $contract['section_batch']['default_sections_per_pass'],
+				'max_sections_per_pass'     => $contract['section_batch']['max_sections_per_pass'],
+				'primary_write_tool'        => $contract['section_batch']['primary_write_tool'],
+				'surgical_fix_tool'         => $contract['section_batch']['surgical_fix_tool'],
 			],
 		];
 	}

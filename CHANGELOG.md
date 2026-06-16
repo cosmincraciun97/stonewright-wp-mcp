@@ -7,6 +7,17 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.32] - 2026-06-16
+
+### Changed
+
+- `stonewright/workflow-preflight` now returns a compact
+  `design_contract_ref` for visual Elementor work instead of inlining the full
+  design implementation contract by default, reducing first-call payload size.
+- Added `include_design_contract=true` for agents that intentionally need the
+  full section-batch, native-widget, global-style, and verification contract in
+  the preflight response.
+
 ## [1.0.0-alpha.31] - 2026-06-16
 
 ### Changed

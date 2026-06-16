@@ -286,16 +286,17 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'Never write more than two visual page sections in a single implementation batch.', $result['fast_path']['quality_gates'] );
 		self::assertContains( 'For design-derived visual specs, set style_policy=strict and include style_source or style._source for any measured border, radius, shadow, or filter values; do not invent card chrome.', $result['fast_path']['quality_gates'] );
 		self::assertContains( 'Before uploading assets, audit existing media and reuse matching filenames, alt text, dimensions, and crops.', $result['fast_path']['quality_gates'] );
-		self::assertArrayHasKey( 'design_implementation_contract', $result['fast_path'] );
-		self::assertSame( 'global_styles_first', $result['fast_path']['design_implementation_contract']['sequence'][0] );
-		self::assertSame( 1, $result['fast_path']['design_implementation_contract']['section_batch']['default_sections_per_pass'] );
-		self::assertSame( 2, $result['fast_path']['design_implementation_contract']['section_batch']['max_sections_per_pass'] );
-		self::assertContains( 'desktop_screenshot_same_viewport', $result['fast_path']['design_implementation_contract']['section_batch']['required_evidence_before_next_batch'] );
-		self::assertSame( 'stonewright/elementor-v3-update-kit-colors', $result['fast_path']['design_implementation_contract']['global_styles_first']['tools'][0] );
-		self::assertSame( 'image-gallery', $result['fast_path']['design_implementation_contract']['native_widget_map']['gallery']);
-		self::assertSame( 'loop-grid', $result['fast_path']['design_implementation_contract']['native_widget_map']['dynamic_cards']);
-		self::assertContains( 'invented_border_radius_shadow_filter', $result['fast_path']['design_implementation_contract']['hard_failures'] );
-		self::assertSame( 'summary', $result['fast_path']['design_implementation_contract']['token_efficiency']['wp_cli_response_mode'] );
+		self::assertArrayNotHasKey( 'design_implementation_contract', $result['fast_path'] );
+		self::assertArrayHasKey( 'design_contract_ref', $result['fast_path'] );
+		self::assertFalse( $result['fast_path']['design_contract_ref']['inlined'] );
+		self::assertSame( 'stonewright/design-implementation-contract', $result['fast_path']['design_contract_ref']['ability'] );
+		self::assertSame( 'stonewright-design-implementation-contract', $result['fast_path']['design_contract_ref']['mcp_tool'] );
+		self::assertSame( 'global_styles_first', $result['fast_path']['design_contract_ref']['sequence'][0] );
+		self::assertSame( 1, $result['fast_path']['design_contract_ref']['section_batch']['default_sections_per_pass'] );
+		self::assertSame( 2, $result['fast_path']['design_contract_ref']['section_batch']['max_sections_per_pass'] );
+		self::assertSame( 'stonewright/elementor-v3-build-page-from-spec', $result['fast_path']['design_contract_ref']['section_batch']['primary_write_tool'] );
+		self::assertContains( 'stonewright/elementor-v3-update-kit-colors', $result['fast_path']['design_contract_ref']['global_style_tools'] );
+		self::assertContains( 'stonewright/elementor-v3-update-kit-typography', $result['fast_path']['design_contract_ref']['global_style_tools'] );
 
 		foreach ( $result['fast_path']['call_sequence'] as $call ) {
 			self::assertIsArray( $call );
@@ -331,6 +332,26 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright-wp-cli-discover', $tools );
 		self::assertContains( 'stonewright-wp-cli-batch-run', $tools );
 		self::assertContains( 'stonewright-security-issue-confirmation-token', $tools );
+	}
+
+	public function test_workflow_preflight_can_inline_design_contract_when_requested(): void {
+		$result = ( new WorkflowPreflight() )->execute(
+			[
+				'task'                    => 'Build a visual Elementor landing page from a design with native widgets.',
+				'surface'                 => 'elementor',
+				'intent'                  => 'write',
+				'include_design_contract' => true,
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertArrayHasKey( 'design_contract_ref', $result['fast_path'] );
+		self::assertTrue( $result['fast_path']['design_contract_ref']['inlined'] );
+		self::assertArrayHasKey( 'design_implementation_contract', $result['fast_path'] );
+		self::assertSame( 'global_styles_first', $result['fast_path']['design_implementation_contract']['sequence'][0] );
+		self::assertSame( 'image-gallery', $result['fast_path']['design_implementation_contract']['native_widget_map']['gallery'] );
+		self::assertSame( 'loop-grid', $result['fast_path']['design_implementation_contract']['native_widget_map']['dynamic_cards'] );
+		self::assertSame( 'summary', $result['fast_path']['design_implementation_contract']['token_efficiency']['wp_cli_response_mode'] );
 	}
 
 	public function test_elementor_capabilities_summary_is_compact_and_actionable(): void {
