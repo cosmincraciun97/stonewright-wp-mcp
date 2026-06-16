@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.50] - 2026-06-17
+
+### Changed
+
+- Kept direct WP-CLI background job tools visible in strict `low-tools`
+  companion profiles while preserving the under-30 client-visible startup
+  budget.
+
 ## [1.0.0-alpha.49] - 2026-06-17
 
 ### Added

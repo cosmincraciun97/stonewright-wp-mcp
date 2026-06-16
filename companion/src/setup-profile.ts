@@ -48,7 +48,7 @@ export const AGENT_USE_INSTEAD = [
 ];
 
 const LOW_TOOLS_AGENT_USE_INSTEAD = AGENT_USE_INSTEAD.filter(
-	(name) => !['stonewright-wp-cli-install', 'stonewright-wp-cli-job-start', 'stonewright-wp-cli-job-status'].includes(name),
+	(name) => name !== 'stonewright-wp-cli-install',
 );
 const LOW_TOOL_PROFILE_ALIASES = new Set(['antigravity', 'gemini', 'low', 'low-tools', 'minimal', 'strict', 'tiny']);
 
@@ -132,7 +132,7 @@ export function buildSetupProfile(
 			'Verify the MCP tool list includes stonewright-context-bootstrap before starting WordPress work.',
 			'Use stonewright-wordpress-mcp-status if proxied WordPress tools are missing; setup and WP-CLI tools remain available while fixing the connection.',
 			'STONEWRIGHT_MCP_TOOL_PROFILE=essential keeps new MCP sessions compact while preserving Stonewright fast-path tools.',
-			'Use STONEWRIGHT_MCP_TOOL_PROFILE=low-tools for Antigravity, Gemini API, or other strict tool-cap clients.',
+			'Use STONEWRIGHT_MCP_TOOL_PROFILE=low-tools for Antigravity, Gemini API, or other strict tool-cap clients; direct WP-CLI batch and background-job tools stay visible.',
 			'Profile aliases such as elementor, design, acf, cpt-ui, fse, and wp cli normalize to compact canonical profiles.',
 			'Leave PORT unset for stdio-only MCP clients. To run the optional HTTP bridge, set STONEWRIGHT_HTTP_ENABLE=1 plus PORT.',
 			'Call stonewright-tool-profile for tool-cap, slow-startup, or token-sensitive clients before broad discovery.',
@@ -161,10 +161,11 @@ function toolVisibilityChecks(env: NodeJS.ProcessEnv): string[] {
 			'stonewright-wp-cli-batch-run',
 	];
 
+	tools.push('stonewright-wp-cli-job-start');
+	tools.push('stonewright-wp-cli-job-status');
+
 	if (!isLowToolsProfile(env)) {
 		tools.push('stonewright-wp-cli-install');
-		tools.push('stonewright-wp-cli-job-start');
-		tools.push('stonewright-wp-cli-job-status');
 	}
 
 	return tools;

@@ -789,10 +789,8 @@ final class AbilityRegistry {
 			'stonewright/design-implementation-contract',
 			'stonewright/design-validate-spec',
 			'stonewright/design-build-spec',
-			'stonewright/design-choose-renderer',
 			'stonewright/design-spec-to-elementor-v3',
 			'stonewright/design-spec-to-gutenberg',
-			'stonewright/design-preview-render',
 			'stonewright/design-apply-to-post',
 
 			// Gutenberg and FSE fast paths.
@@ -813,6 +811,8 @@ final class AbilityRegistry {
 			'stonewright/wp-cli-discover',
 			'stonewright/wp-cli-run',
 			'stonewright/wp-cli-batch-run',
+			'stonewright/wp-cli-job-start',
+			'stonewright/wp-cli-job-status',
 		];
 	}
 

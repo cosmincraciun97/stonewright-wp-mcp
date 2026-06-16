@@ -42,7 +42,7 @@ Most clients can run the Stonewright companion with `npx`:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.49/stonewright-companion-1.0.0-alpha.49.tgz"],
+      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.50/stonewright-companion-1.0.0-alpha.50.tgz"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -71,7 +71,7 @@ only when the optional HTTP bridge must start or startup should fail.
 For Antigravity, Gemini API, or another strict tool-cap client, set
 `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` in the same env block. It keeps the
 client-visible tool list under 30 while preserving composite writes and direct
-`stonewright-wp-cli-*` recovery tools.
+`stonewright-wp-cli-*` recovery tools, including background jobs.
 
 Do not recover by running `wp cli info`, `wp plugin activate`,
 `wp option update`, or other `wp` commands in a normal shell, and do not switch
@@ -90,7 +90,7 @@ claude mcp add stonewright \
   --env STONEWRIGHT_WP_USERNAME='your-wp-username' \
   --env STONEWRIGHT_WP_APP_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx' \
   --env STONEWRIGHT_MCP_TOOL_PROFILE=essential \
-  -- npx -y https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.49/stonewright-companion-1.0.0-alpha.49.tgz
+  -- npx -y https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.50/stonewright-companion-1.0.0-alpha.50.tgz
 ```
 
 The server is registered for the current user. Restart or reload the client
@@ -122,7 +122,7 @@ VS Code-style clients use a `servers` top-level key instead of `mcpServers`:
   "servers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.49/stonewright-companion-1.0.0-alpha.49.tgz"],
+      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.50/stonewright-companion-1.0.0-alpha.50.tgz"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -142,7 +142,7 @@ Zed uses `context_servers`:
     "stonewright": {
       "command": {
         "path": "npx",
-        "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.49/stonewright-companion-1.0.0-alpha.49.tgz"],
+        "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.50/stonewright-companion-1.0.0-alpha.50.tgz"],
         "env": {
           "STONEWRIGHT_WP_URL": "https://your-site.com",
           "STONEWRIGHT_WP_USERNAME": "your-wp-username",

@@ -137,7 +137,7 @@ registered WordPress MCP tool.
 Use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` for Antigravity, Gemini API, or
 other strict tool-cap clients. It keeps the total client-visible surface under
 30 tools by hiding legacy duplicate aliases while direct WP-CLI recovery tools
-remain local.
+remain local, including batch runs and background jobs.
 Common aliases normalize before filtering, so `antigravity`, `gemini`,
 `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli` select the closest
 compact canonical profile instead of silently falling back to `essential`.

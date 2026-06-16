@@ -18,7 +18,7 @@ describe('createMcpServer', () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
 		const info = (server as any).server._serverInfo as { name: string; version: string };
 		expect(info.name).toBe('stonewright-companion');
-		expect(info.version).toBe('1.0.0-alpha.49');
+		expect(info.version).toBe('1.0.0-alpha.50');
 	});
 
 	it('publishes compact handshake instructions before any tool is called', async () => {
@@ -397,6 +397,10 @@ describe('createMcpServer', () => {
 			'companion_wp_cli_batch_run',
 			'stonewright-wp-cli-install',
 		]));
+		expect(response.structuredContent?.local_tool_names).toEqual(expect.arrayContaining([
+			'stonewright-wp-cli-job-start',
+			'stonewright-wp-cli-job-status',
+		]));
 		expect(names).toEqual(expect.arrayContaining([
 			'stonewright-setup-profile',
 			'stonewright-wordpress-mcp-status',
@@ -415,13 +419,13 @@ describe('createMcpServer', () => {
 			'stonewright-elementor-v3-build-page-from-spec',
 			'stonewright-elementor-v3-batch-mutate',
 			'stonewright-gutenberg-apply-to-post',
+			'stonewright-wp-cli-job-start',
+			'stonewright-wp-cli-job-status',
 		]));
 		expect(names).not.toContain('companion_wp_cli_run');
 		expect(names).not.toContain('companion_wp_cli_batch_run');
 		expect(names).not.toContain('companion_wp_cli_install');
 		expect(names).not.toContain('stonewright-wp-cli-install');
-		expect(names).not.toContain('stonewright-wp-cli-job-start');
-		expect(names).not.toContain('stonewright-wp-cli-job-status');
 		expect(names).not.toContain('stonewright-elementor-describe-widget');
 		expect(names).not.toContain('stonewright-memory-list');
 		expect(names).not.toContain('stonewright-sandbox-write');

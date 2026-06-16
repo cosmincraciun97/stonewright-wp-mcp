@@ -31,6 +31,8 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 		self::assertContains( 'stonewright/workflow-preflight', $names );
 		self::assertContains( 'stonewright/tool-profile', $names );
 		self::assertContains( 'stonewright/wp-cli-batch-run', $names );
+		self::assertContains( 'stonewright/wp-cli-job-start', $names );
+		self::assertContains( 'stonewright/wp-cli-job-status', $names );
 		self::assertContains( 'stonewright/security-create-one-time-link', $names );
 		self::assertContains( 'stonewright/elementor-v3-get-kit-globals', $names );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $names );
@@ -52,6 +54,8 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 		self::assertContains( 'stonewright/content-bulk-upsert-posts', $names );
 		self::assertContains( 'stonewright/media-list', $names );
 		self::assertContains( 'stonewright/wp-cli-run', $names );
+		self::assertContains( 'stonewright/wp-cli-job-start', $names );
+		self::assertContains( 'stonewright/wp-cli-job-status', $names );
 		self::assertNotContains( 'stonewright/sandbox-write', $names );
 		self::assertLessThan( 60, count( $names ) );
 	}

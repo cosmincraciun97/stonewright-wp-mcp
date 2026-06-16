@@ -34,3 +34,5 @@ describe original product decisions, not inspiration sources.
   package invocation, and separate browser-tooling configuration.
 - Context bootstrap advertises external MCP recommendations and repeats the
   first-call discipline on every task.
+- Strict `low-tools` startup keeps long-running WP-CLI background jobs visible
+  while staying under the small-client tool budget.

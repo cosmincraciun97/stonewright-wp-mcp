@@ -177,7 +177,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertIsArray( $result );
 		self::assertTrue( $result['ok'] );
 		self::assertSame( 'low-tools', $result['profile'] );
-		self::assertLessThanOrEqual( 24, $result['profile_tool_count'] );
+		self::assertLessThanOrEqual( 26, $result['profile_tool_count'] );
 		self::assertTrue( $result['under_limit'] );
 		self::assertContains( 'low-tools', $result['profiles_available'] );
 		self::assertContains( 'stonewright/context-bootstrap', $result['recommended_tools'] );
@@ -190,6 +190,8 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/gutenberg-apply-to-post', $result['recommended_tools'] );
 		self::assertContains( 'stonewright-wp-cli-batch-run', $result['recommended_mcp_tools'] );
+		self::assertContains( 'stonewright/wp-cli-job-start', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/wp-cli-job-status', $result['recommended_tools'] );
 		self::assertNotContains( 'stonewright/system-abilities-list', $result['recommended_tools'] );
 		self::assertNotContains( 'stonewright/content-create-page', $result['recommended_tools'] );
 		self::assertNotContains( 'stonewright/media-list', $result['recommended_tools'] );

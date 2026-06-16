@@ -300,9 +300,10 @@ final class ToolProfile extends AbilityKernel {
 					'stonewright/elementor-v3-batch-mutate',
 					'stonewright/elementor-v3-update-kit-colors',
 					'stonewright/elementor-v3-update-kit-typography',
-					'stonewright/blocks-list-registered',
 					'stonewright/gutenberg-apply-to-post',
 					'stonewright/wp-cli-batch-run',
+					'stonewright/wp-cli-job-start',
+					'stonewright/wp-cli-job-status',
 				]
 			),
 			'elementor-design' => array_merge(

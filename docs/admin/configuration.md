@@ -45,7 +45,8 @@ gated tool, the response includes `missing_profile_tools`, `missing_mcp_tools`,
 and `recovery_hints` so the agent can recover without broad discovery loops.
 For Antigravity, Gemini API, or another strict tool-cap client, set the
 companion env `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools`. This is stricter than
-`essential` and keeps the client-visible startup surface under 30 tools.
+`essential`, keeps the client-visible startup surface under 30 tools, and still
+keeps direct WP-CLI batch/background-job tools visible.
 
 ### Local WP-CLI bridge (advanced)
 
@@ -120,7 +121,7 @@ install:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.49/stonewright-companion-1.0.0-alpha.49.tgz"],
+      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.50/stonewright-companion-1.0.0-alpha.50.tgz"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",

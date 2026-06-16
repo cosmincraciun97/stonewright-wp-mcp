@@ -111,7 +111,6 @@ const LOW_TOOLS_PROXY_TOOL_NAMES = [
 	'stonewright-elementor-v3-batch-mutate',
 	'stonewright-elementor-v3-update-kit-colors',
 	'stonewright-elementor-v3-update-kit-typography',
-	'stonewright-blocks-list-registered',
 	'stonewright-gutenberg-apply-to-post',
 ] as const;
 
@@ -154,10 +153,8 @@ const ESSENTIAL_PROXY_TOOL_NAMES = [
 	'stonewright-elementor-v3-save-template',
 	'stonewright-design-validate-spec',
 	'stonewright-design-build-spec',
-	'stonewright-design-choose-renderer',
 	'stonewright-design-spec-to-elementor-v3',
 	'stonewright-design-spec-to-gutenberg',
-	'stonewright-design-preview-render',
 	'stonewright-design-apply-to-post',
 	'stonewright-blocks-list-registered',
 	'stonewright-blocks-get-schema',

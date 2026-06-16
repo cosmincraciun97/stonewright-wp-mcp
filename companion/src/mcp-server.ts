@@ -82,6 +82,8 @@ const LOW_TOOLS_LOCAL_RECOVERY_TOOL_NAMES = [
 	'stonewright-wp-cli-discover',
 	'stonewright-wp-cli-run',
 	'stonewright-wp-cli-batch-run',
+	'stonewright-wp-cli-job-start',
+	'stonewright-wp-cli-job-status',
 ] as const;
 
 const LEGACY_LOCAL_TOOL_NAMES = [
@@ -363,10 +365,6 @@ function registerWpCliTools(
 		);
 	}
 
-	if (profile === 'low-tools') {
-		return;
-	}
-
 	server.registerTool(
 		'stonewright-wp-cli-job-start',
 		{
@@ -394,6 +392,10 @@ function registerWpCliTools(
 		},
 		async (input) => toolResponse(getWpCliJob(input as WpCliJobGetInput)),
 	);
+
+	if (profile === 'low-tools') {
+		return;
+	}
 
 	for (const name of localAliases(profile, 'stonewright-wp-cli-install', 'companion_wp_cli_install')) {
 		server.registerTool(
