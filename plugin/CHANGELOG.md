@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.54] - 2026-06-17
+
+### Changed
+
+- Updated Stonewright agent guidance, context followups, and admin client
+  prompts to use the workflow preflight `fast_path.tool_profile` before making
+  a separate `stonewright-tool-profile` call.
+- Companion startup readiness now requires only the first-call bootstrap,
+  workflow preflight, and skill retrieval tools; `stonewright-tool-profile`
+  remains available for profile switching and verification.
+
 ## [1.0.0-alpha.52] - 2026-06-17
 
 ### Added

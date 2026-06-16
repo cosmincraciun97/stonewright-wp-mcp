@@ -17,7 +17,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.mcp_server.command).toBe('npx');
 		expect(profile.mcp_server.args).toEqual([
 			'-y',
-			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.53/stonewright-companion-1.0.0-alpha.53.tgz',
+			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.54/stonewright-companion-1.0.0-alpha.54.tgz',
 		]);
 		expect(profile.mcp_server.env).toMatchObject({
 			STONEWRIGHT_WP_URL: 'http://mcp-test.local',
@@ -28,7 +28,6 @@ describe('buildSetupProfile', () => {
 		expect(profile.first_calls).toEqual([
 			'stonewright-context-bootstrap',
 			'stonewright-workflow-preflight',
-			'stonewright-tool-profile',
 		]);
 		expect(profile.tool_visibility_checks).toEqual([
 			'stonewright-context-bootstrap',
@@ -48,7 +47,6 @@ describe('buildSetupProfile', () => {
 		expect(profile.tool_inventory.first_call_tool_names).toEqual([
 			'stonewright-context-bootstrap',
 			'stonewright-workflow-preflight',
-			'stonewright-tool-profile',
 		]);
 		expect(profile.tool_inventory.direct_wp_cli_tool_names).toEqual(expect.arrayContaining([
 			'stonewright-wp-cli-status',
@@ -62,7 +60,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.tool_inventory.proxied_profile_tool_groups.elementor_design).toContain('stonewright-elementor-v3-build-page-from-spec');
 		expect(profile.notes.join('\n')).toContain('Use stonewright-wordpress-mcp-status if proxied WordPress tools are missing');
 		expect(profile.notes.join('\n')).toContain('Verify the MCP tool list includes stonewright-context-bootstrap before starting WordPress work');
-		expect(profile.notes.join('\n')).toContain('Call stonewright-tool-profile for tool-cap, slow-startup, or token-sensitive clients before broad discovery');
+		expect(profile.notes.join('\n')).toContain('Use fast_path.tool_profile from stonewright-workflow-preflight before making a separate stonewright-tool-profile call');
 		expect(profile.notes.join('\n')).toContain('STONEWRIGHT_MCP_TOOL_PROFILE=essential keeps new MCP sessions compact');
 		expect(profile.notes.join('\n')).toContain('Profile aliases such as elementor, design, acf, cpt-ui, fse, and wp cli normalize to compact canonical profiles.');
 		expect(profile.notes.join('\n')).toContain('Leave PORT unset for stdio-only MCP clients. To run the optional HTTP bridge, set STONEWRIGHT_HTTP_ENABLE=1 plus PORT.');
@@ -100,7 +98,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.platform).toBe('win32');
 		expect(profile.mcp_server.env.STONEWRIGHT_WP_ROOT).toBe('D:\\Sites\\mcp-test\\app\\public');
 		expect(profile.mcp_server.env.STONEWRIGHT_WP_USERNAME).toBe('admin');
-		expect(profile.install_command).toBe('npm install -g https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.53/stonewright-companion-1.0.0-alpha.53.tgz');
+		expect(profile.install_command).toBe('npm install -g https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.54/stonewright-companion-1.0.0-alpha.54.tgz');
 		expect(profile.notes.join('\n')).toContain('No shell script wrapper required');
 	});
 

@@ -108,10 +108,10 @@ should not block a single MCP request.
 
 Call `stonewright-setup-profile` once after connecting. Its `first_calls` and
 `tool_visibility_checks` fields show the compact startup path: bootstrap,
-preflight, tool profile, skill playbook retrieval, WordPress MCP proxy status,
-and direct WP-CLI aliases. Use
-`stonewright-tool-profile` before broad tool discovery when a client has a tool
-cap, slow startup, or a token-sensitive task.
+preflight, optional profile verification, skill playbook retrieval, WordPress
+MCP proxy status, and direct WP-CLI aliases. Use `fast_path.tool_profile` from
+`stonewright-workflow-preflight` before making a separate
+`stonewright-tool-profile` call.
 The companion also sets compact MCP server instructions at handshake time. They
 tell clients to call setup/profile/bootstrap tools first, use direct
 `stonewright-wp-cli-*` recovery tools, keep low-tools sessions compact, and
@@ -123,7 +123,7 @@ call `stonewright-wordpress-mcp-status`. The companion keeps this diagnostic,
 even when the WordPress MCP endpoint cannot be reached.
 When the endpoint connects, the status response reports `startup_ready`,
 `startup_missing_tool_names`, `local_recovery_tool_names`, and
-`local_tool_names` so agents can see whether bootstrap, preflight, profile,
+`local_tool_names` so agents can see whether bootstrap, preflight,
 skill-playbook, and direct WP-CLI tools are ready. It also reports
 `profile_expected_tool_count`, `client_visible_expected_tool_count`, and
 `profile_missing_tool_names` for the selected compact profile even when the

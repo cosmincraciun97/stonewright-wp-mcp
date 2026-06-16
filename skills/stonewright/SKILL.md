@@ -15,19 +15,21 @@ It routes the agent to the right specialized skill and MCP tools.
 
 1. Call `stonewright-context-bootstrap` with the task, surface, and intent.
 2. Call `stonewright-workflow-preflight` when planning implementation work.
-3. Call `stonewright-tool-profile` when the client has a tool cap, slow startup,
-   or a token-sensitive task.
+3. Use `fast_path.tool_profile` from workflow preflight before making a separate
+   `stonewright-tool-profile` call. Call `stonewright-tool-profile` only when
+   switching or verifying a compact profile.
 4. If authentication or MCP visibility fails, call
    `stonewright-wordpress-mcp-status` and `stonewright-setup-profile`, then use
    direct `stonewright-wp-cli-*` tools only when WP-CLI is needed.
 
 If `stonewright_essential_tools_mode` is enabled, expect a compact tool list.
 Use the fast-path tools returned by preflight instead of rediscovering the full
-ability surface. Use `stonewright-tool-profile` to lock the current task to a
-compact low-tools, Elementor, content-model, Gutenberg, WP-CLI, or site-admin
-profile. Use `low-tools` for Antigravity, Gemini API, or other strict tool-cap
-clients; it keeps the client-visible startup surface under 30 tools before the
-agent switches to a specialist profile.
+ability surface. Use preflight's inlined tool profile first; use
+`stonewright-tool-profile` only to switch or verify a compact low-tools,
+Elementor, content-model, Gutenberg, WP-CLI, or site-admin profile. Use
+`low-tools` for Antigravity, Gemini API, or other strict tool-cap clients; it
+keeps the client-visible startup surface under 30 tools before the agent
+switches to a specialist profile.
 
 ## Route
 

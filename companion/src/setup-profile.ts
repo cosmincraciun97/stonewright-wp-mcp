@@ -139,7 +139,6 @@ export function buildSetupProfile(
 		first_calls: [
 			'stonewright-context-bootstrap',
 			'stonewright-workflow-preflight',
-			'stonewright-tool-profile',
 		],
 		tool_visibility_checks: visibilityChecks,
 		tool_inventory: buildToolInventory(proxyToolProfileFromEnv(env), visibilityChecks),
@@ -155,7 +154,7 @@ export function buildSetupProfile(
 			'Use STONEWRIGHT_MCP_TOOL_PROFILE=low-tools for Antigravity, Gemini API, or other strict tool-cap clients; direct WP-CLI batch and background-job tools stay visible.',
 			'Profile aliases such as elementor, design, acf, cpt-ui, fse, and wp cli normalize to compact canonical profiles.',
 			'Leave PORT unset for stdio-only MCP clients. To run the optional HTTP bridge, set STONEWRIGHT_HTTP_ENABLE=1 plus PORT.',
-			'Call stonewright-tool-profile for tool-cap, slow-startup, or token-sensitive clients before broad discovery.',
+			'Use fast_path.tool_profile from stonewright-workflow-preflight before making a separate stonewright-tool-profile call; call tool-profile only to switch or verify a compact profile.',
 			'Do not treat local client skills or repository files as a substitute for live Stonewright MCP tools; if the tool is missing, reload the MCP client instead of bypassing the server.',
 			'Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround.',
 			'For local .local/.test sites, Application Passwords can be generated through guarded WP-CLI.',
@@ -185,7 +184,6 @@ export function buildToolInventory(
 		first_call_tool_names: [
 			'stonewright-context-bootstrap',
 			'stonewright-workflow-preflight',
-			'stonewright-tool-profile',
 		],
 		diagnostic_tool_names: localToolNames.filter((name) => [
 			'stonewright-setup-profile',

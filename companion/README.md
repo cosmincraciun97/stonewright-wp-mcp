@@ -27,7 +27,7 @@ Fast path for MCP clients:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.53/stonewright-companion-1.0.0-alpha.53.tgz"],
+      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.54/stonewright-companion-1.0.0-alpha.54.tgz"],
       "env": {
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
@@ -43,9 +43,10 @@ After the MCP server starts, call `stonewright-setup-profile` once. It returns
 the same config shape plus platform checks, credential status, and notes for
 Windows, macOS, and Linux. Use its `first_calls` and
 `tool_visibility_checks` fields to verify `stonewright-context-bootstrap`,
-`stonewright-workflow-preflight`, `stonewright-tool-profile`,
-`stonewright-skills-get`, `stonewright-wordpress-mcp-status`, and direct WP-CLI
-aliases are visible before real work.
+`stonewright-workflow-preflight`, `stonewright-skills-get`,
+`stonewright-wordpress-mcp-status`, and direct WP-CLI aliases are visible before
+real work. Use `fast_path.tool_profile` from workflow preflight before making a
+separate `stonewright-tool-profile` call.
 The companion also publishes compact MCP handshake instructions, so clients get
 the first-call, recovery, low-tools, and guarded WP-CLI rules before any tool is
 called.
@@ -165,8 +166,8 @@ idempotent — if the phar already exists it is reused without re-downloading.
 
 `stonewright-wordpress-mcp-status` reports `startup_ready`,
 `startup_missing_tool_names`, `local_recovery_tool_names`, and
-`local_tool_names` so agents can recover when bootstrap, preflight, profile,
-skill, or WP-CLI tools are missing. It also reports
+`local_tool_names` so agents can recover when bootstrap, preflight, skill, or
+WP-CLI tools are missing. It also reports
 `profile_expected_tool_count`, `client_visible_expected_tool_count`, and
 `profile_missing_tool_names` for the selected compact profile even when the
 WordPress MCP endpoint cannot be reached.

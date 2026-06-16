@@ -180,7 +180,7 @@ function companionInstructions(profile: ProxyToolProfile): string {
 		'Stonewright companion fast start:',
 		`- Current compact profile: ${profile}.`,
 		'- First call stonewright-setup-profile if connection, credentials, or tool visibility is unclear.',
-		'- For WordPress work, call stonewright-context-bootstrap, then stonewright-workflow-preflight. Use stonewright-tool-profile before broad discovery or tool-cap work.',
+		'- For WordPress work, call stonewright-context-bootstrap, then stonewright-workflow-preflight. Use fast_path.tool_profile before making a separate stonewright-tool-profile call.',
 		'- If stonewright-context-bootstrap is missing, call stonewright-wordpress-mcp-status and use direct stonewright-wp-cli-* recovery tools while fixing the WordPress MCP proxy.',
 		'- Use stonewright-wp-cli-status, stonewright-wp-cli-discover, stonewright-wp-cli-run, and stonewright-wp-cli-batch-run for guarded WP-CLI work.',
 		'- Use stonewright-wp-cli-job-start and stonewright-wp-cli-job-status for long imports, plugin operations, cache rebuilds, media work, or large batches when those tools are visible.',

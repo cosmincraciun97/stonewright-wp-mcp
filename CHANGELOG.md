@@ -7,6 +7,17 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.54] - 2026-06-17
+
+### Changed
+
+- Companion startup and setup guidance now treat `stonewright-tool-profile` as
+  an optional profile switch/verification tool instead of a required first-call
+  step, using `fast_path.tool_profile` from workflow preflight first.
+- Companion startup readiness no longer fails solely because
+  `stonewright-tool-profile` is unavailable when bootstrap, preflight, and
+  skills retrieval are present.
+
 ## [1.0.0-alpha.53] - 2026-06-17
 
 ### Added

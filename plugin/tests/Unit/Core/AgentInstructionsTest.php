@@ -25,7 +25,7 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'Do not run wp cli info, wp plugin activate, wp option update, or other wp commands in a normal shell as Stonewright recovery', $instructions );
 		$this->assertStringContainsString( 'Do not use another MCP adapter execute-php or arbitrary PHP execution to replace Stonewright tools', $instructions );
 		$this->assertStringContainsString( 'stonewright/tool-profile', $instructions );
-		$this->assertStringContainsString( 'Use stonewright/tool-profile when the client has a tool cap or token budget', $instructions );
+		$this->assertStringContainsString( 'Use fast_path.tool_profile from stonewright/workflow-preflight before making a separate stonewright/tool-profile call', $instructions );
 		$this->assertStringContainsString( 'stonewright/skills-get', $instructions );
 		$this->assertStringContainsString( 'stonewright/memory-get', $instructions );
 		$this->assertStringContainsString( 'stonewright/learning-record', $instructions );

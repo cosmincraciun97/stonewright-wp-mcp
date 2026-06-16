@@ -300,7 +300,7 @@ final class ConnectClientConfig {
 			self::companion_package_spec()
 		);
 
-		return $prompt . "\n- For tool-cap, slow-startup, or token-sensitive clients, call stonewright-tool-profile before broad ability discovery.";
+		return $prompt . "\n- Use fast_path.tool_profile from stonewright-workflow-preflight before making a separate stonewright-tool-profile call; call tool-profile only to switch or verify a compact profile.";
 	}
 
 	private static function profile_for_client( string $client_slug ): string {

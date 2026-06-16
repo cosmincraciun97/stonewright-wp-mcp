@@ -87,10 +87,12 @@ export type ProxyToolProfile = 'full' | 'low-tools' | 'essential' | 'elementor-d
 export const STARTUP_REQUIRED_PROXY_TOOL_NAMES = [
 	'stonewright-context-bootstrap',
 	'stonewright-workflow-preflight',
-	'stonewright-tool-profile',
 	'stonewright-skills-get',
 ] as const;
-const BASE_PROXY_TOOL_NAMES = STARTUP_REQUIRED_PROXY_TOOL_NAMES;
+const BASE_PROXY_TOOL_NAMES = [
+	...STARTUP_REQUIRED_PROXY_TOOL_NAMES,
+	'stonewright-tool-profile',
+] as const;
 
 const LOW_TOOLS_PROXY_TOOL_NAMES = [
 	...BASE_PROXY_TOOL_NAMES,

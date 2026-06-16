@@ -18,7 +18,7 @@ describe('createMcpServer', () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
 		const info = (server as any).server._serverInfo as { name: string; version: string };
 		expect(info.name).toBe('stonewright-companion');
-		expect(info.version).toBe('1.0.0-alpha.53');
+		expect(info.version).toBe('1.0.0-alpha.54');
 	});
 
 	it('publishes compact handshake instructions before any tool is called', async () => {
@@ -34,6 +34,7 @@ describe('createMcpServer', () => {
 		expect(instructions).toContain('stonewright-setup-profile');
 		expect(instructions).toContain('stonewright-context-bootstrap');
 		expect(instructions).toContain('stonewright-workflow-preflight');
+		expect(instructions).toContain('fast_path.tool_profile');
 		expect(instructions).toContain('stonewright-wordpress-mcp-status');
 		expect(instructions).toContain('stonewright-wp-cli-batch-run');
 		expect(instructions).toContain('STONEWRIGHT_MCP_TOOL_PROFILE=low-tools');
@@ -251,7 +252,6 @@ describe('createMcpServer', () => {
 			fetchImpl: stonewrightMcpFetch([
 				{ name: 'stonewright-context-bootstrap' },
 				{ name: 'stonewright-workflow-preflight' },
-				{ name: 'stonewright-tool-profile' },
 				{ name: 'stonewright-skills-get' },
 				{ name: 'stonewright-elementor-v4-status' },
 				{ name: 'stonewright-experimental-heavy-tool' },
@@ -522,7 +522,6 @@ describe('createMcpServer', () => {
 		expect(response.structuredContent?.startup_required_tool_names).toEqual([
 			'stonewright-context-bootstrap',
 			'stonewright-workflow-preflight',
-			'stonewright-tool-profile',
 			'stonewright-skills-get',
 		]);
 		expect(response.structuredContent?.startup_missing_tool_names).toEqual(['stonewright-skills-get']);
@@ -558,7 +557,6 @@ describe('createMcpServer', () => {
 			fetchImpl: stonewrightMcpFetch([
 				{ name: 'stonewright-context-bootstrap' },
 				{ name: 'stonewright-workflow-preflight' },
-				{ name: 'stonewright-tool-profile' },
 				{ name: 'stonewright-skills-get' },
 			]),
 		});

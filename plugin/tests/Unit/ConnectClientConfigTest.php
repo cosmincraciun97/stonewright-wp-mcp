@@ -151,7 +151,7 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'stonewright-context-bootstrap', $prompt );
 		$this->assertStringContainsString( 'Verify the MCP tool list includes stonewright-context-bootstrap', $prompt );
 		$this->assertStringContainsString( 'stonewright-tool-profile', $prompt );
-		$this->assertStringContainsString( 'tool-cap, slow-startup, or token-sensitive clients', $prompt );
+		$this->assertStringContainsString( 'Use fast_path.tool_profile from stonewright-workflow-preflight before making a separate stonewright-tool-profile call', $prompt );
 		$this->assertStringContainsString( 'Do not start by only announcing named skills', $prompt );
 		$this->assertStringContainsString( 'Do not treat local agent skills as a substitute for live Stonewright MCP tools', $prompt );
 		$this->assertStringContainsString( 'If stonewright-context-bootstrap is missing, stop', $prompt );

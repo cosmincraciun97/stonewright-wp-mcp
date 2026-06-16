@@ -36,3 +36,6 @@ describe original product decisions, not inspiration sources.
   first-call discipline on every task.
 - Strict `low-tools` startup keeps long-running WP-CLI background jobs visible
   while staying under the small-client tool budget.
+- Workflow preflight now carries the compact tool profile inline, and the
+  companion treats `stonewright-tool-profile` as optional profile
+  switch/verification rather than a startup blocker.

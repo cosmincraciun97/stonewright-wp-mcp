@@ -441,7 +441,7 @@ final class ContextBuilder {
 			'Read all matched skill playbooks and memory entries before acting.',
 			'If the user corrects the agent or a repeatable mistake is detected, call stonewright/learning-record.',
 			'Use MCP tool names with hyphens, for example stonewright-context-bootstrap, not slash-separated ability names.',
-			'Use stonewright/tool-profile when the MCP client has a strict tool cap or the user asks for token-efficient implementation.',
+			'Use fast_path.tool_profile from stonewright/workflow-preflight before making a separate stonewright/tool-profile call; call tool-profile only to switch or verify a compact profile.',
 		];
 
 		if ( $is_visual ) {
