@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.49] - 2026-06-17
+
+### Added
+
+- Added guarded WP-CLI background job tooling for long-running CLI work.
+- Added compact companion MCP handshake guidance for first calls, recovery,
+  low-tools clients, and guarded WP-CLI usage.
+
+### Fixed
+
+- Prevented stale `.env` `PORT` values from starting the optional HTTP bridge
+  during stdio MCP startup unless HTTP mode is explicitly enabled.
+- Updated install snippets and companion setup profiles to the alpha.49
+  release package so new MCP sessions load the current tool surface.
+
 ## [1.0.0-alpha.44] - 2026-06-16
 
 ### Changed
