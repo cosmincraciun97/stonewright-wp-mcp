@@ -32,19 +32,17 @@ cp -r skills/wp-plugin-dev ~/.claude/plugins/
 
 ## Install for Codex
 
-Copy the skill folders into the Codex skills directory, then restart Codex so
-slash and `$` search can index them:
+Use the sync script from the repository root. It compares each bundled
+Stonewright skill against the installed Codex skill folder, creates backups for
+changed skills, then copies only the Stonewright skill pack:
 
 ```powershell
-Copy-Item -Recurse -Force .\skills\stonewright "$env:USERPROFILE\.codex\skills\stonewright"
-Copy-Item -Recurse -Force .\skills\design-to-wordpress "$env:USERPROFILE\.codex\skills\design-to-wordpress"
-Copy-Item -Recurse -Force .\skills\content-model-integrations "$env:USERPROFILE\.codex\skills\content-model-integrations"
-Copy-Item -Recurse -Force .\skills\elementor-v3-builder "$env:USERPROFILE\.codex\skills\elementor-v3-builder"
-Copy-Item -Recurse -Force .\skills\gutenberg-fse-builder "$env:USERPROFILE\.codex\skills\gutenberg-fse-builder"
-Copy-Item -Recurse -Force .\skills\woocommerce-catalog "$env:USERPROFILE\.codex\skills\woocommerce-catalog"
-Copy-Item -Recurse -Force .\skills\wp-plugin-dev "$env:USERPROFILE\.codex\skills\wp-plugin-dev"
-Copy-Item -Recurse -Force .\skills\stonewright-review "$env:USERPROFILE\.codex\skills\stonewright-review"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\sync-codex-skills.ps1 -WhatIf
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\sync-codex-skills.ps1
 ```
+
+Restart Codex after syncing so slash and `$` search can index the updated
+skills. To sync one skill only, pass `-SkillName stonewright`.
 
 ## Requirements
 
