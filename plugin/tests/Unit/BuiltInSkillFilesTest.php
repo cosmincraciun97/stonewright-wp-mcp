@@ -17,18 +17,21 @@ final class BuiltInSkillFilesTest extends TestCase {
 		$elementor     = $root . '/../skills/elementor-v3-builder/SKILL.md';
 		$gutenberg     = $root . '/../skills/gutenberg-fse-builder/SKILL.md';
 		$readme        = $root . '/../README.md';
+		$stonewright   = $root . '/../skills/stonewright/SKILL.md';
 		$woocommerce   = $root . '/../skills/woocommerce-catalog/SKILL.md';
 
 		self::assertFileExists( $content_model );
 		self::assertFileExists( $elementor );
 		self::assertFileExists( $gutenberg );
 		self::assertFileExists( $readme );
+		self::assertFileExists( $stonewright );
 		self::assertFileExists( $woocommerce );
 
 		$content_model_body = (string) file_get_contents( $content_model );
 		$elementor_body     = (string) file_get_contents( $elementor );
 		$gutenberg_body     = (string) file_get_contents( $gutenberg );
 		$readme_body        = (string) file_get_contents( $readme );
+		$stonewright_body   = (string) file_get_contents( $stonewright );
 		$woocommerce_body   = (string) file_get_contents( $woocommerce );
 
 		self::assertStringContainsString( 'name: content-model-integrations', $content_model_body );
@@ -51,5 +54,9 @@ final class BuiltInSkillFilesTest extends TestCase {
 		self::assertStringContainsString( 'Persistent memory', $readme_body );
 		self::assertStringContainsString( 'Elementor widget intelligence', $readme_body );
 		self::assertStringContainsString( 'Block themes and Gutenberg', $readme_body );
+		self::assertStringContainsString( 'stonewright-tool-profile', $stonewright_body );
+		self::assertStringContainsString( 'stonewright_essential_tools_mode', $stonewright_body );
+		self::assertStringContainsString( 'stonewright/content-bulk-upsert-posts', $stonewright_body );
+		self::assertStringContainsString( 'stonewright-wp-cli-batch-run', $stonewright_body );
 	}
 }
