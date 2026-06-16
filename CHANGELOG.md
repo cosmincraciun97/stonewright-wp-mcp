@@ -7,6 +7,16 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.39] - 2026-06-16
+
+### Fixed
+
+- Stonewright error envelopes now preserve compact, repairable Elementor widget
+  validation details (`widget` and sanitized `violations`) so agents can fix
+  missing/invalid settings in the next call instead of retrying blind.
+- Sensitive error data remains stripped from public envelopes, including tokens,
+  passwords, raw specs, and other non-allowlisted fields.
+
 ## [1.0.0-alpha.38] - 2026-06-16
 
 ### Changed
@@ -583,6 +593,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.39]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.39
 [1.0.0-alpha.38]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.38
 [1.0.0-alpha.37]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.37
 [1.0.0-alpha.36]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.36

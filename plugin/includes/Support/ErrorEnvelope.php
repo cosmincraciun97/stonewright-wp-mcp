@@ -21,6 +21,8 @@ final class ErrorEnvelope {
 		'ability',
 		'nonce_sha8',
 		'errors',
+		'widget',
+		'violations',
 	];
 
 	/**
@@ -65,11 +67,79 @@ final class ErrorEnvelope {
 		$allowed = array_flip( self::SAFE_ERROR_DATA_KEYS );
 		$out     = [];
 		foreach ( $data as $key => $value ) {
-			if ( isset( $allowed[ $key ] ) ) {
-				$out[ $key ] = $value;
+			if ( ! isset( $allowed[ $key ] ) ) {
+				continue;
 			}
+
+			if ( 'violations' === $key ) {
+				$violations = self::filter_violations( $value );
+				if ( [] !== $violations ) {
+					$out[ $key ] = $violations;
+				}
+				continue;
+			}
+
+			if ( 'widget' === $key && is_scalar( $value ) ) {
+				$out[ $key ] = mb_substr( (string) $value, 0, 120 );
+				continue;
+			}
+
+			$out[ $key ] = $value;
 		}
 		return $out;
+	}
+
+	/**
+	 * @return list<array<string, mixed>>
+	 */
+	private static function filter_violations( mixed $value ): array {
+		if ( ! is_array( $value ) ) {
+			return [];
+		}
+
+		$out = [];
+		foreach ( array_slice( $value, 0, 12 ) as $item ) {
+			if ( ! is_array( $item ) ) {
+				continue;
+			}
+
+			$violation = [];
+			foreach ( [ 'path', 'code', 'expected' ] as $key ) {
+				if ( isset( $item[ $key ] ) && is_scalar( $item[ $key ] ) ) {
+					$violation[ $key ] = mb_substr( (string) $item[ $key ], 0, 240 );
+				}
+			}
+
+			if ( array_key_exists( 'got', $item ) ) {
+				$violation['got'] = self::safe_violation_value( $item['got'] );
+			}
+
+			if ( [] !== $violation ) {
+				$out[] = $violation;
+			}
+		}
+
+		return $out;
+	}
+
+	private static function safe_violation_value( mixed $value ): mixed {
+		if ( null === $value || is_bool( $value ) || is_int( $value ) || is_float( $value ) ) {
+			return $value;
+		}
+
+		if ( is_string( $value ) ) {
+			return mb_substr( $value, 0, 240 );
+		}
+
+		if ( is_array( $value ) ) {
+			return '[array:' . count( $value ) . ']';
+		}
+
+		if ( is_object( $value ) ) {
+			return '[object:' . get_class( $value ) . ']';
+		}
+
+		return '[' . gettype( $value ) . ']';
 	}
 
 	/**
