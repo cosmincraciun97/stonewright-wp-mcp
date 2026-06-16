@@ -46,6 +46,10 @@ Windows, macOS, and Linux. Use its `first_calls` and
 `stonewright-workflow-preflight`, `stonewright-tool-profile`,
 `stonewright-skills-get`, `stonewright-wordpress-mcp-status`, and direct WP-CLI
 aliases are visible before real work.
+For Antigravity, Gemini API, or other strict tool-cap clients, set
+`STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` before startup. It keeps the proxied
+WordPress tool surface near the minimum composite build path while direct
+`stonewright-wp-cli-*` recovery tools remain local.
 
 From a GitHub release:
 
@@ -76,7 +80,7 @@ cp .env.example .env
 | `STONEWRIGHT_WP_URL` | recommended for stdio | WordPress site URL; the companion derives `/wp-json/mcp/stonewright` |
 | `STONEWRIGHT_WP_USERNAME` | with `STONEWRIGHT_WP_URL` | WordPress username for Application Password auth |
 | `STONEWRIGHT_WP_APP_PASSWORD` | with `STONEWRIGHT_WP_URL` | WordPress Application Password |
-| `STONEWRIGHT_MCP_TOOL_PROFILE` | optional | Compact proxied tool surface; defaults to `essential` for fast startup; aliases like `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli` normalize to canonical compact profiles; set `full` for every WordPress MCP tool |
+| `STONEWRIGHT_MCP_TOOL_PROFILE` | optional | Compact proxied tool surface; defaults to `essential` for fast startup; use `low-tools` for strict tool-cap clients; aliases like `antigravity`, `gemini`, `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli` normalize to canonical compact profiles; set `full` for every WordPress MCP tool |
 | `STONEWRIGHT_MCP_URL` | optional | Explicit WordPress MCP endpoint override |
 | `WP_API_USERNAME` | optional legacy alias | Alias for `STONEWRIGHT_WP_USERNAME` |
 | `WP_API_PASSWORD` | optional legacy alias | Alias for `STONEWRIGHT_WP_APP_PASSWORD` |

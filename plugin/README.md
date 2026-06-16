@@ -39,6 +39,8 @@ The source-install `wp plugin activate stonewright` command is for humans with
 WP-CLI already configured. Runtime agents should not recover by shelling out to
 `wp ...` or by using arbitrary PHP execution from another adapter; they should
 use the guarded `stonewright-wp-cli-*` MCP tools.
+Use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` for Antigravity, Gemini API, or
+other strict tool-cap clients; keep `essential` for normal fast-path sessions.
 
 ## Local Development
 

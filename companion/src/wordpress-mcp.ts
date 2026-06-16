@@ -80,7 +80,7 @@ const COMPANION_OWNED_TOOL_NAMES = new Set([
 	'stonewright-wordpress-mcp-status',
 ]);
 
-export type ProxyToolProfile = 'full' | 'essential' | 'elementor-design' | 'content-model' | 'gutenberg' | 'wp-cli' | 'site-admin';
+export type ProxyToolProfile = 'full' | 'low-tools' | 'essential' | 'elementor-design' | 'content-model' | 'gutenberg' | 'wp-cli' | 'site-admin';
 
 export const STARTUP_REQUIRED_PROXY_TOOL_NAMES = [
 	'stonewright-context-bootstrap',
@@ -89,6 +89,35 @@ export const STARTUP_REQUIRED_PROXY_TOOL_NAMES = [
 	'stonewright-skills-get',
 ] as const;
 const BASE_PROXY_TOOL_NAMES = STARTUP_REQUIRED_PROXY_TOOL_NAMES;
+
+const LOW_TOOLS_PROXY_TOOL_NAMES = [
+	...BASE_PROXY_TOOL_NAMES,
+	'stonewright-security-create-one-time-link',
+	'stonewright-site-info',
+	'stonewright-site-plugins-list',
+	'stonewright-system-abilities-list',
+	'stonewright-content-create-page',
+	'stonewright-content-update-page',
+	'stonewright-content-bulk-upsert-posts',
+	'stonewright-media-list',
+	'stonewright-media-upload-batch',
+	'stonewright-design-implementation-contract',
+	'stonewright-design-validate-spec',
+	'stonewright-widget-intent-resolve',
+	'stonewright-elementor-widget-implementation-guide',
+	'stonewright-elementor-v3-status',
+	'stonewright-elementor-v3-capabilities-summary',
+	'stonewright-elementor-v3-container-schema',
+	'stonewright-elementor-v3-get-widget-schema',
+	'stonewright-elementor-v3-get-page-structure',
+	'stonewright-elementor-v3-build-page-from-spec',
+	'stonewright-elementor-v3-batch-mutate',
+	'stonewright-elementor-v3-update-kit-colors',
+	'stonewright-elementor-v3-update-kit-typography',
+	'stonewright-blocks-list-registered',
+	'stonewright-blocks-get-schema',
+	'stonewright-gutenberg-apply-to-post',
+] as const;
 
 const ESSENTIAL_PROXY_TOOL_NAMES = [
 	...BASE_PROXY_TOOL_NAMES,
@@ -147,6 +176,7 @@ const ESSENTIAL_PROXY_TOOL_NAMES = [
 ] as const;
 
 const PROXY_TOOL_PROFILE_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, readonly string[]> = {
+	'low-tools': LOW_TOOLS_PROXY_TOOL_NAMES,
 	essential: ESSENTIAL_PROXY_TOOL_NAMES,
 	'elementor-design': [
 		...BASE_PROXY_TOOL_NAMES,
@@ -234,6 +264,13 @@ export function proxyToolNamesForProfile(profile: ProxyToolProfile): string[] {
 }
 
 const PROXY_TOOL_PROFILE_ALIASES: Record<string, ProxyToolProfile> = {
+	'antigravity': 'low-tools',
+	'gemini': 'low-tools',
+	'low': 'low-tools',
+	'low-tools': 'low-tools',
+	'minimal': 'low-tools',
+	'strict': 'low-tools',
+	'tiny': 'low-tools',
 	'elementor': 'elementor-design',
 	'elementor-v3': 'elementor-design',
 	'elementor-v4': 'elementor-design',

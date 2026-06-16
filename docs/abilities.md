@@ -45,8 +45,10 @@ gate in one low-token response.
 
 Use `stonewright-tool-profile` when the MCP client has a strict tool limit or
 the task needs low-token execution. It returns compact profiles such as
-`elementor-design`, `content-model`, `gutenberg`, and `wp-cli` with the
-hyphenated MCP tool names agents should keep using before broad discovery.
+`low-tools`, `elementor-design`, `content-model`, `gutenberg`, and `wp-cli`
+with the hyphenated MCP tool names agents should keep using before broad
+discovery. Use `low-tools` for Antigravity, Gemini API, or other strict
+tool-cap clients before switching to a specialist profile.
 
 For pixel-matching tasks, `visual_build_gate` is a blocking signoff checklist.
 Agents must prepare a reference token table, existing media audit, and section

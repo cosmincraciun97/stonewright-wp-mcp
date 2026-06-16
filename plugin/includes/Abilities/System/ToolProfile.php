@@ -18,7 +18,7 @@ final class ToolProfile extends AbilityKernel {
 	 * @return list<string>
 	 */
 	public static function profile_names(): array {
-		return [ 'auto', 'essential', 'elementor-design', 'content-model', 'gutenberg', 'wp-cli', 'site-admin', 'full' ];
+		return [ 'auto', 'low-tools', 'essential', 'elementor-design', 'content-model', 'gutenberg', 'wp-cli', 'site-admin', 'full' ];
 	}
 
 	public static function suggest_profile( string $task, string $surface = 'unknown', string $intent = 'unknown' ): string {
@@ -280,6 +280,37 @@ final class ToolProfile extends AbilityKernel {
 		];
 
 		return match ( $profile ) {
+			'low-tools' => array_merge(
+				$base,
+				[
+					'stonewright/security-create-one-time-link',
+					'stonewright/site-info',
+					'stonewright/site-plugins-list',
+					'stonewright/system-abilities-list',
+					'stonewright/content-create-page',
+					'stonewright/content-update-page',
+					'stonewright/content-bulk-upsert-posts',
+					'stonewright/media-list',
+					'stonewright/media-upload-batch',
+					'stonewright/design-implementation-contract',
+					'stonewright/design-validate-spec',
+					'stonewright/widget-intent-resolve',
+					'stonewright/elementor-widget-implementation-guide',
+					'stonewright/elementor-v3-status',
+					'stonewright/elementor-v3-capabilities-summary',
+					'stonewright/elementor-v3-container-schema',
+					'stonewright/elementor-v3-get-widget-schema',
+					'stonewright/elementor-v3-get-page-structure',
+					'stonewright/elementor-v3-build-page-from-spec',
+					'stonewright/elementor-v3-batch-mutate',
+					'stonewright/elementor-v3-update-kit-colors',
+					'stonewright/elementor-v3-update-kit-typography',
+					'stonewright/blocks-list-registered',
+					'stonewright/blocks-get-schema',
+					'stonewright/gutenberg-apply-to-post',
+					'stonewright/wp-cli-batch-run',
+				]
+			),
 			'elementor-design' => array_merge(
 				$base,
 				[
@@ -423,6 +454,11 @@ final class ToolProfile extends AbilityKernel {
 			$rules[] = 'Use native Elementor widgets and schema-confirmed Content, Style, and Advanced controls.';
 		}
 
+		if ( 'low-tools' === $profile ) {
+			$rules[] = 'Use this profile for strict tool-cap clients, then switch to a specialist profile only when a required tool is missing.';
+			$rules[] = 'Keep to composite writes: content-bulk-upsert-posts, media-upload-batch, build-page-from-spec, batch-mutate, gutenberg-apply-to-post, and wp-cli-batch-run.';
+		}
+
 		if ( 'content-model' === $profile ) {
 			$rules[] = 'Discover plugin command groups once, then batch repeated CPT, field, post, meta, term, option, cache, and rewrite work.';
 			$rules[] = 'Use content-bulk-upsert-posts for repeated rows after the post type exists.';
@@ -441,6 +477,7 @@ final class ToolProfile extends AbilityKernel {
 	private static function token_rules(): array {
 		return [
 			'Use profile tools before full ability discovery when the client has a strict tool cap.',
+			'Use low-tools for Antigravity, Gemini API, or other strict tool-cap clients before switching to a specialist profile.',
 			'Use responseMode=summary for WP-CLI and batch tools unless full JSON is needed for the next write.',
 			'Read schemas for only the widgets or block types used in the current section batch.',
 			'Prefer dry_run diagnostics and one section write over many exploratory writes.',

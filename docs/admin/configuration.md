@@ -43,6 +43,9 @@ The profile response keeps Elementor, Gutenberg, content-model, and WP-CLI
 tasks on a compact set of batch-first tools. If a profile expects a disabled or
 gated tool, the response includes `missing_profile_tools`, `missing_mcp_tools`,
 and `recovery_hints` so the agent can recover without broad discovery loops.
+For Antigravity, Gemini API, or another strict tool-cap client, set the
+companion env `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools`. This is stricter than
+`essential` and keeps the startup surface near the minimum composite build path.
 
 ### Local WP-CLI bridge (advanced)
 
@@ -129,8 +132,9 @@ install:
 Use the WordPress URL, username, and Application Password from Cards 2 and 3.
 The `STONEWRIGHT_MCP_TOOL_PROFILE=essential` env value keeps new MCP sessions
 compact while preserving Stonewright fast-path tools.
-Aliases such as `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli`
-normalize to compact canonical profiles before tool filtering.
+Use `low-tools` for strict tool-cap clients. Aliases such as `antigravity`,
+`gemini`, `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli` normalize
+to compact canonical profiles before tool filtering.
 The admin page also exposes per-client snippets for clients that use a slightly
 different top-level key, such as VS Code's `servers`.
 

@@ -103,6 +103,16 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertArrayHasKey( 'stonewright', $result['mcpServers'] );
 	}
 
+	public function test_strict_tool_cap_clients_use_low_tools_profile(): void {
+		$antigravity = ConnectClientConfig::snippet_for( 'antigravity', 'admin', 'pw' );
+		$gemini      = ConnectClientConfig::snippet_for( 'gemini-cli', 'admin', 'pw' );
+
+		$this->assertIsArray( $antigravity );
+		$this->assertIsArray( $gemini );
+		$this->assertSame( 'low-tools', $antigravity['mcpServers']['stonewright']['env']['STONEWRIGHT_MCP_TOOL_PROFILE'] );
+		$this->assertSame( 'low-tools', $gemini['mcpServers']['stonewright']['env']['STONEWRIGHT_MCP_TOOL_PROFILE'] );
+	}
+
 	public function test_snippet_for_vscode_copilot_uses_servers_key(): void {
 		$result = ConnectClientConfig::snippet_for( 'vscode-copilot', 'admin', 'pw' );
 		$this->assertIsArray( $result );
@@ -132,6 +142,7 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'stonewright-companion-0.0.0-test.tgz', $prompt );
 		$this->assertStringContainsString( 'STONEWRIGHT_WP_APP_PASSWORD', $prompt );
 		$this->assertStringContainsString( 'STONEWRIGHT_MCP_TOOL_PROFILE', $prompt );
+		$this->assertStringContainsString( 'Use STONEWRIGHT_MCP_TOOL_PROFILE=low-tools for Antigravity, Gemini API, or other strict tool-cap clients', $prompt );
 		$this->assertStringContainsString( 'versioned GitHub release tarball', $prompt );
 		$this->assertStringContainsString( 'Playwright MCP', $prompt );
 		$this->assertStringContainsString( '@playwright/mcp@latest', $prompt );

@@ -54,12 +54,13 @@ export function buildSetupProfile(
 	const username = (env['STONEWRIGHT_WP_USERNAME'] ?? env['WP_API_USERNAME'] ?? '').trim();
 	const password = env['STONEWRIGHT_WP_APP_PASSWORD'] ?? env['WP_API_PASSWORD'];
 	const authorization = (env['STONEWRIGHT_MCP_AUTHORIZATION'] ?? '').trim();
+	const toolProfile = (env['STONEWRIGHT_MCP_TOOL_PROFILE'] ?? 'essential').trim() || 'essential';
 	const local = siteUrl !== '' && isLocalUrl(siteUrl);
 	const canAutoCredentials = local && wpRoot !== '';
 
 	const mcpEnv: Record<string, string> = {
 		STONEWRIGHT_WP_APP_PASSWORD_AUTO: canAutoCredentials ? 'local-only' : 'never',
-		STONEWRIGHT_MCP_TOOL_PROFILE: 'essential',
+		STONEWRIGHT_MCP_TOOL_PROFILE: toolProfile,
 	};
 	if (siteUrl !== '') {
 		mcpEnv.STONEWRIGHT_WP_URL = siteUrl;
@@ -135,6 +136,7 @@ export function buildSetupProfile(
 			'Verify the MCP tool list includes stonewright-context-bootstrap before starting WordPress work.',
 			'Use stonewright-wordpress-mcp-status if proxied WordPress tools are missing; setup and WP-CLI tools remain available while fixing the connection.',
 			'STONEWRIGHT_MCP_TOOL_PROFILE=essential keeps new MCP sessions compact while preserving Stonewright fast-path tools.',
+			'Use STONEWRIGHT_MCP_TOOL_PROFILE=low-tools for Antigravity, Gemini API, or other strict tool-cap clients.',
 			'Profile aliases such as elementor, design, acf, cpt-ui, fse, and wp cli normalize to compact canonical profiles.',
 			'Leave PORT unset for stdio-only MCP clients unless you need the optional HTTP bridge.',
 			'Call stonewright-tool-profile for tool-cap, slow-startup, or token-sensitive clients before broad discovery.',

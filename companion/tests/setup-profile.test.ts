@@ -84,6 +84,19 @@ describe('buildSetupProfile', () => {
 		expect(profile.notes.join('\n')).toContain('No shell script wrapper required');
 	});
 
+	it('preserves a low-tools companion profile for strict client caps', () => {
+		const profile = buildSetupProfile(
+			{
+				STONEWRIGHT_WP_URL: 'http://mcp-test.local',
+				STONEWRIGHT_MCP_TOOL_PROFILE: 'low-tools',
+			},
+			'win32',
+		);
+
+		expect(profile.mcp_server.env.STONEWRIGHT_MCP_TOOL_PROFILE).toBe('low-tools');
+		expect(profile.notes.join('\n')).toContain('Use STONEWRIGHT_MCP_TOOL_PROFILE=low-tools for Antigravity, Gemini API, or other strict tool-cap clients.');
+	});
+
 	it('warns for remote sites without credentials instead of enabling local credential generation', () => {
 		const profile = buildSetupProfile(
 			{

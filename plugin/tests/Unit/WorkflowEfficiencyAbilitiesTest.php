@@ -159,6 +159,40 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'Discover plugin command groups once, then batch repeated CPT, field, post, meta, term, option, cache, and rewrite work.', $result['workflow_rules'] );
 	}
 
+	public function test_tool_profile_low_tools_stays_under_strict_client_caps(): void {
+		$ability = AbilityRegistry::ability_by_name( 'stonewright/tool-profile' );
+
+		self::assertNotNull( $ability );
+
+		$result = $ability->execute(
+			[
+				'profile'   => 'low-tools',
+				'task'      => 'Build Elementor sections, add repeated CPT rows, and keep Antigravity under its tool cap.',
+				'surface'   => 'elementor',
+				'intent'    => 'write',
+				'max_tools' => 30,
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'low-tools', $result['profile'] );
+		self::assertLessThanOrEqual( 30, $result['profile_tool_count'] );
+		self::assertTrue( $result['under_limit'] );
+		self::assertContains( 'low-tools', $result['profiles_available'] );
+		self::assertContains( 'stonewright/context-bootstrap', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/workflow-preflight', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/content-bulk-upsert-posts', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/media-upload-batch', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/design-implementation-contract', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/gutenberg-apply-to-post', $result['recommended_tools'] );
+		self::assertContains( 'stonewright-wp-cli-batch-run', $result['recommended_mcp_tools'] );
+		self::assertNotContains( 'stonewright/elementor-describe-widget', $result['recommended_tools'] );
+		self::assertContains( 'Use low-tools for Antigravity, Gemini API, or other strict tool-cap clients before switching to a specialist profile.', $result['token_rules'] );
+	}
+
 	public function test_workflow_preflight_returns_single_call_fast_path(): void {
 		$result = ( new WorkflowPreflight() )->execute(
 			[

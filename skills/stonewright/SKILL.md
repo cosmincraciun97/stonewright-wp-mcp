@@ -24,7 +24,9 @@ It routes the agent to the right specialized skill and MCP tools.
 If `stonewright_essential_tools_mode` is enabled, expect a compact tool list.
 Use the fast-path tools returned by preflight instead of rediscovering the full
 ability surface. Use `stonewright-tool-profile` to lock the current task to a
-compact Elementor, content-model, Gutenberg, WP-CLI, or site-admin profile.
+compact low-tools, Elementor, content-model, Gutenberg, WP-CLI, or site-admin
+profile. Use `low-tools` for Antigravity, Gemini API, or other strict tool-cap
+clients before switching to a specialist profile.
 
 ## Route
 
