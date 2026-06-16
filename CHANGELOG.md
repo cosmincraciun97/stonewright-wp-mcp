@@ -7,6 +7,23 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.38] - 2026-06-16
+
+### Changed
+
+- Stonewright MCP server startup now sends a compact fast-start description
+  instead of the full visual build discipline, keeping new MCP sessions cheaper
+  while still directing agents to `stonewright-context-bootstrap`,
+  `stonewright-workflow-preflight`, and compact tool profiles.
+- MCP server tool registration now exposes only the current public Stonewright
+  abilities for the active essential-tools mode, master toggle, and disabled
+  ability settings instead of probing every ability class.
+
+### Fixed
+
+- Site-specific custom instructions are no longer duplicated in the MCP server
+  description during startup.
+
 ## [1.0.0-alpha.37] - 2026-06-16
 
 ### Added
@@ -566,6 +583,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.38]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.38
 [1.0.0-alpha.37]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.37
 [1.0.0-alpha.36]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.36
 [1.0.0-alpha.27]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.27

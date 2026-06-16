@@ -22,22 +22,8 @@ final class ServerRegistration {
 		}
 
 		$base_description = __( 'MCP server for design-accurate WordPress building.', 'stonewright' );
-		$instructions_on  = (bool) get_option( 'stonewright_custom_instructions_enabled', true );
-		$custom           = trim( (string) get_option( 'stonewright_custom_instructions', '' ) );
-
-		$description = $base_description . "\n\n" . AgentInstructions::default();
-		if ( $instructions_on && '' !== $custom ) {
-			$description .= "\n\n" . mb_substr( $custom, 0, 4000 );
-		}
-
-		// Collect all Stonewright ability names for tool exposure.
-		$tools = [];
-		foreach ( AbilityRegistry::list() as $class ) {
-			if ( class_exists( $class ) ) {
-				$ability = new $class();
-				$tools[] = $ability->name();
-			}
-		}
+		$description      = $base_description . "\n\n" . AgentInstructions::server_bootstrap_summary();
+		$tools            = AbilityRegistry::mcp_server_ability_names();
 
 		$adapter->create_server(
 			self::SERVER_ID,

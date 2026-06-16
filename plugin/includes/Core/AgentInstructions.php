@@ -13,6 +13,30 @@ use Stonewright\WpMcp\Memory\Memory;
  */
 final class AgentInstructions {
 
+	public static function server_bootstrap_summary(): string {
+		$parts = [
+			'Stonewright fast start:',
+			'- First call MCP tool stonewright-context-bootstrap with task, surface, and intent. Use the returned stonewright_context_token for every write.',
+			'- Then call stonewright-workflow-preflight for Elementor, Gutenberg, ACF, CPT UI, WooCommerce, or WordPress implementation. Follow its compact recommended tools.',
+			'- For token-sensitive clients, call stonewright-tool-profile and stay within the selected compact profile before broad discovery.',
+			'- Design/Elementor: review or set Elementor kit global colors/typography first, build one section at a time, use native widgets, inspect widget schemas, then batch with build-page-from-spec or batch-mutate.',
+			'- Content-model/repeated rows: prefer content-bulk-upsert-posts and wp-cli-batch-run over many single meta or CLI calls.',
+			'- Never use wp eval, wp eval-file, wp shell, wp package, --exec, or --require through Stonewright.',
+			'- If stonewright-context-bootstrap is missing, the Stonewright MCP server is not loaded. Reload or fix the client config before WordPress work.',
+		];
+
+		$instructions_enabled = (bool) get_option( 'stonewright_custom_instructions_enabled', true );
+		$custom_instructions  = trim( (string) get_option( 'stonewright_custom_instructions', '' ) );
+
+		if ( $instructions_enabled && '' !== $custom_instructions ) {
+			$parts[] = '';
+			$parts[] = '## Site-specific instructions';
+			$parts[] = mb_substr( $custom_instructions, 0, 1200 );
+		}
+
+		return implode( "\n", $parts );
+	}
+
 	public static function default( bool $include_visual = true ): string {
 		$parts = [
 			'Stonewright build discipline:',

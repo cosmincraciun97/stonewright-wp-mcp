@@ -459,6 +459,44 @@ final class AbilityRegistry {
 	}
 
 	/**
+	 * Returns the ability names that should be handed to the MCP server for
+	 * this request. Mirrors register_all() so server startup does not probe
+	 * disabled or non-essential abilities when compact mode is active.
+	 *
+	 * @return list<string>
+	 */
+	public static function mcp_server_ability_names(): array {
+		$master_enabled     = (bool) get_option( 'stonewright_enabled', false );
+		$disabled_abilities = array_fill_keys(
+			array_map( 'strval', (array) get_option( 'stonewright_disabled_abilities', [] ) ),
+			true
+		);
+		$names              = [];
+
+		foreach ( self::public_classes() as $class ) {
+			if ( ! class_exists( $class ) ) {
+				continue;
+			}
+
+			/** @var Ability $ability */
+			$ability = new $class();
+			$name    = $ability->name();
+
+			if ( ! $master_enabled && 'stonewright/ping' !== $name ) {
+				continue;
+			}
+
+			if ( isset( $disabled_abilities[ $name ] ) ) {
+				continue;
+			}
+
+			$names[] = $name;
+		}
+
+		return $names;
+	}
+
+	/**
 	 * Execute an ability after enforcing Stonewright's task context bootstrap.
 	 *
 	 * Read-only discovery abilities remain callable without a token so an agent
