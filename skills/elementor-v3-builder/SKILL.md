@@ -154,10 +154,12 @@ headings inside loop templates; do not rely on many manual meta updates.
   widgets. Use `stonewright/elementor-v3-add-widget` only for unknown or
   third-party widgets after schema lookup.
 - For every widget you intend to write, call
-  `stonewright/elementor-v3-get-widget-schema` and inspect Content, Style, and Advanced
-  controls before choosing settings. If the schema, local harvested docs, or
-  implementation guide are incomplete, research official Elementor documentation
-  online before writing that widget.
+  `stonewright/elementor-v3-get-widget-schema` in summary mode and inspect
+  Content, Style, and Advanced controls before choosing settings. Request
+  `responseMode: "full"` only when default values are required for the next
+  write. If the schema, local harvested docs, or implementation guide are
+  incomplete, research official Elementor documentation online before writing
+  that widget.
 - Use exact control keys from widget schemas. For example, Icon Box uses
   `selected_icon`, `primary_color`, and `secondary_color`; do not invent
   aliases like `icon`, `icon_primary_color`, or `icon_background_color`.
@@ -240,7 +242,7 @@ Returns `{ "template_id": 150 }`.
 | `stonewright/elementor-v3-backup-page` | Explicit snapshot |
 | `stonewright/elementor-v3-save-template` | Save to Elementor library |
 | `stonewright/elementor-v3-list-widgets` | List all registered widgets |
-| `stonewright/elementor-v3-get-widget-schema` | Get widget control schema |
+| `stonewright/elementor-v3-get-widget-schema` | Get compact widget controls by default; use `responseMode: "full"` for defaults |
 | `stonewright/elementor-v3-get-kit-globals` | Read active kit colors and typography |
 | `stonewright/elementor-v3-update-kit-colors` | Mutate kit color palette |
 | `stonewright/elementor-v3-update-kit-typography` | Mutate kit typography |

@@ -23,7 +23,7 @@ final class GetWidgetSchema extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Returns the control schema (name, type, defaults) for a single Elementor widget.', 'stonewright' );
+		return __( 'Returns compact Content, Style, and Advanced control groups for a single Elementor widget by default, or full control defaults when responseMode=full.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -35,7 +35,13 @@ final class GetWidgetSchema extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
-				'name' => [ 'type' => 'string' ],
+				'name'         => [ 'type' => 'string' ],
+				'responseMode' => [
+					'type'        => 'string',
+					'enum'        => [ 'summary', 'full' ],
+					'default'     => 'summary',
+					'description' => 'Use summary for control names, types, labels, sections, and editor tabs; use full only when default values are required.',
+				],
 			],
 			'required'             => [ 'name' ],
 		];
@@ -54,6 +60,7 @@ final class GetWidgetSchema extends AbilityKernel {
 							'name'    => [ 'type' => 'string' ],
 							'type'    => [ 'type' => 'string' ],
 							'label'   => [ 'type' => 'string' ],
+							'tab'     => [ 'type' => 'string' ],
 							'section' => [ 'type' => 'string' ],
 						],
 					],
@@ -69,6 +76,7 @@ final class GetWidgetSchema extends AbilityKernel {
 			'type'       => 'object',
 			'properties' => [
 				'name'              => [ 'type' => 'string' ],
+				'response_mode'     => [ 'type' => 'string' ],
 				'title'             => [ 'type' => 'string' ],
 				'categories'        => [
 					'type'  => 'array',
@@ -88,6 +96,8 @@ final class GetWidgetSchema extends AbilityKernel {
 					],
 				],
 				'research_guidance' => [ 'type' => 'string' ],
+				'defaults_omitted'  => [ 'type' => 'boolean' ],
+				'full_mode_hint'    => [ 'type' => 'string' ],
 			],
 			'required'   => [ 'name', 'controls', 'tab_groups', 'research_guidance' ],
 		];
@@ -126,13 +136,37 @@ final class GetWidgetSchema extends AbilityKernel {
 			}
 		}
 
+		$response_mode = (string) ( $args['responseMode'] ?? 'summary' );
+		$compact_controls = self::compact_controls( $controls );
+		$output_controls  = 'full' === $response_mode ? $controls : $compact_controls;
+
 		return [
 			'name'              => (string) $args['name'],
+			'response_mode'     => 'full' === $response_mode ? 'full' : 'summary',
 			'title'             => method_exists( $widget, 'get_title' ) ? (string) $widget->get_title() : '',
 			'categories'        => method_exists( $widget, 'get_categories' ) ? (array) $widget->get_categories() : [],
-			'controls'          => $controls,
-			'tab_groups'        => EditorTabKnowledge::group_controls( $controls ),
+			'controls'          => $output_controls,
+			'tab_groups'        => EditorTabKnowledge::group_controls( $compact_controls ),
 			'research_guidance' => 'Research official Elementor documentation online when this widget schema lacks enough Content or Style controls for the requested design.',
+			'defaults_omitted'  => 'full' !== $response_mode,
+			'full_mode_hint'    => 'Call with responseMode=full only when default values are required for the next write.',
 		];
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $controls
+	 * @return list<array<string, string>>
+	 */
+	private static function compact_controls( array $controls ): array {
+		return array_map(
+			static fn( array $control ): array => [
+				'name'    => (string) ( $control['name'] ?? '' ),
+				'type'    => (string) ( $control['type'] ?? '' ),
+				'label'   => (string) ( $control['label'] ?? '' ),
+				'tab'     => (string) ( $control['tab'] ?? '' ),
+				'section' => (string) ( $control['section'] ?? '' ),
+			],
+			$controls
+		);
 	}
 }

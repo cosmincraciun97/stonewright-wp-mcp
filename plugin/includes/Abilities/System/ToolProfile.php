@@ -425,6 +425,7 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/widget-intent-resolve' => 'Map visual intent to native Elementor widgets before writing controls.',
 			'stonewright/elementor-widget-implementation-guide' => 'Get Content, Style, and Advanced controls before Elementor writes.',
 			'stonewright/elementor-v3-get-kit-globals' => 'Read active Elementor kit colors and typography before global-style writes.',
+			'stonewright/elementor-v3-get-widget-schema' => 'Read compact Content, Style, and Advanced widget controls; request full only for defaults.',
 			'stonewright/elementor-v3-get-page-structure' => 'Read a compact Elementor outline first; request full tree only for raw setting drift or difficult edits.',
 			'stonewright/elementor-v3-build-page-from-spec' => 'Render a validated Elementor section or page spec in one request.',
 			'stonewright/elementor-v3-container-schema' => 'Get safe container layout, style, Advanced, alias, and blocked-key guidance before section writes.',

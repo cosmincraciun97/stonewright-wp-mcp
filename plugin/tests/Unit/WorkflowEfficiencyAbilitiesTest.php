@@ -416,7 +416,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'For repeated cards or grids, use a validated spec first pass; use stonewright/elementor-v3-batch-mutate for surgical add/update/move/remove edits on an existing page.', $result['first_pass_rules'] );
 		self::assertContains( 'Use build-page-from-spec dry_run before writes when the agent needs element_count, diagnostics, or a no-write preview.', $result['first_pass_rules'] );
 		self::assertContains( 'Set style_policy=strict for design-derived visual specs and include style_source or style._source before applying borders, radius, shadows, or filters.', $result['first_pass_rules'] );
-		self::assertContains( 'For every widget used, call stonewright/elementor-v3-get-widget-schema and inspect Content, Style, and Advanced controls before writing settings.', $result['first_pass_rules'] );
+		self::assertContains( 'For every widget used, call stonewright/elementor-v3-get-widget-schema in summary mode and inspect Content, Style, and Advanced controls before writing settings; request responseMode=full only when defaults are required.', $result['first_pass_rules'] );
 		self::assertContains( 'Name major parent containers semantically; do not over-name every inner utility container.', $result['first_pass_rules'] );
 		self::assertArrayHasKey( 'advanced_controls', $result );
 		self::assertContains( 'position_absolute', $result['advanced_controls'] );
@@ -498,15 +498,25 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		$result = $ability->execute( [ 'name' => 'Contract' ] );
 
 		self::assertIsArray( $result );
+		self::assertSame( 'summary', $result['response_mode'] );
+		self::assertTrue( $result['defaults_omitted'] );
 		self::assertArrayHasKey( 'tab_groups', $result );
 		self::assertArrayHasKey( 'Content', $result['tab_groups'] );
 		self::assertArrayHasKey( 'Style', $result['tab_groups'] );
 		self::assertArrayHasKey( 'Advanced', $result['tab_groups'] );
 		self::assertSame( 1, $result['tab_groups']['Content']['count'] );
 		self::assertSame( 'title', $result['tab_groups']['Content']['controls'][0]['name'] );
+		self::assertArrayNotHasKey( 'default', $result['controls'][0] );
 		self::assertContains( 'position_absolute', $result['tab_groups']['Advanced']['global_controls'] );
 		self::assertContains( 'css_classes', $result['tab_groups']['Advanced']['global_controls'] );
 		self::assertSame( 'Research official Elementor documentation online when this widget schema lacks enough Content or Style controls for the requested design.', $result['research_guidance'] );
+
+		$full = $ability->execute( [ 'name' => 'Contract', 'responseMode' => 'full' ] );
+
+		self::assertIsArray( $full );
+		self::assertSame( 'full', $full['response_mode'] );
+		self::assertFalse( $full['defaults_omitted'] );
+		self::assertSame( 'Contract', $full['controls'][0]['default'] );
 	}
 
 	public function test_media_upload_batch_returns_per_item_results(): void {
