@@ -40,6 +40,7 @@ interface WordPressMcpConnectionStatus extends Record<string, unknown> {
 	local_recovery_tool_names: string[];
 	local_tool_names: string[];
 	profile_expected_tool_count: number;
+	client_visible_expected_tool_count: number;
 	profile_missing_tool_names: string[];
 	remote_tool_count: number;
 	proxied_tool_count: number;
@@ -136,6 +137,7 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 			const profileExpectedToolNames = proxyToolNamesForProfile(registration.profile);
 			const localToolNames = localToolNamesForProfile(registration.profile);
 			wpMcpStatus.profile_expected_tool_count = profileExpectedToolNames.length;
+			wpMcpStatus.client_visible_expected_tool_count = profileExpectedToolNames.length + localToolNames.length;
 			wpMcpStatus.profile_missing_tool_names = missingProfileTools(
 				profileExpectedToolNames,
 				registration.registeredTools.map((tool) => tool.name),
@@ -181,6 +183,7 @@ function createWordPressMcpConnectionStatus(profile: ProxyToolProfile): WordPres
 		local_recovery_tool_names: Array.from(localRecoveryToolNamesForProfile(profile)),
 		local_tool_names: Array.from(localToolNames),
 		profile_expected_tool_count: profileExpectedToolNames.length,
+		client_visible_expected_tool_count: profileExpectedToolNames.length + localToolNames.length,
 		profile_missing_tool_names: profileMissingToolNames,
 		remote_tool_count: 0,
 		proxied_tool_count: 0,

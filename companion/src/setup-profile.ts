@@ -57,7 +57,7 @@ export function buildSetupProfile(
 	const username = (env['STONEWRIGHT_WP_USERNAME'] ?? env['WP_API_USERNAME'] ?? '').trim();
 	const password = env['STONEWRIGHT_WP_APP_PASSWORD'] ?? env['WP_API_PASSWORD'];
 	const authorization = (env['STONEWRIGHT_MCP_AUTHORIZATION'] ?? '').trim();
-	const toolProfile = (env['STONEWRIGHT_MCP_TOOL_PROFILE'] ?? 'essential').trim() || 'essential';
+	const toolProfile = (env['STONEWRIGHT_MCP_TOOL_PROFILE'] ?? env['STONEWRIGHT_MCP_PROXY_PROFILE'] ?? 'essential').trim() || 'essential';
 	const local = siteUrl !== '' && isLocalUrl(siteUrl);
 	const canAutoCredentials = local && wpRoot !== '';
 

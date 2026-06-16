@@ -359,12 +359,14 @@ describe('createMcpServer', () => {
 			structuredContent?: {
 				tool_profile?: string;
 				profile_expected_tool_count?: number;
+				client_visible_expected_tool_count?: number;
 				local_tool_names?: string[];
 			};
 		};
 
 		expect(response.structuredContent?.tool_profile).toBe('low-tools');
 		expect(response.structuredContent?.profile_expected_tool_count).toBeLessThanOrEqual(24);
+		expect(response.structuredContent?.client_visible_expected_tool_count).toBeLessThanOrEqual(30);
 		expect(names.length).toBeLessThanOrEqual(30);
 		expect(response.structuredContent?.local_tool_names).toEqual(expect.not.arrayContaining([
 			'companion_wp_cli_run',

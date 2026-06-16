@@ -160,8 +160,9 @@ idempotent — if the phar already exists it is reused without re-downloading.
 `startup_missing_tool_names`, `local_recovery_tool_names`, and
 `local_tool_names` so agents can recover when bootstrap, preflight, profile,
 skill, or WP-CLI tools are missing. It also reports
-`profile_expected_tool_count` and `profile_missing_tool_names` for the selected
-compact proxy profile even when the WordPress MCP endpoint cannot be reached.
+`profile_expected_tool_count`, `client_visible_expected_tool_count`, and
+`profile_missing_tool_names` for the selected compact profile even when the
+WordPress MCP endpoint cannot be reached.
 
 Alias names (`companion_wp_cli_*`) are also registered for backward compatibility.
 

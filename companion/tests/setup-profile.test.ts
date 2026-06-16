@@ -100,6 +100,19 @@ describe('buildSetupProfile', () => {
 		expect(profile.tool_visibility_checks).toContain('stonewright-wp-cli-batch-run');
 	});
 
+	it('normalizes legacy proxy profile input into the emitted tool profile', () => {
+		const profile = buildSetupProfile(
+			{
+				STONEWRIGHT_WP_URL: 'http://mcp-test.local',
+				STONEWRIGHT_MCP_PROXY_PROFILE: 'antigravity',
+			},
+			'win32',
+		);
+
+		expect(profile.mcp_server.env.STONEWRIGHT_MCP_TOOL_PROFILE).toBe('antigravity');
+		expect(profile.tool_visibility_checks).not.toContain('stonewright-wp-cli-install');
+	});
+
 	it('warns for remote sites without credentials instead of enabling local credential generation', () => {
 		const profile = buildSetupProfile(
 			{
