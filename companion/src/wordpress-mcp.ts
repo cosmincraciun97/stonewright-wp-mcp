@@ -82,12 +82,13 @@ const COMPANION_OWNED_TOOL_NAMES = new Set([
 
 export type ProxyToolProfile = 'full' | 'essential' | 'elementor-design' | 'content-model' | 'gutenberg' | 'wp-cli' | 'site-admin';
 
-const BASE_PROXY_TOOL_NAMES = [
+export const STARTUP_REQUIRED_PROXY_TOOL_NAMES = [
 	'stonewright-context-bootstrap',
 	'stonewright-workflow-preflight',
 	'stonewright-tool-profile',
 	'stonewright-skills-get',
 ] as const;
+const BASE_PROXY_TOOL_NAMES = STARTUP_REQUIRED_PROXY_TOOL_NAMES;
 
 const ESSENTIAL_PROXY_TOOL_NAMES = [
 	...BASE_PROXY_TOOL_NAMES,

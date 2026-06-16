@@ -17,7 +17,12 @@ import {
 	type WpCliRunInput,
 } from './wp-cli.js';
 import { buildSetupProfile } from './setup-profile.js';
-import { registerWordPressMcpPrompts, registerWordPressMcpTools, resolveWordPressMcpConfig } from './wordpress-mcp.js';
+import {
+	STARTUP_REQUIRED_PROXY_TOOL_NAMES,
+	registerWordPressMcpPrompts,
+	registerWordPressMcpTools,
+	resolveWordPressMcpConfig,
+} from './wordpress-mcp.js';
 import { APP_VERSION } from './version.js';
 
 interface WordPressMcpConnectionStatus extends Record<string, unknown> {
@@ -26,6 +31,10 @@ interface WordPressMcpConnectionStatus extends Record<string, unknown> {
 	connected: boolean;
 	url: string | null;
 	tool_profile: string | null;
+	startup_ready: boolean;
+	startup_required_tool_names: string[];
+	startup_missing_tool_names: string[];
+	local_recovery_tool_names: string[];
 	remote_tool_count: number;
 	proxied_tool_count: number;
 	profile_filtered_tool_count: number;
@@ -39,6 +48,14 @@ export interface CreateMcpServerOptions {
 	env?: NodeJS.ProcessEnv;
 	fetchImpl?: typeof fetch;
 }
+
+const LOCAL_RECOVERY_TOOL_NAMES = [
+	'stonewright-setup-profile',
+	'stonewright-wordpress-mcp-status',
+	'stonewright-wp-cli-status',
+	'stonewright-wp-cli-discover',
+	'stonewright-wp-cli-batch-run',
+] as const;
 
 export async function createMcpServer(options: CreateMcpServerOptions = {}): Promise<McpServer> {
 	const server = new McpServer({
@@ -81,8 +98,10 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 			wpMcpStatus.proxied_tool_count = registration.registeredTools.length;
 			wpMcpStatus.profile_filtered_tool_count = registration.filteredToolCount;
 			wpMcpStatus.profile_filtered_tool_names = registration.profileFilteredToolNames;
+			wpMcpStatus.startup_missing_tool_names = missingStartupTools(registration.registeredTools.map((tool) => tool.name));
+			wpMcpStatus.startup_ready = wpMcpStatus.startup_missing_tool_names.length === 0;
 			wpMcpStatus.prompt_skill_count = promptSkills.length;
-			wpMcpStatus.recovery = recoveryHints(registration.filteredToolCount);
+			wpMcpStatus.recovery = recoveryHints(registration.filteredToolCount, wpMcpStatus.startup_missing_tool_names.length);
 			wpMcpStatus.error = null;
 		} catch (err) {
 			wpMcpStatus.ok = false;
@@ -105,22 +124,34 @@ function createWordPressMcpConnectionStatus(): WordPressMcpConnectionStatus {
 		connected: false,
 		url: null,
 		tool_profile: null,
+		startup_ready: false,
+		startup_required_tool_names: Array.from(STARTUP_REQUIRED_PROXY_TOOL_NAMES),
+		startup_missing_tool_names: Array.from(STARTUP_REQUIRED_PROXY_TOOL_NAMES),
+		local_recovery_tool_names: Array.from(LOCAL_RECOVERY_TOOL_NAMES),
 		remote_tool_count: 0,
 		proxied_tool_count: 0,
 		profile_filtered_tool_count: 0,
 		profile_filtered_tool_names: [],
 		prompt_skill_count: 0,
 		error: null,
-		recovery: recoveryHints(0),
+		recovery: recoveryHints(0, STARTUP_REQUIRED_PROXY_TOOL_NAMES.length),
 	};
 }
 
-function recoveryHints(profileFilteredToolCount: number): string[] {
+function missingStartupTools(registeredToolNames: string[]): string[] {
+	const registered = new Set(registeredToolNames);
+	return STARTUP_REQUIRED_PROXY_TOOL_NAMES.filter((name) => !registered.has(name));
+}
+
+function recoveryHints(profileFilteredToolCount: number, startupMissingToolCount: number): string[] {
 	const hints = [
 		'Verify STONEWRIGHT_WP_URL or STONEWRIGHT_MCP_URL points to /wp-json/mcp/stonewright.',
 		'Verify STONEWRIGHT_WP_USERNAME plus STONEWRIGHT_WP_APP_PASSWORD or STONEWRIGHT_MCP_AUTHORIZATION.',
 		'Keep using stonewright-setup-profile and stonewright-wp-cli-status while fixing the WordPress MCP connection.',
 	];
+	if (startupMissingToolCount > 0) {
+		hints.push('If startup_ready is false, update/enable the missing startup tools in the WordPress Stonewright plugin, then restart the MCP session.');
+	}
 	if (profileFilteredToolCount > 0) {
 		hints.push('If a needed WordPress MCP tool is absent and profile_filtered_tool_count is greater than 0, switch STONEWRIGHT_MCP_TOOL_PROFILE to a narrower task profile or full, then restart the MCP session.');
 	}

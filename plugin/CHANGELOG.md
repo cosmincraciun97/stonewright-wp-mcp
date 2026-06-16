@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.44] - 2026-06-16
+
+### Changed
+
+- Added startup-readiness diagnostics to `stonewright-wordpress-mcp-status` so
+  agents can see missing bootstrap, preflight, profile, or skills tools without
+  broad discovery.
+
 ## [1.0.0-alpha.43] - 2026-06-16
 
 ### Changed

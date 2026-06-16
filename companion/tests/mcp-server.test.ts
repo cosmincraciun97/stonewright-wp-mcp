@@ -17,7 +17,7 @@ describe('createMcpServer', () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
 		const info = (server as any).server._serverInfo as { name: string; version: string };
 		expect(info.name).toBe('stonewright-companion');
-		expect(info.version).toBe('1.0.0-alpha.43');
+		expect(info.version).toBe('1.0.0-alpha.44');
 	});
 
 	it('registers WP-CLI tools', async () => {
@@ -322,6 +322,10 @@ describe('createMcpServer', () => {
 				proxied_tool_count?: number;
 				profile_filtered_tool_count?: number;
 				profile_filtered_tool_names?: string[];
+				startup_ready?: boolean;
+				startup_required_tool_names?: string[];
+				startup_missing_tool_names?: string[];
+				local_recovery_tool_names?: string[];
 				recovery?: string[];
 			};
 		};
@@ -331,7 +335,51 @@ describe('createMcpServer', () => {
 		expect(response.structuredContent?.proxied_tool_count).toBe(3);
 		expect(response.structuredContent?.profile_filtered_tool_count).toBe(1);
 		expect(response.structuredContent?.profile_filtered_tool_names).toEqual(['stonewright-experimental-heavy-tool']);
+		expect(response.structuredContent?.startup_ready).toBe(false);
+		expect(response.structuredContent?.startup_required_tool_names).toEqual([
+			'stonewright-context-bootstrap',
+			'stonewright-workflow-preflight',
+			'stonewright-tool-profile',
+			'stonewright-skills-get',
+		]);
+		expect(response.structuredContent?.startup_missing_tool_names).toEqual(['stonewright-skills-get']);
+		expect(response.structuredContent?.local_recovery_tool_names).toEqual([
+			'stonewright-setup-profile',
+			'stonewright-wordpress-mcp-status',
+			'stonewright-wp-cli-status',
+			'stonewright-wp-cli-discover',
+			'stonewright-wp-cli-batch-run',
+		]);
 		expect(response.structuredContent?.recovery).toContain('If a needed WordPress MCP tool is absent and profile_filtered_tool_count is greater than 0, switch STONEWRIGHT_MCP_TOOL_PROFILE to a narrower task profile or full, then restart the MCP session.');
+		expect(response.structuredContent?.recovery).toContain('If startup_ready is false, update/enable the missing startup tools in the WordPress Stonewright plugin, then restart the MCP session.');
+	});
+
+	it('reports startup ready when compact first-call tools are proxied', async () => {
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+				STONEWRIGHT_MCP_TOOL_PROFILE: 'essential',
+			},
+			fetchImpl: stonewrightMcpFetch([
+				{ name: 'stonewright-context-bootstrap' },
+				{ name: 'stonewright-workflow-preflight' },
+				{ name: 'stonewright-tool-profile' },
+				{ name: 'stonewright-skills-get' },
+			]),
+		});
+
+		const tools = (server as { _registeredTools?: Record<string, { handler?: (input: unknown) => Promise<unknown> }> })._registeredTools ?? {};
+		const response = await tools['stonewright-wordpress-mcp-status']?.handler?.({}) as {
+			structuredContent?: {
+				startup_ready?: boolean;
+				startup_missing_tool_names?: string[];
+			};
+		};
+
+		expect(response.structuredContent?.startup_ready).toBe(true);
+		expect(response.structuredContent?.startup_missing_tool_names).toEqual([]);
 	});
 });
 
