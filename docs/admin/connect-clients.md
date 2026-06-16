@@ -169,7 +169,8 @@ After connecting, verify Stonewright with the real MCP tools:
 Use MCP tool stonewright-ping.
 Verify the tool list includes stonewright-context-bootstrap.
 Then call stonewright-context-bootstrap and stonewright-workflow-preflight before
-the first real task.
+the first real task. For tool-cap, slow-startup, or token-sensitive clients,
+call stonewright-tool-profile before broad tool discovery.
 ```
 
 If `stonewright-context-bootstrap` is not visible, stop and restart or reload

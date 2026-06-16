@@ -7,6 +7,17 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.21] - 2026-06-16
+
+### Changed
+
+- Extended `stonewright-setup-profile` with `first_calls` and
+  `tool_visibility_checks` so new MCP sessions can verify bootstrap,
+  preflight, tool-profile, and direct WP-CLI aliases before real work.
+- Updated the admin copy-paste setup prompt and client docs to call
+  `stonewright-tool-profile` for tool-cap, slow-startup, or token-sensitive
+  clients before broad discovery.
+
 ## [1.0.0-alpha.20] - 2026-06-16
 
 ### Added
@@ -360,6 +371,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.21]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.21
 [1.0.0-alpha.20]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.20
 [1.0.0-alpha.19]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.19
 [1.0.0-alpha.18]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.18

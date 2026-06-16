@@ -64,6 +64,8 @@ wp option update stonewright_companion_token change-this-long-random-token
 Then use Stonewright abilities:
 
 - `stonewright-context-bootstrap`
+- `stonewright-workflow-preflight`
+- `stonewright-tool-profile`
 - `stonewright-wp-cli-status`
 - `stonewright-wp-cli-discover`
 - `stonewright-wp-cli-run`
@@ -80,6 +82,12 @@ Use `stonewright-wp-cli-batch-run` for repeated post/meta/term/media/option
 operations, especially when values contain non-ASCII text. It accepts JSON
 arrays of argv tokens, preserves UTF-8, and avoids large inline PowerShell or
 Node scripts where shell encoding can corrupt diacritics.
+
+Call `stonewright-setup-profile` once after connecting. Its `first_calls` and
+`tool_visibility_checks` fields show the compact startup path: bootstrap,
+preflight, tool profile, and direct WP-CLI aliases. Use
+`stonewright-tool-profile` before broad tool discovery when a client has a tool
+cap, slow startup, or a token-sensitive task.
 
 ## Persistent Application Passwords
 

@@ -40,7 +40,10 @@ Fast path for MCP clients:
 
 After the MCP server starts, call `stonewright-setup-profile` once. It returns
 the same config shape plus platform checks, credential status, and notes for
-Windows, macOS, and Linux.
+Windows, macOS, and Linux. Use its `first_calls` and
+`tool_visibility_checks` fields to verify `stonewright-context-bootstrap`,
+`stonewright-workflow-preflight`, `stonewright-tool-profile`, and direct WP-CLI
+aliases are visible before real work.
 
 From a GitHub release:
 

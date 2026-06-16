@@ -276,7 +276,7 @@ final class ConnectClientConfig {
 	 * @param string $app_password Application Password.
 	 */
 	public static function paste_to_agent_prompt( string $username, string $app_password ): string {
-		return sprintf(
+		$prompt = sprintf(
 			/* translators: 1: site URL, 2: MCP endpoint URL, 3: username, 4: Application Password. */
 			__(
 				"Configure Stonewright MCP for this WordPress install in the current AI client.\n\nUse these connection values:\n- WordPress URL: %1\$s\n- MCP endpoint: %2\$s\n- Username: %3\$s\n- Application Password: %4\$s\n- MCP server name: stonewright\n- Local transport: npx @stonewright/companion@latest\n\nConfiguration rules:\n- Store credentials as env vars only: STONEWRIGHT_WP_URL, STONEWRIGHT_WP_USERNAME, STONEWRIGHT_WP_APP_PASSWORD.\n- Use command `npx` with args `[\"-y\", \"@stonewright/companion@latest\"]`; npx downloads and runs the Stonewright companion, so no global companion install is required.\n- Do not use arbitrary PHP execution, wp eval, wp shell, --exec, or --require.\n- Restart or reload the MCP session after saving the config.\n\nAfter reload:\n- Verify the MCP tool list includes stonewright-context-bootstrap before starting WordPress work.\n- First Stonewright calls after connection: stonewright-context-bootstrap, then stonewright-workflow-preflight.\n- Do not start by only announcing named skills. Stonewright skills are guidance returned by MCP; they do not replace live tool calls.\n- Do not treat local agent skills as a substitute for live Stonewright MCP tools.\n- If stonewright-context-bootstrap is missing, stop and tell me the Stonewright MCP server did not load. Ask me to reload or fix the MCP config, or to open the Stonewright JSON snippets panel.\n- Do not inspect private AI-client config files, parse repository files, or hand-roll JSON-RPC calls to the WordPress MCP endpoint as a workaround for a missing MCP server.\n- Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround.\n\nBrowser testing:\n- If this client does not already have browser tools, also add Playwright MCP for browser testing, screenshots, and visual QA.\n- Playwright MCP config: command `npx`, args `[\"-y\", \"@playwright/mcp@latest\", \"--caps=testing,vision,devtools\"]`.\n- For visual WordPress or Elementor work, confirm Playwright/browser tools are visible before the first write.\n\nIf you cannot edit the client config here, ask me to open the Stonewright JSON snippets panel.",
@@ -287,5 +287,7 @@ final class ConnectClientConfig {
 			$username,
 			$app_password
 		);
+
+		return $prompt . "\n- For tool-cap, slow-startup, or token-sensitive clients, call stonewright-tool-profile before broad ability discovery.";
 	}
 }

@@ -17,6 +17,8 @@ export interface SetupProfile extends Record<string, unknown> {
 		env: Record<string, string>;
 	};
 	checks: SetupCheck[];
+	first_calls: string[];
+	tool_visibility_checks: string[];
 	notes: string[];
 }
 
@@ -83,10 +85,24 @@ export function buildSetupProfile(
 			env: mcpEnv,
 		},
 		checks,
+		first_calls: [
+			'stonewright-context-bootstrap',
+			'stonewright-workflow-preflight',
+			'stonewright-tool-profile',
+		],
+		tool_visibility_checks: [
+			'stonewright-context-bootstrap',
+			'stonewright-workflow-preflight',
+			'stonewright-tool-profile',
+			'stonewright-wp-cli-status',
+			'stonewright-wp-cli-discover',
+			'stonewright-wp-cli-batch-run',
+		],
 		notes: [
 			'Use this MCP config on Windows, macOS, and Linux; env vars carry paths safely.',
 			'No shell script wrapper required; the companion uses Node and execFile argv tokens.',
 			'Verify the MCP tool list includes stonewright-context-bootstrap before starting WordPress work.',
+			'Call stonewright-tool-profile for tool-cap, slow-startup, or token-sensitive clients before broad discovery.',
 			'Do not treat local client skills or repository files as a substitute for live Stonewright MCP tools; if the tool is missing, reload the MCP client instead of bypassing the server.',
 			'Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround.',
 			'For local .local/.test sites, Application Passwords can be generated through guarded WP-CLI.',
