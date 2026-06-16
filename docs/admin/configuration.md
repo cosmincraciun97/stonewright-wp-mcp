@@ -32,9 +32,10 @@ Three modes are stored in the `stonewright_mode` option:
 
 ### Essential tools mode
 
-`stonewright_essential_tools_mode` keeps MCP startup and tool discovery compact
-by exposing the most common Stonewright tools first. Agents can still use the
-broader ability list when a task needs it.
+`stonewright_essential_tools_mode` defaults to enabled. It keeps MCP startup and
+tool discovery compact by exposing the most common Stonewright fast-path tools
+first. Turn it off only for specialist sessions that need the full registered
+ability surface.
 
 Agents should call `stonewright-tool-profile` after bootstrap or preflight when
 the client has a tool cap or the user asks for token-efficient implementation.
@@ -105,7 +106,7 @@ install:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.27/stonewright-companion-1.0.0-alpha.27.tgz"],
+      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.28/stonewright-companion-1.0.0-alpha.28.tgz"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",

@@ -23,6 +23,19 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 		$GLOBALS['stonewright_test_options'] = [];
 	}
 
+	public function test_essential_mode_is_default_when_option_is_unset(): void {
+		unset( $GLOBALS['stonewright_test_options']['stonewright_essential_tools_mode'] );
+
+		$names = array_column( AbilityRegistry::enabled_abilities(), 'name' );
+
+		self::assertContains( 'stonewright/workflow-preflight', $names );
+		self::assertContains( 'stonewright/tool-profile', $names );
+		self::assertContains( 'stonewright/wp-cli-batch-run', $names );
+		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $names );
+		self::assertNotContains( 'stonewright/sandbox-write', $names );
+		self::assertLessThan( 60, count( $names ) );
+	}
+
 	public function test_essential_mode_filters_to_compact_fast_path(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_essential_tools_mode'] = true;
 

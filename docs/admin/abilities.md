@@ -1,7 +1,10 @@
 # AI Abilities
 
-The AI Abilities page lists every MCP tool registered by Stonewright, lets
-you disable individual ones, and shows a live count per category.
+The AI Abilities page lists the MCP tools currently exposed by Stonewright, lets
+you disable individual ones, and shows a live count per category. Essential
+tools mode is enabled by default, so the first view is the compact fast-path
+surface; turn essential tools mode off from Configuration when you need to
+inspect or expose every registered ability.
 
 Source: `plugin/includes/Admin/AbilitiesPage.php`
 
@@ -73,9 +76,9 @@ interaction at the top of the page:
 Individual toggles still work (you can pre-configure the disabled list) but
 no AI calls will go through until the master toggle is turned back on.
 
-The `AbilityRegistry::enabled_abilities()` method always returns the full
-registered set so the UI can display it; the MCP layer applies the master
-toggle check at request time.
+The `AbilityRegistry::enabled_abilities()` method returns the currently public
+set after essential tools mode and per-ability disables are applied. The MCP
+layer still applies the master toggle check at request time.
 
 ---
 

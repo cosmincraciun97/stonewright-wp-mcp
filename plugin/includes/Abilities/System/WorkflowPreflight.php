@@ -150,7 +150,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			'site'          => [
 				'ability_count'        => count( AbilityRegistry::list() ),
 				'public_ability_count' => count( AbilityRegistry::enabled_abilities() ),
-				'essential_tools_mode' => (bool) get_option( 'stonewright_essential_tools_mode', false ),
+				'essential_tools_mode' => (bool) get_option( 'stonewright_essential_tools_mode', true ),
 				'mcp_server_id'        => 'stonewright',
 				'ability_prefix'       => 'stonewright/',
 			],

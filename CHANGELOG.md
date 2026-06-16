@@ -7,6 +7,17 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.28] - 2026-06-16
+
+### Changed
+
+- Direct WordPress MCP discovery now defaults to essential tools mode when the
+  option is unset, keeping new sessions on the compact fast-path surface unless
+  a user explicitly opts into the full registered ability list.
+- Admin settings, REST settings, workflow preflight, and tool profile responses
+  now report essential tools mode as enabled by default for consistent
+  token-efficient startup guidance.
+
 ## [1.0.0-alpha.27] - 2026-06-16
 
 ### Changed

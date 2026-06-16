@@ -734,7 +734,7 @@ final class RestRoutes {
 					'callback'            => static function () {
 						return rest_ensure_response( [
 							'mode'                 => get_option( 'stonewright_mode', 'development' ),
-							'essential_tools_mode' => (bool) get_option( 'stonewright_essential_tools_mode', false ),
+							'essential_tools_mode' => (bool) get_option( 'stonewright_essential_tools_mode', true ),
 							'feature_flags'        => get_option( 'stonewright_feature_flags', [] ),
 							'version'              => STONEWRIGHT_VERSION,
 						] );
@@ -773,7 +773,7 @@ final class RestRoutes {
 
 						return rest_ensure_response( [
 							'mode'                 => get_option( 'stonewright_mode', 'development' ),
-							'essential_tools_mode' => (bool) get_option( 'stonewright_essential_tools_mode', false ),
+							'essential_tools_mode' => (bool) get_option( 'stonewright_essential_tools_mode', true ),
 							'feature_flags'        => get_option( 'stonewright_feature_flags', [] ),
 						] );
 					},

@@ -18,6 +18,18 @@ use Stonewright\WpMcp\Core\AbilityRegistry;
  */
 final class AbilitySecurityEnvelopeTest extends TestCase {
 
+	protected function setUp(): void {
+		$GLOBALS['stonewright_test_options'] = [
+			'stonewright_disabled_abilities'        => [],
+			'stonewright_essential_tools_mode'      => false,
+			'stonewright_essential_extra_abilities' => [],
+		];
+	}
+
+	protected function tearDown(): void {
+		$GLOBALS['stonewright_test_options'] = [];
+	}
+
 	/**
 	 * @dataProvider mutating_ability_provider
 	 * @param class-string<Ability> $class

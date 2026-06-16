@@ -55,7 +55,7 @@ final class SettingsPage {
 
 		register_setting( self::OPTION_GROUP, 'stonewright_essential_tools_mode', [
 			'type'              => 'boolean',
-			'default'           => false,
+			'default'           => true,
 			'sanitize_callback' => static function ( $value ): bool {
 				return (bool) $value;
 			},
@@ -115,8 +115,8 @@ final class SettingsPage {
 							<th scope="row"><label for="stonewright_essential_tools_mode"><?php esc_html_e( 'Essential tools mode', 'stonewright' ); ?></label></th>
 							<td>
 								<label>
-									<input type="checkbox" name="stonewright_essential_tools_mode" id="stonewright_essential_tools_mode" value="1" <?php checked( (bool) get_option( 'stonewright_essential_tools_mode', false ) ); ?>/>
-									<?php esc_html_e( 'Expose a compact fast-path toolset for lower token use and faster MCP startup.', 'stonewright' ); ?>
+									<input type="checkbox" name="stonewright_essential_tools_mode" id="stonewright_essential_tools_mode" value="1" <?php checked( (bool) get_option( 'stonewright_essential_tools_mode', true ) ); ?>/>
+									<?php esc_html_e( 'Expose a compact fast-path toolset by default for lower token use and faster MCP startup.', 'stonewright' ); ?>
 								</label>
 							</td>
 						</tr>

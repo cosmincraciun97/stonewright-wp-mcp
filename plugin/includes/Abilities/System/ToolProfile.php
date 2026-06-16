@@ -227,7 +227,7 @@ final class ToolProfile extends AbilityKernel {
 			'tool_count'            => count( $limited_names ),
 			'profile_tool_count'    => $profile_tool_count,
 			'under_limit'           => $profile_tool_count <= $max_tools,
-			'essential_tools_mode'  => (bool) get_option( 'stonewright_essential_tools_mode', false ),
+			'essential_tools_mode'  => (bool) get_option( 'stonewright_essential_tools_mode', true ),
 			'profiles_available'    => self::profile_names(),
 			'recommended_tools'     => $limited_names,
 			'recommended_mcp_tools' => array_map( [ AbilityRegistry::class, 'mcp_tool_name' ], $limited_names ),

@@ -622,7 +622,7 @@ final class AbilityRegistry {
 	 */
 	private static function public_classes(): array {
 		$classes = self::list();
-		if ( ! (bool) get_option( 'stonewright_essential_tools_mode', false ) ) {
+		if ( ! (bool) get_option( 'stonewright_essential_tools_mode', true ) ) {
 			return $classes;
 		}
 
@@ -702,6 +702,7 @@ final class AbilityRegistry {
 			'stonewright/elementor-v3-save-template',
 
 			// Design pipeline.
+			'stonewright/design-implementation-contract',
 			'stonewright/design-validate-spec',
 			'stonewright/design-build-spec',
 			'stonewright/design-choose-renderer',

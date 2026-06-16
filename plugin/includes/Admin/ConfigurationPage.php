@@ -64,7 +64,7 @@ final class ConfigurationPage {
 
 		register_setting( self::OPTION_GROUP, 'stonewright_essential_tools_mode', [
 			'type'              => 'boolean',
-			'default'           => false,
+			'default'           => true,
 			'sanitize_callback' => static fn( mixed $value ): bool => (bool) $value,
 		] );
 
@@ -117,7 +117,7 @@ final class ConfigurationPage {
 			]
 		);
 		$atomic_enabled      = (bool) get_option( 'stonewright_elementor_v4_atomic', false );
-		$essential_mode      = (bool) get_option( 'stonewright_essential_tools_mode', false );
+		$essential_mode      = (bool) get_option( 'stonewright_essential_tools_mode', true );
 		$server_url          = get_rest_url( null, 'mcp/stonewright' );
 		$current_user        = wp_get_current_user();
 		$current_user_id     = get_current_user_id();
@@ -205,7 +205,7 @@ final class ConfigurationPage {
 								value="1"
 								<?php checked( $essential_mode ); ?>
 							/>
-							<span><?php esc_html_e( 'Enable essential tools mode for faster MCP startup', 'stonewright' ); ?></span>
+							<span><?php esc_html_e( 'Keep essential tools mode enabled for faster MCP startup', 'stonewright' ); ?></span>
 						</label>
 						<label class="stonewright-switch">
 							<input
