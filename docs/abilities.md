@@ -24,7 +24,7 @@ matrix after changing the registry.
 | Knowledge | 5 | Elementor knowledge search, widget descriptions, implementation guidance, and refresh. |
 | Memory | 5 | Persistent project memory, user corrections, and learning records. |
 | System | 11 | Context bootstrap, tool profiles, workflow preflight, instructions, ability list, and knowledge import/export. |
-| WP-CLI | 3 | Companion-backed `wp cli info`, `wp cli cmd-dump`, and guarded command execution. |
+| WP-CLI | 4 | Companion-backed status, command discovery, guarded command execution, and batch execution. |
 | Sandbox | 8 | Admin-only generated code/artifact lifecycle. |
 | Theme Builder | 5 | Elementor Theme Builder templates and conditions. |
 | Menu | 5 | Menu creation, item management, locations, and deletion. |
@@ -79,7 +79,8 @@ Content-Type: application/json
 
 The runner uses the same registry, permission callbacks, master toggle,
 disabled-ability checks, UTF-8 sanitization, context-token gate, audit flow, and
-ability handlers as the MCP surface. It is not a bypass for write safety.
+ability handlers as the MCP surface. It is not a bypass for write safety and is
+not a shell workaround for agents when the MCP tool list did not load.
 
 ## WP-CLI
 
@@ -90,6 +91,7 @@ The WP-CLI tools are:
 | `stonewright/wp-cli-status` (`stonewright-wp-cli-status`) | Checks that WP-CLI is available through the companion and returns `wp cli info --format=json`. |
 | `stonewright/wp-cli-discover` (`stonewright-wp-cli-discover`) | Returns `wp cli cmd-dump` data so agents can discover WordPress, Elementor, Gutenberg, ACF, CPT UI, and other installed command groups. |
 | `stonewright/wp-cli-run` (`stonewright-wp-cli-run`) | Runs a guarded WP-CLI command through the companion. It supports writes, but blocks arbitrary PHP and shell-like command groups such as `eval`, `eval-file`, `shell`, and `package`. |
+| `stonewright/wp-cli-batch-run` (`stonewright-wp-cli-batch-run`) | Runs repeated guarded WP-CLI commands in one request for faster content, meta, term, media, option, and plugin-command work. |
 
 In the Node companion MCP, the same MCP names `stonewright-wp-cli-status`,
 `stonewright-wp-cli-discover`, `stonewright-wp-cli-run`, and
@@ -100,6 +102,8 @@ scripts.
 The companion also exposes `stonewright-wp-cli-install`, which downloads the
 official `wp-cli.phar` into the Stonewright cache for users who do not have
 `wp` on `PATH` or a LocalWP-provided phar.
+Agents should not recover by running `wp cli info`, `wp plugin activate`,
+`wp option update`, or other `wp` commands in a normal shell.
 
 Agents should prefer native Stonewright abilities for structured writes. Use
 WP-CLI when it is faster, better documented by the installed plugin, or useful

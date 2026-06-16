@@ -21,8 +21,29 @@ export interface SetupProfile extends Record<string, unknown> {
 	checks: SetupCheck[];
 	first_calls: string[];
 	tool_visibility_checks: string[];
+	agent_do_not_use: string[];
+	agent_use_instead: string[];
 	notes: string[];
 }
+
+export const AGENT_DO_NOT_USE = [
+	'Do not run wp cli info, wp plugin activate, wp option update, or other wp commands in a normal shell as Stonewright recovery.',
+	'Do not use another MCP adapter execute-php or arbitrary PHP execution to replace Stonewright tools.',
+	'Do not read repository docs or ability matrices as a substitute for the live MCP tool list.',
+	'Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround.',
+];
+
+export const AGENT_USE_INSTEAD = [
+	'stonewright-wordpress-mcp-status',
+	'stonewright-setup-profile',
+	'stonewright-context-bootstrap',
+	'stonewright-workflow-preflight',
+	'stonewright-wp-cli-status',
+	'stonewright-wp-cli-discover',
+	'stonewright-wp-cli-run',
+	'stonewright-wp-cli-batch-run',
+	'stonewright-wp-cli-install',
+];
 
 export function buildSetupProfile(
 	env: NodeJS.ProcessEnv = process.env,
@@ -105,6 +126,8 @@ export function buildSetupProfile(
 			'stonewright-wp-cli-batch-run',
 			'stonewright-wp-cli-install',
 		],
+		agent_do_not_use: AGENT_DO_NOT_USE,
+		agent_use_instead: AGENT_USE_INSTEAD,
 		notes: [
 			'Use this MCP config on Windows, macOS, and Linux; env vars carry paths safely.',
 			'No shell script wrapper required; the companion uses Node and execFile argv tokens.',
@@ -113,6 +136,7 @@ export function buildSetupProfile(
 			'Use stonewright-wordpress-mcp-status if proxied WordPress tools are missing; setup and WP-CLI tools remain available while fixing the connection.',
 			'STONEWRIGHT_MCP_TOOL_PROFILE=essential keeps new MCP sessions compact while preserving Stonewright fast-path tools.',
 			'Profile aliases such as elementor, design, acf, cpt-ui, fse, and wp cli normalize to compact canonical profiles.',
+			'Leave PORT unset for stdio-only MCP clients unless you need the optional HTTP bridge.',
 			'Call stonewright-tool-profile for tool-cap, slow-startup, or token-sensitive clients before broad discovery.',
 			'Do not treat local client skills or repository files as a substitute for live Stonewright MCP tools; if the tool is missing, reload the MCP client instead of bypassing the server.',
 			'Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround.',

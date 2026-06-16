@@ -64,6 +64,16 @@ not use local agent skills, repository files, private client config files, or
 manual JSON-RPC or `/wp-json/stonewright/v1/abilities/run` shell calls as
 substitutes for the live MCP server.
 
+Leave `PORT` out of normal stdio configs, including Antigravity. `PORT` enables
+only the optional HTTP bridge; if a `.env` file sets it and the port is already
+occupied, stdio MCP should stay active and the bridge is skipped unless
+`STONEWRIGHT_HTTP_REQUIRED=1` is set.
+
+Do not recover by running `wp cli info`, `wp plugin activate`,
+`wp option update`, or other `wp` commands in a normal shell, and do not switch
+to another adapter's arbitrary PHP execution. Use `stonewright-wordpress-mcp-status`
+and the direct `stonewright-wp-cli-*` tools exposed by the companion.
+
 ---
 
 ## Claude Code

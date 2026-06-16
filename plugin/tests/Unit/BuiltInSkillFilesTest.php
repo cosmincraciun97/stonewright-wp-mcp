@@ -37,7 +37,7 @@ final class BuiltInSkillFilesTest extends TestCase {
 		self::assertStringContainsString( 'name: content-model-integrations', $content_model_body );
 		self::assertStringContainsString( 'ACF', $content_model_body );
 		self::assertStringContainsString( 'Pods', $content_model_body );
-		self::assertStringContainsString( 'stonewright/wp-cli-discover', $content_model_body );
+		self::assertStringContainsString( 'stonewright-wp-cli-discover', $content_model_body );
 		self::assertStringContainsString( 'name: woocommerce-catalog', $woocommerce_body );
 		self::assertStringContainsString( 'product variations', $woocommerce_body );
 		self::assertStringContainsString( 'wp wc', $woocommerce_body );

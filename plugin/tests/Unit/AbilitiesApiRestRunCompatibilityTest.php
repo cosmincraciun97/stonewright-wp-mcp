@@ -56,4 +56,27 @@ final class AbilitiesApiRestRunCompatibilityTest extends TestCase {
 		$this->assertFalse( $ability->has_permission( [ 'allowed' => false ] ) );
 		$this->assertTrue( $ability->has_permission( [ 'allowed' => true ] ) );
 	}
+
+	public function test_registered_ability_accepts_null_input_from_mcp_adapters(): void {
+		if ( ! class_exists( \WP_Ability::class ) ) {
+			require_once self::VENDOR_ABILITY;
+		}
+
+		$this->assertTrue( method_exists( RegisteredAbility::class, 'check_permissions' ) );
+
+		$ability = new RegisteredAbility(
+			'stonewright/test-null-input',
+			[
+				'label'               => 'Null input compatibility test',
+				'description'         => 'Compatibility test ability.',
+				'output_schema'       => [],
+				'permission_callback' => static fn ( array $input ): bool => [] === $input,
+				'execute_callback'    => static fn ( array $input ): array => [ 'input' => $input ],
+			]
+		);
+
+		$this->assertTrue( $ability->has_permission( null ) );
+		$this->assertTrue( $ability->check_permissions( null ) );
+		$this->assertSame( [ 'input' => [] ], $ability->execute( null ) );
+	}
 }

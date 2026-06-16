@@ -35,6 +35,10 @@ npm run build
 Normal MCP clients launch the versioned companion release tarball with `npx`.
 Use the admin **Local WP-CLI bridge (advanced)** controls only when you
 deliberately run the optional HTTP bridge for WordPress-side WP-CLI abilities.
+The source-install `wp plugin activate stonewright` command is for humans with
+WP-CLI already configured. Runtime agents should not recover by shelling out to
+`wp ...` or by using arbitrary PHP execution from another adapter; they should
+use the guarded `stonewright-wp-cli-*` MCP tools.
 
 ## Local Development
 
@@ -72,7 +76,7 @@ Internal URL of the companion Node server. Required for WP-CLI abilities:
 
 When the companion HTTP bridge is not running, use direct MCP tools exposed by
 the companion instead: `companion_wp_cli_status`, `companion_wp_cli_discover`,
-and `companion_wp_cli_run`.
+and `companion_wp_cli_run`, or the direct `stonewright-wp-cli-*` aliases.
 
 ### Persistent Skills And Memory
 

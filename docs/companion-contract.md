@@ -113,7 +113,10 @@ Response fields:
 ## MCP HTTP Transport
 
 When `PORT` is set, the companion exposes MCP Streamable HTTP routes at
-`/mcp`. The route is guarded by the same bearer token.
+`/mcp`. The route is guarded by the same bearer token. This transport is
+optional for stdio MCP clients. If the requested HTTP port is already in use,
+the companion keeps stdio MCP active and skips the HTTP bridge unless
+`STONEWRIGHT_HTTP_REQUIRED=1` is set.
 
 ## Optional MCP Proxy
 

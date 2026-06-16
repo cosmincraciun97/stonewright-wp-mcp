@@ -142,6 +142,8 @@ Use `stonewright-wp-cli-run` for tokenized commands such as `post`, `option`,
 `plugin`, `theme`, `rewrite`, `cache`, `media`, `menu`, `term`, and installed
 plugin commands. Never use `wp eval`, `wp eval-file`, `wp shell`, `wp package`,
 `--exec`, or `--require`.
+Do not run `wp ...` in a normal shell as Stonewright recovery, and do not use
+another adapter's arbitrary PHP execution to replace Stonewright tools.
 
 For repeated writes or strings with diacritics, prefer
 `stonewright-wp-cli-batch-run`; do not paste large inline PowerShell/Node

@@ -25,6 +25,8 @@ Stop and fix the MCP config or reload the client before WordPress work. Local
 agent skills, prompt snippets, repository files, private client config files,
 and `/wp-json/stonewright/v1/abilities/run` shell calls do not replace live
 Stonewright MCP tools.
+Do not recover by running `wp ...` in a normal shell or by using arbitrary PHP
+execution from another adapter; use Stonewright's guarded MCP tools.
 
 ## Prompt Template
 
@@ -148,4 +150,6 @@ call `POST /wp-json/stonewright/v1/abilities/run` with:
 ```
 
 Write abilities still require the `stonewright_context_token` returned by
-`stonewright/context-bootstrap`.
+`stonewright/context-bootstrap`. This runner is for deliberate REST clients and
+tests, not a workaround when an MCP client failed to load the Stonewright tool
+list.

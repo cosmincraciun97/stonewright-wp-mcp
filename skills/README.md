@@ -64,6 +64,14 @@ Copy-Item -Recurse -Force .\skills\stonewright-review "$env:USERPROFILE\.codex\s
   WP-CLI is available, the direct companion tool `stonewright-wp-cli-install`
   can install `wp-cli.phar` into the Stonewright cache.
 
+Skills are routing guidance, not substitutes for live MCP tools. If
+`stonewright-context-bootstrap` is missing, restart or fix the MCP client
+instead of reading repository files as a replacement. For WP-CLI work, use
+`stonewright-wp-cli-status`, `stonewright-wp-cli-discover`,
+`stonewright-wp-cli-run`, `stonewright-wp-cli-batch-run`, or
+`stonewright-wp-cli-install`; do not recover by running `wp ...` in a normal
+shell or by using arbitrary PHP execution from another adapter.
+
 ## Companion layer
 
 The `companion/` directory provides WP-CLI, health checks, and the optional MCP
@@ -79,3 +87,6 @@ npm start
 The companion exposes both `companion_wp_cli_*` tools and direct
 `stonewright-wp-cli-*` aliases. The direct aliases do not require the optional
 HTTP bridge on port `8765`.
+
+Leave `PORT` unset for stdio-only clients. It enables the optional HTTP bridge;
+stdio MCP remains the primary transport for normal agent sessions.

@@ -44,6 +44,10 @@ composer install --no-dev
 wp plugin activate stonewright
 ```
 
+The `wp plugin activate stonewright` command is for a human source install on a
+machine with WP-CLI already configured. Runtime agents should use Stonewright's
+guarded MCP tools for WordPress work instead of shelling out to `wp ...`.
+
 ## Companion
 
 The companion is optional. Use it when your MCP client needs a local stdio
@@ -87,6 +91,14 @@ client config before continuing. Local agent skills, repository files, private
 client config files, and manual JSON-RPC or
 `/wp-json/stonewright/v1/abilities/run` shell calls are not substitutes for a
 loaded Stonewright MCP server.
+
+Do not recover from a missing tool by running `wp cli info`, `wp plugin
+activate`, `wp option update`, or other `wp` commands in a normal shell, and do
+not replace Stonewright with another adapter's arbitrary PHP execution. Use the
+live Stonewright MCP tools: `stonewright-wordpress-mcp-status`,
+`stonewright-wp-cli-status`, `stonewright-wp-cli-discover`,
+`stonewright-wp-cli-run`, `stonewright-wp-cli-batch-run`, or
+`stonewright-wp-cli-install`.
 
 ## Fast Build Workflow
 
@@ -146,6 +158,11 @@ registers direct aliases named `stonewright-wp-cli-status`,
 `stonewright-wp-cli-discover`, `stonewright-wp-cli-run`, and
 `stonewright-wp-cli-batch-run`. Those aliases run WP-CLI inside the companion
 and do not require the WordPress-side HTTP bridge on port `8765`.
+
+For stdio MCP clients, leave `PORT` unset. `PORT` enables only the optional HTTP
+bridge; if a `.env` file sets it and the port is already occupied, stdio MCP
+continues and the bridge is skipped. Set `STONEWRIGHT_HTTP_REQUIRED=1` only when
+an HTTP bridge bind failure should fail startup.
 
 Most users can ignore the optional HTTP bridge. Use **Stonewright >
 Configuration > Local WP-CLI bridge (advanced)** only when you deliberately run

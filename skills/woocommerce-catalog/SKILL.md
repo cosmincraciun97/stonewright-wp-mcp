@@ -11,13 +11,13 @@ shipping classes.
 
 ## First Call
 
-Call `stonewright/workflow-preflight` with surface `woocommerce` and the task
+Call MCP tool `stonewright-workflow-preflight` with surface `woocommerce` and the task
 intent. Read the returned `woocommerce` specialization.
 
 Then call:
-- `stonewright/site-plugins-list`
-- `stonewright/wp-cli-status`
-- `stonewright/wp-cli-discover`
+- `stonewright-site-plugins-list`
+- `stonewright-wp-cli-status`
+- `stonewright-wp-cli-discover`
 
 Prefer WooCommerce official REST v3 or `wp wc` commands when present.
 
@@ -39,7 +39,7 @@ Before writing:
 
 ## Write Pattern
 
-1. Call `stonewright/context-bootstrap`; pass `stonewright_context_token` to
+1. Call `stonewright-context-bootstrap`; pass `stonewright_context_token` to
    write tools.
 2. Create or update global attributes and terms first.
 3. Create or update product categories/tags/shipping classes next.
@@ -49,7 +49,9 @@ Before writing:
 7. Read back parent product, attributes, variations, prices, stock, and default
    attributes.
 
-Use `stonewright/wp-cli-run` with argv tokens only. Never use `wp eval`,
+Use `stonewright-wp-cli-run` with argv tokens only. Do not run `wp ...` in a
+normal shell as Stonewright recovery, and do not use arbitrary PHP execution
+from another adapter to replace Stonewright tools. Never use `wp eval`,
 `wp eval-file`, `wp shell`, `wp package`, `--exec`, or `--require`.
 
 ## Delete Policy

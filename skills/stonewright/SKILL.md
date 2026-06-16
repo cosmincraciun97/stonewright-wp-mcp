@@ -17,8 +17,9 @@ It routes the agent to the right specialized skill and MCP tools.
 2. Call `stonewright-workflow-preflight` when planning implementation work.
 3. Call `stonewright-tool-profile` when the client has a tool cap, slow startup,
    or a token-sensitive task.
-4. If authentication or MCP visibility fails, check companion credentials
-   before falling back to WP-CLI.
+4. If authentication or MCP visibility fails, call
+   `stonewright-wordpress-mcp-status` and `stonewright-setup-profile`, then use
+   direct `stonewright-wp-cli-*` tools only when WP-CLI is needed.
 
 If `stonewright_essential_tools_mode` is enabled, expect a compact tool list.
 Use the fast-path tools returned by preflight instead of rediscovering the full
@@ -51,6 +52,8 @@ compact Elementor, content-model, Gutenberg, WP-CLI, or site-admin profile.
 - For repeated WP-CLI writes or non-ASCII values, use
   `stonewright-wp-cli-batch-run` with JSON argv arrays instead of large inline
   PowerShell/Node scripts.
+- Do not run `wp ...` in a normal shell as Stonewright recovery, and do not use
+  another adapter's arbitrary PHP execution to replace Stonewright tools.
 - Never use `wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, or
   `--require`.
 - For visual work, implement one or two sections at a time and verify desktop,

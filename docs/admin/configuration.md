@@ -59,6 +59,12 @@ HTTP bridge for WordPress-side abilities such as `stonewright/wp-cli-run`.
 Click **Generate token**, save settings, then copy **Developer launch values**
 into the bridge process. The bridge token must match the saved token.
 
+For stdio MCP clients, leave `PORT` unset. `PORT` enables only the optional HTTP
+bridge; when a `.env` file sets `PORT` and the port is already occupied, stdio
+MCP continues and the bridge is skipped unless `STONEWRIGHT_HTTP_REQUIRED=1` is
+set. Runtime agents should use the direct `stonewright-wp-cli-*` tools instead
+of shelling out to `wp ...` themselves.
+
 ### Elementor V4 atomic
 
 Checking `stonewright_elementor_v4_atomic` enables the experimental V4 renderer

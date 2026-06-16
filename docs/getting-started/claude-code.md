@@ -27,6 +27,10 @@ wp plugin activate stonewright
 ```
 
 Or activate it in the WordPress admin under Plugins.
+This shell command is only for a human source install on a machine with WP-CLI
+already configured. During MCP tasks, agents should not recover by running
+`wp ...` in a normal shell; they should use Stonewright's
+`stonewright-wp-cli-*` tools so commands stay tokenized and guarded.
 
 ## 2. Create an Application Password
 

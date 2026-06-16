@@ -16,7 +16,7 @@ import {
 	type WpCliInstallInput,
 	type WpCliRunInput,
 } from './wp-cli.js';
-import { buildSetupProfile } from './setup-profile.js';
+import { AGENT_DO_NOT_USE, AGENT_USE_INSTEAD, buildSetupProfile } from './setup-profile.js';
 import {
 	STARTUP_REQUIRED_PROXY_TOOL_NAMES,
 	proxyToolProfileFromEnv,
@@ -46,6 +46,8 @@ interface WordPressMcpConnectionStatus extends Record<string, unknown> {
 	profile_filtered_tool_names: string[];
 	prompt_skill_count: number;
 	error: { message: string } | null;
+	agent_do_not_use: string[];
+	agent_use_instead: string[];
 	recovery: string[];
 }
 
@@ -167,6 +169,8 @@ function createWordPressMcpConnectionStatus(env: NodeJS.ProcessEnv): WordPressMc
 		profile_filtered_tool_names: [],
 		prompt_skill_count: 0,
 		error: null,
+		agent_do_not_use: Array.from(AGENT_DO_NOT_USE),
+		agent_use_instead: Array.from(AGENT_USE_INSTEAD),
 		recovery: recoveryHints(0, STARTUP_REQUIRED_PROXY_TOOL_NAMES.length, profileMissingToolNames.length),
 	};
 }

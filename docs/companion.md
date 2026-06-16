@@ -30,7 +30,8 @@ folder or site URL.
 |---|---|
 | `COMPANION_BEARER_TOKEN` | Required outside local/dev mode |
 | `COMPANION_ALLOWED_ORIGINS` | Required outside local/dev mode |
-| `PORT` | Enables HTTP transport |
+| `PORT` | Enables the optional HTTP transport; leave unset for normal stdio MCP clients |
+| `STONEWRIGHT_HTTP_REQUIRED` | Set to `1` only when an HTTP bridge bind failure should make startup fail |
 | `STONEWRIGHT_WP_URL` | WordPress site URL; the companion derives `/wp-json/mcp/stonewright` when `STONEWRIGHT_MCP_URL` is absent |
 | `STONEWRIGHT_WP_USERNAME` | WordPress username for Application Password auth |
 | `STONEWRIGHT_WP_APP_PASSWORD` | WordPress Application Password |
@@ -55,7 +56,13 @@ need the WordPress-side HTTP bridge. Use the bridge only when a site
 deliberately wants WordPress-side `stonewright/wp-cli-*` abilities to call a
 local companion HTTP process.
 
-When needed, set:
+If a `.env` file sets `PORT` and the port is already occupied, stdio MCP stays
+active and the optional HTTP bridge is skipped. Set
+`STONEWRIGHT_HTTP_REQUIRED=1` only for bridge-only deployments where a bind
+failure should stop startup.
+
+For a human administrator with WP-CLI already configured, bridge options can be
+set from shell:
 
 ```bash
 wp option update stonewright_companion_url http://127.0.0.1:8765
@@ -80,6 +87,11 @@ If the HTTP bridge is not running, use the direct companion MCP tools instead:
 - `companion_wp_cli_discover`
 - `companion_wp_cli_run`
 - `companion_wp_cli_batch_run`
+
+Do not recover by running `wp cli info`, `wp plugin activate`,
+`wp option update`, or other `wp` commands in a normal shell. Use the
+Stonewright MCP tools above so the companion can apply path checks, command
+guards, and tokenized argv execution.
 
 Use `stonewright-wp-cli-batch-run` for repeated post/meta/term/media/option
 operations, especially when values contain non-ASCII text. It accepts JSON

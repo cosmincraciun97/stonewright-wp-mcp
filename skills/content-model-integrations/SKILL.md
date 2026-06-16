@@ -11,16 +11,18 @@ flexible content, or content-model migration.
 
 ## First Call
 
-Call `stonewright/workflow-preflight` with the user task, surface `wordpress`
+Call MCP tool `stonewright-workflow-preflight` with the user task, surface `wordpress`
 or the plugin surface (`acf`, `acpt`, `meta-box`, `ase`, `pods`), and intent.
 Read `fast_path.specializations` before choosing tools.
 
 Then call:
-- `stonewright/site-plugins-list`
-- `stonewright/wp-cli-status`
-- `stonewright/wp-cli-discover`
+- `stonewright-site-plugins-list`
+- `stonewright-wp-cli-status`
+- `stonewright-wp-cli-discover`
 
-Use `stonewright/wp-cli-run` only with argv tokens. Never use `wp eval`,
+Use `stonewright-wp-cli-run` only with argv tokens. Do not run `wp ...` in a
+normal shell as recovery, and do not use arbitrary PHP execution from another
+adapter to replace Stonewright tools. Never use `wp eval`,
 `wp eval-file`, `wp shell`, `wp package`, `--exec`, or `--require`.
 When the companion exposes `stonewright-wp-cli-batch-run`, prefer it for many
 post/meta/term/option writes or Romanian/non-ASCII values. Do not paste large
@@ -105,12 +107,12 @@ Useful docs:
 
 ## Safe Write Pattern
 
-1. Call `stonewright/context-bootstrap`; keep `stonewright_context_token`.
+1. Call `stonewright-context-bootstrap`; keep `stonewright_context_token`.
 2. Discover plugin, schema, command groups, and value targets.
 3. Create a small write plan with exact target IDs and field names.
 4. For post/page content or meta writes, rely on Stonewright content abilities
    so snapshots and permissions run.
-5. For plugin command writes, use `stonewright/wp-cli-run` with argv tokens and
+5. For plugin command writes, use `stonewright-wp-cli-run` with argv tokens and
    `stonewright_context_token`.
 6. Verify by reading back changed schema or values.
 7. For visible output, verify with external browser MCP.

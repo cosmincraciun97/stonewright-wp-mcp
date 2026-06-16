@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.25-blue" /></a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.48-blue" /></a>
   <img alt="plugin license" src="https://img.shields.io/badge/plugin-GPL--2.0--or--later-green" />
   <img alt="companion license" src="https://img.shields.io/badge/companion-MIT-blue" />
   <img alt="php" src="https://img.shields.io/badge/PHP-%3E%3D8.1-777bb4" />
@@ -84,6 +84,10 @@ are not substitutes for the live Stonewright MCP server.
 If the companion is visible but proxied WordPress tools are missing, call
 `stonewright-wordpress-mcp-status`; setup-profile and direct `stonewright-wp-cli-*`
 tools remain available while you fix credentials or endpoint URLs.
+Do not recover by running `wp ...` commands in a normal shell or by using another
+MCP adapter's arbitrary PHP execution. Use `stonewright-wp-cli-status`,
+`stonewright-wp-cli-discover`, `stonewright-wp-cli-run`,
+`stonewright-wp-cli-batch-run`, or `stonewright-wp-cli-install`.
 
 Use `stonewright-workflow-preflight` for fast task setup. It returns a context
 token, active mode, auth reminders, compact Elementor capability data,
@@ -113,7 +117,7 @@ Fastest MCP-client setup uses the versioned GitHub release tarball through
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.42/stonewright-companion-1.0.0-alpha.42.tgz"],
+      "args": ["-y", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.48/stonewright-companion-1.0.0-alpha.48.tgz"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -134,6 +138,9 @@ specialized tool.
 For local WordPress sites, add `STONEWRIGHT_WP_ROOT` when you want guarded
 WP-CLI helper tools or LocalWP discovery. Call `stonewright-setup-profile` once
 for copy-paste config, platform checks, credential status, and WP-CLI notes.
+Do not set `PORT` for normal stdio MCP clients. `PORT` enables the optional HTTP
+bridge only; if that port is already in use, stdio MCP should keep working and
+the HTTP bridge is skipped unless `STONEWRIGHT_HTTP_REQUIRED=1` is set.
 
 After adding the companion, restart or reload the AI client and verify the
 tool list includes `stonewright-context-bootstrap` before the first WordPress
@@ -254,7 +261,8 @@ Copy `companion/.env.example` to `companion/.env`.
 |---|---|---|
 | `COMPANION_BEARER_TOKEN` | production | Token callers send to the companion HTTP server |
 | `COMPANION_ALLOWED_ORIGINS` | production | Comma-separated allowed request origins |
-| `PORT` | optional | Enables companion HTTP transport; use `8765` for WordPress-side WP-CLI abilities |
+| `PORT` | optional | Enables optional companion HTTP transport; leave unset for stdio-only MCP clients |
+| `STONEWRIGHT_HTTP_REQUIRED` | optional | Set to `1` only when a failed HTTP bridge bind should make startup fail |
 | `STONEWRIGHT_WP_URL` | recommended | WordPress site URL; companion derives `/wp-json/mcp/stonewright` |
 | `STONEWRIGHT_WP_USERNAME` | recommended | WordPress username for Application Password auth |
 | `STONEWRIGHT_WP_APP_PASSWORD` | recommended | WordPress Application Password |

@@ -71,7 +71,8 @@ cp .env.example .env
 |---|---|---|
 | `COMPANION_BEARER_TOKEN` | recommended | Protects the HTTP transport |
 | `COMPANION_ALLOWED_ORIGINS` | recommended | Comma-separated allowed origins |
-| `PORT` | optional | Enables HTTP transport on this port |
+| `PORT` | optional | Enables the optional HTTP transport on this port; leave unset for stdio-only MCP clients |
+| `STONEWRIGHT_HTTP_REQUIRED` | optional | Set to `1` only when a failed HTTP bridge should make startup fail; by default stdio remains active if the HTTP port is busy |
 | `STONEWRIGHT_WP_URL` | recommended for stdio | WordPress site URL; the companion derives `/wp-json/mcp/stonewright` |
 | `STONEWRIGHT_WP_USERNAME` | with `STONEWRIGHT_WP_URL` | WordPress username for Application Password auth |
 | `STONEWRIGHT_WP_APP_PASSWORD` | with `STONEWRIGHT_WP_URL` | WordPress Application Password |
@@ -98,6 +99,10 @@ npm start
 ```
 
 The companion always starts stdio MCP. Set `PORT` to also expose HTTP routes.
+For normal MCP-client stdio use, leave `PORT` unset. If a `.env` file sets
+`PORT` and that port is already occupied, the optional HTTP bridge is skipped
+and stdio MCP remains active. Set `STONEWRIGHT_HTTP_REQUIRED=1` only for
+deployments where the HTTP bridge must be available or startup should fail.
 
 ## Persistent WordPress Credentials
 
@@ -192,6 +197,11 @@ Example body for `/wp-cli/batch`:
 
 Batch requests preserve Unicode through JSON and still run each command through
 `execFile` argv tokens with the same blocked-command checks as single runs.
+
+Agent recovery rule: do not run `wp cli info`, `wp plugin activate`,
+`wp option update`, or other `wp ...` commands in a normal shell to debug
+Stonewright. Use the direct MCP tools above so path discovery, LocalWP PHP,
+blocked-command checks, and compact responses stay consistent.
 
 
 ## Contracts

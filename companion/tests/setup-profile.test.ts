@@ -47,9 +47,18 @@ describe('buildSetupProfile', () => {
 		expect(profile.notes.join('\n')).toContain('Call stonewright-tool-profile for tool-cap, slow-startup, or token-sensitive clients before broad discovery');
 		expect(profile.notes.join('\n')).toContain('STONEWRIGHT_MCP_TOOL_PROFILE=essential keeps new MCP sessions compact');
 		expect(profile.notes.join('\n')).toContain('Profile aliases such as elementor, design, acf, cpt-ui, fse, and wp cli normalize to compact canonical profiles.');
+		expect(profile.notes.join('\n')).toContain('Leave PORT unset for stdio-only MCP clients unless you need the optional HTTP bridge.');
 		expect(profile.notes.join('\n')).toContain('GitHub release tarball');
 		expect(profile.notes.join('\n')).toContain('Do not treat local client skills or repository files as a substitute for live Stonewright MCP tools');
 		expect(profile.notes.join('\n')).toContain('Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround');
+		expect(profile.agent_do_not_use).toContain('Do not run wp cli info, wp plugin activate, wp option update, or other wp commands in a normal shell as Stonewright recovery.');
+		expect(profile.agent_use_instead).toEqual(expect.arrayContaining([
+			'stonewright-wp-cli-status',
+			'stonewright-wp-cli-discover',
+			'stonewright-wp-cli-run',
+			'stonewright-wp-cli-batch-run',
+			'stonewright-wp-cli-install',
+		]));
 		expect(profile.checks).toContainEqual(
 			expect.objectContaining({
 				id: 'credentials',

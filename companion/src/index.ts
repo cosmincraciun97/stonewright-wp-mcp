@@ -64,10 +64,18 @@ async function startStdio(): Promise<void> {
 // HTTP transport (optional)
 // ---------------------------------------------------------------------------
 
-interface StartedHttpServer {
+export interface StartedHttpServer {
 	close: () => Promise<void>;
 	address: () => ReturnType<ReturnType<typeof createServer>['address']>;
 	config: GuardConfig;
+}
+
+export interface OptionalHttpStartResult {
+	requested: boolean;
+	started: boolean;
+	port: number | null;
+	server?: StartedHttpServer;
+	error?: string;
 }
 
 /**
@@ -220,6 +228,39 @@ export async function startHttp(port: number): Promise<StartedHttpServer> {
 	};
 }
 
+export async function startOptionalHttpFromEnv(
+	env: NodeJS.ProcessEnv = process.env,
+	starter: (port: number) => Promise<StartedHttpServer> = startHttp,
+): Promise<OptionalHttpStartResult> {
+	const port = optionalHttpPort(env['PORT']);
+	if (port === null) {
+		return { requested: false, started: false, port: null };
+	}
+
+	try {
+		const server = await starter(port);
+		return { requested: true, started: true, port, server };
+	} catch (err) {
+		if (httpRequired(env)) {
+			throw err;
+		}
+
+		const error = err instanceof Error ? err.message : String(err);
+		log.warn('Optional companion HTTP transport failed; stdio MCP remains active', { port, error });
+		return { requested: true, started: false, port, error };
+	}
+}
+
+function optionalHttpPort(raw: string | undefined): number | null {
+	if (!raw) return null;
+	const port = Number(raw);
+	return Number.isFinite(port) && port > 0 ? port : null;
+}
+
+function httpRequired(env: NodeJS.ProcessEnv): boolean {
+	return ['1', 'true', 'yes', 'on'].includes((env['STONEWRIGHT_HTTP_REQUIRED'] ?? '').trim().toLowerCase());
+}
+
 async function readJsonBody(
 	req: IncomingMessage,
 	res: ServerResponse,
@@ -264,13 +305,11 @@ function stripUndefined(input: Record<string, unknown>): Record<string, unknown>
 async function main(): Promise<void> {
 	log.info('Stonewright companion starting');
 
-	const portRaw = process.env['PORT'];
-	const port = portRaw ? Number(portRaw) : null;
-
 	await startStdio();
 
-	if (port && Number.isFinite(port)) {
-		const httpServer = await startHttp(port);
+	const optionalHttp = await startOptionalHttpFromEnv(process.env);
+	if (optionalHttp.server) {
+		const httpServer = optionalHttp.server;
 
 		const shutdown = async (): Promise<void> => {
 			log.info('Shutting down');

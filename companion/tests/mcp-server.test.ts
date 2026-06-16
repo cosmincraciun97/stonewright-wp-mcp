@@ -108,6 +108,8 @@ describe('createMcpServer', () => {
 				profile_missing_tool_names?: string[];
 				local_tool_names?: string[];
 				recovery?: string[];
+				agent_do_not_use?: string[];
+				agent_use_instead?: string[];
 			};
 		};
 
@@ -131,6 +133,14 @@ describe('createMcpServer', () => {
 			'companion_wp_cli_run',
 			'companion_wp_cli_batch_run',
 			'companion_wp_cli_install',
+		]));
+		expect(response.structuredContent?.agent_do_not_use).toContain('Do not run wp cli info, wp plugin activate, wp option update, or other wp commands in a normal shell as Stonewright recovery.');
+		expect(response.structuredContent?.agent_use_instead).toEqual(expect.arrayContaining([
+			'stonewright-wp-cli-status',
+			'stonewright-wp-cli-discover',
+			'stonewright-wp-cli-run',
+			'stonewright-wp-cli-batch-run',
+			'stonewright-wp-cli-install',
 		]));
 		expect(response.structuredContent?.recovery).toContain('Verify STONEWRIGHT_WP_URL or STONEWRIGHT_MCP_URL points to /wp-json/mcp/stonewright.');
 	});
