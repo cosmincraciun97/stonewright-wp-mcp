@@ -59,6 +59,11 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertContains( 'Call stonewright/widget-intent-resolve before choosing Elementor widgets.', $result['required_followups'] );
 		self::assertContains( 'Before building design-derived pages, plan Elementor kit colors/typography first; if site-wide changes are approved, update the active kit before writing page elements.', $result['required_followups'] );
 		self::assertSame( 'stonewright-context-bootstrap', $result['mcp_tool_naming']['examples']['stonewright/context-bootstrap'] );
+		self::assertSame( 'stonewright-tool-profile', $result['mcp_tool_naming']['examples']['stonewright/tool-profile'] );
+		self::assertArrayHasKey( 'tool_profile_hint', $result );
+		self::assertSame( 'elementor-design', $result['tool_profile_hint']['profile'] );
+		self::assertContains( 'stonewright/tool-profile', $result['tool_profile_hint']['call_after_bootstrap'] );
+		self::assertContains( 'Use stonewright/tool-profile when the MCP client has a strict tool cap or the user asks for token-efficient implementation.', $result['required_followups'] );
 		self::assertSame( 'playwright', $result['recommended_external_mcps'][0]['id'] );
 		self::assertSame( [ '-y', '@playwright/mcp@latest', '--caps=testing,vision,devtools' ], $result['recommended_external_mcps'][0]['args'] );
 		self::assertContains( 'Install external Playwright MCP before visual work: claude mcp add playwright -- npx -y @playwright/mcp@latest --caps=testing,vision,devtools', $result['recommended_external_mcps'][0]['setup_steps'] );

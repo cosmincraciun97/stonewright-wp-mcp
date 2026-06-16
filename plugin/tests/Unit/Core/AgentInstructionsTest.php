@@ -22,6 +22,8 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'If stonewright-context-bootstrap is not visible in the MCP tool list, stop', $instructions );
 		$this->assertStringContainsString( 'Do not parse private AI-client config files or hand-roll JSON-RPC calls to bypass a missing MCP server', $instructions );
 		$this->assertStringContainsString( 'Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround', $instructions );
+		$this->assertStringContainsString( 'stonewright/tool-profile', $instructions );
+		$this->assertStringContainsString( 'Use stonewright/tool-profile when the client has a tool cap or token budget', $instructions );
 		$this->assertStringContainsString( 'stonewright/skills-get', $instructions );
 		$this->assertStringContainsString( 'stonewright/memory-get', $instructions );
 		$this->assertStringContainsString( 'stonewright/learning-record', $instructions );

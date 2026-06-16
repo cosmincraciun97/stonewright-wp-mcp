@@ -23,7 +23,7 @@ matrix after changing the registry.
 | Design | 12 | Validate Design Spec, build specs from manual input, choose renderers, normalize assets, and apply to Gutenberg or Elementor. |
 | Knowledge | 5 | Elementor knowledge search, widget descriptions, implementation guidance, and refresh. |
 | Memory | 5 | Persistent project memory, user corrections, and learning records. |
-| System | 10 | Context bootstrap, workflow preflight, instructions, ability list, and knowledge import/export. |
+| System | 11 | Context bootstrap, tool profiles, workflow preflight, instructions, ability list, and knowledge import/export. |
 | WP-CLI | 3 | Companion-backed `wp cli info`, `wp cli cmd-dump`, and guarded command execution. |
 | Sandbox | 8 | Admin-only generated code/artifact lifecycle. |
 | Theme Builder | 5 | Elementor Theme Builder templates and conditions. |
@@ -42,6 +42,11 @@ returns the same write token plus active mode, auth guidance, compact Elementor
 capabilities, plugin specialization guidance, task-aware recommended tools,
 hyphenated MCP tool names, compact call examples, and the same visual-build
 gate in one low-token response.
+
+Use `stonewright-tool-profile` when the MCP client has a strict tool limit or
+the task needs low-token execution. It returns compact profiles such as
+`elementor-design`, `content-model`, `gutenberg`, and `wp-cli` with the
+hyphenated MCP tool names agents should keep using before broad discovery.
 
 For pixel-matching tasks, `visual_build_gate` is a blocking signoff checklist.
 Agents must prepare a reference token table, existing media audit, and section

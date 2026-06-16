@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Context;
 
 use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
+use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Core\AgentInstructions;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Skills\Skills;
@@ -33,6 +34,7 @@ final class ContextBuilder {
 			'expires_at'               => $token['expires_at'],
 			'instructions'             => AgentInstructions::default( $is_visual ),
 			'mcp_tool_naming'          => self::mcp_tool_naming(),
+			'tool_profile_hint'        => ToolProfile::profile_hint( $task, $surface, $intent ),
 			'matched_skills'           => array_map(
 				static fn( array $skill ): array => [
 					'slug'        => (string) ( $skill['slug'] ?? '' ),
@@ -190,6 +192,7 @@ final class ContextBuilder {
 			'rule'     => 'MCP tool names replace ability slashes with hyphens.',
 			'examples' => [
 				'stonewright/context-bootstrap' => 'stonewright-context-bootstrap',
+				'stonewright/tool-profile'      => 'stonewright-tool-profile',
 				'stonewright/wp-cli-status'     => 'stonewright-wp-cli-status',
 				'stonewright/wp-cli-discover'   => 'stonewright-wp-cli-discover',
 				'stonewright/wp-cli-run'        => 'stonewright-wp-cli-run',
@@ -438,6 +441,7 @@ final class ContextBuilder {
 			'Read all matched skill playbooks and memory entries before acting.',
 			'If the user corrects the agent or a repeatable mistake is detected, call stonewright/learning-record.',
 			'Use MCP tool names with hyphens, for example stonewright-context-bootstrap, not slash-separated ability names.',
+			'Use stonewright/tool-profile when the MCP client has a strict tool cap or the user asks for token-efficient implementation.',
 		];
 
 		if ( $is_visual ) {

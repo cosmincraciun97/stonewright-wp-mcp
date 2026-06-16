@@ -15,12 +15,15 @@ It routes the agent to the right specialized skill and MCP tools.
 
 1. Call `stonewright-context-bootstrap` with the task, surface, and intent.
 2. Call `stonewright-workflow-preflight` when planning implementation work.
-3. If authentication or MCP visibility fails, check companion credentials
+3. Call `stonewright-tool-profile` when the client has a tool cap, slow startup,
+   or a token-sensitive task.
+4. If authentication or MCP visibility fails, check companion credentials
    before falling back to WP-CLI.
 
 If `stonewright_essential_tools_mode` is enabled, expect a compact tool list.
 Use the fast-path tools returned by preflight instead of rediscovering the full
-ability surface.
+ability surface. Use `stonewright-tool-profile` to lock the current task to a
+compact Elementor, content-model, Gutenberg, WP-CLI, or site-admin profile.
 
 ## Route
 

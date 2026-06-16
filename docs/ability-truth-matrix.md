@@ -221,6 +221,7 @@
 | `stonewright/knowledge-export` | `stonewright-knowledge-export` | `System\KnowledgeExport` | Exports custom instructions, memory entries, and site skills in the Stonewright knowledge bundle format. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/knowledge-import` | `stonewright-knowledge-import` | `System\KnowledgeImport` | Imports custom instructions, memory entries, and site skills from a Stonewright knowledge bundle. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/system-abilities-list` | `stonewright-system-abilities-list` | `System\AbilitiesList` | Returns all registered Stonewright abilities with category, enabled status, and the hyphenated MCP tool name clients actually call. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/tool-profile` | `stonewright-tool-profile` | `System\ToolProfile` | Returns a compact task-aware Stonewright MCP tool profile for faster, lower-token client workflows. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/workflow-preflight` | `stonewright-workflow-preflight` | `System\WorkflowPreflight` | Returns compact task context, auth guidance, mode, and first-pass tool choices so MCP agents can start with fewer discovery calls. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 
 ---
@@ -389,7 +390,7 @@
 
 ## Summary
 
-Total abilities registered: **231**
+Total abilities registered: **232**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

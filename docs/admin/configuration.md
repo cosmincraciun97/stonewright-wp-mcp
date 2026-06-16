@@ -36,6 +36,11 @@ Three modes are stored in the `stonewright_mode` option:
 by exposing the most common Stonewright tools first. Agents can still use the
 broader ability list when a task needs it.
 
+Agents should call `stonewright-tool-profile` after bootstrap or preflight when
+the client has a tool cap or the user asks for token-efficient implementation.
+The profile response keeps Elementor, Gutenberg, content-model, and WP-CLI
+tasks on a compact set of batch-first tools.
+
 ### Local WP-CLI bridge (advanced)
 
 The companion is a Node.js sidecar that handles WP-CLI, health checks, and the

@@ -7,6 +7,26 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.20] - 2026-06-16
+
+### Added
+
+- Added `stonewright/tool-profile`, a compact read-only MCP tool that returns
+  task-aware profiles for Elementor design, content-model, Gutenberg, WP-CLI,
+  and site-admin work so agents can stay under tool caps and avoid broad
+  rediscovery.
+- Added `tool_profile_hint` to context bootstrap and a `tool-profile` step to
+  workflow preflight so new sessions lock onto the right compact tool set
+  before implementation.
+
+### Changed
+
+- Improved Elementor V3/V4 status responses with `v4_write_ready`,
+  `recommended_renderer`, and `agent_action` so agents fall back to native V3
+  tools when V4 atomic writes are not really available.
+- Updated Stonewright docs and skills to route token-sensitive clients through
+  the new tool-profile fast path.
+
 ## [1.0.0-alpha.19] - 2026-06-16
 
 ### Added
@@ -340,6 +360,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.20]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.20
 [1.0.0-alpha.19]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.19
 [1.0.0-alpha.18]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.18
 [1.0.0-alpha.17]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.17

@@ -104,6 +104,7 @@ use Stonewright\WpMcp\Abilities\Sandbox\SandboxWrite;
 use Stonewright\WpMcp\Abilities\System\AbilitiesList;
 use Stonewright\WpMcp\Abilities\System\KnowledgeExport;
 use Stonewright\WpMcp\Abilities\System\KnowledgeImport;
+use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Abilities\System\WorkflowPreflight;
 use Stonewright\WpMcp\Abilities\Skills\SkillsList;
 use Stonewright\WpMcp\Abilities\Skills\SkillsGet;
@@ -285,6 +286,7 @@ final class AbilityRegistry {
 			KnowledgeExport::class,
 			KnowledgeImport::class,
 			AbilitiesList::class,
+			ToolProfile::class,
 			WorkflowPreflight::class,
 
 			// WP-CLI companion bridge.
@@ -547,6 +549,7 @@ final class AbilityRegistry {
 			'stonewright/site-plugins-list',
 			'stonewright/site-theme',
 			'stonewright/system-abilities-list',
+			'stonewright/tool-profile',
 			'stonewright/system-instructions-get',
 			'stonewright/knowledge-export',
 			'stonewright/skills-list',
@@ -667,6 +670,7 @@ final class AbilityRegistry {
 
 			// Fast workflow and compact instructions.
 			'stonewright/workflow-preflight',
+			'stonewright/tool-profile',
 			'stonewright/system-abilities-list',
 			'stonewright/system-instructions-get',
 

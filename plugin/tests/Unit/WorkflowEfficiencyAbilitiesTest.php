@@ -50,10 +50,80 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		);
 
 		self::assertContains( 'stonewright/workflow-preflight', $names );
+		self::assertContains( 'stonewright/tool-profile', $names );
 		self::assertContains( 'stonewright/elementor-v3-capabilities-summary', $names );
 		self::assertContains( 'stonewright/design-implementation-contract', $names );
 		self::assertContains( 'stonewright/media-upload-batch', $names );
 		self::assertContains( 'stonewright/elementor-v3-apply-bundle', $names );
+	}
+
+	public function test_tool_profile_returns_compact_elementor_design_fast_path(): void {
+		$ability = AbilityRegistry::ability_by_name( 'stonewright/tool-profile' );
+
+		self::assertNotNull( $ability );
+
+		$result = $ability->execute(
+			[
+				'profile'   => 'elementor-design',
+				'task'      => 'Build a pixel perfect design in Elementor from a visual reference.',
+				'surface'   => 'elementor',
+				'intent'    => 'write',
+				'max_tools' => 40,
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'elementor-design', $result['profile'] );
+		self::assertSame( 40, $result['max_tools'] );
+		self::assertLessThanOrEqual( 40, $result['tool_count'] );
+		self::assertTrue( $result['under_limit'] );
+		self::assertContains( 'stonewright/context-bootstrap', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/workflow-preflight', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/tool-profile', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/design-implementation-contract', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/elementor-v3-capabilities-summary', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/media-upload-batch', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/content-bulk-upsert-posts', $result['recommended_tools'] );
+		self::assertContains( 'stonewright-wp-cli-batch-run', $result['recommended_mcp_tools'] );
+		self::assertContains( 'Use profile tools before full ability discovery when the client has a strict tool cap.', $result['token_rules'] );
+		self::assertContains( 'Use responseMode=summary for WP-CLI and batch tools unless full JSON is needed for the next write.', $result['token_rules'] );
+
+		foreach ( $result['tools'] as $tool ) {
+			self::assertArrayHasKey( 'ability', $tool );
+			self::assertArrayHasKey( 'mcp_tool', $tool );
+			self::assertArrayHasKey( 'why', $tool );
+			self::assertStringStartsWith( 'stonewright/', $tool['ability'] );
+			self::assertStringNotContainsString( '/', $tool['mcp_tool'] );
+		}
+	}
+
+	public function test_tool_profile_auto_routes_content_model_work_to_compact_wp_cli_path(): void {
+		$ability = AbilityRegistry::ability_by_name( 'stonewright/tool-profile' );
+
+		self::assertNotNull( $ability );
+
+		$result = $ability->execute(
+			[
+				'profile'   => 'auto',
+				'task'      => 'Create CPT UI post types and ACF fields, then add repeated speaker records.',
+				'surface'   => 'wordpress',
+				'intent'    => 'write',
+				'max_tools' => 30,
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 'content-model', $result['profile'] );
+		self::assertLessThanOrEqual( 30, $result['tool_count'] );
+		self::assertContains( 'stonewright/site-plugins-list', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/wp-cli-status', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/wp-cli-discover', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/wp-cli-batch-run', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/content-bulk-upsert-posts', $result['recommended_tools'] );
+		self::assertContains( 'Discover plugin command groups once, then batch repeated CPT, field, post, meta, term, option, cache, and rewrite work.', $result['workflow_rules'] );
 	}
 
 	public function test_workflow_preflight_returns_single_call_fast_path(): void {
@@ -71,6 +141,8 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertArrayHasKey( 'context_token', $result );
 		self::assertArrayHasKey( 'elementor', $result );
 		self::assertArrayHasKey( 'fast_path', $result );
+		self::assertContains( 'stonewright/tool-profile', $result['fast_path']['recommended_tools'] );
+		self::assertContains( 'stonewright-tool-profile', $result['fast_path']['recommended_mcp_tools'] );
 		self::assertContains( 'stonewright/media-upload-batch', $result['fast_path']['recommended_tools'] );
 		self::assertContains( 'Implement visual pages in write-and-verify batches of one section, or two sections only when they are simple and tightly coupled.', $result['fast_path']['batching_rules'] );
 		self::assertContains( 'After each batch, verify desktop, tablet, and mobile screenshots plus overflow before starting the next batch.', $result['fast_path']['batching_rules'] );
@@ -141,6 +213,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		$tools = array_column( $result['fast_path']['call_sequence'], 'tool' );
 		self::assertContains( 'stonewright-workflow-preflight', $tools );
 		self::assertContains( 'stonewright-context-bootstrap', $tools );
+		self::assertContains( 'stonewright-tool-profile', $tools );
 		self::assertContains( 'stonewright-widget-intent-resolve', $tools );
 		self::assertContains( 'stonewright-elementor-widget-implementation-guide', $tools );
 		self::assertContains( 'stonewright-elementor-v3-build-page-from-spec', $tools );

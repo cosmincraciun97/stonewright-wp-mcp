@@ -49,6 +49,9 @@ final class Status extends AbilityKernel {
 				'active_widget_types'      => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'unsupported_widgets'      => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'v4_atomic_support_status' => [ 'type' => 'string' ],
+				'v4_write_ready'           => [ 'type' => 'boolean' ],
+				'recommended_renderer'     => [ 'type' => 'string' ],
+				'agent_action'             => [ 'type' => 'string' ],
 			],
 		];
 	}
@@ -66,6 +69,7 @@ final class Status extends AbilityKernel {
 				$atomic_flag  = (bool) get_option( 'stonewright_elementor_v4_atomic', false );
 				$build        = defined( 'ELEMENTOR_VERSION' ) ? (string) ELEMENTOR_VERSION : '';
 				$widgets      = self::active_widget_types();
+				$v4_ready     = $v4_available && $atomic_flag;
 
 				$capabilities = [];
 				if ( $v4_available ) {
@@ -91,6 +95,9 @@ final class Status extends AbilityKernel {
 					'active_widget_types'      => $widgets,
 					'unsupported_widgets'      => self::unsupported_widgets( $widgets ),
 					'v4_atomic_support_status' => self::v4_support_status( $v4_available, $atomic_flag ),
+					'v4_write_ready'           => $v4_ready,
+					'recommended_renderer'     => $v4_ready ? 'elementor-v4-atomic' : 'elementor-v3-native',
+					'agent_action'             => self::agent_action( $v4_ready ),
 				];
 			}
 		);
@@ -141,5 +148,13 @@ final class Status extends AbilityKernel {
 			return 'available-disabled';
 		}
 		return $enabled ? 'enabled-but-unavailable' : 'unavailable';
+	}
+
+	private static function agent_action( bool $v4_ready ): string {
+		if ( $v4_ready ) {
+			return 'Use Elementor V4 atomic tools for dry-run rendering, then write only after diagnostics pass.';
+		}
+
+		return 'Use Elementor V3 native-widget tools until V4 atomic support is both available and enabled.';
 	}
 }

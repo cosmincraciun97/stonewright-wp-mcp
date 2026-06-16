@@ -29,6 +29,7 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 		$names = array_column( AbilityRegistry::enabled_abilities(), 'name' );
 
 		self::assertContains( 'stonewright/workflow-preflight', $names );
+		self::assertContains( 'stonewright/tool-profile', $names );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $names );
 		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $names );
 		self::assertContains( 'stonewright/content-bulk-upsert-posts', $names );

@@ -59,6 +59,9 @@ final class ElementorStatusDiscoveryTest extends TestCase {
 		self::assertSame( [ 'heading', 'image' ], $result['active_widget_types'] );
 		self::assertSame( [ 'button', 'container', 'icon', 'icon-box', 'icon-list', 'text-editor' ], $result['unsupported_widgets'] );
 		self::assertTrue( $result['v4_atomic_enabled'] );
+		self::assertFalse( $result['v4_write_ready'] );
+		self::assertSame( 'elementor-v3-native', $result['recommended_renderer'] );
+		self::assertSame( 'Use Elementor V3 native-widget tools until V4 atomic support is both available and enabled.', $result['agent_action'] );
 		self::assertArrayHasKey( 'pro_elements_active', $result );
 	}
 
@@ -86,5 +89,8 @@ final class ElementorStatusDiscoveryTest extends TestCase {
 		self::assertSame( [ 'heading' ], $result['active_widget_types'] );
 		self::assertContains( 'text-editor', $result['unsupported_widgets'] );
 		self::assertSame( 'enabled-but-unavailable', $result['v4_atomic_support_status'] );
+		self::assertFalse( $result['v4_write_ready'] );
+		self::assertSame( 'elementor-v3-native', $result['recommended_renderer'] );
+		self::assertSame( 'Use Elementor V3 native-widget tools until V4 atomic support is both available and enabled.', $result['agent_action'] );
 	}
 }

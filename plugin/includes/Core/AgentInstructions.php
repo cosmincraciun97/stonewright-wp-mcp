@@ -23,6 +23,7 @@ final class AgentInstructions {
 			'- Do not parse private AI-client config files or hand-roll JSON-RPC calls to bypass a missing MCP server.',
 			'- Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround.',
 			'- At the start of every Stonewright task, call MCP tool stonewright-context-bootstrap with the user request, surface, and intent. Read the returned instructions, matched skill playbooks, memory entries, and required followups before acting.',
+			'- Use stonewright/tool-profile when the client has a tool cap or token budget; keep to that compact profile before using broad ability discovery.',
 			'- If essential tools mode is enabled, use the compact fast-path tools returned by stonewright/workflow-preflight instead of probing for every specialized ability.',
 			'- Every write or destructive ability must include the stonewright_context_token returned by stonewright/context-bootstrap.',
 			'- Persistent skills and memory are authoritative across sessions. Call stonewright/skills-get for every matched skill and stonewright/memory-get or stonewright/memory-list for relevant memory before planning or writing.',

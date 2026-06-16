@@ -206,7 +206,7 @@ final class WorkflowPreflight extends AbilityKernel {
 	 * @return list<string>
 	 */
 	private static function recommended_tools( array $profile ): array {
-		$tools = [ 'stonewright/workflow-preflight' ];
+		$tools = [ 'stonewright/workflow-preflight', 'stonewright/tool-profile' ];
 
 		if ( 'elementor' === $profile['surface'] ) {
 			$tools[] = 'stonewright/design-implementation-contract';
@@ -347,6 +347,17 @@ final class WorkflowPreflight extends AbilityKernel {
 					'task'    => $task,
 					'surface' => $profile['surface'],
 					'intent'  => $profile['intent'],
+				]
+			),
+			self::call_step(
+				'stonewright/tool-profile',
+				'Lock the compact MCP tool set for this task before broad discovery.',
+				[
+					'profile'   => ToolProfile::suggest_profile( $task, (string) $profile['surface'], (string) $profile['intent'] ),
+					'task'      => $task,
+					'surface'   => $profile['surface'],
+					'intent'    => $profile['intent'],
+					'max_tools' => 40,
 				]
 			),
 		];

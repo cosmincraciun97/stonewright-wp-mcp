@@ -273,7 +273,10 @@ The complete command list is generated in
    `fast_path.task_profile`, `fast_path.recommended_mcp_tools`, and
    `fast_path.call_sequence`. For visual tasks, also confirm
    `fast_path.visual_build_gate`.
-5. Call `stonewright-context-bootstrap` with:
+5. For tool-cap or token-sensitive clients, call `stonewright-tool-profile`
+   with the same task, surface, and intent, then keep to the returned
+   `recommended_mcp_tools` before broad ability discovery.
+6. Call `stonewright-context-bootstrap` with:
 
 ```json
 {
@@ -283,8 +286,9 @@ The complete command list is generated in
 }
 ```
 
-6. Confirm the response includes `mcp_tool_naming`, instructions, skills,
+7. Confirm the response includes `mcp_tool_naming`, `tool_profile_hint`,
+   instructions, skills,
    memory, recommended external MCPs, `visual_quality_contract`,
    `visual_build_gate`, and required followups.
-7. Call `stonewright-system-abilities-list` and confirm every row includes
+8. Call `stonewright-system-abilities-list` and confirm every row includes
    `name` and `mcp_tool_name`.

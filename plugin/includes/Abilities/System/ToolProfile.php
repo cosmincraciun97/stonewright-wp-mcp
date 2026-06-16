@@ -1,0 +1,433 @@
+<?php
+declare( strict_types=1 );
+
+namespace Stonewright\WpMcp\Abilities\System;
+
+use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Security\Permissions;
+
+/**
+ * Compact MCP tool profiles for low-token, tool-cap aware clients.
+ *
+ * @stonewright-status stable
+ */
+final class ToolProfile extends AbilityKernel {
+
+	/**
+	 * @return list<string>
+	 */
+	public static function profile_names(): array {
+		return [ 'auto', 'essential', 'elementor-design', 'content-model', 'gutenberg', 'wp-cli', 'site-admin', 'full' ];
+	}
+
+	public static function suggest_profile( string $task, string $surface = 'unknown', string $intent = 'unknown' ): string {
+		$surface = strtolower( trim( $surface ) );
+		$query   = self::normalise( $task . ' ' . $surface . ' ' . $intent );
+
+		if ( 'elementor' === $surface || self::has_any_term( $query, [ 'elementor', 'figma', 'design', 'pixel', 'landing page', 'section' ] ) ) {
+			return 'elementor-design';
+		}
+
+		if ( self::has_any_term( $query, [ 'acf', 'acpt', 'cpt ui', 'custom field', 'custom post type', 'field group', 'meta box', 'metabox', 'pods', 'woocommerce' ] ) ) {
+			return 'content-model';
+		}
+
+		if ( 'gutenberg' === $surface || self::has_any_term( $query, [ 'block', 'block theme', 'fse', 'gutenberg', 'theme json', 'template part' ] ) ) {
+			return 'gutenberg';
+		}
+
+		if ( 'wp-cli' === $surface || self::has_any_term( $query, [ 'cache', 'cli', 'plugin', 'rewrite', 'wp cli' ] ) ) {
+			return 'wp-cli';
+		}
+
+		if ( self::has_any_term( $query, [ 'admin', 'health', 'menu', 'plugin list', 'settings', 'site info' ] ) ) {
+			return 'site-admin';
+		}
+
+		return 'essential';
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	public static function profile_hint( string $task, string $surface = 'unknown', string $intent = 'unknown', int $max_tools = 40 ): array {
+		$profile = self::suggest_profile( $task, $surface, $intent );
+
+		return [
+			'profile'              => $profile,
+			'tool'                 => 'stonewright-tool-profile',
+			'call_after_bootstrap' => [ 'stonewright/tool-profile' ],
+			'max_tools'            => $max_tools,
+			'why'                  => 'Use a compact, task-aware MCP tool set before broad ability discovery.',
+		];
+	}
+
+	public function name(): string {
+		return 'stonewright/tool-profile';
+	}
+
+	public function label(): string {
+		return __( 'Stonewright tool profile', 'stonewright' );
+	}
+
+	public function description(): string {
+		return __( 'Returns a compact task-aware Stonewright MCP tool profile for faster, lower-token client workflows.', 'stonewright' );
+	}
+
+	public function category(): string {
+		return 'system';
+	}
+
+	public function input_schema(): array {
+		return [
+			'type'                 => 'object',
+			'additionalProperties' => false,
+			'properties'           => [
+				'profile'   => [
+					'type'        => 'string',
+					'default'     => 'auto',
+					'enum'        => self::profile_names(),
+					'description' => 'Tool profile to return. Use auto for task-aware routing.',
+				],
+				'task'      => [
+					'type'        => 'string',
+					'default'     => '',
+					'description' => 'Optional task summary used when profile is auto.',
+				],
+				'surface'   => [
+					'type'        => 'string',
+					'default'     => 'unknown',
+					'description' => 'Primary surface such as elementor, gutenberg, wordpress, acf, cpt-ui, or wp-cli.',
+				],
+				'intent'    => [
+					'type'        => 'string',
+					'default'     => 'unknown',
+					'description' => 'Task intent such as read, write, delete, or debug.',
+				],
+				'max_tools' => [
+					'type'        => 'integer',
+					'default'     => 50,
+					'minimum'     => 5,
+					'maximum'     => 200,
+					'description' => 'Maximum tools the current MCP client should receive in this profile.',
+				],
+			],
+		];
+	}
+
+	public function output_schema(): array {
+		return [
+			'type'       => 'object',
+			'properties' => [
+				'ok'                    => [ 'type' => 'boolean' ],
+				'profile'               => [ 'type' => 'string' ],
+				'requested_profile'     => [ 'type' => 'string' ],
+				'max_tools'             => [ 'type' => 'integer' ],
+				'tool_count'            => [ 'type' => 'integer' ],
+				'profile_tool_count'    => [ 'type' => 'integer' ],
+				'under_limit'           => [ 'type' => 'boolean' ],
+				'essential_tools_mode'  => [ 'type' => 'boolean' ],
+				'profiles_available'    => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'recommended_tools'     => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'recommended_mcp_tools' => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'tools'                 => [
+					'type'  => 'array',
+					'items' => [
+						'type'       => 'object',
+						'properties' => [
+							'ability'  => [ 'type' => 'string' ],
+							'mcp_tool' => [ 'type' => 'string' ],
+							'priority' => [ 'type' => 'integer' ],
+							'why'      => [ 'type' => 'string' ],
+						],
+						'required'   => [ 'ability', 'mcp_tool', 'priority', 'why' ],
+					],
+				],
+				'workflow_rules'        => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'token_rules'           => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'counts'                => [ 'type' => 'object' ],
+			],
+			'required'   => [
+				'ok',
+				'profile',
+				'requested_profile',
+				'max_tools',
+				'tool_count',
+				'profile_tool_count',
+				'under_limit',
+				'profiles_available',
+				'recommended_tools',
+				'recommended_mcp_tools',
+				'tools',
+				'workflow_rules',
+				'token_rules',
+			],
+		];
+	}
+
+	public function permission_callback( array $args ): bool|\WP_Error {
+		return Permissions::read();
+	}
+
+	public function execute( array $args ): array|\WP_Error {
+		$requested = isset( $args['profile'] ) && is_string( $args['profile'] )
+			? strtolower( trim( $args['profile'] ) )
+			: 'auto';
+
+		if ( '' === $requested ) {
+			$requested = 'auto';
+		}
+
+		if ( ! in_array( $requested, self::profile_names(), true ) ) {
+			return $this->error(
+				'invalid_tool_profile',
+				__( 'Unknown Stonewright tool profile.', 'stonewright' ),
+				[
+					'status'             => 400,
+					'profiles_available' => self::profile_names(),
+				]
+			);
+		}
+
+		$task      = isset( $args['task'] ) && is_string( $args['task'] ) ? $args['task'] : '';
+		$surface   = isset( $args['surface'] ) && is_string( $args['surface'] ) ? $args['surface'] : 'unknown';
+		$intent    = isset( $args['intent'] ) && is_string( $args['intent'] ) ? $args['intent'] : 'unknown';
+		$max_tools = isset( $args['max_tools'] ) && is_int( $args['max_tools'] ) ? $args['max_tools'] : 50;
+		$max_tools = max( 5, min( 200, $max_tools ) );
+		$profile   = 'auto' === $requested ? self::suggest_profile( $task, $surface, $intent ) : $requested;
+
+		$all_visible = array_fill_keys( array_column( AbilityRegistry::enabled_abilities(), 'name' ), true );
+		$names       = 'full' === $profile ? array_keys( $all_visible ) : self::profile_tools( $profile );
+		$names       = array_values(
+			array_filter(
+				array_unique( $names ),
+				static fn( string $name ): bool => isset( $all_visible[ $name ] )
+			)
+		);
+
+		$profile_tool_count = count( $names );
+		$limited_names      = array_slice( $names, 0, $max_tools );
+		$tools              = [];
+
+		foreach ( $limited_names as $index => $name ) {
+			$tools[] = [
+				'ability'  => $name,
+				'mcp_tool' => AbilityRegistry::mcp_tool_name( $name ),
+				'priority' => $index + 1,
+				'why'      => self::why( $name ),
+			];
+		}
+
+		return [
+			'ok'                    => true,
+			'profile'               => $profile,
+			'requested_profile'     => $requested,
+			'max_tools'             => $max_tools,
+			'tool_count'            => count( $limited_names ),
+			'profile_tool_count'    => $profile_tool_count,
+			'under_limit'           => $profile_tool_count <= $max_tools,
+			'essential_tools_mode'  => (bool) get_option( 'stonewright_essential_tools_mode', false ),
+			'profiles_available'    => self::profile_names(),
+			'recommended_tools'     => $limited_names,
+			'recommended_mcp_tools' => array_map( [ AbilityRegistry::class, 'mcp_tool_name' ], $limited_names ),
+			'tools'                 => $tools,
+			'workflow_rules'        => self::workflow_rules( $profile ),
+			'token_rules'           => self::token_rules(),
+			'counts'                => [
+				'all_registered' => count( AbilityRegistry::list() ),
+				'visible'        => count( $all_visible ),
+				'profile'        => $profile_tool_count,
+				'returned'       => count( $limited_names ),
+			],
+		];
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	private static function profile_tools( string $profile ): array {
+		$base = [
+			'stonewright/context-bootstrap',
+			'stonewright/workflow-preflight',
+			'stonewright/tool-profile',
+		];
+
+		return match ( $profile ) {
+			'elementor-design' => array_merge(
+				$base,
+				[
+					'stonewright/site-info',
+					'stonewright/site-plugins-list',
+					'stonewright/design-implementation-contract',
+					'stonewright/widget-intent-resolve',
+					'stonewright/elementor-widget-implementation-guide',
+					'stonewright/elementor-v3-status',
+					'stonewright/elementor-v3-capabilities-summary',
+					'stonewright/elementor-v3-list-widgets',
+					'stonewright/elementor-v3-get-widget-schema',
+					'stonewright/elementor-describe-widget',
+					'stonewright/elementor-v4-status',
+					'stonewright/elementor-v4-list-variables',
+					'stonewright/elementor-v4-list-classes',
+					'stonewright/elementor-v4-list-atomic-node-types',
+					'stonewright/media-upload-batch',
+					'stonewright/content-create-page',
+					'stonewright/content-update-page',
+					'stonewright/content-bulk-upsert-posts',
+					'stonewright/elementor-v3-update-page-settings',
+					'stonewright/elementor-v3-update-kit-colors',
+					'stonewright/elementor-v3-update-kit-typography',
+					'stonewright/design-validate-spec',
+					'stonewright/elementor-v3-build-page-from-spec',
+					'stonewright/elementor-v3-batch-mutate',
+					'stonewright/elementor-v3-apply-bundle',
+					'stonewright/wp-cli-status',
+					'stonewright/wp-cli-discover',
+					'stonewright/wp-cli-batch-run',
+				]
+			),
+			'content-model' => array_merge(
+				$base,
+				[
+					'stonewright/site-capabilities',
+					'stonewright/site-plugins-list',
+					'stonewright/system-abilities-list',
+					'stonewright/content-bulk-upsert-posts',
+					'stonewright/media-upload-batch',
+					'stonewright/wp-cli-status',
+					'stonewright/wp-cli-discover',
+					'stonewright/wp-cli-batch-run',
+					'stonewright/wp-cli-run',
+				]
+			),
+			'gutenberg' => array_merge(
+				$base,
+				[
+					'stonewright/site-theme',
+					'stonewright/fse-get-theme-json',
+					'stonewright/fse-read-template',
+					'stonewright/fse-write-template',
+					'stonewright/fse-write-global-styles',
+					'stonewright/blocks-list-registered',
+					'stonewright/blocks-get-schema',
+					'stonewright/blocks-parse',
+					'stonewright/blocks-serialize',
+					'stonewright/gutenberg-render-blocks',
+					'stonewright/design-validate-spec',
+					'stonewright/design-spec-to-gutenberg',
+					'stonewright/gutenberg-apply-to-post',
+				]
+			),
+			'wp-cli' => array_merge(
+				$base,
+				[
+					'stonewright/site-info',
+					'stonewright/site-plugins-list',
+					'stonewright/wp-cli-status',
+					'stonewright/wp-cli-discover',
+					'stonewright/wp-cli-batch-run',
+					'stonewright/wp-cli-run',
+				]
+			),
+			'site-admin' => array_merge(
+				$base,
+				[
+					'stonewright/site-info',
+					'stonewright/site-environment',
+					'stonewright/site-health',
+					'stonewright/site-plugins-list',
+					'stonewright/site-theme',
+					'stonewright/system-abilities-list',
+					'stonewright/menu-list',
+					'stonewright/wp-cli-status',
+				]
+			),
+			default => array_merge(
+				$base,
+				[
+					'stonewright/ping',
+					'stonewright/site-info',
+					'stonewright/site-capabilities',
+					'stonewright/site-plugins-list',
+					'stonewright/system-abilities-list',
+					'stonewright/wp-cli-status',
+				]
+			),
+		};
+	}
+
+	private static function why( string $name ): string {
+		return match ( $name ) {
+			'stonewright/context-bootstrap' => 'Issue the task token and load live site instructions, memory, skills, and visual gates.',
+			'stonewright/workflow-preflight' => 'Choose the task-aware fast path and first call sequence.',
+			'stonewright/tool-profile' => 'Keep the MCP tool surface compact for the current model, client, and task.',
+			'stonewright/design-implementation-contract' => 'Load global-style, native-widget, section-batch, and verification rules.',
+			'stonewright/widget-intent-resolve' => 'Map visual intent to native Elementor widgets before writing controls.',
+			'stonewright/elementor-widget-implementation-guide' => 'Get Content, Style, and Advanced controls before Elementor writes.',
+			'stonewright/elementor-v3-build-page-from-spec' => 'Render a validated Elementor section or page spec in one request.',
+			'stonewright/elementor-v3-batch-mutate' => 'Apply grouped surgical Elementor mutations after screenshot review.',
+			'stonewright/content-bulk-upsert-posts' => 'Create or update repeated posts, CPT rows, and meta values in one call.',
+			'stonewright/wp-cli-batch-run' => 'Run repeated guarded WP-CLI argv commands with compact output.',
+			default => 'Use this tool only when it is needed by the selected profile step.',
+		};
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	private static function workflow_rules( string $profile ): array {
+		$rules = [
+			'Start with context-bootstrap or workflow-preflight, then keep the same compact profile for the task.',
+			'Use profile tools before full ability discovery when the client has a strict tool cap.',
+			'Prefer batch abilities over repeated single-item calls once the target shape is known.',
+		];
+
+		if ( 'elementor-design' === $profile ) {
+			$rules[] = 'Set global colors and typography first when site-wide style changes are approved.';
+			$rules[] = 'Implement one visual section per write-and-verify pass, or two only when simple and coupled.';
+			$rules[] = 'Use native Elementor widgets and schema-confirmed Content, Style, and Advanced controls.';
+		}
+
+		if ( 'content-model' === $profile ) {
+			$rules[] = 'Discover plugin command groups once, then batch repeated CPT, field, post, meta, term, option, cache, and rewrite work.';
+			$rules[] = 'Use content-bulk-upsert-posts for repeated rows after the post type exists.';
+		}
+
+		if ( 'gutenberg' === $profile ) {
+			$rules[] = 'Read theme.json, templates, registered blocks, and block supports before writing blocks or FSE templates.';
+		}
+
+		return $rules;
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	private static function token_rules(): array {
+		return [
+			'Use profile tools before full ability discovery when the client has a strict tool cap.',
+			'Use responseMode=summary for WP-CLI and batch tools unless full JSON is needed for the next write.',
+			'Read schemas for only the widgets or block types used in the current section batch.',
+			'Prefer dry_run diagnostics and one section write over many exploratory writes.',
+			'Use system-abilities-list only when the selected profile is missing a needed capability.',
+		];
+	}
+
+	private static function normalise( string $text ): string {
+		return trim( preg_replace( '/[^a-z0-9]+/i', ' ', strtolower( $text ) ) ?? '' );
+	}
+
+	/**
+	 * @param list<string> $terms
+	 */
+	private static function has_any_term( string $normalised_text, array $terms ): bool {
+		foreach ( $terms as $term ) {
+			$needle = self::normalise( $term );
+			if ( '' !== $needle && preg_match( '/(^| )' . preg_quote( $needle, '/' ) . '( |$)/', $normalised_text ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+}
