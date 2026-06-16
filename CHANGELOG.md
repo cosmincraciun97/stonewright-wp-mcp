@@ -7,6 +7,15 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.53] - 2026-06-17
+
+### Added
+
+- `stonewright/workflow-preflight` now inlines a compact `tool_profile`
+  summary with profile counts, grouped tools, next-best tool recommendations,
+  and discovery policy so token-sensitive agents can skip a separate
+  `stonewright/tool-profile` call when the preflight profile is sufficient.
+
 ## [1.0.0-alpha.48] - 2026-06-16
 
 ### Changed

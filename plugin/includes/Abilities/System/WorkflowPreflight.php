@@ -123,6 +123,10 @@ final class WorkflowPreflight extends AbilityKernel {
 			$recommended[] = 'stonewright/skills-get';
 			$recommended   = array_values( array_unique( $recommended ) );
 		}
+		$tool_profile = self::compact_tool_profile( $task, $surface, $intent );
+		if ( is_wp_error( $tool_profile ) ) {
+			return $tool_profile;
+		}
 		$compact_playbooks = self::compact_playbooks( $context['matched_skill_playbooks'] ?? [] );
 
 		$elementor = self::elementor_context( $task_profile, $task, $surface, $intent );
@@ -132,6 +136,7 @@ final class WorkflowPreflight extends AbilityKernel {
 		$include_design_contract = true === ( $args['include_design_contract'] ?? false );
 		$fast_path               = [
 			'task_profile'          => $task_profile,
+			'tool_profile'          => $tool_profile,
 			'recommended_tools'     => $recommended,
 			'recommended_mcp_tools' => array_map( [ self::class, 'mcp_tool_name' ], $recommended ),
 			'call_sequence'         => self::call_sequence( $task, $task_profile, $compact_playbooks, $specializations ),
@@ -188,6 +193,34 @@ final class WorkflowPreflight extends AbilityKernel {
 		return ! empty( $context['matched_skills'] )
 			|| ! empty( $context['matched_skill_playbooks'] )
 			|| [] !== $specializations;
+	}
+
+	/**
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private static function compact_tool_profile( string $task, string $surface, string $intent ): array|\WP_Error {
+		$profile = ( new ToolProfile() )->execute(
+			[
+				'profile'   => ToolProfile::suggest_profile( $task, $surface, $intent ),
+				'task'      => $task,
+				'surface'   => $surface,
+				'intent'    => $intent,
+				'max_tools' => 40,
+			]
+		);
+		if ( is_wp_error( $profile ) ) {
+			return $profile;
+		}
+
+		return [
+			'profile'            => $profile['profile'],
+			'tool_count'         => $profile['tool_count'],
+			'profile_tool_count' => $profile['profile_tool_count'],
+			'under_limit'        => $profile['under_limit'],
+			'tool_groups'        => $profile['tool_groups'],
+			'next_best_tools'    => $profile['next_best_tools'],
+			'discovery_policy'   => $profile['discovery_policy'],
+		];
 	}
 
 	/**
@@ -449,17 +482,6 @@ final class WorkflowPreflight extends AbilityKernel {
 					'task'    => $task,
 					'surface' => $profile['surface'],
 					'intent'  => $profile['intent'],
-				]
-			),
-			self::call_step(
-				'stonewright/tool-profile',
-				'Lock the compact MCP tool set for this task before broad discovery.',
-				[
-					'profile'   => ToolProfile::suggest_profile( $task, (string) $profile['surface'], (string) $profile['intent'] ),
-					'task'      => $task,
-					'surface'   => $profile['surface'],
-					'intent'    => $profile['intent'],
-					'max_tools' => 40,
 				]
 			),
 		];

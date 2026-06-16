@@ -224,6 +224,13 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertArrayHasKey( 'context_token', $result );
 		self::assertArrayHasKey( 'elementor', $result );
 		self::assertArrayHasKey( 'fast_path', $result );
+		self::assertArrayHasKey( 'tool_profile', $result['fast_path'] );
+		self::assertSame( 'elementor-design', $result['fast_path']['tool_profile']['profile'] );
+		self::assertTrue( $result['fast_path']['tool_profile']['under_limit'] );
+		self::assertArrayHasKey( 'elementor_design', $result['fast_path']['tool_profile']['tool_groups'] );
+		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $result['fast_path']['tool_profile']['tool_groups']['elementor_design']['abilities'] );
+		self::assertSame( 'stonewright/elementor-v3-build-page-from-spec', $result['fast_path']['tool_profile']['next_best_tools'][0]['ability'] );
+		self::assertSame( 'Use tool_groups before system-abilities-list or full tools/list discovery.', $result['fast_path']['tool_profile']['discovery_policy'][0] );
 		self::assertContains( 'stonewright/tool-profile', $result['fast_path']['recommended_tools'] );
 		self::assertContains( 'stonewright-tool-profile', $result['fast_path']['recommended_mcp_tools'] );
 		self::assertContains( 'stonewright/media-upload-batch', $result['fast_path']['recommended_tools'] );
@@ -319,7 +326,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		$tools = array_column( $result['fast_path']['call_sequence'], 'tool' );
 		self::assertContains( 'stonewright-workflow-preflight', $tools );
 		self::assertContains( 'stonewright-context-bootstrap', $tools );
-		self::assertContains( 'stonewright-tool-profile', $tools );
+		self::assertNotContains( 'stonewright-tool-profile', $tools );
 		self::assertContains( 'stonewright-widget-intent-resolve', $tools );
 		self::assertContains( 'stonewright-elementor-widget-implementation-guide', $tools );
 		self::assertContains( 'stonewright-elementor-v3-container-schema', $tools );
