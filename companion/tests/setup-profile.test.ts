@@ -65,6 +65,9 @@ describe('buildSetupProfile', () => {
 		expect(profile.notes.join('\n')).toContain('Profile aliases such as elementor, design, acf, cpt-ui, fse, and wp cli normalize to compact canonical profiles.');
 		expect(profile.notes.join('\n')).toContain('Leave PORT unset for stdio-only MCP clients. To run the optional HTTP bridge, set STONEWRIGHT_HTTP_ENABLE=1 plus PORT.');
 		expect(profile.notes.join('\n')).toContain('GitHub release tarball');
+		expect(profile.notes.join('\n')).toContain('Do not point IDE MCP configs at companion/dist/index.js');
+		expect(profile.notes.join('\n')).toContain('For source development, use npm --prefix <repo>/companion run mcp:source');
+		expect(profile.notes.join('\n')).toContain('Do not configure generic WordPress MCP adapters such as @automattic/mcp-wordpress-remote');
 		expect(profile.notes.join('\n')).toContain('Do not treat local client skills or repository files as a substitute for live Stonewright MCP tools');
 		expect(profile.notes.join('\n')).toContain('Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround');
 		expect(profile.agent_do_not_use).toContain('Do not run wp cli info, wp plugin activate, wp option update, or other wp commands in a normal shell as Stonewright recovery.');

@@ -99,9 +99,9 @@ describe('WP-CLI runner', () => {
 			ok: true,
 			available: true,
 			exit_code: 0,
-			stdout_bytes: expect.any(Number),
 			stderr_bytes: 350,
 		});
+		expect(typeof result.stdout_bytes).toBe('number');
 		expect(result).not.toHaveProperty('stdout');
 		expect(result).not.toHaveProperty('stderr');
 		expect(result).toHaveProperty('parsed_json');

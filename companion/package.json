@@ -35,10 +35,12 @@
 		"dev": "tsup src/index.ts --format esm --watch --onSuccess \"node dist/index.js\"",
 		"start": "node dist/index.js",
 		"mcp": "node dist/index.js",
+		"mcp:source": "npm run build && node dist/index.js",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"lint": "eslint src tests --ext .ts",
 		"typecheck": "tsc --noEmit",
+		"prepack": "npm run build",
 		"postinstall": "node scripts/postinstall.mjs"
 	},
 	"dependencies": {

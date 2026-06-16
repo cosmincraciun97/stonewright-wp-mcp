@@ -148,6 +148,14 @@ Fastest MCP-client setup uses the versioned GitHub release tarball through
 
 This starts the local Stonewright companion over stdio. The companion proxies
 the WordPress MCP endpoint using the Application Password credentials.
+Do not point IDE MCP configs at `node companion/dist/index.js`; `dist` is a
+source build artifact and is intentionally not committed. Use the `npx` release
+tarball above, or for source development use
+`npm --prefix <repo>/companion run mcp:source`.
+Do not configure generic WordPress MCP adapters such as
+`@automattic/mcp-wordpress-remote` as the `stonewright` server. Use the
+Stonewright companion so setup, status, compact profiles, and guarded WP-CLI
+tools stay visible even while the WordPress endpoint is being fixed.
 The companion defaults to the compact `essential` tool profile, so new MCP
 sessions stay on the Stonewright fast-path surface instead of registering every
 specialized tool.

@@ -278,7 +278,7 @@ function registerSetupTools(server: McpServer, env: NodeJS.ProcessEnv): void {
 				appPassword: z.string().optional(),
 			},
 		},
-		async (input) => {
+		(input) => {
 			const mergedEnv = {
 				...env,
 				...(typeof input.siteUrl === 'string' ? { STONEWRIGHT_WP_URL: input.siteUrl } : {}),
@@ -298,7 +298,7 @@ function registerWordPressMcpStatusTool(server: McpServer, status: WordPressMcpC
 			description: 'Return whether the companion successfully proxied the WordPress Stonewright MCP endpoint. Available even when the endpoint is down so agents can recover without losing setup and WP-CLI tools.',
 			inputSchema: {},
 		},
-		async () => toolResponse(status),
+		() => toolResponse(status),
 	);
 }
 
@@ -381,7 +381,7 @@ function registerWpCliTools(
 				responseMode: z.enum(['full', 'summary']).optional(),
 			},
 		},
-		async (input) => toolResponse(startWpCliJob(toWpCliInput(input) as WpCliJobStartInput, undefined, env)),
+		(input) => toolResponse(startWpCliJob(toWpCliInput(input) as WpCliJobStartInput, undefined, env)),
 	);
 
 	server.registerTool(
@@ -393,7 +393,7 @@ function registerWpCliTools(
 				job_id: z.string().optional(),
 			},
 		},
-		async (input) => toolResponse(getWpCliJob(input as WpCliJobGetInput)),
+		(input) => toolResponse(getWpCliJob(input as WpCliJobGetInput)),
 	);
 
 	if (profile === 'low-tools') {

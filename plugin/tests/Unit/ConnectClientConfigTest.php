@@ -144,6 +144,8 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'STONEWRIGHT_MCP_TOOL_PROFILE', $prompt );
 		$this->assertStringContainsString( 'Use STONEWRIGHT_MCP_TOOL_PROFILE=low-tools for Antigravity, Gemini API, or other strict tool-cap clients', $prompt );
 		$this->assertStringContainsString( 'versioned GitHub release tarball', $prompt );
+		$this->assertStringContainsString( 'Do not configure generic WordPress MCP adapters such as `@automattic/mcp-wordpress-remote`', $prompt );
+		$this->assertStringContainsString( 'Do not use `node companion/dist/index.js` in IDE MCP configs', $prompt );
 		$this->assertStringContainsString( 'Playwright MCP', $prompt );
 		$this->assertStringContainsString( '@playwright/mcp@latest', $prompt );
 		$this->assertStringContainsString( 'browser testing, screenshots, and visual QA', $prompt );

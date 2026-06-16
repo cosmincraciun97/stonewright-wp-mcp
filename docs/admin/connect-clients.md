@@ -57,6 +57,15 @@ Most clients can run the Stonewright companion with `npx`:
 Stonewright tool names are hyphenated in MCP clients. Example:
 `stonewright/context-bootstrap` is called as `stonewright-context-bootstrap`.
 
+Do not point IDE MCP configs at `node companion/dist/index.js`; `dist` is a
+source build artifact and is intentionally not committed. Use the `npx` release
+tarball above, or for source development use
+`npm --prefix <repo>/companion run mcp:source`.
+Do not configure generic WordPress MCP adapters such as
+`@automattic/mcp-wordpress-remote` as the `stonewright` server. Use the
+Stonewright companion so setup, status, compact profiles, and guarded WP-CLI
+tools stay visible even while the WordPress endpoint is being fixed.
+
 After restart, the AI client should show `stonewright-context-bootstrap` in the
 MCP tool list. If that tool is missing, Stonewright is not connected yet: reload
 the client or fix the MCP config before asking the agent to edit WordPress. Do

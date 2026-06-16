@@ -78,6 +78,14 @@ After adding the server, call `stonewright-setup-profile`. It returns
 copy-paste MCP config, platform checks, credential status, and notes for the
 current machine. For local `.local` or `.test` sites, the companion can create
 one Application Password through guarded WP-CLI and save it in the user profile.
+Do not point IDE MCP configs at `node companion/dist/index.js`; `dist` is a
+source build artifact and is intentionally not committed. Use the `npx` release
+tarball above, or for source development use
+`npm --prefix <repo>/companion run mcp:source`.
+Do not configure generic WordPress MCP adapters such as
+`@automattic/mcp-wordpress-remote` as the `stonewright` server. Use the
+Stonewright companion so setup, status, compact profiles, and guarded WP-CLI
+tools stay visible even while the WordPress endpoint is being fixed.
 `STONEWRIGHT_MCP_TOOL_PROFILE=essential` keeps startup compact while preserving
 the general Stonewright fast paths for Elementor, Gutenberg, content-model, and
 WP-CLI work.

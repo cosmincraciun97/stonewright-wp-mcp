@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Hardened MCP client setup prompts to warn against fragile
+  `node companion/dist/index.js` configs and generic WordPress MCP adapters,
+  preferring the versioned `npx` companion tarball or source-development
+  `mcp:source` command.
+
 ## [1.0.0-alpha.55] - 2026-06-17
 
 ### Fixed

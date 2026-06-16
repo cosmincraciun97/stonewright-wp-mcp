@@ -8,9 +8,7 @@ describe('companion startup', () => {
 
 		const result = await startOptionalHttpFromEnv(
 			{ PORT: '8765' },
-			async () => {
-				throw error;
-			},
+			() => Promise.reject(error),
 		);
 
 		expect(result).toMatchObject({
@@ -24,8 +22,8 @@ describe('companion startup', () => {
 	it('starts optional HTTP only when explicitly enabled', async () => {
 		const result = await startOptionalHttpFromEnv(
 			{ PORT: '8765', STONEWRIGHT_HTTP_ENABLE: '1' },
-			async () => ({
-				close: async () => undefined,
+			() => Promise.resolve({
+				close: () => Promise.resolve(),
 				address: () => null,
 				config: {
 					bearerToken: '',
@@ -47,9 +45,7 @@ describe('companion startup', () => {
 	it('still throws optional HTTP startup errors when explicitly required', async () => {
 		await expect(startOptionalHttpFromEnv(
 			{ PORT: '8765', STONEWRIGHT_HTTP_REQUIRED: '1' },
-			async () => {
-				throw new Error('required bridge failed');
-			},
+			() => Promise.reject(new Error('required bridge failed')),
 		)).rejects.toThrow('required bridge failed');
 	});
 });

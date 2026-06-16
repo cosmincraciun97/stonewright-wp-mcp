@@ -16,6 +16,10 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- Hardened companion startup guidance so release tarballs always build
+  `dist` before packing, source-development MCP configs use `mcp:source`, and
+  docs/admin prompts warn against generic WordPress MCP adapters and fragile
+  `node companion/dist/index.js` IDE configs.
 - Updated the Codex skill sync script so backups are stored outside
   `~/.codex/skills`, stale nested skill copies are cleaned, and older indexed
   backup directories are relocated instead of appearing as duplicate slash

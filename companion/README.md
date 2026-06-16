@@ -47,6 +47,14 @@ Windows, macOS, and Linux. Use its `first_calls` and
 `stonewright-wordpress-mcp-status`, and direct WP-CLI aliases are visible before
 real work. Use `fast_path.tool_profile` from workflow preflight before making a
 separate `stonewright-tool-profile` call.
+Do not point IDE MCP configs at `node companion/dist/index.js`; `dist` is a
+source build artifact and is intentionally not committed. Use the `npx` release
+tarball above, or for source development use
+`npm --prefix <repo>/companion run mcp:source`.
+Do not configure generic WordPress MCP adapters such as
+`@automattic/mcp-wordpress-remote` as the `stonewright` server. Use the
+Stonewright companion so setup, status, compact profiles, and guarded WP-CLI
+tools stay visible even while the WordPress endpoint is being fixed.
 The companion also publishes compact MCP handshake instructions, so clients get
 the first-call, recovery, low-tools, and guarded WP-CLI rules before any tool is
 called.
@@ -67,6 +75,7 @@ From source:
 cd companion
 npm install
 npm run build
+npm run mcp:source
 ```
 
 ## Configure

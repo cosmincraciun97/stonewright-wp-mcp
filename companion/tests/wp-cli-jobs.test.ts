@@ -50,10 +50,10 @@ describe('WP-CLI background jobs', () => {
 			ok: true,
 			available: true,
 			exit_code: 0,
-			stdout_bytes: expect.any(Number),
 			stderr_bytes: 0,
 			parsed_json: [{ name: 'elementor' }],
 		});
+		expect(typeof done.result.stdout_bytes).toBe('number');
 		expect(done.result).not.toHaveProperty('stdout');
 	});
 
