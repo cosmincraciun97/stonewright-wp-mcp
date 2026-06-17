@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.57] - 2026-06-17
+
+### Fixed
+
+- Prevented MCP ability execution from fatalling when runtime REST validation
+  sees public JSON Schema placeholder objects used for strict MCP discovery.
+- Added regression coverage for permissive array item schemas so
+  `stonewright-context-bootstrap` remains callable through the MCP companion.
+
 ## [1.0.0-alpha.56] - 2026-06-17
 
 ### Fixed

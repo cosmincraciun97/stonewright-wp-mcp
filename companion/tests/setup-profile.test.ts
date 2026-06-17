@@ -18,7 +18,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.mcp_server.args).toEqual([
 			'-y',
 			'--package',
-			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.56/stonewright-companion-1.0.0-alpha.56.tgz',
+			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.57/stonewright-companion-1.0.0-alpha.57.tgz',
 			'stonewright-mcp',
 		]);
 		expect(profile.mcp_server.env).toMatchObject({
@@ -104,7 +104,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.platform).toBe('win32');
 		expect(profile.mcp_server.env.STONEWRIGHT_WP_ROOT).toBe('D:\\Sites\\mcp-test\\app\\public');
 		expect(profile.mcp_server.env.STONEWRIGHT_WP_USERNAME).toBe('admin');
-		expect(profile.install_command).toBe('npm install -g https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.56/stonewright-companion-1.0.0-alpha.56.tgz');
+		expect(profile.install_command).toBe('npm install -g https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.57/stonewright-companion-1.0.0-alpha.57.tgz');
 		expect(profile.notes.join('\n')).toContain('No shell script wrapper required');
 	});
 
