@@ -25,6 +25,9 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'REST runner shell calls', $summary );
 		$this->assertStringContainsString( 'shell wp commands', $summary );
 		$this->assertStringContainsString( 'Do not use wp eval', $summary );
+		$this->assertStringContainsString( 'Local WP-CLI requires PHP CLI with mysqli/MySQL enabled', $summary );
+		$this->assertStringContainsString( 'Remote HTTP MCP sites do not require local PHP/MySQL', $summary );
+		$this->assertStringContainsString( 'Restart or reload the MCP client after changing Stonewright env vars, PHP/WP-CLI paths, or the release tarball', $summary );
 	}
 
 	public function test_default_instructions_force_context_skills_memory_and_elementor_widget_discipline(): void {
@@ -46,6 +49,9 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround', $instructions );
 		$this->assertStringContainsString( 'Do not run wp cli info, wp plugin activate, wp option update, or other wp commands in a normal shell as Stonewright recovery', $instructions );
 		$this->assertStringContainsString( 'Do not use another MCP adapter execute-php or arbitrary PHP execution to replace Stonewright tools', $instructions );
+		$this->assertStringContainsString( 'Local WP-CLI requires PHP CLI with mysqli/MySQL enabled', $instructions );
+		$this->assertStringContainsString( 'Remote HTTP MCP sites do not require local PHP/MySQL', $instructions );
+		$this->assertStringContainsString( 'Restart or reload the MCP client after changing Stonewright env vars, PHP/WP-CLI paths, or the release tarball', $instructions );
 		$this->assertStringContainsString( 'stonewright/tool-profile', $instructions );
 		$this->assertStringContainsString( 'Use fast_path.tool_profile from stonewright/workflow-preflight before making a separate stonewright/tool-profile call', $instructions );
 		$this->assertStringContainsString( 'stonewright/skills-get', $instructions );

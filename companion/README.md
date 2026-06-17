@@ -27,7 +27,7 @@ Fast path for MCP clients:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.59/stonewright-companion-1.0.0-alpha.59.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.60/stonewright-companion-1.0.0-alpha.60.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
@@ -71,6 +71,13 @@ For Antigravity, Gemini API, or other strict tool-cap clients, set
 `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` before startup. It keeps the total
 client-visible tool surface under 30 by hiding legacy duplicate aliases while
 the canonical `stonewright-wp-cli-*` recovery tools remain local.
+For local WordPress and server-side companion WP-CLI work, verify that PHP CLI
+loads mysqli/MySQL, `wp` or `wp-cli.phar` is available, `STONEWRIGHT_WP_ROOT`
+points at the folder containing `wp-config.php`, and the database service is
+running and reachable from that config. Remote HTTP MCP sites do not require
+local PHP/MySQL unless this companion is expected to run WP-CLI for that site.
+After changing Stonewright env vars, PHP/WP-CLI paths, or the release tarball,
+restart or reload the MCP client before rechecking tools.
 
 From a GitHub release:
 
@@ -113,6 +120,9 @@ cp .env.example .env
 | `STONEWRIGHT_WP_APP_PASSWORD_AUTO` | optional | `local-only` by default; set `never` to disable or `always` to permit remote auto-generation |
 | `STONEWRIGHT_WP_APP_PASSWORD_NAME` | optional | Label used when auto-creating the WordPress Application Password |
 | `STONEWRIGHT_WP_CLI_BIN` | optional | WP-CLI executable path; defaults to `wp` |
+| `STONEWRIGHT_WP_CLI_PHP_BIN` | optional | PHP executable for running `wp-cli.phar`; set with `STONEWRIGHT_WP_CLI_PHAR_PATH` for explicit local runtimes |
+| `STONEWRIGHT_WP_CLI_PHAR_PATH` | optional | Explicit `wp-cli.phar` path |
+| `STONEWRIGHT_WP_CLI_PHP_INI` | optional | PHP ini file for local PHP extensions such as mysqli/MySQL |
 | `STONEWRIGHT_WP_ROOT` | optional | Absolute WordPress install folder containing `wp-config.php`; default WP-CLI working directory |
 | `STONEWRIGHT_WP_ALLOWED_ROOTS` | optional | Comma- or semicolon-separated allowed working roots |
 | `MCP_PROXY_TARGET` | optional | Upstream MCP server URL to proxy to |
@@ -167,6 +177,11 @@ resolution chain (first match wins):
 
 **No manual WP-CLI installation is required** for most setups. The download is
 idempotent — if the phar already exists it is reused without re-downloading.
+The `stonewright-wp-cli-status` tool warns when `wp cli info` can start but PHP
+did not load a `php.ini`. Treat that as a local runtime setup blocker for
+WordPress-loading commands: set `STONEWRIGHT_WP_CLI_PHP_INI` and the matching
+PHP binary, start the database, then restart or reload the MCP client. Do not
+fall back to shell `wp ...` commands.
 
 ### MCP tools
 

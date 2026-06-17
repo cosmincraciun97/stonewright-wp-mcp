@@ -18,7 +18,7 @@ describe('createMcpServer', () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
 		const info = (server as any).server._serverInfo as { name: string; version: string };
 		expect(info.name).toBe('stonewright-companion');
-		expect(info.version).toBe('1.0.0-alpha.59');
+		expect(info.version).toBe('1.0.0-alpha.60');
 	});
 
 	it('publishes compact handshake instructions before any tool is called', async () => {
@@ -48,6 +48,9 @@ describe('createMcpServer', () => {
 		expect(instructions).toContain('Do not hand-roll JSON-RPC calls');
 		expect(instructions).toContain('Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround');
 		expect(instructions).toContain('Do not run wp commands in a normal shell');
+		expect(instructions).toContain('Local WP-CLI requires PHP CLI with mysqli/MySQL enabled');
+		expect(instructions).toContain('Remote HTTP MCP sites do not require local PHP/MySQL');
+		expect(instructions).toContain('Restart or reload the MCP client after changing Stonewright env vars, PHP/WP-CLI paths, or the release tarball');
 		expect(instructions).not.toContain('companion_wp_cli_run');
 	});
 

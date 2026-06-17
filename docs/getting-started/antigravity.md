@@ -41,7 +41,7 @@ In Antigravity IDE you can also open it from the agent panel:
 ## 3. Add Stonewright
 
 Use the latest release tarball shown by the Stonewright Configuration page. This
-example uses `1.0.0-alpha.59`:
+example uses `1.0.0-alpha.60`:
 
 ```json
 {
@@ -51,7 +51,7 @@ example uses `1.0.0-alpha.59`:
       "args": [
         "-y",
         "--package",
-        "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.59/stonewright-companion-1.0.0-alpha.59.tgz",
+        "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.60/stonewright-companion-1.0.0-alpha.60.tgz",
         "stonewright-mcp"
       ],
       "env": {
@@ -83,6 +83,12 @@ After saving the config:
   **Refresh** under installed MCP servers.
 - In Antigravity CLI, start `agy`, type `/mcp`, and confirm `stonewright` is
   listed.
+
+If the task needs local WP-CLI, the Stonewright companion also needs PHP CLI
+with mysqli/MySQL enabled, `wp` or `wp-cli.phar`, `STONEWRIGHT_WP_ROOT` pointing
+at `wp-config.php`, and the database running. Remote HTTP MCP sites do not need
+local PHP/MySQL unless the companion will run WP-CLI for that site. Refresh
+again after changing env vars, PHP/WP-CLI paths, or the release tarball.
 
 The first visible Stonewright tools should include:
 
@@ -130,7 +136,7 @@ calls, and use guarded stonewright-wp-cli-* tools for WP-CLI work.
 | `stonewright` does not appear in `/mcp` | Confirm the server is in `~/.gemini/config/mcp_config.json`, save, then refresh installed MCP servers. |
 | Server appears but WordPress tools are missing | Call `stonewright-wordpress-mcp-status` and check `STONEWRIGHT_WP_URL`, username, and Application Password. |
 | Too many tools or startup failure | Confirm `STONEWRIGHT_MCP_TOOL_PROFILE` is `low-tools`, not `essential` or `full`. |
-| WP-CLI helpers missing a local site | Add `STONEWRIGHT_WP_ROOT` pointing at the WordPress root with `wp-config.php`. |
+| WP-CLI helpers missing or `php_ini_not_loaded` | Add `STONEWRIGHT_WP_ROOT`, set matching `STONEWRIGHT_WP_CLI_PHP_BIN`/`STONEWRIGHT_WP_CLI_PHP_INI` when needed, confirm mysqli/MySQL and the database are available, then refresh Antigravity. |
 | Agent tries shell `wp ...` commands | Restart the task and tell it to use `stonewright-wp-cli-status`, `stonewright-wp-cli-run`, or `stonewright-wp-cli-batch-run` instead. |
 
 ## Skill Search Duplicates In Codex

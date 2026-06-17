@@ -21,6 +21,13 @@ It routes the agent to the right specialized skill and MCP tools.
 4. If authentication or MCP visibility fails, call
    `stonewright-wordpress-mcp-status` and `stonewright-setup-profile`, then use
    direct `stonewright-wp-cli-*` tools only when WP-CLI is needed.
+5. For local WordPress or server-side companion WP-CLI work, confirm the
+   `wp_cli_environment` guidance from setup-profile: PHP CLI must have
+   mysqli/MySQL enabled, `wp` or `wp-cli.phar` must be available,
+   `STONEWRIGHT_WP_ROOT` must point at `wp-config.php`, and the database must be
+   running. Remote HTTP MCP sites do not require local PHP/MySQL unless the
+   companion is expected to run WP-CLI for that site. If dependencies are
+   missing, stop and tell the user what to install, enable, start, or configure.
 
 If `stonewright_essential_tools_mode` is enabled, expect a compact tool list.
 Use the fast-path tools returned by preflight instead of rediscovering the full
@@ -57,6 +64,9 @@ write/activate path for shortcode or query glue.
   fan out into dozens of `wp post meta update` calls unless the bulk ability is
   unavailable.
 - Use guarded `stonewright-wp-cli-run` only with argv tokens.
+- Treat `stonewright-wp-cli-status` with `php_ini_not_loaded` as a local runtime
+  warning: set `STONEWRIGHT_WP_CLI_PHP_INI` and the matching PHP binary, then
+  restart or reload the MCP client before WordPress-loading WP-CLI commands.
 - If native content/Elementor tools are insufficient and shortcode or query
   glue is required, use `stonewright-sandbox-write` and
   `stonewright-sandbox-activate`; do not create shell scripts or use arbitrary

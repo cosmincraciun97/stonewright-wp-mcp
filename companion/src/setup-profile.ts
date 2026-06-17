@@ -23,9 +23,19 @@ export interface SetupProfile extends Record<string, unknown> {
 	first_calls: string[];
 	tool_visibility_checks: string[];
 	tool_inventory: ToolInventory;
+	wp_cli_environment: WpCliEnvironment;
 	agent_do_not_use: string[];
 	agent_use_instead: string[];
 	notes: string[];
+}
+
+export interface WpCliEnvironment {
+	applies_to: string;
+	not_required_for: string;
+	required_dependencies: string[];
+	first_check: string;
+	if_missing: string;
+	restart_after_changes: string;
 }
 
 export interface ToolInventory {
@@ -60,6 +70,13 @@ export const AGENT_DO_NOT_USE = [
 
 export const MCP_MISSING_BOOTSTRAP_STOP =
 	'If stonewright-context-bootstrap is not visible, stop WordPress work, report that Stonewright MCP is not loaded, and ask the user to reload or fix the MCP client config.';
+
+export const WP_CLI_LOCAL_REQUIREMENT_NOTE =
+	'Local WP-CLI requires PHP CLI with mysqli/MySQL enabled, wp or wp-cli.phar, STONEWRIGHT_WP_ROOT pointing at wp-config.php, and a running database reachable from wp-config.php.';
+export const WP_CLI_REMOTE_NOT_REQUIRED_NOTE =
+	'Remote HTTP MCP sites do not require local PHP/MySQL unless the companion is expected to run WP-CLI for that site.';
+export const WP_CLI_RESTART_NOTE =
+	'Restart or reload the MCP client after changing Stonewright env vars, PHP/WP-CLI paths, or the release tarball.';
 
 export const AGENT_USE_INSTEAD = [
 	'stonewright-wordpress-mcp-status',
@@ -152,6 +169,7 @@ export function buildSetupProfile(
 		],
 		tool_visibility_checks: visibilityChecks,
 		tool_inventory: buildToolInventory(proxyToolProfileFromEnv(env), visibilityChecks),
+		wp_cli_environment: buildWpCliEnvironment(),
 		agent_do_not_use: AGENT_DO_NOT_USE,
 		agent_use_instead: agentUseInstead(env),
 		notes: [
@@ -169,6 +187,10 @@ export function buildSetupProfile(
 			'Leave PORT unset for stdio-only MCP clients. To run the optional HTTP bridge, set STONEWRIGHT_HTTP_ENABLE=1 plus PORT.',
 			'Use fast_path.tool_profile from stonewright-workflow-preflight before making a separate stonewright-tool-profile call; call tool-profile only to switch or verify a compact profile.',
 			MCP_MISSING_BOOTSTRAP_STOP,
+			WP_CLI_LOCAL_REQUIREMENT_NOTE,
+			WP_CLI_REMOTE_NOT_REQUIRED_NOTE,
+			'If local WP-CLI dependencies are missing, stop and tell the user which dependency must be installed, enabled, started, or configured before continuing WP-CLI work.',
+			WP_CLI_RESTART_NOTE,
 			'Do not treat local client skills or repository files as a substitute for live Stonewright MCP tools; if the tool is missing, reload the MCP client instead of bypassing the server.',
 			'Do not inspect private AI-client config files to find Stonewright; use the configured MCP tool list and stonewright-setup-profile instead.',
 			'Do not create scratch scripts such as query-mcp.js or run-ability.js to bypass the MCP client tool surface.',
@@ -181,6 +203,22 @@ export function buildSetupProfile(
 			'For local .local/.test sites, Application Passwords can be generated through guarded WP-CLI.',
 			'For production sites, provide STONEWRIGHT_WP_USERNAME plus STONEWRIGHT_WP_APP_PASSWORD or STONEWRIGHT_MCP_AUTHORIZATION.',
 		],
+	};
+}
+
+function buildWpCliEnvironment(): WpCliEnvironment {
+	return {
+		applies_to: 'local WordPress sites and server-side companion installs that use guarded WP-CLI',
+		not_required_for: 'remote WordPress sites reached only through the HTTP MCP endpoint',
+		required_dependencies: [
+			'PHP CLI with mysqli/MySQL extension enabled',
+			'wp or wp-cli.phar available to the companion',
+			'STONEWRIGHT_WP_ROOT pointing at a folder with wp-config.php',
+			'MySQL/MariaDB service running and reachable from wp-config.php',
+		],
+		first_check: 'stonewright-wp-cli-status',
+		if_missing: 'Stop and tell the user which local dependency is missing before continuing WP-CLI work.',
+		restart_after_changes: WP_CLI_RESTART_NOTE,
 	};
 }
 

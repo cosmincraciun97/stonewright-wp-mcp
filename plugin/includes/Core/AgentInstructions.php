@@ -26,6 +26,9 @@ final class AgentInstructions {
 			'- Do not use wp eval, wp eval-file, wp shell, wp package, --exec, or --require through Stonewright.',
 			'- Do not run wp cli info, wp plugin activate, wp option update, or other wp commands in a normal shell as Stonewright recovery. Use MCP tools stonewright-wp-cli-status, stonewright-wp-cli-discover, stonewright-wp-cli-run, or stonewright-wp-cli-batch-run.',
 			'- Do not use another MCP adapter execute-php or arbitrary PHP execution to replace Stonewright tools.',
+			'- ' . McpUsePolicy::wp_cli_local_requirement_note(),
+			'- ' . McpUsePolicy::wp_cli_remote_not_required_note(),
+			'- ' . McpUsePolicy::wp_cli_restart_note(),
 		];
 
 		$instructions_enabled = (bool) get_option( 'stonewright_custom_instructions_enabled', true );
@@ -50,6 +53,9 @@ final class AgentInstructions {
 			...array_map( static fn ( string $rule ): string => '- ' . $rule, McpUsePolicy::bypass_ban_rules() ),
 			'- Do not run wp cli info, wp plugin activate, wp option update, or other wp commands in a normal shell as Stonewright recovery. Use MCP tools stonewright-wp-cli-status, stonewright-wp-cli-discover, stonewright-wp-cli-run, or stonewright-wp-cli-batch-run.',
 			'- Do not use another MCP adapter execute-php or arbitrary PHP execution to replace Stonewright tools.',
+			'- ' . McpUsePolicy::wp_cli_local_requirement_note(),
+			'- ' . McpUsePolicy::wp_cli_remote_not_required_note(),
+			'- ' . McpUsePolicy::wp_cli_restart_note(),
 			'- At the start of every Stonewright task, call MCP tool stonewright-context-bootstrap with the user request, surface, and intent. Read the returned instructions, matched skill playbooks, memory entries, and required followups before acting.',
 			'- Use fast_path.tool_profile from stonewright/workflow-preflight before making a separate stonewright/tool-profile call; call tool-profile only to switch or verify a compact profile.',
 			'- If essential tools mode is enabled, use the compact fast-path tools returned by stonewright/workflow-preflight instead of probing for every specialized ability.',

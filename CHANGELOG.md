@@ -7,6 +7,19 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.60] - 2026-06-17
+
+### Fixed
+
+- Added a `php_ini_not_loaded` warning to companion WP-CLI status responses so
+  agents do not treat `wp cli info` success as proof that WordPress can boot.
+- Added setup-profile, MCP handshake, admin prompt, skill, and documentation
+  guidance for local WP-CLI prerequisites: PHP CLI with mysqli/MySQL, WP-CLI,
+  a WordPress root with `wp-config.php`, and a running database.
+- Clarified that remote HTTP MCP sites do not require local PHP/MySQL unless
+  the companion is expected to run WP-CLI for that site.
+- Bumped the plugin and companion release assets to `1.0.0-alpha.60`.
+
 ## [1.0.0-alpha.58] - 2026-06-17
 
 ### Fixed
@@ -798,6 +811,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.60]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.60
 [1.0.0-alpha.58]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.58
 [1.0.0-alpha.57]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.57
 [1.0.0-alpha.56]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.56

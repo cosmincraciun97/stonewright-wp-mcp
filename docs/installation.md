@@ -12,8 +12,11 @@ Stonewright has two parts:
 - PHP 8.1+
 - Composer 2 for source installs
 - Node.js 20+ for the optional companion
-- WP-CLI for fast local WordPress work. The companion can use `wp` from `PATH`
-  or auto-detect LocalWP's `wp-cli.phar` plus PHP on Windows/macOS.
+- For local or server-side companion WP-CLI work: PHP CLI with mysqli/MySQL
+  enabled, `wp` or `wp-cli.phar`, a WordPress root containing `wp-config.php`,
+  and a running database reachable from that WordPress config. Remote HTTP MCP
+  sites do not require local PHP/MySQL unless the companion is expected to run
+  WP-CLI for that site.
 - A WordPress Application Password
 
 ## Install The WordPress Plugin From Release
@@ -62,7 +65,7 @@ shell wrapper, global install, or manual bridge:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.59/stonewright-companion-1.0.0-alpha.59.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.60/stonewright-companion-1.0.0-alpha.60.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
@@ -78,6 +81,13 @@ After adding the server, call `stonewright-setup-profile`. It returns
 copy-paste MCP config, platform checks, credential status, and notes for the
 current machine. For local `.local` or `.test` sites, the companion can create
 one Application Password through guarded WP-CLI and save it in the user profile.
+For local WP-CLI, the companion must have PHP CLI with mysqli/MySQL enabled,
+`wp` or `wp-cli.phar`, `STONEWRIGHT_WP_ROOT` pointing at the folder with
+`wp-config.php`, and a running database reachable from `wp-config.php`. If any
+of those are missing, the agent should stop and tell the user what to install,
+enable, start, or configure before continuing WP-CLI work. Remote HTTP MCP sites
+do not require local PHP/MySQL unless the companion is expected to run WP-CLI
+for that site.
 Do not point IDE MCP configs at `node companion/dist/index.js`; `dist` is a
 source build artifact and is intentionally not committed. Use the `npx` release
 tarball above, or for source development use
@@ -154,7 +164,7 @@ For MCP clients that use a local stdio server, configure:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.59/stonewright-companion-1.0.0-alpha.59.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.60/stonewright-companion-1.0.0-alpha.60.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",

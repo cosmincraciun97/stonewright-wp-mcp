@@ -44,6 +44,9 @@ final class ConnectClientConfigTest extends TestCase {
 			$this->assertStringContainsString( 'no action scripts', $client['notes'], $client['slug'] );
 			$this->assertStringContainsString( 'no source-code schema spelunking', $client['notes'], $client['slug'] );
 			$this->assertStringContainsString( 'no REST runner or shell WP-CLI workaround', $client['notes'], $client['slug'] );
+			$this->assertStringContainsString( 'Local WP-CLI requires PHP CLI with mysqli/MySQL enabled', $client['notes'], $client['slug'] );
+			$this->assertStringContainsString( 'remote HTTP MCP does not require local PHP/MySQL', $client['notes'], $client['slug'] );
+			$this->assertStringContainsString( 'restart or reload after changing Stonewright env vars, PHP/WP-CLI paths, or release tarball', $client['notes'], $client['slug'] );
 		}
 	}
 
@@ -185,6 +188,10 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'Do not inspect plugin or companion source code to reverse-engineer tool schemas', $prompt );
 		$this->assertStringContainsString( 'Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround', $prompt );
 		$this->assertStringContainsString( 'Do not run wp commands or wp eval in a normal shell', $prompt );
+		$this->assertStringContainsString( 'Local WP-CLI requires PHP CLI with mysqli/MySQL enabled', $prompt );
+		$this->assertStringContainsString( 'Remote HTTP MCP sites do not require local PHP/MySQL unless the companion is expected to run WP-CLI for that site', $prompt );
+		$this->assertStringContainsString( 'If local WP-CLI dependencies are missing, stop and ask the user to install or start them before continuing WP-CLI work', $prompt );
+		$this->assertStringContainsString( 'Restart or reload the MCP session after changing Stonewright env vars, PHP/WP-CLI paths, or the release tarball', $prompt );
 	}
 
 	public function test_playwright_mcp_snippet_is_separate_server(): void {

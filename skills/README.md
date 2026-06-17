@@ -67,7 +67,10 @@ old indexed backups before moving them.
 - For WooCommerce catalog skills: WooCommerce active and official REST v3 or
   `wp wc` commands available for the requested operation.
 - For WP-CLI acceleration: companion running with `wp` available on `PATH` or
-  LocalWP-style PHP + `wp-cli.phar` discoverable from the WordPress root. If no
+  LocalWP-style PHP + `wp-cli.phar` discoverable from the WordPress root. Local
+  WP-CLI also requires PHP CLI with mysqli/MySQL enabled and a running database
+  reachable from `wp-config.php`. Remote HTTP MCP sites do not require local
+  PHP/MySQL unless the companion is expected to run WP-CLI for that site. If no
   WP-CLI is available, the direct companion tool `stonewright-wp-cli-install`
   can install `wp-cli.phar` into the Stonewright cache.
 

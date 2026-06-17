@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.60] - 2026-06-17
+
+### Fixed
+
+- Added local WP-CLI runtime guidance to plugin agent instructions and admin
+  client setup prompts so agents report missing PHP mysqli/MySQL, WP-CLI,
+  WordPress root, or database prerequisites instead of using shell workarounds.
+- Clarified that remote HTTP MCP sites do not require local PHP/MySQL unless
+  the companion is expected to run WP-CLI for that site.
+- Bumped the plugin version to `1.0.0-alpha.60`.
+
 ## [1.0.0-alpha.58] - 2026-06-17
 
 ### Fixed

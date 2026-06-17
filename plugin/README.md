@@ -1,6 +1,6 @@
 # Stonewright Plugin
 
-Version: 1.0.0-alpha.59
+Version: 1.0.0-alpha.60
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
 License: GPL-2.0-or-later
@@ -41,6 +41,12 @@ WP-CLI already configured. Runtime agents should not recover by shelling out to
 use the guarded `stonewright-wp-cli-*` MCP tools.
 Use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` for Antigravity, Gemini API, or
 other strict tool-cap clients; keep `essential` for normal fast-path sessions.
+For local WP-CLI work, the companion needs PHP CLI with mysqli/MySQL enabled,
+`wp` or `wp-cli.phar`, `STONEWRIGHT_WP_ROOT` pointing at `wp-config.php`, and a
+running database reachable from that WordPress config. Remote HTTP MCP sites do
+not need local PHP/MySQL unless the companion is expected to run WP-CLI for that
+site. Restart or reload the MCP client after changing Stonewright env vars,
+PHP/WP-CLI paths, or the release tarball.
 
 ## Local Development
 

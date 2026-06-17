@@ -42,7 +42,7 @@ Most clients can run the Stonewright companion with `npx`:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.58/stonewright-companion-1.0.0-alpha.58.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.60/stonewright-companion-1.0.0-alpha.60.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -88,6 +88,13 @@ For Antigravity, Gemini API, or another strict tool-cap client, set
 client-visible tool list under 30 while preserving composite writes and direct
 `stonewright-wp-cli-*` recovery tools, including background jobs.
 
+For local WP-CLI work, the companion also needs PHP CLI with mysqli/MySQL
+enabled, `wp` or `wp-cli.phar`, `STONEWRIGHT_WP_ROOT` pointing at
+`wp-config.php`, and the database running. Remote HTTP MCP sites do not require
+local PHP/MySQL unless the companion will run WP-CLI for that site. After
+changing Stonewright env vars, PHP/WP-CLI paths, or the release tarball,
+restart or reload the AI client again.
+
 For Antigravity 2.0, Antigravity IDE, and Antigravity CLI, use the shared
 `~/.gemini/config/mcp_config.json` file. See
 [Getting started with Antigravity](../getting-started/antigravity.md) for a
@@ -110,7 +117,7 @@ claude mcp add stonewright \
   --env STONEWRIGHT_WP_USERNAME='your-wp-username' \
   --env STONEWRIGHT_WP_APP_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx' \
   --env STONEWRIGHT_MCP_TOOL_PROFILE=essential \
-  -- npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.58/stonewright-companion-1.0.0-alpha.58.tgz stonewright-mcp
+  -- npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.60/stonewright-companion-1.0.0-alpha.60.tgz stonewright-mcp
 ```
 
 The server is registered for the current user. Restart or reload the client
@@ -142,7 +149,7 @@ VS Code-style clients use a `servers` top-level key instead of `mcpServers`:
   "servers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.58/stonewright-companion-1.0.0-alpha.58.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.60/stonewright-companion-1.0.0-alpha.60.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -162,7 +169,7 @@ Zed uses `context_servers`:
     "stonewright": {
       "command": {
         "path": "npx",
-        "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.58/stonewright-companion-1.0.0-alpha.58.tgz", "stonewright-mcp"],
+        "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.60/stonewright-companion-1.0.0-alpha.60.tgz", "stonewright-mcp"],
         "env": {
           "STONEWRIGHT_WP_URL": "https://your-site.com",
           "STONEWRIGHT_WP_USERNAME": "your-wp-username",

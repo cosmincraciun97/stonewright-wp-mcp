@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.56-blue" /></a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.60-blue" /></a>
   <img alt="plugin license" src="https://img.shields.io/badge/plugin-GPL--2.0--or--later-green" />
   <img alt="companion license" src="https://img.shields.io/badge/companion-MIT-blue" />
   <img alt="php" src="https://img.shields.io/badge/PHP-%3E%3D8.1-777bb4" />
@@ -64,7 +64,11 @@ turning every task into shell access or fragile one-off PHP snippets.
 - Composer 2 for source installs
 - Node.js 20+ for the optional companion
 - Elementor 3.21+ for Elementor abilities
-- WP-CLI for companion-assisted WordPress work, or LocalWP with its bundled WP-CLI
+- For local or server-side companion WP-CLI work: PHP CLI with mysqli/MySQL
+  enabled, `wp` or `wp-cli.phar`, a WordPress root containing `wp-config.php`,
+  and a running database reachable from that WordPress config. Remote HTTP MCP
+  sites do not require local PHP/MySQL unless the companion is expected to run
+  WP-CLI for that site.
 
 ## Install From Release
 
@@ -141,7 +145,7 @@ Fastest MCP-client setup uses the versioned GitHub release tarball through
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.59/stonewright-companion-1.0.0-alpha.59.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.60/stonewright-companion-1.0.0-alpha.60.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -181,6 +185,13 @@ config, refresh steps, and troubleshooting when Stonewright does not appear in
 For local WordPress sites, add `STONEWRIGHT_WP_ROOT` when you want guarded
 WP-CLI helper tools or LocalWP discovery. Call `stonewright-setup-profile` once
 for copy-paste config, platform checks, credential status, and WP-CLI notes.
+Local WP-CLI requires PHP CLI with mysqli/MySQL enabled, `wp` or
+`wp-cli.phar`, `STONEWRIGHT_WP_ROOT` pointing at the folder with
+`wp-config.php`, and MySQL/MariaDB running and reachable from `wp-config.php`.
+Remote HTTP MCP sites do not require local PHP/MySQL unless the companion is
+expected to run WP-CLI for that site. If any local dependency is missing, agents
+should stop and tell the user what to install, enable, start, or configure
+before continuing WP-CLI work.
 Do not set `PORT` for normal stdio MCP clients. `PORT` enables the optional HTTP
 bridge only; if that port is already in use, stdio MCP should keep working and
 the HTTP bridge is skipped unless `STONEWRIGHT_HTTP_REQUIRED=1` is set.
@@ -323,6 +334,9 @@ Copy `companion/.env.example` to `companion/.env`.
 | `STONEWRIGHT_CREDENTIAL_DIR` | optional | Directory for generated per-project credential files |
 | `STONEWRIGHT_WP_APP_PASSWORD_AUTO` | optional | Auto-create missing local credentials through guarded WP-CLI; default `local-only` |
 | `STONEWRIGHT_WP_CLI_BIN` | optional | WP-CLI executable path; defaults to `wp` |
+| `STONEWRIGHT_WP_CLI_PHP_BIN` | optional | PHP executable for running `wp-cli.phar`; set with `STONEWRIGHT_WP_CLI_PHAR_PATH` for explicit local runtimes |
+| `STONEWRIGHT_WP_CLI_PHAR_PATH` | optional | Explicit `wp-cli.phar` path |
+| `STONEWRIGHT_WP_CLI_PHP_INI` | optional | PHP ini file for local PHP extensions such as mysqli/MySQL |
 | `STONEWRIGHT_WP_ROOT` | optional | Absolute WordPress install folder containing `wp-config.php`; default WP-CLI working directory |
 | `STONEWRIGHT_WP_ALLOWED_ROOTS` | optional | Comma- or semicolon-separated allowed WP-CLI roots |
 | `MCP_PROXY_TARGET` | optional | Upstream MCP server to proxy requests to |

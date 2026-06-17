@@ -105,8 +105,8 @@ export interface WpCliResultSummary extends Record<string, unknown> {
 }
 
 export interface WpCliDiagnostic {
-	code: 'php_missing_mysqli';
-	severity: 'error';
+	code: 'php_missing_mysqli' | 'php_ini_not_loaded';
+	severity: 'error' | 'warning';
 	message: string;
 	hints: string[];
 	selected_executable: string;
@@ -258,7 +258,7 @@ export async function runWpCli(
 	const result = await runner(invocation.executable, args, options);
 	const parsed = input.parseJson ? parseJson(result.stdout) : undefined;
 	const unavailable = result.errorCode === 'ENOENT';
-	const diagnostics = detectWpCliDiagnostics(result, invocation, safeInput, cwd);
+	const diagnostics = detectWpCliDiagnostics(result, invocation, safeInput, cwd, parsed);
 
 	const fullResult: WpCliResult = {
 		ok: result.exitCode === 0 && !unavailable,
@@ -1021,17 +1021,30 @@ function detectWpCliDiagnostics(
 	invocation: WpCliInvocation,
 	input: WpCliRunInput,
 	cwd: string,
+	parsed?: unknown,
 ): WpCliDiagnostic[] {
 	const output = `${result.stdout}\n${result.stderr}\n${result.errorMessage ?? ''}`;
-	if (!/(missing[^.\n]*(?:mysql|mysqli)|mysqli[^.\n]*missing|php installation appears to be missing[^.\n]*mysql)/i.test(output)) {
-		return [];
-	}
-	if (!/mysqli|mysql extension/i.test(output)) {
-		return [];
+	const diagnostics: WpCliDiagnostic[] = [];
+
+	if (parsed && typeof parsed === 'object' && (parsed as Record<string, unknown>).php_ini_used === false) {
+		diagnostics.push({
+			code: 'php_ini_not_loaded',
+			severity: 'warning',
+			message: 'WP-CLI launched, but PHP did not load a php.ini file. WordPress commands may still fail if required extensions such as mysqli/MySQL are not enabled.',
+			hints: [
+				'For local WordPress or LocalWP, set STONEWRIGHT_WP_CLI_PHP_INI to the site conf/php/php.ini and STONEWRIGHT_WP_CLI_PHP_BIN to the matching PHP binary, then restart the MCP client.',
+				'Make sure the selected PHP CLI has the mysqli/MySQL extension enabled before relying on WordPress-loading WP-CLI commands.',
+				'Remote HTTP MCP sites do not require local PHP/MySQL unless the companion is expected to run WP-CLI for that site.',
+			],
+			selected_executable: invocation.executable,
+			wp_cli_source: invocation.source,
+			wp_root: input.path ?? cwd,
+		});
 	}
 
-	return [
-		{
+	if (/(missing[^.\n]*(?:mysql|mysqli)|mysqli[^.\n]*missing|php installation appears to be missing[^.\n]*mysql)/i.test(output)
+		&& /mysqli|mysql extension/i.test(output)) {
+		diagnostics.push({
 			code: 'php_missing_mysqli',
 			severity: 'error',
 			message: 'WP-CLI ran, but WordPress could not boot because the selected PHP executable does not have the mysqli/MySQL extension enabled.',
@@ -1043,8 +1056,10 @@ function detectWpCliDiagnostics(
 			selected_executable: invocation.executable,
 			wp_cli_source: invocation.source,
 			wp_root: input.path ?? cwd,
-		},
-	];
+		});
+	}
+
+	return diagnostics;
 }
 
 function ancestorDirectories(start: string): string[] {

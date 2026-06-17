@@ -9,6 +9,7 @@ import {
 	wpCliInstall,
 	wpCliDiscover,
 	wpCliEnsureReady,
+	wpCliStatus,
 	type ExecFileRunner,
 } from '../src/wp-cli.js';
 
@@ -227,6 +228,43 @@ describe('WP-CLI runner', () => {
 				hints: expect.arrayContaining([
 					expect.stringContaining('STONEWRIGHT_WP_CLI_PHP_BIN'),
 					expect.stringContaining('stonewright-wp-cli-status'),
+				]),
+			}),
+		]);
+	});
+
+	it('warns when WP-CLI launches with no php.ini because WordPress commands may still fail', async () => {
+		const runner: ExecFileRunner = () => Promise.resolve({
+			stdout: JSON.stringify({
+				php_binary_path: 'C:\\Users\\me\\AppData\\Roaming\\Local\\lightning-services\\php-8.2.29+0\\bin\\win64\\php.exe',
+				php_ini_used: false,
+				wp_cli_version: '2.12.0',
+			}),
+			stderr: '',
+			exitCode: 0,
+		});
+
+		const result = await wpCliStatus(
+			{
+				path: process.cwd(),
+			},
+			runner,
+			{
+				STONEWRIGHT_WP_CLI_BIN: 'php-without-ini',
+				STONEWRIGHT_WP_ROOT: process.cwd(),
+			} as NodeJS.ProcessEnv,
+		);
+
+		expect(result.ok).toBe(true);
+		expect(result.available).toBe(true);
+		expect(result.diagnostics).toEqual([
+			expect.objectContaining({
+				code: 'php_ini_not_loaded',
+				severity: 'warning',
+				hints: expect.arrayContaining([
+					expect.stringContaining('STONEWRIGHT_WP_CLI_PHP_INI'),
+					expect.stringContaining('mysqli/MySQL'),
+					expect.stringContaining('restart the MCP client'),
 				]),
 			}),
 		]);

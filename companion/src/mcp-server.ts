@@ -21,7 +21,17 @@ import {
 	type WpCliJobStartInput,
 	type WpCliRunInput,
 } from './wp-cli.js';
-import { AGENT_DO_NOT_USE, MCP_MISSING_BOOTSTRAP_STOP, agentUseInstead, buildSetupProfile, buildToolInventory, type ToolInventory } from './setup-profile.js';
+import {
+	AGENT_DO_NOT_USE,
+	MCP_MISSING_BOOTSTRAP_STOP,
+	WP_CLI_LOCAL_REQUIREMENT_NOTE,
+	WP_CLI_REMOTE_NOT_REQUIRED_NOTE,
+	WP_CLI_RESTART_NOTE,
+	agentUseInstead,
+	buildSetupProfile,
+	buildToolInventory,
+	type ToolInventory,
+} from './setup-profile.js';
 import {
 	STARTUP_REQUIRED_PROXY_TOOL_NAMES,
 	type ProxyToolProfile,
@@ -193,6 +203,9 @@ function companionInstructions(profile: ProxyToolProfile): string {
 		'- Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround.',
 		'- Use stonewright-wp-cli-status, stonewright-wp-cli-discover, stonewright-wp-cli-run, and stonewright-wp-cli-batch-run for guarded WP-CLI work.',
 		'- Use stonewright-wp-cli-job-start and stonewright-wp-cli-job-status for long imports, plugin operations, cache rebuilds, media work, or large batches when those tools are visible.',
+		`- ${WP_CLI_LOCAL_REQUIREMENT_NOTE}`,
+		`- ${WP_CLI_REMOTE_NOT_REQUIRED_NOTE}`,
+		`- ${WP_CLI_RESTART_NOTE}`,
 		'- Do not run wp commands in a normal shell. Do not use wp eval, wp eval-file, wp shell, wp package, --exec, or --require.',
 	];
 

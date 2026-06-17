@@ -25,6 +25,12 @@ Use `STONEWRIGHT_WP_ROOT` or `STONEWRIGHT_WP_ALLOWED_ROOTS` to restrict working
 directories. `STONEWRIGHT_WP_ROOT` is optional; when set, it must be the
 absolute WordPress install folder containing `wp-config.php`, not the plugin
 folder or site URL.
+Local and server-side companion WP-CLI work also needs PHP CLI with
+mysqli/MySQL enabled, `wp` or `wp-cli.phar`, and a running database reachable
+from `wp-config.php`. Remote HTTP MCP sites do not require local PHP/MySQL
+unless the companion is expected to run WP-CLI for that site. If
+`stonewright-wp-cli-status` reports no loaded `php.ini`, treat that as a local
+runtime setup warning before running WordPress-loading WP-CLI commands.
 
 ## Configuration
 
@@ -48,6 +54,9 @@ folder or site URL.
 | `STONEWRIGHT_WP_APP_PASSWORD_AUTO` | Auto-create missing local credentials through guarded WP-CLI; default `local-only` |
 | `STONEWRIGHT_WP_APP_PASSWORD_NAME` | Label used when auto-creating the WordPress Application Password |
 | `STONEWRIGHT_WP_CLI_BIN` | WP-CLI executable; defaults to `wp` |
+| `STONEWRIGHT_WP_CLI_PHP_BIN` | PHP executable for running `wp-cli.phar`; set with `STONEWRIGHT_WP_CLI_PHAR_PATH` for explicit local runtimes |
+| `STONEWRIGHT_WP_CLI_PHAR_PATH` | Explicit `wp-cli.phar` path |
+| `STONEWRIGHT_WP_CLI_PHP_INI` | PHP ini file for local PHP extensions such as mysqli/MySQL |
 | `STONEWRIGHT_WP_ROOT` | Optional absolute WordPress install folder containing `wp-config.php`; default WP-CLI working directory |
 | `STONEWRIGHT_WP_ALLOWED_ROOTS` | Comma- or semicolon-separated allowed roots |
 | `MCP_PROXY_TARGET` | Optional upstream MCP server |
@@ -140,6 +149,9 @@ WordPress MCP endpoint cannot be reached.
 Both setup and status responses include `tool_inventory`, a compact grouped map
 of first-call, diagnostic, direct WP-CLI, long-running WP-CLI, and proxied
 profile tools. Use it before broad tool discovery in token-sensitive sessions.
+Setup responses also include `wp_cli_environment`, which tells agents that local
+WP-CLI dependencies are required only for local/server-side companion WP-CLI
+work and that remote HTTP MCP sites do not need local PHP/MySQL by default.
 
 For new stdio sessions, the companion defaults to
 `STONEWRIGHT_MCP_TOOL_PROFILE=essential`. It proxies only the compact
