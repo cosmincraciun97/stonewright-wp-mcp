@@ -41,6 +41,16 @@ final class SkillsTest extends TestCase {
 		$this->assertSame( 'wp_stonewright_skills', SkillsTable::table_name() );
 	}
 
+	public function test_schema_does_not_set_default_on_text_columns(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb();
+
+		$sql = SkillsTable::schema_sql();
+
+		$this->assertStringContainsString( 'description text NOT NULL', $sql );
+		$this->assertStringNotContainsString( 'description text NOT NULL DEFAULT', $sql );
+		$this->assertStringNotContainsString( 'content mediumtext NOT NULL DEFAULT', $sql );
+	}
+
 	// ------------------------------------------------------------------
 	// Skills::instructions_block
 	// ------------------------------------------------------------------
@@ -420,6 +430,10 @@ final class SkillsTest extends TestCase {
 	private function make_wpdb(): object {
 		return new class() {
 			public string $prefix = 'wp_';
+
+			public function get_charset_collate(): string {
+				return 'DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci';
+			}
 		};
 	}
 }

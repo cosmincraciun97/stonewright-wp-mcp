@@ -563,9 +563,14 @@ final class ConfigurationPage {
 
 			$is_active = $client['slug'] === $default_slug;
 			$is_cli    = isset( $snippet['command'] ) && is_string( $snippet['command'] );
+			$is_toml   = isset( $snippet['toml'] ) && is_string( $snippet['toml'] );
 			$display   = $is_cli
 				? $snippet['command']
-				: (string) wp_json_encode( $snippet, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
+				: (
+					$is_toml
+						? $snippet['toml']
+						: (string) wp_json_encode( $snippet, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES )
+				);
 			$panel_id  = 'stonewright-client-panel-' . $client['slug'];
 			$code_id   = 'stonewright-client-snippet-' . $client['slug'];
 			?>

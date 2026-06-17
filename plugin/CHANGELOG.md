@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.64] - 2026-06-17
+
+### Added
+
+- Added Codex as a first-class client in admin connection snippets, including
+  copyable `config.toml` output and release-refresh guidance.
+- Added Codex getting-started documentation for `~/.codex/config.toml`,
+  `/mcp` validation, and stale companion detection.
+
+### Changed
+
+- Updated active setup snippets and docs to `1.0.0-alpha.64`.
+- Synchronized the companion runtime version with the package version so
+  `stonewright-setup-profile` and `stonewright-wordpress-mcp-status` report the
+  current release package.
+- Updated public project and plugin descriptions to emphasize WordPress MCP
+  builder tools, PHP runtime execution, Elementor/Gutenberg/content models, and
+  tokenized WP-CLI.
+
+### Fixed
+
+- Fixed the skills table schema so `description` no longer sets a default value
+  on a `TEXT` column, avoiding MySQL warnings during fresh activation.
+
 ## [1.0.0-alpha.63] - 2026-06-17
 
 ### Added

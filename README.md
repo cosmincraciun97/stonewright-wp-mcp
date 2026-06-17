@@ -1,13 +1,13 @@
 <h1 align="center">Stonewright</h1>
 
 <p align="center">
-  <strong>MCP tools for WordPress builders</strong><br />
-  Direct WordPress, Gutenberg, Elementor, WooCommerce, and content-model
-  automation for AI agents.
+  <strong>AI builder tools for WordPress MCP</strong><br />
+  Elementor, Gutenberg, content models, PHP runtime execution, and tokenized
+  WP-CLI for AI agents.
 </p>
 
 <p align="center">
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.63-blue" /></a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.64-blue" /></a>
   <img alt="plugin license" src="https://img.shields.io/badge/plugin-GPL--2.0--or--later-green" />
   <img alt="companion license" src="https://img.shields.io/badge/companion-MIT-blue" />
   <img alt="php" src="https://img.shields.io/badge/PHP-%3E%3D8.1-777bb4" />
@@ -16,12 +16,12 @@
   <img alt="ci" src="https://img.shields.io/github/actions/workflow/status/cosmincraciun97/stonewright-wp-mcp/ci.yml?branch=main&label=CI" />
 </p>
 
-Stonewright exposes WordPress building tools to MCP-compatible AI clients. It
-covers Gutenberg, Full Site Editing, Elementor, Elementor widget intelligence,
-content-model plugins, WooCommerce catalog work, media, menus, persistent
-memory, skills, direct PHP runtime execution, and WP-CLI-assisted debugging. It
-builds well-formed WordPress data with permissions, backups, validation,
-context, and audit logs.
+Stonewright gives MCP-compatible AI clients a fast WordPress building surface.
+It covers Gutenberg, Full Site Editing, Elementor, Elementor widget
+intelligence, content-model plugins, WooCommerce catalog work, media, menus,
+persistent memory, skills, direct PHP runtime execution, and tokenized WP-CLI
+debugging. It builds well-formed WordPress data with permissions, backups,
+validation, context, and audit logs.
 
 ## Why Stonewright
 
@@ -153,7 +153,7 @@ Fastest MCP-client setup uses the versioned GitHub release tarball through
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.63/stonewright-companion-1.0.0-alpha.63.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.64/stonewright-companion-1.0.0-alpha.64.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -183,6 +183,28 @@ For strict tool-cap clients such as Antigravity or Gemini API, set
 startup surface under 30 tools by hiding legacy duplicate aliases while
 preserving composite page, content, media, Gutenberg, Elementor, and direct
 WP-CLI batch/background-job paths.
+
+Codex uses TOML instead of JSON. Add this to `~/.codex/config.toml` or a
+trusted project `.codex/config.toml`, then restart Codex or reload the IDE MCP
+session:
+
+```toml
+[mcp_servers.stonewright]
+command = "npx"
+args = ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.64/stonewright-companion-1.0.0-alpha.64.tgz", "stonewright-mcp"]
+
+[mcp_servers.stonewright.env]
+STONEWRIGHT_WP_URL = "https://your-site.example.com"
+STONEWRIGHT_WP_USERNAME = "your-wp-username"
+STONEWRIGHT_WP_APP_PASSWORD = "xxxx xxxx xxxx xxxx xxxx xxxx"
+STONEWRIGHT_MCP_TOOL_PROFILE = "essential"
+```
+
+After every release or skill sync, run `stonewright-setup-profile` and
+`stonewright-wordpress-mcp-status`. Check `companion_version`,
+`expected_companion_package`, and `refresh_required_tool_names`; stale values
+mean the MCP client is still running an old companion process or cached tool
+list.
 
 Antigravity 2.0, Antigravity IDE, and Antigravity CLI use the shared
 `~/.gemini/config/mcp_config.json` location. See

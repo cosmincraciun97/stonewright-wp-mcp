@@ -29,6 +29,7 @@ final class ConnectClientConfigTest extends TestCase {
 		$slugs = array_column( ConnectClientConfig::clients(), 'slug' );
 		$this->assertContains( 'claude-code', $slugs );
 		$this->assertContains( 'claude-desktop', $slugs );
+		$this->assertContains( 'codex', $slugs );
 		$this->assertContains( 'cursor', $slugs );
 		$this->assertContains( 'vscode-copilot', $slugs );
 	}
@@ -114,6 +115,20 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringNotContainsString( '@automattic/mcp-wordpress-remote', $result['command'] );
 	}
 
+	public function test_snippet_for_codex_returns_config_toml(): void {
+		$result = ConnectClientConfig::snippet_for( 'codex', 'admin', 'pw' );
+
+		$this->assertIsArray( $result );
+		$this->assertArrayHasKey( 'toml', $result );
+		$this->assertStringContainsString( '[mcp_servers.stonewright]', $result['toml'] );
+		$this->assertStringContainsString( 'command = "npx"', $result['toml'] );
+		$this->assertStringContainsString( 'stonewright-companion-0.0.0-test.tgz', $result['toml'] );
+		$this->assertStringContainsString( '[mcp_servers.stonewright.env]', $result['toml'] );
+		$this->assertStringContainsString( 'STONEWRIGHT_WP_USERNAME = "admin"', $result['toml'] );
+		$this->assertStringContainsString( 'STONEWRIGHT_WP_APP_PASSWORD = "pw"', $result['toml'] );
+		$this->assertStringContainsString( 'STONEWRIGHT_MCP_TOOL_PROFILE = "essential"', $result['toml'] );
+	}
+
 	public function test_snippet_for_known_client_returns_universal_block(): void {
 		$result = ConnectClientConfig::snippet_for( 'cursor', 'admin', 'pw' );
 		$this->assertIsArray( $result );
@@ -176,6 +191,11 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'Verify the MCP tool list includes stonewright-context-bootstrap', $prompt );
 		$this->assertStringContainsString( 'stonewright-tool-profile', $prompt );
 		$this->assertStringContainsString( 'Use fast_path.tool_profile from stonewright-workflow-preflight before making a separate stonewright-tool-profile call', $prompt );
+		$this->assertStringContainsString( 'stonewright-setup-profile', $prompt );
+		$this->assertStringContainsString( 'stonewright-wordpress-mcp-status', $prompt );
+		$this->assertStringContainsString( 'companion_version', $prompt );
+		$this->assertStringContainsString( 'expected_companion_package', $prompt );
+		$this->assertStringContainsString( 'refresh_required_tool_names', $prompt );
 		$this->assertStringContainsString( 'Do not start by only announcing named skills', $prompt );
 		$this->assertStringContainsString( 'Do not treat local agent skills as a substitute for live Stonewright MCP tools', $prompt );
 		$this->assertStringContainsString( 'If stonewright-context-bootstrap is missing, stop', $prompt );

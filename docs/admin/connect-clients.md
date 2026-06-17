@@ -42,7 +42,7 @@ Most clients can run the Stonewright companion with `npx`:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.63/stonewright-companion-1.0.0-alpha.63.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.64/stonewright-companion-1.0.0-alpha.64.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -101,6 +101,37 @@ by the companion.
 
 ---
 
+## Codex
+
+Codex CLI and the Codex IDE extension share MCP config from
+`~/.codex/config.toml`. Trusted projects can also use `.codex/config.toml`.
+Add Stonewright as a stdio MCP server:
+
+```toml
+[mcp_servers.stonewright]
+command = "npx"
+args = ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.64/stonewright-companion-1.0.0-alpha.64.tgz", "stonewright-mcp"]
+
+[mcp_servers.stonewright.env]
+STONEWRIGHT_WP_URL = "https://your-site.com"
+STONEWRIGHT_WP_USERNAME = "your-wp-username"
+STONEWRIGHT_WP_APP_PASSWORD = "xxxx xxxx xxxx xxxx xxxx xxxx"
+STONEWRIGHT_MCP_TOOL_PROFILE = "essential"
+```
+
+In the Codex IDE extension, open the gear menu, choose **Codex Settings >
+Open config.toml**, paste the block, save, then restart Codex or reload the MCP
+session. In the Codex TUI, use `/mcp` after restart to confirm `stonewright` is
+active.
+
+After every Stonewright release or skill sync, run `stonewright-setup-profile`
+and `stonewright-wordpress-mcp-status`. Check `companion_version`,
+`expected_companion_package`, and `refresh_required_tool_names`; if the expected
+package or required tools are stale, Codex is still running an old companion
+process or cached tool list.
+
+---
+
 ## Claude Code
 
 Claude Code registers MCP servers through its CLI:
@@ -111,7 +142,7 @@ claude mcp add stonewright \
   --env STONEWRIGHT_WP_USERNAME='your-wp-username' \
   --env STONEWRIGHT_WP_APP_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx' \
   --env STONEWRIGHT_MCP_TOOL_PROFILE=essential \
-  -- npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.63/stonewright-companion-1.0.0-alpha.63.tgz stonewright-mcp
+  -- npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.64/stonewright-companion-1.0.0-alpha.64.tgz stonewright-mcp
 ```
 
 The server is registered for the current user. Restart or reload the client
@@ -131,6 +162,7 @@ fields separately:
 
 | Client | Config location |
 |---|---|
+| Codex | `~/.codex/config.toml` or trusted `.codex/config.toml` |
 | Claude Desktop | `%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `~/.config/Claude/claude_desktop_config.json` on Linux |
 | Cursor | `.cursor/mcp.json` in the project or `~/.cursor/mcp.json` globally |
 | Windsurf | `~/.codeium/windsurf/mcp_config.json` |
@@ -148,7 +180,7 @@ VS Code-style clients use a `servers` top-level key instead of `mcpServers`:
   "servers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.63/stonewright-companion-1.0.0-alpha.63.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.64/stonewright-companion-1.0.0-alpha.64.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -168,7 +200,7 @@ Zed uses `context_servers`:
     "stonewright": {
       "command": {
         "path": "npx",
-        "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.63/stonewright-companion-1.0.0-alpha.63.tgz", "stonewright-mcp"],
+        "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.64/stonewright-companion-1.0.0-alpha.64.tgz", "stonewright-mcp"],
         "env": {
           "STONEWRIGHT_WP_URL": "https://your-site.com",
           "STONEWRIGHT_WP_USERNAME": "your-wp-username",

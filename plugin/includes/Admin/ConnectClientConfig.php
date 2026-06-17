@@ -34,6 +34,13 @@ final class ConnectClientConfig {
 				'notes'       => 'Paste the JSON block into the mcpServers object, then restart Claude Desktop.',
 			],
 			[
+				'slug'        => 'codex',
+				'label'       => 'Codex',
+				'config_path' => '~/.codex/config.toml or project .codex/config.toml',
+				'kind'        => 'editor',
+				'notes'       => 'Paste the TOML block, then restart Codex or reload the IDE MCP session. In Codex TUI, use /mcp to verify Stonewright is active.',
+			],
+			[
 				'slug'        => 'cursor',
 				'label'       => 'Cursor',
 				'config_path' => '.cursor/mcp.json (project) or ~/.cursor/mcp.json (global)',
@@ -275,6 +282,12 @@ final class ConnectClientConfig {
 			];
 		}
 
+		if ( 'codex' === $client_slug ) {
+			return [
+				'toml' => self::codex_toml_snippet( $username, $app_password, self::profile_for_client( $client_slug ) ),
+			];
+		}
+
 		$snippet = 'http' === $transport
 			? self::http_snippet( $username, $app_password )
 			: self::native_stdio_snippet( $username, $app_password, self::profile_for_client( $client_slug ) );
@@ -310,7 +323,43 @@ final class ConnectClientConfig {
 			self::companion_package_spec()
 		);
 
-		return $prompt . "\n- Use fast_path.tool_profile from stonewright-workflow-preflight before making a separate stonewright-tool-profile call; call tool-profile only to switch or verify a compact profile.";
+		return $prompt
+			. "\n- After every Stonewright release or skill sync, restart the MCP client, then run stonewright-setup-profile and stonewright-wordpress-mcp-status."
+			. "\n- Compare companion_version, expected_companion_package, and refresh_required_tool_names with the visible MCP tool list; if required tools are missing, the client is still using an old companion process or cached tool surface."
+			. "\n- For Codex, put the Stonewright entry in ~/.codex/config.toml or a trusted project .codex/config.toml, then restart Codex or reload the IDE MCP session and use /mcp to verify it is active."
+			. "\n- Use fast_path.tool_profile from stonewright-workflow-preflight before making a separate stonewright-tool-profile call; call tool-profile only to switch or verify a compact profile.";
+	}
+
+	private static function codex_toml_snippet( string $username, string $app_password, string $tool_profile ): string {
+		$args = array_map( [ self::class, 'toml_string' ], self::companion_mcp_args() );
+		$env  = [
+			'STONEWRIGHT_WP_URL'          => self::site_url(),
+			'STONEWRIGHT_WP_USERNAME'     => $username ?: 'your-wp-username',
+			'STONEWRIGHT_WP_APP_PASSWORD'  => $app_password ?: '<your-application-password>',
+			'STONEWRIGHT_MCP_TOOL_PROFILE' => self::normalise_tool_profile( $tool_profile ),
+		];
+
+		$lines = [
+			'[mcp_servers.stonewright]',
+			'command = "npx"',
+			'args = [' . implode( ', ', $args ) . ']',
+			'',
+			'[mcp_servers.stonewright.env]',
+		];
+
+		foreach ( $env as $key => $value ) {
+			$lines[] = $key . ' = ' . self::toml_string( $value );
+		}
+
+		return implode( "\n", $lines );
+	}
+
+	private static function toml_string( string $value ): string {
+		return '"' . str_replace(
+			[ '\\', '"', "\r", "\n", "\t" ],
+			[ '\\\\', '\"', '\r', '\n', '\t' ],
+			$value
+		) . '"';
 	}
 
 	private static function profile_for_client( string $client_slug ): string {

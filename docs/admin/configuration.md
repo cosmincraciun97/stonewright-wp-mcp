@@ -122,7 +122,7 @@ install:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.63/stonewright-companion-1.0.0-alpha.63.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.64/stonewright-companion-1.0.0-alpha.64.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -141,7 +141,8 @@ Use `low-tools` for strict tool-cap clients. Aliases such as `antigravity`,
 `gemini`, `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli` normalize
 to compact canonical profiles before tool filtering.
 The admin page also exposes per-client snippets for clients that use a slightly
-different top-level key, such as VS Code's `servers`.
+different top-level key or format, such as Codex `config.toml`, VS Code's
+`servers`, and Zed's `context_servers`.
 
 ### Copyable setup note
 
@@ -153,6 +154,13 @@ the `npx` transport, and the required first Stonewright calls:
 The note also tells agents that `npx` downloads and runs the versioned GitHub
 release tarball, and that Playwright MCP should be added for browser testing,
 screenshots, and visual QA when the client does not already have browser tools.
+It tells Codex users to configure `~/.codex/config.toml` or a trusted
+`.codex/config.toml`, restart/reload the MCP session, and use `/mcp` to verify
+that Stonewright is active.
+After releases or skill syncs, it tells agents to rerun
+`stonewright-setup-profile` and `stonewright-wordpress-mcp-status`, then compare
+`companion_version`, `expected_companion_package`, and
+`refresh_required_tool_names` against the visible tool list.
 It also tells agents to stop if `stonewright-context-bootstrap` is missing,
 rather than inspecting private client config files, creating scratch helper
 scripts, creating helper JSON argument files, launching the companion through

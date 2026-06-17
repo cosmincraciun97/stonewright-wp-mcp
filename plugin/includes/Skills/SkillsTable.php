@@ -45,14 +45,25 @@ final class SkillsTable {
 	private static function run_delta(): void {
 		global $wpdb;
 
+		$sql = self::schema_sql();
+
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+		dbDelta( $sql );
+
+		update_option( self::VERSION_OPTION, self::SCHEMA_VERSION, false );
+	}
+
+	public static function schema_sql(): string {
+		global $wpdb;
+
 		$table   = self::table_name();
 		$charset = $wpdb->get_charset_collate();
 
-		$sql = "CREATE TABLE {$table} (
+		return "CREATE TABLE {$table} (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 			slug varchar(191) NOT NULL,
 			title varchar(255) NOT NULL DEFAULT '',
-			description text NOT NULL DEFAULT '',
+			description text NOT NULL,
 			content mediumtext NOT NULL,
 			enabled tinyint(1) NOT NULL DEFAULT 1,
 			enable_agentic tinyint(1) NOT NULL DEFAULT 1,
@@ -63,11 +74,6 @@ final class SkillsTable {
 			PRIMARY KEY (id),
 			UNIQUE KEY slug (slug)
 		) {$charset};";
-
-		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-		dbDelta( $sql );
-
-		update_option( self::VERSION_OPTION, self::SCHEMA_VERSION, false );
 	}
 
 	/**

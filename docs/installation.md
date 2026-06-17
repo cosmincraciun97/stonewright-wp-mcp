@@ -62,7 +62,7 @@ shell wrapper, global install, or manual bridge:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.63/stonewright-companion-1.0.0-alpha.63.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.64/stonewright-companion-1.0.0-alpha.64.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
@@ -99,6 +99,10 @@ avoid broad discovery.
 For Antigravity 2.0, Antigravity IDE, and Antigravity CLI, use
 `~/.gemini/config/mcp_config.json` and the dedicated
 [Antigravity setup guide](getting-started/antigravity.md).
+For Codex CLI or the Codex IDE extension, use
+[`~/.codex/config.toml`](getting-started/codex.md) or a trusted project
+`.codex/config.toml`; Codex MCP entries use TOML tables named
+`[mcp_servers.stonewright]`, not JSON.
 
 Before the first WordPress task, verify the client tool list includes
 `stonewright-context-bootstrap`. If that tool is missing, reload or fix the MCP
@@ -164,7 +168,7 @@ For MCP clients that use a local stdio server, configure:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.63/stonewright-companion-1.0.0-alpha.63.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.64/stonewright-companion-1.0.0-alpha.64.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",

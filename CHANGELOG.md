@@ -7,6 +7,31 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.64] - 2026-06-17
+
+### Added
+
+- Added Codex as a first-class MCP client in the admin setup catalogue with
+  copyable `config.toml` output and release refresh guidance.
+- Added Codex getting-started docs covering `~/.codex/config.toml`, project
+  `.codex/config.toml`, `/mcp` validation, and stale companion detection.
+
+### Changed
+
+- Updated active plugin, companion, install snippets, and release docs to
+  `1.0.0-alpha.64`.
+- Synchronized the companion runtime `APP_VERSION` with the package version so
+  setup/status payloads report the current companion release.
+- Updated public project and plugin descriptions around WordPress MCP builder
+  tools for Elementor, Gutenberg, content models, PHP runtime execution, and
+  tokenized WP-CLI.
+
+### Fixed
+
+- Fixed fresh activation on MySQL variants that reject default values on
+  `TEXT` columns by removing the `description text DEFAULT ''` schema default
+  from the skills table.
+
 ## [1.0.0-alpha.63] - 2026-06-17
 
 ### Added

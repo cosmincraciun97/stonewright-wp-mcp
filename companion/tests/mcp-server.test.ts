@@ -18,7 +18,7 @@ describe('createMcpServer', () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
 		const info = (server as any).server._serverInfo as { name: string; version: string };
 		expect(info.name).toBe('stonewright-companion');
-		expect(info.version).toBe('1.0.0-alpha.62');
+		expect(info.version).toBe('1.0.0-alpha.64');
 	});
 
 	it('publishes compact handshake instructions before any tool is called', async () => {
@@ -535,8 +535,8 @@ describe('createMcpServer', () => {
 		};
 
 		expect(response.structuredContent?.tool_profile).toBe('essential');
-		expect(response.structuredContent?.companion_version).toBe('1.0.0-alpha.62');
-		expect(response.structuredContent?.expected_companion_package).toBe('https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.62/stonewright-companion-1.0.0-alpha.62.tgz');
+		expect(response.structuredContent?.companion_version).toBe('1.0.0-alpha.64');
+		expect(response.structuredContent?.expected_companion_package).toBe('https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.64/stonewright-companion-1.0.0-alpha.64.tgz');
 		expect(response.structuredContent?.refresh_required_tool_names).toEqual([
 			'stonewright-context-bootstrap',
 			'stonewright-workflow-preflight',
