@@ -9,7 +9,8 @@ Antigravity and other strict MCP clients work best when startup exposes a small,
 stable tool surface. Use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` first. It keeps
 Stonewright under the strict startup budget while preserving the tools agents
 need for setup, diagnostics, composite WordPress writes, guarded WP-CLI, and
-long-running jobs.
+long-running jobs. It also keeps Elementor template save and guarded sandbox
+write/activate visible for Loop Grid, Loop Item, shortcode, and query glue work.
 
 Switch to a specialist profile such as `elementor`, `acf`, `cpt-ui`, `fse`, or
 `wp cli` only when a task needs a narrower advanced surface. Use `full` only for
@@ -40,7 +41,7 @@ In Antigravity IDE you can also open it from the agent panel:
 ## 3. Add Stonewright
 
 Use the latest release tarball shown by the Stonewright Configuration page. This
-example uses `1.0.0-alpha.58`:
+example uses `1.0.0-alpha.59`:
 
 ```json
 {
@@ -50,7 +51,7 @@ example uses `1.0.0-alpha.58`:
       "args": [
         "-y",
         "--package",
-        "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.58/stonewright-companion-1.0.0-alpha.58.tgz",
+        "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.59/stonewright-companion-1.0.0-alpha.59.tgz",
         "stonewright-mcp"
       ],
       "env": {

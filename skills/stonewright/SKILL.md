@@ -29,7 +29,10 @@ ability surface. Use preflight's inlined tool profile first; use
 Elementor, content-model, Gutenberg, WP-CLI, or site-admin profile. Use
 `low-tools` for Antigravity, Gemini API, or other strict tool-cap clients; it
 keeps the client-visible startup surface under 30 tools before the agent
-switches to a specialist profile.
+switches to a specialist profile. Normal builder tasks should not require a
+manual unblock: the compact profiles include Loop/Grid template save,
+content/media batch writes, guarded WP-CLI, and the guarded sandbox
+write/activate path for shortcode or query glue.
 
 ## Route
 
@@ -54,6 +57,10 @@ switches to a specialist profile.
   fan out into dozens of `wp post meta update` calls unless the bulk ability is
   unavailable.
 - Use guarded `stonewright-wp-cli-run` only with argv tokens.
+- If native content/Elementor tools are insufficient and shortcode or query
+  glue is required, use `stonewright-sandbox-write` and
+  `stonewright-sandbox-activate`; do not create shell scripts or use arbitrary
+  PHP execution.
 - For repeated WP-CLI writes or non-ASCII values, use
   `stonewright-wp-cli-batch-run` with JSON argv arrays instead of large inline
   PowerShell/Node scripts.

@@ -3,7 +3,7 @@
  * Plugin Name: Stonewright
  * Plugin URI: https://github.com/cosmincraciun97/stonewright-wp-mcp
  * Description: Stonewright exposes WordPress building primitives to MCP clients for design-accurate Gutenberg and Elementor work.
- * Version: 1.0.0-alpha.58
+ * Version: 1.0.0-alpha.59
  * Requires at least: 6.7
  * Requires PHP: 8.1
  * Author: Stonewright
@@ -33,7 +33,7 @@ if ( defined( 'STONEWRIGHT_FILE' ) ) {
 define( 'STONEWRIGHT_FILE', __FILE__ );
 define( 'STONEWRIGHT_DIR', plugin_dir_path( __FILE__ ) );
 define( 'STONEWRIGHT_URL', plugin_dir_url( __FILE__ ) );
-define( 'STONEWRIGHT_VERSION', '1.0.0-alpha.58' );
+define( 'STONEWRIGHT_VERSION', '1.0.0-alpha.59' );
 define( 'STONEWRIGHT_MIN_PHP', '8.1' );
 define( 'STONEWRIGHT_MIN_WP', '6.7' );
 

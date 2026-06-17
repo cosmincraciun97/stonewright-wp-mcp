@@ -165,6 +165,73 @@ describe('WP-CLI runner', () => {
 		}
 	});
 
+	it('discovers the LocalWP PHP binary from the site php.ini extension_dir', async () => {
+		const temp = mkdtempSync(join(tmpdir(), 'stonewright-wpcli-ini-phpbin-'));
+		try {
+			const wpRoot = join(temp, 'site', 'app', 'public');
+			const pharPath = join(temp, 'LocalWP', 'resources', 'extraResources', 'bin', 'wp-cli', 'wp-cli.phar');
+			const phpPath = join(temp, 'php-service', 'bin', 'win64', 'php.exe');
+			const extDir = join(temp, 'php-service', 'bin', 'win64', 'ext');
+			const iniPath = join(temp, 'site', 'conf', 'php', 'php.ini');
+			mkdirSync(wpRoot, { recursive: true });
+			mkdirSync(resolve(pharPath, '..'), { recursive: true });
+			mkdirSync(extDir, { recursive: true });
+			mkdirSync(resolve(iniPath, '..'), { recursive: true });
+			writeFileSync(pharPath, 'wp-cli-phar');
+			writeFileSync(phpPath, 'php-bin');
+			writeFileSync(iniPath, `extension_dir="${extDir.replaceAll('\\', '/')}"\nextension=php_mysqli.dll\n`);
+
+			const calls: Array<{ file: string; args: string[] }> = [];
+			const runner: ExecFileRunner = (file, args) => {
+				calls.push({ file, args });
+				return Promise.resolve({ stdout: '{}', stderr: '', exitCode: 0 });
+			};
+
+			await runWpCli(
+				{
+					command: ['cli', 'info', '--format=json'],
+					path: wpRoot,
+				},
+				runner,
+				{ STONEWRIGHT_WP_ROOT: wpRoot } as NodeJS.ProcessEnv,
+			);
+
+			expect(calls[0]?.file).toBe(phpPath);
+			expect(calls[0]?.args).toContain(pharPath);
+		} finally {
+			rmSync(temp, { recursive: true, force: true });
+		}
+	});
+
+	it('returns an actionable mysqli diagnostic when selected PHP cannot boot WordPress', async () => {
+		const runner: ExecFileRunner = () => Promise.resolve({
+			stdout: '',
+			stderr: 'Error: Your PHP installation appears to be missing the MySQL extension which is required by WordPress. Please check that the mysqli PHP extension is installed and enabled.',
+			exitCode: 1,
+		});
+
+		const result = await runWpCli(
+			{
+				command: ['plugin', 'list'],
+				path: process.cwd(),
+				responseMode: 'summary',
+			},
+			runner,
+			{ STONEWRIGHT_WP_CLI_BIN: 'php-without-mysqli' } as NodeJS.ProcessEnv,
+		);
+
+		expect(result.ok).toBe(false);
+		expect(result.diagnostics).toEqual([
+			expect.objectContaining({
+				code: 'php_missing_mysqli',
+				hints: expect.arrayContaining([
+					expect.stringContaining('STONEWRIGHT_WP_CLI_PHP_BIN'),
+					expect.stringContaining('stonewright-wp-cli-status'),
+				]),
+			}),
+		]);
+	});
+
 	it('prefers a LocalWP phar near the WordPress root over the generic companion cache', async () => {
 		const temp = mkdtempSync(join(tmpdir(), 'stonewright-wpcli-priority-'));
 		try {

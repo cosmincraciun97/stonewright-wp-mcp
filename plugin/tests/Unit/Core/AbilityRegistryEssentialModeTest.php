@@ -37,9 +37,11 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 		self::assertContains( 'stonewright/security-create-one-time-link', $names );
 		self::assertContains( 'stonewright/elementor-v3-get-kit-globals', $names );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $names );
+		self::assertContains( 'stonewright/elementor-v3-save-template', $names );
 		self::assertContains( 'stonewright/media-list', $names );
-		self::assertNotContains( 'stonewright/sandbox-write', $names );
-		self::assertLessThan( 60, count( $names ) );
+		self::assertContains( 'stonewright/sandbox-write', $names );
+		self::assertContains( 'stonewright/sandbox-activate', $names );
+		self::assertLessThan( 70, count( $names ) );
 	}
 
 	public function test_essential_mode_filters_to_compact_fast_path(): void {
@@ -52,13 +54,15 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 		self::assertContains( 'stonewright/elementor-v3-get-kit-globals', $names );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $names );
 		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $names );
+		self::assertContains( 'stonewright/elementor-v3-save-template', $names );
 		self::assertContains( 'stonewright/content-bulk-upsert-posts', $names );
 		self::assertContains( 'stonewright/media-list', $names );
 		self::assertContains( 'stonewright/wp-cli-run', $names );
 		self::assertContains( 'stonewright/wp-cli-job-start', $names );
 		self::assertContains( 'stonewright/wp-cli-job-status', $names );
-		self::assertNotContains( 'stonewright/sandbox-write', $names );
-		self::assertLessThan( 60, count( $names ) );
+		self::assertContains( 'stonewright/sandbox-write', $names );
+		self::assertContains( 'stonewright/sandbox-activate', $names );
+		self::assertLessThan( 70, count( $names ) );
 	}
 
 	public function test_essential_mode_keeps_explicit_extras_visible(): void {

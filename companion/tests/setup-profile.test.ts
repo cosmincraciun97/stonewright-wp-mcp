@@ -18,7 +18,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.mcp_server.args).toEqual([
 			'-y',
 			'--package',
-			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.58/stonewright-companion-1.0.0-alpha.58.tgz',
+			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.59/stonewright-companion-1.0.0-alpha.59.tgz',
 			'stonewright-mcp',
 		]);
 		expect(profile.mcp_server.env).toMatchObject({
@@ -60,6 +60,8 @@ describe('buildSetupProfile', () => {
 			'stonewright-wp-cli-install',
 		]));
 		expect(profile.tool_inventory.proxied_profile_tool_groups.elementor_design).toContain('stonewright-elementor-v3-build-page-from-spec');
+		expect(profile.tool_inventory.proxied_profile_tool_groups.elementor_design).toContain('stonewright-elementor-v3-save-template');
+		expect(profile.tool_inventory.proxied_profile_tool_groups.code_sandbox).toContain('stonewright-sandbox-write');
 		expect(profile.notes.join('\n')).toContain('Use stonewright-wordpress-mcp-status if proxied WordPress tools are missing');
 		expect(profile.notes.join('\n')).toContain('Verify the MCP tool list includes stonewright-context-bootstrap before starting WordPress work');
 		expect(profile.notes.join('\n')).toContain('Use fast_path.tool_profile from stonewright-workflow-preflight before making a separate stonewright-tool-profile call');
@@ -118,7 +120,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.platform).toBe('win32');
 		expect(profile.mcp_server.env.STONEWRIGHT_WP_ROOT).toBe('D:\\Sites\\mcp-test\\app\\public');
 		expect(profile.mcp_server.env.STONEWRIGHT_WP_USERNAME).toBe('admin');
-		expect(profile.install_command).toBe('npm install -g https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.58/stonewright-companion-1.0.0-alpha.58.tgz');
+		expect(profile.install_command).toBe('npm install -g https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.59/stonewright-companion-1.0.0-alpha.59.tgz');
 		expect(profile.notes.join('\n')).toContain('No shell script wrapper required');
 	});
 
@@ -143,6 +145,8 @@ describe('buildSetupProfile', () => {
 		expect(profile.agent_use_instead).toContain('stonewright-wp-cli-job-status');
 		expect(profile.tool_inventory.profile).toBe('low-tools');
 		expect(profile.tool_inventory.startup_budget.under_low_tools_cap).toBe(true);
+		expect(profile.tool_inventory.proxied_profile_tool_groups.elementor_design).toContain('stonewright-elementor-v3-save-template');
+		expect(profile.tool_inventory.proxied_profile_tool_groups.code_sandbox).toContain('stonewright-sandbox-write');
 		expect(profile.tool_inventory.direct_wp_cli_tool_names).not.toContain('stonewright-wp-cli-install');
 		expect(profile.tool_inventory.direct_wp_cli_long_running_tool_names).toEqual([
 			'stonewright-wp-cli-job-start',

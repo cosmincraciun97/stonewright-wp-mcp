@@ -78,6 +78,7 @@ export interface WpCliResult extends Record<string, unknown> {
 	wp_cli_source: string;
 	parsed_json?: unknown;
 	error?: string;
+	diagnostics?: WpCliDiagnostic[];
 }
 
 export interface WpCliBatchResult extends Record<string, unknown> {
@@ -100,6 +101,17 @@ export interface WpCliResultSummary extends Record<string, unknown> {
 	stderr_bytes: number;
 	parsed_json?: unknown;
 	error?: string;
+	diagnostics?: WpCliDiagnostic[];
+}
+
+export interface WpCliDiagnostic {
+	code: 'php_missing_mysqli';
+	severity: 'error';
+	message: string;
+	hints: string[];
+	selected_executable: string;
+	wp_cli_source: string;
+	wp_root?: string;
 }
 
 export interface WpCliDiscoverSummary extends Record<string, unknown> {
@@ -246,6 +258,7 @@ export async function runWpCli(
 	const result = await runner(invocation.executable, args, options);
 	const parsed = input.parseJson ? parseJson(result.stdout) : undefined;
 	const unavailable = result.errorCode === 'ENOENT';
+	const diagnostics = detectWpCliDiagnostics(result, invocation, safeInput, cwd);
 
 	const fullResult: WpCliResult = {
 		ok: result.exitCode === 0 && !unavailable,
@@ -259,6 +272,7 @@ export async function runWpCli(
 		wp_cli_source: invocation.source,
 		...(parsed !== undefined ? { parsed_json: parsed } : {}),
 		...(result.errorMessage ? { error: result.errorMessage } : {}),
+		...(diagnostics.length > 0 ? { diagnostics } : {}),
 	};
 
 	return input.responseMode === 'summary' ? summarizeWpCliResult(fullResult) : fullResult;
@@ -421,6 +435,7 @@ function summarizeWpCliResult(result: WpCliResult): WpCliResultSummary {
 		stderr_bytes: Buffer.byteLength(result.stderr, 'utf8'),
 		...(result.parsed_json !== undefined ? { parsed_json: result.parsed_json } : {}),
 		...(result.error ? { error: result.error } : {}),
+		...(result.diagnostics ? { diagnostics: result.diagnostics } : {}),
 	};
 }
 
@@ -515,7 +530,7 @@ export function resolveWpCliInvocation(env: NodeJS.ProcessEnv, cwd: string): WpC
 
 	const discoveredPhar = explicitPhar ?? discoverWpCliPhar(env, cwd);
 	if (discoveredPhar) {
-		const discoveredPhp = explicitPhp ?? discoverPhpBinary(env);
+		const discoveredPhp = explicitPhp ?? discoverPhpBinary(env, cwd);
 		if (discoveredPhp) {
 			return phpPharInvocation(
 				discoveredPhp,
@@ -905,7 +920,7 @@ function candidateLocalWpPhars(env: NodeJS.ProcessEnv): string[] {
 	].filter((path): path is string => Boolean(path));
 }
 
-function discoverPhpBinary(env: NodeJS.ProcessEnv): string | undefined {
+function discoverPhpBinary(env: NodeJS.ProcessEnv, cwd?: string): string | undefined {
 	const explicitPhp = cleanEnvPath(env['STONEWRIGHT_WP_CLI_PHP_BIN']);
 	if (explicitPhp) {
 		return explicitPhp;
@@ -929,6 +944,9 @@ function discoverPhpBinary(env: NodeJS.ProcessEnv): string | undefined {
 			...candidateLocalWpPhpBins(join(home, 'Library', 'Application Support', 'Local by Flywheel', 'lightning-services')),
 			...candidateLocalWpPhpBins(join(home, '.config', 'Local', 'lightning-services')),
 		);
+	}
+	if (cwd) {
+		candidates.push(...candidatePhpBinsFromPhpIni(discoverPhpIni(cwd)));
 	}
 
 	return firstExisting(candidates) ?? 'php';
@@ -966,6 +984,67 @@ function discoverPhpIni(cwd: string): string | undefined {
 		}
 	}
 	return firstExisting(candidates);
+}
+
+function candidatePhpBinsFromPhpIni(phpIni: string | undefined): string[] {
+	if (!phpIni) return [];
+	let ini = '';
+	try {
+		ini = readFileSync(phpIni, 'utf8');
+	} catch {
+		return [];
+	}
+
+	const extensionDir = resolvePhpExtensionDirFromIni(ini, phpIni);
+	if (!extensionDir) return [];
+
+	const extensionParent = dirname(extensionDir);
+	return [
+		join(extensionParent, 'php.exe'),
+		join(extensionParent, 'php'),
+		join(dirname(extensionParent), 'php.exe'),
+		join(dirname(extensionParent), 'php'),
+	];
+}
+
+function resolvePhpExtensionDirFromIni(ini: string, phpIni: string): string | undefined {
+	for (const line of ini.split(/\r?\n/)) {
+		const match = line.match(/^\s*extension_dir\s*=\s*"?([^"\r\n;]+)"?\s*(?:;.*)?$/i);
+		if (!match?.[1]) continue;
+		return resolve(dirname(phpIni), match[1]);
+	}
+	return undefined;
+}
+
+function detectWpCliDiagnostics(
+	result: ExecFileResult,
+	invocation: WpCliInvocation,
+	input: WpCliRunInput,
+	cwd: string,
+): WpCliDiagnostic[] {
+	const output = `${result.stdout}\n${result.stderr}\n${result.errorMessage ?? ''}`;
+	if (!/(missing[^.\n]*(?:mysql|mysqli)|mysqli[^.\n]*missing|php installation appears to be missing[^.\n]*mysql)/i.test(output)) {
+		return [];
+	}
+	if (!/mysqli|mysql extension/i.test(output)) {
+		return [];
+	}
+
+	return [
+		{
+			code: 'php_missing_mysqli',
+			severity: 'error',
+			message: 'WP-CLI ran, but WordPress could not boot because the selected PHP executable does not have the mysqli/MySQL extension enabled.',
+			hints: [
+				'For LocalWP, set STONEWRIGHT_WP_CLI_PHP_BIN to the site Local PHP binary and STONEWRIGHT_WP_CLI_PHP_INI to the site conf/php/php.ini, then restart the MCP client.',
+				'Set STONEWRIGHT_WP_ROOT to the WordPress root so Stonewright can infer the LocalWP php.ini and wp-cli.phar automatically.',
+				'After changing env, verify with stonewright-wp-cli-status or stonewright-wp-cli-run; do not switch to shell wp commands.',
+			],
+			selected_executable: invocation.executable,
+			wp_cli_source: invocation.source,
+			wp_root: input.path ?? cwd,
+		},
+	];
 }
 
 function ancestorDirectories(start: string): string[] {

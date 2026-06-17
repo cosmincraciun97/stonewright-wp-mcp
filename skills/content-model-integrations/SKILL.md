@@ -30,6 +30,10 @@ post/meta/term/option writes or Romanian/non-ASCII values. Do not paste large
 inline shell scripts to simulate batching.
 For long imports, cache rebuilds, or plugin maintenance commands, use
 `stonewright-wp-cli-job-start` and poll `stonewright-wp-cli-job-status`.
+If a content model needs shortcode or query glue that cannot be expressed with
+native plugin commands, use the guarded sandbox lifecycle
+`stonewright-sandbox-write` then `stonewright-sandbox-activate`; do not ask for
+manual unblock while those tools are visible.
 
 ## Discovery
 
@@ -117,8 +121,9 @@ Useful docs:
    so snapshots and permissions run.
 5. For plugin command writes, use `stonewright-wp-cli-run` with argv tokens and
    `stonewright_context_token`.
-6. Verify by reading back changed schema or values.
-7. For visible output, verify with external browser MCP.
+6. For shortcode/query glue, write and activate through guarded sandbox tools.
+7. Verify by reading back changed schema or values.
+8. For visible output, verify with external browser MCP.
 
 ## Bulk And Migration
 

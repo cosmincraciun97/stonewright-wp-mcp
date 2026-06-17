@@ -236,6 +236,7 @@ function groupProxiedToolNames(toolNames: string[]): Record<string, string[]> {
 		startup: [],
 		elementor_design: [],
 		content_media: [],
+		code_sandbox: [],
 		gutenberg_fse: [],
 		site_admin: [],
 		other: [],
@@ -248,6 +249,8 @@ function groupProxiedToolNames(toolNames: string[]): Record<string, string[]> {
 			groups.elementor_design.push(name);
 		} else if (name.includes('content') || name.includes('media')) {
 			groups.content_media.push(name);
+		} else if (name.includes('sandbox')) {
+			groups.code_sandbox.push(name);
 		} else if (name.includes('gutenberg') || name.includes('blocks') || name.includes('fse')) {
 			groups.gutenberg_fse.push(name);
 		} else if (name.includes('site') || name.includes('system') || name.includes('security') || name.includes('menu') || name === 'stonewright-ping') {

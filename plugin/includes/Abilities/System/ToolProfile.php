@@ -319,9 +319,12 @@ final class ToolProfile extends AbilityKernel {
 					'stonewright/elementor-v3-get-page-structure',
 					'stonewright/elementor-v3-build-page-from-spec',
 					'stonewright/elementor-v3-batch-mutate',
+					'stonewright/elementor-v3-save-template',
 					'stonewright/elementor-v3-update-kit-colors',
 					'stonewright/elementor-v3-update-kit-typography',
 					'stonewright/gutenberg-apply-to-post',
+					'stonewright/sandbox-write',
+					'stonewright/sandbox-activate',
 					'stonewright/wp-cli-batch-run',
 					'stonewright/wp-cli-job-start',
 					'stonewright/wp-cli-job-status',
@@ -342,11 +345,6 @@ final class ToolProfile extends AbilityKernel {
 					'stonewright/elementor-v3-container-schema',
 					'stonewright/elementor-v3-list-widgets',
 					'stonewright/elementor-v3-get-widget-schema',
-					'stonewright/elementor-describe-widget',
-					'stonewright/elementor-v4-status',
-					'stonewright/elementor-v4-list-variables',
-					'stonewright/elementor-v4-list-classes',
-					'stonewright/elementor-v4-list-atomic-node-types',
 					'stonewright/media-list',
 					'stonewright/media-upload-batch',
 					'stonewright/content-create-page',
@@ -359,9 +357,18 @@ final class ToolProfile extends AbilityKernel {
 					'stonewright/elementor-v3-build-page-from-spec',
 					'stonewright/elementor-v3-batch-mutate',
 					'stonewright/elementor-v3-apply-bundle',
+					'stonewright/elementor-v3-save-template',
+					'stonewright/sandbox-list',
+					'stonewright/sandbox-read',
+					'stonewright/sandbox-write',
+					'stonewright/sandbox-activate',
+					'stonewright/sandbox-deactivate',
 					'stonewright/wp-cli-status',
 					'stonewright/wp-cli-discover',
+					'stonewright/wp-cli-run',
 					'stonewright/wp-cli-batch-run',
+					'stonewright/wp-cli-job-start',
+					'stonewright/wp-cli-job-status',
 				]
 			),
 			'content-model' => array_merge(
@@ -379,6 +386,11 @@ final class ToolProfile extends AbilityKernel {
 					'stonewright/wp-cli-run',
 					'stonewright/wp-cli-job-start',
 					'stonewright/wp-cli-job-status',
+					'stonewright/sandbox-list',
+					'stonewright/sandbox-read',
+					'stonewright/sandbox-write',
+					'stonewright/sandbox-activate',
+					'stonewright/sandbox-deactivate',
 				]
 			),
 			'gutenberg' => array_merge(
@@ -456,7 +468,11 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/elementor-v3-build-page-from-spec' => 'Render a validated Elementor section or page spec in one request.',
 			'stonewright/elementor-v3-container-schema' => 'Get safe container layout, style, Advanced, alias, and blocked-key guidance before section writes.',
 			'stonewright/elementor-v3-batch-mutate' => 'Apply grouped surgical Elementor mutations after screenshot review.',
+			'stonewright/elementor-v3-save-template' => 'Create Elementor library templates such as Loop Item templates for Loop Grid workflows.',
 			'stonewright/content-bulk-upsert-posts' => 'Create or update repeated posts, CPT rows, and meta values in one call.',
+			'stonewright/sandbox-write' => 'Stage guarded shortcode, query, or integration glue in the Stonewright sandbox after native tools are insufficient.',
+			'stonewright/sandbox-activate' => 'Promote a StaticGuard-clean sandbox file so WordPress can load guarded integration glue.',
+			'stonewright/sandbox-deactivate' => 'Roll back guarded sandbox glue without deleting the draft file.',
 			'stonewright/wp-cli-batch-run' => 'Run repeated guarded WP-CLI argv commands with compact output.',
 			'stonewright/wp-cli-job-start' => 'Start long guarded WP-CLI command or batch work without blocking the MCP request.',
 			'stonewright/wp-cli-job-status' => 'Poll a WP-CLI background job until the compact result is ready.',
@@ -473,6 +489,7 @@ final class ToolProfile extends AbilityKernel {
 			'startup'          => [],
 			'elementor_design' => [],
 			'content_media'    => [],
+			'code_sandbox'     => [],
 			'gutenberg_fse'    => [],
 			'wp_cli'           => [],
 			'site_admin'       => [],
@@ -516,6 +533,10 @@ final class ToolProfile extends AbilityKernel {
 			return 'content_media';
 		}
 
+		if ( str_contains( $name, 'sandbox' ) ) {
+			return 'code_sandbox';
+		}
+
 		if ( str_contains( $name, 'gutenberg' ) || str_contains( $name, 'blocks' ) || str_contains( $name, 'fse' ) ) {
 			return 'gutenberg_fse';
 		}
@@ -536,16 +557,22 @@ final class ToolProfile extends AbilityKernel {
 			'elementor-design', 'low-tools' => [
 				'stonewright/elementor-v3-build-page-from-spec',
 				'stonewright/elementor-v3-batch-mutate',
+				'stonewright/elementor-v3-save-template',
 				'stonewright/elementor-v3-get-kit-globals',
 				'stonewright/content-bulk-upsert-posts',
 				'stonewright/media-upload-batch',
+				'stonewright/sandbox-write',
+				'stonewright/sandbox-activate',
 				'stonewright/wp-cli-batch-run',
 				'stonewright/wp-cli-job-start',
 			],
 			'content-model' => [
 				'stonewright/content-bulk-upsert-posts',
 				'stonewright/wp-cli-discover',
+				'stonewright/wp-cli-run',
 				'stonewright/wp-cli-batch-run',
+				'stonewright/sandbox-write',
+				'stonewright/sandbox-activate',
 				'stonewright/wp-cli-job-start',
 			],
 			'gutenberg' => [
@@ -562,8 +589,8 @@ final class ToolProfile extends AbilityKernel {
 			default => [],
 		};
 		$preferred_groups = match ( $profile ) {
-			'elementor-design', 'low-tools' => [ 'elementor_design', 'content_media', 'wp_cli', 'gutenberg_fse', 'startup' ],
-			'content-model' => [ 'content_media', 'wp_cli', 'site_admin', 'startup' ],
+			'elementor-design', 'low-tools' => [ 'elementor_design', 'content_media', 'code_sandbox', 'wp_cli', 'gutenberg_fse', 'startup' ],
+			'content-model' => [ 'content_media', 'wp_cli', 'code_sandbox', 'site_admin', 'startup' ],
 			'gutenberg' => [ 'gutenberg_fse', 'content_media', 'startup' ],
 			'wp-cli' => [ 'wp_cli', 'site_admin', 'startup' ],
 			'site-admin' => [ 'site_admin', 'wp_cli', 'startup' ],

@@ -793,6 +793,7 @@ final class AbilityRegistry {
 			'stonewright/elementor-v3-update-page-settings',
 			'stonewright/elementor-v3-update-kit-colors',
 			'stonewright/elementor-v3-update-kit-typography',
+			'stonewright/elementor-v3-save-template',
 
 			// Design pipeline.
 			'stonewright/design-implementation-contract',
@@ -822,6 +823,16 @@ final class AbilityRegistry {
 			'stonewright/wp-cli-batch-run',
 			'stonewright/wp-cli-job-start',
 			'stonewright/wp-cli-job-status',
+
+			// Guarded sandbox code lifecycle for builder tasks that need
+			// shortcode/query glue. Mutations still require context tokens,
+			// file-mod checks, StaticGuard, permissions, and production-safe
+			// confirmation tokens where applicable.
+			'stonewright/sandbox-list',
+			'stonewright/sandbox-read',
+			'stonewright/sandbox-write',
+			'stonewright/sandbox-activate',
+			'stonewright/sandbox-deactivate',
 		];
 	}
 

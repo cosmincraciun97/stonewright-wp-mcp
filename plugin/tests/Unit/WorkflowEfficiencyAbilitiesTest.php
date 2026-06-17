@@ -88,8 +88,12 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright/elementor-v3-container-schema', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/elementor-v3-save-template', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/sandbox-write', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/sandbox-activate', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/media-upload-batch', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/content-bulk-upsert-posts', $result['recommended_tools'] );
+		self::assertContains( 'stonewright-wp-cli-run', $result['recommended_mcp_tools'] );
 		self::assertContains( 'stonewright-wp-cli-batch-run', $result['recommended_mcp_tools'] );
 		self::assertContains( 'Use profile tools before full ability discovery when the client has a strict tool cap.', $result['token_rules'] );
 		self::assertContains( 'Use responseMode=summary for WP-CLI and batch tools unless full JSON is needed for the next write.', $result['token_rules'] );
@@ -153,7 +157,10 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright/skills-get', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/wp-cli-status', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/wp-cli-discover', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/wp-cli-run', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/wp-cli-batch-run', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/sandbox-write', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/sandbox-activate', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/content-bulk-upsert-posts', $result['recommended_tools'] );
 		self::assertContains( 'stonewright-skills-get', $result['recommended_mcp_tools'] );
 		self::assertContains( 'Discover plugin command groups once, then batch repeated CPT, field, post, meta, term, option, cache, and rewrite work.', $result['workflow_rules'] );
@@ -177,7 +184,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertIsArray( $result );
 		self::assertTrue( $result['ok'] );
 		self::assertSame( 'low-tools', $result['profile'] );
-		self::assertLessThanOrEqual( 26, $result['profile_tool_count'] );
+		self::assertLessThanOrEqual( 30, $result['profile_tool_count'] );
 		self::assertTrue( $result['under_limit'] );
 		self::assertContains( 'low-tools', $result['profiles_available'] );
 		self::assertContains( 'stonewright/context-bootstrap', $result['recommended_tools'] );
@@ -188,6 +195,9 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright/elementor-v3-get-kit-globals', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/elementor-v3-save-template', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/sandbox-write', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/sandbox-activate', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/gutenberg-apply-to-post', $result['recommended_tools'] );
 		self::assertContains( 'stonewright-wp-cli-batch-run', $result['recommended_mcp_tools'] );
 		self::assertContains( 'stonewright/wp-cli-job-start', $result['recommended_tools'] );

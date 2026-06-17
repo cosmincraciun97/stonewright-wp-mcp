@@ -56,11 +56,12 @@ final class ServerRegistrationTest extends TestCase {
 		self::assertIsArray( $tools );
 		self::assertContains( 'stonewright/context-bootstrap', $tools );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $tools );
+		self::assertContains( 'stonewright/elementor-v3-save-template', $tools );
 		self::assertContains( 'stonewright/wp-cli-batch-run', $tools );
 		self::assertNotContains( 'stonewright/wp-cli-run', $tools );
-		self::assertNotContains( 'stonewright/elementor-v3-save-template', $tools );
-		self::assertNotContains( 'stonewright/sandbox-write', $tools );
-		self::assertLessThan( 60, count( $tools ) );
+		self::assertContains( 'stonewright/sandbox-write', $tools );
+		self::assertContains( 'stonewright/sandbox-activate', $tools );
+		self::assertLessThan( 70, count( $tools ) );
 	}
 
 	/**
