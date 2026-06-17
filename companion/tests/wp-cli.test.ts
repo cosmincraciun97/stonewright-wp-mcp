@@ -636,7 +636,7 @@ describe('WP-CLI runner', () => {
 
 			expect(result.ok).toBe(true);
 			expect(result.default_wp_root).toBe(resolve(wpRoot));
-			expect(result.diagnostics).toMatchObject({
+			expect(result.health).toMatchObject({
 				php: {
 					ini_loaded: iniPath,
 					extensions: {
@@ -705,7 +705,7 @@ describe('WP-CLI runner', () => {
 				{ STONEWRIGHT_WP_CLI_BIN: 'wp' } as NodeJS.ProcessEnv,
 			) as WpCliResult;
 
-			expect(result.diagnostics).toMatchObject({
+			expect(result.health).toMatchObject({
 				wordpress: {
 					root_ok: false,
 					root: '',

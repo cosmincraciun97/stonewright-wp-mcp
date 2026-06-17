@@ -83,6 +83,9 @@ export interface WpCliResult extends Record<string, unknown> {
 	parsed_json?: unknown;
 	error?: string;
 	diagnostics?: WpCliDiagnostic[];
+	health?: WpCliStatusDiagnostics;
+	recommendations?: string[];
+	default_wp_root?: string;
 }
 
 export interface WpCliBatchResult extends Record<string, unknown> {
@@ -106,6 +109,9 @@ export interface WpCliResultSummary extends Record<string, unknown> {
 	parsed_json?: unknown;
 	error?: string;
 	diagnostics?: WpCliDiagnostic[];
+	health?: WpCliStatusDiagnostics;
+	recommendations?: string[];
+	default_wp_root?: string;
 }
 
 export interface WpCliDiagnostic {
@@ -671,9 +677,9 @@ export async function wpCliStatus(
 		activeRunner,
 		env,
 	) as WpCliResult;
-	const diagnostics = await buildWpCliStatusDiagnostics(result, input, activeRunner, env);
-	const recommendations = buildWpCliStatusRecommendations(diagnostics);
-	const defaultRoot = diagnostics.wordpress.root_ok ? diagnostics.wordpress.root : '';
+	const health = await buildWpCliStatusDiagnostics(result, input, activeRunner, env);
+	const recommendations = buildWpCliStatusRecommendations(health);
+	const defaultRoot = health.wordpress.root_ok ? health.wordpress.root : '';
 
 	if (result.ok && defaultRoot !== '') {
 		cachedDefaultWpRoot = defaultRoot;
@@ -682,7 +688,7 @@ export async function wpCliStatus(
 	return {
 		...result,
 		default_wp_root: defaultRoot,
-		diagnostics,
+		health,
 		recommendations,
 	};
 }
