@@ -1548,7 +1548,7 @@ if ( ! function_exists( 'rest_ensure_response' ) ) {
 }
 
 if ( ! function_exists( 'rest_validate_value_from_schema' ) ) {
-	function rest_validate_value_from_schema( mixed $value, mixed $args, string $param = '' ): true|\WP_Error {
+	function rest_validate_value_from_schema( mixed $value, mixed $args, string $param = '' ): bool|\WP_Error {
 		if ( $args instanceof \stdClass ) {
 			throw new \Error( 'Cannot use object of type stdClass as array' );
 		}

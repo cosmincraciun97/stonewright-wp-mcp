@@ -32,4 +32,51 @@ final class ComposerPolicyTest extends TestCase {
 			'Release checks need an explicit Composer dependency audit command.'
 		);
 	}
+
+	public function test_php_sources_do_not_use_php_82_literal_true_type(): void {
+		$plugin_root = dirname( __DIR__, 3 );
+		$iterator    = new \RecursiveIteratorIterator(
+			new \RecursiveCallbackFilterIterator(
+				new \RecursiveDirectoryIterator( $plugin_root, \FilesystemIterator::SKIP_DOTS ),
+				static function ( \SplFileInfo $file ): bool {
+					return ! in_array( $file->getFilename(), [ 'vendor', '.phpunit.cache' ], true );
+				}
+			)
+		);
+		$violations  = [];
+		$literal     = 'tr' . 'ue';
+
+		foreach ( $iterator as $file ) {
+			if ( ! $file instanceof \SplFileInfo || 'php' !== $file->getExtension() ) {
+				continue;
+			}
+
+			$path = $file->getPathname();
+			if ( __FILE__ === $path ) {
+				continue;
+			}
+
+			$lines = file( $path, FILE_IGNORE_NEW_LINES );
+			if ( false === $lines ) {
+				continue;
+			}
+
+			foreach ( $lines as $line_number => $line ) {
+				if ( 1 !== preg_match( '/\b(?:function|fn)\b.*\)\s*:\s*(.+)/', $line, $matches ) ) {
+					continue;
+				}
+
+				$return_type = preg_split( '/\s*(?:\{|=>|;)/', $matches[1], 2 )[0] ?? '';
+				if ( 1 === preg_match( '/\b' . $literal . '\b/', $return_type ) ) {
+					$violations[] = str_replace( $plugin_root . DIRECTORY_SEPARATOR, '', $path ) . ':' . ( $line_number + 1 );
+				}
+			}
+		}
+
+		self::assertSame(
+			[],
+			$violations,
+			'Stonewright supports PHP 8.1, so source and test stubs must not use the PHP 8.2 literal true type.'
+		);
+	}
 }
