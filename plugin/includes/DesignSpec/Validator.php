@@ -53,6 +53,9 @@ final class Validator {
 			$errors = self::structural_check( $normalized );
 		}
 
+		$errors = array_merge( self::repair_checks( $normalized ), $errors );
+		$errors = self::enrich_errors( $errors, $normalized );
+
 		if ( ! empty( $errors ) ) {
 			return new \WP_Error(
 				'stonewright_spec_invalid',
@@ -150,5 +153,180 @@ final class Validator {
 			}
 		}
 		return $errors;
+	}
+
+	/**
+	 * Adds precise repair checks for schema branches that Opis can report at a
+	 * broad parent path such as `sections`.
+	 *
+	 * @param array<string, mixed> $spec
+	 * @return array<int, array<string, mixed>>
+	 */
+	private static function repair_checks( array $spec ): array {
+		$errors = [];
+		foreach ( (array) ( $spec['sections'] ?? [] ) as $index => $section ) {
+			if ( ! is_array( $section ) ) {
+				continue;
+			}
+			if ( array_key_exists( 'layout', $section ) && ( ! is_string( $section['layout'] ) || ! in_array( $section['layout'], [ 'stack', 'row', 'grid' ], true ) ) ) {
+				$errors[] = [
+					'keyword' => 'enum',
+					'message' => 'section layout must be one of stack, row, or grid',
+					'path'    => [ 'sections', $index, 'layout' ],
+				];
+			}
+		}
+		return $errors;
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $errors
+	 * @param array<string, mixed>            $spec
+	 * @return array<int, array<string, mixed>>
+	 */
+	private static function enrich_errors( array $errors, array $spec ): array {
+		$out = [];
+		$seen = [];
+		foreach ( $errors as $error ) {
+			$path = isset( $error['path'] ) && is_array( $error['path'] ) ? array_values( $error['path'] ) : [];
+			$key  = (string) ( $error['keyword'] ?? '' ) . ':' . self::path_string( $path );
+			if ( isset( $seen[ $key ] ) ) {
+				continue;
+			}
+			$seen[ $key ] = true;
+
+			$value = self::value_at_path( $spec, $path );
+			$error['path']                  = $path;
+			$error['path_string']           = self::path_string( $path );
+			$error['received_type']         = self::received_type( $value );
+			$error['allowed_shapes']        = self::allowed_shapes( $path );
+			$error['nearest_valid_example'] = self::nearest_valid_example( $path );
+			$error['repair_hint']           = self::repair_hint( $path, (string) ( $error['keyword'] ?? '' ) );
+			$out[] = $error;
+		}
+		return $out;
+	}
+
+	/**
+	 * @param array<int, mixed> $path
+	 */
+	private static function path_string( array $path ): string {
+		$out = '';
+		foreach ( $path as $part ) {
+			if ( is_int( $part ) || ctype_digit( (string) $part ) ) {
+				$out .= '[' . (string) $part . ']';
+				continue;
+			}
+			$out .= '' === $out ? (string) $part : '.' . (string) $part;
+		}
+		return $out;
+	}
+
+	/**
+	 * @param array<string, mixed> $spec
+	 * @param array<int, mixed>    $path
+	 */
+	private static function value_at_path( array $spec, array $path ): mixed {
+		$value = $spec;
+		foreach ( $path as $part ) {
+			if ( is_array( $value ) && array_key_exists( $part, $value ) ) {
+				$value = $value[ $part ];
+				continue;
+			}
+			return null;
+		}
+		return $value;
+	}
+
+	private static function received_type( mixed $value ): string {
+		if ( null === $value ) {
+			return 'missing';
+		}
+		if ( is_array( $value ) ) {
+			return self::array_is_list( $value ) ? 'array' : 'object';
+		}
+		return get_debug_type( $value );
+	}
+
+	/**
+	 * @param array<mixed> $value
+	 */
+	private static function array_is_list( array $value ): bool {
+		if ( function_exists( 'array_is_list' ) ) {
+			return array_is_list( $value );
+		}
+		$expected = 0;
+		foreach ( array_keys( $value ) as $key ) {
+			if ( $key !== $expected++ ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * @param array<int, mixed> $path
+	 * @return array<int, mixed>
+	 */
+	private static function allowed_shapes( array $path ): array {
+		$last = end( $path );
+		if ( 'layout' === $last && in_array( 'sections', $path, true ) ) {
+			return [ 'stack', 'row', 'grid' ];
+		}
+		if ( 'sections' === $last ) {
+			return [ 'non-empty array of section objects' ];
+		}
+		if ( 'blocks' === $last ) {
+			return [ 'array of block objects' ];
+		}
+		if ( 'type' === $last ) {
+			return [ 'supported block type string' ];
+		}
+		return [];
+	}
+
+	/**
+	 * @param array<int, mixed> $path
+	 * @return array<string, mixed>
+	 */
+	private static function nearest_valid_example( array $path ): array {
+		$last = end( $path );
+		if ( 'layout' === $last && in_array( 'sections', $path, true ) ) {
+			return [ 'layout' => 'row' ];
+		}
+		if ( 'sections' === $last ) {
+			return [
+				'sections' => [
+					[
+						'id'     => 'hero',
+						'blocks' => [
+							[ 'type' => 'heading', 'text' => 'Hello' ],
+						],
+					],
+				],
+			];
+		}
+		if ( 'blocks' === $last ) {
+			return [ 'blocks' => [ [ 'type' => 'paragraph', 'text' => 'Text' ] ] ];
+		}
+		return [];
+	}
+
+	/**
+	 * @param array<int, mixed> $path
+	 */
+	private static function repair_hint( array $path, string $keyword ): string {
+		$path_string = self::path_string( $path );
+		$last        = end( $path );
+		if ( 'layout' === $last && in_array( 'sections', $path, true ) ) {
+			return 'Set ' . $path_string . ' to "stack", "row", or "grid"; do not pass an object for section layout.';
+		}
+		if ( 'sections' === $last ) {
+			return 'Set sections to a non-empty array. Each section needs id and blocks.';
+		}
+		if ( 'blocks' === $last ) {
+			return 'Set ' . $path_string . ' to an array of block objects. Each block needs a supported type.';
+		}
+		return 'Repair ' . ( '' !== $path_string ? $path_string : 'spec' ) . ' to satisfy schema keyword ' . $keyword . '.';
 	}
 }

@@ -62,7 +62,7 @@ shell wrapper, global install, or manual bridge:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.59/stonewright-companion-1.0.0-alpha.59.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.63/stonewright-companion-1.0.0-alpha.63.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
@@ -112,6 +112,12 @@ source-code spelunking to reverse-engineer tool schemas, hand-rolled JSON-RPC
 calls, and
 `/wp-json/stonewright/v1/abilities/run` shell calls are not substitutes for a
 loaded Stonewright MCP server.
+After installing a new Stonewright release or syncing local skills, restart the
+MCP client and rerun `stonewright-setup-profile` plus
+`stonewright-wordpress-mcp-status`. Compare `companion_version`,
+`expected_companion_package`, and `refresh_required_tool_names` with the visible
+tool list. Missing refresh-required tools mean the client is still using a stale
+companion process or cached tool surface.
 
 Do not recover from a missing tool by running `wp cli info`, `wp plugin
 activate`, `wp option update`, or other `wp` commands in a normal shell, and do
@@ -128,11 +134,15 @@ For design-to-WordPress and Elementor work, start with one preflight call, then
 use composite writes before small corrective edits:
 
 1. `stonewright-workflow-preflight`
-2. `stonewright-content-bulk-upsert-posts` for repeated posts, CPT rows, and
+2. `stonewright-theme-builder-apply-template` for Elementor Theme Builder
+   templates and display conditions.
+3. `stonewright-content-model-loop-grid-flow` for admin-editable repeated
+   sections backed by CPT/ACF and Elementor Loop Grid.
+4. `stonewright-content-bulk-upsert-posts` for repeated posts, CPT rows, and
    custom fields.
-3. `stonewright-elementor-v3-build-page-from-spec` for first-pass page or
+5. `stonewright-elementor-v3-build-page-from-spec` for first-pass page or
    section rendering. Use `dry_run` before writing when the spec is generated.
-4. `stonewright-elementor-v3-batch-mutate` for grouped Elementor add, update,
+6. `stonewright-elementor-v3-batch-mutate` for grouped Elementor add, update,
    move, and remove operations.
 
 This keeps MCP sessions fast and token-efficient because Stonewright validates,
@@ -154,7 +164,7 @@ For MCP clients that use a local stdio server, configure:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.59/stonewright-companion-1.0.0-alpha.59.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.63/stonewright-companion-1.0.0-alpha.63.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",

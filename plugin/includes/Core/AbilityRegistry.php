@@ -15,6 +15,7 @@ use Stonewright\WpMcp\Abilities\Content\DuplicatePage;
 use Stonewright\WpMcp\Abilities\Content\GetPage;
 use Stonewright\WpMcp\Abilities\Content\UpdatePage;
 use Stonewright\WpMcp\Abilities\Content\UpdatePost;
+use Stonewright\WpMcp\Abilities\ContentModel\CptAcfLoopGridFlow;
 use Stonewright\WpMcp\Abilities\Design\ApplyToPost;
 use Stonewright\WpMcp\Abilities\Design\BuildSpec;
 use Stonewright\WpMcp\Abilities\Design\ChooseRenderer;
@@ -111,6 +112,7 @@ use Stonewright\WpMcp\Abilities\System\WorkflowPreflight;
 use Stonewright\WpMcp\Abilities\Skills\SkillsList;
 use Stonewright\WpMcp\Abilities\Skills\SkillsGet;
 use Stonewright\WpMcp\Abilities\Skills\SkillsSave;
+use Stonewright\WpMcp\Abilities\ThemeBuilder\ApplyTemplate as ThemeBuilderApplyTemplate;
 use Stonewright\WpMcp\Abilities\ThemeBuilder\CreateTemplate as ThemeBuilderCreateTemplate;
 use Stonewright\WpMcp\Abilities\ThemeBuilder\DeleteTemplate as ThemeBuilderDeleteTemplate;
 use Stonewright\WpMcp\Abilities\ThemeBuilder\GetTemplate as ThemeBuilderGetTemplate;
@@ -192,6 +194,9 @@ final class AbilityRegistry {
 			UpdatePost::class,
 			BulkCreate::class,
 			BulkUpsertPosts::class,
+
+			// Content model.
+			CptAcfLoopGridFlow::class,
 
 			// Media.
 			ListMedia::class,
@@ -342,6 +347,7 @@ final class AbilityRegistry {
 			SandboxToggle::class,
 
 			// Theme Builder.
+			ThemeBuilderApplyTemplate::class,
 			ThemeBuilderCreateTemplate::class,
 			ThemeBuilderSetConditions::class,
 			ThemeBuilderListTemplates::class,
@@ -782,6 +788,7 @@ final class AbilityRegistry {
 			'stonewright/content-get-page',
 			'stonewright/content-update-page',
 			'stonewright/content-bulk-upsert-posts',
+			'stonewright/content-model-loop-grid-flow',
 			'stonewright/media-list',
 			'stonewright/media-upload-batch',
 
@@ -803,6 +810,7 @@ final class AbilityRegistry {
 			'stonewright/elementor-v3-update-kit-colors',
 			'stonewright/elementor-v3-update-kit-typography',
 			'stonewright/elementor-v3-save-template',
+			'stonewright/theme-builder-apply-template',
 
 			// Design pipeline.
 			'stonewright/design-implementation-contract',
@@ -861,6 +869,7 @@ final class AbilityRegistry {
 			'security'  => __( 'Security', 'stonewright' ),
 			'site'      => __( 'Site', 'stonewright' ),
 			'content'   => __( 'Content', 'stonewright' ),
+			'content-model' => __( 'Content Model', 'stonewright' ),
 			'media'     => __( 'Media', 'stonewright' ),
 			'gutenberg' => __( 'Gutenberg', 'stonewright' ),
 			'patterns'  => __( 'Patterns', 'stonewright' ),

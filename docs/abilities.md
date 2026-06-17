@@ -12,22 +12,25 @@ matrix after changing the registry.
 | Category | Count | Scope |
 |---|---:|---|
 | Security | 2 | Confirmation tokens and one-time links. |
-| Site | 10 | WordPress diagnostics, active theme, plugin list, revisions, front page settings. |
-| Content | 7 | Create, update, duplicate, and read posts/pages. |
-| Media | 5 | Upload, batch upload, inspect, optimize, and annotate media. |
+| Site | 11 | WordPress diagnostics, active theme, plugin list, shortcodes, revisions, front page settings. |
+| Content | 8 | Create, update, duplicate, bulk upsert, and read posts/pages. |
+| Content Model | 1 | CPT/ACF-backed Elementor Loop Grid composite workflow. |
+| Media | 6 | Upload, batch upload, inspect, optimize, list, and annotate media. |
 | Gutenberg | 10 | Parse, render, serialize, insert, update, remove, and apply blocks. |
 | Patterns | 2 | List and create block patterns. |
 | Full Site Editing | 10 | Read/write theme.json, templates, template parts, and global styles. |
-| Elementor | 30 | Elementor V3 structure editing, compact capability preflight, V4 atomic helpers, Theme Builder adjacent work. |
+| Elementor V3 | 21 | Elementor V3 structure editing, page specs, kit globals, capability preflight, and batch mutation. |
+| Elementor V4 (Experimental) | 12 | Atomic nodes, variables, classes, and experimental V4 rendering. |
 | Elementor Widget Builder | 98 | Generated per-widget builders and custom widget project helpers. |
-| Design | 12 | Validate Design Spec, build specs from manual input, choose renderers, normalize assets, and apply to Gutenberg or Elementor. |
+| Design | 13 | Validate Design Spec, build specs from manual input, choose renderers, normalize assets, intent routing, and apply to Gutenberg or Elementor. |
 | Knowledge | 5 | Elementor knowledge search, widget descriptions, implementation guidance, and refresh. |
 | Memory | 5 | Persistent project memory, user corrections, and learning records. |
-| System | 11 | Context bootstrap, tool profiles, workflow preflight, instructions, ability list, and knowledge import/export. |
+| System | 8 | Context bootstrap, tool profiles, workflow preflight, instructions, ability list, and knowledge import/export. |
+| Skills | 3 | Agent skill listing, reads, and saves. |
 | Runtime | 1 | Direct PHP snippets inside the loaded WordPress runtime. |
 | WP-CLI | 6 | Companion-backed status, command discovery, tokenized command execution, batch execution, and background jobs. |
 | Sandbox | 8 | Admin-only generated code/artifact lifecycle. |
-| Theme Builder | 5 | Elementor Theme Builder templates and conditions. |
+| Theme Builder | 6 | Elementor Theme Builder templates, conditions, and apply-template orchestration. |
 | Menu | 5 | Menu creation, item management, locations, and deletion. |
 
 ## Context Requirement

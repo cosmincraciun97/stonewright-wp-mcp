@@ -25,7 +25,7 @@ final class ToolProfile extends AbilityKernel {
 		$surface = strtolower( trim( $surface ) );
 		$query   = self::normalise( $task . ' ' . $surface . ' ' . $intent );
 
-		if ( 'elementor' === $surface || self::has_any_term( $query, [ 'elementor', 'figma', 'design', 'pixel', 'landing page', 'section' ] ) ) {
+		if ( in_array( $surface, [ 'elementor', 'theme-builder' ], true ) || self::has_any_term( $query, [ 'elementor', 'theme builder', 'theme-builder', 'figma', 'design', 'pixel', 'landing page', 'section' ] ) ) {
 			return 'elementor-design';
 		}
 
@@ -273,7 +273,7 @@ final class ToolProfile extends AbilityKernel {
 			'missing_profile_tools' => $missing_names,
 			'missing_mcp_tools'     => array_map( [ AbilityRegistry::class, 'mcp_tool_name' ], $missing_names ),
 			'tool_groups'           => $tool_groups,
-			'next_best_tools'       => self::next_best_tools( $profile, $tool_groups ),
+			'next_best_tools'       => self::next_best_tools( $profile, $tool_groups, $task, $surface, $intent ),
 			'tools'                 => $tools,
 			'recovery_hints'        => self::recovery_hints( $missing_names ),
 			'discovery_policy'      => self::discovery_policy(),
@@ -308,20 +308,19 @@ final class ToolProfile extends AbilityKernel {
 					'stonewright/security-create-one-time-link',
 					'stonewright/site-info',
 					'stonewright/content-bulk-upsert-posts',
+					'stonewright/content-model-loop-grid-flow',
 					'stonewright/media-upload-batch',
 					'stonewright/design-implementation-contract',
 					'stonewright/widget-intent-resolve',
 					'stonewright/elementor-widget-implementation-guide',
-					'stonewright/elementor-v3-status',
 					'stonewright/elementor-v3-capabilities-summary',
 					'stonewright/elementor-v3-get-kit-globals',
 					'stonewright/elementor-v3-container-schema',
 					'stonewright/elementor-v3-get-widget-schema',
 					'stonewright/elementor-v3-get-page-structure',
 					'stonewright/elementor-v3-build-page-from-spec',
+					'stonewright/theme-builder-apply-template',
 					'stonewright/elementor-v3-batch-mutate',
-					'stonewright/elementor-v3-update-kit-colors',
-					'stonewright/elementor-v3-update-kit-typography',
 					'stonewright/gutenberg-apply-to-post',
 					'stonewright/wp-cli-batch-run',
 					'stonewright/wp-cli-job-start',
@@ -353,11 +352,13 @@ final class ToolProfile extends AbilityKernel {
 					'stonewright/content-create-page',
 					'stonewright/content-update-page',
 					'stonewright/content-bulk-upsert-posts',
+					'stonewright/content-model-loop-grid-flow',
 					'stonewright/elementor-v3-update-page-settings',
 					'stonewright/elementor-v3-update-kit-colors',
 					'stonewright/elementor-v3-update-kit-typography',
 					'stonewright/design-validate-spec',
 					'stonewright/elementor-v3-build-page-from-spec',
+					'stonewright/theme-builder-apply-template',
 					'stonewright/elementor-v3-batch-mutate',
 					'stonewright/elementor-v3-apply-bundle',
 					'stonewright/wp-cli-status',
@@ -372,6 +373,7 @@ final class ToolProfile extends AbilityKernel {
 					'stonewright/site-plugins-list',
 					'stonewright/system-abilities-list',
 					'stonewright/content-bulk-upsert-posts',
+					'stonewright/content-model-loop-grid-flow',
 					'stonewright/media-list',
 					'stonewright/media-upload-batch',
 					'stonewright/wp-cli-status',
@@ -456,9 +458,11 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/elementor-v3-get-widget-schema' => 'Read compact Content, Style, and Advanced widget controls; request full only for defaults.',
 			'stonewright/elementor-v3-get-page-structure' => 'Read a compact Elementor outline first; request full tree only for raw setting drift or difficult edits.',
 			'stonewright/elementor-v3-build-page-from-spec' => 'Render a validated Elementor section or page spec in one request.',
+			'stonewright/theme-builder-apply-template' => 'Create or update a real Elementor Theme Builder template, render the spec, apply conditions, and return verification hints in one request.',
 			'stonewright/elementor-v3-container-schema' => 'Get container layout, style, Advanced, alias, and blocked-key guidance before section writes.',
 			'stonewright/elementor-v3-batch-mutate' => 'Apply grouped surgical Elementor mutations after screenshot review.',
 			'stonewright/content-bulk-upsert-posts' => 'Create or update repeated posts, CPT rows, and meta values in one call.',
+			'stonewright/content-model-loop-grid-flow' => 'Create CPT UI-style config, ACF field contract, repeated CPT rows, optional loop item, and Loop Grid settings in one call.',
 			'stonewright/wp-cli-batch-run' => 'Run repeated tokenized WP-CLI argv commands with compact output.',
 			'stonewright/wp-cli-job-start' => 'Start long WP-CLI command or batch work without blocking the MCP request.',
 			'stonewright/wp-cli-job-status' => 'Poll a WP-CLI background job until the compact result is ready.',
@@ -515,7 +519,7 @@ final class ToolProfile extends AbilityKernel {
 			return 'wp_cli';
 		}
 
-		if ( str_contains( $name, 'elementor' ) || str_contains( $name, 'design' ) || str_contains( $name, 'widget' ) ) {
+		if ( str_contains( $name, 'elementor' ) || str_contains( $name, 'design' ) || str_contains( $name, 'widget' ) || str_contains( $name, 'theme-builder' ) ) {
 			return 'elementor_design';
 		}
 
@@ -538,19 +542,30 @@ final class ToolProfile extends AbilityKernel {
 	 * @param array<string,array{abilities:list<string>,mcp_tools:list<string>,count:int}> $tool_groups
 	 * @return list<array{ability:string,mcp_tool:string,group:string}>
 	 */
-	private static function next_best_tools( string $profile, array $tool_groups ): array {
-		$preferred_abilities = match ( $profile ) {
-			'elementor-design', 'low-tools' => [
+	private static function next_best_tools( string $profile, array $tool_groups, string $task = '', string $surface = 'unknown', string $intent = 'unknown' ): array {
+		$elementor_preferences = self::is_theme_builder_task( $task, $surface, $intent )
+			? [
+				'stonewright/theme-builder-apply-template',
 				'stonewright/elementor-v3-build-page-from-spec',
+			]
+			: [
+				'stonewright/elementor-v3-build-page-from-spec',
+				'stonewright/theme-builder-apply-template',
+			];
+
+		$preferred_abilities = match ( $profile ) {
+			'elementor-design', 'low-tools' => array_merge( $elementor_preferences, [
 				'stonewright/elementor-v3-batch-mutate',
 				'stonewright/elementor-v3-get-kit-globals',
+				'stonewright/content-model-loop-grid-flow',
 				'stonewright/content-bulk-upsert-posts',
 				'stonewright/media-upload-batch',
 				'stonewright/wp-cli-batch-run',
 				'stonewright/wp-cli-job-start',
-			],
+			] ),
 			'content-model' => [
 				'stonewright/php-execute',
+				'stonewright/content-model-loop-grid-flow',
 				'stonewright/content-bulk-upsert-posts',
 				'stonewright/wp-cli-discover',
 				'stonewright/wp-cli-batch-run',
@@ -699,6 +714,29 @@ final class ToolProfile extends AbilityKernel {
 			'If a required profile tool is intentionally disabled, re-enable it in Stonewright AI Abilities or choose the closest available batch tool from this profile.',
 			'Use full ability discovery only for specialist recovery sessions; keep compact profiles for normal implementation work.',
 		];
+	}
+
+	private static function is_theme_builder_task( string $task, string $surface, string $intent ): bool {
+		$surface = strtolower( trim( $surface ) );
+		if ( 'theme-builder' === $surface ) {
+			return true;
+		}
+
+		return self::has_any_term(
+			self::normalise( $task . ' ' . $surface . ' ' . $intent ),
+			[
+				'theme builder',
+				'theme-builder',
+				'display conditions',
+				'template conditions',
+				'single template',
+				'archive template',
+				'header template',
+				'footer template',
+				'elementor template',
+				'apply template',
+			]
+		);
 	}
 
 	private static function normalise( string $text ): string {

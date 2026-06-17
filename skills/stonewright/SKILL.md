@@ -46,10 +46,19 @@ switches to a specialist profile.
 - Use native Stonewright abilities before ad hoc code.
 - Prefer one-call fast paths: `stonewright/elementor-v3-build-page-from-spec`
   with `dry_run`, `stonewright/elementor-v3-batch-mutate` for existing
-  Elementor tree edits, `stonewright/content-bulk-upsert-posts` for repeated
+  Elementor tree edits, `stonewright/theme-builder-apply-template` for real
+  Elementor Theme Builder templates with display conditions,
+  `stonewright/content-model-loop-grid-flow` for CPT/ACF-backed Loop Grid
+  sections, `stonewright/content-bulk-upsert-posts` for repeated
   post/CPT/custom-field rows, `stonewright/media-upload-batch`,
   `stonewright/php-execute` for short runtime snippets, and tokenized
   `stonewright-wp-cli-run` for plugin/theme/content operations.
+- For Theme Builder work, do not edit `_elementor_conditions` directly. Use
+  `stonewright/theme-builder-apply-template`; it renders the spec, snapshots,
+  applies conditions, clears/warms relevant state, and returns repair hints.
+- For admin-editable repeated cards, default to
+  `stonewright/content-model-loop-grid-flow` when the section needs CPT rows,
+  custom fields, a loop item template, and a Loop Grid widget contract.
 - For CPT rows plus many meta/custom-field values, use
   `stonewright/content-bulk-upsert-posts` after the post type exists. Do not
   fan out into dozens of `wp post meta update` calls unless the bulk ability is

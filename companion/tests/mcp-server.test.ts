@@ -525,6 +525,9 @@ describe('createMcpServer', () => {
 				startup_ready?: boolean;
 				startup_required_tool_names?: string[];
 				startup_missing_tool_names?: string[];
+				companion_version?: string;
+				expected_companion_package?: string;
+				refresh_required_tool_names?: string[];
 				local_recovery_tool_names?: string[];
 				local_tool_names?: string[];
 				recovery?: string[];
@@ -532,6 +535,13 @@ describe('createMcpServer', () => {
 		};
 
 		expect(response.structuredContent?.tool_profile).toBe('essential');
+		expect(response.structuredContent?.companion_version).toBe('1.0.0-alpha.62');
+		expect(response.structuredContent?.expected_companion_package).toBe('https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.62/stonewright-companion-1.0.0-alpha.62.tgz');
+		expect(response.structuredContent?.refresh_required_tool_names).toEqual([
+			'stonewright-context-bootstrap',
+			'stonewright-workflow-preflight',
+			'stonewright-php-execute',
+		]);
 		expect(response.structuredContent?.remote_tool_count).toBe(5);
 		expect(response.structuredContent?.proxied_tool_count).toBe(3);
 		expect(response.structuredContent?.profile_filtered_tool_count).toBe(1);

@@ -1,0 +1,31 @@
+{
+    "args": {
+        "title": "Contract Single Template",
+        "template_type": "single",
+        "conditions": [
+            {
+                "type": "include",
+                "name": "singular",
+                "sub_name": "post"
+            }
+        ],
+        "spec": {
+            "page": {
+                "title": "Contract Template"
+            },
+            "sections": [
+                {
+                    "id": "content",
+                    "blocks": [
+                        {
+                            "type": "heading",
+                            "text": "Contract title"
+                        }
+                    ]
+                }
+            ]
+        },
+        "dry_run": true
+    },
+    "expect": "ok"
+}

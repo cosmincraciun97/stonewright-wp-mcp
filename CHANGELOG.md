@@ -7,6 +7,30 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.63] - 2026-06-17
+
+### Added
+
+- Added `stonewright/theme-builder-apply-template`, a one-call Elementor Theme
+  Builder orchestrator that validates a spec, snapshots, renders Elementor
+  data, applies display conditions, and returns verification/repair hints.
+- Added `stonewright/content-model-loop-grid-flow` for CPT/ACF-backed
+  Elementor Loop Grid sections, including post type contract, field contract,
+  rows, loop item template, and widget settings output.
+- Added first-install companion refresh hints through setup/status payloads:
+  `companion_version`, `expected_companion_package`, and
+  `refresh_required_tool_names`.
+
+### Changed
+
+- Updated compact tool profiles and skills so weak-model clients route Theme
+  Builder and editable repeated-card work to composite fast paths instead of
+  raw meta edits or many small calls.
+- Enriched Design Spec validator failures with exact paths, received types,
+  allowed shapes, nearest valid examples, and repair hints.
+- Bumped active plugin, companion, install snippets, and release docs to
+  `1.0.0-alpha.63`.
+
 ## [1.0.0-alpha.62] - 2026-06-17
 
 ### Added
@@ -862,6 +886,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.63]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.63
 [1.0.0-alpha.62]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.62
 [1.0.0-alpha.61]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.61
 [1.0.0-alpha.60]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.60

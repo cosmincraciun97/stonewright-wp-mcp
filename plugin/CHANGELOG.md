@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.63] - 2026-06-17
+
+### Added
+
+- Added `stonewright/theme-builder-apply-template` for one-call Elementor Theme
+  Builder template rendering, display-condition application, and repair hints.
+- Added `stonewright/content-model-loop-grid-flow` for CPT/ACF-backed Loop Grid
+  sections and editable repeated content flows.
+
+### Changed
+
+- Enriched Design Spec validation errors with exact paths and repair examples
+  so smaller models can correct invalid payloads faster.
+- Added setup/profile metadata for detecting stale MCP clients after release or
+  skill updates.
+- Bumped the plugin version to `1.0.0-alpha.63`.
+
 ## [1.0.0-alpha.62] - 2026-06-17
 
 ### Added

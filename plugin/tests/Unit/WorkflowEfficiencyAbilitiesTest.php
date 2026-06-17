@@ -179,10 +179,32 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright/wp-cli-discover', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/wp-cli-batch-run', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/content-bulk-upsert-posts', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/content-model-loop-grid-flow', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/php-execute', $result['recommended_tools'] );
 		self::assertContains( 'stonewright-php-execute', $result['recommended_mcp_tools'] );
 		self::assertContains( 'stonewright-skills-get', $result['recommended_mcp_tools'] );
 		self::assertContains( 'Discover plugin command groups once, then batch repeated CPT, field, post, meta, term, option, cache, and rewrite work.', $result['workflow_rules'] );
+	}
+
+	public function test_tool_profile_theme_builder_work_uses_apply_template_orchestrator(): void {
+		$ability = AbilityRegistry::ability_by_name( 'stonewright/tool-profile' );
+
+		self::assertNotNull( $ability );
+
+		$result = $ability->execute(
+			[
+				'profile'   => 'auto',
+				'task'      => 'Create Elementor Theme Builder single template and apply display conditions.',
+				'surface'   => 'elementor',
+				'intent'    => 'write',
+				'max_tools' => 40,
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 'elementor-design', $result['profile'] );
+		self::assertContains( 'stonewright/theme-builder-apply-template', $result['recommended_tools'] );
+		self::assertSame( 'stonewright/theme-builder-apply-template', $result['next_best_tools'][0]['ability'] ?? null );
 	}
 
 	public function test_tool_profile_low_tools_stays_under_strict_client_caps(): void {

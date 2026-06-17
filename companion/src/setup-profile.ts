@@ -1,4 +1,4 @@
-import { companionPackageSpec } from './version.js';
+import { APP_VERSION, companionPackageSpec } from './version.js';
 import { proxyToolNamesForProfile, proxyToolProfileFromEnv, type ProxyToolProfile } from './wordpress-mcp.js';
 
 export type SetupPlatform = NodeJS.Platform | 'linux' | 'darwin' | 'win32';
@@ -41,6 +41,9 @@ export interface ToolInventory {
 	direct_wp_cli_long_running_tool_names: string[];
 	proxied_profile_tool_count: number;
 	proxied_profile_tool_groups: Record<string, string[]>;
+	companion_version: string;
+	expected_companion_package: string;
+	refresh_required_tool_names: string[];
 	token_notes: string[];
 }
 
@@ -164,6 +167,7 @@ export function buildSetupProfile(
 			'Do not configure generic WordPress MCP adapters such as @automattic/mcp-wordpress-remote as the stonewright server; use the Stonewright companion so setup, status, compact profiles, php-execute, and WP-CLI tools stay visible during endpoint recovery.',
 			'Verify the MCP tool list includes stonewright-context-bootstrap before starting WordPress work.',
 			'Use stonewright-wordpress-mcp-status if proxied WordPress tools are missing; setup and WP-CLI tools remain available while fixing the connection.',
+			'After every Stonewright release or skill sync, restart the MCP client and re-run stonewright-setup-profile plus stonewright-wordpress-mcp-status; if refresh_required_tool_names are missing, the client is still using an old tool list.',
 			'STONEWRIGHT_MCP_TOOL_PROFILE=essential keeps new MCP sessions compact while preserving Stonewright fast-path tools.',
 			'Use STONEWRIGHT_MCP_TOOL_PROFILE=low-tools for Antigravity, Gemini API, or other strict tool-cap clients; php-execute plus direct WP-CLI batch and background-job tools stay visible.',
 			'Profile aliases such as elementor, design, acf, cpt-ui, fse, and wp cli normalize to compact canonical profiles.',
@@ -225,6 +229,13 @@ export function buildToolInventory(
 		].includes(name)),
 		proxied_profile_tool_count: proxiedProfileToolNames.length,
 		proxied_profile_tool_groups: groupProxiedToolNames(proxiedProfileToolNames),
+		companion_version: APP_VERSION,
+		expected_companion_package: companionPackageSpec(),
+		refresh_required_tool_names: [
+			'stonewright-context-bootstrap',
+			'stonewright-workflow-preflight',
+			'stonewright-php-execute',
+		],
 		token_notes: [
 			'Use this inventory before broad tools/list discovery.',
 			'Use stonewright-php-execute for direct runtime snippets and direct_wp_cli_tool_names for local WP-CLI; never run wp commands in a normal shell.',
@@ -249,7 +260,7 @@ function groupProxiedToolNames(toolNames: string[]): Record<string, string[]> {
 			groups.startup.push(name);
 		} else if (name === 'stonewright-php-execute') {
 			(groups.runtime ??= []).push(name);
-		} else if (name.includes('elementor') || name.includes('design') || name.includes('widget')) {
+		} else if (name.includes('elementor') || name.includes('design') || name.includes('widget') || name.includes('theme-builder')) {
 			groups.elementor_design.push(name);
 		} else if (name.includes('content') || name.includes('media')) {
 			groups.content_media.push(name);

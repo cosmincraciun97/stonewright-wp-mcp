@@ -117,8 +117,14 @@ generated IDs inside the same request:
 }
 ```
 
+For Theme Builder templates with display conditions, use
+`stonewright/theme-builder-apply-template`; do not edit Elementor condition
+meta directly.
+
 For Loop Grid sections backed by CPT/custom fields, keep the data path compact:
-confirm/register the CPT, write rows and meta with
+use `stonewright/content-model-loop-grid-flow` when available. It handles the
+CPT/field contract, rows, loop item template, and returns the Loop Grid widget
+settings. If unavailable, confirm/register the CPT, write rows and meta with
 `stonewright/content-bulk-upsert-posts`, create the loop item template, then add
 or update the Loop Grid with one `stonewright/elementor-v3-batch-mutate` call.
 Bulk rows require `slug` and `title`; use `status` or `post_status` for the

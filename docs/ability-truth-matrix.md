@@ -255,6 +255,14 @@
 
 ---
 
+## ContentModel
+
+| Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `stonewright/content-model-loop-grid-flow` | `stonewright-content-model-loop-grid-flow` | `ContentModel\CptAcfLoopGridFlow` | Creates a CPT UI-style post type config, ACF field contract, repeated CPT rows, optional Elementor loop-item template, and Loop Grid widget settings in one flow. | Write | `Permissions::edit_posts()` | No | Yes | Yes (DesignSpec) | experimental | `tests/Unit/AbilityKernelAuditTest.php` |
+
+---
+
 ## Skills
 
 | Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
@@ -281,6 +289,7 @@
 
 | Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
 |---|---|---|---|---|---|---|---|---|---|---|
+| `stonewright/theme-builder-apply-template` | `stonewright-theme-builder-apply-template` | `ThemeBuilder\ApplyTemplate` | Creates or updates an Elementor Theme Builder template, validates and renders a Stonewright spec, sets display conditions, clears Elementor cache, and returns live verification hints in one call. | Write | `Permissions::edit_post( $id )` | Yes | Yes | Yes (DesignSpec) | experimental | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/theme-builder-create-template` | `stonewright-theme-builder-create-template` | `ThemeBuilder\CreateTemplate` | Creates a real Elementor Theme Builder template (header / footer / single / single-post / single-page / archive / search-results / error-404 / loop-item) as an elementor_library post. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/theme-builder-set-conditions` | `stonewright-theme-builder-set-conditions` | `ThemeBuilder\SetConditions` | Replaces the display rules on an elementor_library template. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/theme-builder-list-templates` | `stonewright-theme-builder-list-templates` | `ThemeBuilder\ListTemplates` | Lists elementor_library templates as { template_id, title, template_type }. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
@@ -404,7 +413,7 @@
 
 ## Summary
 
-Total abilities registered: **239**
+Total abilities registered: **241**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

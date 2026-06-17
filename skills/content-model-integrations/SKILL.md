@@ -31,6 +31,10 @@ post/meta/term/option writes or Romanian/non-ASCII values. Do not paste large
 inline shell scripts to simulate batching.
 For long imports, cache rebuilds, or plugin maintenance commands, use
 `stonewright-wp-cli-job-start` and poll `stonewright-wp-cli-job-status`.
+For CPT/ACF-backed Elementor Loop Grid sections, prefer the one-call
+`stonewright/content-model-loop-grid-flow` path. It registers or updates the
+post type contract, stores the ACF field contract, upserts rows, creates the
+loop-item template, and returns the Loop Grid widget settings/repair hints.
 
 ## Discovery
 
@@ -116,7 +120,10 @@ Useful docs:
 3. Create a small write plan with exact target IDs and field names.
 4. For post/page content or meta writes, rely on Stonewright content abilities
    so snapshots and permissions run.
-5. For plugin command writes, use `stonewright-wp-cli-run` with argv tokens and
+5. For editable repeated Elementor cards, use
+   `stonewright/content-model-loop-grid-flow` before lower-level CPT, ACF, or
+   Loop Grid calls.
+6. For plugin command writes, use `stonewright-wp-cli-run` with argv tokens and
    `stonewright_context_token`.
 6. Verify by reading back changed schema or values.
 7. For visible output, verify with external browser MCP.

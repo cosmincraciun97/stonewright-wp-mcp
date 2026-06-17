@@ -31,7 +31,7 @@ import {
 	registerWordPressMcpTools,
 	resolveWordPressMcpConfig,
 } from './wordpress-mcp.js';
-import { APP_VERSION } from './version.js';
+import { APP_VERSION, companionPackageSpec } from './version.js';
 
 interface WordPressMcpConnectionStatus extends Record<string, unknown> {
 	ok: boolean;
@@ -52,6 +52,9 @@ interface WordPressMcpConnectionStatus extends Record<string, unknown> {
 	profile_filtered_tool_count: number;
 	profile_filtered_tool_names: string[];
 	tool_inventory: ToolInventory;
+	companion_version: string;
+	expected_companion_package: string;
+	refresh_required_tool_names: string[];
 	prompt_skill_count: number;
 	error: { message: string } | null;
 	agent_do_not_use: string[];
@@ -233,6 +236,13 @@ function createWordPressMcpConnectionStatus(profile: ProxyToolProfile): WordPres
 		profile_filtered_tool_count: 0,
 		profile_filtered_tool_names: [],
 		tool_inventory: buildToolInventory(profile, localToolNames),
+		companion_version: APP_VERSION,
+		expected_companion_package: companionPackageSpec(),
+		refresh_required_tool_names: [
+			'stonewright-context-bootstrap',
+			'stonewright-workflow-preflight',
+			'stonewright-php-execute',
+		],
 		prompt_skill_count: 0,
 		error: null,
 		agent_do_not_use: Array.from(AGENT_DO_NOT_USE),

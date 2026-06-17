@@ -34,10 +34,14 @@ abilities that are currently enabled and not blocked by the master toggle.
 | `patterns` | pattern library |
 | `fse` | full-site editing templates |
 | `elementor` | element CRUD, page structures |
+| `theme-builder` | Elementor templates and display conditions |
+| `content-model` | CPT/ACF-backed Loop Grid workflow |
 | `design` | spec validate, renderer selection |
 | `wp-cli` | status, discovery, command run |
 | `memory` | memory CRUD |
 | `system` | abilities list, instructions get |
+| `skills` | skill list, read, and save |
+| `runtime` | direct WordPress PHP snippets |
 | `sandbox` | sandbox file lifecycle |
 
 ---

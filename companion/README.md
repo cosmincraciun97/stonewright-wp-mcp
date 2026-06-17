@@ -28,7 +28,7 @@ Fast path for MCP clients:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.59/stonewright-companion-1.0.0-alpha.59.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.63/stonewright-companion-1.0.0-alpha.63.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
@@ -48,6 +48,11 @@ Windows, macOS, and Linux. Use its `first_calls` and
 `stonewright-wordpress-mcp-status`, and direct WP-CLI aliases are visible before
 real work. Use `fast_path.tool_profile` from workflow preflight before making a
 separate `stonewright-tool-profile` call.
+After every Stonewright release or local skill sync, restart the MCP client and
+rerun `stonewright-setup-profile` plus `stonewright-wordpress-mcp-status`.
+Check `companion_version`, `expected_companion_package`, and
+`refresh_required_tool_names`; if any required tool is missing from the client
+tool list, the client is still running an old companion or stale MCP cache.
 If `stonewright-context-bootstrap` is not visible, stop WordPress work and
 reload or fix the MCP client config. Do not inspect private AI-client config
 files, create scratch scripts such as `query-mcp.js` or `run-ability.js`,

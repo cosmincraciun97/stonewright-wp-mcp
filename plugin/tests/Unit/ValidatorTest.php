@@ -50,6 +50,35 @@ final class ValidatorTest extends TestCase {
 		$this->assertSame( 'stonewright_spec_invalid', $result->get_error_code() );
 	}
 
+	public function test_validate_errors_include_repair_path_type_hint_and_example(): void {
+		$result = Validator::validate(
+			[
+				'page'     => [ 'title' => 'Bad Layout' ],
+				'sections' => [
+					[
+						'id'     => 'hero',
+						'layout' => [ 'columns' => 2 ],
+						'blocks' => [
+							[ 'type' => 'heading', 'text' => 'Hero' ],
+						],
+					],
+				],
+			]
+		);
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$data = $result->get_error_data();
+		$this->assertIsArray( $data );
+		$error = $data['errors'][0] ?? [];
+		$this->assertSame( [ 'sections', 0, 'layout' ], $error['path'] ?? [] );
+		$this->assertSame( 'sections[0].layout', $error['path_string'] ?? '' );
+		$this->assertSame( 'object', $error['received_type'] ?? '' );
+		$this->assertSame( [ 'stack', 'row', 'grid' ], $error['allowed_shapes'] ?? [] );
+		$this->assertIsArray( $error['nearest_valid_example'] ?? null );
+		$this->assertSame( 'row', $error['nearest_valid_example']['layout'] ?? '' );
+		$this->assertStringContainsString( 'sections[0].layout', (string) ( $error['repair_hint'] ?? '' ) );
+	}
+
 	public function test_strict_style_policy_rejects_unproven_decorative_styles(): void {
 		$spec = self::minimal_valid_spec();
 		$spec['style_policy'] = 'strict';

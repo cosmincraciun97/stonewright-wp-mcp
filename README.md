@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.62-blue" /></a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.63-blue" /></a>
   <img alt="plugin license" src="https://img.shields.io/badge/plugin-GPL--2.0--or--later-green" />
   <img alt="companion license" src="https://img.shields.io/badge/companion-MIT-blue" />
   <img alt="php" src="https://img.shields.io/badge/PHP-%3E%3D8.1-777bb4" />
@@ -38,8 +38,9 @@ without turning every task into broad shell access or dozens of tiny tool calls.
   validators, audit logs, sandbox recovery, and production-safe mode are part
   of the ability layer.
 - **Fast agent workflows:** context bootstrap, workflow preflight, compact tool
-  profiles, batch Elementor mutations, bulk content upserts, and background
-  WP-CLI jobs keep MCP sessions small and useful.
+  profiles, Theme Builder apply-template orchestration, CPT/ACF Loop Grid
+  flows, batch Elementor mutations, bulk content upserts, and background WP-CLI
+  jobs keep MCP sessions small and useful.
 - **Transparent releases:** release notes list shipped assets, compatibility
   work, operator-control changes, and verification commands.
 
@@ -48,7 +49,7 @@ without turning every task into broad shell access or dozens of tiny tool calls.
 | Capability | What Stonewright gives the agent |
 |---|---|
 | Elementor widget intelligence | Reads widget schemas by Content, Style, and Advanced tabs before writing settings. |
-| Fast Elementor and content builds | Applies full page specs, Elementor batch mutations, and CPT/custom-field bulk upserts in a few compact calls instead of many tiny writes. |
+| Fast Elementor and content builds | Applies full page specs, real Theme Builder templates, CPT/ACF Loop Grid flows, Elementor batch mutations, and bulk upserts in a few compact calls instead of many tiny writes. |
 | Block themes and Gutenberg | Works with core blocks, `theme.json`, templates, template parts, patterns, and FSE global styles. |
 | Direct PHP runtime | Executes short PHP snippets through `stonewright/php-execute` inside WordPress with loaded plugins and `$wpdb`. |
 | Persistent memory | Stores project conventions and repeatable lessons across sessions. |
@@ -129,12 +130,18 @@ For Elementor or design-to-WordPress work, prefer the fast path:
 ```text
 stonewright-workflow-preflight
 stonewright-elementor-v3-build-page-from-spec
+stonewright-theme-builder-apply-template
+stonewright-content-model-loop-grid-flow
 stonewright-elementor-v3-batch-mutate
 stonewright-content-bulk-upsert-posts
 ```
 
 Those tools keep token use low by doing validation, backup, diagnostics,
 timing, and many related writes in one compact call.
+For Theme Builder display conditions, call `stonewright-theme-builder-apply-template`
+instead of editing Elementor condition meta by hand. For editable repeated
+content sections, call `stonewright-content-model-loop-grid-flow` instead of
+creating static cards or fanning out CPT, ACF, post, meta, and Loop Grid calls.
 
 ## Optional Companion
 
@@ -146,7 +153,7 @@ Fastest MCP-client setup uses the versioned GitHub release tarball through
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.62/stonewright-companion-1.0.0-alpha.62.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.63/stonewright-companion-1.0.0-alpha.63.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
