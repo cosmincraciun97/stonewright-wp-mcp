@@ -125,6 +125,7 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 		path: z.string().optional(),
 		url: z.string().optional(),
 		user: z.string().optional(),
+		wp_cli_context: z.enum(['auto', 'admin', 'cli', 'frontend']).optional(),
 		context: z.string().optional(),
 		timeoutMs: z.number().int().positive().optional(),
 	};
@@ -326,7 +327,7 @@ function registerWordPressMcpStatusTool(server: McpServer, status: WordPressMcpC
 
 function registerWpCliTools(
 	server: McpServer,
-	commonInput: Record<string, z.ZodOptional<z.ZodString> | z.ZodOptional<z.ZodNumber>>,
+	commonInput: Record<string, z.ZodTypeAny>,
 	env: NodeJS.ProcessEnv,
 	profile: ProxyToolProfile,
 ): void {
@@ -335,7 +336,10 @@ function registerWpCliTools(
 			name,
 			{
 				description: 'Check whether WP-CLI is available and return wp cli info diagnostics. This runs directly inside the Stonewright companion.',
-				inputSchema: commonInput,
+				inputSchema: {
+					...commonInput,
+					deep: z.boolean().optional(),
+				},
 			},
 			async (input) => toolResponse(await wpCliStatus(toWpCliInput(input), undefined, env)),
 		);

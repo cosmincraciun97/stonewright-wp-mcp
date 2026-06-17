@@ -70,7 +70,7 @@ final class BuildSpec extends AbilityKernel {
 			'source'   => isset( $args['source'] ) && is_array( $args['source'] ) ? $args['source'] : new \stdClass(),
 			'page'     => (array) $args['page'],
 			'tokens'   => isset( $args['tokens'] ) && is_array( $args['tokens'] ) ? $args['tokens'] : new \stdClass(),
-			'sections' => (array) $args['sections'],
+			'sections' => self::normalize_sections( (array) $args['sections'] ),
 		];
 
 		$result = Validator::validate( $spec );
@@ -79,5 +79,64 @@ final class BuildSpec extends AbilityKernel {
 		}
 
 		return $result;
+	}
+
+	/**
+	 * @param array<int|string, mixed> $sections
+	 * @return list<array<string, mixed>>
+	 */
+	private static function normalize_sections( array $sections ): array {
+		return array_values(
+			array_map(
+				static fn( mixed $section ): array => self::normalize_section( is_array( $section ) ? $section : [] ),
+				$sections
+			)
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $section
+	 * @return array<string, mixed>
+	 */
+	private static function normalize_section( array $section ): array {
+		if ( isset( $section['blocks'] ) && is_array( $section['blocks'] ) && [] !== $section['blocks'] ) {
+			if ( isset( $section['type'] ) && ! isset( $section['name'] ) ) {
+				$section['name'] = sanitize_text_field( (string) $section['type'] );
+			}
+			unset( $section['type'] );
+			return $section;
+		}
+
+		$blocks = [];
+		if ( isset( $section['heading'] ) && '' !== trim( (string) $section['heading'] ) ) {
+			$blocks[] = [
+				'type' => 'heading',
+				'text' => sanitize_text_field( (string) $section['heading'] ),
+			];
+		}
+		$paragraph = (string) ( $section['paragraph'] ?? $section['text'] ?? '' );
+		if ( '' !== trim( $paragraph ) ) {
+			$blocks[] = [
+				'type' => 'paragraph',
+				'text' => sanitize_textarea_field( $paragraph ),
+			];
+		}
+		if ( isset( $section['button_text'] ) && '' !== trim( (string) $section['button_text'] ) ) {
+			$blocks[] = [
+				'type'  => 'button',
+				'text'  => sanitize_text_field( (string) $section['button_text'] ),
+				'url'   => esc_url_raw( (string) ( $section['button_url'] ?? '#' ) ),
+			];
+		}
+
+		if ( [] !== $blocks ) {
+			$section['blocks'] = $blocks;
+		}
+		if ( isset( $section['type'] ) && ! isset( $section['name'] ) ) {
+			$section['name'] = sanitize_text_field( (string) $section['type'] );
+		}
+		unset( $section['type'], $section['heading'], $section['paragraph'], $section['text'], $section['button_text'], $section['button_url'] );
+
+		return $section;
 	}
 }

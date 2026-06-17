@@ -45,7 +45,9 @@ design reference / image / brief
 
 When the design also needs repeated CPT/post rows with custom fields, create or
 confirm the post type first, then use `stonewright/content-bulk-upsert-posts`
-for the rows and meta in one call. Avoid many `wp post meta update` commands
+for the rows and meta in one call. Each row needs `slug` and `title`; use
+`status` or the WordPress-shaped alias `post_status` for draft/publish/private
+state. Avoid many `wp post meta update` commands
 for page-section libraries, team cards, pricing tables, locations, testimonials,
 or similar structured content.
 

@@ -39,6 +39,7 @@
 | `stonewright/site-set-front-page` | `stonewright-site-set-front-page` | `Site\SetFrontPage` | Promote a published page to the WordPress front page. | Write | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/site-backup-page` | `stonewright-site-backup-page` | `Site\BackupPage` | Creates a Stonewright snapshot of a post or page (content, status, key meta) for safe rollback. | Write | `Permissions::edit_post( $post_id ) (compound)` | No | Yes | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/site-create-revision` | `stonewright-site-create-revision` | `Site\CreateRevision` | Creates a WordPress revision for a post or page. | Read | `Permissions::edit_post( $post_id )` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/site-shortcodes-discover` | `stonewright-site-shortcodes-discover` | `Site\DiscoverShortcodes` | Lists registered shortcode tags and optional safe callback summaries without executing shortcode handlers. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 
 ---
 
@@ -395,7 +396,7 @@
 
 ## Summary
 
-Total abilities registered: **237**
+Total abilities registered: **238**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

@@ -23,10 +23,17 @@ final class Status extends WpCliAbility {
 	}
 
 	public function input_schema(): array {
+		$properties         = $this->common_input_properties();
+		$properties['deep'] = [
+			'type'        => 'boolean',
+			'default'     => true,
+			'description' => 'When true, run extra PHP module, WordPress boot, and database checks.',
+		];
+
 		return [
 			'type'                 => 'object',
 			'additionalProperties' => false,
-			'properties'           => $this->common_input_properties(),
+			'properties'           => $properties,
 		];
 	}
 

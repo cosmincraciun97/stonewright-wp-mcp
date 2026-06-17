@@ -1,0 +1,6 @@
+{
+    "args": {
+        "max": 0
+    },
+    "expect": "error"
+}

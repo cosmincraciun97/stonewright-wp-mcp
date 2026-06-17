@@ -140,6 +140,37 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertTrue( $verified );
 	}
 
+	public function test_compact_mode_returns_hashes_and_delta_refs(): void {
+		$result = ( new ContextBootstrap() )->execute(
+			[
+				'task'         => 'Build an Elementor hero using native widgets, not HTML.',
+				'surface'      => 'elementor',
+				'intent'       => 'write',
+				'responseMode' => 'compact',
+				'knownHashes'  => [
+					'instructions' => 'stale',
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'compact', $result['response_mode'] );
+		self::assertArrayHasKey( 'payload_hashes', $result );
+		self::assertArrayHasKey( 'changed_keys', $result );
+		self::assertContains( 'instructions', $result['changed_keys'] );
+		self::assertArrayHasKey( 'instructions', $result['deltas'] );
+		self::assertArrayHasKey( 'hash', $result['deltas']['instructions'] );
+		self::assertNotEmpty( $result['matched_skill_playbooks'] );
+		self::assertArrayHasKey( 'content_hash', $result['matched_skill_playbooks'][0] );
+		self::assertArrayNotHasKey( 'content', $result['matched_skill_playbooks'][0] );
+		self::assertNotEmpty( $result['memory_entries'] );
+		self::assertArrayHasKey( 'value_hash', $result['memory_entries'][0] );
+		self::assertArrayNotHasKey( 'value', $result['memory_entries'][0] );
+		self::assertArrayHasKey( 'hash', $result['design_implementation_contract'] );
+		self::assertArrayNotHasKey( 'sequence', $result['design_implementation_contract'] );
+	}
+
 	public function test_returns_specialization_guidance_for_field_and_catalog_tasks(): void {
 		$result = ( new ContextBootstrap() )->execute(
 			[

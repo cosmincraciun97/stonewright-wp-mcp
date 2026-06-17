@@ -11,6 +11,7 @@ import {
 	wpCliEnsureReady,
 	wpCliStatus,
 	type ExecFileRunner,
+	type WpCliResult,
 } from '../src/wp-cli.js';
 
 describe('WP-CLI runner', () => {
@@ -32,6 +33,24 @@ describe('WP-CLI runner', () => {
 			'--post_title=Home',
 			'--porcelain',
 		]);
+	});
+
+	it('uses the typed wp_cli_context enum before legacy custom context strings', () => {
+		expect(buildWpCliArgs({
+			command: ['post', 'list'],
+			wp_cli_context: 'admin',
+		})).toEqual(['--context=admin', 'post', 'list']);
+
+		expect(buildWpCliArgs({
+			command: ['post', 'list'],
+			wp_cli_context: 'frontend',
+			context: 'custom-loader',
+		})).toEqual(['--context=frontend', 'post', 'list']);
+
+		expect(() => buildWpCliArgs({
+			command: ['post', 'list'],
+			wp_cli_context: 'not-real' as 'admin',
+		})).toThrow(/wp_cli_context/i);
 	});
 
 	it('blocks arbitrary PHP and interactive shell entry points', () => {
@@ -386,6 +405,54 @@ describe('WP-CLI runner', () => {
 		}
 	});
 
+	it('adds LocalWP database ini hints when a wp-config DB_HOST port is detected', async () => {
+		const temp = mkdtempSync(join(tmpdir(), 'stonewright-wpcli-localwp-ini-'));
+		try {
+			const wpRoot = join(temp, 'site', 'app', 'public');
+			const pharPath = join(temp, 'LocalWP', 'resources', 'extraResources', 'bin', 'wp-cli', 'wp-cli.phar');
+			const phpPath = join(temp, 'php', 'php.exe');
+			const iniPath = join(temp, 'conf', 'php', 'php.ini');
+			mkdirSync(wpRoot, { recursive: true });
+			mkdirSync(resolve(pharPath, '..'), { recursive: true });
+			mkdirSync(resolve(phpPath, '..'), { recursive: true });
+			mkdirSync(resolve(iniPath, '..'), { recursive: true });
+			writeFileSync(join(wpRoot, 'wp-config.php'), "<?php\ndefine('DB_HOST', '127.0.0.1:10015');\n");
+			writeFileSync(pharPath, 'wp-cli-phar');
+			writeFileSync(phpPath, 'php-bin');
+			writeFileSync(iniPath, 'memory_limit=256M');
+
+			const calls: Array<{ args: string[] }> = [];
+			const runner: ExecFileRunner = (_file, args) => {
+				calls.push({ args });
+				return Promise.resolve({ stdout: '{}', stderr: '', exitCode: 0 });
+			};
+
+			await runWpCli(
+				{
+					command: ['cli', 'info', '--format=json'],
+					path: wpRoot,
+				},
+				runner,
+				{
+					STONEWRIGHT_WP_ROOT: wpRoot,
+					STONEWRIGHT_WP_CLI_PHP_BIN: phpPath,
+					STONEWRIGHT_WP_CLI_PHAR_PATH: pharPath,
+					STONEWRIGHT_WP_CLI_PHP_INI: iniPath,
+					STONEWRIGHT_WP_CLI_INSTALL_DIR: join(temp, 'cache'),
+				} as NodeJS.ProcessEnv,
+			);
+
+			const usedIni = calls[0]?.args[1];
+			expect(calls[0]?.args[0]).toBe('-c');
+			expect(usedIni).not.toBe(iniPath);
+			const contents = readFileSync(String(usedIni), 'utf8');
+			expect(contents).toContain('mysqli.default_port=10015');
+			expect(contents).toContain('pdo_mysql.default_socket=');
+		} finally {
+			rmSync(temp, { recursive: true, force: true });
+		}
+	});
+
 	it('installs WP-CLI phar into the Stonewright cache and reuses it for future commands', async () => {
 		const temp = mkdtempSync(join(tmpdir(), 'stonewright-wpcli-install-'));
 		try {
@@ -504,6 +571,147 @@ describe('WP-CLI runner', () => {
 
 			expect(calls[0]?.cwd).toBe(resolve(wpRoot));
 			expect(calls[0]?.args).toContain(`--path=${resolve(wpRoot)}`);
+		} finally {
+			rmSync(temp, { recursive: true, force: true });
+		}
+	});
+
+	it('returns deep WP-CLI health diagnostics with PHP, WordPress, DB, and LocalWP signals', async () => {
+		const temp = mkdtempSync(join(tmpdir(), 'stonewright-wpcli-health-'));
+		try {
+			const wpRoot = join(temp, 'site', 'app', 'public');
+			const phpPath = join(temp, 'php', 'php.exe');
+			const pharPath = join(temp, 'wp-cli.phar');
+			const iniPath = join(temp, 'conf', 'php.ini');
+			mkdirSync(wpRoot, { recursive: true });
+			mkdirSync(resolve(phpPath, '..'), { recursive: true });
+			mkdirSync(resolve(iniPath, '..'), { recursive: true });
+			writeFileSync(join(wpRoot, 'wp-config.php'), "<?php\ndefine('DB_HOST', 'localhost:10015');\n");
+			writeFileSync(phpPath, 'php-bin');
+			writeFileSync(pharPath, 'wp-cli-phar');
+			writeFileSync(iniPath, 'memory_limit=256M');
+
+			const runner: ExecFileRunner = (file, args) => {
+				if (file === phpPath && args[0] === '--ini') {
+					return Promise.resolve({
+						stdout: `Loaded Configuration File: ${iniPath}\nScan for additional .ini files in: (none)\n`,
+						stderr: '',
+						exitCode: 0,
+					});
+				}
+				if (file === phpPath && args[0] === '-m') {
+					return Promise.resolve({ stdout: "Core\njson\nmysqli\n", stderr: '', exitCode: 0 });
+				}
+				if (args.includes('core') && args.includes('is-installed')) {
+					return Promise.resolve({ stdout: '', stderr: '', exitCode: 0 });
+				}
+				if (args.includes('db') && args.includes('check')) {
+					return Promise.resolve({
+						stdout: '',
+						stderr: 'Error establishing a database connection',
+						exitCode: 1,
+					});
+				}
+				return Promise.resolve({
+					stdout: JSON.stringify({
+						wp_cli_version: '2.12.0',
+						php_binary_path: phpPath,
+						php_ini_loaded_file: iniPath,
+					}),
+					stderr: '',
+					exitCode: 0,
+				});
+			};
+
+			const result = await wpCliStatus(
+				{ path: wpRoot, deep: true },
+				runner,
+				{
+					STONEWRIGHT_WP_ROOT: wpRoot,
+					STONEWRIGHT_WP_CLI_PHP_BIN: phpPath,
+					STONEWRIGHT_WP_CLI_PHAR_PATH: pharPath,
+					STONEWRIGHT_WP_CLI_PHP_INI: iniPath,
+				} as NodeJS.ProcessEnv,
+			) as WpCliResult;
+
+			expect(result.ok).toBe(true);
+			expect(result.default_wp_root).toBe(resolve(wpRoot));
+			expect(result.diagnostics).toMatchObject({
+				php: {
+					ini_loaded: iniPath,
+					extensions: {
+						mysqli: true,
+						pdo_mysql: false,
+					},
+				},
+				wordpress: {
+					root_ok: true,
+					boot_ok: true,
+					db_ok: false,
+				},
+				localwp: {
+					db_host: {
+						raw: 'localhost:10015',
+						port: 10015,
+					},
+				},
+			});
+			expect(result.recommendations).toContain('Enable the pdo_mysql PHP extension for WP-CLI if database-backed commands fail.');
+			expect(result.recommendations).toContain('Fix the WordPress database connection shown by wp db check before running write commands.');
+		} finally {
+			rmSync(temp, { recursive: true, force: true });
+		}
+	});
+
+	it('caches a successful status WP root as the default path for later commands', async () => {
+		const temp = mkdtempSync(join(tmpdir(), 'stonewright-wpcli-cache-root-'));
+		try {
+			const wpRoot = join(temp, 'app', 'public');
+			mkdirSync(wpRoot, { recursive: true });
+			writeFileSync(join(wpRoot, 'wp-config.php'), '<?php');
+			const calls: Array<{ cwd: string; args: string[] }> = [];
+			const runner: ExecFileRunner = (_file, args, options) => {
+				calls.push({ cwd: options.cwd, args });
+				return Promise.resolve({ stdout: '{}', stderr: '', exitCode: 0 });
+			};
+
+			await wpCliStatus(
+				{
+					path: wpRoot,
+					deep: false,
+				},
+				runner,
+				{ STONEWRIGHT_WP_CLI_BIN: 'wp' } as NodeJS.ProcessEnv,
+			);
+			await runWpCli(
+				{ command: ['plugin', 'list'] },
+				runner,
+				{ STONEWRIGHT_WP_CLI_BIN: 'wp' } as NodeJS.ProcessEnv,
+			);
+
+			expect(calls[1]?.cwd).toBe(resolve(wpRoot));
+			expect(calls[1]?.args).toContain(`--path=${resolve(wpRoot)}`);
+		} finally {
+			rmSync(temp, { recursive: true, force: true });
+		}
+	});
+
+	it('explains when the selected cwd is not a WordPress root', async () => {
+		const temp = mkdtempSync(join(tmpdir(), 'stonewright-wpcli-not-root-'));
+		try {
+			const result = await wpCliStatus(
+				{ cwd: temp, deep: false },
+				() => Promise.resolve({ stdout: '{}', stderr: '', exitCode: 0 }),
+				{ STONEWRIGHT_WP_CLI_BIN: 'wp' } as NodeJS.ProcessEnv,
+			) as WpCliResult;
+
+			expect(result.diagnostics).toMatchObject({
+				wordpress: {
+					root_ok: false,
+					root: '',
+				},
+			});
+			expect(result.recommendations).toContain('Set path or STONEWRIGHT_WP_ROOT to the WordPress directory containing wp-config.php.');
 		} finally {
 			rmSync(temp, { recursive: true, force: true });
 		}

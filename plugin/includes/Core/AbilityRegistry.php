@@ -142,6 +142,7 @@ use Stonewright\WpMcp\Abilities\Security\IssueConfirmationToken;
 use Stonewright\WpMcp\Abilities\Site\BackupPage as SiteBackupPage;
 use Stonewright\WpMcp\Abilities\Site\Capabilities;
 use Stonewright\WpMcp\Abilities\Site\CreateRevision;
+use Stonewright\WpMcp\Abilities\Site\DiscoverShortcodes;
 use Stonewright\WpMcp\Abilities\Site\Environment;
 use Stonewright\WpMcp\Abilities\Site\Health;
 use Stonewright\WpMcp\Abilities\Site\Info;
@@ -176,6 +177,7 @@ final class AbilityRegistry {
 			SetFrontPage::class,
 			SiteBackupPage::class,
 			CreateRevision::class,
+			DiscoverShortcodes::class,
 
 			// Content.
 			CreatePage::class,

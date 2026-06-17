@@ -191,4 +191,58 @@ final class BatchMutateTest extends TestCase {
 		self::assertSame( 'stonewright_confirmation_required', $result->get_error_code() );
 		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
 	}
+
+	public function test_batch_accepts_compact_aliases_matching_skill_examples(): void {
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 501,
+				'dry_run'    => true,
+				'operations' => [
+					[
+						'type'     => 'container',
+						'op_id'    => 'inner',
+						'parent'   => 'root',
+						'settings' => [ 'layout' => 'flex' ],
+					],
+					[
+						'type'     => 'widget',
+						'op_id'    => 'headline',
+						'parent'   => '@inner',
+						'widget'   => 'heading',
+						'settings' => [ 'title' => 'Before' ],
+					],
+					[
+						'type'     => 'update',
+						'target'   => '@headline',
+						'settings' => [ 'title' => 'After' ],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 3, $result['applied'] );
+		self::assertSame( 0, $result['failed'] );
+		self::assertSame( 'After', $result['preview'][0]['elements'][0]['elements'][0]['settings']['title'] );
+	}
+
+	public function test_remove_alias_requires_confirmation_in_production_safe_mode(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 501,
+				'operations' => [
+					[
+						'type'   => 'remove',
+						'target' => 'root',
+					],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_confirmation_required', $result->get_error_code() );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+	}
 }

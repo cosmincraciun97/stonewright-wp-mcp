@@ -19,9 +19,13 @@ bundled renderer version.
       },
       "sections": [
         {
+          "id": "hero",
           "type": "hero",
-          "heading": "Test heading",
-          "background": { "color": "#0057FF" }
+          "background": { "color": "#0057FF" },
+          "blocks": [
+            { "type": "heading", "level": 1, "text": "Test heading" },
+            { "type": "paragraph", "text": "Rendered from a validator-valid spec." }
+          ]
         }
       ]
     },

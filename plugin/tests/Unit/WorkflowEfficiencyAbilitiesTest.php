@@ -58,6 +58,29 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright/elementor-v3-apply-bundle', $names );
 	}
 
+	public function test_workflow_preflight_compact_mode_returns_hashes_and_refs(): void {
+		$result = ( new WorkflowPreflight() )->execute(
+			[
+				'task'         => 'Build an Elementor page from a Figma visual reference.',
+				'surface'      => 'elementor',
+				'intent'       => 'write',
+				'responseMode' => 'compact',
+				'knownHashes'  => [
+					'auth_guidance' => 'stale',
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 'compact', $result['response_mode'] );
+		self::assertArrayHasKey( 'payload_hashes', $result );
+		self::assertArrayHasKey( 'changed_keys', $result );
+		self::assertContains( 'auth_guidance', $result['changed_keys'] );
+		self::assertArrayHasKey( 'design_contract_ref', $result['fast_path'] );
+		self::assertArrayHasKey( 'hash', $result['fast_path']['design_contract_ref'] );
+		self::assertArrayNotHasKey( 'design_implementation_contract', $result['fast_path'] );
+	}
+
 	public function test_tool_profile_returns_compact_elementor_design_fast_path(): void {
 		$ability = AbilityRegistry::ability_by_name( 'stonewright/tool-profile' );
 
@@ -544,6 +567,89 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertSame( 'full', $full['response_mode'] );
 		self::assertFalse( $full['defaults_omitted'] );
 		self::assertSame( 'Contract', $full['controls'][0]['default'] );
+	}
+
+	public function test_widget_schema_filters_tabs_controls_and_max_controls(): void {
+		$original_instance = \Elementor\Plugin::$instance;
+		\Elementor\Plugin::$instance = (object) [
+			'widgets_manager' => new class() {
+				public function get_widget_types( ?string $name = null ): ?object {
+					if ( 'Filtered' !== $name ) {
+						return null;
+					}
+
+					return new class() {
+						public function get_title(): string {
+							return 'Filtered Widget';
+						}
+
+						/**
+						 * @return list<string>
+						 */
+						public function get_categories(): array {
+							return [ 'basic' ];
+						}
+
+						/**
+						 * @return array<string, array<string, mixed>>
+						 */
+						public function get_controls(): array {
+							return [
+								'title'      => [
+									'type'    => 'text',
+									'label'   => 'Title',
+									'default' => 'Title',
+									'tab'     => 'content',
+									'section' => 'content',
+								],
+								'text_color' => [
+									'type'    => 'color',
+									'label'   => 'Text Color',
+									'default' => '#111111',
+									'tab'     => 'style',
+									'section' => 'style',
+								],
+								'background_color' => [
+									'type'    => 'color',
+									'label'   => 'Background Color',
+									'default' => '#ffffff',
+									'tab'     => 'style',
+									'section' => 'style',
+								],
+							];
+						}
+					};
+				}
+			},
+		];
+
+		try {
+			$result = ( new GetWidgetSchema() )->execute(
+				[
+					'name'          => 'Filtered',
+					'tabFilter'     => [ 'Style' ],
+					'controlFilter' => [ 'text' ],
+					'maxControls'   => 1,
+				]
+			);
+		} finally {
+			\Elementor\Plugin::$instance = $original_instance;
+		}
+
+		self::assertIsArray( $result );
+		self::assertCount( 1, $result['controls'] );
+		self::assertSame( 'text_color', $result['controls'][0]['name'] );
+		self::assertSame( 1, $result['tab_groups']['Style']['count'] );
+		self::assertSame( 0, $result['tab_groups']['Content']['count'] );
+		self::assertArrayNotHasKey( 'default', $result['controls'][0] );
+		self::assertSame(
+			[
+				'tab_filter'     => [ 'Style' ],
+				'control_filter' => [ 'text' ],
+				'max_controls'   => 1,
+			],
+			$result['filters']
+		);
 	}
 
 	public function test_media_upload_batch_returns_per_item_results(): void {

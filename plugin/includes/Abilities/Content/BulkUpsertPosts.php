@@ -52,6 +52,11 @@ final class BulkUpsertPosts extends AbilityKernel {
 							'content'    => [ 'type' => 'string' ],
 							'excerpt'    => [ 'type' => 'string' ],
 							'status'     => [ 'type' => 'string', 'enum' => [ 'draft', 'publish', 'private', 'pending', 'future' ] ],
+							'post_status' => [
+								'type'        => 'string',
+								'enum'        => [ 'draft', 'publish', 'private', 'pending', 'future' ],
+								'description' => 'Alias for status; accepted for WordPress payload alignment.',
+							],
 							'parent'     => [ 'type' => 'integer', 'minimum' => 0 ],
 							'menu_order' => [ 'type' => 'integer' ],
 							'meta'       => [ 'type' => 'object' ],
@@ -110,7 +115,7 @@ final class BulkUpsertPosts extends AbilityKernel {
 				);
 			}
 
-			$status      = (string) ( $item['status'] ?? '' );
+			$status      = self::item_status( $item );
 			$publish_cap = Permissions::publish_cap_for_status( $post_type, $status );
 			if ( null !== $publish_cap && ! current_user_can( $publish_cap ) ) {
 				return new \WP_Error(
@@ -140,8 +145,13 @@ final class BulkUpsertPosts extends AbilityKernel {
 
 				foreach ( (array) ( $args['items'] ?? [] ) as $index => $item ) {
 					$item = is_array( $item ) ? $item : [];
+					$validation = self::validate_item( $item, $index );
+					if ( is_wp_error( $validation ) ) {
+						return $validation;
+					}
 					$id   = $this->target_post_id( $item, $post_type );
 					$slug = sanitize_title( (string) ( $item['slug'] ?? '' ) );
+					$status = self::item_status( $item );
 
 					$payload = [
 						'post_type'  => $post_type,
@@ -155,8 +165,8 @@ final class BulkUpsertPosts extends AbilityKernel {
 					if ( array_key_exists( 'excerpt', $item ) ) {
 						$payload['post_excerpt'] = sanitize_text_field( (string) $item['excerpt'] );
 					}
-					if ( array_key_exists( 'status', $item ) ) {
-						$payload['post_status'] = (string) $item['status'];
+					if ( '' !== $status ) {
+						$payload['post_status'] = $status;
 					} elseif ( 0 === $id ) {
 						$payload['post_status'] = 'draft';
 					}
@@ -215,6 +225,47 @@ final class BulkUpsertPosts extends AbilityKernel {
 				];
 			}
 		);
+	}
+
+	/**
+	 * @param array<string, mixed> $item
+	 * @return true|\WP_Error
+	 */
+	private static function validate_item( array $item, int $index ): bool|\WP_Error {
+		$slug  = sanitize_title( (string) ( $item['slug'] ?? '' ) );
+		$title = sanitize_text_field( (string) ( $item['title'] ?? '' ) );
+		if ( '' === $slug || '' === $title ) {
+			return new \WP_Error(
+				'stonewright_invalid_content_item',
+				__( 'Each bulk upsert item requires a non-empty slug and title.', 'stonewright' ),
+				[ 'status' => 400, 'failed_index' => $index ]
+			);
+		}
+
+		$status = self::item_status( $item );
+		if ( '' !== $status && ! in_array( $status, self::allowed_statuses(), true ) ) {
+			return new \WP_Error(
+				'stonewright_invalid_post_status',
+				__( 'Invalid post status for bulk upsert item.', 'stonewright' ),
+				[ 'status' => 400, 'failed_index' => $index, 'post_status' => $status ]
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * @param array<string, mixed> $item
+	 */
+	private static function item_status( array $item ): string {
+		return sanitize_key( (string) ( $item['post_status'] ?? $item['status'] ?? '' ) );
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	private static function allowed_statuses(): array {
+		return [ 'draft', 'publish', 'private', 'pending', 'future' ];
 	}
 
 	/**

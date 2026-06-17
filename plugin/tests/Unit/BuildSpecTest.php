@@ -48,4 +48,31 @@ final class BuildSpecTest extends TestCase {
 		$this->assertInstanceOf( \WP_Error::class, $result );
 		$this->assertSame( 'stonewright_spec_invalid', $result->get_error_code() );
 	}
+
+	public function test_builds_validator_valid_blocks_from_section_shorthand(): void {
+		$ability = new BuildSpec();
+
+		$result = $ability->execute(
+			[
+				'page'     => [ 'title' => 'Landing page' ],
+				'sections' => [
+					[
+						'id'          => 'hero',
+						'type'        => 'hero',
+						'heading'     => 'Launch fast',
+						'paragraph'   => 'Native widgets first.',
+						'button_text' => 'Start',
+						'button_url'  => 'https://example.test/start',
+					],
+				],
+			]
+		);
+
+		$this->assertNotInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'hero', $result['sections'][0]['id'] );
+		$this->assertSame( 'heading', $result['sections'][0]['blocks'][0]['type'] );
+		$this->assertSame( 'Launch fast', $result['sections'][0]['blocks'][0]['text'] );
+		$this->assertSame( 'paragraph', $result['sections'][0]['blocks'][1]['type'] );
+		$this->assertSame( 'button', $result['sections'][0]['blocks'][2]['type'] );
+	}
 }

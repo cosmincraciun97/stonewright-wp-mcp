@@ -60,6 +60,16 @@ final class WorkflowPreflight extends AbilityKernel {
 					'default'     => false,
 					'description' => 'Inline the full design implementation contract. Defaults to false; use design_contract_ref for compact startup.',
 				],
+				'responseMode'            => [
+					'type'        => 'string',
+					'enum'        => [ 'full', 'compact' ],
+					'default'     => 'full',
+					'description' => 'Use compact to return hashes and small refs for long context sections.',
+				],
+				'knownHashes'             => [
+					'type'        => 'object',
+					'description' => 'Optional client-known payload hashes keyed by response field, used to return changed/unchanged key lists.',
+				],
 			],
 		];
 	}
@@ -93,6 +103,10 @@ final class WorkflowPreflight extends AbilityKernel {
 				],
 				'site'          => [ 'type' => 'object' ],
 				'context'       => [ 'type' => 'object' ],
+				'response_mode' => [ 'type' => 'string' ],
+				'payload_hashes' => [ 'type' => 'object' ],
+				'changed_keys'  => [ 'type' => 'array' ],
+				'unchanged_keys' => [ 'type' => 'array' ],
 			],
 			'required'   => [ 'ok', 'context_token', 'mode', 'auth_guidance', 'fast_path' ],
 		];
@@ -157,7 +171,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			}
 		}
 
-		return [
+		$response = [
 			'ok'            => true,
 			'context_token' => (string) ( $context['context_token'] ?? '' ),
 			'expires_at'    => (string) ( $context['expires_at'] ?? '' ),
@@ -183,6 +197,104 @@ final class WorkflowPreflight extends AbilityKernel {
 				'required_followups'      => $context['required_followups'] ?? [],
 			],
 		];
+
+		if ( 'compact' === (string) ( $args['responseMode'] ?? 'full' ) ) {
+			return self::compact_response( $response, is_array( $args['knownHashes'] ?? null ) ? $args['knownHashes'] : [] );
+		}
+
+		$response['response_mode'] = 'full';
+		return $response;
+	}
+
+	/**
+	 * @param array<string, mixed> $response
+	 * @param array<string, mixed> $known_hashes
+	 * @return array<string, mixed>
+	 */
+	private static function compact_response( array $response, array $known_hashes ): array {
+		$hash_keys = [ 'auth_guidance', 'fast_path', 'elementor', 'site', 'context' ];
+		[ $payload_hashes, $changed, $unchanged ] = self::hash_delta( $response, $known_hashes, $hash_keys );
+
+		$response['response_mode']  = 'compact';
+		$response['payload_hashes'] = $payload_hashes;
+		$response['changed_keys']   = $changed;
+		$response['unchanged_keys'] = $unchanged;
+
+		if ( isset( $response['fast_path']['visual_build_gate'] ) ) {
+			$response['fast_path']['visual_build_gate'] = self::compact_object_ref( 'visual_build_gate', $response['fast_path']['visual_build_gate'] );
+		}
+		if ( isset( $response['fast_path']['design_implementation_contract'] ) ) {
+			unset( $response['fast_path']['design_implementation_contract'] );
+		}
+		if ( isset( $response['context']['memory_entries'] ) && is_array( $response['context']['memory_entries'] ) ) {
+			$response['context']['memory_entries'] = self::compact_memory_entries( $response['context']['memory_entries'] );
+		}
+
+		return $response;
+	}
+
+	/**
+	 * @param array<string, mixed> $response
+	 * @param array<string, mixed> $known_hashes
+	 * @param list<string>        $keys
+	 * @return array{0:array<string,string>,1:list<string>,2:list<string>}
+	 */
+	private static function hash_delta( array $response, array $known_hashes, array $keys ): array {
+		$payload_hashes = [];
+		$changed        = [];
+		$unchanged      = [];
+
+		foreach ( $keys as $key ) {
+			$hash                   = self::hash_value( $response[ $key ] ?? null );
+			$payload_hashes[ $key ] = $hash;
+			if ( isset( $known_hashes[ $key ] ) && (string) $known_hashes[ $key ] === $hash ) {
+				$unchanged[] = $key;
+			} else {
+				$changed[] = $key;
+			}
+		}
+
+		return [ $payload_hashes, $changed, $unchanged ];
+	}
+
+	private static function hash_value( mixed $value ): string {
+		return hash( 'sha256', wp_json_encode( $value ) ?: serialize( $value ) );
+	}
+
+	/**
+	 * @param mixed $value
+	 * @return array<string, mixed>
+	 */
+	private static function compact_object_ref( string $key, mixed $value ): array {
+		return [
+			'compact' => true,
+			'key'     => $key,
+			'hash'    => self::hash_value( $value ),
+			'length'  => strlen( wp_json_encode( $value ) ?: '' ),
+		];
+	}
+
+	/**
+	 * @param mixed $entries
+	 * @return list<array<string, mixed>>
+	 */
+	private static function compact_memory_entries( mixed $entries ): array {
+		$out = [];
+		foreach ( is_array( $entries ) ? $entries : [] as $entry ) {
+			if ( ! is_array( $entry ) ) {
+				continue;
+			}
+			$value = $entry['value'] ?? $entry['value_json'] ?? null;
+			$out[] = [
+				'id'         => (string) ( $entry['id'] ?? '' ),
+				'type'       => (string) ( $entry['type'] ?? '' ),
+				'scope'      => (string) ( $entry['scope'] ?? '' ),
+				'memory_key' => (string) ( $entry['memory_key'] ?? '' ),
+				'name'       => (string) ( $entry['name'] ?? '' ),
+				'value_hash' => self::hash_value( $value ),
+			];
+		}
+		return $out;
 	}
 
 	/**
@@ -241,6 +353,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			'inlined'            => $inlined,
 			'ability'            => 'stonewright/design-implementation-contract',
 			'mcp_tool'           => self::mcp_tool_name( 'stonewright/design-implementation-contract' ),
+			'hash'               => self::hash_value( $contract ),
 			'load_when'          => 'Before the first visual Elementor write, or when planning native widget and global-style mapping.',
 			'sequence'           => $contract['sequence'],
 			'global_style_tools' => $contract['global_styles_first']['tools'],

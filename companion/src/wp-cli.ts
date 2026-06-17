@@ -10,11 +10,15 @@ export interface WpCliRunInput {
 	path?: string;
 	url?: string;
 	user?: string;
+	wp_cli_context?: WpCliContext;
 	context?: string;
 	timeoutMs?: number;
 	parseJson?: boolean;
 	responseMode?: 'full' | 'summary';
+	deep?: boolean;
 }
+
+export type WpCliContext = 'auto' | 'admin' | 'cli' | 'frontend';
 
 export interface WpCliBatchRunInput extends Omit<WpCliRunInput, 'command'> {
 	commands: string[][];
@@ -172,6 +176,7 @@ const DEFAULT_MAX_BUFFER = 10 * 1024 * 1024;
 const MAX_JOBS = 100;
 const BLOCKED_COMMAND_GROUPS = new Set(['eval', 'eval-file', 'shell', 'package']);
 const BLOCKED_GLOBAL_FLAGS = ['--exec', '--require', '--prompt'];
+const WP_CLI_CONTEXTS = new Set<WpCliContext>(['auto', 'admin', 'cli', 'frontend']);
 const WP_CLI_PHAR_URL = 'https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar';
 
 interface WpCliJobRecord {
@@ -187,6 +192,12 @@ interface WpCliJobRecord {
 }
 
 const wpCliJobs = new Map<string, WpCliJobRecord>();
+let cachedDefaultWpRoot: string | undefined;
+
+function validCachedWpRoot(): string | undefined {
+	if (!cachedDefaultWpRoot) return undefined;
+	return existsSync(join(cachedDefaultWpRoot, 'wp-config.php')) ? cachedDefaultWpRoot : undefined;
+}
 
 export function validateWpCliCommand(command: string[]): string[] {
 	if (!Array.isArray(command) || command.length === 0) {
@@ -220,13 +231,31 @@ export function validateWpCliCommand(command: string[]): string[] {
 	return clean;
 }
 
+function normalizeWpCliContext(input: WpCliRunInput): string | undefined {
+	const typedContext = input.wp_cli_context;
+	if (typedContext !== undefined) {
+		if (!WP_CLI_CONTEXTS.has(typedContext)) {
+			throw new Error('Invalid wp_cli_context. Use one of: auto, admin, cli, frontend.');
+		}
+		return typedContext;
+	}
+
+	const legacyContext = input.context?.trim();
+	if (!legacyContext) return undefined;
+	if (legacyContext.includes('\0')) {
+		throw new Error('WP-CLI context cannot contain NUL bytes.');
+	}
+	return legacyContext;
+}
+
 export function buildWpCliArgs(input: WpCliRunInput): string[] {
 	const args: string[] = [];
 
 	if (input.path) args.push(`--path=${input.path}`);
 	if (input.url) args.push(`--url=${input.url}`);
 	if (input.user) args.push(`--user=${input.user}`);
-	if (input.context) args.push(`--context=${input.context}`);
+	const context = normalizeWpCliContext(input);
+	if (context) args.push(`--context=${context}`);
 
 	return [...args, ...validateWpCliCommand(input.command)];
 }
@@ -237,11 +266,15 @@ export async function runWpCli(
 	env: NodeJS.ProcessEnv = process.env,
 ): Promise<WpCliCommandResult> {
 	const started = Date.now();
-	const cwdFromPath = input.cwd === undefined && input.path ? resolve(input.path) : undefined;
+	const defaultPath = !input.path && !input.cwd && !cleanEnvPath(env['STONEWRIGHT_WP_ROOT'])
+		? validCachedWpRoot()
+		: undefined;
+	const rawPath = input.path ?? defaultPath;
+	const cwdFromPath = input.cwd === undefined && rawPath ? resolve(rawPath) : undefined;
 	const cwd = resolveWorkingDirectory(input.cwd ?? cwdFromPath, env);
 	const safeInput = {
 		...input,
-		...(input.path ? { path: cwdFromPath ?? resolveAllowedPath(input.path, env, cwd) } : {}),
+		...(rawPath ? { path: cwdFromPath ?? resolveAllowedPath(rawPath, env, cwd) } : {}),
 	};
 	const invocation = resolveWpCliInvocation(env, cwd);
 	const args = [...invocation.prefixArgs, ...buildWpCliArgs(safeInput)];
@@ -514,7 +547,7 @@ export function resolveWpCliInvocation(env: NodeJS.ProcessEnv, cwd: string): WpC
 		return phpPharInvocation(
 			explicitPhp,
 			explicitPhar,
-			resolvePhpIniForInvocation(cleanEnvPath(env['STONEWRIGHT_WP_CLI_PHP_INI']), explicitPhp, env),
+			resolvePhpIniForInvocation(cleanEnvPath(env['STONEWRIGHT_WP_CLI_PHP_INI']), explicitPhp, env, cwd),
 			'env_php_phar',
 		);
 	}
@@ -535,7 +568,7 @@ export function resolveWpCliInvocation(env: NodeJS.ProcessEnv, cwd: string): WpC
 			return phpPharInvocation(
 				discoveredPhp,
 				discoveredPhar,
-				resolvePhpIniForInvocation(cleanEnvPath(env['STONEWRIGHT_WP_CLI_PHP_INI']) ?? discoverPhpIni(cwd), discoveredPhp, env),
+				resolvePhpIniForInvocation(cleanEnvPath(env['STONEWRIGHT_WP_CLI_PHP_INI']) ?? discoverPhpIni(cwd), discoveredPhp, env, cwd),
 				'discovered_php_phar',
 			);
 		}
@@ -627,15 +660,201 @@ export async function wpCliStatus(
 	runner?: ExecFileRunner,
 	env: NodeJS.ProcessEnv = process.env,
 ): Promise<WpCliCommandResult> {
-	return runWpCli(
+	const activeRunner = runner ?? defaultExecFileRunner;
+	const result = await runWpCli(
 		{
 			...input,
 			command: ['cli', 'info', '--format=json'],
 			parseJson: true,
+			responseMode: 'full',
 		},
-		runner,
+		activeRunner,
 		env,
-	);
+	) as WpCliResult;
+	const diagnostics = await buildWpCliStatusDiagnostics(result, input, activeRunner, env);
+	const recommendations = buildWpCliStatusRecommendations(diagnostics);
+	const defaultRoot = diagnostics.wordpress.root_ok ? diagnostics.wordpress.root : '';
+
+	if (result.ok && defaultRoot !== '') {
+		cachedDefaultWpRoot = defaultRoot;
+	}
+
+	return {
+		...result,
+		default_wp_root: defaultRoot,
+		diagnostics,
+		recommendations,
+	};
+}
+
+interface WpCliStatusDiagnostics extends Record<string, unknown> {
+	php: {
+		binary: string;
+		ini_loaded: string;
+		ini_scan: string;
+		extensions: {
+			mysqli: boolean;
+			pdo_mysql: boolean;
+		};
+	};
+	wordpress: {
+		root: string;
+		root_ok: boolean;
+		wp_config: string;
+		boot_ok: boolean | null;
+		db_ok: boolean | null;
+		checks: Array<{
+			name: string;
+			ok: boolean;
+			exit_code: number;
+			stderr: string;
+		}>;
+	};
+	localwp: {
+		detected: boolean;
+		db_host: LocalWpDbHost | null;
+	};
+}
+
+interface LocalWpDbHost extends Record<string, unknown> {
+	raw: string;
+	host: string;
+	port?: number;
+	socket?: string;
+}
+
+async function buildWpCliStatusDiagnostics(
+	result: WpCliResult,
+	input: Partial<WpCliRunInput>,
+	runner: ExecFileRunner,
+	env: NodeJS.ProcessEnv,
+): Promise<WpCliStatusDiagnostics> {
+	const cwd = typeof result.cwd === 'string' && result.cwd !== '' ? result.cwd : resolveWorkingDirectory(input.cwd, env);
+	const explicitPath = typeof input.path === 'string' && input.path.trim() !== ''
+		? resolveAllowedPath(input.path, env, cwd)
+		: undefined;
+	const root = detectWordPressRoot(explicitPath ?? cwd);
+	const wpConfig = root ? join(root, 'wp-config.php') : '';
+	const dbHost = root ? readWpConfigDbHost(root) : null;
+	const phpBinary = detectPhpBinary(result);
+	const options: ExecFileOptions = {
+		cwd,
+		timeout: normaliseTimeout(input.timeoutMs),
+		maxBuffer: DEFAULT_MAX_BUFFER,
+		windowsHide: true,
+		shell: false,
+		env: { ...process.env, ...env },
+	};
+
+	const parsedIni = detectPhpIniFromResult(result);
+	let iniLoaded = parsedIni;
+	let iniScan = '';
+	let mysqli = false;
+	let pdoMysql = false;
+
+	if (phpBinary) {
+		const iniResult = await runner(phpBinary, ['--ini'], options);
+		const parsed = parsePhpIniOutput(iniResult.stdout);
+		iniLoaded = parsed.loaded || iniLoaded;
+		iniScan = parsed.scan;
+
+		if (input.deep !== false) {
+			const modules = parsePhpModules((await runner(phpBinary, ['-m'], options)).stdout);
+			mysqli = modules.has('mysqli');
+			pdoMysql = modules.has('pdo_mysql');
+		}
+	}
+
+	const checks: WpCliStatusDiagnostics['wordpress']['checks'] = [];
+	let bootOk: boolean | null = null;
+	let dbOk: boolean | null = null;
+	if (input.deep !== false && root) {
+		const boot = await runWpCli(
+			{
+				...input,
+				path: root,
+				command: ['core', 'is-installed'],
+				responseMode: 'full',
+			},
+			runner,
+			env,
+		) as WpCliResult;
+		bootOk = boot.ok;
+		checks.push({
+			name: 'core is-installed',
+			ok: boot.ok,
+			exit_code: boot.exit_code,
+			stderr: compactStderr(boot.stderr),
+		});
+
+		const db = await runWpCli(
+			{
+				...input,
+				path: root,
+				command: ['db', 'check'],
+				responseMode: 'full',
+			},
+			runner,
+			env,
+		) as WpCliResult;
+		dbOk = db.ok;
+		checks.push({
+			name: 'db check',
+			ok: db.ok,
+			exit_code: db.exit_code,
+			stderr: compactStderr(db.stderr),
+		});
+	}
+
+	return {
+		php: {
+			binary: phpBinary ?? '',
+			ini_loaded: iniLoaded,
+			ini_scan: iniScan,
+			extensions: {
+				mysqli,
+				pdo_mysql: pdoMysql,
+			},
+		},
+		wordpress: {
+			root: root ?? '',
+			root_ok: Boolean(root),
+			wp_config: wpConfig,
+			boot_ok: bootOk,
+			db_ok: dbOk,
+			checks,
+		},
+		localwp: {
+			detected: Boolean(dbHost),
+			db_host: dbHost,
+		},
+	};
+}
+
+function buildWpCliStatusRecommendations(diagnostics: WpCliStatusDiagnostics): string[] {
+	const recommendations: string[] = [];
+	if (!diagnostics.wordpress.root_ok) {
+		recommendations.push('Set path or STONEWRIGHT_WP_ROOT to the WordPress directory containing wp-config.php.');
+	}
+	if (diagnostics.php.binary === '') {
+		recommendations.push('Set STONEWRIGHT_WP_CLI_PHP_BIN or install PHP so the companion can inspect WP-CLI runtime modules.');
+	}
+	if (!diagnostics.php.extensions.mysqli) {
+		recommendations.push('Enable the mysqli PHP extension for WP-CLI database access.');
+	}
+	if (!diagnostics.php.extensions.pdo_mysql) {
+		recommendations.push('Enable the pdo_mysql PHP extension for WP-CLI if database-backed commands fail.');
+	}
+	if (diagnostics.wordpress.boot_ok === false) {
+		recommendations.push('Fix WordPress bootstrap errors from wp core is-installed before running write commands.');
+	}
+	if (diagnostics.wordpress.db_ok === false) {
+		recommendations.push('Fix the WordPress database connection shown by wp db check before running write commands.');
+	}
+	if (diagnostics.localwp.db_host?.port && diagnostics.php.ini_loaded === '') {
+		recommendations.push('Point STONEWRIGHT_WP_CLI_PHP_INI at the LocalWP PHP ini so the companion can pass matching MySQL defaults.');
+	}
+	return Array.from(new Set(recommendations));
 }
 
 export async function wpCliDiscover(
@@ -771,6 +990,86 @@ function normaliseTimeout(timeoutMs: number | undefined): number {
 	return Math.min(Math.floor(timeoutMs), 10 * 60_000);
 }
 
+function detectWordPressRoot(start: string): string | undefined {
+	for (const candidate of ancestorDirectories(start)) {
+		if (existsSync(join(candidate, 'wp-config.php'))) {
+			return candidate;
+		}
+	}
+	return undefined;
+}
+
+function detectPhpBinary(result: WpCliResult): string | undefined {
+	const parsed = result.parsed_json;
+	if (parsed && typeof parsed === 'object') {
+		const record = parsed as Record<string, unknown>;
+		for (const key of ['php_binary_path', 'php_binary', 'php']) {
+			const value = record[key];
+			if (typeof value === 'string' && value.trim() !== '') return value;
+		}
+	}
+
+	const command = Array.isArray(result.command) ? result.command : [];
+	const executable = typeof command[0] === 'string' ? command[0] : '';
+	if (isPhpExecutable(executable)) return executable;
+	return undefined;
+}
+
+function detectPhpIniFromResult(result: WpCliResult): string {
+	const parsed = result.parsed_json;
+	if (parsed && typeof parsed === 'object') {
+		const record = parsed as Record<string, unknown>;
+		for (const key of ['php_ini_loaded_file', 'php_ini']) {
+			const value = record[key];
+			if (typeof value === 'string' && value.trim() !== '' && value !== '(none)') return value;
+		}
+	}
+
+	const command = Array.isArray(result.command) ? result.command : [];
+	for (let i = 0; i < command.length - 1; i++) {
+		if (command[i] === '-c' && typeof command[i + 1] === 'string') {
+			return String(command[i + 1]);
+		}
+	}
+	return '';
+}
+
+function isPhpExecutable(executable: string): boolean {
+	return /(^|[\\/])php(?:\.exe)?$/i.test(executable) || /^php(?:\.exe)?$/i.test(executable);
+}
+
+function parsePhpIniOutput(stdout: string): { loaded: string; scan: string } {
+	let loaded = '';
+	let scan = '';
+	for (const line of stdout.split(/\r?\n/)) {
+		const loadedMatch = line.match(/^\s*Loaded Configuration File:\s*(.+?)\s*$/i);
+		if (loadedMatch?.[1]) {
+			const value = loadedMatch[1].trim();
+			loaded = value === '(none)' ? '' : value;
+		}
+		const scanMatch = line.match(/^\s*Scan for additional \.ini files in:\s*(.+?)\s*$/i);
+		if (scanMatch?.[1]) {
+			const value = scanMatch[1].trim();
+			scan = value === '(none)' ? '' : value;
+		}
+	}
+	return { loaded, scan };
+}
+
+function parsePhpModules(stdout: string): Set<string> {
+	return new Set(
+		stdout
+			.split(/\r?\n/)
+			.map((line) => line.trim().toLowerCase())
+			.filter(Boolean),
+	);
+}
+
+function compactStderr(stderr: string): string {
+	const trimmed = stderr.trim();
+	return trimmed.length <= 500 ? trimmed : `${trimmed.slice(0, 497)}...`;
+}
+
 function resolveWorkingDirectory(rawCwd: string | undefined, env: NodeJS.ProcessEnv): string {
 	const cwd = resolve(rawCwd ?? env['STONEWRIGHT_WP_ROOT'] ?? process.cwd());
 	const allowed = allowedRoots(env, cwd);
@@ -825,11 +1124,13 @@ function resolvePhpIniForInvocation(
 	phpIni: string | undefined,
 	phpBin: string,
 	env: NodeJS.ProcessEnv,
+	cwd: string,
 ): string | undefined {
-	if (!phpIni || env['STONEWRIGHT_WP_CLI_SANITIZE_PHP_INI'] === '0') {
+	if (env['STONEWRIGHT_WP_CLI_SANITIZE_PHP_INI'] === '0') {
 		return phpIni;
 	}
-	return sanitizePhpIniMissingExtensions(phpIni, phpBin, env) ?? phpIni;
+	const sanitized = phpIni ? sanitizePhpIniMissingExtensions(phpIni, phpBin, env) ?? phpIni : undefined;
+	return augmentPhpIniForLocalWp(sanitized, env, cwd) ?? sanitized;
 }
 
 function sanitizePhpIniMissingExtensions(
@@ -864,6 +1165,103 @@ function sanitizePhpIniMissingExtensions(
 	} catch {
 		return undefined;
 	}
+}
+
+function augmentPhpIniForLocalWp(
+	phpIni: string | undefined,
+	env: NodeJS.ProcessEnv,
+	cwd: string,
+): string | undefined {
+	const root = detectWordPressRoot(cwd);
+	const dbHost = root ? readWpConfigDbHost(root) : null;
+	if (!dbHost || (!dbHost.port && !dbHost.socket)) {
+		return phpIni;
+	}
+
+	try {
+		const original = phpIni && existsSync(phpIni) ? readFileSync(phpIni, 'utf8') : '';
+		const additions = localWpPhpIniAdditions(dbHost);
+		if (additions.length === 0) {
+			return phpIni;
+		}
+		if (original.includes(additions.join('\n'))) {
+			return phpIni;
+		}
+
+		const cacheDir = join(resolveWpCliInstallDir(undefined, env), 'php-ini');
+		mkdirSync(cacheDir, { recursive: true });
+		const hash = createHash('sha256')
+			.update(`${phpIni ?? ''}\0${root}\0${dbHost.raw}\0${original}`)
+			.digest('hex')
+			.slice(0, 16);
+		const augmentedPath = join(cacheDir, `wp-cli-localwp-${hash}.ini`);
+		writeFileSync(
+			augmentedPath,
+			[
+				original.trimEnd(),
+				'; Stonewright LocalWP DB defaults for WP-CLI.',
+				...additions,
+				'',
+			].filter((line, index) => index > 0 || line !== '').join('\n'),
+			{ flag: 'w' },
+		);
+		return augmentedPath;
+	} catch {
+		return phpIni;
+	}
+}
+
+function localWpPhpIniAdditions(dbHost: LocalWpDbHost): string[] {
+	if (dbHost.socket) {
+		return [
+			`mysqli.default_socket=${dbHost.socket}`,
+			`pdo_mysql.default_socket=${dbHost.socket}`,
+		];
+	}
+	if (dbHost.port) {
+		return [
+			`mysqli.default_port=${dbHost.port}`,
+			'pdo_mysql.default_socket=',
+		];
+	}
+	return [];
+}
+
+function readWpConfigDbHost(root: string): LocalWpDbHost | null {
+	try {
+		const config = readFileSync(join(root, 'wp-config.php'), 'utf8');
+		const match = config.match(/define\s*\(\s*['"]DB_HOST['"]\s*,\s*['"]([^'"]+)['"]\s*\)/);
+		if (!match?.[1]) return null;
+		return parseDbHost(match[1]);
+	} catch {
+		return null;
+	}
+}
+
+function parseDbHost(raw: string): LocalWpDbHost {
+	const trimmed = raw.trim();
+	const socketIndex = trimmed.indexOf(':/');
+	if (socketIndex > -1) {
+		return {
+			raw: trimmed,
+			host: trimmed.slice(0, socketIndex),
+			socket: trimmed.slice(socketIndex + 1),
+		};
+	}
+
+	const portMatch = trimmed.match(/^(.+):(\d+)$/);
+	if (portMatch?.[1] && portMatch[2]) {
+		return {
+			raw: trimmed,
+			host: portMatch[1],
+			port: Number(portMatch[2]),
+		};
+	}
+
+	return {
+		raw: trimmed,
+		host: trimmed,
+	};
 }
 
 function resolvePhpExtensionDir(ini: string, phpIni: string, phpBin: string): string {

@@ -121,6 +121,8 @@ For Loop Grid sections backed by CPT/custom fields, keep the data path compact:
 confirm/register the CPT, write rows and meta with
 `stonewright/content-bulk-upsert-posts`, create the loop item template, then add
 or update the Loop Grid with one `stonewright/elementor-v3-batch-mutate` call.
+Bulk rows require `slug` and `title`; use `status` or `post_status` for the
+WordPress post state.
 Use Elementor dynamic tags (`__dynamic__`) for post title or custom-field
 headings inside loop templates; do not rely on many manual meta updates.
 

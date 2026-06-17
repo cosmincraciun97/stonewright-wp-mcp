@@ -56,21 +56,43 @@ final class BatchMutate extends AbilityKernel {
 								'type' => 'string',
 								'enum' => [ 'add_container', 'add_widget', 'update_element', 'move_element', 'remove_element' ],
 							],
+							'type'                   => [
+								'type'        => 'string',
+								'description' => 'Compact alias for action: container, widget, update, move, remove.',
+							],
+							'op'                     => [
+								'type'        => 'string',
+								'description' => 'Alias for action/type.',
+							],
 							'op_id'                  => [ 'type' => 'string' ],
 							'parent_id'              => [ 'type' => 'string' ],
 							'parent_ref'             => [ 'type' => 'string' ],
+							'parent'                 => [
+								'type'        => 'string',
+								'description' => 'Alias for parent_id, or parent_ref when prefixed with @.',
+							],
 							'element_id'             => [ 'type' => 'string' ],
 							'element_ref'            => [ 'type' => 'string' ],
+							'target'                 => [
+								'type'        => 'string',
+								'description' => 'Alias for element_id, or element_ref when prefixed with @.',
+							],
+							'target_id'              => [ 'type' => 'string' ],
+							'target_ref'             => [ 'type' => 'string' ],
 							'new_parent_id'          => [ 'type' => 'string' ],
 							'new_parent_ref'         => [ 'type' => 'string' ],
+							'new_parent'             => [
+								'type'        => 'string',
+								'description' => 'Alias for new_parent_id, or new_parent_ref when prefixed with @.',
+							],
 							'position'               => [ 'type' => 'integer' ],
 							'widget_type'            => [ 'type' => 'string' ],
+							'widget'                 => [ 'type' => 'string' ],
 							'settings'               => [ 'type' => 'object' ],
 							'mode'                   => [ 'type' => 'string', 'enum' => [ 'merge', 'replace' ], 'default' => 'merge' ],
 							'allow_html_widget'      => [ 'type' => 'boolean', 'default' => false ],
 							'allow_raw_known_widget' => [ 'type' => 'boolean', 'default' => true ],
 						],
-						'required'             => [ 'action' ],
 					],
 				],
 			],
@@ -109,7 +131,7 @@ final class BatchMutate extends AbilityKernel {
 			function ( array $args ) {
 				$start      = microtime( true );
 				$post_id    = (int) $args['post_id'];
-				$operations = isset( $args['operations'] ) && is_array( $args['operations'] ) ? array_values( $args['operations'] ) : [];
+				$operations = isset( $args['operations'] ) && is_array( $args['operations'] ) ? self::normalize_operations( array_values( $args['operations'] ) ) : [];
 				$dry_run    = ! empty( $args['dry_run'] );
 
 				if ( ! get_post( $post_id ) ) {
@@ -208,6 +230,72 @@ final class BatchMutate extends AbilityKernel {
 				return $response;
 			}
 		);
+	}
+
+	/**
+	 * @param array<int, mixed> $operations
+	 * @return array<int, array<string, mixed>>
+	 */
+	private static function normalize_operations( array $operations ): array {
+		return array_map(
+			static fn( mixed $operation ): array => self::normalize_operation( is_array( $operation ) ? $operation : [] ),
+			$operations
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $operation
+	 * @return array<string, mixed>
+	 */
+	private static function normalize_operation( array $operation ): array {
+		$normalized = $operation;
+		$action     = (string) ( $normalized['action'] ?? $normalized['type'] ?? $normalized['op'] ?? '' );
+		if ( '' !== $action ) {
+			$normalized['action'] = self::normalize_action( $action );
+		}
+
+		self::copy_ref_or_id_alias( $normalized, 'parent', 'parent_ref', 'parent_id' );
+		self::copy_ref_or_id_alias( $normalized, 'target', 'element_ref', 'element_id' );
+		self::copy_ref_or_id_alias( $normalized, 'new_parent', 'new_parent_ref', 'new_parent_id' );
+
+		if ( isset( $normalized['target_id'] ) && ! isset( $normalized['element_id'] ) ) {
+			$normalized['element_id'] = (string) $normalized['target_id'];
+		}
+		if ( isset( $normalized['target_ref'] ) && ! isset( $normalized['element_ref'] ) ) {
+			$normalized['element_ref'] = (string) $normalized['target_ref'];
+		}
+		if ( isset( $normalized['widget'] ) && ! isset( $normalized['widget_type'] ) ) {
+			$normalized['widget_type'] = (string) $normalized['widget'];
+		}
+
+		return $normalized;
+	}
+
+	private static function normalize_action( string $action ): string {
+		return match ( $action ) {
+			'container' => 'add_container',
+			'widget'    => 'add_widget',
+			'update'    => 'update_element',
+			'move'      => 'move_element',
+			'remove', 'delete' => 'remove_element',
+			default     => $action,
+		};
+	}
+
+	/**
+	 * @param array<string, mixed> $operation
+	 */
+	private static function copy_ref_or_id_alias( array &$operation, string $alias, string $ref_key, string $id_key ): void {
+		if ( ! isset( $operation[ $alias ] ) || isset( $operation[ $ref_key ] ) || isset( $operation[ $id_key ] ) ) {
+			return;
+		}
+
+		$value = (string) $operation[ $alias ];
+		if ( str_starts_with( $value, '@' ) ) {
+			$operation[ $ref_key ] = substr( $value, 1 );
+			return;
+		}
+		$operation[ $id_key ] = $value;
 	}
 
 	/**

@@ -136,6 +136,81 @@ final class BulkUpsertPostsTest extends TestCase {
 		self::assertSame( 'stonewright_forbidden', $result->get_error_code() );
 	}
 
+	public function test_accepts_post_status_alias_and_validates_required_payload(): void {
+		$this->loginAs( [ 'edit_posts', 'publish_posts' ] );
+		$GLOBALS['stonewright_test_user_can_callback'] = static function ( string $cap ): bool {
+			return in_array( $cap, [ 'edit_posts', 'publish_posts', 'edit_post_meta' ], true );
+		};
+
+		$result = ( new BulkUpsertPosts() )->execute(
+			[
+				'post_type' => 'homepage_section',
+				'items'     => [
+					[
+						'slug'        => 'hero',
+						'title'       => 'Hero',
+						'post_status' => 'publish',
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 1, $result['created'] );
+		self::assertSame( 'publish', $GLOBALS['stonewright_test_inserted_posts'][0]['post_status'] );
+
+		$invalid_status = ( new BulkUpsertPosts() )->execute(
+			[
+				'post_type' => 'homepage_section',
+				'items'     => [
+					[
+						'slug'   => 'bad',
+						'title'  => 'Bad',
+						'status' => 'public',
+					],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $invalid_status );
+		self::assertSame( 'stonewright_invalid_post_status', $invalid_status->get_error_code() );
+
+		$missing_title = ( new BulkUpsertPosts() )->execute(
+			[
+				'post_type' => 'homepage_section',
+				'items'     => [
+					[
+						'slug'  => 'untitled',
+						'title' => '',
+					],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $missing_title );
+		self::assertSame( 'stonewright_invalid_content_item', $missing_title->get_error_code() );
+	}
+
+	public function test_permission_callback_uses_post_status_alias_for_publish_cap(): void {
+		$this->loginAs( [ 'edit_posts' ] );
+
+		$result = ( new BulkUpsertPosts() )->permission_callback(
+			[
+				'post_type' => 'homepage_section',
+				'items'     => [
+					[
+						'slug'        => 'hero',
+						'title'       => 'Hero',
+						'post_status' => 'publish',
+					],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_forbidden', $result->get_error_code() );
+	}
+
 	private function registerPostType( string $name, string $create_cap, string $publish_cap ): void {
 		$GLOBALS['stonewright_test_post_types'][ $name ] = (object) [
 			'cap' => (object) [

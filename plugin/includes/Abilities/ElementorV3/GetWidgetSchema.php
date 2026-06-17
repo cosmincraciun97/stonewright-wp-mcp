@@ -42,6 +42,22 @@ final class GetWidgetSchema extends AbilityKernel {
 					'default'     => 'summary',
 					'description' => 'Use summary for control names, types, labels, sections, and editor tabs; use full only when default values are required.',
 				],
+				'tabFilter'    => [
+					'type'        => 'array',
+					'items'       => [ 'type' => 'string' ],
+					'description' => 'Optional editor tab names to include, such as Content, Style, Advanced.',
+				],
+				'controlFilter' => [
+					'type'        => 'array',
+					'items'       => [ 'type' => 'string' ],
+					'description' => 'Optional case-insensitive substrings matched against control name, type, label, and section.',
+				],
+				'maxControls'   => [
+					'type'        => 'integer',
+					'minimum'     => 1,
+					'maximum'     => 500,
+					'description' => 'Maximum controls returned after filters. Defaults to all matching controls.',
+				],
 			],
 			'required'             => [ 'name' ],
 		];
@@ -98,6 +114,7 @@ final class GetWidgetSchema extends AbilityKernel {
 				'research_guidance' => [ 'type' => 'string' ],
 				'defaults_omitted'  => [ 'type' => 'boolean' ],
 				'full_mode_hint'    => [ 'type' => 'string' ],
+				'filters'           => [ 'type' => 'object' ],
 			],
 			'required'   => [ 'name', 'controls', 'tab_groups', 'research_guidance' ],
 		];
@@ -137,8 +154,10 @@ final class GetWidgetSchema extends AbilityKernel {
 		}
 
 		$response_mode = (string) ( $args['responseMode'] ?? 'summary' );
-		$compact_controls = self::compact_controls( $controls );
-		$output_controls  = 'full' === $response_mode ? $controls : $compact_controls;
+		$filters          = self::filters( $args );
+		$compact_controls = self::filter_controls( self::compact_controls( $controls ), $filters );
+		$full_controls    = self::filter_controls( $controls, $filters );
+		$output_controls  = 'full' === $response_mode ? $full_controls : $compact_controls;
 
 		return [
 			'name'              => (string) $args['name'],
@@ -150,6 +169,11 @@ final class GetWidgetSchema extends AbilityKernel {
 			'research_guidance' => 'Research official Elementor documentation online when this widget schema lacks enough Content or Style controls for the requested design.',
 			'defaults_omitted'  => 'full' !== $response_mode,
 			'full_mode_hint'    => 'Call with responseMode=full only when default values are required for the next write.',
+			'filters'           => [
+				'tab_filter'     => $filters['tab_filter'],
+				'control_filter' => $filters['control_filter'],
+				'max_controls'   => $filters['max_controls'],
+			],
 		];
 	}
 
@@ -168,5 +192,96 @@ final class GetWidgetSchema extends AbilityKernel {
 			],
 			$controls
 		);
+	}
+
+	/**
+	 * @param array<string, mixed> $args
+	 * @return array{tab_filter:list<string>,tab_lookup:array<string,true>,control_filter:list<string>,max_controls:int|null}
+	 */
+	private static function filters( array $args ): array {
+		$tab_filter = [];
+		foreach ( (array) ( $args['tabFilter'] ?? [] ) as $tab ) {
+			$tab = self::canonical_tab( (string) $tab );
+			if ( '' !== $tab ) {
+				$tab_filter[] = $tab;
+			}
+		}
+		$tab_filter = array_values( array_unique( $tab_filter ) );
+
+		$control_filter = [];
+		foreach ( (array) ( $args['controlFilter'] ?? [] ) as $filter ) {
+			$filter = strtolower( trim( (string) $filter ) );
+			if ( '' !== $filter ) {
+				$control_filter[] = $filter;
+			}
+		}
+
+		$max_controls = null;
+		if ( isset( $args['maxControls'] ) ) {
+			$max_controls = max( 1, min( 500, (int) $args['maxControls'] ) );
+		}
+
+		return [
+			'tab_filter'     => $tab_filter,
+			'tab_lookup'     => array_fill_keys( $tab_filter, true ),
+			'control_filter' => array_values( array_unique( $control_filter ) ),
+			'max_controls'   => $max_controls,
+		];
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $controls
+	 * @param array{tab_filter:list<string>,tab_lookup:array<string,true>,control_filter:list<string>,max_controls:int|null} $filters
+	 * @return list<array<string, mixed>>
+	 */
+	private static function filter_controls( array $controls, array $filters ): array {
+		$out = [];
+		foreach ( $controls as $control ) {
+			if ( [] !== $filters['tab_filter'] && ! isset( $filters['tab_lookup'][ self::canonical_tab( (string) ( $control['tab'] ?? '' ) ) ] ) ) {
+				continue;
+			}
+			if ( [] !== $filters['control_filter'] && ! self::control_matches_filter( $control, $filters['control_filter'] ) ) {
+				continue;
+			}
+			$out[] = $control;
+			if ( null !== $filters['max_controls'] && count( $out ) >= $filters['max_controls'] ) {
+				break;
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * @param array<string, mixed> $control
+	 * @param list<string>        $filters
+	 */
+	private static function control_matches_filter( array $control, array $filters ): bool {
+		$haystack = strtolower(
+			implode(
+				' ',
+				[
+					(string) ( $control['name'] ?? '' ),
+					(string) ( $control['type'] ?? '' ),
+					(string) ( $control['label'] ?? '' ),
+					(string) ( $control['section'] ?? '' ),
+				]
+			)
+		);
+		foreach ( $filters as $filter ) {
+			if ( str_contains( $haystack, $filter ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static function canonical_tab( string $tab ): string {
+		$tab = strtolower( trim( $tab ) );
+		return match ( $tab ) {
+			'content' => 'Content',
+			'style'   => 'Style',
+			'advanced' => 'Advanced',
+			default   => '' !== $tab ? ucfirst( $tab ) : '',
+		};
 	}
 }

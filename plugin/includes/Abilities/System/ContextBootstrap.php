@@ -52,6 +52,16 @@ final class ContextBootstrap extends AbilityKernel {
 					'default'     => 'unknown',
 					'description' => 'Task intent, e.g. read, write, delete, debug.',
 				],
+				'responseMode' => [
+					'type'        => 'string',
+					'enum'        => [ 'full', 'compact' ],
+					'default'     => 'full',
+					'description' => 'Use compact to return hashes and small refs for long context sections.',
+				],
+				'knownHashes'  => [
+					'type'        => 'object',
+					'description' => 'Optional client-known payload hashes keyed by response field, used to return changed/unchanged key lists.',
+				],
 			],
 		];
 	}
@@ -90,6 +100,11 @@ final class ContextBootstrap extends AbilityKernel {
 				'visual_build_gate'              => [ 'type' => 'object' ],
 				'design_implementation_contract' => [ 'type' => 'object' ],
 				'required_followups'             => [ 'type' => 'array' ],
+				'response_mode'                  => [ 'type' => 'string' ],
+				'payload_hashes'                 => [ 'type' => 'object' ],
+				'changed_keys'                   => [ 'type' => 'array' ],
+				'unchanged_keys'                 => [ 'type' => 'array' ],
+				'deltas'                         => [ 'type' => 'object' ],
 			],
 		];
 	}
@@ -107,10 +122,149 @@ final class ContextBootstrap extends AbilityKernel {
 		$surface = isset( $args['surface'] ) && is_string( $args['surface'] ) ? strtolower( trim( $args['surface'] ) ) : 'unknown';
 		$intent  = isset( $args['intent'] ) && is_string( $args['intent'] ) ? strtolower( trim( $args['intent'] ) ) : 'unknown';
 
-		return ContextBuilder::build(
+		$response = ContextBuilder::build(
 			$task,
 			'' !== $surface ? $surface : 'unknown',
 			'' !== $intent ? $intent : 'unknown'
 		);
+		if ( 'compact' === (string) ( $args['responseMode'] ?? 'full' ) ) {
+			return self::compact_response( $response, is_array( $args['knownHashes'] ?? null ) ? $args['knownHashes'] : [] );
+		}
+
+		$response['response_mode'] = 'full';
+		return $response;
+	}
+
+	/**
+	 * @param array<string, mixed> $response
+	 * @param array<string, mixed> $known_hashes
+	 * @return array<string, mixed>
+	 */
+	private static function compact_response( array $response, array $known_hashes ): array {
+		$hash_keys = [
+			'instructions',
+			'matched_skill_playbooks',
+			'memory_entries',
+			'visual_quality_contract',
+			'visual_build_gate',
+			'design_implementation_contract',
+			'required_followups',
+		];
+		[ $payload_hashes, $changed, $unchanged, $deltas ] = self::hash_delta( $response, $known_hashes, $hash_keys );
+
+		$response['response_mode']                  = 'compact';
+		$response['payload_hashes']                 = $payload_hashes;
+		$response['changed_keys']                   = $changed;
+		$response['unchanged_keys']                 = $unchanged;
+		$response['deltas']                         = $deltas;
+		$response['instructions']                   = self::compact_text_ref( 'instructions', (string) ( $response['instructions'] ?? '' ) );
+		$response['matched_skill_playbooks']        = self::compact_playbooks( $response['matched_skill_playbooks'] ?? [] );
+		$response['memory_entries']                 = self::compact_memory_entries( $response['memory_entries'] ?? [] );
+		$response['visual_quality_contract']        = self::compact_object_ref( 'visual_quality_contract', $response['visual_quality_contract'] ?? [] );
+		$response['visual_build_gate']              = self::compact_object_ref( 'visual_build_gate', $response['visual_build_gate'] ?? [] );
+		$response['design_implementation_contract'] = self::compact_object_ref( 'design_implementation_contract', $response['design_implementation_contract'] ?? [] );
+
+		return $response;
+	}
+
+	/**
+	 * @param array<string, mixed> $response
+	 * @param array<string, mixed> $known_hashes
+	 * @param list<string>        $keys
+	 * @return array{0:array<string,string>,1:list<string>,2:list<string>,3:array<string,array<string,mixed>>}
+	 */
+	private static function hash_delta( array $response, array $known_hashes, array $keys ): array {
+		$payload_hashes = [];
+		$changed        = [];
+		$unchanged      = [];
+		$deltas         = [];
+
+		foreach ( $keys as $key ) {
+			$value                  = $response[ $key ] ?? null;
+			$hash                   = self::hash_value( $value );
+			$payload_hashes[ $key ] = $hash;
+			if ( isset( $known_hashes[ $key ] ) && (string) $known_hashes[ $key ] === $hash ) {
+				$unchanged[] = $key;
+				continue;
+			}
+			$changed[]       = $key;
+			$deltas[ $key ] = [
+				'hash'   => $hash,
+				'length' => is_string( $value ) ? strlen( $value ) : strlen( wp_json_encode( $value ) ?: '' ),
+			];
+		}
+
+		return [ $payload_hashes, $changed, $unchanged, $deltas ];
+	}
+
+	private static function hash_value( mixed $value ): string {
+		return hash( 'sha256', wp_json_encode( $value ) ?: serialize( $value ) );
+	}
+
+	private static function compact_text_ref( string $key, string $text ): string {
+		if ( '' === $text ) {
+			return '';
+		}
+		return sprintf( 'compact:%s:%s:%d', $key, self::hash_value( $text ), strlen( $text ) );
+	}
+
+	/**
+	 * @param mixed $value
+	 * @return array<string, mixed>
+	 */
+	private static function compact_object_ref( string $key, mixed $value ): array {
+		return [
+			'compact' => true,
+			'key'     => $key,
+			'hash'    => self::hash_value( $value ),
+			'length'  => strlen( wp_json_encode( $value ) ?: '' ),
+		];
+	}
+
+	/**
+	 * @param mixed $playbooks
+	 * @return list<array<string, mixed>>
+	 */
+	private static function compact_playbooks( mixed $playbooks ): array {
+		$out = [];
+		foreach ( is_array( $playbooks ) ? $playbooks : [] as $playbook ) {
+			if ( ! is_array( $playbook ) ) {
+				continue;
+			}
+			$content = (string) ( $playbook['content'] ?? '' );
+			$out[]   = [
+				'slug'           => (string) ( $playbook['slug'] ?? '' ),
+				'title'          => (string) ( $playbook['title'] ?? '' ),
+				'description'    => (string) ( $playbook['description'] ?? '' ),
+				'content_length' => strlen( $content ),
+				'content_hash'   => self::hash_value( $content ),
+			];
+		}
+		return $out;
+	}
+
+	/**
+	 * @param mixed $entries
+	 * @return list<array<string, mixed>>
+	 */
+	private static function compact_memory_entries( mixed $entries ): array {
+		$out = [];
+		foreach ( is_array( $entries ) ? $entries : [] as $entry ) {
+			if ( ! is_array( $entry ) ) {
+				continue;
+			}
+			$value = $entry['value'] ?? $entry['value_json'] ?? null;
+			$out[] = [
+				'id'          => (string) ( $entry['id'] ?? '' ),
+				'type'        => (string) ( $entry['type'] ?? '' ),
+				'scope'       => (string) ( $entry['scope'] ?? '' ),
+				'memory_key'  => (string) ( $entry['memory_key'] ?? '' ),
+				'name'        => (string) ( $entry['name'] ?? '' ),
+				'confidence'  => (float) ( $entry['confidence'] ?? 0 ),
+				'updated_at'  => (string) ( $entry['updated_at'] ?? '' ),
+				'value_hash'  => self::hash_value( $value ),
+			];
+		}
+		return $out;
 	}
 }

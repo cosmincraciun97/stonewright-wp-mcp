@@ -45,6 +45,9 @@ abstract class WpCliAbility extends AbilityKernel {
 				'exit_code'   => [ 'type' => 'integer' ],
 				'duration_ms' => [ 'type' => 'integer' ],
 				'parsed_json' => [ 'type' => [ 'object', 'array', 'null' ] ],
+				'default_wp_root' => [ 'type' => 'string' ],
+				'diagnostics' => [ 'type' => 'object' ],
+				'recommendations' => [ 'type' => 'array' ],
 				'error'       => [ 'type' => 'string' ],
 				'companion_url' => [ 'type' => 'string' ],
 				'recommended_fallbacks' => [ 'type' => 'array' ],
@@ -75,9 +78,14 @@ abstract class WpCliAbility extends AbilityKernel {
 				'type'        => 'string',
 				'description' => 'Optional WP-CLI --user value for commands that need a WordPress user context.',
 			],
+			'wp_cli_context' => [
+				'type'        => 'string',
+				'enum'        => [ 'auto', 'admin', 'cli', 'frontend' ],
+				'description' => 'Optional typed WP-CLI --context value. Prefer this over legacy context for built-in WP-CLI contexts.',
+			],
 			'context'    => [
 				'type'        => 'string',
-				'description' => 'Optional WP-CLI --context value.',
+				'description' => 'Legacy/custom WP-CLI --context value. Prefer wp_cli_context for built-in contexts.',
 			],
 			'timeoutMs'  => [
 				'type'        => 'integer',
