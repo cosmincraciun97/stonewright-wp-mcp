@@ -7,6 +7,27 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.61] - 2026-06-17
+
+### Added
+
+- Added deep companion WP-CLI health diagnostics for PHP ini loading, MySQL
+  extensions, WordPress bootstrap, database checks, LocalWP DB host/port
+  detection, cached default WordPress roots, and actionable setup guidance.
+- Added read-only `stonewright/site-shortcodes-discover` for shortcode tag and
+  safe callback-shape discovery without executing shortcode handlers.
+
+### Fixed
+
+- Added typed `wp_cli_context` support while preserving legacy custom
+  `context`, and improved diagnostics when a selected cwd is not a WordPress
+  root.
+- Aligned bulk content, Elementor batch mutation, widget schema, and design spec
+  payloads with their examples: `post_status` aliases, compact mutation aliases,
+  widget schema filters, and validator-valid shorthand design sections.
+- Added compact bootstrap/preflight hash responses for lower-token startup.
+- Bumped the plugin and companion release assets to `1.0.0-alpha.61`.
+
 ## [1.0.0-alpha.60] - 2026-06-17
 
 ### Fixed
@@ -811,6 +832,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.61]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.61
 [1.0.0-alpha.60]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.60
 [1.0.0-alpha.58]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.58
 [1.0.0-alpha.57]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.57

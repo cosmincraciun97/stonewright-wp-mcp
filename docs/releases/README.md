@@ -22,13 +22,14 @@ Use [checklist.md](checklist.md) before tagging a release.
 
 | Track | Releases | Focus |
 |---|---:|---|
-| Strict-client startup | alpha.49-alpha.60 | Low-tools support, grouped inventories, optional profile verification, strict output schema compatibility, companion startup reliability, builder unblock profiles, MCP-only recovery guardrails, and local WP-CLI runtime diagnostics |
+| Strict-client startup | alpha.49-alpha.61 | Low-tools support, grouped inventories, optional profile verification, strict output schema compatibility, companion startup reliability, builder unblock profiles, MCP-only recovery guardrails, local WP-CLI runtime diagnostics, and deep WP-CLI health checks |
 | Compact profiles | alpha.20-alpha.48 | Profile-aware discovery, recovery diagnostics, and smaller startup/preflight payloads |
 | Fast guarded writes | alpha.9-alpha.19 | Workflow preflight, visual gates, batch writes, prompt skills, and implementation contracts |
 | Foundations | alpha.2-alpha.8 | Core abilities, release packaging, dependency policy, Elementor schema grouping, and PHP compatibility |
 
 ## Public Release Notes
 
+- [1.0.0-alpha.61](1.0.0-alpha.61.md)
 - [1.0.0-alpha.60](1.0.0-alpha.60.md)
 - [1.0.0-alpha.59](1.0.0-alpha.59.md)
 - [1.0.0-alpha.58](1.0.0-alpha.58.md)

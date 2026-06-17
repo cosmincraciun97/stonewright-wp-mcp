@@ -41,7 +41,7 @@ In Antigravity IDE you can also open it from the agent panel:
 ## 3. Add Stonewright
 
 Use the latest release tarball shown by the Stonewright Configuration page. This
-example uses `1.0.0-alpha.60`:
+example uses `1.0.0-alpha.61`:
 
 ```json
 {
@@ -51,7 +51,7 @@ example uses `1.0.0-alpha.60`:
       "args": [
         "-y",
         "--package",
-        "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.60/stonewright-companion-1.0.0-alpha.60.tgz",
+        "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.61/stonewright-companion-1.0.0-alpha.61.tgz",
         "stonewright-mcp"
       ],
       "env": {

@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.61] - 2026-06-17
+
+### Added
+
+- Added read-only `stonewright/site-shortcodes-discover` for shortcode tag and
+  safe callback-shape discovery.
+- Added compact hash response support for context bootstrap and workflow
+  preflight.
+
+### Fixed
+
+- Aligned bulk content upserts, Elementor batch mutations, widget schema
+  discovery, and design spec building with the public schemas and examples.
+- Updated WordPress-side WP-CLI schemas for typed `wp_cli_context` and deep
+  status diagnostics returned by the companion.
+
 ## [1.0.0-alpha.60] - 2026-06-17
 
 ### Fixed
