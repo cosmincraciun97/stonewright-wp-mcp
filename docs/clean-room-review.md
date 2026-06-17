@@ -10,13 +10,15 @@ describe original product decisions, not inspiration sources.
 
 ## Product Decisions
 
-- Keep Stonewright safe by default: no arbitrary PHP execution, no shell
-  strings, no file-system free-for-all, and no REST write calls from the
-  companion.
+- Keep Stonewright direct but disciplined: full PHP runtime access belongs in
+  `stonewright/php-execute`, shell strings stay out of WP-CLI, file writes stay
+  on declared Stonewright paths, and the companion does not make REST write
+  calls.
 - Keep WordPress work structured: use native abilities for posts, media,
   Gutenberg, FSE, Elementor, skills, memory, menus, and Theme Builder.
-- Keep WP-CLI powerful but guarded: tokenized argv only, deny arbitrary PHP and
-  interactive shell entry points, expose discovery before execution.
+- Keep WP-CLI powerful and tokenized: argv only, direct PHP snippets through
+  `stonewright/php-execute`, interactive shell entry points blocked, discovery
+  before execution.
 - Keep browser work separate: use external browser tooling for screenshots and
   visual inspection. Do not add browser or screenshot tools to Stonewright.
 - Make smaller models harder to derail: context bootstrap is mandatory, tool

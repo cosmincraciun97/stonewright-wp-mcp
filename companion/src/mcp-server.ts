@@ -21,17 +21,7 @@ import {
 	type WpCliJobStartInput,
 	type WpCliRunInput,
 } from './wp-cli.js';
-import {
-	AGENT_DO_NOT_USE,
-	MCP_MISSING_BOOTSTRAP_STOP,
-	WP_CLI_LOCAL_REQUIREMENT_NOTE,
-	WP_CLI_REMOTE_NOT_REQUIRED_NOTE,
-	WP_CLI_RESTART_NOTE,
-	agentUseInstead,
-	buildSetupProfile,
-	buildToolInventory,
-	type ToolInventory,
-} from './setup-profile.js';
+import { AGENT_DO_NOT_USE, MCP_MISSING_BOOTSTRAP_STOP, agentUseInstead, buildSetupProfile, buildToolInventory, type ToolInventory } from './setup-profile.js';
 import {
 	STARTUP_REQUIRED_PROXY_TOOL_NAMES,
 	type ProxyToolProfile,
@@ -193,6 +183,7 @@ function companionInstructions(profile: ProxyToolProfile): string {
 		'- First call stonewright-setup-profile if connection, credentials, or tool visibility is unclear.',
 		'- For WordPress work, call stonewright-context-bootstrap, then stonewright-workflow-preflight. Use fast_path.tool_profile before making a separate stonewright-tool-profile call.',
 		`- ${MCP_MISSING_BOOTSTRAP_STOP}`,
+		'- Use stonewright-php-execute for direct full WordPress runtime access when a short PHP snippet is faster than many typed calls.',
 		'- Use stonewright-wordpress-mcp-status only to diagnose the Stonewright MCP connection when proxied WordPress tools are missing.',
 		'- Do not inspect private AI-client config files to find or call Stonewright.',
 		'- Do not create scratch scripts such as query-mcp.js or run-ability.js to bypass the MCP client tool surface.',
@@ -202,12 +193,9 @@ function companionInstructions(profile: ProxyToolProfile): string {
 		'- Do not inspect plugin or companion source code to reverse-engineer tool schemas during WordPress implementation tasks.',
 		'- Do not hand-roll JSON-RPC calls to /mcp or /wp-json/mcp/stonewright as an MCP workaround.',
 		'- Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround.',
-		'- Use stonewright-wp-cli-status, stonewright-wp-cli-discover, stonewright-wp-cli-run, and stonewright-wp-cli-batch-run for guarded WP-CLI work.',
+		'- Use stonewright-wp-cli-status, stonewright-wp-cli-discover, stonewright-wp-cli-run, and stonewright-wp-cli-batch-run for tokenized WP-CLI work.',
 		'- Use stonewright-wp-cli-job-start and stonewright-wp-cli-job-status for long imports, plugin operations, cache rebuilds, media work, or large batches when those tools are visible.',
-		`- ${WP_CLI_LOCAL_REQUIREMENT_NOTE}`,
-		`- ${WP_CLI_REMOTE_NOT_REQUIRED_NOTE}`,
-		`- ${WP_CLI_RESTART_NOTE}`,
-		'- Do not run wp commands in a normal shell. Do not use wp eval, wp eval-file, wp shell, wp package, --exec, or --require.',
+		'- Do not run wp commands in a normal shell. Use stonewright-php-execute for PHP snippets instead of WP-CLI eval, shell, package, --exec, or --require entry points.',
 	];
 
 	if (profile === 'low-tools') {
@@ -365,7 +353,7 @@ function registerWpCliTools(
 		server.registerTool(
 			name,
 			{
-				description: 'Run a tokenized WP-CLI command directly through the Stonewright companion with execFile. Allows WordPress write commands while blocking arbitrary PHP and shell entry points.',
+				description: 'Run a tokenized WP-CLI command directly through the Stonewright companion with execFile. Allows WordPress write commands; use stonewright-php-execute for PHP runtime snippets instead of WP-CLI eval or shell entry points.',
 				inputSchema: {
 					...commonInput,
 					command: z.array(z.string()).min(1),
@@ -381,7 +369,7 @@ function registerWpCliTools(
 		server.registerTool(
 			name,
 			{
-				description: 'Run multiple tokenized WP-CLI commands through the Stonewright companion in one UTF-8 JSON request. Use this for repeated post/meta/term/media/option work instead of large inline shell scripts; it still blocks arbitrary PHP and shell entry points.',
+				description: 'Run multiple tokenized WP-CLI commands through the Stonewright companion in one UTF-8 JSON request. Use this for repeated post/meta/term/media/option work instead of large inline shell scripts; use stonewright-php-execute for PHP runtime snippets.',
 				inputSchema: {
 					...commonInput,
 					commands: z.array(z.array(z.string()).min(1)).min(1).max(100),
@@ -397,7 +385,7 @@ function registerWpCliTools(
 	server.registerTool(
 		'stonewright-wp-cli-job-start',
 		{
-			description: 'Start a guarded WP-CLI command or batch as an in-process background job. Use for long plugin, import, cache, media, or content operations so the MCP request returns immediately.',
+			description: 'Start a tokenized WP-CLI command or batch as an in-process background job. Use for long plugin, import, cache, media, or content operations so the MCP request returns immediately.',
 			inputSchema: {
 				...commonInput,
 				command: z.array(z.string()).min(1).optional(),

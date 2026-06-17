@@ -53,7 +53,7 @@ describe('WP-CLI runner', () => {
 		})).toThrow(/wp_cli_context/i);
 	});
 
-	it('blocks arbitrary PHP and interactive shell entry points', () => {
+	it('blocks WP-CLI eval and interactive shell entry points', () => {
 		expect(() => validateWpCliCommand(['eval', 'echo 1;'])).toThrow(/blocked/i);
 		expect(() => validateWpCliCommand(['eval-file', 'script.php'])).toThrow(/blocked/i);
 		expect(() => validateWpCliCommand(['shell'])).toThrow(/blocked/i);

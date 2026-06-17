@@ -131,7 +131,7 @@ final class SkillsPage {
 				</div>
 				<div class="stonewright-guidance-card">
 					<h2><?php esc_html_e( 'Trust boundary', 'stonewright' ); ?></h2>
-					<p><?php esc_html_e( 'Review every skill before enabling it. A skill is guidance for a powerful connected operator, so it should be concise, intentional, and safe.', 'stonewright' ); ?></p>
+					<p><?php esc_html_e( 'Review every skill before enabling it. A skill is guidance for a powerful connected operator, so it should be concise, intentional, and reviewed.', 'stonewright' ); ?></p>
 				</div>
 			</div>
 

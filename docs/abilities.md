@@ -24,7 +24,8 @@ matrix after changing the registry.
 | Knowledge | 5 | Elementor knowledge search, widget descriptions, implementation guidance, and refresh. |
 | Memory | 5 | Persistent project memory, user corrections, and learning records. |
 | System | 11 | Context bootstrap, tool profiles, workflow preflight, instructions, ability list, and knowledge import/export. |
-| WP-CLI | 6 | Companion-backed status, command discovery, guarded command execution, batch execution, and background jobs. |
+| Runtime | 1 | Direct PHP snippets inside the loaded WordPress runtime. |
+| WP-CLI | 6 | Companion-backed status, command discovery, tokenized command execution, batch execution, and background jobs. |
 | Sandbox | 8 | Admin-only generated code/artifact lifecycle. |
 | Theme Builder | 5 | Elementor Theme Builder templates and conditions. |
 | Menu | 5 | Menu creation, item management, locations, and deletion. |
@@ -86,8 +87,8 @@ Content-Type: application/json
 
 The runner uses the same registry, permission callbacks, master toggle,
 disabled-ability checks, UTF-8 sanitization, context-token gate, audit flow, and
-ability handlers as the MCP surface. It is not a bypass for write safety and is
-not a shell workaround for agents when the MCP tool list did not load. Agents
+ability handlers as the MCP surface. It is not a shell workaround for agents
+when the MCP tool list did not load. Agents
 must not inspect private AI-client config files, create `query-mcp.js` or
 `run-ability.js`, create helper JSON argument files such as
 `bootstrap-args.json`, `cli_command.json`, or `get_structure.json`, launch the
@@ -95,6 +96,14 @@ companion through `query-local-stonewright.js`, create action scripts such as
 `run-loop-mutate.js` or `run-bootstrap-and-mutate.js`, inspect plugin/companion
 source to reverse-engineer tool schemas, or hand-roll JSON-RPC to reach this
 runner when `stonewright-context-bootstrap` is missing.
+
+## Runtime
+
+Use `stonewright/php-execute` (`stonewright-php-execute`) for short PHP snippets
+inside the loaded WordPress runtime. It has access to WordPress functions,
+loaded plugins, `$wpdb`, and normal PHP runtime APIs. Prefer typed Stonewright
+abilities for common workflows, and use PHP execute when direct plugin API or
+database inspection is the shorter correct path.
 
 ## WP-CLI
 
@@ -104,9 +113,9 @@ The WP-CLI tools are:
 |---|---|
 | `stonewright/wp-cli-status` (`stonewright-wp-cli-status`) | Checks that WP-CLI is available through the companion and returns `wp cli info --format=json`. |
 | `stonewright/wp-cli-discover` (`stonewright-wp-cli-discover`) | Returns compact `wp cli cmd-dump` command paths by default; use `responseMode=full` only when the raw command tree is required. |
-| `stonewright/wp-cli-run` (`stonewright-wp-cli-run`) | Runs a guarded WP-CLI command through the companion. It supports writes, but blocks arbitrary PHP and shell-like command groups such as `eval`, `eval-file`, `shell`, and `package`. |
-| `stonewright/wp-cli-batch-run` (`stonewright-wp-cli-batch-run`) | Runs repeated guarded WP-CLI commands in one request for faster content, meta, term, media, option, and plugin-command work. |
-| `stonewright/wp-cli-job-start` (`stonewright-wp-cli-job-start`) | Starts a guarded WP-CLI command or batch in the companion background queue for long operations. |
+| `stonewright/wp-cli-run` (`stonewright-wp-cli-run`) | Runs a tokenized WP-CLI command through the companion. It supports writes; use `stonewright/php-execute` for PHP snippets instead of WP-CLI eval or shell entry points. |
+| `stonewright/wp-cli-batch-run` (`stonewright-wp-cli-batch-run`) | Runs repeated tokenized WP-CLI commands in one request for faster content, meta, term, media, option, and plugin-command work. |
+| `stonewright/wp-cli-job-start` (`stonewright-wp-cli-job-start`) | Starts a tokenized WP-CLI command or batch in the companion background queue for long operations. |
 | `stonewright/wp-cli-job-status` (`stonewright-wp-cli-job-status`) | Polls a WP-CLI background job and returns the compact result when complete. |
 
 In the Node companion MCP, the same MCP names `stonewright-wp-cli-status`,
@@ -116,8 +125,8 @@ In the Node companion MCP, the same MCP names `stonewright-wp-cli-status`,
 require the WordPress-side HTTP bridge explicitly enabled with
 `STONEWRIGHT_HTTP_ENABLE=1` plus `PORT`. Use batch run for
 repeated commands or Unicode-heavy values so agents do not need large inline
-shell scripts. Use background jobs for long guarded WP-CLI work that should not
-block one MCP request.
+shell scripts. Use background jobs for long WP-CLI work that should not block
+one MCP request.
 The companion also exposes `stonewright-wp-cli-install`, which downloads the
 official `wp-cli.phar` into the Stonewright cache for users who do not have
 `wp` on `PATH` or a LocalWP-provided phar.

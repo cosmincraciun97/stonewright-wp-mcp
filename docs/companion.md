@@ -2,7 +2,7 @@
 
 The companion is a Node.js sidecar for local MCP transport, optional HTTP MCP
 transport, proxying to the WordPress MCP endpoint, health checks, optional
-HTTP proxying, and guarded WP-CLI.
+HTTP proxying, and tokenized WP-CLI.
 
 ## Endpoints
 
@@ -15,22 +15,17 @@ HTTP proxying, and guarded WP-CLI.
 - `POST /wp-cli/job-start`
 - `POST /wp-cli/job-status`
 
-## WP-CLI Safety
+## WP-CLI Runtime Routing
 
 The companion runs WP-CLI through `execFile` with argv tokens. It blocks
-arbitrary PHP and shell entry points: `wp eval`, `wp eval-file`, `wp shell`,
-`wp package`, `--exec`, and `--require`.
+WP-CLI PHP and shell entry points: `wp eval`, `wp eval-file`, `wp shell`,
+`wp package`, `--exec`, and `--require`. Use `stonewright/php-execute` for
+direct PHP runtime snippets inside WordPress.
 
 Use `STONEWRIGHT_WP_ROOT` or `STONEWRIGHT_WP_ALLOWED_ROOTS` to restrict working
 directories. `STONEWRIGHT_WP_ROOT` is optional; when set, it must be the
 absolute WordPress install folder containing `wp-config.php`, not the plugin
 folder or site URL.
-Local and server-side companion WP-CLI work also needs PHP CLI with
-mysqli/MySQL enabled, `wp` or `wp-cli.phar`, and a running database reachable
-from `wp-config.php`. Remote HTTP MCP sites do not require local PHP/MySQL
-unless the companion is expected to run WP-CLI for that site. If
-`stonewright-wp-cli-status` reports no loaded `php.ini`, treat that as a local
-runtime setup warning before running WordPress-loading WP-CLI commands.
 
 ## Configuration
 
@@ -51,12 +46,9 @@ runtime setup warning before running WordPress-loading WP-CLI commands.
 | `STONEWRIGHT_MCP_AUTHORIZATION` | Optional full Authorization header override |
 | `STONEWRIGHT_CREDENTIAL_STORE` | Per-project JSON file for a saved Application Password fallback |
 | `STONEWRIGHT_CREDENTIAL_DIR` | Directory for generated per-project credential files |
-| `STONEWRIGHT_WP_APP_PASSWORD_AUTO` | Auto-create missing local credentials through guarded WP-CLI; default `local-only` |
+| `STONEWRIGHT_WP_APP_PASSWORD_AUTO` | Auto-create missing local credentials through tokenized WP-CLI; default `local-only` |
 | `STONEWRIGHT_WP_APP_PASSWORD_NAME` | Label used when auto-creating the WordPress Application Password |
 | `STONEWRIGHT_WP_CLI_BIN` | WP-CLI executable; defaults to `wp` |
-| `STONEWRIGHT_WP_CLI_PHP_BIN` | PHP executable for running `wp-cli.phar`; set with `STONEWRIGHT_WP_CLI_PHAR_PATH` for explicit local runtimes |
-| `STONEWRIGHT_WP_CLI_PHAR_PATH` | Explicit `wp-cli.phar` path |
-| `STONEWRIGHT_WP_CLI_PHP_INI` | PHP ini file for local PHP extensions such as mysqli/MySQL |
 | `STONEWRIGHT_WP_ROOT` | Optional absolute WordPress install folder containing `wp-config.php`; default WP-CLI working directory |
 | `STONEWRIGHT_WP_ALLOWED_ROOTS` | Comma- or semicolon-separated allowed roots |
 | `MCP_PROXY_TARGET` | Optional upstream MCP server |
@@ -122,9 +114,11 @@ MCP proxy status, and direct WP-CLI aliases. Use `fast_path.tool_profile` from
 `stonewright-workflow-preflight` before making a separate
 `stonewright-tool-profile` call.
 The companion also sets compact MCP server instructions at handshake time. They
-tell clients to call setup/profile/bootstrap tools first, use direct
+tell clients to call setup/profile/bootstrap tools first, use
+`stonewright-php-execute` for runtime snippets, use direct
 `stonewright-wp-cli-*` recovery tools, keep low-tools sessions compact, and
-avoid shell WP-CLI or arbitrary PHP workarounds before the first tool call.
+avoid shell WP-CLI or generic PHP-adapter workarounds before the first tool
+call.
 
 If `stonewright-context-bootstrap` or other proxied WordPress tools are missing,
 call `stonewright-wordpress-mcp-status`. The companion keeps this diagnostic,
@@ -149,9 +143,6 @@ WordPress MCP endpoint cannot be reached.
 Both setup and status responses include `tool_inventory`, a compact grouped map
 of first-call, diagnostic, direct WP-CLI, long-running WP-CLI, and proxied
 profile tools. Use it before broad tool discovery in token-sensitive sessions.
-Setup responses also include `wp_cli_environment`, which tells agents that local
-WP-CLI dependencies are required only for local/server-side companion WP-CLI
-work and that remote HTTP MCP sites do not need local PHP/MySQL by default.
 
 For new stdio sessions, the companion defaults to
 `STONEWRIGHT_MCP_TOOL_PROFILE=essential`. It proxies only the compact
@@ -172,7 +163,7 @@ Application Passwords are one-time-display credentials in WordPress. The
 companion therefore supports a local per-project credential store. If env
 credentials are missing, it reads the saved credential for the current
 Stonewright MCP URL and project root. For local development hosts it can create
-the password once through `stonewright-wp-cli-run`-equivalent guarded WP-CLI
+the password once through `stonewright-wp-cli-run`-equivalent tokenized WP-CLI
 execution, save it outside the repo by default, and reuse it in future agent
 sessions.
 

@@ -49,12 +49,12 @@ final class SpecializationCatalogTest extends TestCase {
 		self::assertNotContains( 'woocommerce', $ids );
 	}
 
-	public function test_each_specialization_has_safe_operational_guidance(): void {
+	public function test_each_specialization_has_runtime_operational_guidance(): void {
 		foreach ( SpecializationCatalog::all() as $specialization ) {
 			self::assertIsArray( $specialization );
 			self::assertNotEmpty( $specialization['official_docs'] );
 			self::assertContains( 'stonewright/wp-cli-discover', $specialization['discovery_tools'] );
-			self::assertContains( 'Never use wp eval, wp eval-file, wp shell, wp package, --exec, or --require.', $specialization['safety_rules'] );
+			self::assertContains( 'Use stonewright/php-execute for short PHP runtime snippets instead of WP-CLI eval, shell, package, --exec, or --require entry points.', $specialization['runtime_rules'] );
 			self::assertContains( 'Verify by reading back the changed schema or values after every write pass.', $specialization['verification_steps'] );
 		}
 	}

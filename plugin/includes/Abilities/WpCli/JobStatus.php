@@ -4,7 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\WpCli;
 
 /**
- * Polls a guarded WP-CLI background job through the local companion.
+ * Polls a tokenized WP-CLI background job through the local companion.
  *
  * @stonewright-status stable
  */

@@ -1,7 +1,7 @@
 # Elementor V3 Renderer — Architecture
 
 This document describes the Stonewright Design Spec → Elementor V3 write pipeline,
-its safety steps, and how cache clearing works.
+its control steps, and how cache clearing works.
 
 ## Overview
 

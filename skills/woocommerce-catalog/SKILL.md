@@ -49,10 +49,12 @@ Before writing:
 7. Read back parent product, attributes, variations, prices, stock, and default
    attributes.
 
-Use `stonewright-wp-cli-run` with argv tokens only. Do not run `wp ...` in a
-normal shell as Stonewright recovery, and do not use arbitrary PHP execution
-from another adapter to replace Stonewright tools. Never use `wp eval`,
-`wp eval-file`, `wp shell`, `wp package`, `--exec`, or `--require`.
+Use `stonewright/php-execute` for short WooCommerce API snippets when direct
+runtime access is faster than many reads. Use `stonewright-wp-cli-run` with
+argv tokens only. Do not run `wp ...` in a normal shell as Stonewright
+recovery, and do not use another PHP adapter to replace Stonewright tools.
+Never use `wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, or
+`--require`.
 For long imports, cache rebuilds, or bulk catalog maintenance, use
 `stonewright-wp-cli-job-start` and poll `stonewright-wp-cli-job-status`.
 

@@ -4,7 +4,7 @@ Stonewright has two parts:
 
 - WordPress plugin: registers the `stonewright/*` abilities.
 - Node companion: exposes local stdio MCP through `npx`, proxies the WordPress
-  MCP endpoint, and runs guarded WP-CLI.
+  MCP endpoint, exposes php-execute, and runs tokenized WP-CLI.
 
 ## Requirements
 
@@ -12,11 +12,8 @@ Stonewright has two parts:
 - PHP 8.1+
 - Composer 2 for source installs
 - Node.js 20+ for the optional companion
-- For local or server-side companion WP-CLI work: PHP CLI with mysqli/MySQL
-  enabled, `wp` or `wp-cli.phar`, a WordPress root containing `wp-config.php`,
-  and a running database reachable from that WordPress config. Remote HTTP MCP
-  sites do not require local PHP/MySQL unless the companion is expected to run
-  WP-CLI for that site.
+- WP-CLI for fast local WordPress work. The companion can use `wp` from `PATH`
+  or auto-detect LocalWP's `wp-cli.phar` plus PHP on Windows/macOS.
 - A WordPress Application Password
 
 ## Install The WordPress Plugin From Release
@@ -48,13 +45,13 @@ wp plugin activate stonewright
 ```
 
 The `wp plugin activate stonewright` command is for a human source install on a
-machine with WP-CLI already configured. Runtime agents should use Stonewright's
-guarded MCP tools for WordPress work instead of shelling out to `wp ...`.
+machine with WP-CLI already configured. Runtime agents should use Stonewright
+MCP tools for WordPress work instead of shelling out to `wp ...`.
 
 ## Companion
 
 The companion is optional. Use it when your MCP client needs a local stdio
-server, WordPress MCP proxying, LocalWP/WP-CLI discovery, or the guarded
+server, WordPress MCP proxying, LocalWP/WP-CLI discovery, or the tokenized
 `stonewright-wp-cli-*` tools.
 
 Fastest MCP-client setup uses `npx`, so Windows, macOS, and Linux do not need a
@@ -65,7 +62,7 @@ shell wrapper, global install, or manual bridge:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.61/stonewright-companion-1.0.0-alpha.61.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.59/stonewright-companion-1.0.0-alpha.59.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
@@ -80,22 +77,15 @@ shell wrapper, global install, or manual bridge:
 After adding the server, call `stonewright-setup-profile`. It returns
 copy-paste MCP config, platform checks, credential status, and notes for the
 current machine. For local `.local` or `.test` sites, the companion can create
-one Application Password through guarded WP-CLI and save it in the user profile.
-For local WP-CLI, the companion must have PHP CLI with mysqli/MySQL enabled,
-`wp` or `wp-cli.phar`, `STONEWRIGHT_WP_ROOT` pointing at the folder with
-`wp-config.php`, and a running database reachable from `wp-config.php`. If any
-of those are missing, the agent should stop and tell the user what to install,
-enable, start, or configure before continuing WP-CLI work. Remote HTTP MCP sites
-do not require local PHP/MySQL unless the companion is expected to run WP-CLI
-for that site.
+one Application Password through tokenized WP-CLI and save it in the user profile.
 Do not point IDE MCP configs at `node companion/dist/index.js`; `dist` is a
 source build artifact and is intentionally not committed. Use the `npx` release
 tarball above, or for source development use
 `npm --prefix <repo>/companion run mcp:source`.
 Do not configure generic WordPress MCP adapters such as
 `@automattic/mcp-wordpress-remote` as the `stonewright` server. Use the
-Stonewright companion so setup, status, compact profiles, and guarded WP-CLI
-tools stay visible even while the WordPress endpoint is being fixed.
+Stonewright companion so setup, status, compact profiles, php-execute, and
+WP-CLI tools stay visible even while the WordPress endpoint is being fixed.
 `STONEWRIGHT_MCP_TOOL_PROFILE=essential` keeps startup compact while preserving
 the general Stonewright fast paths for Elementor, Gutenberg, content-model, and
 WP-CLI work.
@@ -125,8 +115,8 @@ loaded Stonewright MCP server.
 
 Do not recover from a missing tool by running `wp cli info`, `wp plugin
 activate`, `wp option update`, or other `wp` commands in a normal shell, and do
-not replace Stonewright with another adapter's arbitrary PHP execution. Use the
-live Stonewright MCP tools: `stonewright-wordpress-mcp-status`,
+not switch to another PHP adapter. Use the live Stonewright MCP tools:
+`stonewright-wordpress-mcp-status`, `stonewright-php-execute`,
 `stonewright-wp-cli-status`, `stonewright-wp-cli-discover`,
 `stonewright-wp-cli-run`, `stonewright-wp-cli-batch-run`,
 `stonewright-wp-cli-job-start`, `stonewright-wp-cli-job-status`, or
@@ -146,7 +136,7 @@ use composite writes before small corrective edits:
    move, and remove operations.
 
 This keeps MCP sessions fast and token-efficient because Stonewright validates,
-backs up, audits, measures timing, and writes related changes in a few guarded
+backs up, audits, measures timing, and writes related changes in a few compact
 calls.
 
 From source:
@@ -164,7 +154,7 @@ For MCP clients that use a local stdio server, configure:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.61/stonewright-companion-1.0.0-alpha.61.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.59/stonewright-companion-1.0.0-alpha.59.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",

@@ -64,7 +64,7 @@ Run from `plugin/` unless noted.
 - [ ] Start the companion: `cd companion && npm run start`.
 - [ ] Call `stonewright-wp-cli-status`.
 - [ ] Call `stonewright-wp-cli-discover`.
-- [ ] Call `stonewright-wp-cli-run` with a safe read command such as `["plugin","list","--format=json"]`.
+- [ ] Call `stonewright-wp-cli-run` with a read command such as `["plugin","list","--format=json"]`.
 - [ ] Confirm `["eval","echo 1;"]` is rejected.
 
 ### 7. Production-Safe Mode

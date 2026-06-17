@@ -92,7 +92,7 @@ final class AddWidget extends AbilityKernel {
 					if ( empty( $args['allow_raw_known_widget'] ) ) {
 						return $this->error(
 							'known_widget_requires_dedicated_ability',
-							__( 'This is a built-in Elementor widget known to Stonewright. Use the dedicated stonewright/elementor-add-* ability so widget settings are validated and editor-safe.', 'stonewright' ),
+							__( 'This is a built-in Elementor widget known to Stonewright. Use the dedicated stonewright/elementor-add-* ability so widget settings are validated and editor-compatible.', 'stonewright' ),
 							[
 								'widget'            => $widget_type,
 								'suggested_ability' => 'stonewright/elementor-add-' . $widget_type,

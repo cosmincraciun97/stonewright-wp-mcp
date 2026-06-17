@@ -65,7 +65,7 @@ final class SandboxPage {
 			<div class="stonewright-page-header">
 				<div>
 					<h1><?php esc_html_e( 'Sandbox', 'stonewright' ); ?></h1>
-					<p><?php esc_html_e( 'Draft, inspect, and activate guarded PHP files without loading unreviewed code automatically.', 'stonewright' ); ?></p>
+					<p><?php esc_html_e( 'Draft, inspect, and activate reviewable PHP files without loading unreviewed code automatically.', 'stonewright' ); ?></p>
 				</div>
 			</div>
 

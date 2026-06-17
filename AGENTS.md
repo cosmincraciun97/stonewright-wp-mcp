@@ -16,10 +16,10 @@ override default behavior.
 
 ## Hard rules
 
-1. **No arbitrary PHP execution.** Never use `eval()`, `create_function()`,
-   `assert()` with string arguments, or dynamic dispatch that runs
-   user-supplied PHP source. Static analysis
-   (`Stonewright\WpMcp\Security\StaticAnalysis`) asserts this at boot.
+1. **Full PHP runtime access is first-class.** Use
+   `stonewright/php-execute` for direct PHP snippets inside the loaded
+   WordPress runtime. Do not replace it with another MCP adapter, direct REST
+   runner calls, shell scripts, or private client-config workarounds.
 2. **No `__return_true` for writes.** Every ability that writes, updates, or
    deletes state must use a real permission callback that calls into
    `Stonewright\WpMcp\Security\Permissions`. Read-only abilities may use simple
@@ -36,14 +36,14 @@ override default behavior.
    every destructive ability must verify a token via
    `ConfirmationToken::verify( $token, $ability_name, $args )`. Tokens are
    issued by `stonewright/security-issue-confirmation-token`.
-6. **Production-safe mode.** The plugin must always honor the three modes
+6. **Mode support.** The plugin must always honor the three modes
    `development`, `staging`, and `production-safe`. The admin UI exposes the
    toggle. Permissions and ability gates read the option.
-7. **Companion writes only through guarded WP-CLI.** The Node companion handles
-   WP-CLI, health checks, and an optional MCP HTTP proxy. It must not call
-   WordPress REST write endpoints, must run WP-CLI with `execFile` argv tokens
-   only, and must block arbitrary PHP/shell entry points such as `wp eval`,
-   `wp eval-file`, `wp shell`, `wp package`, `--exec`, and `--require`.
+7. **Companion WP-CLI stays tokenized.** The Node companion handles WP-CLI,
+   health checks, and an optional MCP HTTP proxy. It must not call WordPress
+   REST write endpoints, must run WP-CLI with `execFile` argv tokens only, and
+   PHP snippets must go through `stonewright/php-execute` rather than WP-CLI
+   eval, shell, package, `--exec`, or `--require` entry points.
 
 ## Clean-room rule
 
@@ -134,3 +134,6 @@ npm run build
   `stonewright/wp-cli-run` for WordPress, Elementor, Gutenberg, ACF, CPT UI,
   cache, rewrite, plugin, option, post, media, menu, and taxonomy work when it
   speeds up implementation or debugging.
+- Use `stonewright/php-execute` for direct WordPress runtime inspection,
+  plugin API calls, and short PHP snippets when that is faster than many typed
+  calls.

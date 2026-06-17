@@ -10,14 +10,14 @@ edit WordPress sites through MCP.
 3. Create a WordPress Application Password for the MCP client user.
 4. Add the Stonewright MCP server to your AI client.
 5. In wp-admin, open **Stonewright > Configuration**, enable Stonewright, and
-   choose the safety mode.
+   choose the operating mode.
 6. Reload or restart the AI client and confirm the tool list includes
    `stonewright-context-bootstrap`.
 7. Smoke test the connection with `stonewright-ping`, then call
    `stonewright-context-bootstrap`.
 
 Every real task should start with `stonewright-context-bootstrap`. The response
-contains active instructions, relevant skills, persistent memory, safety
+contains active instructions, relevant skills, persistent memory, workflow
 followups, and the short-lived token needed by write abilities.
 
 If `stonewright-context-bootstrap` is missing, the MCP server is not loaded yet.
@@ -31,8 +31,9 @@ scripts such as `query-local-stonewright.js`, action scripts such as
 source-code spelunking to reverse-engineer tool schemas, and
 `/wp-json/stonewright/v1/abilities/run` shell calls do not replace live
 Stonewright MCP tools.
-Do not recover by running `wp ...` in a normal shell or by using arbitrary PHP
-execution from another adapter; use Stonewright's guarded MCP tools.
+Do not recover by running `wp ...` in a normal shell or by switching to another
+PHP adapter; use `stonewright-php-execute` and Stonewright's tokenized WP-CLI
+MCP tools.
 
 ## Prompt Template
 
@@ -52,7 +53,7 @@ Design or content reference:
 - Link to design, screenshot, brief, copy, assets, and any exact spacing,
   color, typography, or responsive requirements.
 
-Safety:
+Workflow:
 - Start with stonewright-context-bootstrap.
 - If stonewright-context-bootstrap is not visible in the MCP tool list, stop and
   ask me to reload or fix the Stonewright MCP config.
@@ -62,6 +63,8 @@ Safety:
   reverse-engineer tool schemas, hand-roll JSON-RPC, call the REST runner from
   shell, or run shell `wp ...` commands as a Stonewright MCP workaround.
 - Use native WordPress or Elementor abilities first.
+- Use stonewright-php-execute for short full WordPress runtime snippets when a
+  direct plugin API call is faster than many typed calls.
 - Validate design specs before rendering.
 - Snapshot before Elementor, template, global style, or theme-backed writes.
 - Use production-safe confirmation tokens for destructive work.

@@ -7,7 +7,7 @@ workflow against the `stonewright/*` ability surface.
 
 | Skill | Description |
 |---|---|
-| `stonewright` | Searchable Stonewright entrypoint for WordPress, Elementor, Gutenberg, WooCommerce, content model, sandbox, memory, and workflow routing |
+| `stonewright` | Searchable Stonewright entrypoint for WordPress, Elementor, Gutenberg, WooCommerce, content model, PHP runtime, sandbox, memory, and workflow routing |
 | `design-to-wordpress` | Design reference, image, brief, or manual spec to WordPress page |
 | `content-model-integrations` | ACF, ACPT, Meta Box, ASE, Pods, custom fields, CPTs, taxonomies, option pages |
 | `elementor-v3-builder` | Elementor V3 container/widget tree, kit colors/typography, templates |
@@ -67,10 +67,7 @@ old indexed backups before moving them.
 - For WooCommerce catalog skills: WooCommerce active and official REST v3 or
   `wp wc` commands available for the requested operation.
 - For WP-CLI acceleration: companion running with `wp` available on `PATH` or
-  LocalWP-style PHP + `wp-cli.phar` discoverable from the WordPress root. Local
-  WP-CLI also requires PHP CLI with mysqli/MySQL enabled and a running database
-  reachable from `wp-config.php`. Remote HTTP MCP sites do not require local
-  PHP/MySQL unless the companion is expected to run WP-CLI for that site. If no
+  LocalWP-style PHP + `wp-cli.phar` discoverable from the WordPress root. If no
   WP-CLI is available, the direct companion tool `stonewright-wp-cli-install`
   can install `wp-cli.phar` into the Stonewright cache.
 
@@ -81,7 +78,8 @@ instead of reading repository files as a replacement. For WP-CLI work, use
 `stonewright-wp-cli-run`, `stonewright-wp-cli-batch-run`,
 `stonewright-wp-cli-job-start`, `stonewright-wp-cli-job-status`, or
 `stonewright-wp-cli-install`; do not recover by running `wp ...` in a normal
-shell or by using arbitrary PHP execution from another adapter.
+shell or by switching to another PHP adapter. Use `stonewright/php-execute`
+for direct runtime snippets and `stonewright-wp-cli-*` for tokenized WP-CLI.
 
 ## Companion layer
 

@@ -92,6 +92,7 @@ export const STARTUP_REQUIRED_PROXY_TOOL_NAMES = [
 const BASE_PROXY_TOOL_NAMES = [
 	...STARTUP_REQUIRED_PROXY_TOOL_NAMES,
 	'stonewright-tool-profile',
+	'stonewright-php-execute',
 ] as const;
 
 const LOW_TOOLS_PROXY_TOOL_NAMES = [
@@ -103,6 +104,7 @@ const LOW_TOOLS_PROXY_TOOL_NAMES = [
 	'stonewright-design-implementation-contract',
 	'stonewright-widget-intent-resolve',
 	'stonewright-elementor-widget-implementation-guide',
+	'stonewright-elementor-v3-status',
 	'stonewright-elementor-v3-capabilities-summary',
 	'stonewright-elementor-v3-get-kit-globals',
 	'stonewright-elementor-v3-container-schema',
@@ -110,9 +112,7 @@ const LOW_TOOLS_PROXY_TOOL_NAMES = [
 	'stonewright-elementor-v3-get-page-structure',
 	'stonewright-elementor-v3-build-page-from-spec',
 	'stonewright-elementor-v3-batch-mutate',
-	'stonewright-elementor-v3-save-template',
-	'stonewright-sandbox-write',
-	'stonewright-sandbox-activate',
+	'stonewright-elementor-v3-update-kit-colors',
 	'stonewright-gutenberg-apply-to-post',
 ] as const;
 
@@ -122,7 +122,6 @@ const ESSENTIAL_PROXY_TOOL_NAMES = [
 	'stonewright-security-create-one-time-link',
 	'stonewright-ping',
 	'stonewright-site-info',
-	'stonewright-site-capabilities',
 	'stonewright-site-environment',
 	'stonewright-site-health',
 	'stonewright-site-plugins-list',
@@ -169,11 +168,6 @@ const ESSENTIAL_PROXY_TOOL_NAMES = [
 	'stonewright-fse-read-template',
 	'stonewright-fse-write-template',
 	'stonewright-fse-write-global-styles',
-	'stonewright-sandbox-list',
-	'stonewright-sandbox-read',
-	'stonewright-sandbox-write',
-	'stonewright-sandbox-activate',
-	'stonewright-sandbox-deactivate',
 ] as const;
 
 const PROXY_TOOL_PROFILE_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, readonly string[]> = {
@@ -209,12 +203,6 @@ const PROXY_TOOL_PROFILE_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, readon
 		'stonewright-elementor-v3-build-page-from-spec',
 		'stonewright-elementor-v3-batch-mutate',
 		'stonewright-elementor-v3-apply-bundle',
-		'stonewright-elementor-v3-save-template',
-		'stonewright-sandbox-list',
-		'stonewright-sandbox-read',
-		'stonewright-sandbox-write',
-		'stonewright-sandbox-activate',
-		'stonewright-sandbox-deactivate',
 	],
 	'content-model': [
 		...BASE_PROXY_TOOL_NAMES,
@@ -224,11 +212,6 @@ const PROXY_TOOL_PROFILE_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, readon
 		'stonewright-content-bulk-upsert-posts',
 		'stonewright-media-list',
 		'stonewright-media-upload-batch',
-		'stonewright-sandbox-list',
-		'stonewright-sandbox-read',
-		'stonewright-sandbox-write',
-		'stonewright-sandbox-activate',
-		'stonewright-sandbox-deactivate',
 	],
 	gutenberg: [
 		...BASE_PROXY_TOOL_NAMES,

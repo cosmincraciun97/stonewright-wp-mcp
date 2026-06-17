@@ -23,7 +23,7 @@ final class ContainerSchema extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Returns compact safe Elementor container controls, aliases, and blocked settings for faster section layout writes.', 'stonewright' );
+		return __( 'Returns compact Elementor container controls, aliases, and blocked settings for faster section layout writes.', 'stonewright' );
 	}
 
 	public function category(): string {

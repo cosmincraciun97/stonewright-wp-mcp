@@ -77,7 +77,7 @@ final class SettingsPage {
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'Stonewright', 'stonewright' ); ?></h1>
-			<p><?php esc_html_e( 'Design-accurate WordPress building for Gutenberg and Elementor. Toggle production-safe mode before exposing the MCP server to remote clients.', 'stonewright' ); ?></p>
+			<p><?php esc_html_e( 'Design-accurate WordPress building for Gutenberg and Elementor. Choose the operating mode before exposing the MCP server to remote clients.', 'stonewright' ); ?></p>
 
 			<form method="post" action="options.php">
 				<?php settings_fields( self::OPTION_GROUP ); ?>
@@ -90,7 +90,7 @@ final class SettingsPage {
 								<select name="stonewright_mode" id="stonewright_mode">
 									<option value="development" <?php selected( $mode, 'development' ); ?>><?php esc_html_e( 'Development', 'stonewright' ); ?></option>
 									<option value="staging" <?php selected( $mode, 'staging' ); ?>><?php esc_html_e( 'Staging', 'stonewright' ); ?></option>
-									<option value="production-safe" <?php selected( $mode, 'production-safe' ); ?>><?php esc_html_e( 'Production (safe)', 'stonewright' ); ?></option>
+									<option value="production-safe" <?php selected( $mode, 'production-safe' ); ?>><?php esc_html_e( 'Production-safe', 'stonewright' ); ?></option>
 								</select>
 								<p class="description"><?php esc_html_e( 'Production mode disables destructive abilities and requires confirmation tokens.', 'stonewright' ); ?></p>
 							</td>

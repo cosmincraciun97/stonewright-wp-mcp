@@ -2,8 +2,8 @@
 name: stonewright
 description: >
   Stonewright WordPress MCP entrypoint. Use for WordPress, Elementor,
-  Gutenberg, FSE, WooCommerce, ACF/CPT/content-model, sandbox, memory,
-  skills, and agent workflow tasks.
+  Gutenberg, FSE, WooCommerce, ACF/CPT/content-model, PHP runtime, sandbox,
+  memory, skills, and agent workflow tasks.
 ---
 
 # Stonewright
@@ -21,13 +21,6 @@ It routes the agent to the right specialized skill and MCP tools.
 4. If authentication or MCP visibility fails, call
    `stonewright-wordpress-mcp-status` and `stonewright-setup-profile`, then use
    direct `stonewright-wp-cli-*` tools only when WP-CLI is needed.
-5. For local WordPress or server-side companion WP-CLI work, confirm the
-   `wp_cli_environment` guidance from setup-profile: PHP CLI must have
-   mysqli/MySQL enabled, `wp` or `wp-cli.phar` must be available,
-   `STONEWRIGHT_WP_ROOT` must point at `wp-config.php`, and the database must be
-   running. Remote HTTP MCP sites do not require local PHP/MySQL unless the
-   companion is expected to run WP-CLI for that site. If dependencies are
-   missing, stop and tell the user what to install, enable, start, or configure.
 
 If `stonewright_essential_tools_mode` is enabled, expect a compact tool list.
 Use the fast-path tools returned by preflight instead of rediscovering the full
@@ -36,10 +29,7 @@ ability surface. Use preflight's inlined tool profile first; use
 Elementor, content-model, Gutenberg, WP-CLI, or site-admin profile. Use
 `low-tools` for Antigravity, Gemini API, or other strict tool-cap clients; it
 keeps the client-visible startup surface under 30 tools before the agent
-switches to a specialist profile. Normal builder tasks should not require a
-manual unblock: the compact profiles include Loop/Grid template save,
-content/media batch writes, guarded WP-CLI, and the guarded sandbox
-write/activate path for shortcode or query glue.
+switches to a specialist profile.
 
 ## Route
 
@@ -57,20 +47,16 @@ write/activate path for shortcode or query glue.
 - Prefer one-call fast paths: `stonewright/elementor-v3-build-page-from-spec`
   with `dry_run`, `stonewright/elementor-v3-batch-mutate` for existing
   Elementor tree edits, `stonewright/content-bulk-upsert-posts` for repeated
-  post/CPT/custom-field rows, `stonewright/media-upload-batch`, and guarded
+  post/CPT/custom-field rows, `stonewright/media-upload-batch`,
+  `stonewright/php-execute` for short runtime snippets, and tokenized
   `stonewright-wp-cli-run` for plugin/theme/content operations.
 - For CPT rows plus many meta/custom-field values, use
   `stonewright/content-bulk-upsert-posts` after the post type exists. Do not
   fan out into dozens of `wp post meta update` calls unless the bulk ability is
   unavailable.
-- Use guarded `stonewright-wp-cli-run` only with argv tokens.
-- Treat `stonewright-wp-cli-status` with `php_ini_not_loaded` as a local runtime
-  warning: set `STONEWRIGHT_WP_CLI_PHP_INI` and the matching PHP binary, then
-  restart or reload the MCP client before WordPress-loading WP-CLI commands.
-- If native content/Elementor tools are insufficient and shortcode or query
-  glue is required, use `stonewright-sandbox-write` and
-  `stonewright-sandbox-activate`; do not create shell scripts or use arbitrary
-  PHP execution.
+- Use `stonewright/php-execute` when a direct WordPress/plugin API snippet is
+  faster than many typed calls.
+- Use `stonewright-wp-cli-run` only with argv tokens.
 - For repeated WP-CLI writes or non-ASCII values, use
   `stonewright-wp-cli-batch-run` with JSON argv arrays instead of large inline
   PowerShell/Node scripts.
@@ -78,7 +64,7 @@ write/activate path for shortcode or query glue.
   batches, use `stonewright-wp-cli-job-start` and poll with
   `stonewright-wp-cli-job-status` instead of blocking one MCP request.
 - Do not run `wp ...` in a normal shell as Stonewright recovery, and do not use
-  another adapter's arbitrary PHP execution to replace Stonewright tools.
+  another PHP adapter to replace Stonewright tools.
 - Never use `wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, or
   `--require`.
 - For visual work, implement one or two sections at a time and verify desktop,

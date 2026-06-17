@@ -12,7 +12,7 @@ use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
 
 /**
- * Applies multiple Elementor V3 tree mutations in one guarded write.
+ * Applies multiple Elementor V3 tree mutations in one compact write.
  *
  * @stonewright-status stable
  */

@@ -51,7 +51,7 @@ wp option update stonewright_elementor_v4_atomic 1
 | `stonewright/elementor-v4-read-atomic-tree` | `ElementorV4\ReadAtomicTree` | Read | Returns the atomic-aware subset of `_elementor_data` for a post. |
 | `stonewright/elementor-v4-render-from-spec` | `ElementorV4\RenderFromSpec` | Write | Converts a DesignSpec into a V4 atomic tree and persists it. Requires Backup + Validator + token gate. |
 
-## Safety envelope for write abilities
+## Write envelope for V4 abilities
 
 V4 write abilities follow the same AGENTS.md security rules as V3:
 

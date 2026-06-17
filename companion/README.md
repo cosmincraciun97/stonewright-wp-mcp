@@ -8,13 +8,14 @@ The companion provides:
 - stdio proxy for the Stonewright WordPress MCP endpoint
 - optional Streamable HTTP transport at `POST /mcp`
 - health checks at `GET /health`
-- guarded WP-CLI execution for WordPress implementation and debugging
+- tokenized WP-CLI execution for WordPress implementation and debugging
 - optional MCP HTTP proxy
 
-The companion does not call WordPress REST write endpoints. WordPress changes go
-through tokenized WP-CLI commands run with `execFile`, never shell strings.
-Dangerous arbitrary PHP and shell entry points are blocked: `wp eval`,
-`wp eval-file`, `wp shell`, `wp package`, `--exec`, and `--require`.
+The companion does not call WordPress REST write endpoints. WP-CLI changes go
+through tokenized commands run with `execFile`, never shell strings. Use
+`stonewright-php-execute` for direct WordPress runtime snippets; WP-CLI PHP and
+shell entry points remain blocked: `wp eval`, `wp eval-file`, `wp shell`,
+`wp package`, `--exec`, and `--require`.
 
 MIT License.
 
@@ -27,7 +28,7 @@ Fast path for MCP clients:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.61/stonewright-companion-1.0.0-alpha.61.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.59/stonewright-companion-1.0.0-alpha.59.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
@@ -62,22 +63,15 @@ tarball above, or for source development use
 `npm --prefix <repo>/companion run mcp:source`.
 Do not configure generic WordPress MCP adapters such as
 `@automattic/mcp-wordpress-remote` as the `stonewright` server. Use the
-Stonewright companion so setup, status, compact profiles, and guarded WP-CLI
-tools stay visible even while the WordPress endpoint is being fixed.
+Stonewright companion so setup, status, compact profiles, php-execute, and
+WP-CLI tools stay visible even while the WordPress endpoint is being fixed.
 The companion also publishes compact MCP handshake instructions, so clients get
-the first-call, recovery, low-tools, and guarded WP-CLI rules before any tool is
-called.
+the first-call, recovery, low-tools, php-execute, and WP-CLI routing rules
+before any tool is called.
 For Antigravity, Gemini API, or other strict tool-cap clients, set
 `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` before startup. It keeps the total
 client-visible tool surface under 30 by hiding legacy duplicate aliases while
 the canonical `stonewright-wp-cli-*` recovery tools remain local.
-For local WordPress and server-side companion WP-CLI work, verify that PHP CLI
-loads mysqli/MySQL, `wp` or `wp-cli.phar` is available, `STONEWRIGHT_WP_ROOT`
-points at the folder containing `wp-config.php`, and the database service is
-running and reachable from that config. Remote HTTP MCP sites do not require
-local PHP/MySQL unless this companion is expected to run WP-CLI for that site.
-After changing Stonewright env vars, PHP/WP-CLI paths, or the release tarball,
-restart or reload the MCP client before rechecking tools.
 
 From a GitHub release:
 
@@ -120,9 +114,6 @@ cp .env.example .env
 | `STONEWRIGHT_WP_APP_PASSWORD_AUTO` | optional | `local-only` by default; set `never` to disable or `always` to permit remote auto-generation |
 | `STONEWRIGHT_WP_APP_PASSWORD_NAME` | optional | Label used when auto-creating the WordPress Application Password |
 | `STONEWRIGHT_WP_CLI_BIN` | optional | WP-CLI executable path; defaults to `wp` |
-| `STONEWRIGHT_WP_CLI_PHP_BIN` | optional | PHP executable for running `wp-cli.phar`; set with `STONEWRIGHT_WP_CLI_PHAR_PATH` for explicit local runtimes |
-| `STONEWRIGHT_WP_CLI_PHAR_PATH` | optional | Explicit `wp-cli.phar` path |
-| `STONEWRIGHT_WP_CLI_PHP_INI` | optional | PHP ini file for local PHP extensions such as mysqli/MySQL |
 | `STONEWRIGHT_WP_ROOT` | optional | Absolute WordPress install folder containing `wp-config.php`; default WP-CLI working directory |
 | `STONEWRIGHT_WP_ALLOWED_ROOTS` | optional | Comma- or semicolon-separated allowed working roots |
 | `MCP_PROXY_TARGET` | optional | Upstream MCP server URL to proxy to |
@@ -148,7 +139,7 @@ WordPress shows an Application Password only once. If
 per-project credential in
 `STONEWRIGHT_CREDENTIAL_STORE` or in the Stonewright user credential directory.
 For local development hosts (`localhost`, `127.0.0.1`, `.local`, `.test`), the
-companion can create one Application Password through guarded WP-CLI, save it,
+companion can create one Application Password through tokenized WP-CLI, save it,
 and reuse it in future agent sessions.
 
 Env credentials still win. Set `STONEWRIGHT_WP_APP_PASSWORD_AUTO=never` to
@@ -177,11 +168,6 @@ resolution chain (first match wins):
 
 **No manual WP-CLI installation is required** for most setups. The download is
 idempotent — if the phar already exists it is reused without re-downloading.
-The `stonewright-wp-cli-status` tool warns when `wp cli info` can start but PHP
-did not load a `php.ini`. Treat that as a local runtime setup blocker for
-WordPress-loading commands: set `STONEWRIGHT_WP_CLI_PHP_INI` and the matching
-PHP binary, start the database, then restart or reload the MCP client. Do not
-fall back to shell `wp ...` commands.
 
 ### MCP tools
 
@@ -189,7 +175,7 @@ fall back to shell `wp ...` commands.
 - `stonewright-wp-cli-discover` — summarize installed WP-CLI command metadata; use `commandFilter` for ACF/CPT UI/plugin command paths
 - `stonewright-wp-cli-run` — run a tokenized WP-CLI command (no shell)
 - `stonewright-wp-cli-batch-run` — run repeated tokenized commands in one request
-- `stonewright-wp-cli-job-start` — start long guarded WP-CLI work without blocking the MCP request
+- `stonewright-wp-cli-job-start` — start long WP-CLI work without blocking the MCP request
 - `stonewright-wp-cli-job-status` — poll a WP-CLI background job
 - `stonewright-wp-cli-install` — manually trigger phar download into cache
 

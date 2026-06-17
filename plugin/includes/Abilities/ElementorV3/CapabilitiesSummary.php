@@ -100,7 +100,7 @@ final class CapabilitiesSummary extends AbilityKernel {
 			'advanced_controls'   => EditorTabKnowledge::advanced_control_keys(),
 			'renderer_limits'     => [
 				'Validated Stonewright Design Spec only.',
-				'No arbitrary PHP, shell, JavaScript, or Elementor custom-code execution.',
+				'Use native Elementor widgets first; reserve stonewright/php-execute for short WordPress runtime inspection or plugin API calls.',
 				'No Elementor HTML widget by default.',
 				'Browser screenshots and Figma extraction stay in external MCPs, not Stonewright.',
 			],

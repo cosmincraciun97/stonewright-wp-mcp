@@ -2,12 +2,12 @@
 
 <p align="center">
   <strong>MCP tools for WordPress builders</strong><br />
-  Secure WordPress, Gutenberg, Elementor, WooCommerce, and content-model
+  Direct WordPress, Gutenberg, Elementor, WooCommerce, and content-model
   automation for AI agents.
 </p>
 
 <p align="center">
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.61-blue" /></a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.62-blue" /></a>
   <img alt="plugin license" src="https://img.shields.io/badge/plugin-GPL--2.0--or--later-green" />
   <img alt="companion license" src="https://img.shields.io/badge/companion-MIT-blue" />
   <img alt="php" src="https://img.shields.io/badge/PHP-%3E%3D8.1-777bb4" />
@@ -16,39 +16,43 @@
   <img alt="ci" src="https://img.shields.io/github/actions/workflow/status/cosmincraciun97/stonewright-wp-mcp/ci.yml?branch=main&label=CI" />
 </p>
 
-Stonewright exposes guarded WordPress building primitives to MCP-compatible AI
-clients. It covers Gutenberg, Full Site Editing, Elementor, Elementor widget
-intelligence, content-model plugins, WooCommerce catalog work, media, menus,
-persistent memory, skills, and WP-CLI-assisted debugging. It builds
-well-formed WordPress data with permission, backup, validation, context, and
-audit gates.
+Stonewright exposes WordPress building tools to MCP-compatible AI clients. It
+covers Gutenberg, Full Site Editing, Elementor, Elementor widget intelligence,
+content-model plugins, WooCommerce catalog work, media, menus, persistent
+memory, skills, direct PHP runtime execution, and WP-CLI-assisted debugging. It
+builds well-formed WordPress data with permissions, backups, validation,
+context, and audit logs.
 
 ## Why Stonewright
 
-Stonewright is built for agents that need to edit real WordPress sites without
-turning every task into shell access or fragile one-off PHP snippets.
+Stonewright is built for agents that need to edit real WordPress sites quickly
+without turning every task into broad shell access or dozens of tiny tool calls.
 
 - **Broad WordPress surface:** Gutenberg, FSE, Elementor V3, experimental
   Elementor V4, WooCommerce, media, menus, content models, skills, memory, and
-  guarded WP-CLI.
-- **Safety-first writes:** permissions, backups, confirmation tokens,
-  validators, audit logs, and production-safe mode are part of the ability
-  layer.
+  tokenized WP-CLI.
+- **Direct runtime access:** `stonewright/php-execute` runs short PHP snippets
+  inside the loaded WordPress runtime when a plugin API call or `$wpdb` query is
+  faster than many typed calls.
+- **Operator controls:** permissions, backups, confirmation tokens,
+  validators, audit logs, sandbox recovery, and production-safe mode are part
+  of the ability layer.
 - **Fast agent workflows:** context bootstrap, workflow preflight, compact tool
   profiles, batch Elementor mutations, bulk content upserts, and background
   WP-CLI jobs keep MCP sessions small and useful.
 - **Transparent releases:** release notes list shipped assets, compatibility
-  work, safety-impacting changes, and verification commands.
+  work, operator-control changes, and verification commands.
 
 ## Components
 
 | Capability | What Stonewright gives the agent |
 |---|---|
 | Elementor widget intelligence | Reads widget schemas by Content, Style, and Advanced tabs before writing settings. |
-| Fast Elementor and content builds | Applies full page specs, Elementor batch mutations, and CPT/custom-field bulk upserts in a few guarded calls instead of many tiny writes. |
+| Fast Elementor and content builds | Applies full page specs, Elementor batch mutations, and CPT/custom-field bulk upserts in a few compact calls instead of many tiny writes. |
 | Block themes and Gutenberg | Works with core blocks, `theme.json`, templates, template parts, patterns, and FSE global styles. |
+| Direct PHP runtime | Executes short PHP snippets through `stonewright/php-execute` inside WordPress with loaded plugins and `$wpdb`. |
 | Persistent memory | Stores project conventions and repeatable lessons across sessions. |
-| Safe WP-CLI | Runs tokenized WP-CLI commands through the companion while blocking arbitrary PHP/shell entry points. |
+| Tokenized WP-CLI | Runs WP-CLI commands through the companion with argv tokens for plugin/theme/content operations and long-running jobs. |
 
 | Component | Path | License |
 |---|---|---|
@@ -64,11 +68,7 @@ turning every task into shell access or fragile one-off PHP snippets.
 - Composer 2 for source installs
 - Node.js 20+ for the optional companion
 - Elementor 3.21+ for Elementor abilities
-- For local or server-side companion WP-CLI work: PHP CLI with mysqli/MySQL
-  enabled, `wp` or `wp-cli.phar`, a WordPress root containing `wp-config.php`,
-  and a running database reachable from that WordPress config. Remote HTTP MCP
-  sites do not require local PHP/MySQL unless the companion is expected to run
-  WP-CLI for that site.
+- WP-CLI for companion-assisted WordPress work, or LocalWP with its bundled WP-CLI
 
 ## Install From Release
 
@@ -112,10 +112,11 @@ live Stonewright MCP server.
 If the companion is visible but proxied WordPress tools are missing, call
 `stonewright-wordpress-mcp-status`; setup-profile and direct `stonewright-wp-cli-*`
 tools remain available while you fix credentials or endpoint URLs.
-Do not recover by running `wp ...` commands in a normal shell or by using another
-MCP adapter's arbitrary PHP execution. Use `stonewright-wp-cli-status`,
-`stonewright-wp-cli-discover`, `stonewright-wp-cli-run`,
-`stonewright-wp-cli-batch-run`, or `stonewright-wp-cli-install`.
+Do not recover by running `wp ...` commands in a normal shell or by switching to
+another PHP adapter. Use `stonewright-php-execute` for short WordPress runtime
+snippets, and use `stonewright-wp-cli-status`, `stonewright-wp-cli-discover`,
+`stonewright-wp-cli-run`, `stonewright-wp-cli-batch-run`, or
+`stonewright-wp-cli-install` for tokenized WP-CLI workflows.
 
 Use `stonewright-workflow-preflight` for fast task setup. It returns a context
 token, active mode, auth reminders, compact Elementor capability data,
@@ -133,7 +134,7 @@ stonewright-content-bulk-upsert-posts
 ```
 
 Those tools keep token use low by doing validation, backup, diagnostics,
-timing, and many related writes in one guarded call.
+timing, and many related writes in one compact call.
 
 ## Optional Companion
 
@@ -145,7 +146,7 @@ Fastest MCP-client setup uses the versioned GitHub release tarball through
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.61/stonewright-companion-1.0.0-alpha.61.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.62/stonewright-companion-1.0.0-alpha.62.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -165,8 +166,8 @@ tarball above, or for source development use
 `npm --prefix <repo>/companion run mcp:source`.
 Do not configure generic WordPress MCP adapters such as
 `@automattic/mcp-wordpress-remote` as the `stonewright` server. Use the
-Stonewright companion so setup, status, compact profiles, and guarded WP-CLI
-tools stay visible even while the WordPress endpoint is being fixed.
+Stonewright companion so setup, status, compact profiles, php-execute, and
+WP-CLI tools stay visible even while the WordPress endpoint is being fixed.
 The companion defaults to the compact `essential` tool profile, so new MCP
 sessions stay on the Stonewright fast-path surface instead of registering every
 specialized tool.
@@ -182,16 +183,9 @@ Antigravity 2.0, Antigravity IDE, and Antigravity CLI use the shared
 config, refresh steps, and troubleshooting when Stonewright does not appear in
 `/mcp`.
 
-For local WordPress sites, add `STONEWRIGHT_WP_ROOT` when you want guarded
+For local WordPress sites, add `STONEWRIGHT_WP_ROOT` when you want path-scoped
 WP-CLI helper tools or LocalWP discovery. Call `stonewright-setup-profile` once
 for copy-paste config, platform checks, credential status, and WP-CLI notes.
-Local WP-CLI requires PHP CLI with mysqli/MySQL enabled, `wp` or
-`wp-cli.phar`, `STONEWRIGHT_WP_ROOT` pointing at the folder with
-`wp-config.php`, and MySQL/MariaDB running and reachable from `wp-config.php`.
-Remote HTTP MCP sites do not require local PHP/MySQL unless the companion is
-expected to run WP-CLI for that site. If any local dependency is missing, agents
-should stop and tell the user what to install, enable, start, or configure
-before continuing WP-CLI work.
 Do not set `PORT` for normal stdio MCP clients. `PORT` enables the optional HTTP
 bridge only; if that port is already in use, stdio MCP should keep working and
 the HTTP bridge is skipped unless `STONEWRIGHT_HTTP_REQUIRED=1` is set.
@@ -260,8 +254,8 @@ Playwright MCP server rather than a one-off Playwright CLI install.
 
 Begin every task by asking the AI client to call `stonewright-context-bootstrap`.
 Good prompts name the target page, template, post, menu, or media item; the
-allowed editor surface; the safety mode; visual references or content sources;
-and the acceptance checks.
+allowed editor surface; the operating mode; visual references or content
+sources; and the acceptance checks.
 
 Minimal task prompt:
 
@@ -332,11 +326,8 @@ Copy `companion/.env.example` to `companion/.env`.
 | `STONEWRIGHT_MCP_URL` | optional | Explicit WordPress MCP endpoint override |
 | `STONEWRIGHT_CREDENTIAL_STORE` | optional | Per-project JSON file for saved Application Password fallback |
 | `STONEWRIGHT_CREDENTIAL_DIR` | optional | Directory for generated per-project credential files |
-| `STONEWRIGHT_WP_APP_PASSWORD_AUTO` | optional | Auto-create missing local credentials through guarded WP-CLI; default `local-only` |
+| `STONEWRIGHT_WP_APP_PASSWORD_AUTO` | optional | Auto-create missing local credentials through tokenized WP-CLI; default `local-only` |
 | `STONEWRIGHT_WP_CLI_BIN` | optional | WP-CLI executable path; defaults to `wp` |
-| `STONEWRIGHT_WP_CLI_PHP_BIN` | optional | PHP executable for running `wp-cli.phar`; set with `STONEWRIGHT_WP_CLI_PHAR_PATH` for explicit local runtimes |
-| `STONEWRIGHT_WP_CLI_PHAR_PATH` | optional | Explicit `wp-cli.phar` path |
-| `STONEWRIGHT_WP_CLI_PHP_INI` | optional | PHP ini file for local PHP extensions such as mysqli/MySQL |
 | `STONEWRIGHT_WP_ROOT` | optional | Absolute WordPress install folder containing `wp-config.php`; default WP-CLI working directory |
 | `STONEWRIGHT_WP_ALLOWED_ROOTS` | optional | Comma- or semicolon-separated allowed WP-CLI roots |
 | `MCP_PROXY_TARGET` | optional | Upstream MCP server to proxy requests to |
@@ -363,9 +354,10 @@ Stonewright plugin  ---> WordPress posts, blocks, FSE, Elementor, media
 Companion           ---> WP-CLI, health checks, optional MCP proxy
 ```
 
-The companion can write to WordPress only through guarded, tokenized WP-CLI
-commands. It blocks arbitrary PHP and shell entry points such as `wp eval`,
-`wp eval-file`, `wp shell`, `wp package`, `--exec`, and `--require`.
+The companion can write to WordPress through tokenized WP-CLI commands. Use
+`stonewright/php-execute` for PHP runtime snippets; the companion still blocks
+WP-CLI PHP and shell entry points such as `wp eval`, `wp eval-file`,
+`wp shell`, `wp package`, `--exec`, and `--require`.
 
 ## Further Reading
 

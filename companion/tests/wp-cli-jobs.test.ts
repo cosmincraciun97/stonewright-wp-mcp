@@ -7,7 +7,7 @@ import {
 } from '../src/wp-cli.js';
 
 describe('WP-CLI background jobs', () => {
-	it('runs a guarded WP-CLI command in the background and returns compact status', async () => {
+	it('runs a tokenized WP-CLI command in the background and returns compact status', async () => {
 		let finish!: (result: ExecFileResult) => void;
 		const runner: ExecFileRunner = () => new Promise((resolve) => {
 			finish = resolve;

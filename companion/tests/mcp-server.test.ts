@@ -18,7 +18,7 @@ describe('createMcpServer', () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
 		const info = (server as any).server._serverInfo as { name: string; version: string };
 		expect(info.name).toBe('stonewright-companion');
-		expect(info.version).toBe('1.0.0-alpha.61');
+		expect(info.version).toBe('1.0.0-alpha.62');
 	});
 
 	it('publishes compact handshake instructions before any tool is called', async () => {
@@ -34,6 +34,7 @@ describe('createMcpServer', () => {
 		expect(instructions).toContain('stonewright-setup-profile');
 		expect(instructions).toContain('stonewright-context-bootstrap');
 		expect(instructions).toContain('stonewright-workflow-preflight');
+		expect(instructions).toContain('stonewright-php-execute');
 		expect(instructions).toContain('fast_path.tool_profile');
 		expect(instructions).toContain('stonewright-wordpress-mcp-status');
 		expect(instructions).toContain('stonewright-wp-cli-batch-run');
@@ -48,9 +49,6 @@ describe('createMcpServer', () => {
 		expect(instructions).toContain('Do not hand-roll JSON-RPC calls');
 		expect(instructions).toContain('Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround');
 		expect(instructions).toContain('Do not run wp commands in a normal shell');
-		expect(instructions).toContain('Local WP-CLI requires PHP CLI with mysqli/MySQL enabled');
-		expect(instructions).toContain('Remote HTTP MCP sites do not require local PHP/MySQL');
-		expect(instructions).toContain('Restart or reload the MCP client after changing Stonewright env vars, PHP/WP-CLI paths, or the release tarball');
 		expect(instructions).not.toContain('companion_wp_cli_run');
 	});
 
@@ -236,10 +234,8 @@ describe('createMcpServer', () => {
 				{ name: 'stonewright-elementor-v3-container-schema' },
 				{ name: 'stonewright-elementor-v3-build-page-from-spec' },
 				{ name: 'stonewright-elementor-v3-batch-mutate' },
-				{ name: 'stonewright-elementor-v3-save-template' },
 				{ name: 'stonewright-wp-cli-batch-run' },
 				{ name: 'stonewright-sandbox-write' },
-				{ name: 'stonewright-sandbox-activate' },
 				{ name: 'stonewright-memory-list' },
 				{ name: 'stonewright-experimental-heavy-tool' },
 			]),
@@ -255,11 +251,9 @@ describe('createMcpServer', () => {
 			'stonewright-elementor-v3-container-schema',
 			'stonewright-elementor-v3-build-page-from-spec',
 			'stonewright-elementor-v3-batch-mutate',
-			'stonewright-elementor-v3-save-template',
 			'stonewright-wp-cli-batch-run',
-			'stonewright-sandbox-write',
-			'stonewright-sandbox-activate',
 		]));
+		expect(names).not.toContain('stonewright-sandbox-write');
 		expect(names).not.toContain('stonewright-memory-list');
 		expect(names).not.toContain('stonewright-experimental-heavy-tool');
 	});
@@ -397,8 +391,6 @@ describe('createMcpServer', () => {
 				{ name: 'stonewright-elementor-describe-widget' },
 				{ name: 'stonewright-memory-list' },
 				{ name: 'stonewright-sandbox-write' },
-				{ name: 'stonewright-sandbox-activate' },
-				{ name: 'stonewright-elementor-v3-save-template' },
 			]),
 		});
 
@@ -421,7 +413,7 @@ describe('createMcpServer', () => {
 		};
 
 		expect(response.structuredContent?.tool_profile).toBe('low-tools');
-		expect(response.structuredContent?.profile_expected_tool_count).toBeLessThanOrEqual(30);
+		expect(response.structuredContent?.profile_expected_tool_count).toBeLessThanOrEqual(24);
 		expect(response.structuredContent?.client_visible_expected_tool_count).toBeLessThanOrEqual(30);
 		expect(names.length).toBeLessThanOrEqual(30);
 		expect(response.structuredContent?.local_tool_names).toEqual(expect.not.arrayContaining([
@@ -455,6 +447,7 @@ describe('createMcpServer', () => {
 			'stonewright-context-bootstrap',
 			'stonewright-workflow-preflight',
 			'stonewright-tool-profile',
+			'stonewright-php-execute',
 			'stonewright-skills-get',
 			'stonewright-content-bulk-upsert-posts',
 			'stonewright-media-upload-batch',
@@ -462,9 +455,6 @@ describe('createMcpServer', () => {
 			'stonewright-elementor-v3-get-kit-globals',
 			'stonewright-elementor-v3-build-page-from-spec',
 			'stonewright-elementor-v3-batch-mutate',
-			'stonewright-elementor-v3-save-template',
-			'stonewright-sandbox-write',
-			'stonewright-sandbox-activate',
 			'stonewright-gutenberg-apply-to-post',
 			'stonewright-wp-cli-job-start',
 			'stonewright-wp-cli-job-status',
@@ -475,6 +465,7 @@ describe('createMcpServer', () => {
 		expect(names).not.toContain('stonewright-wp-cli-install');
 		expect(names).not.toContain('stonewright-elementor-describe-widget');
 		expect(names).not.toContain('stonewright-memory-list');
+		expect(names).not.toContain('stonewright-sandbox-write');
 	});
 
 	it('defaults proxied WordPress MCP tools to the essential profile', async () => {

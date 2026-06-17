@@ -42,8 +42,9 @@ or Full Site Editing work:
 
 AI block/theme builders are useful as rapid prototypes and prompt references,
 but Stonewright uses a prototype-to-production workflow: valid `theme.json`,
-valid block markup, readable template files, no arbitrary PHP, and browser
-verification before signoff.
+valid block markup, readable template files, direct PHP runtime snippets only
+when they are the shorter correct path, and browser verification before
+signoff.
 
 ## FSE pre-flight
 

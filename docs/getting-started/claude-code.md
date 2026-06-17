@@ -34,7 +34,8 @@ scratch helper scripts, creating helper JSON argument files, launching the
 companion through ad hoc shell scripts, creating action scripts, inspecting
 plugin/companion source to reverse-engineer tool schemas, hand-rolling
 JSON-RPC, or calling the REST runner from shell; they should use Stonewright's
-`stonewright-wp-cli-*` tools so commands stay tokenized and guarded.
+`stonewright-php-execute` for runtime snippets and `stonewright-wp-cli-*` tools
+so commands stay tokenized.
 
 ## 2. Create an Application Password
 
@@ -53,18 +54,13 @@ claude mcp add stonewright \
   --env STONEWRIGHT_WP_USERNAME='your-wp-username' \
   --env STONEWRIGHT_WP_APP_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx' \
   --env STONEWRIGHT_MCP_TOOL_PROFILE=essential \
-  -- npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.61/stonewright-companion-1.0.0-alpha.61.tgz stonewright-mcp
+  -- npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.59/stonewright-companion-1.0.0-alpha.59.tgz stonewright-mcp
 ```
 
 Add `--env STONEWRIGHT_WP_ROOT='...'` only when you want WP-CLI helper tools or
 LocalWP discovery. The value is the absolute WordPress install folder
 containing `wp-config.php`, such as `D:\Sites\example\app\public` or
 `/Users/me/Sites/example/app/public`; it is not the plugin folder.
-For local WP-CLI work, Claude Code's Stonewright companion also needs PHP CLI
-with mysqli/MySQL enabled, `wp` or `wp-cli.phar`, and the local database
-running. Remote HTTP MCP sites do not require local PHP/MySQL unless the
-companion will run WP-CLI for that site. Restart Claude Code after changing
-Stonewright env vars, PHP/WP-CLI paths, or the release tarball.
 
 Register the separate Playwright MCP for browser testing and screenshots:
 

@@ -222,7 +222,7 @@ final class MemoryInstructionsPage {
 					</label>
 					<?php submit_button( 'Save', 'small', 'submit', false ); ?>
 				</form>
-				<p class="description stonewright-memory-note">Memory abilities let connected agents list, read, create, update, and delete these entries through guarded Stonewright tools.</p>
+				<p class="description stonewright-memory-note">Memory abilities let connected agents list, read, create, update, and delete these entries through Stonewright tools.</p>
 
 				<!-- Tabs: All | User | Feedback | Project | Reference -->
 				<ul class="subsubsub">

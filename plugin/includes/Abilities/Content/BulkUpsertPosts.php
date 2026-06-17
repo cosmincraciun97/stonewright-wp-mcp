@@ -25,7 +25,7 @@ final class BulkUpsertPosts extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Creates or updates many posts of one post type by slug, including post meta, in one guarded call. Use this instead of many WP-CLI post/meta commands during fast page builds.', 'stonewright' );
+		return __( 'Creates or updates many posts of one post type by slug, including post meta, in one compact call. Use this instead of many WP-CLI post/meta commands during fast page builds.', 'stonewright' );
 	}
 
 	public function category(): string {

@@ -7,6 +7,36 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.62] - 2026-06-17
+
+### Added
+
+- Added `stonewright/php-execute` as the dedicated full WordPress runtime
+  execution ability for short PHP snippets, plugin API inspection, and compact
+  implementation loops inside the loaded WordPress process.
+- Added runtime tooling to compact MCP profiles, workflow preflight, context
+  bootstrap guidance, setup profiles, skills, docs, fixtures, and ability
+  matrix coverage so strict tool-cap clients can route directly to PHP runtime
+  access without another adapter.
+
+### Changed
+
+- Repositioned Stonewright docs and agent guidance around PHP-first runtime
+  implementation, tokenized WP-CLI, fast composite writes, and lower-token
+  profile routing while keeping production-safe mode, backups, permissions,
+  confirmation tokens, validators, audit logging, and companion command
+  blocking intact.
+
+### Fixed
+
+- Prevented `stonewright/php-execute` from being classified as read-only in the
+  generated ability matrix and added regression coverage for its write
+  envelope.
+- Synchronized the installed Codex Stonewright skill so weak-model startup
+  guidance includes PHP runtime routing and no longer points agents at stale
+  guarded-WP-CLI wording.
+- Bumped the plugin and companion release assets to `1.0.0-alpha.62`.
+
 ## [1.0.0-alpha.61] - 2026-06-17
 
 ### Added
@@ -15,7 +45,7 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   extensions, WordPress bootstrap, database checks, LocalWP DB host/port
   detection, cached default WordPress roots, and actionable setup guidance.
 - Added read-only `stonewright/site-shortcodes-discover` for shortcode tag and
-  safe callback-shape discovery without executing shortcode handlers.
+  callback-shape discovery without executing shortcode handlers.
 
 ### Fixed
 
@@ -570,8 +600,8 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
-- Added Safe Fast Apply v1 for Elementor with
-  `stonewright/elementor-v3-batch-mutate`, allowing many guarded add, update,
+- Added Composite Apply v1 for Elementor with
+  `stonewright/elementor-v3-batch-mutate`, allowing many add, update,
   move, and remove operations on one page in one request.
 - Added `stonewright/content-bulk-upsert-posts` for fast CPT, post, and custom
   field seeding without repeated WP-CLI/meta calls.
@@ -598,7 +628,7 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
-- Added a UTF-8 safe companion WP-CLI batch runner for repeated argv-based
+- Added a UTF-8-compatible companion WP-CLI batch runner for repeated argv-based
   commands, exposed as `stonewright-wp-cli-batch-run`,
   `companion_wp_cli_batch_run`, and `POST /wp-cli/batch`.
 - Added guidance for agents to use the batch runner instead of large inline
@@ -775,7 +805,7 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `stonewright/workflow-preflight` for compact one-call task setup.
 - `stonewright/media-upload-batch` for per-item batch media uploads.
 - `stonewright/elementor-v3-capabilities-summary` for fast native-widget planning.
-- `stonewright/elementor-v3-apply-bundle` for guarded multi-post Elementor writes.
+- `stonewright/elementor-v3-apply-bundle` for multi-post Elementor writes.
 - Tag-driven GitHub release packaging for plugin ZIP, companion TGZ, and checksums.
 
 ### Fixed
@@ -804,7 +834,7 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - `stonewright/wp-cli-discover`
   - `stonewright/wp-cli-run`
 - Companion WP-CLI runner with argv validation, allowed root checks, timeout
-  handling, JSON parsing, and blocked arbitrary PHP/shell command groups.
+  handling, JSON parsing, and blocked eval/shell command groups.
 
 ### Removed
 
@@ -818,7 +848,7 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Changed
 
 - The companion is now focused on health, optional MCP HTTP/proxy transport, and
-  guarded WP-CLI execution.
+  tokenized WP-CLI execution.
 - Active documentation now points agents to persistent context, Elementor native
   widget discipline, and WP-CLI acceleration.
 
@@ -832,6 +862,7 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.62]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.62
 [1.0.0-alpha.61]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.61
 [1.0.0-alpha.60]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.60
 [1.0.0-alpha.58]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.58

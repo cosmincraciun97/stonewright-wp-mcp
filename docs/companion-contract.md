@@ -1,7 +1,7 @@
 # Companion Contract Reference
 
 The companion is a Node.js bridge for health checks, optional MCP HTTP
-transport/proxying, and guarded WP-CLI execution. It does not own Figma
+transport/proxying, and tokenized WP-CLI execution. It does not own Figma
 ingestion, screenshots, browser QA, Lighthouse, accessibility scans, or pixel
 diffing.
 
@@ -46,7 +46,7 @@ Returns companion status and contract version.
 
 ### POST /wp-cli/status
 
-Runs `wp cli info --format=json` through the guarded WP-CLI runner.
+Runs `wp cli info --format=json` through the tokenized WP-CLI runner.
 
 Request fields:
 
@@ -101,7 +101,7 @@ large inline shell scripts.
 ### POST /wp-cli/job-start
 
 Starts one command or one batch in the companion background queue. The job uses
-the same guarded `execFile` runner as `/wp-cli/run` and `/wp-cli/batch`.
+the same tokenized `execFile` runner as `/wp-cli/run` and `/wp-cli/batch`.
 
 Request fields combine `/wp-cli/run` and `/wp-cli/batch`: provide either
 `command` or `commands`, plus optional `path`, `url`, `user`, `context`,
@@ -151,13 +151,13 @@ into startup failures.
 When `MCP_PROXY_TARGET` is set, `/proxy` forwards MCP JSON-RPC payloads to that
 fixed upstream. Callers cannot choose arbitrary proxy targets.
 
-## WP-CLI Safety Invariants
+## WP-CLI Execution Invariants
 
 1. Commands are executed with `execFile`, not a shell.
 2. The command argv must be an array of non-empty strings.
-3. Arbitrary PHP and shell-oriented groups are blocked: `eval`, `eval-file`,
+3. WP-CLI PHP and shell-oriented groups are blocked: `eval`, `eval-file`,
    `shell`, and `package`.
-4. Unsafe flags are blocked: `--exec`, `--require`, and `--prompt`.
+4. Blocked flags are rejected: `--exec`, `--require`, and `--prompt`.
 5. `path`/cwd must resolve inside `STONEWRIGHT_WP_ROOT`,
    `STONEWRIGHT_WP_ALLOWED_ROOTS`, or the companion process cwd fallback.
    `STONEWRIGHT_WP_ROOT` is optional and, when configured, is the absolute

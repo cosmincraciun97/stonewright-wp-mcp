@@ -18,7 +18,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.mcp_server.args).toEqual([
 			'-y',
 			'--package',
-			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.61/stonewright-companion-1.0.0-alpha.61.tgz',
+			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.62/stonewright-companion-1.0.0-alpha.62.tgz',
 			'stonewright-mcp',
 		]);
 		expect(profile.mcp_server.env).toMatchObject({
@@ -35,6 +35,7 @@ describe('buildSetupProfile', () => {
 			'stonewright-context-bootstrap',
 			'stonewright-workflow-preflight',
 			'stonewright-tool-profile',
+			'stonewright-php-execute',
 			'stonewright-skills-get',
 			'stonewright-wordpress-mcp-status',
 			'stonewright-wp-cli-status',
@@ -60,27 +61,10 @@ describe('buildSetupProfile', () => {
 			'stonewright-wp-cli-install',
 		]));
 		expect(profile.tool_inventory.proxied_profile_tool_groups.elementor_design).toContain('stonewright-elementor-v3-build-page-from-spec');
-		expect(profile.tool_inventory.proxied_profile_tool_groups.elementor_design).toContain('stonewright-elementor-v3-save-template');
-		expect(profile.tool_inventory.proxied_profile_tool_groups.code_sandbox).toContain('stonewright-sandbox-write');
-		expect(profile.wp_cli_environment).toMatchObject({
-			applies_to: 'local WordPress sites and server-side companion installs that use guarded WP-CLI',
-			not_required_for: 'remote WordPress sites reached only through the HTTP MCP endpoint',
-			first_check: 'stonewright-wp-cli-status',
-			if_missing: 'Stop and tell the user which local dependency is missing before continuing WP-CLI work.',
-			restart_after_changes: 'Restart or reload the MCP client after changing Stonewright env vars, PHP/WP-CLI paths, or the release tarball.',
-		});
-		expect(profile.wp_cli_environment.required_dependencies).toEqual(expect.arrayContaining([
-			'PHP CLI with mysqli/MySQL extension enabled',
-			'wp or wp-cli.phar available to the companion',
-			'STONEWRIGHT_WP_ROOT pointing at a folder with wp-config.php',
-			'MySQL/MariaDB service running and reachable from wp-config.php',
-		]));
+		expect(profile.tool_inventory.proxied_profile_tool_groups.runtime).toContain('stonewright-php-execute');
 		expect(profile.notes.join('\n')).toContain('Use stonewright-wordpress-mcp-status if proxied WordPress tools are missing');
 		expect(profile.notes.join('\n')).toContain('Verify the MCP tool list includes stonewright-context-bootstrap before starting WordPress work');
 		expect(profile.notes.join('\n')).toContain('Use fast_path.tool_profile from stonewright-workflow-preflight before making a separate stonewright-tool-profile call');
-		expect(profile.notes.join('\n')).toContain('Local WP-CLI requires PHP CLI with mysqli/MySQL enabled');
-		expect(profile.notes.join('\n')).toContain('Remote HTTP MCP sites do not require local PHP/MySQL unless the companion is expected to run WP-CLI for that site');
-		expect(profile.notes.join('\n')).toContain('Restart or reload the MCP client after changing Stonewright env vars, PHP/WP-CLI paths, or the release tarball');
 		expect(profile.notes.join('\n')).toContain('STONEWRIGHT_MCP_TOOL_PROFILE=essential keeps new MCP sessions compact');
 		expect(profile.notes.join('\n')).toContain('Profile aliases such as elementor, design, acf, cpt-ui, fse, and wp cli normalize to compact canonical profiles.');
 		expect(profile.notes.join('\n')).toContain('Leave PORT unset for stdio-only MCP clients. To run the optional HTTP bridge, set STONEWRIGHT_HTTP_ENABLE=1 plus PORT.');
@@ -89,6 +73,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.notes.join('\n')).toContain('Do not point IDE MCP configs at companion/dist/index.js');
 		expect(profile.notes.join('\n')).toContain('For source development, use npm --prefix <repo>/companion run mcp:source');
 		expect(profile.notes.join('\n')).toContain('Do not configure generic WordPress MCP adapters such as @automattic/mcp-wordpress-remote');
+		expect(profile.notes.join('\n')).toContain('Use stonewright-php-execute for direct full WordPress runtime snippets');
 		expect(profile.notes.join('\n')).toContain('Do not treat local client skills or repository files as a substitute for live Stonewright MCP tools');
 		expect(profile.notes.join('\n')).toContain('Do not inspect private AI-client config files');
 		expect(profile.notes.join('\n')).toContain('Do not create scratch scripts such as query-mcp.js or run-ability.js');
@@ -107,6 +92,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.agent_do_not_use).toContain('Do not inspect plugin or companion source code to reverse-engineer tool schemas during WordPress implementation tasks.');
 		expect(profile.agent_do_not_use).toContain('Do not hand-roll JSON-RPC calls to /mcp or /wp-json/mcp/stonewright as an MCP workaround.');
 		expect(profile.agent_use_instead).toEqual(expect.arrayContaining([
+			'stonewright-php-execute',
 			'stonewright-wp-cli-status',
 			'stonewright-wp-cli-discover',
 			'stonewright-wp-cli-run',
@@ -136,7 +122,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.platform).toBe('win32');
 		expect(profile.mcp_server.env.STONEWRIGHT_WP_ROOT).toBe('D:\\Sites\\mcp-test\\app\\public');
 		expect(profile.mcp_server.env.STONEWRIGHT_WP_USERNAME).toBe('admin');
-		expect(profile.install_command).toBe('npm install -g https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.61/stonewright-companion-1.0.0-alpha.61.tgz');
+		expect(profile.install_command).toBe('npm install -g https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.62/stonewright-companion-1.0.0-alpha.62.tgz');
 		expect(profile.notes.join('\n')).toContain('No shell script wrapper required');
 	});
 
@@ -151,7 +137,7 @@ describe('buildSetupProfile', () => {
 
 		expect(profile.mcp_server.env.STONEWRIGHT_MCP_TOOL_PROFILE).toBe('low-tools');
 		expect(profile.notes.join('\n')).toContain('Use STONEWRIGHT_MCP_TOOL_PROFILE=low-tools for Antigravity, Gemini API, or other strict tool-cap clients');
-		expect(profile.notes.join('\n')).toContain('direct WP-CLI batch and background-job tools stay visible');
+		expect(profile.notes.join('\n')).toContain('php-execute plus direct WP-CLI batch and background-job tools stay visible');
 		expect(profile.tool_visibility_checks).not.toContain('stonewright-wp-cli-install');
 		expect(profile.agent_use_instead).not.toContain('stonewright-wp-cli-install');
 		expect(profile.tool_visibility_checks).toContain('stonewright-wp-cli-batch-run');
@@ -161,8 +147,6 @@ describe('buildSetupProfile', () => {
 		expect(profile.agent_use_instead).toContain('stonewright-wp-cli-job-status');
 		expect(profile.tool_inventory.profile).toBe('low-tools');
 		expect(profile.tool_inventory.startup_budget.under_low_tools_cap).toBe(true);
-		expect(profile.tool_inventory.proxied_profile_tool_groups.elementor_design).toContain('stonewright-elementor-v3-save-template');
-		expect(profile.tool_inventory.proxied_profile_tool_groups.code_sandbox).toContain('stonewright-sandbox-write');
 		expect(profile.tool_inventory.direct_wp_cli_tool_names).not.toContain('stonewright-wp-cli-install');
 		expect(profile.tool_inventory.direct_wp_cli_long_running_tool_names).toEqual([
 			'stonewright-wp-cli-job-start',

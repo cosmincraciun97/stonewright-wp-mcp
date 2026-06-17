@@ -24,10 +24,8 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'helper JSON args', $summary );
 		$this->assertStringContainsString( 'REST runner shell calls', $summary );
 		$this->assertStringContainsString( 'shell wp commands', $summary );
-		$this->assertStringContainsString( 'Do not use wp eval', $summary );
-		$this->assertStringContainsString( 'Local WP-CLI requires PHP CLI with mysqli/MySQL enabled', $summary );
-		$this->assertStringContainsString( 'Remote HTTP MCP sites do not require local PHP/MySQL', $summary );
-		$this->assertStringContainsString( 'Restart or reload the MCP client after changing Stonewright env vars, PHP/WP-CLI paths, or the release tarball', $summary );
+		$this->assertStringContainsString( 'stonewright-php-execute', $summary );
+		$this->assertStringContainsString( 'full WordPress runtime access', $summary );
 	}
 
 	public function test_default_instructions_force_context_skills_memory_and_elementor_widget_discipline(): void {
@@ -48,10 +46,8 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'Do not hand-roll JSON-RPC calls to bypass a missing MCP server', $instructions );
 		$this->assertStringContainsString( 'Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround', $instructions );
 		$this->assertStringContainsString( 'Do not run wp cli info, wp plugin activate, wp option update, or other wp commands in a normal shell as Stonewright recovery', $instructions );
-		$this->assertStringContainsString( 'Do not use another MCP adapter execute-php or arbitrary PHP execution to replace Stonewright tools', $instructions );
-		$this->assertStringContainsString( 'Local WP-CLI requires PHP CLI with mysqli/MySQL enabled', $instructions );
-		$this->assertStringContainsString( 'Remote HTTP MCP sites do not require local PHP/MySQL', $instructions );
-		$this->assertStringContainsString( 'Restart or reload the MCP client after changing Stonewright env vars, PHP/WP-CLI paths, or the release tarball', $instructions );
+		$this->assertStringContainsString( 'Use stonewright/php-execute for direct full WordPress runtime access', $instructions );
+		$this->assertStringContainsString( 'Do not use another MCP adapter execute-php to replace Stonewright php-execute', $instructions );
 		$this->assertStringContainsString( 'stonewright/tool-profile', $instructions );
 		$this->assertStringContainsString( 'Use fast_path.tool_profile from stonewright/workflow-preflight before making a separate stonewright/tool-profile call', $instructions );
 		$this->assertStringContainsString( 'stonewright/skills-get', $instructions );
@@ -67,6 +63,7 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'stonewright/wp-cli-status', $instructions );
 		$this->assertStringContainsString( 'stonewright/wp-cli-discover', $instructions );
 		$this->assertStringContainsString( 'stonewright/wp-cli-run', $instructions );
+		$this->assertStringContainsString( 'stonewright/php-execute', $instructions );
 		$this->assertStringContainsString( 'do not require the WordPress-side HTTP bridge', $instructions );
 		$this->assertStringContainsString( 'stonewright-wp-cli-install', $instructions );
 		$this->assertStringContainsString( 'Elementor, Gutenberg, ACF, CPT UI', $instructions );
@@ -74,7 +71,7 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'stonewright-content-model-integrations', $instructions );
 		$this->assertStringContainsString( 'stonewright-woocommerce-catalog', $instructions );
 		$this->assertStringContainsString( 'Use plugin-specific official REST or WP-CLI surfaces when present', $instructions );
-		$this->assertStringContainsString( 'wp eval', $instructions );
+		$this->assertStringContainsString( 'WP-CLI remains tokenized; use stonewright/php-execute for PHP runtime snippets', $instructions );
 		$this->assertStringContainsString( 'real Elementor widgets', $instructions );
 		$this->assertStringContainsString( 'Do not use Elementor HTML widgets', $instructions );
 		$this->assertStringContainsString( 'allow_html_widget=true', $instructions );
@@ -131,7 +128,7 @@ final class AgentInstructionsTest extends TestCase {
 
 		$this->assertStringContainsString( 'stonewright/context-bootstrap', $instructions );
 		$this->assertStringContainsString( 'stonewright/wp-cli-run', $instructions );
-		$this->assertStringContainsString( 'Do not use wp eval', $instructions );
+		$this->assertStringContainsString( 'stonewright/php-execute', $instructions );
 		$this->assertStringNotContainsString( 'visual_build_gate', $instructions );
 		$this->assertStringNotContainsString( 'reference token table', $instructions );
 		$this->assertStringNotContainsString( 'document.documentElement.scrollWidth', $instructions );

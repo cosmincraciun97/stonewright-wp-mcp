@@ -2,7 +2,8 @@
 
 Stonewright exposes WordPress site-building primitives as MCP tools. Agents use
 those tools to create and edit Gutenberg blocks, Elementor pages, FSE templates,
-media, menus, skills, memory, and WP-CLI-assisted workflows with guardrails.
+media, menus, skills, memory, direct PHP runtime snippets, and WP-CLI-assisted
+workflows with operator controls.
 
 ## Where To Start
 
@@ -30,6 +31,6 @@ media, menus, skills, memory, and WP-CLI-assisted workflows with guardrails.
 | `onboarding.md` | First run, prompt template, visual workflow, skills, and memory |
 | `abilities.md` | Public ability surface by category |
 | `ability-truth-matrix.md` | Generated ability gate matrix for permissions, backups, tokens, validators, and tests |
-| `companion.md` | Node companion, stdio MCP, optional HTTP bridge, and guarded WP-CLI |
+| `companion.md` | Node companion, stdio MCP, optional HTTP bridge, and tokenized WP-CLI |
 | `security.md` and `security-guarantees.md` | Threat model and hardening guarantees |
 | `clean-room-review.md` | Public clean-room review notes |

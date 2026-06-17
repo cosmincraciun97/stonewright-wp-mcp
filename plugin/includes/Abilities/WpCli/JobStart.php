@@ -6,7 +6,7 @@ namespace Stonewright\WpMcp\Abilities\WpCli;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 
 /**
- * Starts a guarded WP-CLI background job through the local companion.
+ * Starts a tokenized WP-CLI background job through the local companion.
  *
  * @stonewright-status stable
  */
@@ -22,7 +22,7 @@ final class JobStart extends WpCliAbility {
 	}
 
 	public function description(): string {
-		return __( 'Starts a guarded WP-CLI command or batch in the companion background queue so long plugin, import, cache, media, or content operations do not block the MCP request.', 'stonewright' );
+		return __( 'Starts a tokenized WP-CLI command or batch in the companion background queue so long plugin, import, cache, media, or content operations do not block the MCP request.', 'stonewright' );
 	}
 
 	public function input_schema(): array {

@@ -22,7 +22,7 @@ final class DiscoverShortcodes extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Lists registered shortcode tags and optional safe callback summaries without executing shortcode handlers.', 'stonewright' );
+		return __( 'Lists registered shortcode tags and optional callback summaries without executing shortcode handlers.', 'stonewright' );
 	}
 
 	public function category(): string {

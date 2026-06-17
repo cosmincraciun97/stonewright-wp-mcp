@@ -23,7 +23,7 @@ final class BackupPage extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Creates a Stonewright snapshot of a post or page (content, status, key meta) for safe rollback.', 'stonewright' );
+		return __( 'Creates a Stonewright snapshot of a post or page (content, status, key meta) for rollback.', 'stonewright' );
 	}
 
 	public function category(): string {

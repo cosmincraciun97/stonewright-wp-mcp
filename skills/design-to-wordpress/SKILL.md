@@ -127,7 +127,7 @@ Elementor tree.
   WordPress page title or theme chrome is visible.
 - If SVG upload is blocked, do not create sandbox or mu-plugin workarounds
   without explicit user approval. Use native Elementor icon controls when an
-  equivalent icon is acceptable, or ask for a safe SVG enablement path.
+  equivalent icon is acceptable, or ask for an approved SVG enablement path.
 - Custom CSS requires explicit user approval and goes in the active theme
   `style.css`, not in an HTML widget.
 
@@ -145,12 +145,13 @@ Use `stonewright-wp-cli-run` for tokenized commands such as `post`, `option`,
 plugin commands. Never use `wp eval`, `wp eval-file`, `wp shell`, `wp package`,
 `--exec`, or `--require`.
 Do not run `wp ...` in a normal shell as Stonewright recovery, and do not use
-another adapter's arbitrary PHP execution to replace Stonewright tools.
+another PHP adapter to replace Stonewright tools. Use `stonewright/php-execute`
+for short WordPress runtime snippets when direct inspection is faster.
 
 For repeated writes or strings with diacritics, prefer
 `stonewright-wp-cli-batch-run`; do not paste large inline PowerShell/Node
 scripts with raw non-ASCII text.
-For long guarded WP-CLI work such as imports, cache rebuilds, plugin
+For long WP-CLI work such as imports, cache rebuilds, plugin
 maintenance, or large content batches, use `stonewright-wp-cli-job-start` and
 poll `stonewright-wp-cli-job-status` so one MCP request does not block.
 

@@ -5,7 +5,7 @@ Stonewright has two parts:
 - `plugin/`: the WordPress source of truth for abilities, permissions, memory,
   skills, Design Spec validation, rendering, backups, and audit logs.
 - `companion/`: a Node sidecar for stdio MCP, optional HTTP MCP transport,
-  health checks, optional MCP proxying, and guarded WP-CLI.
+  health checks, optional MCP proxying, and tokenized WP-CLI.
 
 ```
 MCP client
@@ -17,7 +17,7 @@ Stonewright plugin
   |-- Context bootstrap
   |-- Persistent skills and memory
   |-- Design Spec validators/renderers
-  |-- Security gates, backups, audit log
+  |-- Direct PHP runtime, operator gates, backups, audit log
   |
 Companion
   |-- /health
@@ -29,12 +29,14 @@ Companion
 
 ## WordPress Writes
 
-The plugin owns permission checks, production-safe confirmation tokens, backups,
-validation, and audit logging. The companion can write only by running guarded
-WP-CLI commands requested by the plugin or MCP client.
+The plugin owns direct PHP runtime execution, permission checks,
+production-safe confirmation tokens, backups, validation, and audit logging.
+The companion can write by running tokenized WP-CLI commands requested by the
+plugin or MCP client.
 
-WP-CLI execution is tokenized and runs through `execFile`; arbitrary PHP and
-shell entry points are blocked.
+Use `stonewright/php-execute` for PHP snippets inside WordPress. WP-CLI
+execution is tokenized and runs through `execFile`; WP-CLI PHP and shell entry
+points are blocked.
 
 ## Agent Context
 

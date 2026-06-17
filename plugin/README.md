@@ -1,6 +1,6 @@
 # Stonewright Plugin
 
-Version: 1.0.0-alpha.61
+Version: 1.0.0-alpha.62
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
 License: GPL-2.0-or-later
@@ -8,7 +8,8 @@ License: GPL-2.0-or-later
 Stonewright registers WordPress Abilities as MCP tools through the official
 `wordpress/mcp-adapter`. It supports Gutenberg, Full Site Editing, Elementor V3,
 Elementor V4 atomic experiments, Design Spec rendering, Elementor widget
-building, persistent skills/memory, and companion-backed WP-CLI.
+building, persistent skills/memory, direct PHP runtime execution, and
+companion-backed WP-CLI.
 
 ## Quick Start
 
@@ -37,16 +38,11 @@ Use the admin **Local WP-CLI bridge (advanced)** controls only when you
 deliberately run the optional HTTP bridge for WordPress-side WP-CLI abilities.
 The source-install `wp plugin activate stonewright` command is for humans with
 WP-CLI already configured. Runtime agents should not recover by shelling out to
-`wp ...` or by using arbitrary PHP execution from another adapter; they should
-use the guarded `stonewright-wp-cli-*` MCP tools.
+`wp ...` or by switching to another PHP adapter. They should use
+`stonewright/php-execute` for direct WordPress runtime snippets and the
+tokenized `stonewright-wp-cli-*` MCP tools for WP-CLI workflows.
 Use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` for Antigravity, Gemini API, or
 other strict tool-cap clients; keep `essential` for normal fast-path sessions.
-For local WP-CLI work, the companion needs PHP CLI with mysqli/MySQL enabled,
-`wp` or `wp-cli.phar`, `STONEWRIGHT_WP_ROOT` pointing at `wp-config.php`, and a
-running database reachable from that WordPress config. Remote HTTP MCP sites do
-not need local PHP/MySQL unless the companion is expected to run WP-CLI for that
-site. Restart or reload the MCP client after changing Stonewright env vars,
-PHP/WP-CLI paths, or the release tarball.
 
 ## Local Development
 

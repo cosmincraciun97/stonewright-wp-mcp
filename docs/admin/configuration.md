@@ -51,7 +51,8 @@ keeps direct WP-CLI batch/background-job tools visible.
 ### Local WP-CLI bridge (advanced)
 
 The companion is a Node.js sidecar that handles WP-CLI, health checks, and the
-optional MCP proxy. It writes to WordPress only through guarded WP-CLI commands.
+optional MCP proxy. It writes to WordPress through tokenized WP-CLI commands;
+direct PHP runtime snippets go through `stonewright/php-execute`.
 
 Most users can skip this section. The setup note in Card 3 already runs
 Stonewright through `npx` with the versioned GitHub release tarball, and direct companion
@@ -64,10 +65,6 @@ Use **Local WP-CLI bridge (advanced)** only when you deliberately run a local
 HTTP bridge for WordPress-side abilities such as `stonewright/wp-cli-run`.
 Click **Generate token**, save settings, then copy **Developer launch values**
 into the bridge process. The bridge token must match the saved token.
-Local WP-CLI requires PHP CLI with mysqli/MySQL enabled, `wp` or
-`wp-cli.phar`, `STONEWRIGHT_WP_ROOT` pointing at `wp-config.php`, and a running
-database reachable from that config. Remote HTTP MCP sites do not require local
-PHP/MySQL unless the companion will run WP-CLI for that site.
 
 For stdio MCP clients, leave `PORT` unset. A stale `.env` `PORT` is ignored by
 stdio startup unless `STONEWRIGHT_HTTP_ENABLE=1` or
@@ -125,7 +122,7 @@ install:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.61/stonewright-companion-1.0.0-alpha.61.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.59/stonewright-companion-1.0.0-alpha.59.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -163,9 +160,6 @@ ad hoc shell scripts, creating action scripts, inspecting plugin/companion
 source to reverse-engineer tool schemas, hand-rolling JSON-RPC, calling the REST
 runner from shell, or running shell `wp ...` commands as a Stonewright MCP
 workaround.
-It tells agents to restart or reload after changing Stonewright env vars,
-PHP/WP-CLI paths, or the release tarball, and to stop if local WP-CLI
-dependencies are missing.
 
 ### Examples
 

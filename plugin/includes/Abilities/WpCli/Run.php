@@ -22,7 +22,7 @@ final class Run extends WpCliAbility {
 	}
 
 	public function description(): string {
-		return __( 'Runs a tokenized WP-CLI command through the companion. Supports WordPress write/debug commands for posts, options, plugins, Elementor, Gutenberg, ACF, CPT UI, cache, rewrite rules, and installed plugin commands while blocking arbitrary PHP and shell entry points.', 'stonewright' );
+		return __( 'Runs a tokenized WP-CLI command through the companion. Supports WordPress write/debug commands for posts, options, plugins, Elementor, Gutenberg, ACF, CPT UI, cache, rewrite rules, and installed plugin commands. Use stonewright/php-execute for PHP runtime snippets.', 'stonewright' );
 	}
 
 	public function input_schema(): array {

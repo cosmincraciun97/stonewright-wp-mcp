@@ -182,6 +182,8 @@ const WRITE_PATTERNS = [
 	'new UploadMedia()', 'new BuildPageFromSpec()',
 	// Confirmation-guarded abilities can mutate or destroy state.
 	'ConfirmationGuard',
+	// Dedicated runtime PHP execution can mutate WordPress state.
+	'eval(',
 ];
 
 function detect_rw( string $source ): string {
@@ -432,6 +434,7 @@ function find_test_file( string $class ): string {
 		'Gutenberg'      => 'tests/Unit/GutenbergRendererTest.php',
 		'Content'        => 'tests/Unit/ContentCapabilityTest.php',
 		'Design'         => 'tests/Integration/DesignIngestionTest.php',
+		'Runtime'        => 'tests/Unit/Runtime/PhpExecuteTest.php',
 		'WpCli'          => 'tests/Unit/WpCli/WpCliAbilitiesTest.php',
 		'Sandbox'        => 'tests/Unit/SandboxManifestTest.php',
 		'Memory'         => 'tests/Unit/AbilityKernelAuditTest.php',
@@ -460,7 +463,7 @@ $category_order = [
 	'Security', 'Site', 'Content', 'Media',
 	'Gutenberg', 'Patterns', 'FSE',
 	'ElementorV3', 'ElementorV4', 'ElementorWidget',
-	'Design', 'WpCli', 'Memory', 'System', 'Sandbox',
+	'Design', 'Runtime', 'WpCli', 'Memory', 'System', 'Sandbox',
 ];
 
 $category_labels = [
@@ -475,6 +478,7 @@ $category_labels = [
 	'ElementorV4'     => 'Elementor V4 (Experimental)',
 	'ElementorWidget' => 'Elementor Widget Builder',
 	'Design'          => 'Design',
+	'Runtime'         => 'Runtime',
 	'WpCli'           => 'WP-CLI',
 	'Memory'          => 'Memory',
 	'System'          => 'System',

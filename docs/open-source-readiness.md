@@ -14,13 +14,15 @@ This checklist tracks the public-release surface for Stonewright.
 
 ## Security Envelope
 
-- No arbitrary PHP execution.
+- Direct PHP runtime execution is exposed only through
+  `stonewright/php-execute`.
 - Write abilities use explicit permission callbacks.
 - Elementor, template, and theme-backed writes snapshot first.
 - Design specs validate before rendering.
 - Destructive production-safe operations require confirmation tokens.
-- Companion WP-CLI execution uses tokenized argv and blocks arbitrary PHP or
-  shell entry points.
+- Companion WP-CLI execution uses tokenized argv; PHP snippets use
+  `stonewright/php-execute`, while WP-CLI PHP/shell entry points remain
+  blocked.
 
 ## Release Checks
 

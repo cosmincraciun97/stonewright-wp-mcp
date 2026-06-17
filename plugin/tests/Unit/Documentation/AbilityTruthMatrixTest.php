@@ -252,7 +252,22 @@ final class AbilityTruthMatrixTest extends TestCase {
 		self::assertSame(
 			'Write',
 			trim( $row['columns'][4] ?? '' ),
-			'WP-CLI Run should be Write because commands may mutate WordPress state through the guarded companion.'
+			'WP-CLI Run should be Write because commands may mutate WordPress state through the tokenized companion.'
+		);
+	}
+
+	public function test_php_execute_shows_write(): void {
+		$row = $this->find_row( 'stonewright/php-execute' );
+
+		self::assertNotNull(
+			$row,
+			'stonewright/php-execute is missing from the matrix. Run `composer docs:matrix`.'
+		);
+
+		self::assertSame(
+			'Write',
+			trim( $row['columns'][4] ?? '' ),
+			'PhpExecute should be Write because runtime PHP can mutate WordPress state.'
 		);
 	}
 

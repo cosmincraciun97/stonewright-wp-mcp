@@ -3,21 +3,25 @@
 This document states the hard rules from `AGENTS.md`, where they are enforced,
 and how to verify them.
 
-## Rule 1 - No Arbitrary PHP Execution
+## Rule 1 - Dedicated PHP Runtime Execution
 
-Stonewright forbids `eval()`, `create_function()`, `assert()` with string
-arguments, and any dynamic dispatch that executes user-supplied PHP source.
+Stonewright exposes full WordPress runtime snippets only through the dedicated
+`stonewright/php-execute` ability. Do not add generic PHP adapters, REST runner
+workarounds, shell scripts, `create_function()`, `assert()` with string
+arguments, or dynamic include/require paths.
 
 Enforced by:
 
-- `plugin/includes/Security/StaticGuard.php`
+- `plugin/includes/Abilities/Runtime/PhpExecute.php`
 - `plugin/includes/Security/StaticAnalysis.php`
+- `plugin/bin/security-audit.php`
 
 Verify:
 
 ```bash
 cd plugin
-composer test -- --filter StaticGuard
+composer test -- --filter PhpExecuteTest
+composer security:audit
 ```
 
 ## Rule 2 - No `__return_true` For Writes
@@ -92,7 +96,7 @@ composer test -- --filter ConfirmationToken
 composer test -- --filter AbilityConfirmation
 ```
 
-## Rule 6 - Production-Safe Mode
+## Rule 6 - Mode Support
 
 Stonewright must honor `development`, `staging`, and `production-safe`. The admin
 UI exposes the toggle and permission gates read the option.
@@ -110,11 +114,12 @@ composer test -- --filter PermissionsTest
 composer test -- --filter SettingsSanitizer
 ```
 
-## Rule 7 - Companion Writes Only Through Guarded WP-CLI
+## Rule 7 - Companion WP-CLI Stays Tokenized
 
 The companion may execute WP-CLI commands for WordPress operations, including
-write commands, but only through the guarded runner. It must not call WordPress
-REST write endpoints and must not execute arbitrary PHP or shell commands.
+write commands, but only through the tokenized runner. It must not call
+WordPress REST write endpoints. PHP snippets go through
+`stonewright/php-execute`; WP-CLI PHP and shell entry points stay blocked.
 
 Enforced by:
 
@@ -178,7 +183,8 @@ In scope:
 - Unintended writes from a misconfigured MCP prompt.
 - Privilege escalation through ability permission mistakes.
 - Sandbox code injection.
-- Unsafe WP-CLI command execution.
+- Generic PHP adapter or shell workaround outside `stonewright/php-execute`.
+- WP-CLI entry point misuse.
 - Token replay.
 - Stale or missing task context.
 

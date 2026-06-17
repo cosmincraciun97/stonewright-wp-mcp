@@ -137,6 +137,7 @@ use Stonewright\WpMcp\Abilities\Menu\MenuDelete;
 use Stonewright\WpMcp\Abilities\Menu\MenuList;
 use Stonewright\WpMcp\Abilities\Patterns\CreatePattern;
 use Stonewright\WpMcp\Abilities\Patterns\ListPatterns;
+use Stonewright\WpMcp\Abilities\Runtime\PhpExecute;
 use Stonewright\WpMcp\Abilities\Security\CreateOneTimeLink;
 use Stonewright\WpMcp\Abilities\Security\IssueConfirmationToken;
 use Stonewright\WpMcp\Abilities\Site\BackupPage as SiteBackupPage;
@@ -165,6 +166,9 @@ final class AbilityRegistry {
 			ContextBootstrap::class,
 			IssueConfirmationToken::class,
 			CreateOneTimeLink::class,
+
+			// Runtime.
+			PhpExecute::class,
 
 			// Site.
 			Ping::class,
@@ -752,17 +756,19 @@ final class AbilityRegistry {
 	 */
 	private static function essential_ability_names(): array {
 		return [
-			// Bootstrap, safety, and site context.
+			// Bootstrap, runtime, and site context.
 			'stonewright/context-bootstrap',
 			'stonewright/security-issue-confirmation-token',
 			'stonewright/security-create-one-time-link',
+			'stonewright/php-execute',
 			'stonewright/ping',
 			'stonewright/site-info',
-			'stonewright/site-capabilities',
 			'stonewright/site-environment',
 			'stonewright/site-health',
 			'stonewright/site-plugins-list',
 			'stonewright/site-theme',
+			'stonewright/sandbox-write',
+			'stonewright/sandbox-activate',
 
 			// Fast workflow and compact instructions.
 			'stonewright/workflow-preflight',
@@ -787,6 +793,7 @@ final class AbilityRegistry {
 			'stonewright/elementor-v3-list-widgets',
 			'stonewright/elementor-v3-get-widget-schema',
 			'stonewright/elementor-v3-get-page-structure',
+			'stonewright/elementor-v3-get-element',
 			'stonewright/widget-intent-resolve',
 			'stonewright/elementor-widget-implementation-guide',
 			'stonewright/elementor-v3-build-page-from-spec',
@@ -818,23 +825,13 @@ final class AbilityRegistry {
 			'stonewright/fse-write-template',
 			'stonewright/fse-write-global-styles',
 
-			// Plugin/theme/CPT/Woo operations stay fast via guarded WP-CLI.
+			// Plugin/theme/CPT/Woo operations stay fast via runtime and WP-CLI tools.
 			'stonewright/wp-cli-status',
 			'stonewright/wp-cli-discover',
 			'stonewright/wp-cli-run',
 			'stonewright/wp-cli-batch-run',
 			'stonewright/wp-cli-job-start',
 			'stonewright/wp-cli-job-status',
-
-			// Guarded sandbox code lifecycle for builder tasks that need
-			// shortcode/query glue. Mutations still require context tokens,
-			// file-mod checks, StaticGuard, permissions, and production-safe
-			// confirmation tokens where applicable.
-			'stonewright/sandbox-list',
-			'stonewright/sandbox-read',
-			'stonewright/sandbox-write',
-			'stonewright/sandbox-activate',
-			'stonewright/sandbox-deactivate',
 		];
 	}
 
@@ -872,6 +869,7 @@ final class AbilityRegistry {
 			'design'    => __( 'Design', 'stonewright' ),
 			'knowledge' => __( 'Knowledge', 'stonewright' ),
 			'memory'    => __( 'Memory', 'stonewright' ),
+			'runtime'   => __( 'Runtime', 'stonewright' ),
 			'system'    => __( 'System', 'stonewright' ),
 			'wp-cli'    => __( 'WP-CLI', 'stonewright' ),
 			'sandbox'           => __( 'Sandbox', 'stonewright' ),

@@ -250,7 +250,7 @@ Returns `{ "template_id": 150 }`.
 | `stonewright/elementor-v3-update-kit-typography` | Mutate kit typography |
 | `stonewright/elementor-v3-update-page-settings` | Page-level settings |
 | `stonewright/elementor-v3-build-page-from-spec` | Spec-driven build with dry_run, metrics, append/replace modes |
-| `stonewright/elementor-v3-batch-mutate` | Many add/update/move/remove operations in one guarded write |
+| `stonewright/elementor-v3-batch-mutate` | Many add/update/move/remove operations in one compact write |
 | `stonewright/elementor-v3-apply-bundle` | Multi-post spec bundle |
 
 ## Confirmation token for destructive writes

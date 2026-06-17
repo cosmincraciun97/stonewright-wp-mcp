@@ -64,23 +64,26 @@ All write ability executions are recorded in the `{prefix}stonewright_audit_log`
 
 The log is append-only. Rows are never updated or deleted by the plugin. Read via `GET /wp-json/stonewright/v1/audit-log` (requires `manage_options`).
 
-### Static analysis environment assertion
+### Runtime execution and environment assertion
 
 On plugin boot, `Stonewright\WpMcp\Security\StaticAnalysis::assert_environment()` checks whether dangerous PHP functions (`exec`, `shell_exec`, `system`, `passthru`, `proc_open`, `popen`) are available. If they are and `WP_DEBUG` is on, a warning is logged. Stonewright never calls any of those functions itself.
 
+Stonewright exposes direct PHP runtime execution through the dedicated `stonewright/php-execute` ability. It requires `manage_options`, captures stdout and returned values, redacts submitted code from audit payloads, and is intended for short WordPress/plugin API snippets where full runtime access is faster than many typed calls.
+
 ### What Stonewright never does
 
-- No dynamic code execution functions in the plugin codebase.
+- No generic PHP adapter or shell workaround outside the dedicated
+  `stonewright/php-execute` runtime ability.
 - No dynamic `include` or `require` of user-supplied strings.
 - No `__return_true` used as a `permission_callback`.
 - No database queries outside of `wpdb` with prepared statements.
-- No arbitrary file writes outside of designated WordPress upload paths.
+- No file writes outside of designated WordPress upload paths.
 
 ### Transport security
 
 The MCP endpoint (`/wp-json/mcp/stonewright`) is a standard WordPress REST route. It inherits the same SSL, nonce, and Application Password infrastructure as the WordPress REST API. Use HTTPS in all environments.
 
-The companion HTTP server enforces bearer token authentication (`COMPANION_BEARER_TOKEN`) and an origin allowlist (`COMPANION_ALLOWED_ORIGINS`). The companion writes to WordPress only through guarded WP-CLI execution. It uses `execFile` with argv tokens and blocks arbitrary PHP or shell entry points such as `wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, and `--require`.
+The companion HTTP server enforces bearer token authentication (`COMPANION_BEARER_TOKEN`) and an origin allowlist (`COMPANION_ALLOWED_ORIGINS`). The companion writes to WordPress through tokenized WP-CLI execution. It uses `execFile` with argv tokens. Use `stonewright/php-execute` for PHP runtime snippets; WP-CLI PHP and shell entry points such as `wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, and `--require` remain blocked.
 
 ## Threat model
 
@@ -92,4 +95,4 @@ The companion HTTP server enforces bearer token authentication (`COMPANION_BEARE
 
 **Log tampering to hide malicious writes.** The audit table is append-only. Deletion of audit rows requires direct database access beyond the WordPress application layer.
 
-**Unsafe WP-CLI command execution.** The companion rejects arbitrary PHP and interactive shell commands before process spawn, runs without a shell, and can restrict working directories with `STONEWRIGHT_WP_ROOT` or `STONEWRIGHT_WP_ALLOWED_ROOTS`.
+**WP-CLI entry point misuse.** The companion rejects WP-CLI PHP and interactive shell entry points before process spawn, runs without a shell, and can restrict working directories with `STONEWRIGHT_WP_ROOT` or `STONEWRIGHT_WP_ALLOWED_ROOTS`.

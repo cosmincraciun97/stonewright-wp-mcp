@@ -197,14 +197,15 @@ final class SmokeTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Hard rule 1: No arbitrary PHP execution.
-	 * No source file in plugin/includes/ may contain a bare eval() call.
+	 * Hard rule 1: PHP execution is limited to the runtime executor.
+	 * No source file in plugin/includes/ may contain a bare eval() call except
+	 * the dedicated php-execute ability and detection-only files.
 	 * Files that reference the token as a string literal for detection are allowlisted.
 	 */
 	public function test_hard_rule_1_no_eval_in_source_tree(): void {
 		$includes_dir = dirname( __DIR__, 2 ) . '/includes';
 		// These files reference the token as a string literal in token-detection code.
-		$allowlist = [ 'StaticGuard.php', 'Compiler.php', 'DesignSpec.php' ];
+		$allowlist = [ 'StaticGuard.php', 'Compiler.php', 'DesignSpec.php', 'PhpExecute.php' ];
 		$found     = $this->scan_lines(
 			$includes_dir,
 			'/\.php$/',
@@ -219,7 +220,7 @@ final class SmokeTest extends TestCase {
 		$this->assertSame(
 			[],
 			$found,
-			"Hard rule 1 violated: eval() call found in source (outside detection-only files).\n" . implode( "\n", $found )
+			"Hard rule 1 violated: eval() call found outside the dedicated runtime executor or detection-only files.\n" . implode( "\n", $found )
 		);
 	}
 

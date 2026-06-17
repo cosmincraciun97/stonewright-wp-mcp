@@ -298,6 +298,7 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/workflow-preflight',
 			'stonewright/tool-profile',
 			'stonewright/skills-get',
+			'stonewright/php-execute',
 		];
 
 		return match ( $profile ) {
@@ -319,12 +320,9 @@ final class ToolProfile extends AbilityKernel {
 					'stonewright/elementor-v3-get-page-structure',
 					'stonewright/elementor-v3-build-page-from-spec',
 					'stonewright/elementor-v3-batch-mutate',
-					'stonewright/elementor-v3-save-template',
 					'stonewright/elementor-v3-update-kit-colors',
 					'stonewright/elementor-v3-update-kit-typography',
 					'stonewright/gutenberg-apply-to-post',
-					'stonewright/sandbox-write',
-					'stonewright/sandbox-activate',
 					'stonewright/wp-cli-batch-run',
 					'stonewright/wp-cli-job-start',
 					'stonewright/wp-cli-job-status',
@@ -345,6 +343,11 @@ final class ToolProfile extends AbilityKernel {
 					'stonewright/elementor-v3-container-schema',
 					'stonewright/elementor-v3-list-widgets',
 					'stonewright/elementor-v3-get-widget-schema',
+					'stonewright/elementor-describe-widget',
+					'stonewright/elementor-v4-status',
+					'stonewright/elementor-v4-list-variables',
+					'stonewright/elementor-v4-list-classes',
+					'stonewright/elementor-v4-list-atomic-node-types',
 					'stonewright/media-list',
 					'stonewright/media-upload-batch',
 					'stonewright/content-create-page',
@@ -357,18 +360,9 @@ final class ToolProfile extends AbilityKernel {
 					'stonewright/elementor-v3-build-page-from-spec',
 					'stonewright/elementor-v3-batch-mutate',
 					'stonewright/elementor-v3-apply-bundle',
-					'stonewright/elementor-v3-save-template',
-					'stonewright/sandbox-list',
-					'stonewright/sandbox-read',
-					'stonewright/sandbox-write',
-					'stonewright/sandbox-activate',
-					'stonewright/sandbox-deactivate',
 					'stonewright/wp-cli-status',
 					'stonewright/wp-cli-discover',
-					'stonewright/wp-cli-run',
 					'stonewright/wp-cli-batch-run',
-					'stonewright/wp-cli-job-start',
-					'stonewright/wp-cli-job-status',
 				]
 			),
 			'content-model' => array_merge(
@@ -386,11 +380,6 @@ final class ToolProfile extends AbilityKernel {
 					'stonewright/wp-cli-run',
 					'stonewright/wp-cli-job-start',
 					'stonewright/wp-cli-job-status',
-					'stonewright/sandbox-list',
-					'stonewright/sandbox-read',
-					'stonewright/sandbox-write',
-					'stonewright/sandbox-activate',
-					'stonewright/sandbox-deactivate',
 				]
 			),
 			'gutenberg' => array_merge(
@@ -458,6 +447,7 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/workflow-preflight' => 'Choose the task-aware fast path and first call sequence.',
 			'stonewright/tool-profile' => 'Keep the MCP tool surface compact for the current model, client, and task.',
 			'stonewright/skills-get' => 'Load one matched site playbook on demand instead of injecting every skill into startup context.',
+			'stonewright/php-execute' => 'Execute short PHP snippets inside the loaded WordPress runtime when direct plugin API or database inspection is faster than many typed calls.',
 			'stonewright/security-create-one-time-link' => 'Create a short-lived wp-admin login URL for external browser MCP verification when needed.',
 			'stonewright/design-implementation-contract' => 'Load global-style, native-widget, section-batch, and verification rules.',
 			'stonewright/widget-intent-resolve' => 'Map visual intent to native Elementor widgets before writing controls.',
@@ -466,15 +456,11 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/elementor-v3-get-widget-schema' => 'Read compact Content, Style, and Advanced widget controls; request full only for defaults.',
 			'stonewright/elementor-v3-get-page-structure' => 'Read a compact Elementor outline first; request full tree only for raw setting drift or difficult edits.',
 			'stonewright/elementor-v3-build-page-from-spec' => 'Render a validated Elementor section or page spec in one request.',
-			'stonewright/elementor-v3-container-schema' => 'Get safe container layout, style, Advanced, alias, and blocked-key guidance before section writes.',
+			'stonewright/elementor-v3-container-schema' => 'Get container layout, style, Advanced, alias, and blocked-key guidance before section writes.',
 			'stonewright/elementor-v3-batch-mutate' => 'Apply grouped surgical Elementor mutations after screenshot review.',
-			'stonewright/elementor-v3-save-template' => 'Create Elementor library templates such as Loop Item templates for Loop Grid workflows.',
 			'stonewright/content-bulk-upsert-posts' => 'Create or update repeated posts, CPT rows, and meta values in one call.',
-			'stonewright/sandbox-write' => 'Stage guarded shortcode, query, or integration glue in the Stonewright sandbox after native tools are insufficient.',
-			'stonewright/sandbox-activate' => 'Promote a StaticGuard-clean sandbox file so WordPress can load guarded integration glue.',
-			'stonewright/sandbox-deactivate' => 'Roll back guarded sandbox glue without deleting the draft file.',
-			'stonewright/wp-cli-batch-run' => 'Run repeated guarded WP-CLI argv commands with compact output.',
-			'stonewright/wp-cli-job-start' => 'Start long guarded WP-CLI command or batch work without blocking the MCP request.',
+			'stonewright/wp-cli-batch-run' => 'Run repeated tokenized WP-CLI argv commands with compact output.',
+			'stonewright/wp-cli-job-start' => 'Start long WP-CLI command or batch work without blocking the MCP request.',
 			'stonewright/wp-cli-job-status' => 'Poll a WP-CLI background job until the compact result is ready.',
 			default => 'Use this tool only when it is needed by the selected profile step.',
 		};
@@ -487,9 +473,9 @@ final class ToolProfile extends AbilityKernel {
 	private static function tool_groups( array $names ): array {
 		$groups = [
 			'startup'          => [],
+			'runtime'          => [],
 			'elementor_design' => [],
 			'content_media'    => [],
-			'code_sandbox'     => [],
 			'gutenberg_fse'    => [],
 			'wp_cli'           => [],
 			'site_admin'       => [],
@@ -521,6 +507,10 @@ final class ToolProfile extends AbilityKernel {
 			return 'startup';
 		}
 
+		if ( 'stonewright/php-execute' === $name ) {
+			return 'runtime';
+		}
+
 		if ( str_contains( $name, '/wp-cli-' ) ) {
 			return 'wp_cli';
 		}
@@ -531,10 +521,6 @@ final class ToolProfile extends AbilityKernel {
 
 		if ( str_contains( $name, 'content' ) || str_contains( $name, 'media' ) ) {
 			return 'content_media';
-		}
-
-		if ( str_contains( $name, 'sandbox' ) ) {
-			return 'code_sandbox';
 		}
 
 		if ( str_contains( $name, 'gutenberg' ) || str_contains( $name, 'blocks' ) || str_contains( $name, 'fse' ) ) {
@@ -557,22 +543,17 @@ final class ToolProfile extends AbilityKernel {
 			'elementor-design', 'low-tools' => [
 				'stonewright/elementor-v3-build-page-from-spec',
 				'stonewright/elementor-v3-batch-mutate',
-				'stonewright/elementor-v3-save-template',
 				'stonewright/elementor-v3-get-kit-globals',
 				'stonewright/content-bulk-upsert-posts',
 				'stonewright/media-upload-batch',
-				'stonewright/sandbox-write',
-				'stonewright/sandbox-activate',
 				'stonewright/wp-cli-batch-run',
 				'stonewright/wp-cli-job-start',
 			],
 			'content-model' => [
+				'stonewright/php-execute',
 				'stonewright/content-bulk-upsert-posts',
 				'stonewright/wp-cli-discover',
-				'stonewright/wp-cli-run',
 				'stonewright/wp-cli-batch-run',
-				'stonewright/sandbox-write',
-				'stonewright/sandbox-activate',
 				'stonewright/wp-cli-job-start',
 			],
 			'gutenberg' => [
@@ -589,12 +570,12 @@ final class ToolProfile extends AbilityKernel {
 			default => [],
 		};
 		$preferred_groups = match ( $profile ) {
-			'elementor-design', 'low-tools' => [ 'elementor_design', 'content_media', 'code_sandbox', 'wp_cli', 'gutenberg_fse', 'startup' ],
-			'content-model' => [ 'content_media', 'wp_cli', 'code_sandbox', 'site_admin', 'startup' ],
-			'gutenberg' => [ 'gutenberg_fse', 'content_media', 'startup' ],
-			'wp-cli' => [ 'wp_cli', 'site_admin', 'startup' ],
-			'site-admin' => [ 'site_admin', 'wp_cli', 'startup' ],
-			default => [ 'startup', 'site_admin', 'elementor_design', 'content_media', 'wp_cli' ],
+			'elementor-design', 'low-tools' => [ 'elementor_design', 'content_media', 'runtime', 'wp_cli', 'gutenberg_fse', 'startup' ],
+			'content-model' => [ 'runtime', 'content_media', 'wp_cli', 'site_admin', 'startup' ],
+			'gutenberg' => [ 'gutenberg_fse', 'content_media', 'runtime', 'startup' ],
+			'wp-cli' => [ 'wp_cli', 'runtime', 'site_admin', 'startup' ],
+			'site-admin' => [ 'site_admin', 'runtime', 'wp_cli', 'startup' ],
+			default => [ 'startup', 'runtime', 'site_admin', 'elementor_design', 'content_media', 'wp_cli' ],
 		};
 
 		$out = [];
@@ -660,6 +641,7 @@ final class ToolProfile extends AbilityKernel {
 			'Start with context-bootstrap or workflow-preflight, then keep the same compact profile for the task.',
 			'Use profile tools before full ability discovery when the client has a strict tool cap.',
 			'Prefer batch abilities over repeated single-item calls once the target shape is known.',
+			'Use stonewright/php-execute for direct WordPress runtime inspection or compact plugin API calls when typed abilities would require many exploratory requests.',
 		];
 
 		if ( 'elementor-design' === $profile ) {
@@ -695,7 +677,8 @@ final class ToolProfile extends AbilityKernel {
 			'Use profile tools before full ability discovery when the client has a strict tool cap.',
 			'Use low-tools for Antigravity, Gemini API, or other strict tool-cap clients before switching to a specialist profile.',
 			'Use responseMode=summary for WP-CLI and batch tools unless full JSON is needed for the next write.',
-			'Use WP-CLI background jobs only for long-running guarded commands; keep short commands synchronous.',
+			'Use php-execute for short runtime snippets instead of full ability discovery when the needed WordPress/plugin API call is already known.',
+			'Use WP-CLI background jobs only for long-running commands; keep short commands synchronous.',
 			'Read schemas for only the widgets or block types used in the current section batch.',
 			'Prefer dry_run diagnostics and one section write over many exploratory writes.',
 			'Use system-abilities-list only when the selected profile is missing a needed capability.',

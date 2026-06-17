@@ -480,6 +480,7 @@ final class WorkflowPreflight extends AbilityKernel {
 
 		if ( $profile['needs_wp_cli_discovery'] ) {
 			$tools[] = 'stonewright/site-plugins-list';
+			$tools[] = 'stonewright/php-execute';
 			$tools[] = 'stonewright/wp-cli-status';
 			$tools[] = 'stonewright/wp-cli-discover';
 			if ( $profile['is_write'] ) {
@@ -520,7 +521,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			'Use stonewright/media-upload-batch for multiple assets instead of one upload call per image.',
 			'Use stonewright/content-bulk-upsert-posts for repeated post/CPT/custom-field rows instead of many post/meta commands.',
 			'Use stonewright-wp-cli-batch-run with responseMode=summary for repeated CPT UI, ACF, post, meta, term, option, and plugin command work.',
-			'Use stonewright-wp-cli-job-start plus stonewright-wp-cli-job-status for long guarded WP-CLI work so MCP requests do not block.',
+			'Use stonewright-wp-cli-job-start plus stonewright-wp-cli-job-status for long WP-CLI work so MCP requests do not block.',
 			'Use stonewright/elementor-v3-batch-mutate for surgical Elementor add/update/move/remove edits instead of many single calls.',
 			'Use individual add/update/move calls only for one-off debugging when batch diagnostics are not enough.',
 		];
@@ -633,7 +634,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			);
 			$out[] = self::call_step(
 				'stonewright/elementor-v3-container-schema',
-				'Get safe container layout, style, Advanced, alias, and blocked-key guidance before section layout writes.',
+				'Get container layout, style, Advanced, alias, and blocked-key guidance before section layout writes.',
 				[ 'include_controls' => false ]
 			);
 			if ( $profile['is_write'] ) {
@@ -653,7 +654,7 @@ final class WorkflowPreflight extends AbilityKernel {
 				);
 				$out[] = self::call_step(
 					'stonewright/content-bulk-upsert-posts',
-					'Create or update repeated CPT/post rows and custom fields in one guarded call when the Elementor page uses dynamic content.',
+					'Create or update repeated CPT/post rows and custom fields in one compact call when the Elementor page uses dynamic content.',
 					[
 						'post_type'                 => '<post type>',
 						'items'                     => [ '<rows with slug/title/meta>' ],
@@ -675,7 +676,7 @@ final class WorkflowPreflight extends AbilityKernel {
 				);
 				$out[] = self::call_step(
 					'stonewright/elementor-v3-batch-mutate',
-					'Apply surgical Elementor add/update/move/remove changes in one guarded request when editing an existing tree.',
+					'Apply surgical Elementor add/update/move/remove changes in one batched request when editing an existing tree.',
 					[
 						'post_id'                  => '<target post id>',
 						'operations'               => [ '<batched mutations>' ],
@@ -691,6 +692,15 @@ final class WorkflowPreflight extends AbilityKernel {
 				'stonewright/site-plugins-list',
 				'Confirm installed plugins before choosing plugin-specific surfaces.',
 				[]
+			);
+			$out[] = self::call_step(
+				'stonewright/php-execute',
+				'Use direct WordPress runtime access for compact plugin API inspection or one-off fixes when typed abilities or WP-CLI would take many calls.',
+				[
+					'code'                     => '<short PHP body; return structured data>',
+					'return_mode'              => 'auto',
+					'stonewright_context_token' => '<context_token>',
+				]
 			);
 			$out[] = self::call_step(
 				'stonewright/wp-cli-status',

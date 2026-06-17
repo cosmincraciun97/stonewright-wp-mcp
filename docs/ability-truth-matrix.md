@@ -37,9 +37,9 @@
 | `stonewright/site-plugins-list` | `stonewright-site-plugins-list` | `Site\ListPlugins` | Lists installed plugins with their status, name, and version. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/site-theme` | `stonewright-site-theme` | `Site\Theme` | Returns the active theme name, version, supports, and template hierarchy summary. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/site-set-front-page` | `stonewright-site-set-front-page` | `Site\SetFrontPage` | Promote a published page to the WordPress front page. | Write | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
-| `stonewright/site-backup-page` | `stonewright-site-backup-page` | `Site\BackupPage` | Creates a Stonewright snapshot of a post or page (content, status, key meta) for safe rollback. | Write | `Permissions::edit_post( $post_id ) (compound)` | No | Yes | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/site-backup-page` | `stonewright-site-backup-page` | `Site\BackupPage` | Creates a Stonewright snapshot of a post or page (content, status, key meta) for rollback. | Write | `Permissions::edit_post( $post_id ) (compound)` | No | Yes | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/site-create-revision` | `stonewright-site-create-revision` | `Site\CreateRevision` | Creates a WordPress revision for a post or page. | Read | `Permissions::edit_post( $post_id )` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
-| `stonewright/site-shortcodes-discover` | `stonewright-site-shortcodes-discover` | `Site\DiscoverShortcodes` | Lists registered shortcode tags and optional safe callback summaries without executing shortcode handlers. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/site-shortcodes-discover` | `stonewright-site-shortcodes-discover` | `Site\DiscoverShortcodes` | Lists registered shortcode tags and optional callback summaries without executing shortcode handlers. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 
 ---
 
@@ -54,7 +54,7 @@
 | `stonewright/content-create-post` | `stonewright-content-create-post` | `Content\CreatePost` | Creates a post (default post type "post") with title, content, status, and optional terms. | Write | `Permissions::can_create_post_type( $post_type ) (compound)` | No | No | No | stable | `tests/Unit/ContentCapabilityTest.php` |
 | `stonewright/content-update-post` | `stonewright-content-update-post` | `Content\UpdatePost` | Updates an existing post. | Write | `Permissions::edit_post( $id ) (compound)` | No | Yes | No | stable | `tests/Unit/ContentCapabilityTest.php` |
 | `stonewright/content-bulk-create` | `stonewright-content-bulk-create` | `Content\BulkCreate` | Creates multiple posts or pages in a single call. | Write | `Permissions::can_create_post_type( $item_post_type ) (compound)` | Yes | No | No | stable | `tests/Unit/ContentCapabilityTest.php` |
-| `stonewright/content-bulk-upsert-posts` | `stonewright-content-bulk-upsert-posts` | `Content\BulkUpsertPosts` | Creates or updates many posts of one post type by slug, including post meta, in one guarded call. | Write | `Permissions::edit_post( $id ) (compound)` | No | No | No | experimental | `tests/Unit/ContentCapabilityTest.php` |
+| `stonewright/content-bulk-upsert-posts` | `stonewright-content-bulk-upsert-posts` | `Content\BulkUpsertPosts` | Creates or updates many posts of one post type by slug, including post meta, in one compact call. | Write | `Permissions::edit_post( $id ) (compound)` | No | No | No | experimental | `tests/Unit/ContentCapabilityTest.php` |
 
 ---
 
@@ -121,7 +121,7 @@
 | `stonewright/elementor-v3-status` | `stonewright-elementor-v3-status` | `ElementorV3\Status` | Returns whether Elementor is installed/active, version/pro status, widget inventory, and V4 atomic readiness. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-capabilities-summary` | `stonewright-elementor-v3-capabilities-summary` | `ElementorV3\CapabilitiesSummary` | Returns a compact Elementor V3 capability summary so agents can plan native-widget builds in one round trip. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-get-kit-globals` | `stonewright-elementor-v3-get-kit-globals` | `ElementorV3\GetKitGlobals` | Returns a compact active Elementor kit color and typography snapshot for global-style-first design implementation. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
-| `stonewright/elementor-v3-container-schema` | `stonewright-elementor-v3-container-schema` | `ElementorV3\ContainerSchema` | Returns compact safe Elementor container controls, aliases, and blocked settings for faster section layout writes. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
+| `stonewright/elementor-v3-container-schema` | `stonewright-elementor-v3-container-schema` | `ElementorV3\ContainerSchema` | Returns compact Elementor container controls, aliases, and blocked settings for faster section layout writes. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-list-widgets` | `stonewright-elementor-v3-list-widgets` | `ElementorV3\ListWidgets` | Returns all registered Elementor V3 widget types including third-party widgets. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-get-widget-schema` | `stonewright-elementor-v3-get-widget-schema` | `ElementorV3\GetWidgetSchema` | Returns compact Content, Style, and Advanced control groups for a single Elementor widget by default, or full control defaults when responseMode=full. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-get-page-structure` | `stonewright-elementor-v3-get-page-structure` | `ElementorV3\GetPageStructure` | Returns a compact Elementor V3 page outline by default, or the full element tree when responseMode=full. | Read | `Permissions::edit_post( $id )` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
@@ -192,6 +192,14 @@
 
 ---
 
+## Runtime
+
+| Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `stonewright/php-execute` | `stonewright-php-execute` | `Runtime\PhpExecute` | Executes PHP inside the loaded WordPress runtime with access to WordPress functions, loaded plugins, $wpdb, and normal PHP runtime APIs. | Write | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/Runtime/PhpExecuteTest.php` |
+
+---
+
 ## WP-CLI
 
 | Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
@@ -200,7 +208,7 @@
 | `stonewright/wp-cli-discover` | `stonewright-wp-cli-discover` | `WpCli\Discover` | Runs wp cli cmd-dump through the companion. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/WpCli/WpCliAbilitiesTest.php` |
 | `stonewright/wp-cli-run` | `stonewright-wp-cli-run` | `WpCli\Run` | Runs a tokenized WP-CLI command through the companion. | Write | `Permissions::manage_options()` | Yes | No | No | stable | `tests/Unit/WpCli/WpCliAbilitiesTest.php` |
 | `stonewright/wp-cli-batch-run` | `stonewright-wp-cli-batch-run` | `WpCli\BatchRun` | Runs multiple tokenized WP-CLI commands through the companion in one request. | Write | `Permissions::manage_options()` | Yes | No | No | stable | `tests/Unit/WpCli/WpCliAbilitiesTest.php` |
-| `stonewright/wp-cli-job-start` | `stonewright-wp-cli-job-start` | `WpCli\JobStart` | Starts a guarded WP-CLI command or batch in the companion background queue so long plugin, import, cache, media, or content operations do not block the MCP request. | Write | `Permissions::manage_options()` | Yes | No | No | stable | `tests/Unit/WpCli/WpCliAbilitiesTest.php` |
+| `stonewright/wp-cli-job-start` | `stonewright-wp-cli-job-start` | `WpCli\JobStart` | Starts a tokenized WP-CLI command or batch in the companion background queue so long plugin, import, cache, media, or content operations do not block the MCP request. | Write | `Permissions::manage_options()` | Yes | No | No | stable | `tests/Unit/WpCli/WpCliAbilitiesTest.php` |
 | `stonewright/wp-cli-job-status` | `stonewright-wp-cli-job-status` | `WpCli\JobStatus` | Polls a Stonewright companion WP-CLI background job and returns compact status plus the completed result when available. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/WpCli/WpCliAbilitiesTest.php` |
 
 ---
@@ -396,7 +404,7 @@
 
 ## Summary
 
-Total abilities registered: **238**
+Total abilities registered: **239**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

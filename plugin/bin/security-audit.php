@@ -88,15 +88,15 @@ if ( ! $quiet ) {
 	echo "[stonewright-audit] Scanning " . count( $php_files ) . " PHP files in {$src_dir}\n\n";
 }
 
-// ----- Check 1: No bare eval() calls. -----
+// ----- Check 1: Eval only in the dedicated PHP runtime executor. -----
 // Detection-only files are allowlisted because they reference the token as a string.
 $eval_hits = sw_grep_files(
 	$php_files,
 	// Match the PHP eval keyword followed by (, but not inside a string or comment.
 	'/(?<![\'"])\\beval\s*\(/',
-	[ 'StaticGuard.php', 'Compiler.php', 'DesignSpec.php' ]
+	[ 'StaticGuard.php', 'Compiler.php', 'DesignSpec.php', 'PhpExecute.php' ]
 );
-sw_report( 'Check 1 — No bare eval() calls in source', $eval_hits, $quiet );
+sw_report( 'Check 1 — eval() only in the dedicated PHP runtime executor', $eval_hits, $quiet );
 $findings += count( $eval_hits );
 
 // ----- Check 2: No create_function() calls. -----

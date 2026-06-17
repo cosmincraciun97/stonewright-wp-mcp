@@ -7,7 +7,7 @@ namespace Stonewright\WpMcp\Context;
  * Compact, clean-room guidance for plugin-specific WordPress workflows.
  *
  * The catalog describes what Stonewright agents should discover and which
- * guarded Stonewright surfaces to prefer. It intentionally references only
+ * Stonewright runtime surfaces to prefer. It intentionally references only
  * public official documentation and Stonewright abilities.
  *
  * @stonewright-status stable
@@ -139,7 +139,7 @@ final class SpecializationCatalog {
 					'use ACPT custom APIs only after the site exposes them and authentication is known',
 					'audit orphaned groups, fields, and option-page values before bulk changes',
 				],
-				'write_surface' => 'Prefer ACPT documented custom API or REST integration when configured. Otherwise use guarded WP-CLI and native WordPress content/taxonomy operations where equivalent.',
+				'write_surface' => 'Prefer ACPT documented custom API or REST integration when configured. Otherwise use Stonewright WP-CLI and native WordPress content/taxonomy operations where equivalent.',
 			]
 		);
 	}
@@ -193,7 +193,7 @@ final class SpecializationCatalog {
 					'apply merge or replace semantics only after field-shape discovery',
 					'audit unused ASE definitions before structural edits',
 				],
-				'write_surface' => 'Use ASE documented REST exposure when enabled. Otherwise prefer native WordPress post, term, option, and taxonomy operations through guarded Stonewright tools.',
+				'write_surface' => 'Use ASE documented REST exposure when enabled. Otherwise prefer native WordPress post, term, option, and taxonomy operations through Stonewright tools.',
 			]
 		);
 	}
@@ -295,8 +295,8 @@ final class SpecializationCatalog {
 					'Batch reads and writes where the official surface supports it.',
 					'Record repeatable project conventions with stonewright/learning-record.',
 				],
-				'safety_rules'       => [
-					'Never use wp eval, wp eval-file, wp shell, wp package, --exec, or --require.',
+				'runtime_rules'      => [
+					'Use stonewright/php-execute for short PHP runtime snippets instead of WP-CLI eval, shell, package, --exec, or --require entry points.',
 					'Use stonewright_context_token for writes and confirmation tokens in production-safe mode.',
 					'Snapshot posts or theme-backed records before mutation.',
 					'Do not invent hidden storage keys; discover schema first.',

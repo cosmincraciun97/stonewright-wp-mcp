@@ -404,8 +404,8 @@ final class ContextBuilder {
 				'gutenberg' => [ 'desktop', 'tablet', 'mobile' ],
 			],
 			'pass_condition'                    => 'Batch screenshots, renderer diagnostics, and overflow checks pass at all relevant breakpoints.',
-			'approval_policy'                   => 'Do not wait for user approval between passing section batches; continue automatically until all requested sections are implemented or a real safety blocker appears.',
-			'safety_boundaries_still_required'  => [
+			'approval_policy'                   => 'Do not wait for user approval between passing section batches; continue automatically until all requested sections are implemented or a real operator boundary appears.',
+			'operator_boundaries_still_required' => [
 				'production-safe confirmation tokens',
 				'missing credentials or unavailable MCP tools',
 				'explicit approval for custom CSS, SVG enablement, or other global/security-affecting changes',
@@ -467,7 +467,7 @@ final class ContextBuilder {
 		if ( in_array( $surface, [ 'wordpress', 'elementor', 'gutenberg', 'acf', 'cpt-ui', 'wp-cli' ], true ) ) {
 			$steps[] = 'Use stonewright/wp-cli-status and stonewright/wp-cli-discover before relying on WP-CLI commands that may not be installed.';
 			$steps[] = 'When the Node companion exposes stonewright-wp-cli-* MCP tools, use those direct aliases before assuming the WordPress-side HTTP bridge on port 8765 is required.';
-			$steps[] = 'Use stonewright/wp-cli-run for safe tokenized WordPress commands; never use wp eval, wp eval-file, wp shell, wp package, --exec, or --require.';
+			$steps[] = 'Use stonewright/wp-cli-run for tokenized WordPress commands; use stonewright/php-execute for PHP runtime snippets instead of WP-CLI eval, shell, package, --exec, or --require entry points.';
 			$steps[] = 'If stonewright/wp-cli-status returns available=false, use direct companion_wp_cli_* MCP tools when exposed, otherwise use normal Stonewright REST abilities instead of sandbox/REST workarounds.';
 		}
 

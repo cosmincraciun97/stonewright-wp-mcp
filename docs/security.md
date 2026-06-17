@@ -4,7 +4,7 @@ The full security reference lives in [plugin/SECURITY.md](../plugin/SECURITY.md)
 
 ## Summary
 
-Stonewright enforces security at four layers:
+Stonewright runs direct WordPress automation with four operator-control layers:
 
 1. **WordPress capabilities** — every ability checks a real capability before running.
 2. **Pre-write backups** — every write that touches Elementor data or FSE styles snapshots the current state first.
@@ -45,7 +45,7 @@ WordPress floor includes the core Abilities API.
 
 ### Companion exposure
 
-The companion Node server must not be exposed to the public internet. Run it on a private network or loopback interface and set `COMPANION_BEARER_TOKEN` and `COMPANION_ALLOWED_ORIGINS` before starting it. The companion can run guarded WP-CLI commands, including write commands, so treat access to it like access to a privileged local operator. It blocks arbitrary PHP execution groups such as `eval`, `eval-file`, and `shell`, and it does not call WordPress REST write endpoints.
+The companion Node server must not be exposed to the public internet. Run it on a private network or loopback interface and set `COMPANION_BEARER_TOKEN` and `COMPANION_ALLOWED_ORIGINS` before starting it. The companion can run tokenized WP-CLI commands, including write commands, so treat access to it like access to a privileged local operator. Use `stonewright/php-execute` for PHP runtime snippets; the companion blocks WP-CLI PHP/shell entry points such as `eval`, `eval-file`, and `shell`, and it does not call WordPress REST write endpoints.
 
 ## Hardening checklist
 

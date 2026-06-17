@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.62] - 2026-06-17
+
+### Added
+
+- Added `stonewright/php-execute` as the dedicated full WordPress runtime
+  execution ability for short PHP snippets inside the loaded WordPress process.
+- Added runtime guidance to compact profiles, workflow preflight, context
+  bootstrap, public docs, skills, fixtures, and ability matrix coverage.
+
+### Changed
+
+- Updated agent-facing guidance to prefer PHP runtime access for compact
+  implementation loops while keeping WP-CLI tokenized and keeping backups,
+  permissions, confirmation tokens, validators, audit logging, and command
+  blocking intact.
+
+### Fixed
+
+- Classified `stonewright/php-execute` as a write-capable ability in the
+  generated truth matrix and added regression coverage.
+- Synchronized the installed Codex Stonewright skill with the PHP runtime
+  guidance.
+
 ## [1.0.0-alpha.61] - 2026-06-17
 
 ### Added
@@ -110,9 +133,9 @@
 
 ### Added
 
-- Added guarded WP-CLI background job tooling for long-running CLI work.
+- Added tokenized WP-CLI background job tooling for long-running CLI work.
 - Added compact companion MCP handshake guidance for first calls, recovery,
-  low-tools clients, and guarded WP-CLI usage.
+  low-tools clients, and tokenized WP-CLI usage.
 
 ### Fixed
 
