@@ -112,6 +112,18 @@ npm run build
   `stonewright-workflow-preflight` at the start of every Stonewright task.
   Slash names like `stonewright/context-bootstrap` are WordPress ability names;
   MCP tool names use hyphens.
+- If `stonewright-context-bootstrap` is not visible in the MCP tool list, stop
+  WordPress work and ask the user to reload the AI client or fix the
+  Stonewright MCP config. Do not work around a missing Stonewright MCP server.
+- Do not inspect private AI-client config files, parse repository files as a
+  substitute for the live MCP tool list, hand-roll JSON-RPC calls, create
+  scratch scripts such as `query-mcp.js` or `run-ability.js`, helper JSON
+  argument files such as `bootstrap-args.json`, `cli_command.json`, or
+  `get_structure.json`, direct companion shell launch scripts such as
+  `query-local-stonewright.js`, action scripts such as `run-loop-mutate.js` or
+  `run-bootstrap-and-mutate.js`, plugin/companion source-code spelunking to
+  reverse-engineer tool schemas, calls to `/wp-json/stonewright/v1/abilities/run`
+  from shell, or shell `wp ...` commands as an MCP workaround.
 - Persistent site skills and memory are active constraints across sessions.
 - If the user corrects a repeatable mistake, record it with
   `stonewright/learning-record`.

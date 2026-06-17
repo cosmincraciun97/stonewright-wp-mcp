@@ -51,3 +51,12 @@ every Stonewright task. The response includes:
 
 Manual edits to skills, memory, or custom instructions persist in WordPress and
 are included in future context bootstrap responses.
+
+If `stonewright-context-bootstrap` is not visible in the MCP tool list, the
+client has not loaded Stonewright. Agents must stop WordPress work and ask for a
+client reload or config fix instead of inspecting private client config files,
+creating scratch helper scripts, creating helper JSON argument files, launching
+the companion through ad hoc shell scripts, creating action scripts, inspecting
+plugin/companion source to reverse-engineer tool schemas, hand-rolling
+JSON-RPC, calling the REST ability runner from shell, or running shell `wp ...`
+commands.

@@ -21,7 +21,7 @@ import {
 	type WpCliJobStartInput,
 	type WpCliRunInput,
 } from './wp-cli.js';
-import { AGENT_DO_NOT_USE, agentUseInstead, buildSetupProfile, buildToolInventory, type ToolInventory } from './setup-profile.js';
+import { AGENT_DO_NOT_USE, MCP_MISSING_BOOTSTRAP_STOP, agentUseInstead, buildSetupProfile, buildToolInventory, type ToolInventory } from './setup-profile.js';
 import {
 	STARTUP_REQUIRED_PROXY_TOOL_NAMES,
 	type ProxyToolProfile,
@@ -181,7 +181,16 @@ function companionInstructions(profile: ProxyToolProfile): string {
 		`- Current compact profile: ${profile}.`,
 		'- First call stonewright-setup-profile if connection, credentials, or tool visibility is unclear.',
 		'- For WordPress work, call stonewright-context-bootstrap, then stonewright-workflow-preflight. Use fast_path.tool_profile before making a separate stonewright-tool-profile call.',
-		'- If stonewright-context-bootstrap is missing, call stonewright-wordpress-mcp-status and use direct stonewright-wp-cli-* recovery tools while fixing the WordPress MCP proxy.',
+		`- ${MCP_MISSING_BOOTSTRAP_STOP}`,
+		'- Use stonewright-wordpress-mcp-status only to diagnose the Stonewright MCP connection when proxied WordPress tools are missing.',
+		'- Do not inspect private AI-client config files to find or call Stonewright.',
+		'- Do not create scratch scripts such as query-mcp.js or run-ability.js to bypass the MCP client tool surface.',
+		'- Do not create helper JSON argument files such as bootstrap-args.json, cli_command.json, or get_structure.json to bypass typed MCP tool input.',
+		'- Do not launch the Stonewright companion from ad hoc shell scripts such as query-local-stonewright.js to bypass the MCP client tool list.',
+		'- Do not create or modify action scripts such as run-loop-mutate.js or run-bootstrap-and-mutate.js to bypass typed Stonewright tool calls.',
+		'- Do not inspect plugin or companion source code to reverse-engineer tool schemas during WordPress implementation tasks.',
+		'- Do not hand-roll JSON-RPC calls to /mcp or /wp-json/mcp/stonewright as an MCP workaround.',
+		'- Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround.',
 		'- Use stonewright-wp-cli-status, stonewright-wp-cli-discover, stonewright-wp-cli-run, and stonewright-wp-cli-batch-run for guarded WP-CLI work.',
 		'- Use stonewright-wp-cli-job-start and stonewright-wp-cli-job-status for long imports, plugin operations, cache rebuilds, media work, or large batches when those tools are visible.',
 		'- Do not run wp commands in a normal shell. Do not use wp eval, wp eval-file, wp shell, wp package, --exec, or --require.',

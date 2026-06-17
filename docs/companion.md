@@ -121,6 +121,15 @@ If `stonewright-context-bootstrap` or other proxied WordPress tools are missing,
 call `stonewright-wordpress-mcp-status`. The companion keeps this diagnostic,
 `stonewright-setup-profile`, and direct `stonewright-wp-cli-*` tools available
 even when the WordPress MCP endpoint cannot be reached.
+Do not inspect private AI-client config files, parse repository files as the
+tool list, create scratch scripts such as `query-mcp.js` or `run-ability.js`,
+create helper JSON argument files such as `bootstrap-args.json`,
+`cli_command.json`, or `get_structure.json`, launch the companion through ad hoc
+scripts such as `query-local-stonewright.js`, create action scripts such as
+`run-loop-mutate.js` or `run-bootstrap-and-mutate.js`, inspect plugin/companion
+source to reverse-engineer tool schemas, hand-roll JSON-RPC, or call
+`/wp-json/stonewright/v1/abilities/run` from shell as a substitute for the live
+Stonewright MCP tools.
 When the endpoint connects, the status response reports `startup_ready`,
 `startup_missing_tool_names`, `local_recovery_tool_names`, and
 `local_tool_names` so agents can see whether bootstrap, preflight,

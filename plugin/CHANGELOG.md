@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.58] - 2026-06-17
+
+### Fixed
+
+- Added shared MCP-use policy text for agent instructions and admin client
+  snippets so supported agents stop when `stonewright-context-bootstrap` is not
+  visible.
+- Blocked private client config inspection, repository-file substitutes,
+  scratch helper scripts, helper JSON argument files, ad hoc companion shell
+  launches, action scripts, source-code schema spelunking, hand-rolled
+  JSON-RPC, REST ability runner shell calls, and shell `wp ...` commands as MCP
+  recovery workarounds.
+
 ## [1.0.0-alpha.57] - 2026-06-17
 
 ### Fixed

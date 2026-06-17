@@ -62,7 +62,7 @@ shell wrapper, global install, or manual bridge:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.57/stonewright-companion-1.0.0-alpha.57.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.58/stonewright-companion-1.0.0-alpha.58.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
@@ -103,7 +103,13 @@ For Antigravity 2.0, Antigravity IDE, and Antigravity CLI, use
 Before the first WordPress task, verify the client tool list includes
 `stonewright-context-bootstrap`. If that tool is missing, reload or fix the MCP
 client config before continuing. Local agent skills, repository files, private
-client config files, and manual JSON-RPC or
+client config files, scratch scripts such as `query-mcp.js` or
+`run-ability.js`, helper JSON argument files such as `bootstrap-args.json`,
+`cli_command.json`, or `get_structure.json`, direct companion shell launch
+scripts such as `query-local-stonewright.js`, action scripts such as
+`run-loop-mutate.js` or `run-bootstrap-and-mutate.js`, plugin/companion
+source-code spelunking to reverse-engineer tool schemas, hand-rolled JSON-RPC
+calls, and
 `/wp-json/stonewright/v1/abilities/run` shell calls are not substitutes for a
 loaded Stonewright MCP server.
 
@@ -148,7 +154,7 @@ For MCP clients that use a local stdio server, configure:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.57/stonewright-companion-1.0.0-alpha.57.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.58/stonewright-companion-1.0.0-alpha.58.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -304,7 +310,11 @@ The complete command list is generated in
 1. Call `stonewright-ping`.
 2. Confirm the MCP tool list includes `stonewright-context-bootstrap`. If it is
    missing, restart or reload the AI client and fix the Stonewright MCP config
-   before WordPress work.
+   before WordPress work. Do not inspect private client config files, create
+   scratch scripts, create helper JSON argument files, launch the companion
+   through ad hoc shell scripts, create action scripts, inspect
+   plugin/companion source to reverse-engineer tool schemas, hand-roll JSON-RPC,
+   or call the REST ability runner from shell as recovery.
 3. Call `stonewright-workflow-preflight` with:
 
 ```json

@@ -121,7 +121,7 @@ install:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.57/stonewright-companion-1.0.0-alpha.57.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.58/stonewright-companion-1.0.0-alpha.58.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -152,6 +152,13 @@ the `npx` transport, and the required first Stonewright calls:
 The note also tells agents that `npx` downloads and runs the versioned GitHub
 release tarball, and that Playwright MCP should be added for browser testing,
 screenshots, and visual QA when the client does not already have browser tools.
+It also tells agents to stop if `stonewright-context-bootstrap` is missing,
+rather than inspecting private client config files, creating scratch helper
+scripts, creating helper JSON argument files, launching the companion through
+ad hoc shell scripts, creating action scripts, inspecting plugin/companion
+source to reverse-engineer tool schemas, hand-rolling JSON-RPC, calling the REST
+runner from shell, or running shell `wp ...` commands as a Stonewright MCP
+workaround.
 
 ### Examples
 

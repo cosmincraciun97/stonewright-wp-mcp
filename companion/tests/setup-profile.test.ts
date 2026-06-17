@@ -18,7 +18,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.mcp_server.args).toEqual([
 			'-y',
 			'--package',
-			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.57/stonewright-companion-1.0.0-alpha.57.tgz',
+			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.58/stonewright-companion-1.0.0-alpha.58.tgz',
 			'stonewright-mcp',
 		]);
 		expect(profile.mcp_server.env).toMatchObject({
@@ -72,8 +72,22 @@ describe('buildSetupProfile', () => {
 		expect(profile.notes.join('\n')).toContain('For source development, use npm --prefix <repo>/companion run mcp:source');
 		expect(profile.notes.join('\n')).toContain('Do not configure generic WordPress MCP adapters such as @automattic/mcp-wordpress-remote');
 		expect(profile.notes.join('\n')).toContain('Do not treat local client skills or repository files as a substitute for live Stonewright MCP tools');
+		expect(profile.notes.join('\n')).toContain('Do not inspect private AI-client config files');
+		expect(profile.notes.join('\n')).toContain('Do not create scratch scripts such as query-mcp.js or run-ability.js');
+		expect(profile.notes.join('\n')).toContain('Do not create helper JSON argument files such as bootstrap-args.json, cli_command.json, or get_structure.json');
+		expect(profile.notes.join('\n')).toContain('Do not launch the Stonewright companion from ad hoc shell scripts such as query-local-stonewright.js');
+		expect(profile.notes.join('\n')).toContain('Do not create or modify action scripts such as run-loop-mutate.js or run-bootstrap-and-mutate.js');
+		expect(profile.notes.join('\n')).toContain('Do not inspect plugin or companion source code to reverse-engineer tool schemas');
+		expect(profile.notes.join('\n')).toContain('Do not hand-roll JSON-RPC calls');
 		expect(profile.notes.join('\n')).toContain('Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround');
 		expect(profile.agent_do_not_use).toContain('Do not run wp cli info, wp plugin activate, wp option update, or other wp commands in a normal shell as Stonewright recovery.');
+		expect(profile.agent_do_not_use).toContain('Do not inspect private AI-client config files to find or call Stonewright.');
+		expect(profile.agent_do_not_use).toContain('Do not create scratch scripts such as query-mcp.js or run-ability.js to bypass the MCP client tool surface.');
+		expect(profile.agent_do_not_use).toContain('Do not create helper JSON argument files such as bootstrap-args.json, cli_command.json, or get_structure.json to bypass typed MCP tool input.');
+		expect(profile.agent_do_not_use).toContain('Do not launch the Stonewright companion from ad hoc shell scripts such as query-local-stonewright.js to bypass the MCP client tool list.');
+		expect(profile.agent_do_not_use).toContain('Do not create or modify action scripts such as run-loop-mutate.js or run-bootstrap-and-mutate.js to bypass typed Stonewright tool calls.');
+		expect(profile.agent_do_not_use).toContain('Do not inspect plugin or companion source code to reverse-engineer tool schemas during WordPress implementation tasks.');
+		expect(profile.agent_do_not_use).toContain('Do not hand-roll JSON-RPC calls to /mcp or /wp-json/mcp/stonewright as an MCP workaround.');
 		expect(profile.agent_use_instead).toEqual(expect.arrayContaining([
 			'stonewright-wp-cli-status',
 			'stonewright-wp-cli-discover',
@@ -104,7 +118,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.platform).toBe('win32');
 		expect(profile.mcp_server.env.STONEWRIGHT_WP_ROOT).toBe('D:\\Sites\\mcp-test\\app\\public');
 		expect(profile.mcp_server.env.STONEWRIGHT_WP_USERNAME).toBe('admin');
-		expect(profile.install_command).toBe('npm install -g https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.57/stonewright-companion-1.0.0-alpha.57.tgz');
+		expect(profile.install_command).toBe('npm install -g https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.58/stonewright-companion-1.0.0-alpha.58.tgz');
 		expect(profile.notes.join('\n')).toContain('No shell script wrapper required');
 	});
 

@@ -29,7 +29,11 @@ wp plugin activate stonewright
 Or activate it in the WordPress admin under Plugins.
 This shell command is only for a human source install on a machine with WP-CLI
 already configured. During MCP tasks, agents should not recover by running
-`wp ...` in a normal shell; they should use Stonewright's
+`wp ...` in a normal shell, inspecting private client config files, creating
+scratch helper scripts, creating helper JSON argument files, launching the
+companion through ad hoc shell scripts, creating action scripts, inspecting
+plugin/companion source to reverse-engineer tool schemas, hand-rolling
+JSON-RPC, or calling the REST runner from shell; they should use Stonewright's
 `stonewright-wp-cli-*` tools so commands stay tokenized and guarded.
 
 ## 2. Create an Application Password
@@ -49,7 +53,7 @@ claude mcp add stonewright \
   --env STONEWRIGHT_WP_USERNAME='your-wp-username' \
   --env STONEWRIGHT_WP_APP_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx' \
   --env STONEWRIGHT_MCP_TOOL_PROFILE=essential \
-  -- npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.57/stonewright-companion-1.0.0-alpha.57.tgz stonewright-mcp
+  -- npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.58/stonewright-companion-1.0.0-alpha.58.tgz stonewright-mcp
 ```
 
 Add `--env STONEWRIGHT_WP_ROOT='...'` only when you want WP-CLI helper tools or

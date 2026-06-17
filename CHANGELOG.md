@@ -7,6 +7,30 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.58] - 2026-06-17
+
+### Fixed
+
+- Added shared MCP startup guardrails across companion handshake instructions,
+  setup profiles, WordPress admin client snippets, repository agent guidance,
+  and public docs so agents stop when `stonewright-context-bootstrap` is not
+  visible instead of bypassing the Stonewright MCP tool surface.
+- Explicitly blocked private client config inspection, repository-file
+  substitutes, scratch helper scripts, helper JSON argument files, ad hoc
+  companion shell launches, action scripts, source-code schema spelunking,
+  hand-rolled JSON-RPC, REST ability runner shell calls, and shell `wp ...`
+  commands as Stonewright MCP recovery paths.
+- Bumped the plugin and companion release assets to `1.0.0-alpha.58`.
+
+## [1.0.0-alpha.57] - 2026-06-17
+
+### Fixed
+
+- Prevented MCP ability execution from fatalling when runtime REST validation
+  sees public JSON Schema placeholder objects used for strict MCP discovery.
+- Added regression coverage for permissive array item schemas so
+  `stonewright-context-bootstrap` remains callable through the MCP companion.
+
 ## [1.0.0-alpha.56] - 2026-06-17
 
 ### Added
@@ -774,6 +798,8 @@ around permissions, backups, validators, confirmation tokens, and audit logging.
 
 Initial tagged release of Stonewright WP MCP.
 
+[1.0.0-alpha.58]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.58
+[1.0.0-alpha.57]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.57
 [1.0.0-alpha.56]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.56
 [1.0.0-alpha.55]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.55
 [1.0.0-alpha.54]: https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.54

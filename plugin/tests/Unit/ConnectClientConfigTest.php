@@ -33,6 +33,20 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertContains( 'vscode-copilot', $slugs );
 	}
 
+	public function test_all_supported_client_notes_require_live_stonewright_mcp_without_bypasses(): void {
+		foreach ( ConnectClientConfig::clients() as $client ) {
+			$this->assertStringContainsString( 'Stonewright MCP must be visible', $client['notes'], $client['slug'] );
+			$this->assertStringContainsString( 'stonewright-context-bootstrap', $client['notes'], $client['slug'] );
+			$this->assertStringContainsString( 'no private config inspection', $client['notes'], $client['slug'] );
+			$this->assertStringContainsString( 'no scratch scripts', $client['notes'], $client['slug'] );
+			$this->assertStringContainsString( 'no helper JSON argument files', $client['notes'], $client['slug'] );
+			$this->assertStringContainsString( 'no direct companion shell launch', $client['notes'], $client['slug'] );
+			$this->assertStringContainsString( 'no action scripts', $client['notes'], $client['slug'] );
+			$this->assertStringContainsString( 'no source-code schema spelunking', $client['notes'], $client['slug'] );
+			$this->assertStringContainsString( 'no REST runner or shell WP-CLI workaround', $client['notes'], $client['slug'] );
+		}
+	}
+
 	public function test_antigravity_notes_require_playwright_and_restart(): void {
 		$clients = ConnectClientConfig::clients();
 		$match   = array_values(
@@ -164,7 +178,13 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'Do not treat local agent skills as a substitute for live Stonewright MCP tools', $prompt );
 		$this->assertStringContainsString( 'If stonewright-context-bootstrap is missing, stop', $prompt );
 		$this->assertStringContainsString( 'Do not inspect private AI-client config files, parse repository files, or hand-roll JSON-RPC calls', $prompt );
+		$this->assertStringContainsString( 'Do not create scratch scripts such as query-mcp.js or run-ability.js', $prompt );
+		$this->assertStringContainsString( 'Do not create helper JSON argument files such as bootstrap-args.json, cli_command.json, or get_structure.json', $prompt );
+		$this->assertStringContainsString( 'Do not launch the Stonewright companion from ad hoc shell scripts such as query-local-stonewright.js', $prompt );
+		$this->assertStringContainsString( 'Do not create or modify action scripts such as run-loop-mutate.js or run-bootstrap-and-mutate.js', $prompt );
+		$this->assertStringContainsString( 'Do not inspect plugin or companion source code to reverse-engineer tool schemas', $prompt );
 		$this->assertStringContainsString( 'Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround', $prompt );
+		$this->assertStringContainsString( 'Do not run wp commands or wp eval in a normal shell', $prompt );
 	}
 
 	public function test_playwright_mcp_snippet_is_separate_server(): void {

@@ -1,2 +1,3 @@
 /.gitattributes text eol=lf
 *.php text eol=lf
+companion/src/index.ts text eol=lf

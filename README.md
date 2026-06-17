@@ -96,8 +96,15 @@ stonewright-context-bootstrap
 
 If `stonewright-context-bootstrap` is missing, reload or fix the MCP client
 config before WordPress work. Local agent skills, repository files, private
-client config files, and `/wp-json/stonewright/v1/abilities/run` shell calls
-are not substitutes for the live Stonewright MCP server.
+client config files, scratch scripts such as `query-mcp.js` or
+`run-ability.js`, helper JSON argument files such as `bootstrap-args.json`,
+`cli_command.json`, or `get_structure.json`, direct companion shell launch
+scripts such as `query-local-stonewright.js`, action scripts such as
+`run-loop-mutate.js` or `run-bootstrap-and-mutate.js`, plugin/companion
+source-code spelunking to reverse-engineer tool schemas, hand-rolled JSON-RPC
+calls, and
+`/wp-json/stonewright/v1/abilities/run` shell calls are not substitutes for the
+live Stonewright MCP server.
 If the companion is visible but proxied WordPress tools are missing, call
 `stonewright-wordpress-mcp-status`; setup-profile and direct `stonewright-wp-cli-*`
 tools remain available while you fix credentials or endpoint URLs.
@@ -134,7 +141,7 @@ Fastest MCP-client setup uses the versioned GitHub release tarball through
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.56/stonewright-companion-1.0.0-alpha.56.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.58/stonewright-companion-1.0.0-alpha.58.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -180,7 +187,15 @@ the HTTP bridge is skipped unless `STONEWRIGHT_HTTP_REQUIRED=1` is set.
 
 After adding the companion, restart or reload the AI client and verify the
 tool list includes `stonewright-context-bootstrap` before the first WordPress
-task.
+task. If it is missing, stop and fix the MCP client config. Do not inspect
+private client config files, create scratch scripts such as `query-mcp.js` or
+`run-ability.js`, create helper JSON argument files such as
+`bootstrap-args.json`, `cli_command.json`, or `get_structure.json`, launch the
+companion through ad hoc scripts such as `query-local-stonewright.js`, create
+action scripts such as `run-loop-mutate.js` or `run-bootstrap-and-mutate.js`,
+inspect plugin/companion source to reverse-engineer tool schemas, hand-roll
+JSON-RPC, call the REST ability runner from shell, or run shell `wp ...`
+commands as a Stonewright MCP workaround.
 
 `STONEWRIGHT_WP_ROOT` is optional. Add it only when you want the companion to run
 WP-CLI helper tools or auto-discover LocalWP. Set it to the absolute WordPress

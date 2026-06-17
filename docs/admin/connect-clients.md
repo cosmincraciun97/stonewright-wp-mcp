@@ -42,7 +42,7 @@ Most clients can run the Stonewright companion with `npx`:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.57/stonewright-companion-1.0.0-alpha.57.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.58/stonewright-companion-1.0.0-alpha.58.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -69,9 +69,15 @@ tools stay visible even while the WordPress endpoint is being fixed.
 After restart, the AI client should show `stonewright-context-bootstrap` in the
 MCP tool list. If that tool is missing, Stonewright is not connected yet: reload
 the client or fix the MCP config before asking the agent to edit WordPress. Do
-not use local agent skills, repository files, private client config files, or
-manual JSON-RPC or `/wp-json/stonewright/v1/abilities/run` shell calls as
-substitutes for the live MCP server.
+not use local agent skills, repository files, private client config files,
+scratch scripts such as `query-mcp.js` or `run-ability.js`, hand-rolled
+JSON-RPC, helper JSON argument files such as `bootstrap-args.json`,
+`cli_command.json`, or `get_structure.json`, direct companion shell launch
+scripts such as `query-local-stonewright.js`, action scripts such as
+`run-loop-mutate.js` or `run-bootstrap-and-mutate.js`, plugin/companion
+source-code spelunking to reverse-engineer tool schemas, or
+`/wp-json/stonewright/v1/abilities/run` shell calls as substitutes for the live
+MCP server.
 
 Leave `PORT` out of normal stdio configs, including Antigravity. A stale `.env`
 `PORT` is ignored by stdio startup unless `STONEWRIGHT_HTTP_ENABLE=1` or
@@ -104,7 +110,7 @@ claude mcp add stonewright \
   --env STONEWRIGHT_WP_USERNAME='your-wp-username' \
   --env STONEWRIGHT_WP_APP_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx' \
   --env STONEWRIGHT_MCP_TOOL_PROFILE=essential \
-  -- npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.57/stonewright-companion-1.0.0-alpha.57.tgz stonewright-mcp
+  -- npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.58/stonewright-companion-1.0.0-alpha.58.tgz stonewright-mcp
 ```
 
 The server is registered for the current user. Restart or reload the client
@@ -136,7 +142,7 @@ VS Code-style clients use a `servers` top-level key instead of `mcpServers`:
   "servers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.57/stonewright-companion-1.0.0-alpha.57.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.58/stonewright-companion-1.0.0-alpha.58.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -156,7 +162,7 @@ Zed uses `context_servers`:
     "stonewright": {
       "command": {
         "path": "npx",
-        "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.57/stonewright-companion-1.0.0-alpha.57.tgz", "stonewright-mcp"],
+        "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.58/stonewright-companion-1.0.0-alpha.58.tgz", "stonewright-mcp"],
         "env": {
           "STONEWRIGHT_WP_URL": "https://your-site.com",
           "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -207,8 +213,11 @@ making a separate stonewright-tool-profile call.
 
 If `stonewright-context-bootstrap` is not visible, stop and restart or reload
 the AI client. A good agent should not begin by only announcing named skills,
-searching repository files, or calling Stonewright REST endpoints from shell; it
-should call the live Stonewright MCP tools.
+searching repository files, inspecting private client config files, creating
+scratch helper scripts, creating helper JSON argument files, launching the
+companion through ad hoc shell scripts, creating action scripts, inspecting
+plugin/companion source to reverse-engineer tool schemas, or calling Stonewright
+REST endpoints from shell; it should call the live Stonewright MCP tools.
 
 For visual work, include the target URL, screenshot or design reference, allowed
 plugins, safety mode, and desktop/tablet/mobile acceptance checks.

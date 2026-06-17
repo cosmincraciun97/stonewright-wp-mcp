@@ -10,6 +10,13 @@ guidance for ACF, ACPT, Meta Box, ASE, Pods, and WooCommerce catalog work.
 ## Shared Safety
 
 - Use `stonewright-context-bootstrap` at the start of every task.
+- If `stonewright-context-bootstrap` is not visible in the MCP tool list, stop
+  and ask for a client reload or Stonewright MCP config fix.
+- Do not inspect private client config files, create scratch helper scripts,
+  create helper JSON argument files, launch the companion through ad hoc shell
+  scripts, create action scripts, inspect plugin/companion source to
+  reverse-engineer tool schemas, hand-roll JSON-RPC, call the REST runner from
+  shell, or run shell `wp ...` commands as a Stonewright MCP workaround.
 - Pass `stonewright_context_token` to write abilities.
 - Use `stonewright/site-plugins-list`, `stonewright/wp-cli-status`, and
   `stonewright/wp-cli-discover` before relying on plugin commands.

@@ -87,7 +87,14 @@ Content-Type: application/json
 The runner uses the same registry, permission callbacks, master toggle,
 disabled-ability checks, UTF-8 sanitization, context-token gate, audit flow, and
 ability handlers as the MCP surface. It is not a bypass for write safety and is
-not a shell workaround for agents when the MCP tool list did not load.
+not a shell workaround for agents when the MCP tool list did not load. Agents
+must not inspect private AI-client config files, create `query-mcp.js` or
+`run-ability.js`, create helper JSON argument files such as
+`bootstrap-args.json`, `cli_command.json`, or `get_structure.json`, launch the
+companion through `query-local-stonewright.js`, create action scripts such as
+`run-loop-mutate.js` or `run-bootstrap-and-mutate.js`, inspect plugin/companion
+source to reverse-engineer tool schemas, or hand-roll JSON-RPC to reach this
+runner when `stonewright-context-bootstrap` is missing.
 
 ## WP-CLI
 

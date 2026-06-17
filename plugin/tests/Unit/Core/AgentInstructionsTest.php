@@ -11,6 +11,22 @@ use Stonewright\WpMcp\Core\AgentInstructions;
  */
 final class AgentInstructionsTest extends TestCase {
 
+	public function test_server_bootstrap_summary_blocks_mcp_bypass_workarounds(): void {
+		$summary = AgentInstructions::server_bootstrap_summary();
+
+		$this->assertStringContainsString( 'stonewright-context-bootstrap', $summary );
+		$this->assertStringContainsString( 'not visible in the MCP tool list, stop', $summary );
+		$this->assertStringContainsString( 'No MCP bypasses', $summary );
+		$this->assertStringContainsString( 'private client configs', $summary );
+		$this->assertStringContainsString( 'repo/source schema spelunking', $summary );
+		$this->assertStringContainsString( 'query-mcp.js', $summary );
+		$this->assertStringContainsString( 'run-bootstrap-and-mutate.js', $summary );
+		$this->assertStringContainsString( 'helper JSON args', $summary );
+		$this->assertStringContainsString( 'REST runner shell calls', $summary );
+		$this->assertStringContainsString( 'shell wp commands', $summary );
+		$this->assertStringContainsString( 'Do not use wp eval', $summary );
+	}
+
 	public function test_default_instructions_force_context_skills_memory_and_elementor_widget_discipline(): void {
 		$instructions = AgentInstructions::default();
 
@@ -20,7 +36,13 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'Do not start a Stonewright task by only announcing named skills', $instructions );
 		$this->assertStringContainsString( 'Do not treat local client skills, prompt snippets, or repository files as a substitute for live Stonewright MCP tools', $instructions );
 		$this->assertStringContainsString( 'If stonewright-context-bootstrap is not visible in the MCP tool list, stop', $instructions );
-		$this->assertStringContainsString( 'Do not parse private AI-client config files or hand-roll JSON-RPC calls to bypass a missing MCP server', $instructions );
+		$this->assertStringContainsString( 'Do not inspect private AI-client config files', $instructions );
+		$this->assertStringContainsString( 'Do not create scratch scripts such as query-mcp.js or run-ability.js', $instructions );
+		$this->assertStringContainsString( 'Do not create helper JSON argument files such as bootstrap-args.json, cli_command.json, or get_structure.json', $instructions );
+		$this->assertStringContainsString( 'Do not launch the Stonewright companion from ad hoc shell scripts such as query-local-stonewright.js', $instructions );
+		$this->assertStringContainsString( 'Do not create or modify action scripts such as run-loop-mutate.js or run-bootstrap-and-mutate.js', $instructions );
+		$this->assertStringContainsString( 'Do not inspect plugin or companion source code to reverse-engineer tool schemas', $instructions );
+		$this->assertStringContainsString( 'Do not hand-roll JSON-RPC calls to bypass a missing MCP server', $instructions );
 		$this->assertStringContainsString( 'Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround', $instructions );
 		$this->assertStringContainsString( 'Do not run wp cli info, wp plugin activate, wp option update, or other wp commands in a normal shell as Stonewright recovery', $instructions );
 		$this->assertStringContainsString( 'Do not use another MCP adapter execute-php or arbitrary PHP execution to replace Stonewright tools', $instructions );

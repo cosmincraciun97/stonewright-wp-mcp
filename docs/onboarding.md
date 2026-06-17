@@ -23,7 +23,13 @@ followups, and the short-lived token needed by write abilities.
 If `stonewright-context-bootstrap` is missing, the MCP server is not loaded yet.
 Stop and fix the MCP config or reload the client before WordPress work. Local
 agent skills, prompt snippets, repository files, private client config files,
-and `/wp-json/stonewright/v1/abilities/run` shell calls do not replace live
+scratch scripts such as `query-mcp.js` or `run-ability.js`, hand-rolled
+JSON-RPC, helper JSON argument files such as `bootstrap-args.json`,
+`cli_command.json`, or `get_structure.json`, direct companion shell launch
+scripts such as `query-local-stonewright.js`, action scripts such as
+`run-loop-mutate.js` or `run-bootstrap-and-mutate.js`, plugin/companion
+source-code spelunking to reverse-engineer tool schemas, and
+`/wp-json/stonewright/v1/abilities/run` shell calls do not replace live
 Stonewright MCP tools.
 Do not recover by running `wp ...` in a normal shell or by using arbitrary PHP
 execution from another adapter; use Stonewright's guarded MCP tools.
@@ -50,6 +56,11 @@ Safety:
 - Start with stonewright-context-bootstrap.
 - If stonewright-context-bootstrap is not visible in the MCP tool list, stop and
   ask me to reload or fix the Stonewright MCP config.
+- Do not inspect private client config files, create scratch helper scripts,
+  create helper JSON argument files, launch the companion through ad hoc shell
+  scripts, create action scripts, inspect plugin/companion source to
+  reverse-engineer tool schemas, hand-roll JSON-RPC, call the REST runner from
+  shell, or run shell `wp ...` commands as a Stonewright MCP workaround.
 - Use native WordPress or Elementor abilities first.
 - Validate design specs before rendering.
 - Snapshot before Elementor, template, global style, or theme-backed writes.

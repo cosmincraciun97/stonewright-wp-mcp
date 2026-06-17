@@ -19,12 +19,13 @@ final class AgentInstructions {
 			'- First call MCP tool stonewright-context-bootstrap with task, surface, and intent. Use the returned stonewright_context_token for every write.',
 			'- Then call stonewright-workflow-preflight for Elementor, Gutenberg, ACF, CPT UI, WooCommerce, or WordPress implementation. Follow its compact recommended tools.',
 			'- For token-sensitive clients, use fast_path.tool_profile from stonewright-workflow-preflight before making a separate stonewright-tool-profile call.',
+			'- If stonewright-context-bootstrap is not visible in the MCP tool list, stop and ask the user to reload or fix the Stonewright MCP config.',
+			'- ' . McpUsePolicy::compact_bypass_ban_rule(),
 			'- Design/Elementor: review or set Elementor kit global colors/typography first, build one section at a time, use native widgets, inspect widget schemas, then batch with build-page-from-spec or batch-mutate.',
 			'- Content-model/repeated rows: prefer content-bulk-upsert-posts and wp-cli-batch-run over many single meta or CLI calls.',
-			'- Never use wp eval, wp eval-file, wp shell, wp package, --exec, or --require through Stonewright.',
+			'- Do not use wp eval, wp eval-file, wp shell, wp package, --exec, or --require through Stonewright.',
 			'- Do not run wp cli info, wp plugin activate, wp option update, or other wp commands in a normal shell as Stonewright recovery. Use MCP tools stonewright-wp-cli-status, stonewright-wp-cli-discover, stonewright-wp-cli-run, or stonewright-wp-cli-batch-run.',
 			'- Do not use another MCP adapter execute-php or arbitrary PHP execution to replace Stonewright tools.',
-			'- If stonewright-context-bootstrap is missing, the Stonewright MCP server is not loaded. Reload or fix the client config before WordPress work.',
 		];
 
 		$instructions_enabled = (bool) get_option( 'stonewright_custom_instructions_enabled', true );
@@ -45,9 +46,8 @@ final class AgentInstructions {
 			'- MCP clients expose Stonewright tools with hyphens. When calling tools via MCP, replace `/` with `-`: ability `stonewright/context-bootstrap` is MCP tool `stonewright-context-bootstrap`, and ability `stonewright/wp-cli-run` is MCP tool `stonewright-wp-cli-run`.',
 			'- Do not start a Stonewright task by only announcing named skills. The first useful action is a real MCP tool call: stonewright-context-bootstrap, or stonewright-workflow-preflight only when explicitly using the fast path.',
 			'- Do not treat local client skills, prompt snippets, or repository files as a substitute for live Stonewright MCP tools.',
-			'- If stonewright-context-bootstrap is not visible in the MCP tool list, stop and tell the user the Stonewright MCP server is not loaded. Ask them to restart or reload the AI client, or fix the Stonewright MCP config, before WordPress work.',
-			'- Do not parse private AI-client config files or hand-roll JSON-RPC calls to bypass a missing MCP server.',
-			'- Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround.',
+			'- ' . McpUsePolicy::missing_context_bootstrap_rule(),
+			...array_map( static fn ( string $rule ): string => '- ' . $rule, McpUsePolicy::bypass_ban_rules() ),
 			'- Do not run wp cli info, wp plugin activate, wp option update, or other wp commands in a normal shell as Stonewright recovery. Use MCP tools stonewright-wp-cli-status, stonewright-wp-cli-discover, stonewright-wp-cli-run, or stonewright-wp-cli-batch-run.',
 			'- Do not use another MCP adapter execute-php or arbitrary PHP execution to replace Stonewright tools.',
 			'- At the start of every Stonewright task, call MCP tool stonewright-context-bootstrap with the user request, surface, and intent. Read the returned instructions, matched skill playbooks, memory entries, and required followups before acting.',

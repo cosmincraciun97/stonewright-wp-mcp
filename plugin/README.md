@@ -1,6 +1,6 @@
 # Stonewright Plugin
 
-Version: 1.0.0-alpha.55
+Version: 1.0.0-alpha.58
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
 License: GPL-2.0-or-later
@@ -89,8 +89,15 @@ skills, memory, custom instructions, and required followups.
 If `stonewright-context-bootstrap` is not visible in the MCP tool list, the
 client did not load Stonewright yet. Restart or reload the AI client and fix the
 MCP config before WordPress work. Local agent skills, repository files, private
-client config files, and `/wp-json/stonewright/v1/abilities/run` shell calls
-are not substitutes for live Stonewright MCP tools.
+client config files, scratch scripts such as `query-mcp.js` or
+`run-ability.js`, helper JSON argument files such as `bootstrap-args.json`,
+`cli_command.json`, or `get_structure.json`, direct companion shell launch
+scripts such as `query-local-stonewright.js`, action scripts such as
+`run-loop-mutate.js` or `run-bootstrap-and-mutate.js`, plugin/companion
+source-code spelunking to reverse-engineer tool schemas, hand-rolled JSON-RPC
+calls, and
+`/wp-json/stonewright/v1/abilities/run` shell calls are not substitutes for live
+Stonewright MCP tools.
 
 For visual work, connect external Playwright MCP before the first write:
 

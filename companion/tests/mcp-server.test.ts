@@ -18,7 +18,7 @@ describe('createMcpServer', () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
 		const info = (server as any).server._serverInfo as { name: string; version: string };
 		expect(info.name).toBe('stonewright-companion');
-		expect(info.version).toBe('1.0.0-alpha.57');
+		expect(info.version).toBe('1.0.0-alpha.58');
 	});
 
 	it('publishes compact handshake instructions before any tool is called', async () => {
@@ -38,6 +38,15 @@ describe('createMcpServer', () => {
 		expect(instructions).toContain('stonewright-wordpress-mcp-status');
 		expect(instructions).toContain('stonewright-wp-cli-batch-run');
 		expect(instructions).toContain('STONEWRIGHT_MCP_TOOL_PROFILE=low-tools');
+		expect(instructions).toContain('If stonewright-context-bootstrap is not visible, stop');
+		expect(instructions).toContain('Do not inspect private AI-client config files');
+		expect(instructions).toContain('Do not create scratch scripts such as query-mcp.js or run-ability.js');
+		expect(instructions).toContain('Do not create helper JSON argument files such as bootstrap-args.json, cli_command.json, or get_structure.json');
+		expect(instructions).toContain('Do not launch the Stonewright companion from ad hoc shell scripts such as query-local-stonewright.js');
+		expect(instructions).toContain('Do not create or modify action scripts such as run-loop-mutate.js or run-bootstrap-and-mutate.js');
+		expect(instructions).toContain('Do not inspect plugin or companion source code to reverse-engineer tool schemas');
+		expect(instructions).toContain('Do not hand-roll JSON-RPC calls');
+		expect(instructions).toContain('Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround');
 		expect(instructions).toContain('Do not run wp commands in a normal shell');
 		expect(instructions).not.toContain('companion_wp_cli_run');
 	});
@@ -159,6 +168,13 @@ describe('createMcpServer', () => {
 			'companion_wp_cli_install',
 		]));
 		expect(response.structuredContent?.agent_do_not_use).toContain('Do not run wp cli info, wp plugin activate, wp option update, or other wp commands in a normal shell as Stonewright recovery.');
+		expect(response.structuredContent?.agent_do_not_use).toContain('Do not inspect private AI-client config files to find or call Stonewright.');
+		expect(response.structuredContent?.agent_do_not_use).toContain('Do not create scratch scripts such as query-mcp.js or run-ability.js to bypass the MCP client tool surface.');
+		expect(response.structuredContent?.agent_do_not_use).toContain('Do not create helper JSON argument files such as bootstrap-args.json, cli_command.json, or get_structure.json to bypass typed MCP tool input.');
+		expect(response.structuredContent?.agent_do_not_use).toContain('Do not launch the Stonewright companion from ad hoc shell scripts such as query-local-stonewright.js to bypass the MCP client tool list.');
+		expect(response.structuredContent?.agent_do_not_use).toContain('Do not create or modify action scripts such as run-loop-mutate.js or run-bootstrap-and-mutate.js to bypass typed Stonewright tool calls.');
+		expect(response.structuredContent?.agent_do_not_use).toContain('Do not inspect plugin or companion source code to reverse-engineer tool schemas during WordPress implementation tasks.');
+		expect(response.structuredContent?.agent_do_not_use).toContain('Do not hand-roll JSON-RPC calls to /mcp or /wp-json/mcp/stonewright as an MCP workaround.');
 		expect(response.structuredContent?.agent_use_instead).toEqual(expect.arrayContaining([
 			'stonewright-wp-cli-status',
 			'stonewright-wp-cli-discover',

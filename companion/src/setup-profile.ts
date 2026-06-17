@@ -48,8 +48,18 @@ export const AGENT_DO_NOT_USE = [
 	'Do not run wp cli info, wp plugin activate, wp option update, or other wp commands in a normal shell as Stonewright recovery.',
 	'Do not use another MCP adapter execute-php or arbitrary PHP execution to replace Stonewright tools.',
 	'Do not read repository docs or ability matrices as a substitute for the live MCP tool list.',
+	'Do not inspect private AI-client config files to find or call Stonewright.',
+	'Do not create scratch scripts such as query-mcp.js or run-ability.js to bypass the MCP client tool surface.',
+	'Do not create helper JSON argument files such as bootstrap-args.json, cli_command.json, or get_structure.json to bypass typed MCP tool input.',
+	'Do not launch the Stonewright companion from ad hoc shell scripts such as query-local-stonewright.js to bypass the MCP client tool list.',
+	'Do not create or modify action scripts such as run-loop-mutate.js or run-bootstrap-and-mutate.js to bypass typed Stonewright tool calls.',
+	'Do not inspect plugin or companion source code to reverse-engineer tool schemas during WordPress implementation tasks.',
+	'Do not hand-roll JSON-RPC calls to /mcp or /wp-json/mcp/stonewright as an MCP workaround.',
 	'Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround.',
 ];
+
+export const MCP_MISSING_BOOTSTRAP_STOP =
+	'If stonewright-context-bootstrap is not visible, stop WordPress work, report that Stonewright MCP is not loaded, and ask the user to reload or fix the MCP client config.';
 
 export const AGENT_USE_INSTEAD = [
 	'stonewright-wordpress-mcp-status',
@@ -158,7 +168,15 @@ export function buildSetupProfile(
 			'Profile aliases such as elementor, design, acf, cpt-ui, fse, and wp cli normalize to compact canonical profiles.',
 			'Leave PORT unset for stdio-only MCP clients. To run the optional HTTP bridge, set STONEWRIGHT_HTTP_ENABLE=1 plus PORT.',
 			'Use fast_path.tool_profile from stonewright-workflow-preflight before making a separate stonewright-tool-profile call; call tool-profile only to switch or verify a compact profile.',
+			MCP_MISSING_BOOTSTRAP_STOP,
 			'Do not treat local client skills or repository files as a substitute for live Stonewright MCP tools; if the tool is missing, reload the MCP client instead of bypassing the server.',
+			'Do not inspect private AI-client config files to find Stonewright; use the configured MCP tool list and stonewright-setup-profile instead.',
+			'Do not create scratch scripts such as query-mcp.js or run-ability.js to bypass the MCP client tool surface.',
+			'Do not create helper JSON argument files such as bootstrap-args.json, cli_command.json, or get_structure.json to bypass typed MCP tool input.',
+			'Do not launch the Stonewright companion from ad hoc shell scripts such as query-local-stonewright.js to bypass the MCP client tool list.',
+			'Do not create or modify action scripts such as run-loop-mutate.js or run-bootstrap-and-mutate.js to bypass typed Stonewright tool calls.',
+			'Do not inspect plugin or companion source code to reverse-engineer tool schemas during WordPress implementation tasks.',
+			'Do not hand-roll JSON-RPC calls to /mcp or /wp-json/mcp/stonewright as an MCP workaround.',
 			'Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround.',
 			'For local .local/.test sites, Application Passwords can be generated through guarded WP-CLI.',
 			'For production sites, provide STONEWRIGHT_WP_USERNAME plus STONEWRIGHT_WP_APP_PASSWORD or STONEWRIGHT_MCP_AUTHORIZATION.',

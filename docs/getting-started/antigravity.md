@@ -40,7 +40,7 @@ In Antigravity IDE you can also open it from the agent panel:
 ## 3. Add Stonewright
 
 Use the latest release tarball shown by the Stonewright Configuration page. This
-example uses `1.0.0-alpha.57`:
+example uses `1.0.0-alpha.58`:
 
 ```json
 {
@@ -50,7 +50,7 @@ example uses `1.0.0-alpha.57`:
       "args": [
         "-y",
         "--package",
-        "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.57/stonewright-companion-1.0.0-alpha.57.tgz",
+        "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.58/stonewright-companion-1.0.0-alpha.58.tgz",
         "stonewright-mcp"
       ],
       "env": {
@@ -105,7 +105,11 @@ Use this smoke test before asking for site changes:
 Use Stonewright. First call stonewright-setup-profile, then verify
 stonewright-context-bootstrap and stonewright-workflow-preflight are visible.
 If Stonewright is not connected, call stonewright-wordpress-mcp-status and stop
-with the exact missing config value. Do not run wp commands in a normal shell.
+with the exact missing config value. Do not inspect private client config
+files, create scratch helper scripts, create helper JSON argument files, launch
+the companion through ad hoc shell scripts, create action scripts, inspect
+plugin/companion source to reverse-engineer tool schemas, hand-roll JSON-RPC,
+call the REST runner from shell, or run wp commands in a normal shell.
 ```
 
 For real work:

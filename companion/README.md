@@ -27,7 +27,7 @@ Fast path for MCP clients:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.57/stonewright-companion-1.0.0-alpha.57.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.58/stonewright-companion-1.0.0-alpha.58.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
@@ -47,6 +47,15 @@ Windows, macOS, and Linux. Use its `first_calls` and
 `stonewright-wordpress-mcp-status`, and direct WP-CLI aliases are visible before
 real work. Use `fast_path.tool_profile` from workflow preflight before making a
 separate `stonewright-tool-profile` call.
+If `stonewright-context-bootstrap` is not visible, stop WordPress work and
+reload or fix the MCP client config. Do not inspect private AI-client config
+files, create scratch scripts such as `query-mcp.js` or `run-ability.js`,
+create helper JSON argument files such as `bootstrap-args.json`,
+`cli_command.json`, or `get_structure.json`, launch the companion through ad hoc
+scripts such as `query-local-stonewright.js`, create action scripts such as
+`run-loop-mutate.js` or `run-bootstrap-and-mutate.js`, inspect plugin/companion
+source to reverse-engineer tool schemas, hand-roll JSON-RPC, or call the REST
+ability runner from shell as an MCP workaround.
 Do not point IDE MCP configs at `node companion/dist/index.js`; `dist` is a
 source build artifact and is intentionally not committed. Use the `npx` release
 tarball above, or for source development use
