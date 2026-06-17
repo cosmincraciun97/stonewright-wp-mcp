@@ -1547,6 +1547,42 @@ if ( ! function_exists( 'rest_ensure_response' ) ) {
 	}
 }
 
+if ( ! function_exists( 'rest_validate_value_from_schema' ) ) {
+	function rest_validate_value_from_schema( mixed $value, mixed $args, string $param = '' ): true|\WP_Error {
+		if ( $args instanceof \stdClass ) {
+			throw new \Error( 'Cannot use object of type stdClass as array' );
+		}
+
+		if ( ! is_array( $args ) || [] === $args ) {
+			return true;
+		}
+
+		$type = $args['type'] ?? null;
+		if ( 'array' === $type && is_array( $value ) && array_key_exists( 'items', $args ) ) {
+			foreach ( $value as $item ) {
+				$valid = rest_validate_value_from_schema( $item, $args['items'], $param . '[]' );
+				if ( $valid instanceof \WP_Error ) {
+					return $valid;
+				}
+			}
+		}
+
+		if ( 'object' === $type && ( is_array( $value ) || is_object( $value ) ) && isset( $args['properties'] ) && is_array( $args['properties'] ) ) {
+			foreach ( (array) $value as $property => $item ) {
+				if ( ! array_key_exists( (string) $property, $args['properties'] ) ) {
+					continue;
+				}
+				$valid = rest_validate_value_from_schema( $item, $args['properties'][ (string) $property ], $param . '[' . (string) $property . ']' );
+				if ( $valid instanceof \WP_Error ) {
+					return $valid;
+				}
+			}
+		}
+
+		return true;
+	}
+}
+
 if ( ! function_exists( 'wp_die' ) ) {
 	function wp_die( string $message = '', string $title = '', array|int $args = [] ): never {
 		throw new \RuntimeException( "wp_die: {$message}" );

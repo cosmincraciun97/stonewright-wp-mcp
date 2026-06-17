@@ -79,4 +79,43 @@ final class AbilitiesApiRestRunCompatibilityTest extends TestCase {
 		$this->assertTrue( $ability->check_permissions( null ) );
 		$this->assertSame( [ 'input' => [] ], $ability->execute( null ) );
 	}
+
+	public function test_registered_ability_validates_runtime_schema_placeholders_without_stdclass_fatal(): void {
+		if ( ! class_exists( \WP_Ability::class ) ) {
+			require_once self::VENDOR_ABILITY;
+		}
+
+		$ability = new RegisteredAbility(
+			'stonewright/test-runtime-schema-placeholders',
+			[
+				'label'               => 'Runtime schema placeholder test',
+				'description'         => 'Compatibility test ability.',
+				'output_schema'       => [
+					'type'       => 'object',
+					'required'   => [ 'items' ],
+					'properties' => [
+						'items' => [
+							'type'  => 'array',
+							'items' => new \stdClass(),
+						],
+					],
+				],
+				'permission_callback' => static fn ( array $input ): bool => true,
+				'execute_callback'    => static fn ( array $input ): array => [
+					'items' => [
+						[ 'name' => 'context-bootstrap' ],
+					],
+				],
+			]
+		);
+
+		$this->assertSame(
+			[
+				'items' => [
+					[ 'name' => 'context-bootstrap' ],
+				],
+			],
+			$ability->execute( [] )
+		);
+	}
 }
