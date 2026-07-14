@@ -18,6 +18,8 @@
   pack retrieval, deterministic scorecards, and promotion lifecycle gates.
 - Added a live/versioned Elementor V4 Atomic schema repository, recursive mixed
   tree inspection, official class/variable adapters, and owned fixtures.
+- Added `stonewright/elementor-v4-migrate` with explicit zero-loss reporting,
+  snapshot, readback hash, and automatic restore on mismatch.
 
 ### Changed
 

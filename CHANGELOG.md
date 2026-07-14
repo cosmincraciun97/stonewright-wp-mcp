@@ -42,6 +42,9 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Added the versioned Elementor V4 Atomic schema repository, recursive mixed-
   tree inspection, official global-class/variable runtime adapters, and owned
   structural fixtures with exact upstream fingerprints.
+- Added a separate page-resident Elementor V4 editor adapter with live schema
+  discovery, explicit write approval, batch rollback, editor/frontend readback,
+  and zero-loss-only V3 migration planning/application.
 
 ### Changed
 

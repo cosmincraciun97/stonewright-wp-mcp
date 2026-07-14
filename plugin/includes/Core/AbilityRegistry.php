@@ -59,6 +59,7 @@ use Stonewright\WpMcp\Abilities\ElementorV4\DescribeAtomicWidget;
 use Stonewright\WpMcp\Abilities\ElementorV4\ListAtomicNodeTypes;
 use Stonewright\WpMcp\Abilities\ElementorV4\ListClasses;
 use Stonewright\WpMcp\Abilities\ElementorV4\ListVariables;
+use Stonewright\WpMcp\Abilities\ElementorV4\Migrate as ElementorV4Migrate;
 use Stonewright\WpMcp\Abilities\ElementorV4\ReadAtomicTree;
 use Stonewright\WpMcp\Abilities\ElementorV4\RenderFromSpec as RenderV4FromSpec;
 use Stonewright\WpMcp\Abilities\ElementorV4\Status as ElementorV4Status;
@@ -276,6 +277,7 @@ final class AbilityRegistry {
 			CreateClass::class,
 			UpdateClass::class,
 			RenderV4FromSpec::class,
+			ElementorV4Migrate::class,
 
 			// Elementor V4 — atomic widget definer.
 			AtomicWidgetDefine::class,

@@ -16,6 +16,10 @@ export * from "./elementor-v3/evidence-ledger.js";
 export * from "./elementor-v3/settings-validator.js";
 export * from "./elementor-v3/window-runtime.js";
 export * from "./elementor-v3/editor-adapter.js";
+export * from "./elementor-v4/types.js";
+export * from "./elementor-v4/schema-validator.js";
+export * from "./elementor-v4/window-runtime.js";
+export * from "./elementor-v4/editor-adapter.js";
 
 export const STONEWRIGHT_WORKSPACE_TOOL = {
   name: "stonewright-workspace-request",

@@ -41,3 +41,17 @@ structural fixtures. Core 4.x source shape and mixed-tree behavior are verified.
 Elementor 3.29 Atomic opt-in and licensed Pro editor/frontend parity remain
 explicitly marked pending until those controlled-site E2E jobs run. No stable
 claim is made from a synthetic fixture.
+
+## Page-resident editor and migration
+
+`@stonewright/visual` exposes a dedicated `ElementorV4EditorAdapter` behind the
+single workspace gateway. It discovers `atomic_props_schema` from the active
+editor, preserves native V4 payloads, requires `confirm_write=true`, executes
+history-aware operations, supports batch refs/rollback, and verifies both the
+editor model and preview DOM after mutation. It never calls the V3 adapter as a
+fallback.
+
+`stonewright/elementor-v4-migrate` is the only explicit V3-to-V4 path. Dry-run
+returns a per-element compatibility/loss report. Apply is refused unless every
+element has a verified zero-loss mapping; successful apply snapshots the page,
+writes once, compares the readback hash, and restores automatically on mismatch.
