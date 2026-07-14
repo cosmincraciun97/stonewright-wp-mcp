@@ -13,6 +13,10 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   default and 12-tool strict profile budgets.
 - Added upstream source provenance, attribution, and license notices for
   Novamira-derived components.
+- Added the AGPL Stonewright Visual foundation with one top-level workspace
+  request tool and nested editor/backend tool discovery.
+- Added nested batch calls with aliases, mandatory mutation readback,
+  transaction rollback, compact schema summaries, and confirmation state.
 
 ### Changed
 
@@ -33,6 +37,8 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Hardened `stonewright/php-execute` with production-safe confirmation,
   bounded output, normalized results, buffer/time-limit cleanup, and compact
   audit metadata without exposing source code.
+- Removed JavaScript eval from the adapted Visual dispatcher and restricted
+  backend execution to discovered Visual-safe tools with approval for writes.
 
 ## [1.0.0-alpha.64] - 2026-06-17
 

@@ -20,6 +20,7 @@ workflows with operator controls.
 - [Plugin specializations](specializations.md)
 - [Release notes](releases/README.md)
 - [MCP token benchmarks](benchmarks/README.md)
+- [Stonewright Visual](visual.md)
 - [Upstream code reuse and attribution](upstream-code-reuse.md)
 
 ## Sections

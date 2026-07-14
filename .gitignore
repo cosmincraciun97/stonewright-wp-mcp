@@ -10,6 +10,9 @@ companion/dist/
 companion/coverage/
 companion/playwright-report/
 companion/test-results/
+visual/node_modules/
+visual/dist/
+visual/coverage/
 
 # Local
 *.log

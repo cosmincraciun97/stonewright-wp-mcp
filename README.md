@@ -58,6 +58,7 @@ without turning every task into broad shell access or dozens of tiny tool calls.
 | Component | Path | License |
 |---|---|---|
 | Plugin | `plugin/` | AGPL-3.0-or-later |
+| Visual workspace | `visual/` | AGPL-3.0-or-later |
 | Companion | `companion/` | MIT |
 | Skill packs | `skills/` | MIT |
 | Documentation | `docs/` | CC BY 4.0 |
