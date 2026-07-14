@@ -2,7 +2,7 @@
     "slug": "price-table",
     "source": "pro",
     "title": "Price Table",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/pricing/widgets/price-table.php",
+    "file": "pro-elements/modules/pricing/widgets/price-table.php",
     "sections": [
         {
             "id": "section_header",

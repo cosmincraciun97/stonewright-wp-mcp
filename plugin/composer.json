@@ -2,7 +2,7 @@
     "name": "stonewright/wp-mcp",
     "description": "Stonewright exposes WordPress building primitives to MCP clients.",
     "type": "wordpress-plugin",
-    "license": "GPL-2.0-or-later",
+    "license": "AGPL-3.0-or-later",
     "require": {
         "php": ">=8.1",
         "wordpress/mcp-adapter": "^0.3.0 || ^1.0",
@@ -50,6 +50,7 @@
         "phpcs": "phpcs",
         "phpcbf": "phpcbf",
         "docs:matrix": "php bin/generate-ability-matrix.php",
+        "tokens:measure": "php bin/measure-token-surface.php",
         "dependencies:audit": "composer audit --abandoned=report",
         "security:audit": "php bin/security-audit.php"
     },

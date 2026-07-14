@@ -48,7 +48,7 @@ return array (
         1 => 'tabs',
         2 => 'toggle',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/accordion.php',
+      'file' => 'elementor/includes/widgets/accordion.php',
       'intent' => 'Toggle to enable or disable the option to use schema. Style tab Accordion Accordion',
       'use_cases' => 
       array (
@@ -865,7 +865,7 @@ return array (
         1 => 'notice',
         2 => 'message',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/alert.php',
+      'file' => 'elementor/includes/widgets/alert.php',
       'intent' => 'If you choose to display the dismiss button, you can opt for the Default icon, Upload SVG, or select an icon from the Icon Library.',
       'use_cases' => 
       array (
@@ -1511,7 +1511,7 @@ return array (
         3 => 'title',
         4 => 'text',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/animated-headline/widgets/animated-headline.php',
+      'file' => 'pro-elements/modules/animated-headline/widgets/animated-headline.php',
       'intent' => 'Design Headlines That Capture Attention WidgetsPro WidgetsAnimated Headline Get Elementor Pro Animated HeadlineCreate Standout Headlines That Engage Your Users Create Your Own Animations Highlight parts of your headline with animation effects to focus your user’s attention on a specific message. highlighted headlines Bring Your Pages To Life Condense three messages into one using a rotating headline, and highlight your central values in a single place. Rotating headlines Control the Timing of Your Animations Set the duration and delay between each animation loop, add dynamic capabilities, and customize your colors. Customized effects Get Inspired by Unique Headlines Explore exceptionally designed websites and get inspired by how they use animations in their headlines to make them stand out. Learn How to Design Animated Headlines That Elevate Your Website Discover how to add an animated headline widget to your website page, master the styling options, create eye-catching efects, and more! HOW IT WORKS Explore Other Widgets Take your website to the next level using Pro’s powerful widgets. Gallery Widget Gallery Posts Widget Posts Login Widget Login Form Widget Form',
       'use_cases' => 
       array (
@@ -2575,7 +2575,7 @@ Faster',
         5 => 'cards',
         6 => 'custom post type',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/archive-posts.php',
+      'file' => 'pro-elements/modules/theme-builder/widgets/archive-posts.php',
       'intent' => 'The Archive Posts Widget displays a list of any posts within Archive templates, which are created in Templates > Theme Builder > Archive.',
       'use_cases' => 
       array (
@@ -2756,7 +2756,7 @@ Faster',
         2 => 'soundcloud',
         3 => 'embed',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/audio.php',
+      'file' => 'elementor/includes/widgets/audio.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -3142,7 +3142,7 @@ Faster',
         5 => 'twitter',
         6 => 'tweet',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/blockquote/widgets/blockquote.php',
+      'file' => 'pro-elements/modules/blockquote/widgets/blockquote.php',
       'intent' => 'Choose the Blockquote skin, selecting either Border, Quotation, Boxed, or Clean. Alignment',
       'use_cases' => 
       array (
@@ -4600,7 +4600,7 @@ Faster',
       'keywords' => 
       array (
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/button.php',
+      'file' => 'elementor/includes/widgets/button.php',
       'intent' => 'The Button Widget allows designers to create customizable, clickable buttons without requiring additional plugins or shortcodes. This versatile element functions as a core interaction component for directing user actions toward specific destinations or triggering defined behaviors on web pages.',
       'use_cases' => 
       array (
@@ -5595,7 +5595,7 @@ Faster',
         1 => 'cta',
         2 => 'button',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/call-to-action/widgets/call-to-action.php',
+      'file' => 'pro-elements/modules/call-to-action/widgets/call-to-action.php',
       'intent' => 'The Call to Action (CTA) widget enables designers to create compelling conversion-focused sections that combine text, imagery, and buttons to prompt specific user actions. This widget is essential for marketing initiatives, promotional campaigns, and guiding visitors toward key conversion points on your website.',
       'use_cases' => 
       array (
@@ -8394,7 +8394,7 @@ Faster',
         8 => 'java',
         9 => 'js',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/code-highlight/widgets/code-highlight.php',
+      'file' => 'pro-elements/modules/code-highlight/widgets/code-highlight.php',
       'intent' => 'The Code Highlight widget displays formatted code snippets with syntax highlighting for better readability. It is designed to showcase code samples on web pages with proper formatting and visual distinction of different code elements, making it ideal for developer documentation or technical blogs.',
       'use_cases' => 
       array (
@@ -8719,7 +8719,7 @@ Faster',
         4 => 'date',
         5 => 'evergreen',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/countdown/widgets/countdown.php',
+      'file' => 'pro-elements/modules/countdown/widgets/countdown.php',
       'intent' => 'The Countdown widget enables you to add countdowns to your page without the use of 3rd party plugins.',
       'use_cases' => 
       array (
@@ -10087,7 +10087,7 @@ Faster',
       array (
         0 => 'counter',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/counter.php',
+      'file' => 'elementor/includes/widgets/counter.php',
       'intent' => 'The Counter widget displays animated numerical statistics that increment from zero to a target number, creating visual emphasis for key metrics like client testimonials, project counts, or business achievements on your website.',
       'use_cases' => 
       array (
@@ -11109,7 +11109,7 @@ Faster',
         2 => 'line',
         3 => 'border',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/divider.php',
+      'file' => 'elementor/includes/widgets/divider.php',
       'intent' => 'The Divider Widget allows you to add styled horizontal lines that divide your content.',
       'use_cases' => 
       array (
@@ -12195,7 +12195,7 @@ Faster',
         6 => 'recommend',
         7 => 'follow',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/social/widgets/facebook-button.php',
+      'file' => 'pro-elements/modules/social/widgets/facebook-button.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -12551,7 +12551,7 @@ Faster',
         1 => 'comments',
         2 => 'embed',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/social/widgets/facebook-comments.php',
+      'file' => 'pro-elements/modules/social/widgets/facebook-comments.php',
       'intent' => 'Add Facebook Comments to the end of your posts to allow your readers to easily comment using their Facebook account.',
       'use_cases' => 
       array (
@@ -12798,7 +12798,7 @@ Faster',
         4 => 'post',
         5 => 'comment',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/social/widgets/facebook-embed.php',
+      'file' => 'pro-elements/modules/social/widgets/facebook-embed.php',
       'intent' => 'The Facebook Embed widget lets you easily embed Facebook posts, videos or comments on your website’s page.',
       'use_cases' => 
       array (
@@ -13171,7 +13171,7 @@ Faster',
         2 => 'embed',
         3 => 'page',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/social/widgets/facebook-page.php',
+      'file' => 'pro-elements/modules/social/widgets/facebook-page.php',
       'intent' => 'Add your Facebook Page Feed (previously named Like box) to your site.',
       'use_cases' => 
       array (
@@ -13443,7 +13443,7 @@ Faster',
       'keywords' => 
       array (
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/flip-box/widgets/flip-box.php',
+      'file' => 'pro-elements/modules/flip-box/widgets/flip-box.php',
       'intent' => 'The Flip Box widget creates interactive card elements that reveal different content when users hover over or interact with them. One side displays initial content (typically an image and title), while the reverse side shows additional information, making it useful for showcasing team members, services, or product features in an engaging, space-efficient manner.',
       'use_cases' => 
       array (
@@ -16235,7 +16235,7 @@ Faster',
       'keywords' => 
       array (
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/gallery/widgets/gallery.php',
+      'file' => 'pro-elements/modules/gallery/widgets/gallery.php',
       'intent' => 'The Image Gallery widget allows you to easily add and style complex and beautiful image galleries on your page.',
       'use_cases' => 
       array (
@@ -18337,7 +18337,7 @@ Faster',
       'keywords' => 
       array (
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/global-widget/widgets/global-widget.php',
+      'file' => 'pro-elements/modules/global-widget/widgets/global-widget.php',
       'intent' => 'Global widgets allow you to create reusable widget instances that can be placed across multiple pages and posts. When you update a global widget, all instances update simultaneously, ensuring consistency and reducing manual editing work across your site.',
       'use_cases' => 
       array (
@@ -18418,7 +18418,7 @@ Faster',
         2 => 'embed',
         3 => 'location',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/google-maps.php',
+      'file' => 'elementor/includes/widgets/google-maps.php',
       'intent' => 'The XXXX widget is an experimental feature that XXX In order to use XXX widget, you need to activate it. For details, see activating Elementor features. Add the widget Add the widget to the canvas',
       'use_cases' => 
       array (
@@ -18712,7 +18712,7 @@ Faster',
         1 => 'title',
         2 => 'text',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/heading.php',
+      'file' => 'elementor/includes/widgets/heading.php',
       'intent' => 'The Heading widget enables creation of stylized title headings throughout WordPress sites. It provides formatting controls for typography, size, color, and styling to make prominent text elements that organize page hierarchy and content structure.',
       'use_cases' => 
       array (
@@ -19221,7 +19221,7 @@ Faster',
         2 => 'CTA',
         3 => 'dot',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/hotspot/widgets/hotspot.php',
+      'file' => 'pro-elements/modules/hotspot/widgets/hotspot.php',
       'intent' => 'The Hotspot Widget focuses on helping you create interactive images that can help you highlight relevant information, boost engagement and increase conversions for your website.',
       'use_cases' => 
       array (
@@ -20326,7 +20326,7 @@ Faster',
         2 => 'embed',
         3 => 'script',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/html.php',
+      'file' => 'elementor/includes/widgets/html.php',
       'intent' => 'Inside the HTML Widget you can embed HTML, CSS, Shortcodes, and also include JS scripts.',
       'use_cases' => 
       array (
@@ -20429,7 +20429,7 @@ Faster',
       array (
         0 => 'icon',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/icon.php',
+      'file' => 'elementor/includes/widgets/icon.php',
       'intent' => 'The Icon widget is useful for displaying FontAwesome icons in numerous styles on your page.',
       'use_cases' => 
       array (
@@ -20983,7 +20983,7 @@ Faster',
         0 => 'icon box',
         1 => 'icon',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/icon-box.php',
+      'file' => 'elementor/includes/widgets/icon-box.php',
       'intent' => 'Choose the icon. Either select from Font Awesome’s entire icon library or upload SVG. View',
       'use_cases' => 
       array (
@@ -22107,7 +22107,7 @@ Faster',
         1 => 'icon',
         2 => 'list',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/icon-list.php',
+      'file' => 'elementor/includes/widgets/icon-list.php',
       'intent' => 'Choose Default or Inline. Default displays items in a vertical list, while Inline displays items horizontally. Items',
       'use_cases' => 
       array (
@@ -23046,7 +23046,7 @@ Faster',
         1 => 'photo',
         2 => 'visual',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/image.php',
+      'file' => 'elementor/includes/widgets/image.php',
       'intent' => 'Add your image or select dynamic tags to automatically use the post’s featured image, site logo, or author profile picture. Image Resolution',
       'use_cases' => 
       array (
@@ -24067,7 +24067,7 @@ Faster',
         2 => 'visual',
         3 => 'box',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/image-box.php',
+      'file' => 'elementor/includes/widgets/image-box.php',
       'intent' => 'Click the default image to select an image from the media library or upload a new one. Image Resolution',
       'use_cases' => 
       array (
@@ -25271,7 +25271,7 @@ Faster',
         3 => 'carousel',
         4 => 'slider',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/image-carousel.php',
+      'file' => 'elementor/includes/widgets/image-carousel.php',
       'intent' => 'Click the star button to replace the arrow with an icon from the icon library. Click the SVG button to replace the arrow with an uploaded SVG image. For more details, see Enable SVG Support in Elementor.',
       'use_cases' => 
       array (
@@ -26774,7 +26774,7 @@ Faster',
         2 => 'visual',
         3 => 'gallery',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/image-gallery.php',
+      'file' => 'elementor/includes/widgets/image-gallery.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -27378,7 +27378,7 @@ Faster',
         1 => 'columns',
         2 => 'nested',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/inner-section.php',
+      'file' => 'elementor/includes/widgets/inner-section.php',
       'intent' => 'Note The inner section widget is only available for sites using sections and rows for layout. If your site uses containers, they are not available or necessary. To learn more about using containers, check out the containers topic in our Help Center.',
       'use_cases' => 
       array (
@@ -27442,7 +27442,7 @@ Faster',
         1 => 'user',
         2 => 'form',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/forms/widgets/login.php',
+      'file' => 'pro-elements/modules/forms/widgets/login.php',
       'intent' => 'Create a Login Experience Users Will Love WidgetsPro WidgetsLogin Get Elementor Pro Login WidgetProvide a Login on Any Page of Your Website Design Every Part of the Login Match your website’s design by customizing everything from the button to the background. Customization Options Engage Users in the Login Form Include a custom image, color background, or take it to the next level with an engaging login to a popup. Advanced capabilities Control the User Journey Send users directly to a specific page after they’ve completed their login. Redirection Options Get Inspired by Engaging Logins Explore exceptionally designed websites and get inspired by how they use login forms in new and innovative ways. Learn How to Build the Perfect Login Form Popup Discover how to create, add, and customize a unique login form using Elementor’s Login widget. HOW IT WORKS Explore Other Widgets Take your website to the next level using Pro’s powerful widgets. Animated Headline Animated Headline Slides Widget Slides Nav Menu Widget Nav Menu Call To Action Widget Call to Action',
       'use_cases' => 
       array (
@@ -28867,7 +28867,7 @@ Faster',
       'keywords' => 
       array (
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/lottie/widgets/lottie.php',
+      'file' => 'pro-elements/modules/lottie/widgets/lottie.php',
       'intent' => 'Enter text to the text box to add a caption to your animation. If you are using an external URL, this is renamed Custom Caption as it overrides the caption of the external site. Link',
       'use_cases' => 
       array (
@@ -30143,7 +30143,7 @@ Faster',
         1 => 'anchor',
         2 => 'link',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/menu-anchor.php',
+      'file' => 'elementor/includes/widgets/menu-anchor.php',
       'intent' => 'The Menu Anchor widget allows you to create a page with internal smooth scrolling navigation.',
       'use_cases' => 
       array (
@@ -30273,7 +30273,7 @@ Faster',
         2 => 'button',
         3 => 'nav menu',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/nav-menu/widgets/nav-menu.php',
+      'file' => 'pro-elements/modules/nav-menu/widgets/nav-menu.php',
       'intent' => 'Create an Intuitive Navigation Experience WidgetsPro WidgetsNav Menu Get Elementor Pro Watch video Nav Menu WidgetImprove the User Experience With a Custom Menu Choose a Menu to Match Your Style Customize every detail of your navigation menu: menu-type, direction, alignment, sub-menu indicators, and more. Customizable Layouts Fit It to Any Device or Layout Choose to display menus horizontally, vertically, and more. Make it responsive with dropdown & hamburger options. Responsive design Bring the Menu to Life With Animations Animate your menu content with hover navigation indicators and pointer interactions. Interactive Menu Get Inspired by Creative Menus Explore exceptionally designed websites that are creating menus that look amazing and are intuitive to use. Learn How to Design Menus That Improve Your User Interface Master the Nav Menu widget: change the colors of the menu items, adjust it to fit any device, customize the submenu, and more. HOW IT WORKS Introducing Menu Widget: The Most Powerful Menu Builder For WordPress Explore Other Widgets Take your website to the next level using Pro’s powerful widgets. Gallery Widget Gallery Posts Widget Posts Login Widget Login Asset 325 Form',
       'use_cases' => 
       array (
@@ -32183,7 +32183,7 @@ Faster',
         5 => 'portfolio',
         6 => 'custom post type',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/posts/widgets/portfolio.php',
+      'file' => 'pro-elements/modules/posts/widgets/portfolio.php',
       'intent' => 'Build a Portfolio to Show Off Your Work WidgetsPro WidgetsPortfolio Get Elementor Pro Watch video Portfolio WidgetPreview Any Project on One Screen Create Filterable Grids Allow visitors to filter posts by category, tag, and a variety of other taxonomies. grid layout Choose A Responsive Layout Adjust the columns, post per page, layout style, item ratio and more. Customization Add Overlays to Featured Images Select an overlay style that engages users as they browse and hover throughout your post or archive page. Interactive effects Get Inspired by Impressive Portfolios Explore exceptionally designed portfolios and get inspired by how they present their work in an elevated way. Learn How to Build A Professional Portfolio Master the steps in creating a portfolio with Elementor. Style and customize the portfolio widget, adjust the query and filter options, and more! HOW IT WORKS How to Make a Portfolio Website in WordPress with Elementor Explore Other Widgets Take your website to the next level using Pro’s powerful widgets. Animated Headline Animated Headline Slides Widget Slides Nav Menu Widget Nav Menu Call To Action Widget Call to Action',
       'use_cases' => 
       array (
@@ -32966,7 +32966,7 @@ Faster',
         5 => 'cards',
         6 => 'custom post type',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/posts/widgets/posts.php',
+      'file' => 'pro-elements/modules/posts/widgets/posts.php',
       'intent' => 'Display Your Posts With Featured Layouts WidgetsPro WidgetsPosts Get Elementor Pro Watch video Posts WidgetShow Your Blog Posts On Any Page Control Your Post’s Displays Customize the columns, posts per page, image position, and more for complete design freedom. Layout Options Match Posts to Your Website’s Design Choose the styling, colors, typography, spacing, and overall appearance of your posts Design Customization Choose the Content That’s Included Decide which content to include or exclude based on criteria like author, date, term, and more. Advanced queries Get Inspired by Must-Click Posts Explore exceptionally designed websites that highlight their posts in beautiful ways that viewers can’t resist. Learn How to Design Posts That Stand Out on Your Page Master the Posts widget to create a blog page that displays custom post types in various layouts that highlight the content perfectly. HOW IT WORKS How to Create a Blog Page in WordPress Using Elementor Explore Other Widgets Take your website to the next level using Pro’s powerful widgets. Animated Headline Animated Headline Slides Widget Slides Nav Menu Widget Nav Menu Call To Action Widget Call to Action',
       'use_cases' => 
       array (
@@ -33116,7 +33116,7 @@ Faster',
         3 => 'image',
         4 => 'menu',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/pricing/widgets/price-list.php',
+      'file' => 'pro-elements/modules/pricing/widgets/price-list.php',
       'intent' => 'The Price List widget lets you create fully styled catalogs and menus that include pricing.',
       'use_cases' => 
       array (
@@ -34056,7 +34056,7 @@ Faster',
         4 => 'plan',
         5 => 'button',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/pricing/widgets/price-table.php',
+      'file' => 'pro-elements/modules/pricing/widgets/price-table.php',
       'intent' => 'Set the Header’s Title tag, choosing from H2 – H6. Currency Symbol',
       'use_cases' => 
       array (
@@ -37034,7 +37034,7 @@ Faster',
         0 => 'progress',
         1 => 'bar',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/progress.php',
+      'file' => 'elementor/includes/widgets/progress.php',
       'intent' => 'The Progress Bar Widget allows you to add fully styled, animated progress bars to your page.',
       'use_cases' => 
       array (
@@ -37746,7 +37746,7 @@ Faster',
         2 => 'read',
         3 => 'scroll',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/progress-tracker/widgets/progress-tracker.php',
+      'file' => 'pro-elements/modules/progress-tracker/widgets/progress-tracker.php',
       'intent' => 'Encourage users to engage with your content and to continue to keep reading as they’ll know exactly how much is left. Full style customization is available for the Progress Indicator and Tracker Background.',
       'use_cases' => 
       array (
@@ -38842,7 +38842,7 @@ Faster',
         3 => 'score',
         4 => 'scale',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/rating.php',
+      'file' => 'elementor/includes/widgets/rating.php',
       'intent' => 'In the Rating field, enter the number of rating icons you want to appear. This can be either whole numbers or halves, such as a rating of 3.5.',
       'use_cases' => 
       array (
@@ -39154,7 +39154,7 @@ Faster',
         2 => 'tag',
         3 => 'excerpt',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/read-more.php',
+      'file' => 'elementor/includes/widgets/read-more.php',
       'intent' => 'Add the widget Add the widget to the canvas',
       'use_cases' => 
       array (
@@ -39284,7 +39284,7 @@ Faster',
       array (
         0 => 'search',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/search/widgets/search.php',
+      'file' => 'pro-elements/modules/search/widgets/search.php',
       'intent' => 'If you already have a Loop item template to display the live search results, enter it here.If you don’t have a Loop item template ready, click Create Template to create a Loop item.If you already have a Loop item ready to display the live search results, the Create template button will change to Edit template.If you want to display live search results, you must create a Loop Item to display the results. Query',
       'use_cases' => 
       array (
@@ -42004,7 +42004,7 @@ Faster',
         3 => 'button',
         4 => 'like',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/share-buttons/widgets/share-buttons.php',
+      'file' => 'pro-elements/modules/share-buttons/widgets/share-buttons.php',
       'intent' => 'The Share Buttons Widget adds share buttons to any WordPress page or post. Share Buttons Widget gives you full control over your Share Buttons design & style.',
       'use_cases' => 
       array (
@@ -42805,7 +42805,7 @@ Faster',
         0 => 'shortcode',
         1 => 'code',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/shortcode.php',
+      'file' => 'elementor/includes/widgets/shortcode.php',
       'intent' => 'Click or drag the widget to the canvas. For more information, see Add elements to a page.',
       'use_cases' => 
       array (
@@ -42906,7 +42906,7 @@ Faster',
         0 => 'sidebar',
         1 => 'widget',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/sidebar.php',
+      'file' => 'elementor/includes/widgets/sidebar.php',
       'intent' => 'Select a sidebar to display on the page. Advanced tab The Advanced tab provides options to control widget position, adjust spacing, add custom code, and more. Advanced Advanced',
       'use_cases' => 
       array (
@@ -43017,7 +43017,7 @@ Faster',
         3 => 'title',
         4 => 'slider',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/slides/widgets/slides.php',
+      'file' => 'pro-elements/modules/slides/widgets/slides.php',
       'intent' => 'Create Slides That Engage Visitors WidgetsPro WidgetsSlides Get Elementor Pro Watch video Slides WidgetDisplay More Information In Less Space Build Responsive Slides Create full-width and full-screen slides and control how they look on every desktop, mobile, and tablet device. responsive editing Bring YourSlides to Life Add animations and special effects in a few clicks to create sophisticated slides that stand out. Sophisticated Visuals Get Inspired by Stunning Slides Explore exceptionally designed websites and get inspired by how they use slides in new and innovative ways. Learn How to Build Professional Slides Follow along while using Elementor’s intuitive panel to customize slide alignment, position and elevate the overall experience. HOW IT WORKS How to Use the Slides Widget in Elementor Pro Explore Other Widgets Take your website to the next level using Pro’s powerful widgets. Gallery Widget Gallery Posts Widget Posts Login Widget Login Form Widget Form',
       'use_cases' => 
       array (
@@ -45091,7 +45091,7 @@ Faster',
         1 => 'icon',
         2 => 'link',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/social-icons.php',
+      'file' => 'elementor/includes/widgets/social-icons.php',
       'intent' => 'Under the Social Icons option, click the + Add Item button or the default social icon items to open its settings.',
       'use_cases' => 
       array (
@@ -45807,7 +45807,7 @@ Faster',
       array (
         0 => 'space',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/spacer.php',
+      'file' => 'elementor/includes/widgets/spacer.php',
       'intent' => 'Add the widget Add the widget to the canvas',
       'use_cases' => 
       array (
@@ -45915,7 +45915,7 @@ Faster',
         2 => 'rate',
         3 => 'review',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/star-rating.php',
+      'file' => 'elementor/includes/widgets/star-rating.php',
       'intent' => 'Display beautiful, customizable star ratings on WordPress sites using CSS styling. The widget generates rich snippets for search engine optimization, improves organic visibility, and enhances user trust through visual product/service ratings. It supports dynamic values pulled from custom fields, making it suitable for programmatic rating displays without hardcoding values.',
       'use_cases' => 
       array (
@@ -46414,7 +46414,7 @@ Faster',
       array (
         0 => 'toc',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/table-of-contents/widgets/table-of-contents.php',
+      'file' => 'pro-elements/modules/table-of-contents/widgets/table-of-contents.php',
       'intent' => 'Why Web Creators Choose Table of ContentsEASY NAVIGATIONAdd a helpful menu for your contentMake your WordPress posts & pages simpler to navigate with a better user experience OPTIMIZED READABILITYMake it easier to read long form contentReaders can scan and find the most relevant areas of your content with easy scrollingDESIGN CUSTOMIZATIONMatch the TOC to your unique website designEasily apply your website’s design style to your Table of Contents widget – or customize it by editing the HTML code or CSS IMPROVED SEOUse structured data for rich snippetsEarn higher click-through rates on Google and other search engines by using your heading tags in your table of contentsAdvanced Table of Content OptionsGreat for FAQs and long-form contentSimplify your content and make it more user friendlyEliminates Other WordPress pluginsImprove the functionality of your site by removing extra pluginsResponsive and collapsible in mobileLet your table of contents be fully responsive and adaptable to screen dimensions and conditionsSee What Our Users Are Saying"I’m totally blown away by this product - it’s a designers dream.WordPress here I come!" Justin Easthall@EasthallDesignGuide Users With Table of ContentsGet all your plugins in one tool with Elementor Pro GO PRO Learn how to use this widget Explore More Widgets Posts Widget Posts Learn More » Post Comments Widget Post Comments Learn More » Slides Widget Slides Learn More » Nav Menu Widget Nav Menu Learn More » See All Widgets »',
       'use_cases' => 
       array (
@@ -47730,7 +47730,7 @@ Faster',
         1 => 'accordion',
         2 => 'toggle',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/tabs.php',
+      'file' => 'elementor/includes/widgets/tabs.php',
       'intent' => 'Choose between displaying the tabs horizontally or vertically. Alignment',
       'use_cases' => 
       array (
@@ -48472,7 +48472,7 @@ Faster',
         4 => 'categories',
         5 => 'tags',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/loop-filter/widgets/taxonomy-filter.php',
+      'file' => 'pro-elements/modules/loop-filter/widgets/taxonomy-filter.php',
       'intent' => 'The Taxonomy widget gives you a powerful way to control the items appearing in a Loop Grid, filtering them by categories and tags. This increases website usability and visitor engagement.',
       'use_cases' => 
       array (
@@ -49724,7 +49724,7 @@ Faster',
         3 => 'block',
         4 => 'page',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/library/widgets/template.php',
+      'file' => 'pro-elements/modules/library/widgets/template.php',
       'intent' => 'Create a Template to Speed Up Your Workflow WidgetsPro WidgetsTemplate Get Elementor Pro Template WidgetUse One Template for Multiple Pages Apply Changes Everywhere Use the template widget to apply changes across your entire website, saving you time and effort. Global changes Insert Your Template Anywhere Streamline your workflow by embedding a shortcode to display your template anywhere. Shortcode embedding Embed Elementor Widgets Add any Elementor widget to a Gutenberg page to elevate the design. Gutenberg integration Get Inspired by Smart Templates Explore exceptional websites that were built using templates, and find new ways to speed up your work without sacrificing the design. Learn How to Utilize Templates to Streamline Your Work Master the Template widget and create new sections, galleries, pages, and more in a few clicks, saving you time and effort. HOW IT WORKS Explore Other Widgets Take your website to the next level using Pro’s powerful widgets. Gallery Widget Gallery Posts Widget Posts Login Widget Login Form Widget Form',
       'use_cases' => 
       array (
@@ -49835,7 +49835,7 @@ Faster',
         0 => 'testimonial',
         1 => 'blockquote',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/testimonial.php',
+      'file' => 'elementor/includes/widgets/testimonial.php',
       'intent' => 'Set the image size from thumbnail to full, or enter a custom size. Name',
       'use_cases' => 
       array (
@@ -50576,7 +50576,7 @@ Faster',
         0 => 'text',
         1 => 'editor',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/text-editor.php',
+      'file' => 'elementor/includes/widgets/text-editor.php',
       'intent' => 'Type or copy/paste the text content. You can add text, images, and even WordPress shortcodes. Drop Cap (Optional)',
       'use_cases' => 
       array (
@@ -51345,7 +51345,7 @@ Faster',
         1 => 'heading',
         2 => 'archive',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/archive-title.php',
+      'file' => 'pro-elements/modules/theme-builder/widgets/archive-title.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -51396,7 +51396,7 @@ Faster',
         1 => 'heading',
         2 => 'page',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/page-title.php',
+      'file' => 'pro-elements/modules/theme-builder/widgets/page-title.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -51446,7 +51446,7 @@ Faster',
         0 => 'content',
         1 => 'post',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/post-content.php',
+      'file' => 'pro-elements/modules/theme-builder/widgets/post-content.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -51610,7 +51610,7 @@ Faster',
         1 => 'excerpt',
         2 => 'description',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/post-excerpt.php',
+      'file' => 'pro-elements/modules/theme-builder/widgets/post-excerpt.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -51972,7 +51972,7 @@ Faster',
         1 => 'featured',
         2 => 'thumbnail',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/post-featured-image.php',
+      'file' => 'pro-elements/modules/theme-builder/widgets/post-featured-image.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -52023,7 +52023,7 @@ Faster',
         1 => 'heading',
         2 => 'post',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/post-title.php',
+      'file' => 'pro-elements/modules/theme-builder/widgets/post-title.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -52074,7 +52074,7 @@ Faster',
         1 => 'logo',
         2 => 'branding',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/site-logo.php',
+      'file' => 'pro-elements/modules/theme-builder/widgets/site-logo.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -52125,7 +52125,7 @@ Faster',
         1 => 'title',
         2 => 'name',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/site-title.php',
+      'file' => 'pro-elements/modules/theme-builder/widgets/site-title.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -52175,7 +52175,7 @@ Faster',
         1 => 'accordion',
         2 => 'toggle',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/toggle.php',
+      'file' => 'elementor/includes/widgets/toggle.php',
       'intent' => 'If you are using nested elements, the Accordion widget (Accordion with nested elements) incorporates the capabilities of Toggle widget and replaces it. This means the Toggle widget will no longer be available. Existing toggles are unaffected by this change and they can still be edited.',
       'use_cases' => 
       array (
@@ -53017,7 +53017,7 @@ Faster',
         5 => 'dailymotion',
         6 => 'videopress',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/video.php',
+      'file' => 'elementor/includes/widgets/video.php',
       'intent' => 'Toggle to Yes if you want the YouTube captions to show in your video. Privacy Mode',
       'use_cases' => 
       array (
@@ -54779,7 +54779,7 @@ Faster',
       'keywords' => 
       array (
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/video-playlist/widgets/video-playlist.php',
+      'file' => 'pro-elements/modules/video-playlist/widgets/video-playlist.php',
       'intent' => 'In the panel, in the Thumbnail section, click the default thumbnail image and add a different image. For more details, see Add images and icons.',
       'use_cases' => 
       array (
@@ -57583,7 +57583,7 @@ Faster',
         5 => 'button',
         6 => 'add to cart',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/add-to-cart.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/add-to-cart.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -57775,7 +57775,7 @@ Faster',
         3 => 'categories',
         4 => 'product',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/categories.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/categories.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -58458,7 +58458,7 @@ Faster',
         7 => 'shortcode',
         8 => 'product',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/elements.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/elements.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -58593,7 +58593,7 @@ Faster',
       'keywords' => 
       array (
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/single-elements.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/single-elements.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -58690,7 +58690,7 @@ Faster',
         6 => 'product',
         7 => 'archive',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/archive-description.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/archive-description.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -58880,7 +58880,7 @@ Faster',
         4 => 'internal links',
         5 => 'product',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/breadcrumb.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/breadcrumb.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -59082,7 +59082,7 @@ Faster',
         0 => 'woocommerce',
         1 => 'cart',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/cart.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/cart.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -63604,7 +63604,7 @@ Faster',
         2 => 'image',
         3 => 'thumbnail',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/category-image.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/category-image.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -63654,7 +63654,7 @@ Faster',
         0 => 'woocommerce',
         1 => 'checkout',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/checkout.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/checkout.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -70748,7 +70748,7 @@ Faster',
       'keywords' => 
       array (
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/menu-cart.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/menu-cart.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -74377,7 +74377,7 @@ Faster',
       'keywords' => 
       array (
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/my-account.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/my-account.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -78012,7 +78012,7 @@ Faster',
         1 => 'notices',
         2 => 'notifications',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/notices.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/notices.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -78148,7 +78148,7 @@ Faster',
         5 => 'button',
         6 => 'add to cart',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-add-to-cart.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/product-add-to-cart.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -79361,7 +79361,7 @@ Faster',
       'keywords' => 
       array (
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-additional-information.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/product-additional-information.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -79573,7 +79573,7 @@ Faster',
         4 => 'product',
         5 => 'tabs',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-data-tabs.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/product-data-tabs.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -80069,7 +80069,7 @@ Faster',
         5 => 'gallery',
         6 => 'lightbox',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-images.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/product-images.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -80356,7 +80356,7 @@ Faster',
         4 => 'data',
         5 => 'product',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-meta.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/product-meta.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -81068,7 +81068,7 @@ Faster',
         4 => 'product',
         5 => 'sale',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-price.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/product-price.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -81372,7 +81372,7 @@ Faster',
         6 => 'stars',
         7 => 'product',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-rating.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/product-rating.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -81660,7 +81660,7 @@ Faster',
         4 => 'similar',
         5 => 'product',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-related.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/product-related.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -81987,7 +81987,7 @@ Faster',
         4 => 'description',
         5 => 'product',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-short-description.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/product-short-description.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -82175,7 +82175,7 @@ Faster',
         4 => 'quantity',
         5 => 'product',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-stock.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/product-stock.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -82320,7 +82320,7 @@ Faster',
         4 => 'heading',
         5 => 'product',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-title.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/product-title.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -82372,7 +82372,7 @@ Faster',
         3 => 'upsell',
         4 => 'product',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-upsell.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/product-upsell.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -82681,7 +82681,7 @@ Faster',
         7 => 'cross sells',
         8 => 'related',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/products.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/products.php',
       'intent' => 'Configures the standard Products widget to showcase custom selections of products on any site page.',
       'use_cases' => 
       array (
@@ -83243,7 +83243,7 @@ Faster',
         3 => 'confirmation',
         4 => 'purchase',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/purchase-summary.php',
+      'file' => 'pro-elements/modules/woocommerce/widgets/purchase-summary.php',
       'intent' => NULL,
       'use_cases' => 
       array (
@@ -86311,7 +86311,7 @@ Faster',
         0 => 'wordpress',
         1 => 'widget',
       ),
-      'file' => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/wordpress.php',
+      'file' => 'elementor/includes/widgets/wordpress.php',
       'intent' => NULL,
       'use_cases' => 
       array (

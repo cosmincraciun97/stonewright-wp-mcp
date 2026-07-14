@@ -2,7 +2,7 @@
     "slug": "read-more",
     "source": "free",
     "title": "Read More",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/read-more.php",
+    "file": "elementor/includes/widgets/read-more.php",
     "sections": [
         {
             "id": "section_title",

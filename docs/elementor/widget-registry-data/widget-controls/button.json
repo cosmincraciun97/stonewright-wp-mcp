@@ -2,7 +2,7 @@
     "slug": "button",
     "source": "free",
     "title": "Button",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/button.php",
+    "file": "elementor/includes/widgets/button.php",
     "sections": [
         {
             "id": "section_button",

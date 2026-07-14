@@ -4,7 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Context;
 
 /**
- * Compact, clean-room guidance for plugin-specific WordPress workflows.
+ * Compact guidance for plugin-specific WordPress workflows.
  *
  * The catalog describes what Stonewright agents should discover and which
  * Stonewright runtime surfaces to prefer. It intentionally references only

@@ -2,7 +2,7 @@
     "slug": "search",
     "source": "pro",
     "title": "Search",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/search/widgets/search.php",
+    "file": "pro-elements/modules/search/widgets/search.php",
     "sections": [
         {
             "id": "content_section_search_field",

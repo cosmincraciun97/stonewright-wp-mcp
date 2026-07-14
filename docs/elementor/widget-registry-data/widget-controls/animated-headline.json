@@ -2,7 +2,7 @@
     "slug": "animated-headline",
     "source": "pro",
     "title": "Animated Headline",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/animated-headline/widgets/animated-headline.php",
+    "file": "pro-elements/modules/animated-headline/widgets/animated-headline.php",
     "sections": [
         {
             "id": "text_elements",

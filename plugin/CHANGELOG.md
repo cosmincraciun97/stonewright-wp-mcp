@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added reproducible MCP tool-surface and task-start token measurements.
+
+### Changed
+
+- Relicensed the plugin to AGPL-3.0-or-later before importing Novamira-derived
+  source.
+- Reduced compact context-bootstrap responses below the documented task-start
+  token budgets.
+
+### Fixed
+
+- Removed host-specific Elementor source paths from generated widget data and
+  made the inventory generator accept an explicit plugins directory.
+- Cleaned PHPUnit temporary files and removed PHP 8.5 reflection deprecations.
+
+### Security
+
+- Added production-safe confirmation, response limits, result normalization,
+  runtime cleanup, and payload-free audit metadata to `php-execute`.
+
 ## [1.0.0-alpha.64] - 2026-06-17
 
 ### Added

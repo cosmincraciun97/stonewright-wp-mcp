@@ -7,7 +7,7 @@ document.
 
 ```text
 stonewright-wp-mcp/
-|-- plugin/                     PHP plugin (GPL-2.0-or-later)
+|-- plugin/                     PHP plugin (AGPL-3.0-or-later)
 |   |-- includes/
 |   |   |-- Abilities/          One class per ability, grouped by category
 |   |   |-- Core/               MCP server registration, REST routes, DI container
@@ -112,5 +112,5 @@ should not introduce PHPStan errors.
 ## License
 
 By contributing to the plugin you agree that your contribution is licensed
-under GPL-2.0-or-later. By contributing to the companion or skills you agree
+under AGPL-3.0-or-later. By contributing to the companion or skills you agree
 that your contribution is licensed under MIT.

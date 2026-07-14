@@ -2,7 +2,7 @@
     "slug": "testimonial",
     "source": "free",
     "title": "Testimonial",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/testimonial.php",
+    "file": "elementor/includes/widgets/testimonial.php",
     "sections": [
         {
             "id": "section_testimonial",

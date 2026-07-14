@@ -171,6 +171,21 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertArrayNotHasKey( 'sequence', $result['design_implementation_contract'] );
 	}
 
+	public function test_compact_first_call_stays_under_task_start_budgets_without_hash_deltas(): void {
+		$result = ( new ContextBootstrap() )->execute(
+			[
+				'task'         => 'Update an existing post title and excerpt.',
+				'surface'      => 'wordpress',
+				'intent'       => 'write',
+				'responseMode' => 'compact',
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertArrayNotHasKey( 'payload_hashes', $result );
+		self::assertLessThan( 2800, strlen( wp_json_encode( $result ) ?: '' ) );
+	}
+
 	public function test_returns_specialization_guidance_for_field_and_catalog_tasks(): void {
 		$result = ( new ContextBootstrap() )->execute(
 			[

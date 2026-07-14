@@ -2,7 +2,7 @@
     "slug": "image-box",
     "source": "free",
     "title": "Image Box",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/image-box.php",
+    "file": "elementor/includes/widgets/image-box.php",
     "sections": [
         {
             "id": "section_image",

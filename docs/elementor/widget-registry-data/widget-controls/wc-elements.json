@@ -2,7 +2,7 @@
     "slug": "wc-elements",
     "source": "wc",
     "title": "WooCommerce Pages",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/elements.php",
+    "file": "pro-elements/modules/woocommerce/widgets/elements.php",
     "sections": [
         {
             "id": "section_product",

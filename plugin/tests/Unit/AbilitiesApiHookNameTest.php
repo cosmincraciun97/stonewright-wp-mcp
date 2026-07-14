@@ -96,7 +96,6 @@ final class AbilitiesApiHookNameTest extends TestCase {
 			'AbilityRegistry must keep a `registered_once` static guard so that the wp_/un-prefixed init actions cannot both register the full ability list in the same request.'
 		);
 		$prop = $ref->getProperty( 'registered_once' );
-		$prop->setAccessible( true );
 		$prop->setValue( null, true );
 		AbilityRegistry::reset_for_tests();
 		$this->assertFalse(

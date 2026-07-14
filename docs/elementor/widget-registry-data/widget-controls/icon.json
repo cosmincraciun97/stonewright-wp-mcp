@@ -2,7 +2,7 @@
     "slug": "icon",
     "source": "free",
     "title": "Icon",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/icon.php",
+    "file": "elementor/includes/widgets/icon.php",
     "sections": [
         {
             "id": "section_icon",

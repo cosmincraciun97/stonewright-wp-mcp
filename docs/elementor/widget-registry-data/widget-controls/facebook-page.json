@@ -2,7 +2,7 @@
     "slug": "facebook-page",
     "source": "pro",
     "title": "Facebook Page",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/social/widgets/facebook-page.php",
+    "file": "pro-elements/modules/social/widgets/facebook-page.php",
     "sections": [
         {
             "id": "section_content",

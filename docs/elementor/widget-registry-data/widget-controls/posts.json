@@ -2,7 +2,7 @@
     "slug": "posts",
     "source": "pro",
     "title": "Posts",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/posts/widgets/posts.php",
+    "file": "pro-elements/modules/posts/widgets/posts.php",
     "sections": [
         {
             "id": "section_query",

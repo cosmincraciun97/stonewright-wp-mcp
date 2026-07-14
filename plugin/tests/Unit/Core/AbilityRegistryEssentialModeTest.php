@@ -145,7 +145,6 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 	 */
 	private static function registry_output_schema_for_ability( Ability $ability ): array {
 		$method = new \ReflectionMethod( AbilityRegistry::class, 'output_schema_for_ability' );
-		$method->setAccessible( true );
 
 		/** @var array<string, mixed> $schema */
 		$schema = $method->invoke( null, $ability );

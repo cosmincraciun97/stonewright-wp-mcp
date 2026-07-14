@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Runtime;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\Runtime\PhpExecute;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Security\ConfirmationToken;
 
 /**
  * @covers \Stonewright\WpMcp\Abilities\Runtime\PhpExecute
@@ -21,6 +22,7 @@ final class PhpExecuteTest extends TestCase {
 		$GLOBALS['stonewright_test_current_user_id'] = 17;
 		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
 		$GLOBALS['stonewright_test_options'] = [
+			'stonewright_mode' => 'development',
 			'stonewright_essential_tools_mode' => true,
 			'stonewright_disabled_abilities' => [],
 		];
@@ -31,6 +33,7 @@ final class PhpExecuteTest extends TestCase {
 		$GLOBALS['stonewright_test_user_logged_in'] = false;
 		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
 		$GLOBALS['stonewright_test_options'] = [];
+		$GLOBALS['stonewright_test_transients'] = [];
 	}
 
 	public function test_php_execute_is_registered_and_visible_in_essential_mode(): void {
@@ -67,6 +70,37 @@ final class PhpExecuteTest extends TestCase {
 		self::assertSame( [ 'sum' => 5 ], $result['result'] );
 		self::assertGreaterThanOrEqual( 0, $result['elapsed_ms'] );
 		self::assertArrayHasKey( 'memory_delta_bytes', $result );
+		self::assertFalse( $result['stdout_truncated'] );
+		self::assertFalse( $result['result_truncated'] );
+	}
+
+	public function test_production_safe_mode_requires_matching_confirmation_token(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$args = [ 'code' => 'return 42;' ];
+
+		$blocked = ( new PhpExecute() )->execute( $args );
+		self::assertInstanceOf( \WP_Error::class, $blocked );
+		self::assertSame( 'stonewright_confirmation_required', $blocked->get_error_code() );
+
+		$args['confirmation_token'] = ConfirmationToken::issue( 'stonewright/php-execute', $args );
+		$result = ( new PhpExecute() )->execute( $args );
+		self::assertIsArray( $result );
+		self::assertSame( 42, $result['result'] );
+	}
+
+	public function test_large_stdout_and_results_are_bounded(): void {
+		$result = ( new PhpExecute() )->execute(
+			[
+				'code'             => 'echo str_repeat("x", 2048); return str_repeat("y", 2048);',
+				'max_output_bytes' => 1024,
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 1024, strlen( $result['stdout'] ) );
+		self::assertTrue( $result['stdout_truncated'] );
+		self::assertTrue( $result['result_truncated'] );
+		self::assertStringStartsWith( '[truncated result', $result['result'] );
 	}
 
 	public function test_throwable_becomes_wp_error(): void {
@@ -107,5 +141,7 @@ final class PhpExecuteTest extends TestCase {
 		self::assertArrayHasKey( 'code', $args );
 		self::assertStringContainsString( '[redacted', (string) $args['code'] );
 		self::assertStringNotContainsString( $secret_code, (string) ( $inserts[0]['data']['sanitized_args'] ?? '' ) );
+		self::assertSame( hash( 'sha256', $secret_code ), $args['_meta']['code_sha256'] ?? null );
+		self::assertArrayHasKey( 'duration_ms', $args['_meta'] ?? [] );
 	}
 }

@@ -2,7 +2,7 @@
     "slug": "shortcode",
     "source": "free",
     "title": "Shortcode",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/shortcode.php",
+    "file": "elementor/includes/widgets/shortcode.php",
     "sections": [
         {
             "id": "section_shortcode",

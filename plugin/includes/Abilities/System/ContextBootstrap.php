@@ -150,19 +150,33 @@ final class ContextBootstrap extends AbilityKernel {
 			'design_implementation_contract',
 			'required_followups',
 		];
-		[ $payload_hashes, $changed, $unchanged, $deltas ] = self::hash_delta( $response, $known_hashes, $hash_keys );
+		$is_visual = 'exempt' !== (string) ( $response['visual_quality_contract']['status'] ?? 'exempt' );
+		$profile   = (string) ( $response['tool_profile_hint']['profile'] ?? 'essential' );
+		$has_specializations = [] !== (array) ( $response['specializations'] ?? [] );
 
 		$response['response_mode']                  = 'compact';
-		$response['payload_hashes']                 = $payload_hashes;
-		$response['changed_keys']                   = $changed;
-		$response['unchanged_keys']                 = $unchanged;
-		$response['deltas']                         = $deltas;
+		if ( [] !== $known_hashes ) {
+			[ $payload_hashes, $changed, $unchanged, $deltas ] = self::hash_delta( $response, $known_hashes, $hash_keys );
+			$response['payload_hashes'] = $payload_hashes;
+			$response['changed_keys']   = $changed;
+			$response['unchanged_keys'] = $unchanged;
+			$response['deltas']         = $deltas;
+		} else {
+			unset( $response['payload_hashes'], $response['changed_keys'], $response['unchanged_keys'], $response['deltas'] );
+		}
 		$response['instructions']                   = self::compact_text_ref( 'instructions', (string) ( $response['instructions'] ?? '' ) );
+		$response['mcp_tool_naming']                = [
+			'format'  => 'stonewright-hyphen-name',
+			'example' => 'stonewright-context-bootstrap',
+		];
 		$response['matched_skill_playbooks']        = self::compact_playbooks( $response['matched_skill_playbooks'] ?? [] );
 		$response['memory_entries']                 = self::compact_memory_entries( $response['memory_entries'] ?? [] );
+		$response['specializations']                = self::compact_specializations( $response['specializations'] ?? [] );
+		$response['recommended_external_mcps']      = self::compact_external_mcps( $response['recommended_external_mcps'] ?? [] );
 		$response['visual_quality_contract']        = self::compact_object_ref( 'visual_quality_contract', $response['visual_quality_contract'] ?? [] );
 		$response['visual_build_gate']              = self::compact_object_ref( 'visual_build_gate', $response['visual_build_gate'] ?? [] );
 		$response['design_implementation_contract'] = self::compact_object_ref( 'design_implementation_contract', $response['design_implementation_contract'] ?? [] );
+		$response['required_followups']             = self::compact_followups( $is_visual, $profile, $has_specializations );
 
 		return $response;
 	}
@@ -266,5 +280,63 @@ final class ContextBootstrap extends AbilityKernel {
 			];
 		}
 		return $out;
+	}
+
+	/** @return list<array<string, mixed>> */
+	private static function compact_specializations( mixed $specializations ): array {
+		$out = [];
+		foreach ( is_array( $specializations ) ? $specializations : [] as $specialization ) {
+			if ( ! is_array( $specialization ) ) {
+				continue;
+			}
+			$out[] = [
+				'id'    => (string) ( $specialization['id'] ?? '' ),
+				'title' => (string) ( $specialization['title'] ?? '' ),
+			];
+		}
+		return $out;
+	}
+
+	/** @return list<array<string, mixed>> */
+	private static function compact_external_mcps( mixed $external_mcps ): array {
+		$out = [];
+		foreach ( is_array( $external_mcps ) ? $external_mcps : [] as $mcp ) {
+			if ( ! is_array( $mcp ) ) {
+				continue;
+			}
+			$out[] = [
+				'id'      => (string) ( $mcp['id'] ?? '' ),
+				'command' => (string) ( $mcp['command'] ?? '' ),
+				'args'    => is_array( $mcp['args'] ?? null ) ? $mcp['args'] : [],
+			];
+		}
+		return $out;
+	}
+
+	/** @return list<string> */
+	private static function compact_followups( bool $is_visual, string $profile, bool $has_specializations ): array {
+		$followups = [
+			'Read matched playbooks and memory before acting.',
+			'Record repeatable corrections with stonewright/learning-record.',
+			'Use workflow-preflight fast_path.tool_profile; call tool-profile only to switch or verify.',
+			'Pass stonewright_context_token to every write or destructive ability.',
+		];
+		if ( $is_visual ) {
+			$followups[] = 'Visual work requires the external Playwright MCP before the first write.';
+			$followups[] = 'Use native assets; never use a full-page screenshot as a section background.';
+			$followups[] = 'Write and verify one section at a time on desktop, tablet, and mobile.';
+			$followups[] = 'Gate completion on overflow, screenshot deltas, and token/asset/section evidence.';
+			$followups[] = 'Custom-code or SVG-upload workarounds require explicit approval.';
+		}
+		if ( 'wp-cli' === $profile || 'content-model' === $profile ) {
+			$followups[] = 'Use Stonewright WP-CLI status/discovery, then tokenized run or batch tools.';
+		}
+		if ( 'elementor-design' === $profile ) {
+			$followups[] = 'Resolve Elementor widget intent and read each widget schema before writes.';
+		}
+		if ( $has_specializations ) {
+			$followups[] = 'Apply the matched specialization guidance before writes.';
+		}
+		return $followups;
 	}
 }

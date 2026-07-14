@@ -2,7 +2,7 @@
     "slug": "wp-widget-",
     "source": "free",
     "title": null,
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/wordpress.php",
+    "file": "elementor/includes/widgets/wordpress.php",
     "sections": [],
     "group_controls": [],
     "repeaters": [],

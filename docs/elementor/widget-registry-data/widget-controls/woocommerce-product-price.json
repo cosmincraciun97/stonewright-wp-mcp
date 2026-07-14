@@ -2,7 +2,7 @@
     "slug": "woocommerce-product-price",
     "source": "wc",
     "title": "Product Price",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-price.php",
+    "file": "pro-elements/modules/woocommerce/widgets/product-price.php",
     "sections": [
         {
             "id": "section_price_style",

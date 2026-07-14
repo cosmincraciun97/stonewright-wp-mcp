@@ -2,7 +2,7 @@
     "slug": "portfolio",
     "source": "pro",
     "title": "Portfolio",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/posts/widgets/portfolio.php",
+    "file": "pro-elements/modules/posts/widgets/portfolio.php",
     "sections": [
         {
             "id": "section_layout",

@@ -2,7 +2,7 @@
     "slug": "rating",
     "source": "free",
     "title": "Rating",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/rating.php",
+    "file": "elementor/includes/widgets/rating.php",
     "sections": [
         {
             "id": "section_rating",

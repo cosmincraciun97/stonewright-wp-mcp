@@ -2,7 +2,7 @@
     "slug": "woocommerce-product-images",
     "source": "wc",
     "title": "Product Images",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-images.php",
+    "file": "pro-elements/modules/woocommerce/widgets/product-images.php",
     "sections": [
         {
             "id": "section_product_gallery_style",

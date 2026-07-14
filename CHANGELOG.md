@@ -7,6 +7,33 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- Added reproducible MCP surface and task-start token benchmarks with 20-tool
+  default and 12-tool strict profile budgets.
+- Added upstream source provenance, attribution, and license notices for
+  Novamira-derived components.
+
+### Changed
+
+- Relicensed the Stonewright WordPress plugin to AGPL-3.0-or-later before the
+  first Novamira source import; the Node companion remains MIT licensed.
+- Reduced compact task-start context to stay below the 700-token non-visual
+  and 1,200-token visual budgets.
+
+### Fixed
+
+- Isolated WP-CLI fixture discovery from real LocalWP binaries on the test host
+  and removed machine-specific paths from Elementor registry artifacts.
+- Cleaned per-process PHP test files at shutdown and removed PHP 8.5 reflection
+  deprecation noise.
+
+### Security
+
+- Hardened `stonewright/php-execute` with production-safe confirmation,
+  bounded output, normalized results, buffer/time-limit cleanup, and compact
+  audit metadata without exposing source code.
+
 ## [1.0.0-alpha.64] - 2026-06-17
 
 ### Added

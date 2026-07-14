@@ -2,7 +2,7 @@
     "slug": "google_maps",
     "source": "free",
     "title": "Google Maps",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/google-maps.php",
+    "file": "elementor/includes/widgets/google-maps.php",
     "sections": [
         {
             "id": "section_map",

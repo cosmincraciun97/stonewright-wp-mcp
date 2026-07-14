@@ -2,7 +2,7 @@
     "slug": "woocommerce-purchase-summary",
     "source": "wc",
     "title": "Purchase Summary",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/purchase-summary.php",
+    "file": "pro-elements/modules/woocommerce/widgets/purchase-summary.php",
     "sections": [
         {
             "id": "confirmation_message",

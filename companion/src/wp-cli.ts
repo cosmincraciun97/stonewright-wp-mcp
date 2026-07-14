@@ -1293,10 +1293,15 @@ function resolvePhpExtensionPath(extension: string, extensionDir: string): strin
 }
 
 function discoverWpCliPhar(env: NodeJS.ProcessEnv, cwd: string): string | undefined {
+	const hostDiscoveryEnabled = env['STONEWRIGHT_WP_CLI_DISABLE_HOST_DISCOVERY'] !== '1';
+	const explicitInstallDir = cleanEnvPath(env['STONEWRIGHT_WP_CLI_INSTALL_DIR']);
 	return firstExisting([
 		...candidatePharsNearWordPressRoot(cwd),
+		explicitInstallDir ? join(resolveWpCliInstallDir(explicitInstallDir, env), 'wp-cli.phar') : undefined,
 		...candidateLocalWpPhars(env),
-		join(resolveWpCliInstallDir(undefined, env), 'wp-cli.phar'),
+		hostDiscoveryEnabled
+			? join(resolveWpCliInstallDir(undefined, env), 'wp-cli.phar')
+			: undefined,
 	]);
 }
 
@@ -1312,6 +1317,7 @@ function candidatePharsNearWordPressRoot(cwd: string): string[] {
 }
 
 function candidateLocalWpPhars(env: NodeJS.ProcessEnv): string[] {
+	const hostDiscoveryEnabled = env['STONEWRIGHT_WP_CLI_DISABLE_HOST_DISCOVERY'] !== '1';
 	return [
 		env['LOCALAPPDATA']
 			? join(env['LOCALAPPDATA'], 'Programs', 'Local', 'resources', 'extraResources', 'bin', 'wp-cli', 'wp-cli.phar')
@@ -1320,7 +1326,9 @@ function candidateLocalWpPhars(env: NodeJS.ProcessEnv): string[] {
 		env['ProgramFiles(x86)']
 			? join(env['ProgramFiles(x86)'], 'Local', 'resources', 'extraResources', 'bin', 'wp-cli', 'wp-cli.phar')
 			: undefined,
-		'/Applications/Local.app/Contents/Resources/extraResources/bin/wp-cli/wp-cli.phar',
+		hostDiscoveryEnabled
+			? '/Applications/Local.app/Contents/Resources/extraResources/bin/wp-cli/wp-cli.phar'
+			: undefined,
 	].filter((path): path is string => Boolean(path));
 }
 
@@ -1333,7 +1341,8 @@ function discoverPhpBinary(env: NodeJS.ProcessEnv, cwd?: string): string | undef
 	const candidates: string[] = [];
 	const appData = cleanEnvPath(env['APPDATA']);
 	const localAppData = cleanEnvPath(env['LOCALAPPDATA']);
-	const home = cleanEnvPath(env['HOME']) ?? homedir();
+	const hostDiscoveryEnabled = env['STONEWRIGHT_WP_CLI_DISABLE_HOST_DISCOVERY'] !== '1';
+	const home = cleanEnvPath(env['HOME']) ?? (hostDiscoveryEnabled ? homedir() : undefined);
 
 	if (appData) {
 		candidates.push(...candidateLocalWpPhpBins(join(appData, 'Local', 'lightning-services')));

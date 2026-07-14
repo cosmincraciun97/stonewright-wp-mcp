@@ -10,27 +10,27 @@
     "failures": [
         {
             "slug": "inner-section",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/inner-section.php",
+            "file": "elementor/includes/widgets/inner-section.php",
             "reason": "no register_controls"
         },
         {
             "slug": "global",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/global-widget/widgets/global-widget.php",
+            "file": "pro-elements/modules/global-widget/widgets/global-widget.php",
             "reason": "no register_controls"
         },
         {
             "slug": "theme-archive-title",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/archive-title.php",
+            "file": "pro-elements/modules/theme-builder/widgets/archive-title.php",
             "reason": "no register_controls"
         },
         {
             "slug": "theme-page-title",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/page-title.php",
+            "file": "pro-elements/modules/theme-builder/widgets/page-title.php",
             "reason": "no register_controls"
         },
         {
             "slug": "theme-post-title",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/post-title.php",
+            "file": "pro-elements/modules/theme-builder/widgets/post-title.php",
             "reason": "no register_controls"
         }
     ],

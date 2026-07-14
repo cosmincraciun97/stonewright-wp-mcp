@@ -2,7 +2,7 @@
     "slug": "html",
     "source": "free",
     "title": "HTML",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/html.php",
+    "file": "elementor/includes/widgets/html.php",
     "sections": [
         {
             "id": "section_title",

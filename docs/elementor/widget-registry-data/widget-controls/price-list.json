@@ -2,7 +2,7 @@
     "slug": "price-list",
     "source": "pro",
     "title": "Price List",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/pricing/widgets/price-list.php",
+    "file": "pro-elements/modules/pricing/widgets/price-list.php",
     "sections": [
         {
             "id": "section_list",

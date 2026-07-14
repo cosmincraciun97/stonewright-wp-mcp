@@ -2,7 +2,7 @@
     "slug": "woocommerce-product-short-description",
     "source": "wc",
     "title": "Short Description",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-short-description.php",
+    "file": "pro-elements/modules/woocommerce/widgets/product-short-description.php",
     "sections": [
         {
             "id": "section_product_description_style",

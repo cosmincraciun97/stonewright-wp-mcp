@@ -19,7 +19,8 @@ workflows with operator controls.
 - [Skill packs](skills.md)
 - [Plugin specializations](specializations.md)
 - [Release notes](releases/README.md)
-- [Clean-room review notes](clean-room-review.md)
+- [MCP token benchmarks](benchmarks/README.md)
+- [Upstream code reuse and attribution](upstream-code-reuse.md)
 
 ## Sections
 
@@ -34,4 +35,4 @@ workflows with operator controls.
 | `ability-truth-matrix.md` | Generated ability gate matrix for permissions, backups, tokens, validators, and tests |
 | `companion.md` | Node companion, stdio MCP, optional HTTP bridge, and tokenized WP-CLI |
 | `security.md` and `security-guarantees.md` | Threat model and hardening guarantees |
-| `clean-room-review.md` | Public clean-room review notes |
+| `upstream-code-reuse.md` | Third-party source, licensing, attribution, and import ledger |

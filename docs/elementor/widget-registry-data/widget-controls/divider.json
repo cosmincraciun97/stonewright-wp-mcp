@@ -2,7 +2,7 @@
     "slug": "divider",
     "source": "free",
     "title": "Divider",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/divider.php",
+    "file": "elementor/includes/widgets/divider.php",
     "sections": [
         {
             "id": "section_divider",

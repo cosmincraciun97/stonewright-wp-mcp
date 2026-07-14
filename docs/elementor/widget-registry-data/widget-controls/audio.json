@@ -2,7 +2,7 @@
     "slug": "audio",
     "source": "free",
     "title": "SoundCloud",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/audio.php",
+    "file": "elementor/includes/widgets/audio.php",
     "sections": [
         {
             "id": "section_audio",

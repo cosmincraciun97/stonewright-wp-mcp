@@ -2,7 +2,7 @@
     "slug": "facebook-embed",
     "source": "pro",
     "title": "Facebook Embed",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/social/widgets/facebook-embed.php",
+    "file": "pro-elements/modules/social/widgets/facebook-embed.php",
     "sections": [
         {
             "id": "section_content",

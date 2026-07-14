@@ -2,7 +2,7 @@
     "slug": "sidebar",
     "source": "free",
     "title": "Sidebar",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/sidebar.php",
+    "file": "elementor/includes/widgets/sidebar.php",
     "sections": [
         {
             "id": "section_sidebar",

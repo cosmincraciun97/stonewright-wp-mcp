@@ -2,7 +2,7 @@
     "slug": "flip-box",
     "source": "pro",
     "title": "Flip Box",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/flip-box/widgets/flip-box.php",
+    "file": "pro-elements/modules/flip-box/widgets/flip-box.php",
     "sections": [
         {
             "id": "section_side_a_content",

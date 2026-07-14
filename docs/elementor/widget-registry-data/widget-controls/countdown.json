@@ -2,7 +2,7 @@
     "slug": "countdown",
     "source": "pro",
     "title": "Countdown",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/countdown/widgets/countdown.php",
+    "file": "pro-elements/modules/countdown/widgets/countdown.php",
     "sections": [
         {
             "id": "section_countdown",

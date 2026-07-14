@@ -64,10 +64,31 @@ abstract class AbilityKernel implements Ability {
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	protected function audit( array $args, callable $callback ) {
+		$started_ns = hrtime( true );
 		$result = $callback( $args );
 		$status = $result instanceof \WP_Error ? 'error' : 'ok';
-		AuditLog::record( $this->name(), $this->sanitize_for_audit( $args ), $status );
+		$sanitized = $this->sanitize_for_audit( $args );
+		$metadata  = $this->audit_metadata(
+			$args,
+			$result,
+			(int) floor( ( hrtime( true ) - $started_ns ) / 1_000_000 )
+		);
+		if ( [] !== $metadata ) {
+			$sanitized['_meta'] = $metadata;
+		}
+		AuditLog::record( $this->name(), $sanitized, $status );
 		return $result;
+	}
+
+	/**
+	 * Add safe, compact result metadata without logging the result payload.
+	 *
+	 * @param array<string, mixed>          $args
+	 * @param array<string, mixed>|\WP_Error $result
+	 * @return array<string, scalar|null>
+	 */
+	protected function audit_metadata( array $args, array|\WP_Error $result, int $elapsed_ms ): array {
+		return [];
 	}
 
 	/**

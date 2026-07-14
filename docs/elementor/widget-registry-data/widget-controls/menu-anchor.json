@@ -2,7 +2,7 @@
     "slug": "menu-anchor",
     "source": "free",
     "title": "Menu Anchor",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/menu-anchor.php",
+    "file": "elementor/includes/widgets/menu-anchor.php",
     "sections": [
         {
             "id": "section_anchor",

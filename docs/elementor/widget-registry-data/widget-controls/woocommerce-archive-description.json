@@ -2,7 +2,7 @@
     "slug": "woocommerce-archive-description",
     "source": "wc",
     "title": "Archive Description",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/archive-description.php",
+    "file": "pro-elements/modules/woocommerce/widgets/archive-description.php",
     "sections": [
         {
             "id": "section_product_description_style",

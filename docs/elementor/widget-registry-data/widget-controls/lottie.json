@@ -2,7 +2,7 @@
     "slug": "lottie",
     "source": "pro",
     "title": "Lottie",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/lottie/widgets/lottie.php",
+    "file": "pro-elements/modules/lottie/widgets/lottie.php",
     "sections": [
         {
             "id": "lottie",

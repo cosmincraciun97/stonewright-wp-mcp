@@ -2,7 +2,7 @@
     "slug": "login",
     "source": "pro",
     "title": "Login",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/forms/widgets/login.php",
+    "file": "pro-elements/modules/forms/widgets/login.php",
     "sections": [
         {
             "id": "section_fields_content",

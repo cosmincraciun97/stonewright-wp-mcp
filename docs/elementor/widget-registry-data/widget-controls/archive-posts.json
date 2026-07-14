@@ -2,7 +2,7 @@
     "slug": "archive-posts",
     "source": "pro",
     "title": "Archive Posts",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/archive-posts.php",
+    "file": "pro-elements/modules/theme-builder/widgets/archive-posts.php",
     "sections": [
         {
             "id": "section_advanced",
