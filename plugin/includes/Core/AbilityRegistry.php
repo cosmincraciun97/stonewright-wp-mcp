@@ -97,6 +97,10 @@ use Stonewright\WpMcp\Abilities\Knowledge\KnowledgeRefresh;
 use Stonewright\WpMcp\Abilities\Knowledge\KnowledgeSearch;
 use Stonewright\WpMcp\Abilities\Knowledge\KnowledgeCandidateRecord;
 use Stonewright\WpMcp\Abilities\Knowledge\KnowledgeCandidates;
+use Stonewright\WpMcp\Abilities\Expertise\ExpertiseEvaluate;
+use Stonewright\WpMcp\Abilities\Expertise\ExpertiseGet;
+use Stonewright\WpMcp\Abilities\Expertise\ExpertiseList;
+use Stonewright\WpMcp\Abilities\Expertise\ExpertisePromote;
 use Stonewright\WpMcp\Abilities\Knowledge\WidgetImplementationGuide;
 use Stonewright\WpMcp\Abilities\ElementorWidget\WidgetList as ElementorWidgetList;
 use Stonewright\WpMcp\Abilities\ElementorWidget\WidgetRegister;
@@ -343,6 +347,10 @@ final class AbilityRegistry {
 			KnowledgeRefresh::class,
 			KnowledgeCandidates::class,
 			KnowledgeCandidateRecord::class,
+			ExpertiseList::class,
+			ExpertiseGet::class,
+			ExpertiseEvaluate::class,
+			ExpertisePromote::class,
 
 			// Sandbox.
 			SandboxListAbility::class,
@@ -796,7 +804,7 @@ final class AbilityRegistry {
 			'stonewright/php-execute',
 			'stonewright/security-issue-confirmation-token',
 			'stonewright/site-info',
-			'stonewright/site-health',
+			'stonewright/expertise-get',
 
 			// Composite content and design paths.
 			'stonewright/content-bulk-upsert-posts',

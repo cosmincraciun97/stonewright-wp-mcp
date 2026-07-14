@@ -77,6 +77,7 @@ final class ContextBootstrap extends AbilityKernel {
 				'tool_profile_hint',
 				'matched_skill_playbooks',
 				'memory_entries',
+				'expertise_packs',
 				'specializations',
 				'recommended_external_mcps',
 				'visual_quality_contract',
@@ -94,6 +95,7 @@ final class ContextBootstrap extends AbilityKernel {
 				'matched_skills'                 => [ 'type' => 'array' ],
 				'matched_skill_playbooks'        => [ 'type' => 'array' ],
 				'memory_entries'                 => [ 'type' => 'array' ],
+				'expertise_packs'                => [ 'type' => 'array', 'maxItems' => 3 ],
 				'specializations'                => [ 'type' => 'array' ],
 				'recommended_external_mcps'      => [ 'type' => 'array' ],
 				'visual_quality_contract'        => [ 'type' => 'object' ],
@@ -171,6 +173,7 @@ final class ContextBootstrap extends AbilityKernel {
 		];
 		$response['matched_skill_playbooks']        = self::compact_playbooks( $response['matched_skill_playbooks'] ?? [] );
 		$response['memory_entries']                 = self::compact_memory_entries( $response['memory_entries'] ?? [] );
+		$response['expertise_packs']                = self::compact_expertise( $response['expertise_packs'] ?? [], $known_hashes['expertise'] ?? [] );
 		$response['specializations']                = self::compact_specializations( $response['specializations'] ?? [] );
 		$response['recommended_external_mcps']      = self::compact_external_mcps( $response['recommended_external_mcps'] ?? [] );
 		$response['visual_quality_contract']        = self::compact_object_ref( 'visual_quality_contract', $response['visual_quality_contract'] ?? [] );
@@ -179,6 +182,24 @@ final class ContextBootstrap extends AbilityKernel {
 		$response['required_followups']             = self::compact_followups( $is_visual, $profile, $has_specializations );
 
 		return $response;
+	}
+
+	/** @return list<array<string, mixed>> */
+	private static function compact_expertise( mixed $packs, mixed $known_hashes ): array {
+		$known = is_array( $known_hashes ) ? $known_hashes : [];
+		$out   = [];
+		foreach ( is_array( $packs ) ? $packs : [] as $pack ) {
+			if ( ! is_array( $pack ) ) {
+				continue;
+			}
+			$id = (string) ( $pack['id'] ?? '' );
+			if ( isset( $known[ $id ] ) && hash_equals( (string) ( $pack['hash'] ?? '' ), (string) $known[ $id ] ) ) {
+				unset( $pack['trigger'] );
+				$pack['cached'] = true;
+			}
+			$out[] = $pack;
+		}
+		return array_slice( $out, 0, 3 );
 	}
 
 	/**

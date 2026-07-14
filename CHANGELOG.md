@@ -34,6 +34,11 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   promotion through `stonewright/knowledge-candidate-record`.
 - Added disabled research drafts plus immutable skill revision history, lint,
   and rollback.
+- Added a versioned Expertise Engine with 10 P0 curriculum packs, top-three
+  compatible task activation, lazy sections, scorecards, promotion gates, and
+  an honest public capability parity matrix.
+- Added `stonewright/expertise-get`, maintainer list/evaluate/promote abilities,
+  and a reproducible 120-case P0 curriculum evaluator.
 
 ### Changed
 

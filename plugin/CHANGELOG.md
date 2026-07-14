@@ -14,6 +14,8 @@
   gated phase-two customization proposal.
 - Added DB-backed knowledge candidates with provenance, TTL, version
   fingerprints, verification and conflict gates, plus skill revision rollback.
+- Added 10 versioned P0 ExpertisePacks, compact top-three task routing, lazy
+  pack retrieval, deterministic scorecards, and promotion lifecycle gates.
 
 ### Changed
 

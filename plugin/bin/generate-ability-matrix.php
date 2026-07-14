@@ -179,7 +179,9 @@ const WRITE_PATTERNS = [
 	'Skills::save(', 'Skills::delete(', 'SpecToGutenberg()', 'SpecToElementorV3()',
 	'CandidateRepository::create(', 'CandidateRepository::verify(',
 	'CandidateRepository::promote(', 'CandidateRepository::set_status(',
-	'Skills::rollback(',
+	'Skills::rollback(', 'ExpertiseStore::record_scorecard(',
+	'ExpertiseEvaluator::evaluate(', 'ExpertisePromotion::promote(',
+	'ExpertisePromotion::set_terminal_status(',
 	'ElementorWriter::write',
 	// Batch/orchestrator delegates.
 	'new UploadMedia()', 'new BuildPageFromSpec()',

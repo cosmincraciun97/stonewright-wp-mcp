@@ -16,6 +16,7 @@ use Stonewright\WpMcp\Skills\SkillsTable;
 use Stonewright\WpMcp\Skills\SkillVersionsTable;
 use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateTable;
 use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateRepository;
+use Stonewright\WpMcp\Expertise\ExpertiseTable;
 use Stonewright\WpMcp\Elementor\WidgetBuilder\Loader as WidgetLoader;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Memory\Memory;
@@ -101,6 +102,7 @@ final class PluginRegistration {
 		add_action( 'init', [ SkillsTable::class, 'create_table' ] );
 		add_action( 'init', [ SkillVersionsTable::class, 'create_table' ] );
 		add_action( 'init', [ CandidateTable::class, 'create_table' ] );
+		add_action( 'init', [ ExpertiseTable::class, 'create_tables' ] );
 		add_action( 'init', [ ResourceRegistry::class, 'register' ], 30 );
 		add_action( 'init', [ BlockRegistry::class, 'register' ], 40 );
 		add_action( 'rest_api_init', [ RestRoutes::class, 'register' ] );
@@ -136,6 +138,7 @@ final class PluginRegistration {
 		SkillsTable::force_create_table();
 		SkillVersionsTable::force_create_table();
 		CandidateTable::force_create_table();
+		ExpertiseTable::force_create_tables();
 		SkillsSeeder::seed();
 		// Record domain on first activation so subsequent boots can detect clones.
 		if ( (bool) get_option( 'stonewright_enabled', false ) ) {

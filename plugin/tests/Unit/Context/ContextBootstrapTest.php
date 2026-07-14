@@ -170,6 +170,39 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertArrayNotHasKey( 'value', $result['memory_entries'][0] );
 	}
 
+	public function test_task_start_activates_only_compact_top_three_expertise_refs(): void {
+		$ability = new ContextBootstrap();
+		$result  = $ability->execute(
+			[
+				'task'         => 'Update a WordPress post, media item, and taxonomy assignment.',
+				'surface'      => 'wordpress',
+				'intent'       => 'write',
+				'responseMode' => 'compact',
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertLessThanOrEqual( 3, count( $result['expertise_packs'] ) );
+		self::assertContains( 'wordpress-core', array_column( $result['expertise_packs'], 'id' ) );
+		self::assertLessThan( 450, (int) ceil( strlen( wp_json_encode( $result['expertise_packs'] ) ?: '' ) / 4 ) );
+		self::assertArrayNotHasKey( 'workflow', $result['expertise_packs'][0] );
+
+		$first  = $result['expertise_packs'][0];
+		$cached = $ability->execute(
+			[
+				'task'         => 'Update a WordPress post, media item, and taxonomy assignment.',
+				'surface'      => 'wordpress',
+				'intent'       => 'write',
+				'responseMode' => 'compact',
+				'knownHashes'  => [ 'expertise' => [ $first['id'] => $first['hash'] ] ],
+			]
+		);
+		self::assertIsArray( $cached );
+		$cached_by_id = array_column( $cached['expertise_packs'], null, 'id' );
+		self::assertTrue( $cached_by_id[ $first['id'] ]['cached'] );
+		self::assertArrayNotHasKey( 'trigger', $cached_by_id[ $first['id'] ] );
+	}
+
 	public function test_compact_mode_returns_hashes_and_delta_refs(): void {
 		$result = ( new ContextBootstrap() )->execute(
 			[

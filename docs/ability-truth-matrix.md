@@ -289,6 +289,17 @@
 
 ---
 
+## Expertise
+
+| Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `stonewright/expertise-list` | `stonewright-expertise-list` | `Expertise\ExpertiseList` | Lists compact expertise pack lifecycle, version, scorecard, and parity metadata for maintainers. | Read | `Permissions::manage_options()` | No | No | No | experimental | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/expertise-get` | `stonewright-expertise-get` | `Expertise\ExpertiseGet` | Loads one compatible expertise pack section on demand. | Read | `Permissions::read()` | No | No | No | experimental | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/expertise-evaluate` | `stonewright-expertise-evaluate` | `Expertise\ExpertiseEvaluate` | Runs the reproducible expertise eval corpus and returns score, critical failures, token/tool metrics, editability, semantics, and rollback. | Write | `Permissions::manage_options()` | No | No | No | experimental | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/expertise-promote` | `stonewright-expertise-promote` | `Expertise\ExpertisePromote` | Promotes, stales, or retires a site expertise pack through score, runtime, permission, audit, and confirmation gates. | Write | `Permissions::manage_options()` | Yes | No | No | experimental | `tests/Unit/AbilityKernelAuditTest.php` |
+
+---
+
 ## ThemeBuilder
 
 | Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
@@ -417,7 +428,7 @@
 
 ## Summary
 
-Total abilities registered: **245**
+Total abilities registered: **249**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

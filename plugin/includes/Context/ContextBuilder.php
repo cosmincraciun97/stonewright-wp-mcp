@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Context;
 use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
 use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Core\AgentInstructions;
+use Stonewright\WpMcp\Expertise\ExpertiseResolver;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Skills\Skills;
 
@@ -52,6 +53,7 @@ final class ContextBuilder {
 				$matched_skills
 			),
 			'memory_entries'           => $matched_memory,
+			'expertise_packs'          => ExpertiseResolver::resolve( $task, $surface ),
 			'specializations'          => SpecializationCatalog::match( $task, $surface ),
 			'recommended_external_mcps'      => self::recommended_external_mcps( $is_visual ),
 			'visual_quality_contract'        => $visual_quality_contract,

@@ -18,7 +18,10 @@ It routes the agent to the right specialized skill and MCP tools.
 3. Use `fast_path.tool_profile` from workflow preflight before making a separate
    `stonewright-tool-profile` call. Call `stonewright-tool-profile` only when
    switching or verifying a compact profile.
-4. If authentication or MCP visibility fails, call
+4. Read `expertise_packs`; load only the matching section with
+   `stonewright-expertise-get`. Never activate draft, stale, retired, or
+   version-incompatible guidance.
+5. If authentication or MCP visibility fails, call
    `stonewright-wordpress-mcp-status` and `stonewright-setup-profile`, then use
    direct `stonewright-wp-cli-*` tools only when WP-CLI is needed.
 

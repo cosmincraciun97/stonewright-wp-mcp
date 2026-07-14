@@ -298,6 +298,7 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/workflow-preflight',
 			'stonewright/tool-profile',
 			'stonewright/skills-get',
+			'stonewright/expertise-get',
 			'stonewright/php-execute',
 		];
 

@@ -57,6 +57,7 @@ final class AgentInstructions {
 			'- Use stonewright/php-execute for direct full WordPress runtime access when a short PHP snippet is faster than many typed calls. It runs inside WordPress with loaded plugins and $wpdb.',
 			'- Every write or destructive ability must include the stonewright_context_token returned by stonewright/context-bootstrap.',
 			'- Persistent skills and memory are authoritative across sessions. Call stonewright/skills-get for every matched skill and stonewright/memory-get or stonewright/memory-list for relevant memory before planning or writing.',
+			'- Context bootstrap activates at most three compatible expertise pack refs. Load only a needed section with stonewright/expertise-get; never use a stale, draft, retired, or version-incompatible pack.',
 			'- Site-specific skills, memory, and custom instructions stay local to this WordPress install. Treat them as private site context, not public project material or reusable package defaults.',
 			'- Do not publish credentials, private memory, site-specific prompts, or custom instructions into docs, commits, release notes, generated skills, public examples, or support replies unless the site owner explicitly asks for that exact disclosure.',
 			'- Subagents must call stonewright-context-bootstrap themselves in their own session. Do not delegate only a copied context token; the subagent must read the returned instructions, memory, skills, followups, and visual contract before writing.',

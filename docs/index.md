@@ -18,6 +18,8 @@ workflows with operator controls.
 - [Companion](companion.md)
 - [Skill packs](skills.md)
 - [Plugin specializations](specializations.md)
+- [Expertise Engine](expertise-engine.md)
+- [Expertise and public capability parity](expertise-parity.md)
 - [Release notes](releases/README.md)
 - [MCP token benchmarks](benchmarks/README.md)
 - [Stonewright Visual](visual.md)
