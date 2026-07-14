@@ -13,6 +13,7 @@ companion/test-results/
 visual/node_modules/
 visual/dist/
 visual/coverage/
+dist/
 
 # Local
 *.log

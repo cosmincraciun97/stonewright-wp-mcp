@@ -1,11 +1,17 @@
 {
   "name": "@stonewright/visual",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Single-tool MCP workspace for nested WordPress editor adapters.",
   "type": "module",
   "license": "AGPL-3.0-or-later",
-  "files": ["dist", "LICENSE", "NOTICE"],
-  "exports": { ".": "./dist/index.js" },
+  "files": [
+    "dist",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "exports": {
+    ".": "./dist/index.js"
+  },
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean --outDir dist",
     "test": "vitest run",

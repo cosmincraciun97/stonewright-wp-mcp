@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.65] - 2026-07-14
+
 ### Added
 
 - Added reproducible MCP tool-surface and task-start token measurements.

@@ -11,7 +11,7 @@ Open `config.toml` and add:
 ```toml
 [mcp_servers.stonewright]
 command = "npx"
-args = ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.64/stonewright-companion-1.0.0-alpha.64.tgz", "stonewright-mcp"]
+args = ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.65/stonewright-companion-1.0.0-alpha.65.tgz", "stonewright-mcp"]
 
 [mcp_servers.stonewright.env]
 STONEWRIGHT_WP_URL = "https://your-site.com"

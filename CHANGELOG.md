@@ -7,6 +7,8 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.65] - 2026-07-14
+
 ### Added
 
 - Added reproducible MCP surface and task-start token benchmarks with 20-tool
