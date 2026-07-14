@@ -111,11 +111,12 @@ HTTP-style conflict data and performs no write.
 
 ## Compatibility abilities
 
-The generated `stonewright/elementor-add-*` abilities remain available during
-the compatibility window, but their metadata marks them deprecated with
-`stonewright/elementor-v3-batch-mutate` as the replacement and a `2.0.0`
-sunset. New skills, recommendations, and implementation guides use the unified
-schema plus batch compiler.
+The generated `stonewright/elementor-add-*` abilities remain available only in
+the explicit full/compatibility surface during the two-release warning window.
+Their metadata points to `stonewright/elementor-v3-batch-mutate`; the generated
+[migration table](../migration-elementor-v3-tools.md) lists every exact mapping.
+The earliest removal release is alpha.67. New skills and recommendations use
+the live schema plus batch compiler.
 
 ## Verification coverage
 

@@ -71,6 +71,8 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   relevant, non-stale memory refs with explicit precedence.
 - Replaced Elementor V4 placeholder and unknown-property fallbacks with hard,
   path-aware errors and exact typed Atomic envelopes.
+- Published an exact generated migration for all 94 deprecated Elementor add
+  abilities; removal is deferred until two releases have carried warnings.
 
 ### Fixed
 

@@ -50,6 +50,7 @@
         "phpcs": "phpcs",
         "phpcbf": "phpcbf",
         "docs:matrix": "php bin/generate-ability-matrix.php",
+		"docs:migration": "php bin/generate-elementor-migration-guide.php",
 		"expertise:evaluate": "php bin/evaluate-expertise.php",
 		"elementor:schema-diff": "php bin/elementor-schema-diff.php",
         "tokens:measure": "php bin/measure-token-surface.php",
