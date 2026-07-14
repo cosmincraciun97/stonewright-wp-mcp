@@ -2,7 +2,7 @@
 
 Stonewright registers WordPress abilities under the `stonewright/` prefix. MCP
 clients call the same names with slashes converted to hyphens: ability
-`stonewright/context-bootstrap` is MCP tool `stonewright-context-bootstrap`.
+`stonewright/task-start` is MCP tool `stonewright-task-start`.
 The source of truth is `Stonewright\WpMcp\Core\AbilityRegistry`; run
 `cd plugin && composer docs:matrix` to regenerate the complete ability truth
 matrix after changing the registry.
@@ -35,19 +35,17 @@ matrix after changing the registry.
 
 ## Context Requirement
 
-Agents must call MCP tool `stonewright-context-bootstrap` at the start of every task. The
-response returns the active system instructions, persistent memory, enabled
-skills, relevant knowledge hints, `visual_quality_contract`,
-`visual_build_gate`, and a short-lived `stonewright_context_token`. Write
-abilities require that token.
-
-Agents can call `stonewright-workflow-preflight` first when speed matters. It
+Agents must call MCP tool `stonewright-task-start` at the start of every task. It
 returns the same write token plus active mode, auth guidance, compact Elementor
 capabilities, plugin specialization guidance, task-aware recommended tools,
 hyphenated MCP tool names, compact `tool_profile` groups, next-best tool
 recommendations, compact call examples, and the same visual-build gate in one
 low-token response. Use the inlined `fast_path.tool_profile` before making a
 separate profile or broad discovery call.
+
+`stonewright-context-bootstrap` and `stonewright-workflow-preflight` remain
+compatibility tools. `stonewright-context-bootstrap` is also the tool-list
+sentinel: if it is missing, the Stonewright MCP server did not load.
 
 Use `stonewright-tool-profile` when the MCP client has a strict tool limit or
 the task needs to switch or verify a low-token execution profile. It returns

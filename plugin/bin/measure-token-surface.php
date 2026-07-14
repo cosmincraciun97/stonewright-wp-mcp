@@ -13,7 +13,7 @@ declare( strict_types=1 );
 
 require_once dirname( __DIR__ ) . '/tests/bootstrap.php';
 
-use Stonewright\WpMcp\Abilities\System\ContextBootstrap;
+use Stonewright\WpMcp\Abilities\System\TaskStart;
 use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 
@@ -100,7 +100,7 @@ $full_tools     = stonewright_tool_documents( $full_rows );
 $essential_tools = stonewright_tool_documents( $essential_rows );
 
 $GLOBALS['stonewright_test_options']['stonewright_essential_tools_mode'] = true;
-$nonvisual_bootstrap = ( new ContextBootstrap() )->execute(
+$nonvisual_bootstrap = ( new TaskStart() )->execute(
 	[
 		'task'         => 'Update an existing post title and excerpt.',
 		'surface'      => 'wordpress',
@@ -108,7 +108,7 @@ $nonvisual_bootstrap = ( new ContextBootstrap() )->execute(
 		'responseMode' => 'compact',
 	]
 );
-$visual_bootstrap = ( new ContextBootstrap() )->execute(
+$visual_bootstrap = ( new TaskStart() )->execute(
 	[
 		'task'         => 'Implement a responsive Elementor landing-page hero from a supplied design image.',
 		'surface'      => 'elementor',
@@ -146,3 +146,4 @@ $report['budgets'] = [
 ];
 
 echo wp_json_encode( $report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) . "\n";
+exit( in_array( false, $report['budgets'], true ) ? 1 : 0 );

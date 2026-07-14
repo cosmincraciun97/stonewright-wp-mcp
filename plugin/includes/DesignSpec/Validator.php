@@ -185,7 +185,34 @@ final class Validator {
 				];
 			}
 		}
+		foreach ( self::placeholder_copy_paths( (array) ( $spec['sections'] ?? [] ), [ 'sections' ] ) as $path => $value ) {
+			$errors[] = [
+				'keyword' => 'placeholder_copy',
+				'message' => 'Placeholder copy cannot drive an Elementor write: ' . $value,
+				'path'    => explode( '.', $path ),
+			];
+		}
 		return $errors;
+	}
+
+	/** @param array<mixed> $value @param list<string|int> $path @return array<string, string> */
+	private static function placeholder_copy_paths( array $value, array $path ): array {
+		$out = [];
+		foreach ( $value as $key => $item ) {
+			$current = array_merge( $path, [ $key ] );
+			if ( is_array( $item ) ) {
+				$out += self::placeholder_copy_paths( $item, $current );
+				continue;
+			}
+			if ( ! is_string( $item ) || ! in_array( (string) $key, [ 'text', 'title', 'label', 'content' ], true ) ) {
+				continue;
+			}
+			$copy = strtolower( trim( strip_tags( $item ) ) );
+			if ( 1 === preg_match( '/^(?:titlu(?:\s+card|\s+\d+)?|text(?:\s+card)?|icon\s*\+\s*title\s*\d*|type your paragraph here|lorem ipsum|card(?: featured)?|beneficiu\s*\d+)$/u', $copy ) ) {
+				$out[ implode( '.', array_map( 'strval', $current ) ) ] = $item;
+			}
+		}
+		return $out;
 	}
 
 	/**

@@ -16,12 +16,13 @@ final class AgentInstructions {
 	public static function server_bootstrap_summary(): string {
 		$parts = [
 			'Stonewright fast start:',
-			'- First call MCP tool stonewright-context-bootstrap with task, surface, and intent. Use the returned stonewright_context_token for every write.',
-			'- Then call stonewright-workflow-preflight for Elementor, Gutenberg, ACF, CPT UI, WooCommerce, or WordPress implementation. Follow its compact recommended tools.',
-			'- For token-sensitive clients, use fast_path.tool_profile from stonewright-workflow-preflight before making a separate stonewright-tool-profile call.',
+			'- First call MCP tool stonewright-task-start with task, surface, and intent. It returns the context token and compact fast path in one response.',
+			'- Use stonewright-context-bootstrap and stonewright-workflow-preflight only as compatibility tools when task-start is unavailable.',
+			'- For token-sensitive clients, use fast_path.tool_profile from stonewright-task-start before making a separate stonewright-tool-profile call.',
 			'- If stonewright-context-bootstrap is not visible in the MCP tool list, stop and ask the user to reload or fix the Stonewright MCP config.',
 			'- ' . McpUsePolicy::compact_bypass_ban_rule(),
 			'- Use MCP tool stonewright-php-execute for direct full WordPress runtime access when a short PHP snippet is faster than many typed calls.',
+			'- Never write raw _elementor_data through php-execute. Every Elementor V3 node needs a non-empty unique id; use typed Elementor abilities or Backup::snapshot_post plus ElementorData::write.',
 			'- Design/Elementor: normalize DesignEvidence, run stonewright-design-native-plan, review or set approved kit globals, then compile live-schema writes in small verified batches.',
 			'- Content-model/repeated rows: prefer content-bulk-upsert-posts and wp-cli-batch-run over many single meta or CLI calls.',
 			'- WP-CLI remains tokenized; use stonewright-php-execute for PHP runtime snippets instead of wp eval, wp eval-file, wp shell, wp package, --exec, or --require.',
@@ -45,22 +46,24 @@ final class AgentInstructions {
 		$parts = [
 			'Stonewright build discipline:',
 			'- MCP clients expose Stonewright tools with hyphens. When calling tools via MCP, replace `/` with `-`: ability `stonewright/context-bootstrap` is MCP tool `stonewright-context-bootstrap`, and ability `stonewright/wp-cli-run` is MCP tool `stonewright-wp-cli-run`.',
-			'- Do not start a Stonewright task by only announcing named skills. The first useful action is a real MCP tool call: stonewright-context-bootstrap, or stonewright-workflow-preflight only when explicitly using the fast path.',
+			'- Do not start a Stonewright task by only announcing named skills. The first useful action is stonewright-task-start; context-bootstrap and workflow-preflight are compatibility paths.',
 			'- Do not treat local client skills, prompt snippets, or repository files as a substitute for live Stonewright MCP tools.',
 			'- ' . McpUsePolicy::missing_context_bootstrap_rule(),
 			...array_map( static fn ( string $rule ): string => '- ' . $rule, McpUsePolicy::bypass_ban_rules() ),
 			'- Do not run wp cli info, wp plugin activate, wp option update, or other wp commands in a normal shell as Stonewright recovery. Use MCP tools stonewright-wp-cli-status, stonewright-wp-cli-discover, stonewright-wp-cli-run, or stonewright-wp-cli-batch-run.',
 			'- Do not use another MCP adapter execute-php to replace Stonewright php-execute.',
-			'- At the start of every Stonewright task, call MCP tool stonewright-context-bootstrap with the user request, surface, and intent. Read the returned instructions, matched skill playbooks, memory entries, and required followups before acting.',
-			'- Use fast_path.tool_profile from stonewright/workflow-preflight before making a separate stonewright/tool-profile call; call tool-profile only to switch or verify a compact profile.',
-			'- If essential tools mode is enabled, use the compact fast-path tools returned by stonewright/workflow-preflight instead of probing for every specialized ability.',
+			'- At the start of every Stonewright task, call MCP tool stonewright-task-start with the user request, surface, and intent. Read its compact context refs, matched skills, memory, expertise, and required followups before acting.',
+			'- Use fast_path.tool_profile from stonewright/task-start before making a separate stonewright/tool-profile call; call tool-profile only to switch or verify a compact profile.',
+			'- If essential tools mode is enabled, use the compact fast-path tools returned by stonewright/task-start instead of probing for every specialized ability.',
 			'- Use stonewright/php-execute for direct full WordPress runtime access when a short PHP snippet is faster than many typed calls. It runs inside WordPress with loaded plugins and $wpdb.',
-			'- Every write or destructive ability must include the stonewright_context_token returned by stonewright/context-bootstrap.',
+			'- Never write raw _elementor_data through php-execute. Every Elementor V3 node needs a non-empty unique id; use typed Elementor abilities or Backup::snapshot_post plus ElementorData::write.',
+			'- Every write or destructive ability must include the stonewright_context_token returned by stonewright/task-start or the compatibility context-bootstrap path.',
 			'- Persistent skills and memory are authoritative across sessions. Call stonewright/skills-get for every matched skill and stonewright/memory-get or stonewright/memory-list for relevant memory before planning or writing.',
 			'- Context bootstrap activates at most three compatible expertise pack refs. Load only a needed section with stonewright/expertise-get; never use a stale, draft, retired, or version-incompatible pack.',
+			'- Candidate expertise is advisory only. It may guide discovery and planning but cannot prove a runtime capability or authorize a write; verified/stable requires an exact evidence-backed runtime fingerprint.',
 			'- Site-specific skills, memory, and custom instructions stay local to this WordPress install. Treat them as private site context, not public project material or reusable package defaults.',
 			'- Do not publish credentials, private memory, site-specific prompts, or custom instructions into docs, commits, release notes, generated skills, public examples, or support replies unless the site owner explicitly asks for that exact disclosure.',
-			'- Subagents must call stonewright-context-bootstrap themselves in their own session. Do not delegate only a copied context token; the subagent must read the returned instructions, memory, skills, followups, and visual contract before writing.',
+			'- Subagents must call stonewright-task-start themselves in their own session. Do not delegate only a copied context token; each subagent must read its returned context refs, memory, skills, followups, and visual contract before writing.',
 			'- If the user corrects the agent or a repeatable mistake is detected, call stonewright/learning-record. It records memory by default; any generated skill remains a disabled draft.',
 			'- For browser testing, screenshots, or visual inspection, use an external Playwright MCP. If the MCP client has no browser tool available, install/connect the external Playwright MCP with command `npx -y @playwright/mcp@latest --caps=testing,vision,devtools`, restart the AI client so the tool list refreshes, and stop before the first visual write until the browser tool is visible. Stonewright itself does not expose browser or screenshot tools.',
 			'- For visual implementation tasks, do not write blind. Extract measured tokens from the reference screenshot first: canvas size, section bounds, max widths, colors, typography, spacing, and asset crop bounds. Then build, screenshot the live page at the same viewport, list visible deltas, and iterate. Horizontal scroll is a hard failure.',
@@ -81,7 +84,7 @@ final class AgentInstructions {
 			'- Use stonewright/wp-cli-run for tokenized WP-CLI commands that speed up WordPress, Elementor, Gutenberg, ACF, CPT UI, cache, rewrite, plugin, option, post, media, menu, and taxonomy tasks. Pass stonewright_context_token for every write command.',
 			'- WP-CLI remains tokenized; use stonewright/php-execute for PHP runtime snippets and structured returns.',
 			'- If stonewright/wp-cli-status returns available=false in a WordPress-proxied client, do not assume WP-CLI is missing. Use direct companion MCP tools stonewright-wp-cli-status / stonewright-wp-cli-discover / stonewright-wp-cli-run or companion_wp_cli_status / companion_wp_cli_discover / companion_wp_cli_run when exposed. If those are not available, use normal Stonewright REST abilities; do not create sandbox files or arbitrary REST workarounds for basic page/template/meta writes.',
-			'- For ACF, ACPT, Meta Box, ASE, Pods, WooCommerce, custom fields, content-model, or product-catalog work, call stonewright/workflow-preflight first and follow the returned specialization guidance before writing.',
+			'- For ACF, ACPT, Meta Box, ASE, Pods, WooCommerce, custom fields, content-model, or product-catalog work, call stonewright/task-start and follow the returned specialization guidance before writing.',
 			'- If a matching site skill is returned, call stonewright/skills-get for stonewright-content-model-integrations or stonewright-woocommerce-catalog and follow that playbook. Use plugin-specific official REST or WP-CLI surfaces when present; otherwise use native Stonewright content, media, taxonomy, menu, PHP execute, and WP-CLI abilities.',
 			'- For content-model writes, confirm plugin active state, discover post types, taxonomies, value targets, field groups, and available command groups before choosing a write path. Do not invent hidden storage keys for ACF, ACPT, Meta Box, ASE, or Pods.',
 			'- For WooCommerce catalog writes, verify WooCommerce is active, discover wp wc support, check SKU uniqueness, create attributes before variations, soft-delete by default, and read back parent products plus generated variations.',
@@ -149,7 +152,7 @@ final class AgentInstructions {
 		$parts[] = '## How to use Stonewright Skills';
 		$parts[] = '';
 		$parts[] = 'Skills are site-specific playbooks you MUST follow when the current task matches their description.';
-		$parts[] = 'Call MCP tool `stonewright-context-bootstrap` first; it returns matched skill playbooks directly. If you need another playbook, call ability `stonewright/skills-get` (MCP tool `stonewright-skills-get`) and follow it exactly.';
+		$parts[] = 'Call MCP tool `stonewright-task-start` first; it returns compact matched skill refs and the task token. If you need a playbook body, call ability `stonewright/skills-get` (MCP tool `stonewright-skills-get`) and follow it exactly.';
 		$parts[] = 'To list all available skills: call `stonewright/skills-list`.';
 		$parts[] = 'To create or update a skill: call `stonewright/skills-save`.';
 		$parts[] = 'To read an individual skill: call `stonewright/skills-get` with the slug.';

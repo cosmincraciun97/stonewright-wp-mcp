@@ -48,6 +48,7 @@ final class Validator {
 		$diagnostics = [];
 		$sources     = (array) $evidence['sources'];
 		$source_ids  = [];
+		$has_visual_source = false;
 
 		if ( [] === $sources ) {
 			$diagnostics[] = self::diagnostic( 'sources', 'sources_missing', 'Add at least one Figma, screenshot, image, live-site, documentation, or user source.' );
@@ -64,6 +65,12 @@ final class Validator {
 			if ( ! in_array( $type, self::SOURCE_TYPES, true ) ) {
 				$diagnostics[] = self::diagnostic( 'sources[' . $index . '].type', 'invalid_source_type', 'Use one of: ' . implode( ', ', self::SOURCE_TYPES ) . '.' );
 			}
+			if ( in_array( $type, [ 'figma', 'screenshot', 'image' ], true ) ) {
+				$has_visual_source = true;
+				if ( '' === trim( (string) ( $source['ref'] ?? '' ) ) || ! preg_match( '/^[a-f0-9]{64}$/i', (string) ( $source['hash'] ?? '' ) ) ) {
+					$diagnostics[] = self::diagnostic( 'sources[' . $index . ']', 'visual_source_unverifiable', 'Provide a stable source ref and SHA-256 for each Figma, screenshot, or image reference.' );
+				}
+			}
 		}
 
 		$viewports = (array) $evidence['viewports'];
@@ -75,6 +82,9 @@ final class Validator {
 			if ( '' === trim( (string) ( $viewport['id'] ?? '' ) ) || (int) ( $viewport['width'] ?? 0 ) < 1 || (int) ( $viewport['height'] ?? 0 ) < 1 ) {
 				$diagnostics[] = self::diagnostic( 'viewports[' . $index . ']', 'invalid_viewport', 'Provide id, positive width, and positive height.' );
 			}
+		}
+		if ( $has_visual_source && count( $viewports ) < 2 ) {
+			$diagnostics[] = self::diagnostic( 'viewports', 'responsive_evidence_missing', 'Visual implementation needs at least two measured viewports, including desktop and mobile, before write planning.' );
 		}
 		self::validate_unresolved( (array) $evidence['unresolved'], 'unresolved', $diagnostics );
 
@@ -100,7 +110,7 @@ final class Validator {
 		}
 		foreach ( $nodes as $index => $node ) {
 			if ( is_array( $node ) ) {
-				self::validate_node( $node, 'nodes[' . $index . ']', $source_ids, $seen_nodes, $diagnostics );
+				self::validate_node( $node, 'nodes[' . $index . ']', $source_ids, $seen_nodes, $diagnostics, $has_visual_source );
 			}
 		}
 		$diagnostics = array_merge( $diagnostics, ActionValidator::validate_evidence_nodes( $nodes ) );
@@ -194,7 +204,7 @@ final class Validator {
 	 * @param array<string, bool>        $seen_nodes
 	 * @param list<array<string, mixed>> $diagnostics
 	 */
-	private static function validate_node( array $node, string $path, array $source_ids, array &$seen_nodes, array &$diagnostics ): void {
+	private static function validate_node( array $node, string $path, array $source_ids, array &$seen_nodes, array &$diagnostics, bool $require_bounds ): void {
 		$id   = trim( (string) ( $node['id'] ?? '' ) );
 		$role = strtolower( trim( (string) ( $node['role'] ?? '' ) ) );
 		if ( '' === $id || isset( $seen_nodes[ $id ] ) ) {
@@ -204,6 +214,14 @@ final class Validator {
 		}
 		if ( ! in_array( $role, self::ROLES, true ) ) {
 			$diagnostics[] = self::diagnostic( $path . '.role', 'unknown_semantic_role', 'Use a supported semantic role; do not pass raw Figma node types.' );
+		}
+		if ( $require_bounds && ! self::valid_bounds( $node['bounds'] ?? null ) ) {
+			$diagnostics[] = self::diagnostic( $path . '.bounds', 'measured_bounds_missing', 'Provide measured x, y, width, and height for every visual semantic node.' );
+		}
+		foreach ( self::human_copy( $node ) as $copy_path => $copy ) {
+			if ( self::is_placeholder_copy( $copy ) ) {
+				$diagnostics[] = self::diagnostic( $path . '.' . $copy_path, 'placeholder_copy', 'Replace placeholder copy with verified design or user content before planning.' );
+			}
 		}
 		self::validate_unresolved( (array) ( $node['unresolved'] ?? [] ), $path . '.unresolved', $diagnostics );
 		foreach ( (array) ( $node['customization_needs'] ?? [] ) as $index => $need ) {
@@ -229,7 +247,7 @@ final class Validator {
 
 		foreach ( (array) ( $node['children'] ?? [] ) as $index => $child ) {
 			if ( is_array( $child ) ) {
-				self::validate_node( $child, $path . '.children[' . $index . ']', $source_ids, $seen_nodes, $diagnostics );
+				self::validate_node( $child, $path . '.children[' . $index . ']', $source_ids, $seen_nodes, $diagnostics, $require_bounds );
 			}
 		}
 	}
@@ -311,6 +329,39 @@ final class Validator {
 			$value[ $key ] = self::canonicalize( $item );
 		}
 		return $value;
+	}
+
+	private static function valid_bounds( mixed $bounds ): bool {
+		if ( ! is_array( $bounds ) ) {
+			return false;
+		}
+		return is_numeric( $bounds['x'] ?? null )
+			&& is_numeric( $bounds['y'] ?? null )
+			&& is_numeric( $bounds['width'] ?? null )
+			&& is_numeric( $bounds['height'] ?? null )
+			&& (float) $bounds['width'] > 0
+			&& (float) $bounds['height'] > 0;
+	}
+
+	/** @param array<string, mixed> $node @return array<string, string> */
+	private static function human_copy( array $node ): array {
+		$out = [];
+		foreach ( [ 'name' ] as $key ) {
+			if ( is_string( $node[ $key ] ?? null ) ) {
+				$out[ $key ] = (string) $node[ $key ];
+			}
+		}
+		foreach ( (array) ( $node['content'] ?? [] ) as $key => $value ) {
+			if ( is_string( $value ) ) {
+				$out[ 'content.' . (string) $key ] = $value;
+			}
+		}
+		return $out;
+	}
+
+	private static function is_placeholder_copy( string $value ): bool {
+		$value = strtolower( trim( strip_tags( $value ) ) );
+		return 1 === preg_match( '/^(?:titlu(?:\s+card|\s+\d+)?|text(?:\s+card)?|icon\s*\+\s*title\s*\d*|type your paragraph here|lorem ipsum|card(?: featured)?|beneficiu\s*\d+)$/u', $value );
 	}
 
 	/** @return array<string, mixed> */

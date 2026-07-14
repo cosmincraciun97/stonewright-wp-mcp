@@ -41,7 +41,7 @@ final class UpdateElementTest extends TestCase {
 		$GLOBALS['stonewright_test_user_logged_in'] = false;
 	}
 
-	public function test_update_container_sanitizes_settings_that_break_flex_output(): void {
+	public function test_update_container_preserves_valid_native_flex_settings(): void {
 		$result = ( new UpdateElement() )->execute(
 			[
 				'post_id'    => 601,
@@ -49,7 +49,7 @@ final class UpdateElementTest extends TestCase {
 				'settings'   => [
 					'direction'    => 'row',
 					'flex_wrap'    => 'wrap',
-					'_flex_size'   => 'grow',
+					'_flex_size'   => 'custom',
 					'_flex_grow'   => '1',
 					'_flex_shrink' => '0',
 				],
@@ -66,9 +66,9 @@ final class UpdateElementTest extends TestCase {
 		self::assertArrayHasKey( 'flex_direction', $settings );
 		self::assertSame( 'row', $settings['flex_direction'] );
 		self::assertArrayNotHasKey( 'direction', $settings );
-		self::assertArrayNotHasKey( 'flex_wrap', $settings );
-		self::assertArrayNotHasKey( '_flex_size', $settings );
-		self::assertArrayNotHasKey( '_flex_grow', $settings );
-		self::assertArrayNotHasKey( '_flex_shrink', $settings );
+		self::assertSame( 'wrap', $settings['flex_wrap'] );
+		self::assertSame( 'custom', $settings['_flex_size'] );
+		self::assertSame( '1', $settings['_flex_grow'] );
+		self::assertSame( '0', $settings['_flex_shrink'] );
 	}
 }

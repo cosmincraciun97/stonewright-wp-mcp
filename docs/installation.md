@@ -69,7 +69,7 @@ shell wrapper, global install, or manual bridge:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.65/stonewright-companion-1.0.0-alpha.65.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
@@ -175,7 +175,7 @@ For MCP clients that use a local stdio server, configure:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.65/stonewright-companion-1.0.0-alpha.65.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -305,6 +305,7 @@ WordPress ability names use slashes. MCP tool names use hyphens.
 
 | WordPress ability | MCP tool |
 |---|---|
+| `stonewright/task-start` | `stonewright-task-start` |
 | `stonewright/context-bootstrap` | `stonewright-context-bootstrap` |
 | `stonewright/workflow-preflight` | `stonewright-workflow-preflight` |
 | `stonewright/system-abilities-list` | `stonewright-system-abilities-list` |
@@ -336,7 +337,7 @@ The complete command list is generated in
    through ad hoc shell scripts, create action scripts, inspect
    plugin/companion source to reverse-engineer tool schemas, hand-roll JSON-RPC,
    or call the REST ability runner from shell as recovery.
-3. Call `stonewright-workflow-preflight` with:
+3. Call `stonewright-task-start` with:
 
 ```json
 {
@@ -346,14 +347,14 @@ The complete command list is generated in
 }
 ```
 
-4. Confirm the response includes `context_token`, `mode`, `auth_guidance`,
-   `fast_path.task_profile`, `fast_path.recommended_mcp_tools`, and
-   `fast_path.call_sequence`. For visual tasks, also confirm
-   `fast_path.visual_build_gate`.
+4. Confirm the compact response includes `context_token`, `mode`,
+   `fast_path.task_profile`, `fast_path.next_tools`, context refs, and the
+   hashed `fast_path.visual_build_gate` for visual tasks.
 5. For tool-cap or token-sensitive clients, call `stonewright-tool-profile`
    with the same task, surface, and intent, then keep to the returned
    `recommended_mcp_tools` before broad ability discovery.
-6. Call `stonewright-context-bootstrap` with:
+6. Call `stonewright-context-bootstrap` only when diagnosing the compatibility
+   bootstrap or inspecting its full instruction contract:
 
 ```json
 {

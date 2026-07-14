@@ -73,7 +73,7 @@ final class ContainerSchemaRepository {
 				'label'      => is_scalar( $control['label'] ?? '' ) ? (string) ( $control['label'] ?? '' ) : '',
 				'tab'        => is_scalar( $control['tab'] ?? '' ) ? (string) ( $control['tab'] ?? '' ) : '',
 				'section'    => is_scalar( $control['section'] ?? '' ) ? (string) ( $control['section'] ?? '' ) : '',
-				'responsive' => (bool) ( $control['responsive'] ?? $control['is_responsive'] ?? false ),
+				'responsive' => (bool) ( $control['responsive'] ?? $control['is_responsive'] ?? false ) || self::known_responsive_control( $name ),
 				'dynamic'    => (array) ( $control['dynamic'] ?? [] ),
 				'condition'  => (array) ( $control['condition'] ?? $control['conditions'] ?? [] ),
 				'provenance' => 'live_elementor_runtime',
@@ -86,6 +86,32 @@ final class ContainerSchemaRepository {
 		}
 		ksort( $controls );
 		return $controls;
+	}
+
+	private static function known_responsive_control( string $name ): bool {
+		return in_array(
+			$name,
+			[
+				'width',
+				'boxed_width',
+				'height',
+				'min_height',
+				'flex_direction',
+				'flex_justify_content',
+				'flex_align_items',
+				'flex_align_content',
+				'flex_gap',
+				'flex_wrap',
+				'grid_columns_grid',
+				'padding',
+				'margin',
+				'_margin',
+				'border_width',
+				'border_radius',
+				'z_index',
+			],
+			true
+		);
 	}
 
 	/**
@@ -101,12 +127,16 @@ final class ContainerSchemaRepository {
 		$controls              = [
 			'container_type'       => [ 'type' => 'select', 'options' => [ 'flex' => 'Flex', 'grid' => 'Grid' ], 'default' => 'flex' ],
 			'content_width'        => [ 'type' => 'select', 'options' => [ 'boxed' => 'Boxed', 'full' => 'Full' ] ],
+			'boxed_width'          => $responsive_slider,
 			'flex_direction'       => [ 'type' => 'choose', 'responsive' => true ],
 			'flex_justify_content' => $responsive_select,
 			'flex_align_items'     => $responsive_select,
 			'flex_align_content'   => $responsive_select,
 			'flex_wrap'            => $responsive_select,
 			'flex_gap'             => $responsive_slider,
+			'_flex_size'           => [ 'type' => 'choose', 'options' => [ 'none' => 'None', 'grow' => 'Grow', 'shrink' => 'Shrink', 'custom' => 'Custom' ] ],
+			'_flex_grow'           => [ 'type' => 'number', 'condition' => [ '_flex_size' => 'custom' ] ],
+			'_flex_shrink'         => [ 'type' => 'number', 'condition' => [ '_flex_size' => 'custom' ] ],
 			'grid_columns_grid'    => $responsive_slider,
 			'width'                => $responsive_slider,
 			'height'               => $responsive_slider,

@@ -66,7 +66,7 @@ export class ElementorV4EditorAdapter {
         const element = await this.runtime.createElement({ atomicType, parentId: text(args.parent_id) || undefined, position: number(args.position), payload });
         this.historyPosition++;
         return result(`Created ${atomicType} ${element.id}.`, { element_id: element.id, atomic_type: atomicType, expected_hash: await hashValue(element) });
-      }), readback: async (_args, mutation) => this.readback(String(mutation.details?.element_id || "")), rollback: async () => this.rollbackOne() };
+      }), readback: async (_args, mutation) => this.readback(String(mutation.details?.element_id || ""), mutation.details), rollback: async (args) => this.rollbackMutation("create_element", args) };
   }
 
   private updateElement(): NestedEditorTool {
@@ -77,30 +77,45 @@ export class ElementorV4EditorAdapter {
         const settings = record(args.settings) as AtomicSettings; validateAtomicSettings(settings, schema);
         const patch = { ...(Object.keys(settings).length ? { settings } : {}), ...(args.styles !== undefined ? { styles: record(args.styles) as AtomicStyleMap } : {}), ...(args.editor_settings !== undefined ? { editor_settings: record(args.editor_settings) } : {}), ...(args.interactions !== undefined ? { interactions: interactions(args.interactions) } : {}) };
         validateAtomicEnvelope({ ...element, ...patch }, schema); await this.runtime.updateElement(element.id, patch); this.historyPosition++;
-        return result(`Updated Atomic ${element.id}.`, { element_id: element.id, patch_hash: await hashValue(patch) });
-      }), readback: async (_args, mutation) => this.readback(String(mutation.details?.element_id || "")), rollback: async () => this.rollbackOne() };
+        return result(`Updated Atomic ${element.id}.`, { element_id: element.id, expected_patch_hash: await hashValue(patch), patch_keys: Object.keys(patch) });
+      }), readback: async (_args, mutation) => this.readback(String(mutation.details?.element_id || ""), mutation.details), rollback: async (args) => this.rollbackMutation("update_settings", args) };
   }
 
   private moveElement(): NestedEditorTool {
     return { name: "move_element", label: "Move native Elementor V4 element", description: "Moves an Atomic element without converting its payload.", mutates: true, parameters: mutationSchema({ element_id: { type: "string" }, parent_id: { type: "string" }, position: { type: "integer" }, confirm_write: { const: true } }, ["element_id", "confirm_write", "idempotency_key"]), execute: async (args) => this.idempotent("move_element", args, async () => {
-      approved(args); const id = required(args, "element_id"); await this.requireElement(id); await this.runtime.moveElement(id, text(args.parent_id) || undefined, number(args.position)); this.historyPosition++; return result(`Moved Atomic ${id}.`, { element_id: id });
-    }), readback: async (_args, mutation) => this.readback(String(mutation.details?.element_id || "")), rollback: async () => this.rollbackOne() };
+      approved(args); const id = required(args, "element_id"); await this.requireElement(id); const parentId = text(args.parent_id) || undefined; const position = number(args.position); await this.runtime.moveElement(id, parentId, position); this.historyPosition++; return result(`Moved Atomic ${id}.`, { element_id: id, expected_parent_id: parentId ?? null, ...(position === undefined ? {} : { expected_position: position }) });
+    }), readback: async (_args, mutation) => this.readback(String(mutation.details?.element_id || ""), mutation.details), rollback: async (args) => this.rollbackMutation("move_element", args) };
   }
 
   private deleteElement(): NestedEditorTool {
     return { name: "delete_element", label: "Delete native Elementor V4 element", description: "Deletes an Atomic element after explicit destructive confirmation.", mutates: true, parameters: mutationSchema({ element_id: { type: "string" }, confirm_delete: { const: true }, confirm_write: { const: true } }, ["element_id", "confirm_delete", "confirm_write", "idempotency_key"]), execute: async (args) => this.idempotent("delete_element", args, async () => {
       approved(args); if (args.confirm_delete !== true) throw new Error("confirm_delete=true is required."); const id = required(args, "element_id"); await this.requireElement(id); await this.runtime.deleteElement(id); this.historyPosition++; return result(`Deleted Atomic ${id}.`, { element_id: id });
-    }), readback: async (_args, mutation) => { const id = String(mutation.details?.element_id || ""); if (await this.runtime.getElement(id)) throw new Error("Atomic delete readback failed."); return { element_id: id, absent: true }; }, rollback: async () => this.rollbackOne() };
+    }), readback: async (_args, mutation) => { const id = String(mutation.details?.element_id || ""); if (await this.runtime.getElement(id)) throw new Error("Atomic delete readback failed."); return { element_id: id, absent: true }; }, rollback: async (args) => this.rollbackMutation("delete_element", args) };
   }
 
-  private undo(): NestedEditorTool { return history("undo", async () => { await this.runtime.undo(); this.historyPosition = Math.max(0, this.historyPosition - 1); }); }
-  private redo(): NestedEditorTool { return history("redo", async () => { await this.runtime.redo(); this.historyPosition++; }); }
+  private undo(): NestedEditorTool { return this.history("undo", async () => { await this.runtime.undo(); this.historyPosition = Math.max(0, this.historyPosition - 1); }); }
+  private redo(): NestedEditorTool { return this.history("redo", async () => { await this.runtime.redo(); this.historyPosition++; }); }
   private save(): NestedEditorTool { return { name: "save", label: "Save Elementor V4 document", description: "Saves and verifies editor and frontend readback.", mutates: true, batchable: false, parameters: objectSchema({ confirm_write: { const: true } }, ["confirm_write"]), execute: async (args) => { approved(args); await this.runtime.save(); return result(`Saved ${this.runtime.documentId}.`, { document_id: this.runtime.documentId, tree_hash: await hashValue(await this.runtime.getPageTree()) }); }, readback: async () => { if (await this.runtime.isModified()) throw new Error("Elementor V4 save readback failed."); return { modified: false }; } }; }
 
   private async requireSchema(type: string): Promise<AtomicElementSchema> { const schema = await this.runtime.getAtomicSchema(type); if (!schema) throw new Error(`Live Atomic schema unavailable for ${type}; V3 fallback is forbidden.`); return schema; }
   private async requireElement(id: string): Promise<ElementorV4Element> { const element = await this.runtime.getElement(id); if (!element) throw new Error(`Atomic element not found: ${id}`); return element; }
-  private async readback(id: string): Promise<Record<string, unknown>> { const element = await this.requireElement(id); const schema = await this.requireSchema(typeOf(element)); validateAtomicEnvelope(element, schema); const frontend = await this.runtime.verifyFrontend(id); if (!frontend.exists) throw new Error(`Frontend readback failed for ${id}.`); return { element_id: id, element_hash: await hashValue(element), frontend }; }
-  private async rollbackOne(): Promise<void> { await this.runtime.undo(); this.historyPosition = Math.max(0, this.historyPosition - 1); }
+  private async readback(id: string, expected: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
+    const element = await this.requireElement(id); const schema = await this.requireSchema(typeOf(element)); validateAtomicEnvelope(element, schema);
+    const elementHash = await hashValue(element);
+    if (typeof expected.expected_hash === "string" && expected.expected_hash !== elementHash) throw new Error(`Atomic create readback mismatch for ${id}.`);
+    const patchKeys = Array.isArray(expected.patch_keys) ? expected.patch_keys.filter((key): key is string => typeof key === "string") : [];
+    if (typeof expected.expected_patch_hash === "string" && expected.expected_patch_hash !== await hashValue(pick(element as unknown as Record<string, unknown>, patchKeys))) throw new Error(`Atomic update readback mismatch for ${id}.`);
+    if (Object.hasOwn(expected, "expected_parent_id") && (element.parentId ?? null) !== expected.expected_parent_id) throw new Error(`Atomic move parent readback mismatch for ${id}.`);
+    if (typeof expected.expected_position === "number" && element.position !== expected.expected_position) throw new Error(`Atomic move position readback mismatch for ${id}.`);
+    const frontend = await this.runtime.verifyFrontend(id); if (!frontend.exists) throw new Error(`Frontend readback failed for ${id}.`);
+    return { element_id: id, element_hash: elementHash, frontend };
+  }
+  private history(name: "undo" | "redo", action: () => Promise<void>): NestedEditorTool {
+    return { name, label: `${name} Elementor V4 action`, description: `${name} through Elementor history with explicit approval and tree readback.`, mutates: true, batchable: false, parameters: objectSchema({ confirm_write: { const: true } }, ["confirm_write"]), execute: async (args) => {
+      approved(args); const before = await hashValue(await this.runtime.getPageTree()); await action(); const after = await hashValue(await this.runtime.getPageTree()); if (before === after) throw new Error(`Elementor V4 ${name} produced no tree change.`); return result(`${name} complete.`, { tree_hash: after });
+    }, readback: async (_args, output) => { const treeHash = await hashValue(await this.runtime.getPageTree()); if (treeHash !== output.details?.tree_hash) throw new Error(`Elementor V4 ${name} readback mismatch.`); return { tree_hash: treeHash }; } };
+  }
+  private async rollbackMutation(name: string, args: Record<string, unknown>): Promise<void> { await this.runtime.undo(); this.historyPosition = Math.max(0, this.historyPosition - 1); const key = text(args.idempotency_key); if (key) this.idempotency.delete(`${this.runtime.documentId}:${name}:${key}`); }
   private async idempotent(name: string, args: Record<string, unknown>, execute: () => Promise<NestedToolResult>): Promise<NestedToolResult> { const key = required(args, "idempotency_key"); const cacheKey = `${this.runtime.documentId}:${name}:${key}`; const hash = await hashValue(args); const previous = this.idempotency.get(cacheKey); if (previous) { if (previous.hash !== hash) throw new Error("Idempotency key reused with different input."); return { ...previous.result, details: { ...previous.result.details, idempotent_replay: true } }; } const value = await execute(); this.idempotency.set(cacheKey, { hash, result: value }); return value; }
 }
 
@@ -112,8 +127,8 @@ function required(args: Record<string, unknown>, key: string): string { const va
 function text(value: unknown): string { return typeof value === "string" ? value.trim() : ""; }
 function number(value: unknown): number | undefined { return typeof value === "number" && Number.isInteger(value) ? value : undefined; }
 function record(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+function pick(value: Record<string, unknown>, keys: string[]): Record<string, unknown> { return Object.fromEntries(keys.map((key) => [key, value[key]])); }
 function interactions(value: unknown): ElementorV4Element["interactions"] { return Array.isArray(value) ? value as Array<Record<string, unknown>> : record(value) as ElementorV4Element["interactions"]; }
 function objectSchema(properties: Record<string, unknown>, requiredKeys: string[] = []): Record<string, unknown> { return { type: "object", additionalProperties: false, properties, ...(requiredKeys.length ? { required: requiredKeys } : {}) }; }
 function mutationSchema(properties: Record<string, unknown>, requiredKeys: string[]): Record<string, unknown> { return objectSchema({ ...properties, idempotency_key: { type: "string" } }, requiredKeys); }
 function result(summary: string, details: Record<string, unknown>): NestedToolResult { return { content: [{ type: "text", text: summary }], details }; }
-function history(name: "undo" | "redo", action: () => Promise<void>): NestedEditorTool { return { name, label: `${name} Elementor V4 action`, description: `${name} through Elementor history.`, mutates: true, batchable: false, execute: async () => { await action(); return result(`${name} complete.`, {}); } }; }

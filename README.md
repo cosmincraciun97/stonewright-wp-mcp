@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.64-blue" /></a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.65-blue" /></a>
   <img alt="plugin license" src="https://img.shields.io/badge/plugin-AGPL--3.0--or--later-green" />
   <img alt="companion license" src="https://img.shields.io/badge/companion-MIT-blue" />
   <img alt="php" src="https://img.shields.io/badge/PHP-%3E%3D8.1-777bb4" />
@@ -95,9 +95,7 @@ First calls:
 ```text
 stonewright-ping
 verify stonewright-context-bootstrap is visible in the MCP tool list
-stonewright-wordpress-mcp-status
-stonewright-workflow-preflight
-stonewright-context-bootstrap
+stonewright-task-start
 ```
 
 If `stonewright-context-bootstrap` is missing, reload or fix the MCP client
@@ -120,7 +118,7 @@ snippets, and use `stonewright-wp-cli-status`, `stonewright-wp-cli-discover`,
 `stonewright-wp-cli-run`, `stonewright-wp-cli-batch-run`, or
 `stonewright-wp-cli-install` for tokenized WP-CLI workflows.
 
-Use `stonewright-workflow-preflight` for fast task setup. It returns a context
+Use `stonewright-task-start` for fast task setup. It returns a context
 token, active mode, auth reminders, compact Elementor capability data,
 task-aware MCP tool names, and a compact call sequence. For ACF, ACPT, Meta
 Box, ASE, Pods, WooCommerce, or custom field tasks, it also returns compact
@@ -129,7 +127,7 @@ specialization guidance.
 For Elementor or design-to-WordPress work, prefer the fast path:
 
 ```text
-stonewright-workflow-preflight
+stonewright-task-start
 stonewright-elementor-v3-build-page-from-spec
 stonewright-theme-builder-apply-template
 stonewright-content-model-loop-grid-flow
@@ -154,7 +152,7 @@ Fastest MCP-client setup uses the versioned GitHub release tarball through
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.65/stonewright-companion-1.0.0-alpha.65.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -192,7 +190,7 @@ session:
 ```toml
 [mcp_servers.stonewright]
 command = "npx"
-args = ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.65/stonewright-companion-1.0.0-alpha.65.tgz", "stonewright-mcp"]
+args = ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz", "stonewright-mcp"]
 
 [mcp_servers.stonewright.env]
 STONEWRIGHT_WP_URL = "https://your-site.example.com"
@@ -263,8 +261,7 @@ MCP clients call hyphenated tool names. First smoke test:
 
 ```text
 stonewright-ping
-stonewright-workflow-preflight
-stonewright-context-bootstrap
+stonewright-task-start
 ```
 
 For browser testing and screenshots, configure a separate Playwright MCP server
@@ -282,7 +279,7 @@ Playwright MCP server rather than a one-off Playwright CLI install.
 
 ## Prompting Stonewright
 
-Begin every task by asking the AI client to call `stonewright-context-bootstrap`.
+Begin every task by asking the AI client to call `stonewright-task-start`.
 Good prompts name the target page, template, post, menu, or media item; the
 allowed editor surface; the operating mode; visual references or content
 sources; and the acceptance checks.
@@ -290,7 +287,7 @@ sources; and the acceptance checks.
 Minimal task prompt:
 
 ```text
-Use Stonewright for this WordPress task. Start with stonewright-context-bootstrap.
+Use Stonewright for this WordPress task. Start with stonewright-task-start.
 If stonewright-context-bootstrap is not visible in the MCP tool list, stop and
 ask me to reload or fix the Stonewright MCP config.
 Edit page {id or title}. Use native Gutenberg/Elementor abilities first.
@@ -310,7 +307,7 @@ Example prompts:
 
 ```text
 Use Stonewright to implement the attached Figma design in Elementor V3. Start
-with stonewright-context-bootstrap and stonewright-workflow-preflight, extract
+with stonewright-task-start, extract
 layout, spacing, colors, typography, and responsive behavior, render with
 stonewright-elementor-v3-build-page-from-spec, then use
 stonewright-elementor-v3-batch-mutate for polish. Verify desktop, tablet, and

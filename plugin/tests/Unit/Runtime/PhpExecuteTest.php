@@ -116,6 +116,36 @@ final class PhpExecuteTest extends TestCase {
 		self::assertSame( 500, $result->get_error_data()['status'] ?? null );
 	}
 
+	public function test_blocks_raw_elementor_meta_writes_but_allows_reads(): void {
+		$blocked = ( new PhpExecute() )->execute(
+			[
+				'code' => 'update_post_meta(8170, "_elementor_data", "[]"); return true;',
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $blocked );
+		self::assertSame( 'stonewright_php_elementor_raw_write_blocked', $blocked->get_error_code() );
+
+		$read = ( new PhpExecute() )->execute(
+			[
+				'code' => 'return get_post_meta(8170, "_elementor_data", true);',
+			]
+		);
+		self::assertIsArray( $read );
+		self::assertTrue( $read['ok'] );
+	}
+
+	public function test_blocks_direct_elementor_data_helper_bypass(): void {
+		$result = ( new PhpExecute() )->execute(
+			[
+				'code' => 'return \\Stonewright\\WpMcp\\Support\\ElementorData::write(8170, []);',
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_php_elementor_raw_write_blocked', $result->get_error_code() );
+	}
+
 	public function test_code_is_redacted_from_audit_log(): void {
 		$secret_code = 'return "secret runtime source";';
 

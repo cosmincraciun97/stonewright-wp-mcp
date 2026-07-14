@@ -77,6 +77,14 @@ Every write ability that touches post meta calls
 If the ability does NOT call it internally (e.g. `update-kit-colors`), call
 `stonewright/elementor-v3-backup-page` explicitly first.
 
+Never write raw `_elementor_data` with `update_post_meta()` or create revision
+meta manually. Every container, section, column, and widget node must have a
+non-empty ID unique across the tree. Prefer typed Elementor abilities. For an
+explicit runtime repair through `stonewright/php-execute`, call
+`Backup::snapshot_post( $post_id )`, generate missing IDs with
+`ElementorData::generate_id()`, and persist only through
+`ElementorData::write()`. Stop when its tree validator rejects the payload.
+
 ## Container model
 
 Elementor V3 uses containers (flexbox) as the primary layout primitive. When

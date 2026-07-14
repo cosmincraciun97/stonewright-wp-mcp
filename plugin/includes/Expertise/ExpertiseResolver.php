@@ -12,7 +12,7 @@ final class ExpertiseResolver {
 		$query      = self::normalize( $task . ' ' . $surface );
 		$rows       = [];
 		foreach ( ExpertiseRegistry::all() as $pack ) {
-			if ( ! in_array( (string) $pack['status'], [ 'verified', 'stable' ], true ) ) {
+			if ( ! in_array( (string) $pack['status'], [ 'candidate', 'verified', 'stable' ], true ) ) {
 				continue;
 			}
 			$compatibility = self::compatibility( $pack, $runtime );
@@ -32,7 +32,7 @@ final class ExpertiseResolver {
 				$id     = (string) $pack['id'];
 				$hash   = (string) $pack['hash'];
 				$cached = isset( $known_hashes[ $id ] ) && hash_equals( $hash, (string) $known_hashes[ $id ] );
-				$ref    = [ 'id' => $id, 'version' => (string) $pack['version'], 'status' => (string) $pack['status'], 'hash' => $hash, 'cached' => $cached, 'body_tool' => 'stonewright/expertise-get' ];
+				$ref    = [ 'id' => $id, 'version' => (string) $pack['version'], 'status' => (string) $pack['status'], 'activation' => 'candidate' === (string) $pack['status'] ? 'advisory_only' : 'verified', 'hash' => $hash, 'cached' => $cached, 'body_tool' => 'stonewright/expertise-get' ];
 				if ( ! $cached ) {
 					$ref['trigger'] = (string) $pack['trigger'];
 				}
@@ -61,6 +61,12 @@ final class ExpertiseResolver {
 			if ( ! isset( $capabilities[ (string) $capability ] ) ) {
 				$reasons[] = 'capability:' . (string) $capability;
 			}
+		}
+		$verified_fingerprints = array_map( 'strval', (array) ( $pack['verified_runtime_fingerprints'] ?? [] ) );
+		if ( in_array( (string) ( $pack['status'] ?? '' ), [ 'verified', 'stable' ], true )
+			&& [] !== $verified_fingerprints
+			&& ! in_array( (string) ( $runtime['fingerprint'] ?? '' ), $verified_fingerprints, true ) ) {
+			$reasons[] = 'runtime:fingerprint_mismatch';
 		}
 		$graph = ExpertiseRegistry::graph( (string) $pack['id'] );
 		foreach ( $graph['missing_dependencies'] as $missing ) {

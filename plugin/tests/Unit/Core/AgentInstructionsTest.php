@@ -49,7 +49,7 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'Use stonewright/php-execute for direct full WordPress runtime access', $instructions );
 		$this->assertStringContainsString( 'Do not use another MCP adapter execute-php to replace Stonewright php-execute', $instructions );
 		$this->assertStringContainsString( 'stonewright/tool-profile', $instructions );
-		$this->assertStringContainsString( 'Use fast_path.tool_profile from stonewright/workflow-preflight before making a separate stonewright/tool-profile call', $instructions );
+		$this->assertStringContainsString( 'Use fast_path.tool_profile from stonewright/task-start before making a separate stonewright/tool-profile call', $instructions );
 		$this->assertStringContainsString( 'stonewright/skills-get', $instructions );
 		$this->assertStringContainsString( 'stonewright/memory-get', $instructions );
 		$this->assertStringContainsString( 'stonewright/learning-record', $instructions );
@@ -64,6 +64,7 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'stonewright/wp-cli-discover', $instructions );
 		$this->assertStringContainsString( 'stonewright/wp-cli-run', $instructions );
 		$this->assertStringContainsString( 'stonewright/php-execute', $instructions );
+		$this->assertStringContainsString( 'Every Elementor V3 node needs a non-empty unique id', $instructions );
 		$this->assertStringContainsString( 'do not require the WordPress-side HTTP bridge', $instructions );
 		$this->assertStringContainsString( 'stonewright-wp-cli-install', $instructions );
 		$this->assertStringContainsString( 'Elementor, Gutenberg, ACF, CPT UI', $instructions );
@@ -106,7 +107,8 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'Implement visual pages in batches of one section at a time, or two sections only when they are simple and tightly coupled', $instructions );
 		$this->assertStringContainsString( 'Auto-continue to the next section batch', $instructions );
 		$this->assertStringContainsString( 'Do not use the design canvas width as a fixed live page width', $instructions );
-		$this->assertStringContainsString( 'Subagents must call stonewright-context-bootstrap themselves', $instructions );
+		$this->assertStringContainsString( 'Subagents must call stonewright-task-start themselves', $instructions );
+		$this->assertStringContainsString( 'Candidate expertise is advisory only', $instructions );
 		$this->assertStringContainsString( 'Do not use a full-page screenshot as a section background', $instructions );
 		$this->assertStringContainsString( 'asset selection plan', $instructions );
 		$this->assertStringContainsString( 'Custom CSS requires explicit user approval', $instructions );

@@ -18,7 +18,7 @@ describe('createMcpServer', () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
 		const info = (server as any).server._serverInfo as { name: string; version: string };
 		expect(info.name).toBe('stonewright-companion');
-		expect(info.version).toBe('1.0.0-alpha.65');
+		expect(info.version).toBe('1.0.0-alpha.66');
 	});
 
 	it('publishes compact handshake instructions before any tool is called', async () => {
@@ -33,7 +33,7 @@ describe('createMcpServer', () => {
 
 		expect(instructions).toContain('stonewright-setup-profile');
 		expect(instructions).toContain('stonewright-context-bootstrap');
-		expect(instructions).toContain('stonewright-workflow-preflight');
+		expect(instructions).toContain('stonewright-task-start');
 		expect(instructions).toContain('stonewright-php-execute');
 		expect(instructions).toContain('fast_path.tool_profile');
 		expect(instructions).toContain('stonewright-wordpress-mcp-status');
@@ -218,7 +218,7 @@ describe('createMcpServer', () => {
 			},
 			fetchImpl: stonewrightMcpFetch([
 				{ name: 'stonewright-context-bootstrap' },
-				{ name: 'stonewright-workflow-preflight' },
+				{ name: 'stonewright-task-start' },
 				{ name: 'stonewright-tool-profile' },
 				{ name: 'stonewright-design-implementation-contract' },
 				{ name: 'stonewright-elementor-v3-container-schema' },
@@ -235,7 +235,7 @@ describe('createMcpServer', () => {
 
 		expect(names).toEqual(expect.arrayContaining([
 			'stonewright-context-bootstrap',
-			'stonewright-workflow-preflight',
+			'stonewright-task-start',
 			'stonewright-tool-profile',
 			'stonewright-design-implementation-contract',
 			'stonewright-elementor-v3-container-schema',
@@ -258,7 +258,7 @@ describe('createMcpServer', () => {
 			},
 			fetchImpl: stonewrightMcpFetch([
 				{ name: 'stonewright-context-bootstrap' },
-				{ name: 'stonewright-workflow-preflight' },
+				{ name: 'stonewright-task-start' },
 				{ name: 'stonewright-skills-get' },
 				{ name: 'stonewright-elementor-v4-status' },
 				{ name: 'stonewright-experimental-heavy-tool' },
@@ -292,7 +292,7 @@ describe('createMcpServer', () => {
 			},
 			fetchImpl: stonewrightMcpFetch([
 				{ name: 'stonewright-context-bootstrap' },
-				{ name: 'stonewright-design-implementation-contract' },
+				{ name: 'stonewright-design-native-plan' },
 				{ name: 'stonewright-media-upload' },
 				{ name: 'stonewright-elementor-v3-batch-mutate' },
 				{ name: 'stonewright-content-bulk-upsert-posts' },
@@ -304,7 +304,7 @@ describe('createMcpServer', () => {
 
 		expect(names).toEqual(expect.arrayContaining([
 			'stonewright-context-bootstrap',
-			'stonewright-design-implementation-contract',
+			'stonewright-design-native-plan',
 			'stonewright-elementor-v3-batch-mutate',
 			'stonewright-content-bulk-upsert-posts',
 		]));
@@ -315,7 +315,7 @@ describe('createMcpServer', () => {
 	it('keeps media discovery visible in Elementor and content-model proxied profiles', async () => {
 		const tools = [
 			{ name: 'stonewright-context-bootstrap' },
-			{ name: 'stonewright-workflow-preflight' },
+			{ name: 'stonewright-task-start' },
 			{ name: 'stonewright-tool-profile' },
 			{ name: 'stonewright-skills-get' },
 			{ name: 'stonewright-media-list' },
@@ -423,7 +423,7 @@ describe('createMcpServer', () => {
 			'stonewright-wp-cli-status',
 			'stonewright-wp-cli-batch-run',
 			'stonewright-context-bootstrap',
-			'stonewright-workflow-preflight',
+			'stonewright-task-start',
 			'stonewright-tool-profile',
 			'stonewright-php-execute',
 			'stonewright-skills-get',
@@ -448,9 +448,9 @@ describe('createMcpServer', () => {
 			},
 			fetchImpl: stonewrightMcpFetch([
 				{ name: 'stonewright-context-bootstrap' },
-				{ name: 'stonewright-workflow-preflight' },
+				{ name: 'stonewright-task-start' },
 				{ name: 'stonewright-tool-profile' },
-				{ name: 'stonewright-design-implementation-contract' },
+				{ name: 'stonewright-design-native-plan' },
 				{ name: 'stonewright-elementor-v3-batch-mutate' },
 				{ name: 'stonewright-experimental-heavy-tool' },
 			]),
@@ -460,9 +460,9 @@ describe('createMcpServer', () => {
 
 		expect(names).toEqual(expect.arrayContaining([
 			'stonewright-context-bootstrap',
-			'stonewright-workflow-preflight',
+			'stonewright-task-start',
 			'stonewright-tool-profile',
-			'stonewright-design-implementation-contract',
+			'stonewright-design-native-plan',
 			'stonewright-elementor-v3-batch-mutate',
 		]));
 		expect(names).not.toContain('stonewright-experimental-heavy-tool');
@@ -496,7 +496,7 @@ describe('createMcpServer', () => {
 			},
 			fetchImpl: stonewrightMcpFetch([
 				{ name: 'stonewright-context-bootstrap' },
-				{ name: 'stonewright-workflow-preflight' },
+				{ name: 'stonewright-task-start' },
 				{ name: 'stonewright-tool-profile' },
 				{ name: 'stonewright-wp-cli-status' },
 				{ name: 'stonewright-experimental-heavy-tool' },
@@ -524,11 +524,11 @@ describe('createMcpServer', () => {
 		};
 
 		expect(response.structuredContent?.tool_profile).toBe('essential');
-		expect(response.structuredContent?.companion_version).toBe('1.0.0-alpha.65');
-		expect(response.structuredContent?.expected_companion_package).toBe('https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.65/stonewright-companion-1.0.0-alpha.65.tgz');
+		expect(response.structuredContent?.companion_version).toBe('1.0.0-alpha.66');
+		expect(response.structuredContent?.expected_companion_package).toBe('https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz');
 		expect(response.structuredContent?.refresh_required_tool_names).toEqual([
 			'stonewright-context-bootstrap',
-			'stonewright-workflow-preflight',
+			'stonewright-task-start',
 			'stonewright-php-execute',
 		]);
 		expect(response.structuredContent?.remote_tool_count).toBe(5);
@@ -538,7 +538,7 @@ describe('createMcpServer', () => {
 		expect(response.structuredContent?.startup_ready).toBe(false);
 		expect(response.structuredContent?.startup_required_tool_names).toEqual([
 			'stonewright-context-bootstrap',
-			'stonewright-workflow-preflight',
+			'stonewright-task-start',
 			'stonewright-skills-get',
 		]);
 		expect(response.structuredContent?.startup_missing_tool_names).toEqual(['stonewright-skills-get']);
@@ -571,7 +571,7 @@ describe('createMcpServer', () => {
 			},
 			fetchImpl: stonewrightMcpFetch([
 				{ name: 'stonewright-context-bootstrap' },
-				{ name: 'stonewright-workflow-preflight' },
+				{ name: 'stonewright-task-start' },
 				{ name: 'stonewright-skills-get' },
 			]),
 		});
@@ -598,7 +598,7 @@ describe('createMcpServer', () => {
 			},
 			fetchImpl: stonewrightMcpFetch([
 				{ name: 'stonewright-context-bootstrap' },
-				{ name: 'stonewright-workflow-preflight' },
+				{ name: 'stonewright-task-start' },
 				{ name: 'stonewright-tool-profile' },
 				{ name: 'stonewright-skills-get' },
 				{ name: 'stonewright-site-info' },

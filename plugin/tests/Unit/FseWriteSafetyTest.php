@@ -74,6 +74,33 @@ final class FseWriteSafetyTest extends TestCase {
 		$this->assertNotEmpty( $backup_writes, 'Backup::snapshot_post must write _stonewright_backups meta.' );
 	}
 
+	public function test_backup_snapshot_targets_revision_meta_without_parent_redirect(): void {
+		$revision_id = 3052;
+		$GLOBALS['stonewright_test_posts'][ $revision_id ] = (object) [
+			'ID'           => $revision_id,
+			'post_type'    => 'revision',
+			'post_parent'  => 3051,
+			'post_content' => '',
+			'post_status'  => 'inherit',
+			'post_title'   => 'revision',
+			'post_excerpt' => '',
+			'meta'         => [ '_elementor_data' => '[{"id":"revision-node"}]' ],
+		];
+
+		$snapshot_id = Backup::snapshot_post( $revision_id );
+
+		self::assertNotEmpty( $snapshot_id );
+		$backup_writes = array_values(
+			array_filter(
+				$GLOBALS['stonewright_test_post_meta_calls'],
+				static fn( array $call ): bool => 'update_metadata' === $call['action']
+					&& $revision_id === $call['post_id']
+					&& '_stonewright_backups' === $call['meta_key']
+			)
+		);
+		self::assertCount( 1, $backup_writes );
+	}
+
 	public function test_restore_removes_tracked_meta_that_was_absent_at_snapshot_time(): void {
 		$post_id = 3051;
 		$GLOBALS['stonewright_test_posts'][ $post_id ] = (object) [

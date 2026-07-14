@@ -714,6 +714,26 @@ if ( ! function_exists( 'update_post_meta' ) ) {
 	}
 }
 
+if ( ! function_exists( 'update_metadata' ) ) {
+	function update_metadata( string $meta_type, int $object_id, string $meta_key, mixed $meta_value, mixed $prev_value = '' ): int|bool {
+		$GLOBALS['stonewright_test_post_meta_calls'][] = [
+			'action'    => 'update_metadata',
+			'meta_type' => $meta_type,
+			'post_id'   => $object_id,
+			'meta_key'  => $meta_key,
+			'value'     => $meta_value,
+		];
+		if ( 'post' === $meta_type && isset( $GLOBALS['stonewright_test_posts'][ $object_id ] ) ) {
+			$post                              = $GLOBALS['stonewright_test_posts'][ $object_id ];
+			$meta                              = (array) ( $post->meta ?? [] );
+			$meta[ $meta_key ]                 = $meta_value;
+			$post->meta                        = $meta;
+			$GLOBALS['stonewright_test_posts'][ $object_id ] = $post;
+		}
+		return true;
+	}
+}
+
 if ( ! function_exists( 'add_post_meta' ) ) {
 	function add_post_meta( int $post_id, string $meta_key, mixed $meta_value, bool $unique = false ): int|bool {
 		$GLOBALS['stonewright_test_post_meta_calls'][] = [
@@ -740,6 +760,26 @@ if ( ! function_exists( 'delete_post_meta' ) ) {
 			unset( $meta[ $meta_key ] );
 			$post->meta = $meta;
 			$GLOBALS['stonewright_test_posts'][ $post_id ] = $post;
+		}
+		return true;
+	}
+}
+
+if ( ! function_exists( 'delete_metadata' ) ) {
+	function delete_metadata( string $meta_type, int $object_id, string $meta_key, mixed $meta_value = '', bool $delete_all = false ): bool {
+		$GLOBALS['stonewright_test_post_meta_calls'][] = [
+			'action'    => 'delete_metadata',
+			'meta_type' => $meta_type,
+			'post_id'   => $object_id,
+			'meta_key'  => $meta_key,
+			'value'     => $meta_value,
+		];
+		if ( 'post' === $meta_type && isset( $GLOBALS['stonewright_test_posts'][ $object_id ] ) ) {
+			$post = $GLOBALS['stonewright_test_posts'][ $object_id ];
+			$meta = (array) ( $post->meta ?? [] );
+			unset( $meta[ $meta_key ] );
+			$post->meta = $meta;
+			$GLOBALS['stonewright_test_posts'][ $object_id ] = $post;
 		}
 		return true;
 	}

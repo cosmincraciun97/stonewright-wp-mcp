@@ -62,12 +62,6 @@ final class ElementorData {
 
 		$elementor_version = defined( 'ELEMENTOR_VERSION' ) ? ELEMENTOR_VERSION : '3.0.0';
 
-		// Capture stored value BEFORE writing so we know whether the new
-		// value matches what was already there (`update_post_meta` returns
-		// false on a no-op write — we have to disambiguate that from a
-		// real failure ourselves).
-		$pre_write = (string) get_post_meta( $post_id, '_elementor_data', true );
-
 		update_post_meta( $post_id, '_elementor_data', wp_slash( $json ) );
 		update_post_meta( $post_id, '_elementor_edit_mode', 'builder' );
 		update_post_meta( $post_id, '_elementor_version', $elementor_version );
@@ -118,14 +112,6 @@ final class ElementorData {
 					return true;
 				}
 			}
-		}
-
-		// Last resort — if the post_meta value changed at all (i.e. is
-		// non-empty and differs from the pre-write capture), the write
-		// hit the database. Accept; the caller will see the new value
-		// on its next read.
-		if ( $stored_data !== '' && $stored_data !== $pre_write ) {
-			return true;
 		}
 
 		return false;

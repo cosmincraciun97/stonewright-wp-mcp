@@ -14,9 +14,9 @@ edit WordPress sites through MCP.
 6. Reload or restart the AI client and confirm the tool list includes
    `stonewright-context-bootstrap`.
 7. Smoke test the connection with `stonewright-ping`, then call
-   `stonewright-context-bootstrap`.
+   `stonewright-task-start`.
 
-Every real task should start with `stonewright-context-bootstrap`. The response
+Every real task should start with `stonewright-task-start`. The response
 contains active instructions, relevant skills, persistent memory, workflow
 followups, and the short-lived token needed by write abilities.
 
@@ -54,7 +54,7 @@ Design or content reference:
   color, typography, or responsive requirements.
 
 Workflow:
-- Start with stonewright-context-bootstrap.
+- Start with stonewright-task-start.
 - If stonewright-context-bootstrap is not visible in the MCP tool list, stop and
   ask me to reload or fix the Stonewright MCP config.
 - Do not inspect private client config files, create scratch helper scripts,
@@ -143,7 +143,7 @@ and more precise.
 
 For most tasks:
 
-1. `stonewright-context-bootstrap`
+1. `stonewright-task-start`
 2. Discovery abilities such as `stonewright-system-abilities-list`,
    `stonewright-site-info`, `stonewright-elementor-v3-status`, or
    `stonewright-blocks-list-registered`
@@ -164,6 +164,6 @@ call `POST /wp-json/stonewright/v1/abilities/run` with:
 ```
 
 Write abilities still require the `stonewright_context_token` returned by
-`stonewright/context-bootstrap`. This runner is for deliberate REST clients and
+`stonewright/task-start` (or a compatibility bootstrap). This runner is for deliberate REST clients and
 tests, not a workaround when an MCP client failed to load the Stonewright tool
 list.

@@ -75,6 +75,7 @@ wp option update stonewright_companion_token change-this-long-random-token
 
 Then use Stonewright abilities:
 
+- `stonewright-task-start`
 - `stonewright-context-bootstrap`
 - `stonewright-workflow-preflight`
 - `stonewright-tool-profile`
@@ -108,8 +109,8 @@ for long imports, cache rebuilds, plugin operations, or large batches that
 should not block a single MCP request.
 
 Call `stonewright-setup-profile` once after connecting. Its `first_calls` and
-`tool_visibility_checks` fields show the compact startup path: bootstrap,
-preflight, optional profile verification, skill playbook retrieval, WordPress
+`tool_visibility_checks` fields show the compact startup path: task-start,
+optional compatibility bootstrap/profile verification, skill playbook retrieval, WordPress
 MCP proxy status, and direct WP-CLI aliases. Use `fast_path.tool_profile` from
 `stonewright-workflow-preflight` before making a separate
 `stonewright-tool-profile` call.

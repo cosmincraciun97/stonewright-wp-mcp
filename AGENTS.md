@@ -116,8 +116,9 @@ npm run build
 
 - Use the `Stonewright\WpMcp` PHP namespace.
 - Use the `stonewright/` ability prefix.
-- In MCP clients, call `stonewright-context-bootstrap` or
-  `stonewright-workflow-preflight` at the start of every Stonewright task.
+- In MCP clients, call `stonewright-task-start` at the start of every
+  Stonewright task. `stonewright-context-bootstrap` and
+  `stonewright-workflow-preflight` remain compatibility paths.
   Slash names like `stonewright/context-bootstrap` are WordPress ability names;
   MCP tool names use hyphens.
 - If `stonewright-context-bootstrap` is not visible in the MCP tool list, stop
@@ -145,3 +146,28 @@ npm run build
 - Use `stonewright/php-execute` for direct WordPress runtime inspection,
   plugin API calls, and short PHP snippets when that is faster than many typed
   calls.
+
+## Context discipline
+
+- Keep one goal per agent task. Start a fresh task when the goal changes or
+  unrelated work begins.
+- Compact only at stable checkpoints. Preserve the current objective, decisions,
+  changed files, validation results, blockers, and next step; drop raw transcript
+  history.
+- Read narrowly. Search first, then request only relevant files and line ranges.
+  Do not dump whole ledgers, generated artifacts, logs, lockfiles, or large JSON
+  files when a summary or targeted slice answers the question.
+- Batch related read-only checks when their output stays small. Avoid long chains
+  of near-identical reads, shell calls, or MCP calls that each resend the same
+  context.
+- Reuse the result of `stonewright-task-start` for the current goal. Repeat it
+  only after a
+  goal, target site, mode, authentication state, or tool profile change.
+- Prefer compact MCP profiles and task-aware batch abilities. Use the full tool
+  surface only when the task genuinely needs it.
+- Keep tool output bounded at the source. Report conclusions and decisive
+  evidence instead of echoing raw output into the task.
+- Attach large source material once. Refer to its path afterward; do not paste or
+  reattach it on later turns.
+- Never remove permission, backup, validation, confirmation-token, audit, test,
+  or source-verification steps to save tokens.

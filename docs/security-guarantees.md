@@ -139,7 +139,7 @@ vendor/bin/phpunit tests/Unit/WpCli/WpCliAbilitiesTest.php
 
 ## Rule 8 - Context Before Task Work
 
-Agents must call MCP tool `stonewright-context-bootstrap` at the start of every task.
+Agents must call MCP tool `stonewright-task-start` at the start of every task.
 Write abilities require the returned `stonewright_context_token`.
 
 Enforced by:

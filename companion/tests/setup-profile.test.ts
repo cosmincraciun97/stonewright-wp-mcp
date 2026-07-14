@@ -18,7 +18,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.mcp_server.args).toEqual([
 			'-y',
 			'--package',
-			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.65/stonewright-companion-1.0.0-alpha.65.tgz',
+			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz',
 			'stonewright-mcp',
 		]);
 		expect(profile.mcp_server.env).toMatchObject({
@@ -29,18 +29,18 @@ describe('buildSetupProfile', () => {
 		});
 		expect(profile.first_calls).toEqual([
 			'stonewright-context-bootstrap',
-			'stonewright-workflow-preflight',
+			'stonewright-task-start',
 		]);
 		expect(profile.tool_visibility_checks).toEqual([
 			'stonewright-context-bootstrap',
-			'stonewright-workflow-preflight',
+			'stonewright-task-start',
 			'stonewright-skills-get',
 			'stonewright-tool-profile',
 			'stonewright-php-execute',
 			'stonewright-security-issue-confirmation-token',
 			'stonewright-elementor-schema',
 			'stonewright-content-bulk-upsert-posts',
-			'stonewright-design-implementation-contract',
+			'stonewright-design-native-plan',
 			'stonewright-elementor-v3-batch-mutate',
 			'stonewright-gutenberg-apply-to-post',
 			'stonewright-setup-profile',
@@ -58,7 +58,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.tool_inventory.startup_budget.under_low_tools_cap).toBe(true);
 		expect(profile.tool_inventory.first_call_tool_names).toEqual([
 			'stonewright-context-bootstrap',
-			'stonewright-workflow-preflight',
+			'stonewright-task-start',
 		]);
 		expect(profile.tool_inventory.direct_wp_cli_tool_names).toEqual(expect.arrayContaining([
 			'stonewright-wp-cli-status',
@@ -73,17 +73,17 @@ describe('buildSetupProfile', () => {
 		expect(profile.tool_inventory.proxied_profile_tool_groups.runtime).toContain('stonewright-php-execute');
 		expect(profile.tool_inventory.refresh_required_tool_names).toEqual([
 			'stonewright-context-bootstrap',
-			'stonewright-workflow-preflight',
+			'stonewright-task-start',
 			'stonewright-php-execute',
 		]);
-		expect(profile.tool_inventory.companion_version).toBe('1.0.0-alpha.65');
+		expect(profile.tool_inventory.companion_version).toBe('1.0.0-alpha.66');
 		expect(profile.tool_inventory.expected_companion_package).toBe(
-			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.65/stonewright-companion-1.0.0-alpha.65.tgz',
+			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz',
 		);
 		expect(profile.notes.join('\n')).toContain('Use stonewright-wordpress-mcp-status if proxied WordPress tools are missing');
 		expect(profile.notes.join('\n')).toContain('After every Stonewright release or skill sync, restart the MCP client and re-run stonewright-setup-profile plus stonewright-wordpress-mcp-status');
 		expect(profile.notes.join('\n')).toContain('Verify the MCP tool list includes stonewright-context-bootstrap before starting WordPress work');
-		expect(profile.notes.join('\n')).toContain('Use fast_path.tool_profile from stonewright-workflow-preflight before making a separate stonewright-tool-profile call');
+		expect(profile.notes.join('\n')).toContain('Use fast_path.tool_profile from stonewright-task-start before making a separate stonewright-tool-profile call');
 		expect(profile.notes.join('\n')).toContain('STONEWRIGHT_MCP_TOOL_PROFILE=essential keeps new MCP sessions compact');
 		expect(profile.notes.join('\n')).toContain('Profile aliases such as elementor, design, acf, cpt-ui, fse, and wp cli normalize to compact canonical profiles.');
 		expect(profile.notes.join('\n')).toContain('Leave PORT unset for stdio-only MCP clients. To run the optional HTTP bridge, set STONEWRIGHT_HTTP_ENABLE=1 plus PORT.');
@@ -141,7 +141,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.platform).toBe('win32');
 		expect(profile.mcp_server.env.STONEWRIGHT_WP_ROOT).toBe('D:\\Sites\\mcp-test\\app\\public');
 		expect(profile.mcp_server.env.STONEWRIGHT_WP_USERNAME).toBe('admin');
-		expect(profile.install_command).toBe('npm install -g https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.65/stonewright-companion-1.0.0-alpha.65.tgz');
+		expect(profile.install_command).toBe('npm install -g https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz');
 		expect(profile.notes.join('\n')).toContain('No shell script wrapper required');
 	});
 

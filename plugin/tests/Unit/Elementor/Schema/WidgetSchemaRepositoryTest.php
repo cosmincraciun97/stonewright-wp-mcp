@@ -92,8 +92,14 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 		self::assertIsArray( $schema );
 		self::assertSame( 'elementor_live_controls', $schema['source'] );
 		self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $schema['schema_hash'] );
+		self::assertTrue( $schema['controls']['flex_direction']['responsive'] );
 
-		$valid = SettingsValidator::validate_container( [ 'plugin_layout_token_tablet' => 'wide' ] );
+		$valid = SettingsValidator::validate_container(
+			[
+				'flex_direction_mobile'      => 'column',
+				'plugin_layout_token_tablet' => 'wide',
+			]
+		);
 		self::assertIsArray( $valid );
 
 		$invalid = SettingsValidator::validate_container( [ 'invented_layout_key' => true ] );
@@ -125,6 +131,23 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 
 		$valid = SettingsValidator::validate( 'third-party-card', [ 'show_subtitle' => 'yes', 'subtitle' => 'Visible' ] );
 		self::assertIsArray( $valid );
+	}
+
+	public function test_final_tree_guard_preserves_inactive_existing_controls(): void {
+		$valid = SettingsValidator::validate_tree(
+			[
+				[
+					'id'         => 'card1',
+					'elType'     => 'widget',
+					'widgetType' => 'third-party-card',
+					'settings'   => [ 'subtitle' => 'Preserved while hidden' ],
+					'elements'   => [],
+				],
+			]
+		);
+
+		self::assertTrue( $valid );
+		self::assertNull( SettingsValidator::last_error() );
 	}
 
 	public function test_feature_change_creates_a_new_runtime_fingerprint(): void {
@@ -198,6 +221,80 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
 		self::assertSame( 'stonewright_elementor_settings_invalid', SettingsValidator::last_error()?->get_error_code() );
 	}
+
+	public function test_final_write_guard_blocks_nodes_without_ids_before_post_meta(): void {
+		$written = ElementorData::write(
+			99,
+			[
+				[
+					'elType'   => 'container',
+					'settings' => [],
+					'elements' => [],
+				],
+			]
+		);
+
+		self::assertFalse( $written );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+		self::assertSame( 'stonewright_elementor_tree_invalid', SettingsValidator::last_error()?->get_error_code() );
+		self::assertSame( 'missing_id', SettingsValidator::last_error()?->get_error_data()['violations'][0]['code'] );
+	}
+
+	public function test_final_tree_guard_blocks_duplicate_ids(): void {
+		$valid = SettingsValidator::validate_tree(
+			[
+				[ 'id' => 'same-id', 'elType' => 'container', 'settings' => [], 'elements' => [] ],
+				[ 'id' => 'same-id', 'elType' => 'container', 'settings' => [], 'elements' => [] ],
+			]
+		);
+
+		self::assertFalse( $valid );
+		self::assertSame( 'duplicate_id', SettingsValidator::last_error()?->get_error_data()['violations'][0]['code'] );
+	}
+
+	public function test_final_tree_guard_blocks_atomic_widgets_in_v3_tree(): void {
+		$valid = SettingsValidator::validate_tree(
+			[
+				[ 'id' => 'atomic1', 'elType' => 'widget', 'widgetType' => 'e-heading', 'settings' => [], 'elements' => [] ],
+			]
+		);
+
+		self::assertFalse( $valid );
+		self::assertSame( 'atomic_widget_in_v3_tree', SettingsValidator::last_error()?->get_error_data()['violations'][0]['code'] );
+	}
+
+	public function test_final_tree_guard_blocks_stripped_unicode_escapes(): void {
+		$valid = SettingsValidator::validate_tree(
+			[
+				[
+					'id'         => 'card1',
+					'elType'     => 'widget',
+					'widgetType' => 'third-party-card',
+					'settings'   => [ 'title' => 'Cum pou021bi creu0219te u00een echipu0103?' ],
+					'elements'   => [],
+				],
+			]
+		);
+
+		self::assertFalse( $valid );
+		self::assertSame( 'stripped_unicode_escape', SettingsValidator::last_error()?->get_error_data()['violations'][0]['code'] );
+	}
+
+	public function test_final_tree_guard_preserves_real_romanian_diacritics(): void {
+		$valid = SettingsValidator::validate_tree(
+			[
+				[
+					'id'         => 'card1',
+					'elType'     => 'widget',
+					'widgetType' => 'third-party-card',
+					'settings'   => [ 'title' => 'Cum poți crește în echipă?' ],
+					'elements'   => [],
+				],
+			]
+		);
+
+		self::assertTrue( $valid );
+	}
 }
 
 final class LiveContainerElement {
@@ -205,7 +302,9 @@ final class LiveContainerElement {
 	public function get_controls(): array {
 		return [
 			'container_type'     => [ 'type' => 'select', 'options' => [ 'flex' => 'Flex', 'grid' => 'Grid' ] ],
-			'flex_direction'     => [ 'type' => 'select', 'responsive' => true ],
+			// Elementor's live control array omits responsive metadata for core
+			// layout controls even though breakpoint-suffixed values are native.
+			'flex_direction'     => [ 'type' => 'select' ],
 			'plugin_layout_token' => [ 'type' => 'select', 'responsive' => true, 'options' => [ 'wide' => 'Wide' ] ],
 		];
 	}

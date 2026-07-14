@@ -9,18 +9,6 @@ namespace Stonewright\WpMcp\Elementor;
 final class ContainerSettings {
 
 	/**
-	 * Settings that commonly come from agent guesses and create broken flex output.
-	 *
-	 * @var array<int, string>
-	 */
-	private const BLOCKED_FLEX_KEYS = [
-		'flex_wrap',
-		'_flex_size',
-		'_flex_grow',
-		'_flex_shrink',
-	];
-
-	/**
 	 * @var array<string, string>
 	 */
 	private const SAFE_ALIASES = [
@@ -38,10 +26,6 @@ final class ContainerSettings {
 		$direction = isset( $settings['direction'] ) ? (string) $settings['direction'] : '';
 
 		unset( $settings['layout'], $settings['direction'] );
-
-		foreach ( self::BLOCKED_FLEX_KEYS as $key ) {
-			unset( $settings[ $key ] );
-		}
 
 		foreach ( self::SAFE_ALIASES as $alias => $target ) {
 			if ( ! array_key_exists( $alias, $settings ) ) {
@@ -75,7 +59,7 @@ final class ContainerSettings {
 	 * @return list<string>
 	 */
 	public static function blocked_settings(): array {
-		return self::BLOCKED_FLEX_KEYS;
+		return [];
 	}
 
 	private static function is_row_direction( string $direction, string $layout ): bool {

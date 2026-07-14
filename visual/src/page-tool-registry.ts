@@ -99,8 +99,8 @@ export class PageToolRegistry {
         continue;
       }
 
-      const args = toRecord(normalizeArgAliases(resolveRefs(call.args ?? {}, refs)));
       try {
+        const args = toRecord(normalizeArgAliases(resolveRefs(call.args ?? {}, refs)));
         const missing = missingRequired(tool.parameters, args);
         if (missing.length > 0) throw new Error(`Missing required args for ${toolName}: ${missing.join(", ")}.`);
         const result = await this.executeWithReadback(tool, args, requireReadback);
@@ -207,14 +207,18 @@ function missingRequired(parameters: unknown, args: Record<string, unknown>): st
 }
 
 function resolveRefs(value: unknown, refs: Record<string, unknown>): unknown {
-  if (typeof value === "string" && value.startsWith("$")) return Object.hasOwn(refs, value.slice(1)) ? refs[value.slice(1)] : value;
+  if (typeof value === "string" && value.startsWith("$")) {
+    const ref = value.slice(1);
+    if (!ref || !Object.hasOwn(refs, ref)) throw new Error(`Unknown batch reference: ${value}`);
+    return refs[ref];
+  }
   if (Array.isArray(value)) return value.map((item) => resolveRefs(item, refs));
   if (isRecord(value)) return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, resolveRefs(item, refs)]));
   return value;
 }
 
 function pickRefValue(result: NestedToolResult): unknown {
-  for (const key of ["id", "element_id", "block_id", "clientId", "widget_id"]) {
+  for (const key of ["id", "element_id", "block_id", "client_id", "clientId", "widget_id"]) {
     if (result.details?.[key] !== undefined) return result.details[key];
   }
   return undefined;

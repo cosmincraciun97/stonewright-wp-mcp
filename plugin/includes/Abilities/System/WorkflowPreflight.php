@@ -9,6 +9,7 @@ use Stonewright\WpMcp\Abilities\ElementorV3\CapabilitiesSummary;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Context\ContextBuilder;
 use Stonewright\WpMcp\Context\SpecializationCatalog;
+use Stonewright\WpMcp\Elementor\ArchitectureRouter;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -54,6 +55,17 @@ final class WorkflowPreflight extends AbilityKernel {
 					'type'        => 'string',
 					'default'     => 'unknown',
 					'description' => 'Task intent, e.g. read, write, delete, debug.',
+				],
+				'post_id' => [
+					'type'        => 'integer',
+					'minimum'     => 1,
+					'description' => 'Optional Elementor document id used to classify the existing V3/V4 tree before recommending writes.',
+				],
+				'target_architecture' => [
+					'type'        => 'string',
+					'enum'        => [ 'auto', 'v3', 'v4' ],
+					'default'     => 'auto',
+					'description' => 'Explicit architecture for an empty Elementor document. auto blocks ambiguous Elementor 4 writes.',
 				],
 				'include_design_contract' => [
 					'type'        => 'boolean',
@@ -132,6 +144,15 @@ final class WorkflowPreflight extends AbilityKernel {
 		$mode            = (string) get_option( 'stonewright_mode', 'development' );
 		$specializations = SpecializationCatalog::match( $task, $surface );
 		$task_profile    = self::task_profile( $task, $surface, $intent, $mode, $specializations );
+		$architecture    = ArchitectureRouter::describe(
+			(int) ( $args['post_id'] ?? 0 ),
+			(string) ( $args['target_architecture'] ?? 'auto' )
+		);
+		if ( 'elementor' === $surface ) {
+			$task_profile['elementor_write_target']  = (string) $architecture['write_target'];
+			$task_profile['elementor_write_blocked'] = (bool) $architecture['write_blocked'];
+			$task_profile['document_architecture']   = (string) $architecture['document_architecture'];
+		}
 		$recommended     = self::recommended_tools( $task_profile );
 		if ( self::should_offer_skill_get( $context, $specializations ) ) {
 			$recommended[] = 'stonewright/skills-get';
@@ -164,6 +185,9 @@ final class WorkflowPreflight extends AbilityKernel {
 				'Use external Playwright/browser MCP for screenshots and visual QA.',
 			],
 		];
+		if ( 'elementor' === $surface ) {
+			$fast_path['elementor_architecture'] = $architecture;
+		}
 		if ( self::should_reference_design_contract( $task_profile ) ) {
 			$fast_path['design_contract_ref'] = self::design_contract_ref( $include_design_contract );
 			if ( $include_design_contract ) {
@@ -194,6 +218,7 @@ final class WorkflowPreflight extends AbilityKernel {
 				'matched_skills'          => $context['matched_skills'] ?? [],
 				'matched_skill_playbooks' => $compact_playbooks,
 				'memory_entries'          => $context['memory_entries'] ?? [],
+				'expertise_packs'         => $context['expertise_packs'] ?? [],
 				'required_followups'      => $context['required_followups'] ?? [],
 			],
 		];
@@ -214,23 +239,84 @@ final class WorkflowPreflight extends AbilityKernel {
 	private static function compact_response( array $response, array $known_hashes ): array {
 		$hash_keys = [ 'auth_guidance', 'fast_path', 'elementor', 'site', 'context' ];
 		[ $payload_hashes, $changed, $unchanged ] = self::hash_delta( $response, $known_hashes, $hash_keys );
-
-		$response['response_mode']  = 'compact';
-		$response['payload_hashes'] = $payload_hashes;
-		$response['changed_keys']   = $changed;
-		$response['unchanged_keys'] = $unchanged;
-
-		if ( isset( $response['fast_path']['visual_build_gate'] ) ) {
-			$response['fast_path']['visual_build_gate'] = self::compact_object_ref( 'visual_build_gate', $response['fast_path']['visual_build_gate'] );
+		$fast_path = is_array( $response['fast_path'] ?? null ) ? $response['fast_path'] : [];
+		$profile   = is_array( $fast_path['task_profile'] ?? null ) ? $fast_path['task_profile'] : [];
+		$tools     = array_values( array_slice( array_map( 'strval', (array) ( $fast_path['recommended_mcp_tools'] ?? [] ) ), 0, 8 ) );
+		$compact_fast_path = [
+			'task_profile' => [
+				'surface'        => (string) ( $profile['surface'] ?? 'unknown' ),
+				'intent'         => (string) ( $profile['intent'] ?? 'unknown' ),
+				'is_write'       => (bool) ( $profile['is_write'] ?? false ),
+				'is_destructive' => (bool) ( $profile['is_destructive'] ?? false ),
+				'visual'         => (bool) ( $profile['needs_visual_check'] ?? false ),
+			],
+			'tool_profile' => (string) ( $fast_path['tool_profile']['profile'] ?? 'low-tools' ),
+			'next_tools'   => $tools,
+		];
+		if ( is_array( $fast_path['elementor_architecture'] ?? null ) ) {
+			$compact_fast_path['elementor_architecture'] = array_intersect_key(
+				$fast_path['elementor_architecture'],
+				array_flip( [ 'elementor_version', 'document_architecture', 'requested_architecture', 'write_target', 'write_blocked', 'reason', 'implicit_conversion' ] )
+			);
 		}
-		if ( isset( $response['fast_path']['design_implementation_contract'] ) ) {
-			unset( $response['fast_path']['design_implementation_contract'] );
+		if ( isset( $fast_path['visual_build_gate'] ) ) {
+			$compact_fast_path['visual_build_gate'] = self::compact_object_ref( 'visual_build_gate', $fast_path['visual_build_gate'] );
 		}
-		if ( isset( $response['context']['memory_entries'] ) && is_array( $response['context']['memory_entries'] ) ) {
-			$response['context']['memory_entries'] = self::compact_memory_entries( $response['context']['memory_entries'] );
+		if ( is_array( $fast_path['design_contract_ref'] ?? null ) ) {
+			$compact_fast_path['design_contract_ref'] = array_intersect_key(
+				$fast_path['design_contract_ref'],
+				array_flip( [ 'ability', 'mcp_tool', 'hash' ] )
+			);
 		}
 
-		return $response;
+		$elementor = is_array( $response['elementor'] ?? null ) ? $response['elementor'] : [];
+		$compact_elementor = [ 'included' => (bool) ( $elementor['included'] ?? false ) ];
+		foreach ( ( $compact_elementor['included'] ? [ 'primary_write_tool', 'mutation_batch_tool', 'container_schema_tool' ] : [] ) as $key ) {
+			if ( isset( $elementor[ $key ] ) ) {
+				$compact_elementor[ $key ] = $elementor[ $key ];
+			}
+		}
+		if ( is_array( $elementor['status'] ?? null ) ) {
+			$compact_elementor['status'] = array_intersect_key(
+				$elementor['status'],
+				array_flip( [ 'installed', 'active', 'version', 'has_pro', 'v4_atomic_support_status' ] )
+			);
+		}
+
+		$context = is_array( $response['context'] ?? null ) ? $response['context'] : [];
+		$skills  = [];
+		foreach ( (array) ( $context['matched_skills'] ?? [] ) as $skill ) {
+			if ( is_array( $skill ) ) {
+				$skills[] = array_intersect_key( $skill, array_flip( [ 'slug', 'title' ] ) );
+			}
+		}
+		$compact_context = [
+			'matched_skills'  => $skills,
+			'memory_refs'     => self::compact_memory_entries( $context['memory_entries'] ?? [] ),
+			'expertise_refs'  => array_values( (array) ( $context['expertise_packs'] ?? [] ) ),
+			'required_actions' => array_values( array_filter( [
+				[] !== $skills ? 'load_matched_skills' : null,
+				[] !== (array) ( $context['memory_entries'] ?? [] ) ? 'load_memory_refs' : null,
+				(bool) ( $profile['needs_visual_check'] ?? false ) ? 'connect_browser_before_visual_write' : null,
+				(bool) ( $profile['is_write'] ?? false ) ? 'pass_context_token_to_writes' : null,
+			] ) ),
+			'followups_ref'   => self::compact_object_ref( 'required_followups', $context['required_followups'] ?? [] ),
+		];
+
+		return [
+			'ok'             => (bool) ( $response['ok'] ?? false ),
+			'context_token'  => (string) ( $response['context_token'] ?? '' ),
+			'expires_at'     => (string) ( $response['expires_at'] ?? '' ),
+			'mode'           => (string) ( $response['mode'] ?? '' ),
+			'auth_guidance'  => [],
+			'fast_path'      => $compact_fast_path,
+			'elementor'      => $compact_elementor,
+			'context'        => $compact_context,
+			'response_mode'  => 'compact',
+			'payload_hashes' => $payload_hashes,
+			'changed_keys'   => $changed,
+			'unchanged_keys' => $unchanged,
+		];
 	}
 
 	/**
@@ -448,14 +534,22 @@ final class WorkflowPreflight extends AbilityKernel {
 	 * @return list<string>
 	 */
 	private static function recommended_tools( array $profile ): array {
-		$tools = [ 'stonewright/workflow-preflight', 'stonewright/tool-profile' ];
+		$tools = [ 'stonewright/task-start', 'stonewright/tool-profile' ];
 
 		if ( 'elementor' === $profile['surface'] ) {
 			$tools[] = 'stonewright/design-native-plan';
 			$tools[] = 'stonewright/knowledge-candidate-record';
-			$tools[] = 'stonewright/elementor-v3-get-kit-globals';
 			$tools[] = 'stonewright/elementor-schema';
-			if ( $profile['is_write'] ) {
+			$target = (string) ( $profile['elementor_write_target'] ?? 'v3' );
+			$blocked = ! empty( $profile['elementor_write_blocked'] );
+			if ( 'v3' === $target ) {
+				$tools[] = 'stonewright/elementor-v3-get-kit-globals';
+			} else {
+				$tools[] = 'stonewright/elementor-v4-status';
+				$tools[] = 'stonewright/elementor-v4-read-atomic-tree';
+				$tools[] = 'stonewright/elementor-v4-list-atomic-node-types';
+			}
+			if ( $profile['is_write'] && ! $blocked && 'v3' === $target ) {
 				$tools[] = 'stonewright/media-list';
 				$tools[] = 'stonewright/media-upload-batch';
 				$tools[] = 'stonewright/content-bulk-upsert-posts';
@@ -579,17 +673,8 @@ final class WorkflowPreflight extends AbilityKernel {
 		$task = self::compact_task( $task );
 		$out  = [
 			self::call_step(
-				'stonewright/context-bootstrap',
-				'Bootstrap Stonewright context before Figma, browser, or write tools; workflow-preflight may serve as the explicit fast-path bootstrap when already called.',
-				[
-					'task'    => $task,
-					'surface' => $profile['surface'],
-					'intent'  => $profile['intent'],
-				]
-			),
-			self::call_step(
-				'stonewright/workflow-preflight',
-				'Issue context token and select the task-specific fast path.',
+				'stonewright/task-start',
+				'Issue the context token and select the compact task-specific fast path.',
 				[
 					'task'    => $task,
 					'surface' => $profile['surface'],
@@ -608,16 +693,18 @@ final class WorkflowPreflight extends AbilityKernel {
 		}
 
 		if ( 'elementor' === $profile['surface'] ) {
+			$target  = (string) ( $profile['elementor_write_target'] ?? 'v3' );
+			$blocked = ! empty( $profile['elementor_write_blocked'] );
 			$out[] = self::call_step(
 				'stonewright/design-native-plan',
 				'Normalize DesignEvidence, block unresolved actions/styles, and map semantic nodes to live native schemas before any write.',
 				[
 					'action'   => 'plan',
-					'target'   => 'elementor-v3',
+					'target'   => 'v3' === $target ? 'elementor-v3' : 'elementor-v4',
 					'evidence' => '<DesignEvidence 1.0 from Figma/image/brief>',
 				]
 			);
-			if ( $profile['is_write'] ) {
+			if ( $profile['is_write'] && ! $blocked && 'v3' === $target ) {
 				$out[] = self::call_step(
 					'stonewright/media-list',
 					'Search existing WordPress media by title, alt text, caption, mime, and filename before uploading design assets.',
