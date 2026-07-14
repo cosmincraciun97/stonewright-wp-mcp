@@ -2,7 +2,7 @@
     "slug": "image-carousel",
     "source": "free",
     "title": "Image Carousel",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/image-carousel.php",
+    "file": "elementor/includes/widgets/image-carousel.php",
     "sections": [
         {
             "id": "section_image_carousel",

@@ -52,14 +52,15 @@ final class RendererValidationTest extends TestCase {
 			],
 		];
 
-		foreach ( [ GutenbergSpecRenderer::class, ElementorV4SpecRenderer::class ] as $renderer ) {
-			$diagnostics = [];
-			$result      = $renderer::render( $spec, $diagnostics );
+		$diagnostics = [];
+		$result      = GutenbergSpecRenderer::render( $spec, $diagnostics );
+		$this->assertNotInstanceOf( \WP_Error::class, $result );
+		$this->assertContains( 'unsupported_node', array_column( $diagnostics, 'code' ) );
 
-			$this->assertNotInstanceOf( \WP_Error::class, $result, $renderer );
-			$this->assertNotEmpty( $diagnostics, $renderer );
-			$this->assertContains( 'unsupported_node', array_column( $diagnostics, 'code' ), $renderer );
-			$this->assertContains( 'list', array_column( $diagnostics, 'type' ), $renderer );
-		}
+		$diagnostics = [];
+		$result      = ElementorV4SpecRenderer::render( $spec, $diagnostics );
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'stonewright_v4_unknown_node', $result->get_error_code() );
+		$this->assertNotEmpty( $diagnostics );
 	}
 }

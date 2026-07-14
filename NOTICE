@@ -1,0 +1,13 @@
+Stonewright
+Copyright (c) Stonewright contributors
+
+The Stonewright WordPress plugin and Stonewright Visual include or adapt code
+from Novamira by Ovation S.r.l., licensed under AGPL-3.0-or-later unless an
+individual source file states another license.
+
+Upstream project: https://github.com/use-novamira/novamira
+Detailed source paths, hashes, destinations, modifications, and verification
+are recorded in docs/upstream-code-reuse.md.
+
+The Stonewright Node companion is a separate MIT-licensed component and does
+not include Novamira-derived source.

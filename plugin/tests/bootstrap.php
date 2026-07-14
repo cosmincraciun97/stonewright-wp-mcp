@@ -8,8 +8,31 @@ declare( strict_types=1 );
 
 define( 'STONEWRIGHT_DIR', dirname( __DIR__ ) . '/' );
 
+$stonewright_test_root = sys_get_temp_dir() . '/stonewright-test-' . getmypid();
+
+register_shutdown_function(
+	static function () use ( $stonewright_test_root ): void {
+		if ( ! is_dir( $stonewright_test_root ) ) {
+			return;
+		}
+
+		$iterator = new RecursiveIteratorIterator(
+			new RecursiveDirectoryIterator( $stonewright_test_root, FilesystemIterator::SKIP_DOTS ),
+			RecursiveIteratorIterator::CHILD_FIRST
+		);
+		foreach ( $iterator as $item ) {
+			if ( $item->isDir() ) {
+				@rmdir( $item->getPathname() );
+			} else {
+				@unlink( $item->getPathname() );
+			}
+		}
+		@rmdir( $stonewright_test_root );
+	}
+);
+
 if ( ! defined( 'WP_CONTENT_DIR' ) ) {
-	$test_content_dir = sys_get_temp_dir() . '/stonewright-test-' . getmypid() . '/wp-content';
+	$test_content_dir = $stonewright_test_root . '/wp-content';
 	if ( ! is_dir( $test_content_dir ) ) {
 		mkdir( $test_content_dir, 0700, true );
 	}

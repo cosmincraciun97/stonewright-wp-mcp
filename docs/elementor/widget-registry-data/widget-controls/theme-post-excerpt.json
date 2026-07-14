@@ -2,7 +2,7 @@
     "slug": "theme-post-excerpt",
     "source": "pro",
     "title": "Post Excerpt",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/post-excerpt.php",
+    "file": "pro-elements/modules/theme-builder/widgets/post-excerpt.php",
     "sections": [
         {
             "id": "section_content",

@@ -2,7 +2,7 @@
     "slug": "heading",
     "source": "free",
     "title": "Heading",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/heading.php",
+    "file": "elementor/includes/widgets/heading.php",
     "sections": [
         {
             "id": "section_title",

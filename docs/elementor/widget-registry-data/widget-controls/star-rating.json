@@ -2,7 +2,7 @@
     "slug": "star-rating",
     "source": "free",
     "title": "Star Rating",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/star-rating.php",
+    "file": "elementor/includes/widgets/star-rating.php",
     "sections": [
         {
             "id": "section_rating",

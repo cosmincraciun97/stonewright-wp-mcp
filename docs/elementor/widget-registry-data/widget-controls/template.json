@@ -2,7 +2,7 @@
     "slug": "template",
     "source": "pro",
     "title": "Template",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/library/widgets/template.php",
+    "file": "pro-elements/modules/library/widgets/template.php",
     "sections": [
         {
             "id": "section_template",

@@ -122,11 +122,14 @@ final class BuildSpec extends AbilityKernel {
 			];
 		}
 		if ( isset( $section['button_text'] ) && '' !== trim( (string) $section['button_text'] ) ) {
-			$blocks[] = [
+			$button = [
 				'type'  => 'button',
 				'text'  => sanitize_text_field( (string) $section['button_text'] ),
-				'url'   => esc_url_raw( (string) ( $section['button_url'] ?? '#' ) ),
 			];
+			if ( isset( $section['button_url'] ) && '' !== trim( (string) $section['button_url'] ) ) {
+				$button['url'] = esc_url_raw( (string) $section['button_url'] );
+			}
+			$blocks[] = $button;
 		}
 
 		if ( [] !== $blocks ) {

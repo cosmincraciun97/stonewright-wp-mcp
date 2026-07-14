@@ -2,7 +2,7 @@
     "slug": "image-gallery",
     "source": "free",
     "title": "Basic Gallery",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/image-gallery.php",
+    "file": "elementor/includes/widgets/image-gallery.php",
     "sections": [
         {
             "id": "section_gallery",

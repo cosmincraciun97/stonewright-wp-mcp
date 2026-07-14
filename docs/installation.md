@@ -54,6 +54,13 @@ The companion is optional. Use it when your MCP client needs a local stdio
 server, WordPress MCP proxying, LocalWP/WP-CLI discovery, or the tokenized
 `stonewright-wp-cli-*` tools.
 
+Remote sites do not need Node when the AI client supports Streamable HTTP.
+Copy the **Remote HTTP** snippet from **Stonewright > Configuration**; it points
+directly at `/wp-json/mcp/stonewright` and authenticates with the dedicated
+WordPress Application Password. The setup diagnostics panel blocks a green
+status when HTTPS, Application Passwords, the endpoint, or the 20-tool budget
+is missing.
+
 Fastest MCP-client setup uses `npx`, so Windows, macOS, and Linux do not need a
 shell wrapper, global install, or manual bridge:
 
@@ -62,7 +69,7 @@ shell wrapper, global install, or manual bridge:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.64/stonewright-companion-1.0.0-alpha.64.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.65/stonewright-companion-1.0.0-alpha.65.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
@@ -168,7 +175,7 @@ For MCP clients that use a local stdio server, configure:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.64/stonewright-companion-1.0.0-alpha.64.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.65/stonewright-companion-1.0.0-alpha.65.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",

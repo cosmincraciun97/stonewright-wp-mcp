@@ -2,7 +2,7 @@
     "slug": "table-of-contents",
     "source": "pro",
     "title": "Table of Contents",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/table-of-contents/widgets/table-of-contents.php",
+    "file": "pro-elements/modules/table-of-contents/widgets/table-of-contents.php",
     "sections": [
         {
             "id": "table_of_contents",

@@ -90,7 +90,7 @@ final class ElementorStatusDiscoveryTest extends TestCase {
 		self::assertContains( 'text-editor', $result['unsupported_widgets'] );
 		self::assertSame( 'enabled-but-unavailable', $result['v4_atomic_support_status'] );
 		self::assertFalse( $result['v4_write_ready'] );
-		self::assertSame( 'elementor-v3-native', $result['recommended_renderer'] );
-		self::assertSame( 'Use Elementor V3 native-widget tools until V4 atomic support is both available and enabled.', $result['agent_action'] );
+		self::assertSame( 'blocked-v4', $result['recommended_renderer'] );
+		self::assertSame( 'Block V4 writes until Atomic support is available and enabled; never translate a V4 payload to V3 implicitly.', $result['agent_action'] );
 	}
 }

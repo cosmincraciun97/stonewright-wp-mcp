@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV4;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\DesignSpec\Validator;
+use Stonewright\WpMcp\Elementor\V4\V4FeatureGate;
 use Stonewright\WpMcp\Renderers\ElementorV4SpecRenderer;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
@@ -76,9 +77,9 @@ final class RenderFromSpec extends AbilityKernel {
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
-		if ( ! get_option( 'stonewright_elementor_v4_atomic', false ) ) {
-			return new \WP_Error( 'feature_disabled', __( 'Elementor V4 atomic features are disabled.', 'stonewright' ) );
-		}
+		$gate = V4FeatureGate::check( ! (bool) ( $args['dry_run'] ?? true ) );
+		if ( is_wp_error( $gate ) ) {
+return $gate; }
 		if ( ! empty( $args['post_id'] ) ) {
 			return Permissions::edit_post( (int) $args['post_id'] );
 		}

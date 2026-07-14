@@ -22,7 +22,7 @@
                 "toggle"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/accordion.php",
+            "file": "elementor/includes/widgets/accordion.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -37,7 +37,7 @@
                 "message"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/alert.php",
+            "file": "elementor/includes/widgets/alert.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -53,7 +53,7 @@
                 "embed"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/audio.php",
+            "file": "elementor/includes/widgets/audio.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -66,7 +66,7 @@
             ],
             "keywords": [],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/button.php",
+            "file": "elementor/includes/widgets/button.php",
             "inherits_categories": false,
             "inherits_keywords": true
         },
@@ -79,7 +79,7 @@
                 "counter"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/counter.php",
+            "file": "elementor/includes/widgets/counter.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -97,7 +97,7 @@
                 "border"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/divider.php",
+            "file": "elementor/includes/widgets/divider.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -115,7 +115,7 @@
                 "location"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/google-maps.php",
+            "file": "elementor/includes/widgets/google-maps.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -132,7 +132,7 @@
                 "text"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/heading.php",
+            "file": "elementor/includes/widgets/heading.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -148,7 +148,7 @@
                 "script"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/html.php",
+            "file": "elementor/includes/widgets/html.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -163,7 +163,7 @@
                 "icon"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/icon.php",
+            "file": "elementor/includes/widgets/icon.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -177,7 +177,7 @@
                 "icon"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/icon-box.php",
+            "file": "elementor/includes/widgets/icon-box.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -192,7 +192,7 @@
                 "list"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/icon-list.php",
+            "file": "elementor/includes/widgets/icon-list.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -209,7 +209,7 @@
                 "visual"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/image.php",
+            "file": "elementor/includes/widgets/image.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -225,7 +225,7 @@
                 "box"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/image-box.php",
+            "file": "elementor/includes/widgets/image-box.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -242,7 +242,7 @@
                 "slider"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/image-carousel.php",
+            "file": "elementor/includes/widgets/image-carousel.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -258,7 +258,7 @@
                 "gallery"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/image-gallery.php",
+            "file": "elementor/includes/widgets/image-gallery.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -275,7 +275,7 @@
                 "nested"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/inner-section.php",
+            "file": "elementor/includes/widgets/inner-section.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -290,7 +290,7 @@
                 "link"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/menu-anchor.php",
+            "file": "elementor/includes/widgets/menu-anchor.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -304,7 +304,7 @@
                 "bar"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/progress.php",
+            "file": "elementor/includes/widgets/progress.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -321,7 +321,7 @@
                 "scale"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/rating.php",
+            "file": "elementor/includes/widgets/rating.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -337,7 +337,7 @@
                 "excerpt"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/read-more.php",
+            "file": "elementor/includes/widgets/read-more.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -351,7 +351,7 @@
                 "code"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/shortcode.php",
+            "file": "elementor/includes/widgets/shortcode.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -365,7 +365,7 @@
                 "widget"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/sidebar.php",
+            "file": "elementor/includes/widgets/sidebar.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -380,7 +380,7 @@
                 "link"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/social-icons.php",
+            "file": "elementor/includes/widgets/social-icons.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -395,7 +395,7 @@
                 "space"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/spacer.php",
+            "file": "elementor/includes/widgets/spacer.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -411,7 +411,7 @@
                 "review"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/star-rating.php",
+            "file": "elementor/includes/widgets/star-rating.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -426,7 +426,7 @@
                 "toggle"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/tabs.php",
+            "file": "elementor/includes/widgets/tabs.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -440,7 +440,7 @@
                 "blockquote"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/testimonial.php",
+            "file": "elementor/includes/widgets/testimonial.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -456,7 +456,7 @@
                 "editor"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/text-editor.php",
+            "file": "elementor/includes/widgets/text-editor.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -471,7 +471,7 @@
                 "toggle"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/toggle.php",
+            "file": "elementor/includes/widgets/toggle.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -492,7 +492,7 @@
                 "videopress"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/video.php",
+            "file": "elementor/includes/widgets/video.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -508,7 +508,7 @@
                 "widget"
             ],
             "source": "free",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/wordpress.php",
+            "file": "elementor/includes/widgets/wordpress.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -525,7 +525,7 @@
                 "text"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/animated-headline/widgets/animated-headline.php",
+            "file": "pro-elements/modules/animated-headline/widgets/animated-headline.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -546,7 +546,7 @@
                 "custom post type"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/archive-posts.php",
+            "file": "pro-elements/modules/theme-builder/widgets/archive-posts.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -565,7 +565,7 @@
                 "tweet"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/blockquote/widgets/blockquote.php",
+            "file": "pro-elements/modules/blockquote/widgets/blockquote.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -580,7 +580,7 @@
                 "button"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/call-to-action/widgets/call-to-action.php",
+            "file": "pro-elements/modules/call-to-action/widgets/call-to-action.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -602,7 +602,7 @@
                 "js"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/code-highlight/widgets/code-highlight.php",
+            "file": "pro-elements/modules/code-highlight/widgets/code-highlight.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -620,7 +620,7 @@
                 "evergreen"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/countdown/widgets/countdown.php",
+            "file": "pro-elements/modules/countdown/widgets/countdown.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -640,7 +640,7 @@
                 "follow"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/social/widgets/facebook-button.php",
+            "file": "pro-elements/modules/social/widgets/facebook-button.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -655,7 +655,7 @@
                 "embed"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/social/widgets/facebook-comments.php",
+            "file": "pro-elements/modules/social/widgets/facebook-comments.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -675,7 +675,7 @@
                 "comment"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/social/widgets/facebook-embed.php",
+            "file": "pro-elements/modules/social/widgets/facebook-embed.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -691,7 +691,7 @@
                 "page"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/social/widgets/facebook-page.php",
+            "file": "pro-elements/modules/social/widgets/facebook-page.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -702,7 +702,7 @@
             "categories": [],
             "keywords": [],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/flip-box/widgets/flip-box.php",
+            "file": "pro-elements/modules/flip-box/widgets/flip-box.php",
             "inherits_categories": true,
             "inherits_keywords": true
         },
@@ -713,7 +713,7 @@
             "categories": [],
             "keywords": [],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/gallery/widgets/gallery.php",
+            "file": "pro-elements/modules/gallery/widgets/gallery.php",
             "inherits_categories": true,
             "inherits_keywords": true
         },
@@ -724,7 +724,7 @@
             "categories": [],
             "keywords": [],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/global-widget/widgets/global-widget.php",
+            "file": "pro-elements/modules/global-widget/widgets/global-widget.php",
             "inherits_categories": true,
             "inherits_keywords": true
         },
@@ -740,7 +740,7 @@
                 "dot"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/hotspot/widgets/hotspot.php",
+            "file": "pro-elements/modules/hotspot/widgets/hotspot.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -755,7 +755,7 @@
                 "form"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/forms/widgets/login.php",
+            "file": "pro-elements/modules/forms/widgets/login.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -766,7 +766,7 @@
             "categories": [],
             "keywords": [],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/lottie/widgets/lottie.php",
+            "file": "pro-elements/modules/lottie/widgets/lottie.php",
             "inherits_categories": true,
             "inherits_keywords": true
         },
@@ -785,7 +785,7 @@
                 "nav menu"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/nav-menu/widgets/nav-menu.php",
+            "file": "pro-elements/modules/nav-menu/widgets/nav-menu.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -804,7 +804,7 @@
                 "custom post type"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/posts/widgets/portfolio.php",
+            "file": "pro-elements/modules/posts/widgets/portfolio.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -823,7 +823,7 @@
                 "custom post type"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/posts/widgets/posts.php",
+            "file": "pro-elements/modules/posts/widgets/posts.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -840,7 +840,7 @@
                 "menu"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/pricing/widgets/price-list.php",
+            "file": "pro-elements/modules/pricing/widgets/price-list.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -858,7 +858,7 @@
                 "button"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/pricing/widgets/price-table.php",
+            "file": "pro-elements/modules/pricing/widgets/price-table.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -877,7 +877,7 @@
                 "scroll"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/progress-tracker/widgets/progress-tracker.php",
+            "file": "pro-elements/modules/progress-tracker/widgets/progress-tracker.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -892,7 +892,7 @@
                 "search"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/search/widgets/search.php",
+            "file": "pro-elements/modules/search/widgets/search.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -909,7 +909,7 @@
                 "like"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/share-buttons/widgets/share-buttons.php",
+            "file": "pro-elements/modules/share-buttons/widgets/share-buttons.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -926,7 +926,7 @@
                 "slider"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/slides/widgets/slides.php",
+            "file": "pro-elements/modules/slides/widgets/slides.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -942,7 +942,7 @@
                 "toc"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/table-of-contents/widgets/table-of-contents.php",
+            "file": "pro-elements/modules/table-of-contents/widgets/table-of-contents.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -960,7 +960,7 @@
                 "tags"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/loop-filter/widgets/taxonomy-filter.php",
+            "file": "pro-elements/modules/loop-filter/widgets/taxonomy-filter.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -977,7 +977,7 @@
                 "page"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/library/widgets/template.php",
+            "file": "pro-elements/modules/library/widgets/template.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -994,7 +994,7 @@
                 "archive"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/archive-title.php",
+            "file": "pro-elements/modules/theme-builder/widgets/archive-title.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -1011,7 +1011,7 @@
                 "page"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/page-title.php",
+            "file": "pro-elements/modules/theme-builder/widgets/page-title.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -1027,7 +1027,7 @@
                 "post"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/post-content.php",
+            "file": "pro-elements/modules/theme-builder/widgets/post-content.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -1044,7 +1044,7 @@
                 "description"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/post-excerpt.php",
+            "file": "pro-elements/modules/theme-builder/widgets/post-excerpt.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -1061,7 +1061,7 @@
                 "thumbnail"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/post-featured-image.php",
+            "file": "pro-elements/modules/theme-builder/widgets/post-featured-image.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -1078,7 +1078,7 @@
                 "post"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/post-title.php",
+            "file": "pro-elements/modules/theme-builder/widgets/post-title.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -1095,7 +1095,7 @@
                 "branding"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/site-logo.php",
+            "file": "pro-elements/modules/theme-builder/widgets/site-logo.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -1112,7 +1112,7 @@
                 "name"
             ],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/site-title.php",
+            "file": "pro-elements/modules/theme-builder/widgets/site-title.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -1123,7 +1123,7 @@
             "categories": [],
             "keywords": [],
             "source": "pro",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/video-playlist/widgets/video-playlist.php",
+            "file": "pro-elements/modules/video-playlist/widgets/video-playlist.php",
             "inherits_categories": true,
             "inherits_keywords": true
         },
@@ -1144,7 +1144,7 @@
                 "add to cart"
             ],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/add-to-cart.php",
+            "file": "pro-elements/modules/woocommerce/widgets/add-to-cart.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -1163,7 +1163,7 @@
                 "product"
             ],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/categories.php",
+            "file": "pro-elements/modules/woocommerce/widgets/categories.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -1186,7 +1186,7 @@
                 "product"
             ],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/elements.php",
+            "file": "pro-elements/modules/woocommerce/widgets/elements.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -1197,7 +1197,7 @@
             "categories": [],
             "keywords": [],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/single-elements.php",
+            "file": "pro-elements/modules/woocommerce/widgets/single-elements.php",
             "inherits_categories": true,
             "inherits_keywords": true
         },
@@ -1219,7 +1219,7 @@
                 "archive"
             ],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/archive-description.php",
+            "file": "pro-elements/modules/woocommerce/widgets/archive-description.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -1240,7 +1240,7 @@
                 "product"
             ],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/breadcrumb.php",
+            "file": "pro-elements/modules/woocommerce/widgets/breadcrumb.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -1256,7 +1256,7 @@
                 "cart"
             ],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/cart.php",
+            "file": "pro-elements/modules/woocommerce/widgets/cart.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -1275,7 +1275,7 @@
                 "thumbnail"
             ],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/category-image.php",
+            "file": "pro-elements/modules/woocommerce/widgets/category-image.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -1291,7 +1291,7 @@
                 "checkout"
             ],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/checkout.php",
+            "file": "pro-elements/modules/woocommerce/widgets/checkout.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -1305,7 +1305,7 @@
             ],
             "keywords": [],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/menu-cart.php",
+            "file": "pro-elements/modules/woocommerce/widgets/menu-cart.php",
             "inherits_categories": false,
             "inherits_keywords": true
         },
@@ -1318,7 +1318,7 @@
             ],
             "keywords": [],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/my-account.php",
+            "file": "pro-elements/modules/woocommerce/widgets/my-account.php",
             "inherits_categories": false,
             "inherits_keywords": true
         },
@@ -1335,7 +1335,7 @@
                 "notifications"
             ],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/notices.php",
+            "file": "pro-elements/modules/woocommerce/widgets/notices.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -1354,7 +1354,7 @@
                 "add to cart"
             ],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-add-to-cart.php",
+            "file": "pro-elements/modules/woocommerce/widgets/product-add-to-cart.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -1365,7 +1365,7 @@
             "categories": [],
             "keywords": [],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-additional-information.php",
+            "file": "pro-elements/modules/woocommerce/widgets/product-additional-information.php",
             "inherits_categories": true,
             "inherits_keywords": true
         },
@@ -1383,7 +1383,7 @@
                 "tabs"
             ],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-data-tabs.php",
+            "file": "pro-elements/modules/woocommerce/widgets/product-data-tabs.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -1402,7 +1402,7 @@
                 "lightbox"
             ],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-images.php",
+            "file": "pro-elements/modules/woocommerce/widgets/product-images.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -1420,7 +1420,7 @@
                 "product"
             ],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-meta.php",
+            "file": "pro-elements/modules/woocommerce/widgets/product-meta.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -1438,7 +1438,7 @@
                 "sale"
             ],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-price.php",
+            "file": "pro-elements/modules/woocommerce/widgets/product-price.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -1458,7 +1458,7 @@
                 "product"
             ],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-rating.php",
+            "file": "pro-elements/modules/woocommerce/widgets/product-rating.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -1476,7 +1476,7 @@
                 "product"
             ],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-related.php",
+            "file": "pro-elements/modules/woocommerce/widgets/product-related.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -1494,7 +1494,7 @@
                 "product"
             ],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-short-description.php",
+            "file": "pro-elements/modules/woocommerce/widgets/product-short-description.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -1512,7 +1512,7 @@
                 "product"
             ],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-stock.php",
+            "file": "pro-elements/modules/woocommerce/widgets/product-stock.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -1532,7 +1532,7 @@
                 "product"
             ],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-title.php",
+            "file": "pro-elements/modules/woocommerce/widgets/product-title.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -1549,7 +1549,7 @@
                 "product"
             ],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-upsell.php",
+            "file": "pro-elements/modules/woocommerce/widgets/product-upsell.php",
             "inherits_categories": true,
             "inherits_keywords": false
         },
@@ -1572,7 +1572,7 @@
                 "related"
             ],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/products.php",
+            "file": "pro-elements/modules/woocommerce/widgets/products.php",
             "inherits_categories": false,
             "inherits_keywords": false
         },
@@ -1591,61 +1591,61 @@
                 "purchase"
             ],
             "source": "wc",
-            "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/purchase-summary.php",
+            "file": "pro-elements/modules/woocommerce/widgets/purchase-summary.php",
             "inherits_categories": false,
             "inherits_keywords": false
         }
     ],
     "skipped_files": [
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/common-base.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/common-optimized.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/common.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/carousel/widgets/base.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/carousel/widgets/media-carousel.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/carousel/widgets/reviews.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/carousel/widgets/testimonial-carousel.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/floating-buttons/widgets/contact-buttons-var-1.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/floating-buttons/widgets/contact-buttons-var-10.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/floating-buttons/widgets/contact-buttons-var-3.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/floating-buttons/widgets/contact-buttons-var-4.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/floating-buttons/widgets/contact-buttons-var-5.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/floating-buttons/widgets/contact-buttons-var-6.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/floating-buttons/widgets/contact-buttons-var-7.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/floating-buttons/widgets/contact-buttons-var-8.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/floating-buttons/widgets/contact-buttons-var-9.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/floating-buttons/widgets/floating-bars-var-2.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/floating-buttons/widgets/floating-bars-var-3.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/forms/widgets/form.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/link-in-bio/widgets/link-in-bio-var-2.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/link-in-bio/widgets/link-in-bio-var-3.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/link-in-bio/widgets/link-in-bio-var-4.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/link-in-bio/widgets/link-in-bio-var-5.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/link-in-bio/widgets/link-in-bio-var-6.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/link-in-bio/widgets/link-in-bio-var-7.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/loop-builder/widgets/base.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/loop-builder/widgets/loop-carousel.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/loop-builder/widgets/loop-grid.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/mega-menu/widgets/mega-menu.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/nested-carousel/widgets/nested-carousel.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/off-canvas/widgets/off-canvas.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/payments/widgets/paypal-button.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/payments/widgets/stripe-button.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/posts/widgets/posts-base.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/title-widget-base.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-elements/widgets/author-box.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-elements/widgets/base.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-elements/widgets/breadcrumbs.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-elements/widgets/post-comments.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-elements/widgets/post-info.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-elements/widgets/post-navigation.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-elements/widgets/search-form.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-elements/widgets/sitemap.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/archive-products-deprecated.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/archive-products.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/base-widget.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-content.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/products-base.php",
-        "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/products-deprecated.php"
+        "elementor/includes/widgets/common-base.php",
+        "elementor/includes/widgets/common-optimized.php",
+        "elementor/includes/widgets/common.php",
+        "pro-elements/modules/carousel/widgets/base.php",
+        "pro-elements/modules/carousel/widgets/media-carousel.php",
+        "pro-elements/modules/carousel/widgets/reviews.php",
+        "pro-elements/modules/carousel/widgets/testimonial-carousel.php",
+        "pro-elements/modules/floating-buttons/widgets/contact-buttons-var-1.php",
+        "pro-elements/modules/floating-buttons/widgets/contact-buttons-var-10.php",
+        "pro-elements/modules/floating-buttons/widgets/contact-buttons-var-3.php",
+        "pro-elements/modules/floating-buttons/widgets/contact-buttons-var-4.php",
+        "pro-elements/modules/floating-buttons/widgets/contact-buttons-var-5.php",
+        "pro-elements/modules/floating-buttons/widgets/contact-buttons-var-6.php",
+        "pro-elements/modules/floating-buttons/widgets/contact-buttons-var-7.php",
+        "pro-elements/modules/floating-buttons/widgets/contact-buttons-var-8.php",
+        "pro-elements/modules/floating-buttons/widgets/contact-buttons-var-9.php",
+        "pro-elements/modules/floating-buttons/widgets/floating-bars-var-2.php",
+        "pro-elements/modules/floating-buttons/widgets/floating-bars-var-3.php",
+        "pro-elements/modules/forms/widgets/form.php",
+        "pro-elements/modules/link-in-bio/widgets/link-in-bio-var-2.php",
+        "pro-elements/modules/link-in-bio/widgets/link-in-bio-var-3.php",
+        "pro-elements/modules/link-in-bio/widgets/link-in-bio-var-4.php",
+        "pro-elements/modules/link-in-bio/widgets/link-in-bio-var-5.php",
+        "pro-elements/modules/link-in-bio/widgets/link-in-bio-var-6.php",
+        "pro-elements/modules/link-in-bio/widgets/link-in-bio-var-7.php",
+        "pro-elements/modules/loop-builder/widgets/base.php",
+        "pro-elements/modules/loop-builder/widgets/loop-carousel.php",
+        "pro-elements/modules/loop-builder/widgets/loop-grid.php",
+        "pro-elements/modules/mega-menu/widgets/mega-menu.php",
+        "pro-elements/modules/nested-carousel/widgets/nested-carousel.php",
+        "pro-elements/modules/off-canvas/widgets/off-canvas.php",
+        "pro-elements/modules/payments/widgets/paypal-button.php",
+        "pro-elements/modules/payments/widgets/stripe-button.php",
+        "pro-elements/modules/posts/widgets/posts-base.php",
+        "pro-elements/modules/theme-builder/widgets/title-widget-base.php",
+        "pro-elements/modules/theme-elements/widgets/author-box.php",
+        "pro-elements/modules/theme-elements/widgets/base.php",
+        "pro-elements/modules/theme-elements/widgets/breadcrumbs.php",
+        "pro-elements/modules/theme-elements/widgets/post-comments.php",
+        "pro-elements/modules/theme-elements/widgets/post-info.php",
+        "pro-elements/modules/theme-elements/widgets/post-navigation.php",
+        "pro-elements/modules/theme-elements/widgets/search-form.php",
+        "pro-elements/modules/theme-elements/widgets/sitemap.php",
+        "pro-elements/modules/woocommerce/widgets/archive-products-deprecated.php",
+        "pro-elements/modules/woocommerce/widgets/archive-products.php",
+        "pro-elements/modules/woocommerce/widgets/base-widget.php",
+        "pro-elements/modules/woocommerce/widgets/product-content.php",
+        "pro-elements/modules/woocommerce/widgets/products-base.php",
+        "pro-elements/modules/woocommerce/widgets/products-deprecated.php"
     ],
     "failed_files": []
 }

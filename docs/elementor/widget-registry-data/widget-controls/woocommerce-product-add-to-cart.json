@@ -2,7 +2,7 @@
     "slug": "woocommerce-product-add-to-cart",
     "source": "wc",
     "title": "Add To Cart",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-add-to-cart.php",
+    "file": "pro-elements/modules/woocommerce/widgets/product-add-to-cart.php",
     "sections": [
         {
             "id": "section_layout",

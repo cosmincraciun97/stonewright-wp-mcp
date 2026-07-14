@@ -451,13 +451,10 @@ final class WorkflowPreflight extends AbilityKernel {
 		$tools = [ 'stonewright/workflow-preflight', 'stonewright/tool-profile' ];
 
 		if ( 'elementor' === $profile['surface'] ) {
-			$tools[] = 'stonewright/design-implementation-contract';
-			$tools[] = 'stonewright/widget-intent-resolve';
-			$tools[] = 'stonewright/elementor-widget-implementation-guide';
-			$tools[] = 'stonewright/elementor-v3-capabilities-summary';
+			$tools[] = 'stonewright/design-native-plan';
+			$tools[] = 'stonewright/knowledge-candidate-record';
 			$tools[] = 'stonewright/elementor-v3-get-kit-globals';
-			$tools[] = 'stonewright/elementor-v3-container-schema';
-			$tools[] = 'stonewright/elementor-v3-get-widget-schema';
+			$tools[] = 'stonewright/elementor-schema';
 			if ( $profile['is_write'] ) {
 				$tools[] = 'stonewright/media-list';
 				$tools[] = 'stonewright/media-upload-batch';
@@ -469,6 +466,7 @@ final class WorkflowPreflight extends AbilityKernel {
 		}
 
 		if ( 'gutenberg' === $profile['surface'] ) {
+			$tools[] = 'stonewright/design-native-plan';
 			$tools[] = 'stonewright/blocks-list-registered';
 			$tools[] = 'stonewright/blocks-get-schema';
 			if ( $profile['is_write'] ) {
@@ -611,31 +609,13 @@ final class WorkflowPreflight extends AbilityKernel {
 
 		if ( 'elementor' === $profile['surface'] ) {
 			$out[] = self::call_step(
-				'stonewright/design-implementation-contract',
-				'Load the compact section-batch, global-style, native-widget, and token-efficiency contract before planning writes.',
-				[]
-			);
-			$out[] = self::call_step(
-				'stonewright/widget-intent-resolve',
-				'Map design intent to native Elementor widgets before writing settings.',
+				'stonewright/design-native-plan',
+				'Normalize DesignEvidence, block unresolved actions/styles, and map semantic nodes to live native schemas before any write.',
 				[
-					'prompt'             => $task,
-					'forbid_html_widget' => true,
+					'action'   => 'plan',
+					'target'   => 'elementor-v3',
+					'evidence' => '<DesignEvidence 1.0 from Figma/image/brief>',
 				]
-			);
-			$out[] = self::call_step(
-				'stonewright/elementor-widget-implementation-guide',
-				'Get Content, Style, and Advanced control checklist for selected widgets.',
-				[
-					'task'              => $task,
-					'candidate_widgets' => [ '<widgets from widget-intent-resolve>' ],
-					'design_context'    => '<short design notes>',
-				]
-			);
-			$out[] = self::call_step(
-				'stonewright/elementor-v3-container-schema',
-				'Get container layout, style, Advanced, alias, and blocked-key guidance before section layout writes.',
-				[ 'include_controls' => false ]
 			);
 			if ( $profile['is_write'] ) {
 				$out[] = self::call_step(
@@ -685,6 +665,16 @@ final class WorkflowPreflight extends AbilityKernel {
 					]
 				);
 			}
+		} elseif ( ! empty( $profile['needs_visual_check'] ) && in_array( $profile['surface'], [ 'gutenberg', 'wordpress' ], true ) ) {
+			$out[] = self::call_step(
+				'stonewright/design-native-plan',
+				'Normalize DesignEvidence and produce a native plan before any visual content write.',
+				[
+					'action'   => 'plan',
+					'target'   => 'gutenberg' === $profile['surface'] ? 'gutenberg' : 'wordpress',
+					'evidence' => '<DesignEvidence 1.0 from Figma/image/brief>',
+				]
+			);
 		}
 
 		if ( $profile['needs_wp_cli_discovery'] ) {

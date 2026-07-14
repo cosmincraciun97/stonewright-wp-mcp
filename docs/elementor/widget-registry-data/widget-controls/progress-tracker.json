@@ -2,7 +2,7 @@
     "slug": "progress-tracker",
     "source": "pro",
     "title": "Progress Tracker",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/progress-tracker/widgets/progress-tracker.php",
+    "file": "pro-elements/modules/progress-tracker/widgets/progress-tracker.php",
     "sections": [
         {
             "id": "section_content_scrolling_tracker",

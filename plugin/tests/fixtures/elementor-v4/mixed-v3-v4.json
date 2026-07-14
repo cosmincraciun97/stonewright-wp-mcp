@@ -1,0 +1,4 @@
+[
+  {"id": "legacy1", "elType": "container", "settings": {}, "elements": [{"id": "atomic1", "version": "0.0", "elType": "widget", "widgetType": "e-heading", "isInner": false, "settings": {}, "editor_settings": [], "interactions": [], "styles": [], "elements": []}]},
+  {"id": "atomic2", "version": "0.0", "elType": "e-flexbox", "isInner": false, "settings": [], "editor_settings": [], "interactions": [], "styles": [], "elements": []}
+]

@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\DesignSpec;
 
+use Stonewright\WpMcp\Design\Semantics\ActionValidator;
+
 /**
  * Validates Stonewright Design Specs against the bundled JSON Schema.
  *
@@ -54,6 +56,13 @@ final class Validator {
 		}
 
 		$errors = array_merge( self::repair_checks( $normalized ), $errors );
+		foreach ( ActionValidator::validate_design_spec( $normalized ) as $diagnostic ) {
+			$errors[] = [
+				'keyword' => (string) ( $diagnostic['code'] ?? 'semantic' ),
+				'message' => (string) ( $diagnostic['repair'] ?? 'Resolve the semantic design error.' ),
+				'path'    => self::parse_path( (string) ( $diagnostic['path'] ?? '' ) ),
+			];
+		}
 		$errors = self::enrich_errors( $errors, $normalized );
 
 		if ( ! empty( $errors ) ) {
@@ -220,6 +229,18 @@ final class Validator {
 			$out .= '' === $out ? (string) $part : '.' . (string) $part;
 		}
 		return $out;
+	}
+
+	/** @return array<int, int|string> */
+	private static function parse_path( string $path ): array {
+		if ( '' === $path ) {
+			return [];
+		}
+		$parts = preg_split( '/\.|\[|\]/', $path, -1, PREG_SPLIT_NO_EMPTY ) ?: [];
+		return array_map(
+			static fn( string $part ): int|string => ctype_digit( $part ) ? (int) $part : $part,
+			$parts
+		);
 	}
 
 	/**

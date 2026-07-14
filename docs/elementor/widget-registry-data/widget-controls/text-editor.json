@@ -2,7 +2,7 @@
     "slug": "text-editor",
     "source": "free",
     "title": "Text Editor",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/text-editor.php",
+    "file": "elementor/includes/widgets/text-editor.php",
     "sections": [
         {
             "id": "section_editor",

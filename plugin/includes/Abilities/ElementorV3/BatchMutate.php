@@ -6,7 +6,10 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Elementor\ContainerSettings;
-use Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetCatalog;
+use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
+use Stonewright\WpMcp\Elementor\Write\EvidenceValidator;
+use Stonewright\WpMcp\Elementor\Write\IdempotencyStore;
+use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
@@ -42,6 +45,9 @@ final class BatchMutate extends AbilityKernel {
 			'properties'           => [
 				'post_id'            => [ 'type' => 'integer', 'minimum' => 1 ],
 				'dry_run'            => [ 'type' => 'boolean', 'default' => false ],
+				'idempotency_key'     => [ 'type' => 'string', 'minLength' => 8, 'maxLength' => 128 ],
+				'expected_tree_hash'  => [ 'type' => 'string', 'pattern' => '^[a-f0-9]{64}$' ],
+				'require_evidence'    => [ 'type' => 'boolean', 'default' => false ],
 				'stop_on_error'      => [ 'type' => 'boolean', 'default' => true ],
 				'confirmation_token' => [ 'type' => 'string' ],
 				'operations'         => [
@@ -89,6 +95,7 @@ final class BatchMutate extends AbilityKernel {
 							'widget_type'            => [ 'type' => 'string' ],
 							'widget'                 => [ 'type' => 'string' ],
 							'settings'               => [ 'type' => 'object' ],
+							'settings_evidence'      => [ 'type' => 'object' ],
 							'mode'                   => [ 'type' => 'string', 'enum' => [ 'merge', 'replace' ], 'default' => 'merge' ],
 							'allow_html_widget'      => [ 'type' => 'boolean', 'default' => false ],
 							'allow_raw_known_widget' => [ 'type' => 'boolean', 'default' => true ],
@@ -116,6 +123,10 @@ final class BatchMutate extends AbilityKernel {
 				'element_count' => [ 'type' => 'integer' ],
 				'metrics'       => [ 'type' => 'object' ],
 				'preview'       => [ 'type' => 'array' ],
+				'before_hash'   => [ 'type' => 'string' ],
+				'after_hash'    => [ 'type' => 'string' ],
+				'readback_hash' => [ 'type' => 'string' ],
+				'idempotent_replay' => [ 'type' => 'boolean' ],
 			],
 		];
 	}
@@ -133,6 +144,9 @@ final class BatchMutate extends AbilityKernel {
 				$post_id    = (int) $args['post_id'];
 				$operations = isset( $args['operations'] ) && is_array( $args['operations'] ) ? self::normalize_operations( array_values( $args['operations'] ) ) : [];
 				$dry_run    = ! empty( $args['dry_run'] );
+				$require_evidence = ! empty( $args['require_evidence'] );
+				$idempotency_key  = isset( $args['idempotency_key'] ) ? trim( (string) $args['idempotency_key'] ) : '';
+				$request_hash     = self::request_hash( $post_id, $operations, $args );
 
 				if ( ! get_post( $post_id ) ) {
 					return $this->error( 'not_found', __( 'Post not found.', 'stonewright' ) );
@@ -153,9 +167,25 @@ final class BatchMutate extends AbilityKernel {
 					}
 				}
 
+				if ( ! $dry_run ) {
+					$replay = IdempotencyStore::lookup( $post_id, $idempotency_key, $request_hash );
+					if ( $replay instanceof \WP_Error || is_array( $replay ) ) {
+						return $replay;
+					}
+				}
+
 				$read_start = microtime( true );
 				$tree       = ElementorData::read( $post_id );
 				$read_ms    = self::elapsed_ms( $read_start );
+				$before_hash = TreeHasher::hash( $tree );
+				$expected_tree_hash = isset( $args['expected_tree_hash'] ) ? (string) $args['expected_tree_hash'] : '';
+				if ( '' !== $expected_tree_hash && ! hash_equals( $expected_tree_hash, $before_hash ) ) {
+					return $this->error(
+						'tree_conflict',
+						__( 'Elementor page changed after planning; refresh structure before writing.', 'stonewright' ),
+						[ 'status' => 409, 'expected_tree_hash' => $expected_tree_hash, 'current_tree_hash' => $before_hash ]
+					);
+				}
 				$items      = [];
 				$refs       = [];
 				$applied    = 0;
@@ -164,7 +194,7 @@ final class BatchMutate extends AbilityKernel {
 
 				foreach ( $operations as $index => $operation ) {
 					$operation = is_array( $operation ) ? $operation : [];
-					$result    = $this->apply_operation( $tree, $operation, $refs );
+					$result    = $this->apply_operation( $tree, $operation, $refs, $require_evidence );
 
 					if ( $result instanceof \WP_Error ) {
 						++$failed;
@@ -195,13 +225,25 @@ final class BatchMutate extends AbilityKernel {
 
 				$snapshot_id = '';
 				$write_ms    = 0.0;
+				$after_hash  = TreeHasher::hash( $tree );
+				$readback_hash = $dry_run ? $after_hash : '';
 				if ( ! $dry_run ) {
 					$snapshot_id = Backup::snapshot_post( $post_id );
 					$write_start = microtime( true );
 					if ( ! ElementorData::write( $post_id, $tree ) ) {
-						return $this->error( 'write_failed', __( 'Could not save Elementor data.', 'stonewright' ) );
+						$restored = Backup::restore( $post_id, $snapshot_id );
+						return $this->error( 'write_failed', __( 'Could not save Elementor data; the snapshot was restored.', 'stonewright' ), [ 'restored' => $restored ] );
 					}
 					$write_ms = self::elapsed_ms( $write_start );
+					$readback_hash = TreeHasher::hash( ElementorData::read( $post_id ) );
+					if ( ! hash_equals( $after_hash, $readback_hash ) ) {
+						$restored = Backup::restore( $post_id, $snapshot_id );
+						return $this->error(
+							'readback_mismatch',
+							__( 'Elementor write readback did not match the compiled tree; the snapshot was restored.', 'stonewright' ),
+							[ 'status' => 500, 'expected_hash' => $after_hash, 'readback_hash' => $readback_hash, 'restored' => $restored ]
+						);
+					}
 				}
 
 				$element_count = count( ElementorData::flatten( $tree ) );
@@ -221,10 +263,16 @@ final class BatchMutate extends AbilityKernel {
 						'read_ms'    => $read_ms,
 						'write_ms'   => $write_ms,
 					],
+					'before_hash'   => $before_hash,
+					'after_hash'    => $after_hash,
+					'readback_hash' => $readback_hash,
+					'idempotent_replay' => false,
 				];
 
 				if ( $dry_run ) {
 					$response['preview'] = $tree;
+				} else {
+					IdempotencyStore::remember( $post_id, $idempotency_key, $request_hash, $response );
 				}
 
 				return $response;
@@ -304,13 +352,13 @@ final class BatchMutate extends AbilityKernel {
 	 * @param array<string, string>           $refs
 	 * @return array<string, mixed>|\WP_Error
 	 */
-	private function apply_operation( array &$tree, array $operation, array &$refs ): array|\WP_Error {
+	private function apply_operation( array &$tree, array $operation, array &$refs, bool $require_evidence ): array|\WP_Error {
 		$action = isset( $operation['action'] ) ? (string) $operation['action'] : '';
 
 		return match ( $action ) {
-			'add_container'  => $this->add_container( $tree, $operation, $refs ),
-			'add_widget'     => $this->add_widget( $tree, $operation, $refs ),
-			'update_element' => $this->update_element( $tree, $operation, $refs ),
+			'add_container'  => $this->add_container( $tree, $operation, $refs, $require_evidence ),
+			'add_widget'     => $this->add_widget( $tree, $operation, $refs, $require_evidence ),
+			'update_element' => $this->update_element( $tree, $operation, $refs, $require_evidence ),
 			'move_element'   => $this->move_element( $tree, $operation, $refs ),
 			'remove_element' => $this->remove_element( $tree, $operation, $refs ),
 			default          => $this->error( 'invalid_action', __( 'Unsupported Elementor batch action.', 'stonewright' ), [ 'action' => $action ] ),
@@ -323,25 +371,35 @@ final class BatchMutate extends AbilityKernel {
 	 * @param array<string, string>           $refs
 	 * @return array<string, mixed>|\WP_Error
 	 */
-	private function add_container( array &$tree, array $operation, array &$refs ): array|\WP_Error {
+	private function add_container( array &$tree, array $operation, array &$refs, bool $require_evidence ): array|\WP_Error {
 		$parent_path = $this->parent_path( $tree, $operation, $refs, 'parent_id', 'parent_ref' );
 		if ( $parent_path instanceof \WP_Error ) {
 			return $parent_path;
 		}
 
-		$settings = isset( $operation['settings'] ) && is_array( $operation['settings'] ) ? $operation['settings'] : [];
+		$settings  = isset( $operation['settings'] ) && is_array( $operation['settings'] ) ? $operation['settings'] : [];
+		$settings  = ContainerSettings::normalize( $settings );
+		$validated = SettingsValidator::validate_container( $settings );
+		if ( $validated instanceof \WP_Error ) {
+			return $validated;
+		}
+		$settings = $validated['settings'];
+		$evidence = EvidenceValidator::validate( 'container', $settings, self::operation_evidence( $operation ), $require_evidence );
+		if ( $evidence instanceof \WP_Error ) {
+			return $evidence;
+		}
 		$element  = [
 			'id'       => ElementorData::generate_id(),
 			'elType'   => 'container',
 			'isInner'  => [] !== $parent_path,
-			'settings' => ContainerSettings::normalize( $settings ),
+			'settings' => $settings,
 			'elements' => [],
 		];
 
 		$position = isset( $operation['position'] ) ? (int) $operation['position'] : PHP_INT_MAX;
 		$tree     = ElementorData::insert( $tree, $parent_path, $position, $element );
 
-		return $this->created_item( $operation, $refs, $element['id'], 'container' );
+		return array_merge( $this->created_item( $operation, $refs, $element['id'], 'container' ), [ 'evidence' => $evidence ] );
 	}
 
 	/**
@@ -350,7 +408,7 @@ final class BatchMutate extends AbilityKernel {
 	 * @param array<string, string>           $refs
 	 * @return array<string, mixed>|\WP_Error
 	 */
-	private function add_widget( array &$tree, array $operation, array &$refs ): array|\WP_Error {
+	private function add_widget( array &$tree, array $operation, array &$refs, bool $require_evidence ): array|\WP_Error {
 		$widget_type = isset( $operation['widget_type'] ) ? (string) $operation['widget_type'] : '';
 		if ( '' === $widget_type ) {
 			return $this->error( 'missing_widget_type', __( 'add_widget requires widget_type.', 'stonewright' ) );
@@ -360,18 +418,16 @@ final class BatchMutate extends AbilityKernel {
 		}
 
 		$settings = isset( $operation['settings'] ) && is_array( $operation['settings'] ) ? $operation['settings'] : [];
-		if ( 'html' !== $widget_type && WidgetCatalog::has( $widget_type ) ) {
-			$violations = self::required_setting_violations( $widget_type, $settings );
-			if ( [] !== $violations ) {
-				return $this->error(
-					'invalid_settings',
-					__( 'Known-widget settings failed validation. Provide exact Elementor control keys.', 'stonewright' ),
-					[
-						'violations' => $violations,
-						'widget'     => $widget_type,
-					]
-				);
+		if ( 'html' !== $widget_type ) {
+			$validated = SettingsValidator::validate( $widget_type, $settings );
+			if ( $validated instanceof \WP_Error ) {
+				return $validated;
 			}
+			$settings = $validated['settings'];
+		}
+		$evidence = EvidenceValidator::validate( $widget_type, $settings, self::operation_evidence( $operation ), $require_evidence );
+		if ( $evidence instanceof \WP_Error ) {
+			return $evidence;
 		}
 
 		$parent_path = $this->parent_path( $tree, $operation, $refs, 'parent_id', 'parent_ref' );
@@ -390,7 +446,7 @@ final class BatchMutate extends AbilityKernel {
 		$position = isset( $operation['position'] ) ? (int) $operation['position'] : PHP_INT_MAX;
 		$tree     = ElementorData::insert( $tree, $parent_path, $position, $element );
 
-		return $this->created_item( $operation, $refs, $element['id'], 'widget' );
+		return array_merge( $this->created_item( $operation, $refs, $element['id'], 'widget' ), [ 'evidence' => $evidence ] );
 	}
 
 	/**
@@ -399,7 +455,7 @@ final class BatchMutate extends AbilityKernel {
 	 * @param array<string, string>           $refs
 	 * @return array<string, mixed>|\WP_Error
 	 */
-	private function update_element( array &$tree, array $operation, array $refs ): array|\WP_Error {
+	private function update_element( array &$tree, array $operation, array $refs, bool $require_evidence ): array|\WP_Error {
 		$element_id = $this->element_id( $operation, $refs );
 		if ( $element_id instanceof \WP_Error ) {
 			return $element_id;
@@ -419,8 +475,31 @@ final class BatchMutate extends AbilityKernel {
 		$existing = isset( $element['settings'] ) && is_array( $element['settings'] ) ? $element['settings'] : [];
 		$mode     = isset( $operation['mode'] ) ? (string) $operation['mode'] : 'merge';
 		$settings = 'replace' === $mode ? $incoming : array_merge( $existing, $incoming );
-		if ( 'container' === ( $element['elType'] ?? '' ) ) {
-			$settings = ContainerSettings::normalize( $settings );
+		$element_type = (string) ( $element['elType'] ?? '' );
+		if ( in_array( $element_type, [ 'container', 'section', 'column' ], true ) ) {
+			$before    = 'container' === $element_type ? ContainerSettings::normalize( $existing ) : $existing;
+			$settings  = 'container' === $element_type ? ContainerSettings::normalize( $settings ) : $settings;
+			$validated = SettingsValidator::validate_container( $settings, $element_type );
+			if ( $validated instanceof \WP_Error ) {
+				return $validated;
+			}
+			$settings = $validated['settings'];
+			$incoming = self::changed_settings( $before, $settings );
+			$evidence_widget_type = $element_type;
+		} elseif ( 'widget' === ( $element['elType'] ?? '' ) ) {
+			$widget_type = (string) ( $element['widgetType'] ?? '' );
+			$validated   = SettingsValidator::validate( $widget_type, $settings );
+			if ( $validated instanceof \WP_Error ) {
+				return $validated;
+			}
+			$settings = $validated['settings'];
+			$evidence_widget_type = $widget_type;
+		} else {
+			$evidence_widget_type = 'container';
+		}
+		$evidence = EvidenceValidator::validate( $evidence_widget_type, $incoming, self::operation_evidence( $operation ), $require_evidence );
+		if ( $evidence instanceof \WP_Error ) {
+			return $evidence;
 		}
 
 		$element['settings'] = $settings;
@@ -429,6 +508,7 @@ final class BatchMutate extends AbilityKernel {
 		return [
 			'action'     => 'update_element',
 			'element_id' => $element_id,
+			'evidence'   => $evidence,
 		];
 	}
 
@@ -563,37 +643,6 @@ final class BatchMutate extends AbilityKernel {
 	}
 
 	/**
-	 * @param array<string, mixed> $settings
-	 * @return array<int, array<string, mixed>>
-	 */
-	private static function required_setting_violations( string $widget_type, array $settings ): array {
-		$violations = [];
-		foreach ( WidgetCatalog::required_for_render( $widget_type ) as $req_key ) {
-			$present = array_key_exists( $req_key, $settings ) && self::setting_has_value( $settings[ $req_key ] );
-			if ( ! $present ) {
-				$violations[] = [
-					'path'     => 'settings.' . $req_key,
-					'code'     => 'required_missing',
-					'expected' => 'non-empty Elementor control value',
-					'got'      => array_key_exists( $req_key, $settings ) ? $settings[ $req_key ] : null,
-				];
-			}
-		}
-
-		return $violations;
-	}
-
-	private static function setting_has_value( mixed $value ): bool {
-		if ( null === $value || '' === $value ) {
-			return false;
-		}
-		if ( is_array( $value ) && array_key_exists( 'value', $value ) ) {
-			return null !== $value['value'] && '' !== $value['value'];
-		}
-		return true;
-	}
-
-	/**
 	 * @param array<int, array<string, mixed>> $operations
 	 */
 	private static function contains_destructive_operation( array $operations ): bool {
@@ -625,6 +674,45 @@ final class BatchMutate extends AbilityKernel {
 
 	private static function elapsed_ms( float $start ): float {
 		return round( ( microtime( true ) - $start ) * 1000, 3 );
+	}
+
+	/**
+	 * @param array<string, mixed> $operation
+	 * @return array<string, mixed>
+	 */
+	private static function operation_evidence( array $operation ): array {
+		return isset( $operation['settings_evidence'] ) && is_array( $operation['settings_evidence'] )
+			? $operation['settings_evidence']
+			: [];
+	}
+
+	/**
+	 * @param array<string, mixed> $before
+	 * @param array<string, mixed> $after
+	 * @return array<string, mixed>
+	 */
+	private static function changed_settings( array $before, array $after ): array {
+		return array_filter(
+			$after,
+			static fn( mixed $value, string|int $key ): bool => ! array_key_exists( (string) $key, $before ) || $before[ (string) $key ] !== $value,
+			ARRAY_FILTER_USE_BOTH
+		);
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $operations
+	 * @param array<string, mixed>             $args
+	 */
+	private static function request_hash( int $post_id, array $operations, array $args ): string {
+		return TreeHasher::hash(
+			[
+				'post_id'            => $post_id,
+				'operations'         => $operations,
+				'expected_tree_hash' => (string) ( $args['expected_tree_hash'] ?? '' ),
+				'require_evidence'   => ! empty( $args['require_evidence'] ),
+				'stop_on_error'      => ! array_key_exists( 'stop_on_error', $args ) || (bool) $args['stop_on_error'],
+			]
+		);
 	}
 
 	/**

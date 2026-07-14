@@ -2,7 +2,7 @@
     "slug": "woocommerce-menu-cart",
     "source": "wc",
     "title": "Menu Cart",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/menu-cart.php",
+    "file": "pro-elements/modules/woocommerce/widgets/menu-cart.php",
     "sections": [
         {
             "id": "section_menu_icon_content",

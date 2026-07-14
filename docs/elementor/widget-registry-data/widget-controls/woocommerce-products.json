@@ -2,7 +2,7 @@
     "slug": "woocommerce-products",
     "source": "wc",
     "title": "Products",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/products.php",
+    "file": "pro-elements/modules/woocommerce/widgets/products.php",
     "sections": [
         {
             "id": "section_content",

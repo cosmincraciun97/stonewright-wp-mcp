@@ -2,7 +2,7 @@
     "slug": "toggle",
     "source": "free",
     "title": "Toggle",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/toggle.php",
+    "file": "elementor/includes/widgets/toggle.php",
     "sections": [
         {
             "id": "section_toggle",

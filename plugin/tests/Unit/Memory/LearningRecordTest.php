@@ -30,7 +30,7 @@ final class LearningRecordTest extends TestCase {
 		$GLOBALS['stonewright_test_options'] = [];
 	}
 
-	public function test_records_correction_to_persistent_memory_and_skill(): void {
+	public function test_records_correction_to_memory_without_auto_creating_a_skill(): void {
 		$result = ( new LearningRecord() )->execute(
 			[
 				'scope'      => 'elementor',
@@ -42,7 +42,7 @@ final class LearningRecordTest extends TestCase {
 
 		self::assertSame( true, $result['ok'] );
 		self::assertSame( 'learning-elementor-html-widget', $result['memory_key'] );
-		self::assertSame( 'learned-elementor-html-widget', $result['skill_slug'] );
+		self::assertNull( $result['skill_slug'] );
 
 		$memory_insert = $GLOBALS['wpdb']->inserts[0] ?? [];
 		self::assertStringEndsWith( 'stonewright_memory', (string) ( $memory_insert['table'] ?? '' ) );
@@ -51,12 +51,32 @@ final class LearningRecordTest extends TestCase {
 		self::assertSame( 'learning-elementor-html-widget', $memory_insert['data']['memory_key'] );
 		self::assertStringContainsString( 'Do not use HTML widgets', $memory_insert['data']['value_json'] );
 
+		$skill_inserts = array_filter(
+			$GLOBALS['wpdb']->inserts,
+			static fn( array $insert ): bool => str_ends_with( (string) $insert['table'], 'stonewright_skills' )
+		);
+		self::assertSame( [], array_values( $skill_inserts ) );
+	}
+
+	public function test_opt_in_skill_is_saved_as_disabled_draft(): void {
+		$result = ( new LearningRecord() )->execute(
+			[
+				'scope'        => 'elementor',
+				'topic'        => 'Elementor HTML widget',
+				'correction'   => 'Use native Elementor widgets.',
+				'update_skill' => true,
+			]
+		);
+
+		self::assertSame( 'learned-elementor-html-widget', $result['skill_slug'] );
+		self::assertSame( 'draft', $result['skill_status'] );
 		$skill_insert = $GLOBALS['wpdb']->inserts[1] ?? [];
 		self::assertStringEndsWith( 'stonewright_skills', (string) ( $skill_insert['table'] ?? '' ) );
 		self::assertSame( 'learned-elementor-html-widget', $skill_insert['data']['slug'] );
 		self::assertStringContainsString( 'Use when working on Elementor HTML widget', $skill_insert['data']['description'] );
-		self::assertStringContainsString( 'Do not use HTML widgets', $skill_insert['data']['content'] );
-		self::assertSame( 1, $skill_insert['data']['enabled'] );
+		self::assertStringContainsString( 'Use native Elementor widgets', $skill_insert['data']['content'] );
+		self::assertSame( 0, $skill_insert['data']['enabled'] );
+		self::assertSame( 'draft', $skill_insert['data']['status'] );
 	}
 
 	private function make_wpdb(): object {

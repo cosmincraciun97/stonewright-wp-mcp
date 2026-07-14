@@ -2,7 +2,7 @@
     "slug": "video",
     "source": "free",
     "title": "Video",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/video.php",
+    "file": "elementor/includes/widgets/video.php",
     "sections": [
         {
             "id": "section_video",

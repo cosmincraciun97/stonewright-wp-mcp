@@ -2,7 +2,7 @@
     "slug": "slides",
     "source": "pro",
     "title": "Slides",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/slides/widgets/slides.php",
+    "file": "pro-elements/modules/slides/widgets/slides.php",
     "sections": [
         {
             "id": "section_slides",

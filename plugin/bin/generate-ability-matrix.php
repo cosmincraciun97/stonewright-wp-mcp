@@ -177,6 +177,11 @@ const WRITE_PATTERNS = [
 	'Memory::delete_by_id(', 'Memory::update_by_id(',
 	// Skills and design orchestrator delegates.
 	'Skills::save(', 'Skills::delete(', 'SpecToGutenberg()', 'SpecToElementorV3()',
+	'CandidateRepository::create(', 'CandidateRepository::verify(',
+	'CandidateRepository::promote(', 'CandidateRepository::set_status(',
+	'Skills::rollback(', 'ExpertiseStore::record_scorecard(',
+	'ExpertiseEvaluator::evaluate(', 'ExpertisePromotion::promote(',
+	'ExpertisePromotion::set_terminal_status(',
 	'ElementorWriter::write',
 	// Batch/orchestrator delegates.
 	'new UploadMedia()', 'new BuildPageFromSpec()',
@@ -390,7 +395,10 @@ function detect_validator( string $source ): string {
 	if ( strpos( $source, 'ThemeJson\\Validator' ) !== false || strpos( $source, 'ThemeJson\Validator' ) !== false ) {
 		return 'Yes (ThemeJson)';
 	}
-	if ( strpos( $source, 'Validator::validate' ) !== false ) {
+	if (
+		strpos( $source, 'DesignSpec\\Validator' ) !== false
+		&& strpos( $source, 'Validator::validate' ) !== false
+	) {
 		return 'Yes (DesignSpec)';
 	}
 	if (

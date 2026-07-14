@@ -2,7 +2,7 @@
     "slug": "code-highlight",
     "source": "pro",
     "title": "Code Highlight",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/code-highlight/widgets/code-highlight.php",
+    "file": "pro-elements/modules/code-highlight/widgets/code-highlight.php",
     "sections": [
         {
             "id": "section_content",

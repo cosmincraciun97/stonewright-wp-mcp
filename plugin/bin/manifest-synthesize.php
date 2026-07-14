@@ -10,7 +10,8 @@
  *   2. docs/elementor/widget-registry-data/widget-controls/*.json
  *   3. docs/knowledge/elementor/widgets/*.md
  *
- * Output: plugin/includes/Elementor/WidgetRegistry/manifest.json
+ * Output: plugin/includes/Elementor/WidgetRegistry/catalog/index.php plus
+ * one lazy PHP shard per widget under catalog/shards/.
  *
  * Per-widget record shape:
  *   {
@@ -20,7 +21,7 @@
  *     icon:                 'eicon-...',
  *     categories:           [...],
  *     keywords:             [...],
- *     file:                 '<absolute PHP path>',
+ *     file:                 '<plugin-relative PHP path>',
  *     intent:               '...' | null,
  *     use_cases:            [...],
  *     settings_highlights:  [...],
@@ -48,7 +49,10 @@
  * settings dict for any group sub-key they accept.
  *
  * Usage: php plugin/bin/manifest-synthesize.php
+ *
+ * @package Stonewright\WpMcp
  */
+
 declare(strict_types=1);
 
 $repo_root        = realpath( __DIR__ . '/../..' );
@@ -56,10 +60,14 @@ $inventory_path   = $repo_root . '/docs/elementor/widget-registry-data/widget-in
 $controls_dir     = $repo_root . '/docs/elementor/widget-registry-data/widget-controls';
 $knowledge_dir    = $repo_root . '/docs/knowledge/elementor/widgets';
 $manifest_dir     = $repo_root . '/plugin/includes/Elementor/WidgetRegistry';
-$manifest_path    = $manifest_dir . '/manifest.json';
+$catalog_dir      = $manifest_dir . '/catalog';
+$shards_dir       = $catalog_dir . '/shards';
 
 if ( ! is_dir( $manifest_dir ) ) {
 	mkdir( $manifest_dir, 0777, true );
+}
+if ( ! is_dir( $shards_dir ) ) {
+	mkdir( $shards_dir, 0777, true );
 }
 
 // ---------------------------------------------------------------------------
@@ -117,7 +125,7 @@ $render_hints = [
 	'social-icons'   => [ 'social_icon_list' ],
 	'nav-menu'       => [ 'menu' ],
 	'countdown'      => [ 'due_date' ],
-	'gallery'        => [ 'wp_gallery' ],
+	'gallery'        => [ 'gallery' ],
 	'image-carousel' => [ 'carousel' ],
 	'image-gallery'  => [ 'wp_gallery' ],
 	'price-table'    => [ 'features_list' ],
@@ -370,7 +378,7 @@ foreach ( $inventory['widgets'] as $w ) {
 
 	$controls = read_json( $controls_dir . '/' . $slug . '.json' );
 	if ( $controls !== null ) {
-		$manifest['totals']['with_controls']++;
+		++$manifest['totals']['with_controls'];
 	}
 
 	$knowledge_files = find_knowledge_files( $slug, $knowledge_dir );
@@ -390,7 +398,7 @@ foreach ( $inventory['widgets'] as $w ) {
 		$knowledge['limits']              = array_unique( array_merge( $knowledge['limits'],              $parsed['limits'] ) );
 	}
 	if ( ! empty( $knowledge_files ) ) {
-		$manifest['totals']['with_knowledge']++;
+		++$manifest['totals']['with_knowledge'];
 	}
 
 	$sections        = $controls['sections']        ?? [];
@@ -400,7 +408,7 @@ foreach ( $inventory['widgets'] as $w ) {
 	$group_activators = build_group_activators( $sections );
 
 	if ( ! empty( $group_activators ) ) {
-		$manifest['totals']['with_group_activators']++;
+		++$manifest['totals']['with_group_activators'];
 	}
 
 	$manifest['widgets'][ $slug ] = [
@@ -429,19 +437,44 @@ foreach ( $inventory['widgets'] as $w ) {
 
 ksort( $manifest['widgets'] );
 
-file_put_contents(
-	$manifest_path,
-	json_encode( $manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) . "\n"
-);
+$index = $manifest;
+$index['widgets'] = [];
+$generated_header = "<?php\n/**\n * Generated Elementor widget schema artifact.\n * SPDX-License-Identifier: AGPL-3.0-or-later\n */\n// phpcs:ignoreFile -- generated catalog artifact.\ndeclare( strict_types=1 );\nreturn ";
 
-$php_manifest_path = dirname( $manifest_path ) . '/manifest.php';
-file_put_contents(
-	$php_manifest_path,
-	"<?php\n// phpcs:ignoreFile -- generated manifest cache.\ndeclare( strict_types=1 );\nreturn " . var_export( $manifest, true ) . ";\n"
-);
+/**
+ * Export generated PHP without var_export()'s whitespace-only line suffixes.
+ *
+ * @param array<string, mixed> $value Catalog payload.
+ */
+function export_catalog_php( array $value ): string {
+	$export = var_export( $value, true );
+	return (string) preg_replace( '/[ \t]+$/m', '', $export );
+}
 
-fwrite( STDOUT, "Manifest written: $manifest_path\n" );
-fwrite( STDOUT, "PHP Manifest written: $php_manifest_path\n" );
+foreach ( glob( $shards_dir . '/*.php' ) ?: [] as $old_shard ) {
+	unlink( $old_shard );
+}
+foreach ( $manifest['widgets'] as $slug => $entry ) {
+	$shard_name = preg_replace( '/[^a-z0-9_-]/', '-', strtolower( $slug ) ) . '.php';
+	$hash       = hash( 'sha256', json_encode( $entry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) ?: '' );
+	file_put_contents( $shards_dir . '/' . $shard_name, $generated_header . export_catalog_php( $entry ) . ";\n" );
+	$index['widgets'][ $slug ] = [
+		'shard'         => 'shards/' . $shard_name,
+		'hash'          => $hash,
+		'source'        => $entry['source'],
+		'widget_type'   => $entry['widget_type'],
+		'title'         => $entry['title'],
+		'categories'    => $entry['categories'],
+		'keywords'      => $entry['keywords'],
+		'control_count' => $entry['control_count'],
+	];
+}
+
+$index_path = $catalog_dir . '/index.php';
+file_put_contents( $index_path, $generated_header . export_catalog_php( $index ) . ";\n" );
+
+fwrite( STDOUT, "Catalog index written: $index_path\n" );
+fwrite( STDOUT, "Widget shards written: " . count( $index['widgets'] ) . "\n" );
 fwrite( STDOUT, "  inventory_widgets:     " . $manifest['totals']['inventory_widgets'] . "\n" );
 fwrite( STDOUT, "  with_controls:         " . $manifest['totals']['with_controls'] . "\n" );
 fwrite( STDOUT, "  with_knowledge:        " . $manifest['totals']['with_knowledge'] . "\n" );

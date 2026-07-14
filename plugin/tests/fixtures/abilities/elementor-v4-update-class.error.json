@@ -1,7 +1,8 @@
 {
     "args": {
-        "id": 999999,
-        "patch": []
+        "id": "missing-class",
+        "label": "Missing",
+        "variants": [{"meta":{"breakpoint":"desktop","state":null},"props":{}}]
     },
     "expect": "wp_error"
 }

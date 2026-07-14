@@ -2,7 +2,7 @@
     "slug": "woocommerce-product-rating",
     "source": "wc",
     "title": "Product Rating",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-rating.php",
+    "file": "pro-elements/modules/woocommerce/widgets/product-rating.php",
     "sections": [
         {
             "id": "section_product_rating_style",

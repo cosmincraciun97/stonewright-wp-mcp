@@ -2,6 +2,67 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.65] - 2026-07-14
+
+### Added
+
+- Added reproducible MCP tool-surface and task-start token measurements.
+- Added optimistic Elementor tree hashes, 24-hour idempotency, strict
+  per-setting evidence, and readback/restore verification to batch mutation.
+- Added live structural schema validation for container, section, and column
+  settings, including the final pre-persistence tree guard.
+- Added `stonewright/design-native-plan` with DesignEvidence 1.0 normalization,
+  semantic action validation, deterministic native mapping, and an approval-
+  gated phase-two customization proposal.
+- Added DB-backed knowledge candidates with provenance, TTL, version
+  fingerprints, verification and conflict gates, plus skill revision rollback.
+- Added 10 versioned P0 ExpertisePacks, compact top-three task routing, lazy
+  pack retrieval, deterministic scorecards, and promotion lifecycle gates.
+- Added a live/versioned Elementor V4 Atomic schema repository, recursive mixed
+  tree inspection, official class/variable adapters, and owned fixtures.
+- Added `stonewright/elementor-v4-migrate` with explicit zero-loss reporting,
+  snapshot, readback hash, and automatic restore on mismatch.
+- Added setup diagnostics and a direct Streamable HTTP configuration for
+  remote clients that do not need Node or the optional companion.
+- Added P1/P2 expertise for Elementor Pro, advanced Gutenberg, forms, data
+  plugins, WooCommerce templates, shortcodes/snippets, SEO, and other builders,
+  with explicit draft and discovery-only states where writes are unverified.
+
+### Changed
+
+- Relicensed the plugin to AGPL-3.0-or-later before importing Novamira-derived
+  source.
+- Reduced compact context-bootstrap responses below the documented task-start
+  token budgets.
+- Reduced the default registered ability surface from 65 to 20 composite and
+  discovery tools; full mode still exposes maintainer and compatibility tools.
+- Replaced the duplicate 5.85 MB widget manifest with a compact index and 95
+  lazy PHP shards, plus `stonewright/elementor-schema` for live discovery.
+- Added runtime widget-setting validation and a final pre-persistence tree gate
+  so unknown Elementor V3 keys cannot reach `_elementor_data`.
+- Deprecated generated per-widget add abilities for new plans; the live schema
+  plus unified batch compiler is now the recommended V3 write path.
+- Changed learning records to memory-only by default; optional skills remain
+  disabled drafts until two verified successes or explicit user approval.
+- Replaced V4 placeholder and unknown-property fallbacks with structured hard
+  errors and exact typed Atomic envelopes.
+
+### Fixed
+
+- Snapshot restore now removes tracked meta keys that did not exist when the
+  snapshot was taken.
+
+- Corrected the Elementor Pro Gallery required setting to the live `gallery`
+  control instead of the Basic Gallery-only `wp_gallery` key.
+- Removed host-specific Elementor source paths from generated widget data and
+  made the inventory generator accept an explicit plugins directory.
+- Cleaned PHPUnit temporary files and removed PHP 8.5 reflection deprecations.
+
+### Security
+
+- Added production-safe confirmation, response limits, result normalization,
+  runtime cleanup, and payload-free audit metadata to `php-execute`.
+
 ## [1.0.0-alpha.64] - 2026-06-17
 
 ### Added

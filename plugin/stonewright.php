@@ -3,12 +3,12 @@
  * Plugin Name: Stonewright
  * Plugin URI: https://github.com/cosmincraciun97/stonewright-wp-mcp
  * Description: AI builder tools for WordPress MCP: Elementor, Gutenberg, content models, PHP runtime execution, and tokenized WP-CLI.
- * Version: 1.0.0-alpha.64
+ * Version: 1.0.0-alpha.65
  * Requires at least: 6.7
  * Requires PHP: 8.1
  * Author: Stonewright
- * License: GPL-2.0-or-later
- * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * License: AGPL-3.0-or-later
+ * License URI: https://www.gnu.org/licenses/agpl-3.0.html
  * Text Domain: stonewright
  * Domain Path: /languages
  *
@@ -33,7 +33,7 @@ if ( defined( 'STONEWRIGHT_FILE' ) ) {
 define( 'STONEWRIGHT_FILE', __FILE__ );
 define( 'STONEWRIGHT_DIR', plugin_dir_path( __FILE__ ) );
 define( 'STONEWRIGHT_URL', plugin_dir_url( __FILE__ ) );
-define( 'STONEWRIGHT_VERSION', '1.0.0-alpha.64' );
+define( 'STONEWRIGHT_VERSION', '1.0.0-alpha.65' );
 define( 'STONEWRIGHT_MIN_PHP', '8.1' );
 define( 'STONEWRIGHT_MIN_WP', '6.7' );
 

@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Context;
 use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
 use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Core\AgentInstructions;
+use Stonewright\WpMcp\Expertise\ExpertiseResolver;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Skills\Skills;
 
@@ -52,6 +53,7 @@ final class ContextBuilder {
 				$matched_skills
 			),
 			'memory_entries'           => $matched_memory,
+			'expertise_packs'          => ExpertiseResolver::resolve( $task, $surface ),
 			'specializations'          => SpecializationCatalog::match( $task, $surface ),
 			'recommended_external_mcps'      => self::recommended_external_mcps( $is_visual ),
 			'visual_quality_contract'        => $visual_quality_contract,
@@ -154,31 +156,74 @@ final class ContextBuilder {
 		$rows    = [];
 
 		foreach ( $entries as $entry ) {
+			if ( ! Memory::is_active( $entry ) ) {
+				continue;
+			}
 			$haystack = self::normalise(
 				(string) ( $entry['scope'] ?? '' ) . ' ' .
+				(string) ( $entry['topic'] ?? '' ) . ' ' .
 				(string) ( $entry['memory_key'] ?? '' ) . ' ' .
 				(string) ( $entry['name'] ?? '' ) . ' ' .
 				self::stringify( $entry['value'] ?? null )
 			);
-			$score = self::score( $query, $haystack );
-			if ( $score > 0 || in_array( (string) ( $entry['type'] ?? '' ), [ 'feedback', 'project', 'reference' ], true ) ) {
-				$entry['_score'] = $score;
-				$rows[]          = $entry;
+			$score       = self::score( $query, $haystack );
+			$type        = (string) ( $entry['type'] ?? 'generic' );
+			$scope_match = '' !== $surface && strtolower( (string) ( $entry['scope'] ?? '' ) ) === strtolower( $surface );
+			if ( 'user' === $type || $score > 0 || $scope_match ) {
+				$entry['_score']    = $score;
+				$entry['_priority'] = self::memory_priority( $type ) + (int) ( $entry['precedence'] ?? 0 );
+				$rows[]             = $entry;
 			}
 		}
 
 		usort(
 			$rows,
-			static fn( array $a, array $b ): int => ( (int) $b['_score'] <=> (int) $a['_score'] )
+			static fn( array $a, array $b ): int => ( (int) $b['_priority'] <=> (int) $a['_priority'] )
+				?: ( (int) $b['_score'] <=> (int) $a['_score'] )
 		);
 
+		$selected = array_slice( $rows, 0, 5 );
 		return array_map(
-			static function ( array $entry ): array {
-				unset( $entry['_score'] );
-				return $entry;
+			static function ( array $entry ) use ( $selected ): array {
+				$topic     = self::normalise( (string) ( $entry['topic'] ?? $entry['memory_key'] ?? '' ) );
+				$value_hash = hash( 'sha256', wp_json_encode( $entry['value'] ?? null ) ?: '' );
+				$conflicts = [];
+				foreach ( $selected as $other ) {
+					if ( (int) ( $other['id'] ?? 0 ) === (int) ( $entry['id'] ?? 0 ) ) {
+						continue;
+					}
+					$other_topic = self::normalise( (string) ( $other['topic'] ?? $other['memory_key'] ?? '' ) );
+					$other_hash  = hash( 'sha256', wp_json_encode( $other['value'] ?? null ) ?: '' );
+					if ( '' !== $topic && $topic === $other_topic && $value_hash !== $other_hash ) {
+						$conflicts[] = (int) ( $other['id'] ?? 0 );
+					}
+				}
+				return [
+					'id'                  => (int) ( $entry['id'] ?? 0 ),
+					'type'                => (string) ( $entry['type'] ?? '' ),
+					'scope'               => (string) ( $entry['scope'] ?? '' ),
+					'topic'               => (string) ( $entry['topic'] ?? '' ),
+					'memory_key'          => (string) ( $entry['memory_key'] ?? '' ),
+					'name'                => (string) ( $entry['name'] ?? '' ),
+					'confidence'          => (float) ( $entry['confidence'] ?? 0 ),
+					'version_fingerprint' => (string) ( $entry['version_fingerprint'] ?? '' ),
+					'precedence_rank'     => (int) $entry['_priority'],
+					'conflict_with'       => $conflicts,
+					'body_tool'           => 'stonewright/memory-get',
+				];
 			},
-			array_slice( $rows, 0, 10 )
+			$selected
 		);
+	}
+
+	private static function memory_priority( string $type ): int {
+		return match ( $type ) {
+			'user'      => 5000,
+			'feedback'  => 4000,
+			'project'   => 3000,
+			'reference' => 2000,
+			default     => 1000,
+		};
 	}
 
 	/**
@@ -250,13 +295,16 @@ final class ContextBuilder {
 				'Before any visual write, verify Playwright/browser MCP is connected; if not, install it, restart the client, and stop until the tool appears.',
 				'Before uploading assets, audit existing WordPress media by filename, alt text, dimensions, and likely source layer so already-downloaded assets are reused.',
 				'Before the first Elementor write, create a global-style plan: reusable color/typography tokens, Elementor kit updates if approved, and page-local values that should remain local.',
+				'Normalize Figma, screenshot, image, or brief observations into DesignEvidence 1.0 and call stonewright/design-native-plan before compiling any builder settings.',
+				'Block buttons, CTAs, links, navigation, forms, and images whose real action, data source, or asset policy is unresolved.',
+				'Implement the complete native phase first; emit custom CSS, JS, or PHP only as a separate unapplied proposal that requires explicit approval, diff, risk, rollback, and tests.',
 				'Create a section-by-section implementation plan with outer section, inner max-width container, rows/columns, widget choices, and responsive breakpoints.',
 				'Before the first write, produce a section-by-section plan mapping Figma nodes to native Elementor widgets, containers, breakpoints, assets, and any approved CSS classes.',
 				'Implement visual pages in batches of one section at a time, or two sections only when they are simple and tightly coupled.',
 				'After each section batch, verify desktop, tablet, and mobile breakpoints before starting the next batch.',
 				'Auto-continue to the next section batch when screenshots, overflow checks, and diagnostics pass; do not wait for user approval between batches.',
 				'Use the exact Elementor control keys from widget schema or stonewright/elementor-describe-widget; do not invent CSS-like setting names.',
-				'Use dedicated stonewright/elementor-add-* widget abilities for known widgets. Use stonewright/elementor-v3-add-widget only for unknown or third-party widgets.',
+				'Use stonewright/elementor-schema and schema-validated batch mutation for all widgets, including third-party widgets. Per-widget add abilities are deprecated compatibility tools.',
 				'Set page template to Elementor Canvas when the user asks for no header and no footer.',
 				'Do not use the design canvas width as a fixed live page width; translate it into max-width, percentage widths, and responsive padding.',
 				'Before full-page screenshots, scroll through the page or otherwise preload lazy-loaded media so missing assets are not mistaken for layout failures.',
@@ -306,6 +354,8 @@ final class ContextBuilder {
 				],
 			],
 			'evidence_required_before_first_write' => [
+				'design_evidence_1_0',
+				'native_plan_without_blockers',
 				'figma_token_table',
 				'existing_media_asset_audit',
 				'section_implementation_plan',
@@ -455,8 +505,7 @@ final class ContextBuilder {
 		}
 
 		if ( 'elementor' === $surface ) {
-			$steps[] = 'Call stonewright/widget-intent-resolve before choosing Elementor widgets.';
-			$steps[] = 'Call stonewright/elementor-widget-implementation-guide before writing Elementor elements.';
+			$steps[] = 'Call stonewright/design-native-plan with normalized DesignEvidence before choosing or writing Elementor widgets.';
 			if ( $is_visual ) {
 				$steps[] = 'Before building design-derived pages, plan Elementor kit colors/typography first; if site-wide changes are approved, update the active kit before writing page elements.';
 			}

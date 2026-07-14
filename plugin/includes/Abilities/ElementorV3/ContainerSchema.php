@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\ContainerSettings;
+use Stonewright\WpMcp\Elementor\Schema\ContainerSchemaRepository;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -51,6 +52,7 @@ final class ContainerSchema extends AbilityKernel {
 				'element_type'     => [ 'type' => 'string' ],
 				'elementor_active' => [ 'type' => 'boolean' ],
 				'source'           => [ 'type' => 'string' ],
+				'schema_hash'      => [ 'type' => 'string' ],
 				'include_controls' => [ 'type' => 'boolean' ],
 				'control_count'    => [ 'type' => 'integer' ],
 				'core_controls'    => [ 'type' => 'object' ],
@@ -70,15 +72,21 @@ final class ContainerSchema extends AbilityKernel {
 
 	public function execute( array $args ): array|\WP_Error {
 		$include_controls = true === ( $args['include_controls'] ?? false );
-		$controls         = $include_controls ? self::live_controls() : [];
-		$elementor_active = class_exists( '\\Elementor\\Plugin' );
+		$schema           = ContainerSchemaRepository::get();
+		if ( $schema instanceof \WP_Error ) {
+			return $schema;
+		}
+		$all_controls     = (array) ( $schema['controls'] ?? [] );
+		$controls         = $include_controls ? array_values( $all_controls ) : [];
+		$elementor_active = defined( 'ELEMENTOR_VERSION' );
 
 		return [
 			'element_type'     => 'container',
 			'elementor_active' => $elementor_active,
-			'source'           => [] !== $controls ? 'elementor_live_controls' : 'stonewright_safe_defaults',
+			'source'           => (string) ( $schema['source'] ?? '' ),
+			'schema_hash'      => (string) ( $schema['schema_hash'] ?? '' ),
 			'include_controls' => $include_controls,
-			'control_count'    => count( $controls ),
+			'control_count'    => count( $all_controls ),
 			'core_controls'    => self::core_controls(),
 			'safe_aliases'     => ContainerSettings::safe_aliases(),
 			'blocked_settings' => ContainerSettings::blocked_settings(),
@@ -141,51 +149,5 @@ final class ContainerSchema extends AbilityKernel {
 				'margin_mobile',
 			],
 		];
-	}
-
-	/**
-	 * @return list<array<string, mixed>>
-	 */
-	private static function live_controls(): array {
-		if ( ! class_exists( '\\Elementor\\Plugin' ) ) {
-			return [];
-		}
-
-		$plugin  = \Elementor\Plugin::$instance ?? null;
-		$manager = $plugin->elements_manager ?? null;
-		if ( ! $manager || ! method_exists( $manager, 'get_element_types' ) ) {
-			return [];
-		}
-
-		$container = $manager->get_element_types( 'container' );
-		if ( ! $container || ! method_exists( $container, 'get_controls' ) ) {
-			return [];
-		}
-
-		$controls = [];
-		foreach ( (array) $container->get_controls() as $name => $control ) {
-			$control = is_array( $control ) ? $control : [];
-			$item    = [
-				'name'    => (string) $name,
-				'type'    => (string) ( $control['type'] ?? '' ),
-				'label'   => (string) ( $control['label'] ?? '' ),
-				'tab'     => (string) ( $control['tab'] ?? '' ),
-				'section' => (string) ( $control['section'] ?? '' ),
-			];
-			if ( array_key_exists( 'default', $control ) ) {
-				$item['default'] = $control['default'];
-			}
-			if ( isset( $control['options'] ) && is_array( $control['options'] ) ) {
-				$item['options'] = array_values(
-					array_filter(
-						array_map( 'strval', array_keys( $control['options'] ) ),
-						static fn( string $value ): bool => '' !== $value
-					)
-				);
-			}
-			$controls[] = $item;
-		}
-
-		return $controls;
 	}
 }

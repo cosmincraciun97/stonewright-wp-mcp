@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="release" src="https://img.shields.io/badge/version-1.0.0--alpha.64-blue" /></a>
-  <img alt="plugin license" src="https://img.shields.io/badge/plugin-GPL--2.0--or--later-green" />
+  <img alt="plugin license" src="https://img.shields.io/badge/plugin-AGPL--3.0--or--later-green" />
   <img alt="companion license" src="https://img.shields.io/badge/companion-MIT-blue" />
   <img alt="php" src="https://img.shields.io/badge/PHP-%3E%3D8.1-777bb4" />
   <img alt="wordpress" src="https://img.shields.io/badge/WordPress-%3E%3D6.7-21759b" />
@@ -57,7 +57,8 @@ without turning every task into broad shell access or dozens of tiny tool calls.
 
 | Component | Path | License |
 |---|---|---|
-| Plugin | `plugin/` | GPL-2.0-or-later |
+| Plugin | `plugin/` | AGPL-3.0-or-later |
+| Visual workspace | `visual/` | AGPL-3.0-or-later |
 | Companion | `companion/` | MIT |
 | Skill packs | `skills/` | MIT |
 | Documentation | `docs/` | CC BY 4.0 |
@@ -153,7 +154,7 @@ Fastest MCP-client setup uses the versioned GitHub release tarball through
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.64/stonewright-companion-1.0.0-alpha.64.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.65/stonewright-companion-1.0.0-alpha.65.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -191,7 +192,7 @@ session:
 ```toml
 [mcp_servers.stonewright]
 command = "npx"
-args = ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.64/stonewright-companion-1.0.0-alpha.64.tgz", "stonewright-mcp"]
+args = ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.65/stonewright-companion-1.0.0-alpha.65.tgz", "stonewright-mcp"]
 
 [mcp_servers.stonewright.env]
 STONEWRIGHT_WP_URL = "https://your-site.example.com"

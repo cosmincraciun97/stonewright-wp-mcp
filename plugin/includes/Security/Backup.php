@@ -28,6 +28,7 @@ final class Backup {
 			'post_excerpt' => $post->post_excerpt,
 			'meta'         => self::collect_meta( $post_id ),
 		];
+		$payload['meta_absent'] = array_values( array_diff( self::tracked_meta_keys(), array_keys( $payload['meta'] ) ) );
 
 		$snapshots                 = get_post_meta( $post_id, self::META_KEY, true );
 		$snapshots                 = is_array( $snapshots ) ? $snapshots : [];
@@ -74,6 +75,11 @@ final class Backup {
 		foreach ( $snapshot['meta'] as $key => $value ) {
 			update_post_meta( $post_id, $key, $value );
 		}
+		foreach ( (array) ( $snapshot['meta_absent'] ?? [] ) as $key ) {
+			if ( is_string( $key ) && in_array( $key, self::tracked_meta_keys(), true ) ) {
+				delete_post_meta( $post_id, $key );
+			}
+		}
 
 		return true;
 	}
@@ -86,15 +92,19 @@ final class Backup {
 	 * @return array<string, mixed>
 	 */
 	private static function collect_meta( int $post_id ): array {
-		$keys = [ '_elementor_data', '_elementor_page_settings', '_elementor_version', '_elementor_edit_mode', '_wp_page_template' ];
 		$out  = [];
-		foreach ( $keys as $key ) {
+		foreach ( self::tracked_meta_keys() as $key ) {
 			$value = get_post_meta( $post_id, $key, true );
 			if ( '' !== $value && null !== $value ) {
 				$out[ $key ] = $value;
 			}
 		}
 		return $out;
+	}
+
+	/** @return list<string> */
+	private static function tracked_meta_keys(): array {
+		return [ '_elementor_data', '_elementor_page_settings', '_elementor_version', '_elementor_edit_mode', '_wp_page_template' ];
 	}
 
 	/**

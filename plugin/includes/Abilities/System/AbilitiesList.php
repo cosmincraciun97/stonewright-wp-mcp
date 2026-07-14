@@ -68,7 +68,7 @@ final class AbilitiesList extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array {
-		$rows = AbilityRegistry::enabled_abilities();
+		$rows = AbilityRegistry::all_abilities();
 
 		return [
 			'abilities' => $rows,

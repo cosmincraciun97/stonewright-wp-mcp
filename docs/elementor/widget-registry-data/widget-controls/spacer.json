@@ -2,7 +2,7 @@
     "slug": "spacer",
     "source": "free",
     "title": "Spacer",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/spacer.php",
+    "file": "elementor/includes/widgets/spacer.php",
     "sections": [
         {
             "id": "section_spacer",

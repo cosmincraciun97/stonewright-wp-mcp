@@ -80,7 +80,11 @@ export const AGENT_USE_INSTEAD = [
 ];
 
 const LOW_TOOLS_AGENT_USE_INSTEAD = AGENT_USE_INSTEAD.filter(
-	(name) => name !== 'stonewright-wp-cli-install',
+	(name) => ![
+		'stonewright-wp-cli-install',
+		'stonewright-wp-cli-discover',
+		'stonewright-wp-cli-run',
+	].includes(name),
 );
 const LOW_TOOL_PROFILE_ALIASES = new Set(['antigravity', 'gemini', 'low', 'low-tools', 'minimal', 'strict', 'tiny']);
 
@@ -208,9 +212,9 @@ export function buildToolInventory(
 	return {
 		profile,
 		startup_budget: {
-			strict_client_tool_cap: 30,
+			strict_client_tool_cap: profile === 'low-tools' ? 12 : 20,
 			client_visible_expected_tool_count: clientVisibleExpectedToolCount,
-			under_low_tools_cap: profile !== 'low-tools' || clientVisibleExpectedToolCount <= 30,
+			under_low_tools_cap: clientVisibleExpectedToolCount <= (profile === 'low-tools' ? 12 : 20),
 		},
 		first_call_tool_names: [
 			'stonewright-context-bootstrap',
@@ -277,27 +281,29 @@ function groupProxiedToolNames(toolNames: string[]): Record<string, string[]> {
 }
 
 function toolVisibilityChecks(env: NodeJS.ProcessEnv): string[] {
-	const tools = [
-			'stonewright-context-bootstrap',
-			'stonewright-workflow-preflight',
-			'stonewright-tool-profile',
-			'stonewright-php-execute',
-			'stonewright-skills-get',
+	const profile = proxyToolProfileFromEnv(env);
+	const localTools = profile === 'low-tools'
+		? [
+			'stonewright-setup-profile',
+			'stonewright-wordpress-mcp-status',
+			'stonewright-wp-cli-status',
+			'stonewright-wp-cli-batch-run',
+			'stonewright-wp-cli-job-start',
+			'stonewright-wp-cli-job-status',
+		]
+		: [
+			'stonewright-setup-profile',
 			'stonewright-wordpress-mcp-status',
 			'stonewright-wp-cli-status',
 			'stonewright-wp-cli-discover',
 			'stonewright-wp-cli-run',
 			'stonewright-wp-cli-batch-run',
-	];
+			'stonewright-wp-cli-job-start',
+			'stonewright-wp-cli-job-status',
+			'stonewright-wp-cli-install',
+		];
 
-	tools.push('stonewright-wp-cli-job-start');
-	tools.push('stonewright-wp-cli-job-status');
-
-	if (!isLowToolsProfile(env)) {
-		tools.push('stonewright-wp-cli-install');
-	}
-
-	return tools;
+	return Array.from(new Set([...proxyToolNamesForProfile(profile), ...localTools]));
 }
 
 function isLowToolsProfile(env: NodeJS.ProcessEnv): boolean {

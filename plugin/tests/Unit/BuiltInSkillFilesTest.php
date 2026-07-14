@@ -15,6 +15,7 @@ final class BuiltInSkillFilesTest extends TestCase {
 
 		$content_model = $root . '/../skills/content-model-integrations/SKILL.md';
 		$elementor     = $root . '/../skills/elementor-v3-builder/SKILL.md';
+		$evidence      = $root . '/../skills/elementor-v3-builder/references/design-evidence.md';
 		$gutenberg     = $root . '/../skills/gutenberg-fse-builder/SKILL.md';
 		$readme        = $root . '/../README.md';
 		$stonewright   = $root . '/../skills/stonewright/SKILL.md';
@@ -22,6 +23,7 @@ final class BuiltInSkillFilesTest extends TestCase {
 
 		self::assertFileExists( $content_model );
 		self::assertFileExists( $elementor );
+		self::assertFileExists( $evidence );
 		self::assertFileExists( $gutenberg );
 		self::assertFileExists( $readme );
 		self::assertFileExists( $stonewright );
@@ -29,6 +31,7 @@ final class BuiltInSkillFilesTest extends TestCase {
 
 		$content_model_body = (string) file_get_contents( $content_model );
 		$elementor_body     = (string) file_get_contents( $elementor );
+		$evidence_body      = (string) file_get_contents( $evidence );
 		$gutenberg_body     = (string) file_get_contents( $gutenberg );
 		$readme_body        = (string) file_get_contents( $readme );
 		$stonewright_body   = (string) file_get_contents( $stonewright );
@@ -41,10 +44,14 @@ final class BuiltInSkillFilesTest extends TestCase {
 		self::assertStringContainsString( 'name: woocommerce-catalog', $woocommerce_body );
 		self::assertStringContainsString( 'product variations', $woocommerce_body );
 		self::assertStringContainsString( 'wp wc', $woocommerce_body );
-		self::assertStringContainsString( 'stonewright/elementor-v3-get-widget-schema', $elementor_body );
+		self::assertStringContainsString( 'stonewright/elementor-schema', $elementor_body );
 		self::assertStringContainsString( 'Name only major parent containers semantically', $elementor_body );
 		self::assertStringContainsString( 'position absolute', $elementor_body );
 		self::assertStringContainsString( 'Content, Style, and Advanced', $elementor_body );
+		self::assertStringContainsString( 'stonewright-design-native-plan', $elementor_body );
+		self::assertStringContainsString( 'Do not turn vision output directly into Elementor settings', $elementor_body );
+		self::assertStringContainsString( 'customization_proposal', $evidence_body );
+		self::assertStringContainsString( 'Empty destinations and `#` are invalid', $evidence_body );
 		self::assertStringContainsString( 'Block Theme Production Workflow', $gutenberg_body );
 		self::assertStringContainsString( 'theme.json', $gutenberg_body );
 		self::assertStringContainsString( 'block supports', $gutenberg_body );

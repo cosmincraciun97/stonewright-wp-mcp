@@ -222,7 +222,7 @@ final class ToolProfile extends AbilityKernel {
 
 		$visible_rows = array_values(
 			array_filter(
-				AbilityRegistry::enabled_abilities(),
+				AbilityRegistry::all_abilities(),
 				static fn( array $ability ): bool => (bool) $ability['enabled']
 			)
 		);
@@ -298,6 +298,7 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/workflow-preflight',
 			'stonewright/tool-profile',
 			'stonewright/skills-get',
+			'stonewright/expertise-get',
 			'stonewright/php-execute',
 		];
 
@@ -310,13 +311,10 @@ final class ToolProfile extends AbilityKernel {
 					'stonewright/content-bulk-upsert-posts',
 					'stonewright/content-model-loop-grid-flow',
 					'stonewright/media-upload-batch',
-					'stonewright/design-implementation-contract',
-					'stonewright/widget-intent-resolve',
-					'stonewright/elementor-widget-implementation-guide',
-					'stonewright/elementor-v3-capabilities-summary',
+					'stonewright/design-native-plan',
+					'stonewright/knowledge-candidate-record',
 					'stonewright/elementor-v3-get-kit-globals',
-					'stonewright/elementor-v3-container-schema',
-					'stonewright/elementor-v3-get-widget-schema',
+					'stonewright/elementor-schema',
 					'stonewright/elementor-v3-get-page-structure',
 					'stonewright/elementor-v3-build-page-from-spec',
 					'stonewright/theme-builder-apply-template',
@@ -333,15 +331,12 @@ final class ToolProfile extends AbilityKernel {
 					'stonewright/site-info',
 					'stonewright/site-plugins-list',
 					'stonewright/security-create-one-time-link',
-					'stonewright/design-implementation-contract',
-					'stonewright/widget-intent-resolve',
-					'stonewright/elementor-widget-implementation-guide',
+					'stonewright/design-native-plan',
 					'stonewright/elementor-v3-status',
-					'stonewright/elementor-v3-capabilities-summary',
+					'stonewright/knowledge-candidate-record',
 					'stonewright/elementor-v3-get-kit-globals',
-					'stonewright/elementor-v3-container-schema',
 					'stonewright/elementor-v3-list-widgets',
-					'stonewright/elementor-v3-get-widget-schema',
+					'stonewright/elementor-schema',
 					'stonewright/elementor-describe-widget',
 					'stonewright/elementor-v4-status',
 					'stonewright/elementor-v4-list-variables',
@@ -452,10 +447,11 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/php-execute' => 'Execute short PHP snippets inside the loaded WordPress runtime when direct plugin API or database inspection is faster than many typed calls.',
 			'stonewright/security-create-one-time-link' => 'Create a short-lived wp-admin login URL for external browser MCP verification when needed.',
 			'stonewright/design-implementation-contract' => 'Load global-style, native-widget, section-batch, and verification rules.',
+			'stonewright/design-native-plan' => 'Validate compact DesignEvidence and map semantic nodes to live native schemas without writing.',
 			'stonewright/widget-intent-resolve' => 'Map visual intent to native Elementor widgets before writing controls.',
 			'stonewright/elementor-widget-implementation-guide' => 'Get Content, Style, and Advanced controls before Elementor writes.',
 			'stonewright/elementor-v3-get-kit-globals' => 'Read active Elementor kit colors and typography before global-style writes.',
-			'stonewright/elementor-v3-get-widget-schema' => 'Read compact Content, Style, and Advanced widget controls; request full only for defaults.',
+			'stonewright/elementor-schema' => 'List/search live widgets, read compact controls, or request one complete control without guessing settings.',
 			'stonewright/elementor-v3-get-page-structure' => 'Read a compact Elementor outline first; request full tree only for raw setting drift or difficult edits.',
 			'stonewright/elementor-v3-build-page-from-spec' => 'Render a validated Elementor section or page spec in one request.',
 			'stonewright/theme-builder-apply-template' => 'Create or update a real Elementor Theme Builder template, render the spec, apply conditions, and return verification hints in one request.',

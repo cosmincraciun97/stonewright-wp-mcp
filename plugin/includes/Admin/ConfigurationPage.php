@@ -140,6 +140,9 @@ final class ConfigurationPage {
 		$risk_class          = 'production-safe' === $mode
 			? 'stonewright-risk-notice--ok'
 			: 'stonewright-risk-notice--warning';
+		$setup_diagnostics   = SetupDiagnostics::report();
+		$remote_http_snippet = ConnectClientConfig::http_snippet( $username, $prompt_password );
+		$remote_http_json    = (string) wp_json_encode( $remote_http_snippet, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
 		?>
 		<div class="wrap stonewright-admin-shell stonewright-config-page">
 			<div class="stonewright-brand-banner" aria-label="<?php esc_attr_e( 'Stonewright', 'stonewright' ); ?>">
@@ -164,6 +167,30 @@ final class ConfigurationPage {
 					</p>
 				</div>
 			<?php endif; ?>
+
+			<section class="stonewright-setup-status" aria-label="<?php esc_attr_e( 'Setup diagnostics', 'stonewright' ); ?>">
+				<h2><?php esc_html_e( 'Setup diagnostics', 'stonewright' ); ?></h2>
+				<ul>
+					<?php foreach ( $setup_diagnostics['checks'] as $check ) : ?>
+						<li data-status="<?php echo esc_attr( $check['status'] ); ?>">
+							<strong><?php echo esc_html( $check['label'] ); ?>:</strong>
+							<?php echo esc_html( $check['detail'] ); ?>
+						</li>
+					<?php endforeach; ?>
+				</ul>
+				<p class="description">
+					<?php
+					echo esc_html(
+						sprintf(
+							/* translators: 1: plugin version, 2: companion contract version. */
+							__( 'Plugin %1$s; companion contract %2$s. A major contract mismatch is blocked before companion calls.', 'stonewright' ),
+							(string) $setup_diagnostics['versions']['plugin'],
+							(string) $setup_diagnostics['versions']['companion_contract']
+						)
+					);
+					?>
+				</p>
+			</section>
 
 			<section class="stonewright-setup-grid" aria-label="<?php esc_attr_e( 'Stonewright setup steps', 'stonewright' ); ?>">
 				<form method="post" action="options.php" class="stonewright-setup-step stonewright-settings-form">
@@ -429,6 +456,14 @@ final class ConfigurationPage {
 									<?php esc_html_e( 'Copy', 'stonewright' ); ?>
 								</button>
 							</div>
+							<details class="stonewright-remote-http-config">
+								<summary><?php esc_html_e( 'Remote HTTP — no Node or companion required', 'stonewright' ); ?></summary>
+								<p class="description"><?php esc_html_e( 'Use this when the MCP client supports Streamable HTTP. Keep the companion only for local WP-CLI workflows.', 'stonewright' ); ?></p>
+								<pre id="stonewright-remote-http-snippet"><code><?php echo esc_html( $remote_http_json ); ?></code></pre>
+								<button type="button" class="button button-small" data-stonewright-copy="stonewright-remote-http-snippet">
+									<?php esc_html_e( 'Copy remote config', 'stonewright' ); ?>
+								</button>
+							</details>
 							<?php self::render_client_tabs( $username, $prompt_password ); ?>
 						</div>
 						<div id="stonewright-example-prompts" class="stonewright-example-prompts" hidden>

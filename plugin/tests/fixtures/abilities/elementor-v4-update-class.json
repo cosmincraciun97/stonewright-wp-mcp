@@ -1,8 +1,7 @@
 {
     "args": {
         "id": "cls_contract",
-        "patch": {
-            "name": "Contract Updated"
-        }
+        "label": "Contract Updated",
+        "variants": [{"meta":{"breakpoint":"desktop","state":null},"props":{}}]
     }
 }

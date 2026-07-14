@@ -5,6 +5,10 @@ namespace Stonewright\WpMcp\Tests\Unit\ElementorV3;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\BatchMutate;
+use Stonewright\WpMcp\Elementor\Schema\ContainerSchemaRepository;
+use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
+use Stonewright\WpMcp\Elementor\Write\TreeHasher;
+use Stonewright\WpMcp\Support\ElementorData;
 
 /**
  * @covers \Stonewright\WpMcp\Abilities\ElementorV3\BatchMutate
@@ -31,6 +35,7 @@ final class BatchMutateTest extends TestCase {
 		$GLOBALS['stonewright_test_options'] = [ 'stonewright_mode' => 'development' ];
 		$GLOBALS['stonewright_test_user_caps'] = [ 'edit_post' => true, 'edit_posts' => true ];
 		$GLOBALS['stonewright_test_user_logged_in'] = true;
+		$GLOBALS['stonewright_test_transients'] = [];
 	}
 
 	protected function tearDown(): void {
@@ -39,6 +44,7 @@ final class BatchMutateTest extends TestCase {
 		$GLOBALS['stonewright_test_options'] = [];
 		$GLOBALS['stonewright_test_user_caps'] = [];
 		$GLOBALS['stonewright_test_user_logged_in'] = false;
+		$GLOBALS['stonewright_test_transients'] = [];
 	}
 
 	public function test_batch_adds_updates_and_writes_elementor_data_once(): void {
@@ -244,5 +250,143 @@ final class BatchMutateTest extends TestCase {
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_confirmation_required', $result->get_error_code() );
 		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+	}
+
+	public function test_write_returns_matching_compiled_and_readback_hashes(): void {
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 501,
+				'operations' => [ [ 'action' => 'add_container', 'parent_id' => 'root' ] ],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $result['before_hash'] );
+		self::assertSame( $result['after_hash'], $result['readback_hash'] );
+		self::assertSame( TreeHasher::hash( ElementorData::read( 501 ) ), $result['readback_hash'] );
+	}
+
+	public function test_expected_tree_hash_blocks_stale_plan_before_backup(): void {
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'           => 501,
+				'expected_tree_hash' => str_repeat( '0', 64 ),
+				'operations'         => [ [ 'action' => 'add_container', 'parent_id' => 'root' ] ],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_tree_conflict', $result->get_error_code() );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+	}
+
+	public function test_idempotency_replays_same_write_and_rejects_changed_input(): void {
+		$input = [
+			'post_id'         => 501,
+			'idempotency_key' => 'batch-create-inner',
+			'operations'      => [ [ 'action' => 'add_container', 'parent_id' => 'root' ] ],
+		];
+		$first = ( new BatchMutate() )->execute( $input );
+		self::assertIsArray( $first );
+		$write_count = count( $GLOBALS['stonewright_test_post_meta_calls'] );
+
+		$replay = ( new BatchMutate() )->execute( $input );
+		self::assertIsArray( $replay );
+		self::assertTrue( $replay['idempotent_replay'] );
+		self::assertSame( $write_count, count( $GLOBALS['stonewright_test_post_meta_calls'] ) );
+
+		$conflict = ( new BatchMutate() )->execute(
+			array_replace(
+				$input,
+				[ 'operations' => [ [ 'action' => 'add_container', 'parent_id' => 'root', 'position' => 0 ] ] ]
+			)
+		);
+		self::assertInstanceOf( \WP_Error::class, $conflict );
+		self::assertSame( 'stonewright_idempotency_conflict', $conflict->get_error_code() );
+
+		$policy_conflict = ( new BatchMutate() )->execute( array_replace( $input, [ 'stop_on_error' => false ] ) );
+		self::assertInstanceOf( \WP_Error::class, $policy_conflict );
+		self::assertSame( 'stonewright_idempotency_conflict', $policy_conflict->get_error_code() );
+	}
+
+	public function test_strict_evidence_requires_live_schema_hash_for_every_setting(): void {
+		$missing = ( new BatchMutate() )->execute(
+			[
+				'post_id'         => 501,
+				'dry_run'         => true,
+				'require_evidence' => true,
+				'operations'      => [
+					[
+						'action'      => 'add_widget',
+						'parent_id'   => 'root',
+						'widget_type' => 'heading',
+						'settings'    => [ 'title' => 'Evidence' ],
+					],
+				],
+			]
+		);
+		self::assertInstanceOf( \WP_Error::class, $missing );
+		self::assertSame( 'stonewright_batch_operation_failed', $missing->get_error_code() );
+		self::assertSame( 'stonewright_elementor_evidence_invalid', $missing->get_error_data()['items'][0]['error']['code'] );
+
+		$schema = WidgetSchemaRepository::get( 'heading' );
+		self::assertIsArray( $schema );
+		$valid = ( new BatchMutate() )->execute(
+			[
+				'post_id'         => 501,
+				'dry_run'         => true,
+				'require_evidence' => true,
+				'operations'      => [
+					[
+						'action'            => 'add_widget',
+						'parent_id'         => 'root',
+						'widget_type'       => 'heading',
+						'settings'          => [ 'title' => 'Evidence' ],
+						'settings_evidence' => [
+							'title' => [
+								'schema_hash'          => $schema['schema_hash'],
+								'source'               => 'figma:node/hero-title',
+								'confidence'           => 0.99,
+								'responsive_scope'     => 'desktop',
+								'requires_confirmation' => false,
+							],
+						],
+					],
+				],
+			]
+		);
+		self::assertIsArray( $valid );
+		self::assertCount( 1, $valid['items'][0]['evidence'] );
+	}
+
+	public function test_strict_container_evidence_uses_the_structural_schema_hash(): void {
+		$schema = ContainerSchemaRepository::get();
+		self::assertIsArray( $schema );
+		$evidence = static fn(): array => [
+			'schema_hash'          => $schema['schema_hash'],
+			'source'               => 'figma:node/hero-container',
+			'confidence'           => 0.99,
+			'responsive_scope'     => 'desktop',
+			'requires_confirmation' => false,
+		];
+
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'          => 501,
+				'dry_run'          => true,
+				'require_evidence' => true,
+				'operations'       => [
+					[
+						'action'            => 'add_container',
+						'parent_id'         => 'root',
+						'settings'          => [ 'container_type' => 'flex', 'flex_direction' => 'row' ],
+						'settings_evidence' => [ 'container_type' => $evidence(), 'flex_direction' => $evidence() ],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertCount( 2, $result['items'][0]['evidence'] );
 	}
 }

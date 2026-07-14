@@ -2,7 +2,7 @@
     "slug": "image",
     "source": "free",
     "title": "Image",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/image.php",
+    "file": "elementor/includes/widgets/image.php",
     "sections": [
         {
             "id": "section_image",

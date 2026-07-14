@@ -58,7 +58,8 @@ final class WidgetIntentResolveAbilityTest extends TestCase {
 		$this->assertIsArray( $result );
 		$this->assertTrue( $result['matched'] );
 		$this->assertSame( 'nav-menu', $result['recommendations'][0]['slug'] );
-		$this->assertSame( 'stonewright/elementor-add-nav-menu', $result['recommendations'][0]['ability'] );
+		$this->assertSame( 'stonewright/elementor-v3-batch-mutate', $result['recommendations'][0]['ability'] );
+		$this->assertSame( 'stonewright/elementor-add-nav-menu', $result['recommendations'][0]['legacy_ability'] );
 	}
 
 	public function test_ability_rejects_html_widget_when_forbidden(): void {

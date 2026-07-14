@@ -2,7 +2,7 @@
     "slug": "icon-list",
     "source": "free",
     "title": "Icon List",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/icon-list.php",
+    "file": "elementor/includes/widgets/icon-list.php",
     "sections": [
         {
             "id": "section_icon",

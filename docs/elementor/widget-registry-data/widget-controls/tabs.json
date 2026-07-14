@@ -2,7 +2,7 @@
     "slug": "tabs",
     "source": "free",
     "title": "Tabs",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/tabs.php",
+    "file": "elementor/includes/widgets/tabs.php",
     "sections": [
         {
             "id": "section_tabs",

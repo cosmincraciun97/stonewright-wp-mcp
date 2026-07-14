@@ -2,7 +2,7 @@
     "slug": "progress",
     "source": "free",
     "title": "Progress Bar",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/progress.php",
+    "file": "elementor/includes/widgets/progress.php",
     "sections": [
         {
             "id": "section_progress",

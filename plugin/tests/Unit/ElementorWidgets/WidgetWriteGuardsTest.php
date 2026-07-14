@@ -76,14 +76,17 @@ final class WidgetWriteGuardsTest extends TestCase {
 		);
 
 		self::assertInstanceOf( \WP_Error::class, $result );
-		self::assertSame( 'stonewright_invalid_settings', $result->get_error_code() );
+		self::assertSame( 'stonewright_elementor_settings_invalid', $result->get_error_code() );
 
 		$data = $result->get_error_data();
 		self::assertIsArray( $data );
-		self::assertSame( 'settings.selected_icon', $data['violations'][0]['path'] );
+		self::assertSame( 'settings.icon', $data['violations'][0]['path'] );
+		self::assertSame( 'unknown_setting', $data['violations'][0]['code'] );
 	}
 
 	public function test_dedicated_widget_adds_group_activator_for_supplied_group_subkey(): void {
+		self::assertTrue( ( new AddHeading() )->meta()['deprecated'] );
+		self::assertSame( 'stonewright/elementor-v3-batch-mutate', ( new AddHeading() )->meta()['replacement'] );
 		$result = ( new AddHeading() )->execute(
 			[
 				'post_id'   => 321,

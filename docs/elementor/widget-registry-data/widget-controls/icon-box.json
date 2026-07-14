@@ -2,7 +2,7 @@
     "slug": "icon-box",
     "source": "free",
     "title": "Icon Box",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/icon-box.php",
+    "file": "elementor/includes/widgets/icon-box.php",
     "sections": [
         {
             "id": "section_icon",

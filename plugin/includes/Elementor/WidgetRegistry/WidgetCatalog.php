@@ -4,17 +4,16 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Elementor\WidgetRegistry;
 
 /**
- * Read-only access to the Stonewright widget manifest.
+ * Read-only access to the lazy Stonewright widget catalog.
  *
- * Loads `manifest.json` (produced by `plugin/bin/manifest-synthesize.php`)
- * once per request and exposes per-widget lookups for the per-widget
+ * Loads a compact PHP index once per request, then includes only requested
+ * per-widget PHP shards. It exposes lookups for the per-widget
  * abilities, the WidgetIntentResolver, the knowledge-base
  * `elementor-describe-widget` ability, and any caller that needs the
  * canonical Elementor setting metadata.
  *
- * The manifest is intentionally large (full control schema + harvested
- * help-article prose per widget). To keep memory bounded the data is held
- * in a single static array and returned by reference where possible.
+ * Full widget controls and harvested knowledge are never loaded as one giant
+ * runtime structure.
  *
  * The class is final and intentionally has no constructor — every method
  * is static so subclasses, mocks, and call sites all see the same loaded
@@ -24,6 +23,9 @@ final class WidgetCatalog {
 
 	/** @var array<string, mixed>|null */
 	private static ?array $manifest = null;
+
+	/** @var array<string, array<string, mixed>> */
+	private static array $entry_cache = [];
 
 	/**
 	 * Path to the manifest file. Overridable in tests via
@@ -36,7 +38,7 @@ final class WidgetCatalog {
 	/** Return the absolute path the catalog will (or did) load. */
 	public static function manifest_path(): string {
 		if ( self::$manifest_path === null ) {
-			self::$manifest_path = __DIR__ . '/manifest.json';
+			self::$manifest_path = __DIR__ . '/catalog/index.php';
 		}
 		return self::$manifest_path;
 	}
@@ -48,6 +50,7 @@ final class WidgetCatalog {
 	public static function set_manifest_path( ?string $path ): void {
 		self::$manifest_path = $path;
 		self::$manifest      = null;
+		self::$entry_cache   = [];
 	}
 
 	/**
@@ -55,7 +58,8 @@ final class WidgetCatalog {
 	 * Intended for tests.
 	 */
 	public static function reset_cache(): void {
-		self::$manifest = null;
+		self::$manifest    = null;
+		self::$entry_cache = [];
 	}
 
 	/**
@@ -68,16 +72,6 @@ final class WidgetCatalog {
 			return self::$manifest;
 		}
 
-		// Try loading pre-compiled PHP array first (much faster + OPcache-friendly)
-		$php_path = dirname( self::manifest_path() ) . '/manifest.php';
-		if ( is_file( $php_path ) ) {
-			$loaded = include $php_path;
-			if ( is_array( $loaded ) ) {
-				self::$manifest = $loaded;
-				return self::$manifest;
-			}
-		}
-
 		$path = self::manifest_path();
 		if ( ! is_file( $path ) ) {
 			self::$manifest = [
@@ -87,12 +81,8 @@ final class WidgetCatalog {
 			];
 			return self::$manifest;
 		}
-		$raw = (string) file_get_contents( $path );
-		if ( substr( $raw, 0, 3 ) === "\xEF\xBB\xBF" ) {
-			$raw = substr( $raw, 3 );
-		}
-		$decoded = json_decode( $raw, true );
-		self::$manifest = is_array( $decoded ) ? $decoded : [
+		$loaded = include $path;
+		self::$manifest = is_array( $loaded ) ? $loaded : [
 			'version' => '0.0.0',
 			'widgets' => [],
 			'totals'  => [],
@@ -106,14 +96,17 @@ final class WidgetCatalog {
 	 * @return array<string, array<string, mixed>>
 	 */
 	public static function widgets(): array {
-		$m = self::manifest();
-		$w = $m['widgets'] ?? [];
-		return is_array( $w ) ? $w : [];
+		$out = [];
+		foreach ( self::slugs() as $slug ) {
+			$out[ $slug ] = self::entry( $slug );
+		}
+		return $out;
 	}
 
 	/** List of widget slugs known to the catalog. */
 	public static function slugs(): array {
-		return array_keys( self::widgets() );
+		$widgets = self::manifest()['widgets'] ?? [];
+		return is_array( $widgets ) ? array_keys( $widgets ) : [];
 	}
 
 	/**
@@ -126,17 +119,30 @@ final class WidgetCatalog {
 	 * @return array<string, mixed>
 	 */
 	public static function entry( string $slug ): array {
-		$widgets = self::widgets();
-		$entry   = $widgets[ $slug ] ?? null;
-		if ( ! is_array( $entry ) ) {
+		if ( isset( self::$entry_cache[ $slug ] ) ) {
+			return self::$entry_cache[ $slug ];
+		}
+		$widgets = self::manifest()['widgets'] ?? [];
+		$meta    = is_array( $widgets ) ? ( $widgets[ $slug ] ?? null ) : null;
+		if ( ! is_array( $meta ) || ! isset( $meta['shard'] ) || ! is_string( $meta['shard'] ) ) {
 			return self::stub_entry( $slug );
 		}
-		return $entry + self::stub_entry( $slug );
+		$relative = str_replace( '\\', '/', $meta['shard'] );
+		if ( str_contains( $relative, '..' ) || str_starts_with( $relative, '/' ) ) {
+			return self::stub_entry( $slug );
+		}
+		$path   = dirname( self::manifest_path() ) . '/' . $relative;
+		$loaded = is_file( $path ) ? include $path : null;
+		if ( ! is_array( $loaded ) ) {
+			return self::stub_entry( $slug );
+		}
+		self::$entry_cache[ $slug ] = $loaded + self::stub_entry( $slug );
+		return self::$entry_cache[ $slug ];
 	}
 
 	/** Whether the catalog has an entry for this slug. */
 	public static function has( string $slug ): bool {
-		$widgets = self::widgets();
+		$widgets = self::manifest()['widgets'] ?? [];
 		return isset( $widgets[ $slug ] );
 	}
 
@@ -147,9 +153,10 @@ final class WidgetCatalog {
 	 */
 	public static function by_source( string $source ): array {
 		$out = [];
-		foreach ( self::widgets() as $slug => $entry ) {
-			if ( ( $entry['source'] ?? null ) === $source ) {
-				$out[ $slug ] = $entry;
+		$widgets = self::manifest()['widgets'] ?? [];
+		foreach ( is_array( $widgets ) ? $widgets : [] as $slug => $meta ) {
+			if ( ( $meta['source'] ?? null ) === $source ) {
+				$out[ $slug ] = self::entry( (string) $slug );
 			}
 		}
 		return $out;
@@ -161,7 +168,7 @@ final class WidgetCatalog {
 	 * @return array<string, string>
 	 */
 	public static function group_activators( string $slug ): array {
-		$entry = self::widgets()[ $slug ] ?? [];
+		$entry = self::entry( $slug );
 		$g     = $entry['group_activators'] ?? [];
 		return is_array( $g ) ? $g : [];
 	}
@@ -172,7 +179,7 @@ final class WidgetCatalog {
 	 * @return array<string, array<string, mixed>>
 	 */
 	public static function settings_index( string $slug ): array {
-		$entry = self::widgets()[ $slug ] ?? [];
+		$entry = self::entry( $slug );
 		$s     = $entry['settings_index'] ?? [];
 		return is_array( $s ) ? $s : [];
 	}
@@ -183,7 +190,7 @@ final class WidgetCatalog {
 	 * @return array<int, string>
 	 */
 	public static function required_for_render( string $slug ): array {
-		$entry = self::widgets()[ $slug ] ?? [];
+		$entry = self::entry( $slug );
 		$r     = $entry['required_for_render'] ?? [];
 		return is_array( $r ) ? array_values( array_filter( $r, 'is_string' ) ) : [];
 	}

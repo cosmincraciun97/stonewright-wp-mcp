@@ -57,9 +57,9 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'Do not publish credentials, private memory, site-specific prompts, or custom instructions', $instructions );
 		$this->assertStringContainsString( 'stonewright/elementor-knowledge-search', $instructions );
 		$this->assertStringContainsString( 'stonewright/elementor-describe-widget', $instructions );
-		$this->assertStringContainsString( 'stonewright/widget-intent-resolve', $instructions );
-		$this->assertStringContainsString( 'stonewright/design-implementation-contract', $instructions );
-		$this->assertStringContainsString( 'stonewright/elementor-widget-implementation-guide', $instructions );
+		$this->assertStringContainsString( 'stonewright/design-native-plan', $instructions );
+		$this->assertStringContainsString( 'Do not pass raw Figma trees or AI-generated raw Elementor settings', $instructions );
+		$this->assertStringContainsString( 'separate unapplied proposal until explicit approval', $instructions );
 		$this->assertStringContainsString( 'stonewright/wp-cli-status', $instructions );
 		$this->assertStringContainsString( 'stonewright/wp-cli-discover', $instructions );
 		$this->assertStringContainsString( 'stonewright/wp-cli-run', $instructions );
@@ -77,7 +77,7 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'allow_html_widget=true', $instructions );
 		$this->assertStringContainsString( 'Content, Style, and Advanced', $instructions );
 		$this->assertStringContainsString( 'official Elementor documentation', $instructions );
-		$this->assertStringContainsString( 'stonewright/elementor-v3-get-widget-schema for every widget', $instructions );
+		$this->assertStringContainsString( 'stonewright/elementor-schema with mode=summary', $instructions );
 		$this->assertStringContainsString( 'position absolute', $instructions );
 		$this->assertStringContainsString( 'CSS ID', $instructions );
 		$this->assertStringContainsString( 'CSS classes', $instructions );
@@ -120,7 +120,7 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'If SVG upload is blocked', $instructions );
 		$this->assertStringContainsString( 'do not create sandbox', $instructions );
 		$this->assertStringNotContainsString( 'stonewright/qa-', $instructions );
-		$this->assertStringNotContainsString( 'Figma', $instructions );
+		$this->assertStringContainsString( 'raw Figma trees', $instructions );
 	}
 
 	public function test_compact_instructions_omit_visual_build_rules_when_visual_context_is_disabled(): void {

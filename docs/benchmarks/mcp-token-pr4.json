@@ -1,0 +1,33 @@
+{
+  "catalog_before": {
+    "manifest_json_bytes": 3167784,
+    "manifest_php_bytes": 2681923,
+    "duplicated_runtime_artifact_bytes": 5849707
+  },
+  "catalog_after": {
+    "widget_count": 95,
+    "index_bytes": 48351,
+    "all_shards_bytes": 2347511,
+    "largest_shard_bytes": 206989,
+    "heading_shard_bytes": 14622,
+    "typical_heading_lookup_bytes": 62973,
+    "typical_lookup_reduction_percent": 98.92
+  },
+  "schema_contract": {
+    "contract_summary_bytes": 589,
+    "contract_summary_estimated_tokens": 148,
+	"gallery_summary_bytes": 2962,
+	"gallery_summary_estimated_tokens": 741,
+    "budget_tokens": 800,
+    "budget_pass": true
+  },
+  "surface": {
+    "plugin_default_tools": 20,
+    "companion_default_tools": 20,
+	"companion_strict_tools": 12,
+	"default_profile_estimated_tokens": 3163,
+	"strict_profile_estimated_tokens": 3095,
+	"task_start_non_visual_estimated_tokens": 374,
+	"task_start_visual_estimated_tokens": 423
+  }
+}

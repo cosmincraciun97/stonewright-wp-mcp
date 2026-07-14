@@ -2,7 +2,7 @@
     "slug": "wc-categories",
     "source": "wc",
     "title": "Product Categories",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/categories.php",
+    "file": "pro-elements/modules/woocommerce/widgets/categories.php",
     "sections": [
         {
             "id": "section_layout",

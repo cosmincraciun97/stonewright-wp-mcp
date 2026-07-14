@@ -2,7 +2,7 @@
     "slug": "nav-menu",
     "source": "pro",
     "title": "WordPress Menu",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/nav-menu/widgets/nav-menu.php",
+    "file": "pro-elements/modules/nav-menu/widgets/nav-menu.php",
     "sections": [
         {
             "id": "section_layout",

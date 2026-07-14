@@ -2,7 +2,7 @@
     "slug": "woocommerce-product-data-tabs",
     "source": "wc",
     "title": "Product Data Tabs",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-data-tabs.php",
+    "file": "pro-elements/modules/woocommerce/widgets/product-data-tabs.php",
     "sections": [
         {
             "id": "section_product_tabs_style",

@@ -3,7 +3,8 @@
         "scope": "elementor",
         "topic": "Elementor HTML widget avoidance",
         "correction": "Use native Elementor widgets before considering HTML widgets.",
-        "lesson": "Call the widget intent resolver and implementation guide before writing Elementor elements."
+        "lesson": "Call the native design planner and live widget schema before writing Elementor elements.",
+        "update_skill": false
     },
     "expect": "ok"
 }

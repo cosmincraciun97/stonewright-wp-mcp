@@ -141,6 +141,6 @@ final class AtomicIntrospectionTest extends TestCase {
 
 		$this->assertSame( 'e-svg', $result['widget'] );
 		$names = array_column( $result['props'], 'name' );
-		$this->assertContains( 'svg', $names );
+		$this->assertContains( 'url', $names );
 	}
 }

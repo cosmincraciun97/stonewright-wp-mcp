@@ -2,7 +2,7 @@
     "slug": "theme-site-logo",
     "source": "pro",
     "title": "Site Logo",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/site-logo.php",
+    "file": "pro-elements/modules/theme-builder/widgets/site-logo.php",
     "sections": [],
     "group_controls": [],
     "repeaters": [],

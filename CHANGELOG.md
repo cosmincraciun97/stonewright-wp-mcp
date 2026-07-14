@@ -7,6 +7,95 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.65] - 2026-07-14
+
+### Added
+
+- Added reproducible MCP surface and task-start token benchmarks with 20-tool
+  default and 12-tool strict profile budgets.
+- Added upstream source provenance, attribution, and license notices for
+  Novamira-derived components.
+- Added the AGPL Stonewright Visual foundation with one top-level workspace
+  request tool and nested editor/backend tool discovery.
+- Added nested batch calls with aliases, mandatory mutation readback,
+  transaction rollback, compact schema summaries, and confirmation state.
+- Added a page-resident Elementor V3 editor adapter with live widget schemas,
+  per-setting evidence, idempotency, refs, rollback, undo/redo/save, and
+  immediate editor-model readback.
+- Added optimistic tree hashes, persistent idempotency, strict evidence mode,
+  and post-write hash verification to the Elementor V3 batch compiler.
+- Added live structural schemas for Elementor containers, sections, and
+  columns so the final write gate rejects unknown layout settings too.
+- Added vendor-neutral DesignEvidence validation, deterministic native-first
+  planning, semantic action gates, and separate non-applying customization
+  proposals for Elementor, Gutenberg, and WordPress design tasks.
+- Added an Elementor builder reference that turns Figma/image evidence into a
+  native plan before any schema compilation or visual write.
+- Added site-local knowledge candidates with source hashes, TTL, Elementor
+  version constraints, verification fingerprints, conflict gates, and audited
+  promotion through `stonewright/knowledge-candidate-record`.
+- Added disabled research drafts plus immutable skill revision history, lint,
+  and rollback.
+- Added a versioned Expertise Engine with 10 P0 curriculum packs, top-three
+  compatible task activation, lazy sections, scorecards, promotion gates, and
+  an honest public capability parity matrix.
+- Added `stonewright/expertise-get`, maintainer list/evaluate/promote abilities,
+  and a reproducible 120-case P0 curriculum evaluator.
+- Added the versioned Elementor V4 Atomic schema repository, recursive mixed-
+  tree inspection, official global-class/variable runtime adapters, and owned
+  structural fixtures with exact upstream fingerprints.
+- Added a separate page-resident Elementor V4 editor adapter with live schema
+  discovery, explicit write approval, batch rollback, editor/frontend readback,
+  and zero-loss-only V3 migration planning/application.
+- Added side-effect-free setup diagnostics and a direct remote HTTP config that
+  needs neither Node nor the optional companion.
+- Added a Gutenberg Visual adapter with live block discovery, strict attribute
+  validation, editor-native writes, serialization, save readback, and batch
+  rollback beneath the single workspace tool.
+- Added eight P1/P2 expertise packs and an 11-integration runtime catalogue
+  that distinguishes typed support, discovery-only integrations, and missing
+  plugins without claiming unsupported writes.
+
+### Changed
+
+- Relicensed the Stonewright WordPress plugin to AGPL-3.0-or-later before the
+  first Novamira source import; the Node companion remains MIT licensed.
+- Reduced compact task-start context to stay below the 700-token non-visual
+  and 1,200-token visual budgets.
+- Reduced the real default MCP surface to 20 tools and strict mode to 12;
+  legacy companion aliases now appear only in the explicit full profile.
+- Added a live, fingerprinted Elementor V3 schema repository with one compact
+  schema tool, lazy widget shards, cache invalidation, and strict write guards.
+- Deprecated generated `elementor-add-*` tools for new plans in favor of the
+  unified schema plus batch compiler while retaining a compatibility window.
+- Changed learning so one correction records memory by default and can no
+  longer activate a skill automatically; task start now routes through compact,
+  relevant, non-stale memory refs with explicit precedence.
+- Replaced Elementor V4 placeholder and unknown-property fallbacks with hard,
+  path-aware errors and exact typed Atomic envelopes.
+- Published an exact generated migration for all 94 deprecated Elementor add
+  abilities; removal is deferred until two releases have carried warnings.
+
+### Fixed
+
+- Fixed snapshot restore so Elementor meta created after a snapshot is deleted
+  when rollback restores an originally absent value.
+
+- Corrected the Elementor Pro Gallery required control from the invalid
+  `wp_gallery` key to the live `gallery` control.
+- Isolated WP-CLI fixture discovery from real LocalWP binaries on the test host
+  and removed machine-specific paths from Elementor registry artifacts.
+- Cleaned per-process PHP test files at shutdown and removed PHP 8.5 reflection
+  deprecation noise.
+
+### Security
+
+- Hardened `stonewright/php-execute` with production-safe confirmation,
+  bounded output, normalized results, buffer/time-limit cleanup, and compact
+  audit metadata without exposing source code.
+- Removed JavaScript eval from the adapted Visual dispatcher and restricted
+  backend execution to discovered Visual-safe tools with approval for writes.
+
 ## [1.0.0-alpha.64] - 2026-06-17
 
 ### Added

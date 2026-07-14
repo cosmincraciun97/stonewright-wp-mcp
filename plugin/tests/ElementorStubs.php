@@ -121,13 +121,80 @@ Plugin::$instance = (object) [
 								'tab'     => 'content',
 								'section' => 'content',
 							],
+							];
+						}
+					},
+				'third-party-card' => new class() {
+					public function get_title(): string {
+						return 'Third Party Card';
+					}
+
+					/** @return list<string> */
+					public function get_categories(): array {
+						return [ 'third-party' ];
+					}
+
+					/** @return list<string> */
+					public function get_keywords(): array {
+						return [ 'card' ];
+					}
+
+					/** @return array<string, array<string, mixed>> */
+					public function get_controls(): array {
+						return [
+							'title' => [ 'type' => 'text', 'label' => 'Title', 'tab' => 'content', 'section' => 'content' ],
 						];
 					}
 				},
 			];
 
 			if ( null !== $name ) {
-				return $widgets[ $name ] ?? null;
+				if ( isset( $widgets[ $name ] ) ) {
+					return $widgets[ $name ];
+				}
+
+				$catalog = \Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetCatalog::class;
+				if ( ! $catalog::has( $name ) ) {
+					return null;
+				}
+				$entry = $catalog::entry( $name );
+
+				return new class( $name, $entry ) {
+					/** @param array<string, mixed> $entry */
+					public function __construct( private string $name, private array $entry ) {
+					}
+
+					public function get_title(): string {
+						return (string) ( $this->entry['title'] ?? $this->name );
+					}
+
+					/** @return list<string> */
+					public function get_categories(): array {
+						return array_values( (array) ( $this->entry['categories'] ?? [] ) );
+					}
+
+					/** @return array<string, array<string, mixed>> */
+					public function get_controls(): array {
+						$controls = [];
+						foreach ( (array) ( $this->entry['settings_index'] ?? [] ) as $key => $control ) {
+							$controls[ (string) $key ] = is_array( $control ) ? $control : [];
+						}
+						foreach ( (array) ( $this->entry['sections'] ?? [] ) as $section ) {
+							foreach ( (array) ( $section['group_controls'] ?? [] ) as $group ) {
+								$prefix = is_string( $group['name'] ?? null ) ? $group['name'] : '';
+								if ( 'typography' === ( $group['group'] ?? '' ) && '' !== $prefix ) {
+									$controls[ $prefix . '_font_size' ] = [
+										'type'       => 'slider',
+										'tab'        => (string) ( $section['tab'] ?? 'style' ),
+										'section'    => (string) ( $section['id'] ?? '' ),
+										'responsive' => true,
+									];
+								}
+							}
+						}
+						return $controls;
+					}
+				};
 			}
 
 			return $widgets;
@@ -143,3 +210,48 @@ Plugin::$instance = (object) [
 		}
 	},
 ];
+
+namespace Elementor\Modules\GlobalClasses;
+
+final class Global_Classes_Repository {
+	/** @var array<string, array<string, mixed>> */
+	private static array $items = [
+		'cls_contract' => [ 'id' => 'cls_contract', 'label' => 'Contract', 'type' => 'class', 'variants' => [ [ 'meta' => [ 'breakpoint' => 'desktop', 'state' => null ], 'props' => [] ] ] ],
+	];
+	public static function make(): self { return new self(); }
+	/** @return array<string, string> */
+	public function all_labels(): array { return array_map( static fn( array $item ): string => (string) $item['label'], self::$items ); }
+	/** @return array<string, array<string, mixed>> */
+	public function get_by_ids( array $ids ): array { return array_intersect_key( self::$items, array_flip( $ids ) ); }
+	/** @return list<string> */
+	public function get_order(): array { return array_keys( self::$items ); }
+	/** @return array<string, mixed>|null */
+	public function get( string $id ): ?array { return self::$items[ $id ] ?? null; }
+	public function apply_changes( array $items, array $changes, array $order ): void { self::$items = array_replace( self::$items, $items ); }
+}
+
+namespace Elementor\Modules\Variables\Storage;
+
+final class Variables_Repository {
+	public function __construct( public object $kit ) {}
+}
+
+namespace Elementor\Modules\Variables\Services\Batch_Operations;
+
+final class Batch_Processor {}
+
+namespace Elementor\Modules\Variables\Services;
+
+final class Variables_Service {
+	/** @var array<string, array<string, mixed>> */
+	private static array $items = [
+		'var_contract' => [ 'label' => 'Contract', 'type' => 'global-color-variable', 'value' => '#111111' ],
+	];
+	public function __construct( object $repository, object $batch ) {}
+	/** @return array<string, array<string, mixed>> */
+	public function get_variables_list(): array { return self::$items; }
+	/** @param array<string, mixed> $data @return array<string, mixed> */
+	public function create( array $data ): array { $id = 'var_' . count( self::$items ); self::$items[ $id ] = $data; return [ 'variable' => array_merge( [ 'id' => $id ], $data ) ]; }
+	/** @param array<string, mixed> $data @return array<string, mixed> */
+	public function update( string $id, array $data ): array { if ( ! isset( self::$items[ $id ] ) ) { throw new \RuntimeException( 'Variable not found.' ); } self::$items[ $id ] = array_replace( self::$items[ $id ], $data ); return [ 'variable' => array_merge( [ 'id' => $id ], self::$items[ $id ] ) ]; }
+}

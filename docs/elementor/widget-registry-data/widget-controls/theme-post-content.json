@@ -2,7 +2,7 @@
     "slug": "theme-post-content",
     "source": "pro",
     "title": "Post Content",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/post-content.php",
+    "file": "pro-elements/modules/theme-builder/widgets/post-content.php",
     "sections": [
         {
             "id": "section_style",

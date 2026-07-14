@@ -129,7 +129,7 @@ final class AtomicCompilerTest extends TestCase {
 		AtomicCompiler::slug_to_class( '' );
 	}
 
-	public function test_schema_method_falls_back_to_string_for_unknown_types(): void {
+	public function test_schema_method_rejects_unknown_types(): void {
 		$this->assertSame( 'string',  AtomicCompiler::schema_method( 'string' ) );
 		$this->assertSame( 'number',  AtomicCompiler::schema_method( 'number' ) );
 		$this->assertSame( 'size',    AtomicCompiler::schema_method( 'size' ) );
@@ -138,8 +138,8 @@ final class AtomicCompilerTest extends TestCase {
 		$this->assertSame( 'link',    AtomicCompiler::schema_method( 'link' ) );
 		$this->assertSame( 'image',   AtomicCompiler::schema_method( 'image' ) );
 		// Unknown.
-		$this->assertSame( 'string', AtomicCompiler::schema_method( 'unicorn' ) );
-		$this->assertSame( 'string', AtomicCompiler::schema_method( '' ) );
+		$this->expectException( \InvalidArgumentException::class );
+		AtomicCompiler::schema_method( 'unicorn' );
 	}
 
 	public function test_multiple_props_each_get_a_control_entry(): void {

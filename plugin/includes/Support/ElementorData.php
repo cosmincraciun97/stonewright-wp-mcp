@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Support;
 
+use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
+
 /**
  * Read/write helpers for Elementor V3 page data, which lives in the
  * `_elementor_data` post meta as JSON-encoded list of elements:
@@ -24,8 +26,13 @@ final class ElementorData {
 		if ( is_array( $raw ) ) {
 			return $raw;
 		}
-		$decoded = json_decode( (string) $raw, true );
-		return is_array( $decoded ) ? $decoded : [];
+		foreach ( [ (string) $raw, (string) wp_unslash( $raw ) ] as $candidate ) {
+			$decoded = json_decode( $candidate, true );
+			if ( is_array( $decoded ) ) {
+				return $decoded;
+			}
+		}
+		return [];
 	}
 
 	/**
@@ -45,6 +52,9 @@ final class ElementorData {
 	 * @param array<int, array<string, mixed>> $tree
 	 */
 	public static function write( int $post_id, array $tree ): bool {
+		if ( ! SettingsValidator::validate_tree( $tree ) ) {
+			return false;
+		}
 		$json = wp_json_encode( $tree, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
 		if ( false === $json ) {
 			return false;

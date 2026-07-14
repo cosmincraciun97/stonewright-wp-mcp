@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Elementor\WidgetRegistry\EditorTabKnowledge;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -115,6 +116,8 @@ final class GetWidgetSchema extends AbilityKernel {
 				'defaults_omitted'  => [ 'type' => 'boolean' ],
 				'full_mode_hint'    => [ 'type' => 'string' ],
 				'filters'           => [ 'type' => 'object' ],
+				'schema_hash'       => [ 'type' => 'string' ],
+				'runtime_fingerprint' => [ 'type' => 'string' ],
 			],
 			'required'   => [ 'name', 'controls', 'tab_groups', 'research_guidance' ],
 		];
@@ -125,32 +128,14 @@ final class GetWidgetSchema extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		if ( ! class_exists( '\\Elementor\\Plugin' ) ) {
-			return $this->error( 'elementor_inactive', __( 'Elementor is not loaded.', 'stonewright' ) );
-		}
-
-		$manager = \Elementor\Plugin::$instance->widgets_manager ?? null;
-		if ( ! $manager ) {
-			return $this->error( 'elementor_inactive', __( 'Widgets manager unavailable.', 'stonewright' ) );
-		}
-
-		$widget = $manager->get_widget_types( (string) $args['name'] );
-		if ( ! $widget ) {
-			return $this->error( 'unknown_widget', sprintf( __( 'Widget "%s" not found.', 'stonewright' ), (string) $args['name'] ) );
+		$schema = WidgetSchemaRepository::get( (string) $args['name'] );
+		if ( $schema instanceof \WP_Error ) {
+			return $schema;
 		}
 
 		$controls = [];
-		if ( method_exists( $widget, 'get_controls' ) ) {
-			foreach ( (array) $widget->get_controls() as $key => $control ) {
-				$controls[] = [
-					'name'    => (string) $key,
-					'type'    => (string) ( $control['type'] ?? '' ),
-					'label'   => (string) ( $control['label'] ?? '' ),
-					'default' => $control['default'] ?? null,
-					'tab'     => (string) ( $control['tab'] ?? '' ),
-					'section' => (string) ( $control['section'] ?? '' ),
-				];
-			}
+		foreach ( (array) $schema['controls'] as $key => $control ) {
+			$controls[] = [ 'name' => (string) $key ] + (array) $control;
 		}
 
 		$response_mode = (string) ( $args['responseMode'] ?? 'summary' );
@@ -162,8 +147,10 @@ final class GetWidgetSchema extends AbilityKernel {
 		return [
 			'name'              => (string) $args['name'],
 			'response_mode'     => 'full' === $response_mode ? 'full' : 'summary',
-			'title'             => method_exists( $widget, 'get_title' ) ? (string) $widget->get_title() : '',
-			'categories'        => method_exists( $widget, 'get_categories' ) ? (array) $widget->get_categories() : [],
+			'title'             => (string) $schema['title'],
+			'categories'        => (array) $schema['categories'],
+			'schema_hash'       => (string) $schema['schema_hash'],
+			'runtime_fingerprint' => (string) $schema['runtime_fingerprint'],
 			'controls'          => $output_controls,
 			'tab_groups'        => EditorTabKnowledge::group_controls( $compact_controls ),
 			'research_guidance' => 'Research official Elementor documentation online when this widget schema lacks enough Content or Style controls for the requested design.',

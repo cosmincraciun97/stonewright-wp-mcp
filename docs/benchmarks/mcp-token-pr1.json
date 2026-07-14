@@ -1,0 +1,35 @@
+{
+  "method": "compact JSON UTF-8 bytes / 4; rounded up",
+  "command": "cd plugin && composer tokens:measure",
+  "php": "8.5.4",
+  "before_pr1": {
+    "task_start": {
+      "non_visual_compact_estimated_tokens": 1713,
+      "visual_compact_estimated_tokens": 1747
+    },
+    "companion_tests": {
+      "passed": 133,
+      "failed": 2,
+      "failure": "LocalWP discovery leaked real host binaries into fixture tests"
+    }
+  },
+  "after_pr1": {
+    "all_registered_abilities": 241,
+    "surfaces": {
+      "full": { "tool_count": 241, "estimated_tokens": 190520 },
+      "essential": { "tool_count": 65, "estimated_tokens": 12324 },
+      "default_20": { "tool_count": 20, "estimated_tokens": 3188 },
+      "strict_12": { "tool_count": 12, "estimated_tokens": 3095 }
+    },
+    "task_start": {
+      "non_visual_compact": { "bytes": 1494, "estimated_tokens": 374 },
+      "visual_compact": { "bytes": 1689, "estimated_tokens": 423 }
+    },
+    "budgets": {
+      "default_max_20_tools": true,
+      "strict_max_12_tools": true,
+      "non_visual_task_start_lt_700": true,
+      "visual_task_start_lt_1200": true
+    }
+  }
+}

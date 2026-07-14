@@ -12,7 +12,8 @@ Use [checklist.md](checklist.md) before tagging a release.
   installable assets.
 - Do not turn release notes into marketing copy.
 - Do not include private site memory, credentials, internal development tooling,
-  generated-authorship claims, or third-party project text.
+  generated-authorship claims, or unattributed third-party project text. Name
+  upstream-derived changes and preserve required notices.
 - When a release changes a compact MCP profile, name the affected profile and
   the visible recovery behavior.
 - When a release changes a write path, state whether permissions, backups,
@@ -29,6 +30,7 @@ Use [checklist.md](checklist.md) before tagging a release.
 
 ## Public Release Notes
 
+- [1.0.0-alpha.65](1.0.0-alpha.65.md)
 - [1.0.0-alpha.64](1.0.0-alpha.64.md)
 - [1.0.0-alpha.63](1.0.0-alpha.63.md)
 - [1.0.0-alpha.62](1.0.0-alpha.62.md)

@@ -2,7 +2,7 @@
     "slug": "social-icons",
     "source": "free",
     "title": "Social Icons",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/social-icons.php",
+    "file": "elementor/includes/widgets/social-icons.php",
     "sections": [
         {
             "id": "section_social_icon",

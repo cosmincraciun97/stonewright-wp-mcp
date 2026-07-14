@@ -1,0 +1,6 @@
+Stonewright Visual adapts code from Novamira Visual 1.9.1 by Ovation S.r.l.
+The adapted sources are distributed under AGPL-3.0-or-later.
+
+Upstream: https://github.com/use-novamira/novamira
+Exact source paths and SHA-256 fingerprints are recorded in
+../docs/upstream-code-reuse.md.

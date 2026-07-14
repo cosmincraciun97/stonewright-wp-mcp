@@ -2,7 +2,7 @@
     "slug": "facebook-button",
     "source": "pro",
     "title": "Facebook Button",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/social/widgets/facebook-button.php",
+    "file": "pro-elements/modules/social/widgets/facebook-button.php",
     "sections": [
         {
             "id": "section_content",

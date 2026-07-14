@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
 use Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetCatalog;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
@@ -49,8 +50,14 @@ final class AddWidget extends AbilityKernel {
 				],
 				'allow_raw_known_widget' => [
 					'type'        => 'boolean',
-					'description' => 'Escape hatch for built-in Elementor widgets already known to Stonewright. Default false so agents use the dedicated stonewright/elementor-add-* ability and exact schema.',
+					'description' => 'Compatibility escape hatch for built-in widgets. Prefer stonewright/elementor-schema followed by schema-validated batch-mutate.',
 					'default'     => false,
+				],
+				'schema_required' => [
+					'type'        => 'boolean',
+					'const'       => true,
+					'default'     => true,
+					'description' => 'Always true. The live widget schema is mandatory before raw writes.',
 				],
 			],
 			'required'             => [ 'post_id', 'parent_id', 'widget_type' ],
@@ -92,27 +99,24 @@ final class AddWidget extends AbilityKernel {
 					if ( empty( $args['allow_raw_known_widget'] ) ) {
 						return $this->error(
 							'known_widget_requires_dedicated_ability',
-							__( 'This is a built-in Elementor widget known to Stonewright. Use the dedicated stonewright/elementor-add-* ability so widget settings are validated and editor-compatible.', 'stonewright' ),
+							__( 'This built-in widget must use the live schema and the schema-validated batch mutation path.', 'stonewright' ),
 							[
 								'widget'            => $widget_type,
-								'suggested_ability' => 'stonewright/elementor-add-' . $widget_type,
+								'suggested_ability' => 'stonewright/elementor-v3-batch-mutate',
+								'schema_ability'    => 'stonewright/elementor-schema',
 								'required_settings' => WidgetCatalog::required_for_render( $widget_type ),
 							]
 						);
 					}
+				}
 
-					$violations = self::required_setting_violations( $widget_type, $settings_in );
-					if ( [] !== $violations ) {
-						return $this->error(
-							'invalid_settings',
-							__( 'Raw known-widget settings failed validation. Use the dedicated widget ability or provide the exact Elementor control keys.', 'stonewright' ),
-							[
-								'violations'        => $violations,
-								'widget'            => $widget_type,
-								'suggested_ability' => 'stonewright/elementor-add-' . $widget_type,
-							]
-						);
+				$settings_in = isset( $args['settings'] ) && is_array( $args['settings'] ) ? $args['settings'] : [];
+				if ( 'html' !== $widget_type ) {
+					$validated = SettingsValidator::validate( $widget_type, $settings_in );
+					if ( $validated instanceof \WP_Error ) {
+						return $validated;
 					}
+					$settings_in = $validated['settings'];
 				}
 
 				$post_id = (int) $args['post_id'];
@@ -131,7 +135,7 @@ final class AddWidget extends AbilityKernel {
 					'id'         => ElementorData::generate_id(),
 					'elType'     => 'widget',
 					'widgetType' => $widget_type,
-					'settings'   => isset( $args['settings'] ) && is_array( $args['settings'] ) ? $args['settings'] : new \stdClass(),
+					'settings'   => [] !== $settings_in ? $settings_in : new \stdClass(),
 					'elements'   => [],
 				];
 
@@ -149,38 +153,5 @@ final class AddWidget extends AbilityKernel {
 				];
 			}
 		);
-	}
-
-	/**
-	 * @param array<string, mixed> $settings
-	 * @return array<int, array<string, mixed>>
-	 */
-	private static function required_setting_violations( string $widget_type, array $settings ): array {
-		$violations = [];
-		foreach ( WidgetCatalog::required_for_render( $widget_type ) as $req_key ) {
-			$present = array_key_exists( $req_key, $settings )
-				&& self::setting_has_value( $settings[ $req_key ] );
-
-			if ( ! $present ) {
-				$violations[] = [
-					'path'     => 'settings.' . $req_key,
-					'code'     => 'required_missing',
-					'expected' => 'non-empty Elementor control value',
-					'got'      => array_key_exists( $req_key, $settings ) ? $settings[ $req_key ] : null,
-				];
-			}
-		}
-
-		return $violations;
-	}
-
-	private static function setting_has_value( mixed $value ): bool {
-		if ( null === $value || '' === $value ) {
-			return false;
-		}
-		if ( is_array( $value ) && array_key_exists( 'value', $value ) ) {
-			return null !== $value['value'] && '' !== $value['value'];
-		}
-		return true;
 	}
 }

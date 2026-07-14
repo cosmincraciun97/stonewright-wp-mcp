@@ -1,12 +1,13 @@
-                    GNU GENERAL PUBLIC LICENSE
-                       Version 2, June 1991
+Stonewright WordPress Plugin License
 
- Copyright (C) 1989, 1991 Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
- Everyone is permitted to copy and distribute verbatim copies
- of this license document, but changing it is not allowed.
+The Stonewright WordPress plugin and Stonewright Visual are free software:
+you can redistribute them and/or modify them under the terms of the GNU Affero
+General Public License as published by the Free Software Foundation, either
+version 3 of the License, or (at your option) any later version.
 
-The full text of the GNU General Public License version 2 is available at:
-https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt
+The full license text is available at:
+https://www.gnu.org/licenses/agpl-3.0.txt
 
-Stonewright is licensed under GPL-2.0-or-later. By using or distributing this software you accept the terms of the license.
+The Node companion remains separately licensed under the MIT License in
+companion/LICENSE. See NOTICE and docs/upstream-code-reuse.md for third-party
+attribution and source provenance.

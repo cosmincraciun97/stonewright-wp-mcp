@@ -1,8 +1,10 @@
 ---
 name: elementor-v3-builder
 description: >
-  Stonewright Elementor V3 builder for pages, containers, widgets, kit colors,
-  typography, Loop Grid, templates, and responsive Elementor edits.
+  Stonewright Elementor V3 builder for native-first implementation from Figma,
+  screenshots, images, or briefs, plus pages, widgets, Loop Grid, templates,
+  kit styles, responsive edits, and safe batch mutations. Use whenever a task
+  reads, plans, builds, or repairs an Elementor V3 page or template.
 ---
 
 # Elementor V3 Builder
@@ -22,6 +24,51 @@ or the post is not an Elementor page, stop and inform the user.
 ```
 
 Returns: `{ "active": true, "version": "3.x.x" }`.
+
+## Design evidence before visual writes
+
+For Figma, screenshot, image, or brief work, convert the source into compact,
+vendor-neutral `DesignEvidence` before choosing widgets. Keep source references,
+measured viewports, semantic nodes, style provenance, actions, and unresolved
+items; discard the raw Figma tree after normalization. Then call
+`stonewright-design-native-plan` with `target: "elementor-v3"`.
+
+Do not turn vision output directly into Elementor settings. Vision classifies
+the layout; the deterministic planner chooses native primitives; the live
+schema compiles control keys later. A button, CTA, navigation item, form, or
+linked image with no real action is a blocker, not a decorative placeholder.
+Any `inference` evidence must remain confirmation-gated.
+
+Read [references/design-evidence.md](references/design-evidence.md) when the
+task starts from a design source or needs custom CSS/JS/PHP.
+
+Use the plan in two phases:
+
+1. Finish the native, editable page: global kit, content model, containers,
+   widgets, responsive controls, dry-run, write, and readback.
+2. If a verified delta remains, present the separate customization proposal.
+   Do not write CSS, JS, or PHP until the user approves its exact diff, files,
+   risk, rollback, and tests.
+
+## Live research and learning
+
+The runtime schema is authoritative for available controls. When it proves that
+a control exists but its semantics remain unclear, research only official
+Elementor documentation and record the result through
+`stonewright-knowledge-candidate-record`; never write research directly into an
+active skill.
+
+Every candidate must include its topic/widget/control, a concise fact or recipe,
+official source URL and SHA-256, fetch/expiry dates, Core/Pro/add-on version
+constraints, evidence type, and confidence. Then dry-run the recipe and verify
+the editor plus logged-out frontend against the exact runtime fingerprint.
+
+One successful use is not training. Promotion requires either two distinct
+verified task successes or explicit user approval with a note. Same-topic
+conflicts require an explicit replace decision. Elementor upgrades mark only
+incompatible verified candidates and their linked skills stale; stale knowledge
+must be researched again. Load candidate or memory bodies only when their compact
+refs match the current task.
 
 ## Backup before write
 
@@ -138,8 +185,9 @@ headings inside loop templates; do not rely on many manual meta updates.
   the user explicitly requests HTML.
 - Start visual tasks by measuring the reference screenshot: viewport/canvas size,
   section bounds, centered max-widths, typography, colors, spacing, and asset
-  crop bounds. Then build, screenshot the live page with external Playwright MCP
-  at the same viewport, compare deltas, and iterate.
+  crop bounds. Record those facts as `DesignEvidence`, call
+  `stonewright-design-native-plan`, then build, screenshot the live page with
+  external Playwright MCP at the same viewport, compare deltas, and iterate.
 - If no Playwright/browser MCP tool is visible, install/connect it with
   `npx -y @playwright/mcp@latest --caps=testing,vision,devtools`, restart the AI
   client, and stop before the first visual write until the tool appears.
@@ -158,14 +206,15 @@ headings inside loop templates; do not rely on many manual meta updates.
 - Put every page section in a full-width outer container, then a centered inner
   container with the design max-width. Do not leave content floating at page
   edges or stacked as a single accidental column.
-- Use dedicated `stonewright/elementor-add-*` abilities for known Elementor
-  widgets. Use `stonewright/elementor-v3-add-widget` only for unknown or
-  third-party widgets after schema lookup.
+- Use `stonewright/elementor-schema` followed by
+  `stonewright/elementor-v3-batch-mutate` for every known or third-party
+  widget. `stonewright/elementor-add-*` abilities are deprecated compatibility
+  tools and must not be chosen for new plans.
 - For every widget you intend to write, call
-  `stonewright/elementor-v3-get-widget-schema` in summary mode and inspect
+  `stonewright/elementor-schema` with `mode: "summary"` and inspect
   Content, Style, and Advanced controls before choosing settings. Request
-  `responseMode: "full"` only when default values are required for the next
-  write. If the schema, local harvested docs, or implementation guide are
+  `mode: "control"` for one complete control or paginated `mode: "full"` only
+  when needed. If the schema, local harvested docs, or implementation guide are
   incomplete, research official Elementor documentation online before writing
   that widget.
 - Use exact control keys from widget schemas. For example, Icon Box uses
@@ -242,21 +291,22 @@ Returns `{ "template_id": 150 }`.
 | `stonewright/elementor-v3-get-page-structure` | Read compact page outline by default; use `responseMode: "full"` for raw tree |
 | `stonewright/elementor-v3-get-element` | Read single element by ID |
 | `stonewright/elementor-v3-add-container` | Add flex container |
-| `stonewright/elementor-add-*` | Add known native widgets with schema validation |
-| `stonewright/elementor-v3-add-widget` | Escape hatch for unknown/third-party widgets |
+| `stonewright/elementor-add-*` | Deprecated compatibility abilities; do not use for new plans |
+| `stonewright/elementor-v3-add-widget` | Deprecated single-write escape hatch |
 | `stonewright/elementor-v3-update-element` | Update element settings |
 | `stonewright/elementor-v3-move-element` | Reorder/reparent element |
 | `stonewright/elementor-v3-remove-element` | Delete element |
 | `stonewright/elementor-v3-backup-page` | Explicit snapshot |
 | `stonewright/elementor-v3-save-template` | Save to Elementor library |
 | `stonewright/elementor-v3-list-widgets` | List all registered widgets |
-| `stonewright/elementor-v3-get-widget-schema` | Get compact widget controls by default; use `responseMode: "full"` for defaults |
+| `stonewright/design-native-plan` | Validate DesignEvidence and return the deterministic native-first plan without writing |
+| `stonewright/elementor-schema` | List/search live widgets; use `mode: "summary"`, `control`, or paginated `full` without guessing keys |
 | `stonewright/elementor-v3-get-kit-globals` | Read active kit colors and typography |
 | `stonewright/elementor-v3-update-kit-colors` | Mutate kit color palette |
 | `stonewright/elementor-v3-update-kit-typography` | Mutate kit typography |
 | `stonewright/elementor-v3-update-page-settings` | Page-level settings |
 | `stonewright/elementor-v3-build-page-from-spec` | Spec-driven build with dry_run, metrics, append/replace modes |
-| `stonewright/elementor-v3-batch-mutate` | Many add/update/move/remove operations in one compact write |
+| `stonewright/elementor-v3-batch-mutate` | Primary V3 write compiler: evidence, idempotency, expected hash, one snapshot, readback |
 | `stonewright/elementor-v3-apply-bundle` | Multi-post spec bundle |
 
 ## Confirmation token for destructive writes

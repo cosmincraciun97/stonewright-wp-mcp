@@ -2,7 +2,7 @@
     "slug": "blockquote",
     "source": "pro",
     "title": "Blockquote",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/blockquote/widgets/blockquote.php",
+    "file": "pro-elements/modules/blockquote/widgets/blockquote.php",
     "sections": [
         {
             "id": "section_blockquote_content",

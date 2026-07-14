@@ -26,6 +26,7 @@ final class ContextBootstrapTest extends TestCase {
 			'stonewright_custom_instructions' => 'Always use native Elementor widgets.',
 		];
 		$GLOBALS['stonewright_test_transients'] = [];
+		unset( $GLOBALS['stonewright_test_memory_rows'] );
 		$GLOBALS['wpdb'] = $this->make_wpdb();
 	}
 
@@ -37,6 +38,7 @@ final class ContextBootstrapTest extends TestCase {
 		}
 		$GLOBALS['stonewright_test_options'] = [];
 		$GLOBALS['stonewright_test_transients'] = [];
+		unset( $GLOBALS['stonewright_test_memory_rows'] );
 	}
 
 	public function test_returns_token_full_matching_skill_and_relevant_memory(): void {
@@ -56,7 +58,9 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertStringContainsString( 'Use native Elementor widgets', $result['matched_skill_playbooks'][0]['content'] );
 		self::assertNotEmpty( $result['memory_entries'] );
 		self::assertSame( 'no-html-widgets', $result['memory_entries'][0]['memory_key'] );
-		self::assertContains( 'Call stonewright/widget-intent-resolve before choosing Elementor widgets.', $result['required_followups'] );
+		self::assertArrayNotHasKey( 'value', $result['memory_entries'][0] );
+		self::assertSame( 'stonewright/memory-get', $result['memory_entries'][0]['body_tool'] );
+		self::assertContains( 'Call stonewright/design-native-plan with normalized DesignEvidence before choosing or writing Elementor widgets.', $result['required_followups'] );
 		self::assertContains( 'Before building design-derived pages, plan Elementor kit colors/typography first; if site-wide changes are approved, update the active kit before writing page elements.', $result['required_followups'] );
 		self::assertSame( 'stonewright-context-bootstrap', $result['mcp_tool_naming']['examples']['stonewright/context-bootstrap'] );
 		self::assertSame( 'stonewright-tool-profile', $result['mcp_tool_naming']['examples']['stonewright/tool-profile'] );
@@ -84,7 +88,7 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertContains( 'figma', $result['visual_quality_contract']['playwright_mcp_gate']['task_keywords'] );
 		self::assertIsArray( $result['visual_build_gate'] );
 		self::assertArrayHasKey( 'design_implementation_contract', $result );
-		self::assertSame( 'global_styles_first', $result['design_implementation_contract']['sequence'][0] );
+		self::assertSame( 'design_evidence', $result['design_implementation_contract']['sequence'][0] );
 		self::assertSame( 'loop-grid', $result['design_implementation_contract']['native_widget_map']['dynamic_cards'] );
 		self::assertContains( 'invented_border_radius_shadow_filter', $result['design_implementation_contract']['hard_failures'] );
 		self::assertTrue( $result['visual_build_gate']['blocks_completion_without_evidence'] );
@@ -140,6 +144,65 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertTrue( $verified );
 	}
 
+	public function test_task_start_excludes_stale_and_unrelated_memory_bodies(): void {
+		$GLOBALS['stonewright_test_memory_rows'] = [
+			[
+				'id' => '31', 'type' => 'feedback', 'scope' => 'elementor', 'topic' => 'button links',
+				'memory_key' => 'button-links', 'name' => 'Button links', 'value_json' => wp_json_encode( 'Buttons need URLs.' ),
+				'confidence' => '1.0', 'status' => 'active', 'precedence' => '10', 'expires_at' => '', 'updated_at' => '2026-07-14 00:00:00', 'created_at' => '2026-07-14 00:00:00',
+			],
+			[
+				'id' => '32', 'type' => 'feedback', 'scope' => 'elementor', 'topic' => 'button links',
+				'memory_key' => 'old-button-links', 'name' => 'Old buttons', 'value_json' => wp_json_encode( 'Use placeholders.' ),
+				'confidence' => '1.0', 'status' => 'stale', 'precedence' => '999', 'expires_at' => '', 'updated_at' => '2026-07-14 00:00:00', 'created_at' => '2026-07-14 00:00:00',
+			],
+			[
+				'id' => '33', 'type' => 'project', 'scope' => 'woocommerce', 'topic' => 'shipping',
+				'memory_key' => 'shipping', 'name' => 'Shipping', 'value_json' => wp_json_encode( 'Unrelated body.' ),
+				'confidence' => '1.0', 'status' => 'active', 'precedence' => '0', 'expires_at' => '', 'updated_at' => '2026-07-14 00:00:00', 'created_at' => '2026-07-14 00:00:00',
+			],
+		];
+
+		$result = ( new ContextBootstrap() )->execute( [ 'task' => 'Fix Elementor button links', 'surface' => 'elementor', 'intent' => 'read' ] );
+
+		self::assertIsArray( $result );
+		self::assertSame( [ 'button-links' ], array_column( $result['memory_entries'], 'memory_key' ) );
+		self::assertArrayNotHasKey( 'value', $result['memory_entries'][0] );
+	}
+
+	public function test_task_start_activates_only_compact_top_three_expertise_refs(): void {
+		$ability = new ContextBootstrap();
+		$result  = $ability->execute(
+			[
+				'task'         => 'Update a WordPress post, media item, and taxonomy assignment.',
+				'surface'      => 'wordpress',
+				'intent'       => 'write',
+				'responseMode' => 'compact',
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertLessThanOrEqual( 3, count( $result['expertise_packs'] ) );
+		self::assertContains( 'wordpress-core', array_column( $result['expertise_packs'], 'id' ) );
+		self::assertLessThan( 450, (int) ceil( strlen( wp_json_encode( $result['expertise_packs'] ) ?: '' ) / 4 ) );
+		self::assertArrayNotHasKey( 'workflow', $result['expertise_packs'][0] );
+
+		$first  = $result['expertise_packs'][0];
+		$cached = $ability->execute(
+			[
+				'task'         => 'Update a WordPress post, media item, and taxonomy assignment.',
+				'surface'      => 'wordpress',
+				'intent'       => 'write',
+				'responseMode' => 'compact',
+				'knownHashes'  => [ 'expertise' => [ $first['id'] => $first['hash'] ] ],
+			]
+		);
+		self::assertIsArray( $cached );
+		$cached_by_id = array_column( $cached['expertise_packs'], null, 'id' );
+		self::assertTrue( $cached_by_id[ $first['id'] ]['cached'] );
+		self::assertArrayNotHasKey( 'trigger', $cached_by_id[ $first['id'] ] );
+	}
+
 	public function test_compact_mode_returns_hashes_and_delta_refs(): void {
 		$result = ( new ContextBootstrap() )->execute(
 			[
@@ -169,6 +232,21 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertArrayNotHasKey( 'value', $result['memory_entries'][0] );
 		self::assertArrayHasKey( 'hash', $result['design_implementation_contract'] );
 		self::assertArrayNotHasKey( 'sequence', $result['design_implementation_contract'] );
+	}
+
+	public function test_compact_first_call_stays_under_task_start_budgets_without_hash_deltas(): void {
+		$result = ( new ContextBootstrap() )->execute(
+			[
+				'task'         => 'Update an existing post title and excerpt.',
+				'surface'      => 'wordpress',
+				'intent'       => 'write',
+				'responseMode' => 'compact',
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertArrayNotHasKey( 'payload_hashes', $result );
+		self::assertLessThan( 2800, strlen( wp_json_encode( $result ) ?: '' ) );
 	}
 
 	public function test_returns_specialization_guidance_for_field_and_catalog_tasks(): void {
@@ -219,7 +297,7 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertIsArray( $result );
 		self::assertSame( 'exempt', $result['visual_quality_contract']['status'] );
 		self::assertSame( 'exempt', $result['visual_build_gate']['status'] );
-		self::assertContains( 'Call stonewright/widget-intent-resolve before choosing Elementor widgets.', $result['required_followups'] );
+		self::assertContains( 'Call stonewright/design-native-plan with normalized DesignEvidence before choosing or writing Elementor widgets.', $result['required_followups'] );
 		self::assertNotContains( 'Before declaring a visual task done, verify no horizontal overflow with document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1 at all requested breakpoints.', $result['required_followups'] );
 	}
 
@@ -262,6 +340,9 @@ final class ContextBootstrapTest extends TestCase {
 							'source'         => 'builtin',
 						],
 					];
+				}
+				if ( isset( $GLOBALS['stonewright_test_memory_rows'] ) && is_array( $GLOBALS['stonewright_test_memory_rows'] ) ) {
+					return $GLOBALS['stonewright_test_memory_rows'];
 				}
 
 				return [

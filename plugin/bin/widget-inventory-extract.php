@@ -6,7 +6,8 @@
  * inventory consumed by per-widget control extraction and manifest synthesis.
  *
  * Usage:
- *   php plugin/bin/widget-inventory-extract.php > docs/elementor/widget-registry-data/widget-inventory.json
+ *   php plugin/bin/widget-inventory-extract.php /path/to/wp-content/plugins
+ *   STONEWRIGHT_ELEMENTOR_PLUGINS_DIR=/path/to/wp-content/plugins php plugin/bin/widget-inventory-extract.php
  *
  * The script reads each PHP file's source and pulls:
  *   - get_name() return string
@@ -34,16 +35,23 @@
 declare(strict_types=1);
 
 // ---------------------------------------------------------------------------
-// Configuration: source roots.
+// Configuration: source roots. Never persist machine-specific absolute paths.
 // ---------------------------------------------------------------------------
+$plugins_dir = $argv[1] ?? getenv( 'STONEWRIGHT_ELEMENTOR_PLUGINS_DIR' );
+if ( ! is_string( $plugins_dir ) || '' === trim( $plugins_dir ) || ! is_dir( $plugins_dir ) ) {
+	fwrite( STDERR, "Pass the wp-content/plugins directory as argv[1] or STONEWRIGHT_ELEMENTOR_PLUGINS_DIR.\n" );
+	exit( 2 );
+}
+$plugins_dir = rtrim( str_replace( '\\', '/', realpath( $plugins_dir ) ?: $plugins_dir ), '/' );
+
 $roots = [
 	[
 		'label'  => 'free',
-		'glob'   => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/*.php',
+		'glob'   => $plugins_dir . '/elementor/includes/widgets/*.php',
 	],
 	[
 		'label'  => 'pro_or_wc', // resolved per file
-		'glob'   => 'D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/*/widgets/*.php',
+		'glob'   => $plugins_dir . '/pro-elements/modules/*/widgets/*.php',
 	],
 ];
 
@@ -185,6 +193,13 @@ function source_for_path( string $path ): string {
 	return 'unknown';
 }
 
+/** Return a stable path relative to wp-content/plugins. */
+function portable_source_path( string $path, string $plugins_dir ): string {
+	$normalised = str_replace( '\\', '/', $path );
+	$prefix     = rtrim( $plugins_dir, '/' ) . '/';
+	return str_starts_with( $normalised, $prefix ) ? substr( $normalised, strlen( $prefix ) ) : basename( $normalised );
+}
+
 function should_skip( string $path, array $skip_basenames, array $skip_patterns ): bool {
 	$basename = basename( $path );
 	if ( in_array( $basename, $skip_basenames, true ) ) {
@@ -246,7 +261,7 @@ foreach ( $roots as $root ) {
 			'categories'          => $categories,
 			'keywords'            => $keywords,
 			'source'              => source_for_path( $path ),
-			'file'                => str_replace( '\\', '/', $path ),
+			'file'                => portable_source_path( $path, $plugins_dir ),
 			'inherits_categories' => empty( $categories ),
 			'inherits_keywords'   => empty( $keywords ),
 		];
@@ -279,7 +294,7 @@ $out = [
 	'pro_version'       => null,
 	'summary'           => array_merge( $summary, [ 'total' => count( $widgets ) ] ),
 	'widgets'           => $widgets,
-	'skipped_files'     => array_map( fn( $p ) => str_replace( '\\', '/', $p ), $skipped ),
+	'skipped_files'     => array_map( fn( $p ) => portable_source_path( $p, $plugins_dir ), $skipped ),
 	'failed_files'      => $failed,
 ];
 

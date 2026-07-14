@@ -2,7 +2,7 @@
     "slug": "accordion",
     "source": "free",
     "title": "Accordion",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/accordion.php",
+    "file": "elementor/includes/widgets/accordion.php",
     "sections": [
         {
             "id": "section_title",

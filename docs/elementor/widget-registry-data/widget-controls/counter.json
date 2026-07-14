@@ -2,7 +2,7 @@
     "slug": "counter",
     "source": "free",
     "title": "Counter",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/counter.php",
+    "file": "elementor/includes/widgets/counter.php",
     "sections": [
         {
             "id": "section_counter",

@@ -26,8 +26,8 @@ final class WidgetImplementationGuide {
 			),
 			'global_required_steps' => [
 				'Call stonewright/elementor-describe-widget for every recommended widget before writing.',
-				'Call stonewright/elementor-v3-get-widget-schema for every widget you intend to write and inspect compact controls grouped by Content, Style, and Advanced before choosing settings; request responseMode=full only when defaults are required.',
-				'Use dedicated stonewright/elementor-add-* abilities for known widgets; reserve stonewright/elementor-v3-add-widget for unknown or third-party widgets.',
+				'Call stonewright/elementor-schema with mode=summary for every widget you intend to write; request mode=control for one exact control or paginated mode=full only when needed.',
+				'Use stonewright/elementor-schema followed by stonewright/elementor-v3-batch-mutate for known and third-party widgets; per-widget add abilities are deprecated.',
 				'Use exact setting keys from the widget schema. Do not invent CSS-like keys when Elementor expects a different control key.',
 				'Configure Content, Style, and Advanced controls; do not only insert the widget.',
 				'Use responsive desktop, tablet, and mobile values for width, alignment, spacing, order, and visibility where the design implies them.',
@@ -100,7 +100,9 @@ final class WidgetImplementationGuide {
 		return [
 			'widget'                => $slug,
 			'title'                 => (string) ( $entry['title'] ?? $slug ),
-			'ability'               => 'stonewright/elementor-add-' . $slug,
+			'ability'               => 'stonewright/elementor-v3-batch-mutate',
+			'legacy_ability'        => 'stonewright/elementor-add-' . $slug,
+			'legacy_deprecated'     => true,
 			'needs_online_research' => ! $known || count( $control_map['Content'] ) < 2 || count( $control_map['Style'] ) < 2,
 			'required_controls'     => $control_map,
 			'settings_highlights'   => array_slice( array_values( (array) ( $entry['settings_highlights'] ?? [] ) ), 0, 5 ),

@@ -2,7 +2,7 @@
     "slug": "alert",
     "source": "free",
     "title": "Alert",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/elementor/includes/widgets/alert.php",
+    "file": "elementor/includes/widgets/alert.php",
     "sections": [
         {
             "id": "section_alert",

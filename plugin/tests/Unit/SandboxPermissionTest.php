@@ -309,11 +309,6 @@ final class SandboxPermissionTest extends TestCase {
 	 */
 	private function call_sanitize_for_audit( \Stonewright\WpMcp\Abilities\AbilityKernel $ability, array $args ): array {
 		$ref = new \ReflectionMethod( $ability, 'sanitize_for_audit' );
-		// setAccessible() is a no-op since PHP 8.1 (protected methods are
-		// always invokable via reflection). Call it only on older runtimes.
-		if ( PHP_VERSION_ID < 80100 ) {
-			$ref->setAccessible( true ); // @phpstan-ignore-line
-		}
 		/** @var array<string, mixed> $result */
 		$result = $ref->invoke( $ability, $args );
 		return $result;

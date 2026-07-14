@@ -4,7 +4,7 @@
  * two contract fixtures (positive + permission-error) the ContractTest
  * data-provider requires.
  *
- * Reads:    plugin/includes/Elementor/WidgetRegistry/manifest.json
+ * Reads:    plugin/includes/Elementor/WidgetRegistry/catalog/index.php + shards
  * Writes:   plugin/includes/Abilities/ElementorWidgets/Add<PascalCase>.php
  *           plugin/tests/fixtures/abilities/elementor-add-<slug>.json
  *           plugin/tests/fixtures/abilities/elementor-add-<slug>.error.json
@@ -24,7 +24,7 @@
 declare(strict_types=1);
 
 $repo_root      = realpath( __DIR__ . '/../..' );
-$manifest_path  = $repo_root . '/plugin/includes/Elementor/WidgetRegistry/manifest.json';
+$manifest_path  = $repo_root . '/plugin/includes/Elementor/WidgetRegistry/catalog/index.php';
 $abilities_dir  = $repo_root . '/plugin/includes/Abilities/ElementorWidgets';
 $fixtures_dir   = $repo_root . '/plugin/tests/fixtures/abilities';
 $class_list_path = $abilities_dir . '/_class_list.php';
@@ -36,14 +36,20 @@ if ( ! is_dir( $fixtures_dir ) ) {
 	mkdir( $fixtures_dir, 0777, true );
 }
 
-$raw = (string) file_get_contents( $manifest_path );
-if ( substr( $raw, 0, 3 ) === "\xEF\xBB\xBF" ) {
-	$raw = substr( $raw, 3 );
-}
-$manifest = json_decode( $raw, true );
+$manifest = is_file( $manifest_path ) ? include $manifest_path : null;
 if ( ! is_array( $manifest ) || empty( $manifest['widgets'] ) ) {
 	fwrite( STDERR, "ERROR: invalid manifest at $manifest_path\n" );
 	exit( 1 );
+}
+foreach ( $manifest['widgets'] as $slug => $metadata ) {
+	$shard = is_array( $metadata ) ? ( $metadata['shard'] ?? null ) : null;
+	$path  = is_string( $shard ) ? dirname( $manifest_path ) . '/' . $shard : '';
+	$entry = '' !== $path && is_file( $path ) ? include $path : null;
+	if ( ! is_array( $entry ) ) {
+		fwrite( STDERR, "ERROR: invalid widget shard for $slug\n" );
+		exit( 1 );
+	}
+	$manifest['widgets'][ $slug ] = $entry;
 }
 
 // Defaults used to populate "settings" in the positive contract fixture

@@ -2,7 +2,7 @@
     "slug": "facebook-comments",
     "source": "pro",
     "title": "Facebook Comments",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/social/widgets/facebook-comments.php",
+    "file": "pro-elements/modules/social/widgets/facebook-comments.php",
     "sections": [
         {
             "id": "section_content",

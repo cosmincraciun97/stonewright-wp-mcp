@@ -18,28 +18,14 @@ namespace Stonewright\WpMcp\Elementor\V4;
  */
 final class AtomicWidgetMap {
 
-	private const MAP = [
-		// Containers (all map to e-flexbox; direction set via prop).
-		'Section'    => 'e-flexbox',
-		'Column'     => 'e-flexbox',
-		'Container'  => 'e-flexbox',
-		// Leaf widgets.
-		'Heading'    => 'e-heading',
-		'TextEditor' => 'e-paragraph',
-		'Image'      => 'e-image',
-		'Button'     => 'e-button',
-		'Divider'    => 'e-divider',
-		'Icon'       => 'e-svg',
-	];
-
-	private const CONTAINER_TYPES = [ 'Section', 'Column', 'Container' ];
-
 	public static function widget_type( string $node_type ): ?string {
-		return self::MAP[ $node_type ] ?? null;
+		$schema = AtomicSchemaRepository::for_design_type( $node_type );
+		return null === $schema ? null : (string) $schema['atomic_type'];
 	}
 
 	public static function is_container( string $node_type ): bool {
-		return in_array( $node_type, self::CONTAINER_TYPES, true );
+		$schema = AtomicSchemaRepository::for_design_type( $node_type );
+		return null !== $schema && 'layout' === ( $schema['kind'] ?? '' );
 	}
 
 	/**
@@ -49,6 +35,14 @@ final class AtomicWidgetMap {
 	 * @return array<int, string>
 	 */
 	public static function known_node_types(): array {
-		return array_keys( self::MAP );
+		$out = [];
+		foreach ( AtomicSchemaRepository::all() as $schema ) {
+			foreach ( (array) ( $schema['design_types'] ?? [] ) as $type ) {
+				if ( is_string( $type ) ) {
+					$out[] = $type;
+				}
+			}
+		}
+		return array_values( array_unique( $out ) );
 	}
 }

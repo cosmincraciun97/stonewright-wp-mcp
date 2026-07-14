@@ -2,7 +2,7 @@
     "slug": "hotspot",
     "source": "pro",
     "title": "Hotspot",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/hotspot/widgets/hotspot.php",
+    "file": "pro-elements/modules/hotspot/widgets/hotspot.php",
     "sections": [
         {
             "id": "hotspot_section",

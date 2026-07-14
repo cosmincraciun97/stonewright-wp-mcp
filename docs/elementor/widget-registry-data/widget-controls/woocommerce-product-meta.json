@@ -2,7 +2,7 @@
     "slug": "woocommerce-product-meta",
     "source": "wc",
     "title": "Product Meta",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-meta.php",
+    "file": "pro-elements/modules/woocommerce/widgets/product-meta.php",
     "sections": [
         {
             "id": "section_product_meta_style",

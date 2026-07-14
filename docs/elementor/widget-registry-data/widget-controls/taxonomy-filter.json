@@ -2,7 +2,7 @@
     "slug": "taxonomy-filter",
     "source": "pro",
     "title": "Taxonomy Filter",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/loop-filter/widgets/taxonomy-filter.php",
+    "file": "pro-elements/modules/loop-filter/widgets/taxonomy-filter.php",
     "sections": [
         {
             "id": "section_taxonomy_filter",

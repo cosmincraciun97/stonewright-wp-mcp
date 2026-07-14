@@ -11,7 +11,7 @@ override default behavior.
 - MCP server id: `stonewright`.
 - Composer package: `stonewright/wp-mcp`.
 - NPM package: `@stonewright/companion`.
-- Plugin license: `GPL-2.0-or-later`.
+- Plugin license: `AGPL-3.0-or-later`.
 - Companion license: `MIT`.
 
 ## Hard rules
@@ -45,14 +45,22 @@ override default behavior.
    PHP snippets must go through `stonewright/php-execute` rather than WP-CLI
    eval, shell, package, `--exec`, or `--require` entry points.
 
-## Clean-room rule
+## Third-party source reuse
 
-The project may be compared with third-party WordPress automation and MCP tools
-only at the product-requirements level. Do not copy code, README text, prompts,
-schemas, identifiers, documentation, changelog text, UI copy, or proprietary
-workflow structure from third-party projects. Public Stonewright docs,
-changelog entries, commit messages, PR descriptions, skills, and agent guidance
-must describe original Stonewright work only.
+- Third-party source may be inspected, copied, adapted, or ported when its
+  license permits it and the resulting Stonewright component uses compatible
+  licensing.
+- Preserve upstream copyright and SPDX notices in copied or derived files.
+- Record source repository, source path, source version or hash, destination,
+  modifications, and applicable license in `docs/upstream-code-reuse.md`.
+- Do not mix AGPL-covered code into the GPL plugin or MIT companion without
+  first making and documenting the required license change for the resulting
+  combined work.
+- Rename upstream identifiers and UI copy only where product integration needs
+  it; never remove attribution or misrepresent copied work as original.
+- Every imported component needs Stonewright-specific security review, tests,
+  namespace changes, and compatibility checks. Upstream behavior is evidence,
+  not proof that the port is safe in Stonewright.
 
 ## Required directory layout
 

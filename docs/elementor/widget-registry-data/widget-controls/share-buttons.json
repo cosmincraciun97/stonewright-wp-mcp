@@ -2,7 +2,7 @@
     "slug": "share-buttons",
     "source": "pro",
     "title": "Share Buttons",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/share-buttons/widgets/share-buttons.php",
+    "file": "pro-elements/modules/share-buttons/widgets/share-buttons.php",
     "sections": [
         {
             "id": "section_buttons_content",

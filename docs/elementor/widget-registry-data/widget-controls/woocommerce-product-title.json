@@ -2,7 +2,7 @@
     "slug": "woocommerce-product-title",
     "source": "wc",
     "title": "Product Title",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/product-title.php",
+    "file": "pro-elements/modules/woocommerce/widgets/product-title.php",
     "sections": [],
     "group_controls": [],
     "repeaters": [],

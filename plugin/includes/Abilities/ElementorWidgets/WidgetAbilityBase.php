@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorWidgets;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
 use Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetCatalog;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
@@ -37,6 +38,13 @@ use Stonewright\WpMcp\Support\ElementorData;
  * self-correct in one round.
  */
 abstract class WidgetAbilityBase extends AbilityKernel {
+	public function meta(): array {
+		return [
+			'deprecated'  => true,
+			'replacement' => 'stonewright/elementor-v3-batch-mutate',
+			'sunset'      => '2.0.0',
+		];
+	}
 
 	/** Each concrete subclass returns the widget slug it adds. */
 	abstract protected function slug(): string;
@@ -83,7 +91,7 @@ abstract class WidgetAbilityBase extends AbilityKernel {
 		};
 
 		$lines  = [];
-		$lines[] = sprintf( 'Inserts an %1$s "%2$s" widget into an Elementor V3 page.', $source_label, $title );
+		$lines[] = sprintf( 'Deprecated compatibility ability for an %1$s "%2$s" widget. Prefer stonewright/elementor-schema plus stonewright/elementor-v3-batch-mutate.', $source_label, $title );
 
 		if ( $intent !== '' ) {
 			$lines[] = ' ' . self::clip( $intent, 240 );
@@ -278,37 +286,11 @@ abstract class WidgetAbilityBase extends AbilityKernel {
 					}
 				}
 
-				// Structured validation against required_for_render.
-				$required = WidgetCatalog::required_for_render( $this->slug() );
-				$violations = [];
-				foreach ( $required as $req_key ) {
-					// Treat empty arrays as "present" — Elementor itself stores
-					// many repeater-backed settings (galleries, lists, tabs) as
-					// `[]` immediately after the widget is dropped and only
-					// populates them after the user adds rows. Only null and
-					// empty-string count as "missing".
-					$present = array_key_exists( $req_key, $settings )
-						&& $settings[ $req_key ] !== null
-						&& $settings[ $req_key ] !== '';
-					if ( ! $present ) {
-						$violations[] = [
-							'path'     => 'settings.' . $req_key,
-							'code'     => 'required_missing',
-							'expected' => 'non-empty value',
-							'got'      => array_key_exists( $req_key, $settings ) ? $settings[ $req_key ] : null,
-						];
-					}
+				$validated = SettingsValidator::validate( $this->slug(), $settings );
+				if ( $validated instanceof \WP_Error ) {
+					return $validated;
 				}
-				if ( ! empty( $violations ) ) {
-					return $this->error(
-						'invalid_settings',
-						__( 'Widget settings failed validation.', 'stonewright' ),
-						[
-							'violations' => $violations,
-							'widget'     => $this->slug(),
-						]
-					);
-				}
+				$settings = $validated['settings'];
 
 				$snapshot_id = Backup::snapshot_post( $post_id );
 				$tree        = ElementorData::read( $post_id );

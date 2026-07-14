@@ -2,7 +2,7 @@
     "slug": "theme-site-title",
     "source": "pro",
     "title": "Site Title",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/theme-builder/widgets/site-title.php",
+    "file": "pro-elements/modules/theme-builder/widgets/site-title.php",
     "sections": [],
     "group_controls": [],
     "repeaters": [],

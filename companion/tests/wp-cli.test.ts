@@ -172,6 +172,7 @@ describe('WP-CLI runner', () => {
 				{
 					APPDATA: join(temp, 'roaming'),
 					STONEWRIGHT_WP_ROOT: wpRoot,
+					STONEWRIGHT_WP_CLI_DISABLE_HOST_DISCOVERY: '1',
 				} as NodeJS.ProcessEnv,
 			);
 
@@ -213,7 +214,10 @@ describe('WP-CLI runner', () => {
 					path: wpRoot,
 				},
 				runner,
-				{ STONEWRIGHT_WP_ROOT: wpRoot } as NodeJS.ProcessEnv,
+				{
+					STONEWRIGHT_WP_ROOT: wpRoot,
+					STONEWRIGHT_WP_CLI_DISABLE_HOST_DISCOVERY: '1',
+				} as NodeJS.ProcessEnv,
 			);
 
 			expect(calls[0]?.file).toBe(phpPath);
@@ -244,6 +248,7 @@ describe('WP-CLI runner', () => {
 		expect(result.diagnostics).toEqual([
 			expect.objectContaining({
 				code: 'php_missing_mysqli',
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Vitest asymmetric matcher is typed as any.
 				hints: expect.arrayContaining([
 					expect.stringContaining('STONEWRIGHT_WP_CLI_PHP_BIN'),
 					expect.stringContaining('stonewright-wp-cli-status'),
@@ -280,6 +285,7 @@ describe('WP-CLI runner', () => {
 			expect.objectContaining({
 				code: 'php_ini_not_loaded',
 				severity: 'warning',
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Vitest asymmetric matcher is typed as any.
 				hints: expect.arrayContaining([
 					expect.stringContaining('STONEWRIGHT_WP_CLI_PHP_INI'),
 					expect.stringContaining('mysqli/MySQL'),
@@ -338,6 +344,7 @@ describe('WP-CLI runner', () => {
 					APPDATA: join(temp, 'roaming'),
 					STONEWRIGHT_WP_ROOT: wpRoot,
 					STONEWRIGHT_WP_CLI_INSTALL_DIR: join(temp, 'cache'),
+					STONEWRIGHT_WP_CLI_DISABLE_HOST_DISCOVERY: '1',
 				} as NodeJS.ProcessEnv,
 			);
 

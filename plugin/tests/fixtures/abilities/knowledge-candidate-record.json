@@ -1,0 +1,20 @@
+{
+  "args": {
+    "action": "create",
+    "topic": "Elementor fixture knowledge",
+    "widget": "button",
+    "control": "link",
+    "fact": "The link control must contain a real destination.",
+    "recipe": "Read the live schema, dry-run, write, and verify readback.",
+    "source_url": "https://elementor.com/help/button-widget/",
+    "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "fetched_at": "2026-07-14T12:00:00Z",
+    "expires_at": "2027-07-14T12:00:00Z",
+    "version_constraints": {
+      "elementor_core": ">=3.30 <4.0"
+    },
+    "evidence_type": "official_docs",
+    "confidence": 0.9,
+    "create_draft_skill": false
+  }
+}

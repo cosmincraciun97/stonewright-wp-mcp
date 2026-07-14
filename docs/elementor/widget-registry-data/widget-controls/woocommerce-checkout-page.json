@@ -2,7 +2,7 @@
     "slug": "woocommerce-checkout-page",
     "source": "wc",
     "title": "Checkout",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/checkout.php",
+    "file": "pro-elements/modules/woocommerce/widgets/checkout.php",
     "sections": [
         {
             "id": "section_content",

@@ -2,7 +2,7 @@
     "slug": "call-to-action",
     "source": "pro",
     "title": "Call to Action",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/call-to-action/widgets/call-to-action.php",
+    "file": "pro-elements/modules/call-to-action/widgets/call-to-action.php",
     "sections": [
         {
             "id": "section_main_image",

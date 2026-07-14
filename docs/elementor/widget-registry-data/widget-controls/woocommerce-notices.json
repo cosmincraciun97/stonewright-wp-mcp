@@ -2,7 +2,7 @@
     "slug": "woocommerce-notices",
     "source": "wc",
     "title": "WooCommerce Notices",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/woocommerce/widgets/notices.php",
+    "file": "pro-elements/modules/woocommerce/widgets/notices.php",
     "sections": [
         {
             "id": "section",

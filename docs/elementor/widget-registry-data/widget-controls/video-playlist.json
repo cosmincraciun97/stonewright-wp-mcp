@@ -2,7 +2,7 @@
     "slug": "video-playlist",
     "source": "pro",
     "title": "Video Playlist",
-    "file": "D:/Work/LOCAL-MCP-TEST-WP/app/public/wp-content/plugins/pro-elements/modules/video-playlist/widgets/video-playlist.php",
+    "file": "pro-elements/modules/video-playlist/widgets/video-playlist.php",
     "sections": [
         {
             "id": "section_playlist",
