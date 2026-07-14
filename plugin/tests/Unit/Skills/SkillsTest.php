@@ -281,6 +281,53 @@ final class SkillsTest extends TestCase {
 		$this->assertSame( 0, $GLOBALS['wpdb']->inserted['enable_prompt'] );
 	}
 
+	public function test_save_reactivates_existing_draft_when_enabled_is_true(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_with_captured_update(
+			[
+				'id'             => '10',
+				'slug'           => 'draft-skill',
+				'title'          => 'Draft Skill',
+				'description'    => '',
+				'content'        => 'Old content',
+				'enabled'        => '0',
+				'enable_agentic' => '0',
+				'enable_prompt'  => '0',
+				'source'         => 'user',
+				'status'         => 'draft',
+				'revision'       => '1',
+			]
+		);
+
+		$id = Skills::save(
+			[
+				'slug'    => 'draft-skill',
+				'title'   => 'Draft Skill',
+				'content' => 'Updated content',
+				'enabled' => true,
+			]
+		);
+
+		self::assertSame( 10, $id );
+		self::assertSame( 1, $GLOBALS['wpdb']->updated['enabled'] );
+		self::assertSame( 'active', $GLOBALS['wpdb']->updated['status'] );
+	}
+
+	public function test_toggle_reactivates_existing_draft(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_with_captured_update(
+			[
+				'id'      => '11',
+				'slug'    => 'toggle-skill',
+				'enabled' => '0',
+				'source'  => 'user',
+				'status'  => 'draft',
+			]
+		);
+
+		self::assertTrue( Skills::toggle( 11, true ) );
+		self::assertSame( 1, $GLOBALS['wpdb']->updated['enabled'] );
+		self::assertSame( 'active', $GLOBALS['wpdb']->updated['status'] );
+	}
+
 	public function test_delete_refuses_builtin_skills(): void {
 		$GLOBALS['wpdb'] = new class() {
 			public string $prefix = 'wp_';
@@ -408,6 +455,36 @@ final class SkillsTest extends TestCase {
 			/** @return array<int, array<string, string>> */
 			public function get_results( string $q, string $output = 'OBJECT' ): array {
 				return $this->rows;
+			}
+		};
+	}
+
+	/** @param array<string, mixed> $row */
+	private function make_wpdb_with_captured_update( array $row ): object {
+		return new class( $row ) {
+			public string $prefix = 'wp_';
+			/** @var array<string, mixed> */
+			public array $updated = [];
+			/** @param array<string, mixed> $row */
+			public function __construct( private array $row ) {}
+			public function get_var( string $q ): string {
+				return 'wp_stonewright_skills';
+			}
+			public function prepare( string $q, mixed ...$args ): string {
+				return $q;
+			}
+			/** @return array<string, mixed> */
+			public function get_row( string $q, string $output = 'OBJECT' ): array {
+				return $this->row;
+			}
+			/** @param array<string, mixed> $data */
+			public function insert( string $table, array $data, array $format = [] ): int {
+				return 1;
+			}
+			/** @param array<string, mixed> $data @param array<string, mixed> $where */
+			public function update( string $table, array $data, array $where, array $format = [], array $where_format = [] ): int {
+				$this->updated = $data;
+				return 1;
 			}
 		};
 	}

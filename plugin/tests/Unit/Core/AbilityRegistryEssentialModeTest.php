@@ -29,7 +29,8 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 
 		$names = array_column( AbilityRegistry::enabled_abilities(), 'name' );
 
-		self::assertContains( 'stonewright/workflow-preflight', $names );
+		self::assertContains( 'stonewright/task-start', $names );
+		self::assertNotContains( 'stonewright/workflow-preflight', $names );
 		self::assertContains( 'stonewright/tool-profile', $names );
 		self::assertContains( 'stonewright/php-execute', $names );
 		self::assertContains( 'stonewright/wp-cli-batch-run', $names );
@@ -45,7 +46,8 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 
 		$names = array_column( AbilityRegistry::enabled_abilities(), 'name' );
 
-		self::assertContains( 'stonewright/workflow-preflight', $names );
+		self::assertContains( 'stonewright/task-start', $names );
+		self::assertNotContains( 'stonewright/workflow-preflight', $names );
 		self::assertContains( 'stonewright/tool-profile', $names );
 		self::assertContains( 'stonewright/php-execute', $names );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $names );

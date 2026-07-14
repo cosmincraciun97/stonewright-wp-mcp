@@ -32,6 +32,11 @@ final class BundledPacks {
 
 	/** @param list<string> $terms @param array<string, string> $versions @param list<string> $capabilities @param list<string> $scenarios @param list<string> $verified_fingerprints @return array<string, mixed> */
 	private static function pack( string $id, string $domain, string $capability, string $status, string $trigger, array $terms, array $versions, array $capabilities, array $scenarios, array $verified_fingerprints = [], string $tier = 'P0' ): array {
+		// A curriculum may ship ready for evaluation, but it is not runtime-verified
+		// until a release carries an exact compatible runtime fingerprint.
+		if ( 'verified' === $status && [] === $verified_fingerprints ) {
+			$status = 'candidate';
+		}
 		$workflow = [
 			'discover' => 'Detect live plugin versions, registered capabilities, and feature flags.',
 			'inspect'  => 'Read compact structure, schema, and current settings before planning.',
@@ -74,7 +79,7 @@ final class BundledPacks {
 			'references'                    => [ 'workflow', 'recipes', 'eval_cases' ],
 			'provenance'                    => [ 'type' => 'stonewright_release', 'source' => 'bundled curriculum', 'license' => 'AGPL-3.0-or-later' ],
 			'verified_runtime_fingerprints' => $verified_fingerprints,
-			'last_verified_at'              => '2026-07-14T00:00:00Z',
+			'last_verified_at'              => [] !== $verified_fingerprints ? '2026-07-14T00:00:00Z' : '',
 		];
 		$pack['hash'] = self::hash( $pack );
 		return $pack;

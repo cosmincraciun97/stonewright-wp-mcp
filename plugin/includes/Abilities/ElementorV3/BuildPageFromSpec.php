@@ -5,8 +5,12 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Design\Evidence\Validator as DesignEvidenceValidator;
 use Stonewright\WpMcp\DesignSpec\Validator;
 use Stonewright\WpMcp\Elementor\Renderer;
+use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
+use Stonewright\WpMcp\Elementor\V4\AtomicTreeInspector;
+use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
@@ -42,8 +46,10 @@ final class BuildPageFromSpec extends AbilityKernel {
 			'properties'           => [
 				'post_id' => [ 'type' => 'integer', 'minimum' => 1 ],
 				'spec'               => [ 'type' => 'object' ],
+				'design_evidence'    => [ 'type' => 'object', 'description' => 'Required when spec style_policy is strict.' ],
 				'replace'            => [ 'type' => 'boolean', 'default' => true ],
 				'mode'               => [ 'type' => 'string', 'enum' => [ 'replace', 'append', 'replace_section' ] ],
+				'expected_tree_hash' => [ 'type' => 'string', 'pattern' => '^[a-f0-9]{64}$' ],
 				'dry_run'            => [ 'type' => 'boolean', 'default' => false ],
 				'confirmation_token' => [ 'type' => 'string' ],
 			],
@@ -64,6 +70,10 @@ final class BuildPageFromSpec extends AbilityKernel {
 				'mode'          => [ 'type' => 'string' ],
 				'metrics'       => [ 'type' => 'object' ],
 				'preview'       => [ 'type' => 'array' ],
+				'before_hash'   => [ 'type' => 'string' ],
+				'after_hash'    => [ 'type' => 'string' ],
+				'readback_hash' => [ 'type' => 'string' ],
+				'evidence_hash' => [ 'type' => 'string' ],
 			],
 		];
 	}
@@ -89,6 +99,16 @@ final class BuildPageFromSpec extends AbilityKernel {
 				if ( is_wp_error( $normalized ) ) {
 					return $normalized;
 				}
+				$style_policy = (string) ( $normalized['style_policy'] ?? ( $normalized['meta']['style_policy'] ?? '' ) );
+				$evidence_hash = '';
+				if ( 'strict' === $style_policy ) {
+					$evidence = isset( $args['design_evidence'] ) && is_array( $args['design_evidence'] ) ? $args['design_evidence'] : [];
+					$validated_evidence = DesignEvidenceValidator::validate( $evidence );
+					if ( $validated_evidence instanceof \WP_Error ) {
+						return $validated_evidence;
+					}
+					$evidence_hash = (string) $validated_evidence['evidence_hash'];
+				}
 
 				$dry_run = ! empty( $args['dry_run'] );
 				$mode    = self::write_mode( $args );
@@ -108,8 +128,18 @@ final class BuildPageFromSpec extends AbilityKernel {
 				$render_started_at = microtime( true );
 				$rendered          = Renderer::render( $normalized, $diagnostics );
 				$render_ms         = self::elapsed_ms( $render_started_at );
-				$existing    = ElementorData::read( $post_id );
-				$tree        = self::merge_tree( $existing, $rendered, $mode );
+				$existing     = ElementorData::read( $post_id );
+				$before_hash  = TreeHasher::hash( $existing );
+				$architecture = (string) ( AtomicTreeInspector::inspect( $existing )['architecture'] ?? 'empty' );
+				if ( in_array( $architecture, [ 'v4', 'mixed' ], true ) ) {
+					return $this->error( 'v3_architecture_mismatch', __( 'This document contains Elementor V4 Atomic nodes. V3 rendering is blocked to prevent a mixed tree.', 'stonewright' ), [ 'status' => 409, 'architecture' => $architecture, 'before_hash' => $before_hash ] );
+				}
+				$expected_hash = isset( $args['expected_tree_hash'] ) ? (string) $args['expected_tree_hash'] : '';
+				if ( '' !== $expected_hash && ! hash_equals( $expected_hash, $before_hash ) ) {
+					return $this->error( 'tree_conflict', __( 'Elementor page changed after planning; refresh structure before writing.', 'stonewright' ), [ 'status' => 409, 'expected_tree_hash' => $expected_hash, 'current_tree_hash' => $before_hash ] );
+				}
+				$tree       = self::merge_tree( $existing, $rendered, $mode );
+				$after_hash = TreeHasher::hash( $tree );
 
 				if ( $dry_run ) {
 					$element_count = count( ElementorData::flatten( $tree ) );
@@ -128,6 +158,10 @@ final class BuildPageFromSpec extends AbilityKernel {
 							'write_ms'    => 0.0,
 						],
 						'preview'       => $tree,
+						'before_hash'   => $before_hash,
+						'after_hash'    => $after_hash,
+						'readback_hash' => $after_hash,
+						'evidence_hash' => $evidence_hash,
 					];
 				}
 
@@ -136,9 +170,15 @@ final class BuildPageFromSpec extends AbilityKernel {
 
 				$write_started_at = microtime( true );
 				if ( ! ElementorData::write( $post_id, $tree ) ) {
-					return $this->error( 'write_failed', __( 'Could not save Elementor data.', 'stonewright' ) );
+					$restored = Backup::restore( $post_id, $snapshot_id );
+					return $this->error( 'write_failed', __( 'Could not save Elementor data; the snapshot was restored.', 'stonewright' ), [ 'restored' => $restored, 'validation_error' => SettingsValidator::last_error() ] );
 				}
 				$write_ms = self::elapsed_ms( $write_started_at );
+				$readback_hash = TreeHasher::hash( ElementorData::read( $post_id ) );
+				if ( ! hash_equals( $after_hash, $readback_hash ) ) {
+					$restored = Backup::restore( $post_id, $snapshot_id );
+					return $this->error( 'readback_mismatch', __( 'Elementor write readback differed from the compiled tree; the snapshot was restored.', 'stonewright' ), [ 'status' => 500, 'expected_hash' => $after_hash, 'readback_hash' => $readback_hash, 'restored' => $restored ] );
+				}
 
 				$element_count = count( ElementorData::flatten( $tree ) );
 				return [
@@ -155,6 +195,10 @@ final class BuildPageFromSpec extends AbilityKernel {
 						'render_ms'   => $render_ms,
 						'write_ms'    => $write_ms,
 					],
+					'before_hash'   => $before_hash,
+					'after_hash'    => $after_hash,
+					'readback_hash' => $readback_hash,
+					'evidence_hash' => $evidence_hash,
 				];
 			}
 		);

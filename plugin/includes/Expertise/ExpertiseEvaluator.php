@@ -3,7 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Expertise;
 
-/** Deterministic curriculum evaluator with scorecard metrics and critical gates. */
+/** Deterministic curriculum audit plus explicit runtime-verification evidence. */
 final class ExpertiseEvaluator {
 
 	/** @param array<string, mixed>|null $runtime @return array<string, mixed>|\WP_Error */
@@ -53,6 +53,8 @@ final class ExpertiseEvaluator {
 			$score = 0.0;
 			$critical_failures += count( $validation_errors );
 		}
+		$evidence        = is_array( $runtime['verification_evidence'] ?? null ) ? $runtime['verification_evidence'] : [];
+		$evidence_errors = self::evidence_errors( $evidence );
 		$report = [
 			'pack_id'             => (string) $pack['id'],
 			'pack_version'        => (string) $pack['version'],
@@ -61,7 +63,12 @@ final class ExpertiseEvaluator {
 			'runtime_fingerprint' => (string) ( $runtime['fingerprint'] ?? '' ),
 			'compatible'          => $compatibility['compatible'],
 			'incompatibilities'   => $compatibility['reasons'],
+			'evaluation_kind'     => 'curriculum_contract',
 			'score'               => $score,
+			'curriculum_score'    => $score,
+			'implementation_verified' => [] === $evidence_errors,
+			'verification_evidence'   => [] === $evidence_errors ? $evidence : null,
+			'evidence_errors'         => $evidence_errors,
 			'critical_failures'   => $critical_failures,
 			'validation_errors'   => $validation_errors,
 			'cases_total'         => $total,
@@ -82,6 +89,25 @@ final class ExpertiseEvaluator {
 		return $report;
 	}
 
+	/** @param array<string, mixed> $evidence @return list<string> */
+	private static function evidence_errors( array $evidence ): array {
+		$errors = [];
+		foreach ( [ 'task_id', 'fixture_id' ] as $field ) {
+			if ( '' === trim( (string) ( $evidence[ $field ] ?? '' ) ) ) {
+				$errors[] = 'missing:' . $field;
+			}
+		}
+		if ( ! preg_match( '/^[a-f0-9]{64}$/', (string) ( $evidence['schema_hash'] ?? '' ) ) ) {
+			$errors[] = 'invalid:schema_hash';
+		}
+		foreach ( [ 'editor_verified', 'frontend_verified', 'readback_verified' ] as $field ) {
+			if ( true !== ( $evidence[ $field ] ?? false ) ) {
+				$errors[] = 'required_true:' . $field;
+			}
+		}
+		return $errors;
+	}
+
 	/** @return array<string, mixed> */
 	public static function evaluate_all( bool $persist = false ): array {
 		$runtime = RuntimeContext::capture();
@@ -97,6 +123,7 @@ final class ExpertiseEvaluator {
 			'count'             => count( $reports ),
 			'below_90'          => array_values( array_map( static fn( array $row ): string => (string) $row['pack_id'], array_filter( $reports, static fn( array $row ): bool => (float) $row['score'] < 90 ) ) ),
 			'critical_failures' => array_sum( array_map( static fn( array $row ): int => (int) $row['critical_failures'], $reports ) ),
+			'implementation_unverified' => array_values( array_map( static fn( array $row ): string => (string) $row['pack_id'], array_filter( $reports, static fn( array $row ): bool => ! (bool) $row['implementation_verified'] ) ) ),
 		];
 	}
 }

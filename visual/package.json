@@ -1,6 +1,6 @@
 {
   "name": "@stonewright/visual",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Single-tool MCP workspace for nested WordPress editor adapters.",
   "type": "module",
   "license": "AGPL-3.0-or-later",

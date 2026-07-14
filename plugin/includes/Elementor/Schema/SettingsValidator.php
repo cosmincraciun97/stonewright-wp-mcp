@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Elementor\Schema;
 
+use Stonewright\WpMcp\Support\TextIntegrity;
+
 /**
  * Rejects Elementor settings that are not present in the live widget schema.
  */
@@ -13,24 +15,24 @@ final class SettingsValidator {
 	 * @param array<string, mixed> $settings Candidate widget settings.
 	 * @return array{settings:array<string,mixed>,schema_hash:string,warnings:list<array<string,mixed>>}|\WP_Error
 	 */
-	public static function validate( string $widget_type, array $settings, bool $require_render_settings = true ): array|\WP_Error {
+	public static function validate( string $widget_type, array $settings, bool $require_render_settings = true, bool $enforce_conditions = true ): array|\WP_Error {
 		$schema = WidgetSchemaRepository::get( $widget_type );
 		if ( $schema instanceof \WP_Error ) {
 			return $schema;
 		}
-		return self::validate_schema( $widget_type, $settings, $schema, $require_render_settings );
+		return self::validate_schema( $widget_type, $settings, $schema, $require_render_settings, $enforce_conditions );
 	}
 
 	/**
 	 * @param array<string, mixed> $settings Candidate structural-element settings.
 	 * @return array{settings:array<string,mixed>,schema_hash:string,warnings:list<array<string,mixed>>}|\WP_Error
 	 */
-	public static function validate_container( array $settings, string $element_type = 'container' ): array|\WP_Error {
+	public static function validate_container( array $settings, string $element_type = 'container', bool $enforce_conditions = true ): array|\WP_Error {
 		$schema = ContainerSchemaRepository::get( $element_type );
 		if ( $schema instanceof \WP_Error ) {
 			return $schema;
 		}
-		return self::validate_schema( $element_type, $settings, $schema, false );
+		return self::validate_schema( $element_type, $settings, $schema, false, $enforce_conditions );
 	}
 
 	/**
@@ -38,7 +40,7 @@ final class SettingsValidator {
 	 * @param array<string, mixed> $schema
 	 * @return array{settings:array<string,mixed>,schema_hash:string,warnings:list<array<string,mixed>>}|\WP_Error
 	 */
-	private static function validate_schema( string $subject, array $settings, array $schema, bool $require_render_settings ): array|\WP_Error {
+	private static function validate_schema( string $subject, array $settings, array $schema, bool $require_render_settings, bool $enforce_conditions ): array|\WP_Error {
 
 		$controls   = (array) ( $schema['controls'] ?? [] );
 		$violations = [];
@@ -63,7 +65,7 @@ final class SettingsValidator {
 				$violations[] = $error;
 				continue;
 			}
-			if ( ! self::condition_is_active( (array) ( $control['condition'] ?? [] ), $settings, $controls ) ) {
+			if ( $enforce_conditions && ! self::condition_is_active( (array) ( $control['condition'] ?? [] ), $settings, $controls ) ) {
 				$violations[] = self::violation( 'settings.' . $key, 'inactive_condition', 'the control condition/activator to be satisfied', $value, array_keys( (array) ( $control['condition'] ?? [] ) ) );
 				continue;
 			}
@@ -105,16 +107,48 @@ final class SettingsValidator {
 	 */
 	public static function validate_tree( array $tree ): bool {
 		self::$last_error = null;
-		foreach ( $tree as $element ) {
+		$seen_ids         = [];
+		return self::validate_tree_nodes( $tree, 'root', $seen_ids );
+	}
+
+	/**
+	 * @param array<int, mixed> $tree
+	 * @param array<string, true> $seen_ids
+	 */
+	private static function validate_tree_nodes( array $tree, string $path, array &$seen_ids ): bool {
+		foreach ( $tree as $index => $element ) {
 			if ( ! is_array( $element ) ) {
-				continue;
+				return self::tree_error( $path . '.' . (string) $index, 'invalid_element', 'an Elementor element object', $element );
 			}
+			$element_path = $path . '.' . (string) $index;
+			$id           = isset( $element['id'] ) && is_scalar( $element['id'] ) ? trim( (string) $element['id'] ) : '';
+			if ( '' === $id ) {
+				return self::tree_error( $element_path . '.id', 'missing_id', 'a non-empty unique Elementor element id', $element['id'] ?? null );
+			}
+			if ( isset( $seen_ids[ $id ] ) ) {
+				return self::tree_error( $element_path . '.id', 'duplicate_id', 'an Elementor element id unique within the tree', $id );
+			}
+			$seen_ids[ $id ] = true;
+
 			$element_type = (string) ( $element['elType'] ?? '' );
+			if ( '' === $element_type ) {
+				return self::tree_error( $element_path . '.elType', 'missing_element_type', 'a non-empty Elementor element type', null );
+			}
 			if ( 'widget' === $element_type ) {
 				$widget_type = (string) ( $element['widgetType'] ?? '' );
-				if ( '' !== $widget_type && 'html' !== $widget_type && ! str_starts_with( $widget_type, 'e-' ) ) {
+				if ( '' === $widget_type ) {
+					return self::tree_error( $element_path . '.widgetType', 'missing_widget_type', 'a non-empty Elementor widget type', null );
+				}
+				if ( str_starts_with( $widget_type, 'e-' ) ) {
+					return self::tree_error( $element_path . '.widgetType', 'atomic_widget_in_v3_tree', 'a legacy Elementor V3 widget type; use the V4 atomic pipeline for e-* widgets', $widget_type );
+				}
+				if ( '' !== $widget_type && 'html' !== $widget_type ) {
 					$settings = isset( $element['settings'] ) && is_array( $element['settings'] ) ? $element['settings'] : [];
-					$result   = self::validate( $widget_type, $settings, false );
+					$text_error = TextIntegrity::first_violation( $settings, $element_path . '.settings' );
+					if ( null !== $text_error ) {
+						return self::tree_error( $text_error['path'], $text_error['code'], 'valid UTF-8 human text without stripped Unicode escapes or mojibake', $text_error['value'] );
+					}
+					$result   = self::validate( $widget_type, $settings, false, false );
 					if ( $result instanceof \WP_Error ) {
 						self::$last_error = $result;
 						return false;
@@ -122,18 +156,37 @@ final class SettingsValidator {
 				}
 			} elseif ( in_array( $element_type, [ 'container', 'section', 'column' ], true ) ) {
 				$settings = isset( $element['settings'] ) && is_array( $element['settings'] ) ? $element['settings'] : [];
-				$result   = self::validate_container( $settings, $element_type );
+				$text_error = TextIntegrity::first_violation( $settings, $element_path . '.settings' );
+				if ( null !== $text_error ) {
+					return self::tree_error( $text_error['path'], $text_error['code'], 'valid UTF-8 human text without stripped Unicode escapes or mojibake', $text_error['value'] );
+				}
+				$result   = self::validate_container( $settings, $element_type, false );
 				if ( $result instanceof \WP_Error ) {
 					self::$last_error = $result;
 					return false;
 				}
 			}
-			$children = isset( $element['elements'] ) && is_array( $element['elements'] ) ? $element['elements'] : [];
-			if ( ! self::validate_tree( $children ) ) {
+			if ( isset( $element['elements'] ) && ! is_array( $element['elements'] ) ) {
+				return self::tree_error( $element_path . '.elements', 'invalid_children', 'an array of child Elementor elements', $element['elements'] );
+			}
+			$children = isset( $element['elements'] ) ? $element['elements'] : [];
+			if ( ! self::validate_tree_nodes( $children, $element_path . '.elements', $seen_ids ) ) {
 				return false;
 			}
 		}
 		return true;
+	}
+
+	private static function tree_error( string $path, string $code, string $expected, mixed $got ): bool {
+		self::$last_error = new \WP_Error(
+			'stonewright_elementor_tree_invalid',
+			__( 'Elementor tree structure is invalid.', 'stonewright' ),
+			[
+				'status'     => 400,
+				'violations' => [ self::violation( $path, $code, $expected, $got ) ],
+			]
+		);
+		return false;
 	}
 
 	public static function last_error(): ?\WP_Error {

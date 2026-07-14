@@ -182,7 +182,7 @@ function companionInstructions(profile: ProxyToolProfile): string {
 		'Stonewright companion fast start:',
 		`- Current compact profile: ${profile}.`,
 		'- First call stonewright-setup-profile if connection, credentials, or tool visibility is unclear.',
-		'- For WordPress work, call stonewright-context-bootstrap, then stonewright-workflow-preflight. Use fast_path.tool_profile before making a separate stonewright-tool-profile call.',
+		'- For WordPress work, call stonewright-task-start and follow fast_path.tool_profile. Use stonewright-context-bootstrap only for the compatibility bootstrap path.',
 		`- ${MCP_MISSING_BOOTSTRAP_STOP}`,
 		'- Use stonewright-php-execute for direct full WordPress runtime access when a short PHP snippet is faster than many typed calls.',
 		'- Use stonewright-wordpress-mcp-status only to diagnose the Stonewright MCP connection when proxied WordPress tools are missing.',
@@ -238,7 +238,7 @@ function createWordPressMcpConnectionStatus(profile: ProxyToolProfile): WordPres
 		expected_companion_package: companionPackageSpec(),
 		refresh_required_tool_names: [
 			'stonewright-context-bootstrap',
-			'stonewright-workflow-preflight',
+			'stonewright-task-start',
 			'stonewright-php-execute',
 		],
 		prompt_skill_count: 0,

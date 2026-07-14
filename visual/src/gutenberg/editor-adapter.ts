@@ -48,7 +48,7 @@ export class GutenbergEditorAdapter {
   private getBlock(): NestedEditorTool { return { name: "get_block", label: "Get live Gutenberg block", description: "Reads one block by client id from the active editor store.", parameters: objectSchema({ client_id: { type: "string" } }, ["client_id"]), execute: async (args) => { const block = await this.requireBlock(requiredString(args, "client_id")); return result(`${block.name} ${block.clientId}.`, { block }); } }; }
 
   private insertBlock(): NestedEditorTool { return { name: "insert_block", label: "Insert native Gutenberg block", description: "Creates a registered block after exact live attribute validation.", mutates: true, parameters: mutationSchema({ block_name: { type: "string" }, attributes: { type: "object" }, inner_blocks: { type: "array" }, parent_client_id: { type: "string" }, position: { type: "integer" } }, ["block_name", "idempotency_key"]), execute: async (args) => this.idempotent("insert_block", args, async () => {
-    const name = requiredString(args, "block_name"); const attributes = record(args.attributes); await this.validateAttributes(name, attributes); const innerBlocks = Array.isArray(args.inner_blocks) ? args.inner_blocks.map(normalizeInputBlock) : [];
+    const name = requiredString(args, "block_name"); const attributes = record(args.attributes); await this.validateAttributes(name, attributes); const innerBlocks = Array.isArray(args.inner_blocks) ? await Promise.all(args.inner_blocks.map((item) => this.normalizeAndValidateInputBlock(item))) : [];
     const block = await this.runtime.insertBlock({ name, attributes, innerBlocks, parentClientId: optionalString(args.parent_client_id) || undefined, position: optionalInteger(args.position) }); this.historyPosition++;
     return result(`Inserted ${name} ${block.clientId}.`, { client_id: block.clientId, expected_attributes: attributes });
   }), readback: async (_args, mutation) => { const block = await this.requireBlock(String(mutation.details?.client_id || "")); assertSubset(record(mutation.details?.expected_attributes), block.attributes); return { client_id: block.clientId, attributes_verified: true }; }, rollback: async (args) => this.rollbackMutation("insert_block", args) }; }
@@ -70,7 +70,22 @@ export class GutenbergEditorAdapter {
 
   private async requireSchema(name: string): Promise<GutenbergBlockSchema> { const schema = await this.runtime.getBlockSchema(name); if (!schema) throw new Error(`Unknown Gutenberg block type: ${name}`); return schema; }
   private async requireBlock(id: string): Promise<GutenbergBlock> { const block = await this.runtime.getBlock(id); if (!block) throw new Error(`Gutenberg block not found: ${id}`); return block; }
-  private async validateAttributes(name: string, attributes: Record<string, unknown>): Promise<void> { const schema = await this.requireSchema(name); const unknown = Object.keys(attributes).filter((key) => !Object.hasOwn(schema.attributes, key)); if (unknown.length) throw new Error(`Unknown attributes for ${name}: ${unknown.join(", ")}`); }
+  private async validateAttributes(name: string, attributes: Record<string, unknown>): Promise<void> {
+    const schema = await this.requireSchema(name);
+    const unknown = Object.keys(attributes).filter((key) => !Object.hasOwn(schema.attributes, key));
+    if (unknown.length) throw new Error(`Unknown attributes for ${name}: ${unknown.join(", ")}`);
+    for (const [key, value] of Object.entries(attributes)) validateAttributeValue(name, key, value, record(schema.attributes[key]));
+  }
+  private async normalizeAndValidateInputBlock(value: unknown): Promise<GutenbergBlock> {
+    const input = record(value);
+    const name = optionalString(input.block_name) || optionalString(input.name);
+    if (!name) throw new Error("Nested Gutenberg block requires block_name.");
+    const attributes = record(input.attributes);
+    await this.validateAttributes(name, attributes);
+    const children = input.innerBlocks ?? input.inner_blocks;
+    const innerBlocks = Array.isArray(children) ? await Promise.all(children.map((item) => this.normalizeAndValidateInputBlock(item))) : [];
+    return { clientId: optionalString(input.clientId) || optionalString(input.client_id), name, attributes, innerBlocks };
+  }
   private async idempotent(tool: string, args: Record<string, unknown>, execute: () => Promise<NestedToolResult>): Promise<NestedToolResult> { confirm(args); const key = requiredString(args, "idempotency_key"); const request = JSON.stringify(args); const cacheKey = `${tool}:${key}`; const cached = this.idempotency.get(cacheKey); if (cached) { if (cached.request !== request) throw new Error(`Idempotency key reused with different arguments: ${key}`); return structuredClone(cached.result); } const value = await execute(); this.idempotency.set(cacheKey, { request, result: structuredClone(value) }); return value; }
   private async rollbackMutation(tool: string, args: Record<string, unknown>): Promise<void> { await this.runtime.undo(); this.historyPosition = Math.max(0, this.historyPosition - 1); this.idempotency.delete(`${tool}:${requiredString(args, "idempotency_key")}`); }
 }
@@ -78,11 +93,6 @@ export class GutenbergEditorAdapter {
 function result(text: string, details: Record<string, unknown> = {}): NestedToolResult { return { content: [{ type: "text", text }], details }; }
 function compactSchema(schema: GutenbergBlockSchema): Record<string, unknown> { return { name: schema.name, title: schema.title, category: schema.category, attribute_count: Object.keys(schema.attributes).length }; }
 function flatten(tree: GutenbergBlock[]): GutenbergBlock[] { return tree.flatMap((item) => [item, ...flatten(item.innerBlocks)]); }
-function normalizeInputBlock(value: unknown): GutenbergBlock {
-  const input = record(value);
-  const children = input.innerBlocks ?? input.inner_blocks;
-  return { clientId: optionalString(input.clientId) || optionalString(input.client_id), name: requiredString(input, "name"), attributes: record(input.attributes), innerBlocks: Array.isArray(children) ? children.map(normalizeInputBlock) : [] };
-}
 function mutationSchema(properties: Record<string, unknown>, required: string[]): Record<string, unknown> { return objectSchema({ ...properties, confirm_write: { type: "boolean" }, idempotency_key: { type: "string" } }, [...required, "confirm_write"]); }
 function objectSchema(properties: Record<string, unknown>, required: string[] = []): Record<string, unknown> { return { type: "object", additionalProperties: false, properties, ...(required.length ? { required } : {}) }; }
 function confirm(args: Record<string, unknown>): void { if (args.confirm_write !== true) throw new Error("confirm_write=true is required for Gutenberg mutations."); }
@@ -92,3 +102,16 @@ function optionalInteger(value: unknown): number | undefined { return typeof val
 function integer(value: unknown, fallback: number, min: number, max: number): number { return typeof value === "number" && Number.isFinite(value) ? Math.max(min, Math.min(Math.floor(value), max)) : fallback; }
 function record(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? structuredClone(value as Record<string, unknown>) : {}; }
 function assertSubset(expected: Record<string, unknown>, actual: Record<string, unknown>): void { for (const [key, value] of Object.entries(expected)) if (JSON.stringify(actual[key]) !== JSON.stringify(value)) throw new Error(`Gutenberg attribute readback mismatch: ${key}`); }
+function validateAttributeValue(blockName: string, key: string, value: unknown, schema: Record<string, unknown>): void {
+  const expected = typeof schema.type === "string" ? schema.type : "";
+  const valid = expected === "" || value === null || value === undefined
+    || ((expected === "string" || expected === "rich-text") && typeof value === "string")
+    || ((expected === "number" || expected === "integer") && typeof value === "number" && Number.isFinite(value) && (expected !== "integer" || Number.isInteger(value)))
+    || (expected === "boolean" && typeof value === "boolean")
+    || (expected === "array" && Array.isArray(value))
+    || (expected === "object" && value !== null && typeof value === "object" && !Array.isArray(value));
+  if (!valid) throw new Error(`Invalid attribute type for ${blockName}.${key}: expected ${expected}, got ${Array.isArray(value) ? "array" : typeof value}.`);
+  if (Array.isArray(schema.enum) && !schema.enum.some((candidate) => JSON.stringify(candidate) === JSON.stringify(value))) {
+    throw new Error(`Invalid attribute value for ${blockName}.${key}; expected one of ${schema.enum.map(String).join(", ")}.`);
+  }
+}

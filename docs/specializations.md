@@ -5,12 +5,12 @@ typed WordPress primitives.
 Agents must discover the installed plugin, available REST routes, WP-CLI
 commands, schemas, and value targets before writing.
 
-Use `stonewright-workflow-preflight` first. It returns matched specialization
+Use `stonewright-task-start` first. It returns matched specialization
 guidance for ACF, ACPT, Meta Box, ASE, Pods, and WooCommerce catalog work.
 
 ## Shared Workflow
 
-- Use `stonewright-context-bootstrap` at the start of every task.
+- Use `stonewright-task-start` at the start of every task.
 - If `stonewright-context-bootstrap` is not visible in the MCP tool list, stop
   and ask for a client reload or Stonewright MCP config fix.
 - Do not inspect private client config files, create scratch helper scripts,
@@ -70,5 +70,5 @@ These built-in skills are seeded into the Stonewright Skills admin page:
 - `stonewright-woocommerce-catalog`
 
 Agents should call `stonewright-skills-get` for the matching skill when
-`stonewright-context-bootstrap` or `stonewright-workflow-preflight` routes a
+`stonewright-task-start` routes a
 task to one of these specializations.

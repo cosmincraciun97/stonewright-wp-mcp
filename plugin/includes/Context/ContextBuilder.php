@@ -336,7 +336,7 @@ final class ContextBuilder {
 			'blocks_completion_without_evidence' => true,
 			'section_batching'                   => self::section_batching_contract(),
 			'required_before_discovery'          => [
-				'Call stonewright-context-bootstrap before Figma, browser, or write tools unless stonewright-workflow-preflight is the explicit bootstrap fast path.',
+				'Call stonewright-task-start before Figma, browser, or write tools; context-bootstrap and workflow-preflight are compatibility paths only.',
 				'Read matched skills, memory, visual_quality_contract, and required_followups before extracting design data.',
 			],
 			'source_authority'                  => [
@@ -491,7 +491,8 @@ final class ContextBuilder {
 			'Read all matched skill playbooks and memory entries before acting.',
 			'If the user corrects the agent or a repeatable mistake is detected, call stonewright/learning-record.',
 			'Use MCP tool names with hyphens, for example stonewright-context-bootstrap, not slash-separated ability names.',
-			'Use fast_path.tool_profile from stonewright/workflow-preflight before making a separate stonewright/tool-profile call; call tool-profile only to switch or verify a compact profile.',
+			'Use fast_path.tool_profile from stonewright/task-start before making a separate stonewright/tool-profile call; call tool-profile only to switch or verify a compact profile.',
+			'Candidate expertise refs are advisory only; require live schema/capability evidence before writes.',
 		];
 
 		if ( $is_visual ) {
@@ -525,7 +526,7 @@ final class ContextBuilder {
 			[ 'wordpress', 'acf', 'acpt', 'meta-box', 'metabox', 'ase', 'pods', 'woocommerce', 'fields', 'content-model' ],
 			true
 		) ) {
-			$steps[] = 'For ACF, ACPT, Meta Box, ASE, Pods, WooCommerce, or custom field work, call stonewright/workflow-preflight and follow the returned specialization guidance before writing.';
+			$steps[] = 'For ACF, ACPT, Meta Box, ASE, Pods, WooCommerce, or custom field work, call stonewright/task-start and follow the returned specialization guidance before writing.';
 			$steps[] = 'For content-model work, use stonewright/skills-get with stonewright-content-model-integrations when matched.';
 			$steps[] = 'For WooCommerce catalog work, use stonewright/skills-get with stonewright-woocommerce-catalog when matched.';
 		}

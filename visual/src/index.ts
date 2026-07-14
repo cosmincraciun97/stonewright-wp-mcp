@@ -23,6 +23,8 @@ export * from "./elementor-v4/editor-adapter.js";
 export * from "./gutenberg/types.js";
 export * from "./gutenberg/window-runtime.js";
 export * from "./gutenberg/editor-adapter.js";
+export * from "./skills/skill-registry.js";
+export * from "./skills/use-skill-tool.js";
 
 export const STONEWRIGHT_WORKSPACE_TOOL = {
   name: "stonewright-workspace-request",

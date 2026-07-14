@@ -86,7 +86,7 @@ export type ProxyToolProfile = 'full' | 'low-tools' | 'essential' | 'elementor-d
 
 export const STARTUP_REQUIRED_PROXY_TOOL_NAMES = [
 	'stonewright-context-bootstrap',
-	'stonewright-workflow-preflight',
+	'stonewright-task-start',
 	'stonewright-skills-get',
 ] as const;
 const BASE_PROXY_TOOL_NAMES = [
@@ -107,7 +107,7 @@ const ESSENTIAL_PROXY_TOOL_NAMES = [
 	'stonewright-security-issue-confirmation-token',
 	'stonewright-elementor-schema',
 	'stonewright-content-bulk-upsert-posts',
-	'stonewright-design-implementation-contract',
+	'stonewright-design-native-plan',
 	'stonewright-elementor-v3-batch-mutate',
 	'stonewright-gutenberg-apply-to-post',
 ] as const;

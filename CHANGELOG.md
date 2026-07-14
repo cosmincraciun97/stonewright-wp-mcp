@@ -7,6 +7,54 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.66] - 2026-07-14
+
+### Added
+
+- Added the real `stonewright/task-start` one-call gateway, provenance linting,
+  PHP 8.1-8.5 CI, Visual CI, reproducible Visual release packaging, and nested
+  progressive-disclosure skill loading.
+- Added architecture-aware Elementor preflight with document classification,
+  explicit empty-document targets, and hard blocking for ambiguous Elementor 4
+  writes.
+
+### Changed
+
+- Reclassified bundled expertise without live fixture fingerprints as
+  advisory candidates; verification now requires persisted fixture, schema,
+  editor, frontend, and readback evidence.
+- Reduced the measured real task-start payload to 634 estimated tokens for
+  non-visual work and 837 for visual work, including architecture routing.
+- Required verifiable visual-source hashes, measured semantic bounds, and at
+  least desktop/mobile evidence before native visual planning.
+
+### Fixed
+
+- Kept the default companion profile aligned with the native design planner.
+- Restored draft skill reactivation and preserved inactive Elementor controls
+  during full-tree validation.
+- Rejected missing or duplicate Elementor node IDs before writes and kept
+  revision backups on the revision instead of redirecting them to its parent.
+- Fixed Gutenberg batch `client_id` refs, missing-ref preflight, recursive block
+  schema validation, and strict attribute type/enum checks.
+- Fixed Elementor V4 update/move/undo/redo readback and clean retry after
+  automatic rollback.
+- Blocked Atomic `e-*` widgets in V3 trees, stripped Unicode escape remnants,
+  mojibake, placeholder copy, and non-equal Elementor write readback.
+- Added exact failed-operation diagnostics, repair hints, optimistic hashes,
+  readback verification, and automatic restore to high-level V3 page builds.
+- Preserved schema-validated native `flex_wrap` and `_flex_*` container
+  controls and rejected normalized no-op updates instead of reporting silently
+  discarded layout settings as applied.
+- Recognized native responsive container controls when Elementor's live control
+  arrays omit responsive metadata, preserving explicit mobile/tablet layouts.
+
+### Security
+
+- Blocked `php-execute` from mutating protected Elementor document metadata or
+  calling internal Elementor writers outside typed permission, backup,
+  validation, confirmation, readback, and audit gates.
+
 ## [1.0.0-alpha.65] - 2026-07-14
 
 ### Added

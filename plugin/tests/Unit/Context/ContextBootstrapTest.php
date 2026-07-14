@@ -67,7 +67,7 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertArrayHasKey( 'tool_profile_hint', $result );
 		self::assertSame( 'elementor-design', $result['tool_profile_hint']['profile'] );
 		self::assertContains( 'stonewright/tool-profile', $result['tool_profile_hint']['call_after_bootstrap'] );
-		self::assertContains( 'Use fast_path.tool_profile from stonewright/workflow-preflight before making a separate stonewright/tool-profile call; call tool-profile only to switch or verify a compact profile.', $result['required_followups'] );
+		self::assertContains( 'Use fast_path.tool_profile from stonewright/task-start before making a separate stonewright/tool-profile call; call tool-profile only to switch or verify a compact profile.', $result['required_followups'] );
 		self::assertSame( 'playwright', $result['recommended_external_mcps'][0]['id'] );
 		self::assertSame( [ '-y', '@playwright/mcp@latest', '--caps=testing,vision,devtools' ], $result['recommended_external_mcps'][0]['args'] );
 		self::assertContains( 'Install external Playwright MCP before visual work: claude mcp add playwright -- npx -y @playwright/mcp@latest --caps=testing,vision,devtools', $result['recommended_external_mcps'][0]['setup_steps'] );
@@ -92,7 +92,7 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertSame( 'loop-grid', $result['design_implementation_contract']['native_widget_map']['dynamic_cards'] );
 		self::assertContains( 'invented_border_radius_shadow_filter', $result['design_implementation_contract']['hard_failures'] );
 		self::assertTrue( $result['visual_build_gate']['blocks_completion_without_evidence'] );
-		self::assertContains( 'Call stonewright-context-bootstrap before Figma, browser, or write tools unless stonewright-workflow-preflight is the explicit bootstrap fast path.', $result['visual_build_gate']['required_before_discovery'] );
+		self::assertContains( 'Call stonewright-task-start before Figma, browser, or write tools; context-bootstrap and workflow-preflight are compatibility paths only.', $result['visual_build_gate']['required_before_discovery'] );
 		self::assertContains( 'figma_token_table', $result['visual_build_gate']['evidence_required_before_first_write'] );
 		self::assertContains( 'existing_media_asset_audit', $result['visual_build_gate']['evidence_required_before_first_write'] );
 		self::assertContains( 'section_implementation_plan', $result['visual_build_gate']['evidence_required_before_first_write'] );
@@ -263,7 +263,7 @@ final class ContextBootstrapTest extends TestCase {
 		$ids = array_column( $result['specializations'], 'id' );
 		self::assertContains( 'acf', $ids );
 		self::assertContains( 'woocommerce', $ids );
-		self::assertContains( 'For ACF, ACPT, Meta Box, ASE, Pods, WooCommerce, or custom field work, call stonewright/workflow-preflight and follow the returned specialization guidance before writing.', $result['required_followups'] );
+		self::assertContains( 'For ACF, ACPT, Meta Box, ASE, Pods, WooCommerce, or custom field work, call stonewright/task-start and follow the returned specialization guidance before writing.', $result['required_followups'] );
 	}
 
 	public function test_returns_exempt_visual_contract_for_non_visual_tasks(): void {

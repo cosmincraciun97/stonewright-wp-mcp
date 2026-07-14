@@ -50,6 +50,17 @@ final class ValidatorTest extends TestCase {
 		$this->assertSame( 'stonewright_spec_invalid', $result->get_error_code() );
 	}
 
+	public function test_validate_rejects_placeholder_copy_before_render(): void {
+		$spec = self::minimal_valid_spec();
+		$spec['sections'][0]['blocks'][0]['text'] = 'Titlu card';
+
+		$result = Validator::validate( $spec );
+
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'stonewright_spec_invalid', $result->get_error_code() );
+		$this->assertContains( 'placeholder_copy', array_column( $result->get_error_data()['errors'], 'keyword' ) );
+	}
+
 	public function test_validate_errors_include_repair_path_type_hint_and_example(): void {
 		$result = Validator::validate(
 			[

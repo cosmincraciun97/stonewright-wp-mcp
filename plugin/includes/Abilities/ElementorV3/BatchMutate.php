@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Elementor\ContainerSettings;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
+use Stonewright\WpMcp\Elementor\V4\AtomicTreeInspector;
 use Stonewright\WpMcp\Elementor\Write\EvidenceValidator;
 use Stonewright\WpMcp\Elementor\Write\IdempotencyStore;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
@@ -178,6 +179,14 @@ final class BatchMutate extends AbilityKernel {
 				$tree       = ElementorData::read( $post_id );
 				$read_ms    = self::elapsed_ms( $read_start );
 				$before_hash = TreeHasher::hash( $tree );
+				$architecture = (string) ( AtomicTreeInspector::inspect( $tree )['architecture'] ?? 'empty' );
+				if ( in_array( $architecture, [ 'v4', 'mixed' ], true ) ) {
+					return $this->error(
+						'v3_architecture_mismatch',
+						__( 'This document contains Elementor V4 Atomic nodes. V3 batch mutation is blocked to prevent a mixed tree.', 'stonewright' ),
+						[ 'status' => 409, 'architecture' => $architecture, 'before_hash' => $before_hash, 'repair' => 'Read the atomic tree and use the V4 editor pipeline; never translate V4 nodes to V3 implicitly.' ]
+					);
+				}
 				$expected_tree_hash = isset( $args['expected_tree_hash'] ) ? (string) $args['expected_tree_hash'] : '';
 				if ( '' !== $expected_tree_hash && ! hash_equals( $expected_tree_hash, $before_hash ) ) {
 					return $this->error(
@@ -200,13 +209,22 @@ final class BatchMutate extends AbilityKernel {
 						++$failed;
 						$items[] = self::error_item( $index, $result );
 						if ( $stop ) {
+							$cause_code = (string) $result->get_error_code();
+							$action     = (string) ( $operation['action'] ?? '' );
 							return $this->error(
 								'batch_operation_failed',
-								__( 'Elementor batch mutation failed before writing any changes.', 'stonewright' ),
+								sprintf( __( 'Elementor batch operation %1$d (%2$s) failed: %3$s', 'stonewright' ), $index, $action, $result->get_error_message() ),
 								[
-									'items'   => $items,
-									'applied' => $applied,
-									'failed'  => $failed,
+									'status'           => 400,
+									'items'            => $items,
+									'applied'          => $applied,
+									'failed'           => $failed,
+									'failed_index'     => $index,
+									'failed_action'    => $action,
+									'cause_code'       => $cause_code,
+									'before_hash'      => $before_hash,
+									'document_state'   => [] === $tree ? 'empty' : 'populated',
+									'repair'           => self::repair_hint( $cause_code, $action ),
 								]
 							);
 						}
@@ -413,6 +431,9 @@ final class BatchMutate extends AbilityKernel {
 		if ( '' === $widget_type ) {
 			return $this->error( 'missing_widget_type', __( 'add_widget requires widget_type.', 'stonewright' ) );
 		}
+		if ( str_starts_with( $widget_type, 'e-' ) ) {
+			return $this->error( 'atomic_widget_in_v3_batch', __( 'Atomic e-* widgets cannot be added to an Elementor V3 tree.', 'stonewright' ), [ 'status' => 409, 'widget_type' => $widget_type, 'repair' => 'Use the Elementor V4 editor pipeline.' ] );
+		}
 		if ( 'html' === $widget_type && empty( $operation['allow_html_widget'] ) ) {
 			return $this->error( 'html_widget_requires_explicit_approval', __( 'Elementor HTML widgets are disabled by default.', 'stonewright' ), [ 'status' => 400 ] );
 		}
@@ -476,8 +497,10 @@ final class BatchMutate extends AbilityKernel {
 		$mode     = isset( $operation['mode'] ) ? (string) $operation['mode'] : 'merge';
 		$settings = 'replace' === $mode ? $incoming : array_merge( $existing, $incoming );
 		$element_type = (string) ( $element['elType'] ?? '' );
+		$effective_before = $existing;
 		if ( in_array( $element_type, [ 'container', 'section', 'column' ], true ) ) {
 			$before    = 'container' === $element_type ? ContainerSettings::normalize( $existing ) : $existing;
+			$effective_before = $before;
 			$settings  = 'container' === $element_type ? ContainerSettings::normalize( $settings ) : $settings;
 			$validated = SettingsValidator::validate_container( $settings, $element_type );
 			if ( $validated instanceof \WP_Error ) {
@@ -500,6 +523,16 @@ final class BatchMutate extends AbilityKernel {
 		$evidence = EvidenceValidator::validate( $evidence_widget_type, $incoming, self::operation_evidence( $operation ), $require_evidence );
 		if ( $evidence instanceof \WP_Error ) {
 			return $evidence;
+		}
+		if ( $settings === $effective_before ) {
+			return $this->error(
+				'no_effective_changes',
+				__( 'The requested Elementor update produced no effective setting changes.', 'stonewright' ),
+				[
+					'element_id' => $element_id,
+					'repair'     => 'Read the live container/widget schema and send settings that survive validation unchanged.',
+				]
+			);
 		}
 
 		$element['settings'] = $settings;
@@ -728,5 +761,15 @@ final class BatchMutate extends AbilityKernel {
 				'data'    => (array) $error->get_error_data(),
 			],
 		];
+	}
+
+	private static function repair_hint( string $code, string $action ): string {
+		return match ( $code ) {
+			'stonewright_parent_not_found', 'stonewright_unknown_ref' => 'Read the current page structure. For an empty page, add the root container with no parent; reference later nodes by @op_id.',
+			'stonewright_elementor_settings_invalid' => 'Fetch the live widget/container schema and resend only supported settings.',
+			'stonewright_no_effective_changes' => 'Remove the no-op update or resend settings from the live schema; Stonewright will not report discarded settings as applied.',
+			'stonewright_atomic_widget_in_v3_batch' => 'Use the Elementor V4 editor pipeline; never mix e-* widgets into a V3 tree.',
+			default => 'Fix the reported operation and rerun dry_run=true. No page data was written.',
+		};
 	}
 }

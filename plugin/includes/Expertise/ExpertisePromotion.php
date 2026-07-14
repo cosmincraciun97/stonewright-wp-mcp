@@ -21,20 +21,27 @@ final class ExpertisePromotion {
 		if ( $evaluation instanceof \WP_Error ) {
 			return $evaluation;
 		}
-		if ( 'verified' === $target && ( (float) $evaluation['score'] < 90 || (int) $evaluation['critical_failures'] > 0 || ! $evaluation['compatible'] ) ) {
-			return new \WP_Error( 'stonewright_expertise_verification_gate', 'Verified requires a compatible runtime, score >= 90, and zero critical failures.', [ 'scorecard' => $evaluation ] );
+		$eligible = array_filter(
+			ExpertiseStore::scorecards( $pack_id ),
+			static fn( array $row ): bool => true === (bool) ( $row['compatible'] ?? false )
+				&& true === (bool) ( $row['implementation_verified'] ?? false )
+				&& (float) ( $row['curriculum_score'] ?? $row['score'] ?? 0 ) >= 90
+				&& 0 === (int) ( $row['critical_failures'] ?? 0 )
+				&& (string) ( $row['pack_hash'] ?? '' ) === (string) $pack['hash']
+		);
+		if ( 'verified' === $target && [] === $eligible ) {
+			return new \WP_Error( 'stonewright_expertise_verification_gate', 'Verified requires a persisted compatible runtime scorecard with fixture, schema hash, editor, frontend, and readback evidence.', [ 'scorecard' => $evaluation ] );
+		}
+		$eligible_fingerprints = array_values( array_unique( array_filter( array_map( static fn( array $row ): string => (string) ( $row['runtime_fingerprint'] ?? '' ), $eligible ) ) ) );
+		if ( 'verified' === $target ) {
+			$pack['verified_runtime_fingerprints'] = $eligible_fingerprints;
 		}
 		if ( 'stable' === $target ) {
-			$eligible = array_filter(
-				ExpertiseStore::scorecards( $pack_id ),
-				static fn( array $row ): bool => true === (bool) ( $row['compatible'] ?? false ) && (float) ( $row['score'] ?? 0 ) >= 90 && 0 === (int) ( $row['critical_failures'] ?? 0 )
-			);
-			$fingerprints = array_values( array_unique( array_filter( array_map( static fn( array $row ): string => (string) ( $row['runtime_fingerprint'] ?? '' ), $eligible ) ) ) );
 			$approval_note = sanitize_textarea_field( $approval_note );
-			if ( count( $fingerprints ) < 2 && ( ! $maintainer_approved || '' === $approval_note ) ) {
+			if ( count( $eligible_fingerprints ) < 2 && ( ! $maintainer_approved || '' === $approval_note ) ) {
 				return new \WP_Error( 'stonewright_expertise_stability_gate', 'Stable requires two runtime fingerprints or explicit maintainer approval with a note.' );
 			}
-			$pack['verified_runtime_fingerprints'] = $fingerprints;
+			$pack['verified_runtime_fingerprints'] = $eligible_fingerprints;
 		}
 		$pack['status']           = $target;
 		$pack['last_verified_at'] = gmdate( DATE_ATOM );

@@ -55,7 +55,7 @@ final class ExpertiseEngineTest extends TestCase {
 		self::assertSame( 'P2', $packs['seo-integrations']['tier'] );
 		self::assertSame( 'draft', $packs['forms-integrations']['status'] );
 		self::assertFalse( $packs['forms-integrations']['recipes'][0]['verified'] );
-		self::assertSame( 'verified', $packs['shortcodes-snippets']['status'] );
+		self::assertSame( 'candidate', $packs['shortcodes-snippets']['status'] );
 	}
 
 	public function test_integration_catalog_never_claims_unsupported_writes(): void {
@@ -96,6 +96,15 @@ final class ExpertiseEngineTest extends TestCase {
 		self::assertNotContains( 'elementor-v3', array_column( $matches, 'id' ) );
 	}
 
+	public function test_verified_runtime_fingerprint_mismatch_blocks_compatibility(): void {
+		$pack = BundledPacks::all()[0];
+		$pack['status'] = 'verified';
+		$pack['verified_runtime_fingerprints'] = [ str_repeat( 'b', 64 ) ];
+		$result = ExpertiseResolver::compatibility( $pack, self::runtime() );
+		self::assertFalse( $result['compatible'] );
+		self::assertContains( 'runtime:fingerprint_mismatch', $result['reasons'] );
+	}
+
 	public function test_body_is_lazy_and_below_body_budget(): void {
 		$result = ( new ExpertiseGet() )->execute( [ 'id' => 'elementor-v3', 'section' => 'body' ] );
 		self::assertIsArray( $result );
@@ -103,16 +112,73 @@ final class ExpertiseEngineTest extends TestCase {
 		self::assertLessThan( 1200, (int) ceil( strlen( wp_json_encode( $result ) ?: '' ) / 4 ) );
 	}
 
-	public function test_evaluator_scores_verified_p0_and_stable_requires_two_runtimes_or_approval(): void {
+	public function test_evaluator_audits_curriculum_without_self_certifying_runtime(): void {
 		$report = ExpertiseEvaluator::evaluate( 'wordpress-core', self::runtime(), false );
 		self::assertIsArray( $report );
-		self::assertGreaterThanOrEqual( 90, $report['score'] );
+		self::assertGreaterThanOrEqual( 90, $report['curriculum_score'] );
 		self::assertSame( 0, $report['critical_failures'] );
 		self::assertSame( 12, $report['cases_total'] );
+		self::assertSame( 'curriculum_contract', $report['evaluation_kind'] );
+		self::assertFalse( $report['implementation_verified'] );
+		self::assertContains( 'missing:task_id', $report['evidence_errors'] );
+	}
 
-		$blocked = ExpertisePromotion::promote( 'elementor-v3', 'stable', false, '' );
+	public function test_runtime_evidence_requires_fixture_schema_editor_frontend_and_readback(): void {
+		$runtime = self::runtime();
+		$runtime['verification_evidence'] = [
+			'task_id'           => 'live-e2e-42',
+			'fixture_id'        => 'wp-6.9-elementor-3.30',
+			'schema_hash'       => str_repeat( 'b', 64 ),
+			'editor_verified'   => true,
+			'frontend_verified' => true,
+			'readback_verified' => true,
+		];
+		$report = ExpertiseEvaluator::evaluate( 'wordpress-core', $runtime, false );
+		self::assertIsArray( $report );
+		self::assertTrue( $report['implementation_verified'] );
+		self::assertSame( [], $report['evidence_errors'] );
+	}
+
+	public function test_candidate_cannot_self_promote_without_persisted_runtime_evidence(): void {
+		$blocked = ExpertisePromotion::promote( 'wordpress-core', 'verified', false, '' );
 		self::assertInstanceOf( \WP_Error::class, $blocked );
-		self::assertSame( 'stonewright_expertise_stability_gate', $blocked->get_error_code() );
+		self::assertSame( 'stonewright_expertise_verification_gate', $blocked->get_error_code() );
+
+	}
+
+	public function test_candidate_promotion_persists_the_verified_runtime_fingerprint(): void {
+		$pack = array_column( BundledPacks::all(), null, 'id' )['wordpress-core'];
+		$fingerprint = str_repeat( 'c', 64 );
+		$scorecard = [
+			'pack_hash'                => $pack['hash'],
+			'runtime_fingerprint'      => $fingerprint,
+			'compatible'               => true,
+			'implementation_verified'  => true,
+			'curriculum_score'         => 100,
+			'critical_failures'        => 0,
+		];
+		$GLOBALS['wpdb'] = new class( $scorecard ) {
+			public string $prefix = 'wp_';
+			public int $insert_id = 10;
+			/** @var list<array<string, mixed>> */
+			public array $rows = [];
+			/** @param array<string, mixed> $scorecard */
+			public function __construct( private array $scorecard ) {}
+			public function prepare( string $query, mixed ...$args ): string { return $query; }
+			public function get_var( string $query ): mixed { return null; }
+			/** @return list<array<string, mixed>> */
+			public function get_results( string $query, string $output = 'OBJECT' ): array {
+				return str_contains( $query, 'scorecards' ) ? [ [ 'metrics_json' => wp_json_encode( $this->scorecard ) ] ] : [];
+			}
+			/** @param array<string, mixed> $row */
+			public function insert( string $table, array $row ): int { ++$this->insert_id; $this->rows[] = $row; return 1; }
+		};
+
+		$result = ExpertisePromotion::promote( 'wordpress-core', 'verified', false, '' );
+		self::assertIsArray( $result );
+		self::assertSame( 'verified', $result['to'] );
+		$saved_pack = json_decode( (string) $GLOBALS['wpdb']->rows[1]['pack_json'], true, 512, JSON_THROW_ON_ERROR );
+		self::assertSame( [ $fingerprint ], $saved_pack['verified_runtime_fingerprints'] );
 	}
 
 	/** @return array<string, mixed> */

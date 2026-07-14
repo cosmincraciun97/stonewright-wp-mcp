@@ -233,6 +233,7 @@
 | Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `stonewright/context-bootstrap` | `stonewright-context-bootstrap` | `System\ContextBootstrap` | MUST be called at the start of every Stonewright task. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/task-start` | `stonewright-task-start` | `System\TaskStart` | Canonical one-call task start: issues the context token and returns compact skills, memory, expertise, capability gates, and the exact next tool path. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/system-instructions-get` | `stonewright-system-instructions-get` | `System\InstructionsGet` | Returns the current Stonewright custom instructions (system prompt prefix). | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/system-instructions-set` | `stonewright-system-instructions-set` | `System\InstructionsSet` | Replaces the Stonewright custom instructions. | Write | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/knowledge-export` | `stonewright-knowledge-export` | `System\KnowledgeExport` | Exports custom instructions, memory entries, and site skills in the Stonewright knowledge bundle format. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
@@ -429,7 +430,7 @@
 
 ## Summary
 
-Total abilities registered: **250**
+Total abilities registered: **251**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

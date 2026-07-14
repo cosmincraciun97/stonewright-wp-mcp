@@ -295,7 +295,7 @@ final class ToolProfile extends AbilityKernel {
 	private static function profile_tools( string $profile ): array {
 		$base = [
 			'stonewright/context-bootstrap',
-			'stonewright/workflow-preflight',
+			'stonewright/task-start',
 			'stonewright/tool-profile',
 			'stonewright/skills-get',
 			'stonewright/expertise-get',
@@ -441,6 +441,7 @@ final class ToolProfile extends AbilityKernel {
 	private static function why( string $name ): string {
 		return match ( $name ) {
 			'stonewright/context-bootstrap' => 'Issue the task token and load live site instructions, memory, skills, and visual gates.',
+			'stonewright/task-start' => 'Issue the task token and choose the compact task-aware fast path in one call.',
 			'stonewright/workflow-preflight' => 'Choose the task-aware fast path and first call sequence.',
 			'stonewright/tool-profile' => 'Keep the MCP tool surface compact for the current model, client, and task.',
 			'stonewright/skills-get' => 'Load one matched site playbook on demand instead of injecting every skill into startup context.',
@@ -503,7 +504,7 @@ final class ToolProfile extends AbilityKernel {
 	}
 
 	private static function tool_group_name( string $name ): string {
-		if ( in_array( $name, [ 'stonewright/context-bootstrap', 'stonewright/workflow-preflight', 'stonewright/tool-profile', 'stonewright/skills-get' ], true ) ) {
+		if ( in_array( $name, [ 'stonewright/context-bootstrap', 'stonewright/task-start', 'stonewright/workflow-preflight', 'stonewright/tool-profile', 'stonewright/skills-get' ], true ) ) {
 			return 'startup';
 		}
 
@@ -611,7 +612,7 @@ final class ToolProfile extends AbilityKernel {
 
 		foreach ( $preferred_groups as $group ) {
 			foreach ( $tool_groups[ $group ]['abilities'] ?? [] as $ability ) {
-				if ( in_array( $ability, [ 'stonewright/context-bootstrap', 'stonewright/workflow-preflight', 'stonewright/tool-profile', 'stonewright/skills-get' ], true ) ) {
+				if ( in_array( $ability, [ 'stonewright/context-bootstrap', 'stonewright/task-start', 'stonewright/workflow-preflight', 'stonewright/tool-profile', 'stonewright/skills-get' ], true ) ) {
 					continue;
 				}
 				if ( in_array( $ability, array_column( $out, 'ability' ), true ) ) {
@@ -649,7 +650,7 @@ final class ToolProfile extends AbilityKernel {
 	 */
 	private static function workflow_rules( string $profile ): array {
 		$rules = [
-			'Start with context-bootstrap or workflow-preflight, then keep the same compact profile for the task.',
+			'Start with task-start; use context-bootstrap or workflow-preflight only for compatibility, then keep the same compact profile for the task.',
 			'Use profile tools before full ability discovery when the client has a strict tool cap.',
 			'Prefer batch abilities over repeated single-item calls once the target shape is known.',
 			'Use stonewright/php-execute for direct WordPress runtime inspection or compact plugin API calls when typed abilities would require many exploratory requests.',

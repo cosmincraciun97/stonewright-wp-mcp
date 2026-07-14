@@ -128,10 +128,11 @@ final class Skills {
 		$now      = current_time( 'mysql', true );
 
 		$default_enabled = null !== $existing ? (bool) ( $existing['enabled'] ?? true ) : true;
-		$enabled         = isset( $data['enabled'] ) ? (int) (bool) $data['enabled'] : (int) $default_enabled;
-		$status          = self::sanitize_status(
-			(string) ( $data['status'] ?? ( null !== $existing ? ( $existing['status'] ?? 'active' ) : ( $enabled ? 'active' : 'draft' ) ) )
-		);
+		$enabled         = array_key_exists( 'enabled', $data ) ? (int) (bool) $data['enabled'] : (int) $default_enabled;
+		$prior_status    = self::sanitize_status( (string) ( $existing['status'] ?? ( $default_enabled ? 'active' : 'draft' ) ) );
+		$status          = array_key_exists( 'status', $data )
+			? self::sanitize_status( (string) $data['status'] )
+			: self::status_for_enabled_change( $prior_status, (bool) $enabled, array_key_exists( 'enabled', $data ) );
 		if ( 'active' !== $status ) {
 			$enabled = 0;
 		}
@@ -288,9 +289,27 @@ final class Skills {
 			return false;
 		}
 
+		$skill = self::get_by_id( $id );
+		if ( null === $skill ) {
+			return false;
+		}
+
+		$status = self::status_for_enabled_change(
+			self::sanitize_status( (string) ( $skill['status'] ?? ( ! empty( $skill['enabled'] ) ? 'active' : 'draft' ) ) ),
+			$enabled,
+			true
+		);
+		if ( $enabled && 'active' !== $status ) {
+			return false;
+		}
+
 		$table = SkillsTable::table_name();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$result = $wpdb->update( $table, [ 'enabled' => (int) $enabled ], [ 'id' => $id ] );
+		$result = $wpdb->update(
+			$table,
+			[ 'enabled' => (int) $enabled, 'status' => $status ],
+			[ 'id' => $id ]
+		);
 
 		return false !== $result;
 	}
@@ -417,6 +436,14 @@ final class Skills {
 
 	private static function sanitize_status( string $status ): string {
 		return in_array( $status, [ 'draft', 'active', 'stale', 'rejected' ], true ) ? $status : 'draft';
+	}
+
+	private static function status_for_enabled_change( string $status, bool $enabled, bool $enabled_was_supplied ): string {
+		if ( ! $enabled_was_supplied || ! in_array( $status, [ 'active', 'draft' ], true ) ) {
+			return $status;
+		}
+
+		return $enabled ? 'active' : 'draft';
 	}
 
 	private static function sanitize_fingerprint( string $fingerprint ): string {

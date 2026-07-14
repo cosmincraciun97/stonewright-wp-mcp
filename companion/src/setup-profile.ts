@@ -68,7 +68,7 @@ export const AGENT_USE_INSTEAD = [
 	'stonewright-wordpress-mcp-status',
 	'stonewright-setup-profile',
 	'stonewright-context-bootstrap',
-	'stonewright-workflow-preflight',
+	'stonewright-task-start',
 	'stonewright-php-execute',
 	'stonewright-wp-cli-status',
 	'stonewright-wp-cli-discover',
@@ -156,7 +156,7 @@ export function buildSetupProfile(
 		checks,
 		first_calls: [
 			'stonewright-context-bootstrap',
-			'stonewright-workflow-preflight',
+			'stonewright-task-start',
 		],
 		tool_visibility_checks: visibilityChecks,
 		tool_inventory: buildToolInventory(proxyToolProfileFromEnv(env), visibilityChecks),
@@ -176,7 +176,7 @@ export function buildSetupProfile(
 			'Use STONEWRIGHT_MCP_TOOL_PROFILE=low-tools for Antigravity, Gemini API, or other strict tool-cap clients; php-execute plus direct WP-CLI batch and background-job tools stay visible.',
 			'Profile aliases such as elementor, design, acf, cpt-ui, fse, and wp cli normalize to compact canonical profiles.',
 			'Leave PORT unset for stdio-only MCP clients. To run the optional HTTP bridge, set STONEWRIGHT_HTTP_ENABLE=1 plus PORT.',
-			'Use fast_path.tool_profile from stonewright-workflow-preflight before making a separate stonewright-tool-profile call; call tool-profile only to switch or verify a compact profile.',
+			'Use fast_path.tool_profile from stonewright-task-start before making a separate stonewright-tool-profile call; call tool-profile only to switch or verify a compact profile.',
 			MCP_MISSING_BOOTSTRAP_STOP,
 			'Do not treat local client skills or repository files as a substitute for live Stonewright MCP tools; if the tool is missing, reload the MCP client instead of bypassing the server.',
 			'Do not inspect private AI-client config files to find Stonewright; use the configured MCP tool list and stonewright-setup-profile instead.',
@@ -218,7 +218,7 @@ export function buildToolInventory(
 		},
 		first_call_tool_names: [
 			'stonewright-context-bootstrap',
-			'stonewright-workflow-preflight',
+			'stonewright-task-start',
 		],
 		diagnostic_tool_names: localToolNames.filter((name) => [
 			'stonewright-setup-profile',
@@ -237,7 +237,7 @@ export function buildToolInventory(
 		expected_companion_package: companionPackageSpec(),
 		refresh_required_tool_names: [
 			'stonewright-context-bootstrap',
-			'stonewright-workflow-preflight',
+			'stonewright-task-start',
 			'stonewright-php-execute',
 		],
 		token_notes: [
@@ -260,7 +260,7 @@ function groupProxiedToolNames(toolNames: string[]): Record<string, string[]> {
 	};
 
 	for (const name of toolNames) {
-		if (['stonewright-context-bootstrap', 'stonewright-workflow-preflight', 'stonewright-tool-profile', 'stonewright-skills-get'].includes(name)) {
+		if (['stonewright-context-bootstrap', 'stonewright-task-start', 'stonewright-tool-profile', 'stonewright-skills-get'].includes(name)) {
 			groups.startup.push(name);
 		} else if (name === 'stonewright-php-execute') {
 			(groups.runtime ??= []).push(name);

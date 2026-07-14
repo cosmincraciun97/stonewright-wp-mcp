@@ -34,7 +34,7 @@ final class Backup {
 		$snapshots                 = is_array( $snapshots ) ? $snapshots : [];
 		$snapshots[ $snapshot_id ] = $payload;
 		$snapshots                 = self::trim( $snapshots );
-		update_post_meta( $post_id, self::META_KEY, $snapshots );
+		self::update_meta( $post_id, self::META_KEY, $snapshots );
 
 		if ( post_type_supports( $post->post_type, 'revisions' ) ) {
 			wp_save_post_revision( $post_id );
@@ -73,11 +73,11 @@ final class Backup {
 		);
 
 		foreach ( $snapshot['meta'] as $key => $value ) {
-			update_post_meta( $post_id, $key, $value );
+			self::update_meta( $post_id, $key, $value );
 		}
 		foreach ( (array) ( $snapshot['meta_absent'] ?? [] ) as $key ) {
 			if ( is_string( $key ) && in_array( $key, self::tracked_meta_keys(), true ) ) {
-				delete_post_meta( $post_id, $key );
+				self::delete_meta( $post_id, $key );
 			}
 		}
 
@@ -86,6 +86,22 @@ final class Backup {
 
 	private static function new_snapshot_id(): string {
 		return 'snap_' . bin2hex( random_bytes( 8 ) );
+	}
+
+	private static function update_meta( int $post_id, string $key, mixed $value ): int|bool {
+		if ( 'revision' === get_post_type( $post_id ) ) {
+			return update_metadata( 'post', $post_id, $key, $value );
+		}
+
+		return update_post_meta( $post_id, $key, $value );
+	}
+
+	private static function delete_meta( int $post_id, string $key ): bool {
+		if ( 'revision' === get_post_type( $post_id ) ) {
+			return delete_metadata( 'post', $post_id, $key );
+		}
+
+		return delete_post_meta( $post_id, $key );
 	}
 
 	/**

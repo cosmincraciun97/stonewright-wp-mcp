@@ -30,7 +30,9 @@ Use [checklist.md](checklist.md) before tagging a release.
 
 ## Public Release Notes
 
+- [1.0.0-alpha.66](1.0.0-alpha.66.md)
 - [1.0.0-alpha.65](1.0.0-alpha.65.md)
+- [1.0.0-alpha.65 roadmap audit](1.0.0-alpha.65-roadmap-audit.md)
 - [1.0.0-alpha.64](1.0.0-alpha.64.md)
 - [1.0.0-alpha.63](1.0.0-alpha.63.md)
 - [1.0.0-alpha.62](1.0.0-alpha.62.md)

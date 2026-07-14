@@ -93,7 +93,7 @@ final class ContainerSchema extends AbilityKernel {
 			'usage_rules'      => [
 				'Use flex_justify_content, flex_align_items, and flex_align_content instead of unprefixed flex shorthands.',
 				'Use layout=flex or layout=grid only as short input aliases; Stonewright writes container_type and flex_direction.',
-				'Do not send flex_wrap, _flex_size, _flex_grow, or _flex_shrink in container writes.',
+				'Use flex_wrap and _flex_size only when the live container schema exposes them; Stonewright preserves validated native controls.',
 				'Prefer gap, percentage width, max-width, margin, and padding over fixed viewport-wide sizing.',
 				'Read live controls only for unusual layouts; keep include_controls=false for normal section work.',
 			],

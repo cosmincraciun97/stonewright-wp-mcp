@@ -10,6 +10,7 @@ use Stonewright\WpMcp\Abilities\ElementorV3\CapabilitiesSummary;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetWidgetSchema;
 use Stonewright\WpMcp\Abilities\Media\UploadMediaBatch;
 use Stonewright\WpMcp\Abilities\System\WorkflowPreflight;
+use Stonewright\WpMcp\Abilities\System\TaskStart;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 
 /**
@@ -33,6 +34,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		$GLOBALS['stonewright_test_user_logged_in'] = true;
 		$GLOBALS['stonewright_test_media_handle_sideload'] = null;
 		$GLOBALS['stonewright_test_download_url'] = null;
+		$GLOBALS['stonewright_test_filters'] = [];
 	}
 
 	protected function tearDown(): void {
@@ -41,6 +43,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		$GLOBALS['stonewright_test_user_logged_in'] = false;
 		$GLOBALS['stonewright_test_media_handle_sideload'] = null;
 		$GLOBALS['stonewright_test_download_url'] = null;
+		$GLOBALS['stonewright_test_filters'] = [];
 	}
 
 	public function test_registry_exposes_efficiency_abilities(): void {
@@ -50,6 +53,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		);
 
 		self::assertContains( 'stonewright/workflow-preflight', $names );
+		self::assertContains( 'stonewright/task-start', $names );
 		self::assertContains( 'stonewright/tool-profile', $names );
 		self::assertContains( 'stonewright/php-execute', $names );
 		self::assertContains( 'stonewright/knowledge-candidate-record', $names );
@@ -82,6 +86,23 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertArrayNotHasKey( 'design_implementation_contract', $result['fast_path'] );
 	}
 
+	public function test_task_start_defaults_to_the_compact_one_call_gateway(): void {
+		$result = ( new TaskStart() )->execute(
+			[
+				'task'    => 'Update an existing WordPress page.',
+				'surface' => 'wordpress',
+				'intent'  => 'write',
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 'compact', $result['response_mode'] );
+		self::assertNotEmpty( $result['context_token'] );
+		self::assertArrayHasKey( 'fast_path', $result );
+		self::assertArrayHasKey( 'expertise_refs', $result['context'] );
+		self::assertLessThan( 2800, strlen( wp_json_encode( $result ) ?: '' ) );
+	}
+
 	public function test_tool_profile_returns_compact_elementor_design_fast_path(): void {
 		$ability = AbilityRegistry::ability_by_name( 'stonewright/tool-profile' );
 
@@ -104,7 +125,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertLessThanOrEqual( 40, $result['tool_count'] );
 		self::assertTrue( $result['under_limit'] );
 		self::assertContains( 'stonewright/context-bootstrap', $result['recommended_tools'] );
-		self::assertContains( 'stonewright/workflow-preflight', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/task-start', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/tool-profile', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/security-create-one-time-link', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/design-native-plan', $result['recommended_tools'] );
@@ -228,7 +249,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertTrue( $result['under_limit'] );
 		self::assertContains( 'low-tools', $result['profiles_available'] );
 		self::assertContains( 'stonewright/context-bootstrap', $result['recommended_tools'] );
-		self::assertContains( 'stonewright/workflow-preflight', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/task-start', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/php-execute', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/content-bulk-upsert-posts', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/media-upload-batch', $result['recommended_tools'] );
@@ -288,6 +309,59 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'Auto-continue to the next section batch when screenshots, diagnostics, and overflow checks pass; do not wait for user approval between passing batches.', $result['fast_path']['batching_rules'] );
 		self::assertContains( 'Install external Playwright MCP before visual work and restart the AI client so the browser tools appear.', $result['fast_path']['visual_setup'] );
 		self::assertContains( 'Use a WordPress Application Password for HTTP MCP authentication.', $result['auth_guidance'] );
+	}
+
+	public function test_workflow_preflight_blocks_ambiguous_elementor_four_write_routing(): void {
+		$GLOBALS['stonewright_test_filters']['stonewright_elementor_version'] = static fn (): string => '4.1.3';
+
+		$result = ( new WorkflowPreflight() )->execute(
+			[
+				'task'    => 'Build a Figma page in Elementor',
+				'surface' => 'elementor',
+				'intent'  => 'write',
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['fast_path']['elementor_architecture']['write_blocked'] );
+		self::assertSame( 'none', $result['fast_path']['elementor_architecture']['write_target'] );
+		self::assertContains( 'stonewright/elementor-v4-status', $result['fast_path']['recommended_tools'] );
+		self::assertNotContains( 'stonewright/elementor-v3-build-page-from-spec', $result['fast_path']['recommended_tools'] );
+		self::assertNotContains( 'stonewright/elementor-v3-batch-mutate', $result['fast_path']['recommended_tools'] );
+	}
+
+	public function test_compact_task_start_exposes_elementor_architecture_blocker(): void {
+		$GLOBALS['stonewright_test_filters']['stonewright_elementor_version'] = static fn (): string => '4.1.3';
+
+		$result = ( new TaskStart() )->execute(
+			[
+				'task'    => 'Build a Figma page in Elementor',
+				'surface' => 'elementor',
+				'intent'  => 'write',
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['fast_path']['elementor_architecture']['write_blocked'] );
+		self::assertSame( 'none', $result['fast_path']['elementor_architecture']['write_target'] );
+	}
+
+	public function test_workflow_preflight_allows_explicit_v3_target_on_empty_elementor_four_document(): void {
+		$GLOBALS['stonewright_test_filters']['stonewright_elementor_version'] = static fn (): string => '4.1.3';
+
+		$result = ( new WorkflowPreflight() )->execute(
+			[
+				'task'                => 'Build a Figma page in Elementor',
+				'surface'             => 'elementor',
+				'intent'              => 'write',
+				'target_architecture' => 'v3',
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertFalse( $result['fast_path']['elementor_architecture']['write_blocked'] );
+		self::assertSame( 'v3', $result['fast_path']['elementor_architecture']['write_target'] );
+		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $result['fast_path']['recommended_tools'] );
 	}
 
 	public function test_workflow_preflight_keeps_non_visual_elementor_discovery_compact(): void {
@@ -372,8 +446,9 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 
 		self::assertArrayHasKey( 'call_sequence', $result['fast_path'] );
 		$tools = array_column( $result['fast_path']['call_sequence'], 'tool' );
-		self::assertContains( 'stonewright-workflow-preflight', $tools );
-		self::assertContains( 'stonewright-context-bootstrap', $tools );
+		self::assertContains( 'stonewright-task-start', $tools );
+		self::assertNotContains( 'stonewright-workflow-preflight', $tools );
+		self::assertNotContains( 'stonewright-context-bootstrap', $tools );
 		self::assertNotContains( 'stonewright-tool-profile', $tools );
 		self::assertContains( 'stonewright-design-native-plan', $tools );
 		self::assertContains( 'stonewright-elementor-v3-build-page-from-spec', $tools );
@@ -516,8 +591,8 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'padding', $result['core_controls']['advanced'] );
 		self::assertSame( 'flex_justify_content', $result['safe_aliases']['justify_content'] );
 		self::assertSame( 'flex_align_items', $result['safe_aliases']['align_items'] );
-		self::assertContains( 'flex_wrap', $result['blocked_settings'] );
-		self::assertContains( '_flex_size', $result['blocked_settings'] );
+		self::assertSame( [], $result['blocked_settings'] );
+		self::assertContains( 'Use flex_wrap and _flex_size only when the live container schema exposes them; Stonewright preserves validated native controls.', $result['usage_rules'] );
 		self::assertContains( 'Use flex_justify_content, flex_align_items, and flex_align_content instead of unprefixed flex shorthands.', $result['usage_rules'] );
 		self::assertSame( 'stonewright/elementor-v3-batch-mutate', $result['write_tools']['surgical'] );
 	}

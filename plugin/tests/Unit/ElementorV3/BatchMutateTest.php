@@ -127,7 +127,7 @@ final class BatchMutateTest extends TestCase {
 		self::assertArrayHasKey( 'preview', $result );
 	}
 
-	public function test_batch_normalizes_container_settings_on_add_and_update(): void {
+	public function test_batch_normalizes_aliases_and_preserves_native_flex_settings(): void {
 		self::assertTrue( class_exists( BatchMutate::class ), 'BatchMutate ability must exist.' );
 
 		$result = ( new BatchMutate() )->execute(
@@ -143,7 +143,7 @@ final class BatchMutateTest extends TestCase {
 							'layout'       => 'flex',
 							'direction'    => 'row',
 							'flex_wrap'    => 'wrap',
-							'_flex_size'   => 'grow',
+							'_flex_size'   => 'custom',
 							'_flex_grow'   => '1',
 							'_flex_shrink' => '0',
 						],
@@ -170,11 +170,32 @@ final class BatchMutateTest extends TestCase {
 			self::assertArrayHasKey( 'flex_direction', $settings );
 			self::assertSame( 'row', $settings['flex_direction'] );
 			self::assertArrayNotHasKey( 'direction', $settings );
-			self::assertArrayNotHasKey( 'flex_wrap', $settings );
-			self::assertArrayNotHasKey( '_flex_size', $settings );
-			self::assertArrayNotHasKey( '_flex_grow', $settings );
-			self::assertArrayNotHasKey( '_flex_shrink', $settings );
+			self::assertSame( 'wrap', $settings['flex_wrap'] );
 		}
+		self::assertSame( 'grow', $root_settings['_flex_size'] );
+		self::assertSame( 'custom', $inner_settings['_flex_size'] );
+		self::assertSame( '1', $inner_settings['_flex_grow'] );
+		self::assertSame( '0', $inner_settings['_flex_shrink'] );
+	}
+
+	public function test_batch_rejects_update_when_normalization_produces_no_change(): void {
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 501,
+				'dry_run'    => true,
+				'operations' => [
+					[
+						'action'     => 'update_element',
+						'element_id' => 'root',
+						'settings'   => [ 'container_type' => 'flex' ],
+					],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_batch_operation_failed', $result->get_error_code() );
+		self::assertSame( 'stonewright_no_effective_changes', $result->get_error_data()['cause_code'] );
 	}
 
 	public function test_remove_requires_confirmation_in_production_safe_mode(): void {
@@ -196,6 +217,30 @@ final class BatchMutateTest extends TestCase {
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_confirmation_required', $result->get_error_code() );
 		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+	}
+
+	public function test_batch_rejects_atomic_widget_with_actionable_diagnostics(): void {
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id' => 501,
+				'dry_run' => true,
+				'operations' => [
+					[
+						'action'      => 'add_widget',
+						'parent_id'   => 'root',
+						'widget_type' => 'e-heading',
+						'settings'    => [ 'text' => 'Salut' ],
+					],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_batch_operation_failed', $result->get_error_code() );
+		self::assertSame( 0, $result->get_error_data()['failed_index'] );
+		self::assertSame( 'add_widget', $result->get_error_data()['failed_action'] );
+		self::assertSame( 'stonewright_atomic_widget_in_v3_batch', $result->get_error_data()['cause_code'] );
+		self::assertStringContainsString( 'V4', $result->get_error_data()['repair'] );
 	}
 
 	public function test_batch_accepts_compact_aliases_matching_skill_examples(): void {

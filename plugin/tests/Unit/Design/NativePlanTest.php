@@ -120,6 +120,21 @@ final class NativePlanTest extends TestCase {
 		self::assertContains( 'invalid_unresolved_item', array_column( $result->get_error_data()['diagnostics'], 'code' ) );
 	}
 
+	public function test_visual_evidence_requires_verifiable_sources_responsive_viewports_and_bounds(): void {
+		$evidence = self::evidence();
+		unset( $evidence['sources'][0]['hash'] );
+		$evidence['viewports'] = [ $evidence['viewports'][0] ];
+		unset( $evidence['nodes'][0]['bounds'] );
+
+		$result = Validator::validate( $evidence );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		$codes = array_column( $result->get_error_data()['diagnostics'], 'code' );
+		self::assertContains( 'visual_source_unverifiable', $codes );
+		self::assertContains( 'responsive_evidence_missing', $codes );
+		self::assertContains( 'measured_bounds_missing', $codes );
+	}
+
 	public function test_global_inference_blocks_plan_and_malformed_customization_is_rejected(): void {
 		$evidence = self::evidence();
 		$evidence['global'] = [
@@ -176,12 +191,13 @@ final class NativePlanTest extends TestCase {
 			'requires_confirmation' => false,
 		];
 		return [
-			'sources'   => [ [ 'id' => 'figma:hero', 'type' => 'figma', 'ref' => 'node:1:2', 'captured_at' => '2026-07-14T12:00:00Z' ] ],
-			'viewports' => [ [ 'id' => 'desktop', 'width' => 1440, 'height' => 900 ] ],
+			'sources'   => [ [ 'id' => 'figma:hero', 'type' => 'figma', 'ref' => 'node:1:2', 'hash' => str_repeat( 'a', 64 ), 'captured_at' => '2026-07-14T12:00:00Z' ] ],
+			'viewports' => [ [ 'id' => 'desktop', 'width' => 1440, 'height' => 900 ], [ 'id' => 'mobile', 'width' => 390, 'height' => 844 ] ],
 			'nodes'     => [
 				[
 					'id'         => 'hero',
 					'role'       => 'container',
+					'bounds'     => [ 'x' => 0, 'y' => 0, 'width' => 1440, 'height' => 600 ],
 					'layout'     => [ 'direction' => 'column' ],
 					'style'      => [ 'gap' => 24 ],
 					'provenance' => [ 'gap' => $provenance() ],
@@ -189,6 +205,7 @@ final class NativePlanTest extends TestCase {
 						[
 							'id'                  => 'hero-cta',
 							'role'                => 'button',
+							'bounds'              => [ 'x' => 80, 'y' => 420, 'width' => 180, 'height' => 48 ],
 							'content'             => [ 'label' => 'Start now' ],
 							'action'              => [ 'url' => 'https://example.test/start' ],
 							'style'               => [ 'background_color' => '#112233' ],

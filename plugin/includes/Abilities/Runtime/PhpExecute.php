@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\Runtime;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\ProtectedElementorWriteGuard;
 
 /**
  * Executes short, guarded PHP snippets inside the loaded WordPress runtime.
@@ -119,6 +120,11 @@ final class PhpExecute extends AbilityKernel {
 					return $token_error;
 				}
 
+				$guard = ProtectedElementorWriteGuard::inspect( (string) $runtime_args['code'] );
+				if ( $guard instanceof \WP_Error ) {
+					return $guard;
+				}
+
 				return $this->execute_code(
 					self::normalise_code( (string) $runtime_args['code'] ),
 					self::normalise_timeout( $runtime_args['timeout_seconds'] ?? 30 ),
@@ -153,6 +159,7 @@ final class PhpExecute extends AbilityKernel {
 		$memory_before       = memory_get_usage( true );
 		$original_time_limit = self::current_time_limit();
 		$buffer_level        = ob_get_level();
+		$write_guards        = ProtectedElementorWriteGuard::install();
 
 		self::apply_time_limit( $timeout_seconds );
 		ob_start();
@@ -185,6 +192,7 @@ final class PhpExecute extends AbilityKernel {
 				]
 			);
 		} finally {
+			ProtectedElementorWriteGuard::uninstall( $write_guards );
 			self::restore_time_limit( $original_time_limit );
 		}
 

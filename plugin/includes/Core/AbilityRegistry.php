@@ -117,6 +117,7 @@ use Stonewright\WpMcp\Abilities\System\AbilitiesList;
 use Stonewright\WpMcp\Abilities\System\KnowledgeExport;
 use Stonewright\WpMcp\Abilities\System\KnowledgeImport;
 use Stonewright\WpMcp\Abilities\System\ToolProfile;
+use Stonewright\WpMcp\Abilities\System\TaskStart;
 use Stonewright\WpMcp\Abilities\System\WorkflowPreflight;
 use Stonewright\WpMcp\Abilities\Skills\SkillsList;
 use Stonewright\WpMcp\Abilities\Skills\SkillsGet;
@@ -175,6 +176,7 @@ final class AbilityRegistry {
 		$base = [
 			// Security.
 			ContextBootstrap::class,
+			TaskStart::class,
 			IssueConfirmationToken::class,
 			CreateOneTimeLink::class,
 
@@ -662,6 +664,7 @@ final class AbilityRegistry {
 	private static function context_exempt_abilities(): array {
 		return [
 			'stonewright/context-bootstrap',
+			'stonewright/task-start',
 			'stonewright/workflow-preflight',
 			'stonewright/ping',
 			'stonewright/site-info',
@@ -800,7 +803,7 @@ final class AbilityRegistry {
 		return [
 			// Startup and runtime.
 			'stonewright/context-bootstrap',
-			'stonewright/workflow-preflight',
+			'stonewright/task-start',
 			'stonewright/tool-profile',
 			'stonewright/skills-get',
 			'stonewright/php-execute',

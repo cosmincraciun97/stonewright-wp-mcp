@@ -50,6 +50,8 @@ final class BuiltInSkillFilesTest extends TestCase {
 		self::assertStringContainsString( 'Content, Style, and Advanced', $elementor_body );
 		self::assertStringContainsString( 'stonewright-design-native-plan', $elementor_body );
 		self::assertStringContainsString( 'Do not turn vision output directly into Elementor settings', $elementor_body );
+		self::assertStringContainsString( 'Every container, section, column, and widget node must have a', $elementor_body );
+		self::assertStringContainsString( 'ElementorData::write()', $elementor_body );
 		self::assertStringContainsString( 'customization_proposal', $evidence_body );
 		self::assertStringContainsString( 'Empty destinations and `#` are invalid', $evidence_body );
 		self::assertStringContainsString( 'Block Theme Production Workflow', $gutenberg_body );

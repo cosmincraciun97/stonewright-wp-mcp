@@ -57,6 +57,23 @@ final class BuildPageFromSpecFastPathTest extends TestCase {
 		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
 	}
 
+	public function test_strict_visual_spec_requires_design_evidence_before_render(): void {
+		$spec = self::spec( 'Verified heading' );
+		$spec['style_policy'] = 'strict';
+
+		$result = ( new BuildPageFromSpec() )->execute(
+			[
+				'post_id' => 777,
+				'dry_run' => true,
+				'spec'    => $spec,
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_design_evidence_invalid', $result->get_error_code() );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+	}
+
 	public function test_append_mode_keeps_existing_top_level_elements(): void {
 		$result = ( new BuildPageFromSpec() )->execute(
 			[

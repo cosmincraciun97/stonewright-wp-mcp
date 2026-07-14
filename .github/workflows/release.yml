@@ -23,9 +23,23 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: companion/package-lock.json
+          cache-dependency-path: |
+            companion/package-lock.json
+            visual/package-lock.json
 
-      - name: Install plugin dependencies
+      - name: Verify plugin
+        working-directory: plugin
+        run: |
+          composer install --no-interaction --prefer-dist
+          composer test
+          composer phpstan
+          composer phpcs
+          composer security:audit
+          composer dependencies:audit
+          composer provenance:lint
+          composer tokens:measure
+
+      - name: Prepare production plugin dependencies
         working-directory: plugin
         run: composer install --no-dev --no-interaction --prefer-dist --classmap-authoritative
 
@@ -33,6 +47,16 @@ jobs:
         working-directory: companion
         run: |
           npm ci
+          npm run typecheck
+          npm test
+          npm run build
+
+      - name: Build Stonewright Visual
+        working-directory: visual
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
           npm run build
 
       - name: Package release assets
@@ -43,13 +67,23 @@ jobs:
           mkdir -p dist/stonewright
           rsync -a plugin/ dist/stonewright/ \
             --exclude tests \
+            --exclude bin \
+            --exclude composer.json \
+            --exclude composer.lock \
             --exclude .phpunit.cache \
             --exclude .phpunit.result.cache \
+            --exclude phpstan.neon \
+            --exclude phpcs.xml \
             --exclude phpunit.xml \
             --exclude phpunit.xml.dist
           (cd dist && zip -qr "stonewright-${version}.zip" stonewright)
           (cd companion && npm pack --pack-destination ../dist)
-          (cd dist && sha256sum "stonewright-${version}.zip" stonewright-companion-*.tgz > SHA256SUMS.txt)
+          (cd visual && npm pack --pack-destination ../dist)
+          if unzip -Z1 "dist/stonewright-${version}.zip" | grep -Eq '^stonewright/(tests|bin)/|^stonewright/(phpunit|phpstan|phpcs)|^stonewright/composer\.lock$'; then
+            echo "Plugin archive contains development-only files" >&2
+            exit 1
+          fi
+          (cd dist && sha256sum "stonewright-${version}.zip" stonewright-companion-*.tgz stonewright-visual-*.tgz > SHA256SUMS.txt)
 
       - name: Publish GitHub release
         env:
@@ -69,6 +103,7 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             "dist/stonewright-${version}.zip" \
             dist/stonewright-companion-*.tgz \
+            dist/stonewright-visual-*.tgz \
             dist/SHA256SUMS.txt \
             --title "Stonewright ${GITHUB_REF_NAME}" \
             --notes-file "$notes" \
