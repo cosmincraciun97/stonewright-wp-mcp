@@ -50,6 +50,9 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Added a Gutenberg Visual adapter with live block discovery, strict attribute
   validation, editor-native writes, serialization, save readback, and batch
   rollback beneath the single workspace tool.
+- Added eight P1/P2 expertise packs and an 11-integration runtime catalogue
+  that distinguishes typed support, discovery-only integrations, and missing
+  plugins without claiming unsupported writes.
 
 ### Changed
 

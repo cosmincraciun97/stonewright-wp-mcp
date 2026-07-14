@@ -22,6 +22,9 @@
   snapshot, readback hash, and automatic restore on mismatch.
 - Added setup diagnostics and a direct Streamable HTTP configuration for
   remote clients that do not need Node or the optional companion.
+- Added P1/P2 expertise for Elementor Pro, advanced Gutenberg, forms, data
+  plugins, WooCommerce templates, shortcodes/snippets, SEO, and other builders,
+  with explicit draft and discovery-only states where writes are unverified.
 
 ### Changed
 

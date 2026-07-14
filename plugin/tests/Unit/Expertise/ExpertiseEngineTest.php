@@ -11,6 +11,7 @@ use Stonewright\WpMcp\Expertise\ExpertisePromotion;
 use Stonewright\WpMcp\Expertise\ExpertiseResolver;
 use Stonewright\WpMcp\Expertise\ExpertiseStore;
 use Stonewright\WpMcp\Expertise\ExpertiseTable;
+use Stonewright\WpMcp\Expertise\IntegrationCatalog;
 use Stonewright\WpMcp\Expertise\PackValidator;
 
 /** @coversDefaultClass \Stonewright\WpMcp\Expertise\ExpertiseResolver */
@@ -40,11 +41,30 @@ final class ExpertiseEngineTest extends TestCase {
 
 	public function test_p0_curriculum_is_valid_and_has_twelve_evals_per_pack(): void {
 		$packs = BundledPacks::all();
-		self::assertCount( 10, $packs );
+		self::assertCount( 18, $packs );
 		foreach ( $packs as $pack ) {
 			self::assertSame( [], PackValidator::errors( $pack ), (string) $pack['id'] );
 			self::assertGreaterThanOrEqual( 12, count( $pack['eval_cases'] ) );
 			self::assertLessThanOrEqual( 60, str_word_count( (string) $pack['trigger'] ) );
+		}
+	}
+
+	public function test_p1_p2_packs_are_tiered_and_unverified_integrations_stay_draft(): void {
+		$packs = array_column( BundledPacks::all(), null, 'id' );
+		self::assertSame( 'P1', $packs['elementor-pro-dynamic']['tier'] );
+		self::assertSame( 'P2', $packs['seo-integrations']['tier'] );
+		self::assertSame( 'draft', $packs['forms-integrations']['status'] );
+		self::assertFalse( $packs['forms-integrations']['recipes'][0]['verified'] );
+		self::assertSame( 'verified', $packs['shortcodes-snippets']['status'] );
+	}
+
+	public function test_integration_catalog_never_claims_unsupported_writes(): void {
+		$definitions = IntegrationCatalog::definitions();
+		self::assertCount( 11, $definitions );
+		self::assertSame( 'typed', array_column( $definitions, 'adapter', 'id' )['elementor-pro'] );
+		self::assertSame( 'discovery', array_column( $definitions, 'adapter', 'id' )['bricks'] );
+		foreach ( IntegrationCatalog::inspect() as $row ) {
+			self::assertContains( $row['status'], [ 'supported', 'discovery-only', 'unavailable' ] );
 		}
 	}
 

@@ -7,7 +7,7 @@ scorecards, and promotion gates.
 
 ## Pack contract
 
-Every pack declares its domain, capability, semantic version, lifecycle status,
+Every pack declares its domain, P0/P1/P2 tier, capability, semantic version, lifecycle status,
 trigger, supported runtime versions, required Stonewright capabilities,
 eight-stage workflow, schema and official references, recipes, failure modes,
 anti-hallucination/write gates, dependencies, provenance, and at least 12 eval
@@ -31,11 +31,18 @@ The compact index budget is 450 estimated tokens. Pack bodies, references,
 recipes, and eval cases are separate sections loaded only when needed, with a
 1,200-token active body/reference budget.
 
+The bundled curriculum contains 18 packs and 216 deterministic cases. Verified
+P1/P2 packs cover Elementor Pro, advanced Gutenberg, structured data, and
+shortcode/snippet decisions. Forms, WooCommerce-builder templates, SEO plugins,
+and non-Elementor builders stay `draft` until their runtime exposes a verified
+adapter. Runtime discovery reports each known integration as `supported`,
+`discovery-only`, or `unavailable`; discovery-only never grants write authority.
+
 ## Evaluation
 
 Run `cd plugin && composer expertise:evaluate`.
 
-Each P0 pack covers discover, inspect, plan, compile, write, verify, repair, and
+Each pack covers discover, inspect, plan, compile, write, verify, repair, and
 learn plus four domain cases including negative and repair behavior. Scorecards
 report pass rate, critical failures, invalid retries, estimated tokens, tool
 calls, editability, semantic completeness, rollback, and runtime fingerprint.

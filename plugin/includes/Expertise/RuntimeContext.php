@@ -29,6 +29,7 @@ final class RuntimeContext {
 			}
 		}
 		$facts = [ 'versions' => $versions, 'capabilities' => array_values( array_unique( $abilities ) ) ];
+		$facts['integrations'] = IntegrationCatalog::inspect();
 		$facts['fingerprint'] = hash( 'sha256', wp_json_encode( $facts, JSON_UNESCAPED_SLASHES ) ?: '' );
 		return $facts;
 	}
