@@ -12,6 +12,8 @@
 - Added `stonewright/design-native-plan` with DesignEvidence 1.0 normalization,
   semantic action validation, deterministic native mapping, and an approval-
   gated phase-two customization proposal.
+- Added DB-backed knowledge candidates with provenance, TTL, version
+  fingerprints, verification and conflict gates, plus skill revision rollback.
 
 ### Changed
 
@@ -27,6 +29,8 @@
   so unknown Elementor V3 keys cannot reach `_elementor_data`.
 - Deprecated generated per-widget add abilities for new plans; the live schema
   plus unified batch compiler is now the recommended V3 write path.
+- Changed learning records to memory-only by default; optional skills remain
+  disabled drafts until two verified successes or explicit user approval.
 
 ### Fixed
 

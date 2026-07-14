@@ -50,6 +50,26 @@ Use the plan in two phases:
    Do not write CSS, JS, or PHP until the user approves its exact diff, files,
    risk, rollback, and tests.
 
+## Live research and learning
+
+The runtime schema is authoritative for available controls. When it proves that
+a control exists but its semantics remain unclear, research only official
+Elementor documentation and record the result through
+`stonewright-knowledge-candidate-record`; never write research directly into an
+active skill.
+
+Every candidate must include its topic/widget/control, a concise fact or recipe,
+official source URL and SHA-256, fetch/expiry dates, Core/Pro/add-on version
+constraints, evidence type, and confidence. Then dry-run the recipe and verify
+the editor plus logged-out frontend against the exact runtime fingerprint.
+
+One successful use is not training. Promotion requires either two distinct
+verified task successes or explicit user approval with a note. Same-topic
+conflicts require an explicit replace decision. Elementor upgrades mark only
+incompatible verified candidates and their linked skills stale; stale knowledge
+must be researched again. Load candidate or memory bodies only when their compact
+refs match the current task.
+
 ## Backup before write
 
 Every write ability that touches post meta calls

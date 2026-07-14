@@ -452,7 +452,7 @@ final class WorkflowPreflight extends AbilityKernel {
 
 		if ( 'elementor' === $profile['surface'] ) {
 			$tools[] = 'stonewright/design-native-plan';
-			$tools[] = 'stonewright/elementor-v3-capabilities-summary';
+			$tools[] = 'stonewright/knowledge-candidate-record';
 			$tools[] = 'stonewright/elementor-v3-get-kit-globals';
 			$tools[] = 'stonewright/elementor-schema';
 			if ( $profile['is_write'] ) {

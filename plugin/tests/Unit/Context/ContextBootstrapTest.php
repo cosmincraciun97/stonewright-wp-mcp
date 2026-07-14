@@ -26,6 +26,7 @@ final class ContextBootstrapTest extends TestCase {
 			'stonewright_custom_instructions' => 'Always use native Elementor widgets.',
 		];
 		$GLOBALS['stonewright_test_transients'] = [];
+		unset( $GLOBALS['stonewright_test_memory_rows'] );
 		$GLOBALS['wpdb'] = $this->make_wpdb();
 	}
 
@@ -37,6 +38,7 @@ final class ContextBootstrapTest extends TestCase {
 		}
 		$GLOBALS['stonewright_test_options'] = [];
 		$GLOBALS['stonewright_test_transients'] = [];
+		unset( $GLOBALS['stonewright_test_memory_rows'] );
 	}
 
 	public function test_returns_token_full_matching_skill_and_relevant_memory(): void {
@@ -56,6 +58,8 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertStringContainsString( 'Use native Elementor widgets', $result['matched_skill_playbooks'][0]['content'] );
 		self::assertNotEmpty( $result['memory_entries'] );
 		self::assertSame( 'no-html-widgets', $result['memory_entries'][0]['memory_key'] );
+		self::assertArrayNotHasKey( 'value', $result['memory_entries'][0] );
+		self::assertSame( 'stonewright/memory-get', $result['memory_entries'][0]['body_tool'] );
 		self::assertContains( 'Call stonewright/design-native-plan with normalized DesignEvidence before choosing or writing Elementor widgets.', $result['required_followups'] );
 		self::assertContains( 'Before building design-derived pages, plan Elementor kit colors/typography first; if site-wide changes are approved, update the active kit before writing page elements.', $result['required_followups'] );
 		self::assertSame( 'stonewright-context-bootstrap', $result['mcp_tool_naming']['examples']['stonewright/context-bootstrap'] );
@@ -138,6 +142,32 @@ final class ContextBootstrapTest extends TestCase {
 
 		$verified = ContextToken::verify( (string) $result['context_token'], 'stonewright/elementor-add-heading' );
 		self::assertTrue( $verified );
+	}
+
+	public function test_task_start_excludes_stale_and_unrelated_memory_bodies(): void {
+		$GLOBALS['stonewright_test_memory_rows'] = [
+			[
+				'id' => '31', 'type' => 'feedback', 'scope' => 'elementor', 'topic' => 'button links',
+				'memory_key' => 'button-links', 'name' => 'Button links', 'value_json' => wp_json_encode( 'Buttons need URLs.' ),
+				'confidence' => '1.0', 'status' => 'active', 'precedence' => '10', 'expires_at' => '', 'updated_at' => '2026-07-14 00:00:00', 'created_at' => '2026-07-14 00:00:00',
+			],
+			[
+				'id' => '32', 'type' => 'feedback', 'scope' => 'elementor', 'topic' => 'button links',
+				'memory_key' => 'old-button-links', 'name' => 'Old buttons', 'value_json' => wp_json_encode( 'Use placeholders.' ),
+				'confidence' => '1.0', 'status' => 'stale', 'precedence' => '999', 'expires_at' => '', 'updated_at' => '2026-07-14 00:00:00', 'created_at' => '2026-07-14 00:00:00',
+			],
+			[
+				'id' => '33', 'type' => 'project', 'scope' => 'woocommerce', 'topic' => 'shipping',
+				'memory_key' => 'shipping', 'name' => 'Shipping', 'value_json' => wp_json_encode( 'Unrelated body.' ),
+				'confidence' => '1.0', 'status' => 'active', 'precedence' => '0', 'expires_at' => '', 'updated_at' => '2026-07-14 00:00:00', 'created_at' => '2026-07-14 00:00:00',
+			],
+		];
+
+		$result = ( new ContextBootstrap() )->execute( [ 'task' => 'Fix Elementor button links', 'surface' => 'elementor', 'intent' => 'read' ] );
+
+		self::assertIsArray( $result );
+		self::assertSame( [ 'button-links' ], array_column( $result['memory_entries'], 'memory_key' ) );
+		self::assertArrayNotHasKey( 'value', $result['memory_entries'][0] );
 	}
 
 	public function test_compact_mode_returns_hashes_and_delta_refs(): void {
@@ -277,6 +307,9 @@ final class ContextBootstrapTest extends TestCase {
 							'source'         => 'builtin',
 						],
 					];
+				}
+				if ( isset( $GLOBALS['stonewright_test_memory_rows'] ) && is_array( $GLOBALS['stonewright_test_memory_rows'] ) ) {
+					return $GLOBALS['stonewright_test_memory_rows'];
 				}
 
 				return [

@@ -12,7 +12,7 @@ final class Memory {
 
 	public const TABLE = 'stonewright_memory';
 
-	private const SCHEMA_VERSION = 2;
+	private const SCHEMA_VERSION = 3;
 
 	public static function table_name(): string {
 		global $wpdb;
@@ -61,12 +61,19 @@ final class Memory {
 			memory_key VARCHAR(190) NOT NULL,
 			value_json LONGTEXT NOT NULL,
 			confidence DECIMAL(5,4) NOT NULL DEFAULT 1.0000,
+			topic VARCHAR(190) NOT NULL DEFAULT '',
+			version_fingerprint VARCHAR(190) NOT NULL DEFAULT '',
+			expires_at DATETIME NULL,
+			status VARCHAR(20) NOT NULL DEFAULT 'active',
+			precedence SMALLINT NOT NULL DEFAULT 0,
 			created_by BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY (id),
 			UNIQUE KEY scope_key (scope, memory_key),
-			KEY type_idx (type)
+			KEY type_idx (type),
+			KEY topic_status (topic, status),
+			KEY expires_at (expires_at)
 		) {$charset};";
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -168,6 +175,11 @@ final class Memory {
 			'name'       => (string) $row['name'],
 			'value'      => self::decode_value( (string) $row['value_json'] ),
 			'confidence' => (float) $row['confidence'],
+			'topic'      => (string) ( $row['topic'] ?? '' ),
+			'version_fingerprint' => (string) ( $row['version_fingerprint'] ?? '' ),
+			'expires_at' => isset( $row['expires_at'] ) ? (string) $row['expires_at'] : '',
+			'status'     => (string) ( $row['status'] ?? 'active' ),
+			'precedence' => (int) ( $row['precedence'] ?? 0 ),
 			'created_at' => (string) $row['created_at'],
 			'updated_at' => (string) $row['updated_at'],
 		];
@@ -190,9 +202,10 @@ final class Memory {
 	 * @param string $name       Human-readable label; sanitized + truncated to 190.
 	 * @param mixed  $value      Serializable value.
 	 * @param float  $confidence Confidence score, 0–1.
+	 * @param array<string, mixed> $metadata Lifecycle topic, fingerprint, expiry, status, and precedence.
 	 * @return int Row id (0 on failure).
 	 */
-	public static function put_typed( string $type, string $scope, string $key, string $name, mixed $value, float $confidence = 1.0 ): int {
+	public static function put_typed( string $type, string $scope, string $key, string $name, mixed $value, float $confidence = 1.0, array $metadata = [] ): int {
 		global $wpdb;
 		$table = self::table_name();
 
@@ -214,10 +227,15 @@ final class Memory {
 			'name'       => $name,
 			'value_json' => Json::encode( $value ),
 			'confidence' => $confidence,
+			'topic'      => sanitize_text_field( (string) ( $metadata['topic'] ?? $name ) ),
+			'version_fingerprint' => sanitize_text_field( (string) ( $metadata['version_fingerprint'] ?? '' ) ),
+			'expires_at' => self::sanitize_expiry( $metadata['expires_at'] ?? null ),
+			'status'     => in_array( $metadata['status'] ?? 'active', [ 'active', 'stale', 'rejected' ], true ) ? (string) ( $metadata['status'] ?? 'active' ) : 'active',
+			'precedence' => max( -1000, min( 1000, (int) ( $metadata['precedence'] ?? 0 ) ) ),
 			'created_by' => get_current_user_id(),
 		];
 
-		$formats = [ '%s', '%s', '%s', '%s', '%s', '%f', '%d' ];
+		$formats = [ '%s', '%s', '%s', '%s', '%s', '%f', '%s', '%s', '%s', '%s', '%d', '%d' ];
 
 		if ( $existing_id > 0 ) {
 			$result = $wpdb->update( $table, $data, [ 'id' => $existing_id ], $formats, [ '%d' ] );
@@ -243,7 +261,7 @@ final class Memory {
 
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, type, scope, memory_key, name, value_json, confidence, created_at, updated_at FROM {$table} WHERE type = %s ORDER BY id DESC LIMIT %d OFFSET %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT id, type, scope, memory_key, name, value_json, confidence, topic, version_fingerprint, expires_at, status, precedence, created_at, updated_at FROM {$table} WHERE type = %s ORDER BY id DESC LIMIT %d OFFSET %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				$type,
 				$limit,
 				$offset
@@ -271,7 +289,7 @@ final class Memory {
 
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, type, scope, memory_key, name, value_json, confidence, created_at, updated_at FROM {$table} ORDER BY id DESC LIMIT %d OFFSET %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT id, type, scope, memory_key, name, value_json, confidence, topic, version_fingerprint, expires_at, status, precedence, created_at, updated_at FROM {$table} ORDER BY id DESC LIMIT %d OFFSET %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				$limit,
 				$offset
 			),
@@ -293,58 +311,16 @@ final class Memory {
 			return '';
 		}
 
-		$entries = self::list_all( 20, 0 );
-		if ( [] === $entries ) {
-			return '';
-		}
-
-		$lines = [
-			'',
-			'## Site Memory',
-			'',
-			'These persistent notes apply across agents. Treat project/feedback/reference memories as active constraints before planning or writing.',
-		];
-
-		foreach ( $entries as $entry ) {
-			$key  = (string) ( $entry['memory_key'] ?? '' );
-			$type = (string) ( $entry['type'] ?? 'generic' );
-			$name = (string) ( $entry['name'] ?? $key );
-			$hint = self::memory_hint( $entry['value'] ?? null );
-			$lines[] = sprintf(
-				'- `%s` [%s] %s%s',
-				$key,
-				$type,
-				$name,
-				'' !== $hint ? ': ' . $hint : ''
-			);
-		}
-
-		$lines[] = '';
-		$lines[] = 'For full details, call `stonewright/memory-get` or `stonewright/memory-list` before acting.';
-
-		return implode( "\n", $lines );
-	}
-
-	private static function memory_hint( mixed $value ): string {
-		if ( is_array( $value ) ) {
-			$pieces = [];
-			foreach ( $value as $item ) {
-				if ( is_scalar( $item ) ) {
-					$pieces[] = (string) $item;
-				}
-				if ( count( $pieces ) >= 2 ) {
-					break;
-				}
-			}
-			$value = implode( ' ', $pieces );
-		}
-
-		if ( ! is_scalar( $value ) ) {
-			return '';
-		}
-
-		$text = trim( preg_replace( '/\s+/', ' ', (string) $value ) ?? '' );
-		return mb_substr( $text, 0, 180 );
+		return implode(
+			"\n",
+			[
+				'',
+				'## Site Memory',
+				'',
+				'Context bootstrap returns only the highest-priority relevant memory references. Stale or expired memory is excluded.',
+				'Load a selected body on demand with `stonewright/memory-get`; user instructions outrank feedback, project, reference, and generic memory.',
+			]
+		);
 	}
 
 	/**
@@ -359,7 +335,7 @@ final class Memory {
 
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT id, type, scope, memory_key, name, value_json, confidence, created_at, updated_at FROM {$table} WHERE id = %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT id, type, scope, memory_key, name, value_json, confidence, topic, version_fingerprint, expires_at, status, precedence, created_at, updated_at FROM {$table} WHERE id = %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				$id
 			),
 			ARRAY_A
@@ -387,7 +363,7 @@ final class Memory {
 	/**
 	 * Partially update a memory entry by id.
 	 *
-	 * Accepted keys in $changes: type, scope, memory_key, name, value, confidence.
+	 * Accepted keys include content plus lifecycle index metadata.
 	 * Unknown keys are silently ignored.
 	 *
 	 * @param int                  $id      Row id.
@@ -398,7 +374,7 @@ final class Memory {
 		global $wpdb;
 		$table = self::table_name();
 
-		$allowed = [ 'type', 'scope', 'memory_key', 'name', 'value', 'confidence' ];
+		$allowed = [ 'type', 'scope', 'memory_key', 'name', 'value', 'confidence', 'topic', 'version_fingerprint', 'expires_at', 'status', 'precedence' ];
 		$data    = [];
 		$formats = [];
 
@@ -425,6 +401,21 @@ final class Memory {
 			} elseif ( 'confidence' === $field ) {
 				$data['confidence'] = (float) $changes['confidence'];
 				$formats[]          = '%f';
+			} elseif ( 'topic' === $field ) {
+				$data['topic'] = sanitize_text_field( (string) $changes['topic'] );
+				$formats[]     = '%s';
+			} elseif ( 'version_fingerprint' === $field ) {
+				$data['version_fingerprint'] = sanitize_text_field( (string) $changes['version_fingerprint'] );
+				$formats[]                   = '%s';
+			} elseif ( 'expires_at' === $field ) {
+				$data['expires_at'] = self::sanitize_expiry( $changes['expires_at'] );
+				$formats[]          = '%s';
+			} elseif ( 'status' === $field ) {
+				$data['status'] = in_array( $changes['status'], [ 'active', 'stale', 'rejected' ], true ) ? (string) $changes['status'] : 'stale';
+				$formats[]      = '%s';
+			} elseif ( 'precedence' === $field ) {
+				$data['precedence'] = max( -1000, min( 1000, (int) $changes['precedence'] ) );
+				$formats[]          = '%d';
 			}
 		}
 
@@ -434,5 +425,22 @@ final class Memory {
 
 		$result = $wpdb->update( $table, $data, [ 'id' => $id ], $formats, [ '%d' ] );
 		return ( false !== $result );
+	}
+
+	/** @param array<string, mixed> $entry */
+	public static function is_active( array $entry ): bool {
+		if ( 'active' !== (string) ( $entry['status'] ?? 'active' ) ) {
+			return false;
+		}
+		$expires_at = trim( (string) ( $entry['expires_at'] ?? '' ) );
+		return '' === $expires_at || ( strtotime( $expires_at . ' UTC' ) ?: 0 ) > time();
+	}
+
+	private static function sanitize_expiry( mixed $value ): ?string {
+		if ( null === $value || '' === trim( (string) $value ) ) {
+			return null;
+		}
+		$timestamp = strtotime( (string) $value );
+		return false === $timestamp ? null : gmdate( 'Y-m-d H:i:s', $timestamp );
 	}
 }

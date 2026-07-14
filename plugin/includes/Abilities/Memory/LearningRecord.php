@@ -10,7 +10,7 @@ use Stonewright\WpMcp\Skills\Skills;
 
 /**
  * Records user corrections and repeatable agent mistakes into persistent site
- * memory and an enabled site skill.
+ * memory and, only when requested, a disabled draft skill.
  *
  * @stonewright-status stable
  */
@@ -25,7 +25,7 @@ final class LearningRecord extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Writes a persistent lesson when the user corrects the agent or the agent detects a repeatable mistake. Stores feedback memory and an enabled site skill so future Stonewright sessions follow the correction.', 'stonewright' );
+		return __( 'Writes a persistent lesson when the user corrects the agent or the agent detects a repeatable mistake. Skill generation is opt-in and creates a disabled draft that must pass promotion gates.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -66,8 +66,8 @@ final class LearningRecord extends AbilityKernel {
 				],
 				'update_skill'   => [
 					'type'        => 'boolean',
-					'default'     => true,
-					'description' => 'Whether to create or update an enabled site skill from the same lesson.',
+					'default'     => false,
+					'description' => 'Whether to create or update a disabled draft skill from the same lesson.',
 				],
 				'skill_slug'     => [
 					'type'        => 'string',
@@ -95,6 +95,7 @@ final class LearningRecord extends AbilityKernel {
 				'memory_key' => [ 'type' => 'string' ],
 				'skill_id'   => [ 'type' => [ 'integer', 'null' ] ],
 				'skill_slug' => [ 'type' => [ 'string', 'null' ] ],
+				'skill_status' => [ 'type' => [ 'string', 'null' ] ],
 			],
 		];
 	}
@@ -132,12 +133,17 @@ final class LearningRecord extends AbilityKernel {
 						'lesson'      => $lesson,
 						'recorded_at' => current_time( 'mysql', true ),
 					],
-					$confidence
+					$confidence,
+					[
+						'topic'      => $topic,
+						'status'     => 'active',
+						'precedence' => 500,
+					]
 				);
 
 				$skill_id   = null;
 				$skill_slug = null;
-				if ( (bool) ( $a['update_skill'] ?? true ) ) {
+				if ( (bool) ( $a['update_skill'] ?? false ) ) {
 					$skill_slug = $this->skill_slug( $topic, (string) ( $a['skill_slug'] ?? '' ) );
 					$skill_id   = Skills::save(
 						[
@@ -149,7 +155,11 @@ final class LearningRecord extends AbilityKernel {
 							'content'     => '' !== (string) ( $a['skill_content'] ?? '' )
 								? (string) $a['skill_content']
 								: $this->default_skill_content( $topic, $scope, $correction, $lesson ),
-							'enabled'     => true,
+							'enabled'     => false,
+							'enable_agentic' => false,
+							'enable_prompt' => false,
+							'status'      => 'draft',
+							'topic'       => $topic,
 							'source'      => 'user',
 						]
 					);
@@ -161,6 +171,7 @@ final class LearningRecord extends AbilityKernel {
 					'memory_key' => $key,
 					'skill_id'   => $skill_id,
 					'skill_slug' => $skill_slug,
+					'skill_status' => null !== $skill_id ? 'draft' : null,
 				];
 			}
 		);

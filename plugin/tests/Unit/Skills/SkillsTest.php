@@ -167,7 +167,7 @@ final class SkillsTest extends TestCase {
 		$this->assertSame( 'prompt-skill', $skills[0]['slug'] );
 	}
 
-	public function test_memory_instructions_block_includes_compact_entries_without_raw_dump(): void {
+	public function test_memory_instructions_block_routes_to_relevant_refs_without_raw_dump(): void {
 		$GLOBALS['wpdb'] = $this->make_wpdb_with_memory_rows( [
 			[
 				'id'          => '1',
@@ -188,12 +188,13 @@ final class SkillsTest extends TestCase {
 		$block = \Stonewright\WpMcp\Memory\Memory::instructions_block();
 
 		$this->assertStringContainsString( '## Site Memory', $block );
-		$this->assertStringContainsString( 'elementor-no-html-widgets', $block );
-		$this->assertStringContainsString( 'Do not auto-render HTML widgets', $block );
+		$this->assertStringContainsString( 'highest-priority relevant memory references', $block );
+		$this->assertStringContainsString( 'stonewright/memory-get', $block );
+		$this->assertStringNotContainsString( 'elementor-no-html-widgets', $block );
 		$this->assertLessThan( 900, strlen( $block ) );
 	}
 
-	public function test_memory_instructions_block_preserves_scalar_memory_values(): void {
+	public function test_memory_instructions_block_does_not_inject_scalar_memory_values(): void {
 		$GLOBALS['wpdb'] = $this->make_wpdb_with_memory_rows( [
 			[
 				'id'          => '1',
@@ -210,8 +211,8 @@ final class SkillsTest extends TestCase {
 
 		$block = \Stonewright\WpMcp\Memory\Memory::instructions_block();
 
-		$this->assertStringContainsString( 'custom-css-approval', $block );
-		$this->assertStringContainsString( 'Custom CSS must be approved', $block );
+		$this->assertStringNotContainsString( 'custom-css-approval', $block );
+		$this->assertStringNotContainsString( 'Custom CSS must be approved', $block );
 	}
 
 	// ------------------------------------------------------------------

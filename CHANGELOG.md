@@ -29,6 +29,11 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   proposals for Elementor, Gutenberg, and WordPress design tasks.
 - Added an Elementor builder reference that turns Figma/image evidence into a
   native plan before any schema compilation or visual write.
+- Added site-local knowledge candidates with source hashes, TTL, Elementor
+  version constraints, verification fingerprints, conflict gates, and audited
+  promotion through `stonewright/knowledge-candidate-record`.
+- Added disabled research drafts plus immutable skill revision history, lint,
+  and rollback.
 
 ### Changed
 
@@ -42,6 +47,9 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   schema tool, lazy widget shards, cache invalidation, and strict write guards.
 - Deprecated generated `elementor-add-*` tools for new plans in favor of the
   unified schema plus batch compiler while retaining a compatibility window.
+- Changed learning so one correction records memory by default and can no
+  longer activate a skill automatically; task start now routes through compact,
+  relevant, non-stale memory refs with explicit precedence.
 
 ### Fixed
 

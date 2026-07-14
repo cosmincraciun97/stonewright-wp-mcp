@@ -52,7 +52,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright/workflow-preflight', $names );
 		self::assertContains( 'stonewright/tool-profile', $names );
 		self::assertContains( 'stonewright/php-execute', $names );
-		self::assertContains( 'stonewright/elementor-v3-capabilities-summary', $names );
+		self::assertContains( 'stonewright/knowledge-candidate-record', $names );
 		self::assertContains( 'stonewright/elementor-v3-container-schema', $names );
 		self::assertContains( 'stonewright/design-implementation-contract', $names );
 		self::assertContains( 'stonewright/media-upload-batch', $names );
@@ -108,7 +108,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright/tool-profile', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/security-create-one-time-link', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/design-native-plan', $result['recommended_tools'] );
-		self::assertContains( 'stonewright/elementor-v3-capabilities-summary', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/knowledge-candidate-record', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/media-upload-batch', $result['recommended_tools'] );

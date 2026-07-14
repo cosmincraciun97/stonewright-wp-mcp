@@ -154,31 +154,74 @@ final class ContextBuilder {
 		$rows    = [];
 
 		foreach ( $entries as $entry ) {
+			if ( ! Memory::is_active( $entry ) ) {
+				continue;
+			}
 			$haystack = self::normalise(
 				(string) ( $entry['scope'] ?? '' ) . ' ' .
+				(string) ( $entry['topic'] ?? '' ) . ' ' .
 				(string) ( $entry['memory_key'] ?? '' ) . ' ' .
 				(string) ( $entry['name'] ?? '' ) . ' ' .
 				self::stringify( $entry['value'] ?? null )
 			);
-			$score = self::score( $query, $haystack );
-			if ( $score > 0 || in_array( (string) ( $entry['type'] ?? '' ), [ 'feedback', 'project', 'reference' ], true ) ) {
-				$entry['_score'] = $score;
-				$rows[]          = $entry;
+			$score       = self::score( $query, $haystack );
+			$type        = (string) ( $entry['type'] ?? 'generic' );
+			$scope_match = '' !== $surface && strtolower( (string) ( $entry['scope'] ?? '' ) ) === strtolower( $surface );
+			if ( 'user' === $type || $score > 0 || $scope_match ) {
+				$entry['_score']    = $score;
+				$entry['_priority'] = self::memory_priority( $type ) + (int) ( $entry['precedence'] ?? 0 );
+				$rows[]             = $entry;
 			}
 		}
 
 		usort(
 			$rows,
-			static fn( array $a, array $b ): int => ( (int) $b['_score'] <=> (int) $a['_score'] )
+			static fn( array $a, array $b ): int => ( (int) $b['_priority'] <=> (int) $a['_priority'] )
+				?: ( (int) $b['_score'] <=> (int) $a['_score'] )
 		);
 
+		$selected = array_slice( $rows, 0, 5 );
 		return array_map(
-			static function ( array $entry ): array {
-				unset( $entry['_score'] );
-				return $entry;
+			static function ( array $entry ) use ( $selected ): array {
+				$topic     = self::normalise( (string) ( $entry['topic'] ?? $entry['memory_key'] ?? '' ) );
+				$value_hash = hash( 'sha256', wp_json_encode( $entry['value'] ?? null ) ?: '' );
+				$conflicts = [];
+				foreach ( $selected as $other ) {
+					if ( (int) ( $other['id'] ?? 0 ) === (int) ( $entry['id'] ?? 0 ) ) {
+						continue;
+					}
+					$other_topic = self::normalise( (string) ( $other['topic'] ?? $other['memory_key'] ?? '' ) );
+					$other_hash  = hash( 'sha256', wp_json_encode( $other['value'] ?? null ) ?: '' );
+					if ( '' !== $topic && $topic === $other_topic && $value_hash !== $other_hash ) {
+						$conflicts[] = (int) ( $other['id'] ?? 0 );
+					}
+				}
+				return [
+					'id'                  => (int) ( $entry['id'] ?? 0 ),
+					'type'                => (string) ( $entry['type'] ?? '' ),
+					'scope'               => (string) ( $entry['scope'] ?? '' ),
+					'topic'               => (string) ( $entry['topic'] ?? '' ),
+					'memory_key'          => (string) ( $entry['memory_key'] ?? '' ),
+					'name'                => (string) ( $entry['name'] ?? '' ),
+					'confidence'          => (float) ( $entry['confidence'] ?? 0 ),
+					'version_fingerprint' => (string) ( $entry['version_fingerprint'] ?? '' ),
+					'precedence_rank'     => (int) $entry['_priority'],
+					'conflict_with'       => $conflicts,
+					'body_tool'           => 'stonewright/memory-get',
+				];
 			},
-			array_slice( $rows, 0, 10 )
+			$selected
 		);
+	}
+
+	private static function memory_priority( string $type ): int {
+		return match ( $type ) {
+			'user'      => 5000,
+			'feedback'  => 4000,
+			'project'   => 3000,
+			'reference' => 2000,
+			default     => 1000,
+		};
 	}
 
 	/**

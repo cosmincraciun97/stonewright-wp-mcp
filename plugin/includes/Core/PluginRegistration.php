@@ -13,6 +13,9 @@ use Stonewright\WpMcp\Admin\SandboxPage;
 use Stonewright\WpMcp\Admin\SkillsPage;
 use Stonewright\WpMcp\Skills\SkillsSeeder;
 use Stonewright\WpMcp\Skills\SkillsTable;
+use Stonewright\WpMcp\Skills\SkillVersionsTable;
+use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateTable;
+use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateRepository;
 use Stonewright\WpMcp\Elementor\WidgetBuilder\Loader as WidgetLoader;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Memory\Memory;
@@ -96,12 +99,17 @@ final class PluginRegistration {
 		add_action( 'init', [ AuditLog::class, 'maybe_install_table' ] );
 		add_action( 'init', [ OneTimeLink::class, 'maybe_handle_request' ], 1 );
 		add_action( 'init', [ SkillsTable::class, 'create_table' ] );
+		add_action( 'init', [ SkillVersionsTable::class, 'create_table' ] );
+		add_action( 'init', [ CandidateTable::class, 'create_table' ] );
 		add_action( 'init', [ ResourceRegistry::class, 'register' ], 30 );
 		add_action( 'init', [ BlockRegistry::class, 'register' ], 40 );
 		add_action( 'rest_api_init', [ RestRoutes::class, 'register' ] );
 		add_action( 'activated_plugin', [ WidgetSchemaRepository::class, 'invalidate' ], 10, 2 );
+		add_action( 'activated_plugin', [ CandidateRepository::class, 'invalidate_on_elementor_change' ], 20, 2 );
 		add_action( 'deactivated_plugin', [ WidgetSchemaRepository::class, 'invalidate' ], 10, 2 );
+		add_action( 'deactivated_plugin', [ CandidateRepository::class, 'invalidate_on_elementor_change' ], 20, 2 );
 		add_action( 'upgrader_process_complete', [ WidgetSchemaRepository::class, 'invalidate' ], 10, 2 );
+		add_action( 'upgrader_process_complete', [ CandidateRepository::class, 'invalidate_on_elementor_change' ], 20, 2 );
 		add_action( 'update_option_active_plugins', [ WidgetSchemaRepository::class, 'invalidate' ], 10, 3 );
 		add_action( 'update_option_elementor_experiment-container', [ WidgetSchemaRepository::class, 'invalidate' ], 10, 3 );
 		add_action( 'update_option_elementor_experiment-e_atomic_elements', [ WidgetSchemaRepository::class, 'invalidate' ], 10, 3 );
@@ -126,6 +134,8 @@ final class PluginRegistration {
 		Memory::maybe_install_table();
 		AuditLog::maybe_install_table();
 		SkillsTable::force_create_table();
+		SkillVersionsTable::force_create_table();
+		CandidateTable::force_create_table();
 		SkillsSeeder::seed();
 		// Record domain on first activation so subsequent boots can detect clones.
 		if ( (bool) get_option( 'stonewright_enabled', false ) ) {

@@ -95,6 +95,8 @@ use Stonewright\WpMcp\Abilities\Knowledge\DescribeWidget;
 use Stonewright\WpMcp\Abilities\Knowledge\ExplainEditor;
 use Stonewright\WpMcp\Abilities\Knowledge\KnowledgeRefresh;
 use Stonewright\WpMcp\Abilities\Knowledge\KnowledgeSearch;
+use Stonewright\WpMcp\Abilities\Knowledge\KnowledgeCandidateRecord;
+use Stonewright\WpMcp\Abilities\Knowledge\KnowledgeCandidates;
 use Stonewright\WpMcp\Abilities\Knowledge\WidgetImplementationGuide;
 use Stonewright\WpMcp\Abilities\ElementorWidget\WidgetList as ElementorWidgetList;
 use Stonewright\WpMcp\Abilities\ElementorWidget\WidgetRegister;
@@ -339,6 +341,8 @@ final class AbilityRegistry {
 			ExplainEditor::class,
 			WidgetImplementationGuide::class,
 			KnowledgeRefresh::class,
+			KnowledgeCandidates::class,
+			KnowledgeCandidateRecord::class,
 
 			// Sandbox.
 			SandboxListAbility::class,
@@ -799,7 +803,7 @@ final class AbilityRegistry {
 			'stonewright/content-model-loop-grid-flow',
 			'stonewright/media-upload-batch',
 			'stonewright/design-native-plan',
-			'stonewright/elementor-v3-capabilities-summary',
+			'stonewright/knowledge-candidate-record',
 			'stonewright/elementor-schema',
 			'stonewright/elementor-v3-get-page-structure',
 			'stonewright/elementor-v3-build-page-from-spec',

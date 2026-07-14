@@ -177,6 +177,9 @@ const WRITE_PATTERNS = [
 	'Memory::delete_by_id(', 'Memory::update_by_id(',
 	// Skills and design orchestrator delegates.
 	'Skills::save(', 'Skills::delete(', 'SpecToGutenberg()', 'SpecToElementorV3()',
+	'CandidateRepository::create(', 'CandidateRepository::verify(',
+	'CandidateRepository::promote(', 'CandidateRepository::set_status(',
+	'Skills::rollback(',
 	'ElementorWriter::write',
 	// Batch/orchestrator delegates.
 	'new UploadMedia()', 'new BuildPageFromSpec()',

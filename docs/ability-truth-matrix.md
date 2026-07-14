@@ -284,6 +284,8 @@
 | `stonewright/elementor-explain-editor` | `stonewright-elementor-explain-editor` | `Knowledge\ExplainEditor` | USE THIS WHEN an Elementor implementation depends on editor V3/V4 behavior, Theme Builder display rules, custom widgets, or developer API details. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/elementor-widget-implementation-guide` | `stonewright-elementor-widget-implementation-guide` | `Knowledge\WidgetImplementationGuide` | MUST be used after widget intent resolution and before Elementor writes. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/elementor-knowledge-refresh` | `stonewright-elementor-knowledge-refresh` | `Knowledge\KnowledgeRefresh` | Self-updates the Stonewright Elementor knowledge base from a canonical URL. | Write | `Permissions::manage_options()` | No | No | No | sandboxed | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/knowledge-candidates` | `stonewright-knowledge-candidates` | `Knowledge\KnowledgeCandidates` | Lists compact site knowledge candidates or returns one full candidate with provenance, versions, verification, expiry, and status. | Read | `Permissions::manage_options()` | No | No | No | experimental | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/knowledge-candidate-record` | `stonewright-knowledge-candidate-record` | `Knowledge\KnowledgeCandidateRecord` | Creates, verifies, promotes, rejects, or stales a site knowledge candidate, and rolls back versioned site skills. | Write | `Permissions::manage_options()` | No | No | No | experimental | `tests/Unit/AbilityKernelAuditTest.php` |
 
 ---
 
@@ -415,7 +417,7 @@
 
 ## Summary
 
-Total abilities registered: **243**
+Total abilities registered: **245**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`
