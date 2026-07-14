@@ -1,0 +1,18 @@
+{
+  "before_pr3": {
+    "plugin_default_abilities": 65,
+    "companion_default_expected_tools": 72,
+    "companion_strict_expected_tools": 30,
+    "legacy_aliases_in_compact_profiles": true
+  },
+  "after_pr3": {
+    "plugin_default_abilities": 20,
+    "plugin_default_tools_list_estimated_tokens": 4955,
+    "companion_default_expected_tools": 20,
+    "companion_strict_expected_tools": 12,
+    "legacy_aliases_in_compact_profiles": false,
+    "legacy_aliases_available_in_full_profile": true,
+    "task_start_non_visual_estimated_tokens": 374,
+    "task_start_visual_estimated_tokens": 423
+  }
+}

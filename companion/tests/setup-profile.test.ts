@@ -34,9 +34,16 @@ describe('buildSetupProfile', () => {
 		expect(profile.tool_visibility_checks).toEqual([
 			'stonewright-context-bootstrap',
 			'stonewright-workflow-preflight',
+			'stonewright-skills-get',
 			'stonewright-tool-profile',
 			'stonewright-php-execute',
-			'stonewright-skills-get',
+			'stonewright-security-issue-confirmation-token',
+			'stonewright-site-info',
+			'stonewright-content-bulk-upsert-posts',
+			'stonewright-design-implementation-contract',
+			'stonewright-elementor-v3-batch-mutate',
+			'stonewright-gutenberg-apply-to-post',
+			'stonewright-setup-profile',
 			'stonewright-wordpress-mcp-status',
 			'stonewright-wp-cli-status',
 			'stonewright-wp-cli-discover',
@@ -47,6 +54,8 @@ describe('buildSetupProfile', () => {
 			'stonewright-wp-cli-install',
 		]);
 		expect(profile.tool_inventory.profile).toBe('essential');
+		expect(profile.tool_inventory.startup_budget.client_visible_expected_tool_count).toBe(20);
+		expect(profile.tool_inventory.startup_budget.under_low_tools_cap).toBe(true);
 		expect(profile.tool_inventory.first_call_tool_names).toEqual([
 			'stonewright-context-bootstrap',
 			'stonewright-workflow-preflight',
@@ -60,7 +69,7 @@ describe('buildSetupProfile', () => {
 			'stonewright-wp-cli-job-status',
 			'stonewright-wp-cli-install',
 		]));
-		expect(profile.tool_inventory.proxied_profile_tool_groups.elementor_design).toContain('stonewright-elementor-v3-build-page-from-spec');
+		expect(profile.tool_inventory.proxied_profile_tool_groups.elementor_design).toContain('stonewright-elementor-v3-batch-mutate');
 		expect(profile.tool_inventory.proxied_profile_tool_groups.runtime).toContain('stonewright-php-execute');
 		expect(profile.tool_inventory.refresh_required_tool_names).toEqual([
 			'stonewright-context-bootstrap',
@@ -156,12 +165,14 @@ describe('buildSetupProfile', () => {
 		expect(profile.agent_use_instead).toContain('stonewright-wp-cli-job-start');
 		expect(profile.agent_use_instead).toContain('stonewright-wp-cli-job-status');
 		expect(profile.tool_inventory.profile).toBe('low-tools');
+		expect(profile.tool_inventory.startup_budget.client_visible_expected_tool_count).toBe(12);
 		expect(profile.tool_inventory.startup_budget.under_low_tools_cap).toBe(true);
 		expect(profile.tool_inventory.direct_wp_cli_tool_names).not.toContain('stonewright-wp-cli-install');
 		expect(profile.tool_inventory.direct_wp_cli_long_running_tool_names).toEqual([
 			'stonewright-wp-cli-job-start',
 			'stonewright-wp-cli-job-status',
 		]);
+		expect(profile.tool_visibility_checks).not.toContain('companion_wp_cli_run');
 	});
 
 	it('normalizes legacy proxy profile input into the emitted tool profile', () => {

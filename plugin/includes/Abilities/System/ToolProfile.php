@@ -222,7 +222,7 @@ final class ToolProfile extends AbilityKernel {
 
 		$visible_rows = array_values(
 			array_filter(
-				AbilityRegistry::enabled_abilities(),
+				AbilityRegistry::all_abilities(),
 				static fn( array $ability ): bool => (bool) $ability['enabled']
 			)
 		);

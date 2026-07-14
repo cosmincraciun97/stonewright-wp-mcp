@@ -104,7 +104,7 @@ final class ContextGateTest extends TestCase {
 	}
 
 	public function test_context_token_is_published_in_schemas_for_gated_abilities(): void {
-		$abilities = AbilityRegistry::enabled_abilities();
+		$abilities = AbilityRegistry::all_abilities();
 		$by_name   = [];
 		foreach ( $abilities as $ability ) {
 			$by_name[ $ability['name'] ] = $ability;

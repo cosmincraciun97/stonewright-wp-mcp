@@ -24,6 +24,8 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   first Novamira source import; the Node companion remains MIT licensed.
 - Reduced compact task-start context to stay below the 700-token non-visual
   and 1,200-token visual budgets.
+- Reduced the real default MCP surface to 20 tools and strict mode to 12;
+  legacy companion aliases now appear only in the explicit full profile.
 
 ### Fixed
 

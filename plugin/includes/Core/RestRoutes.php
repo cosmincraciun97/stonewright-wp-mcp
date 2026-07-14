@@ -64,7 +64,7 @@ final class RestRoutes {
 				'methods'             => 'GET',
 				'permission_callback' => [ Permissions::class, 'manage_options' ],
 				'callback'            => static function () {
-					return rest_ensure_response( AbilityRegistry::enabled_abilities() );
+					return rest_ensure_response( AbilityRegistry::all_abilities() );
 				},
 			]
 		);

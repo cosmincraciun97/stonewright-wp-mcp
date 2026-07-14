@@ -37,7 +37,7 @@ final class AbilitiesPage {
 			wp_die( esc_html__( 'You do not have permission to access this page.', 'stonewright' ) );
 		}
 
-		$abilities          = AbilityRegistry::enabled_abilities();
+		$abilities          = AbilityRegistry::all_abilities();
 		$master_enabled     = (bool) get_option( 'stonewright_enabled', false );
 		$disabled_abilities = (array) get_option( 'stonewright_disabled_abilities', [] );
 		$groups             = self::group_by_category( $abilities );
@@ -358,7 +358,7 @@ final class AbilitiesPage {
 			? array_map( 'sanitize_text_field', (array) wp_unslash( $_POST['stonewright_abilities'] ) )
 			: [];
 
-		$all      = AbilityRegistry::enabled_abilities();
+		$all      = AbilityRegistry::all_abilities();
 		$known    = array_column( $all, 'name' );
 		$disabled = array_values( array_intersect( (array) get_option( 'stonewright_disabled_abilities', [] ), $known ) );
 		$targets  = in_array( $action, [ 'enable_category', 'disable_category' ], true )

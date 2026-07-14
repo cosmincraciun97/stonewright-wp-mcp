@@ -58,11 +58,6 @@ describe('createMcpServer', () => {
 
 		expect(toolNames).toEqual(
 			expect.arrayContaining([
-				'companion_wp_cli_status',
-				'companion_wp_cli_run',
-				'companion_wp_cli_batch_run',
-				'companion_wp_cli_discover',
-				'companion_wp_cli_install',
 				'stonewright-wp-cli-status',
 				'stonewright-wp-cli-run',
 				'stonewright-wp-cli-batch-run',
@@ -162,11 +157,6 @@ describe('createMcpServer', () => {
 			'stonewright-wp-cli-run',
 			'stonewright-wp-cli-batch-run',
 			'stonewright-wp-cli-install',
-			'companion_wp_cli_status',
-			'companion_wp_cli_discover',
-			'companion_wp_cli_run',
-			'companion_wp_cli_batch_run',
-			'companion_wp_cli_install',
 		]));
 		expect(response.structuredContent?.agent_do_not_use).toContain('Do not run wp cli info, wp plugin activate, wp option update, or other wp commands in a normal shell as Stonewright recovery.');
 		expect(response.structuredContent?.agent_do_not_use).toContain('Do not inspect private AI-client config files to find or call Stonewright.');
@@ -302,14 +292,9 @@ describe('createMcpServer', () => {
 			},
 			fetchImpl: stonewrightMcpFetch([
 				{ name: 'stonewright-context-bootstrap' },
-				{ name: 'stonewright-security-create-one-time-link' },
 				{ name: 'stonewright-design-implementation-contract' },
-				{ name: 'stonewright-media-list' },
 				{ name: 'stonewright-media-upload' },
-				{ name: 'stonewright-media-upload-batch' },
-				{ name: 'stonewright-elementor-v3-get-kit-globals' },
-				{ name: 'stonewright-elementor-v3-container-schema' },
-				{ name: 'stonewright-elementor-v3-build-page-from-spec' },
+				{ name: 'stonewright-elementor-v3-batch-mutate' },
 				{ name: 'stonewright-content-bulk-upsert-posts' },
 				{ name: 'stonewright-experimental-heavy-tool' },
 			]),
@@ -319,13 +304,8 @@ describe('createMcpServer', () => {
 
 		expect(names).toEqual(expect.arrayContaining([
 			'stonewright-context-bootstrap',
-			'stonewright-security-create-one-time-link',
 			'stonewright-design-implementation-contract',
-			'stonewright-media-list',
-			'stonewright-media-upload-batch',
-			'stonewright-elementor-v3-get-kit-globals',
-			'stonewright-elementor-v3-container-schema',
-			'stonewright-elementor-v3-build-page-from-spec',
+			'stonewright-elementor-v3-batch-mutate',
 			'stonewright-content-bulk-upsert-posts',
 		]));
 		expect(names).not.toContain('stonewright-media-upload');
@@ -413,9 +393,9 @@ describe('createMcpServer', () => {
 		};
 
 		expect(response.structuredContent?.tool_profile).toBe('low-tools');
-		expect(response.structuredContent?.profile_expected_tool_count).toBeLessThanOrEqual(24);
-		expect(response.structuredContent?.client_visible_expected_tool_count).toBeLessThanOrEqual(30);
-		expect(names.length).toBeLessThanOrEqual(30);
+		expect(response.structuredContent?.profile_expected_tool_count).toBe(6);
+		expect(response.structuredContent?.client_visible_expected_tool_count).toBe(12);
+		expect(names.length).toBeLessThanOrEqual(12);
 		expect(response.structuredContent?.local_tool_names).toEqual(expect.not.arrayContaining([
 			'companion_wp_cli_run',
 			'companion_wp_cli_batch_run',
@@ -436,26 +416,17 @@ describe('createMcpServer', () => {
 			'stonewright-wp-cli-job-start',
 			'stonewright-wp-cli-job-status',
 		]);
-		expect(response.structuredContent?.tool_inventory?.proxied_profile_tool_groups?.elementor_design).toContain('stonewright-elementor-v3-build-page-from-spec');
+		expect(response.structuredContent?.tool_inventory?.proxied_profile_tool_groups?.runtime).toContain('stonewright-php-execute');
 		expect(names).toEqual(expect.arrayContaining([
 			'stonewright-setup-profile',
 			'stonewright-wordpress-mcp-status',
 			'stonewright-wp-cli-status',
-			'stonewright-wp-cli-discover',
-			'stonewright-wp-cli-run',
 			'stonewright-wp-cli-batch-run',
 			'stonewright-context-bootstrap',
 			'stonewright-workflow-preflight',
 			'stonewright-tool-profile',
 			'stonewright-php-execute',
 			'stonewright-skills-get',
-			'stonewright-content-bulk-upsert-posts',
-			'stonewright-media-upload-batch',
-			'stonewright-design-implementation-contract',
-			'stonewright-elementor-v3-get-kit-globals',
-			'stonewright-elementor-v3-build-page-from-spec',
-			'stonewright-elementor-v3-batch-mutate',
-			'stonewright-gutenberg-apply-to-post',
 			'stonewright-wp-cli-job-start',
 			'stonewright-wp-cli-job-status',
 		]));
@@ -480,7 +451,7 @@ describe('createMcpServer', () => {
 				{ name: 'stonewright-workflow-preflight' },
 				{ name: 'stonewright-tool-profile' },
 				{ name: 'stonewright-design-implementation-contract' },
-				{ name: 'stonewright-elementor-v3-build-page-from-spec' },
+				{ name: 'stonewright-elementor-v3-batch-mutate' },
 				{ name: 'stonewright-experimental-heavy-tool' },
 			]),
 		});
@@ -492,9 +463,27 @@ describe('createMcpServer', () => {
 			'stonewright-workflow-preflight',
 			'stonewright-tool-profile',
 			'stonewright-design-implementation-contract',
-			'stonewright-elementor-v3-build-page-from-spec',
+			'stonewright-elementor-v3-batch-mutate',
 		]));
 		expect(names).not.toContain('stonewright-experimental-heavy-tool');
+	});
+
+	it('keeps the real default client surface at twenty tools', async () => {
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+			},
+			fetchImpl: stonewrightMcpFetch(proxyToolNamesForProfile('essential').map((name) => ({ name }))),
+		});
+
+		const names = registeredToolNames(server);
+		expect(names).toHaveLength(20);
+		expect(names).not.toEqual(expect.arrayContaining([
+			'companion_wp_cli_run',
+			'companion_wp_cli_batch_run',
+		]));
 	});
 
 	it('reports proxied tool count after compact profile filtering', async () => {
@@ -567,8 +556,6 @@ describe('createMcpServer', () => {
 		expect(response.structuredContent?.local_tool_names).toEqual(expect.arrayContaining([
 			'stonewright-wp-cli-run',
 			'stonewright-wp-cli-install',
-			'companion_wp_cli_run',
-			'companion_wp_cli_install',
 		]));
 		expect(response.structuredContent?.recovery).toContain('If a needed WordPress MCP tool is absent and profile_filtered_tool_count is greater than 0, switch STONEWRIGHT_MCP_TOOL_PROFILE to a narrower task profile or full, then restart the MCP session.');
 		expect(response.structuredContent?.recovery).toContain('If startup_ready is false, update/enable the missing startup tools in the WordPress Stonewright plugin, then restart the MCP session.');

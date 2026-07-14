@@ -12,6 +12,8 @@
   source.
 - Reduced compact context-bootstrap responses below the documented task-start
   token budgets.
+- Reduced the default registered ability surface from 65 to 20 composite and
+  discovery tools; full mode still exposes maintainer and compatibility tools.
 
 ### Fixed
 

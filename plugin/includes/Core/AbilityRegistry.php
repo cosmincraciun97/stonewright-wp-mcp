@@ -691,16 +691,33 @@ final class AbilityRegistry {
 	}
 
 	/**
-	 * Returns metadata for ALL abilities regardless of enabled/disabled state.
-	 * Used by the admin Abilities page.
+	 * Returns metadata for the abilities exposed on the current public MCP surface.
 	 *
 	 * @return array<int, array{name: string, mcp_tool_name: string, label: string, description: string, category: string, enabled: bool, input_schema: array<string, mixed>}>
 	 */
 	public static function enabled_abilities(): array {
+		return self::metadata_for_classes( self::public_classes() );
+	}
+
+	/**
+	 * Returns the complete ability catalog for admin, discovery, and profile planning.
+	 * The `enabled` field still reflects per-ability operator configuration.
+	 *
+	 * @return array<int, array{name: string, mcp_tool_name: string, label: string, description: string, category: string, enabled: bool, input_schema: array<string, mixed>}>
+	 */
+	public static function all_abilities(): array {
+		return self::metadata_for_classes( self::list() );
+	}
+
+	/**
+	 * @param array<int, class-string<Ability>> $classes Ability classes to describe.
+	 * @return array<int, array{name: string, mcp_tool_name: string, label: string, description: string, category: string, enabled: bool, input_schema: array<string, mixed>}>
+	 */
+	private static function metadata_for_classes( array $classes ): array {
 		$disabled_abilities = (array) get_option( 'stonewright_disabled_abilities', [] );
 		$result             = [];
 
-		foreach ( self::public_classes() as $class ) {
+		foreach ( $classes as $class ) {
 			if ( ! class_exists( $class ) ) {
 				continue;
 			}
@@ -762,84 +779,29 @@ final class AbilityRegistry {
 	 */
 	private static function essential_ability_names(): array {
 		return [
-			// Bootstrap, runtime, and site context.
+			// Startup and runtime.
 			'stonewright/context-bootstrap',
-			'stonewright/security-issue-confirmation-token',
-			'stonewright/security-create-one-time-link',
-			'stonewright/php-execute',
-			'stonewright/ping',
-			'stonewright/site-info',
-			'stonewright/site-environment',
-			'stonewright/site-health',
-			'stonewright/site-plugins-list',
-			'stonewright/site-theme',
-			'stonewright/sandbox-write',
-			'stonewright/sandbox-activate',
-
-			// Fast workflow and compact instructions.
 			'stonewright/workflow-preflight',
 			'stonewright/tool-profile',
 			'stonewright/skills-get',
-			'stonewright/system-abilities-list',
-			'stonewright/system-instructions-get',
+			'stonewright/php-execute',
+			'stonewright/security-issue-confirmation-token',
+			'stonewright/site-info',
+			'stonewright/site-health',
 
-			// Content and media.
-			'stonewright/content-create-page',
-			'stonewright/content-get-page',
-			'stonewright/content-update-page',
+			// Composite content and design paths.
 			'stonewright/content-bulk-upsert-posts',
 			'stonewright/content-model-loop-grid-flow',
-			'stonewright/media-list',
 			'stonewright/media-upload-batch',
-
-			// Elementor V3 fast paths and discovery.
-			'stonewright/elementor-v3-status',
+			'stonewright/design-implementation-contract',
 			'stonewright/elementor-v3-capabilities-summary',
-			'stonewright/elementor-v3-get-kit-globals',
-			'stonewright/elementor-v3-container-schema',
-			'stonewright/elementor-v3-list-widgets',
 			'stonewright/elementor-v3-get-widget-schema',
 			'stonewright/elementor-v3-get-page-structure',
-			'stonewright/elementor-v3-get-element',
-			'stonewright/widget-intent-resolve',
-			'stonewright/elementor-widget-implementation-guide',
 			'stonewright/elementor-v3-build-page-from-spec',
 			'stonewright/elementor-v3-batch-mutate',
-			'stonewright/elementor-v3-apply-bundle',
-			'stonewright/elementor-v3-update-page-settings',
-			'stonewright/elementor-v3-update-kit-colors',
-			'stonewright/elementor-v3-update-kit-typography',
-			'stonewright/elementor-v3-save-template',
 			'stonewright/theme-builder-apply-template',
-
-			// Design pipeline.
-			'stonewright/design-implementation-contract',
-			'stonewright/design-validate-spec',
-			'stonewright/design-build-spec',
-			'stonewright/design-spec-to-elementor-v3',
-			'stonewright/design-spec-to-gutenberg',
-			'stonewright/design-apply-to-post',
-
-			// Gutenberg and FSE fast paths.
-			'stonewright/blocks-list-registered',
-			'stonewright/blocks-get-schema',
-			'stonewright/blocks-parse',
-			'stonewright/blocks-serialize',
-			'stonewright/gutenberg-render-blocks',
 			'stonewright/gutenberg-apply-to-post',
-			'stonewright/fse-get-theme-json',
-			'stonewright/fse-list-templates',
-			'stonewright/fse-read-template',
-			'stonewright/fse-write-template',
-			'stonewright/fse-write-global-styles',
-
-			// Plugin/theme/CPT/Woo operations stay fast via runtime and WP-CLI tools.
-			'stonewright/wp-cli-status',
-			'stonewright/wp-cli-discover',
-			'stonewright/wp-cli-run',
 			'stonewright/wp-cli-batch-run',
-			'stonewright/wp-cli-job-start',
-			'stonewright/wp-cli-job-status',
 		];
 	}
 

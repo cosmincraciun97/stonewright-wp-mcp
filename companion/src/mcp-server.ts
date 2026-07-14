@@ -83,8 +83,6 @@ const LOW_TOOLS_LOCAL_RECOVERY_TOOL_NAMES = [
 	'stonewright-setup-profile',
 	'stonewright-wordpress-mcp-status',
 	'stonewright-wp-cli-status',
-	'stonewright-wp-cli-discover',
-	'stonewright-wp-cli-run',
 	'stonewright-wp-cli-batch-run',
 	'stonewright-wp-cli-job-start',
 	'stonewright-wp-cli-job-status',
@@ -266,7 +264,8 @@ function localRecoveryToolNamesForProfile(profile: ProxyToolProfile): readonly s
 }
 
 function localToolNamesForProfile(profile: ProxyToolProfile): readonly string[] {
-	return profile === 'low-tools' ? LOW_TOOLS_LOCAL_RECOVERY_TOOL_NAMES : LOCAL_TOOL_NAMES;
+	if (profile === 'low-tools') return LOW_TOOLS_LOCAL_RECOVERY_TOOL_NAMES;
+	return profile === 'full' ? LOCAL_TOOL_NAMES : LOCAL_RECOVERY_TOOL_NAMES;
 }
 
 function recoveryHints(profileFilteredToolCount: number, startupMissingToolCount: number, profileMissingToolCount: number): string[] {
@@ -442,7 +441,8 @@ function registerWpCliTools(
 }
 
 function localAliases(profile: ProxyToolProfile, canonical: string, legacy: string): string[] {
-	return profile === 'low-tools' ? [canonical] : [legacy, canonical];
+	if (!localToolNamesForProfile(profile).includes(canonical)) return [];
+	return profile === 'full' ? [legacy, canonical] : [canonical];
 }
 
 function toWpCliInput(input: Record<string, unknown>): Partial<WpCliRunInput> {
