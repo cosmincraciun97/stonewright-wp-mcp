@@ -256,7 +256,7 @@ final class ContextBuilder {
 				'After each section batch, verify desktop, tablet, and mobile breakpoints before starting the next batch.',
 				'Auto-continue to the next section batch when screenshots, overflow checks, and diagnostics pass; do not wait for user approval between batches.',
 				'Use the exact Elementor control keys from widget schema or stonewright/elementor-describe-widget; do not invent CSS-like setting names.',
-				'Use dedicated stonewright/elementor-add-* widget abilities for known widgets. Use stonewright/elementor-v3-add-widget only for unknown or third-party widgets.',
+				'Use stonewright/elementor-schema and schema-validated batch mutation for all widgets, including third-party widgets. Per-widget add abilities are deprecated compatibility tools.',
 				'Set page template to Elementor Canvas when the user asks for no header and no footer.',
 				'Do not use the design canvas width as a fixed live page width; translate it into max-width, percentage widths, and responsive padding.',
 				'Before full-page screenshots, scroll through the page or otherwise preload lazy-loaded media so missing assets are not mistaken for layout failures.',

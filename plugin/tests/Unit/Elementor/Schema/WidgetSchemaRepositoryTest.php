@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Elementor\Schema;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\ElementorSchema;
+use Stonewright\WpMcp\Elementor\Schema\ContainerSchemaRepository;
 use Stonewright\WpMcp\Elementor\Schema\RuntimeFingerprint;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
@@ -13,6 +14,7 @@ use Stonewright\WpMcp\Support\ElementorData;
 /**
  * @covers \Stonewright\WpMcp\Elementor\Schema\RuntimeFingerprint
  * @covers \Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository
+ * @covers \Stonewright\WpMcp\Elementor\Schema\ContainerSchemaRepository
  * @covers \Stonewright\WpMcp\Elementor\Schema\SettingsValidator
  * @covers \Stonewright\WpMcp\Abilities\ElementorV3\ElementorSchema
  */
@@ -40,6 +42,11 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 						'wide-widget'       => new LiveWideWidget(),
 					];
 					return null === $name ? $widgets : ( $widgets[ $name ] ?? null );
+				}
+			},
+			'elements_manager' => new class() {
+				public function get_element_types( string $name ): ?object {
+					return 'container' === $name ? new LiveContainerElement() : null;
 				}
 			},
 		];
@@ -78,6 +85,20 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 		$data = $result->get_error_data();
 		self::assertSame( 'unknown_setting', $data['violations'][0]['code'] );
 		self::assertContains( 'title', $data['violations'][0]['suggestions'] );
+	}
+
+	public function test_live_container_schema_accepts_injected_controls_and_rejects_unknown_keys(): void {
+		$schema = ContainerSchemaRepository::get();
+		self::assertIsArray( $schema );
+		self::assertSame( 'elementor_live_controls', $schema['source'] );
+		self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $schema['schema_hash'] );
+
+		$valid = SettingsValidator::validate_container( [ 'plugin_layout_token_tablet' => 'wide' ] );
+		self::assertIsArray( $valid );
+
+		$invalid = SettingsValidator::validate_container( [ 'invented_layout_key' => true ] );
+		self::assertInstanceOf( \WP_Error::class, $invalid );
+		self::assertSame( 'unknown_setting', $invalid->get_error_data()['violations'][0]['code'] );
 	}
 
 	public function test_responsive_url_and_recursive_repeater_shapes_are_validated(): void {
@@ -158,6 +179,35 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 		self::assertFalse( $written );
 		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
 		self::assertSame( 'stonewright_elementor_settings_invalid', SettingsValidator::last_error()?->get_error_code() );
+	}
+
+	public function test_final_write_guard_blocks_unknown_container_settings_before_post_meta(): void {
+		$written = ElementorData::write(
+			99,
+			[
+				[
+					'id'       => 'container1',
+					'elType'   => 'container',
+					'settings' => [ 'invented_layout_key' => 'bad' ],
+					'elements' => [],
+				],
+			]
+		);
+
+		self::assertFalse( $written );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+		self::assertSame( 'stonewright_elementor_settings_invalid', SettingsValidator::last_error()?->get_error_code() );
+	}
+}
+
+final class LiveContainerElement {
+	/** @return array<string, array<string, mixed>> */
+	public function get_controls(): array {
+		return [
+			'container_type'     => [ 'type' => 'select', 'options' => [ 'flex' => 'Flex', 'grid' => 'Grid' ] ],
+			'flex_direction'     => [ 'type' => 'select', 'responsive' => true ],
+			'plugin_layout_token' => [ 'type' => 'select', 'responsive' => true, 'options' => [ 'wide' => 'Wide' ] ],
+		];
 	}
 }
 

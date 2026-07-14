@@ -26,8 +26,13 @@ final class ElementorData {
 		if ( is_array( $raw ) ) {
 			return $raw;
 		}
-		$decoded = json_decode( (string) $raw, true );
-		return is_array( $decoded ) ? $decoded : [];
+		foreach ( [ (string) $raw, (string) wp_unslash( $raw ) ] as $candidate ) {
+			$decoded = json_decode( $candidate, true );
+			if ( is_array( $decoded ) ) {
+				return $decoded;
+			}
+		}
+		return [];
 	}
 
 	/**

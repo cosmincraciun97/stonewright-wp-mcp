@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\ContainerSettings;
+use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
@@ -73,10 +74,14 @@ final class AddContainer extends AbilityKernel {
 					return $this->error( 'not_found', __( 'Post not found.', 'stonewright' ) );
 				}
 
-				$snapshot_id = Backup::snapshot_post( $post_id );
 				$tree        = ElementorData::read( $post_id );
 				$settings    = isset( $args['settings'] ) && is_array( $args['settings'] ) ? $args['settings'] : [];
 				$settings    = ContainerSettings::normalize( $settings );
+				$validated   = SettingsValidator::validate_container( $settings );
+				if ( $validated instanceof \WP_Error ) {
+					return $validated;
+				}
+				$settings = $validated['settings'];
 
 				$element = [
 					'id'       => ElementorData::generate_id(),
@@ -97,6 +102,7 @@ final class AddContainer extends AbilityKernel {
 				$position = isset( $args['position'] ) ? (int) $args['position'] : PHP_INT_MAX;
 
 				$new_tree = ElementorData::insert( $tree, $parent_path, $position, $element );
+				$snapshot_id = Backup::snapshot_post( $post_id );
 				if ( ! ElementorData::write( $post_id, $new_tree ) ) {
 					return $this->error( 'write_failed', __( 'Could not save Elementor data.', 'stonewright' ) );
 				}

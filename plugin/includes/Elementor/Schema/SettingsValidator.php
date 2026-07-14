@@ -18,6 +18,27 @@ final class SettingsValidator {
 		if ( $schema instanceof \WP_Error ) {
 			return $schema;
 		}
+		return self::validate_schema( $widget_type, $settings, $schema, $require_render_settings );
+	}
+
+	/**
+	 * @param array<string, mixed> $settings Candidate structural-element settings.
+	 * @return array{settings:array<string,mixed>,schema_hash:string,warnings:list<array<string,mixed>>}|\WP_Error
+	 */
+	public static function validate_container( array $settings, string $element_type = 'container' ): array|\WP_Error {
+		$schema = ContainerSchemaRepository::get( $element_type );
+		if ( $schema instanceof \WP_Error ) {
+			return $schema;
+		}
+		return self::validate_schema( $element_type, $settings, $schema, false );
+	}
+
+	/**
+	 * @param array<string, mixed> $settings
+	 * @param array<string, mixed> $schema
+	 * @return array{settings:array<string,mixed>,schema_hash:string,warnings:list<array<string,mixed>>}|\WP_Error
+	 */
+	private static function validate_schema( string $subject, array $settings, array $schema, bool $require_render_settings ): array|\WP_Error {
 
 		$controls   = (array) ( $schema['controls'] ?? [] );
 		$violations = [];
@@ -62,7 +83,7 @@ final class SettingsValidator {
 				__( 'Elementor settings do not match the live widget schema.', 'stonewright' ),
 				[
 					'status'      => 400,
-					'widget_type' => $widget_type,
+					'widget_type' => $subject,
 					'schema_hash' => (string) ( $schema['schema_hash'] ?? '' ),
 					'violations'  => $violations,
 				]
@@ -88,7 +109,8 @@ final class SettingsValidator {
 			if ( ! is_array( $element ) ) {
 				continue;
 			}
-			if ( 'widget' === ( $element['elType'] ?? '' ) ) {
+			$element_type = (string) ( $element['elType'] ?? '' );
+			if ( 'widget' === $element_type ) {
 				$widget_type = (string) ( $element['widgetType'] ?? '' );
 				if ( '' !== $widget_type && 'html' !== $widget_type && ! str_starts_with( $widget_type, 'e-' ) ) {
 					$settings = isset( $element['settings'] ) && is_array( $element['settings'] ) ? $element['settings'] : [];
@@ -97,6 +119,13 @@ final class SettingsValidator {
 						self::$last_error = $result;
 						return false;
 					}
+				}
+			} elseif ( in_array( $element_type, [ 'container', 'section', 'column' ], true ) ) {
+				$settings = isset( $element['settings'] ) && is_array( $element['settings'] ) ? $element['settings'] : [];
+				$result   = self::validate_container( $settings, $element_type );
+				if ( $result instanceof \WP_Error ) {
+					self::$last_error = $result;
+					return false;
 				}
 			}
 			$children = isset( $element['elements'] ) && is_array( $element['elements'] ) ? $element['elements'] : [];

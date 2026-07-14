@@ -50,7 +50,7 @@ final class AddWidget extends AbilityKernel {
 				],
 				'allow_raw_known_widget' => [
 					'type'        => 'boolean',
-					'description' => 'Escape hatch for built-in Elementor widgets already known to Stonewright. Default false so agents use the dedicated stonewright/elementor-add-* ability and exact schema.',
+					'description' => 'Compatibility escape hatch for built-in widgets. Prefer stonewright/elementor-schema followed by schema-validated batch-mutate.',
 					'default'     => false,
 				],
 				'schema_required' => [
@@ -99,10 +99,11 @@ final class AddWidget extends AbilityKernel {
 					if ( empty( $args['allow_raw_known_widget'] ) ) {
 						return $this->error(
 							'known_widget_requires_dedicated_ability',
-							__( 'This is a built-in Elementor widget known to Stonewright. Use the dedicated stonewright/elementor-add-* ability so widget settings are validated and editor-compatible.', 'stonewright' ),
+							__( 'This built-in widget must use the live schema and the schema-validated batch mutation path.', 'stonewright' ),
 							[
 								'widget'            => $widget_type,
-								'suggested_ability' => 'stonewright/elementor-add-' . $widget_type,
+								'suggested_ability' => 'stonewright/elementor-v3-batch-mutate',
+								'schema_ability'    => 'stonewright/elementor-schema',
 								'required_settings' => WidgetCatalog::required_for_render( $widget_type ),
 							]
 						);

@@ -23,7 +23,9 @@ final class WidgetImplementationGuideTest extends TestCase {
 
 		$first = $result['recommendations'][0];
 		self::assertSame( 'nav-menu', $first['widget'] );
-		self::assertSame( 'stonewright/elementor-add-nav-menu', $first['ability'] );
+		self::assertSame( 'stonewright/elementor-v3-batch-mutate', $first['ability'] );
+		self::assertSame( 'stonewright/elementor-add-nav-menu', $first['legacy_ability'] );
+		self::assertTrue( $first['legacy_deprecated'] );
 		self::assertArrayHasKey( 'Content', $first['required_controls'] );
 		self::assertArrayHasKey( 'Style', $first['required_controls'] );
 		self::assertArrayHasKey( 'Advanced', $first['required_controls'] );

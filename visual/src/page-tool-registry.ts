@@ -34,6 +34,7 @@ export class PageToolRegistry {
         label: tool.label,
         description: tool.description,
         mutates: tool.mutates === true,
+        batchable: tool.batchable !== false,
         input: summarizeToolInput(tool.parameters),
       })),
       {
@@ -87,6 +88,16 @@ export class PageToolRegistry {
         }
         continue;
       }
+      if (tool.batchable === false) {
+        const error = `batch_call[${index}] tool cannot run inside a transaction: ${toolName}`;
+        rows.push({ index, tool: toolName, ok: false, error });
+        summaries.push(`${index + 1}. ${toolName}: ERROR ${error}`);
+        if (stopOnError) {
+          rolledBack = await this.rollback(transaction, completedMutations, rollbackOnError);
+          break;
+        }
+        continue;
+      }
 
       const args = toRecord(normalizeArgAliases(resolveRefs(call.args ?? {}, refs)));
       try {
@@ -127,12 +138,19 @@ export class PageToolRegistry {
   }
 
   private async executeWithReadback(tool: NestedEditorTool, args: Record<string, unknown>, requireReadback: boolean): Promise<NestedToolResult> {
+    if (tool.mutates && requireReadback && !tool.readback) {
+      throw new Error(`Mutation tool ${tool.name} is missing mandatory readback.`);
+    }
     const result = await tool.execute(args);
     if (!tool.mutates) return result;
-    if (requireReadback && !tool.readback) throw new Error(`Mutation tool ${tool.name} is missing mandatory readback.`);
     if (!tool.readback) return result;
-    const readback = await tool.readback(args, result);
-    return { ...result, details: { ...result.details, readback_verified: true, readback } };
+    try {
+      const readback = await tool.readback(args, result);
+      return { ...result, details: { ...result.details, readback_verified: true, readback } };
+    } catch (cause) {
+      if (tool.rollback) await tool.rollback(args, result);
+      throw cause;
+    }
   }
 
   private async rollback(
@@ -140,11 +158,12 @@ export class PageToolRegistry {
     mutations: Array<{ tool: NestedEditorTool; args: Record<string, unknown>; result: NestedToolResult }>,
     enabled: boolean,
   ): Promise<boolean> {
-    if (!enabled || mutations.length === 0) return false;
+    if (!enabled) return false;
     if (transaction) {
       await transaction.rollback();
       return true;
     }
+    if (mutations.length === 0) return false;
     for (const mutation of [...mutations].reverse()) {
       if (!mutation.tool.rollback) throw new Error(`Cannot rollback ${mutation.tool.name}; no transaction or rollback handler is available.`);
       await mutation.tool.rollback(mutation.args, mutation.result);

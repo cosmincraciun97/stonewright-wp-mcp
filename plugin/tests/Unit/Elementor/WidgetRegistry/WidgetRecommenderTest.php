@@ -16,7 +16,8 @@ final class WidgetRecommenderTest extends TestCase {
 
 		self::assertNotEmpty( $recommendations );
 		self::assertSame( 'image-gallery', $recommendations[0]['slug'] );
-		self::assertSame( 'stonewright/elementor-add-image-gallery', $recommendations[0]['ability'] );
+		self::assertSame( 'stonewright/elementor-v3-batch-mutate', $recommendations[0]['ability'] );
+		self::assertSame( 'stonewright/elementor-add-image-gallery', $recommendations[0]['legacy_ability'] );
 		self::assertNotContains( 'html', array_column( $recommendations, 'slug' ) );
 	}
 

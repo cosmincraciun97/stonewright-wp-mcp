@@ -10,6 +10,12 @@ export * from "./workspace-agent-guidance.js";
 export * from "./workspace-backend-tools.js";
 export * from "./workspace-confirmations.js";
 export * from "./workspace-dispatcher.js";
+export * from "./elementor-v3/types.js";
+export * from "./elementor-v3/hash.js";
+export * from "./elementor-v3/evidence-ledger.js";
+export * from "./elementor-v3/settings-validator.js";
+export * from "./elementor-v3/window-runtime.js";
+export * from "./elementor-v3/editor-adapter.js";
 
 export const STONEWRIGHT_WORKSPACE_TOOL = {
   name: "stonewright-workspace-request",

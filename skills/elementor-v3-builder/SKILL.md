@@ -158,9 +158,10 @@ headings inside loop templates; do not rely on many manual meta updates.
 - Put every page section in a full-width outer container, then a centered inner
   container with the design max-width. Do not leave content floating at page
   edges or stacked as a single accidental column.
-- Use dedicated `stonewright/elementor-add-*` abilities for known Elementor
-  widgets. Use `stonewright/elementor-v3-add-widget` only for unknown or
-  third-party widgets after schema lookup.
+- Use `stonewright/elementor-schema` followed by
+  `stonewright/elementor-v3-batch-mutate` for every known or third-party
+  widget. `stonewright/elementor-add-*` abilities are deprecated compatibility
+  tools and must not be chosen for new plans.
 - For every widget you intend to write, call
   `stonewright/elementor-schema` with `mode: "summary"` and inspect
   Content, Style, and Advanced controls before choosing settings. Request
@@ -242,8 +243,8 @@ Returns `{ "template_id": 150 }`.
 | `stonewright/elementor-v3-get-page-structure` | Read compact page outline by default; use `responseMode: "full"` for raw tree |
 | `stonewright/elementor-v3-get-element` | Read single element by ID |
 | `stonewright/elementor-v3-add-container` | Add flex container |
-| `stonewright/elementor-add-*` | Add known native widgets with schema validation |
-| `stonewright/elementor-v3-add-widget` | Escape hatch for unknown/third-party widgets |
+| `stonewright/elementor-add-*` | Deprecated compatibility abilities; do not use for new plans |
+| `stonewright/elementor-v3-add-widget` | Deprecated single-write escape hatch |
 | `stonewright/elementor-v3-update-element` | Update element settings |
 | `stonewright/elementor-v3-move-element` | Reorder/reparent element |
 | `stonewright/elementor-v3-remove-element` | Delete element |
@@ -256,7 +257,7 @@ Returns `{ "template_id": 150 }`.
 | `stonewright/elementor-v3-update-kit-typography` | Mutate kit typography |
 | `stonewright/elementor-v3-update-page-settings` | Page-level settings |
 | `stonewright/elementor-v3-build-page-from-spec` | Spec-driven build with dry_run, metrics, append/replace modes |
-| `stonewright/elementor-v3-batch-mutate` | Many add/update/move/remove operations in one compact write |
+| `stonewright/elementor-v3-batch-mutate` | Primary V3 write compiler: evidence, idempotency, expected hash, one snapshot, readback |
 | `stonewright/elementor-v3-apply-bundle` | Multi-post spec bundle |
 
 ## Confirmation token for destructive writes

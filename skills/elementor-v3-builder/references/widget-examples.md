@@ -1,121 +1,120 @@
-# Widget Examples
+# Elementor V3 write examples
 
-## Add a container (section row)
+New writes use the live schema and one batch. Per-widget `elementor-add-*`
+abilities are deprecated.
+
+## 1. Read structure and schemas
+
+```json
+{ "ability": "stonewright/elementor-v3-get-page-structure", "args": { "post_id": 42 } }
+```
+
+```json
+{ "ability": "stonewright/elementor-schema", "args": { "mode": "summary", "widget_type": "heading" } }
+```
+
+Repeat schema lookup for `text-editor`, `image`, and `button`. Keep each
+returned `schema_hash`; never invent a setting.
+
+## 2. Dry-run a native section batch
 
 ```json
 {
-  "ability": "stonewright/elementor-v3-add-container",
+  "ability": "stonewright/elementor-v3-batch-mutate",
   "args": {
     "post_id": 42,
-    "settings": {
-      "flex_direction": "row",
-      "flex_gap": { "size": 20, "unit": "px" },
-      "padding": { "top": "40", "right": "0", "bottom": "40", "left": "0", "unit": "px", "isLinked": false }
-    }
+    "dry_run": true,
+    "require_evidence": true,
+    "expected_tree_hash": "<hash from page structure/readback>",
+    "operations": [
+      {
+        "action": "add_container",
+        "op_id": "hero",
+        "parent_id": "<existing-parent-id>",
+        "settings": {},
+        "settings_evidence": {}
+      },
+      {
+        "action": "add_widget",
+        "op_id": "title",
+        "parent_ref": "hero",
+        "widget_type": "heading",
+        "settings": { "title": "Build faster.", "header_size": "h1" },
+        "settings_evidence": {
+          "title": {
+            "schema_hash": "<heading-schema-hash>",
+            "source": "figma:node/hero-title",
+            "confidence": 0.99,
+            "responsive_scope": "desktop",
+            "requires_confirmation": false
+          },
+          "header_size": {
+            "schema_hash": "<heading-schema-hash>",
+            "source": "design-semantic:h1",
+            "confidence": 1,
+            "responsive_scope": "all",
+            "requires_confirmation": false
+          }
+        }
+      },
+      {
+        "action": "add_widget",
+        "op_id": "cta",
+        "parent_ref": "hero",
+        "widget_type": "button",
+        "settings": {
+          "text": "Get started",
+          "link": { "url": "/contact", "is_external": false }
+        },
+        "settings_evidence": {
+          "text": {
+            "schema_hash": "<button-schema-hash>",
+            "source": "figma:node/hero-cta-label",
+            "confidence": 1,
+            "responsive_scope": "all",
+            "requires_confirmation": false
+          },
+          "link": {
+            "schema_hash": "<button-schema-hash>",
+            "source": "user-requirement:/contact",
+            "confidence": 1,
+            "responsive_scope": "all",
+            "requires_confirmation": false
+          }
+        }
+      }
+    ]
   }
 }
 ```
 
-Returns `{ "element_id": "a1b2c3d4" }`.
+Buttons and CTA widgets without `link` or another live action control are an
+error, not a static decoration.
 
-## Add a heading widget inside a container
+## 3. Apply once
 
-```json
-{
-  "ability": "stonewright/elementor-v3-add-widget",
-  "args": {
-    "post_id": 42,
-    "parent_id": "a1b2c3d4",
-    "widget_type": "heading",
-    "settings": {
-      "title": "Build faster.",
-      "header_size": "h1",
-      "align": "center",
-      "title_color": "#0057FF"
-    }
-  }
-}
-```
+Reuse the validated operations with `dry_run: false` and add a unique
+`idempotency_key`. Keep the same `expected_tree_hash` only if the page did not
+change after dry-run.
 
-## Add a text-editor widget
+Send the exact validated operations array from the dry-run again, changing only
+`dry_run` to `false` and adding a unique `idempotency_key` such as
+`home-hero-v1-20260714`. Keep the same `expected_tree_hash` only if the page
+did not change after dry-run.
 
-```json
-{
-  "ability": "stonewright/elementor-v3-add-widget",
-  "args": {
-    "post_id": 42,
-    "parent_id": "a1b2c3d4",
-    "widget_type": "text-editor",
-    "settings": {
-      "editor": "<p>Your content here.</p>"
-    }
-  }
-}
-```
+Success requires `after_hash === readback_hash`. Repeating the identical
+request returns `idempotent_replay: true` without creating duplicates. Reusing
+the key with changed input is rejected.
 
-## Add an image widget
+## 4. Visual editor path
 
-```json
-{
-  "ability": "stonewright/elementor-v3-add-widget",
-  "args": {
-    "post_id": 42,
-    "parent_id": "a1b2c3d4",
-    "widget_type": "image",
-    "settings": {
-      "image": { "url": "https://example.com/hero.jpg", "id": 77 },
-      "image_size": "large",
-      "align": "center"
-    }
-  }
-}
-```
+When Stonewright Visual is connected, call nested page tools through the single
+`stonewright-workspace-request` gateway:
 
-## Add a button widget
+- `get_page_structure`, `list_widgets`, `get_widget_schema`;
+- `create_element`, `update_settings`, `move_element`, `delete_element`;
+- `batch_call` for refs and rollback;
+- `undo`, `redo`, then `save` outside a batch.
 
-```json
-{
-  "ability": "stonewright/elementor-v3-add-widget",
-  "args": {
-    "post_id": 42,
-    "parent_id": "a1b2c3d4",
-    "widget_type": "button",
-    "settings": {
-      "text": "Get started",
-      "link": { "url": "/contact", "is_external": false },
-      "button_type": "default",
-      "align": "center"
-    }
-  }
-}
-```
-
-## Update an existing element's settings
-
-```json
-{
-  "ability": "stonewright/elementor-v3-update-element",
-  "args": {
-    "post_id": 42,
-    "element_id": "a1b2c3d4",
-    "settings": {
-      "background_color": "#F5F5F5"
-    }
-  }
-}
-```
-
-## Get available widget types
-
-```json
-{ "ability": "stonewright/elementor-v3-list-widgets", "args": {} }
-```
-
-## Get schema for a specific widget
-
-```json
-{
-  "ability": "stonewright/elementor-schema",
-  "args": { "mode": "summary", "widget_type": "heading" }
-}
-```
+Every editor mutation performs immediate model readback. `save` verifies the
+editor is no longer dirty.

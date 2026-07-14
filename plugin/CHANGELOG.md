@@ -5,6 +5,10 @@
 ### Added
 
 - Added reproducible MCP tool-surface and task-start token measurements.
+- Added optimistic Elementor tree hashes, 24-hour idempotency, strict
+  per-setting evidence, and readback/restore verification to batch mutation.
+- Added live structural schema validation for container, section, and column
+  settings, including the final pre-persistence tree guard.
 
 ### Changed
 
@@ -18,8 +22,13 @@
   lazy PHP shards, plus `stonewright/elementor-schema` for live discovery.
 - Added runtime widget-setting validation and a final pre-persistence tree gate
   so unknown Elementor V3 keys cannot reach `_elementor_data`.
+- Deprecated generated per-widget add abilities for new plans; the live schema
+  plus unified batch compiler is now the recommended V3 write path.
 
 ### Fixed
+
+- Snapshot restore now removes tracked meta keys that did not exist when the
+  snapshot was taken.
 
 - Corrected the Elementor Pro Gallery required setting to the live `gallery`
   control instead of the Basic Gallery-only `wp_gallery` key.

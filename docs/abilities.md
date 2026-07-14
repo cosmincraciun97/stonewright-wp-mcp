@@ -21,7 +21,7 @@ matrix after changing the registry.
 | Full Site Editing | 10 | Read/write theme.json, templates, template parts, and global styles. |
 | Elementor V3 | 21 | Elementor V3 structure editing, page specs, kit globals, capability preflight, and batch mutation. |
 | Elementor V4 (Experimental) | 12 | Atomic nodes, variables, classes, and experimental V4 rendering. |
-| Elementor Widget Builder | 98 | Generated per-widget builders and custom widget project helpers. |
+| Elementor Widget Builder | 98 | Deprecated generated per-widget compatibility builders plus custom widget project helpers. |
 | Design | 13 | Validate Design Spec, build specs from manual input, choose renderers, normalize assets, intent routing, and apply to Gutenberg or Elementor. |
 | Knowledge | 5 | Elementor knowledge search, widget descriptions, implementation guidance, and refresh. |
 | Memory | 5 | Persistent project memory, user corrections, and learning records. |

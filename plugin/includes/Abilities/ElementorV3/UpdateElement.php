@@ -71,7 +71,6 @@ final class UpdateElement extends AbilityKernel {
 					return $this->error( 'not_found', __( 'Post not found.', 'stonewright' ) );
 				}
 
-				$snapshot_id = Backup::snapshot_post( $post_id );
 				$tree        = ElementorData::read( $post_id );
 				$path        = ElementorData::find_path( $tree, (string) $args['element_id'] );
 				if ( null === $path ) {
@@ -87,8 +86,14 @@ final class UpdateElement extends AbilityKernel {
 				$mode     = isset( $args['mode'] ) ? (string) $args['mode'] : 'merge';
 				$incoming = (array) $args['settings'];
 				$next     = 'replace' === $mode ? $incoming : array_merge( $settings, $incoming );
-				if ( 'container' === ( $existing['elType'] ?? '' ) ) {
-					$next = ContainerSettings::normalize( $next );
+				$element_type = (string) ( $existing['elType'] ?? '' );
+				if ( in_array( $element_type, [ 'container', 'section', 'column' ], true ) ) {
+					$next      = 'container' === $element_type ? ContainerSettings::normalize( $next ) : $next;
+					$validated = SettingsValidator::validate_container( $next, $element_type );
+					if ( $validated instanceof \WP_Error ) {
+						return $validated;
+					}
+					$next = $validated['settings'];
 				} elseif ( 'widget' === ( $existing['elType'] ?? '' ) ) {
 					$validated = SettingsValidator::validate( (string) ( $existing['widgetType'] ?? '' ), $next );
 					if ( $validated instanceof \WP_Error ) {
@@ -100,6 +105,7 @@ final class UpdateElement extends AbilityKernel {
 				$existing['settings'] = $next;
 
 				$new_tree = ElementorData::set( $tree, $path, $existing );
+				$snapshot_id = Backup::snapshot_post( $post_id );
 				if ( ! ElementorData::write( $post_id, $new_tree ) ) {
 					return $this->error( 'write_failed', __( 'Could not save Elementor data.', 'stonewright' ) );
 				}

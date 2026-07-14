@@ -38,6 +38,13 @@ use Stonewright\WpMcp\Support\ElementorData;
  * self-correct in one round.
  */
 abstract class WidgetAbilityBase extends AbilityKernel {
+	public function meta(): array {
+		return [
+			'deprecated'  => true,
+			'replacement' => 'stonewright/elementor-v3-batch-mutate',
+			'sunset'      => '2.0.0',
+		];
+	}
 
 	/** Each concrete subclass returns the widget slug it adds. */
 	abstract protected function slug(): string;
@@ -84,7 +91,7 @@ abstract class WidgetAbilityBase extends AbilityKernel {
 		};
 
 		$lines  = [];
-		$lines[] = sprintf( 'Inserts an %1$s "%2$s" widget into an Elementor V3 page.', $source_label, $title );
+		$lines[] = sprintf( 'Deprecated compatibility ability for an %1$s "%2$s" widget. Prefer stonewright/elementor-schema plus stonewright/elementor-v3-batch-mutate.', $source_label, $title );
 
 		if ( $intent !== '' ) {
 			$lines[] = ' ' . self::clip( $intent, 240 );

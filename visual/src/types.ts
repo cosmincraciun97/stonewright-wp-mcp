@@ -16,6 +16,7 @@ export interface NestedEditorTool {
   description?: string;
   parameters?: unknown;
   mutates?: boolean;
+  batchable?: boolean;
   execute: (args: Record<string, unknown>) => Promise<NestedToolResult>;
   readback?: (args: Record<string, unknown>, result: NestedToolResult) => Promise<unknown>;
   rollback?: (args: Record<string, unknown>, result: NestedToolResult) => Promise<void>;

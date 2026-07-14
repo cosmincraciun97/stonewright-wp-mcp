@@ -137,4 +137,27 @@ final class AddContainerTest extends TestCase {
 		self::assertArrayNotHasKey( 'align_items', $settings );
 		self::assertArrayNotHasKey( 'align_content', $settings );
 	}
+
+	public function test_unknown_container_setting_is_rejected_before_backup_or_write(): void {
+		$GLOBALS['stonewright_test_posts'][126] = (object) [
+			'ID'           => 126,
+			'post_type'    => 'page',
+			'post_status'  => 'draft',
+			'post_title'   => 'Target',
+			'post_content' => '',
+			'post_excerpt' => '',
+		];
+		$GLOBALS['stonewright_test_post_meta_calls'] = [];
+
+		$result = ( new AddContainer() )->execute(
+			[
+				'post_id'  => 126,
+				'settings' => [ 'invented_layout_key' => 'bad' ],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_settings_invalid', $result->get_error_code() );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+	}
 }

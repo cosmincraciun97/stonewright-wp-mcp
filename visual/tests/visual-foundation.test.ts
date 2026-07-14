@@ -73,8 +73,13 @@ describe("Stonewright Visual foundation", () => {
   });
 
   it("rejects mutation tools that cannot prove readback", async () => {
-    const registry = new PageToolRegistry([{ name: "update_element", mutates: true, execute: async () => ({ content: [{ type: "text", text: "ok" }] }) }]);
+    let executions = 0;
+    const registry = new PageToolRegistry([{ name: "update_element", mutates: true, execute: async () => {
+      executions++;
+      return { content: [{ type: "text", text: "ok" }] };
+    } }]);
     await expect(registry.call("update_element", {})).rejects.toThrow("mandatory readback");
+    expect(executions).toBe(0);
   });
 
   it("queues backend writes for explicit confirmation and runs approved actions", async () => {

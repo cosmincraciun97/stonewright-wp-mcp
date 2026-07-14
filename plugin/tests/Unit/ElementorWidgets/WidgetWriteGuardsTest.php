@@ -85,6 +85,8 @@ final class WidgetWriteGuardsTest extends TestCase {
 	}
 
 	public function test_dedicated_widget_adds_group_activator_for_supplied_group_subkey(): void {
+		self::assertTrue( ( new AddHeading() )->meta()['deprecated'] );
+		self::assertSame( 'stonewright/elementor-v3-batch-mutate', ( new AddHeading() )->meta()['replacement'] );
 		$result = ( new AddHeading() )->execute(
 			[
 				'post_id'   => 321,
