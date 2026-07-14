@@ -1,8 +1,10 @@
 ---
 name: elementor-v3-builder
 description: >
-  Stonewright Elementor V3 builder for pages, containers, widgets, kit colors,
-  typography, Loop Grid, templates, and responsive Elementor edits.
+  Stonewright Elementor V3 builder for native-first implementation from Figma,
+  screenshots, images, or briefs, plus pages, widgets, Loop Grid, templates,
+  kit styles, responsive edits, and safe batch mutations. Use whenever a task
+  reads, plans, builds, or repairs an Elementor V3 page or template.
 ---
 
 # Elementor V3 Builder
@@ -22,6 +24,31 @@ or the post is not an Elementor page, stop and inform the user.
 ```
 
 Returns: `{ "active": true, "version": "3.x.x" }`.
+
+## Design evidence before visual writes
+
+For Figma, screenshot, image, or brief work, convert the source into compact,
+vendor-neutral `DesignEvidence` before choosing widgets. Keep source references,
+measured viewports, semantic nodes, style provenance, actions, and unresolved
+items; discard the raw Figma tree after normalization. Then call
+`stonewright-design-native-plan` with `target: "elementor-v3"`.
+
+Do not turn vision output directly into Elementor settings. Vision classifies
+the layout; the deterministic planner chooses native primitives; the live
+schema compiles control keys later. A button, CTA, navigation item, form, or
+linked image with no real action is a blocker, not a decorative placeholder.
+Any `inference` evidence must remain confirmation-gated.
+
+Read [references/design-evidence.md](references/design-evidence.md) when the
+task starts from a design source or needs custom CSS/JS/PHP.
+
+Use the plan in two phases:
+
+1. Finish the native, editable page: global kit, content model, containers,
+   widgets, responsive controls, dry-run, write, and readback.
+2. If a verified delta remains, present the separate customization proposal.
+   Do not write CSS, JS, or PHP until the user approves its exact diff, files,
+   risk, rollback, and tests.
 
 ## Backup before write
 
@@ -138,8 +165,9 @@ headings inside loop templates; do not rely on many manual meta updates.
   the user explicitly requests HTML.
 - Start visual tasks by measuring the reference screenshot: viewport/canvas size,
   section bounds, centered max-widths, typography, colors, spacing, and asset
-  crop bounds. Then build, screenshot the live page with external Playwright MCP
-  at the same viewport, compare deltas, and iterate.
+  crop bounds. Record those facts as `DesignEvidence`, call
+  `stonewright-design-native-plan`, then build, screenshot the live page with
+  external Playwright MCP at the same viewport, compare deltas, and iterate.
 - If no Playwright/browser MCP tool is visible, install/connect it with
   `npx -y @playwright/mcp@latest --caps=testing,vision,devtools`, restart the AI
   client, and stop before the first visual write until the tool appears.
@@ -251,6 +279,7 @@ Returns `{ "template_id": 150 }`.
 | `stonewright/elementor-v3-backup-page` | Explicit snapshot |
 | `stonewright/elementor-v3-save-template` | Save to Elementor library |
 | `stonewright/elementor-v3-list-widgets` | List all registered widgets |
+| `stonewright/design-native-plan` | Validate DesignEvidence and return the deterministic native-first plan without writing |
 | `stonewright/elementor-schema` | List/search live widgets; use `mode: "summary"`, `control`, or paginated `full` without guessing keys |
 | `stonewright/elementor-v3-get-kit-globals` | Read active kit colors and typography |
 | `stonewright/elementor-v3-update-kit-colors` | Mutate kit color palette |

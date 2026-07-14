@@ -22,6 +22,7 @@ use Stonewright\WpMcp\Abilities\Design\ChooseRenderer;
 use Stonewright\WpMcp\Abilities\Design\ExtractTokens;
 use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
 use Stonewright\WpMcp\Abilities\Design\ImportImage;
+use Stonewright\WpMcp\Abilities\Design\NativePlan;
 use Stonewright\WpMcp\Abilities\Design\NormalizeAssets;
 use Stonewright\WpMcp\Abilities\Design\PreviewRender;
 use Stonewright\WpMcp\Abilities\Design\SpecToElementorV3;
@@ -280,6 +281,7 @@ final class AbilityRegistry {
 			// Design.
 			ValidateSpec::class,
 			ImplementationContract::class,
+			NativePlan::class,
 			ExtractTokens::class,
 			BuildSpec::class,
 			NormalizeAssets::class,
@@ -666,6 +668,7 @@ final class AbilityRegistry {
 			'stonewright/elementor-describe-widget',
 			'stonewright/elementor-explain-editor',
 			'stonewright/widget-intent-resolve',
+			'stonewright/design-native-plan',
 			'stonewright/elementor-v3-capabilities-summary',
 			'stonewright/elementor-v3-container-schema',
 			'stonewright/elementor-widget-implementation-guide',
@@ -795,7 +798,7 @@ final class AbilityRegistry {
 			'stonewright/content-bulk-upsert-posts',
 			'stonewright/content-model-loop-grid-flow',
 			'stonewright/media-upload-batch',
-			'stonewright/design-implementation-contract',
+			'stonewright/design-native-plan',
 			'stonewright/elementor-v3-capabilities-summary',
 			'stonewright/elementor-schema',
 			'stonewright/elementor-v3-get-page-structure',

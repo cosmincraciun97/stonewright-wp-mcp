@@ -179,6 +179,7 @@
 |---|---|---|---|---|---|---|---|---|---|---|
 | `stonewright/design-validate-spec` | `stonewright-design-validate-spec` | `Design\ValidateSpec` | Validates a design spec against the Stonewright JSON Schema and returns errors plus a normalized spec. | Read | `Permissions::edit_posts()` | No | No | Yes (DesignSpec) | stable | `tests/Integration/DesignIngestionTest.php` |
 | `stonewright/design-implementation-contract` | `stonewright-design-implementation-contract` | `Design\ImplementationContract` | Returns compact global-style, section-batch, native-widget, and verification rules for fast design implementation. | Read | `Permissions::read()` | No | No | No | stable | `tests/Integration/DesignIngestionTest.php` |
+| `stonewright/design-native-plan` | `stonewright-design-native-plan` | `Design\NativePlan` | Normalizes Figma/image/brief evidence, blocks unresolved semantics or unproven styles, and returns a deterministic native-first plan. | Read | `Permissions::read()` | No | No | No | stable | `tests/Integration/DesignIngestionTest.php` |
 | `stonewright/design-extract-tokens` | `stonewright-design-extract-tokens` | `Design\ExtractTokens` | Extracts color, typography, and spacing tokens from a theme.json blob or CSS custom properties. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/DesignIngestionTest.php` |
 | `stonewright/design-build-spec` | `stonewright-design-build-spec` | `Design\BuildSpec` | Assembles a Stonewright Design Spec from a list of section descriptors and an optional token bundle. | Read | `Permissions::edit_posts()` | No | No | Yes (DesignSpec) | stable | `tests/Integration/DesignIngestionTest.php` |
 | `stonewright/design-normalize-assets` | `stonewright-design-normalize-assets` | `Design\NormalizeAssets` | Resolves remote/asset urls inside a spec to media library attachments, sideloading missing files. | Read | `Permissions::upload_files()` | No | No | No | stable | `tests/Integration/DesignIngestionTest.php` |
@@ -414,7 +415,7 @@
 
 ## Summary
 
-Total abilities registered: **242**
+Total abilities registered: **243**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

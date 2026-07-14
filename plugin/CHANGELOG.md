@@ -9,6 +9,9 @@
   per-setting evidence, and readback/restore verification to batch mutation.
 - Added live structural schema validation for container, section, and column
   settings, including the final pre-persistence tree guard.
+- Added `stonewright/design-native-plan` with DesignEvidence 1.0 normalization,
+  semantic action validation, deterministic native mapping, and an approval-
+  gated phase-two customization proposal.
 
 ### Changed
 

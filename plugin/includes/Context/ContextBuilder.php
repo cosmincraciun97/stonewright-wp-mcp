@@ -250,6 +250,9 @@ final class ContextBuilder {
 				'Before any visual write, verify Playwright/browser MCP is connected; if not, install it, restart the client, and stop until the tool appears.',
 				'Before uploading assets, audit existing WordPress media by filename, alt text, dimensions, and likely source layer so already-downloaded assets are reused.',
 				'Before the first Elementor write, create a global-style plan: reusable color/typography tokens, Elementor kit updates if approved, and page-local values that should remain local.',
+				'Normalize Figma, screenshot, image, or brief observations into DesignEvidence 1.0 and call stonewright/design-native-plan before compiling any builder settings.',
+				'Block buttons, CTAs, links, navigation, forms, and images whose real action, data source, or asset policy is unresolved.',
+				'Implement the complete native phase first; emit custom CSS, JS, or PHP only as a separate unapplied proposal that requires explicit approval, diff, risk, rollback, and tests.',
 				'Create a section-by-section implementation plan with outer section, inner max-width container, rows/columns, widget choices, and responsive breakpoints.',
 				'Before the first write, produce a section-by-section plan mapping Figma nodes to native Elementor widgets, containers, breakpoints, assets, and any approved CSS classes.',
 				'Implement visual pages in batches of one section at a time, or two sections only when they are simple and tightly coupled.',
@@ -306,6 +309,8 @@ final class ContextBuilder {
 				],
 			],
 			'evidence_required_before_first_write' => [
+				'design_evidence_1_0',
+				'native_plan_without_blockers',
 				'figma_token_table',
 				'existing_media_asset_audit',
 				'section_implementation_plan',
@@ -455,8 +460,7 @@ final class ContextBuilder {
 		}
 
 		if ( 'elementor' === $surface ) {
-			$steps[] = 'Call stonewright/widget-intent-resolve before choosing Elementor widgets.';
-			$steps[] = 'Call stonewright/elementor-widget-implementation-guide before writing Elementor elements.';
+			$steps[] = 'Call stonewright/design-native-plan with normalized DesignEvidence before choosing or writing Elementor widgets.';
 			if ( $is_visual ) {
 				$steps[] = 'Before building design-derived pages, plan Elementor kit colors/typography first; if site-wide changes are approved, update the active kit before writing page elements.';
 			}

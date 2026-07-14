@@ -24,6 +24,11 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   and post-write hash verification to the Elementor V3 batch compiler.
 - Added live structural schemas for Elementor containers, sections, and
   columns so the final write gate rejects unknown layout settings too.
+- Added vendor-neutral DesignEvidence validation, deterministic native-first
+  planning, semantic action gates, and separate non-applying customization
+  proposals for Elementor, Gutenberg, and WordPress design tasks.
+- Added an Elementor builder reference that turns Figma/image evidence into a
+  native plan before any schema compilation or visual write.
 
 ### Changed
 

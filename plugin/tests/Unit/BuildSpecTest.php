@@ -75,4 +75,18 @@ final class BuildSpecTest extends TestCase {
 		$this->assertSame( 'paragraph', $result['sections'][0]['blocks'][1]['type'] );
 		$this->assertSame( 'button', $result['sections'][0]['blocks'][2]['type'] );
 	}
+
+	public function test_button_shorthand_without_real_destination_is_rejected(): void {
+		$result = ( new BuildSpec() )->execute(
+			[
+				'page'     => [ 'title' => 'Landing page' ],
+				'sections' => [ [ 'heading' => 'Hero', 'button_text' => 'Start' ] ],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_spec_invalid', $result->get_error_code() );
+		self::assertSame( 'unresolved_action', $result->get_error_data()['errors'][0]['keyword'] );
+		self::assertSame( 'sections[0].blocks[1].url', $result->get_error_data()['errors'][0]['path_string'] );
+	}
 }

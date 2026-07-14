@@ -56,7 +56,7 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertStringContainsString( 'Use native Elementor widgets', $result['matched_skill_playbooks'][0]['content'] );
 		self::assertNotEmpty( $result['memory_entries'] );
 		self::assertSame( 'no-html-widgets', $result['memory_entries'][0]['memory_key'] );
-		self::assertContains( 'Call stonewright/widget-intent-resolve before choosing Elementor widgets.', $result['required_followups'] );
+		self::assertContains( 'Call stonewright/design-native-plan with normalized DesignEvidence before choosing or writing Elementor widgets.', $result['required_followups'] );
 		self::assertContains( 'Before building design-derived pages, plan Elementor kit colors/typography first; if site-wide changes are approved, update the active kit before writing page elements.', $result['required_followups'] );
 		self::assertSame( 'stonewright-context-bootstrap', $result['mcp_tool_naming']['examples']['stonewright/context-bootstrap'] );
 		self::assertSame( 'stonewright-tool-profile', $result['mcp_tool_naming']['examples']['stonewright/tool-profile'] );
@@ -84,7 +84,7 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertContains( 'figma', $result['visual_quality_contract']['playwright_mcp_gate']['task_keywords'] );
 		self::assertIsArray( $result['visual_build_gate'] );
 		self::assertArrayHasKey( 'design_implementation_contract', $result );
-		self::assertSame( 'global_styles_first', $result['design_implementation_contract']['sequence'][0] );
+		self::assertSame( 'design_evidence', $result['design_implementation_contract']['sequence'][0] );
 		self::assertSame( 'loop-grid', $result['design_implementation_contract']['native_widget_map']['dynamic_cards'] );
 		self::assertContains( 'invented_border_radius_shadow_filter', $result['design_implementation_contract']['hard_failures'] );
 		self::assertTrue( $result['visual_build_gate']['blocks_completion_without_evidence'] );
@@ -234,7 +234,7 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertIsArray( $result );
 		self::assertSame( 'exempt', $result['visual_quality_contract']['status'] );
 		self::assertSame( 'exempt', $result['visual_build_gate']['status'] );
-		self::assertContains( 'Call stonewright/widget-intent-resolve before choosing Elementor widgets.', $result['required_followups'] );
+		self::assertContains( 'Call stonewright/design-native-plan with normalized DesignEvidence before choosing or writing Elementor widgets.', $result['required_followups'] );
 		self::assertNotContains( 'Before declaring a visual task done, verify no horizontal overflow with document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1 at all requested breakpoints.', $result['required_followups'] );
 	}
 

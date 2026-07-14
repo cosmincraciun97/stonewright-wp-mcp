@@ -1,0 +1,28 @@
+{
+  "args": {
+    "action": "validate",
+    "target": "elementor-v3",
+    "evidence": {
+      "sources": [
+        {
+          "id": "brief:fixture",
+          "type": "user_brief",
+          "ref": "contract-fixture"
+        }
+      ],
+      "viewports": [
+        {
+          "id": "desktop",
+          "width": 1440,
+          "height": 900
+        }
+      ],
+      "nodes": [
+        {
+          "id": "fixture-section",
+          "role": "container"
+        }
+      ]
+    }
+  }
+}

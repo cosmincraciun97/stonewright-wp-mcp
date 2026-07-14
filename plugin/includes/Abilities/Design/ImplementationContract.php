@@ -38,6 +38,9 @@ final class ImplementationContract extends AbilityKernel {
 				'global_styles_first' => [ 'type' => 'object', 'additionalProperties' => true ],
 				'section_batch'       => [ 'type' => 'object', 'additionalProperties' => true ],
 				'native_widget_map'   => [ 'type' => 'object', 'additionalProperties' => true ],
+				'design_evidence'     => [ 'type' => 'object', 'additionalProperties' => true ],
+				'native_first'        => [ 'type' => 'object', 'additionalProperties' => true ],
+				'custom_code_phase'   => [ 'type' => 'object', 'additionalProperties' => true ],
 				'token_efficiency'    => [ 'type' => 'object', 'additionalProperties' => true ],
 				'hard_failures'       => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 			],
@@ -47,6 +50,9 @@ final class ImplementationContract extends AbilityKernel {
 				'global_styles_first',
 				'section_batch',
 				'native_widget_map',
+				'design_evidence',
+				'native_first',
+				'custom_code_phase',
 				'token_efficiency',
 				'hard_failures',
 			],
@@ -66,14 +72,29 @@ final class ImplementationContract extends AbilityKernel {
 	 */
 	public static function contract(): array {
 		return [
-			'version'             => '1.0.0',
+			'version'             => '2.0.0',
 			'sequence'            => [
+				'design_evidence',
+				'semantic_validation',
 				'global_styles_first',
-				'section_reference_tokens',
-				'native_widget_map',
-				'one_section_build',
-				'screenshot_delta',
-				'next_section_or_surgical_batch',
+				'native_plan',
+				'native_dry_run',
+				'native_write_and_readback',
+				'customization_proposal_if_needed',
+			],
+			'design_evidence'     => [
+				'tool'  => 'stonewright/design-native-plan',
+				'rules' => [ 'vendor_neutral', 'per_style_provenance', 'resolved_actions', 'no_raw_figma_tree_after_normalization' ],
+			],
+			'native_first'        => [
+				'order' => [ 'builder_controls', 'global_classes_variables', 'native_widget_composition', 'wordpress_content_model' ],
+				'raw_settings_from_ai' => false,
+			],
+			'custom_code_phase'   => [
+				'auto_apply' => false,
+				'approval_required' => true,
+				'order' => [ 'css', 'css_js', 'custom_php' ],
+				'required' => [ 'remaining_delta', 'reason', 'diff', 'risk', 'rollback', 'tests' ],
 			],
 			'global_styles_first' => [
 				'status' => 'required_before_first_elementor_write',
@@ -140,6 +161,10 @@ final class ImplementationContract extends AbilityKernel {
 				],
 			],
 			'hard_failures'       => [
+				'unresolved_action',
+				'unproven_non_neutral_style',
+				'ai_generated_raw_elementor_settings',
+				'custom_code_without_explicit_approval',
 				'invented_border_radius_shadow_filter',
 				'html_widget_without_explicit_allow_html_widget',
 				'no_global_style_plan_before_elementor_write',

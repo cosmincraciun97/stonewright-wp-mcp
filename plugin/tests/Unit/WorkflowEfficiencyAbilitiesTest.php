@@ -107,9 +107,8 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright/workflow-preflight', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/tool-profile', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/security-create-one-time-link', $result['recommended_tools'] );
-		self::assertContains( 'stonewright/design-implementation-contract', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/design-native-plan', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/elementor-v3-capabilities-summary', $result['recommended_tools'] );
-		self::assertContains( 'stonewright/elementor-v3-container-schema', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/media-upload-batch', $result['recommended_tools'] );
@@ -233,7 +232,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright/php-execute', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/content-bulk-upsert-posts', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/media-upload-batch', $result['recommended_tools'] );
-		self::assertContains( 'stonewright/design-implementation-contract', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/design-native-plan', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/elementor-v3-get-kit-globals', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $result['recommended_tools'] );
@@ -369,24 +368,22 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertTrue( $result['fast_path']['task_profile']['needs_visual_check'] );
 
 		self::assertArrayHasKey( 'recommended_mcp_tools', $result['fast_path'] );
-		self::assertContains( 'stonewright-widget-intent-resolve', $result['fast_path']['recommended_mcp_tools'] );
-		self::assertContains( 'stonewright-elementor-widget-implementation-guide', $result['fast_path']['recommended_mcp_tools'] );
-		self::assertContains( 'stonewright-elementor-v3-container-schema', $result['fast_path']['recommended_mcp_tools'] );
+		self::assertContains( 'stonewright-design-native-plan', $result['fast_path']['recommended_mcp_tools'] );
 
 		self::assertArrayHasKey( 'call_sequence', $result['fast_path'] );
 		$tools = array_column( $result['fast_path']['call_sequence'], 'tool' );
 		self::assertContains( 'stonewright-workflow-preflight', $tools );
 		self::assertContains( 'stonewright-context-bootstrap', $tools );
 		self::assertNotContains( 'stonewright-tool-profile', $tools );
-		self::assertContains( 'stonewright-widget-intent-resolve', $tools );
-		self::assertContains( 'stonewright-elementor-widget-implementation-guide', $tools );
-		self::assertContains( 'stonewright-elementor-v3-container-schema', $tools );
+		self::assertContains( 'stonewright-design-native-plan', $tools );
 		self::assertContains( 'stonewright-elementor-v3-build-page-from-spec', $tools );
 		self::assertArrayHasKey( 'visual_build_gate', $result['fast_path'] );
 		self::assertTrue( $result['fast_path']['visual_build_gate']['blocks_completion_without_evidence'] );
 		self::assertSame( 2, $result['fast_path']['visual_build_gate']['section_batching']['max_sections_per_pass'] );
 		self::assertTrue( $result['fast_path']['visual_build_gate']['section_batching']['auto_continue_when_batch_passes'] );
 		self::assertContains( 'figma_token_table', $result['fast_path']['visual_build_gate']['evidence_required_before_first_write'] );
+		self::assertContains( 'design_evidence_1_0', $result['fast_path']['visual_build_gate']['evidence_required_before_first_write'] );
+		self::assertContains( 'native_plan_without_blockers', $result['fast_path']['visual_build_gate']['evidence_required_before_first_write'] );
 		self::assertContains( 'existing_media_asset_audit', $result['fast_path']['visual_build_gate']['evidence_required_before_first_write'] );
 		self::assertContains( 'section_implementation_plan', $result['fast_path']['visual_build_gate']['evidence_required_before_first_write'] );
 		self::assertContains( 'section_reference_screenshots', $result['fast_path']['visual_build_gate']['evidence_required_before_first_write'] );
@@ -407,7 +404,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertFalse( $result['fast_path']['design_contract_ref']['inlined'] );
 		self::assertSame( 'stonewright/design-implementation-contract', $result['fast_path']['design_contract_ref']['ability'] );
 		self::assertSame( 'stonewright-design-implementation-contract', $result['fast_path']['design_contract_ref']['mcp_tool'] );
-		self::assertSame( 'global_styles_first', $result['fast_path']['design_contract_ref']['sequence'][0] );
+		self::assertSame( 'design_evidence', $result['fast_path']['design_contract_ref']['sequence'][0] );
 		self::assertSame( 1, $result['fast_path']['design_contract_ref']['section_batch']['default_sections_per_pass'] );
 		self::assertSame( 2, $result['fast_path']['design_contract_ref']['section_batch']['max_sections_per_pass'] );
 		self::assertSame( 'stonewright/elementor-v3-build-page-from-spec', $result['fast_path']['design_contract_ref']['section_batch']['primary_write_tool'] );
@@ -465,7 +462,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertArrayHasKey( 'design_contract_ref', $result['fast_path'] );
 		self::assertTrue( $result['fast_path']['design_contract_ref']['inlined'] );
 		self::assertArrayHasKey( 'design_implementation_contract', $result['fast_path'] );
-		self::assertSame( 'global_styles_first', $result['fast_path']['design_implementation_contract']['sequence'][0] );
+		self::assertSame( 'design_evidence', $result['fast_path']['design_implementation_contract']['sequence'][0] );
 		self::assertSame( 'image-gallery', $result['fast_path']['design_implementation_contract']['native_widget_map']['gallery'] );
 		self::assertSame( 'loop-grid', $result['fast_path']['design_implementation_contract']['native_widget_map']['dynamic_cards'] );
 		self::assertSame( 'summary', $result['fast_path']['design_implementation_contract']['token_efficiency']['wp_cli_response_mode'] );
@@ -499,7 +496,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertSame( 'stonewright/elementor-v3-container-schema', $result['container_schema_tool'] );
 		self::assertSame( 'summary', $result['default_response_mode'] );
 		self::assertArrayHasKey( 'design_implementation_contract', $result );
-		self::assertSame( 'global_styles_first', $result['design_implementation_contract']['sequence'][0] );
+		self::assertSame( 'design_evidence', $result['design_implementation_contract']['sequence'][0] );
 		self::assertContains( 'no_full_page_screenshot_backgrounds', $result['design_implementation_contract']['hard_failures'] );
 	}
 
@@ -529,18 +526,23 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		$result = ( new ImplementationContract() )->execute( [] );
 
 		self::assertIsArray( $result );
-		self::assertSame( '1.0.0', $result['version'] );
+		self::assertSame( '2.0.0', $result['version'] );
 		self::assertSame(
 			[
+				'design_evidence',
+				'semantic_validation',
 				'global_styles_first',
-				'section_reference_tokens',
-				'native_widget_map',
-				'one_section_build',
-				'screenshot_delta',
-				'next_section_or_surgical_batch',
+				'native_plan',
+				'native_dry_run',
+				'native_write_and_readback',
+				'customization_proposal_if_needed',
 			],
 			$result['sequence']
 		);
+		self::assertSame( 'stonewright/design-native-plan', $result['design_evidence']['tool'] );
+		self::assertFalse( $result['native_first']['raw_settings_from_ai'] );
+		self::assertFalse( $result['custom_code_phase']['auto_apply'] );
+		self::assertTrue( $result['custom_code_phase']['approval_required'] );
 		self::assertSame( 1, $result['section_batch']['default_sections_per_pass'] );
 		self::assertSame( 2, $result['section_batch']['max_sections_per_pass'] );
 		self::assertSame( 'stonewright/elementor-v3-build-page-from-spec', $result['section_batch']['primary_write_tool'] );
