@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV4;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\V4\AtomicSchemaRepository;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -52,6 +53,7 @@ final class Status extends AbilityKernel {
 				'v4_write_ready'           => [ 'type' => 'boolean' ],
 				'recommended_renderer'     => [ 'type' => 'string' ],
 				'agent_action'             => [ 'type' => 'string' ],
+				'schema_fingerprint'       => [ 'type' => 'string' ],
 			],
 		];
 	}
@@ -69,7 +71,7 @@ final class Status extends AbilityKernel {
 				$atomic_flag  = (bool) get_option( 'stonewright_elementor_v4_atomic', false );
 				$build        = defined( 'ELEMENTOR_VERSION' ) ? (string) ELEMENTOR_VERSION : '';
 				$widgets      = self::active_widget_types();
-				$v4_ready     = $v4_available && $atomic_flag;
+				$v4_ready     = $v4_available && $atomic_flag && 'production-safe' !== get_option( 'stonewright_mode', 'development' );
 
 				$capabilities = [];
 				if ( $v4_available ) {
@@ -96,8 +98,9 @@ final class Status extends AbilityKernel {
 					'unsupported_widgets'      => self::unsupported_widgets( $widgets ),
 					'v4_atomic_support_status' => self::v4_support_status( $v4_available, $atomic_flag ),
 					'v4_write_ready'           => $v4_ready,
-					'recommended_renderer'     => $v4_ready ? 'elementor-v4-atomic' : 'elementor-v3-native',
+					'recommended_renderer'     => $v4_ready ? 'elementor-v4-atomic' : 'blocked-v4',
 					'agent_action'             => self::agent_action( $v4_ready ),
+					'schema_fingerprint'       => AtomicSchemaRepository::fingerprint(),
 				];
 			}
 		);
@@ -155,6 +158,6 @@ final class Status extends AbilityKernel {
 			return 'Use Elementor V4 atomic tools for dry-run rendering, then write only after diagnostics pass.';
 		}
 
-		return 'Use Elementor V3 native-widget tools until V4 atomic support is both available and enabled.';
+		return 'Block V4 writes until Atomic support is available and enabled; never translate a V4 payload to V3 implicitly.';
 	}
 }

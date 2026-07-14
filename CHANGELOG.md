@@ -39,6 +39,9 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   an honest public capability parity matrix.
 - Added `stonewright/expertise-get`, maintainer list/evaluate/promote abilities,
   and a reproducible 120-case P0 curriculum evaluator.
+- Added the versioned Elementor V4 Atomic schema repository, recursive mixed-
+  tree inspection, official global-class/variable runtime adapters, and owned
+  structural fixtures with exact upstream fingerprints.
 
 ### Changed
 
@@ -55,6 +58,8 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Changed learning so one correction records memory by default and can no
   longer activate a skill automatically; task start now routes through compact,
   relevant, non-stale memory refs with explicit precedence.
+- Replaced Elementor V4 placeholder and unknown-property fallbacks with hard,
+  path-aware errors and exact typed Atomic envelopes.
 
 ### Fixed
 

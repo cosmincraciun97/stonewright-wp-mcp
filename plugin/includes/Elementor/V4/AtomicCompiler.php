@@ -39,15 +39,12 @@ namespace Stonewright\WpMcp\Elementor\V4;
  *   boolean → boolean
  *   link    → link
  *   image   → image
- *   (any unknown type falls back to `string` so the compiler never throws on
- *   an unfamiliar prop type; the runtime atomic schema will still reject
- *   anything genuinely incoherent.)
+ * Unknown types are rejected before source generation.
  */
 final class AtomicCompiler {
 
 	/**
-	 * Spec types we know how to bridge to Atomic_Prop_Schemas methods. Anything
-	 * not in this map collapses to the `string` schema in {@see schema_method()}.
+	 * Spec types we know how to bridge to Atomic_Prop_Schemas methods.
 	 *
 	 * @var array<string, string>
 	 */
@@ -139,12 +136,15 @@ PHP;
 	}
 
 	/**
-	 * Translate a spec prop type to the Atomic_Prop_Schemas factory method
-	 * name. Unknown types fall back to `string`; the runtime schema still
-	 * validates the actual value shape.
+	 * Translate a spec prop type to the Atomic_Prop_Schemas factory method.
+	 *
+	 * @throws \InvalidArgumentException When the type has no verified mapping.
 	 */
 	public static function schema_method( string $type ): string {
-		return self::SCHEMA_METHODS[ $type ] ?? 'string';
+		if ( ! isset( self::SCHEMA_METHODS[ $type ] ) ) {
+			throw new \InvalidArgumentException( 'Unsupported atomic prop type: ' . $type );
+		}
+		return self::SCHEMA_METHODS[ $type ];
 	}
 
 	// -------------------------------------------------------------------------

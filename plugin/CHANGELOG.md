@@ -16,6 +16,8 @@
   fingerprints, verification and conflict gates, plus skill revision rollback.
 - Added 10 versioned P0 ExpertisePacks, compact top-three task routing, lazy
   pack retrieval, deterministic scorecards, and promotion lifecycle gates.
+- Added a live/versioned Elementor V4 Atomic schema repository, recursive mixed
+  tree inspection, official class/variable adapters, and owned fixtures.
 
 ### Changed
 
@@ -33,6 +35,8 @@
   plus unified batch compiler is now the recommended V3 write path.
 - Changed learning records to memory-only by default; optional skills remain
   disabled drafts until two verified successes or explicit user approval.
+- Replaced V4 placeholder and unknown-property fallbacks with structured hard
+  errors and exact typed Atomic envelopes.
 
 ### Fixed
 

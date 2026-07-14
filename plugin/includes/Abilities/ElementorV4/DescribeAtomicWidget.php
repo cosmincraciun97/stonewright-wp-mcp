@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV4;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\V4\AtomicSchemaRepository;
 use Stonewright\WpMcp\Elementor\V4\AtomicWidgetMap;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -28,47 +29,6 @@ use Stonewright\WpMcp\Security\Permissions;
  * @stonewright-status stable
  */
 final class DescribeAtomicWidget extends AbilityKernel {
-
-	/**
-	 * Per-type prop catalog. Each entry is what the renderer is willing to
-	 * forward into the V4 atomic envelope — not every Elementor-side option,
-	 * just the surface Stonewright actively supports today.
-	 *
-	 * @var array<string, array<int, array{name: string, type: string, default?: mixed}>>
-	 */
-	private const PROP_CATALOG = [
-		'Heading'    => [
-			[ 'name' => 'text', 'type' => 'string', 'default' => '' ],
-			[ 'name' => 'level', 'type' => 'number', 'default' => 2 ],
-		],
-		'TextEditor' => [
-			[ 'name' => 'text', 'type' => 'string', 'default' => '' ],
-		],
-		'Image'      => [
-			[ 'name' => 'url', 'type' => 'string', 'default' => '' ],
-			[ 'name' => 'alt', 'type' => 'string', 'default' => '' ],
-		],
-		'Button'     => [
-			[ 'name' => 'text', 'type' => 'string', 'default' => '' ],
-			[ 'name' => 'link', 'type' => 'string', 'default' => '' ],
-		],
-		'Divider'    => [],
-		'Icon'       => [
-			[ 'name' => 'svg', 'type' => 'string', 'default' => '' ],
-		],
-		'Section'    => [
-			[ 'name' => 'direction', 'type' => 'string', 'default' => 'column' ],
-			[ 'name' => 'gap', 'type' => 'size', 'default' => '0px' ],
-		],
-		'Column'     => [
-			[ 'name' => 'direction', 'type' => 'string', 'default' => 'column' ],
-			[ 'name' => 'gap', 'type' => 'size', 'default' => '0px' ],
-		],
-		'Container'  => [
-			[ 'name' => 'direction', 'type' => 'string', 'default' => 'column' ],
-			[ 'name' => 'gap', 'type' => 'size', 'default' => '0px' ],
-		],
-	];
 
 	public function name(): string {
 		return 'stonewright/elementor-v4-describe-atomic-widget';
@@ -107,6 +67,8 @@ final class DescribeAtomicWidget extends AbilityKernel {
 				'node_type'    => [ 'type' => 'string' ],
 				'widget'       => [ 'type' => 'string' ],
 				'is_container' => [ 'type' => 'boolean' ],
+				'version'      => [ 'type' => 'string' ],
+				'schema_hash'  => [ 'type' => 'string' ],
 				'props'        => [
 					'type'  => 'array',
 					'items' => [
@@ -146,13 +108,19 @@ final class DescribeAtomicWidget extends AbilityKernel {
 					);
 				}
 
-				$props = self::PROP_CATALOG[ $node_type ] ?? [];
+				$schema = AtomicSchemaRepository::for_design_type( $node_type );
+				$props  = [];
+				foreach ( (array) ( $schema['props'] ?? [] ) as $name => $definition ) {
+					$props[] = [ 'name' => (string) $name, 'type' => (string) ( $definition['type'] ?? '' ) ];
+				}
 
 				return [
 					'node_type'    => $node_type,
 					'widget'       => $widget,
 					'is_container' => AtomicWidgetMap::is_container( $node_type ),
 					'props'        => $props,
+					'version'      => (string) ( $schema['version'] ?? '' ),
+					'schema_hash'  => AtomicSchemaRepository::fingerprint(),
 				];
 			}
 		);

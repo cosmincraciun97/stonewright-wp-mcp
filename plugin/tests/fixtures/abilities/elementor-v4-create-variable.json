@@ -1,8 +1,7 @@
 {
     "args": {
-        "name": "Contract",
-        "type": "color",
-        "value": "contract",
-        "mode": "contract"
+        "label": "Contract New",
+        "type": "global-color-variable",
+        "value": "#222222"
     }
 }

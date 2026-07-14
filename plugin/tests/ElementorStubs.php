@@ -210,3 +210,48 @@ Plugin::$instance = (object) [
 		}
 	},
 ];
+
+namespace Elementor\Modules\GlobalClasses;
+
+final class Global_Classes_Repository {
+	/** @var array<string, array<string, mixed>> */
+	private static array $items = [
+		'cls_contract' => [ 'id' => 'cls_contract', 'label' => 'Contract', 'type' => 'class', 'variants' => [ [ 'meta' => [ 'breakpoint' => 'desktop', 'state' => null ], 'props' => [] ] ] ],
+	];
+	public static function make(): self { return new self(); }
+	/** @return array<string, string> */
+	public function all_labels(): array { return array_map( static fn( array $item ): string => (string) $item['label'], self::$items ); }
+	/** @return array<string, array<string, mixed>> */
+	public function get_by_ids( array $ids ): array { return array_intersect_key( self::$items, array_flip( $ids ) ); }
+	/** @return list<string> */
+	public function get_order(): array { return array_keys( self::$items ); }
+	/** @return array<string, mixed>|null */
+	public function get( string $id ): ?array { return self::$items[ $id ] ?? null; }
+	public function apply_changes( array $items, array $changes, array $order ): void { self::$items = array_replace( self::$items, $items ); }
+}
+
+namespace Elementor\Modules\Variables\Storage;
+
+final class Variables_Repository {
+	public function __construct( public object $kit ) {}
+}
+
+namespace Elementor\Modules\Variables\Services\Batch_Operations;
+
+final class Batch_Processor {}
+
+namespace Elementor\Modules\Variables\Services;
+
+final class Variables_Service {
+	/** @var array<string, array<string, mixed>> */
+	private static array $items = [
+		'var_contract' => [ 'label' => 'Contract', 'type' => 'global-color-variable', 'value' => '#111111' ],
+	];
+	public function __construct( object $repository, object $batch ) {}
+	/** @return array<string, array<string, mixed>> */
+	public function get_variables_list(): array { return self::$items; }
+	/** @param array<string, mixed> $data @return array<string, mixed> */
+	public function create( array $data ): array { $id = 'var_' . count( self::$items ); self::$items[ $id ] = $data; return [ 'variable' => array_merge( [ 'id' => $id ], $data ) ]; }
+	/** @param array<string, mixed> $data @return array<string, mixed> */
+	public function update( string $id, array $data ): array { if ( ! isset( self::$items[ $id ] ) ) { throw new \RuntimeException( 'Variable not found.' ); } self::$items[ $id ] = array_replace( self::$items[ $id ], $data ); return [ 'variable' => array_merge( [ 'id' => $id ], self::$items[ $id ] ) ]; }
+}

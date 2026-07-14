@@ -22,8 +22,8 @@ final class AtomicRendererTest extends TestCase {
 		$this->assertSame( 'widget', $out['elType'] );
 		$this->assertSame( 'e-heading', $out['widgetType'] );
 		$this->assertNotEmpty( $out['id'] );
-		$this->assertSame( 'string', $out['settings']['title']['$$type'] );
-		$this->assertSame( 'Hello', $out['settings']['title']['value'] );
+		$this->assertSame( 'html-v3', $out['settings']['title']['$$type'] );
+		$this->assertSame( 'Hello', $out['settings']['title']['value']['content']['value'] );
 		$this->assertSame( 'string', $out['settings']['tag']['$$type'] );
 		$this->assertSame( 'h2', $out['settings']['tag']['value'] );
 		$this->assertSame( [], $out['elements'] );
@@ -40,8 +40,8 @@ final class AtomicRendererTest extends TestCase {
 
 		$this->assertSame( 'e-paragraph', $out['widgetType'] );
 		$this->assertSame( 'widget', $out['elType'] );
-		$this->assertSame( 'string', $out['settings']['paragraph']['$$type'] );
-		$this->assertSame( 'Body copy.', $out['settings']['paragraph']['value'] );
+		$this->assertSame( 'html-v3', $out['settings']['paragraph']['$$type'] );
+		$this->assertSame( 'Body copy.', $out['settings']['paragraph']['value']['content']['value'] );
 	}
 
 	public function test_renders_image_with_image_and_alt_envelopes(): void {
@@ -54,9 +54,8 @@ final class AtomicRendererTest extends TestCase {
 
 		$this->assertSame( 'e-image', $out['widgetType'] );
 		$this->assertSame( 'image', $out['settings']['image']['$$type'] );
-		$this->assertSame( 'https://cdn.example/hero.jpg', $out['settings']['image']['value']['src'] );
-		$this->assertSame( 'string', $out['settings']['alt']['$$type'] );
-		$this->assertSame( 'Hero shot', $out['settings']['alt']['value'] );
+		$this->assertSame( 'https://cdn.example/hero.jpg', $out['settings']['image']['value']['src']['value']['url']['value'] );
+		$this->assertSame( 'Hero shot', $out['settings']['image']['value']['src']['value']['alt']['value'] );
 	}
 
 	public function test_renders_button_with_text_and_link_envelopes(): void {
@@ -68,10 +67,10 @@ final class AtomicRendererTest extends TestCase {
 		);
 
 		$this->assertSame( 'e-button', $out['widgetType'] );
-		$this->assertSame( 'string', $out['settings']['text']['$$type'] );
-		$this->assertSame( 'Sign up', $out['settings']['text']['value'] );
+		$this->assertSame( 'html-v3', $out['settings']['text']['$$type'] );
+		$this->assertSame( 'Sign up', $out['settings']['text']['value']['content']['value'] );
 		$this->assertSame( 'link', $out['settings']['link']['$$type'] );
-		$this->assertSame( 'https://example.com/join', $out['settings']['link']['value']['href'] );
+		$this->assertSame( 'https://example.com/join', $out['settings']['link']['value']['destination']['value'] );
 	}
 
 	public function test_renders_divider_and_icon_widget_types(): void {
@@ -83,12 +82,12 @@ final class AtomicRendererTest extends TestCase {
 		$icon = AtomicRenderer::render_node(
 			[
 				'type'  => 'Icon',
-				'props' => [ 'svg' => '<svg viewBox="0 0 24 24"><path d="M0 0h24v24H0z"/></svg>' ],
+				'props' => [ 'url' => 'https://example.com/icon.svg' ],
 			]
 		);
 		$this->assertSame( 'e-svg', $icon['widgetType'] );
-		$this->assertSame( 'svg', $icon['settings']['svg']['$$type'] );
-		$this->assertStringContainsString( '<svg', $icon['settings']['svg']['value'] );
+		$this->assertSame( 'svg-src', $icon['settings']['svg']['$$type'] );
+		$this->assertSame( 'https://example.com/icon.svg', $icon['settings']['svg']['value']['url']['value'] );
 	}
 
 	public function test_renders_section_as_container_with_children(): void {
@@ -103,22 +102,25 @@ final class AtomicRendererTest extends TestCase {
 			]
 		);
 
-		$this->assertSame( 'container', $out['elType'] );
-		$this->assertSame( 'e-flexbox', $out['widgetType'] );
+		$this->assertSame( 'e-flexbox', $out['elType'] );
+		$this->assertArrayNotHasKey( 'widgetType', $out );
+		$this->assertSame( '0.0', $out['version'] );
 		$this->assertCount( 2, $out['elements'] );
 		$this->assertSame( 'e-heading', $out['elements'][0]['widgetType'] );
 		$this->assertSame( 'e-paragraph', $out['elements'][1]['widgetType'] );
-		$this->assertSame( 'string', $out['settings']['flex-direction']['$$type'] );
-		$this->assertSame( 'row', $out['settings']['flex-direction']['value'] );
-		$this->assertSame( 'size', $out['settings']['gap']['$$type'] );
-		$this->assertSame( '24px', $out['settings']['gap']['value'] );
+		$style_id = $out['settings']['classes']['value'][0];
+		$style_props = $out['styles'][ $style_id ]['variants'][0]['props'];
+		$this->assertSame( 'string', $style_props['flex-direction']['$$type'] );
+		$this->assertSame( 'row', $style_props['flex-direction']['value'] );
+		$this->assertSame( 'size', $style_props['gap']['$$type'] );
+		$this->assertSame( [ 'unit' => 'px', 'size' => 24.0 ], $style_props['gap']['value'] );
 	}
 
 	public function test_collapses_all_container_flavours_into_flexbox_container(): void {
 		foreach ( [ 'Section', 'Column', 'Container' ] as $type ) {
 			$out = AtomicRenderer::render_node( [ 'type' => $type, 'props' => [], 'children' => [] ] );
-			$this->assertSame( 'container', $out['elType'], $type );
-			$this->assertSame( 'e-flexbox', $out['widgetType'], $type );
+			$this->assertSame( 'e-flexbox', $out['elType'], $type );
+			$this->assertArrayNotHasKey( 'widgetType', $out, $type );
 		}
 	}
 
@@ -140,32 +142,27 @@ final class AtomicRendererTest extends TestCase {
 			]
 		);
 
-		$this->assertSame( 'e-flexbox', $out['widgetType'] );
+		$this->assertSame( 'e-flexbox', $out['elType'] );
 		$inner_col = $out['elements'][0];
-		$this->assertSame( 'e-flexbox', $inner_col['widgetType'] );
+		$this->assertSame( 'e-flexbox', $inner_col['elType'] );
 		$leaf = $inner_col['elements'][0];
 		$this->assertSame( 'e-heading', $leaf['widgetType'] );
 		$this->assertSame( 'h3', $leaf['settings']['tag']['value'] );
-		$this->assertSame( 'Deep', $leaf['settings']['title']['value'] );
+		$this->assertSame( 'Deep', $leaf['settings']['title']['value']['content']['value'] );
 	}
 
-	public function test_unknown_node_type_emits_unsupported_marker(): void {
+	public function test_unknown_node_type_is_a_structured_error(): void {
 		$out = AtomicRenderer::render_node( [ 'type' => 'UnknownXYZ', 'props' => [] ] );
 
-		$this->assertArrayHasKey( '__unsupported', $out );
-		$this->assertSame( 'UnknownXYZ', $out['__unsupported'] );
-		// Fallback shape is still a usable element so the tree doesn't break.
-		$this->assertSame( 'widget', $out['elType'] );
-		$this->assertSame( 'e-paragraph', $out['widgetType'] );
-		$this->assertNotEmpty( $out['id'] );
-		$this->assertSame( '', $out['settings']['paragraph']['value'] );
+		$this->assertInstanceOf( \WP_Error::class, $out );
+		$this->assertSame( 'stonewright_v4_unknown_node', $out->get_error_code() );
 	}
 
-	public function test_missing_type_field_is_treated_as_unsupported(): void {
+	public function test_missing_type_field_is_a_structured_error(): void {
 		$out = AtomicRenderer::render_node( [ 'props' => [ 'text' => 'orphan' ] ] );
 
-		$this->assertArrayHasKey( '__unsupported', $out );
-		$this->assertSame( '', $out['__unsupported'] );
+		$this->assertInstanceOf( \WP_Error::class, $out );
+		$this->assertSame( 'stonewright_v4_unknown_node', $out->get_error_code() );
 	}
 
 	public function test_partial_props_emit_only_present_keys(): void {
@@ -218,7 +215,7 @@ final class AtomicRendererTest extends TestCase {
 		}
 	}
 
-	public function test_non_array_children_entries_are_skipped(): void {
+	public function test_non_array_children_entries_are_rejected(): void {
 		$out = AtomicRenderer::render_node(
 			[
 				'type'     => 'Section',
@@ -230,7 +227,13 @@ final class AtomicRendererTest extends TestCase {
 			]
 		);
 
-		$this->assertCount( 1, $out['elements'] );
-		$this->assertSame( 'e-heading', $out['elements'][0]['widgetType'] );
+		$this->assertInstanceOf( \WP_Error::class, $out );
+		$this->assertSame( 'stonewright_v4_invalid_child', $out->get_error_code() );
+	}
+
+	public function test_unknown_property_is_never_dropped(): void {
+		$out = AtomicRenderer::render_node( [ 'type' => 'Heading', 'props' => [ 'text' => 'A', 'invented' => true ] ] );
+		$this->assertInstanceOf( \WP_Error::class, $out );
+		$this->assertSame( 'stonewright_v4_unknown_property', $out->get_error_code() );
 	}
 }

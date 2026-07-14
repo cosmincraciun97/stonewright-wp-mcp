@@ -16,11 +16,9 @@ use Stonewright\WpMcp\Elementor\V4\AtomicRenderer;
  * Pipeline:
  *
  *   spec → translate to PascalCase node tree → AtomicRenderer::render_node()
- *        → strip `__unsupported` markers into diagnostics → return tree
  *
- * Anything the renderer doesn't know how to emit becomes an
- * `unsupported_node` diagnostic so callers can warn about partial renders
- * instead of silently dropping content.
+ * Unknown nodes and settings are hard errors. A partial V4 tree is never
+ * returned as success.
  */
 final class ElementorV4SpecRenderer {
 
@@ -58,9 +56,16 @@ final class ElementorV4SpecRenderer {
 		$out          = [];
 		foreach ( $sections as $section_index => $section ) {
 			$node     = self::section_to_node( (array) $section );
-			$rendered = AtomicRenderer::render_node( $node );
-			self::collect_unsupported( $rendered, [ 'sections', (int) $section_index ], $diagnostics );
-			$out[] = self::strip_unsupported_markers( $rendered );
+			$rendered = AtomicRenderer::render_node( $node, [ 'sections', (int) $section_index ] );
+			if ( is_wp_error( $rendered ) ) {
+				$diagnostics[] = [
+					'code'    => $rendered->get_error_code(),
+					'message' => $rendered->get_error_message(),
+					'data'    => $rendered->get_error_data(),
+				];
+				return $rendered;
+			}
+			$out[] = $rendered;
 		}
 		return $out;
 	}
@@ -87,7 +92,7 @@ final class ElementorV4SpecRenderer {
 		$node['children'] = $children;
 
 		if ( isset( $section['label'] ) ) {
-			$node['props']['label'] = (string) $section['label'];
+			$node['editor_settings'] = [ 'label' => (string) $section['label'] ];
 		}
 
 		return $node;
@@ -151,8 +156,8 @@ final class ElementorV4SpecRenderer {
 				}
 				break;
 			case 'icon':
-				if ( isset( $block['svg'] ) ) {
-					$props['svg'] = (string) $block['svg'];
+				if ( isset( $block['url'] ) ) {
+					$props['url'] = (string) $block['url'];
 				}
 				break;
 			case 'separator':
@@ -177,54 +182,5 @@ final class ElementorV4SpecRenderer {
 			'props'    => $props,
 			'children' => $children,
 		];
-	}
-
-	/**
-	 * Walk the rendered tree and append an `unsupported_node` diagnostic for
-	 * every `__unsupported` marker encountered.
-	 *
-	 * @param array<string, mixed>           $node
-	 * @param array<int, int|string>         $path
-	 * @param array<int, array<string, mixed>> $diagnostics
-	 */
-	private static function collect_unsupported( array $node, array $path, array &$diagnostics ): void {
-		if ( array_key_exists( '__unsupported', $node ) ) {
-			$type = (string) $node['__unsupported'];
-			$diagnostics[] = [
-				'code'     => 'unsupported_node',
-				'type'     => '' !== $type ? $type : 'unknown',
-				'path'     => $path,
-				'renderer' => 'elementor_v4',
-				'message'  => __( 'Spec node type is not supported by the Elementor V4 atomic renderer.', 'stonewright' ),
-			];
-		}
-		if ( ! empty( $node['elements'] ) && is_array( $node['elements'] ) ) {
-			foreach ( $node['elements'] as $index => $child ) {
-				if ( is_array( $child ) ) {
-					self::collect_unsupported( $child, array_merge( $path, [ 'elements', (int) $index ] ), $diagnostics );
-				}
-			}
-		}
-	}
-
-	/**
-	 * Remove `__unsupported` markers — they're a renderer-internal signal,
-	 * not part of Elementor's element schema. The fallback envelope around
-	 * them (an empty `e-paragraph`) stays so the tree still has a valid
-	 * placeholder where unknown content used to be.
-	 *
-	 * @param array<string, mixed> $node
-	 * @return array<string, mixed>
-	 */
-	private static function strip_unsupported_markers( array $node ): array {
-		unset( $node['__unsupported'] );
-		if ( ! empty( $node['elements'] ) && is_array( $node['elements'] ) ) {
-			foreach ( $node['elements'] as $index => $child ) {
-				if ( is_array( $child ) ) {
-					$node['elements'][ $index ] = self::strip_unsupported_markers( $child );
-				}
-			}
-		}
-		return $node;
 	}
 }

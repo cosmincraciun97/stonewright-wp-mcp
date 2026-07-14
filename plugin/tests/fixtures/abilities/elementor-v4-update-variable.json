@@ -1,7 +1,6 @@
 {
     "args": {
         "id": "var_contract",
-        "value": "contract",
-        "mode": "contract"
+        "value": "#333333"
     }
 }
