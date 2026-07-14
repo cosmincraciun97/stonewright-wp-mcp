@@ -38,7 +38,7 @@ describe('buildSetupProfile', () => {
 			'stonewright-tool-profile',
 			'stonewright-php-execute',
 			'stonewright-security-issue-confirmation-token',
-			'stonewright-site-info',
+			'stonewright-elementor-schema',
 			'stonewright-content-bulk-upsert-posts',
 			'stonewright-design-implementation-contract',
 			'stonewright-elementor-v3-batch-mutate',

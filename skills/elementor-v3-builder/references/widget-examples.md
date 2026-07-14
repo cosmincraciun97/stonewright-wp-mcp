@@ -115,7 +115,7 @@ Returns `{ "element_id": "a1b2c3d4" }`.
 
 ```json
 {
-  "ability": "stonewright/elementor-v3-get-widget-schema",
-  "args": { "name": "heading" }
+  "ability": "stonewright/elementor-schema",
+  "args": { "mode": "summary", "widget_type": "heading" }
 }
 ```

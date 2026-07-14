@@ -3,7 +3,7 @@
         "post_id": 1,
         "parent_id": "parent1",
         "settings": {
-            "wp_gallery": []
+            "gallery": []
         }
     },
     "expect": "ok"

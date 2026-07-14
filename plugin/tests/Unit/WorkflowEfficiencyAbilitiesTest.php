@@ -484,7 +484,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'For repeated cards or grids, use a validated spec first pass; use stonewright/elementor-v3-batch-mutate for surgical add/update/move/remove edits on an existing page.', $result['first_pass_rules'] );
 		self::assertContains( 'Use build-page-from-spec dry_run before writes when the agent needs element_count, diagnostics, or a no-write preview.', $result['first_pass_rules'] );
 		self::assertContains( 'Set style_policy=strict for design-derived visual specs and include style_source or style._source before applying borders, radius, shadows, or filters.', $result['first_pass_rules'] );
-		self::assertContains( 'For every widget used, call stonewright/elementor-v3-get-widget-schema in summary mode and inspect Content, Style, and Advanced controls before writing settings; request responseMode=full only when defaults are required.', $result['first_pass_rules'] );
+		self::assertContains( 'For every widget used, call stonewright/elementor-schema with mode=summary before writing settings; request mode=control for one complete control or paginated mode=full only when required.', $result['first_pass_rules'] );
 		self::assertContains( 'Name major parent containers semantically; do not over-name every inner utility container.', $result['first_pass_rules'] );
 		self::assertArrayHasKey( 'advanced_controls', $result );
 		self::assertContains( 'position_absolute', $result['advanced_controls'] );

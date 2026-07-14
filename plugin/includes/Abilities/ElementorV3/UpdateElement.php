@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\ContainerSettings;
+use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
@@ -88,6 +89,12 @@ final class UpdateElement extends AbilityKernel {
 				$next     = 'replace' === $mode ? $incoming : array_merge( $settings, $incoming );
 				if ( 'container' === ( $existing['elType'] ?? '' ) ) {
 					$next = ContainerSettings::normalize( $next );
+				} elseif ( 'widget' === ( $existing['elType'] ?? '' ) ) {
+					$validated = SettingsValidator::validate( (string) ( $existing['widgetType'] ?? '' ), $next );
+					if ( $validated instanceof \WP_Error ) {
+						return $validated;
+					}
+					$next = $validated['settings'];
 				}
 
 				$existing['settings'] = $next;

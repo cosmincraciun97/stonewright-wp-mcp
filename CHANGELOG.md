@@ -26,9 +26,13 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   and 1,200-token visual budgets.
 - Reduced the real default MCP surface to 20 tools and strict mode to 12;
   legacy companion aliases now appear only in the explicit full profile.
+- Added a live, fingerprinted Elementor V3 schema repository with one compact
+  schema tool, lazy widget shards, cache invalidation, and strict write guards.
 
 ### Fixed
 
+- Corrected the Elementor Pro Gallery required control from the invalid
+  `wp_gallery` key to the live `gallery` control.
 - Isolated WP-CLI fixture discovery from real LocalWP binaries on the test host
   and removed machine-specific paths from Elementor registry artifacts.
 - Cleaned per-process PHP test files at shutdown and removed PHP 8.5 reflection

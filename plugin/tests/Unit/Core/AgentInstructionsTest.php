@@ -77,7 +77,7 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'allow_html_widget=true', $instructions );
 		$this->assertStringContainsString( 'Content, Style, and Advanced', $instructions );
 		$this->assertStringContainsString( 'official Elementor documentation', $instructions );
-		$this->assertStringContainsString( 'stonewright/elementor-v3-get-widget-schema for every widget', $instructions );
+		$this->assertStringContainsString( 'stonewright/elementor-schema with mode=summary', $instructions );
 		$this->assertStringContainsString( 'position absolute', $instructions );
 		$this->assertStringContainsString( 'CSS ID', $instructions );
 		$this->assertStringContainsString( 'CSS classes', $instructions );

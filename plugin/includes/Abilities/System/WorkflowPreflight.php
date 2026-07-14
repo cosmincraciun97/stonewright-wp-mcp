@@ -457,7 +457,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			$tools[] = 'stonewright/elementor-v3-capabilities-summary';
 			$tools[] = 'stonewright/elementor-v3-get-kit-globals';
 			$tools[] = 'stonewright/elementor-v3-container-schema';
-			$tools[] = 'stonewright/elementor-v3-get-widget-schema';
+			$tools[] = 'stonewright/elementor-schema';
 			if ( $profile['is_write'] ) {
 				$tools[] = 'stonewright/media-list';
 				$tools[] = 'stonewright/media-upload-batch';

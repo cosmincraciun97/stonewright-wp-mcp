@@ -34,7 +34,7 @@ final class WidgetImplementationGuideTest extends TestCase {
 		self::assertContains( 'responsive visibility', $first['required_controls']['Advanced'] );
 		self::assertContains( 'attributes, CSS ID, and CSS classes', $first['required_controls']['Advanced'] );
 		self::assertContains( 'width, align self, margin, and padding', $first['required_controls']['Advanced'] );
-		self::assertContains( 'Call stonewright/elementor-v3-get-widget-schema for every widget you intend to write and inspect compact controls grouped by Content, Style, and Advanced before choosing settings; request responseMode=full only when defaults are required.', $result['global_required_steps'] );
+		self::assertContains( 'Call stonewright/elementor-schema with mode=summary for every widget you intend to write; request mode=control for one exact control or paginated mode=full only when needed.', $result['global_required_steps'] );
 		self::assertContains( 'When any recommendation has needs_online_research=true, research official Elementor documentation before writing.', $result['global_required_steps'] );
 		self::assertContains( 'Name only major parent containers semantically; avoid naming every small inner utility container.', $result['global_required_steps'] );
 		self::assertContains( 'Before uploading or selecting media, audit existing WordPress media by filename, alt text, dimensions, and visible crop so matching assets are reused.', $result['global_required_steps'] );

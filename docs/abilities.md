@@ -155,8 +155,9 @@ for debugging and operational tasks.
 - `stonewright/elementor-v3-get-page-structure` returns a compact Elementor
   outline by default; use `responseMode=full` only when the raw element tree is
   required.
-- `stonewright/elementor-v3-get-widget-schema` returns compact widget controls
-  by default; use `responseMode=full` only when control defaults are required.
+- `stonewright/elementor-schema` lists/searches live widgets and returns compact
+  widget controls with `mode=summary`; use `mode=control` for one complete
+  control or paginated `mode=full` only when required.
 - `stonewright/blocks-list-registered` and `stonewright/blocks-get-schema`
   include third-party block inserter metadata such as keywords, examples,
   supports, attributes, and variations when WordPress exposes them.

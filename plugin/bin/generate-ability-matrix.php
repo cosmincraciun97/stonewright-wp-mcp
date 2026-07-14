@@ -390,7 +390,10 @@ function detect_validator( string $source ): string {
 	if ( strpos( $source, 'ThemeJson\\Validator' ) !== false || strpos( $source, 'ThemeJson\Validator' ) !== false ) {
 		return 'Yes (ThemeJson)';
 	}
-	if ( strpos( $source, 'Validator::validate' ) !== false ) {
+	if (
+		strpos( $source, 'DesignSpec\\Validator' ) !== false
+		&& strpos( $source, 'Validator::validate' ) !== false
+	) {
 		return 'Yes (DesignSpec)';
 	}
 	if (

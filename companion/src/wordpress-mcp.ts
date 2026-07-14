@@ -105,7 +105,7 @@ const LOW_TOOLS_PROXY_TOOL_NAMES = [
 const ESSENTIAL_PROXY_TOOL_NAMES = [
 	...BASE_PROXY_TOOL_NAMES,
 	'stonewright-security-issue-confirmation-token',
-	'stonewright-site-info',
+	'stonewright-elementor-schema',
 	'stonewright-content-bulk-upsert-posts',
 	'stonewright-design-implementation-contract',
 	'stonewright-elementor-v3-batch-mutate',
@@ -127,7 +127,7 @@ const PROXY_TOOL_PROFILE_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, readon
 		'stonewright-elementor-v3-capabilities-summary',
 		'stonewright-elementor-v3-container-schema',
 		'stonewright-elementor-v3-list-widgets',
-		'stonewright-elementor-v3-get-widget-schema',
+		'stonewright-elementor-schema',
 		'stonewright-elementor-describe-widget',
 		'stonewright-elementor-v4-status',
 		'stonewright-elementor-v4-list-variables',

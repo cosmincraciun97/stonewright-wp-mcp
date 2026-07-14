@@ -6,7 +6,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Elementor\ContainerSettings;
-use Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetCatalog;
+use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
@@ -360,18 +360,12 @@ final class BatchMutate extends AbilityKernel {
 		}
 
 		$settings = isset( $operation['settings'] ) && is_array( $operation['settings'] ) ? $operation['settings'] : [];
-		if ( 'html' !== $widget_type && WidgetCatalog::has( $widget_type ) ) {
-			$violations = self::required_setting_violations( $widget_type, $settings );
-			if ( [] !== $violations ) {
-				return $this->error(
-					'invalid_settings',
-					__( 'Known-widget settings failed validation. Provide exact Elementor control keys.', 'stonewright' ),
-					[
-						'violations' => $violations,
-						'widget'     => $widget_type,
-					]
-				);
+		if ( 'html' !== $widget_type ) {
+			$validated = SettingsValidator::validate( $widget_type, $settings );
+			if ( $validated instanceof \WP_Error ) {
+				return $validated;
 			}
+			$settings = $validated['settings'];
 		}
 
 		$parent_path = $this->parent_path( $tree, $operation, $refs, 'parent_id', 'parent_ref' );
@@ -421,6 +415,13 @@ final class BatchMutate extends AbilityKernel {
 		$settings = 'replace' === $mode ? $incoming : array_merge( $existing, $incoming );
 		if ( 'container' === ( $element['elType'] ?? '' ) ) {
 			$settings = ContainerSettings::normalize( $settings );
+		} elseif ( 'widget' === ( $element['elType'] ?? '' ) ) {
+			$widget_type = (string) ( $element['widgetType'] ?? '' );
+			$validated   = SettingsValidator::validate( $widget_type, $settings );
+			if ( $validated instanceof \WP_Error ) {
+				return $validated;
+			}
+			$settings = $validated['settings'];
 		}
 
 		$element['settings'] = $settings;
@@ -560,37 +561,6 @@ final class BatchMutate extends AbilityKernel {
 			'action'     => 'add_' . $kind,
 			'element_id' => $element_id,
 		];
-	}
-
-	/**
-	 * @param array<string, mixed> $settings
-	 * @return array<int, array<string, mixed>>
-	 */
-	private static function required_setting_violations( string $widget_type, array $settings ): array {
-		$violations = [];
-		foreach ( WidgetCatalog::required_for_render( $widget_type ) as $req_key ) {
-			$present = array_key_exists( $req_key, $settings ) && self::setting_has_value( $settings[ $req_key ] );
-			if ( ! $present ) {
-				$violations[] = [
-					'path'     => 'settings.' . $req_key,
-					'code'     => 'required_missing',
-					'expected' => 'non-empty Elementor control value',
-					'got'      => array_key_exists( $req_key, $settings ) ? $settings[ $req_key ] : null,
-				];
-			}
-		}
-
-		return $violations;
-	}
-
-	private static function setting_has_value( mixed $value ): bool {
-		if ( null === $value || '' === $value ) {
-			return false;
-		}
-		if ( is_array( $value ) && array_key_exists( 'value', $value ) ) {
-			return null !== $value['value'] && '' !== $value['value'];
-		}
-		return true;
 	}
 
 	/**

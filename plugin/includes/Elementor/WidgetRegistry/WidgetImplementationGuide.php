@@ -26,7 +26,7 @@ final class WidgetImplementationGuide {
 			),
 			'global_required_steps' => [
 				'Call stonewright/elementor-describe-widget for every recommended widget before writing.',
-				'Call stonewright/elementor-v3-get-widget-schema for every widget you intend to write and inspect compact controls grouped by Content, Style, and Advanced before choosing settings; request responseMode=full only when defaults are required.',
+				'Call stonewright/elementor-schema with mode=summary for every widget you intend to write; request mode=control for one exact control or paginated mode=full only when needed.',
 				'Use dedicated stonewright/elementor-add-* abilities for known widgets; reserve stonewright/elementor-v3-add-widget for unknown or third-party widgets.',
 				'Use exact setting keys from the widget schema. Do not invent CSS-like keys when Elementor expects a different control key.',
 				'Configure Content, Style, and Advanced controls; do not only insert the widget.',

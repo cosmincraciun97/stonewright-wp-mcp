@@ -14,9 +14,15 @@
   token budgets.
 - Reduced the default registered ability surface from 65 to 20 composite and
   discovery tools; full mode still exposes maintainer and compatibility tools.
+- Replaced the duplicate 5.85 MB widget manifest with a compact index and 95
+  lazy PHP shards, plus `stonewright/elementor-schema` for live discovery.
+- Added runtime widget-setting validation and a final pre-persistence tree gate
+  so unknown Elementor V3 keys cannot reach `_elementor_data`.
 
 ### Fixed
 
+- Corrected the Elementor Pro Gallery required setting to the live `gallery`
+  control instead of the Basic Gallery-only `wp_gallery` key.
 - Removed host-specific Elementor source paths from generated widget data and
   made the inventory generator accept an explicit plugins directory.
 - Cleaned PHPUnit temporary files and removed PHP 8.5 reflection deprecations.

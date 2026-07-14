@@ -14,6 +14,7 @@ use Stonewright\WpMcp\Admin\SkillsPage;
 use Stonewright\WpMcp\Skills\SkillsSeeder;
 use Stonewright\WpMcp\Skills\SkillsTable;
 use Stonewright\WpMcp\Elementor\WidgetBuilder\Loader as WidgetLoader;
+use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Sandbox\CrashRecovery;
 use Stonewright\WpMcp\Security\AuditLog;
@@ -98,6 +99,13 @@ final class PluginRegistration {
 		add_action( 'init', [ ResourceRegistry::class, 'register' ], 30 );
 		add_action( 'init', [ BlockRegistry::class, 'register' ], 40 );
 		add_action( 'rest_api_init', [ RestRoutes::class, 'register' ] );
+		add_action( 'activated_plugin', [ WidgetSchemaRepository::class, 'invalidate' ], 10, 2 );
+		add_action( 'deactivated_plugin', [ WidgetSchemaRepository::class, 'invalidate' ], 10, 2 );
+		add_action( 'upgrader_process_complete', [ WidgetSchemaRepository::class, 'invalidate' ], 10, 2 );
+		add_action( 'update_option_active_plugins', [ WidgetSchemaRepository::class, 'invalidate' ], 10, 3 );
+		add_action( 'update_option_elementor_experiment-container', [ WidgetSchemaRepository::class, 'invalidate' ], 10, 3 );
+		add_action( 'update_option_elementor_experiment-e_atomic_elements', [ WidgetSchemaRepository::class, 'invalidate' ], 10, 3 );
+		add_action( 'update_option_elementor_experiment-nested-elements', [ WidgetSchemaRepository::class, 'invalidate' ], 10, 3 );
 
 		CrashRecovery::register();
 		WidgetLoader::register();

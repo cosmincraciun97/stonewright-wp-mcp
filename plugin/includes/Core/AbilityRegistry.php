@@ -37,6 +37,7 @@ use Stonewright\WpMcp\Abilities\ElementorV3\BatchMutate;
 use Stonewright\WpMcp\Abilities\ElementorV3\BuildPageFromSpec;
 use Stonewright\WpMcp\Abilities\ElementorV3\CapabilitiesSummary as ElementorV3CapabilitiesSummary;
 use Stonewright\WpMcp\Abilities\ElementorV3\ContainerSchema;
+use Stonewright\WpMcp\Abilities\ElementorV3\ElementorSchema;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetElement;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetKitGlobals;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetPageStructure;
@@ -239,6 +240,7 @@ final class AbilityRegistry {
 			ElementorV3CapabilitiesSummary::class,
 			GetKitGlobals::class,
 			ContainerSchema::class,
+			ElementorSchema::class,
 			ListWidgets::class,
 			GetWidgetSchema::class,
 			GetPageStructure::class,
@@ -363,8 +365,8 @@ final class AbilityRegistry {
 		];
 
 		// Auto-generated per-widget Elementor V3 abilities (one per
-		// slug in plugin/includes/Elementor/WidgetRegistry/manifest.json).
-		// Re-run plugin/bin/generate-widget-abilities.php after manifest changes.
+		// slug in the lazy Elementor WidgetRegistry catalog).
+		// Re-run plugin/bin/generate-widget-abilities.php after catalog changes.
 		return array_merge( $base, self::widget_ability_classes() );
 	}
 
@@ -795,7 +797,7 @@ final class AbilityRegistry {
 			'stonewright/media-upload-batch',
 			'stonewright/design-implementation-contract',
 			'stonewright/elementor-v3-capabilities-summary',
-			'stonewright/elementor-v3-get-widget-schema',
+			'stonewright/elementor-schema',
 			'stonewright/elementor-v3-get-page-structure',
 			'stonewright/elementor-v3-build-page-from-spec',
 			'stonewright/elementor-v3-batch-mutate',

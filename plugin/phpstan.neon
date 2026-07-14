@@ -7,7 +7,7 @@ parameters:
         - includes/
     excludePaths:
         - tests/*
-        - includes/Elementor/WidgetRegistry/manifest.php
+        - includes/Elementor/WidgetRegistry/catalog/*
     bootstrapFiles:
         - tests/phpstan-bootstrap.php
     scanFiles:

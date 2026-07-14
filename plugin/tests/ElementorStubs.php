@@ -121,13 +121,80 @@ Plugin::$instance = (object) [
 								'tab'     => 'content',
 								'section' => 'content',
 							],
+							];
+						}
+					},
+				'third-party-card' => new class() {
+					public function get_title(): string {
+						return 'Third Party Card';
+					}
+
+					/** @return list<string> */
+					public function get_categories(): array {
+						return [ 'third-party' ];
+					}
+
+					/** @return list<string> */
+					public function get_keywords(): array {
+						return [ 'card' ];
+					}
+
+					/** @return array<string, array<string, mixed>> */
+					public function get_controls(): array {
+						return [
+							'title' => [ 'type' => 'text', 'label' => 'Title', 'tab' => 'content', 'section' => 'content' ],
 						];
 					}
 				},
 			];
 
 			if ( null !== $name ) {
-				return $widgets[ $name ] ?? null;
+				if ( isset( $widgets[ $name ] ) ) {
+					return $widgets[ $name ];
+				}
+
+				$catalog = \Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetCatalog::class;
+				if ( ! $catalog::has( $name ) ) {
+					return null;
+				}
+				$entry = $catalog::entry( $name );
+
+				return new class( $name, $entry ) {
+					/** @param array<string, mixed> $entry */
+					public function __construct( private string $name, private array $entry ) {
+					}
+
+					public function get_title(): string {
+						return (string) ( $this->entry['title'] ?? $this->name );
+					}
+
+					/** @return list<string> */
+					public function get_categories(): array {
+						return array_values( (array) ( $this->entry['categories'] ?? [] ) );
+					}
+
+					/** @return array<string, array<string, mixed>> */
+					public function get_controls(): array {
+						$controls = [];
+						foreach ( (array) ( $this->entry['settings_index'] ?? [] ) as $key => $control ) {
+							$controls[ (string) $key ] = is_array( $control ) ? $control : [];
+						}
+						foreach ( (array) ( $this->entry['sections'] ?? [] ) as $section ) {
+							foreach ( (array) ( $section['group_controls'] ?? [] ) as $group ) {
+								$prefix = is_string( $group['name'] ?? null ) ? $group['name'] : '';
+								if ( 'typography' === ( $group['group'] ?? '' ) && '' !== $prefix ) {
+									$controls[ $prefix . '_font_size' ] = [
+										'type'       => 'slider',
+										'tab'        => (string) ( $section['tab'] ?? 'style' ),
+										'section'    => (string) ( $section['id'] ?? '' ),
+										'responsive' => true,
+									];
+								}
+							}
+						}
+						return $controls;
+					}
+				};
 			}
 
 			return $widgets;

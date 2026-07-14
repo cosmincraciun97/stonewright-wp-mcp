@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -34,6 +35,7 @@ final class ListWidgets extends AbilityKernel {
 			'type'       => 'object',
 			'properties' => [
 				'widgets' => [ 'type' => 'array' ],
+				'runtime_fingerprint' => [ 'type' => 'string' ],
 			],
 		];
 	}
@@ -43,26 +45,19 @@ final class ListWidgets extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
-		if ( ! class_exists( '\\Elementor\\Plugin' ) ) {
-			return $this->error( 'elementor_inactive', __( 'Elementor is not loaded.', 'stonewright' ) );
-		}
+		$result  = WidgetSchemaRepository::list( '', 1, 100 );
+		$widgets = array_map(
+			static fn( array $widget ): array => [
+				'name'           => (string) $widget['widget_type'],
+				'title'          => (string) $widget['title'],
+				'categories'     => (array) $widget['categories'],
+				'source_plugin'  => (string) $widget['source_plugin'],
+				'source_version' => (string) $widget['source_version'],
+				'schema_hash'    => (string) $widget['schema_hash'],
+			],
+			$result['items']
+		);
 
-		$widgets_manager = \Elementor\Plugin::$instance->widgets_manager ?? null;
-		if ( ! $widgets_manager ) {
-			return $this->error( 'elementor_inactive', __( 'Elementor widgets manager is unavailable.', 'stonewright' ) );
-		}
-
-		$widgets = [];
-		foreach ( $widgets_manager->get_widget_types() as $name => $widget ) {
-			$widgets[] = [
-				'name'       => (string) $name,
-				'title'      => method_exists( $widget, 'get_title' ) ? (string) $widget->get_title() : '',
-				'icon'       => method_exists( $widget, 'get_icon' ) ? (string) $widget->get_icon() : '',
-				'categories' => method_exists( $widget, 'get_categories' ) ? (array) $widget->get_categories() : [],
-				'keywords'   => method_exists( $widget, 'get_keywords' ) ? (array) $widget->get_keywords() : [],
-			];
-		}
-
-		return [ 'widgets' => $widgets ];
+		return [ 'widgets' => $widgets, 'runtime_fingerprint' => $result['fingerprint'] ];
 	}
 }

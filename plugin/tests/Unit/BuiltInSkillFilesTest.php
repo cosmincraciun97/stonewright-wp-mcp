@@ -41,7 +41,7 @@ final class BuiltInSkillFilesTest extends TestCase {
 		self::assertStringContainsString( 'name: woocommerce-catalog', $woocommerce_body );
 		self::assertStringContainsString( 'product variations', $woocommerce_body );
 		self::assertStringContainsString( 'wp wc', $woocommerce_body );
-		self::assertStringContainsString( 'stonewright/elementor-v3-get-widget-schema', $elementor_body );
+		self::assertStringContainsString( 'stonewright/elementor-schema', $elementor_body );
 		self::assertStringContainsString( 'Name only major parent containers semantically', $elementor_body );
 		self::assertStringContainsString( 'position absolute', $elementor_body );
 		self::assertStringContainsString( 'Content, Style, and Advanced', $elementor_body );

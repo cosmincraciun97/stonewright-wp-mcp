@@ -15,8 +15,8 @@ final class WidgetCatalogTest extends TestCase {
 
 	protected function setUp(): void {
 		$this->dir = sys_get_temp_dir() . '/stonewright-widget-catalog-' . uniqid( '', true );
-		mkdir( $this->dir );
-		WidgetCatalog::set_manifest_path( $this->dir . '/manifest.json' );
+		mkdir( $this->dir . '/shards', 0777, true );
+		WidgetCatalog::set_manifest_path( $this->dir . '/index.php' );
 	}
 
 	protected function tearDown(): void {
@@ -24,48 +24,33 @@ final class WidgetCatalogTest extends TestCase {
 		$this->remove_dir( $this->dir );
 	}
 
-	public function test_manifest_prefers_precompiled_php_array_when_available(): void {
+	public function test_catalog_loads_only_the_requested_php_shard(): void {
 		file_put_contents(
-			$this->dir . '/manifest.json',
-			wp_json_encode(
-				[
-					'version' => 'json',
-					'widgets' => [],
-					'totals'  => [],
-				]
-			)
+			$this->dir . '/index.php',
+			"<?php\nreturn [ 'version' => 'php', 'widgets' => [ 'heading' => [ 'shard' => 'shards/heading.php', 'source' => 'free' ], 'image' => [ 'shard' => 'shards/image.php', 'source' => 'free' ] ], 'totals' => [] ];\n"
 		);
 		file_put_contents(
-			$this->dir . '/manifest.php',
-			"<?php\nreturn [ 'version' => 'php', 'widgets' => [ 'heading' => [] ], 'totals' => [] ];\n"
+			$this->dir . '/shards/heading.php',
+			"<?php\nreturn [ 'slug' => 'heading', 'title' => 'Heading', 'settings_index' => [ 'title' => [ 'type' => 'text' ] ] ];\n"
 		);
 
-		$manifest = WidgetCatalog::manifest();
+		$entry = WidgetCatalog::entry( 'heading' );
 
-		self::assertSame( 'php', $manifest['version'] );
-		self::assertArrayHasKey( 'heading', $manifest['widgets'] );
+		self::assertSame( 'Heading', $entry['title'] );
+		self::assertArrayHasKey( 'title', WidgetCatalog::settings_index( 'heading' ) );
+		self::assertSame( [ 'heading', 'image' ], WidgetCatalog::slugs() );
 	}
 
-	public function test_manifest_falls_back_to_json_when_php_file_is_invalid(): void {
+	public function test_invalid_or_traversing_shard_returns_safe_stub(): void {
 		file_put_contents(
-			$this->dir . '/manifest.json',
-			wp_json_encode(
-				[
-					'version' => 'json',
-					'widgets' => [ 'image' => [] ],
-					'totals'  => [],
-				]
-			)
-		);
-		file_put_contents(
-			$this->dir . '/manifest.php',
-			"<?php\nreturn 'not-an-array';\n"
+			$this->dir . '/index.php',
+			"<?php\nreturn [ 'version' => 'php', 'widgets' => [ 'image' => [ 'shard' => '../secret.php' ] ], 'totals' => [] ];\n"
 		);
 
-		$manifest = WidgetCatalog::manifest();
+		$entry = WidgetCatalog::entry( 'image' );
 
-		self::assertSame( 'json', $manifest['version'] );
-		self::assertArrayHasKey( 'image', $manifest['widgets'] );
+		self::assertSame( 'image', $entry['slug'] );
+		self::assertSame( [], $entry['settings_index'] );
 	}
 
 	private function remove_dir( string $dir ): void {
