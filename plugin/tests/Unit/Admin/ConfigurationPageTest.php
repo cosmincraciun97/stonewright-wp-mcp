@@ -55,6 +55,10 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringContainsString( 'stonewright_generate_application_password', $html );
 		self::assertStringContainsString( 'Application Password', $html );
 		self::assertStringContainsString( 'Connect MCP Client', $html );
+		self::assertStringContainsString( 'Setup diagnostics', $html );
+		self::assertStringContainsString( 'Remote HTTP', $html );
+		self::assertStringContainsString( 'no Node or companion required', $html );
+		self::assertStringContainsString( 'stonewright-remote-http-snippet', $html );
 		self::assertStringContainsString( 'stonewright-connect-prompt-full', $html );
 		self::assertSame( 1, substr_count( $html, 'class="stonewright-connect-prompt' ) );
 		self::assertStringContainsString( 'data-stonewright-text-preview', $html );

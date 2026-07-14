@@ -20,6 +20,8 @@
   tree inspection, official class/variable adapters, and owned fixtures.
 - Added `stonewright/elementor-v4-migrate` with explicit zero-loss reporting,
   snapshot, readback hash, and automatic restore on mismatch.
+- Added setup diagnostics and a direct Streamable HTTP configuration for
+  remote clients that do not need Node or the optional companion.
 
 ### Changed
 

@@ -45,6 +45,8 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Added a separate page-resident Elementor V4 editor adapter with live schema
   discovery, explicit write approval, batch rollback, editor/frontend readback,
   and zero-loss-only V3 migration planning/application.
+- Added side-effect-free setup diagnostics and a direct remote HTTP config that
+  needs neither Node nor the optional companion.
 
 ### Changed
 
