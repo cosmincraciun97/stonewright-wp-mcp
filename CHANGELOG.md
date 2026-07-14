@@ -47,6 +47,9 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   and zero-loss-only V3 migration planning/application.
 - Added side-effect-free setup diagnostics and a direct remote HTTP config that
   needs neither Node nor the optional companion.
+- Added a Gutenberg Visual adapter with live block discovery, strict attribute
+  validation, editor-native writes, serialization, save readback, and batch
+  rollback beneath the single workspace tool.
 
 ### Changed
 
