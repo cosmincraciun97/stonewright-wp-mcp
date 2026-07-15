@@ -119,6 +119,7 @@ final class PluginRegistration {
 
 		CrashRecovery::register();
 		WidgetLoader::register();
+		GitHubUpdater::register();
 
 		ConfigurationPage::register();
 		AbilitiesPage::register();

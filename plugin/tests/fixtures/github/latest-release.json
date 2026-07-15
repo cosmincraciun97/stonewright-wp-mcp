@@ -1,0 +1,21 @@
+{
+  "tag_name": "v1.0.0-alpha.99",
+  "name": "1.0.0-alpha.99",
+  "html_url": "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.99",
+  "body": "Test release body for Stonewright updater fixture.",
+  "published_at": "2026-07-01T12:00:00Z",
+  "assets": [
+    {
+      "name": "stonewright-1.0.0-alpha.99.zip",
+      "browser_download_url": "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.99/stonewright-1.0.0-alpha.99.zip",
+      "content_type": "application/zip",
+      "size": 123456
+    },
+    {
+      "name": "stonewright-companion-1.0.0-alpha.99.tgz",
+      "browser_download_url": "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.99/stonewright-companion-1.0.0-alpha.99.tgz",
+      "content_type": "application/gzip",
+      "size": 45678
+    }
+  ]
+}
