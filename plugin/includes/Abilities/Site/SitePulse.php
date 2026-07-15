@@ -419,10 +419,12 @@ final class SitePulse extends AbilityKernel {
 			return 0;
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// Table name comes from $wpdb->options (trusted), not user input.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$value = $wpdb->get_var(
 			"SELECT SUM(LENGTH(option_value)) FROM {$table} WHERE autoload IN ('yes','on','auto','auto-on')"
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		return max( 0, (int) $value );
 	}
@@ -485,12 +487,14 @@ final class SitePulse extends AbilityKernel {
 		}
 
 		// Targeted sample: count of postmeta rows without a matching post.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// Table names come from $wpdb (trusted), not user input.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$value = $wpdb->get_var(
 			"SELECT COUNT(*) FROM {$postmeta} pm
 			LEFT JOIN {$posts} p ON p.ID = pm.post_id
 			WHERE p.ID IS NULL"
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		return max( 0, (int) $value );
 	}

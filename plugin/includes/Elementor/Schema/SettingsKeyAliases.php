@@ -13,7 +13,7 @@ namespace Stonewright\WpMcp\Elementor\Schema;
 final class SettingsKeyAliases {
 
 	/**
-	 * alias => canonical key.
+	 * Map of alias keys to canonical Elementor settings keys.
 	 *
 	 * @var array<string, string>
 	 */
