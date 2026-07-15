@@ -59,10 +59,10 @@ final class BuiltInSkillFilesTest extends TestCase {
 		self::assertStringContainsString( 'block supports', $gutenberg_body );
 		self::assertStringContainsString( 'Create Block Theme', $gutenberg_body );
 		self::assertStringContainsString( 'prototype-to-production workflow', $gutenberg_body );
-		self::assertStringContainsString( 'AI builder tools for WordPress MCP', $readme_body );
-		self::assertStringContainsString( 'Persistent memory', $readme_body );
-		self::assertStringContainsString( 'Elementor widget intelligence', $readme_body );
-		self::assertStringContainsString( 'Block themes and Gutenberg', $readme_body );
+		self::assertStringContainsString( 'Safe WordPress automation for AI agents', $readme_body );
+		self::assertStringContainsString( 'Persistent project memory', $readme_body );
+		self::assertStringContainsString( 'Elementor widget and schema intelligence', $readme_body );
+		self::assertStringContainsString( 'Gutenberg, FSE, templates, patterns, and `theme.json`', $readme_body );
 		self::assertStringContainsString( 'stonewright-tool-profile', $stonewright_body );
 		self::assertStringContainsString( 'stonewright_essential_tools_mode', $stonewright_body );
 		self::assertStringContainsString( 'stonewright/content-bulk-upsert-posts', $stonewright_body );

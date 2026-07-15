@@ -1,41 +1,39 @@
 name: Feature request
-description: Suggest a Stonewright capability or workflow improvement.
+description: Propose a capability or improvement.
 title: "[Feature]: "
 labels:
   - enhancement
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the user problem first, then the proposed behavior.
+        Note whether the feature should work in Plugin mode, Direct mode, or both.
   - type: textarea
     id: problem
     attributes:
       label: Problem
-      description: What workflow is hard, missing, or unsafe today?
+      description: What is hard or impossible today?
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
       label: Proposed solution
-      description: Describe the smallest useful change.
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Target mode
+      options:
+        - Plugin mode
+        - Direct mode
+        - Both
+        - Unsure
     validations:
       required: true
   - type: textarea
     id: alternatives
     attributes:
       label: Alternatives considered
-  - type: dropdown
-    id: surface
-    attributes:
-      label: Area
-      options:
-        - WordPress plugin
-        - Node companion
-        - Admin UI
-        - Elementor
-        - Gutenberg/FSE
-        - Skills or memory
-        - Documentation
-  - type: textarea
-    id: security
-    attributes:
-      label: Security considerations
-      description: Note permissions, backups, tokens, validation, or WP-CLI impact.
