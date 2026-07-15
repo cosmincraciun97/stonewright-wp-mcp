@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/brand/stonewright-logo-512.png" alt="Stonewright" width="160" height="160" />
+</p>
+
 <h1 align="center">Stonewright</h1>
 
 <p align="center">

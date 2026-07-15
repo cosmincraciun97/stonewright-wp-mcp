@@ -353,6 +353,14 @@ html.sw-theme-dark {
 	color: var(--sw-brand);
 }
 
+.sw-shell__logo-img {
+	display: block;
+	width: 28px;
+	height: 28px;
+	object-fit: contain;
+	flex-shrink: 0;
+}
+
 .sw-shell__product {
 	font-size: var(--sw-text-md);
 	font-weight: 700;

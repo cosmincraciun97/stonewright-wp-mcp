@@ -84,7 +84,23 @@ final class AdminShell {
 		<div class="<?php echo esc_attr( implode( ' ', $classes ) ); ?>" data-sw-shell data-sw-theme="<?php echo esc_attr( $theme ); ?>">
 			<header class="sw-shell__header" role="banner">
 				<div class="sw-shell__brand">
-					<span class="sw-shell__logo" aria-hidden="true">⬡</span>
+					<?php
+					$logo_url = defined( 'STONEWRIGHT_URL' )
+						? (string) constant( 'STONEWRIGHT_URL' ) . 'assets/admin/stonewright-logo.png'
+						: '';
+					if ( '' !== $logo_url ) :
+						?>
+						<img
+							class="sw-shell__logo-img"
+							src="<?php echo esc_url( $logo_url ); ?>"
+							alt=""
+							width="28"
+							height="28"
+							decoding="async"
+						/>
+					<?php else : ?>
+						<span class="sw-shell__logo" aria-hidden="true">⬡</span>
+					<?php endif; ?>
 					<span class="sw-shell__product"><?php esc_html_e( 'Stonewright', 'stonewright' ); ?></span>
 				</div>
 				<nav class="sw-shell__nav" aria-label="<?php esc_attr_e( 'Stonewright admin', 'stonewright' ); ?>">
