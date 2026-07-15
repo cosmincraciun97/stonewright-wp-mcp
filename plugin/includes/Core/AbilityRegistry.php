@@ -854,7 +854,27 @@ final class AbilityRegistry {
 			'stonewright/theme-builder-apply-template',
 			'stonewright/gutenberg-apply-to-post',
 			'stonewright/wp-cli-batch-run',
+
+			// Blueprints, brand kits, clone path, learning.
+			'stonewright/blueprint-list',
+			'stonewright/blueprint-get',
+			'stonewright/blueprint-apply',
+			'stonewright/brand-kit-list',
+			'stonewright/brand-kit-apply',
+			'stonewright/elementor-page-digest',
+			'stonewright/elementor-build-tree',
+			'stonewright/site-pulse',
+			'stonewright/learning-record',
 		];
+	}
+
+	/**
+	 * Public list for tests and budget tooling.
+	 *
+	 * @return list<string>
+	 */
+	public static function essential_ability_names_for_test(): array {
+		return self::essential_ability_names();
 	}
 
 	/**

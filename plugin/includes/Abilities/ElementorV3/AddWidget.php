@@ -85,12 +85,11 @@ final class AddWidget extends AbilityKernel {
 			$args,
 			function ( array $args ) {
 				$widget_type = isset( $args['widget_type'] ) ? (string) $args['widget_type'] : '';
-				if ( 'html' === $widget_type && empty( $args['allow_html_widget'] ) ) {
-					return new \WP_Error(
-						'html_widget_requires_explicit_approval',
-						__( 'Elementor HTML widgets are disabled by default. Use native Elementor widgets first, or pass allow_html_widget=true only when the user explicitly requested HTML.', 'stonewright' ),
-						[ 'status' => 400 ]
-					);
+				if ( \Stonewright\WpMcp\Elementor\HtmlWidgetPolicy::is_html_type( $widget_type ) ) {
+					$policy = \Stonewright\WpMcp\Elementor\HtmlWidgetPolicy::allowed( $args );
+					if ( $policy instanceof \WP_Error ) {
+						return $policy;
+					}
 				}
 
 				if ( 'html' !== $widget_type && WidgetCatalog::has( $widget_type ) ) {

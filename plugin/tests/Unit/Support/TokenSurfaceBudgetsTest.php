@@ -23,7 +23,7 @@ final class TokenSurfaceBudgetsTest extends TestCase {
 		);
 
 		self::assertTrue( TokenSurfaceBudgets::all_pass( $budgets ) );
-		self::assertTrue( $budgets['essential_max_20_tools'] );
+		self::assertTrue( $budgets['essential_max_30_tools'] );
 		self::assertTrue( $budgets['default_max_20_tools'] );
 		self::assertTrue( $budgets['strict_max_12_tools'] );
 		self::assertTrue( $budgets['non_visual_task_start_lt_700'] );
@@ -34,7 +34,7 @@ final class TokenSurfaceBudgetsTest extends TestCase {
 		$budgets = TokenSurfaceBudgets::evaluate( TokenSurfaceBudgets::over_budget_fixture_metrics() );
 
 		self::assertFalse( TokenSurfaceBudgets::all_pass( $budgets ) );
-		self::assertFalse( $budgets['essential_max_20_tools'] );
+		self::assertFalse( $budgets['essential_max_30_tools'] );
 		self::assertFalse( $budgets['default_max_20_tools'] );
 		self::assertFalse( $budgets['strict_max_12_tools'] );
 		self::assertFalse( $budgets['non_visual_task_start_lt_700'] );
@@ -54,6 +54,6 @@ final class TokenSurfaceBudgetsTest extends TestCase {
 		self::assertSame( 1, $code, implode( "\n", $output ) );
 		$joined = implode( "\n", $output );
 		self::assertStringContainsString( '"ok": false', $joined );
-		self::assertStringContainsString( 'essential_max_20_tools', $joined );
+		self::assertStringContainsString( 'essential_max_30_tools', $joined );
 	}
 }

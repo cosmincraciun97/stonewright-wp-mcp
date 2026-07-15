@@ -74,7 +74,7 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'Use plugin-specific official REST or WP-CLI surfaces when present', $instructions );
 		$this->assertStringContainsString( 'WP-CLI remains tokenized; use stonewright/php-execute for PHP runtime snippets', $instructions );
 		$this->assertStringContainsString( 'real Elementor widgets', $instructions );
-		$this->assertStringContainsString( 'Do not use Elementor HTML widgets', $instructions );
+		$this->assertStringContainsString( 'HTML widgets are disabled by default at site level', $instructions );
 		$this->assertStringContainsString( 'allow_html_widget=true', $instructions );
 		$this->assertStringContainsString( 'Content, Style, and Advanced', $instructions );
 		$this->assertStringContainsString( 'official Elementor documentation', $instructions );

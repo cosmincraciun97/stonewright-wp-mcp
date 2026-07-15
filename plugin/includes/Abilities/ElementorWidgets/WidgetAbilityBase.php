@@ -236,12 +236,11 @@ abstract class WidgetAbilityBase extends AbilityKernel {
 		return $this->audit(
 			$args,
 			function ( array $args ) {
-				if ( 'html' === $this->slug() && empty( $args['allow_html_widget'] ) ) {
-					return new \WP_Error(
-						'html_widget_requires_explicit_approval',
-						__( 'Elementor HTML widgets are disabled by default. Use native Elementor widgets first, or pass allow_html_widget=true only when the user explicitly requested HTML.', 'stonewright' ),
-						[ 'status' => 400 ]
-					);
+				if ( \Stonewright\WpMcp\Elementor\HtmlWidgetPolicy::is_html_type( $this->slug() ) ) {
+					$policy = \Stonewright\WpMcp\Elementor\HtmlWidgetPolicy::allowed( $args );
+					if ( $policy instanceof \WP_Error ) {
+						return $policy;
+					}
 				}
 
 				$post_id = (int) ( $args['post_id'] ?? 0 );

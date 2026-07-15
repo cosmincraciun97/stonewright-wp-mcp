@@ -38,7 +38,26 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 		self::assertContains( 'stonewright/content-model-loop-grid-flow', $names );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $names );
 		self::assertContains( 'stonewright/media-upload-batch', $names );
-		self::assertLessThanOrEqual( 20, count( $names ) );
+		self::assertLessThanOrEqual( 30, count( $names ) );
+	}
+
+	public function test_essential_includes_blueprint_and_clone_path(): void {
+		$names = AbilityRegistry::essential_ability_names_for_test();
+		foreach (
+			[
+				'stonewright/blueprint-list',
+				'stonewright/blueprint-get',
+				'stonewright/blueprint-apply',
+				'stonewright/brand-kit-list',
+				'stonewright/brand-kit-apply',
+				'stonewright/elementor-page-digest',
+				'stonewright/elementor-build-tree',
+				'stonewright/site-pulse',
+				'stonewright/learning-record',
+			] as $name
+		) {
+			self::assertContains( $name, $names, $name . ' missing from essential profile' );
+		}
 	}
 
 	public function test_essential_mode_filters_to_compact_fast_path(): void {
@@ -57,8 +76,9 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 		self::assertContains( 'stonewright/wp-cli-batch-run', $names );
 		self::assertContains( 'stonewright/theme-builder-apply-template', $names );
 		self::assertContains( 'stonewright/content-model-loop-grid-flow', $names );
+		self::assertContains( 'stonewright/blueprint-apply', $names );
 		self::assertNotContains( 'stonewright/sandbox-write', $names );
-		self::assertLessThanOrEqual( 20, count( $names ) );
+		self::assertLessThanOrEqual( 30, count( $names ) );
 	}
 
 	public function test_essential_mode_keeps_explicit_extras_visible(): void {

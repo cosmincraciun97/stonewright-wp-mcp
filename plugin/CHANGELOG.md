@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.69] - 2026-07-15
+
+### Added
+
+- Essential tools for blueprints, brand kits, digest, pulse, learning.
+- HTML widget site hard-block; QA block on blueprint apply; rebuilt blueprint specs.
+
 ## [1.0.0-alpha.68] - 2026-07-15
 
 ### Fixed

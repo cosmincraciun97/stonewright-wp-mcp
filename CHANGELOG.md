@@ -7,6 +7,24 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.69] - 2026-07-15
+
+### Added
+
+- Essential profile exposes blueprint, brand-kit, page-digest, build-tree, site-pulse, learning-record.
+- Tool profile `extras` + `tools_changed` / re-list instruction for MCP clients.
+- Premium blueprints (12) with rows, images, per-industry copy; BlueprintSpecQualityTest guardrail.
+- Gutenberg renderer applies design tokens (button/heading/body fonts and colors).
+- Site-level HTML widget hard-block (`stonewright_allow_html_widgets`, default off).
+- `QaReport` block on blueprint-apply responses.
+- Skill pack `skills/elementor-site-clone`.
+- Direct mode blueprint list/get/apply (Gutenberg) + companion `init` CLI.
+- Security review notes in `docs/security-review-2026-07.md`.
+
+### Changed
+
+- Essential tool budget raised to 30; Direct full surface budget raised to 50.
+
 ## [1.0.0-alpha.68] - 2026-07-15
 
 ### Fixed
