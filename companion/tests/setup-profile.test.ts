@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { APP_VERSION } from '../src/version.js';
 import { buildSetupProfile } from '../src/setup-profile.js';
 import { createMcpServer } from '../src/mcp-server.js';
 
@@ -18,7 +19,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.mcp_server.args).toEqual([
 			'-y',
 			'--package',
-			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz',
+			`https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v${APP_VERSION}/stonewright-companion-${APP_VERSION}.tgz`,
 			'stonewright-mcp',
 		]);
 		expect(profile.mcp_server.env).toMatchObject({
@@ -76,9 +77,9 @@ describe('buildSetupProfile', () => {
 			'stonewright-task-start',
 			'stonewright-php-execute',
 		]);
-		expect(profile.tool_inventory.companion_version).toBe('1.0.0-alpha.66');
+		expect(profile.tool_inventory.companion_version).toBe(APP_VERSION);
 		expect(profile.tool_inventory.expected_companion_package).toBe(
-			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz',
+			`https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v${APP_VERSION}/stonewright-companion-${APP_VERSION}.tgz`,
 		);
 		expect(profile.notes.join('\n')).toContain('Use stonewright-wordpress-mcp-status if proxied WordPress tools are missing');
 		expect(profile.notes.join('\n')).toContain('After every Stonewright release or skill sync, restart the MCP client and re-run stonewright-setup-profile plus stonewright-wordpress-mcp-status');
@@ -141,7 +142,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.platform).toBe('win32');
 		expect(profile.mcp_server.env.STONEWRIGHT_WP_ROOT).toBe('D:\\Sites\\mcp-test\\app\\public');
 		expect(profile.mcp_server.env.STONEWRIGHT_WP_USERNAME).toBe('admin');
-		expect(profile.install_command).toBe('npm install -g https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz');
+		expect(profile.install_command).toBe(`npm install -g https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v${APP_VERSION}/stonewright-companion-${APP_VERSION}.tgz`);
 		expect(profile.notes.join('\n')).toContain('No shell script wrapper required');
 	});
 

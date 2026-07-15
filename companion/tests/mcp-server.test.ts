@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { APP_VERSION } from '../src/version.js';
 import { createMcpServer } from '../src/mcp-server.js';
 import { proxyToolNamesForProfile } from '../src/wordpress-mcp.js';
 
@@ -18,7 +19,7 @@ describe('createMcpServer', () => {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
 		const info = (server as any).server._serverInfo as { name: string; version: string };
 		expect(info.name).toBe('stonewright-companion');
-		expect(info.version).toBe('1.0.0-alpha.66');
+		expect(info.version).toBe(APP_VERSION);
 	});
 
 	it('publishes compact handshake instructions before any tool is called', async () => {
@@ -524,8 +525,8 @@ describe('createMcpServer', () => {
 		};
 
 		expect(response.structuredContent?.tool_profile).toBe('essential');
-		expect(response.structuredContent?.companion_version).toBe('1.0.0-alpha.66');
-		expect(response.structuredContent?.expected_companion_package).toBe('https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz');
+		expect(response.structuredContent?.companion_version).toBe(APP_VERSION);
+		expect(response.structuredContent?.expected_companion_package).toBe(`https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v${APP_VERSION}/stonewright-companion-${APP_VERSION}.tgz`);
 		expect(response.structuredContent?.refresh_required_tool_names).toEqual([
 			'stonewright-context-bootstrap',
 			'stonewright-task-start',
