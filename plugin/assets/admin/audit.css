@@ -1,0 +1,86 @@
+/**
+ * Audit Log page.
+ */
+
+.sw-audit-page {
+	max-width: none;
+}
+
+.sw-audit-filters {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: var(--sw-space-3);
+	padding: var(--sw-space-4);
+	margin: 0 0 var(--sw-space-5);
+	background: var(--sw-color-card, #fff);
+	border: 1px solid var(--sw-color-border, var(--sw-gray-200));
+	border-radius: var(--sw-radius);
+	box-shadow: var(--sw-shadow-1);
+}
+
+.sw-audit-filters label {
+	display: flex;
+	flex-direction: column;
+	gap: var(--sw-space-1);
+	font-size: var(--sw-text-sm);
+	font-weight: 600;
+	color: var(--sw-color-muted);
+}
+
+.sw-audit-filters input,
+.sw-audit-filters select {
+	min-height: 32px;
+	font-weight: 400;
+}
+
+.sw-audit-table {
+	background: var(--sw-color-card, #fff);
+	border-radius: var(--sw-radius);
+	overflow: hidden;
+}
+
+.sw-audit-details summary {
+	cursor: pointer;
+	color: var(--sw-brand);
+	font-weight: 600;
+	font-size: var(--sw-text-sm);
+}
+
+.sw-audit-details summary:focus-visible {
+	outline: 2px solid var(--sw-brand);
+	outline-offset: 2px;
+}
+
+.sw-audit-payload {
+	margin: var(--sw-space-2) 0 0;
+	padding: var(--sw-space-3);
+	max-width: 40rem;
+	overflow: auto;
+	font-family: var(--sw-font-mono);
+	font-size: var(--sw-text-xs);
+	background: var(--sw-gray-50);
+	border-radius: var(--sw-radius-sm);
+	border: 1px solid var(--sw-color-border);
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.sw-badge--ok {
+	background: var(--sw-success-bg);
+	color: var(--sw-success);
+}
+
+.sw-badge--error {
+	background: var(--sw-danger-bg);
+	color: var(--sw-danger);
+}
+
+.sw-empty-state {
+	padding: var(--sw-space-6);
+	text-align: center;
+	color: var(--sw-color-muted);
+	background: var(--sw-color-card);
+	border: 1px dashed var(--sw-color-border);
+	border-radius: var(--sw-radius);
+}

@@ -28,7 +28,7 @@ final class AdminShell {
 			'stonewright-skills'     => __( 'Skills', 'stonewright' ),
 			'stonewright-memory'     => __( 'Memory', 'stonewright' ),
 			'stonewright-audit-log'  => __( 'Audit Log', 'stonewright' ),
-			'stonewright-status'     => __( 'Status', 'stonewright' ),
+			'stonewright-status'     => __( 'Dashboard', 'stonewright' ),
 		];
 	}
 

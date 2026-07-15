@@ -349,7 +349,13 @@
 	color: inherit;
 }
 
-.sw-btn:focus-visible {
+.sw-btn:focus-visible,
+.sw-shell button:focus-visible,
+.sw-shell a:focus-visible,
+.sw-shell input:focus-visible,
+.sw-shell select:focus-visible,
+.sw-shell textarea:focus-visible,
+.sw-shell summary:focus-visible {
 	outline: 2px solid var(--sw-brand);
 	outline-offset: 2px;
 }

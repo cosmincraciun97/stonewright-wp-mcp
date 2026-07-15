@@ -358,14 +358,59 @@
 		} );
 	}
 
+	function escapeRegExp( value ) {
+		return String( value ).replace( /[.*+?^${}()|[\]\\]/g, '\\$&' );
+	}
+
+	function clearAbilityHighlights( root ) {
+		root.querySelectorAll( 'mark[data-sw-highlight]' ).forEach( function ( mark ) {
+			var parent = mark.parentNode;
+			if ( ! parent ) {
+				return;
+			}
+			parent.replaceChild( document.createTextNode( mark.textContent || '' ), mark );
+			parent.normalize();
+		} );
+	}
+
+	function highlightAbilityText( node, query ) {
+		if ( ! node || ! query ) {
+			return;
+		}
+		var text = node.textContent || '';
+		var lower = text.toLowerCase();
+		var index = lower.indexOf( query );
+		if ( index === -1 ) {
+			return;
+		}
+		var before = text.slice( 0, index );
+		var match = text.slice( index, index + query.length );
+		var after = text.slice( index + query.length );
+		var frag = document.createDocumentFragment();
+		if ( before ) {
+			frag.appendChild( document.createTextNode( before ) );
+		}
+		var mark = document.createElement( 'mark' );
+		mark.setAttribute( 'data-sw-highlight', '1' );
+		mark.textContent = match;
+		frag.appendChild( mark );
+		if ( after ) {
+			frag.appendChild( document.createTextNode( after ) );
+		}
+		node.textContent = '';
+		node.appendChild( frag );
+	}
+
 	function initAbilitySearch() {
 		var searchInput = document.getElementById( 'stonewright-ability-search' );
 		if ( ! searchInput ) {
 			return;
 		}
+		var emptyState = document.querySelector( '[data-sw-abilities-empty]' );
 		searchInput.addEventListener( 'input', function () {
-			var query = searchInput.value.toLowerCase();
-			document.querySelectorAll( '.stonewright-provider-group' ).forEach( function ( group ) {
+			var query = searchInput.value.toLowerCase().trim();
+			var totalVisible = 0;
+			document.querySelectorAll( '.stonewright-provider-group, .sw-ability-category' ).forEach( function ( group ) {
 				var visible = 0;
 				group.querySelectorAll( '.stonewright-ability-row' ).forEach( function ( row ) {
 					var haystack = [
@@ -377,12 +422,21 @@
 					].join( ' ' ).toLowerCase();
 					var match = ! query || haystack.indexOf( query ) !== -1;
 					row.hidden = ! match;
+					clearAbilityHighlights( row );
 					if ( match ) {
 						visible++;
+						totalVisible++;
+						if ( query ) {
+							highlightAbilityText( row.querySelector( '.sw-ability-label' ), query );
+							highlightAbilityText( row.querySelector( '.sw-ability-tool' ), query );
+						}
 					}
 				} );
 				group.classList.toggle( 'is-filtered-empty', visible === 0 );
 			} );
+			if ( emptyState ) {
+				emptyState.hidden = totalVisible > 0 || ! query;
+			}
 		} );
 	}
 
@@ -401,6 +455,21 @@
 				var form = document.getElementById( checkbox.getAttribute( 'data-stonewright-submit-form' ) );
 				if ( form ) {
 					form.requestSubmit ? form.requestSubmit() : form.submit();
+				}
+			} );
+		} );
+
+		document.querySelectorAll( '[data-sw-bulk-action]' ).forEach( function ( button ) {
+			button.addEventListener( 'click', function () {
+				var action = button.getAttribute( 'data-sw-bulk-action' ) || '';
+				var category = button.getAttribute( 'data-sw-bulk-category' ) || '';
+				var actionSelect = document.querySelector( 'select[name="stonewright_bulk_action"]' );
+				var categorySelect = document.querySelector( 'select[name="stonewright_bulk_category"]' );
+				if ( actionSelect ) {
+					actionSelect.value = action;
+				}
+				if ( categorySelect ) {
+					categorySelect.value = category;
 				}
 			} );
 		} );

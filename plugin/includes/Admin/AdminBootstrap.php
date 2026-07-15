@@ -106,16 +106,55 @@ final class AdminBootstrap {
 			true
 		);
 
-		// Setup page (top-level Configuration/Setup slug).
+		// Page-scoped premium styles (only on Stonewright admin pages).
 		$page = isset( $_GET['page'] ) ? sanitize_key( (string) wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		if ( 'stonewright' === $page || str_contains( $hook_suffix, 'toplevel_page_stonewright' ) ) {
+		$page_styles = [
+			'stonewright'             => 'setup.css',
+			'stonewright-abilities'   => 'abilities.css',
+			'stonewright-status'      => 'dashboard.css',
+			'stonewright-audit-log'   => 'audit.css',
+			'stonewright-skills'      => 'skills-memory.css',
+			'stonewright-memory'      => 'skills-memory.css',
+			'stonewright-sandbox'     => 'sandbox.css',
+		];
+
+		if ( isset( $page_styles[ $page ] ) ) {
+			$handle = 'stonewright-admin-' . str_replace( [ 'stonewright-', '.css' ], [ '', '' ], $page_styles[ $page ] );
+			if ( 'setup.css' === $page_styles[ $page ] ) {
+				$handle = 'stonewright-admin-setup';
+			} elseif ( 'skills-memory.css' === $page_styles[ $page ] ) {
+				$handle = 'stonewright-admin-skills-memory';
+			} elseif ( 'abilities.css' === $page_styles[ $page ] ) {
+				$handle = 'stonewright-admin-abilities';
+			} elseif ( 'dashboard.css' === $page_styles[ $page ] ) {
+				$handle = 'stonewright-admin-dashboard';
+			} elseif ( 'audit.css' === $page_styles[ $page ] ) {
+				$handle = 'stonewright-admin-audit';
+			} elseif ( 'sandbox.css' === $page_styles[ $page ] ) {
+				$handle = 'stonewright-admin-sandbox';
+			}
+
+			wp_enqueue_style(
+				$handle,
+				$url_base . 'assets/admin/' . $page_styles[ $page ],
+				[ 'stonewright-admin-shell', 'stonewright-admin' ],
+				$version
+			);
+		}
+
+		// Top-level Setup also matches via hook suffix when page query is missing.
+		if ( ( 'stonewright' === $page || str_contains( $hook_suffix, 'toplevel_page_stonewright' ) )
+			&& ! wp_style_is( 'stonewright-admin-setup', 'enqueued' )
+		) {
 			wp_enqueue_style(
 				'stonewright-admin-setup',
 				$url_base . 'assets/admin/setup.css',
 				[ 'stonewright-admin-shell', 'stonewright-admin' ],
 				$version
 			);
+		}
 
+		if ( 'stonewright' === $page || str_contains( $hook_suffix, 'toplevel_page_stonewright' ) ) {
 			wp_localize_script(
 				'stonewright-admin',
 				'stonewrightSetup',

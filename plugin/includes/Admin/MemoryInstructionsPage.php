@@ -117,32 +117,26 @@ final class MemoryInstructionsPage {
 
 		?>
 		<?php AdminShell::open( self::SLUG ); ?>
-		<div class="stonewright-memory-page">
+		<div class="sw-memory-page stonewright-memory-page">
 			<div class="stonewright-page-header">
 				<div>
-					<h1>Memory &amp; Instructions</h1>
-					<p>Durable site knowledge for connected Stonewright sessions. Memory is saved only when an operator or ability writes it, and every entry stays auditable here.</p>
+					<h1><?php esc_html_e( 'Memory & Instructions', 'stonewright' ); ?></h1>
+					<p><?php esc_html_e( 'Durable site knowledge for connected Stonewright sessions. Memory is saved only when an operator or ability writes it, and every entry stays auditable here.', 'stonewright' ); ?></p>
 				</div>
 			</div>
 
-			<div class="stonewright-guidance-grid">
-				<div class="stonewright-guidance-card">
-					<h2>What belongs here</h2>
-					<p>Store project conventions, builder rules, recurring user feedback, naming standards, and hard-won pitfalls that should survive across sessions.</p>
+			<details class="sw-callout">
+				<summary><?php esc_html_e( 'Guidance', 'stonewright' ); ?></summary>
+				<div class="sw-callout__body">
+					<p><strong><?php esc_html_e( 'What belongs here', 'stonewright' ); ?></strong> — <?php esc_html_e( 'Store project conventions, builder rules, recurring user feedback, naming standards, and hard-won pitfalls that should survive across sessions.', 'stonewright' ); ?></p>
+					<p><strong><?php esc_html_e( 'What stays out', 'stonewright' ); ?></strong> — <?php esc_html_e( 'Do not store passwords, API keys, personal notes, or temporary task chatter. Memory is site-wide and visible to administrators.', 'stonewright' ); ?></p>
+					<p><strong><?php esc_html_e( 'Token efficiency', 'stonewright' ); ?></strong> — <?php esc_html_e( 'Prefer short, scoped entries. Discovery can find the right memory by type, scope, and key without loading a long briefing every time.', 'stonewright' ); ?></p>
 				</div>
-				<div class="stonewright-guidance-card">
-					<h2>What stays out</h2>
-					<p>Do not store passwords, API keys, personal notes, or temporary task chatter. Memory is site-wide and visible to administrators.</p>
-				</div>
-				<div class="stonewright-guidance-card">
-					<h2>Token efficiency</h2>
-					<p>Prefer short, scoped entries. Discovery can find the right memory by type, scope, and key without loading a long briefing every time.</p>
-				</div>
-			</div>
+			</details>
 
 			<!-- Section 1: Custom Instructions -->
-			<div class="stonewright-panel">
-				<h2>Custom Instructions</h2>
+			<div class="sw-card stonewright-panel">
+				<h2><?php esc_html_e( 'Custom Instructions', 'stonewright' ); ?></h2>
 				<form method="post" action="options.php">
 					<?php settings_fields( self::OPT_GROUP ); ?>
 					<p>
@@ -153,10 +147,10 @@ final class MemoryInstructionsPage {
 								value="1"
 								<?php checked( $enabled ); ?>
 							>
-							Enable custom instructions
+							<?php esc_html_e( 'Enable custom instructions', 'stonewright' ); ?>
 						</label>
 					</p>
-					<p class="description">Use for a short baseline rule set that should always be visible to connected agents. Keep larger procedures as skills instead.</p>
+					<p class="description"><?php esc_html_e( 'Use for a short baseline rule set that should always be visible to connected agents. Keep larger procedures as skills instead.', 'stonewright' ); ?></p>
 					<p>
 						<textarea
 							name="stonewright_custom_instructions"
@@ -165,65 +159,78 @@ final class MemoryInstructionsPage {
 							maxlength="4000"
 						><?php echo esc_textarea( $instructions ); ?></textarea>
 					</p>
-					<p class="description">Up to 4000 characters. Shorter instructions keep discovery faster and cheaper.</p>
-					<?php submit_button( 'Save instructions' ); ?>
+					<p class="description"><?php esc_html_e( 'Up to 4000 characters. Shorter instructions keep discovery faster and cheaper.', 'stonewright' ); ?></p>
+					<div class="sw-actions">
+						<?php submit_button( __( 'Save instructions', 'stonewright' ), 'primary', 'submit', false ); ?>
+					</div>
 				</form>
 			</div>
 
-			<div class="stonewright-panel">
-				<h2>Import / Export</h2>
-				<p class="description">Export or import custom instructions, memory entries, and skills as a portable Stonewright JSON bundle.</p>
-				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form stonewright-inline-form--spaced">
-					<input type="hidden" name="action" value="stonewright_knowledge_export">
-					<?php wp_nonce_field( 'stonewright_knowledge_bundle', '_stonewright_nonce' ); ?>
-					<button type="submit" class="button button-secondary">Export JSON</button>
-				</form>
-				<button
-					type="button"
-					class="button button-secondary"
-					data-stonewright-toggle-target="stonewright-knowledge-import"
-				>Import JSON</button>
+			<div class="sw-card stonewright-panel">
+				<header class="sw-card__header">
+					<div>
+						<h2><?php esc_html_e( 'Import / Export', 'stonewright' ); ?></h2>
+						<p class="description"><?php esc_html_e( 'Export or import custom instructions, memory entries, and skills as a portable Stonewright JSON bundle.', 'stonewright' ); ?></p>
+					</div>
+					<div class="sw-actions">
+						<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form">
+							<input type="hidden" name="action" value="stonewright_knowledge_export">
+							<?php wp_nonce_field( 'stonewright_knowledge_bundle', '_stonewright_nonce' ); ?>
+							<button type="submit" class="sw-btn sw-btn--secondary sw-btn--sm"><?php esc_html_e( 'Export JSON', 'stonewright' ); ?></button>
+						</form>
+						<button
+							type="button"
+							class="sw-btn sw-btn--secondary sw-btn--sm"
+							data-stonewright-toggle-target="stonewright-knowledge-import"
+						><?php esc_html_e( 'Import JSON', 'stonewright' ); ?></button>
+					</div>
+				</header>
 				<div id="stonewright-knowledge-import" class="stonewright-subpanel" hidden>
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 						<input type="hidden" name="action" value="stonewright_knowledge_import">
 						<?php wp_nonce_field( 'stonewright_knowledge_bundle', '_stonewright_nonce' ); ?>
 						<p>
 							<label>
-								Bundle JSON<br>
+								<?php esc_html_e( 'Bundle JSON', 'stonewright' ); ?><br>
 								<textarea name="bundle_json" rows="10" class="large-text code" required></textarea>
 							</label>
 						</p>
-						<?php submit_button( 'Import JSON' ); ?>
+						<div class="sw-actions">
+							<?php submit_button( __( 'Import JSON', 'stonewright' ), 'primary', 'submit', false ); ?>
+						</div>
 					</form>
 				</div>
 			</div>
 
 			<!-- Section 2: Memory entries -->
-			<div class="stonewright-panel">
-				<h2>
-					Memory
-					<button
-						type="button"
-						class="button button-secondary"
-						data-stonewright-toggle-target="stonewright-new-memory"
-						data-stonewright-focus-target="stonewright_memory_name"
-					>Add new</button>
-				</h2>
-
-				<form method="post" action="options.php" class="stonewright-compact-form">
-					<?php settings_fields( self::OPT_GROUP ); ?>
-					<label>
-						<input
-							type="checkbox"
-							name="stonewright_memory_enabled"
-							value="1"
-							<?php checked( $mem_enabled ); ?>
-						>
-						Enable memory abilities
-					</label>
-					<?php submit_button( 'Save', 'small', 'submit', false ); ?>
-				</form>
-				<p class="description stonewright-memory-note">Memory abilities let connected agents list, read, create, update, and delete these entries through Stonewright tools.</p>
+			<div class="sw-card stonewright-panel">
+				<header class="sw-card__header sw-memory-section-header">
+					<div>
+						<h2><?php esc_html_e( 'Memory', 'stonewright' ); ?></h2>
+						<p class="description stonewright-memory-note"><?php esc_html_e( 'Memory abilities let connected agents list, read, create, update, and delete these entries through Stonewright tools.', 'stonewright' ); ?></p>
+					</div>
+					<div class="sw-actions">
+						<form method="post" action="options.php" class="stonewright-compact-form sw-actions">
+							<?php settings_fields( self::OPT_GROUP ); ?>
+							<label class="sw-check">
+								<input
+									type="checkbox"
+									name="stonewright_memory_enabled"
+									value="1"
+									<?php checked( $mem_enabled ); ?>
+								>
+								<?php esc_html_e( 'Enable memory abilities', 'stonewright' ); ?>
+							</label>
+							<?php submit_button( __( 'Save', 'stonewright' ), 'secondary', 'submit', false ); ?>
+						</form>
+						<button
+							type="button"
+							class="sw-btn sw-btn--primary sw-btn--sm"
+							data-stonewright-toggle-target="stonewright-new-memory"
+							data-stonewright-focus-target="stonewright_memory_name"
+						><?php esc_html_e( 'Add new', 'stonewright' ); ?></button>
+					</div>
+				</header>
 
 				<!-- Tabs: All | User | Feedback | Project | Reference -->
 				<ul class="subsubsub">

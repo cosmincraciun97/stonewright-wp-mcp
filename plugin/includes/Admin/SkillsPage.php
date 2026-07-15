@@ -102,41 +102,37 @@ final class SkillsPage {
 		$skills = Skills::list();
 		?>
 		<?php AdminShell::open( self::SLUG ); ?>
-		<div class="stonewright-skills-page">
+		<div class="sw-skills-page stonewright-skills-page">
 			<div class="stonewright-page-header">
 				<div>
 					<h1><?php esc_html_e( 'Skills', 'stonewright' ); ?></h1>
 					<p><?php esc_html_e( 'Site-owned Markdown playbooks for repeatable WordPress work. Agents skim descriptions first, then load full bodies only when a task matches.', 'stonewright' ); ?></p>
 				</div>
-				<button
-					type="button"
-					class="button button-primary"
-					id="sw-new-skill-btn"
-					data-stonewright-toggle-target="sw-new-skill-form"
-					data-stonewright-focus-target="sw-new-title"
-				>
-					<?php esc_html_e( 'New Skill', 'stonewright' ); ?>
-				</button>
+				<div class="sw-actions">
+					<button
+						type="button"
+						class="sw-btn sw-btn--primary"
+						id="sw-new-skill-btn"
+						data-stonewright-toggle-target="sw-new-skill-form"
+						data-stonewright-focus-target="sw-new-title"
+					>
+						<?php esc_html_e( 'New Skill', 'stonewright' ); ?>
+					</button>
+				</div>
 			</div>
 
 			<?php self::render_notices(); ?>
 
-			<div class="stonewright-guidance-grid">
-				<div class="stonewright-guidance-card">
-					<h2><?php esc_html_e( 'How skills reach agents', 'stonewright' ); ?></h2>
-					<p><?php esc_html_e( 'Keep descriptions short and specific. They are the trigger text agents read during discovery; long Markdown bodies stay out of context until needed.', 'stonewright' ); ?></p>
+			<details class="sw-callout">
+				<summary><?php esc_html_e( 'How skills work', 'stonewright' ); ?></summary>
+				<div class="sw-callout__body">
+					<p><strong><?php esc_html_e( 'How skills reach agents', 'stonewright' ); ?></strong> — <?php esc_html_e( 'Keep descriptions short and specific. They are the trigger text agents read during discovery; long Markdown bodies stay out of context until needed.', 'stonewright' ); ?></p>
+					<p><strong><?php esc_html_e( 'Best fit', 'stonewright' ); ?></strong> — <?php esc_html_e( 'Use skills for site conventions, builder rules, QA checklists, naming standards, and fragile workflows that should repeat the same way.', 'stonewright' ); ?></p>
+					<p><strong><?php esc_html_e( 'Trust boundary', 'stonewright' ); ?></strong> — <?php esc_html_e( 'Review every skill before enabling it. A skill is guidance for a powerful connected operator, so it should be concise, intentional, and reviewed.', 'stonewright' ); ?></p>
 				</div>
-				<div class="stonewright-guidance-card">
-					<h2><?php esc_html_e( 'Best fit', 'stonewright' ); ?></h2>
-					<p><?php esc_html_e( 'Use skills for site conventions, builder rules, QA checklists, naming standards, and fragile workflows that should repeat the same way.', 'stonewright' ); ?></p>
-				</div>
-				<div class="stonewright-guidance-card">
-					<h2><?php esc_html_e( 'Trust boundary', 'stonewright' ); ?></h2>
-					<p><?php esc_html_e( 'Review every skill before enabling it. A skill is guidance for a powerful connected operator, so it should be concise, intentional, and reviewed.', 'stonewright' ); ?></p>
-				</div>
-			</div>
+			</details>
 
-			<div id="sw-new-skill-form" class="stonewright-panel stonewright-new-skill-form" hidden>
+			<div id="sw-new-skill-form" class="sw-card stonewright-panel stonewright-new-skill-form" hidden>
 				<h2><?php esc_html_e( 'Create New Skill', 'stonewright' ); ?></h2>
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 					<?php wp_nonce_field( 'stonewright_skill_save' ); ?>
@@ -171,24 +167,24 @@ final class SkillsPage {
 							</tr>
 						</tbody>
 					</table>
-					<p class="submit">
-						<button type="submit" class="button button-primary"><?php esc_html_e( 'Create Skill', 'stonewright' ); ?></button>
+					<div class="sw-actions">
+						<button type="submit" class="sw-btn sw-btn--primary"><?php esc_html_e( 'Create Skill', 'stonewright' ); ?></button>
 						<button
 							type="button"
-							class="button"
+							class="sw-btn sw-btn--secondary"
 							id="sw-cancel-skill-btn"
 							data-stonewright-hide-target="sw-new-skill-form"
 						><?php esc_html_e( 'Cancel', 'stonewright' ); ?></button>
-					</p>
+					</div>
 				</form>
 			</div>
 
 			<?php if ( empty( $skills ) ) : ?>
-				<div class="stonewright-empty-state">
+				<div class="stonewright-empty-state sw-empty-state">
 					<p><?php esc_html_e( 'No skills yet. Create your first skill above.', 'stonewright' ); ?></p>
 				</div>
 			<?php else : ?>
-				<div class="stonewright-card-grid stonewright-skills-grid">
+				<div class="sw-skills-grid stonewright-card-grid stonewright-skills-grid">
 					<?php foreach ( $skills as $skill ) : ?>
 						<?php self::render_skill_card( $skill ); ?>
 					<?php endforeach; ?>
@@ -214,7 +210,7 @@ final class SkillsPage {
 		$enable_prompt  = (bool) ( $skill['enable_prompt'] ?? $enabled );
 		$is_builtin     = 'builtin' === $source;
 		?>
-		<div class="stonewright-card stonewright-skill-card <?php echo $enabled ? 'stonewright-card--enabled' : 'stonewright-card--disabled'; ?>">
+		<div class="sw-skill-card sw-card stonewright-card stonewright-skill-card <?php echo $enabled ? 'stonewright-card--enabled' : 'stonewright-card--disabled'; ?>">
 			<div class="stonewright-card__header">
 				<div class="stonewright-card__title-row">
 					<strong class="stonewright-card__title"><?php echo esc_html( $title ); ?></strong>
@@ -238,23 +234,25 @@ final class SkillsPage {
 				<?php if ( $description ) : ?>
 					<p class="stonewright-card__description"><?php echo esc_html( $description ); ?></p>
 				<?php endif; ?>
-				<p class="stonewright-card__preview"><?php echo esc_html( mb_substr( $content, 0, 200 ) . ( mb_strlen( $content ) > 200 ? '...' : '' ) ); ?></p>
+				<div class="sw-skill-preview">
+					<pre class="sw-skill-preview__text"><?php echo esc_html( mb_substr( $content, 0, 200 ) . ( mb_strlen( $content ) > 200 ? '…' : '' ) ); ?></pre>
+				</div>
 			</div>
 
-			<div class="stonewright-card__footer">
+			<div class="stonewright-card__footer sw-actions">
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form">
 					<?php wp_nonce_field( 'stonewright_skill_toggle' ); ?>
 					<input type="hidden" name="action" value="stonewright_skill_toggle">
 					<input type="hidden" name="id" value="<?php echo esc_attr( (string) $id ); ?>">
 					<input type="hidden" name="enabled" value="<?php echo $enabled ? '0' : '1'; ?>">
-					<button type="submit" class="button button-small">
+					<button type="submit" class="sw-btn sw-btn--secondary sw-btn--sm">
 						<?php echo $enabled ? esc_html__( 'Disable', 'stonewright' ) : esc_html__( 'Enable', 'stonewright' ); ?>
 					</button>
 				</form>
 
 				<button
 					type="button"
-					class="button button-small"
+					class="sw-btn sw-btn--ghost sw-btn--sm"
 					data-stonewright-skill-toggle="sw-edit-<?php echo esc_attr( (string) $id ); ?>"
 					aria-expanded="false"
 				>
@@ -268,7 +266,7 @@ final class SkillsPage {
 						<input type="hidden" name="id" value="<?php echo esc_attr( (string) $id ); ?>">
 						<button
 							type="submit"
-							class="button button-small sw-btn--danger"
+							class="sw-btn sw-btn--danger sw-btn--sm"
 							data-confirm="<?php esc_attr_e( 'Delete this skill?', 'stonewright' ); ?>"
 						><?php esc_html_e( 'Delete', 'stonewright' ); ?></button>
 					</form>

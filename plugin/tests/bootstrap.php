@@ -70,6 +70,14 @@ if ( ! defined( 'MINUTE_IN_SECONDS' ) ) {
 	define( 'MINUTE_IN_SECONDS', 60 );
 }
 
+if ( ! defined( 'HOUR_IN_SECONDS' ) ) {
+	define( 'HOUR_IN_SECONDS', 3600 );
+}
+
+if ( ! defined( 'DAY_IN_SECONDS' ) ) {
+	define( 'DAY_IN_SECONDS', 86400 );
+}
+
 // ---------------------------------------------------------------------------
 // Autoloader — prefer Composer's; fall back to a hand-rolled PSR-4 mapper.
 // ---------------------------------------------------------------------------
@@ -119,6 +127,12 @@ if ( ! function_exists( 'wp_json_encode' ) ) {
 	}
 }
 
+if ( ! function_exists( '_n' ) ) {
+	function _n( string $single, string $plural, int $number, string $domain = 'default' ): string {
+		return 1 === $number ? $single : $plural;
+	}
+}
+
 if ( ! function_exists( '__' ) ) {
 	function __( string $text, string $domain = 'default' ): string {
 		return $text;
@@ -160,6 +174,30 @@ if ( ! function_exists( 'wp_get_current_user' ) ) {
 			'ID'         => (int) ( $GLOBALS['stonewright_test_current_user_id'] ?? 0 ),
 			'user_login' => (string) ( $GLOBALS['stonewright_test_current_user_login'] ?? 'admin' ),
 		];
+	}
+}
+
+if ( ! function_exists( 'get_user_by' ) ) {
+	/**
+	 * @return object|false
+	 */
+	function get_user_by( string $field, mixed $value ): object|false {
+		$users = $GLOBALS['stonewright_test_users'] ?? [];
+		foreach ( $users as $user ) {
+			if ( 'id' === $field && (int) ( $user->ID ?? 0 ) === (int) $value ) {
+				return $user;
+			}
+			if ( 'login' === $field && (string) ( $user->user_login ?? '' ) === (string) $value ) {
+				return $user;
+			}
+		}
+		if ( 'id' === $field && (int) $value > 0 ) {
+			return (object) [
+				'ID'         => (int) $value,
+				'user_login' => 'user-' . (int) $value,
+			];
+		}
+		return false;
 	}
 }
 
