@@ -88,12 +88,18 @@ final class AdminShell {
 					$logo_url = defined( 'STONEWRIGHT_URL' )
 						? (string) constant( 'STONEWRIGHT_URL' ) . 'assets/admin/stonewright-logo.png'
 						: '';
+					$logo_2x  = defined( 'STONEWRIGHT_URL' )
+						? (string) constant( 'STONEWRIGHT_URL' ) . 'assets/brand/stonewright-logo-512.png'
+						: '';
 					if ( '' !== $logo_url ) :
 						?>
 						<img
 							class="sw-shell__logo-img"
 							src="<?php echo esc_url( $logo_url ); ?>"
-							alt=""
+							<?php if ( '' !== $logo_2x ) : ?>
+								srcset="<?php echo esc_url( $logo_url ); ?> 1x, <?php echo esc_url( $logo_2x ); ?> 2x"
+							<?php endif; ?>
+							alt="<?php echo esc_attr__( 'Stonewright', 'stonewright' ); ?>"
 							width="28"
 							height="28"
 							decoding="async"
