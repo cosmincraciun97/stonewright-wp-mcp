@@ -1,0 +1,28 @@
+{
+    "id": "clinic-calm",
+    "name": "Clinic Calm",
+    "description": "Soft clinical cyan for dental/medical.",
+    "colors": {
+        "primary": "#0E7490",
+        "secondary": "#155E75",
+        "accent": "#67E8F9",
+        "background": "#F8FAFC",
+        "surface": "#ECFEFF",
+        "text": "#0F172A"
+    },
+    "fonts": {
+        "heading": "IBM Plex Sans, system-ui, sans-serif",
+        "body": "IBM Plex Sans, system-ui, sans-serif"
+    },
+    "radius": {
+        "sm": "4px",
+        "md": "8px",
+        "lg": "16px"
+    },
+    "spacing": {
+        "xs": "8px",
+        "sm": "16px",
+        "md": "24px",
+        "lg": "48px"
+    }
+}

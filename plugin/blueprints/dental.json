@@ -1,0 +1,202 @@
+{
+    "id": "dental",
+    "name": "Dental Practice",
+    "description": "Original Stonewright landing blueprint for the dental industry with hero, services, pricing, testimonials, contact, and about sections.",
+    "industry": "dental",
+    "palette": {
+        "primary": "#0E7490",
+        "secondary": "#164E63",
+        "accent": "#67E8F9",
+        "background": "#F8FAFC",
+        "text": "#0F172A"
+    },
+    "fonts": {
+        "heading": "IBM Plex Sans, system-ui, sans-serif",
+        "body": "IBM Plex Sans, system-ui, sans-serif"
+    },
+    "section_ids": [
+        "hero",
+        "services",
+        "pricing",
+        "testimonials",
+        "contact",
+        "about"
+    ],
+    "spec": {
+        "version": "1.0.0",
+        "page": {
+            "title": "Northline Family Dental"
+        },
+        "tokens": {
+            "colors": {
+                "primary": "#0E7490",
+                "secondary": "#164E63",
+                "accent": "#67E8F9",
+                "background": "#F8FAFC",
+                "text": "#0F172A"
+            },
+            "typography": {
+                "heading": {
+                    "font_family": "IBM Plex Sans, system-ui, sans-serif"
+                },
+                "body": {
+                    "font_family": "IBM Plex Sans, system-ui, sans-serif"
+                }
+            }
+        },
+        "sections": [
+            {
+                "id": "hero",
+                "blocks": [
+                    {
+                        "type": "heading",
+                        "level": 1,
+                        "text": "Calm care for every smile"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Modern dentistry with clear plans, gentle visits, and same-week openings."
+                    },
+                    {
+                        "type": "button",
+                        "text": "Get started",
+                        "url": "https://example.com/start"
+                    }
+                ]
+            },
+            {
+                "id": "services",
+                "blocks": [
+                    {
+                        "type": "heading",
+                        "level": 2,
+                        "text": "Services"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Practical offerings designed for real-world outcomes."
+                    },
+                    {
+                        "type": "heading",
+                        "level": 3,
+                        "text": "Preventive cleanings"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Preventive cleanings delivered with clear scope and careful follow-through."
+                    },
+                    {
+                        "type": "heading",
+                        "level": 3,
+                        "text": "Invisalign planning"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Invisalign planning delivered with clear scope and careful follow-through."
+                    },
+                    {
+                        "type": "heading",
+                        "level": 3,
+                        "text": "Emergency visits"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Emergency visits delivered with clear scope and careful follow-through."
+                    }
+                ]
+            },
+            {
+                "id": "pricing",
+                "blocks": [
+                    {
+                        "type": "heading",
+                        "level": 2,
+                        "text": "Pricing"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Transparent packages so you can plan with confidence."
+                    },
+                    {
+                        "type": "heading",
+                        "level": 3,
+                        "text": "New patient exam"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Package 1 with defined deliverables and response times."
+                    },
+                    {
+                        "type": "heading",
+                        "level": 3,
+                        "text": "Whitening package"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Package 2 with defined deliverables and response times."
+                    },
+                    {
+                        "type": "heading",
+                        "level": 3,
+                        "text": "Family plan"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Package 3 with defined deliverables and response times."
+                    }
+                ]
+            },
+            {
+                "id": "testimonials",
+                "blocks": [
+                    {
+                        "type": "heading",
+                        "level": 2,
+                        "text": "What clients say"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "They explained every option without pressure."
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "\u2014 Recent client review"
+                    }
+                ]
+            },
+            {
+                "id": "contact",
+                "blocks": [
+                    {
+                        "type": "heading",
+                        "level": 2,
+                        "text": "Contact"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Book a new-patient exam or ask about insurance coverage."
+                    },
+                    {
+                        "type": "button",
+                        "text": "Contact us",
+                        "url": "https://example.com/contact"
+                    }
+                ]
+            },
+            {
+                "id": "about",
+                "blocks": [
+                    {
+                        "type": "heading",
+                        "level": 2,
+                        "text": "About"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "A neighborhood practice built around comfort, clarity, and long-term health."
+                    }
+                ]
+            }
+        ]
+    }
+}

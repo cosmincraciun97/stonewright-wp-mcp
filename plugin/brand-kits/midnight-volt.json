@@ -1,0 +1,28 @@
+{
+    "id": "midnight-volt",
+    "name": "Midnight Volt",
+    "description": "High-contrast dark kit for SaaS and tech.",
+    "colors": {
+        "primary": "#0F172A",
+        "secondary": "#1E293B",
+        "accent": "#22D3EE",
+        "background": "#020617",
+        "surface": "#0B1220",
+        "text": "#E2E8F0"
+    },
+    "fonts": {
+        "heading": "Sora, system-ui, sans-serif",
+        "body": "Inter, system-ui, sans-serif"
+    },
+    "radius": {
+        "sm": "4px",
+        "md": "8px",
+        "lg": "16px"
+    },
+    "spacing": {
+        "xs": "8px",
+        "sm": "16px",
+        "md": "24px",
+        "lg": "48px"
+    }
+}

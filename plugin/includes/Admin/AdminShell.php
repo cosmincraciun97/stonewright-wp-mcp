@@ -24,6 +24,7 @@ final class AdminShell {
 		return [
 			'stonewright'            => __( 'Setup', 'stonewright' ),
 			'stonewright-abilities'  => __( 'AI Abilities', 'stonewright' ),
+			'stonewright-blueprints' => __( 'Blueprints', 'stonewright' ),
 			'stonewright-sandbox'    => __( 'Sandbox', 'stonewright' ),
 			'stonewright-skills'     => __( 'Skills', 'stonewright' ),
 			'stonewright-memory'     => __( 'Memory', 'stonewright' ),

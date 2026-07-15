@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\Admin\Pages\BlueprintsPage;
 use Stonewright\WpMcp\Admin\Pages\SandboxLibraryPage;
 use Stonewright\WpMcp\Admin\Pages\StatusPage;
 use Stonewright\WpMcp\Admin\RestApi;
@@ -30,6 +31,7 @@ final class AdminBootstrap {
 		self::$registered = true;
 
 		StatusPage::register();
+		BlueprintsPage::register();
 		SandboxLibraryPage::register();
 		AdminShell::register();
 

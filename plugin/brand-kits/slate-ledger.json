@@ -1,0 +1,28 @@
+{
+    "id": "slate-ledger",
+    "name": "Slate Ledger",
+    "description": "Professional slate for legal and consulting.",
+    "colors": {
+        "primary": "#1E293B",
+        "secondary": "#334155",
+        "accent": "#B45309",
+        "background": "#F8FAFC",
+        "surface": "#E2E8F0",
+        "text": "#0F172A"
+    },
+    "fonts": {
+        "heading": "Libre Baskerville, Georgia, serif",
+        "body": "Source Serif 4, Georgia, serif"
+    },
+    "radius": {
+        "sm": "4px",
+        "md": "8px",
+        "lg": "16px"
+    },
+    "spacing": {
+        "xs": "8px",
+        "sm": "16px",
+        "md": "24px",
+        "lg": "48px"
+    }
+}

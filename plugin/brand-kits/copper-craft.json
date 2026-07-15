@@ -1,0 +1,28 @@
+{
+    "id": "copper-craft",
+    "name": "Copper Craft",
+    "description": "Artisan copper for makers.",
+    "colors": {
+        "primary": "#9A3412",
+        "secondary": "#C2410C",
+        "accent": "#FDBA74",
+        "background": "#FFF7ED",
+        "surface": "#FFEDD5",
+        "text": "#431407"
+    },
+    "fonts": {
+        "heading": "Libre Baskerville, Georgia, serif",
+        "body": "Karla, system-ui, sans-serif"
+    },
+    "radius": {
+        "sm": "4px",
+        "md": "8px",
+        "lg": "16px"
+    },
+    "spacing": {
+        "xs": "8px",
+        "sm": "16px",
+        "md": "24px",
+        "lg": "48px"
+    }
+}

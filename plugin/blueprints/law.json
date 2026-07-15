@@ -1,0 +1,202 @@
+{
+    "id": "law",
+    "name": "Law Firm",
+    "description": "Original Stonewright landing blueprint for the law industry with hero, services, pricing, testimonials, contact, and about sections.",
+    "industry": "law",
+    "palette": {
+        "primary": "#1E293B",
+        "secondary": "#334155",
+        "accent": "#B45309",
+        "background": "#F8FAFC",
+        "text": "#0F172A"
+    },
+    "fonts": {
+        "heading": "Libre Baskerville, Georgia, serif",
+        "body": "Source Serif 4, Georgia, serif"
+    },
+    "section_ids": [
+        "hero",
+        "services",
+        "pricing",
+        "testimonials",
+        "contact",
+        "about"
+    ],
+    "spec": {
+        "version": "1.0.0",
+        "page": {
+            "title": "Ashford & Reed Counsel"
+        },
+        "tokens": {
+            "colors": {
+                "primary": "#1E293B",
+                "secondary": "#334155",
+                "accent": "#B45309",
+                "background": "#F8FAFC",
+                "text": "#0F172A"
+            },
+            "typography": {
+                "heading": {
+                    "font_family": "Libre Baskerville, Georgia, serif"
+                },
+                "body": {
+                    "font_family": "Source Serif 4, Georgia, serif"
+                }
+            }
+        },
+        "sections": [
+            {
+                "id": "hero",
+                "blocks": [
+                    {
+                        "type": "heading",
+                        "level": 1,
+                        "text": "Counsel that stays practical"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Business and estate guidance with clear next steps and steady communication."
+                    },
+                    {
+                        "type": "button",
+                        "text": "Get started",
+                        "url": "https://example.com/start"
+                    }
+                ]
+            },
+            {
+                "id": "services",
+                "blocks": [
+                    {
+                        "type": "heading",
+                        "level": 2,
+                        "text": "Services"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Practical offerings designed for real-world outcomes."
+                    },
+                    {
+                        "type": "heading",
+                        "level": 3,
+                        "text": "Entity setup"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Entity setup delivered with clear scope and careful follow-through."
+                    },
+                    {
+                        "type": "heading",
+                        "level": 3,
+                        "text": "Contract review"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Contract review delivered with clear scope and careful follow-through."
+                    },
+                    {
+                        "type": "heading",
+                        "level": 3,
+                        "text": "Estate planning"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Estate planning delivered with clear scope and careful follow-through."
+                    }
+                ]
+            },
+            {
+                "id": "pricing",
+                "blocks": [
+                    {
+                        "type": "heading",
+                        "level": 2,
+                        "text": "Pricing"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Transparent packages so you can plan with confidence."
+                    },
+                    {
+                        "type": "heading",
+                        "level": 3,
+                        "text": "Consultation"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Package 1 with defined deliverables and response times."
+                    },
+                    {
+                        "type": "heading",
+                        "level": 3,
+                        "text": "Contract package"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Package 2 with defined deliverables and response times."
+                    },
+                    {
+                        "type": "heading",
+                        "level": 3,
+                        "text": "Retainer"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Package 3 with defined deliverables and response times."
+                    }
+                ]
+            },
+            {
+                "id": "testimonials",
+                "blocks": [
+                    {
+                        "type": "heading",
+                        "level": 2,
+                        "text": "What clients say"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Straight answers, no theater, excellent follow-through."
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "\u2014 Recent client review"
+                    }
+                ]
+            },
+            {
+                "id": "contact",
+                "blocks": [
+                    {
+                        "type": "heading",
+                        "level": 2,
+                        "text": "Contact"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Request a confidential consultation for your matter."
+                    },
+                    {
+                        "type": "button",
+                        "text": "Contact us",
+                        "url": "https://example.com/contact"
+                    }
+                ]
+            },
+            {
+                "id": "about",
+                "blocks": [
+                    {
+                        "type": "heading",
+                        "level": 2,
+                        "text": "About"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "We help founders and families make durable legal decisions."
+                    }
+                ]
+            }
+        ]
+    }
+}

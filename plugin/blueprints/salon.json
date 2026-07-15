@@ -1,0 +1,202 @@
+{
+    "id": "salon",
+    "name": "Salon & Spa",
+    "description": "Original Stonewright landing blueprint for the salon industry with hero, services, pricing, testimonials, contact, and about sections.",
+    "industry": "salon",
+    "palette": {
+        "primary": "#9D174D",
+        "secondary": "#831843",
+        "accent": "#F9A8D4",
+        "background": "#FFF1F2",
+        "text": "#1F0A14"
+    },
+    "fonts": {
+        "heading": "Cormorant Garamond, Georgia, serif",
+        "body": "Nunito Sans, system-ui, sans-serif"
+    },
+    "section_ids": [
+        "hero",
+        "services",
+        "pricing",
+        "testimonials",
+        "contact",
+        "about"
+    ],
+    "spec": {
+        "version": "1.0.0",
+        "page": {
+            "title": "Atelier North Salon"
+        },
+        "tokens": {
+            "colors": {
+                "primary": "#9D174D",
+                "secondary": "#831843",
+                "accent": "#F9A8D4",
+                "background": "#FFF1F2",
+                "text": "#1F0A14"
+            },
+            "typography": {
+                "heading": {
+                    "font_family": "Cormorant Garamond, Georgia, serif"
+                },
+                "body": {
+                    "font_family": "Nunito Sans, system-ui, sans-serif"
+                }
+            }
+        },
+        "sections": [
+            {
+                "id": "hero",
+                "blocks": [
+                    {
+                        "type": "heading",
+                        "level": 1,
+                        "text": "Care that respects your time"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Cuts, color, and skin treatments with unhurried appointments."
+                    },
+                    {
+                        "type": "button",
+                        "text": "Get started",
+                        "url": "https://example.com/start"
+                    }
+                ]
+            },
+            {
+                "id": "services",
+                "blocks": [
+                    {
+                        "type": "heading",
+                        "level": 2,
+                        "text": "Services"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Practical offerings designed for real-world outcomes."
+                    },
+                    {
+                        "type": "heading",
+                        "level": 3,
+                        "text": "Precision cuts"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Precision cuts delivered with clear scope and careful follow-through."
+                    },
+                    {
+                        "type": "heading",
+                        "level": 3,
+                        "text": "Color correction"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Color correction delivered with clear scope and careful follow-through."
+                    },
+                    {
+                        "type": "heading",
+                        "level": 3,
+                        "text": "Skin treatments"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Skin treatments delivered with clear scope and careful follow-through."
+                    }
+                ]
+            },
+            {
+                "id": "pricing",
+                "blocks": [
+                    {
+                        "type": "heading",
+                        "level": 2,
+                        "text": "Pricing"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Transparent packages so you can plan with confidence."
+                    },
+                    {
+                        "type": "heading",
+                        "level": 3,
+                        "text": "Signature cut"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Package 1 with defined deliverables and response times."
+                    },
+                    {
+                        "type": "heading",
+                        "level": 3,
+                        "text": "Color refresh"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Package 2 with defined deliverables and response times."
+                    },
+                    {
+                        "type": "heading",
+                        "level": 3,
+                        "text": "Spa package"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Package 3 with defined deliverables and response times."
+                    }
+                ]
+            },
+            {
+                "id": "testimonials",
+                "blocks": [
+                    {
+                        "type": "heading",
+                        "level": 2,
+                        "text": "What clients say"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "I left looking like myself on a better day."
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "\u2014 Recent client review"
+                    }
+                ]
+            },
+            {
+                "id": "contact",
+                "blocks": [
+                    {
+                        "type": "heading",
+                        "level": 2,
+                        "text": "Contact"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "Book online or ask about first-visit availability."
+                    },
+                    {
+                        "type": "button",
+                        "text": "Contact us",
+                        "url": "https://example.com/contact"
+                    }
+                ]
+            },
+            {
+                "id": "about",
+                "blocks": [
+                    {
+                        "type": "heading",
+                        "level": 2,
+                        "text": "About"
+                    },
+                    {
+                        "type": "paragraph",
+                        "text": "A calm studio for guests who want craft over trends."
+                    }
+                ]
+            }
+        ]
+    }
+}

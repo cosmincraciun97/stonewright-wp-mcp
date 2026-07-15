@@ -1,0 +1,28 @@
+{
+    "id": "river-nonprofit",
+    "name": "River Nonprofit",
+    "description": "Teal kit for community organizations.",
+    "colors": {
+        "primary": "#0F766E",
+        "secondary": "#0D9488",
+        "accent": "#FB923C",
+        "background": "#F0FDFA",
+        "surface": "#CCFBF1",
+        "text": "#134E4A"
+    },
+    "fonts": {
+        "heading": "Merriweather, Georgia, serif",
+        "body": "Open Sans, system-ui, sans-serif"
+    },
+    "radius": {
+        "sm": "4px",
+        "md": "8px",
+        "lg": "16px"
+    },
+    "spacing": {
+        "xs": "8px",
+        "sm": "16px",
+        "md": "24px",
+        "lg": "48px"
+    }
+}

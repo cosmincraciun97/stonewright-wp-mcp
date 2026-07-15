@@ -1,0 +1,28 @@
+{
+    "id": "citrus-market",
+    "name": "Citrus Market",
+    "description": "Bright retail energy for e-commerce.",
+    "colors": {
+        "primary": "#C2410C",
+        "secondary": "#EA580C",
+        "accent": "#FACC15",
+        "background": "#FFFFFF",
+        "surface": "#FFF7ED",
+        "text": "#1C1917"
+    },
+    "fonts": {
+        "heading": "DM Sans, system-ui, sans-serif",
+        "body": "DM Sans, system-ui, sans-serif"
+    },
+    "radius": {
+        "sm": "4px",
+        "md": "8px",
+        "lg": "16px"
+    },
+    "spacing": {
+        "xs": "8px",
+        "sm": "16px",
+        "md": "24px",
+        "lg": "48px"
+    }
+}

@@ -344,6 +344,8 @@ final class ToolProfile extends AbilityKernel {
 					'stonewright/elementor-v4-list-atomic-node-types',
 					'stonewright/media-list',
 					'stonewright/media-upload-batch',
+					'stonewright/stock-image-search',
+					'stonewright/stock-image-import',
 					'stonewright/content-create-page',
 					'stonewright/content-update-page',
 					'stonewright/content-bulk-upsert-posts',

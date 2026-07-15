@@ -1,0 +1,28 @@
+{
+    "id": "amber-forge",
+    "name": "Amber Forge",
+    "description": "Industrial amber for fitness and construction.",
+    "colors": {
+        "primary": "#92400E",
+        "secondary": "#B45309",
+        "accent": "#FBBF24",
+        "background": "#FFFBEB",
+        "surface": "#FEF3C7",
+        "text": "#1C1917"
+    },
+    "fonts": {
+        "heading": "Oswald, Arial Narrow, sans-serif",
+        "body": "Roboto, system-ui, sans-serif"
+    },
+    "radius": {
+        "sm": "4px",
+        "md": "8px",
+        "lg": "16px"
+    },
+    "spacing": {
+        "xs": "8px",
+        "sm": "16px",
+        "md": "24px",
+        "lg": "48px"
+    }
+}

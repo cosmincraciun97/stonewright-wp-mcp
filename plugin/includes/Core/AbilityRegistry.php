@@ -16,6 +16,11 @@ use Stonewright\WpMcp\Abilities\Content\GetPage;
 use Stonewright\WpMcp\Abilities\Content\UpdatePage;
 use Stonewright\WpMcp\Abilities\Content\UpdatePost;
 use Stonewright\WpMcp\Abilities\ContentModel\CptAcfLoopGridFlow;
+use Stonewright\WpMcp\Abilities\Blueprints\ApplyBlueprint;
+use Stonewright\WpMcp\Abilities\Blueprints\GetBlueprint;
+use Stonewright\WpMcp\Abilities\Blueprints\ListBlueprints;
+use Stonewright\WpMcp\Abilities\BrandKits\ApplyBrandKit;
+use Stonewright\WpMcp\Abilities\BrandKits\ListBrandKits;
 use Stonewright\WpMcp\Abilities\Design\ApplyToPost;
 use Stonewright\WpMcp\Abilities\Design\BuildSpec;
 use Stonewright\WpMcp\Abilities\Design\ChooseRenderer;
@@ -140,6 +145,8 @@ use Stonewright\WpMcp\Abilities\Media\GetMedia;
 use Stonewright\WpMcp\Abilities\Media\ListMedia;
 use Stonewright\WpMcp\Abilities\Media\OptimizeMedia;
 use Stonewright\WpMcp\Abilities\Media\SetAlt;
+use Stonewright\WpMcp\Abilities\Media\StockImageImport;
+use Stonewright\WpMcp\Abilities\Media\StockImageSearch;
 use Stonewright\WpMcp\Abilities\Media\UploadMedia;
 use Stonewright\WpMcp\Abilities\Media\UploadMediaBatch;
 use Stonewright\WpMcp\Abilities\Menu\MenuAddItem;
@@ -222,6 +229,8 @@ final class AbilityRegistry {
 			GetMedia::class,
 			SetAlt::class,
 			OptimizeMedia::class,
+			StockImageSearch::class,
+			StockImageImport::class,
 
 			// Gutenberg.
 			ListRegisteredBlocks::class,
@@ -311,6 +320,13 @@ final class AbilityRegistry {
 
 			// Design — smart-detection intent resolver.
 			WidgetIntentResolve::class,
+
+			// Blueprints + brand kits.
+			ListBlueprints::class,
+			GetBlueprint::class,
+			ApplyBlueprint::class,
+			ListBrandKits::class,
+			ApplyBrandKit::class,
 
 			// Memory (Wave 3a).
 			MemoryList::class,

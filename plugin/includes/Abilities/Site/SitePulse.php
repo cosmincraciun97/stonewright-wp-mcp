@@ -414,9 +414,14 @@ final class SitePulse extends AbilityKernel {
 			return 0;
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$table = isset( $wpdb->options ) ? (string) $wpdb->options : '';
+		if ( '' === $table ) {
+			return 0;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$value = $wpdb->get_var(
-			"SELECT SUM(LENGTH(option_value)) FROM {$wpdb->options} WHERE autoload IN ('yes','on','auto','auto-on')"
+			"SELECT SUM(LENGTH(option_value)) FROM {$table} WHERE autoload IN ('yes','on','auto','auto-on')"
 		);
 
 		return max( 0, (int) $value );
@@ -473,11 +478,17 @@ final class SitePulse extends AbilityKernel {
 			return 0;
 		}
 
-		// Targeted sample: cap work with LIMIT via subquery count of orphans.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$postmeta = isset( $wpdb->postmeta ) ? (string) $wpdb->postmeta : '';
+		$posts    = isset( $wpdb->posts ) ? (string) $wpdb->posts : '';
+		if ( '' === $postmeta || '' === $posts ) {
+			return 0;
+		}
+
+		// Targeted sample: count of postmeta rows without a matching post.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$value = $wpdb->get_var(
-			"SELECT COUNT(*) FROM {$wpdb->postmeta} pm
-			LEFT JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+			"SELECT COUNT(*) FROM {$postmeta} pm
+			LEFT JOIN {$posts} p ON p.ID = pm.post_id
 			WHERE p.ID IS NULL"
 		);
 
