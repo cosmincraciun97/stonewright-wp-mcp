@@ -30,6 +30,6 @@ final class SetupDiagnosticsTest extends TestCase {
 		self::assertCount( 5, $report['checks'] );
 		self::assertSame( '0.0.0-test', $report['versions']['plugin'] );
 		self::assertSame( '1.0.0', $report['versions']['companion_contract'] );
-		self::assertLessThanOrEqual( 20, $report['versions']['tool_count'] );
+		self::assertLessThanOrEqual( 30, $report['versions']['tool_count'] );
 	}
 }

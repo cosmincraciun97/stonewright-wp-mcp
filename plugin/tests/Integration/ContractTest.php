@@ -38,6 +38,9 @@ final class ContractTest extends TestCase {
 			'stonewright_elementor_v4_atomic' => true,
 			'stonewright_memory_enabled'      => true,
 			'elementor_active_kit'            => 4,
+			// Contract fixture for elementor-add-html uses allow_html_widget=true;
+			// site option must be on for that path. Production default remains off.
+			'stonewright_allow_html_widgets'  => true,
 		];
 		$GLOBALS['stonewright_test_transients']      = [];
 		$GLOBALS['stonewright_test_wpdb_inserts']    = [];

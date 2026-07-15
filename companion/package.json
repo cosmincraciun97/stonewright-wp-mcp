@@ -1,6 +1,6 @@
 {
 	"name": "@stonewright/companion",
-	"version": "1.0.0-alpha.68",
+	"version": "1.0.0-alpha.69",
 	"description": "Node companion for the Stonewright WordPress MCP plugin: WP-CLI, health checks, and optional MCP HTTP proxy.",
 	"type": "module",
 	"license": "MIT",
@@ -10,6 +10,7 @@
 	},
 	"files": [
 		"dist",
+		"blueprints",
 		"scripts/postinstall.mjs",
 		"README.md",
 		"LICENSE"
@@ -41,7 +42,8 @@
 		"lint": "eslint src tests --ext .ts",
 		"typecheck": "tsc --noEmit",
 		"tokens:measure": "node scripts/measure-tool-surface.mjs",
-		"prepack": "npm run build",
+		"sync:blueprints": "node -e \"const fs=require('fs');const p=require('path');const s=p.join('..','plugin','blueprints');const d='blueprints';fs.mkdirSync(d,{recursive:true});for(const f of fs.readdirSync(s).filter(x=>x.endsWith('.json')))fs.copyFileSync(p.join(s,f),p.join(d,f));\"",
+		"prepack": "npm run sync:blueprints && npm run build",
 		"postinstall": "node scripts/postinstall.mjs"
 	},
 	"dependencies": {

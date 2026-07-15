@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\System;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -112,6 +113,12 @@ final class ToolProfile extends AbilityKernel {
 					'maximum'     => 200,
 					'description' => 'Maximum tools the current MCP client should receive in this profile.',
 				],
+				'extras'    => [
+					'type'        => 'array',
+					'items'       => [ 'type' => 'string' ],
+					'default'     => [],
+					'description' => 'Extra stonewright/* ability names to pin into the essential surface for this site.',
+				],
 			],
 		];
 	}
@@ -164,6 +171,10 @@ final class ToolProfile extends AbilityKernel {
 				'workflow_rules'        => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'token_rules'           => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'counts'                => [ 'type' => 'object' ],
+				'tools_changed'         => [ 'type' => 'boolean' ],
+				'tools_changed_at'      => [ 'type' => 'string' ],
+				'extras_applied'        => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				're_list_instruction'   => [ 'type' => 'string' ],
 			],
 			'required'   => [
 				'ok',
@@ -185,11 +196,16 @@ final class ToolProfile extends AbilityKernel {
 				'discovery_policy',
 				'workflow_rules',
 				'token_rules',
+				'tools_changed',
 			],
 		];
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
+		$extras = $args['extras'] ?? [];
+		if ( is_array( $extras ) && [] !== $extras ) {
+			return Permissions::manage_options();
+		}
 		return Permissions::read();
 	}
 
@@ -213,12 +229,25 @@ final class ToolProfile extends AbilityKernel {
 			);
 		}
 
+		$extras_result = self::apply_extras( is_array( $args['extras'] ?? null ) ? $args['extras'] : [] );
+		if ( $extras_result instanceof \WP_Error ) {
+			return $extras_result;
+		}
+
 		$task      = isset( $args['task'] ) && is_string( $args['task'] ) ? $args['task'] : '';
 		$surface   = isset( $args['surface'] ) && is_string( $args['surface'] ) ? $args['surface'] : 'unknown';
 		$intent    = isset( $args['intent'] ) && is_string( $args['intent'] ) ? $args['intent'] : 'unknown';
 		$max_tools = isset( $args['max_tools'] ) && is_int( $args['max_tools'] ) ? $args['max_tools'] : 50;
 		$max_tools = max( 5, min( 200, $max_tools ) );
 		$profile   = 'auto' === $requested ? self::suggest_profile( $task, $surface, $intent ) : $requested;
+
+		$tools_changed = (bool) ( $extras_result['changed'] ?? false )
+			|| $requested !== 'auto'
+			|| $profile !== get_option( 'stonewright_last_tool_profile', '' );
+		if ( $tools_changed ) {
+			update_option( 'stonewright_tools_changed_at', gmdate( 'c' ), false );
+			update_option( 'stonewright_last_tool_profile', $profile, false );
+		}
 
 		$visible_rows = array_values(
 			array_filter(
@@ -258,6 +287,8 @@ final class ToolProfile extends AbilityKernel {
 			];
 		}
 
+		$changed_at = (string) get_option( 'stonewright_tools_changed_at', '' );
+
 		return [
 			'ok'                    => true,
 			'profile'               => $profile,
@@ -286,6 +317,93 @@ final class ToolProfile extends AbilityKernel {
 				'returned'       => count( $limited_names ),
 				'missing'        => count( $missing_names ),
 			],
+			'tools_changed'         => $tools_changed,
+			'tools_changed_at'      => $changed_at,
+			'extras_applied'        => array_values( (array) ( $extras_result['extras'] ?? [] ) ),
+			're_list_instruction'   => $tools_changed
+				? 'Re-list tools now (tools/list). New tools are available. If your client ignores tools/list_changed, call tools/list again before continuing.'
+				: '',
+		];
+	}
+
+	/**
+	 * Merge validated extras into the essential extra abilities option.
+	 *
+	 * @param list<mixed> $raw_extras
+	 * @return array{changed: bool, extras: list<string>}|\WP_Error
+	 */
+	public static function apply_extras( array $raw_extras ): array|\WP_Error {
+		if ( [] === $raw_extras ) {
+			return [
+				'changed' => false,
+				'extras'  => array_values( array_map( 'strval', (array) get_option( 'stonewright_essential_extra_abilities', [] ) ) ),
+			];
+		}
+
+		$registered = [];
+		foreach ( AbilityRegistry::list() as $class ) {
+			if ( ! class_exists( $class ) ) {
+				continue;
+			}
+			/** @var \Stonewright\WpMcp\Abilities\Ability $ability */
+			$ability = new $class();
+			$registered[ $ability->name() ] = true;
+		}
+
+		$normalized = [];
+		foreach ( $raw_extras as $raw ) {
+			if ( ! is_string( $raw ) ) {
+				return new \WP_Error(
+					'stonewright_tool_profile_extras_invalid',
+					__( 'Each extras entry must be a string ability name.', 'stonewright' ),
+					[ 'status' => 400 ]
+				);
+			}
+			$name = trim( $raw );
+			if ( ! str_starts_with( $name, 'stonewright/' ) ) {
+				return new \WP_Error(
+					'stonewright_tool_profile_extras_invalid',
+					sprintf(
+						/* translators: %s: ability name */
+						__( 'Extra ability "%s" must use the stonewright/ prefix.', 'stonewright' ),
+						$name
+					),
+					[ 'status' => 400, 'ability' => $name ]
+				);
+			}
+			if ( ! isset( $registered[ $name ] ) ) {
+				return new \WP_Error(
+					'stonewright_tool_profile_extras_unknown',
+					sprintf(
+						/* translators: %s: ability name */
+						__( 'Extra ability "%s" is not registered.', 'stonewright' ),
+						$name
+					),
+					[ 'status' => 400, 'ability' => $name ]
+				);
+			}
+			$normalized[] = $name;
+		}
+
+		$existing = array_values( array_map( 'strval', (array) get_option( 'stonewright_essential_extra_abilities', [] ) ) );
+		$merged   = array_values( array_unique( array_merge( $existing, $normalized ) ) );
+		$changed  = $merged !== $existing;
+		if ( $changed ) {
+			update_option( 'stonewright_essential_extra_abilities', $merged, false );
+			AuditLog::record(
+				'stonewright/tool-profile',
+				[
+					'action' => 'extras_update',
+					'extras' => $merged,
+					'added'  => $normalized,
+				],
+				'ok'
+			);
+		}
+
+		return [
+			'changed' => $changed,
+			'extras'  => $merged,
 		];
 	}
 

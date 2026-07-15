@@ -23,7 +23,7 @@ final class HtmlWidgetGateTest extends TestCase {
 		);
 
 		self::assertInstanceOf( \WP_Error::class, $result );
-		self::assertSame( 'html_widget_requires_explicit_approval', $result->get_error_code() );
+		self::assertSame( 'stonewright_html_widget_disabled', $result->get_error_code() );
 	}
 
 	public function test_raw_add_widget_rejects_html_widget_without_explicit_allow_flag(): void {
@@ -37,7 +37,7 @@ final class HtmlWidgetGateTest extends TestCase {
 		);
 
 		self::assertInstanceOf( \WP_Error::class, $result );
-		self::assertSame( 'html_widget_requires_explicit_approval', $result->get_error_code() );
+		self::assertSame( 'stonewright_html_widget_disabled', $result->get_error_code() );
 	}
 
 	public function test_html_widget_schema_exposes_explicit_allow_flag(): void {

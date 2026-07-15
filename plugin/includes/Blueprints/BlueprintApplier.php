@@ -196,6 +196,7 @@ final class BlueprintApplier {
 			'spec_sha8'     => substr( sha1( $spec_json ), 0, 8 ),
 			'edit_link'     => $edit_link,
 			'diagnostics'   => $diagnostics,
+			'qa'            => \Stonewright\WpMcp\DesignSpec\QaReport::for_spec( $spec ),
 		];
 	}
 

@@ -21,7 +21,7 @@ describe('package startup safety', () => {
 
 	it('builds dist before packing release tarballs', () => {
 		expect(packageJson.files).toContain('dist');
-		expect(packageJson.scripts?.prepack).toBe('npm run build');
+		expect(packageJson.scripts?.prepack).toContain('npm run build');
 	});
 
 	it('offers a source MCP command that rebuilds before launching dist/index.js', () => {

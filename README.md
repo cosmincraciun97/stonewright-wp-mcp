@@ -49,6 +49,12 @@ HTTP local URLs work. Setup treats HTTP as informational, not a hard fail.
 
 No plugin install required. The companion talks to core WordPress REST.
 
+**Fast path:**
+
+1. `npx @stonewright/companion init` — interactive URL + App Password; prints MCP JSON.
+2. Paste config into your AI client; restart.
+3. Test: list pages / `stonewright-site-discover`. Blueprints apply as Gutenberg drafts in Direct; Elementor needs the plugin.
+
 1. Create a WordPress Application Password for an admin user.  
    On plain HTTP local sites, add to `wp-config.php`:
 
@@ -79,7 +85,7 @@ define( 'WP_ENVIRONMENT_TYPE', 'local' );
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.68/stonewright-companion-1.0.0-alpha.68.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.69/stonewright-companion-1.0.0-alpha.69.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_MODE": "direct",
         "STONEWRIGHT_WP_URL": "http://transavia-local.local",

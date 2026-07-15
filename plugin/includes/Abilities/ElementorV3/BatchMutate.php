@@ -434,8 +434,11 @@ final class BatchMutate extends AbilityKernel {
 		if ( str_starts_with( $widget_type, 'e-' ) ) {
 			return $this->error( 'atomic_widget_in_v3_batch', __( 'Atomic e-* widgets cannot be added to an Elementor V3 tree.', 'stonewright' ), [ 'status' => 409, 'widget_type' => $widget_type, 'repair' => 'Use the Elementor V4 editor pipeline.' ] );
 		}
-		if ( 'html' === $widget_type && empty( $operation['allow_html_widget'] ) ) {
-			return $this->error( 'html_widget_requires_explicit_approval', __( 'Elementor HTML widgets are disabled by default.', 'stonewright' ), [ 'status' => 400 ] );
+		if ( \Stonewright\WpMcp\Elementor\HtmlWidgetPolicy::is_html_type( $widget_type ) ) {
+			$policy = \Stonewright\WpMcp\Elementor\HtmlWidgetPolicy::allowed( $operation );
+			if ( $policy instanceof \WP_Error ) {
+				return $policy;
+			}
 		}
 
 		$settings = isset( $operation['settings'] ) && is_array( $operation['settings'] ) ? $operation['settings'] : [];

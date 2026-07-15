@@ -331,6 +331,13 @@ function stripUndefined(input: Record<string, unknown>): Record<string, unknown>
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
+	const argv = process.argv.slice(2);
+	if (argv[0] === 'init') {
+		const { runInit } = await import('./cli/init.js');
+		const code = await runInit();
+		process.exit(code);
+	}
+
 	log.info('Stonewright companion starting');
 
 	await startStdio();

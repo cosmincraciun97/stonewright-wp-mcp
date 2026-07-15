@@ -17,6 +17,7 @@ import * as search from './tools/search.js';
 import * as blockPatterns from './tools/block-patterns.js';
 import * as siteDiscover from './tools/site-discover.js';
 import * as gutenberg from './tools/gutenberg-compose.js';
+import * as blueprints from './tools/blueprints.js';
 
 export const DIRECT_WAVE1_TOOL_NAMES = [
 	'stonewright-content-list',
@@ -62,6 +63,9 @@ export const DIRECT_WAVE2_TOOL_NAMES = [
 	'stonewright-block-patterns',
 	'stonewright-site-discover',
 	'stonewright-gutenberg-compose',
+	'stonewright-blueprint-list',
+	'stonewright-blueprint-get',
+	'stonewright-blueprint-apply',
 ] as const;
 
 export const DIRECT_TOOL_NAMES = [
@@ -890,6 +894,71 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 						{ blocks: input.blocks as never },
 					),
 				);
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-blueprint-list',
+		'List bundled landing blueprints available in Direct mode (Gutenberg apply only).',
+		{ site: siteArg },
+		async () => {
+			try {
+				return toolResponse({ ok: true, blueprints: blueprints.listBlueprints() });
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-blueprint-get',
+		'Get a bundled blueprint JSON by id (Direct mode).',
+		{ site: siteArg, id: z.string().min(1) },
+		async (input) => {
+			try {
+				const bp = blueprints.getBlueprint(input.id);
+				if (!bp) {
+					return toolResponse({ ok: false, error: 'not_found', id: input.id });
+				}
+				return toolResponse({ ok: true, blueprint: bp });
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-blueprint-apply',
+		'Apply a bundled blueprint as a Gutenberg draft via core REST. Elementor engine requires the Stonewright plugin.',
+		{
+			site: siteArg,
+			id: z.string().min(1),
+			title: z.string().optional(),
+			status: z.enum(['draft', 'publish']).optional(),
+			post_id: z.number().int().positive().optional(),
+			confirm: z.boolean().optional(),
+			engine: z.string().optional(),
+		},
+		async (input) => {
+			try {
+				const runtime = buildContext(ctx, input.site);
+				const applyArgs: {
+					id: string;
+					title?: string;
+					status?: 'draft' | 'publish';
+					post_id?: number;
+					confirm?: boolean;
+					engine?: string;
+				} = { id: input.id };
+				if (input.title !== undefined) applyArgs.title = input.title;
+				if (input.status !== undefined) applyArgs.status = input.status;
+				if (input.post_id !== undefined) applyArgs.post_id = input.post_id;
+				if (input.confirm !== undefined) applyArgs.confirm = input.confirm;
+				if (input.engine !== undefined) applyArgs.engine = input.engine;
+				return toolResponse(await blueprints.applyBlueprint(runtime.client, applyArgs, ctx.env));
 			} catch (err) {
 				return toolError(err);
 			}

@@ -62,7 +62,7 @@ final class ServerRegistrationTest extends TestCase {
 		self::assertNotContains( 'stonewright/wp-cli-run', $tools );
 		self::assertNotContains( 'stonewright/elementor-v3-save-template', $tools );
 		self::assertNotContains( 'stonewright/sandbox-write', $tools );
-		self::assertCount( 20, $tools );
+		self::assertCount( 29, $tools );
 	}
 
 	/**

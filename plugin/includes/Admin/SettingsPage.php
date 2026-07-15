@@ -69,6 +69,14 @@ final class SettingsPage {
 			},
 		] );
 
+		register_setting( self::OPTION_GROUP, 'stonewright_allow_html_widgets', [
+			'type'              => 'boolean',
+			'default'           => false,
+			'sanitize_callback' => static function ( $value ): bool {
+				return (bool) $value;
+			},
+		] );
+
 		register_setting( self::OPTION_GROUP, 'stonewright_unsplash_access_key', [
 			'type'              => 'string',
 			'default'           => '',
@@ -120,6 +128,17 @@ final class SettingsPage {
 							<th scope="row"><label for="stonewright_companion_token"><?php esc_html_e( 'Companion bearer token', 'stonewright' ); ?></label></th>
 							<td>
 								<input type="password" class="regular-text" name="stonewright_companion_token" id="stonewright_companion_token" value="<?php echo esc_attr( (string) get_option( 'stonewright_companion_token', '' ) ); ?>" autocomplete="off"/>
+							</td>
+						</tr>
+
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Allow HTML widgets', 'stonewright' ); ?></th>
+							<td>
+								<label>
+									<input type="checkbox" name="stonewright_allow_html_widgets" value="1" <?php checked( (bool) get_option( 'stonewright_allow_html_widgets', false ) ); ?> />
+									<?php esc_html_e( 'Allow Elementor HTML / raw-html widgets on this site', 'stonewright' ); ?>
+								</label>
+								<p class="description"><?php esc_html_e( 'Default off. When disabled, allow_html_widget=true on ability calls is ignored. Prefer native Elementor widgets.', 'stonewright' ); ?></p>
 							</td>
 						</tr>
 

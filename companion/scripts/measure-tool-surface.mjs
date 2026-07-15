@@ -22,9 +22,10 @@ const companionRoot = join(__dirname, '..');
 const srcRoot = join(companionRoot, 'src');
 
 export const TOOL_SURFACE_LIMITS = Object.freeze({
-	plugin_essential_max_tools: 20,
+	plugin_essential_max_tools: 30,
 	plugin_low_tools_max_tools: 12,
-	direct_full_max_tools: 40,
+	// Raised for Direct blueprints tools (list/get/apply).
+	direct_full_max_tools: 50,
 	direct_essential_max_tools: 20,
 });
 

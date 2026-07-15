@@ -15,7 +15,8 @@ final class TokenSurfaceBudgets {
 
 	public const STRICT_MAX_TOOLS = 12;
 
-	public const ESSENTIAL_MAX_TOOLS = 20;
+	/** Essential profile may include blueprint/clone/learning path tools. */
+	public const ESSENTIAL_MAX_TOOLS = 30;
 
 	/** Non-visual task-start compact response (estimated tokens). */
 	public const TASK_START_NON_VISUAL_MAX_TOKENS = 700;
@@ -37,7 +38,7 @@ final class TokenSurfaceBudgets {
 		$visual     = (int) ( $metrics['visual_task_start_tokens'] ?? PHP_INT_MAX );
 
 		return [
-			'essential_max_20_tools'       => $essential <= self::ESSENTIAL_MAX_TOOLS,
+			'essential_max_30_tools'       => $essential <= self::ESSENTIAL_MAX_TOOLS,
 			'default_max_20_tools'         => $default <= self::DEFAULT_MAX_TOOLS,
 			'strict_max_12_tools'          => $strict <= self::STRICT_MAX_TOOLS,
 			'non_visual_task_start_lt_700' => $non_visual < self::TASK_START_NON_VISUAL_MAX_TOKENS,

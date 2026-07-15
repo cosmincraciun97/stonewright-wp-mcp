@@ -47,3 +47,11 @@ requires `WP_ENVIRONMENT_TYPE=local` (or the Application Passwords availability 
 
 - Elementor / DesignSpec tools must not crash: they return a clear install-plugin message.
 - With the plugin re-activated, auto mode selects the plugin MCP proxy and existing proxy tests remain green.
+
+## Blueprints (Direct)
+
+| Tool | Direct | Notes |
+|---|---|---|
+| blueprint-list | Yes | Bundled JSON in companion |
+| blueprint-get | Yes | Full spec |
+| blueprint-apply | Yes (Gutenberg draft) | Elementor requires plugin |
