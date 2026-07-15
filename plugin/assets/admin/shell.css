@@ -404,6 +404,7 @@ html.sw-theme-dark {
 	margin-left: auto;
 }
 
+/* Mode pill sits on the always-dark header — keep light labels in BOTH themes. */
 .sw-mode-pill {
 	display: inline-flex;
 	align-items: center;
@@ -412,28 +413,37 @@ html.sw-theme-dark {
 	border-radius: var(--sw-radius-pill);
 	font-size: var(--sw-text-xs);
 	font-weight: 600;
-	letter-spacing: 0.02em;
+	letter-spacing: 0.03em;
 	text-transform: lowercase;
-	background: var(--sw-shell-header-hover-bg);
-	color: var(--sw-shell-header-fg);
+	background: rgba(255, 255, 255, 0.1);
+	color: #f3f4f6;
+	border: 1px solid rgba(255, 255, 255, 0.18);
+	outline: none;
+	box-shadow: none;
+}
+
+.sw-mode-pill:focus,
+.sw-mode-pill:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px rgba(165, 180, 252, 0.55);
 }
 
 .sw-mode-pill--development {
-	background: var(--sw-shell-header-current-bg);
-	color: var(--sw-brand-strong);
-	border: 1px solid var(--sw-shell-header-border);
+	background: rgba(99, 102, 241, 0.35);
+	color: #e0e7ff;
+	border-color: rgba(165, 180, 252, 0.55);
 }
 
 .sw-mode-pill--staging {
-	background: rgba(245, 201, 107, 0.18);
-	color: var(--sw-warn-text);
-	border: 1px solid rgba(245, 201, 107, 0.35);
+	background: rgba(245, 158, 11, 0.28);
+	color: #fef3c7;
+	border-color: rgba(251, 191, 36, 0.45);
 }
 
 .sw-mode-pill--production-safe {
-	background: rgba(126, 226, 168, 0.16);
-	color: var(--sw-ok-text);
-	border: 1px solid rgba(126, 226, 168, 0.32);
+	background: rgba(34, 197, 94, 0.28);
+	color: #dcfce7;
+	border-color: rgba(74, 222, 128, 0.45);
 }
 
 .sw-theme-toggle {
@@ -470,6 +480,8 @@ html.sw-theme-dark {
 	margin: 0 auto;
 	padding: var(--sw-space-5) var(--sw-space-5) var(--sw-space-7);
 	color: var(--sw-text);
+	overflow-x: hidden;
+	min-width: 0;
 }
 
 .sw-shell h1,

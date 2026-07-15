@@ -3,7 +3,9 @@
  */
 
 .sw-audit-page {
-	max-width: none;
+	max-width: 100%;
+	overflow-x: hidden;
+	box-sizing: border-box;
 }
 
 .sw-audit-filters {
@@ -32,30 +34,72 @@
 .sw-audit-filters select {
 	min-height: 32px;
 	font-weight: 400;
+	max-width: 100%;
 }
 
+/* Fixed layout keeps open payload inside the page */
 .sw-audit-table {
 	background: var(--sw-surface);
 	border-radius: var(--sw-radius);
-	overflow: hidden;
 	width: 100%;
+	max-width: 100%;
+	table-layout: fixed;
+	border-collapse: separate;
+	border-spacing: 0;
 }
 
 .sw-audit-table th,
 .sw-audit-table td {
 	color: var(--sw-text);
+	overflow: hidden;
+	vertical-align: top;
+	word-break: break-word;
 }
 
-/* Payload column: use remaining width */
-.sw-audit-table .column-details,
-.sw-audit-table td:last-child {
-	width: 36%;
-	min-width: 220px;
+.sw-audit-table th:nth-child(1),
+.sw-audit-table td:nth-child(1) {
+	width: 56px;
+}
+
+.sw-audit-table th:nth-child(2),
+.sw-audit-table td:nth-child(2) {
+	width: 22%;
+}
+
+.sw-audit-table th:nth-child(3),
+.sw-audit-table td:nth-child(3) {
+	width: 12%;
+}
+
+.sw-audit-table th:nth-child(4),
+.sw-audit-table td:nth-child(4) {
+	width: 90px;
+}
+
+.sw-audit-table th:nth-child(5),
+.sw-audit-table td:nth-child(5) {
+	width: 140px;
+}
+
+.sw-audit-table th:nth-child(6),
+.sw-audit-table td:nth-child(6) {
+	width: 34%;
+}
+
+.sw-audit-table code {
+	display: inline-block;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	vertical-align: bottom;
 }
 
 .sw-audit-details {
 	display: block;
 	width: 100%;
+	max-width: 100%;
+	min-width: 0;
 }
 
 .sw-audit-details summary {
@@ -87,20 +131,22 @@
 .sw-audit-payload {
 	display: block;
 	margin: var(--sw-space-2) 0 0;
-	padding: var(--sw-space-3) var(--sw-space-4);
+	padding: var(--sw-space-3);
 	width: 100%;
-	max-width: none;
+	max-width: 100%;
+	max-height: 240px;
 	box-sizing: border-box;
 	overflow: auto;
 	font-family: var(--sw-font-mono);
-	font-size: 12px;
-	line-height: 1.5;
+	font-size: 11px;
+	line-height: 1.45;
 	background: var(--sw-bg);
 	color: var(--sw-text);
 	border-radius: var(--sw-radius-sm);
 	border: 1px solid var(--sw-border);
 	white-space: pre-wrap;
 	word-break: break-word;
+	overflow-wrap: anywhere;
 }
 
 /* Status pills — solid enough on both themes */
@@ -192,4 +238,11 @@
 	font-size: var(--sw-text-xs);
 	color: var(--sw-text-muted);
 	font-variant-numeric: tabular-nums;
+}
+
+@media screen and (max-width: 960px) {
+	.sw-audit-table {
+		display: block;
+		overflow-x: auto;
+	}
 }

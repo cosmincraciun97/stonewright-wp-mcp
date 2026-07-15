@@ -7,6 +7,18 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.68] - 2026-07-15
+
+### Fixed
+
+- Audit log open payload no longer overflows the table; fixed layout + max-height scroll.
+- Mode pill (`development` / staging / production-safe) always uses light-on-dark header colors so light theme is readable.
+- Blueprint / brand-kit **Copy AI Prompt** now copies a full multi-line playbook (tools, sections, palette, constraints), not a one-liner.
+
+### Changed
+
+- Admin shell content clips horizontal overflow; audit Details column width constrained.
+
 ## [1.0.0-alpha.67] - 2026-07-15
 
 ### Added

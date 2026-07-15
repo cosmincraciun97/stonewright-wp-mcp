@@ -33,5 +33,30 @@ final class BlueprintsPageRenderTest extends TestCase {
 		$this->assertStringContainsString( 'sw-blueprint-card', $html );
 		$this->assertStringContainsString( 'sw-blueprint-grid', $html );
 		$this->assertStringContainsString( 'Copy AI Prompt', $html );
+		// Full multi-line prompt, not the old one-liner only.
+		$this->assertStringContainsString( 'stonewright/blueprint-apply', $html );
+		$this->assertStringContainsString( 'stonewright-task-start', $html );
+	}
+
+	public function test_blueprint_prompt_is_full_playbook(): void {
+		$prompt = BlueprintsPage::blueprint_prompt(
+			[
+				'id'          => 'agency',
+				'name'        => 'Creative Agency',
+				'industry'    => 'agency',
+				'description' => 'Landing with hero and services.',
+				'section_ids' => [ 'hero', 'services' ],
+				'palette'     => [ 'primary' => '#312E81' ],
+				'fonts'       => [ 'heading' => 'Space Grotesk' ],
+				'spec_sha8'   => 'deadbeef',
+			]
+		);
+
+		$this->assertStringContainsString( "\n", $prompt );
+		$this->assertStringContainsString( 'id: agency', $prompt );
+		$this->assertStringContainsString( 'stonewright/blueprint-get', $prompt );
+		$this->assertStringContainsString( 'stonewright/blueprint-apply', $prompt );
+		$this->assertStringContainsString( '{business}', $prompt );
+		$this->assertGreaterThan( 400, strlen( $prompt ) );
 	}
 }

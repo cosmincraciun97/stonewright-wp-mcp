@@ -79,7 +79,7 @@ define( 'WP_ENVIRONMENT_TYPE', 'local' );
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.67/stonewright-companion-1.0.0-alpha.67.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.68/stonewright-companion-1.0.0-alpha.68.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_MODE": "direct",
         "STONEWRIGHT_WP_URL": "http://transavia-local.local",

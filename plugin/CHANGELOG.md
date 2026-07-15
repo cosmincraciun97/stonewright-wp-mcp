@@ -2,12 +2,13 @@
 
 ## [Unreleased]
 
-### Added
+## [1.0.0-alpha.68] - 2026-07-15
 
-- CI token-surface budgets: essential ≤20 tools, task-start <700/1200 estimated
-  tokens, companion essential ≤20 / low-tools ≤12, Direct full ≤40 / essential ≤20
-  when present. Measure scripts exit non-zero on breach; fixture dry-runs prove
-  the fail path.
+### Fixed
+
+- Audit payload overflow inside fixed table layout.
+- Mode pill contrast on light theme (header chrome always light-on-dark).
+- Blueprint Copy AI Prompt now pastes a full multi-line tool playbook.
 
 ## [1.0.0-alpha.67] - 2026-07-14
 
