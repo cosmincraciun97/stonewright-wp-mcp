@@ -90,7 +90,8 @@
           "right": 24,
           "bottom": 64,
           "left": 24
-        }
+        },
+        "role": "hero"
       },
       {
         "id": "services",

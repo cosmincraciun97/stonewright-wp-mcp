@@ -85,6 +85,12 @@ final class ToolProfile extends AbilityKernel {
 			'type'                 => 'object',
 			'additionalProperties' => false,
 			'properties'           => [
+				'action'    => [
+					'type'        => 'string',
+					'default'     => 'activate',
+					'enum'        => [ 'activate', 'resolve' ],
+					'description' => 'activate selects a live profile (may emit tools_changed). resolve returns the ordered tool list for a profile without changing session state.',
+				],
 				'profile'   => [
 					'type'        => 'string',
 					'default'     => 'auto',
@@ -175,6 +181,9 @@ final class ToolProfile extends AbilityKernel {
 				'tools_changed_at'      => [ 'type' => 'string' ],
 				'extras_applied'        => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				're_list_instruction'   => [ 'type' => 'string' ],
+				'source'                => [ 'type' => 'string' ],
+				'ordered'               => [ 'type' => 'boolean' ],
+				'action'                => [ 'type' => 'string' ],
 			],
 			'required'   => [
 				'ok',
@@ -210,6 +219,13 @@ final class ToolProfile extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
+		$action = isset( $args['action'] ) && is_string( $args['action'] )
+			? strtolower( trim( $args['action'] ) )
+			: 'activate';
+		if ( ! in_array( $action, [ 'activate', 'resolve' ], true ) ) {
+			$action = 'activate';
+		}
+
 		$requested = isset( $args['profile'] ) && is_string( $args['profile'] )
 			? strtolower( trim( $args['profile'] ) )
 			: 'auto';
@@ -229,17 +245,40 @@ final class ToolProfile extends AbilityKernel {
 			);
 		}
 
-		$extras_result = self::apply_extras( is_array( $args['extras'] ?? null ) ? $args['extras'] : [] );
-		if ( $extras_result instanceof \WP_Error ) {
-			return $extras_result;
-		}
-
 		$task      = isset( $args['task'] ) && is_string( $args['task'] ) ? $args['task'] : '';
 		$surface   = isset( $args['surface'] ) && is_string( $args['surface'] ) ? $args['surface'] : 'unknown';
 		$intent    = isset( $args['intent'] ) && is_string( $args['intent'] ) ? $args['intent'] : 'unknown';
 		$max_tools = isset( $args['max_tools'] ) && is_int( $args['max_tools'] ) ? $args['max_tools'] : 50;
 		$max_tools = max( 5, min( 200, $max_tools ) );
 		$profile   = 'auto' === $requested ? self::suggest_profile( $task, $surface, $intent ) : $requested;
+
+		// Read-only resolve: ordered MCP tool names for companion / clients. No option writes.
+		if ( 'resolve' === $action ) {
+			$ordered_abilities = self::profile_tools( $profile );
+			$mcp_tools         = array_map( [ AbilityRegistry::class, 'mcp_tool_name' ], $ordered_abilities );
+			if ( $max_tools < count( $mcp_tools ) ) {
+				$mcp_tools = array_slice( $mcp_tools, 0, $max_tools );
+			}
+
+			return [
+				'ok'                   => true,
+				'action'               => 'resolve',
+				'profile'              => $profile,
+				'requested_profile'    => $requested,
+				'tools'                => array_values( $mcp_tools ),
+				'ordered'              => true,
+				'source'               => 'plugin',
+				'essential_tools_mode' => (bool) get_option( 'stonewright_essential_tools_mode', true ),
+				'max_tools'            => $max_tools,
+				'tool_count'           => count( $mcp_tools ),
+				'tools_changed'        => false,
+			];
+		}
+
+		$extras_result = self::apply_extras( is_array( $args['extras'] ?? null ) ? $args['extras'] : [] );
+		if ( $extras_result instanceof \WP_Error ) {
+			return $extras_result;
+		}
 
 		$tools_changed = (bool) ( $extras_result['changed'] ?? false )
 			|| $requested !== 'auto'
@@ -255,7 +294,7 @@ final class ToolProfile extends AbilityKernel {
 				static fn( array $ability ): bool => (bool) $ability['enabled']
 			)
 		);
-		$all_visible  = array_fill_keys( array_column( $visible_rows, 'name' ), true );
+		$all_visible   = array_fill_keys( array_column( $visible_rows, 'name' ), true );
 		$profile_names = 'full' === $profile ? array_keys( $all_visible ) : self::profile_tools( $profile );
 		$profile_names = array_values( array_unique( $profile_names ) );
 		$missing_names = 'full' === $profile
@@ -323,6 +362,8 @@ final class ToolProfile extends AbilityKernel {
 			're_list_instruction'   => $tools_changed
 				? 'Re-list tools now (tools/list). New tools are available. If your client ignores tools/list_changed, call tools/list again before continuing.'
 				: '',
+			'source'                => 'plugin',
+			'ordered'               => true,
 		];
 	}
 
@@ -408,10 +449,19 @@ final class ToolProfile extends AbilityKernel {
 	}
 
 	/**
+	 * Ordered ability names for a named profile (single source of truth for companion + MCP).
+	 *
+	 * Priority bands (front of list survives client tool caps):
+	 * 1) startup (task-start / bootstrap / tool-profile)
+	 * 2) blueprints + brand kits
+	 * 3) engine write paths
+	 * 4) media / content batch
+	 * 5) remainder
+	 *
 	 * @return list<string>
 	 */
-	private static function profile_tools( string $profile ): array {
-		$base = [
+	public static function profile_tools( string $profile ): array {
+		$startup = [
 			'stonewright/context-bootstrap',
 			'stonewright/task-start',
 			'stonewright/tool-profile',
@@ -419,146 +469,155 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/expertise-get',
 			'stonewright/php-execute',
 		];
+		$blueprints = [
+			'stonewright/blueprint-list',
+			'stonewright/blueprint-get',
+			'stonewright/blueprint-apply',
+			'stonewright/brand-kit-list',
+			'stonewright/brand-kit-apply',
+		];
 
-		return match ( $profile ) {
-			'low-tools' => array_merge(
-				$base,
-				[
-					'stonewright/security-create-one-time-link',
-					'stonewright/site-info',
-					'stonewright/content-bulk-upsert-posts',
-					'stonewright/content-model-loop-grid-flow',
-					'stonewright/media-upload-batch',
-					'stonewright/design-native-plan',
-					'stonewright/knowledge-candidate-record',
-					'stonewright/elementor-v3-get-kit-globals',
-					'stonewright/elementor-schema',
-					'stonewright/elementor-v3-get-page-structure',
-					'stonewright/elementor-v3-build-page-from-spec',
-					'stonewright/theme-builder-apply-template',
-					'stonewright/elementor-v3-batch-mutate',
-					'stonewright/gutenberg-apply-to-post',
-					'stonewright/wp-cli-batch-run',
-					'stonewright/wp-cli-job-start',
-					'stonewright/wp-cli-job-status',
-				]
-			),
-			'elementor-design' => array_merge(
-				$base,
-				[
-					'stonewright/site-info',
-					'stonewright/site-plugins-list',
-					'stonewright/security-create-one-time-link',
-					'stonewright/design-native-plan',
-					'stonewright/elementor-v3-status',
-					'stonewright/knowledge-candidate-record',
-					'stonewright/elementor-v3-get-kit-globals',
-					'stonewright/elementor-v3-list-widgets',
-					'stonewright/elementor-schema',
-					'stonewright/elementor-describe-widget',
-					'stonewright/elementor-v4-status',
-					'stonewright/elementor-v4-list-variables',
-					'stonewright/elementor-v4-list-classes',
-					'stonewright/elementor-v4-list-atomic-node-types',
-					'stonewright/media-list',
-					'stonewright/media-upload-batch',
-					'stonewright/stock-image-search',
-					'stonewright/stock-image-import',
-					'stonewright/content-create-page',
-					'stonewright/content-update-page',
-					'stonewright/content-bulk-upsert-posts',
-					'stonewright/content-model-loop-grid-flow',
-					'stonewright/elementor-v3-update-page-settings',
-					'stonewright/elementor-v3-update-kit-colors',
-					'stonewright/elementor-v3-update-kit-typography',
-					'stonewright/design-validate-spec',
-					'stonewright/elementor-v3-build-page-from-spec',
-					'stonewright/theme-builder-apply-template',
-					'stonewright/elementor-v3-batch-mutate',
-					'stonewright/elementor-v3-apply-bundle',
-					'stonewright/wp-cli-status',
-					'stonewright/wp-cli-discover',
-					'stonewright/wp-cli-batch-run',
-				]
-			),
-			'content-model' => array_merge(
-				$base,
-				[
-					'stonewright/site-capabilities',
-					'stonewright/site-plugins-list',
-					'stonewright/system-abilities-list',
-					'stonewright/content-bulk-upsert-posts',
-					'stonewright/content-model-loop-grid-flow',
-					'stonewright/media-list',
-					'stonewright/media-upload-batch',
-					'stonewright/wp-cli-status',
-					'stonewright/wp-cli-discover',
-					'stonewright/wp-cli-batch-run',
-					'stonewright/wp-cli-run',
-					'stonewright/wp-cli-job-start',
-					'stonewright/wp-cli-job-status',
-				]
-			),
-			'gutenberg' => array_merge(
-				$base,
-				[
-					'stonewright/site-theme',
-					'stonewright/fse-get-theme-json',
-					'stonewright/fse-read-template',
-					'stonewright/fse-write-template',
-					'stonewright/fse-write-global-styles',
-					'stonewright/blocks-list-registered',
-					'stonewright/blocks-get-schema',
-					'stonewright/blocks-parse',
-					'stonewright/blocks-serialize',
-					'stonewright/gutenberg-render-blocks',
-					'stonewright/design-validate-spec',
-					'stonewright/design-spec-to-gutenberg',
-					'stonewright/gutenberg-apply-to-post',
-				]
-			),
-			'wp-cli' => array_merge(
-				$base,
-				[
-					'stonewright/site-info',
-					'stonewright/site-plugins-list',
-					'stonewright/wp-cli-status',
-					'stonewright/wp-cli-discover',
-					'stonewright/wp-cli-batch-run',
-					'stonewright/wp-cli-run',
-					'stonewright/wp-cli-job-start',
-					'stonewright/wp-cli-job-status',
-				]
-			),
-			'site-admin' => array_merge(
-				$base,
-				[
-					'stonewright/site-info',
-					'stonewright/site-environment',
-					'stonewright/site-health',
-					'stonewright/site-pulse',
-					'stonewright/site-plugins-list',
-					'stonewright/site-theme',
-					'stonewright/change-log',
-					'stonewright/change-restore',
-					'stonewright/security-create-one-time-link',
-					'stonewright/system-abilities-list',
-					'stonewright/menu-list',
-					'stonewright/wp-cli-status',
-				]
-			),
-			default => array_merge(
-				$base,
-				[
-					'stonewright/ping',
-					'stonewright/site-info',
-					'stonewright/site-capabilities',
-					'stonewright/site-plugins-list',
-					'stonewright/system-abilities-list',
-					'stonewright/wp-cli-status',
-				]
-			),
+		$rest = match ( $profile ) {
+			'low-tools' => [
+				'stonewright/security-create-one-time-link',
+				'stonewright/site-info',
+				'stonewright/elementor-v3-build-page-from-spec',
+				'stonewright/theme-builder-apply-template',
+				'stonewright/elementor-v3-batch-mutate',
+				'stonewright/gutenberg-apply-to-post',
+				'stonewright/elementor-page-digest',
+				'stonewright/content-bulk-upsert-posts',
+				'stonewright/content-model-loop-grid-flow',
+				'stonewright/media-upload-batch',
+				'stonewright/design-native-plan',
+				'stonewright/knowledge-candidate-record',
+				'stonewright/elementor-v3-get-kit-globals',
+				'stonewright/elementor-schema',
+				'stonewright/elementor-v3-get-page-structure',
+				'stonewright/wp-cli-batch-run',
+				'stonewright/wp-cli-job-start',
+				'stonewright/wp-cli-job-status',
+			],
+			'elementor-design' => [
+				'stonewright/elementor-v3-build-page-from-spec',
+				'stonewright/theme-builder-apply-template',
+				'stonewright/elementor-v3-batch-mutate',
+				'stonewright/elementor-page-digest',
+				'stonewright/elementor-build-tree',
+				'stonewright/gutenberg-apply-to-post',
+				'stonewright/media-list',
+				'stonewright/media-upload-batch',
+				'stonewright/content-bulk-upsert-posts',
+				'stonewright/content-model-loop-grid-flow',
+				'stonewright/site-info',
+				'stonewright/site-plugins-list',
+				'stonewright/security-create-one-time-link',
+				'stonewright/design-native-plan',
+				'stonewright/design-implementation-contract',
+				'stonewright/widget-intent-resolve',
+				'stonewright/elementor-widget-implementation-guide',
+				'stonewright/elementor-v3-status',
+				'stonewright/elementor-v3-capabilities-summary',
+				'stonewright/elementor-v3-container-schema',
+				'stonewright/knowledge-candidate-record',
+				'stonewright/elementor-v3-get-kit-globals',
+				'stonewright/elementor-v3-list-widgets',
+				'stonewright/elementor-schema',
+				'stonewright/elementor-describe-widget',
+				'stonewright/elementor-v4-status',
+				'stonewright/elementor-v4-list-variables',
+				'stonewright/elementor-v4-list-classes',
+				'stonewright/elementor-v4-list-atomic-node-types',
+				'stonewright/stock-image-search',
+				'stonewright/stock-image-import',
+				'stonewright/content-create-page',
+				'stonewright/content-update-page',
+				'stonewright/elementor-v3-update-page-settings',
+				'stonewright/elementor-v3-update-kit-colors',
+				'stonewright/elementor-v3-update-kit-typography',
+				'stonewright/design-validate-spec',
+				'stonewright/elementor-v3-apply-bundle',
+				'stonewright/wp-cli-status',
+				'stonewright/wp-cli-discover',
+				'stonewright/wp-cli-batch-run',
+			],
+			'content-model' => [
+				'stonewright/content-bulk-upsert-posts',
+				'stonewright/content-model-loop-grid-flow',
+				'stonewright/media-list',
+				'stonewright/media-upload-batch',
+				'stonewright/site-capabilities',
+				'stonewright/site-plugins-list',
+				'stonewright/system-abilities-list',
+				'stonewright/wp-cli-status',
+				'stonewright/wp-cli-discover',
+				'stonewright/wp-cli-batch-run',
+				'stonewright/wp-cli-run',
+				'stonewright/wp-cli-job-start',
+				'stonewright/wp-cli-job-status',
+			],
+			'gutenberg' => [
+				'stonewright/gutenberg-apply-to-post',
+				'stonewright/design-spec-to-gutenberg',
+				'stonewright/design-validate-spec',
+				'stonewright/media-list',
+				'stonewright/media-upload-batch',
+				'stonewright/site-theme',
+				'stonewright/fse-get-theme-json',
+				'stonewright/fse-read-template',
+				'stonewright/fse-write-template',
+				'stonewright/fse-write-global-styles',
+				'stonewright/blocks-list-registered',
+				'stonewright/blocks-get-schema',
+				'stonewright/blocks-parse',
+				'stonewright/blocks-serialize',
+				'stonewright/gutenberg-render-blocks',
+			],
+			'wp-cli' => [
+				'stonewright/site-info',
+				'stonewright/site-plugins-list',
+				'stonewright/wp-cli-status',
+				'stonewright/wp-cli-discover',
+				'stonewright/wp-cli-batch-run',
+				'stonewright/wp-cli-run',
+				'stonewright/wp-cli-job-start',
+				'stonewright/wp-cli-job-status',
+			],
+			'site-admin' => [
+				'stonewright/site-info',
+				'stonewright/site-environment',
+				'stonewright/site-health',
+				'stonewright/site-pulse',
+				'stonewright/site-plugins-list',
+				'stonewright/site-theme',
+				'stonewright/change-log',
+				'stonewright/change-restore',
+				'stonewright/security-create-one-time-link',
+				'stonewright/system-abilities-list',
+				'stonewright/menu-list',
+				'stonewright/wp-cli-status',
+			],
+			// essential and unknown aliases: compact public surface from AbilityRegistry.
+			default => ( static function () use ( $startup, $blueprints ): array {
+				$skip = array_fill_keys( array_merge( $startup, $blueprints ), true );
+				$out  = [];
+				foreach ( AbilityRegistry::essential_ability_names_for_test() as $name ) {
+					if ( ! isset( $skip[ $name ] ) ) {
+						$out[] = $name;
+					}
+				}
+				return $out;
+			} )(),
 		};
+
+		// low-tools stays tiny (strict client caps). wp-cli skips blueprints.
+		// All other profiles put blueprints right after startup so client caps keep them.
+		$with_blueprints = match ( $profile ) {
+			'low-tools', 'wp-cli' => array_merge( $startup, $rest ),
+			default               => array_merge( $startup, $blueprints, $rest ),
+		};
+
+		return array_values( array_unique( $with_blueprints ) );
 	}
 
 	private static function why( string $name ): string {

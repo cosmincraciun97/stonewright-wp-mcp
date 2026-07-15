@@ -54,6 +54,10 @@ final class BlueprintsPageRenderTest extends TestCase {
 
 		$this->assertStringContainsString( "\n", $prompt );
 		$this->assertStringContainsString( 'id: agency', $prompt );
+		$this->assertStringContainsString( '## Engine', $prompt );
+		$this->assertStringContainsString( 'engine=elementor', $prompt );
+		$this->assertStringContainsString( 'engine=gutenberg', $prompt );
+		$this->assertStringContainsString( 'do not switch engines silently', $prompt );
 		$this->assertStringContainsString( 'stonewright/blueprint-get', $prompt );
 		$this->assertStringContainsString( 'stonewright/blueprint-apply', $prompt );
 		$this->assertStringContainsString( '{business}', $prompt );

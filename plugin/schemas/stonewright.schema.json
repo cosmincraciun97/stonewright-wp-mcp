@@ -145,6 +145,10 @@
       "required": ["id", "blocks"],
       "properties": {
         "id": { "type": "string" },
+        "role": {
+          "type": "string",
+          "enum": ["hero", "content", "cta", "footer", "pricing", "features", "testimonials", "gallery", "contact", "faq"]
+        },
         "name": { "type": "string" },
         "width": {
           "type": "string",

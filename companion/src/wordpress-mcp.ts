@@ -95,28 +95,42 @@ const BASE_PROXY_TOOL_NAMES = [
 	'stonewright-php-execute',
 ] as const;
 
-const LOW_TOOLS_PROXY_TOOL_NAMES = [
-	...STARTUP_REQUIRED_PROXY_TOOL_NAMES,
-	'stonewright-php-execute',
-	'stonewright-security-issue-confirmation-token',
-	'stonewright-tool-profile',
+const BLUEPRINT_PROXY_TOOL_NAMES = [
+	'stonewright-blueprint-list',
+	'stonewright-blueprint-get',
+	'stonewright-blueprint-apply',
+	'stonewright-brand-kit-list',
+	'stonewright-brand-kit-apply',
 ] as const;
 
-const ESSENTIAL_PROXY_TOOL_NAMES = [
-	...BASE_PROXY_TOOL_NAMES,
-	'stonewright-security-issue-confirmation-token',
-	'stonewright-elementor-schema',
-	'stonewright-content-bulk-upsert-posts',
-	'stonewright-design-native-plan',
-	'stonewright-elementor-v3-batch-mutate',
-	'stonewright-gutenberg-apply-to-post',
-] as const;
-
-const PROXY_TOOL_PROFILE_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, readonly string[]> = {
-	'low-tools': LOW_TOOLS_PROXY_TOOL_NAMES,
-	essential: ESSENTIAL_PROXY_TOOL_NAMES,
+/**
+ * Direct-mode / offline fallback only. Plugin `tool-profile action=resolve` is the
+ * single source of truth when WordPress is reachable.
+ */
+const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, readonly string[]> = {
+	'low-tools': [
+		...STARTUP_REQUIRED_PROXY_TOOL_NAMES,
+		'stonewright-php-execute',
+		'stonewright-security-issue-confirmation-token',
+		'stonewright-tool-profile',
+	],
+	essential: [
+		...BASE_PROXY_TOOL_NAMES,
+		...BLUEPRINT_PROXY_TOOL_NAMES,
+		'stonewright-security-issue-confirmation-token',
+		'stonewright-elementor-schema',
+		'stonewright-content-bulk-upsert-posts',
+		'stonewright-design-native-plan',
+		'stonewright-elementor-v3-batch-mutate',
+		'stonewright-elementor-v3-build-page-from-spec',
+		'stonewright-gutenberg-apply-to-post',
+		'stonewright-media-upload-batch',
+		'stonewright-theme-builder-apply-template',
+		'stonewright-elementor-page-digest',
+	],
 	'elementor-design': [
 		...BASE_PROXY_TOOL_NAMES,
+		...BLUEPRINT_PROXY_TOOL_NAMES,
 		'stonewright-site-info',
 		'stonewright-site-plugins-list',
 		'stonewright-security-create-one-time-link',
@@ -145,9 +159,12 @@ const PROXY_TOOL_PROFILE_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, readon
 		'stonewright-elementor-v3-build-page-from-spec',
 		'stonewright-elementor-v3-batch-mutate',
 		'stonewright-elementor-v3-apply-bundle',
+		'stonewright-theme-builder-apply-template',
+		'stonewright-elementor-page-digest',
 	],
 	'content-model': [
 		...BASE_PROXY_TOOL_NAMES,
+		...BLUEPRINT_PROXY_TOOL_NAMES,
 		'stonewright-site-capabilities',
 		'stonewright-site-plugins-list',
 		'stonewright-system-abilities-list',
@@ -158,6 +175,7 @@ const PROXY_TOOL_PROFILE_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, readon
 	],
 	gutenberg: [
 		...BASE_PROXY_TOOL_NAMES,
+		...BLUEPRINT_PROXY_TOOL_NAMES,
 		'stonewright-site-theme',
 		'stonewright-fse-get-theme-json',
 		'stonewright-fse-read-template',
@@ -179,6 +197,7 @@ const PROXY_TOOL_PROFILE_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, readon
 	],
 	'site-admin': [
 		...BASE_PROXY_TOOL_NAMES,
+		...BLUEPRINT_PROXY_TOOL_NAMES,
 		'stonewright-site-info',
 		'stonewright-site-environment',
 		'stonewright-site-health',
@@ -190,15 +209,34 @@ const PROXY_TOOL_PROFILE_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, readon
 	],
 };
 
-const PROXY_TOOL_PROFILE_SETS = Object.fromEntries(
-	Object.entries(PROXY_TOOL_PROFILE_NAMES).map(([profile, names]) => [profile, new Set(names)]),
+const FALLBACK_PROXY_TOOL_SETS = Object.fromEntries(
+	Object.entries(FALLBACK_PROXY_TOOL_NAMES).map(([profile, names]) => [profile, new Set(names)]),
 ) as Record<Exclude<ProxyToolProfile, 'full'>, Set<string>>;
 
+/** @deprecated Alias kept for tests; prefer resolvePluginProxyToolNames. */
 export function proxyToolNamesForProfile(profile: ProxyToolProfile): string[] {
 	if (profile === 'full') {
 		return [];
 	}
-	return Array.from(PROXY_TOOL_PROFILE_NAMES[profile]);
+	return Array.from(FALLBACK_PROXY_TOOL_NAMES[profile]);
+}
+
+export function maxToolsFromEnv(env: NodeJS.ProcessEnv = process.env): number | null {
+	const raw = (env['STONEWRIGHT_MCP_MAX_TOOLS'] ?? '').trim();
+	if (!raw) return null;
+	const n = Number(raw);
+	if (!Number.isFinite(n) || n < 1) return null;
+	return Math.floor(n);
+}
+
+export function trimToolsToMax(names: string[], maxTools: number | null): { kept: string[]; trimmed: string[] } {
+	if (maxTools === null || names.length <= maxTools) {
+		return { kept: names, trimmed: [] };
+	}
+	return {
+		kept: names.slice(0, maxTools),
+		trimmed: names.slice(maxTools),
+	};
 }
 
 const PROXY_TOOL_PROFILE_ALIASES: Record<string, ProxyToolProfile> = {
@@ -455,21 +493,76 @@ export async function registerWordPressMcpTools(
 	const profile = proxyToolProfileFromEnv(env);
 	const registeredTools: RemoteTool[] = [];
 	const profileFilteredToolNames: string[] = [];
+	const maxTools = maxToolsFromEnv(env);
 
+	// Prefer plugin-resolved ordered list; fall back to local FALLBACK lists (Direct / offline).
+	const resolved = await resolvePluginProxyToolNames(client, profile, maxTools);
+	const allowedOrder = resolved.tools;
+	const allowedSet = profile === 'full' && allowedOrder.length === 0
+		? null
+		: new Set(allowedOrder.length > 0 ? allowedOrder : proxyToolNamesForProfile(profile));
+
+	const candidates: RemoteTool[] = [];
 	for (const tool of tools) {
 		if (!tool.name || tool.name.startsWith('companion_') || COMPANION_OWNED_TOOL_NAMES.has(tool.name)) {
 			continue;
 		}
-		if (!proxyToolAllowed(tool.name, profile)) {
+		if (allowedSet !== null && !allowedSet.has(tool.name)) {
 			profileFilteredToolNames.push(tool.name);
 			continue;
 		}
+		candidates.push(tool);
+	}
 
+	// Preserve plugin priority order when available.
+	if (allowedOrder.length > 0) {
+		const byName = new Map(candidates.map((t) => [t.name, t]));
+		const ordered: RemoteTool[] = [];
+		for (const name of allowedOrder) {
+			const tool = byName.get(name);
+			if (tool) ordered.push(tool);
+		}
+		// Include any allowed tools not present in the resolved order (defensive).
+		for (const tool of candidates) {
+			if (!ordered.includes(tool)) ordered.push(tool);
+		}
+		candidates.length = 0;
+		candidates.push(...ordered);
+	}
+
+	const { kept, trimmed } = trimToolsToMax(
+		candidates.map((t) => t.name),
+		maxTools,
+	);
+	if (trimmed.length > 0) {
+		// Deterministic client-cap trim from the tail of the priority-ordered list.
+		console.error(
+			`[stonewright] ${trimmed.length} tools trimmed (client cap ${String(maxTools)}): ${trimmed.join(', ')}`,
+		);
+		profileFilteredToolNames.push(...trimmed);
+	}
+	const keepSet = new Set(kept);
+	const finalTools = candidates.filter((t) => keepSet.has(t.name));
+
+	for (const tool of finalTools) {
 		server.tool(
 			tool.name,
 			tool.description ?? tool.title ?? 'Proxied Stonewright WordPress MCP tool.',
 			zodShapeFromJsonSchema(tool.inputSchema ?? emptyObjectSchema()),
-			async (input) => normalizeToolResponse(await client.callTool(tool.name, input)),
+			async (input) => {
+				const response = normalizeToolResponse(await client.callTool(tool.name, input));
+				const structured = asRecord(response.structuredContent);
+				if (structured && structured['tools_changed'] === true) {
+					try {
+						// McpServer wraps Protocol Server; emit tools/list_changed for clients.
+						const inner = (server as unknown as { server?: { sendToolListChanged?: () => Promise<void> } }).server;
+						await inner?.sendToolListChanged?.();
+					} catch {
+						// Notification is best-effort; clients can re-list via re_list_instruction.
+					}
+				}
+				return response;
+			},
 		);
 		registeredTools.push(tool);
 	}
@@ -483,6 +576,60 @@ export async function registerWordPressMcpTools(
 	};
 }
 
+/**
+ * Ask the plugin for the ordered MCP tool names for a profile.
+ * Returns empty tools on failure so callers can use FALLBACK lists.
+ */
+export async function resolvePluginProxyToolNames(
+	client: { callTool: (name: string, args: Record<string, unknown>) => Promise<unknown> },
+	profile: ProxyToolProfile,
+	maxTools: number | null = null,
+): Promise<{ tools: string[]; source: 'plugin' | 'fallback'; ordered: boolean }> {
+	if (profile === 'full') {
+		return { tools: [], source: 'fallback', ordered: true };
+	}
+	try {
+		const raw = await client.callTool('stonewright-tool-profile', {
+			action: 'resolve',
+			profile,
+			...(maxTools !== null ? { max_tools: maxTools } : {}),
+		});
+		const structured = extractStructured(raw);
+		const toolsRaw = structured?.['tools'];
+		const names: string[] = [];
+		if (Array.isArray(toolsRaw)) {
+			for (const entry of toolsRaw) {
+				if (typeof entry === 'string' && entry.startsWith('stonewright-')) {
+					names.push(entry);
+				} else if (entry && typeof entry === 'object' && typeof (entry as { mcp_tool?: unknown }).mcp_tool === 'string') {
+					names.push((entry as { mcp_tool: string }).mcp_tool);
+				}
+			}
+		}
+		if (names.length > 0) {
+			return { tools: names, source: 'plugin', ordered: true };
+		}
+	} catch {
+		// Plugin unreachable (Direct mode) — use fallback.
+	}
+	return {
+		tools: proxyToolNamesForProfile(profile),
+		source: 'fallback',
+		ordered: true,
+	};
+}
+
+function extractStructured(raw: unknown): Record<string, unknown> | null {
+	const asObj = asRecord(raw);
+	if (!asObj) return null;
+	if (asObj['tools'] !== undefined || asObj['ok'] !== undefined) {
+		return asObj;
+	}
+	const structured = asRecord(asObj['structuredContent']);
+	if (structured) return structured;
+	return asObj;
+}
+
 export function proxyToolProfileFromEnv(env: NodeJS.ProcessEnv): ProxyToolProfile {
 	const raw = (env['STONEWRIGHT_MCP_TOOL_PROFILE'] ?? env['STONEWRIGHT_MCP_PROXY_PROFILE'] ?? 'essential')
 		.trim()
@@ -494,7 +641,7 @@ export function proxyToolProfileFromEnv(env: NodeJS.ProcessEnv): ProxyToolProfil
 	if (normalized === '' || normalized === 'auto' || normalized === 'fast' || normalized === 'general' || normalized === 'compact') {
 		return 'essential';
 	}
-	if (normalized in PROXY_TOOL_PROFILE_SETS) {
+	if (normalized in FALLBACK_PROXY_TOOL_SETS) {
 		return normalized as Exclude<ProxyToolProfile, 'full'>;
 	}
 	if (normalized in PROXY_TOOL_PROFILE_ALIASES) {
@@ -503,12 +650,7 @@ export function proxyToolProfileFromEnv(env: NodeJS.ProcessEnv): ProxyToolProfil
 	return 'essential';
 }
 
-function proxyToolAllowed(toolName: string, profile: ProxyToolProfile): boolean {
-	if (profile === 'full') {
-		return true;
-	}
-	return PROXY_TOOL_PROFILE_SETS[profile].has(toolName);
-}
+
 
 export async function registerWordPressMcpPrompts(
 	server: McpServer,

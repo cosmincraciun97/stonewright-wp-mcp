@@ -469,7 +469,7 @@ describe('createMcpServer', () => {
 		expect(names).not.toContain('stonewright-experimental-heavy-tool');
 	});
 
-	it('keeps the real default client surface at twenty tools', async () => {
+	it('keeps the default essential surface compact with blueprints under the client cap', async () => {
 		const server = await createMcpServer({
 			env: {
 				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
@@ -480,7 +480,13 @@ describe('createMcpServer', () => {
 		});
 
 		const names = registeredToolNames(server);
-		expect(names).toHaveLength(20);
+		// Local companion tools + essential proxied surface (includes blueprints / brand kits).
+		expect(names.length).toBeLessThanOrEqual(40);
+		expect(names).toEqual(expect.arrayContaining([
+			'stonewright-blueprint-apply',
+			'stonewright-brand-kit-apply',
+			'stonewright-task-start',
+		]));
 		expect(names).not.toEqual(expect.arrayContaining([
 			'companion_wp_cli_run',
 			'companion_wp_cli_batch_run',

@@ -88,15 +88,23 @@ final class BlueprintApplier {
 			$mode = 'draft';
 		}
 
-		$engine = isset( $args['engine'] ) ? (string) $args['engine'] : 'auto';
-		if ( ! in_array( $engine, [ 'auto', 'gutenberg', 'elementor' ], true ) ) {
-			$engine = 'auto';
+		$engine_requested = isset( $args['engine'] ) ? (string) $args['engine'] : 'auto';
+		if ( ! in_array( $engine_requested, [ 'auto', 'gutenberg', 'elementor' ], true ) ) {
+			$engine_requested = 'auto';
 		}
+		$engine = $engine_requested;
 		if ( 'auto' === $engine ) {
 			$engine = self::elementor_available() ? 'elementor' : 'gutenberg';
 		}
 		if ( 'elementor' === $engine && ! self::elementor_available() ) {
-			$engine = 'gutenberg';
+			return new \WP_Error(
+				'stonewright_engine_unavailable',
+				__( 'Elementor is not active on this site. Install/activate Elementor or pass engine=gutenberg.', 'stonewright' ),
+				[
+					'status'           => 400,
+					'engine_requested' => 'elementor',
+				]
+			);
 		}
 
 		$post_id     = isset( $args['post_id'] ) ? (int) $args['post_id'] : 0;
@@ -184,19 +192,21 @@ final class BlueprintApplier {
 		$spec_json = (string) wp_json_encode( $spec, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
 
 		return [
-			'ok'            => true,
-			'page_id'       => $post_id,
-			'post_id'       => $post_id,
-			'blueprint_id'  => $blueprint_id,
-			'brand_kit'     => $brand_kit_id,
-			'engine'        => $engine,
-			'mode'          => $mode,
-			'created'       => $created,
-			'snapshot_id'   => $snapshot_id,
-			'spec_sha8'     => substr( sha1( $spec_json ), 0, 8 ),
-			'edit_link'     => $edit_link,
-			'diagnostics'   => $diagnostics,
-			'qa'            => \Stonewright\WpMcp\DesignSpec\QaReport::for_spec( $spec ),
+			'ok'               => true,
+			'page_id'          => $post_id,
+			'post_id'          => $post_id,
+			'blueprint_id'     => $blueprint_id,
+			'brand_kit'        => $brand_kit_id,
+			'engine'           => $engine,
+			'engine_requested' => $engine_requested,
+			'engine_used'      => $engine,
+			'mode'             => $mode,
+			'created'          => $created,
+			'snapshot_id'      => $snapshot_id,
+			'spec_sha8'        => substr( sha1( $spec_json ), 0, 8 ),
+			'edit_link'        => $edit_link,
+			'diagnostics'      => $diagnostics,
+			'qa'               => \Stonewright\WpMcp\DesignSpec\QaReport::for_spec( $spec ),
 		];
 	}
 
@@ -254,7 +264,17 @@ final class BlueprintApplier {
 		return $spec;
 	}
 
+	/**
+	 * Test hook: when non-null, overrides live Elementor detection.
+	 *
+	 * @var bool|null
+	 */
+	public static $test_elementor_available = null;
+
 	private static function elementor_available(): bool {
+		if ( null !== self::$test_elementor_available ) {
+			return (bool) self::$test_elementor_available;
+		}
 		return defined( 'ELEMENTOR_VERSION' ) || class_exists( '\\Elementor\\Plugin' );
 	}
 }

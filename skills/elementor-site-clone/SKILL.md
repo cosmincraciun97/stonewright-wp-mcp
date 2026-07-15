@@ -12,6 +12,10 @@ User asks to clone, duplicate, migrate, or rebuild an Elementor page/section str
 - No blind CSS copy, no absolute positioning dumps, no skipping snapshots/backups.
 - Do not write Elementor trees via `stonewright/php-execute`.
 
+## Engine
+
+If the user wants Gutenberg/blocks/FSE instead of Elementor, stop this clone skill and use `stonewright-blueprint-apply` or Gutenberg typed tools with `engine=gutenberg`. When the user said Elementor, pass `engine=elementor` on any blueprint apply; if Elementor is missing the call fails loudly — report it, do not switch engines silently.
+
 ## Procedure
 
 1. `stonewright-task-start` with `surface=elementor`, `intent=write`.

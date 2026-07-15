@@ -64,6 +64,15 @@ final class GutenbergSpecRenderer {
 	 * @return array<string, mixed>
 	 */
 	private static function render_section( array $section, int $section_index, array &$diagnostics, array $tokens ): array {
+		$role = strtolower( (string) ( $section['role'] ?? '' ) );
+		// Hero with image + text content → core/media-text when possible.
+		if ( 'hero' === $role ) {
+			$media_text = self::try_hero_media_text( $section, $section_index, $diagnostics, $tokens );
+			if ( null !== $media_text ) {
+				return $media_text;
+			}
+		}
+
 		$children = [];
 		foreach ( (array) ( $section['blocks'] ?? [] ) as $block_index => $block ) {
 			$rendered = self::render_block( (array) $block, [ 'sections', $section_index, 'blocks', (int) $block_index ], $diagnostics, $tokens );
@@ -106,31 +115,34 @@ final class GutenbergSpecRenderer {
 				];
 			}
 		}
-		$heading_font = self::token_font( $tokens, 'heading' );
-		$body_font    = self::token_font( $tokens, 'body' );
+		$body_font = self::token_font( $tokens, 'body' );
 		if ( '' !== $body_font ) {
 			$style['typography']['fontFamily'] = $body_font;
 		}
 
-		$attrs = [
+		$has_bg = is_string( $bg ) && '' !== $bg;
+		$attrs  = [
 			'tagName' => 'section',
+			'align'   => 'full',
 			'layout'  => [
-				'type'           => 'constrained',
-				'contentSize'    => '1200px',
+				'type'        => 'constrained',
+				'contentSize' => '1200px',
 			],
 		];
 		if ( ! empty( $style ) ) {
 			$attrs['style'] = $style;
 		}
-		unset( $heading_font );
-
-		$inner_html = '<section class="wp-block-group">';
-		foreach ( $children as $_ ) {
-			$inner_html .= '';
+		$class_parts = [ 'wp-block-group', 'alignfull' ];
+		if ( $has_bg ) {
+			$class_parts[] = 'has-background';
 		}
-		$inner_html .= '</section>';
+		$class_attr = implode( ' ', $class_parts );
+		$style_attr = '';
+		if ( $has_bg ) {
+			$style_attr = ' style="background-color:' . esc_attr( (string) $bg ) . '"';
+		}
 
-		$open  = '<section class="wp-block-group">';
+		$open  = '<section class="' . esc_attr( $class_attr ) . '"' . $style_attr . '>';
 		$close = '</section>';
 
 		$content = [ $open ];
@@ -152,7 +164,7 @@ final class GutenbergSpecRenderer {
 	 * @param array<string, mixed> $block
 	 * @param array<int, string|int> $path
 	 * @param array<int, array<string, mixed>> $diagnostics
-	 * @param array{colors: array<string, string>, typography: array<string, mixed>} $tokens
+	 * @param array{colors?: array<string, string>, typography?: array<string, mixed>} $tokens
 	 * @return array<string, mixed>|null
 	 */
 	private static function render_block( array $block, array $path, array &$diagnostics, array $tokens = [] ): ?array {
@@ -175,6 +187,26 @@ final class GutenbergSpecRenderer {
 			case 'separator':
 				return self::separator();
 			case 'row':
+				$children = [];
+				foreach ( (array) ( $block['blocks'] ?? [] ) as $child_index => $child ) {
+					$mapped = self::render_block( (array) $child, array_merge( $path, [ 'blocks', (int) $child_index ] ), $diagnostics, $tokens );
+					if ( null === $mapped ) {
+						continue;
+					}
+					// Direct children of a row become core/column; explicit column nodes pass through.
+					$children[] = 'core/column' === ( $mapped['blockName'] ?? '' )
+						? $mapped
+						: self::wrap_in_column( [ $mapped ] );
+				}
+				$open  = '<div class="wp-block-columns">';
+				$close = '</div>';
+				return [
+					'blockName'    => 'core/columns',
+					'attrs'        => [],
+					'innerHTML'    => $open . $close,
+					'innerContent' => array_merge( [ $open ], array_fill( 0, count( $children ), null ), [ $close ] ),
+					'innerBlocks'  => $children,
+				];
 			case 'column':
 				$children = [];
 				foreach ( (array) ( $block['blocks'] ?? [] ) as $child_index => $child ) {
@@ -183,13 +215,20 @@ final class GutenbergSpecRenderer {
 						$children[] = $mapped;
 					}
 				}
-				return [
-					'blockName'    => 'core/group',
-					'attrs'        => [ 'layout' => [ 'type' => 'flex', 'flexWrap' => 'wrap' ] ],
-					'innerHTML'    => '<div class="wp-block-group"></div>',
-					'innerContent' => array_merge( [ '<div class="wp-block-group">' ], array_fill( 0, count( $children ), null ), [ '</div>' ] ),
-					'innerBlocks'  => $children,
-				];
+				// Orphan column (section-level, not nested under a row) → group for backward compatibility.
+				$blocks_depth = count( array_filter( $path, static fn( $p ): bool => 'blocks' === $p ) );
+				if ( $blocks_depth <= 1 ) {
+					$open  = '<div class="wp-block-group">';
+					$close = '</div>';
+					return [
+						'blockName'    => 'core/group',
+						'attrs'        => [ 'layout' => [ 'type' => 'constrained' ] ],
+						'innerHTML'    => $open . $close,
+						'innerContent' => array_merge( [ $open ], array_fill( 0, count( $children ), null ), [ $close ] ),
+						'innerBlocks'  => $children,
+					];
+				}
+				return self::wrap_in_column( $children );
 			default:
 				$diagnostics[] = self::unsupported_node( $type, $path );
 				return null;
@@ -318,23 +357,36 @@ final class GutenbergSpecRenderer {
 		}
 		$style_attr = '';
 		$attrs      = [];
+		$classes    = [ 'wp-block-button__link', 'wp-element-button' ];
 		if ( '' !== $bg || '' !== $fg ) {
 			$style = [];
 			if ( '' !== $bg ) {
 				$style['color']['background'] = $bg;
+				$classes[]                    = 'has-background';
 			}
 			if ( '' !== $fg ) {
 				$style['color']['text'] = $fg;
+				$classes[]              = 'has-text-color';
 			}
-			$attrs['style'] = $style;
-			$style_attr     = ' style="'
+			$attrs['style']     = $style;
+			$attrs['className'] = 'has-custom-font-size';
+			if ( '' !== $bg ) {
+				$attrs['backgroundColor'] = null;
+			}
+			$style_attr = ' style="'
 				. ( '' !== $bg ? 'background-color:' . esc_attr( $bg ) . ';' : '' )
 				. ( '' !== $fg ? 'color:' . esc_attr( $fg ) . ';' : '' )
 				. '"';
 		}
-		$inner = '<div class="wp-block-button"><a class="wp-block-button__link wp-element-button" href="' . esc_url( $url ) . '"' . $style_attr . '>' . esc_html( $text ) . '</a></div>';
-		$open  = '<div class="wp-block-buttons">';
-		$close = '</div>';
+		// Drop null keys from attrs.
+		$attrs = array_filter(
+			$attrs,
+			static fn( $v ): bool => null !== $v
+		);
+		$link_class = implode( ' ', array_unique( $classes ) );
+		$inner      = '<div class="wp-block-button"><a class="' . esc_attr( $link_class ) . '" href="' . esc_url( $url ) . '"' . $style_attr . '>' . esc_html( $text ) . '</a></div>';
+		$open       = '<div class="wp-block-buttons">';
+		$close      = '</div>';
 
 		$button_block = [
 			'blockName'    => 'core/button',
@@ -350,6 +402,106 @@ final class GutenbergSpecRenderer {
 			'innerHTML'    => $open . $close,
 			'innerContent' => [ $open, null, $close ],
 			'innerBlocks'  => [ $button_block ],
+		];
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $blocks
+	 * @return array<string, mixed>
+	 */
+	private static function wrap_in_column( array $blocks ): array {
+		$open  = '<div class="wp-block-column">';
+		$close = '</div>';
+		return [
+			'blockName'    => 'core/column',
+			'attrs'        => [],
+			'innerHTML'    => $open . $close,
+			'innerContent' => array_merge( [ $open ], array_fill( 0, count( $blocks ), null ), [ $close ] ),
+			'innerBlocks'  => $blocks,
+		];
+	}
+
+	/**
+	 * Hero section → core/media-text when an image sits beside text/buttons.
+	 *
+	 * @param array<string, mixed> $section
+	 * @param array<int, array<string, mixed>> $diagnostics
+	 * @param array{colors: array<string, string>, typography: array<string, mixed>} $tokens
+	 * @return array<string, mixed>|null
+	 */
+	private static function try_hero_media_text( array $section, int $section_index, array &$diagnostics, array $tokens ): ?array {
+		$blocks     = (array) ( $section['blocks'] ?? [] );
+		$image_spec = null;
+		$text_specs = [];
+		foreach ( $blocks as $block ) {
+			if ( ! is_array( $block ) ) {
+				continue;
+			}
+			$type = (string) ( $block['type'] ?? '' );
+			if ( 'image' === $type && null === $image_spec ) {
+				$image_spec = $block;
+				continue;
+			}
+			if ( in_array( $type, [ 'heading', 'paragraph', 'button', 'row', 'column' ], true ) ) {
+				$text_specs[] = $block;
+			}
+		}
+		if ( null === $image_spec || [] === $text_specs ) {
+			return null;
+		}
+
+		$media_position = ( 0 === ( $section_index % 2 ) ) ? 'right' : 'left';
+		$url            = (string) ( $image_spec['url'] ?? '' );
+		$alt            = (string) ( $image_spec['alt'] ?? '' );
+		$id             = isset( $image_spec['id'] ) ? (int) $image_spec['id'] : 0;
+
+		$inner_blocks = [];
+		foreach ( $text_specs as $idx => $spec ) {
+			$mapped = self::render_block( (array) $spec, [ 'sections', $section_index, 'blocks', $idx ], $diagnostics, $tokens );
+			if ( null !== $mapped ) {
+				$inner_blocks[] = $mapped;
+			}
+		}
+
+		$bg = '';
+		if ( isset( $section['background']['color'] ) ) {
+			$bg = (string) $section['background']['color'];
+		}
+		$attrs = [
+			'mediaPosition' => $media_position,
+			'mediaType'     => 'image',
+			'mediaUrl'      => $url,
+			'align'         => 'full',
+		];
+		if ( $id > 0 ) {
+			$attrs['mediaId'] = $id;
+		}
+		if ( '' !== $bg ) {
+			$attrs['style'] = [ 'color' => [ 'background' => $bg ] ];
+		}
+
+		$img_html = '<figure class="wp-block-media-text__media"><img src="' . esc_url( $url ) . '" alt="' . esc_attr( $alt ) . '"'
+			. ( $id > 0 ? ' class="wp-image-' . $id . '"' : '' )
+			. '/></figure>';
+		$classes  = 'wp-block-media-text alignfull is-stacked-on-mobile'
+			. ( 'right' === $media_position ? ' has-media-on-the-right' : '' )
+			. ( '' !== $bg ? ' has-background' : '' );
+		$style    = '' !== $bg ? ' style="background-color:' . esc_attr( $bg ) . '"' : '';
+		$open     = '<div class="' . esc_attr( $classes ) . '"' . $style . '>' . $img_html . '<div class="wp-block-media-text__content">';
+		$close    = '</div></div>';
+
+		$content = [ $open ];
+		foreach ( $inner_blocks as $_ ) {
+			$content[] = null;
+		}
+		$content[] = $close;
+
+		return [
+			'blockName'    => 'core/media-text',
+			'attrs'        => $attrs,
+			'innerHTML'    => $open . $close,
+			'innerContent' => $content,
+			'innerBlocks'  => $inner_blocks,
 		];
 	}
 

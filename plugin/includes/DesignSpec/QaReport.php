@@ -121,7 +121,7 @@ final class QaReport {
 
 		$score = 100;
 		foreach ( $issues as $issue ) {
-			$score -= ( 'major' === ( $issue['severity'] ?? '' ) ) ? 10 : 5;
+			$score -= ( 'major' === $issue['severity'] ) ? 10 : 5;
 		}
 		$score = max( 0, min( 100, $score ) );
 

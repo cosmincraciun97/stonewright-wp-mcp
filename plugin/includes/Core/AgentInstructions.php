@@ -24,6 +24,7 @@ final class AgentInstructions {
 			'- Use MCP tool stonewright-php-execute for direct full WordPress runtime access when a short PHP snippet is faster than many typed calls.',
 			'- Never write raw _elementor_data through php-execute. Every Elementor V3 node needs a non-empty unique id; use typed Elementor abilities or Backup::snapshot_post plus ElementorData::write.',
 			'- Design/Elementor: normalize DesignEvidence, run stonewright-design-native-plan, review or set approved kit globals, then compile live-schema writes in small verified batches.',
+			'- Blueprints: ask which builder the user wants if not stated. Elementor → engine=elementor (fails loudly if Elementor is missing — report it, do not switch engines silently). Gutenberg/blocks/FSE → engine=gutenberg. Unspecified → engine=auto and report engine_used.',
 			'- Content-model/repeated rows: prefer content-bulk-upsert-posts and wp-cli-batch-run over many single meta or CLI calls.',
 			'- WP-CLI remains tokenized; use stonewright-php-execute for PHP runtime snippets instead of wp eval, wp eval-file, wp shell, wp package, --exec, or --require.',
 			'- Do not run wp cli info, wp plugin activate, wp option update, or other wp commands in a normal shell as Stonewright recovery. Use MCP tools stonewright-wp-cli-status, stonewright-wp-cli-discover, stonewright-wp-cli-run, or stonewright-wp-cli-batch-run.',

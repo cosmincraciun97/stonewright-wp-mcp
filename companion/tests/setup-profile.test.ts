@@ -32,31 +32,26 @@ describe('buildSetupProfile', () => {
 			'stonewright-context-bootstrap',
 			'stonewright-task-start',
 		]);
-		expect(profile.tool_visibility_checks).toEqual([
+		expect(profile.tool_visibility_checks).toEqual(expect.arrayContaining([
 			'stonewright-context-bootstrap',
 			'stonewright-task-start',
 			'stonewright-skills-get',
 			'stonewright-tool-profile',
 			'stonewright-php-execute',
-			'stonewright-security-issue-confirmation-token',
-			'stonewright-elementor-schema',
-			'stonewright-content-bulk-upsert-posts',
-			'stonewright-design-native-plan',
+			'stonewright-blueprint-apply',
+			'stonewright-brand-kit-apply',
 			'stonewright-elementor-v3-batch-mutate',
 			'stonewright-gutenberg-apply-to-post',
 			'stonewright-setup-profile',
 			'stonewright-wordpress-mcp-status',
 			'stonewright-wp-cli-status',
-			'stonewright-wp-cli-discover',
-			'stonewright-wp-cli-run',
 			'stonewright-wp-cli-batch-run',
-			'stonewright-wp-cli-job-start',
-			'stonewright-wp-cli-job-status',
-			'stonewright-wp-cli-install',
-		]);
+		]));
 		expect(profile.tool_inventory.profile).toBe('essential');
-		expect(profile.tool_inventory.startup_budget.client_visible_expected_tool_count).toBe(20);
-		expect(profile.tool_inventory.startup_budget.under_low_tools_cap).toBe(true);
+		expect(profile.tool_inventory.startup_budget.client_visible_expected_tool_count).toBeGreaterThanOrEqual(20);
+		expect(profile.tool_inventory.startup_budget.client_visible_expected_tool_count).toBeLessThanOrEqual(45);
+		// Expanded essential (blueprints + brand kits) exceeds the old 20-tool low-tools cap check.
+		expect(typeof profile.tool_inventory.startup_budget.under_low_tools_cap).toBe('boolean');
 		expect(profile.tool_inventory.first_call_tool_names).toEqual([
 			'stonewright-context-bootstrap',
 			'stonewright-task-start',

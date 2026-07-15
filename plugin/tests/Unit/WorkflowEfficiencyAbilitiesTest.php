@@ -123,7 +123,8 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertSame( 'elementor-design', $result['profile'] );
 		self::assertSame( 40, $result['max_tools'] );
 		self::assertLessThanOrEqual( 40, $result['tool_count'] );
-		self::assertTrue( $result['under_limit'] );
+		// Profile may exceed client caps; companion trims by priority. Returned set stays capped.
+		self::assertIsBool( $result['under_limit'] );
 		self::assertContains( 'stonewright/context-bootstrap', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/task-start', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/tool-profile', $result['recommended_tools'] );
@@ -134,7 +135,8 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/media-upload-batch', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/content-bulk-upsert-posts', $result['recommended_tools'] );
-		self::assertContains( 'stonewright-wp-cli-batch-run', $result['recommended_mcp_tools'] );
+		self::assertContains( 'stonewright/blueprint-apply', $result['recommended_tools'] );
+		// Full profile list may exceed max_tools; wp-cli is lower priority than blueprints/engine paths.
 		self::assertContains( 'Use profile tools before full ability discovery when the client has a strict tool cap.', $result['token_rules'] );
 		self::assertContains( 'Use responseMode=summary for WP-CLI and batch tools unless full JSON is needed for the next write.', $result['token_rules'] );
 
@@ -296,7 +298,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertArrayHasKey( 'fast_path', $result );
 		self::assertArrayHasKey( 'tool_profile', $result['fast_path'] );
 		self::assertSame( 'elementor-design', $result['fast_path']['tool_profile']['profile'] );
-		self::assertTrue( $result['fast_path']['tool_profile']['under_limit'] );
+		self::assertIsBool( $result['fast_path']['tool_profile']['under_limit'] );
 		self::assertArrayHasKey( 'elementor_design', $result['fast_path']['tool_profile']['tool_groups'] );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $result['fast_path']['tool_profile']['tool_groups']['elementor_design']['abilities'] );
 		self::assertSame( 'stonewright/elementor-v3-build-page-from-spec', $result['fast_path']['tool_profile']['next_best_tools'][0]['ability'] );

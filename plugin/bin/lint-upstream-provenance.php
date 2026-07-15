@@ -21,7 +21,7 @@ if ( false === $ledger ) {
 
 $errors = [];
 $rows   = [];
-$upstream_root = rtrim( (string) getenv( 'STONEWRIGHT_NOVAMIRA_ROOT' ), '/\\' );
+$upstream_root = rtrim( (string) getenv( 'STONEWRIGHT_UPSTREAM_ROOT' ) ?: getenv( 'STONEWRIGHT_NOVAMIRA_ROOT' ), '/\\' );
 
 foreach ( preg_split( '/\R/', $ledger ) ?: [] as $line ) {
 	if ( ! preg_match( '/^\| `([^`]+)` \| `([a-f0-9]{64})` \| `([^`]+)` \| ([^|]+) \| ([^|]+) \|/', $line, $matches ) ) {
