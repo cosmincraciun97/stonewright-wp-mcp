@@ -223,8 +223,9 @@
 }
 
 .stonewright-card__header {
-	border-bottom: 1px solid var(--sw-bg);
+	border-bottom: 1px solid var(--sw-border);
 	padding: 12px 14px 10px;
+	color: var(--sw-text);
 }
 
 .stonewright-card__title-row {
@@ -238,6 +239,8 @@
 	flex: 1 1 auto;
 	line-height: 1.35;
 	min-width: 160px;
+	color: var(--sw-text);
+	font-weight: 600;
 }
 
 .stonewright-card__slug {
@@ -279,11 +282,12 @@
 
 .stonewright-card__footer {
 	align-items: center;
-	border-top: 1px solid var(--sw-bg);
+	border-top: 1px solid var(--sw-border);
 	display: flex;
 	flex-wrap: wrap;
 	gap: 8px;
 	padding: 10px 14px;
+	background: var(--sw-surface);
 }
 
 .stonewright-card__edit-panel {
@@ -316,12 +320,15 @@
 .sw-btn--danger { border-color: var(--sw-danger-text) !important; color: var(--sw-danger-text) !important; }
 
 .stonewright-type-badge {
-	border-radius: 3px;
-	display: inline-block;
+	border-radius: 999px;
+	display: inline-flex;
+	align-items: center;
 	font-size: 11px;
-	font-weight: 700;
-	line-height: 1.7;
-	padding: 1px 8px;
+	font-weight: 600;
+	line-height: 1;
+	height: 22px;
+	padding: 0 10px;
+	border: 1px solid transparent;
 }
 
 .stonewright-type-user { background: var(--sw-info-soft); color: var(--sw-info-text); }

@@ -1,131 +1,164 @@
 /**
- * Blueprints & Brand Kits page.
- * Tokens only — no raw hex (swatches use inline data colors).
+ * Blueprints & Brand Kits — quiet premium catalog.
  */
 
 .stonewright-blueprints-page {
 	max-width: var(--sw-shell-content-max, 1200px);
+	color: var(--sw-text);
+}
+
+.stonewright-blueprints-page .stonewright-page-header h1 {
+	font-size: 22px;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	color: var(--sw-text);
+}
+
+.stonewright-blueprints-page .stonewright-page-header p {
+	color: var(--sw-text-muted);
+	font-size: var(--sw-text-sm);
+	line-height: 1.5;
+	max-width: 42rem;
 }
 
 .sw-section {
-	margin: 0 0 var(--sw-space-6);
+	margin: 0 0 40px;
 }
 
 .sw-section__head {
-	margin: 0 0 var(--sw-space-4);
+	margin: 0 0 16px;
+	padding-bottom: 12px;
+	border-bottom: 1px solid var(--sw-border);
 }
 
 .sw-section__head h2 {
-	margin: 0 0 var(--sw-space-2);
-	font-size: var(--sw-text-lg);
+	margin: 0 0 4px;
+	font-size: 13px;
 	font-weight: 600;
-	color: var(--sw-text);
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--sw-text-muted);
 }
 
 .sw-section__sub {
 	margin: 0;
 	font-size: var(--sw-text-sm);
-	color: var(--sw-text-muted);
+	color: var(--sw-text-secondary);
 	max-width: 40rem;
+	font-weight: 400;
 }
 
 .sw-blueprint-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-	gap: var(--sw-space-4);
+	grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
+	gap: 12px;
 }
 
 .sw-blueprint-card {
 	display: flex;
 	flex-direction: column;
-	gap: var(--sw-space-2);
-	padding: 20px;
+	gap: 10px;
+	padding: 16px 16px 14px;
 	background: var(--sw-surface);
 	border: 1px solid var(--sw-border);
-	border-radius: 12px;
-	transition: border-color 150ms ease, transform 150ms ease;
+	border-radius: 10px;
 	min-width: 0;
+	transition: border-color 150ms ease, background 150ms ease;
 }
 
 .sw-blueprint-card:hover {
-	border-color: var(--sw-brand);
-	transform: translateY(-1px);
+	border-color: var(--sw-border-strong);
+	background: var(--sw-surface-raised);
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.sw-blueprint-card,
-	.sw-blueprint-card:hover {
+	.sw-blueprint-card {
 		transition: none;
-		transform: none;
 	}
 }
 
 .sw-blueprint-card__industry {
 	align-self: flex-start;
-	font-size: 11px;
+	font-size: 10px;
 	font-weight: 600;
-	letter-spacing: 0.04em;
+	letter-spacing: 0.08em;
 	text-transform: uppercase;
-	color: var(--sw-brand);
-	background: var(--sw-brand-soft);
-	border-radius: 999px;
-	padding: 2px 10px;
+	color: var(--sw-text-muted);
+	background: transparent;
+	border: 1px solid var(--sw-border);
+	border-radius: 4px;
+	padding: 2px 8px;
 }
 
 .sw-blueprint-card__name {
 	margin: 0;
-	font-size: 16px;
-	line-height: 1.35;
+	font-size: 15px;
+	line-height: 1.3;
 	font-weight: 600;
 	color: var(--sw-text);
+	letter-spacing: -0.01em;
 }
 
 .sw-blueprint-card__desc {
 	margin: 0;
-	font-size: var(--sw-text-sm);
-	color: var(--sw-text-secondary);
+	font-size: 12px;
+	color: var(--sw-text-muted);
 	line-height: 1.45;
+	font-weight: 400;
 }
 
 .sw-blueprint-card__meta {
 	display: flex;
-	gap: var(--sw-space-2);
-	align-items: baseline;
+	gap: 8px;
+	align-items: center;
 	flex-wrap: wrap;
 	margin: 0;
 	color: var(--sw-text-muted);
-	font-size: 12px;
+	font-size: 11px;
+	font-weight: 400;
 }
 
 .sw-blueprint-card__meta code {
-	background: var(--sw-bg);
-	border: 1px solid var(--sw-border);
-	border-radius: 4px;
-	padding: 1px 6px;
+	background: transparent;
+	border: none;
+	padding: 0;
 	color: var(--sw-text-secondary);
 	font-family: var(--sw-font-mono);
 	font-size: 11px;
+	font-weight: 400;
 }
 
 .sw-blueprint-card__sha {
 	font-variant-numeric: tabular-nums;
+	opacity: 0.85;
 }
 
 .sw-copy-prompt {
 	align-self: flex-start;
-	margin-top: var(--sw-space-1);
+	margin-top: auto;
+	padding-top: 4px;
+	height: 28px;
+	font-size: 12px;
+	font-weight: 500;
+	color: var(--sw-text-secondary);
+	border-color: var(--sw-border);
+}
+
+.sw-copy-prompt:hover {
+	color: var(--sw-brand);
+	border-color: var(--sw-brand);
 }
 
 .sw-kit-swatches {
 	display: flex;
 	gap: 6px;
-	margin: var(--sw-space-1) 0;
+	margin: 2px 0;
 }
 
 .sw-kit-swatches span {
-	width: 20px;
-	height: 20px;
-	border-radius: 6px;
+	width: 18px;
+	height: 18px;
+	border-radius: 4px;
 	border: 1px solid var(--sw-border-strong);
 }
 
@@ -135,5 +168,5 @@
 	color: var(--sw-text-muted);
 	background: var(--sw-surface);
 	border: 1px dashed var(--sw-border);
-	border-radius: 12px;
+	border-radius: 10px;
 }

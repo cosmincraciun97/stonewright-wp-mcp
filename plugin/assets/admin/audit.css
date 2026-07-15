@@ -13,8 +13,8 @@
 	gap: var(--sw-space-3);
 	padding: var(--sw-space-4);
 	margin: 0 0 var(--sw-space-5);
-	background: var(--sw-color-card, var(--sw-surface));
-	border: 1px solid var(--sw-color-border, var(--sw-gray-200));
+	background: var(--sw-surface);
+	border: 1px solid var(--sw-border);
 	border-radius: var(--sw-radius);
 	box-shadow: var(--sw-shadow-1);
 }
@@ -25,7 +25,7 @@
 	gap: var(--sw-space-1);
 	font-size: var(--sw-text-sm);
 	font-weight: 600;
-	color: var(--sw-color-muted);
+	color: var(--sw-text-muted);
 }
 
 .sw-audit-filters input,
@@ -35,9 +35,27 @@
 }
 
 .sw-audit-table {
-	background: var(--sw-color-card, var(--sw-surface));
+	background: var(--sw-surface);
 	border-radius: var(--sw-radius);
 	overflow: hidden;
+	width: 100%;
+}
+
+.sw-audit-table th,
+.sw-audit-table td {
+	color: var(--sw-text);
+}
+
+/* Payload column: use remaining width */
+.sw-audit-table .column-details,
+.sw-audit-table td:last-child {
+	width: 36%;
+	min-width: 220px;
+}
+
+.sw-audit-details {
+	display: block;
+	width: 100%;
 }
 
 .sw-audit-details summary {
@@ -45,43 +63,67 @@
 	color: var(--sw-brand);
 	font-weight: 600;
 	font-size: var(--sw-text-sm);
+	list-style: none;
+}
+
+.sw-audit-details summary::-webkit-details-marker {
+	display: none;
+}
+
+.sw-audit-details summary::before {
+	content: '▸ ';
+	color: var(--sw-text-muted);
+}
+
+.sw-audit-details[open] summary::before {
+	content: '▾ ';
 }
 
 .sw-audit-details summary:focus-visible {
-	outline: 2px solid var(--sw-brand);
+	outline: 2px solid var(--sw-focus-ring);
 	outline-offset: 2px;
 }
 
 .sw-audit-payload {
+	display: block;
 	margin: var(--sw-space-2) 0 0;
-	padding: var(--sw-space-3);
-	max-width: 40rem;
+	padding: var(--sw-space-3) var(--sw-space-4);
+	width: 100%;
+	max-width: none;
+	box-sizing: border-box;
 	overflow: auto;
 	font-family: var(--sw-font-mono);
-	font-size: var(--sw-text-xs);
-	background: var(--sw-gray-50);
+	font-size: 12px;
+	line-height: 1.5;
+	background: var(--sw-bg);
+	color: var(--sw-text);
 	border-radius: var(--sw-radius-sm);
-	border: 1px solid var(--sw-color-border);
+	border: 1px solid var(--sw-border);
 	white-space: pre-wrap;
 	word-break: break-word;
 }
 
-.sw-badge--ok {
-	background: var(--sw-success-bg);
-	color: var(--sw-success);
+/* Status pills — solid enough on both themes */
+.sw-badge--ok,
+.sw-audit-page .sw-badge--ok {
+	background: var(--sw-ok-soft) !important;
+	color: var(--sw-ok-text) !important;
+	border: 1px solid color-mix(in srgb, var(--sw-ok-text) 28%, transparent);
 }
 
-.sw-badge--error {
-	background: var(--sw-danger-bg);
-	color: var(--sw-danger);
+.sw-badge--error,
+.sw-audit-page .sw-badge--error {
+	background: var(--sw-danger-soft) !important;
+	color: var(--sw-danger-text) !important;
+	border: 1px solid color-mix(in srgb, var(--sw-danger-text) 28%, transparent);
 }
 
 .sw-empty-state {
 	padding: var(--sw-space-6);
 	text-align: center;
-	color: var(--sw-color-muted);
-	background: var(--sw-color-card);
-	border: 1px dashed var(--sw-color-border);
+	color: var(--sw-text-muted);
+	background: var(--sw-surface);
+	border: 1px dashed var(--sw-border);
 	border-radius: var(--sw-radius);
 }
 

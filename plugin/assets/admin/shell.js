@@ -176,6 +176,45 @@
 		});
 	}
 
+	function copyTextSilent(value) {
+		// Prefer Clipboard API; fall back to execCommand. Never use alert/prompt.
+		if (navigator.clipboard && navigator.clipboard.writeText) {
+			return navigator.clipboard.writeText(value).then(function () {
+				return true;
+			}).catch(function () {
+				return copyViaTextarea(value);
+			});
+		}
+		return Promise.resolve(copyViaTextarea(value));
+	}
+
+	function copyViaTextarea(value) {
+		try {
+			var ta = document.createElement('textarea');
+			ta.value = value;
+			ta.setAttribute('readonly', '');
+			ta.style.position = 'fixed';
+			ta.style.top = '0';
+			ta.style.left = '-9999px';
+			ta.style.opacity = '0';
+			document.body.appendChild(ta);
+			ta.focus();
+			ta.select();
+			var ok = false;
+			try {
+				ok = document.execCommand('copy');
+			} catch (e) {
+				ok = false;
+			}
+			if (ta.parentNode) {
+				ta.parentNode.removeChild(ta);
+			}
+			return ok;
+		} catch (e2) {
+			return false;
+		}
+	}
+
 	function initCopyPrompts(shell) {
 		var live = shell.querySelector('[data-sw-copy-live]');
 		if (!live) {
@@ -191,28 +230,22 @@
 			if (!btn || !shell.contains(btn)) {
 				return;
 			}
-			var prompt = btn.getAttribute('data-prompt') || '';
-			if (!prompt) {
+			event.preventDefault();
+			var text = btn.getAttribute('data-prompt') || '';
+			if (!text) {
 				return;
 			}
-			var done = function () {
-				var original = btn.getAttribute('data-label-original') || btn.textContent;
-				btn.setAttribute('data-label-original', original);
-				btn.textContent = 'Copied ✓';
-				live.textContent = 'Copied to clipboard';
+			var original = btn.getAttribute('data-label-original') || btn.textContent;
+			btn.setAttribute('data-label-original', original);
+
+			copyTextSilent(text).then(function (ok) {
+				btn.textContent = ok ? 'Copied ✓' : 'Copy failed';
+				live.textContent = ok ? 'Copied to clipboard' : 'Could not copy';
 				window.setTimeout(function () {
 					btn.textContent = original;
 					live.textContent = '';
 				}, 2000);
-			};
-			if (navigator.clipboard && navigator.clipboard.writeText) {
-				navigator.clipboard.writeText(prompt).then(done).catch(function () {
-					// Fallback for older browsers / insecure contexts.
-					window.prompt('Copy this prompt:', prompt);
-				});
-			} else {
-				window.prompt('Copy this prompt:', prompt);
-			}
+			});
 		});
 	}
 

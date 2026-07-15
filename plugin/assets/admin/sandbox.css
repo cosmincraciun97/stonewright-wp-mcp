@@ -1,16 +1,23 @@
 /**
- * Sandbox tabs restyle.
+ * Sandbox tabs + library restyle (theme tokens only).
  */
 
 .stonewright-sandbox-page {
 	max-width: var(--sw-shell-content-max, 1200px);
+	color: var(--sw-text);
+}
+
+.stonewright-sandbox-page h1,
+.stonewright-sandbox-page h2,
+.stonewright-sandbox-page h3 {
+	color: var(--sw-text);
 }
 
 .sw-tabs {
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--sw-space-1);
-	border-bottom: 1px solid var(--sw-color-border, var(--sw-gray-200));
+	border-bottom: 1px solid var(--sw-border);
 	margin: 0 0 var(--sw-space-5);
 	padding: 0;
 }
@@ -24,10 +31,10 @@
 	border: none;
 	border-bottom: 2px solid transparent;
 	background: transparent;
-	color: var(--sw-color-muted, var(--sw-gray-500));
+	color: var(--sw-text-muted);
 	font-size: var(--sw-text-md);
 	font-weight: 600;
-	text-decoration: none;
+	text-decoration: none !important;
 	transition: color var(--sw-dur) var(--sw-ease), border-color var(--sw-dur) var(--sw-ease);
 }
 
@@ -35,10 +42,11 @@
 .sw-tabs__link:focus-visible {
 	color: var(--sw-brand);
 	outline: none;
+	text-decoration: none !important;
 }
 
 .sw-tabs__link:focus-visible {
-	box-shadow: inset 0 0 0 2px var(--sw-brand);
+	box-shadow: inset 0 0 0 2px var(--sw-focus-ring);
 	border-radius: var(--sw-radius-sm) var(--sw-radius-sm) 0 0;
 }
 
@@ -48,11 +56,89 @@
 	border-bottom-color: var(--sw-brand);
 }
 
+/* Secondary library sub-tabs (Snippets / Widgets / Plugins) */
+.stonewright-sandbox-page .sw-library-tabs,
+.stonewright-sandbox-page .nav-tab-wrapper {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--sw-space-2);
+	margin: 0 0 var(--sw-space-4);
+	padding: 0;
+	border: none;
+}
+
+.stonewright-sandbox-page .nav-tab,
+.stonewright-sandbox-page .sw-library-tabs a {
+	display: inline-flex;
+	align-items: center;
+	height: 32px;
+	padding: 0 12px;
+	margin: 0;
+	border: 1px solid var(--sw-border) !important;
+	border-radius: 999px !important;
+	background: var(--sw-surface) !important;
+	color: var(--sw-text-secondary) !important;
+	font-size: var(--sw-text-sm);
+	font-weight: 600;
+	text-decoration: none !important;
+	box-shadow: none !important;
+}
+
+.stonewright-sandbox-page .nav-tab:hover,
+.stonewright-sandbox-page .sw-library-tabs a:hover {
+	border-color: var(--sw-brand) !important;
+	color: var(--sw-brand) !important;
+	background: var(--sw-brand-soft) !important;
+}
+
+.stonewright-sandbox-page .nav-tab-active,
+.stonewright-sandbox-page .nav-tab.nav-tab-active {
+	background: var(--sw-brand-soft) !important;
+	border-color: var(--sw-brand) !important;
+	color: var(--sw-brand) !important;
+}
+
+/* Filter bar */
+.stonewright-sandbox-page .tablenav,
+.stonewright-sandbox-page .stonewright-library-filters {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-2);
+	margin: 0 0 var(--sw-space-4);
+	padding: var(--sw-space-3);
+	background: var(--sw-surface);
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius-sm);
+}
+
+.stonewright-sandbox-page select,
+.stonewright-sandbox-page .button {
+	color: var(--sw-text) !important;
+}
+
+.stonewright-sandbox-page .stonewright-empty-state,
+.stonewright-sandbox-page p:not(.description) {
+	color: var(--sw-text-secondary);
+}
+
+.stonewright-sandbox-page .description {
+	color: var(--sw-text-muted);
+}
+
 .stonewright-sandbox-page .stonewright-empty-state {
 	padding: var(--sw-space-6);
 	text-align: center;
-	color: var(--sw-color-muted);
-	background: var(--sw-color-card);
-	border: 1px dashed var(--sw-color-border);
+	color: var(--sw-text-muted);
+	background: var(--sw-surface);
+	border: 1px dashed var(--sw-border);
 	border-radius: var(--sw-radius);
+}
+
+/* Widget name chips in library */
+.stonewright-sandbox-page .stonewright-widget-slug,
+.stonewright-sandbox-page td code {
+	background: var(--sw-bg) !important;
+	color: var(--sw-text-secondary) !important;
+	border: 1px solid var(--sw-border);
 }

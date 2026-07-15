@@ -179,8 +179,8 @@ final class SandboxLibraryPage {
 				<?php endforeach; ?>
 			</nav>
 
-				<div style="margin-top:10px;">
-					<form method="get" action="">
+				<div class="stonewright-library-filters">
+					<form method="get" action="" class="sw-actions">
 						<?php if ( $embedded ) : ?>
 							<input type="hidden" name="page" value="<?php echo esc_attr( SandboxPage::SLUG ); ?>"/>
 							<input type="hidden" name="tab" value="library"/>
@@ -687,11 +687,11 @@ final class SandboxLibraryPage {
 			$category = $manifest['category'] ?? $type;
 			$version  = $manifest['version'] ?? '';
 
-			$badge_style = match ( $status ) {
-				'active'   => 'background:#00a32a;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px;',
-				'disabled' => 'background:#dba617;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px;',
-				'crashed'  => 'background:#d63638;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px;',
-				default    => 'background:#78716c;color:#fff;padding:1px 6px;border-radius:3px;font-size:11px;',
+			$badge_class = match ( $status ) {
+				'active'   => 'sw-badge sw-badge--active',
+				'disabled' => 'sw-badge sw-badge--prompt',
+				'crashed'  => 'sw-badge sw-badge--error',
+				default    => 'sw-badge sw-badge--neutral',
 			};
 
 			// Per-file confirmation tokens for production-safe.
@@ -709,7 +709,7 @@ final class SandboxLibraryPage {
 			echo '<td>' . esc_html( $version ) . '</td>';
 			echo '<td>' . esc_html( $size ) . '</td>';
 			echo '<td>' . esc_html( $mtime ) . '</td>';
-			echo '<td><span style="' . esc_attr( $badge_style ) . '">' . esc_html( ucfirst( $status ) ) . '</span></td>';
+			echo '<td><span class="' . esc_attr( $badge_class ) . '">' . esc_html( ucfirst( $status ) ) . '</span></td>';
 			echo '<td>';
 
 			// View.

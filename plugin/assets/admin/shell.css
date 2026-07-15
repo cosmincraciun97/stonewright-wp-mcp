@@ -420,17 +420,20 @@ html.sw-theme-dark {
 
 .sw-mode-pill--development {
 	background: var(--sw-shell-header-current-bg);
-	color: var(--sw-brand-soft);
+	color: var(--sw-brand-strong);
+	border: 1px solid var(--sw-shell-header-border);
 }
 
 .sw-mode-pill--staging {
-	background: var(--sw-warn-soft);
+	background: rgba(245, 201, 107, 0.18);
 	color: var(--sw-warn-text);
+	border: 1px solid rgba(245, 201, 107, 0.35);
 }
 
 .sw-mode-pill--production-safe {
-	background: var(--sw-ok-soft);
+	background: rgba(126, 226, 168, 0.16);
 	color: var(--sw-ok-text);
+	border: 1px solid rgba(126, 226, 168, 0.32);
 }
 
 .sw-theme-toggle {
@@ -471,12 +474,23 @@ html.sw-theme-dark {
 
 .sw-shell h1,
 .sw-shell h2,
-.sw-shell h3 {
+.sw-shell h3,
+.sw-shell h4 {
+	color: var(--sw-text);
+}
+
+.sw-shell p,
+.sw-shell li,
+.sw-shell label,
+.sw-shell th,
+.sw-shell td {
 	color: var(--sw-text);
 }
 
 .sw-shell .description,
-.sw-shell .sw-help {
+.sw-shell .sw-help,
+.sw-shell .stonewright-page-header p,
+.sw-shell .stonewright-memory-note {
 	color: var(--sw-text-muted);
 }
 
@@ -486,16 +500,176 @@ html.sw-theme-dark {
 .sw-shell input[type="url"],
 .sw-shell input[type="password"],
 .sw-shell input[type="number"],
+.sw-shell input[type="date"],
 .sw-shell select,
 .sw-shell textarea {
-	background: var(--sw-surface);
-	color: var(--sw-text);
-	border-color: var(--sw-border);
+	background: var(--sw-surface) !important;
+	color: var(--sw-text) !important;
+	border-color: var(--sw-border) !important;
+	box-shadow: none !important;
 }
 
 .sw-shell input::placeholder,
 .sw-shell textarea::placeholder {
 	color: var(--sw-text-muted);
+}
+
+/* ------------------------------------------------------------------ */
+/* WordPress admin primitives — force theme tokens (kill white tables) */
+/* ------------------------------------------------------------------ */
+.sw-shell .wp-list-table,
+.sw-shell table.widefat,
+.sw-shell table.striped {
+	background: var(--sw-surface) !important;
+	border: 1px solid var(--sw-border) !important;
+	border-radius: var(--sw-radius-sm);
+	border-spacing: 0;
+	box-shadow: none !important;
+	color: var(--sw-text) !important;
+}
+
+.sw-shell .wp-list-table thead th,
+.sw-shell .wp-list-table thead td,
+.sw-shell table.widefat thead th,
+.sw-shell table.widefat thead td {
+	background: var(--sw-surface-raised) !important;
+	color: var(--sw-text-muted) !important;
+	border-bottom: 1px solid var(--sw-border) !important;
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.sw-shell .wp-list-table tbody th,
+.sw-shell .wp-list-table tbody td,
+.sw-shell table.widefat tbody th,
+.sw-shell table.widefat tbody td {
+	background: var(--sw-surface) !important;
+	color: var(--sw-text) !important;
+	border-top: 1px solid var(--sw-border) !important;
+	vertical-align: middle;
+}
+
+.sw-shell .wp-list-table.striped > tbody > :nth-child(odd),
+.sw-shell table.striped > tbody > :nth-child(odd) {
+	background: transparent !important;
+}
+
+.sw-shell .wp-list-table.striped > tbody > :nth-child(odd) th,
+.sw-shell .wp-list-table.striped > tbody > :nth-child(odd) td,
+.sw-shell table.striped > tbody > :nth-child(odd) th,
+.sw-shell table.striped > tbody > :nth-child(odd) td {
+	background: var(--sw-bg) !important;
+}
+
+.sw-shell .wp-list-table tbody tr:hover th,
+.sw-shell .wp-list-table tbody tr:hover td,
+.sw-shell table.widefat tbody tr:hover th,
+.sw-shell table.widefat tbody tr:hover td {
+	background: var(--sw-surface-raised) !important;
+}
+
+.sw-shell .wp-list-table code,
+.sw-shell table.widefat code,
+.sw-shell code {
+	background: var(--sw-bg) !important;
+	color: var(--sw-text-secondary) !important;
+	border: 1px solid var(--sw-border);
+	border-radius: 4px;
+	padding: 1px 6px;
+	font-size: 11px;
+}
+
+.sw-shell .subsubsub {
+	margin: 0 0 var(--sw-space-4);
+	padding: 0;
+	color: var(--sw-text-muted);
+	float: none;
+	font-size: var(--sw-text-sm);
+}
+
+.sw-shell .subsubsub a {
+	color: var(--sw-text-secondary) !important;
+	text-decoration: none !important;
+	padding: 4px 2px;
+}
+
+.sw-shell .subsubsub a:hover,
+.sw-shell .subsubsub a:focus {
+	color: var(--sw-brand) !important;
+}
+
+.sw-shell .subsubsub a.current {
+	color: var(--sw-text) !important;
+	font-weight: 600;
+}
+
+.sw-shell .subsubsub li {
+	color: var(--sw-text-muted);
+}
+
+.sw-shell .button,
+.sw-shell .button-secondary,
+.sw-shell .button-primary,
+.sw-shell input[type="submit"].button,
+.sw-shell input[type="button"].button {
+	background: var(--sw-surface) !important;
+	color: var(--sw-text) !important;
+	border: 1px solid var(--sw-border-strong) !important;
+	border-radius: var(--sw-radius-sm) !important;
+	box-shadow: none !important;
+	text-shadow: none !important;
+	font-weight: 600;
+	height: auto;
+	min-height: 32px;
+	line-height: 1.3;
+	padding: 6px 12px !important;
+}
+
+.sw-shell .button:hover,
+.sw-shell .button-secondary:hover,
+.sw-shell input[type="submit"].button:hover {
+	background: var(--sw-bg) !important;
+	border-color: var(--sw-brand) !important;
+	color: var(--sw-brand) !important;
+}
+
+.sw-shell .button-primary,
+.sw-shell .button-primary:hover,
+.sw-shell .button-primary:focus {
+	background: var(--sw-brand-fill) !important;
+	border-color: var(--sw-brand-fill) !important;
+	color: var(--sw-on-brand) !important;
+}
+
+.sw-shell .button-link,
+.sw-shell .button-link-delete {
+	background: transparent !important;
+	border: none !important;
+	box-shadow: none !important;
+	color: var(--sw-brand) !important;
+}
+
+.sw-shell .tablenav,
+.sw-shell .tablenav-pages,
+.sw-shell .displaying-num {
+	color: var(--sw-text-muted);
+}
+
+.sw-shell .notice,
+.sw-shell .updated,
+.sw-shell .error {
+	background: var(--sw-surface);
+	color: var(--sw-text);
+	border-color: var(--sw-border);
+}
+
+.sw-shell pre {
+	background: var(--sw-bg);
+	color: var(--sw-text-secondary);
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius-sm);
 }
 
 /* ------------------------------------------------------------------ */

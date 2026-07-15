@@ -113,9 +113,9 @@
 	}
 
 	function copyWithTextarea( value ) {
+		// Silent fallback for HTTP / older browsers. Never use alert/prompt.
 		if ( ! document.body ) {
-			window.prompt( 'Copy value', value ); // eslint-disable-line no-alert
-			return;
+			return false;
 		}
 
 		var textarea = document.createElement( 'textarea' );
@@ -140,9 +140,7 @@
 			textarea.parentNode.removeChild( textarea );
 		}
 
-		if ( ! copied ) {
-			window.prompt( 'Copy value', value ); // eslint-disable-line no-alert
-		}
+		return copied;
 	}
 
 	function initCopyButtons() {
@@ -154,15 +152,16 @@
 				if ( ! value ) {
 					return;
 				}
-				var done = function () {
-					setButtonFeedback( button, 'Copied ✓' );
+				var done = function ( ok ) {
+					setButtonFeedback( button, ok === false ? 'Copy failed' : 'Copied ✓' );
 				};
 				var fallbackCopy = function () {
-					copyWithTextarea( value );
-					done();
+					done( copyWithTextarea( value ) );
 				};
 				if ( navigator.clipboard && navigator.clipboard.writeText ) {
-					navigator.clipboard.writeText( value ).then( done ).catch( fallbackCopy );
+					navigator.clipboard.writeText( value ).then( function () {
+						done( true );
+					} ).catch( fallbackCopy );
 				} else {
 					fallbackCopy();
 				}
