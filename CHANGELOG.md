@@ -7,11 +7,34 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.67] - 2026-07-15
+
 ### Added
 
-- CI token-surface budgets for plugin and companion measure scripts (essential
-  ≤20 tools, task-start <700/1200 estimated tokens, Direct full ≤40 / essential
-  ≤20 when present). Scripts exit non-zero on budget breach.
+- Premium admin shell: sticky nav, mode pill, dark/light theme toggle, notice
+  drawer, page-scoped CSS for Setup, Abilities, Dashboard, Audit, Skills,
+  Memory, Sandbox, and Blueprints.
+- Semantic design tokens with a deliberate dark palette (desaturated indigo
+  accents) and WCAG contrast guardrails in PHPUnit.
+- Site pulse, change timeline/restore, blueprints and brand kits, playbooks,
+  page digest/build-tree, MCPB bundle, admin-bar kill switch, GitHub updater.
+- Companion Direct mode: core WordPress REST tools without the plugin, multi-site
+  config, HTTP-safe Application Passwords, `scripts/e2e-direct.mjs` smoke script.
+- `stonewright/feedback-capture` and learning-record fields `trigger`,
+  `severity`, `source`; audit ErrorPatterns with Recurring errors UI and
+  task-start warnings.
+- CI token-surface budgets for plugin and companion measure scripts.
+
+### Changed
+
+- Setup treats HTTP transport as informational (not a hard failure).
+- Root README documents plugin and plugin-less install paths equally.
+
+### Fixed
+
+- Dark mode text/input contrast across admin pages (legacy raw hex removed).
+- Sandbox tab underline leak; Abilities table sticky header overlap.
+- Blueprints page missing stylesheet enqueue (raw dump fixed).
 
 ## [1.0.0-alpha.66] - 2026-07-14
 

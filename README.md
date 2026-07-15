@@ -1,7 +1,7 @@
 <h1 align="center">Stonewright</h1>
 
 <p align="center">
-  <strong>WordPress MCP tools for AI agents</strong><br />
+  <strong>AI builder tools for WordPress MCP</strong><br />
   Full plugin fidelity, or plugin-less Direct mode over core REST + companion.
 </p>
 
@@ -14,6 +14,14 @@
 </p>
 
 Stonewright is the MCP surface agents use to build and operate real WordPress sites: Gutenberg/FSE, Elementor, content, media, menus, memory, skills, direct PHP runtime, and tokenized WP-CLI — with permissions, backups, validation, and audit logs.
+
+## Why Stonewright
+
+- **Elementor widget intelligence** — schema by Content, Style, and Advanced before writes.
+- **Block themes and Gutenberg** — core blocks, `theme.json`, templates, patterns, FSE.
+- **Persistent memory** — project conventions and learned corrections across sessions.
+- **Direct PHP runtime** — `stonewright/php-execute` for short WordPress-runtime snippets.
+- **Plugin-less Direct mode** — companion + Application Password against core REST when the plugin is not installed.
 
 ## Two equal install paths
 
