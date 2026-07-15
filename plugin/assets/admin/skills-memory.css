@@ -162,5 +162,6 @@
 .sw-badge--active { background: var(--sw-success-bg); color: var(--sw-success); }
 .sw-badge--agentic { background: var(--sw-info-bg); color: var(--sw-info); }
 .sw-badge--prompt { background: var(--sw-warning-bg); color: var(--sw-warning); }
+.sw-badge--playbook { background: #ede9fe; color: #5b21b6; letter-spacing: 0.04em; }
 .sw-badge--disabled { background: var(--sw-gray-100); color: var(--sw-gray-700); }
 .sw-badge--neutral { background: var(--sw-gray-100); color: var(--sw-gray-700); }

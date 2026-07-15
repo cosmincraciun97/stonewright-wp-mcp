@@ -208,13 +208,19 @@ final class SkillsPage {
 		$source         = (string) $skill['source'];
 		$enable_agentic = (bool) ( $skill['enable_agentic'] ?? $enabled );
 		$enable_prompt  = (bool) ( $skill['enable_prompt'] ?? $enabled );
-		$is_builtin     = 'builtin' === $source;
+		$is_builtin  = 'builtin' === $source;
+		$is_playbook = 'playbook' === $source;
+		$is_locked   = $is_builtin || $is_playbook;
 		?>
 		<div class="sw-skill-card sw-card stonewright-card stonewright-skill-card <?php echo $enabled ? 'stonewright-card--enabled' : 'stonewright-card--disabled'; ?>">
 			<div class="stonewright-card__header">
 				<div class="stonewright-card__title-row">
 					<strong class="stonewright-card__title"><?php echo esc_html( $title ); ?></strong>
-					<span class="sw-badge sw-badge--<?php echo esc_attr( $source ); ?>"><?php echo esc_html( ucfirst( $source ) ); ?></span>
+					<?php if ( $is_playbook ) : ?>
+						<span class="sw-badge sw-badge--playbook"><?php esc_html_e( 'PLAYBOOK', 'stonewright' ); ?></span>
+					<?php else : ?>
+						<span class="sw-badge sw-badge--<?php echo esc_attr( $source ); ?>"><?php echo esc_html( ucfirst( $source ) ); ?></span>
+					<?php endif; ?>
 					<?php if ( $enabled ) : ?>
 						<span class="sw-badge sw-badge--active"><?php esc_html_e( 'Active', 'stonewright' ); ?></span>
 						<?php if ( $enable_agentic ) : ?>
@@ -259,7 +265,7 @@ final class SkillsPage {
 					<?php esc_html_e( 'View / Edit', 'stonewright' ); ?>
 				</button>
 
-				<?php if ( ! $is_builtin ) : ?>
+				<?php if ( ! $is_locked ) : ?>
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form">
 						<?php wp_nonce_field( 'stonewright_skill_delete' ); ?>
 						<input type="hidden" name="action" value="stonewright_skill_delete">

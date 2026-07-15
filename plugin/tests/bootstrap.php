@@ -1159,6 +1159,36 @@ if ( ! function_exists( 'media_handle_sideload' ) ) {
 	}
 }
 
+
+if ( ! function_exists( 'media_sideload_image' ) ) {
+	/**
+	 * @return int|string|\WP_Error
+	 */
+	function media_sideload_image( string $file, int $post_id = 0, string $desc = '', string $return_type = 'html' ) {
+		if ( isset( $GLOBALS['stonewright_test_media_sideload_image'] ) && is_callable( $GLOBALS['stonewright_test_media_sideload_image'] ) ) {
+			return ( $GLOBALS['stonewright_test_media_sideload_image'] )( $file, $post_id, $desc, $return_type );
+		}
+		$id = media_handle_sideload(
+			[
+				'name'     => basename( (string) ( wp_parse_url( $file, PHP_URL_PATH ) ?: 'image.jpg' ) ),
+				'tmp_name' => $file,
+			],
+			$post_id,
+			$desc
+		);
+		if ( is_wp_error( $id ) ) {
+			return $id;
+		}
+		if ( 'id' === $return_type ) {
+			return (int) $id;
+		}
+		if ( 'src' === $return_type ) {
+			return (string) wp_get_attachment_url( (int) $id );
+		}
+		return '<img src="' . esc_url( (string) wp_get_attachment_url( (int) $id ) ) . '" alt="" />';
+	}
+}
+
 if ( ! function_exists( 'wp_get_attachment_url' ) ) {
 	function wp_get_attachment_url( int $attachment_id ): string|false {
 		return 'https://example.test/wp-content/uploads/attachment-' . $attachment_id . '.txt';
