@@ -131,6 +131,9 @@
 | `stonewright/elementor-v3-list-widgets` | `stonewright-elementor-v3-list-widgets` | `ElementorV3\ListWidgets` | Returns all registered Elementor V3 widget types including third-party widgets. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-get-widget-schema` | `stonewright-elementor-v3-get-widget-schema` | `ElementorV3\GetWidgetSchema` | Returns compact Content, Style, and Advanced control groups for a single Elementor widget by default, or full control defaults when responseMode=full. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-get-page-structure` | `stonewright-elementor-v3-get-page-structure` | `ElementorV3\GetPageStructure` | Returns a compact Elementor V3 page outline by default, or the full element tree when responseMode=full. | Read | `Permissions::edit_post( $id )` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
+| `stonewright/elementor-page-digest` | `stonewright-elementor-page-digest` | `ElementorV3\PageDigest` | One-call compact Elementor page outline: tree of elType/widgetType/id/index-path/heading text, counts, and kit flags. | Read | `Permissions::edit_post( (int)` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
+| `stonewright/elementor-build-tree` | `stonewright-elementor-build-tree` | `ElementorV3\BuildTree` | Validates a full Elementor element tree (sections/containers/widgets), snapshots, writes atomically, regenerates CSS for the post, and returns a compact digest. | Write | `Permissions::edit_post( (int)` | Yes | Yes | No | stable | `tests/Integration/ElementorWriterTest.php` |
+| `stonewright/design-mirror-export` | `stonewright-design-mirror-export` | `ElementorV3\DesignMirrorExport` | Exports Elementor tree JSON for selected posts into wp-content/uploads/stonewright-mirror/ with sorted keys for stable diffs. | Write | `Permissions::edit_post( (int) (compound)` | No | No | No | experimental | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-get-element` | `stonewright-elementor-v3-get-element` | `ElementorV3\GetElement` | Returns a single element from an Elementor page by element id. | Read | `Permissions::edit_post( $id )` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-add-container` | `stonewright-elementor-v3-add-container` | `ElementorV3\AddContainer` | Appends a new flex or grid container to an Elementor page. | Write | `Permissions::edit_post( $id )` | No | Yes | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-add-widget` | `stonewright-elementor-v3-add-widget` | `ElementorV3\AddWidget` | Adds a raw Elementor widget by writing the literal Elementor settings JSON for any widget_type. | Write | `Permissions::edit_post( $id )` | No | Yes | No | stable | `tests/Integration/ElementorWriterTest.php` |
@@ -454,7 +457,7 @@
 
 ## Summary
 
-Total abilities registered: **261**
+Total abilities registered: **264**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

@@ -16,7 +16,8 @@ final class SettingsValidator {
 	 * @return array{settings:array<string,mixed>,schema_hash:string,warnings:list<array<string,mixed>>}|\WP_Error
 	 */
 	public static function validate( string $widget_type, array $settings, bool $require_render_settings = true, bool $enforce_conditions = true ): array|\WP_Error {
-		$schema = WidgetSchemaRepository::get( $widget_type );
+		$settings = SettingsKeyAliases::normalize( $settings )['settings'];
+		$schema   = WidgetSchemaRepository::get( $widget_type );
 		if ( $schema instanceof \WP_Error ) {
 			return $schema;
 		}
@@ -28,7 +29,8 @@ final class SettingsValidator {
 	 * @return array{settings:array<string,mixed>,schema_hash:string,warnings:list<array<string,mixed>>}|\WP_Error
 	 */
 	public static function validate_container( array $settings, string $element_type = 'container', bool $enforce_conditions = true ): array|\WP_Error {
-		$schema = ContainerSchemaRepository::get( $element_type );
+		$settings = SettingsKeyAliases::normalize( $settings )['settings'];
+		$schema   = ContainerSchemaRepository::get( $element_type );
 		if ( $schema instanceof \WP_Error ) {
 			return $schema;
 		}

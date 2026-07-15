@@ -1083,6 +1083,17 @@ if ( ! function_exists( 'get_permalink' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_strip_all_tags' ) ) {
+	function wp_strip_all_tags( string $text, bool $remove_breaks = false ): string {
+		$text = preg_replace( '@<(script|style)[^>]*?>.*?</\\1>@si', '', $text ) ?? $text;
+		$text = strip_tags( $text );
+		if ( $remove_breaks ) {
+			$text = preg_replace( '/[\\r\\n\\t ]+/', ' ', $text ) ?? $text;
+		}
+		return trim( $text );
+	}
+}
+
 if ( ! function_exists( 'sanitize_title' ) ) {
 	function sanitize_title( string $title, string $fallback_title = '', string $context = 'save' ): string {
 		return sanitize_key( $title );
