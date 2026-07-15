@@ -32,6 +32,9 @@ import {
 	resolveWordPressMcpConfig,
 } from './wordpress-mcp.js';
 import { APP_VERSION, companionPackageSpec } from './version.js';
+import { registerDirectTools, DIRECT_TOOL_NAMES } from './direct/registry.js';
+import { resolveRuntimeMode, type ProbeResult } from './direct/mode.js';
+import { PLUGIN_ONLY_CAPABILITIES } from './direct/tools/site-discover.js';
 
 interface WordPressMcpConnectionStatus extends Record<string, unknown> {
 	ok: boolean;
@@ -60,6 +63,11 @@ interface WordPressMcpConnectionStatus extends Record<string, unknown> {
 	agent_do_not_use: string[];
 	agent_use_instead: string[];
 	recovery: string[];
+	mode: 'plugin' | 'direct';
+	mode_reason: string | null;
+	direct_tool_count: number;
+	direct_tool_names: string[];
+	unavailable_plugin_capabilities: Array<{ id: string; label: string; reason: string; upgrade: string }>;
 }
 
 export interface CreateMcpServerOptions {
@@ -126,6 +134,18 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 	const wpMcpStatus = createWordPressMcpConnectionStatus(profile);
 	registerWordPressMcpStatusTool(server, wpMcpStatus);
 
+	const modeProbe = await resolveRuntimeMode({
+		env,
+		...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+	});
+	wpMcpStatus.mode = modeProbe.mode;
+	wpMcpStatus.mode_reason = modeProbe.reason;
+
+	if (modeProbe.mode === 'direct') {
+		await registerDirectMode(server, env, options, wpMcpStatus, modeProbe, profile);
+		return server;
+	}
+
 	let wpMcpConfig = null;
 	try {
 		wpMcpConfig = await resolveWordPressMcpConfig(env);
@@ -141,6 +161,7 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 			const promptSkills = await registerWordPressMcpPrompts(server, wpMcpConfig, options.fetchImpl ?? fetch);
 			wpMcpStatus.ok = true;
 			wpMcpStatus.connected = true;
+			wpMcpStatus.mode = 'plugin';
 			wpMcpStatus.tool_profile = registration.profile;
 			wpMcpStatus.remote_tool_count = registration.remoteTools.length;
 			wpMcpStatus.proxied_tool_count = registration.registeredTools.length;
@@ -175,6 +196,74 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 	}
 
 	return server;
+}
+
+async function registerDirectMode(
+	server: McpServer,
+	env: NodeJS.ProcessEnv,
+	options: CreateMcpServerOptions,
+	wpMcpStatus: WordPressMcpConnectionStatus,
+	modeProbe: ProbeResult,
+	profile: ProxyToolProfile,
+): Promise<void> {
+	wpMcpStatus.mode = 'direct';
+	wpMcpStatus.mode_reason = modeProbe.reason;
+	wpMcpStatus.unavailable_plugin_capabilities = PLUGIN_ONLY_CAPABILITIES.map((cap) => ({
+		id: cap.id,
+		label: cap.label,
+		reason: cap.reason,
+		upgrade: cap.upgrade,
+	}));
+
+	try {
+		const registered = registerDirectTools(server, {
+			env,
+			...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+		});
+		const localToolNames = localToolNamesForProfile(profile);
+		wpMcpStatus.ok = true;
+		wpMcpStatus.connected = true;
+		wpMcpStatus.configured = hasWordPressMcpConfig(env) || Boolean(env['STONEWRIGHT_WP_USERNAME']);
+		wpMcpStatus.url = modeProbe.endpoint;
+		wpMcpStatus.tool_profile = profile;
+		wpMcpStatus.direct_tool_count = registered.length;
+		wpMcpStatus.direct_tool_names = registered.slice(0, 40);
+		wpMcpStatus.startup_ready = true;
+		wpMcpStatus.startup_missing_tool_names = [];
+		wpMcpStatus.startup_required_tool_names = ['stonewright-site-discover'];
+		wpMcpStatus.remote_tool_count = registered.length;
+		wpMcpStatus.proxied_tool_count = 0;
+		wpMcpStatus.profile_expected_tool_count = registered.length;
+		wpMcpStatus.client_visible_expected_tool_count = registered.length + localToolNames.length;
+		wpMcpStatus.local_recovery_tool_names = Array.from(localRecoveryToolNamesForProfile(profile));
+		wpMcpStatus.local_tool_names = Array.from(localToolNames);
+		wpMcpStatus.tool_inventory = buildToolInventory(profile, [...localToolNames, ...registered.slice(0, 12)]);
+		wpMcpStatus.profile_missing_tool_names = [];
+		wpMcpStatus.refresh_required_tool_names = [
+			'stonewright-site-discover',
+			'stonewright-setup-profile',
+			'stonewright-wp-cli-status',
+		];
+		wpMcpStatus.recovery = [
+			'Direct mode is active: core REST tools are registered without the Stonewright plugin.',
+			'Call stonewright-site-discover first to see available endpoints and plugin-only gaps.',
+			'Install the Stonewright plugin for Elementor engine, php-execute, memory, and production-safe confirmation tokens.',
+			'Set STONEWRIGHT_MODE=plugin after installing the plugin, then restart the MCP client.',
+		];
+		wpMcpStatus.error = null;
+		wpMcpStatus.agent_use_instead = [
+			'stonewright-site-discover',
+			'stonewright-setup-profile',
+			'stonewright-content-list',
+			'stonewright-wp-cli-status',
+			'stonewright-wp-cli-run',
+			...DIRECT_TOOL_NAMES.slice(0, 8),
+		];
+	} catch (err) {
+		wpMcpStatus.ok = false;
+		wpMcpStatus.connected = false;
+		wpMcpStatus.error = { message: err instanceof Error ? err.message : String(err) };
+	}
 }
 
 function companionInstructions(profile: ProxyToolProfile): string {
@@ -246,6 +335,11 @@ function createWordPressMcpConnectionStatus(profile: ProxyToolProfile): WordPres
 		agent_do_not_use: Array.from(AGENT_DO_NOT_USE),
 		agent_use_instead: agentUseInstead({ STONEWRIGHT_MCP_TOOL_PROFILE: profile }),
 		recovery: recoveryHints(0, STARTUP_REQUIRED_PROXY_TOOL_NAMES.length, profileMissingToolNames.length),
+		mode: 'plugin',
+		mode_reason: null,
+		direct_tool_count: 0,
+		direct_tool_names: [],
+		unavailable_plugin_capabilities: [],
 	};
 }
 
@@ -298,7 +392,7 @@ function registerSetupTools(server: McpServer, env: NodeJS.ProcessEnv): void {
 				appPassword: z.string().optional(),
 			},
 		},
-		(input) => {
+		async (input) => {
 			const mergedEnv = {
 				...env,
 				...(typeof input.siteUrl === 'string' ? { STONEWRIGHT_WP_URL: input.siteUrl } : {}),
@@ -306,7 +400,11 @@ function registerSetupTools(server: McpServer, env: NodeJS.ProcessEnv): void {
 				...(typeof input.username === 'string' ? { STONEWRIGHT_WP_USERNAME: input.username } : {}),
 				...(typeof input.appPassword === 'string' ? { STONEWRIGHT_WP_APP_PASSWORD: input.appPassword } : {}),
 			};
-			return toolResponse(buildSetupProfile(mergedEnv));
+			const modeProbe = await resolveRuntimeMode({ env: mergedEnv });
+			return toolResponse(buildSetupProfile(mergedEnv, process.platform, {
+				mode: modeProbe.mode,
+				mode_reason: modeProbe.reason,
+			}));
 		},
 	);
 }

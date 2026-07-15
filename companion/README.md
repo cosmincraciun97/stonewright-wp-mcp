@@ -5,19 +5,67 @@ Node 20+ companion for the Stonewright WordPress MCP plugin.
 The companion provides:
 
 - stdio MCP transport for local clients
-- stdio proxy for the Stonewright WordPress MCP endpoint
+- stdio proxy for the Stonewright WordPress MCP endpoint (plugin mode)
+- **Direct mode** — core WordPress REST tools without the plugin installed
 - optional Streamable HTTP transport at `POST /mcp`
 - health checks at `GET /health`
 - tokenized WP-CLI execution for WordPress implementation and debugging
 - optional MCP HTTP proxy
 
-The companion does not call WordPress REST write endpoints. WP-CLI changes go
-through tokenized commands run with `execFile`, never shell strings. Use
-`stonewright-php-execute` for direct WordPress runtime snippets; WP-CLI PHP and
-shell entry points remain blocked: `wp eval`, `wp eval-file`, `wp shell`,
-`wp package`, `--exec`, and `--require`.
+In **plugin mode**, WordPress mutations go through the Stonewright plugin MCP
+endpoint (or tokenized WP-CLI). In **Direct mode**, the companion talks to core
+WordPress REST with Application Passwords. WP-CLI always uses `execFile` argv
+tokens, never shell strings. WP-CLI PHP/shell entry points remain blocked:
+`wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, and `--require`.
 
 MIT License.
+
+## Direct mode (no plugin)
+
+When the Stonewright plugin is not installed, the companion can still work
+against core WordPress REST.
+
+| Env | Values | Default |
+|---|---|---|
+| `STONEWRIGHT_MODE` | `auto` \| `direct` \| `plugin` | `auto` |
+| `STONEWRIGHT_DIRECT_WRITES` | `on` \| `off` \| `confirm` | `on` for localhost/`.local`/`.test`; `confirm` for remote |
+| Multi-site config | `~/.stonewright/sites.json` | optional aliases + `disabledTools` |
+
+**Auto-detect:** probes `GET/HEAD {site}/wp-json/mcp/stonewright`.
+
+- HTTP 200/401/403/405 → **plugin** mode (existing proxy, unchanged)
+- HTTP 404 → **Direct** mode (registers REST tools)
+- Network errors → keep plugin proxy path (existing recovery)
+
+Call `stonewright-site-discover` first in Direct mode. It reports available REST
+surface and plugin-only gaps (Elementor engine, php-execute, memory, etc.).
+
+### Capability matrix
+
+| Capability | Direct | Plugin |
+|---|---|---|
+| Content (posts/pages/CPT) list/get/create/update/delete | yes | yes |
+| Media list/upload/update | yes | yes |
+| Taxonomy terms | yes | yes |
+| Menus + menu items | yes | yes |
+| FSE templates / template parts | yes | yes |
+| Global styles (theme.json) | yes | yes |
+| Settings get/update | yes | yes |
+| Plugins list/activate/deactivate/install | yes | yes |
+| Themes list | yes | yes |
+| Users list/get/me | yes | yes |
+| Search + block patterns | yes | yes |
+| Gutenberg compose helper (local markup) | yes | n/a (use plugin Gutenberg tools) |
+| WP-CLI tokenized tools | yes (local) | yes (local) |
+| `stonewright/php-execute` | no | yes |
+| Elementor V3/V4 engines + schema | no | yes |
+| DesignSpec validate/render | no | yes |
+| Site memory / skills store | no | yes |
+| Production-safe confirmation tokens | no | yes |
+| Server-side audit log UI | no | yes |
+
+Destructive Direct writes on remote sites require `confirm: true` when
+`STONEWRIGHT_DIRECT_WRITES=confirm` (default for non-local hosts).
 
 ## Install
 

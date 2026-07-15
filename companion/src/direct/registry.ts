@@ -6,6 +6,17 @@ import { resolveDirectWriteMode } from './writes.js';
 import * as content from './tools/content.js';
 import * as media from './tools/media.js';
 import * as taxonomy from './tools/taxonomy.js';
+import * as menus from './tools/menus.js';
+import * as templates from './tools/templates.js';
+import * as globalStyles from './tools/global-styles.js';
+import * as settings from './tools/settings.js';
+import * as plugins from './tools/plugins.js';
+import * as themes from './tools/themes.js';
+import * as users from './tools/users.js';
+import * as search from './tools/search.js';
+import * as blockPatterns from './tools/block-patterns.js';
+import * as siteDiscover from './tools/site-discover.js';
+import * as gutenberg from './tools/gutenberg-compose.js';
 
 export const DIRECT_WAVE1_TOOL_NAMES = [
 	'stonewright-content-list',
@@ -20,6 +31,42 @@ export const DIRECT_WAVE1_TOOL_NAMES = [
 	'stonewright-media-upload',
 	'stonewright-media-update',
 	'stonewright-taxonomy-terms',
+] as const;
+
+export const DIRECT_WAVE2_TOOL_NAMES = [
+	'stonewright-menu-list',
+	'stonewright-menu-get',
+	'stonewright-menu-create',
+	'stonewright-menu-update',
+	'stonewright-menu-delete',
+	'stonewright-menu-items',
+	'stonewright-template-list',
+	'stonewright-template-get',
+	'stonewright-template-update',
+	'stonewright-template-part-list',
+	'stonewright-template-part-get',
+	'stonewright-template-part-update',
+	'stonewright-global-styles-get',
+	'stonewright-global-styles-update',
+	'stonewright-settings-get',
+	'stonewright-settings-update',
+	'stonewright-plugin-list',
+	'stonewright-plugin-activate',
+	'stonewright-plugin-deactivate',
+	'stonewright-plugin-install',
+	'stonewright-theme-list',
+	'stonewright-user-list',
+	'stonewright-user-get',
+	'stonewright-user-me',
+	'stonewright-search',
+	'stonewright-block-patterns',
+	'stonewright-site-discover',
+	'stonewright-gutenberg-compose',
+] as const;
+
+export const DIRECT_TOOL_NAMES = [
+	...DIRECT_WAVE1_TOOL_NAMES,
+	...DIRECT_WAVE2_TOOL_NAMES,
 ] as const;
 
 export interface DirectModeContext {
@@ -66,12 +113,14 @@ function buildContext(ctx: DirectModeContext, siteAlias?: string) {
 }
 
 /**
- * Register Direct mode wave-1 tools (content, media, taxonomy).
- * Call only when plugin MCP endpoint is unavailable or STONEWRIGHT_MODE=direct.
+ * Register Direct mode wave-1 + wave-2 tools (REST-only, no plugin required).
+ * Call when plugin MCP endpoint is unavailable or STONEWRIGHT_MODE=direct.
  */
 export function registerDirectTools(server: McpServer, ctx: DirectModeContext): string[] {
 	const siteArg = z.string().optional().describe('Site alias from ~/.stonewright/sites.json');
+	const confirmArg = z.boolean().optional().describe('Required true for destructive tools when remote/confirm mode');
 
+	// --- Wave 1: content ---
 	server.tool(
 		'stonewright-content-list',
 		'List posts/pages/CPT items via core REST (Direct mode).',
@@ -85,8 +134,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 		async (input) => {
 			try {
-				const runtime = buildContext(ctx, input.site);
-				return toolResponse(await content.contentList(runtime, input as never));
+				return toolResponse(await content.contentList(buildContext(ctx, input.site), input as never));
 			} catch (err) {
 				return toolError(err);
 			}
@@ -104,8 +152,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 		async (input) => {
 			try {
-				const runtime = buildContext(ctx, input.site);
-				return toolResponse(await content.contentGet(runtime, input as never));
+				return toolResponse(await content.contentGet(buildContext(ctx, input.site), input as never));
 			} catch (err) {
 				return toolError(err);
 			}
@@ -126,8 +173,9 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 		async (input) => {
 			try {
-				const runtime = buildContext(ctx, input.site);
-				return toolResponse(await content.contentCreate(runtime, { ...input, kind: 'page' } as never));
+				return toolResponse(
+					await content.contentCreate(buildContext(ctx, input.site), { ...input, kind: 'page' } as never),
+				);
 			} catch (err) {
 				return toolError(err);
 			}
@@ -148,8 +196,9 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 		async (input) => {
 			try {
-				const runtime = buildContext(ctx, input.site);
-				return toolResponse(await content.contentCreate(runtime, { ...input, kind: 'post' } as never));
+				return toolResponse(
+					await content.contentCreate(buildContext(ctx, input.site), { ...input, kind: 'post' } as never),
+				);
 			} catch (err) {
 				return toolError(err);
 			}
@@ -158,7 +207,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	server.tool(
 		'stonewright-content-update',
-		'Update a content item via core REST (Direct mode). Only provided fields are sent.',
+		'Update a content item via core REST (Direct mode). Only provided fields are sent. Accepts Gutenberg block markup in content.',
 		{
 			site: siteArg,
 			type: z.string().optional(),
@@ -172,8 +221,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 		async (input) => {
 			try {
-				const runtime = buildContext(ctx, input.site);
-				return toolResponse(await content.contentUpdate(runtime, input as never));
+				return toolResponse(await content.contentUpdate(buildContext(ctx, input.site), input as never));
 			} catch (err) {
 				return toolError(err);
 			}
@@ -188,12 +236,11 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			type: z.string().optional(),
 			id: z.number().int().positive(),
 			force: z.boolean().optional(),
-			confirm: z.boolean().optional(),
+			confirm: confirmArg,
 		},
 		async (input) => {
 			try {
-				const runtime = buildContext(ctx, input.site);
-				return toolResponse(await content.contentDelete(runtime, input as never));
+				return toolResponse(await content.contentDelete(buildContext(ctx, input.site), input as never));
 			} catch (err) {
 				return toolError(err);
 			}
@@ -211,14 +258,14 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 		async (input) => {
 			try {
-				const runtime = buildContext(ctx, input.site);
-				return toolResponse(await content.contentRevisions(runtime, input as never));
+				return toolResponse(await content.contentRevisions(buildContext(ctx, input.site), input as never));
 			} catch (err) {
 				return toolError(err);
 			}
 		},
 	);
 
+	// --- Wave 1: media ---
 	server.tool(
 		'stonewright-media-list',
 		'List media via core REST (Direct mode).',
@@ -230,8 +277,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 		async (input) => {
 			try {
-				const runtime = buildContext(ctx, input.site);
-				return toolResponse(await media.mediaList(runtime, input as never));
+				return toolResponse(await media.mediaList(buildContext(ctx, input.site), input as never));
 			} catch (err) {
 				return toolError(err);
 			}
@@ -247,8 +293,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 		async (input) => {
 			try {
-				const runtime = buildContext(ctx, input.site);
-				return toolResponse(await media.mediaGet(runtime, input as never));
+				return toolResponse(await media.mediaGet(buildContext(ctx, input.site), input as never));
 			} catch (err) {
 				return toolError(err);
 			}
@@ -269,8 +314,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 		async (input) => {
 			try {
-				const runtime = buildContext(ctx, input.site);
-				return toolResponse(await media.mediaUpload(runtime, input as never));
+				return toolResponse(await media.mediaUpload(buildContext(ctx, input.site), input as never));
 			} catch (err) {
 				return toolError(err);
 			}
@@ -289,8 +333,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 		async (input) => {
 			try {
-				const runtime = buildContext(ctx, input.site);
-				return toolResponse(await media.mediaUpdate(runtime, input as never));
+				return toolResponse(await media.mediaUpdate(buildContext(ctx, input.site), input as never));
 			} catch (err) {
 				return toolError(err);
 			}
@@ -313,7 +356,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			per_page: z.number().int().min(1).max(50).optional(),
 			page: z.number().int().min(1).optional(),
 			force: z.boolean().optional(),
-			confirm: z.boolean().optional(),
+			confirm: confirmArg,
 		},
 		async (input) => {
 			try {
@@ -368,5 +411,490 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	return [...DIRECT_WAVE1_TOOL_NAMES];
+	// --- Wave 2: menus ---
+	server.tool(
+		'stonewright-menu-list',
+		'List navigation menus via core REST (Direct mode).',
+		{
+			site: siteArg,
+			search: z.string().optional(),
+			per_page: z.number().int().min(1).max(50).optional(),
+			page: z.number().int().min(1).optional(),
+		},
+		async (input) => {
+			try {
+				return toolResponse(await menus.menuList(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-menu-get',
+		'Get a navigation menu via core REST (Direct mode).',
+		{ site: siteArg, id: z.number().int().positive() },
+		async (input) => {
+			try {
+				return toolResponse(await menus.menuGet(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-menu-create',
+		'Create a navigation menu via core REST (Direct mode).',
+		{
+			site: siteArg,
+			name: z.string().min(1),
+			description: z.string().optional(),
+			locations: z.array(z.string()).optional(),
+		},
+		async (input) => {
+			try {
+				return toolResponse(await menus.menuCreate(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-menu-update',
+		'Update a navigation menu via core REST (Direct mode).',
+		{
+			site: siteArg,
+			id: z.number().int().positive(),
+			name: z.string().optional(),
+			description: z.string().optional(),
+			locations: z.array(z.string()).optional(),
+		},
+		async (input) => {
+			try {
+				return toolResponse(await menus.menuUpdate(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-menu-delete',
+		'Delete a navigation menu via core REST (Direct mode). Requires confirm:true on remote/confirm mode.',
+		{
+			site: siteArg,
+			id: z.number().int().positive(),
+			force: z.boolean().optional(),
+			confirm: confirmArg,
+		},
+		async (input) => {
+			try {
+				return toolResponse(await menus.menuDelete(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-menu-items',
+		'List/create/update/delete menu items via core REST (Direct mode). action=delete requires confirm:true on remote.',
+		{
+			site: siteArg,
+			action: z.enum(['list', 'create', 'update', 'delete']).default('list'),
+			menu_id: z.number().int().positive().optional(),
+			id: z.number().int().positive().optional(),
+			title: z.string().optional(),
+			url: z.string().optional(),
+			type: z.string().optional(),
+			object: z.string().optional(),
+			object_id: z.number().int().optional(),
+			parent: z.number().int().optional(),
+			menu_order: z.number().int().optional(),
+			status: z.string().optional(),
+			per_page: z.number().int().min(1).max(50).optional(),
+			page: z.number().int().min(1).optional(),
+			force: z.boolean().optional(),
+			confirm: confirmArg,
+		},
+		async (input) => {
+			try {
+				return toolResponse(await menus.menuItems(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	// --- Wave 2: templates ---
+	server.tool(
+		'stonewright-template-list',
+		'List FSE templates via core REST (Direct mode).',
+		{
+			site: siteArg,
+			search: z.string().optional(),
+			per_page: z.number().int().min(1).max(50).optional(),
+			page: z.number().int().min(1).optional(),
+		},
+		async (input) => {
+			try {
+				return toolResponse(await templates.templateList(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-template-get',
+		'Get an FSE template via core REST (Direct mode).',
+		{ site: siteArg, id: z.string().min(1) },
+		async (input) => {
+			try {
+				return toolResponse(await templates.templateGet(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-template-update',
+		'Update an FSE template via core REST (Direct mode).',
+		{
+			site: siteArg,
+			id: z.string().min(1),
+			title: z.string().optional(),
+			content: z.string().optional(),
+			description: z.string().optional(),
+		},
+		async (input) => {
+			try {
+				return toolResponse(await templates.templateUpdate(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-template-part-list',
+		'List FSE template parts via core REST (Direct mode).',
+		{
+			site: siteArg,
+			search: z.string().optional(),
+			per_page: z.number().int().min(1).max(50).optional(),
+			page: z.number().int().min(1).optional(),
+		},
+		async (input) => {
+			try {
+				return toolResponse(await templates.templatePartList(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-template-part-get',
+		'Get an FSE template part via core REST (Direct mode).',
+		{ site: siteArg, id: z.string().min(1) },
+		async (input) => {
+			try {
+				return toolResponse(await templates.templatePartGet(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-template-part-update',
+		'Update an FSE template part via core REST (Direct mode).',
+		{
+			site: siteArg,
+			id: z.string().min(1),
+			title: z.string().optional(),
+			content: z.string().optional(),
+			description: z.string().optional(),
+		},
+		async (input) => {
+			try {
+				return toolResponse(await templates.templatePartUpdate(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	// --- Wave 2: global styles / settings ---
+	server.tool(
+		'stonewright-global-styles-get',
+		'Get global styles (theme.json) via core REST (Direct mode).',
+		{ site: siteArg, id: z.string().optional() },
+		async (input) => {
+			try {
+				return toolResponse(await globalStyles.globalStylesGet(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-global-styles-update',
+		'Update global styles via core REST (Direct mode). Requires confirm:true on remote/confirm mode.',
+		{
+			site: siteArg,
+			id: z.string().optional(),
+			settings: z.record(z.unknown()).optional(),
+			styles: z.record(z.unknown()).optional(),
+			confirm: confirmArg,
+		},
+		async (input) => {
+			try {
+				return toolResponse(await globalStyles.globalStylesUpdate(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-settings-get',
+		'Get site settings via core REST (Direct mode).',
+		{ site: siteArg },
+		async (input) => {
+			try {
+				return toolResponse(await settings.settingsGet(buildContext(ctx, input.site)));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-settings-update',
+		'Update site settings via core REST (Direct mode). Requires confirm:true on remote/confirm mode.',
+		{
+			site: siteArg,
+			settings: z.record(z.unknown()),
+			confirm: confirmArg,
+		},
+		async (input) => {
+			try {
+				return toolResponse(await settings.settingsUpdate(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	// --- Wave 2: plugins / themes / users ---
+	server.tool(
+		'stonewright-plugin-list',
+		'List plugins via core REST (Direct mode).',
+		{
+			site: siteArg,
+			status: z.string().optional(),
+			search: z.string().optional(),
+		},
+		async (input) => {
+			try {
+				return toolResponse(await plugins.pluginList(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-plugin-activate',
+		'Activate a plugin via core REST (Direct mode). Requires confirm:true on remote/confirm mode.',
+		{
+			site: siteArg,
+			plugin: z.string().min(1).describe('Plugin file path, e.g. akismet/akismet'),
+			confirm: confirmArg,
+		},
+		async (input) => {
+			try {
+				return toolResponse(await plugins.pluginActivate(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-plugin-deactivate',
+		'Deactivate a plugin via core REST (Direct mode). Requires confirm:true on remote/confirm mode.',
+		{
+			site: siteArg,
+			plugin: z.string().min(1),
+			confirm: confirmArg,
+		},
+		async (input) => {
+			try {
+				return toolResponse(await plugins.pluginDeactivate(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-plugin-install',
+		'Install a plugin from wordpress.org via core REST (Direct mode). Requires confirm:true on remote/confirm mode.',
+		{
+			site: siteArg,
+			slug: z.string().min(1),
+			status: z.enum(['active', 'inactive']).optional(),
+			confirm: confirmArg,
+		},
+		async (input) => {
+			try {
+				return toolResponse(await plugins.pluginInstall(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-theme-list',
+		'List themes via core REST (Direct mode).',
+		{
+			site: siteArg,
+			status: z.string().optional(),
+		},
+		async (input) => {
+			try {
+				return toolResponse(await themes.themeList(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-user-list',
+		'List users via core REST (Direct mode).',
+		{
+			site: siteArg,
+			search: z.string().optional(),
+			roles: z.string().optional(),
+			per_page: z.number().int().min(1).max(50).optional(),
+			page: z.number().int().min(1).optional(),
+		},
+		async (input) => {
+			try {
+				return toolResponse(await users.userList(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-user-get',
+		'Get a user via core REST (Direct mode).',
+		{ site: siteArg, id: z.number().int().positive() },
+		async (input) => {
+			try {
+				return toolResponse(await users.userGet(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-user-me',
+		'Get the authenticated user via core REST (Direct mode).',
+		{ site: siteArg },
+		async (input) => {
+			try {
+				return toolResponse(await users.userMe(buildContext(ctx, input.site)));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-search',
+		'Site search via core REST (Direct mode).',
+		{
+			site: siteArg,
+			search: z.string().min(1),
+			type: z.string().optional(),
+			subtype: z.string().optional(),
+			per_page: z.number().int().min(1).max(50).optional(),
+			page: z.number().int().min(1).optional(),
+		},
+		async (input) => {
+			try {
+				return toolResponse(await search.siteSearch(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-block-patterns',
+		'List registered block patterns via core REST (Direct mode).',
+		{
+			site: siteArg,
+			search: z.string().optional(),
+			category: z.string().optional(),
+			per_page: z.number().int().min(1).max(100).optional(),
+		},
+		async (input) => {
+			try {
+				return toolResponse(await blockPatterns.blockPatterns(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-site-discover',
+		'Discover REST namespaces, post types, taxonomies, and plugin signals. First recommended tool in Direct mode. Reports plugin-only capabilities that are unavailable.',
+		{ site: siteArg },
+		async (input) => {
+			try {
+				return toolResponse(await siteDiscover.siteDiscover(buildContext(ctx, input.site)));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	server.tool(
+		'stonewright-gutenberg-compose',
+		'Compose Gutenberg block markup from a simple JSON block spec (local, no network). Pass result.markup to content-create/update.',
+		{
+			site: siteArg,
+			blocks: z.array(z.record(z.unknown())).min(1),
+		},
+		async (input) => {
+			try {
+				const runtime = buildContext(ctx, input.site);
+				return toolResponse(
+					gutenberg.gutenbergCompose(
+						{ site: runtime.site },
+						{ blocks: input.blocks as never },
+					),
+				);
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	return [...DIRECT_TOOL_NAMES];
 }
