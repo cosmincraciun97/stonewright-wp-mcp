@@ -55,8 +55,15 @@ final class AdminBootstrap {
 			return;
 		}
 
-		$version = defined( 'STONEWRIGHT_VERSION' ) ? (string) constant( 'STONEWRIGHT_VERSION' ) : '0.1.0';
+		$version  = defined( 'STONEWRIGHT_VERSION' ) ? (string) constant( 'STONEWRIGHT_VERSION' ) : '0.1.0';
 		$url_base = defined( 'STONEWRIGHT_URL' ) ? (string) constant( 'STONEWRIGHT_URL' ) : '';
+		// Bust browser cache when admin assets change without a version bump.
+		$shell_css = defined( 'STONEWRIGHT_PATH' )
+			? (string) constant( 'STONEWRIGHT_PATH' ) . 'assets/admin/shell.css'
+			: '';
+		if ( '' !== $shell_css && is_readable( $shell_css ) ) {
+			$version .= '.' . (string) filemtime( $shell_css );
+		}
 
 		if ( '' === $url_base ) {
 			return;
