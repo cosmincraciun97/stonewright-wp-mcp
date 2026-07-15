@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- CI token-surface budgets: essential ≤20 tools, task-start <700/1200 estimated
+  tokens, companion essential ≤20 / low-tools ≤12, Direct full ≤40 / essential ≤20
+  when present. Measure scripts exit non-zero on breach; fixture dry-runs prove
+  the fail path.
+
 ## [1.0.0-alpha.66] - 2026-07-14
 
 ### Added

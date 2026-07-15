@@ -7,6 +7,12 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- CI token-surface budgets for plugin and companion measure scripts (essential
+  ≤20 tools, task-start <700/1200 estimated tokens, Direct full ≤40 / essential
+  ≤20 when present). Scripts exit non-zero on budget breach.
+
 ## [1.0.0-alpha.66] - 2026-07-14
 
 ### Added

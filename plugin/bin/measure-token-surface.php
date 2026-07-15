@@ -1,6 +1,4 @@
 <?php
-declare( strict_types=1 );
-
 /**
  * Reproducible MCP surface and task-start token estimate.
  *
@@ -8,14 +6,56 @@ declare( strict_types=1 );
  * for before/after regression tracking; exact tokenizer counts remain client
  * and model specific.
  *
- * Usage: cd plugin && composer tokens:measure
+ * Hard budgets (CI fails when any is false):
+ * - essential mode tools ≤ 20
+ * - default profile cap ≤ 20 tools
+ * - strict/low-tools cap ≤ 12 tools
+ * - task-start non-visual compact < 700 estimated tokens
+ * - task-start visual compact < 1200 estimated tokens
+ *
+ * Usage:
+ *   cd plugin && composer tokens:measure
+ *   php bin/measure-token-surface.php --fixture=over-budget   # dry-run exit 1
+ *
+ * @package Stonewright\WpMcp
  */
+
+declare( strict_types=1 );
 
 require_once dirname( __DIR__ ) . '/tests/bootstrap.php';
 
 use Stonewright\WpMcp\Abilities\System\TaskStart;
 use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Support\TokenSurfaceBudgets;
+
+$fixture = null;
+foreach ( array_slice( $argv ?? [], 1 ) as $arg ) {
+	if ( str_starts_with( $arg, '--fixture=' ) ) {
+		$fixture = substr( $arg, strlen( '--fixture=' ) );
+	}
+}
+
+if ( 'over-budget' === $fixture ) {
+	$metrics = TokenSurfaceBudgets::over_budget_fixture_metrics();
+	$budgets = TokenSurfaceBudgets::evaluate( $metrics );
+	$report  = [
+		'ok'      => false,
+		'fixture' => 'over-budget',
+		'method'  => 'fixture; no live surface measurement',
+		'metrics' => $metrics,
+		'budgets' => $budgets,
+		'limits'  => [
+			'essential_max_tools'              => TokenSurfaceBudgets::ESSENTIAL_MAX_TOOLS,
+			'default_max_tools'                => TokenSurfaceBudgets::DEFAULT_MAX_TOOLS,
+			'strict_max_tools'                 => TokenSurfaceBudgets::STRICT_MAX_TOOLS,
+			'task_start_non_visual_max_tokens' => TokenSurfaceBudgets::TASK_START_NON_VISUAL_MAX_TOKENS,
+			'task_start_visual_max_tokens'     => TokenSurfaceBudgets::TASK_START_VISUAL_MAX_TOKENS,
+		],
+	];
+	echo wp_json_encode( $report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) . "\n";
+	exit( TokenSurfaceBudgets::all_pass( $budgets ) ? 0 : 1 );
+}
 
 $GLOBALS['stonewright_test_user_caps'] = [
 	'read'           => true,
@@ -64,6 +104,7 @@ function stonewright_visible_rows( bool $essential ): array {
 /**
  * @param list<array<string, mixed>> $all_rows
  * @return array<string, mixed>
+ * @throws RuntimeException When the tool profile ability returns WP_Error.
  */
 function stonewright_profile_metrics( string $profile, int $max_tools, array $all_rows ): array {
 	$GLOBALS['stonewright_test_options']['stonewright_essential_tools_mode'] = false;
@@ -94,9 +135,9 @@ function stonewright_profile_metrics( string $profile, int $max_tools, array $al
 	];
 }
 
-$full_rows      = stonewright_visible_rows( false );
-$essential_rows = stonewright_visible_rows( true );
-$full_tools     = stonewright_tool_documents( $full_rows );
+$full_rows       = stonewright_visible_rows( false );
+$essential_rows  = stonewright_visible_rows( true );
+$full_tools      = stonewright_tool_documents( $full_rows );
 $essential_tools = stonewright_tool_documents( $essential_rows );
 
 $GLOBALS['stonewright_test_options']['stonewright_essential_tools_mode'] = true;
@@ -118,32 +159,44 @@ $visual_bootstrap = ( new TaskStart() )->execute(
 );
 
 $report = [
-	'method'                  => 'compact JSON UTF-8 bytes / 4; rounded up',
-	'generated_with_php'      => PHP_VERSION,
+	'method'                   => 'compact JSON UTF-8 bytes / 4; rounded up',
+	'generated_with_php'       => PHP_VERSION,
 	'all_registered_abilities' => count( AbilityRegistry::list() ),
-	'surfaces'                => [
-		'full'      => [
+	'surfaces'                 => [
+		'full'       => [
 			'tool_count' => count( $full_tools ),
 			'tools_list' => stonewright_token_metrics( $full_tools ),
 		],
-		'essential' => [
+		'essential'  => [
 			'tool_count' => count( $essential_tools ),
 			'tools_list' => stonewright_token_metrics( $essential_tools ),
 		],
-		'default_20' => stonewright_profile_metrics( 'elementor-design', 20, $full_rows ),
-		'strict_12'  => stonewright_profile_metrics( 'low-tools', 12, $full_rows ),
+		'default_20' => stonewright_profile_metrics( 'elementor-design', TokenSurfaceBudgets::DEFAULT_MAX_TOOLS, $full_rows ),
+		'strict_12'  => stonewright_profile_metrics( 'low-tools', TokenSurfaceBudgets::STRICT_MAX_TOOLS, $full_rows ),
 	],
-	'task_start'              => [
+	'task_start'               => [
 		'non_visual_compact' => stonewright_token_metrics( $nonvisual_bootstrap ),
 		'visual_compact'     => stonewright_token_metrics( $visual_bootstrap ),
 	],
-];
-$report['budgets'] = [
-	'default_max_20_tools'          => $report['surfaces']['default_20']['tool_count'] <= 20,
-	'strict_max_12_tools'           => $report['surfaces']['strict_12']['tool_count'] <= 12,
-	'non_visual_task_start_lt_700'  => $report['task_start']['non_visual_compact']['estimated_tokens'] < 700,
-	'visual_task_start_lt_1200'     => $report['task_start']['visual_compact']['estimated_tokens'] < 1200,
+	'limits'                   => [
+		'essential_max_tools'              => TokenSurfaceBudgets::ESSENTIAL_MAX_TOOLS,
+		'default_max_tools'                => TokenSurfaceBudgets::DEFAULT_MAX_TOOLS,
+		'strict_max_tools'                 => TokenSurfaceBudgets::STRICT_MAX_TOOLS,
+		'task_start_non_visual_max_tokens' => TokenSurfaceBudgets::TASK_START_NON_VISUAL_MAX_TOKENS,
+		'task_start_visual_max_tokens'     => TokenSurfaceBudgets::TASK_START_VISUAL_MAX_TOKENS,
+	],
 ];
 
+$report['budgets'] = TokenSurfaceBudgets::evaluate(
+	[
+		'essential_tool_count'         => $report['surfaces']['essential']['tool_count'],
+		'default_tool_count'           => $report['surfaces']['default_20']['tool_count'],
+		'strict_tool_count'            => $report['surfaces']['strict_12']['tool_count'],
+		'non_visual_task_start_tokens' => $report['task_start']['non_visual_compact']['estimated_tokens'],
+		'visual_task_start_tokens'     => $report['task_start']['visual_compact']['estimated_tokens'],
+	]
+);
+$report['ok'] = TokenSurfaceBudgets::all_pass( $report['budgets'] );
+
 echo wp_json_encode( $report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) . "\n";
-exit( in_array( false, $report['budgets'], true ) ? 1 : 0 );
+exit( $report['ok'] ? 0 : 1 );

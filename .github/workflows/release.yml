@@ -49,6 +49,7 @@ jobs:
           npm ci
           npm run typecheck
           npm test
+          npm run tokens:measure
           npm run build
 
       - name: Build Stonewright Visual
