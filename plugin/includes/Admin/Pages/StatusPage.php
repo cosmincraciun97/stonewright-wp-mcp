@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin\Pages;
 
+use Stonewright\WpMcp\Abilities\Site\SitePulse;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Security\AuditLog;
@@ -52,6 +53,15 @@ final class StatusPage {
 		$skills_count   = count( Skills::list() );
 		$memory_count   = count( Memory::list_all( 10000 ) );
 		$last_activity  = $recent_entries[0]['created_at'] ?? '';
+		$pulse_score    = null;
+		$pulse_grade    = '';
+		if ( current_user_can( self::CAPABILITY ) ) {
+			$pulse = ( new SitePulse() )->execute( [] );
+			if ( is_array( $pulse ) ) {
+				$pulse_score = (int) ( $pulse['score'] ?? 0 );
+				$pulse_grade = (string) ( $pulse['grade'] ?? '' );
+			}
+		}
 
 		?>
 		<?php \Stonewright\WpMcp\Admin\AdminShell::open( self::SLUG ); ?>
@@ -64,6 +74,22 @@ final class StatusPage {
 			</div>
 
 			<div class="sw-stat-grid stonewright-status-grid">
+				<?php if ( null !== $pulse_score ) : ?>
+					<article class="sw-stat-card sw-stat-card--pulse">
+						<span class="sw-stat-card__icon" aria-hidden="true">◎</span>
+						<div class="sw-stat-card__value">
+							<?php echo esc_html( (string) $pulse_score ); ?>
+							<?php if ( '' !== $pulse_grade ) : ?>
+								<span class="sw-badge sw-badge--ok"><?php echo esc_html( $pulse_grade ); ?></span>
+							<?php endif; ?>
+						</div>
+						<div class="sw-stat-card__label"><?php esc_html_e( 'Site pulse', 'stonewright' ); ?></div>
+						<span class="sw-stat-card__meta">
+							<?php esc_html_e( 'Hardening + performance score', 'stonewright' ); ?>
+						</span>
+					</article>
+				<?php endif; ?>
+
 				<article class="sw-stat-card">
 					<span class="sw-stat-card__icon" aria-hidden="true">⬡</span>
 					<div class="sw-stat-card__value"><code><?php echo esc_html( $mode ); ?></code></div>

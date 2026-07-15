@@ -154,6 +154,8 @@ use Stonewright\WpMcp\Abilities\Security\CreateOneTimeLink;
 use Stonewright\WpMcp\Abilities\Security\IssueConfirmationToken;
 use Stonewright\WpMcp\Abilities\Site\BackupPage as SiteBackupPage;
 use Stonewright\WpMcp\Abilities\Site\Capabilities;
+use Stonewright\WpMcp\Abilities\Site\ChangeLog;
+use Stonewright\WpMcp\Abilities\Site\ChangeRestore;
 use Stonewright\WpMcp\Abilities\Site\CreateRevision;
 use Stonewright\WpMcp\Abilities\Site\DiscoverShortcodes;
 use Stonewright\WpMcp\Abilities\Site\Environment;
@@ -162,6 +164,7 @@ use Stonewright\WpMcp\Abilities\Site\Info;
 use Stonewright\WpMcp\Abilities\Site\ListPlugins;
 use Stonewright\WpMcp\Abilities\Site\Ping;
 use Stonewright\WpMcp\Abilities\Site\SetFrontPage;
+use Stonewright\WpMcp\Abilities\Site\SitePulse;
 use Stonewright\WpMcp\Abilities\Site\Theme as SiteTheme;
 
 /**
@@ -189,10 +192,13 @@ final class AbilityRegistry {
 			Capabilities::class,
 			Environment::class,
 			Health::class,
+			SitePulse::class,
 			ListPlugins::class,
 			SiteTheme::class,
 			SetFrontPage::class,
 			SiteBackupPage::class,
+			ChangeLog::class,
+			ChangeRestore::class,
 			CreateRevision::class,
 			DiscoverShortcodes::class,
 

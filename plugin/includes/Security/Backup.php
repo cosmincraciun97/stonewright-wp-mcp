@@ -84,6 +84,103 @@ final class Backup {
 		return true;
 	}
 
+	/**
+	 * Alias of restore() for API clarity on change-timeline abilities.
+	 */
+	public static function restore_snapshot( int $post_id, string $snapshot_id ): bool {
+		return self::restore( $post_id, $snapshot_id );
+	}
+
+	/**
+	 * Compact timeline rows (no heavy post_content / meta payloads).
+	 *
+	 * @return list<array{
+	 *   snapshot_id: string,
+	 *   post_id: int,
+	 *   post_title: string,
+	 *   post_status: string,
+	 *   created_at: int,
+	 *   meta_keys: list<string>
+	 * }>
+	 */
+	public static function list_timeline( int $limit = 50, int $post_id = 0 ): array {
+		$limit = max( 1, min( 200, $limit ) );
+		$rows  = [];
+
+		$post_ids = $post_id > 0
+			? [ $post_id ]
+			: self::post_ids_with_snapshots( $limit * 5 );
+
+		foreach ( $post_ids as $id ) {
+			$post = get_post( $id );
+			foreach ( self::list_snapshots( $id ) as $snapshot_id => $payload ) {
+				if ( ! is_array( $payload ) ) {
+					continue;
+				}
+				$rows[] = [
+					'snapshot_id' => (string) $snapshot_id,
+					'post_id'     => (int) $id,
+					'post_title'  => (string) ( $payload['post_title'] ?? ( $post->post_title ?? '' ) ),
+					'post_status' => (string) ( $payload['post_status'] ?? ( $post->post_status ?? '' ) ),
+					'created_at'  => (int) ( $payload['created_at'] ?? 0 ),
+					'meta_keys'   => array_values( array_map( 'strval', array_keys( (array) ( $payload['meta'] ?? [] ) ) ) ),
+				];
+			}
+		}
+
+		usort(
+			$rows,
+			static fn( array $a, array $b ): int => ( $b['created_at'] <=> $a['created_at'] )
+		);
+
+		return array_slice( $rows, 0, $limit );
+	}
+
+	/**
+	 * @return list<int>
+	 */
+	private static function post_ids_with_snapshots( int $max_posts ): array {
+		$posts = get_posts(
+			[
+				'post_type'              => 'any',
+				'post_status'            => 'any',
+				'posts_per_page'         => $max_posts,
+				'meta_key'               => self::META_KEY,
+				'fields'                 => 'ids',
+				'orderby'                => 'ID',
+				'order'                  => 'DESC',
+				'no_found_rows'          => true,
+				'update_post_meta_cache' => false,
+				'update_post_term_cache' => false,
+			]
+		);
+
+		if ( is_array( $posts ) && [] !== $posts ) {
+			$ids = [];
+			foreach ( $posts as $item ) {
+				if ( is_object( $item ) && isset( $item->ID ) ) {
+					$ids[] = (int) $item->ID;
+				} else {
+					$ids[] = (int) $item;
+				}
+			}
+			$ids = array_values( array_filter( $ids, static fn( int $id ): bool => $id > 0 ) );
+			if ( [] !== $ids ) {
+				return $ids;
+			}
+		}
+
+		// Test bootstrap / hosts without meta_key query support: scan known posts.
+		$fallback = [];
+		foreach ( array_keys( $GLOBALS['stonewright_test_posts'] ?? [] ) as $id ) {
+			$id = (int) $id;
+			if ( $id > 0 && [] !== self::list_snapshots( $id ) ) {
+				$fallback[] = $id;
+			}
+		}
+		return array_slice( $fallback, 0, $max_posts );
+	}
+
 	private static function new_snapshot_id(): string {
 		return 'snap_' . bin2hex( random_bytes( 8 ) );
 	}
