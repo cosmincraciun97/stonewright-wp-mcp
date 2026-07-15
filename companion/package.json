@@ -40,6 +40,7 @@
 		"test:watch": "vitest",
 		"lint": "eslint src tests --ext .ts",
 		"typecheck": "tsc --noEmit",
+		"tokens:measure": "node scripts/measure-tool-surface.mjs",
 		"prepack": "npm run build",
 		"postinstall": "node scripts/postinstall.mjs"
 	},

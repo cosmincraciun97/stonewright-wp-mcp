@@ -54,6 +54,7 @@
 		"expertise:evaluate": "php bin/evaluate-expertise.php",
 		"elementor:schema-diff": "php bin/elementor-schema-diff.php",
         "tokens:measure": "php bin/measure-token-surface.php",
+        "tokens:measure:fixture-over-budget": "php bin/measure-token-surface.php --fixture=over-budget",
         "provenance:lint": "php bin/lint-upstream-provenance.php",
         "dependencies:audit": "composer audit --abandoned=report",
         "security:audit": "php bin/security-audit.php"
