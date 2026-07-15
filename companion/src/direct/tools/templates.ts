@@ -157,3 +157,112 @@ export async function templatePartUpdate(
 ) {
 	return updateCollection(ctx, 'stonewright-template-part-update', 'template-parts', input);
 }
+
+
+export async function templateCreate(
+	ctx: DirectToolContext,
+	input: {
+		slug: string;
+		title?: string | undefined;
+		content?: string | undefined;
+		description?: string | undefined;
+		confirm?: boolean | undefined;
+	},
+) {
+	assertToolEnabled(ctx.site, 'stonewright-template-create');
+	assertWriteAllowed({
+		mode: ctx.writeMode,
+		destructive: true,
+		...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
+		tool: 'stonewright-template-create',
+	});
+	const body: Record<string, unknown> = { slug: input.slug };
+	if (input.title !== undefined) body.title = input.title;
+	if (input.content !== undefined) body.content = input.content;
+	if (input.description !== undefined) body.description = input.description;
+	const created = await ctx.client.post<WpTemplate>('/wp/v2/templates', { body });
+	appendDirectAudit({
+		tool: 'stonewright-template-create',
+		site: ctx.site.alias,
+		resource: `templates/${created.id}`,
+		status: 'ok',
+	});
+	return compactTemplate(created, true);
+}
+
+export async function templateDelete(
+	ctx: DirectToolContext,
+	input: { id: string; force?: boolean | undefined; confirm?: boolean | undefined },
+) {
+	assertToolEnabled(ctx.site, 'stonewright-template-delete');
+	assertWriteAllowed({
+		mode: ctx.writeMode,
+		destructive: true,
+		...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
+		tool: 'stonewright-template-delete',
+	});
+	const result = await ctx.client.del(`/wp/v2/templates/${encodeURIComponent(input.id)}`, {
+		query: { force: input.force === true },
+	});
+	appendDirectAudit({
+		tool: 'stonewright-template-delete',
+		site: ctx.site.alias,
+		resource: `templates/${input.id}`,
+		status: 'ok',
+	});
+	return result ?? { deleted: true, id: input.id };
+}
+
+export async function templatePartCreate(
+	ctx: DirectToolContext,
+	input: {
+		slug: string;
+		title?: string | undefined;
+		content?: string | undefined;
+		area?: string | undefined;
+		confirm?: boolean | undefined;
+	},
+) {
+	assertToolEnabled(ctx.site, 'stonewright-template-part-create');
+	assertWriteAllowed({
+		mode: ctx.writeMode,
+		destructive: true,
+		...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
+		tool: 'stonewright-template-part-create',
+	});
+	const body: Record<string, unknown> = { slug: input.slug };
+	if (input.title !== undefined) body.title = input.title;
+	if (input.content !== undefined) body.content = input.content;
+	if (input.area !== undefined) body.area = input.area;
+	const created = await ctx.client.post<WpTemplate>('/wp/v2/template-parts', { body });
+	appendDirectAudit({
+		tool: 'stonewright-template-part-create',
+		site: ctx.site.alias,
+		resource: `template-parts/${created.id}`,
+		status: 'ok',
+	});
+	return compactTemplate(created, true);
+}
+
+export async function templatePartDelete(
+	ctx: DirectToolContext,
+	input: { id: string; force?: boolean | undefined; confirm?: boolean | undefined },
+) {
+	assertToolEnabled(ctx.site, 'stonewright-template-part-delete');
+	assertWriteAllowed({
+		mode: ctx.writeMode,
+		destructive: true,
+		...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
+		tool: 'stonewright-template-part-delete',
+	});
+	const result = await ctx.client.del(`/wp/v2/template-parts/${encodeURIComponent(input.id)}`, {
+		query: { force: input.force === true },
+	});
+	appendDirectAudit({
+		tool: 'stonewright-template-part-delete',
+		site: ctx.site.alias,
+		resource: `template-parts/${input.id}`,
+		status: 'ok',
+	});
+	return result ?? { deleted: true, id: input.id };
+}

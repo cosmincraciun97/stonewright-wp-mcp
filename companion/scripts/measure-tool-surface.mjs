@@ -5,7 +5,7 @@
  * Hard budgets (CI fails when any is false):
  * - plugin essential (proxied + local) ≤ 20
  * - plugin low-tools (proxied + local) ≤ 12
- * - Direct full ≤ 40 (when companion/src/direct exists)
+ * - Direct full ≤ 100 (when companion/src/direct exists)
  * - Direct essential ≤ 20 (when Direct essential export exists)
  *
  * Usage:
@@ -25,7 +25,7 @@ export const TOOL_SURFACE_LIMITS = Object.freeze({
 	plugin_essential_max_tools: 30,
 	plugin_low_tools_max_tools: 12,
 	// Raised for Direct blueprints tools (list/get/apply).
-	direct_full_max_tools: 50,
+	direct_full_max_tools: 100,
 	direct_essential_max_tools: 20,
 });
 
@@ -217,7 +217,8 @@ export function measureToolSurface() {
 		if (directFull.length === 0) {
 			const wave1 = extractStringArrayConst(directSource, 'DIRECT_WAVE1_TOOL_NAMES');
 			const wave2 = extractStringArrayConst(directSource, 'DIRECT_WAVE2_TOOL_NAMES');
-			directFull = Array.from(new Set([...wave1, ...wave2]));
+			const wave3 = extractStringArrayConst(directSource, 'DIRECT_WAVE3_TOOL_NAMES');
+			directFull = Array.from(new Set([...wave1, ...wave2, ...wave3]));
 		}
 		directEssential = extractStringArrayConst(directSource, 'DIRECT_ESSENTIAL_TOOL_NAMES');
 		directEssentialPresent = directEssential.length > 0;

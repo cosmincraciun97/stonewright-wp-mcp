@@ -335,3 +335,10 @@ export async function menuItems(
 		throw err;
 	}
 }
+
+
+export async function menuLocations(ctx: DirectToolContext) {
+	assertToolEnabled(ctx.site, 'stonewright-menu-locations');
+	const items = await ctx.client.get<Record<string, unknown>>('/wp/v2/menu-locations');
+	return { locations: items };
+}

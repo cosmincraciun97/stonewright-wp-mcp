@@ -75,3 +75,38 @@ export async function globalStylesUpdate(
 		throw err;
 	}
 }
+
+
+export async function globalStylesTheme(
+	ctx: DirectToolContext,
+	input: { stylesheet?: string | undefined; variations?: boolean | undefined } = {},
+) {
+	assertToolEnabled(ctx.site, 'stonewright-global-styles-theme');
+	let stylesheet = input.stylesheet?.trim() ?? '';
+	if (!stylesheet) {
+		const themes = await ctx.client.get<Array<{ stylesheet?: string }>>('/wp/v2/themes', {
+			query: { status: 'active' },
+		});
+		const active = Array.isArray(themes) ? themes[0] : undefined;
+		stylesheet = active?.stylesheet ?? '';
+		if (!stylesheet) {
+			throw new Error('Could not resolve active theme stylesheet');
+		}
+	}
+	const path = input.variations
+		? `/wp/v2/global-styles/themes/${encodeURIComponent(stylesheet)}/variations`
+		: `/wp/v2/global-styles/themes/${encodeURIComponent(stylesheet)}`;
+	return ctx.client.get(path);
+}
+
+export async function globalStylesRevisions(
+	ctx: DirectToolContext,
+	input: { parent: string; revision_id?: number | undefined },
+) {
+	assertToolEnabled(ctx.site, 'stonewright-global-styles-revisions');
+	const base = `/wp/v2/global-styles/${encodeURIComponent(input.parent)}/revisions`;
+	if (input.revision_id !== undefined) {
+		return ctx.client.get(`${base}/${input.revision_id}`);
+	}
+	return ctx.client.get(base);
+}
