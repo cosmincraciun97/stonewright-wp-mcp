@@ -81,6 +81,23 @@ final class LearningRecord extends AbilityKernel {
 					'type'        => 'string',
 					'description' => 'Optional full skill body. Defaults to a concise correction playbook.',
 				],
+				'trigger'        => [
+					'type'        => 'string',
+					'default'     => '',
+					'description' => 'When this rule applies (task category, surface, or free-text condition).',
+				],
+				'severity'      => [
+					'type'        => 'string',
+					'default'     => 'medium',
+					'enum'        => [ 'low', 'medium', 'high', 'critical' ],
+					'description' => 'How strongly the agent should prioritise this lesson.',
+				],
+				'source'         => [
+					'type'        => 'string',
+					'default'     => 'manual',
+					'enum'        => [ 'user-correction', 'audit-error', 'manual' ],
+					'description' => 'Origin of the learning record.',
+				],
 			],
 		];
 	}
@@ -121,7 +138,18 @@ final class LearningRecord extends AbilityKernel {
 				$scope      = $this->clean_scope( (string) ( $a['scope'] ?? 'project' ) );
 				$lesson     = $this->clean_textarea( (string) ( $a['lesson'] ?? '' ) );
 				$confidence = max( 0.0, min( 1.0, (float) ( $a['confidence'] ?? 1.0 ) ) );
+				$trigger    = $this->clean_text( (string) ( $a['trigger'] ?? '' ) );
+				$severity  = $this->clean_severity( (string) ( $a['severity'] ?? 'medium' ) );
+				$source     = $this->clean_source( (string) ( $a['source'] ?? 'manual' ) );
 				$key        = 'learning-' . $this->slugify( $topic );
+
+				// Higher severity → higher precedence so task-start ranks them first.
+				$precedence = match ( $severity ) {
+					'critical' => 900,
+					'high'     => 700,
+					'low'      => 300,
+					default    => 500,
+				};
 
 				$memory_id = Memory::put_typed(
 					'feedback',
@@ -131,13 +159,16 @@ final class LearningRecord extends AbilityKernel {
 					[
 						'correction'  => $correction,
 						'lesson'      => $lesson,
+						'trigger'     => $trigger,
+						'severity'   => $severity,
+						'source'      => $source,
 						'recorded_at' => current_time( 'mysql', true ),
 					],
 					$confidence,
 					[
 						'topic'      => $topic,
 						'status'     => 'active',
-						'precedence' => 500,
+						'precedence' => $precedence,
 					]
 				);
 
@@ -221,5 +252,17 @@ final class LearningRecord extends AbilityKernel {
 
 	private function clean_textarea( string $text ): string {
 		return sanitize_textarea_field( $text );
+	}
+
+	private function clean_severity( string $severity ): string {
+		$severity = strtolower( sanitize_key( $severity ) );
+		return in_array( $severity, [ 'low', 'medium', 'high', 'critical' ], true ) ? $severity : 'medium';
+	}
+
+	private function clean_source( string $source ): string {
+		$source = strtolower( sanitize_key( $source ) );
+		// Accept hyphenated enum values from schema.
+		$source = str_replace( '_', '-', $source );
+		return in_array( $source, [ 'user-correction', 'audit-error', 'manual' ], true ) ? $source : 'manual';
 	}
 }

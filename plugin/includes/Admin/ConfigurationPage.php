@@ -209,7 +209,12 @@ final class ConfigurationPage {
 					<?php foreach ( $setup_diagnostics['checks'] as $check ) : ?>
 						<?php
 						$status = (string) ( $check['status'] ?? 'error' );
-						$icon   = 'ok' === $status ? '✓' : ( 'warn' === $status ? '!' : '✗' );
+						$icon   = match ( $status ) {
+							'ok'   => '✓',
+							'warn' => '!',
+							'info' => 'ⓘ',
+							default => '✗',
+						};
 						?>
 						<li class="sw-checklist__item sw-checklist__item--<?php echo esc_attr( $status ); ?>" data-status="<?php echo esc_attr( $status ); ?>">
 							<span class="sw-checklist__icon" aria-hidden="true"><?php echo esc_html( $icon ); ?></span>

@@ -28,7 +28,7 @@
 
 /* Diagnostics checklist */
 .sw-setup-diagnostics {
-	background: var(--sw-color-card, #fff);
+	background: var(--sw-color-card, var(--sw-surface));
 	border: 1px solid var(--sw-color-border, var(--sw-gray-200));
 	border-radius: var(--sw-radius);
 	box-shadow: var(--sw-shadow-1);
@@ -88,6 +88,12 @@
 	color: var(--sw-warning);
 }
 
+.sw-checklist__item--info .sw-checklist__icon {
+	background: var(--sw-bg);
+	color: var(--sw-text-muted);
+	border: 1px solid var(--sw-border);
+}
+
 .sw-checklist__body {
 	display: flex;
 	flex-direction: column;
@@ -122,7 +128,7 @@
 	padding: var(--sw-space-2) var(--sw-space-4);
 	border-radius: var(--sw-radius-pill);
 	border: 1px solid var(--sw-color-border, var(--sw-gray-200));
-	background: var(--sw-color-card, #fff);
+	background: var(--sw-color-card, var(--sw-surface));
 	font-size: var(--sw-text-sm);
 	font-weight: 600;
 	color: var(--sw-color-muted, var(--sw-gray-500));
@@ -148,7 +154,7 @@
 
 .sw-stepper__step--done .sw-stepper__index {
 	background: var(--sw-success);
-	color: #fff;
+	color: var(--sw-surface);
 }
 
 .sw-stepper__step--current {
@@ -160,7 +166,7 @@
 
 .sw-stepper__step--current .sw-stepper__index {
 	background: var(--sw-brand);
-	color: #fff;
+	color: var(--sw-surface);
 }
 
 .sw-stepper__step--todo {
@@ -177,7 +183,7 @@
 
 .sw-setup-card.stonewright-setup-step,
 .sw-setup-card {
-	background: var(--sw-color-card, #fff);
+	background: var(--sw-color-card, var(--sw-surface));
 	border: 1px solid var(--sw-color-border, var(--sw-gray-200));
 	border-radius: var(--sw-radius);
 	box-shadow: var(--sw-shadow-1);
@@ -245,7 +251,7 @@
 	padding: var(--sw-space-4);
 	border-radius: var(--sw-radius);
 	border: 1px solid var(--sw-color-border, var(--sw-gray-200));
-	background: var(--sw-color-card, #fff);
+	background: var(--sw-color-card, var(--sw-surface));
 	cursor: pointer;
 	transition: border-color var(--sw-dur) var(--sw-ease), box-shadow var(--sw-dur) var(--sw-ease), transform var(--sw-dur) var(--sw-ease);
 	color: inherit;
@@ -296,7 +302,7 @@
 	overflow: auto;
 	max-height: 280px;
 	background: var(--sw-ink);
-	color: #e6e8ec;
+	color: var(--sw-text-muted);
 	border-radius: var(--sw-radius-sm);
 	font-family: var(--sw-font-mono);
 	font-size: var(--sw-text-xs);

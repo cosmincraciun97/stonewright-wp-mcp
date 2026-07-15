@@ -93,6 +93,7 @@ use Stonewright\WpMcp\Abilities\Gutenberg\RemoveBlock;
 use Stonewright\WpMcp\Abilities\Gutenberg\SerializeBlocks;
 use Stonewright\WpMcp\Abilities\Gutenberg\TransformHtml;
 use Stonewright\WpMcp\Abilities\Gutenberg\UpdateBlock;
+use Stonewright\WpMcp\Abilities\Memory\FeedbackCapture;
 use Stonewright\WpMcp\Abilities\Memory\MemoryDelete;
 use Stonewright\WpMcp\Abilities\Memory\MemoryGet;
 use Stonewright\WpMcp\Abilities\Memory\MemoryList;
@@ -339,6 +340,7 @@ final class AbilityRegistry {
 			MemoryGet::class,
 			MemorySave::class,
 			LearningRecord::class,
+			FeedbackCapture::class,
 			MemoryDelete::class,
 
 			// System (Wave 3b).

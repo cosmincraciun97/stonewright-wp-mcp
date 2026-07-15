@@ -18,7 +18,7 @@
 	flex-direction: column;
 	gap: var(--sw-space-2);
 	padding: var(--sw-space-5);
-	background: var(--sw-color-card, #fff);
+	background: var(--sw-color-card, var(--sw-surface));
 	border: 1px solid var(--sw-color-border, var(--sw-gray-200));
 	border-radius: var(--sw-radius);
 	box-shadow: var(--sw-shadow-1);
@@ -37,6 +37,46 @@
 	color: var(--sw-color-text);
 	line-height: 1.2;
 	word-break: break-word;
+	font-variant-numeric: tabular-nums;
+}
+
+.sw-stat-card--pulse .sw-stat-card__value {
+	display: flex;
+	align-items: baseline;
+	gap: var(--sw-space-2);
+	font-size: 28px;
+	line-height: 1;
+}
+
+.sw-pulse-grade {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 28px;
+	height: 24px;
+	padding: 0 8px;
+	border-radius: 999px;
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	line-height: 1;
+}
+
+.sw-pulse-grade--a,
+.sw-pulse-grade--b {
+	background: var(--sw-ok-soft);
+	color: var(--sw-ok-text);
+}
+
+.sw-pulse-grade--c {
+	background: var(--sw-warn-soft);
+	color: var(--sw-warn-text);
+}
+
+.sw-pulse-grade--d,
+.sw-pulse-grade--f {
+	background: var(--sw-danger-soft);
+	color: var(--sw-danger-text);
 }
 
 .sw-stat-card__value code {

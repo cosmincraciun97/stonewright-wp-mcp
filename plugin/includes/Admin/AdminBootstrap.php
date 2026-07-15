@@ -113,6 +113,7 @@ final class AdminBootstrap {
 		$page_styles = [
 			'stonewright'             => 'setup.css',
 			'stonewright-abilities'   => 'abilities.css',
+			'stonewright-blueprints'  => 'blueprints.css',
 			'stonewright-status'      => 'dashboard.css',
 			'stonewright-audit-log'   => 'audit.css',
 			'stonewright-skills'      => 'skills-memory.css',
@@ -128,6 +129,8 @@ final class AdminBootstrap {
 				$handle = 'stonewright-admin-skills-memory';
 			} elseif ( 'abilities.css' === $page_styles[ $page ] ) {
 				$handle = 'stonewright-admin-abilities';
+			} elseif ( 'blueprints.css' === $page_styles[ $page ] ) {
+				$handle = 'stonewright-admin-blueprints';
 			} elseif ( 'dashboard.css' === $page_styles[ $page ] ) {
 				$handle = 'stonewright-admin-dashboard';
 			} elseif ( 'audit.css' === $page_styles[ $page ] ) {

@@ -9,7 +9,7 @@
 
 .sw-abilities-filters {
 	position: sticky;
-	top: 88px;
+	top: var(--sw-shell-offset, 76px);
 	z-index: 20;
 	display: flex;
 	flex-wrap: wrap;
@@ -17,8 +17,8 @@
 	gap: var(--sw-space-3);
 	padding: var(--sw-space-3) var(--sw-space-4);
 	margin: 0 0 var(--sw-space-5);
-	background: var(--sw-color-card, #fff);
-	border: 1px solid var(--sw-color-border, var(--sw-gray-200));
+	background: var(--sw-color-card);
+	border: 1px solid var(--sw-color-border);
 	border-radius: var(--sw-radius);
 	box-shadow: var(--sw-shadow-1);
 }
@@ -32,14 +32,14 @@
 	margin-left: auto;
 	font-size: var(--sw-text-sm);
 	font-weight: 600;
-	color: var(--sw-color-muted, var(--sw-gray-500));
+	color: var(--sw-color-muted);
 	font-variant-numeric: tabular-nums;
 	white-space: nowrap;
 }
 
 .sw-ability-category {
-	background: var(--sw-color-card, #fff);
-	border: 1px solid var(--sw-color-border, var(--sw-gray-200));
+	background: var(--sw-color-card);
+	border: 1px solid var(--sw-color-border);
 	border-radius: var(--sw-radius);
 	box-shadow: var(--sw-shadow-1);
 	margin: 0 0 var(--sw-space-4);
@@ -63,7 +63,7 @@
 }
 
 .sw-ability-category[open] > .sw-ability-category__summary {
-	border-bottom-color: var(--sw-color-border, var(--sw-gray-200));
+	border-bottom-color: var(--sw-color-border);
 }
 
 .sw-ability-category__summary::-webkit-details-marker {
@@ -144,7 +144,7 @@
 	width: 16px;
 	left: 3px;
 	top: 3px;
-	background: #fff;
+	background: var(--sw-surface-raised);
 	border-radius: 50%;
 	transition: transform var(--sw-dur) var(--sw-ease);
 	box-shadow: var(--sw-shadow-1);
@@ -177,21 +177,15 @@
 }
 
 .sw-abilities-page .stonewright-ability-table__head {
-	position: sticky;
-	top: 148px;
-	z-index: 10;
-	background: var(--sw-color-card, #fff);
+	position: static;
+	background: var(--sw-surface);
 }
 
 @media screen and (max-width: 782px) {
 	.sw-abilities-filters {
-		top: 100px;
+		top: var(--sw-shell-offset, 76px);
 	}
 
-	.sw-abilities-page .stonewright-ability-table__head {
-		top: auto;
-		position: static;
-	}
 
 	.sw-abilities-stats {
 		margin-left: 0;

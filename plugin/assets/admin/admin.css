@@ -15,11 +15,11 @@
 	line-height: 1.6;
 }
 
-.stonewright-badge--ok      { background: #d1fae5; color: #065f46; }
-.stonewright-badge--warning { background: #fef3c7; color: #92400e; }
-.stonewright-badge--info    { background: #dbeafe; color: #1e40af; }
-.stonewright-badge--dev     { background: #ede9fe; color: #5b21b6; }
-.stonewright-badge--neutral { background: #f3f4f6; color: #374151; }
+.stonewright-badge--ok      { background: var(--sw-ok-soft); color: var(--sw-ok-text); }
+.stonewright-badge--warning { background: var(--sw-warn-soft); color: var(--sw-warn-text); }
+.stonewright-badge--info    { background: var(--sw-info-soft); color: var(--sw-info-text); }
+.stonewright-badge--dev     { background: var(--sw-brand-soft); color: var(--sw-brand); }
+.stonewright-badge--neutral { background: var(--sw-bg); color: var(--sw-text-secondary); }
 
 /* ------------------------------------------------------------------ */
 /* Status page table                                                    */
@@ -82,16 +82,16 @@
 
 .stonewright-page-header p {
 	margin: 0;
-	color: #50575e;
+	color: var(--sw-text-secondary);
 	max-width: 760px;
 }
 
 /* Deprecated: brand banner removed from Setup markup (U2). Kept one release for third-party CSS hooks. */
 .stonewright-brand-banner {
 	align-items: center;
-	background: #000;
+	background: var(--sw-text);
 	box-sizing: border-box;
-	color: #fff;
+	color: var(--sw-surface);
 	display: flex;
 	min-height: 64px;
 	padding: 16px 22px;
@@ -99,7 +99,7 @@
 }
 
 .stonewright-brand-banner span {
-	color: #fff;
+	color: var(--sw-surface);
 	font-family: "Arial Black", Impact, system-ui, sans-serif;
 	font-size: 30px;
 	font-weight: 900;
@@ -108,8 +108,8 @@
 }
 
 .stonewright-panel {
-	background: #fff;
-	border: 1px solid #dcdcde;
+	background: var(--sw-surface);
+	border: 1px solid var(--sw-border);
 	border-radius: 6px;
 	margin: 0 0 14px;
 	padding: 16px;
@@ -123,8 +123,8 @@
 }
 
 .stonewright-guidance-card {
-	background: #fff;
-	border: 1px solid #dcdcde;
+	background: var(--sw-surface);
+	border: 1px solid var(--sw-border);
 	border-radius: 6px;
 	padding: 14px;
 }
@@ -136,7 +136,7 @@
 }
 
 .stonewright-guidance-card p {
-	color: #50575e;
+	color: var(--sw-text-secondary);
 	line-height: 1.45;
 	margin: 0;
 }
@@ -148,8 +148,8 @@
 }
 
 .stonewright-subpanel {
-	background: #f6f7f7;
-	border: 1px solid #dcdcde;
+	background: var(--sw-bg);
+	border: 1px solid var(--sw-border);
 	border-radius: 6px;
 	margin: 14px 0 0;
 	padding: 12px;
@@ -167,10 +167,10 @@
 }
 
 .stonewright-empty-state {
-	background: #fff;
-	border: 1px dashed #c3c4c7;
+	background: var(--sw-surface);
+	border: 1px dashed var(--sw-border-strong);
 	border-radius: 6px;
-	color: #646970;
+	color: var(--sw-text-muted);
 	padding: 22px;
 	text-align: center;
 }
@@ -192,7 +192,7 @@
 }
 
 .stonewright-muted {
-	color: #646970;
+	color: var(--sw-text-muted);
 	font-size: 12px;
 	margin-left: 6px;
 	margin-right: 6px;
@@ -212,8 +212,8 @@
 }
 
 .stonewright-card {
-	background: #fff;
-	border: 1px solid #dcdcde;
+	background: var(--sw-surface);
+	border: 1px solid var(--sw-border);
 	border-radius: 6px;
 	overflow: hidden;
 }
@@ -223,7 +223,7 @@
 }
 
 .stonewright-card__header {
-	border-bottom: 1px solid #f0f0f1;
+	border-bottom: 1px solid var(--sw-bg);
 	padding: 12px 14px 10px;
 }
 
@@ -241,9 +241,9 @@
 }
 
 .stonewright-card__slug {
-	background: #f6f7f7;
+	background: var(--sw-bg);
 	border-radius: 4px;
-	color: #50575e;
+	color: var(--sw-text-secondary);
 	display: inline-block;
 	font-size: 12px;
 	margin-top: 6px;
@@ -256,16 +256,16 @@
 }
 
 .stonewright-card__description {
-	color: #50575e;
+	color: var(--sw-text-secondary);
 	font-size: 13px;
 	line-height: 1.45;
 	margin: 0;
 }
 
 .stonewright-card__preview {
-	background: #f6f7f7;
+	background: var(--sw-bg);
 	border-radius: 4px;
-	color: #50575e;
+	color: var(--sw-text-secondary);
 	font-family: Consolas, Monaco, monospace;
 	font-size: 12px;
 	line-height: 1.45;
@@ -279,7 +279,7 @@
 
 .stonewright-card__footer {
 	align-items: center;
-	border-top: 1px solid #f0f0f1;
+	border-top: 1px solid var(--sw-bg);
 	display: flex;
 	flex-wrap: wrap;
 	gap: 8px;
@@ -287,8 +287,8 @@
 }
 
 .stonewright-card__edit-panel {
-	background: #fbfbfc;
-	border-top: 1px solid #dcdcde;
+	background: var(--sw-bg);
+	border-top: 1px solid var(--sw-border);
 	padding: 14px;
 }
 
@@ -304,16 +304,16 @@
 
 .sw-badge--builtin,
 .sw-badge--category,
-.sw-badge--draft { background: #dbeafe; color: #1e40af; }
+.sw-badge--draft { background: var(--sw-info-soft); color: var(--sw-info-text); }
 .sw-badge--user,
-.sw-badge--active { background: #d1fae5; color: #065f46; }
-.sw-badge--agentic { background: #e0f2fe; color: #075985; }
-.sw-badge--prompt { background: #fef9c3; color: #854d0e; }
-.sw-badge--playbook { background: #ede9fe; color: #5b21b6; letter-spacing: 0.04em; }
-.sw-badge--uploaded { background: #fef3c7; color: #92400e; }
-.sw-badge--disabled { background: #f3f4f6; color: #374151; }
-.sw-badge--crashed { background: #fee2e2; color: #991b1b; }
-.sw-btn--danger { border-color: #b32d2e !important; color: #b32d2e !important; }
+.sw-badge--active { background: var(--sw-ok-soft); color: var(--sw-ok-text); }
+.sw-badge--agentic { background: var(--sw-info-soft); color: var(--sw-info-text); }
+.sw-badge--prompt { background: var(--sw-warn-soft); color: var(--sw-warn-text); }
+.sw-badge--playbook { background: var(--sw-brand-soft); color: var(--sw-brand); letter-spacing: 0.04em; }
+.sw-badge--uploaded { background: var(--sw-warn-soft); color: var(--sw-warn-text); }
+.sw-badge--disabled { background: var(--sw-bg); color: var(--sw-text-secondary); }
+.sw-badge--crashed { background: var(--sw-danger-soft); color: var(--sw-danger-text); }
+.sw-btn--danger { border-color: var(--sw-danger-text) !important; color: var(--sw-danger-text) !important; }
 
 .stonewright-type-badge {
 	border-radius: 3px;
@@ -324,11 +324,11 @@
 	padding: 1px 8px;
 }
 
-.stonewright-type-user { background: #dbeafe; color: #1e40af; }
-.stonewright-type-feedback { background: #fef3c7; color: #92400e; }
-.stonewright-type-project { background: #ede9fe; color: #5b21b6; }
-.stonewright-type-reference { background: #d1fae5; color: #065f46; }
-.stonewright-type-generic { background: #f3f4f6; color: #374151; }
+.stonewright-type-user { background: var(--sw-info-soft); color: var(--sw-info-text); }
+.stonewright-type-feedback { background: var(--sw-warn-soft); color: var(--sw-warn-text); }
+.stonewright-type-project { background: var(--sw-brand-soft); color: var(--sw-brand); }
+.stonewright-type-reference { background: var(--sw-ok-soft); color: var(--sw-ok-text); }
+.stonewright-type-generic { background: var(--sw-bg); color: var(--sw-text-secondary); }
 
 .stonewright-memory-edit-grid {
 	display: grid;
@@ -353,8 +353,8 @@
 	display: grid;
 	grid-template-columns: 34px minmax(0, 1fr);
 	gap: 12px;
-	background: #fff;
-	border: 1px solid #dcdcde;
+	background: var(--sw-surface);
+	border: 1px solid var(--sw-border);
 	border-radius: 6px;
 	padding: 16px;
 }
@@ -370,8 +370,8 @@
 	width: 28px;
 	height: 28px;
 	border-radius: 999px;
-	background: #1d2327;
-	color: #fff;
+	background: var(--sw-text);
+	color: var(--sw-surface);
 	font-weight: 700;
 }
 
@@ -422,35 +422,35 @@
 }
 
 .stonewright-risk-notice {
-	border-left: 4px solid #dba617;
-	background: #fcf9e8;
-	color: #5f4b00;
+	border-left: 4px solid var(--sw-warn-text);
+	background: var(--sw-warn-soft);
+	color: var(--sw-warn-text);
 	margin: 10px 0 12px;
 	padding: 9px 12px;
 	border-radius: 4px;
 }
 
 .stonewright-risk-notice--ok {
-	border-left-color: #00a32a;
-	background: #edfaef;
-	color: #0a4b22;
+	border-left-color: var(--sw-ok-text);
+	background: var(--sw-ok-soft);
+	color: var(--sw-ok-text);
 }
 
 .stonewright-risk-notice--info {
-	border-left-color: #3858e9;
-	background: #f8fbff;
-	color: #1d2327;
+	border-left-color: var(--sw-brand);
+	background: var(--sw-bg);
+	color: var(--sw-text);
 }
 
 .stonewright-advanced-bridge {
-	border-top: 1px solid #f0f0f1;
+	border-top: 1px solid var(--sw-bg);
 	margin-top: 12px;
 	padding-top: 10px;
 }
 
 .stonewright-bridge-steps {
-	background: #fff;
-	border: 1px solid #dcdcde;
+	background: var(--sw-surface);
+	border: 1px solid var(--sw-border);
 	border-radius: 4px;
 	margin: 10px 0 12px;
 	padding: 10px 12px 10px 28px;
@@ -461,8 +461,8 @@
 }
 
 .stonewright-bridge-env-panel {
-	background: #fbfbfc;
-	border: 1px solid #dcdcde;
+	background: var(--sw-bg);
+	border: 1px solid var(--sw-border);
 	border-radius: 4px;
 	margin: 12px 0 0;
 	padding: 10px 12px;
@@ -485,8 +485,8 @@
 }
 
 .stonewright-app-password-success {
-	background: #edfaef;
-	border-left: 4px solid #00a32a;
+	background: var(--sw-ok-soft);
+	border-left: 4px solid var(--sw-ok-text);
 	display: grid;
 	gap: 8px;
 	margin: 12px 0;
@@ -494,11 +494,11 @@
 }
 
 .stonewright-app-password-success strong {
-	color: #0a4b22;
+	color: var(--sw-ok-text);
 }
 
 .stonewright-app-passwords-list {
-	border-top: 1px solid #f0f0f1;
+	border-top: 1px solid var(--sw-bg);
 	margin-top: 14px;
 	padding-top: 10px;
 }
@@ -513,15 +513,15 @@
 }
 
 .stonewright-share-warning {
-	background: #f8fbff;
-	border-left: 4px solid #3858e9;
+	background: var(--sw-bg);
+	border-left: 4px solid var(--sw-brand);
 	margin: 12px 0;
 	padding: 10px 12px;
 }
 
 .stonewright-connect-prompt {
-	background: #f6f7f7;
-	border: 1px solid #dcdcde;
+	background: var(--sw-bg);
+	border: 1px solid var(--sw-border);
 	border-radius: 4px;
 	font-family: Consolas, Monaco, monospace;
 	font-size: 12px;
@@ -539,8 +539,8 @@
 }
 
 .stonewright-bridge-env {
-	background: #f6f7f7;
-	border: 1px solid #dcdcde;
+	background: var(--sw-bg);
+	border: 1px solid var(--sw-border);
 	border-radius: 4px;
 	font-family: Consolas, Monaco, monospace;
 	font-size: 12px;
@@ -565,7 +565,7 @@
 }
 
 .stonewright-link-stack .button-link {
-	color: #2271b1;
+	color: var(--sw-info-text);
 }
 
 .stonewright-example-prompts,
@@ -580,8 +580,8 @@
 }
 
 .stonewright-example-card {
-	background: #fbfbfc;
-	border: 1px solid #dcdcde;
+	background: var(--sw-bg);
+	border: 1px solid var(--sw-border);
 	border-radius: 6px;
 	padding: 12px;
 }
@@ -593,8 +593,8 @@
 }
 
 .stonewright-example-card pre {
-	background: #fff;
-	border: 1px solid #dcdcde;
+	background: var(--sw-surface);
+	border: 1px solid var(--sw-border);
 	border-radius: 4px;
 	font-size: 12px;
 	line-height: 1.5;
@@ -611,15 +611,15 @@
 	flex-wrap: wrap;
 	gap: 4px;
 	margin-top: 12px;
-	border-bottom: 1px solid #c3c4c7;
+	border-bottom: 1px solid var(--sw-border-strong);
 }
 
 .stonewright-client-tab {
-	background: #f6f7f7;
-	border: 1px solid #c3c4c7;
+	background: var(--sw-bg);
+	border: 1px solid var(--sw-border-strong);
 	border-bottom: none;
 	border-radius: 4px 4px 0 0;
-	color: #1d2327;
+	color: var(--sw-text);
 	cursor: pointer;
 	font-size: 13px;
 	margin-bottom: -1px;
@@ -627,14 +627,14 @@
 }
 
 .stonewright-client-tab.is-active {
-	background: #fff;
-	border-bottom: 1px solid #fff;
+	background: var(--sw-surface);
+	border-bottom: 1px solid var(--sw-surface);
 	font-weight: 600;
 }
 
 .stonewright-client-panel {
-	background: #fff;
-	border: 1px solid #c3c4c7;
+	background: var(--sw-surface);
+	border: 1px solid var(--sw-border-strong);
 	border-top: none;
 	padding: 12px;
 }
@@ -645,8 +645,8 @@
 
 .stonewright-client-panel pre,
 .stonewright-bootstrap-prompt {
-	background: #f6f7f7;
-	border: 1px solid #dcdcde;
+	background: var(--sw-bg);
+	border: 1px solid var(--sw-border);
 	border-radius: 4px;
 	margin: 8px 0;
 	max-height: 320px;
@@ -673,8 +673,8 @@
 /* Abilities hub                                                       */
 /* ------------------------------------------------------------------ */
 .stonewright-abilities-toolbar {
-	background: #fff;
-	border: 1px solid #dcdcde;
+	background: var(--sw-surface);
+	border: 1px solid var(--sw-border);
 	border-radius: 6px;
 	flex-wrap: wrap;
 	margin: 14px 0;
@@ -682,8 +682,8 @@
 }
 
 .stonewright-provider-group {
-	background: #fff;
-	border: 1px solid #dcdcde;
+	background: var(--sw-surface);
+	border: 1px solid var(--sw-border);
 	border-radius: 6px;
 	margin: 0 0 14px;
 	overflow: hidden;
@@ -695,8 +695,8 @@
 
 .stonewright-provider-group__header {
 	align-items: center;
-	background: #f6f7f7;
-	border-bottom: 1px solid #dcdcde;
+	background: var(--sw-bg);
+	border-bottom: 1px solid var(--sw-border);
 	display: flex;
 	justify-content: space-between;
 	padding: 10px 12px;
@@ -709,7 +709,7 @@
 }
 
 .stonewright-provider-name {
-	color: #646970;
+	color: var(--sw-text-muted);
 	font-size: 11px;
 	font-weight: 700;
 	letter-spacing: 0;
@@ -725,8 +725,8 @@
 }
 
 .stonewright-ability-table__head {
-	border-bottom: 1px solid #dcdcde;
-	color: #646970;
+	border-bottom: 1px solid var(--sw-border);
+	color: var(--sw-text-muted);
 	font-size: 11px;
 	font-weight: 700;
 	text-transform: uppercase;
@@ -734,7 +734,7 @@
 
 .stonewright-ability-row {
 	align-items: start;
-	border-bottom: 1px solid #f0f0f1;
+	border-bottom: 1px solid var(--sw-bg);
 }
 
 .stonewright-ability-row:last-child {
@@ -742,7 +742,7 @@
 }
 
 .stonewright-ability-row.is-disabled {
-	background: #fbfbfc;
+	background: var(--sw-bg);
 }
 
 .stonewright-ability-main {
@@ -755,7 +755,7 @@
 }
 
 .stonewright-ability-main p {
-	color: #646970;
+	color: var(--sw-text-muted);
 	font-size: 12px;
 	line-height: 1.45;
 	margin: 2px 0 0;
@@ -779,18 +779,18 @@
 }
 
 .stonewright-kind-badge--read {
-	background: #dbeafe;
-	color: #1e40af;
+	background: var(--sw-info-soft);
+	color: var(--sw-info-text);
 }
 
 .stonewright-kind-badge--write {
-	background: #fef3c7;
-	color: #92400e;
+	background: var(--sw-warn-soft);
+	color: var(--sw-warn-text);
 }
 
 .stonewright-kind-badge--destructive {
-	background: #fee2e2;
-	color: #991b1b;
+	background: var(--sw-danger-soft);
+	color: var(--sw-danger-text);
 }
 
 .stonewright-ability-details {

@@ -61,6 +61,13 @@ final class AuditLog {
 			],
 			[ '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ]
 		);
+
+		// Learn from recurring errors without blocking the audit write path.
+		try {
+			ErrorPatterns::observe( $ability, $status, $sanitized_args );
+		} catch ( \Throwable ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch
+			// Pattern learning is best-effort.
+		}
 	}
 
 	/**

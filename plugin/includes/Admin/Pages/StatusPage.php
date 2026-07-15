@@ -78,9 +78,13 @@ final class StatusPage {
 					<article class="sw-stat-card sw-stat-card--pulse">
 						<span class="sw-stat-card__icon" aria-hidden="true">◎</span>
 						<div class="sw-stat-card__value">
-							<?php echo esc_html( (string) $pulse_score ); ?>
+							<span class="sw-pulse-score"><?php echo esc_html( (string) $pulse_score ); ?></span>
 							<?php if ( '' !== $pulse_grade ) : ?>
-								<span class="sw-badge sw-badge--ok"><?php echo esc_html( $pulse_grade ); ?></span>
+								<?php
+								$grade_letter = strtolower( substr( $pulse_grade, 0, 1 ) );
+								$grade_mod    = in_array( $grade_letter, [ 'a', 'b', 'c', 'd', 'f' ], true ) ? $grade_letter : 'c';
+								?>
+								<span class="sw-pulse-grade sw-pulse-grade--<?php echo esc_attr( $grade_mod ); ?>"><?php echo esc_html( $pulse_grade ); ?></span>
 							<?php endif; ?>
 						</div>
 						<div class="sw-stat-card__label"><?php esc_html_e( 'Site pulse', 'stonewright' ); ?></div>

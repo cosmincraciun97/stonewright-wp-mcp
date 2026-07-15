@@ -25,6 +25,7 @@ final class MemoryInstructionsPage {
 		add_action( 'admin_post_stonewright_memory_create', [ self::class, 'handle_create' ] );
 		add_action( 'admin_post_stonewright_memory_update', [ self::class, 'handle_update' ] );
 		add_action( 'admin_post_stonewright_memory_delete', [ self::class, 'handle_delete' ] );
+		add_action( 'admin_post_stonewright_learning_disable', [ self::class, 'handle_learning_disable' ] );
 		add_action( 'admin_post_stonewright_knowledge_export', [ self::class, 'handle_export' ] );
 		add_action( 'admin_post_stonewright_knowledge_import', [ self::class, 'handle_import' ] );
 	}
@@ -201,6 +202,8 @@ final class MemoryInstructionsPage {
 					</form>
 				</div>
 			</div>
+
+			<?php self::render_learned_rules( $all_entries ); ?>
 
 			<!-- Section 2: Memory entries -->
 			<div class="sw-card stonewright-panel">
@@ -505,6 +508,89 @@ final class MemoryInstructionsPage {
 			)
 		);
 		exit;
+	}
+
+	/**
+	 * Disable a learned rule (sets status=stale) without hard-deleting history.
+	 */
+	public static function handle_learning_disable(): void {
+		if ( ! current_user_can( self::CAP ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'stonewright' ) );
+		}
+
+		check_admin_referer( 'stonewright_learning_disable', '_stonewright_nonce' );
+
+		$id = (int) ( $_POST['id'] ?? 0 );
+		if ( $id > 0 ) {
+			Memory::update_by_id( $id, [ 'status' => 'stale' ] );
+		}
+
+		wp_safe_redirect(
+			add_query_arg(
+				[ 'page' => self::SLUG, 'updated' => '1' ],
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $all_entries
+	 */
+	private static function render_learned_rules( array $all_entries ): void {
+		$rules = [];
+		foreach ( $all_entries as $entry ) {
+			if ( 'feedback' !== (string) ( $entry['type'] ?? '' ) ) {
+				continue;
+			}
+			$key = (string) ( $entry['memory_key'] ?? '' );
+			if ( ! str_starts_with( $key, 'learning-' ) ) {
+				continue;
+			}
+			if ( 'active' !== (string) ( $entry['status'] ?? 'active' ) ) {
+				continue;
+			}
+			$rules[] = $entry;
+		}
+
+		if ( [] === $rules ) {
+			return;
+		}
+
+		?>
+		<div class="sw-card stonewright-panel sw-learned-rules">
+			<header class="sw-card__header">
+				<div>
+					<h2><?php esc_html_e( 'Learned rules', 'stonewright' ); ?></h2>
+					<p class="description"><?php esc_html_e( 'Corrections and recurring audit errors that agents load at task-start.', 'stonewright' ); ?></p>
+				</div>
+			</header>
+			<ul class="sw-learned-rules__list">
+				<?php foreach ( $rules as $rule ) : ?>
+					<?php
+					$value  = is_array( $rule['value'] ?? null ) ? $rule['value'] : [];
+					$source = (string) ( $value['source'] ?? 'manual' );
+					$sev    = (string) ( $value['severity'] ?? 'medium' );
+					$corr   = (string) ( $value['correction'] ?? '' );
+					?>
+					<li class="sw-learned-rules__item">
+						<div class="sw-learned-rules__main">
+							<strong><?php echo esc_html( (string) ( $rule['name'] ?? $rule['topic'] ?? '' ) ); ?></strong>
+							<span class="sw-badge sw-badge--neutral"><?php echo esc_html( $source ); ?></span>
+							<span class="sw-badge sw-badge--info"><?php echo esc_html( $sev ); ?></span>
+							<p class="sw-learned-rules__text"><?php echo esc_html( $corr ); ?></p>
+						</div>
+						<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form">
+							<input type="hidden" name="action" value="stonewright_learning_disable" />
+							<input type="hidden" name="id" value="<?php echo (int) ( $rule['id'] ?? 0 ); ?>" />
+							<?php wp_nonce_field( 'stonewright_learning_disable', '_stonewright_nonce' ); ?>
+							<button type="submit" class="sw-btn sw-btn--ghost sw-btn--sm"><?php esc_html_e( 'Disable', 'stonewright' ); ?></button>
+						</form>
+					</li>
+				<?php endforeach; ?>
+			</ul>
+		</div>
+		<?php
 	}
 
 	public static function handle_export(): void {

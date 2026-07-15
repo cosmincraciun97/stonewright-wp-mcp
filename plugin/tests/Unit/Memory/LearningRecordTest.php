@@ -58,6 +58,27 @@ final class LearningRecordTest extends TestCase {
 		self::assertSame( [], array_values( $skill_inserts ) );
 	}
 
+	public function test_stores_trigger_severity_and_source(): void {
+		$result = ( new LearningRecord() )->execute(
+			[
+				'scope'      => 'project',
+				'topic'      => 'HTTP is fine',
+				'correction' => 'Do not require HTTPS on local.',
+				'trigger'    => 'setup diagnostics',
+				'severity'  => 'high',
+				'source'     => 'user-correction',
+			]
+		);
+
+		self::assertTrue( $result['ok'] );
+		$memory_insert = $GLOBALS['wpdb']->inserts[0] ?? [];
+		$value         = (string) ( $memory_insert['data']['value_json'] ?? '' );
+		self::assertStringContainsString( 'user-correction', $value );
+		self::assertStringContainsString( 'high', $value );
+		self::assertStringContainsString( 'setup diagnostics', $value );
+		self::assertSame( 700, (int) ( $memory_insert['data']['precedence'] ?? 0 ) );
+	}
+
 	public function test_opt_in_skill_is_saved_as_disabled_draft(): void {
 		$result = ( new LearningRecord() )->execute(
 			[

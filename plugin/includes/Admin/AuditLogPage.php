@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Admin;
 
 use Stonewright\WpMcp\Security\AuditLog;
+use Stonewright\WpMcp\Security\ErrorPatterns;
 
 /**
  * Admin page that lists recent audit log entries.
@@ -18,6 +19,20 @@ final class AuditLogPage {
 
 	public static function register(): void {
 		add_action( 'admin_menu', [ self::class, 'add_submenu' ] );
+		add_action( 'admin_post_stonewright_dismiss_error_pattern', [ self::class, 'handle_dismiss_pattern' ] );
+	}
+
+	public static function handle_dismiss_pattern(): void {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die( esc_html__( 'Forbidden', 'stonewright' ), '', [ 'response' => 403 ] );
+		}
+		check_admin_referer( 'stonewright_dismiss_error_pattern' );
+		$signature = isset( $_POST['signature'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['signature'] ) ) : '';
+		if ( '' !== $signature ) {
+			ErrorPatterns::dismiss( $signature );
+		}
+		wp_safe_redirect( admin_url( 'admin.php?page=' . self::SLUG ) );
+		exit;
 	}
 
 	public static function add_submenu(): void {
@@ -50,11 +65,51 @@ final class AuditLogPage {
 		echo '<p>' . esc_html__( 'Every write ability and REST call records a row here. The log is append-only.', 'stonewright' ) . '</p>';
 		echo '</div></header>';
 
+		self::render_recurring_errors();
 		self::render_filters( $filters );
 		self::render_log_table( $rows, $page, $per_page, $filters );
 
 		echo '</div>';
 		AdminShell::close();
+	}
+
+	private static function render_recurring_errors(): void {
+		$patterns = ErrorPatterns::recurring( 10 );
+		if ( [] === $patterns ) {
+			return;
+		}
+
+		echo '<section class="sw-recurring-errors" aria-labelledby="sw-recurring-errors-title">';
+		echo '<div class="sw-section__head">';
+		echo '<h2 id="sw-recurring-errors-title">' . esc_html__( 'Recurring errors', 'stonewright' ) . '</h2>';
+		echo '<p class="sw-section__sub">' . esc_html__( 'Patterns that failed more than once. Agents see the top three at task-start.', 'stonewright' ) . '</p>';
+		echo '</div>';
+		echo '<ul class="sw-recurring-errors__list">';
+		foreach ( $patterns as $p ) {
+			$ability = (string) ( $p['ability'] ?? '' );
+			$count   = (int) ( $p['count'] ?? 0 );
+			$msg     = (string) ( $p['message'] ?? '' );
+			$sig     = (string) ( $p['signature'] ?? '' );
+			$view    = admin_url( 'admin.php?page=' . self::SLUG . '&status=error&ability=' . rawurlencode( $ability ) );
+			echo '<li class="sw-recurring-errors__item">';
+			echo '<div class="sw-recurring-errors__main">';
+			echo '<code>' . esc_html( $ability ) . '</code> ';
+			echo '<span class="sw-badge sw-badge--error">' . esc_html( (string) $count ) . '×</span> ';
+			echo '<span class="sw-recurring-errors__msg">' . esc_html( $msg ) . '</span>';
+			echo '<span class="sw-recurring-errors__meta">' . esc_html( sprintf( /* translators: %s: datetime */ __( 'Last seen %s', 'stonewright' ), (string) ( $p['last_seen'] ?? '' ) ) ) . '</span>';
+			echo '</div>';
+			echo '<div class="sw-actions">';
+			echo '<a class="sw-btn sw-btn--ghost sw-btn--sm" href="' . esc_url( $view ) . '">' . esc_html__( 'View occurrences', 'stonewright' ) . '</a>';
+			echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="stonewright-inline-form">';
+			echo '<input type="hidden" name="action" value="stonewright_dismiss_error_pattern" />';
+			echo '<input type="hidden" name="signature" value="' . esc_attr( $sig ) . '" />';
+			wp_nonce_field( 'stonewright_dismiss_error_pattern' );
+			echo '<button type="submit" class="sw-btn sw-btn--ghost sw-btn--sm">' . esc_html__( 'Dismiss', 'stonewright' ) . '</button>';
+			echo '</form>';
+			echo '</div>';
+			echo '</li>';
+		}
+		echo '</ul></section>';
 	}
 
 	/**

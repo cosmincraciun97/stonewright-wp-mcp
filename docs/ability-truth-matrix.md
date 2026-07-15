@@ -232,6 +232,7 @@
 | `stonewright/memory-get` | `stonewright-memory-get` | `Memory\MemoryGet` | Returns a single memory entry by its numeric id. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/memory-save` | `stonewright-memory-save` | `Memory\MemorySave` | Inserts or updates a typed memory entry. | Write | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/learning-record` | `stonewright-learning-record` | `Memory\LearningRecord` | Writes a persistent lesson when the user corrects the agent or the agent detects a repeatable mistake. | Write | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/feedback-capture` | `stonewright-feedback-capture` | `Memory\FeedbackCapture` | Records a user correction as a persistent learning rule (source=user-correction) for future task-start context. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/memory-delete` | `stonewright-memory-delete` | `Memory\MemoryDelete` | Permanently deletes a memory entry by its numeric id. | Write | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 
 ---
@@ -457,7 +458,7 @@
 
 ## Summary
 
-Total abilities registered: **264**
+Total abilities registered: **265**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

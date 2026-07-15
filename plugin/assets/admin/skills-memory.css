@@ -8,7 +8,7 @@
 }
 
 .sw-callout {
-	background: var(--sw-color-card, #fff);
+	background: var(--sw-color-card, var(--sw-surface));
 	border: 1px solid var(--sw-color-border, var(--sw-gray-200));
 	border-radius: var(--sw-radius);
 	box-shadow: var(--sw-shadow-1);
@@ -46,7 +46,7 @@
 }
 
 .sw-card {
-	background: var(--sw-color-card, #fff);
+	background: var(--sw-color-card, var(--sw-surface));
 	border: 1px solid var(--sw-color-border, var(--sw-gray-200));
 	border-radius: var(--sw-radius);
 	box-shadow: var(--sw-shadow-1);
@@ -124,7 +124,7 @@
 	right: 0;
 	bottom: 0;
 	height: 2.5rem;
-	background: linear-gradient(to bottom, transparent, var(--sw-color-card, #fff));
+	background: linear-gradient(to bottom, transparent, var(--sw-color-card, var(--sw-surface)));
 	pointer-events: none;
 }
 
@@ -162,6 +162,46 @@
 .sw-badge--active { background: var(--sw-success-bg); color: var(--sw-success); }
 .sw-badge--agentic { background: var(--sw-info-bg); color: var(--sw-info); }
 .sw-badge--prompt { background: var(--sw-warning-bg); color: var(--sw-warning); }
-.sw-badge--playbook { background: #ede9fe; color: #5b21b6; letter-spacing: 0.04em; }
+.sw-badge--playbook { background: var(--sw-brand-soft); color: var(--sw-brand); letter-spacing: 0.04em; }
 .sw-badge--disabled { background: var(--sw-gray-100); color: var(--sw-gray-700); }
 .sw-badge--neutral { background: var(--sw-gray-100); color: var(--sw-gray-700); }
+.sw-badge--info { background: var(--sw-info-soft); color: var(--sw-info-text); }
+
+.sw-learned-rules__list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--sw-space-3);
+}
+
+.sw-learned-rules__item {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--sw-space-3);
+	padding: var(--sw-space-3);
+	background: var(--sw-bg);
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius-sm);
+}
+
+.sw-learned-rules__main {
+	flex: 1 1 240px;
+	min-width: 0;
+}
+
+.sw-learned-rules__main strong {
+	display: inline-block;
+	margin-right: var(--sw-space-2);
+	color: var(--sw-text);
+}
+
+.sw-learned-rules__text {
+	margin: var(--sw-space-2) 0 0;
+	font-size: var(--sw-text-sm);
+	color: var(--sw-text-secondary);
+	line-height: 1.45;
+}

@@ -1,0 +1,6 @@
+{
+    "args": {
+        "correction": ""
+    },
+    "expect": "wp_error"
+}

@@ -69,6 +69,8 @@ final class AdminShell {
 		$classes = [ 'sw-shell', 'wrap', 'stonewright-admin-shell' ];
 		if ( 'dark' === $theme ) {
 			$classes[] = 'sw-theme-dark';
+		} else {
+			$classes[] = 'sw-theme-light';
 		}
 
 		$mode_class = 'sw-mode-pill--' . $mode;
