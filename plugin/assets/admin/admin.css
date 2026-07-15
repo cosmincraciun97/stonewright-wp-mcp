@@ -309,6 +309,7 @@
 .sw-badge--active { background: #d1fae5; color: #065f46; }
 .sw-badge--agentic { background: #e0f2fe; color: #075985; }
 .sw-badge--prompt { background: #fef9c3; color: #854d0e; }
+.sw-badge--playbook { background: #ede9fe; color: #5b21b6; letter-spacing: 0.04em; }
 .sw-badge--uploaded { background: #fef3c7; color: #92400e; }
 .sw-badge--disabled { background: #f3f4f6; color: #374151; }
 .sw-badge--crashed { background: #fee2e2; color: #991b1b; }

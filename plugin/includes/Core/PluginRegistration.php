@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Admin\AdminBarIndicator;
 use Stonewright\WpMcp\Admin\AdminBootstrap;
 use Stonewright\WpMcp\Admin\AuditLogPage;
 use Stonewright\WpMcp\Admin\ConfigurationPage;
+use Stonewright\WpMcp\Admin\McpbBundle;
 use Stonewright\WpMcp\Admin\MemoryInstructionsPage;
 use Stonewright\WpMcp\Admin\SandboxPage;
 use Stonewright\WpMcp\Admin\SkillsPage;
@@ -120,6 +121,7 @@ final class PluginRegistration {
 		CrashRecovery::register();
 		WidgetLoader::register();
 		GitHubUpdater::register();
+		VendorGuard::register();
 
 		ConfigurationPage::register();
 		AbilitiesPage::register();
@@ -128,6 +130,7 @@ final class PluginRegistration {
 		MemoryInstructionsPage::register();
 		AuditLogPage::register();
 		AdminBarIndicator::register();
+		McpbBundle::register();
 		AdminBootstrap::register();
 
 		StaticAnalysis::assert_environment();

@@ -122,6 +122,18 @@ final class ConfigurationPage {
 			'default'           => false,
 			'sanitize_callback' => static fn( mixed $value ): bool => (bool) $value,
 		] );
+
+		register_setting( self::OPTION_GROUP, 'stonewright_unsplash_access_key', [
+			'type'              => 'string',
+			'default'           => '',
+			'sanitize_callback' => 'sanitize_text_field',
+		] );
+
+		register_setting( self::OPTION_GROUP, 'stonewright_pexels_api_key', [
+			'type'              => 'string',
+			'default'           => '',
+			'sanitize_callback' => 'sanitize_text_field',
+		] );
 	}
 
 	public static function render(): void {
@@ -145,6 +157,8 @@ final class ConfigurationPage {
 		);
 		$atomic_enabled      = (bool) get_option( 'stonewright_elementor_v4_atomic', false );
 		$essential_mode      = (bool) get_option( 'stonewright_essential_tools_mode', true );
+		$unsplash_key        = (string) get_option( 'stonewright_unsplash_access_key', '' );
+		$pexels_key          = (string) get_option( 'stonewright_pexels_api_key', '' );
 		$server_url          = get_rest_url( null, 'mcp/stonewright' );
 		$current_user        = wp_get_current_user();
 		$current_user_id     = get_current_user_id();
@@ -295,6 +309,30 @@ final class ConfigurationPage {
 								/>
 								<span><?php esc_html_e( 'Enable Elementor V4 atomic abilities', 'stonewright' ); ?></span>
 							</label>
+						</div>
+						<div class="sw-field">
+							<label for="stonewright_unsplash_access_key"><?php esc_html_e( 'Unsplash access key (optional)', 'stonewright' ); ?></label>
+							<input
+								type="password"
+								class="regular-text"
+								name="stonewright_unsplash_access_key"
+								id="stonewright_unsplash_access_key"
+								value="<?php echo esc_attr( $unsplash_key ); ?>"
+								autocomplete="off"
+							/>
+							<p class="description"><?php esc_html_e( 'Leave empty to keep Unsplash off. Openverse stock search works without any key.', 'stonewright' ); ?></p>
+						</div>
+						<div class="sw-field">
+							<label for="stonewright_pexels_api_key"><?php esc_html_e( 'Pexels API key (optional)', 'stonewright' ); ?></label>
+							<input
+								type="password"
+								class="regular-text"
+								name="stonewright_pexels_api_key"
+								id="stonewright_pexels_api_key"
+								value="<?php echo esc_attr( $pexels_key ); ?>"
+								autocomplete="off"
+							/>
+							<p class="description"><?php esc_html_e( 'Leave empty to keep Pexels off. Only used by stock-image abilities when set.', 'stonewright' ); ?></p>
 						</div>
 
 						<div class="stonewright-advanced-bridge">

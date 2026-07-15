@@ -33,6 +33,7 @@ final class AdminShellTest extends TestCase {
 
 		self::assertContains( 'stonewright', $slugs );
 		self::assertContains( 'stonewright-abilities', $slugs );
+		self::assertContains( 'stonewright-blueprints', $slugs );
 		self::assertContains( 'stonewright-sandbox', $slugs );
 		self::assertContains( 'stonewright-skills', $slugs );
 		self::assertContains( 'stonewright-memory', $slugs );
