@@ -126,7 +126,11 @@ HTTP local sites are supported; Setup treats plain HTTP as informational, not a 
 <summary>Direct mode (plugin-less)</summary>
 
 1. Create a WordPress Application Password for an admin user. On plain HTTP local sites, set `WP_ENVIRONMENT_TYPE` to `local` in `wp-config.php` if Application Passwords require it.
-2. Run `npx @stonewright/companion init` (or configure env vars) and paste the MCP JSON into your client.
+2. Run the companion `init` command from the latest release package (or configure env vars) and paste the MCP JSON into your client:
+
+   ```bash
+   npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-companion init
+   ```
 3. First calls: `stonewright-site-discover`, `stonewright-setup-profile`.
 4. Read [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md) for the capability matrix and smoke script.
 
@@ -137,7 +141,12 @@ Example env for Direct mode:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "@stonewright/companion"],
+      "args": [
+        "-y",
+        "--package",
+        "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz",
+        "stonewright-mcp"
+      ],
       "env": {
         "STONEWRIGHT_MODE": "direct",
         "STONEWRIGHT_WP_URL": "http://your-local-site.local",
@@ -149,6 +158,8 @@ Example env for Direct mode:
   }
 }
 ```
+
+Replace `VERSION` with the latest release version (the companion is distributed through GitHub Releases, not the npm registry).
 
 </details>
 
