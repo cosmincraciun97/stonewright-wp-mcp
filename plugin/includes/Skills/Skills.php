@@ -150,7 +150,7 @@ final class Skills {
 			'enable_prompt'  => isset( $data['enable_prompt'] )
 							? (int) (bool) $data['enable_prompt']
 							: $enabled,
-			'source'         => in_array( $data['source'] ?? 'user', [ 'builtin', 'user', 'uploaded', 'candidate' ], true )
+			'source'         => in_array( $data['source'] ?? 'user', [ 'builtin', 'user', 'uploaded', 'candidate', 'playbook' ], true )
 							? (string) ( $data['source'] ?? 'user' )
 							: 'user',
 			'status'         => $status,
@@ -324,7 +324,8 @@ final class Skills {
 			return false;
 		}
 		$skill = self::get_by_id( $id );
-		if ( ! $skill || 'builtin' === (string) ( $skill['source'] ?? '' ) ) {
+		$source = (string) ( $skill['source'] ?? '' );
+		if ( ! $skill || in_array( $source, [ 'builtin', 'playbook' ], true ) ) {
 			return false;
 		}
 

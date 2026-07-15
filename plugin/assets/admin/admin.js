@@ -155,7 +155,7 @@
 					return;
 				}
 				var done = function () {
-					setButtonFeedback( button, 'Copied' );
+					setButtonFeedback( button, 'Copied ✓' );
 				};
 				var fallbackCopy = function () {
 					copyWithTextarea( value );
@@ -235,14 +235,182 @@
 		} );
 	}
 
+	function persistSetupClient( slug ) {
+		if ( ! window.stonewrightSetup || ! window.stonewrightSetup.ajaxUrl ) {
+			return;
+		}
+		var body = new window.URLSearchParams();
+		body.set( 'action', 'stonewright_set_setup_client' );
+		body.set( 'nonce', window.stonewrightSetup.nonce || '' );
+		body.set( 'client', slug );
+		window.fetch( window.stonewrightSetup.ajaxUrl, {
+			method: 'POST',
+			credentials: 'same-origin',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+			body: body.toString(),
+		} ).catch( function () {
+			/* preference is best-effort */
+		} );
+	}
+
+	function initClientCards() {
+		document.querySelectorAll( '[data-stonewright-client-card]' ).forEach( function ( card ) {
+			card.addEventListener( 'click', function ( event ) {
+				event.preventDefault();
+				var slug = card.getAttribute( 'data-stonewright-client-card' );
+				if ( ! slug ) {
+					return;
+				}
+				document.querySelectorAll( '[data-stonewright-client-card]' ).forEach( function ( item ) {
+					item.classList.remove( 'is-active' );
+					item.setAttribute( 'aria-selected', 'false' );
+				} );
+				document.querySelectorAll( '[data-stonewright-client-panel]' ).forEach( function ( panel ) {
+					panel.classList.remove( 'is-active' );
+					panel.setAttribute( 'hidden', '' );
+				} );
+				card.classList.add( 'is-active' );
+				card.setAttribute( 'aria-selected', 'true' );
+				var target = document.getElementById( 'sw-client-panel-' + slug );
+				if ( target ) {
+					target.classList.add( 'is-active' );
+					target.removeAttribute( 'hidden' );
+				}
+				persistSetupClient( slug );
+			} );
+		} );
+	}
+
+	function renderConnectionResults( list, checks ) {
+		list.innerHTML = '';
+		list.hidden = false;
+		( checks || [] ).forEach( function ( check ) {
+			var status = check.status || 'error';
+			var icon = status === 'ok' ? '✓' : ( status === 'warn' ? '!' : '✗' );
+			var li = document.createElement( 'li' );
+			li.className = 'sw-checklist__item sw-checklist__item--' + status;
+			li.setAttribute( 'data-status', status );
+			li.innerHTML =
+				'<span class="sw-checklist__icon" aria-hidden="true">' + icon + '</span>' +
+				'<span class="sw-checklist__body">' +
+				'<strong class="sw-checklist__label"></strong>' +
+				'<span class="sw-checklist__detail"></span>' +
+				'</span>';
+			li.querySelector( '.sw-checklist__label' ).textContent = check.label || check.id || '';
+			var detail = check.detail || '';
+			if ( check.fix ) {
+				detail = detail ? ( detail + ' — ' + check.fix ) : check.fix;
+			}
+			li.querySelector( '.sw-checklist__detail' ).textContent = detail;
+			list.appendChild( li );
+		} );
+	}
+
+	function initConnectionTest() {
+		document.querySelectorAll( '[data-stonewright-connection-test]' ).forEach( function ( button ) {
+			button.addEventListener( 'click', function ( event ) {
+				event.preventDefault();
+				var url = button.getAttribute( 'data-rest-url' );
+				var nonce = button.getAttribute( 'data-rest-nonce' );
+				var list = document.querySelector( '[data-stonewright-connection-results]' );
+				if ( ! url || ! list ) {
+					return;
+				}
+				button.disabled = true;
+				setButtonFeedback( button, 'Testing…' );
+				window.fetch( url, {
+					method: 'GET',
+					credentials: 'same-origin',
+					headers: {
+						'X-WP-Nonce': nonce || '',
+						'Accept': 'application/json',
+					},
+				} ).then( function ( response ) {
+					return response.json().then( function ( data ) {
+						return { ok: response.ok, data: data };
+					} );
+				} ).then( function ( result ) {
+					var checks = ( result.data && result.data.checks ) ? result.data.checks : [];
+					if ( ! result.ok && checks.length === 0 ) {
+						checks = [ {
+							id: 'request',
+							status: 'error',
+							label: 'Connection test',
+							detail: 'Request failed.',
+							fix: 'Reload the page and try again.',
+						} ];
+					}
+					renderConnectionResults( list, checks );
+					setButtonFeedback( button, result.data && result.data.ready ? 'Ready' : 'Issues found' );
+				} ).catch( function () {
+					renderConnectionResults( list, [ {
+						id: 'request',
+						status: 'error',
+						label: 'Connection test',
+						detail: 'Network error.',
+						fix: 'Check that you are logged in as an administrator.',
+					} ] );
+					setButtonFeedback( button, 'Failed' );
+				} ).finally( function () {
+					button.disabled = false;
+				} );
+			} );
+		} );
+	}
+
+	function escapeRegExp( value ) {
+		return String( value ).replace( /[.*+?^${}()|[\]\\]/g, '\\$&' );
+	}
+
+	function clearAbilityHighlights( root ) {
+		root.querySelectorAll( 'mark[data-sw-highlight]' ).forEach( function ( mark ) {
+			var parent = mark.parentNode;
+			if ( ! parent ) {
+				return;
+			}
+			parent.replaceChild( document.createTextNode( mark.textContent || '' ), mark );
+			parent.normalize();
+		} );
+	}
+
+	function highlightAbilityText( node, query ) {
+		if ( ! node || ! query ) {
+			return;
+		}
+		var text = node.textContent || '';
+		var lower = text.toLowerCase();
+		var index = lower.indexOf( query );
+		if ( index === -1 ) {
+			return;
+		}
+		var before = text.slice( 0, index );
+		var match = text.slice( index, index + query.length );
+		var after = text.slice( index + query.length );
+		var frag = document.createDocumentFragment();
+		if ( before ) {
+			frag.appendChild( document.createTextNode( before ) );
+		}
+		var mark = document.createElement( 'mark' );
+		mark.setAttribute( 'data-sw-highlight', '1' );
+		mark.textContent = match;
+		frag.appendChild( mark );
+		if ( after ) {
+			frag.appendChild( document.createTextNode( after ) );
+		}
+		node.textContent = '';
+		node.appendChild( frag );
+	}
+
 	function initAbilitySearch() {
 		var searchInput = document.getElementById( 'stonewright-ability-search' );
 		if ( ! searchInput ) {
 			return;
 		}
+		var emptyState = document.querySelector( '[data-sw-abilities-empty]' );
 		searchInput.addEventListener( 'input', function () {
-			var query = searchInput.value.toLowerCase();
-			document.querySelectorAll( '.stonewright-provider-group' ).forEach( function ( group ) {
+			var query = searchInput.value.toLowerCase().trim();
+			var totalVisible = 0;
+			document.querySelectorAll( '.stonewright-provider-group, .sw-ability-category' ).forEach( function ( group ) {
 				var visible = 0;
 				group.querySelectorAll( '.stonewright-ability-row' ).forEach( function ( row ) {
 					var haystack = [
@@ -254,12 +422,21 @@
 					].join( ' ' ).toLowerCase();
 					var match = ! query || haystack.indexOf( query ) !== -1;
 					row.hidden = ! match;
+					clearAbilityHighlights( row );
 					if ( match ) {
 						visible++;
+						totalVisible++;
+						if ( query ) {
+							highlightAbilityText( row.querySelector( '.sw-ability-label' ), query );
+							highlightAbilityText( row.querySelector( '.sw-ability-tool' ), query );
+						}
 					}
 				} );
 				group.classList.toggle( 'is-filtered-empty', visible === 0 );
 			} );
+			if ( emptyState ) {
+				emptyState.hidden = totalVisible > 0 || ! query;
+			}
 		} );
 	}
 
@@ -278,6 +455,21 @@
 				var form = document.getElementById( checkbox.getAttribute( 'data-stonewright-submit-form' ) );
 				if ( form ) {
 					form.requestSubmit ? form.requestSubmit() : form.submit();
+				}
+			} );
+		} );
+
+		document.querySelectorAll( '[data-sw-bulk-action]' ).forEach( function ( button ) {
+			button.addEventListener( 'click', function () {
+				var action = button.getAttribute( 'data-sw-bulk-action' ) || '';
+				var category = button.getAttribute( 'data-sw-bulk-category' ) || '';
+				var actionSelect = document.querySelector( 'select[name="stonewright_bulk_action"]' );
+				var categorySelect = document.querySelector( 'select[name="stonewright_bulk_category"]' );
+				if ( actionSelect ) {
+					actionSelect.value = action;
+				}
+				if ( categorySelect ) {
+					categorySelect.value = category;
 				}
 			} );
 		} );
@@ -406,6 +598,8 @@
 		initSecretToggles();
 		initTokenGenerators();
 		initClientTabs();
+		initClientCards();
+		initConnectionTest();
 		initAbilitySearch();
 		initAbilityBulkControls();
 		initDeclarativeToggles();

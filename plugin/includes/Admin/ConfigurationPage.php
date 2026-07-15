@@ -26,6 +26,32 @@ final class ConfigurationPage {
 			'admin_post_stonewright_revoke_application_password',
 			[ self::class, 'handle_revoke_application_password' ]
 		);
+		add_action( 'wp_ajax_stonewright_set_setup_client', [ self::class, 'handle_set_setup_client' ] );
+	}
+
+	/**
+	 * Persist last selected setup client card for the current user.
+	 */
+	public static function handle_set_setup_client(): void {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_send_json_error( [ 'message' => 'forbidden' ], 403 );
+		}
+
+		check_ajax_referer( 'stonewright_setup_client', 'nonce' );
+
+		$slug  = isset( $_POST['client'] ) ? sanitize_key( (string) wp_unslash( $_POST['client'] ) ) : '';
+		$known = array_column( self::featured_client_defs(), 'slug' );
+		if ( ! in_array( $slug, $known, true ) ) {
+			wp_send_json_error( [ 'message' => 'invalid_client' ], 400 );
+		}
+
+		$user_id = get_current_user_id();
+		if ( $user_id <= 0 ) {
+			wp_send_json_error( [ 'message' => 'no_user' ], 400 );
+		}
+
+		update_user_meta( $user_id, 'stonewright_setup_client', $slug );
+		wp_send_json_success( [ 'client' => $slug ] );
 	}
 
 	public static function add_menu(): void {
@@ -41,8 +67,8 @@ final class ConfigurationPage {
 
 		add_submenu_page(
 			self::SLUG,
-			__( 'Configuration', 'stonewright' ),
-			__( 'Configuration', 'stonewright' ),
+			__( 'Setup', 'stonewright' ),
+			__( 'Setup', 'stonewright' ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]
@@ -96,6 +122,18 @@ final class ConfigurationPage {
 			'default'           => false,
 			'sanitize_callback' => static fn( mixed $value ): bool => (bool) $value,
 		] );
+
+		register_setting( self::OPTION_GROUP, 'stonewright_unsplash_access_key', [
+			'type'              => 'string',
+			'default'           => '',
+			'sanitize_callback' => 'sanitize_text_field',
+		] );
+
+		register_setting( self::OPTION_GROUP, 'stonewright_pexels_api_key', [
+			'type'              => 'string',
+			'default'           => '',
+			'sanitize_callback' => 'sanitize_text_field',
+		] );
 	}
 
 	public static function render(): void {
@@ -119,6 +157,8 @@ final class ConfigurationPage {
 		);
 		$atomic_enabled      = (bool) get_option( 'stonewright_elementor_v4_atomic', false );
 		$essential_mode      = (bool) get_option( 'stonewright_essential_tools_mode', true );
+		$unsplash_key        = (string) get_option( 'stonewright_unsplash_access_key', '' );
+		$pexels_key          = (string) get_option( 'stonewright_pexels_api_key', '' );
 		$server_url          = get_rest_url( null, 'mcp/stonewright' );
 		$current_user        = wp_get_current_user();
 		$current_user_id     = get_current_user_id();
@@ -135,32 +175,27 @@ final class ConfigurationPage {
 		$prompt_preview      = self::prompt_preview( $connect_prompt );
 		$example_prompts     = self::example_prompts();
 		$app_passwords       = self::application_passwords_for_current_user();
-		$status_class        = $enabled ? 'stonewright-badge--ok' : 'stonewright-badge--neutral';
-		$status_label        = $enabled ? __( 'Enabled', 'stonewright' ) : __( 'Disabled', 'stonewright' );
 		$risk_class          = 'production-safe' === $mode
 			? 'stonewright-risk-notice--ok'
 			: 'stonewright-risk-notice--warning';
 		$setup_diagnostics   = SetupDiagnostics::report();
 		$remote_http_snippet = ConnectClientConfig::http_snippet( $username, $prompt_password );
 		$remote_http_json    = (string) wp_json_encode( $remote_http_snippet, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
+		$has_app_password    = is_array( $generated_password ) || [] !== $app_passwords;
+		$step_states         = self::step_states( $enabled, $has_app_password );
+		$selected_client     = self::selected_setup_client( $current_user_id );
 		?>
-		<div class="wrap stonewright-admin-shell stonewright-config-page">
-			<div class="stonewright-brand-banner" aria-label="<?php esc_attr_e( 'Stonewright', 'stonewright' ); ?>">
-				<span>Stonewright</span>
-			</div>
-
-			<header class="stonewright-page-header">
+		<?php AdminShell::open( self::SLUG ); ?>
+		<div class="stonewright-config-page sw-setup-page">
+			<header class="sw-setup-header">
 				<div>
-					<h1><?php esc_html_e( 'Configuration', 'stonewright' ); ?></h1>
-					<p><?php esc_html_e( 'Enable Stonewright, generate an Application Password, then copy one client prompt.', 'stonewright' ); ?></p>
+					<h1><?php esc_html_e( 'Setup', 'stonewright' ); ?></h1>
+					<p><?php esc_html_e( 'Enable Stonewright, generate an Application Password, then connect your AI client.', 'stonewright' ); ?></p>
 				</div>
-				<span class="stonewright-badge <?php echo esc_attr( $status_class ); ?>">
-					<?php echo esc_html( $status_label ); ?>
-				</span>
 			</header>
 
 			<?php if ( wp_get_environment_type() === 'production' && $enabled ) : ?>
-				<div class="notice notice-warning">
+				<div class="notice notice-warning sw-notice">
 					<p>
 						<strong><?php esc_html_e( 'Production site detected.', 'stonewright' ); ?></strong>
 						<?php esc_html_e( 'Use production-safe mode for confirmation-token checks on destructive operations.', 'stonewright' ); ?>
@@ -168,13 +203,25 @@ final class ConfigurationPage {
 				</div>
 			<?php endif; ?>
 
-			<section class="stonewright-setup-status" aria-label="<?php esc_attr_e( 'Setup diagnostics', 'stonewright' ); ?>">
+			<section class="sw-setup-diagnostics" aria-label="<?php esc_attr_e( 'Setup diagnostics', 'stonewright' ); ?>">
 				<h2><?php esc_html_e( 'Setup diagnostics', 'stonewright' ); ?></h2>
-				<ul>
+				<ul class="sw-checklist">
 					<?php foreach ( $setup_diagnostics['checks'] as $check ) : ?>
-						<li data-status="<?php echo esc_attr( $check['status'] ); ?>">
-							<strong><?php echo esc_html( $check['label'] ); ?>:</strong>
-							<?php echo esc_html( $check['detail'] ); ?>
+						<?php
+						$status = (string) ( $check['status'] ?? 'error' );
+						$icon   = match ( $status ) {
+							'ok'   => '✓',
+							'warn' => '!',
+							'info' => 'ⓘ',
+							default => '✗',
+						};
+						?>
+						<li class="sw-checklist__item sw-checklist__item--<?php echo esc_attr( $status ); ?>" data-status="<?php echo esc_attr( $status ); ?>">
+							<span class="sw-checklist__icon" aria-hidden="true"><?php echo esc_html( $icon ); ?></span>
+							<span class="sw-checklist__body">
+								<strong class="sw-checklist__label"><?php echo esc_html( $check['label'] ); ?></strong>
+								<span class="sw-checklist__detail"><?php echo esc_html( $check['detail'] ); ?></span>
+							</span>
 						</li>
 					<?php endforeach; ?>
 				</ul>
@@ -192,23 +239,42 @@ final class ConfigurationPage {
 				</p>
 			</section>
 
-			<section class="stonewright-setup-grid" aria-label="<?php esc_attr_e( 'Stonewright setup steps', 'stonewright' ); ?>">
-				<form method="post" action="options.php" class="stonewright-setup-step stonewright-settings-form">
+			<nav class="sw-stepper" aria-label="<?php esc_attr_e( 'Setup progress', 'stonewright' ); ?>">
+				<?php
+				$step_labels = [
+					1 => __( 'Enable', 'stonewright' ),
+					2 => __( 'App Password', 'stonewright' ),
+					3 => __( 'Connect client', 'stonewright' ),
+				];
+				foreach ( $step_labels as $num => $label ) :
+					$state = $step_states[ $num ];
+					?>
+					<div class="sw-stepper__step sw-stepper__step--<?php echo esc_attr( $state ); ?>" data-step="<?php echo esc_attr( (string) $num ); ?>" data-state="<?php echo esc_attr( $state ); ?>">
+						<span class="sw-stepper__index" aria-hidden="true"><?php echo esc_html( (string) $num ); ?></span>
+						<span class="sw-stepper__label"><?php echo esc_html( $label ); ?></span>
+					</div>
+				<?php endforeach; ?>
+			</nav>
+
+			<section class="stonewright-setup-grid sw-setup-steps" aria-label="<?php esc_attr_e( 'Stonewright setup steps', 'stonewright' ); ?>">
+				<form method="post" action="options.php" class="stonewright-setup-step stonewright-settings-form sw-setup-card sw-setup-card--<?php echo esc_attr( $step_states[1] ); ?>">
 					<?php settings_fields( self::OPTION_GROUP ); ?>
-					<div class="stonewright-step-index">1</div>
+					<div class="stonewright-step-index" aria-hidden="true">1</div>
 					<div class="stonewright-step-body">
 						<h2><?php esc_html_e( 'Enable AI Abilities', 'stonewright' ); ?></h2>
-						<label class="stonewright-switch">
-							<input
-								type="checkbox"
-								name="stonewright_enabled"
-								id="stonewright_enabled"
-								value="1"
-								<?php checked( $enabled ); ?>
-							/>
-							<span><?php esc_html_e( 'Turn on Stonewright abilities for this site', 'stonewright' ); ?></span>
-						</label>
-						<div class="stonewright-field-row">
+						<div class="sw-field">
+							<label class="stonewright-switch">
+								<input
+									type="checkbox"
+									name="stonewright_enabled"
+									id="stonewright_enabled"
+									value="1"
+									<?php checked( $enabled ); ?>
+								/>
+								<span><?php esc_html_e( 'Turn on Stonewright abilities for this site', 'stonewright' ); ?></span>
+							</label>
+						</div>
+						<div class="sw-field stonewright-field-row">
 							<label for="stonewright_mode"><?php esc_html_e( 'Mode', 'stonewright' ); ?></label>
 							<select name="stonewright_mode" id="stonewright_mode">
 								<option value="development" <?php selected( $mode, 'development' ); ?>>
@@ -225,26 +291,54 @@ final class ConfigurationPage {
 						<div class="stonewright-risk-notice <?php echo esc_attr( $risk_class ); ?>">
 							<?php esc_html_e( 'Production-safe mode requires confirmation tokens for destructive operations.', 'stonewright' ); ?>
 						</div>
-						<label class="stonewright-switch">
+						<div class="sw-field">
+							<label class="stonewright-switch">
+								<input
+									type="checkbox"
+									name="stonewright_essential_tools_mode"
+									id="stonewright_essential_tools_mode"
+									value="1"
+									<?php checked( $essential_mode ); ?>
+								/>
+								<span><?php esc_html_e( 'Keep essential tools mode enabled for faster MCP startup', 'stonewright' ); ?></span>
+							</label>
+						</div>
+						<div class="sw-field">
+							<label class="stonewright-switch">
+								<input
+									type="checkbox"
+									name="stonewright_elementor_v4_atomic"
+									id="stonewright_elementor_v4_atomic"
+									value="1"
+									<?php checked( $atomic_enabled ); ?>
+								/>
+								<span><?php esc_html_e( 'Enable Elementor V4 atomic abilities', 'stonewright' ); ?></span>
+							</label>
+						</div>
+						<div class="sw-field">
+							<label for="stonewright_unsplash_access_key"><?php esc_html_e( 'Unsplash access key (optional)', 'stonewright' ); ?></label>
 							<input
-								type="checkbox"
-								name="stonewright_essential_tools_mode"
-								id="stonewright_essential_tools_mode"
-								value="1"
-								<?php checked( $essential_mode ); ?>
+								type="password"
+								class="regular-text"
+								name="stonewright_unsplash_access_key"
+								id="stonewright_unsplash_access_key"
+								value="<?php echo esc_attr( $unsplash_key ); ?>"
+								autocomplete="off"
 							/>
-							<span><?php esc_html_e( 'Keep essential tools mode enabled for faster MCP startup', 'stonewright' ); ?></span>
-						</label>
-						<label class="stonewright-switch">
+							<p class="description"><?php esc_html_e( 'Leave empty to keep Unsplash off. Openverse stock search works without any key.', 'stonewright' ); ?></p>
+						</div>
+						<div class="sw-field">
+							<label for="stonewright_pexels_api_key"><?php esc_html_e( 'Pexels API key (optional)', 'stonewright' ); ?></label>
 							<input
-								type="checkbox"
-								name="stonewright_elementor_v4_atomic"
-								id="stonewright_elementor_v4_atomic"
-								value="1"
-								<?php checked( $atomic_enabled ); ?>
+								type="password"
+								class="regular-text"
+								name="stonewright_pexels_api_key"
+								id="stonewright_pexels_api_key"
+								value="<?php echo esc_attr( $pexels_key ); ?>"
+								autocomplete="off"
 							/>
-							<span><?php esc_html_e( 'Enable Elementor V4 atomic abilities', 'stonewright' ); ?></span>
-						</label>
+							<p class="description"><?php esc_html_e( 'Leave empty to keep Pexels off. Only used by stock-image abilities when set.', 'stonewright' ); ?></p>
+						</div>
 
 						<div class="stonewright-advanced-bridge">
 							<button
@@ -263,7 +357,7 @@ final class ConfigurationPage {
 									<li><?php esc_html_e( 'Save Settings.', 'stonewright' ); ?></li>
 									<li><?php esc_html_e( 'Copy the developer launch values into the local bridge process.', 'stonewright' ); ?></li>
 								</ol>
-								<div class="stonewright-field-row">
+								<div class="sw-field stonewright-field-row">
 									<label for="stonewright_companion_url"><?php esc_html_e( 'Bridge URL (usually keep default)', 'stonewright' ); ?></label>
 									<input
 										type="url"
@@ -274,9 +368,9 @@ final class ConfigurationPage {
 										autocomplete="off"
 									/>
 								</div>
-								<div class="stonewright-field-row stonewright-secret-field">
+								<div class="sw-field stonewright-field-row stonewright-secret-field">
 									<label for="stonewright_companion_token"><?php esc_html_e( 'Bridge token', 'stonewright' ); ?></label>
-									<div class="stonewright-inline-controls">
+									<div class="stonewright-inline-controls sw-actions">
 										<input
 											type="password"
 											class="regular-text"
@@ -311,20 +405,20 @@ final class ConfigurationPage {
 							</div>
 						</div>
 
-						<p class="submit stonewright-submit-row">
+						<div class="sw-actions stonewright-submit-row">
 							<?php submit_button( __( 'Save Settings', 'stonewright' ), 'primary', 'submit', false ); ?>
-						</p>
+						</div>
 					</div>
 				</form>
 
-				<div class="stonewright-setup-step" id="stonewright-application-password">
-					<div class="stonewright-step-index">2</div>
+				<div class="stonewright-setup-step sw-setup-card sw-setup-card--<?php echo esc_attr( $step_states[2] ); ?>" id="stonewright-application-password">
+					<div class="stonewright-step-index" aria-hidden="true">2</div>
 					<div class="stonewright-step-body">
 						<h2><?php esc_html_e( 'Application Password', 'stonewright' ); ?></h2>
 						<p class="description"><?php esc_html_e( 'Generate one WordPress Application Password for your AI client. It is embedded into the connection prompt in step 3 and shown only once.', 'stonewright' ); ?></p>
 
 						<?php if ( '' !== $app_password_error ) : ?>
-							<div class="notice notice-error inline">
+							<div class="notice notice-error inline sw-notice">
 								<p><?php echo esc_html( $app_password_error ); ?></p>
 							</div>
 						<?php endif; ?>
@@ -333,7 +427,7 @@ final class ConfigurationPage {
 							<div class="stonewright-app-password-success">
 								<strong><?php esc_html_e( 'Application password generated.', 'stonewright' ); ?></strong>
 								<span><?php esc_html_e( 'It is now embedded in the connection prompt in step 3. Save it somewhere safe; it will not be shown in full again.', 'stonewright' ); ?></span>
-								<div class="stonewright-inline-controls">
+								<div class="stonewright-inline-controls sw-actions">
 									<input
 										type="text"
 										readonly
@@ -352,7 +446,7 @@ final class ConfigurationPage {
 							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-app-password-form">
 								<input type="hidden" name="action" value="stonewright_generate_application_password"/>
 								<?php wp_nonce_field( 'stonewright_generate_application_password' ); ?>
-								<div class="stonewright-field-row">
+								<div class="sw-field stonewright-field-row">
 									<label for="stonewright_app_password_name"><?php esc_html_e( 'Name', 'stonewright' ); ?></label>
 									<input
 										type="text"
@@ -366,16 +460,18 @@ final class ConfigurationPage {
 									/>
 									<p class="description"><?php esc_html_e( 'Required. Use a clear client label so you can revoke it later.', 'stonewright' ); ?></p>
 								</div>
-								<?php
-								submit_button(
-									is_array( $generated_password )
-										? __( 'Generate another application password', 'stonewright' )
-										: __( 'Generate application password', 'stonewright' ),
-									'primary',
-									'submit',
-									false
-								);
-								?>
+								<div class="sw-actions">
+									<?php
+									submit_button(
+										is_array( $generated_password )
+											? __( 'Generate another application password', 'stonewright' )
+											: __( 'Generate application password', 'stonewright' ),
+										'primary',
+										'submit',
+										false
+									);
+									?>
+								</div>
 							</form>
 							<p>
 								<a href="<?php echo esc_url( admin_url( 'profile.php#application-passwords-section' ) ); ?>">
@@ -384,7 +480,7 @@ final class ConfigurationPage {
 							</p>
 							<?php self::render_application_password_table( $app_passwords ); ?>
 						<?php else : ?>
-							<div class="notice notice-warning inline">
+							<div class="notice notice-warning inline sw-notice">
 								<p><?php esc_html_e( 'Application Passwords are not available for this user or site. Enable HTTPS or create one from your WordPress profile.', 'stonewright' ); ?></p>
 							</div>
 							<a
@@ -397,11 +493,11 @@ final class ConfigurationPage {
 					</div>
 				</div>
 
-				<div class="stonewright-setup-step stonewright-setup-step--wide">
-					<div class="stonewright-step-index">3</div>
+				<div class="stonewright-setup-step stonewright-setup-step--wide sw-setup-card sw-setup-card--<?php echo esc_attr( $step_states[3] ); ?>">
+					<div class="stonewright-step-index" aria-hidden="true">3</div>
 					<div class="stonewright-step-body">
 						<h2><?php esc_html_e( 'Connect MCP Client', 'stonewright' ); ?></h2>
-						<p><?php esc_html_e( 'Copy this setup note into your AI client, or expand the JSON snippets for manual configuration.', 'stonewright' ); ?></p>
+						<p><?php esc_html_e( 'Pick your AI client for a ready-to-paste config with this site URL and username already filled in.', 'stonewright' ); ?></p>
 						<div class="stonewright-share-warning">
 							<strong><?php esc_html_e( 'Heads up:', 'stonewright' ); ?></strong>
 							<?php if ( '' !== $app_password_value ) : ?>
@@ -410,30 +506,37 @@ final class ConfigurationPage {
 								<?php esc_html_e( 'Generate an Application Password in step 2 to embed it automatically, or use manual configuration below.', 'stonewright' ); ?>
 							<?php endif; ?>
 						</div>
-						<pre
-							id="stonewright-connect-prompt-full"
-							class="stonewright-connect-prompt"
-							data-stonewright-text-preview="<?php echo esc_attr( $prompt_preview ); ?>"
-							data-stonewright-text-full="<?php echo esc_attr( $connect_prompt ); ?>"
-							data-stonewright-expanded="false"
-						><?php echo esc_html( $prompt_preview ); ?></pre>
-						<div class="stonewright-inline-controls stonewright-connect-actions">
-							<button
-								type="button"
-								class="button button-small"
-								data-stonewright-text-toggle="stonewright-connect-prompt-full"
-								aria-expanded="false"
-							><?php esc_html_e( 'Show full text', 'stonewright' ); ?></button>
-							<button type="button" class="button button-primary" data-stonewright-copy="stonewright-connect-prompt-full">
-								<?php esc_html_e( 'Copy prompt', 'stonewright' ); ?>
-							</button>
-							<button
-								type="button"
-								class="button-link"
-								data-stonewright-text-collapse="stonewright-connect-prompt-full"
-								hidden
-							><?php esc_html_e( 'Show less', 'stonewright' ); ?></button>
-						</div>
+
+						<?php self::render_client_cards( $username, $prompt_password, $selected_client ); ?>
+
+						<details class="sw-setup-details">
+							<summary><?php esc_html_e( 'Paste-to-agent prompt', 'stonewright' ); ?></summary>
+							<pre
+								id="stonewright-connect-prompt-full"
+								class="stonewright-connect-prompt"
+								data-stonewright-text-preview="<?php echo esc_attr( $prompt_preview ); ?>"
+								data-stonewright-text-full="<?php echo esc_attr( $connect_prompt ); ?>"
+								data-stonewright-expanded="false"
+							><?php echo esc_html( $prompt_preview ); ?></pre>
+							<div class="stonewright-inline-controls stonewright-connect-actions sw-actions">
+								<button
+									type="button"
+									class="button button-small"
+									data-stonewright-text-toggle="stonewright-connect-prompt-full"
+									aria-expanded="false"
+								><?php esc_html_e( 'Show full text', 'stonewright' ); ?></button>
+								<button type="button" class="button button-primary" data-stonewright-copy="stonewright-connect-prompt-full">
+									<?php esc_html_e( 'Copy prompt', 'stonewright' ); ?>
+								</button>
+								<button
+									type="button"
+									class="button-link"
+									data-stonewright-text-collapse="stonewright-connect-prompt-full"
+									hidden
+								><?php esc_html_e( 'Show less', 'stonewright' ); ?></button>
+							</div>
+						</details>
+
 						<div class="stonewright-link-stack">
 							<button
 								type="button"
@@ -471,10 +574,180 @@ final class ConfigurationPage {
 						</div>
 					</div>
 				</div>
+
+				<section class="sw-setup-card sw-setup-verify" aria-label="<?php esc_attr_e( 'Verify connection', 'stonewright' ); ?>">
+					<div class="stonewright-step-index" aria-hidden="true">✓</div>
+					<div class="stonewright-step-body">
+						<h2><?php esc_html_e( 'Verify connection', 'stonewright' ); ?></h2>
+						<p class="description"><?php esc_html_e( 'Run a self-test of the MCP endpoint, Application Passwords, tool surface, and Elementor detection.', 'stonewright' ); ?></p>
+						<div class="sw-actions">
+							<button
+								type="button"
+								class="button button-primary"
+								data-stonewright-connection-test
+								data-rest-url="<?php echo esc_url( rest_url( 'stonewright/v1/admin/connection-test' ) ); ?>"
+								data-rest-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>"
+							><?php esc_html_e( 'Run connection test', 'stonewright' ); ?></button>
+						</div>
+						<ul class="sw-checklist sw-connection-test-results" data-stonewright-connection-results hidden aria-live="polite"></ul>
+					</div>
+				</section>
 			</section>
 
 			<?php self::render_domain_lock_status(); ?>
 		</div>
+		<?php AdminShell::close(); ?>
+		<?php
+	}
+
+	/**
+	 * @return array{1: string, 2: string, 3: string} done|current|todo per step.
+	 */
+	private static function step_states( bool $enabled, bool $has_app_password ): array {
+		if ( ! $enabled ) {
+			return [ 1 => 'current', 2 => 'todo', 3 => 'todo' ];
+		}
+		if ( ! $has_app_password ) {
+			return [ 1 => 'done', 2 => 'current', 3 => 'todo' ];
+		}
+		return [ 1 => 'done', 2 => 'done', 3 => 'current' ];
+	}
+
+	private static function selected_setup_client( int $user_id ): string {
+		$default = 'claude-desktop';
+		if ( $user_id <= 0 ) {
+			return $default;
+		}
+		$saved = get_user_meta( $user_id, 'stonewright_setup_client', true );
+		$known = array_column( self::featured_client_defs(), 'slug' );
+		return is_string( $saved ) && in_array( $saved, $known, true ) ? $saved : $default;
+	}
+
+	/**
+	 * Featured client cards for step 3 (E2 final configs).
+	 *
+	 * @return array<int, array{slug: string, label: string, blurb: string, snippet_slug: string}>
+	 */
+	private static function featured_client_defs(): array {
+		return [
+			[
+				'slug'         => 'claude-code',
+				'label'        => __( 'Claude Code', 'stonewright' ),
+				'blurb'        => __( 'One terminal command via claude mcp add.', 'stonewright' ),
+				'snippet_slug' => 'claude-code',
+			],
+			[
+				'slug'         => 'claude-desktop',
+				'label'        => __( 'Claude Desktop', 'stonewright' ),
+				'blurb'        => __( 'Paste JSON into claude_desktop_config.json.', 'stonewright' ),
+				'snippet_slug' => 'claude-desktop',
+			],
+			[
+				'slug'         => 'cursor',
+				'label'        => __( 'Cursor', 'stonewright' ),
+				'blurb'        => __( 'Project or global .cursor/mcp.json.', 'stonewright' ),
+				'snippet_slug' => 'cursor',
+			],
+			[
+				'slug'         => 'codex',
+				'label'        => __( 'Codex', 'stonewright' ),
+				'blurb'        => __( 'TOML block for ~/.codex/config.toml.', 'stonewright' ),
+				'snippet_slug' => 'codex',
+			],
+			[
+				'slug'         => 'antigravity',
+				'label'        => __( 'Antigravity / Gemini', 'stonewright' ),
+				'blurb'        => __( 'Low-tools profile for strict tool-cap clients.', 'stonewright' ),
+				'snippet_slug' => 'antigravity',
+			],
+			[
+				'slug'         => 'other',
+				'label'        => __( 'Other', 'stonewright' ),
+				'blurb'        => __( 'VS Code, Windsurf, Zed, OpenCode, and more.', 'stonewright' ),
+				'snippet_slug' => 'vscode-copilot',
+			],
+		];
+	}
+
+	private static function render_client_cards( string $username, string $app_password, string $selected_slug ): void {
+		$clients = self::featured_client_defs();
+		if ( ! in_array( $selected_slug, array_column( $clients, 'slug' ), true ) ) {
+			$selected_slug = 'claude-desktop';
+		}
+		?>
+		<div class="sw-client-cards" role="tablist" aria-label="<?php esc_attr_e( 'MCP clients', 'stonewright' ); ?>">
+			<?php foreach ( $clients as $client ) : ?>
+				<?php $is_active = $client['slug'] === $selected_slug; ?>
+				<button
+					type="button"
+					role="tab"
+					class="sw-client-card<?php echo $is_active ? ' is-active' : ''; ?>"
+					data-stonewright-client-card="<?php echo esc_attr( $client['slug'] ); ?>"
+					aria-selected="<?php echo $is_active ? 'true' : 'false'; ?>"
+					aria-controls="sw-client-panel-<?php echo esc_attr( $client['slug'] ); ?>"
+				>
+					<span class="sw-client-card__label"><?php echo esc_html( $client['label'] ); ?></span>
+					<span class="sw-client-card__blurb"><?php echo esc_html( $client['blurb'] ); ?></span>
+				</button>
+			<?php endforeach; ?>
+		</div>
+
+		<?php foreach ( $clients as $client ) : ?>
+			<?php
+			$snippet = ConnectClientConfig::snippet_for(
+				$client['snippet_slug'],
+				$username,
+				$app_password
+			);
+			if ( is_wp_error( $snippet ) ) {
+				continue;
+			}
+
+			$is_active = $client['slug'] === $selected_slug;
+			$is_cli    = isset( $snippet['command'] ) && is_string( $snippet['command'] );
+			$is_toml   = isset( $snippet['toml'] ) && is_string( $snippet['toml'] );
+			$display   = $is_cli
+				? $snippet['command']
+				: (
+					$is_toml
+						? $snippet['toml']
+						: (string) wp_json_encode( $snippet, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES )
+				);
+			$meta      = null;
+			foreach ( ConnectClientConfig::clients() as $row ) {
+				if ( $row['slug'] === $client['snippet_slug'] ) {
+					$meta = $row;
+					break;
+				}
+			}
+			$panel_id = 'sw-client-panel-' . $client['slug'];
+			$code_id  = 'sw-client-snippet-' . $client['slug'];
+			?>
+			<div
+				id="<?php echo esc_attr( $panel_id ); ?>"
+				class="sw-client-panel<?php echo $is_active ? ' is-active' : ''; ?>"
+				role="tabpanel"
+				data-stonewright-client-panel="<?php echo esc_attr( $client['slug'] ); ?>"
+				<?php echo $is_active ? '' : 'hidden'; ?>
+			>
+				<?php if ( is_array( $meta ) ) : ?>
+					<p class="stonewright-client-config-path">
+						<strong><?php echo $is_cli ? esc_html__( 'Run command:', 'stonewright' ) : esc_html__( 'Config file:', 'stonewright' ); ?></strong>
+						<code><?php echo esc_html( $meta['config_path'] ); ?></code>
+					</p>
+					<p class="description"><?php echo esc_html( $meta['notes'] ); ?></p>
+				<?php endif; ?>
+				<?php if ( 'other' === $client['slug'] ) : ?>
+					<p class="description"><?php esc_html_e( 'Showing VS Code (Copilot) as a starting point. Open “Need the JSON config for a specific client?” below for every supported client.', 'stonewright' ); ?></p>
+				<?php endif; ?>
+				<pre id="<?php echo esc_attr( $code_id ); ?>"><code><?php echo esc_html( $display ); ?></code></pre>
+				<div class="sw-actions">
+					<button type="button" class="button button-primary" data-stonewright-copy="<?php echo esc_attr( $code_id ); ?>">
+						<?php esc_html_e( 'Copy snippet', 'stonewright' ); ?>
+					</button>
+				</div>
+			</div>
+		<?php endforeach; ?>
 		<?php
 	}
 

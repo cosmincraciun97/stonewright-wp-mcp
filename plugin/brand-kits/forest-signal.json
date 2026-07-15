@@ -1,0 +1,28 @@
+{
+    "id": "forest-signal",
+    "name": "Forest Signal",
+    "description": "Earthy greens for outdoor and wellness brands.",
+    "colors": {
+        "primary": "#1B4332",
+        "secondary": "#2D6A4F",
+        "accent": "#D4A373",
+        "background": "#F8FAF7",
+        "surface": "#E9F5EE",
+        "text": "#081C15"
+    },
+    "fonts": {
+        "heading": "Fraunces, Georgia, serif",
+        "body": "Source Sans 3, system-ui, sans-serif"
+    },
+    "radius": {
+        "sm": "4px",
+        "md": "8px",
+        "lg": "16px"
+    },
+    "spacing": {
+        "xs": "8px",
+        "sm": "16px",
+        "md": "24px",
+        "lg": "48px"
+    }
+}

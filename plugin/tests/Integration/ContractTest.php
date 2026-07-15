@@ -65,6 +65,71 @@ final class ContractTest extends TestCase {
 		$GLOBALS['stonewright_test_next_nav_menu_id']      = 6001;
 		$GLOBALS['stonewright_test_next_nav_menu_item_id'] = 6101;
 		$this->prepare_sandbox_files();
+		$this->seed_contract_snapshot();
+		$this->seed_stock_http_mock();
+	}
+
+	/**
+	 * Snapshot used by change-restore success fixture.
+	 */
+	private function seed_contract_snapshot(): void {
+		$post_id = 1;
+		if ( ! isset( $GLOBALS['stonewright_test_posts'][ $post_id ] ) ) {
+			return;
+		}
+		$snapshots = [
+			'snap_contract_restore' => [
+				'snapshot_id'  => 'snap_contract_restore',
+				'created_at'   => time(),
+				'post_title'   => 'Contract Post',
+				'post_status'  => 'publish',
+				'post_content' => 'Restored content',
+				'post_excerpt' => '',
+				'meta'         => [],
+				'meta_absent'  => [],
+			],
+		];
+		$GLOBALS['stonewright_test_posts'][ $post_id ]->meta['_stonewright_backups'] = $snapshots;
+		if ( ! isset( $GLOBALS['stonewright_test_post_meta'] ) ) {
+			$GLOBALS['stonewright_test_post_meta'] = [];
+		}
+		$GLOBALS['stonewright_test_post_meta'][ $post_id ]['_stonewright_backups'] = $snapshots;
+	}
+
+	/**
+	 * Openverse-shaped response for stock-image-search contract fixtures.
+	 */
+	private function seed_stock_http_mock(): void {
+		$GLOBALS['stonewright_test_wp_remote_get'] = static function ( string $url, array $args = [] ): array {
+			if ( str_contains( $url, 'api.openverse.org' ) ) {
+				return [
+					'response' => [ 'code' => 200 ],
+					'body'     => wp_json_encode(
+						[
+							'results' => [
+								[
+									'id'            => 'ov-1',
+									'title'         => 'Timber House',
+									'url'           => 'https://example.test/stock/photo.jpg',
+									'thumbnail'     => 'https://example.test/stock/photo-thumb.jpg',
+									'width'         => 1200,
+									'height'        => 800,
+									'creator'       => 'Test Photographer',
+									'license'       => 'cc0',
+									'license_url'   => 'https://creativecommons.org/publicdomain/zero/1.0/',
+									'foreign_landing_url' => 'https://example.test/landing',
+								],
+							],
+						]
+					),
+				];
+			}
+
+			return [
+				'response' => [ 'code' => 200 ],
+				'body'     => wp_json_encode( [ 'results' => [] ] ),
+			];
+		};
 	}
 
 	/**

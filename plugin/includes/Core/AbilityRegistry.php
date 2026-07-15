@@ -16,6 +16,11 @@ use Stonewright\WpMcp\Abilities\Content\GetPage;
 use Stonewright\WpMcp\Abilities\Content\UpdatePage;
 use Stonewright\WpMcp\Abilities\Content\UpdatePost;
 use Stonewright\WpMcp\Abilities\ContentModel\CptAcfLoopGridFlow;
+use Stonewright\WpMcp\Abilities\Blueprints\ApplyBlueprint;
+use Stonewright\WpMcp\Abilities\Blueprints\GetBlueprint;
+use Stonewright\WpMcp\Abilities\Blueprints\ListBlueprints;
+use Stonewright\WpMcp\Abilities\BrandKits\ApplyBrandKit;
+use Stonewright\WpMcp\Abilities\BrandKits\ListBrandKits;
 use Stonewright\WpMcp\Abilities\Design\ApplyToPost;
 use Stonewright\WpMcp\Abilities\Design\BuildSpec;
 use Stonewright\WpMcp\Abilities\Design\ChooseRenderer;
@@ -41,7 +46,10 @@ use Stonewright\WpMcp\Abilities\ElementorV3\ContainerSchema;
 use Stonewright\WpMcp\Abilities\ElementorV3\ElementorSchema;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetElement;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetKitGlobals;
+use Stonewright\WpMcp\Abilities\ElementorV3\BuildTree;
+use Stonewright\WpMcp\Abilities\ElementorV3\DesignMirrorExport;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetPageStructure;
+use Stonewright\WpMcp\Abilities\ElementorV3\PageDigest;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetWidgetSchema;
 use Stonewright\WpMcp\Abilities\ElementorV3\ListWidgets;
 use Stonewright\WpMcp\Abilities\ElementorV3\MoveElement;
@@ -85,6 +93,7 @@ use Stonewright\WpMcp\Abilities\Gutenberg\RemoveBlock;
 use Stonewright\WpMcp\Abilities\Gutenberg\SerializeBlocks;
 use Stonewright\WpMcp\Abilities\Gutenberg\TransformHtml;
 use Stonewright\WpMcp\Abilities\Gutenberg\UpdateBlock;
+use Stonewright\WpMcp\Abilities\Memory\FeedbackCapture;
 use Stonewright\WpMcp\Abilities\Memory\MemoryDelete;
 use Stonewright\WpMcp\Abilities\Memory\MemoryGet;
 use Stonewright\WpMcp\Abilities\Memory\MemoryList;
@@ -140,6 +149,8 @@ use Stonewright\WpMcp\Abilities\Media\GetMedia;
 use Stonewright\WpMcp\Abilities\Media\ListMedia;
 use Stonewright\WpMcp\Abilities\Media\OptimizeMedia;
 use Stonewright\WpMcp\Abilities\Media\SetAlt;
+use Stonewright\WpMcp\Abilities\Media\StockImageImport;
+use Stonewright\WpMcp\Abilities\Media\StockImageSearch;
 use Stonewright\WpMcp\Abilities\Media\UploadMedia;
 use Stonewright\WpMcp\Abilities\Media\UploadMediaBatch;
 use Stonewright\WpMcp\Abilities\Menu\MenuAddItem;
@@ -154,6 +165,8 @@ use Stonewright\WpMcp\Abilities\Security\CreateOneTimeLink;
 use Stonewright\WpMcp\Abilities\Security\IssueConfirmationToken;
 use Stonewright\WpMcp\Abilities\Site\BackupPage as SiteBackupPage;
 use Stonewright\WpMcp\Abilities\Site\Capabilities;
+use Stonewright\WpMcp\Abilities\Site\ChangeLog;
+use Stonewright\WpMcp\Abilities\Site\ChangeRestore;
 use Stonewright\WpMcp\Abilities\Site\CreateRevision;
 use Stonewright\WpMcp\Abilities\Site\DiscoverShortcodes;
 use Stonewright\WpMcp\Abilities\Site\Environment;
@@ -162,6 +175,7 @@ use Stonewright\WpMcp\Abilities\Site\Info;
 use Stonewright\WpMcp\Abilities\Site\ListPlugins;
 use Stonewright\WpMcp\Abilities\Site\Ping;
 use Stonewright\WpMcp\Abilities\Site\SetFrontPage;
+use Stonewright\WpMcp\Abilities\Site\SitePulse;
 use Stonewright\WpMcp\Abilities\Site\Theme as SiteTheme;
 
 /**
@@ -189,10 +203,13 @@ final class AbilityRegistry {
 			Capabilities::class,
 			Environment::class,
 			Health::class,
+			SitePulse::class,
 			ListPlugins::class,
 			SiteTheme::class,
 			SetFrontPage::class,
 			SiteBackupPage::class,
+			ChangeLog::class,
+			ChangeRestore::class,
 			CreateRevision::class,
 			DiscoverShortcodes::class,
 
@@ -216,6 +233,8 @@ final class AbilityRegistry {
 			GetMedia::class,
 			SetAlt::class,
 			OptimizeMedia::class,
+			StockImageSearch::class,
+			StockImageImport::class,
 
 			// Gutenberg.
 			ListRegisteredBlocks::class,
@@ -254,6 +273,9 @@ final class AbilityRegistry {
 			ListWidgets::class,
 			GetWidgetSchema::class,
 			GetPageStructure::class,
+			PageDigest::class,
+			BuildTree::class,
+			DesignMirrorExport::class,
 			GetElement::class,
 			AddContainer::class,
 			AddWidget::class,
@@ -306,11 +328,19 @@ final class AbilityRegistry {
 			// Design — smart-detection intent resolver.
 			WidgetIntentResolve::class,
 
+			// Blueprints + brand kits.
+			ListBlueprints::class,
+			GetBlueprint::class,
+			ApplyBlueprint::class,
+			ListBrandKits::class,
+			ApplyBrandKit::class,
+
 			// Memory (Wave 3a).
 			MemoryList::class,
 			MemoryGet::class,
 			MemorySave::class,
 			LearningRecord::class,
+			FeedbackCapture::class,
 			MemoryDelete::class,
 
 			// System (Wave 3b).

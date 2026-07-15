@@ -22,6 +22,9 @@ final class SkillsSeeder {
 			$dirs = glob( self::$skills_dir . '/*', GLOB_ONLYDIR );
 			if ( is_array( $dirs ) ) {
 				foreach ( $dirs as $dir ) {
+					if ( 'playbooks' === basename( $dir ) ) {
+						continue;
+					}
 					$skill_file = $dir . '/SKILL.md';
 					if ( is_file( $skill_file ) ) {
 						self::seed_from_file( basename( $dir ), $skill_file );
@@ -30,7 +33,64 @@ final class SkillsSeeder {
 			}
 		}
 
+		self::seed_playbooks();
 		self::seed_meta_skill();
+	}
+
+	/**
+	 * Seed prompt playbooks from skills/playbooks/*.md with source=playbook.
+	 */
+	private static function seed_playbooks(): void {
+		$playbooks_dir = self::$skills_dir . '/playbooks';
+		if ( ! is_dir( $playbooks_dir ) ) {
+			return;
+		}
+
+		$files = glob( $playbooks_dir . '/*.md' );
+		if ( ! is_array( $files ) ) {
+			return;
+		}
+
+		foreach ( $files as $file_path ) {
+			self::seed_playbook_from_file( $file_path );
+		}
+	}
+
+	private static function seed_playbook_from_file( string $file_path ): void {
+		$content = file_get_contents( $file_path ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+		if ( false === $content ) {
+			return;
+		}
+
+		$base           = basename( $file_path, '.md' );
+		$title          = self::slug_to_title( $base );
+		$description    = '';
+		$enable_agentic = true;
+		$enable_prompt  = true;
+
+		if ( str_starts_with( ltrim( $content ), '---' ) ) {
+			$end = strpos( $content, '---', 3 );
+			if ( false !== $end ) {
+				$front_matter = substr( $content, 3, $end - 3 );
+				$content      = ltrim( substr( $content, $end + 3 ) );
+
+				$title          = self::front_matter_string( $front_matter, 'name', $title );
+				$description    = self::front_matter_string( $front_matter, 'description', $description );
+				$enable_agentic = self::front_matter_bool( $front_matter, 'enable_agentic', $enable_agentic );
+				$enable_prompt  = self::front_matter_bool( $front_matter, 'enable_prompt', $enable_prompt );
+			}
+		}
+
+		Skills::save( [
+			'slug'           => 'playbook-' . sanitize_title( $base ),
+			'title'          => $title,
+			'description'    => $description,
+			'content'        => trim( $content ),
+			'enabled'        => 1,
+			'enable_agentic' => $enable_agentic,
+			'enable_prompt'  => $enable_prompt,
+			'source'         => 'playbook',
+		] );
 	}
 
 	private static function seed_from_file( string $dir_name, string $file_path ): void {

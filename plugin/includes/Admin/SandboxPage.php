@@ -61,7 +61,8 @@ final class SandboxPage {
 			'audit'          => __( 'Audit Log', 'stonewright' ),
 		];
 		?>
-		<div class="wrap stonewright-admin-shell stonewright-sandbox-page">
+		<?php AdminShell::open( self::SLUG ); ?>
+		<div class="stonewright-sandbox-page">
 			<div class="stonewright-page-header">
 				<div>
 					<h1><?php esc_html_e( 'Sandbox', 'stonewright' ); ?></h1>
@@ -69,11 +70,12 @@ final class SandboxPage {
 				</div>
 			</div>
 
-			<nav class="nav-tab-wrapper" aria-label="<?php esc_attr_e( 'Sandbox sections', 'stonewright' ); ?>">
+			<nav class="sw-tabs" aria-label="<?php esc_attr_e( 'Sandbox sections', 'stonewright' ); ?>">
 				<?php foreach ( $tabs as $slug => $label ) : ?>
 					<a
 						href="<?php echo esc_url( add_query_arg( [ 'page' => self::SLUG, 'tab' => $slug ], admin_url( 'admin.php' ) ) ); ?>"
-						class="nav-tab<?php echo $current_tab === $slug ? ' nav-tab-active' : ''; ?>"
+						class="sw-tabs__link<?php echo $current_tab === $slug ? ' is-active' : ''; ?>"
+						<?php echo $current_tab === $slug ? ' aria-current="page"' : ''; ?>
 					><?php echo esc_html( $label ); ?></a>
 				<?php endforeach; ?>
 			</nav>
@@ -90,6 +92,7 @@ final class SandboxPage {
 				?>
 			</div>
 		</div>
+		<?php AdminShell::close(); ?>
 		<?php
 	}
 

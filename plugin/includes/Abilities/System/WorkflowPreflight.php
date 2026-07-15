@@ -218,6 +218,8 @@ final class WorkflowPreflight extends AbilityKernel {
 				'matched_skills'          => $context['matched_skills'] ?? [],
 				'matched_skill_playbooks' => $compact_playbooks,
 				'memory_entries'          => $context['memory_entries'] ?? [],
+				'custom_instructions'     => $context['custom_instructions'] ?? [ 'enabled' => false, 'text' => '' ],
+				'recurring_errors'        => $context['recurring_errors'] ?? [],
 				'expertise_packs'         => $context['expertise_packs'] ?? [],
 				'required_followups'      => $context['required_followups'] ?? [],
 			],
@@ -290,6 +292,9 @@ final class WorkflowPreflight extends AbilityKernel {
 				$skills[] = array_intersect_key( $skill, array_flip( [ 'slug', 'title' ] ) );
 			}
 		}
+		$custom = is_array( $context['custom_instructions'] ?? null ) ? $context['custom_instructions'] : [];
+		$errors = array_values( array_slice( (array) ( $context['recurring_errors'] ?? [] ), 0, 3 ) );
+		// Keep compact task-start under budget: omit empty learning signals.
 		$compact_context = [
 			'matched_skills'  => $skills,
 			'memory_refs'     => self::compact_memory_entries( $context['memory_entries'] ?? [] ),
@@ -297,11 +302,30 @@ final class WorkflowPreflight extends AbilityKernel {
 			'required_actions' => array_values( array_filter( [
 				[] !== $skills ? 'load_matched_skills' : null,
 				[] !== (array) ( $context['memory_entries'] ?? [] ) ? 'load_memory_refs' : null,
+				[] !== $errors ? 'review_recurring_errors' : null,
 				(bool) ( $profile['needs_visual_check'] ?? false ) ? 'connect_browser_before_visual_write' : null,
 				(bool) ( $profile['is_write'] ?? false ) ? 'pass_context_token_to_writes' : null,
 			] ) ),
 			'followups_ref'   => self::compact_object_ref( 'required_followups', $context['required_followups'] ?? [] ),
 		];
+		if ( ! empty( $custom['enabled'] ) && '' !== trim( (string) ( $custom['text'] ?? '' ) ) ) {
+			// Presence flag only — full instructions live in admin/memory.
+			$compact_context['custom_instructions'] = [ 'enabled' => true ];
+		}
+		if ( [] !== $errors ) {
+			$compact_context['recurring_errors'] = array_map(
+				static function ( $row ): array {
+					if ( ! is_array( $row ) ) {
+						return [];
+					}
+					return [
+						'ability' => (string) ( $row['ability'] ?? '' ),
+						'count'   => (int) ( $row['count'] ?? 0 ),
+					];
+				},
+				$errors
+			);
+		}
 
 		return [
 			'ok'             => (bool) ( $response['ok'] ?? false ),

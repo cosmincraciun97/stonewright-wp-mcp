@@ -1,0 +1,28 @@
+{
+    "id": "ink-gallery",
+    "name": "Ink Gallery",
+    "description": "Monochrome kit for photography portfolios.",
+    "colors": {
+        "primary": "#18181B",
+        "secondary": "#3F3F46",
+        "accent": "#A1A1AA",
+        "background": "#FAFAFA",
+        "surface": "#F4F4F5",
+        "text": "#09090B"
+    },
+    "fonts": {
+        "heading": "Playfair Display, Georgia, serif",
+        "body": "Work Sans, system-ui, sans-serif"
+    },
+    "radius": {
+        "sm": "4px",
+        "md": "8px",
+        "lg": "16px"
+    },
+    "spacing": {
+        "xs": "8px",
+        "sm": "16px",
+        "md": "24px",
+        "lg": "48px"
+    }
+}

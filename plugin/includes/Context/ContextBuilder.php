@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Core\AgentInstructions;
 use Stonewright\WpMcp\Expertise\ExpertiseResolver;
 use Stonewright\WpMcp\Memory\Memory;
+use Stonewright\WpMcp\Security\ErrorPatterns;
 use Stonewright\WpMcp\Skills\Skills;
 
 /**
@@ -53,6 +54,8 @@ final class ContextBuilder {
 				$matched_skills
 			),
 			'memory_entries'           => $matched_memory,
+			'custom_instructions'      => self::custom_instructions(),
+			'recurring_errors'         => self::recurring_error_warnings(),
 			'expertise_packs'          => ExpertiseResolver::resolve( $task, $surface ),
 			'specializations'          => SpecializationCatalog::match( $task, $surface ),
 			'recommended_external_mcps'      => self::recommended_external_mcps( $is_visual ),
@@ -61,6 +64,44 @@ final class ContextBuilder {
 			'design_implementation_contract' => ImplementationContract::contract(),
 			'required_followups'             => self::required_followups( $surface, $intent, $is_visual ),
 		];
+	}
+
+	/**
+	 * Active site custom instructions (when enabled).
+	 *
+	 * @return array{enabled:bool,text:string}
+	 */
+	private static function custom_instructions(): array {
+		$enabled = (bool) get_option( 'stonewright_custom_instructions_enabled', true );
+		$text    = $enabled ? (string) get_option( 'stonewright_custom_instructions', '' ) : '';
+		return [
+			'enabled' => $enabled && '' !== trim( $text ),
+			'text'    => mb_substr( $text, 0, 1200 ),
+		];
+	}
+
+	/**
+	 * Top recurring audit-error patterns for task-start warnings.
+	 *
+	 * @return list<array{ability:string,message:string,count:int,warning:string}>
+	 */
+	private static function recurring_error_warnings(): array {
+		$patterns = ErrorPatterns::recurring( 3 );
+		$out      = [];
+		foreach ( $patterns as $p ) {
+			$out[] = [
+				'ability' => (string) ( $p['ability'] ?? '' ),
+				'message' => (string) ( $p['message'] ?? '' ),
+				'count'   => (int) ( $p['count'] ?? 0 ),
+				'warning' => sprintf(
+					'Recurring failure on %s (%dx): %s. Avoid repeating the same args without fixing the cause.',
+					(string) ( $p['ability'] ?? 'ability' ),
+					(int) ( $p['count'] ?? 0 ),
+					(string) ( $p['message'] ?? 'error' )
+				),
+			];
+		}
+		return $out;
 	}
 
 	public static function is_visual_task( string $task, string $surface = 'unknown', string $intent = 'unknown' ): bool {

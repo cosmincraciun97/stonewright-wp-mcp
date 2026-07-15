@@ -61,26 +61,138 @@ final class AuditLog {
 			],
 			[ '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ]
 		);
+
+		// Learn from recurring errors without blocking the audit write path.
+		try {
+			ErrorPatterns::observe( $ability, $status, $sanitized_args );
+		} catch ( \Throwable ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch
+			// Pattern learning is best-effort.
+		}
 	}
 
 	/**
+	 * @param array<string, mixed> $filters Optional ability/status/user/date filters.
 	 * @return array<int, array<string, mixed>>
 	 */
-	public static function recent( int $per_page = 20, int $page = 1 ): array {
+	public static function recent( int $per_page = 20, int $page = 1, array $filters = [] ): array {
 		global $wpdb;
 		$table  = self::table_name();
 		$offset = max( 0, ( $page - 1 ) * $per_page );
 
+		[ $where_sql, $params ] = self::build_filter_clause( $filters );
+
+		$sql = "SELECT id, ability_name, user_id, result_status, sanitized_args, created_at
+			FROM {$table}
+			{$where_sql}
+			ORDER BY id DESC
+			LIMIT %d OFFSET %d"; // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name internal.
+		$params[] = $per_page;
+		$params[] = $offset;
+
+		// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared -- Dynamic WHERE assembled above; values prepared.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare( $sql, ...$params ),
+			ARRAY_A
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.NotPrepared
+
+		return is_array( $rows ) ? $rows : [];
+	}
+
+	/**
+	 * Daily call counts for the last N days (UTC), oldest → newest.
+	 *
+	 * @return array<string, int> Map of Y-m-d => count (includes zero days).
+	 */
+	public static function daily_counts( int $days = 14 ): array {
+		global $wpdb;
+		$days  = max( 1, min( 90, $days ) );
+		$table = self::table_name();
+		$from  = gmdate( 'Y-m-d 00:00:00', time() - ( ( $days - 1 ) * DAY_IN_SECONDS ) );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared -- Table name internal.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, ability_name, user_id, result_status, created_at FROM {$table} ORDER BY id DESC LIMIT %d OFFSET %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				$per_page,
-				$offset
+				"SELECT DATE(created_at) AS day, COUNT(*) AS total
+				FROM {$table}
+				WHERE created_at >= %s
+				GROUP BY DATE(created_at)
+				ORDER BY day ASC",
+				$from
 			),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared
 
-		return is_array( $rows ) ? $rows : [];
+		$counts = [];
+		for ( $i = $days - 1; $i >= 0; --$i ) {
+			$day            = gmdate( 'Y-m-d', time() - ( $i * DAY_IN_SECONDS ) );
+			$counts[ $day ] = 0;
+		}
+
+		if ( is_array( $rows ) ) {
+			foreach ( $rows as $row ) {
+				$day = (string) ( $row['day'] ?? '' );
+				if ( isset( $counts[ $day ] ) ) {
+					$counts[ $day ] = (int) ( $row['total'] ?? 0 );
+				}
+			}
+		}
+
+		return $counts;
+	}
+
+	/**
+	 * @param array<string, mixed> $filters Optional ability/status/user/date filters.
+	 * @return array{0: string, 1: array<int, mixed>}
+	 */
+	private static function build_filter_clause( array $filters ): array {
+		$clauses = [];
+		$params  = [];
+
+		$ability = isset( $filters['ability'] ) ? sanitize_text_field( (string) $filters['ability'] ) : '';
+		if ( '' !== $ability ) {
+			$clauses[] = 'ability_name LIKE %s';
+			$params[]  = '%' . self::esc_like( $ability ) . '%';
+		}
+
+		$status = isset( $filters['status'] ) ? sanitize_key( (string) $filters['status'] ) : '';
+		if ( in_array( $status, [ 'ok', 'error' ], true ) ) {
+			$clauses[] = 'result_status = %s';
+			$params[]  = $status;
+		}
+
+		$user = isset( $filters['user'] ) ? (int) $filters['user'] : 0;
+		if ( $user > 0 ) {
+			$clauses[] = 'user_id = %d';
+			$params[]  = $user;
+		}
+
+		$from = isset( $filters['from'] ) ? sanitize_text_field( (string) $filters['from'] ) : '';
+		if ( 1 === preg_match( '/^\d{4}-\d{2}-\d{2}$/', $from ) ) {
+			$clauses[] = 'created_at >= %s';
+			$params[]  = $from . ' 00:00:00';
+		}
+
+		$to = isset( $filters['to'] ) ? sanitize_text_field( (string) $filters['to'] ) : '';
+		if ( 1 === preg_match( '/^\d{4}-\d{2}-\d{2}$/', $to ) ) {
+			$clauses[] = 'created_at <= %s';
+			$params[]  = $to . ' 23:59:59';
+		}
+
+		if ( [] === $clauses ) {
+			return [ '', [] ];
+		}
+
+		return [ 'WHERE ' . implode( ' AND ', $clauses ), $params ];
+	}
+
+	private static function esc_like( string $value ): string {
+		global $wpdb;
+		if ( is_object( $wpdb ) && method_exists( $wpdb, 'esc_like' ) ) {
+			return $wpdb->esc_like( $value );
+		}
+		return addcslashes( $value, '_%\\' );
 	}
 
 	private static function hash_value( string $value ): string {

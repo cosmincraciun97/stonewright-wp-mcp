@@ -20,10 +20,26 @@ final class SetupDiagnostics {
 		$app_passwords = self::application_passwords_available();
 		$endpoint      = ConnectClientConfig::mcp_endpoint_url();
 		$tool_count    = count( AbilityRegistry::enabled_abilities() );
-		$checks        = [
+
+		$transport_detail = $https
+			? __( 'HTTPS active.', 'stonewright' )
+			: __( 'Running over HTTP. Fine for local and LAN sites; HTTPS is recommended when connecting from outside your network.', 'stonewright' );
+
+		$app_password_detail = $app_passwords
+			? __( 'Available for the current user.', 'stonewright' )
+			: ( $https
+				? __( 'Unavailable; check the user profile or Application Passwords settings.', 'stonewright' )
+				: __( 'Unavailable on this HTTP site. For local setups add define( \'WP_ENVIRONMENT_TYPE\', \'local\' ); to wp-config.php so Application Passwords work without HTTPS.', 'stonewright' ) );
+
+		$checks = [
 			self::check( 'plugin', $enabled, __( 'Stonewright abilities', 'stonewright' ), $enabled ? __( 'Enabled.', 'stonewright' ) : __( 'Enable Stonewright in step 1.', 'stonewright' ) ),
-			self::check( 'https', $https, __( 'HTTPS', 'stonewright' ), $https ? __( 'Credentials are protected in transit.', 'stonewright' ) : __( 'Remote setup requires HTTPS.', 'stonewright' ) ),
-			self::check( 'application_passwords', $app_passwords, __( 'Application Passwords', 'stonewright' ), $app_passwords ? __( 'Available for the current user.', 'stonewright' ) : __( 'Unavailable; enable HTTPS or check the user profile.', 'stonewright' ) ),
+			[
+				'id'     => 'transport',
+				'status' => $https ? 'ok' : 'info',
+				'label'  => __( 'Connection transport', 'stonewright' ),
+				'detail' => $transport_detail,
+			],
+			self::check( 'application_passwords', $app_passwords, __( 'Application Passwords', 'stonewright' ), $app_password_detail ),
 			self::check( 'endpoint', '' !== $endpoint, __( 'MCP endpoint', 'stonewright' ), $endpoint ),
 			self::check( 'tool_budget', $tool_count <= 20, __( 'Compact tool surface', 'stonewright' ), sprintf( __( '%d tools exposed in the current profile.', 'stonewright' ), $tool_count ) ),
 		];

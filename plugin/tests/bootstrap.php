@@ -70,6 +70,14 @@ if ( ! defined( 'MINUTE_IN_SECONDS' ) ) {
 	define( 'MINUTE_IN_SECONDS', 60 );
 }
 
+if ( ! defined( 'HOUR_IN_SECONDS' ) ) {
+	define( 'HOUR_IN_SECONDS', 3600 );
+}
+
+if ( ! defined( 'DAY_IN_SECONDS' ) ) {
+	define( 'DAY_IN_SECONDS', 86400 );
+}
+
 // ---------------------------------------------------------------------------
 // Autoloader — prefer Composer's; fall back to a hand-rolled PSR-4 mapper.
 // ---------------------------------------------------------------------------
@@ -119,6 +127,12 @@ if ( ! function_exists( 'wp_json_encode' ) ) {
 	}
 }
 
+if ( ! function_exists( '_n' ) ) {
+	function _n( string $single, string $plural, int $number, string $domain = 'default' ): string {
+		return 1 === $number ? $single : $plural;
+	}
+}
+
 if ( ! function_exists( '__' ) ) {
 	function __( string $text, string $domain = 'default' ): string {
 		return $text;
@@ -163,6 +177,30 @@ if ( ! function_exists( 'wp_get_current_user' ) ) {
 	}
 }
 
+if ( ! function_exists( 'get_user_by' ) ) {
+	/**
+	 * @return object|false
+	 */
+	function get_user_by( string $field, mixed $value ): object|false {
+		$users = $GLOBALS['stonewright_test_users'] ?? [];
+		foreach ( $users as $user ) {
+			if ( 'id' === $field && (int) ( $user->ID ?? 0 ) === (int) $value ) {
+				return $user;
+			}
+			if ( 'login' === $field && (string) ( $user->user_login ?? '' ) === (string) $value ) {
+				return $user;
+			}
+		}
+		if ( 'id' === $field && (int) $value > 0 ) {
+			return (object) [
+				'ID'         => (int) $value,
+				'user_login' => 'user-' . (int) $value,
+			];
+		}
+		return false;
+	}
+}
+
 if ( ! function_exists( 'wp_set_current_user' ) ) {
 	function wp_set_current_user( int $id, string $name = '' ): object {
 		$GLOBALS['stonewright_test_set_current_user'] = $id;
@@ -182,6 +220,51 @@ if ( ! function_exists( 'wp_set_auth_cookie' ) ) {
 	}
 }
 
+
+$GLOBALS['stonewright_test_user_meta'] ??= [];
+
+if ( ! function_exists( 'get_user_meta' ) ) {
+	function get_user_meta( int $user_id, string $key = '', bool $single = false ): mixed {
+		$store = $GLOBALS['stonewright_test_user_meta'][$user_id] ?? [];
+		if ( '' === $key ) {
+			return $store;
+		}
+		if ( ! array_key_exists( $key, $store ) ) {
+			return $single ? '' : [];
+		}
+		return $single ? $store[ $key ] : [ $store[ $key ] ];
+	}
+}
+
+if ( ! function_exists( 'update_user_meta' ) ) {
+	function update_user_meta( int $user_id, string $meta_key, mixed $meta_value, mixed $prev_value = '' ): bool {
+		$GLOBALS['stonewright_test_user_meta'][$user_id][$meta_key] = $meta_value;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_send_json_success' ) ) {
+	function wp_send_json_success( mixed $data = null, ?int $status_code = null ): void {
+		$GLOBALS['stonewright_test_json_response'] = [ 'success' => true, 'data' => $data, 'status' => $status_code ];
+	}
+}
+
+if ( ! function_exists( 'wp_send_json_error' ) ) {
+	function wp_send_json_error( mixed $data = null, ?int $status_code = null ): void {
+		$GLOBALS['stonewright_test_json_response'] = [ 'success' => false, 'data' => $data, 'status' => $status_code ];
+	}
+}
+
+if ( ! function_exists( 'check_ajax_referer' ) ) {
+	/**
+	 * @param string|int  $action
+	 * @param false|string $query_arg
+	 * @return false|int
+	 */
+	function check_ajax_referer( $action = -1, $query_arg = false, bool $stop = true ) {
+		return 1;
+	}
+}
 $GLOBALS['stonewright_test_transients'] ??= [];
 
 if ( ! function_exists( 'set_transient' ) ) {
@@ -1000,6 +1083,17 @@ if ( ! function_exists( 'get_permalink' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_strip_all_tags' ) ) {
+	function wp_strip_all_tags( string $text, bool $remove_breaks = false ): string {
+		$text = preg_replace( '@<(script|style)[^>]*?>.*?</\\1>@si', '', $text ) ?? $text;
+		$text = strip_tags( $text );
+		if ( $remove_breaks ) {
+			$text = preg_replace( '/[\\r\\n\\t ]+/', ' ', $text ) ?? $text;
+		}
+		return trim( $text );
+	}
+}
+
 if ( ! function_exists( 'sanitize_title' ) ) {
 	function sanitize_title( string $title, string $fallback_title = '', string $context = 'save' ): string {
 		return sanitize_key( $title );
@@ -1073,6 +1167,36 @@ if ( ! function_exists( 'media_handle_sideload' ) ) {
 			'meta'           => [],
 		];
 		return $id;
+	}
+}
+
+
+if ( ! function_exists( 'media_sideload_image' ) ) {
+	/**
+	 * @return int|string|\WP_Error
+	 */
+	function media_sideload_image( string $file, int $post_id = 0, string $desc = '', string $return_type = 'html' ) {
+		if ( isset( $GLOBALS['stonewright_test_media_sideload_image'] ) && is_callable( $GLOBALS['stonewright_test_media_sideload_image'] ) ) {
+			return ( $GLOBALS['stonewright_test_media_sideload_image'] )( $file, $post_id, $desc, $return_type );
+		}
+		$id = media_handle_sideload(
+			[
+				'name'     => basename( (string) ( wp_parse_url( $file, PHP_URL_PATH ) ?: 'image.jpg' ) ),
+				'tmp_name' => $file,
+			],
+			$post_id,
+			$desc
+		);
+		if ( is_wp_error( $id ) ) {
+			return $id;
+		}
+		if ( 'id' === $return_type ) {
+			return (int) $id;
+		}
+		if ( 'src' === $return_type ) {
+			return (string) wp_get_attachment_url( (int) $id );
+		}
+		return '<img src="' . esc_url( (string) wp_get_attachment_url( (int) $id ) ) . '" alt="" />';
 	}
 }
 
@@ -1375,6 +1499,16 @@ if ( ! function_exists( 'wp_safe_remote_post' ) ) {
 
 if ( ! function_exists( 'wp_remote_get' ) ) {
 	function wp_remote_get( string $url, array $args = [] ): array|\WP_Error {
+		$GLOBALS['stonewright_test_wp_remote_get_calls'][] = [ 'url' => $url, 'args' => $args ];
+
+		$override = $GLOBALS['stonewright_test_wp_remote_get'] ?? null;
+		if ( is_callable( $override ) ) {
+			return $override( $url, $args );
+		}
+		if ( is_array( $override ) || $override instanceof \WP_Error ) {
+			return $override;
+		}
+
 		return [
 			'response' => [ 'code' => 200 ],
 			'body'     => wp_json_encode(
@@ -1399,6 +1533,71 @@ if ( ! function_exists( 'wp_remote_get' ) ) {
 				]
 			),
 		];
+	}
+}
+
+if ( ! function_exists( 'plugin_basename' ) ) {
+	function plugin_basename( string $file ): string {
+		$file = str_replace( '\\', '/', $file );
+		if ( defined( 'STONEWRIGHT_DIR' ) ) {
+			$base = rtrim( str_replace( '\\', '/', (string) STONEWRIGHT_DIR ), '/' );
+			if ( str_starts_with( $file, $base . '/' ) ) {
+				return 'stonewright/' . ltrim( substr( $file, strlen( $base ) ), '/' );
+			}
+		}
+		return basename( dirname( $file ) ) . '/' . basename( $file );
+	}
+}
+
+if ( ! function_exists( 'wp_nonce_url' ) ) {
+	function wp_nonce_url( string $actionurl, int|string $action = -1, string $name = '_wpnonce' ): string {
+		$nonce = wp_create_nonce( (string) $action );
+		$sep   = str_contains( $actionurl, '?' ) ? '&' : '?';
+		return $actionurl . $sep . rawurlencode( $name ) . '=' . rawurlencode( $nonce );
+	}
+}
+
+if ( ! function_exists( 'nocache_headers' ) ) {
+	function nocache_headers(): void {
+		$GLOBALS['stonewright_test_nocache_headers'] = true;
+	}
+}
+
+if ( ! function_exists( 'wp_delete_file' ) ) {
+	function wp_delete_file( string $file ): void {
+		if ( is_file( $file ) ) {
+			@unlink( $file );
+		}
+	}
+}
+
+if ( ! function_exists( 'is_admin_bar_showing' ) ) {
+	function is_admin_bar_showing(): bool {
+		return (bool) ( $GLOBALS['stonewright_test_admin_bar_showing'] ?? true );
+	}
+}
+
+if ( ! function_exists( 'get_site_url' ) ) {
+	function get_site_url( ?int $blog_id = null, string $path = '', ?string $scheme = null ): string {
+		$base = $GLOBALS['stonewright_test_site_url'] ?? 'https://example.test';
+		return rtrim( $base, '/' ) . '/' . ltrim( $path, '/' );
+	}
+}
+
+if ( ! class_exists( 'WP_Admin_Bar' ) ) {
+	class WP_Admin_Bar {
+		/** @var array<string, array<string, mixed>> */
+		public array $nodes = [];
+
+		/**
+		 * @param array<string, mixed> $node
+		 */
+		public function add_node( array $node ): void {
+			$id = (string) ( $node['id'] ?? '' );
+			if ( '' !== $id ) {
+				$this->nodes[ $id ] = $node;
+			}
+		}
 	}
 }
 

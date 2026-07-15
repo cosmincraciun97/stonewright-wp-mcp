@@ -22,7 +22,9 @@ final class AdminPagesPolishTest extends TestCase {
 	protected function setUp(): void {
 		$this->original_wpdb = $GLOBALS['wpdb'] ?? null;
 		$GLOBALS['stonewright_test_user_caps']['manage_options'] = true;
-		$GLOBALS['stonewright_test_options'] = [];
+		$GLOBALS['stonewright_test_options'] = [
+			'stonewright_mode' => 'development',
+		];
 		$GLOBALS['stonewright_test_transients'] = [];
 		$this->empty_sandbox_test_dirs();
 	}
@@ -94,21 +96,27 @@ final class AdminPagesPolishTest extends TestCase {
 
 		self::assertStringContainsString( 'stonewright-admin-shell', $html );
 		self::assertStringContainsString( 'stonewright-page-header', $html );
-		self::assertStringContainsString( 'stonewright-skills-grid', $html );
-		self::assertStringContainsString( 'stonewright-skill-card', $html );
-		self::assertStringContainsString( 'stonewright-guidance-grid', $html );
-		self::assertStringContainsString( 'How skills reach agents', $html );
+		self::assertStringContainsString( 'sw-skills-grid', $html );
+		self::assertStringContainsString( 'sw-skill-card', $html );
+		self::assertStringContainsString( 'sw-badge', $html );
 		self::assertStringContainsString( 'sw-badge--agentic', $html );
+		self::assertStringContainsString( 'sw-actions', $html );
 		self::assertStringContainsString( 'Auto-match from task descriptions', $html );
 		self::assertStringContainsString( 'Show as a prompt or command', $html );
 		self::assertStringContainsString( 'data-stonewright-skill-toggle', $html );
 		self::assertStringContainsString( 'data-confirm="Delete this skill?"', $html );
+		self::assertStringContainsString( 'name="title"', $html );
+		self::assertStringContainsString( 'name="slug"', $html );
+		self::assertStringContainsString( 'name="content"', $html );
+		self::assertStringContainsString( 'name="enabled"', $html );
+		self::assertStringContainsString( 'name="enable_agentic"', $html );
+		self::assertStringContainsString( 'name="enable_prompt"', $html );
 		self::assertStringNotContainsString( '<style>', $html );
 		self::assertStringNotContainsString( '<script>', $html );
 		self::assertStringNotContainsString( 'ð', $html );
 	}
 
-	public function test_sandbox_page_uses_shared_shell_and_empty_state(): void {
+	public function test_sandbox_page_uses_shared_shell_and_sw_tabs(): void {
 		ob_start();
 		SandboxPage::render();
 		$html = (string) ob_get_clean();
@@ -116,11 +124,14 @@ final class AdminPagesPolishTest extends TestCase {
 		self::assertStringContainsString( 'stonewright-admin-shell', $html );
 		self::assertStringContainsString( 'stonewright-page-header', $html );
 		self::assertStringContainsString( 'stonewright-sandbox-page', $html );
+		self::assertStringContainsString( 'sw-tabs', $html );
+		self::assertStringContainsString( 'sw-tabs__link', $html );
+		self::assertStringContainsString( 'sw-tabs__link is-active', $html );
 		self::assertStringContainsString( 'stonewright-empty-state', $html );
 		self::assertStringContainsString( 'data-stonewright-toggle-target="stonewright-new-file-form"', $html );
 	}
 
-	public function test_memory_page_uses_shared_shell_and_managed_panels(): void {
+	public function test_memory_page_uses_callout_cards_and_actions_layout(): void {
 		$GLOBALS['wpdb'] = new class() {
 			public string $prefix = 'wp_';
 
@@ -140,16 +151,19 @@ final class AdminPagesPolishTest extends TestCase {
 
 		self::assertStringContainsString( 'stonewright-admin-shell', $html );
 		self::assertStringContainsString( 'stonewright-page-header', $html );
-		self::assertStringContainsString( 'stonewright-memory-page', $html );
-		self::assertStringContainsString( 'stonewright-guidance-grid', $html );
-		self::assertStringContainsString( 'What belongs here', $html );
-		self::assertStringContainsString( 'stonewright-memory-note', $html );
+		self::assertStringContainsString( 'sw-memory-page', $html );
+		self::assertStringContainsString( 'sw-callout', $html );
+		self::assertStringContainsString( 'sw-card', $html );
+		self::assertStringContainsString( 'sw-actions', $html );
+		self::assertStringContainsString( 'stonewright_custom_instructions', $html );
+		self::assertStringContainsString( 'stonewright_custom_instructions_enabled', $html );
+		self::assertStringContainsString( 'stonewright_memory_enabled', $html );
 		self::assertStringContainsString( 'stonewright-empty-state', $html );
 		self::assertStringContainsString( 'data-stonewright-toggle-target="stonewright-new-memory"', $html );
 		self::assertStringContainsString( 'data-stonewright-toggle-target="stonewright-knowledge-import"', $html );
 	}
 
-	public function test_status_page_uses_shared_shell_and_audit_empty_state(): void {
+	public function test_status_page_becomes_dashboard_with_stat_cards_and_feed(): void {
 		$GLOBALS['wpdb'] = new class() {
 			public string $prefix = 'wp_';
 
@@ -159,7 +173,32 @@ final class AdminPagesPolishTest extends TestCase {
 
 			/** @return array<int, array<string, mixed>> */
 			public function get_results( string $query, string $output = 'OBJECT' ): array {
-				return [];
+				if ( str_contains( $query, 'memory' ) || str_contains( $query, 'skills' ) ) {
+					return [];
+				}
+				if ( str_contains( $query, 'GROUP BY' ) || str_contains( $query, 'DATE(' ) ) {
+					return [
+						[ 'day' => '2026-07-14', 'total' => '3' ],
+						[ 'day' => '2026-07-15', 'total' => '5' ],
+					];
+				}
+
+				return [
+					[
+						'id'            => '3',
+						'ability_name'  => 'stonewright/ping',
+						'user_id'       => '1',
+						'result_status' => 'ok',
+						'created_at'    => gmdate( 'Y-m-d H:i:s', time() - 7200 ),
+					],
+				];
+			}
+
+			public function get_var( string $query = '' ): string|int|null {
+				if ( str_contains( $query, 'skills' ) || str_contains( $query, 'memory' ) ) {
+					return null;
+				}
+				return '1';
 			}
 		};
 
@@ -168,9 +207,11 @@ final class AdminPagesPolishTest extends TestCase {
 		$html = (string) ob_get_clean();
 
 		self::assertStringContainsString( 'stonewright-admin-shell', $html );
-		self::assertStringContainsString( 'stonewright-page-header', $html );
-		self::assertStringContainsString( 'stonewright-status-page', $html );
-		self::assertStringContainsString( 'stonewright-status-grid', $html );
-		self::assertStringContainsString( 'stonewright-empty-state', $html );
+		self::assertStringContainsString( 'sw-dashboard-page', $html );
+		self::assertStringContainsString( 'sw-stat-grid', $html );
+		self::assertStringContainsString( 'sw-stat-card', $html );
+		self::assertStringContainsString( 'sw-audit-feed', $html );
+		self::assertStringContainsString( 'sw-sparkline', $html );
+		self::assertStringContainsString( 'Dashboard', $html );
 	}
 }

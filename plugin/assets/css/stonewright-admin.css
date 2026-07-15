@@ -16,29 +16,29 @@
     --sw-shadow-hover:   0 4px 16px rgba(0, 0, 0, .14);
     --sw-transition:     0.18s cubic-bezier(.25, .46, .45, .94);
 
-    --sw-color-bg:       #f6f7f8;
-    --sw-color-card:     #ffffff;
-    --sw-color-border:   #e0e0e0;
-    --sw-color-border-hover: #b0b0b0;
-    --sw-color-text:     #1d2024;
-    --sw-color-muted:    #6b7280;
-    --sw-color-pre:      #f3f4f6;
+    --sw-color-bg:       var(--sw-bg);
+    --sw-color-card:     var(--sw-surface);
+    --sw-color-border:   var(--sw-border);
+    --sw-color-border-hover: var(--sw-border-strong);
+    --sw-color-text:     var(--sw-text);
+    --sw-color-muted:    var(--sw-text-muted);
+    --sw-color-pre:      var(--sw-bg);
 
     /* Status badge palette */
-    --sw-active-bg:      #dcfce7;
-    --sw-active-fg:      #15803d;
-    --sw-disabled-bg:    #f3f4f6;
-    --sw-disabled-fg:    #6b7280;
-    --sw-crashed-bg:     #fee2e2;
-    --sw-crashed-fg:     #b91c1c;
-    --sw-draft-bg:       #fef9c3;
-    --sw-draft-fg:       #92400e;
-    --sw-builtin-bg:     #e0f2fe;
-    --sw-builtin-fg:     #0369a1;
-    --sw-user-bg:        #dcfce7;
-    --sw-user-fg:        #15803d;
-    --sw-uploaded-bg:    #fef9c3;
-    --sw-uploaded-fg:    #92400e;
+    --sw-active-bg:      var(--sw-ok-soft);
+    --sw-active-fg:      var(--sw-ok-text);
+    --sw-disabled-bg:    var(--sw-bg);
+    --sw-disabled-fg:    var(--sw-text-muted);
+    --sw-crashed-bg:     var(--sw-danger-soft);
+    --sw-crashed-fg:     var(--sw-danger-text);
+    --sw-draft-bg:       var(--sw-warn-soft);
+    --sw-draft-fg:       var(--sw-warn-text);
+    --sw-builtin-bg:     var(--sw-info-soft);
+    --sw-builtin-fg:     var(--sw-info-text);
+    --sw-user-bg:        var(--sw-ok-soft);
+    --sw-user-fg:        var(--sw-ok-text);
+    --sw-uploaded-bg:    var(--sw-warn-soft);
+    --sw-uploaded-fg:    var(--sw-warn-text);
 }
 
 /* ------------------------------------------------------------------ */
@@ -126,7 +126,7 @@
 .sw-card__preview {
     margin: 0;
     font-size: 11.5px;
-    color: #9ca3af;
+    color: var(--sw-text-muted);
     font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
     white-space: pre-wrap;
     background: var(--sw-color-pre);
@@ -189,8 +189,8 @@
 .sw-badge--builtin   { background: var(--sw-builtin-bg);  color: var(--sw-builtin-fg);  }
 .sw-badge--user      { background: var(--sw-user-bg);     color: var(--sw-user-fg);     }
 .sw-badge--uploaded  { background: var(--sw-uploaded-bg); color: var(--sw-uploaded-fg); }
-.sw-badge--category  { background: #f3e8ff; color: #7c3aed; }
-.sw-badge--php       { background: #ede9fe; color: #5b21b6; }
+.sw-badge--category  { background: var(--sw-text-muted); color: var(--sw-text-muted); }
+.sw-badge--php       { background: var(--sw-brand-soft); color: var(--sw-brand); }
 
 /* ------------------------------------------------------------------ */
 /* Toggle switch                                                        */
@@ -212,7 +212,7 @@
 .sw-toggle__track {
     position: absolute;
     inset: 0;
-    background: #d1d5db;
+    background: var(--sw-text-muted);
     border-radius: 999px;
     cursor: pointer;
     transition: background var(--sw-transition);
@@ -225,7 +225,7 @@
     width: 16px;
     left: 3px;
     top: 3px;
-    background: #fff;
+    background: var(--sw-surface);
     border-radius: 50%;
     transition: transform var(--sw-transition);
     box-shadow: 0 1px 3px rgba(0,0,0,.2);
@@ -282,14 +282,14 @@
 /* Danger button                                                        */
 /* ------------------------------------------------------------------ */
 .sw-btn--danger {
-    color: #b91c1c !important;
-    border-color: #fecaca !important;
-    background: #fff !important;
+    color: var(--sw-danger-text) !important;
+    border-color: var(--sw-text-muted) !important;
+    background: var(--sw-surface) !important;
 }
 
 .sw-btn--danger:hover {
-    background: #fef2f2 !important;
-    border-color: #b91c1c !important;
+    background: var(--sw-text-muted) !important;
+    border-color: var(--sw-danger-text) !important;
 }
 
 /* ------------------------------------------------------------------ */
@@ -327,8 +327,8 @@
 /* Onboarding / paste block                                             */
 /* ------------------------------------------------------------------ */
 .sw-paste-block {
-    background: #0f172a;
-    color: #e2e8f0;
+    background: var(--sw-text-muted);
+    color: var(--sw-text-muted);
     border-radius: var(--sw-radius);
     padding: 16px 18px;
     font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
@@ -343,8 +343,8 @@
     position: absolute;
     top: 10px;
     right: 12px;
-    background: #334155;
-    color: #e2e8f0;
+    background: var(--sw-text-muted);
+    color: var(--sw-text-muted);
     border: none;
     border-radius: 4px;
     padding: 4px 10px;
@@ -354,7 +354,7 @@
 }
 
 .sw-paste-block__copy:hover {
-    background: #475569;
+    background: var(--sw-text-muted);
 }
 
 /* ------------------------------------------------------------------ */

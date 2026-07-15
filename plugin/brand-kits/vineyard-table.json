@@ -1,0 +1,28 @@
+{
+    "id": "vineyard-table",
+    "name": "Vineyard Table",
+    "description": "Wine-forward hospitality kit.",
+    "colors": {
+        "primary": "#7A1F1F",
+        "secondary": "#9F1239",
+        "accent": "#E8B86D",
+        "background": "#FFF8F0",
+        "surface": "#FDE8E8",
+        "text": "#1C1410"
+    },
+    "fonts": {
+        "heading": "Fraunces, Georgia, serif",
+        "body": "Source Sans 3, system-ui, sans-serif"
+    },
+    "radius": {
+        "sm": "4px",
+        "md": "8px",
+        "lg": "16px"
+    },
+    "spacing": {
+        "xs": "8px",
+        "sm": "16px",
+        "md": "24px",
+        "lg": "48px"
+    }
+}

@@ -68,6 +68,18 @@ final class SettingsPage {
 				return (bool) $value;
 			},
 		] );
+
+		register_setting( self::OPTION_GROUP, 'stonewright_unsplash_access_key', [
+			'type'              => 'string',
+			'default'           => '',
+			'sanitize_callback' => 'sanitize_text_field',
+		] );
+
+		register_setting( self::OPTION_GROUP, 'stonewright_pexels_api_key', [
+			'type'              => 'string',
+			'default'           => '',
+			'sanitize_callback' => 'sanitize_text_field',
+		] );
 	}
 
 	public static function render(): void {
@@ -128,6 +140,20 @@ final class SettingsPage {
 									<input type="checkbox" name="stonewright_elementor_v4_atomic" id="stonewright_elementor_v4_atomic" value="1" <?php checked( (bool) get_option( 'stonewright_elementor_v4_atomic', false ) ); ?>/>
 									<?php esc_html_e( 'Enable the experimental V4 atomic renderer and related abilities.', 'stonewright' ); ?>
 								</label>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row"><label for="stonewright_unsplash_access_key"><?php esc_html_e( 'Unsplash access key', 'stonewright' ); ?></label></th>
+							<td>
+								<input type="password" class="regular-text" name="stonewright_unsplash_access_key" id="stonewright_unsplash_access_key" value="<?php echo esc_attr( (string) get_option( 'stonewright_unsplash_access_key', '' ) ); ?>" autocomplete="off"/>
+								<p class="description"><?php esc_html_e( 'Optional. Empty by default — Openverse works without a key.', 'stonewright' ); ?></p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row"><label for="stonewright_pexels_api_key"><?php esc_html_e( 'Pexels API key', 'stonewright' ); ?></label></th>
+							<td>
+								<input type="password" class="regular-text" name="stonewright_pexels_api_key" id="stonewright_pexels_api_key" value="<?php echo esc_attr( (string) get_option( 'stonewright_pexels_api_key', '' ) ); ?>" autocomplete="off"/>
+								<p class="description"><?php esc_html_e( 'Optional. Empty by default.', 'stonewright' ); ?></p>
 							</td>
 						</tr>
 					</tbody>
