@@ -166,4 +166,49 @@ final class Permissions {
 		}
 		return current_user_can( 'edit_post_meta', $post_id, $meta_key );
 	}
+
+	public static function moderate_comments(): bool {
+		return current_user_can( 'moderate_comments' );
+	}
+
+	public static function list_users(): bool {
+		return current_user_can( 'list_users' );
+	}
+
+	public static function create_users(): bool {
+		return current_user_can( 'create_users' );
+	}
+
+	public static function edit_users(): bool {
+		return current_user_can( 'edit_users' );
+	}
+
+	public static function delete_users(): bool {
+		return current_user_can( 'delete_users' );
+	}
+
+	public static function switch_themes(): bool {
+		return current_user_can( 'switch_themes' );
+	}
+
+	public static function edit_css(): bool {
+		return current_user_can( 'edit_css' ) || current_user_can( 'edit_theme_options' );
+	}
+
+	public static function activate_plugins(): bool {
+		return current_user_can( 'activate_plugins' );
+	}
+
+	public static function delete_plugins(): bool {
+		return current_user_can( 'delete_plugins' );
+	}
+
+	public static function manage_woocommerce(): bool {
+		// Prefer WooCommerce's manage_woocommerce when the plugin is present; fall back to manage_options.
+		// phpcs:ignore WordPress.WP.Capabilities.Unknown -- custom cap registered by WooCommerce.
+		if ( current_user_can( 'manage_woocommerce' ) ) {
+			return true;
+		}
+		return current_user_can( 'manage_options' );
+	}
 }

@@ -318,3 +318,8 @@ npm test
 npm run typecheck
 npm run build
 ```
+
+
+## Direct mode tool surface
+
+Wave 1–3 tools cover core content, menus, FSE, settings, plugins/themes, comments, users/application passwords, widgets, site health, oEmbed utilities, WooCommerce read, and a guarded `stonewright-rest-request` passthrough. Full names: see `DIRECT_TOOL_NAMES` in `src/direct/registry.ts`.

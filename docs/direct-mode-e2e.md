@@ -55,3 +55,8 @@ requires `WP_ENVIRONMENT_TYPE=local` (or the Application Passwords availability 
 | blueprint-list | Yes | Bundled JSON in companion |
 | blueprint-get | Yes | Full spec |
 | blueprint-apply | Yes (Gutenberg draft) | Elementor requires plugin |
+
+
+## Wave 3 additions
+
+Direct mode now includes comments, user/app-password writes, widgets, health aggregate, oEmbed/editor utilities, FSE create/delete, WC read, and `stonewright-rest-request` (guarded generic REST). Live E2E without the plugin remains an operator step.

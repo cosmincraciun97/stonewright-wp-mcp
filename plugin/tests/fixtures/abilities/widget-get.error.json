@@ -1,0 +1,6 @@
+{
+  "args": {
+    "sidebar_id": "sidebar-1"
+  },
+  "expect_permission_error": true
+}

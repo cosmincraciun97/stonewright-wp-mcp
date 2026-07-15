@@ -43,6 +43,7 @@
 | `stonewright/change-restore` | `stonewright-change-restore` | `Site\ChangeRestore` | Restores a post from a Stonewright snapshot. | Write | `Permissions::edit_post( $post_id ) (compound)` | Yes | Yes | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/site-create-revision` | `stonewright-site-create-revision` | `Site\CreateRevision` | Creates a WordPress revision for a post or page. | Read | `Permissions::edit_post( $post_id )` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/site-shortcodes-discover` | `stonewright-site-shortcodes-discover` | `Site\DiscoverShortcodes` | Lists registered shortcode tags and optional callback summaries without executing shortcode handlers. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/site-health-test` | `stonewright-site-health-test` | `Site\SiteHealthTest` | Runs a named site health check when Site Health REST is available. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 
 ---
 
@@ -248,7 +249,7 @@
 | `stonewright/knowledge-export` | `stonewright-knowledge-export` | `System\KnowledgeExport` | Exports custom instructions, memory entries, and site skills in the Stonewright knowledge bundle format. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/knowledge-import` | `stonewright-knowledge-import` | `System\KnowledgeImport` | Imports custom instructions, memory entries, and site skills from a Stonewright knowledge bundle. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/system-abilities-list` | `stonewright-system-abilities-list` | `System\AbilitiesList` | Returns all registered Stonewright abilities with category, enabled status, and the hyphenated MCP tool name clients actually call. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
-| `stonewright/tool-profile` | `stonewright-tool-profile` | `System\ToolProfile` | Returns a compact task-aware Stonewright MCP tool profile for faster, lower-token client workflows. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/tool-profile` | `stonewright-tool-profile` | `System\ToolProfile` | Returns a compact task-aware Stonewright MCP tool profile for faster, lower-token client workflows. | Write | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/workflow-preflight` | `stonewright-workflow-preflight` | `System\WorkflowPreflight` | Returns compact task context, auth guidance, mode, and first-pass tool choices so MCP agents can start with fewer discovery calls. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 
 ---
@@ -340,6 +341,100 @@
 | `stonewright/theme-builder-list-templates` | `stonewright-theme-builder-list-templates` | `ThemeBuilder\ListTemplates` | Lists elementor_library templates as { template_id, title, template_type }. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/theme-builder-get-template` | `stonewright-theme-builder-get-template` | `ThemeBuilder\GetTemplate` | Reads a Theme Builder template (data tree + conditions + type). | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/theme-builder-delete-template` | `stonewright-theme-builder-delete-template` | `ThemeBuilder\DeleteTemplate` | Trashes (or permanently deletes if force=true) an elementor_library template. | Write | `Permissions::edit_posts()` | No | Yes | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+
+---
+
+## Comments
+
+| Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `stonewright/comment-list` | `stonewright-comment-list` | `Comments\CommentList` | Lists comments with compact fields for agent workflows. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/comment-get` | `stonewright-comment-get` | `Comments\CommentGet` | Gets a single comment including content. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/comment-create` | `stonewright-comment-create` | `Comments\CommentCreate` | Creates a comment on a post. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/comment-update` | `stonewright-comment-update` | `Comments\CommentUpdate` | Updates comment content and/or moderation status (approve, hold, spam, trash). | Read | `Permissions::moderate_comments()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/comment-delete` | `stonewright-comment-delete` | `Comments\CommentDelete` | Deletes a comment. | Write | `Permissions::moderate_comments()` | Yes | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+
+---
+
+## Users
+
+| Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `stonewright/user-list` | `stonewright-user-list` | `Users\UserList` | Lists WordPress users. | Read | `Permissions::list_users()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/user-get` | `stonewright-user-get` | `Users\UserGet` | Gets a single WordPress user. | Read | `Permissions::list_users()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/user-create` | `stonewright-user-create` | `Users\UserCreate` | Creates a WordPress user. | Read | `Permissions::create_users()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/user-update` | `stonewright-user-update` | `Users\UserUpdate` | Updates a WordPress user (only provided fields). | Read | `Permissions::edit_users()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/user-delete` | `stonewright-user-delete` | `Users\UserDelete` | Deletes a user and reassigns content. | Write | `Permissions::delete_users()` | Yes | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/user-app-passwords` | `stonewright-user-app-passwords` | `Users\UserAppPasswords` | List, create, or revoke application passwords for a user. | Write | `Permissions::manage_options()` | Yes | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+
+---
+
+## Widgets
+
+| Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `stonewright/widget-list` | `stonewright-widget-list` | `Widgets\WidgetList` | Lists sidebars and assigned widget ids. | Read | `Permissions::edit_theme_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/widget-get` | `stonewright-widget-get` | `Widgets\WidgetGet` | Gets one sidebar assignment list. | Read | `Permissions::edit_theme_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/widget-save` | `stonewright-widget-save` | `Widgets\WidgetSave` | Replaces the widget id list for a sidebar. | Read | `Permissions::edit_theme_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/widget-delete` | `stonewright-widget-delete` | `Widgets\WidgetDelete` | Removes a widget id from a sidebar. | Write | `Permissions::edit_theme_options()` | Yes | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+
+---
+
+## Settings
+
+| Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `stonewright/settings-get` | `stonewright-settings-get` | `Settings\SettingsGet` | Reads allowlisted site settings. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/settings-update` | `stonewright-settings-update` | `Settings\SettingsUpdate` | Updates allowlisted site settings. | Write | `Permissions::manage_options()` | Yes | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+
+---
+
+## Themes
+
+| Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `stonewright/theme-list` | `stonewright-theme-list` | `Themes\ThemeList` | Lists installed themes. | Read | `Permissions::switch_themes()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/theme-activate` | `stonewright-theme-activate` | `Themes\ThemeActivate` | Activates a theme by stylesheet. | Write | `Permissions::switch_themes()` | Yes | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/theme-custom-css` | `stonewright-theme-custom-css` | `Themes\ThemeCustomCss` | Gets or updates theme custom CSS with backup before write. | Write | `Permissions::edit_css()` | Yes | Yes | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+
+---
+
+## PluginsManage
+
+| Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `stonewright/plugin-activate` | `stonewright-plugin-activate` | `PluginsManage\PluginActivate` | Activates an installed plugin. | Read | `Permissions::activate_plugins()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/plugin-deactivate` | `stonewright-plugin-deactivate` | `PluginsManage\PluginDeactivate` | Deactivates a plugin. | Write | `Permissions::activate_plugins()` | Yes | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/plugin-delete` | `stonewright-plugin-delete` | `PluginsManage\PluginDelete` | Deletes an inactive plugin. | Write | `Permissions::delete_plugins()` | Yes | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+
+---
+
+## Revisions
+
+| Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `stonewright/post-revision-list` | `stonewright-post-revision-list` | `Revisions\PostRevisionList` | Lists revisions for a post. | Read | `Permissions::edit_post($id) (compound)` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/post-revision-get` | `stonewright-post-revision-get` | `Revisions\PostRevisionGet` | Gets a single revision including content. | Read | `Permissions::edit_post($parent) (compound)` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/post-revision-restore` | `stonewright-post-revision-restore` | `Revisions\PostRevisionRestore` | Restores a post to a revision after snapshotting the current post. | Write | `Permissions::edit_post((int)` | Yes | Yes | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+
+---
+
+## Search
+
+| Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `stonewright/search-query` | `stonewright-search-query` | `Search\SearchQuery` | Universal search across posts/types via WP_Query. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/oembed-resolve` | `stonewright-oembed-resolve` | `Search\OembedResolve` | Resolves oEmbed HTML for a URL. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+
+---
+
+## WooCommerce
+
+| Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `stonewright/wc-product-list` | `stonewright-wc-product-list` | `WooCommerce\WcProductList` | Lists WooCommerce products when WooCommerce is active. | Read | `Permissions::manage_woocommerce()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/wc-order-list` | `stonewright-wc-order-list` | `WooCommerce\WcOrderList` | Lists WooCommerce orders when WooCommerce is active. | Read | `Permissions::manage_woocommerce()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/wc-sales-report` | `stonewright-wc-sales-report` | `WooCommerce\WcSalesReport` | Returns a compact sales summary when WooCommerce is active. | Read | `Permissions::manage_woocommerce()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 
 ---
 
@@ -458,7 +553,7 @@
 
 ## Summary
 
-Total abilities registered: **265**
+Total abilities registered: **297**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

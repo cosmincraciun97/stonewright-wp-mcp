@@ -1,0 +1,7 @@
+{
+  "args": {
+    "id": 1,
+    "display_name": "Admin"
+  },
+  "expect": "ok"
+}

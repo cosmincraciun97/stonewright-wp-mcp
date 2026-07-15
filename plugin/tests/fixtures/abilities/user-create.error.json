@@ -1,0 +1,8 @@
+{
+  "args": {
+    "user_login": "newuser",
+    "user_email": "n@example.com",
+    "user_pass": "longpassword12"
+  },
+  "expect_permission_error": true
+}

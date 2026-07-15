@@ -1,0 +1,7 @@
+{
+  "args": {
+    "id": 1,
+    "status": "approve"
+  },
+  "expect_permission_error": true
+}
