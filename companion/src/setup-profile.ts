@@ -1,5 +1,7 @@
 import { APP_VERSION, companionPackageSpec } from './version.js';
 import { proxyToolNamesForProfile, proxyToolProfileFromEnv, type ProxyToolProfile } from './wordpress-mcp.js';
+import { PLUGIN_ONLY_CAPABILITIES } from './direct/tools/site-discover.js';
+import { DIRECT_TOOL_NAMES } from './direct/registry.js';
 
 export type SetupPlatform = NodeJS.Platform | 'linux' | 'darwin' | 'win32';
 
@@ -13,6 +15,8 @@ export interface SetupCheck {
 export interface SetupProfile extends Record<string, unknown> {
 	ok: boolean;
 	platform: string;
+	mode: 'plugin' | 'direct';
+	mode_reason?: string;
 	install_command: string;
 	mcp_server: {
 		command: string;
@@ -26,6 +30,13 @@ export interface SetupProfile extends Record<string, unknown> {
 	agent_do_not_use: string[];
 	agent_use_instead: string[];
 	notes: string[];
+	unavailable?: Array<{ id: string; label: string; reason: string; upgrade: string }>;
+	direct_tool_count?: number;
+}
+
+export interface SetupModeOptions {
+	mode?: 'plugin' | 'direct';
+	mode_reason?: string;
 }
 
 export interface ToolInventory {
@@ -91,6 +102,7 @@ const LOW_TOOL_PROFILE_ALIASES = new Set(['antigravity', 'gemini', 'low', 'low-t
 export function buildSetupProfile(
 	env: NodeJS.ProcessEnv = process.env,
 	platform: SetupPlatform = process.platform,
+	modeOptions: SetupModeOptions = {},
 ): SetupProfile {
 	const siteUrl = normaliseSiteUrl(env['STONEWRIGHT_WP_URL'] ?? env['WP_API_URL'] ?? env['STONEWRIGHT_MCP_URL'] ?? '');
 	const wpRoot = (env['STONEWRIGHT_WP_ROOT'] ?? '').trim();
@@ -100,6 +112,8 @@ export function buildSetupProfile(
 	const toolProfile = (env['STONEWRIGHT_MCP_TOOL_PROFILE'] ?? env['STONEWRIGHT_MCP_PROXY_PROFILE'] ?? 'essential').trim() || 'essential';
 	const local = siteUrl !== '' && isLocalUrl(siteUrl);
 	const canAutoCredentials = local && wpRoot !== '';
+	const mode = modeOptions.mode
+		?? ((env['STONEWRIGHT_MODE'] ?? 'auto').trim().toLowerCase() === 'direct' ? 'direct' : 'plugin');
 
 	const mcpEnv: Record<string, string> = {
 		STONEWRIGHT_WP_APP_PASSWORD_AUTO: canAutoCredentials ? 'local-only' : 'never',
@@ -120,8 +134,24 @@ export function buildSetupProfile(
 	if (authorization !== '') {
 		mcpEnv.STONEWRIGHT_MCP_AUTHORIZATION = authorization;
 	}
+	const requestedMode = (env['STONEWRIGHT_MODE'] ?? '').trim();
+	if (requestedMode) {
+		mcpEnv.STONEWRIGHT_MODE = requestedMode;
+	}
 
-	const visibilityChecks = toolVisibilityChecks(env);
+	const visibilityChecks = mode === 'direct'
+		? [
+			'stonewright-site-discover',
+			'stonewright-setup-profile',
+			'stonewright-wordpress-mcp-status',
+			'stonewright-content-list',
+			'stonewright-wp-cli-status',
+			'stonewright-wp-cli-run',
+			'stonewright-wp-cli-batch-run',
+			'stonewright-wp-cli-job-start',
+			'stonewright-wp-cli-job-status',
+		]
+		: toolVisibilityChecks(env);
 	const checks: SetupCheck[] = [
 		{
 			id: 'site_url',
@@ -142,11 +172,21 @@ export function buildSetupProfile(
 					: 'Optional for remote sites unless WP-CLI helper tools are needed.',
 		},
 		credentialsCheck(Boolean(authorization), username, typeof password === 'string' && password.trim() !== '', canAutoCredentials, local),
+		{
+			id: 'runtime_mode',
+			label: 'Runtime mode',
+			status: 'ok',
+			message: mode === 'direct'
+				? 'Direct mode (core REST without Stonewright plugin tools).'
+				: 'Plugin mode (proxied Stonewright WordPress MCP tools).',
+		},
 	];
 
-	return {
+	const profile: SetupProfile = {
 		ok: checks.every((check) => check.status === 'ok'),
 		platform,
+		mode,
+		...(modeOptions.mode_reason ? { mode_reason: modeOptions.mode_reason } : {}),
 		install_command: `npm install -g ${companionPackageSpec()}`,
 		mcp_server: {
 			command: 'npx',
@@ -154,14 +194,24 @@ export function buildSetupProfile(
 			env: mcpEnv,
 		},
 		checks,
-		first_calls: [
-			'stonewright-context-bootstrap',
-			'stonewright-task-start',
-		],
+		first_calls: mode === 'direct'
+			? ['stonewright-site-discover', 'stonewright-setup-profile']
+			: [
+				'stonewright-context-bootstrap',
+				'stonewright-task-start',
+			],
 		tool_visibility_checks: visibilityChecks,
 		tool_inventory: buildToolInventory(proxyToolProfileFromEnv(env), visibilityChecks),
 		agent_do_not_use: AGENT_DO_NOT_USE,
-		agent_use_instead: agentUseInstead(env),
+		agent_use_instead: mode === 'direct'
+			? [
+				'stonewright-site-discover',
+				'stonewright-setup-profile',
+				'stonewright-content-list',
+				'stonewright-wp-cli-status',
+				'stonewright-wp-cli-run',
+			]
+			: agentUseInstead(env),
 		notes: [
 			'Use this MCP config on Windows, macOS, and Linux; env vars carry paths safely.',
 			'No shell script wrapper required; the companion uses Node and execFile argv tokens.',
@@ -190,8 +240,24 @@ export function buildSetupProfile(
 			'Use stonewright-php-execute for direct full WordPress runtime snippets; keep WP-CLI for tokenized command workflows.',
 			'For local .local/.test sites, Application Passwords can be generated through Stonewright WP-CLI.',
 			'For production sites, provide STONEWRIGHT_WP_USERNAME plus STONEWRIGHT_WP_APP_PASSWORD or STONEWRIGHT_MCP_AUTHORIZATION.',
+			'STONEWRIGHT_MODE=auto|direct|plugin (default auto): auto probes /wp-json/mcp/stonewright and uses Direct REST tools when the plugin is absent.',
+			mode === 'direct'
+				? 'Direct mode first call: stonewright-site-discover. Plugin-only capabilities are listed under unavailable.'
+				: 'Plugin mode exposes proxied Stonewright abilities; keep using stonewright-task-start for WordPress work.',
 		],
 	};
+
+	if (mode === 'direct') {
+		profile.unavailable = PLUGIN_ONLY_CAPABILITIES.map((cap) => ({
+			id: cap.id,
+			label: cap.label,
+			reason: cap.reason,
+			upgrade: cap.upgrade,
+		}));
+		profile.direct_tool_count = DIRECT_TOOL_NAMES.length;
+	}
+
+	return profile;
 }
 
 function companionMcpArgs(): string[] {

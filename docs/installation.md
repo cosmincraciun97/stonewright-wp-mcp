@@ -51,8 +51,54 @@ MCP tools for WordPress work instead of shelling out to `wp ...`.
 ## Companion
 
 The companion is optional. Use it when your MCP client needs a local stdio
-server, WordPress MCP proxying, LocalWP/WP-CLI discovery, or the tokenized
-`stonewright-wp-cli-*` tools.
+server, WordPress MCP proxying, **Direct mode** (core REST without the plugin),
+LocalWP/WP-CLI discovery, or the tokenized `stonewright-wp-cli-*` tools.
+
+### Direct mode (without the WordPress plugin)
+
+Set Application Password credentials and point at the site URL. With
+`STONEWRIGHT_MODE=auto` (default), the companion probes
+`/wp-json/mcp/stonewright`:
+
+- endpoint present → plugin proxy (full Stonewright abilities)
+- HTTP 404 → Direct mode (35+ core REST tools)
+
+Force either path with `STONEWRIGHT_MODE=direct` or `STONEWRIGHT_MODE=plugin`.
+
+```json
+{
+  "mcpServers": {
+    "stonewright": {
+      "command": "npx",
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz", "stonewright-mcp"],
+      "env": {
+        "STONEWRIGHT_WP_URL": "https://your-site.example.com",
+        "STONEWRIGHT_WP_USERNAME": "admin",
+        "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
+        "STONEWRIGHT_MODE": "auto"
+      }
+    }
+  }
+}
+```
+
+First call in Direct mode: `stonewright-site-discover`. It lists REST namespaces,
+post types, taxonomies, detected plugins (Elementor/Woo/ACF signals), and
+plugin-only capabilities that remain unavailable until you install Stonewright.
+
+| Capability | Direct | With plugin |
+|---|---|---|
+| Content / media / taxonomies | yes | yes |
+| Menus, FSE templates, global styles | yes | yes |
+| Settings, plugins, themes, users, search | yes | yes |
+| WP-CLI (local companion) | yes | yes |
+| PHP execute, Elementor engines, DesignSpec | no | yes |
+| Memory, skills store, confirmation tokens | no | yes |
+
+Remote destructive Direct tools require `confirm: true` by default
+(`STONEWRIGHT_DIRECT_WRITES=confirm`). Local `.local`/`.test` hosts default to
+`on`. Optional per-site `disabledTools` in `~/.stonewright/sites.json` can block
+writes on production aliases.
 
 Remote sites do not need Node when the AI client supports Streamable HTTP.
 Copy the **Remote HTTP** snippet from **Stonewright > Configuration**; it points
