@@ -155,7 +155,7 @@
 					return;
 				}
 				var done = function () {
-					setButtonFeedback( button, 'Copied' );
+					setButtonFeedback( button, 'Copied ✓' );
 				};
 				var fallbackCopy = function () {
 					copyWithTextarea( value );
@@ -231,6 +231,129 @@
 					target.classList.add( 'is-active' );
 					target.removeAttribute( 'hidden' );
 				}
+			} );
+		} );
+	}
+
+	function persistSetupClient( slug ) {
+		if ( ! window.stonewrightSetup || ! window.stonewrightSetup.ajaxUrl ) {
+			return;
+		}
+		var body = new window.URLSearchParams();
+		body.set( 'action', 'stonewright_set_setup_client' );
+		body.set( 'nonce', window.stonewrightSetup.nonce || '' );
+		body.set( 'client', slug );
+		window.fetch( window.stonewrightSetup.ajaxUrl, {
+			method: 'POST',
+			credentials: 'same-origin',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+			body: body.toString(),
+		} ).catch( function () {
+			/* preference is best-effort */
+		} );
+	}
+
+	function initClientCards() {
+		document.querySelectorAll( '[data-stonewright-client-card]' ).forEach( function ( card ) {
+			card.addEventListener( 'click', function ( event ) {
+				event.preventDefault();
+				var slug = card.getAttribute( 'data-stonewright-client-card' );
+				if ( ! slug ) {
+					return;
+				}
+				document.querySelectorAll( '[data-stonewright-client-card]' ).forEach( function ( item ) {
+					item.classList.remove( 'is-active' );
+					item.setAttribute( 'aria-selected', 'false' );
+				} );
+				document.querySelectorAll( '[data-stonewright-client-panel]' ).forEach( function ( panel ) {
+					panel.classList.remove( 'is-active' );
+					panel.setAttribute( 'hidden', '' );
+				} );
+				card.classList.add( 'is-active' );
+				card.setAttribute( 'aria-selected', 'true' );
+				var target = document.getElementById( 'sw-client-panel-' + slug );
+				if ( target ) {
+					target.classList.add( 'is-active' );
+					target.removeAttribute( 'hidden' );
+				}
+				persistSetupClient( slug );
+			} );
+		} );
+	}
+
+	function renderConnectionResults( list, checks ) {
+		list.innerHTML = '';
+		list.hidden = false;
+		( checks || [] ).forEach( function ( check ) {
+			var status = check.status || 'error';
+			var icon = status === 'ok' ? '✓' : ( status === 'warn' ? '!' : '✗' );
+			var li = document.createElement( 'li' );
+			li.className = 'sw-checklist__item sw-checklist__item--' + status;
+			li.setAttribute( 'data-status', status );
+			li.innerHTML =
+				'<span class="sw-checklist__icon" aria-hidden="true">' + icon + '</span>' +
+				'<span class="sw-checklist__body">' +
+				'<strong class="sw-checklist__label"></strong>' +
+				'<span class="sw-checklist__detail"></span>' +
+				'</span>';
+			li.querySelector( '.sw-checklist__label' ).textContent = check.label || check.id || '';
+			var detail = check.detail || '';
+			if ( check.fix ) {
+				detail = detail ? ( detail + ' — ' + check.fix ) : check.fix;
+			}
+			li.querySelector( '.sw-checklist__detail' ).textContent = detail;
+			list.appendChild( li );
+		} );
+	}
+
+	function initConnectionTest() {
+		document.querySelectorAll( '[data-stonewright-connection-test]' ).forEach( function ( button ) {
+			button.addEventListener( 'click', function ( event ) {
+				event.preventDefault();
+				var url = button.getAttribute( 'data-rest-url' );
+				var nonce = button.getAttribute( 'data-rest-nonce' );
+				var list = document.querySelector( '[data-stonewright-connection-results]' );
+				if ( ! url || ! list ) {
+					return;
+				}
+				button.disabled = true;
+				setButtonFeedback( button, 'Testing…' );
+				window.fetch( url, {
+					method: 'GET',
+					credentials: 'same-origin',
+					headers: {
+						'X-WP-Nonce': nonce || '',
+						'Accept': 'application/json',
+					},
+				} ).then( function ( response ) {
+					return response.json().then( function ( data ) {
+						return { ok: response.ok, data: data };
+					} );
+				} ).then( function ( result ) {
+					var checks = ( result.data && result.data.checks ) ? result.data.checks : [];
+					if ( ! result.ok && checks.length === 0 ) {
+						checks = [ {
+							id: 'request',
+							status: 'error',
+							label: 'Connection test',
+							detail: 'Request failed.',
+							fix: 'Reload the page and try again.',
+						} ];
+					}
+					renderConnectionResults( list, checks );
+					setButtonFeedback( button, result.data && result.data.ready ? 'Ready' : 'Issues found' );
+				} ).catch( function () {
+					renderConnectionResults( list, [ {
+						id: 'request',
+						status: 'error',
+						label: 'Connection test',
+						detail: 'Network error.',
+						fix: 'Check that you are logged in as an administrator.',
+					} ] );
+					setButtonFeedback( button, 'Failed' );
+				} ).finally( function () {
+					button.disabled = false;
+				} );
 			} );
 		} );
 	}
@@ -406,6 +529,8 @@
 		initSecretToggles();
 		initTokenGenerators();
 		initClientTabs();
+		initClientCards();
+		initConnectionTest();
 		initAbilitySearch();
 		initAbilityBulkControls();
 		initDeclarativeToggles();

@@ -105,6 +105,26 @@ final class AdminBootstrap {
 			$version,
 			true
 		);
+
+		// Setup page (top-level Configuration/Setup slug).
+		$page = isset( $_GET['page'] ) ? sanitize_key( (string) wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( 'stonewright' === $page || str_contains( $hook_suffix, 'toplevel_page_stonewright' ) ) {
+			wp_enqueue_style(
+				'stonewright-admin-setup',
+				$url_base . 'assets/admin/setup.css',
+				[ 'stonewright-admin-shell', 'stonewright-admin' ],
+				$version
+			);
+
+			wp_localize_script(
+				'stonewright-admin',
+				'stonewrightSetup',
+				[
+					'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+					'nonce'   => wp_create_nonce( 'stonewright_setup_client' ),
+				]
+			);
+		}
 	}
 
 	/**

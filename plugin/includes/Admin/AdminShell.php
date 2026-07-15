@@ -22,7 +22,7 @@ final class AdminShell {
 	 */
 	public static function pages(): array {
 		return [
-			'stonewright'            => __( 'Configuration', 'stonewright' ),
+			'stonewright'            => __( 'Setup', 'stonewright' ),
 			'stonewright-abilities'  => __( 'AI Abilities', 'stonewright' ),
 			'stonewright-sandbox'    => __( 'Sandbox', 'stonewright' ),
 			'stonewright-skills'     => __( 'Skills', 'stonewright' ),

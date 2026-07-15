@@ -86,6 +86,7 @@
 	max-width: 760px;
 }
 
+/* Deprecated: brand banner removed from Setup markup (U2). Kept one release for third-party CSS hooks. */
 .stonewright-brand-banner {
 	align-items: center;
 	background: #000;

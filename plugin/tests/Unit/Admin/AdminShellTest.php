@@ -38,7 +38,7 @@ final class AdminShellTest extends TestCase {
 		self::assertContains( 'stonewright-memory', $slugs );
 		self::assertContains( 'stonewright-audit-log', $slugs );
 		self::assertContains( 'stonewright-status', $slugs );
-		self::assertSame( 'Configuration', $pages['stonewright'] );
+		self::assertSame( 'Setup', $pages['stonewright'] );
 	}
 
 	public function test_open_and_close_produce_shell_markup_with_nav_and_mode_pill(): void {
