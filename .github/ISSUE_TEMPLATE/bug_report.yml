@@ -7,30 +7,71 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping improve Stonewright. Do not include secrets,
-        application passwords, bearer tokens, or private site data.
+        Thanks for helping improve Stonewright.
+
+        **Do not include** Application Passwords, bearer tokens, private site
+        URLs with credentials, secrets, or sensitive logs.
+
+        **Security vulnerabilities** must be reported privately — see
+        [SECURITY.md](https://github.com/cosmincraciun97/stonewright-wp-mcp/blob/main/SECURITY.md).
+        Do not file them as public issues.
   - type: input
     id: version
     attributes:
       label: Stonewright version
-      description: Plugin and companion versions, if known.
+      description: Plugin and companion versions when known.
       placeholder: 1.0.0-alpha.x
-  - type: textarea
-    id: summary
-    attributes:
-      label: Summary
-      description: What went wrong?
     validations:
       required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Installation mode
+      options:
+        - Plugin mode
+        - Direct mode (plugin-less)
+        - Unknown / mixed
+    validations:
+      required: true
+  - type: input
+    id: wordpress
+    attributes:
+      label: WordPress version
+    validations:
+      required: true
+  - type: input
+    id: php
+    attributes:
+      label: PHP version
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version
+      description: Required when the companion is involved.
+  - type: input
+    id: elementor
+    attributes:
+      label: Elementor version
+      description: Leave blank if Elementor is not used.
+  - type: input
+    id: mcp_client
+    attributes:
+      label: MCP client
+      description: e.g. Claude Code, Claude Desktop, Cursor, other (name + version if known).
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
   - type: textarea
     id: steps
     attributes:
       label: Reproduction steps
-      description: List the smallest steps that trigger the bug.
       placeholder: |
         1. Enable Stonewright
-        2. Call ...
-        3. See ...
+        2. Call stonewright-task-start ...
+        3. Observe ...
     validations:
       required: true
   - type: textarea
@@ -46,12 +87,14 @@ body:
     validations:
       required: true
   - type: textarea
-    id: environment
+    id: logs
     attributes:
-      label: Environment
-      description: WordPress, PHP, Node, Elementor, and browser details.
-  - type: textarea
-    id: verification
+      label: Sanitized logs
+      description: Paste logs with secrets redacted.
+  - type: checkboxes
+    id: no_secrets
     attributes:
-      label: Checks already run
-      description: Include relevant command output without secrets.
+      label: Confirmation
+      options:
+        - label: I have not included passwords, tokens, or private credentials.
+          required: true

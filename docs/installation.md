@@ -22,8 +22,8 @@ Stonewright has two parts:
    <https://github.com/cosmincraciun97/stonewright-wp-mcp/releases>.
 2. In WordPress Admin, open **Plugins > Add New > Upload Plugin**.
 3. Upload the ZIP and activate **Stonewright**.
-4. Open **Stonewright > Configuration** and enable AI Abilities.
-5. Generate an Application Password from **Stonewright > Configuration**. The
+4. Open **Stonewright → Setup** and enable AI Abilities.
+5. Generate an Application Password from Setup (or Users → Profile). The
    MCP client authenticates with `username:application-password`.
 
 The release ZIP includes production Composer dependencies.

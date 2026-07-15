@@ -13,17 +13,24 @@ logs or screenshots that do not contain secrets.
 
 ## Security Model
 
-Stonewright does not execute arbitrary PHP source. Write abilities use explicit
-permission callbacks, destructive production-safe operations require
-confirmation tokens, Elementor/theme writes snapshot first, and the companion
-runs WP-CLI through tokenized argv only.
+Typed write abilities use explicit permission callbacks. Destructive
+production-safe operations require confirmation tokens. Elementor/theme and
+many content writes snapshot first. The companion runs WP-CLI through tokenized
+argv only.
+
+`stonewright/php-execute` intentionally runs short PHP inside the loaded
+WordPress runtime. It is permission- and mode-gated and audited, but it is
+**not** a strict sandbox and does not receive the same structural guarantees as
+typed DesignSpec or validated mutation workflows. Prefer typed abilities when
+they exist. Stonewright is not a replacement for staging environments, human
+review, or normal WordPress security practice.
 
 ## Principles
 
-- Stonewright never executes arbitrary PHP supplied by an agent.
+- Prefer typed abilities over unrestricted runtime PHP.
 - Every ability declares an explicit `permission_callback`. Defaults map to WordPress capabilities.
-- Writes to Elementor / Gutenberg content require a revision or backup first.
-- Destructive actions require a two-step confirmation token.
+- Writes to Elementor / Gutenberg content require a revision or backup first where the ability path supports it.
+- Destructive actions require a two-step confirmation token in production-safe mode.
 - The plugin supports three modes: `development`, `staging`, `production-safe`.
 
 ## Capability map
@@ -52,14 +59,16 @@ When exposing the MCP server over HTTP:
 
 ## Banned PHP constructs
 
-The plugin and any code it generates must avoid the dynamic execution patterns banned by `Stonewright\WpMcp\Security\StaticAnalysis`:
+Outside the dedicated PHP runtime executor used by `stonewright/php-execute`,
+the plugin must avoid dynamic execution patterns banned by
+`Stonewright\WpMcp\Security\StaticAnalysis`:
 
-- runtime code interpretation primitives (`eval`-family) — never used
+- runtime code interpretation primitives (`eval`-family) — only allowed in the dedicated runtime executor
 - `create_function` — never used
-- shell execution primitives (`exec`, `shell_exec`, `system`, `passthru`, `proc_open`, `popen`) — never used
+- shell execution primitives (`exec`, `shell_exec`, `system`, `passthru`, `proc_open`, `popen`) — never used for agent shell escape
 - `assert` with string argument — never used
 
-PHPStan and PHPCS rules in the repository enforce this and fail CI if any of these appear.
+Repository security audits and static analysis enforce these rules.
 
 ## Confirmation tokens
 
