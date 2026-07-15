@@ -41,3 +41,6 @@ research/
 # WordPress
 plugin/wp-content/
 plugin/wordpress/
+
+# Git worktrees
+.worktrees/
