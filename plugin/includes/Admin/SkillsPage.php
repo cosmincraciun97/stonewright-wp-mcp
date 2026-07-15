@@ -101,7 +101,8 @@ final class SkillsPage {
 
 		$skills = Skills::list();
 		?>
-		<div class="wrap stonewright-admin-shell stonewright-skills-page">
+		<?php AdminShell::open( self::SLUG ); ?>
+		<div class="stonewright-skills-page">
 			<div class="stonewright-page-header">
 				<div>
 					<h1><?php esc_html_e( 'Skills', 'stonewright' ); ?></h1>
@@ -194,6 +195,7 @@ final class SkillsPage {
 				</div>
 			<?php endif; ?>
 		</div>
+		<?php AdminShell::close(); ?>
 		<?php
 	}
 

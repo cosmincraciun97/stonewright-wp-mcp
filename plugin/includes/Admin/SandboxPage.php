@@ -61,7 +61,8 @@ final class SandboxPage {
 			'audit'          => __( 'Audit Log', 'stonewright' ),
 		];
 		?>
-		<div class="wrap stonewright-admin-shell stonewright-sandbox-page">
+		<?php AdminShell::open( self::SLUG ); ?>
+		<div class="stonewright-sandbox-page">
 			<div class="stonewright-page-header">
 				<div>
 					<h1><?php esc_html_e( 'Sandbox', 'stonewright' ); ?></h1>
@@ -90,6 +91,7 @@ final class SandboxPage {
 				?>
 			</div>
 		</div>
+		<?php AdminShell::close(); ?>
 		<?php
 	}
 

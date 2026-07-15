@@ -116,7 +116,8 @@ final class MemoryInstructionsPage {
 		}
 
 		?>
-		<div class="wrap stonewright-admin-shell stonewright-memory-page">
+		<?php AdminShell::open( self::SLUG ); ?>
+		<div class="stonewright-memory-page">
 			<div class="stonewright-page-header">
 				<div>
 					<h1>Memory &amp; Instructions</h1>
@@ -390,6 +391,7 @@ final class MemoryInstructionsPage {
 				</table>
 			</div>
 		</div>
+		<?php AdminShell::close(); ?>
 		<?php
 	}
 

@@ -51,7 +51,8 @@ final class AbilitiesPage {
 			: '';
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 		?>
-		<div class="wrap stonewright-admin-shell stonewright-abilities-page">
+		<?php AdminShell::open( 'stonewright-abilities' ); ?>
+		<div class="stonewright-abilities-page">
 			<header class="stonewright-page-header">
 				<div>
 					<h1><?php esc_html_e( 'AI Abilities', 'stonewright' ); ?></h1>
@@ -155,6 +156,7 @@ final class AbilitiesPage {
 				<?php endforeach; ?>
 			</div>
 		</div>
+		<?php AdminShell::close(); ?>
 		<?php
 	}
 

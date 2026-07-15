@@ -44,7 +44,8 @@ final class StatusPage {
 		$recent_entries = AuditLog::recent( 5, 1 );
 
 		?>
-		<div class="wrap stonewright-admin-shell stonewright-status-page">
+		<?php \Stonewright\WpMcp\Admin\AdminShell::open( self::SLUG ); ?>
+		<div class="stonewright-status-page">
 			<div class="stonewright-page-header">
 				<div>
 					<h1><?php esc_html_e( 'Stonewright Status', 'stonewright' ); ?></h1>
@@ -140,6 +141,7 @@ final class StatusPage {
 				</section>
 			</div>
 		</div>
+		<?php \Stonewright\WpMcp\Admin\AdminShell::close(); ?>
 		<?php
 	}
 }

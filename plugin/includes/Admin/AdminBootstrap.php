@@ -31,6 +31,7 @@ final class AdminBootstrap {
 
 		StatusPage::register();
 		SandboxLibraryPage::register();
+		AdminShell::register();
 
 		add_action( 'rest_api_init', [ RestApi::class, 'register' ] );
 		add_action( 'admin_enqueue_scripts', [ self::class, 'enqueue_assets' ] );
@@ -60,23 +61,47 @@ final class AdminBootstrap {
 		}
 
 		wp_enqueue_style(
+			'stonewright-admin-shell',
+			$url_base . 'assets/admin/shell.css',
+			[],
+			$version
+		);
+
+		wp_enqueue_style(
 			'stonewright-admin',
 			$url_base . 'assets/admin/admin.css',
-			[],
+			[ 'stonewright-admin-shell' ],
 			$version
 		);
 
 		wp_enqueue_style(
 			'stonewright-admin-ds',
 			$url_base . 'assets/css/stonewright-admin.css',
-			[],
+			[ 'stonewright-admin-shell' ],
 			$version
+		);
+
+		wp_enqueue_script(
+			'stonewright-admin-shell',
+			$url_base . 'assets/admin/shell.js',
+			[],
+			$version,
+			true
+		);
+
+		wp_localize_script(
+			'stonewright-admin-shell',
+			'stonewrightShell',
+			[
+				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+				'nonce'   => wp_create_nonce( AdminShell::THEME_NONCE ),
+			]
 		);
 
 		wp_enqueue_script(
 			'stonewright-admin',
 			$url_base . 'assets/admin/admin.js',
-			[],
+			[ 'stonewright-admin-shell' ],
 			$version,
 			true
 		);

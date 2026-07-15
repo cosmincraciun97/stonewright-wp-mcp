@@ -40,13 +40,15 @@ final class AuditLogPage {
 		$per_page = 50;
 		$rows     = AuditLog::recent( $per_page, $page );
 
-		echo '<div class="wrap">';
+		AdminShell::open( self::SLUG );
+		echo '<div class="stonewright-audit-log-page">';
 		echo '<h1>' . esc_html__( 'Audit Log', 'stonewright' ) . '</h1>';
 		echo '<p>' . esc_html__( 'Every write ability and REST call records a row here. The log is append-only.', 'stonewright' ) . '</p>';
 
 		self::render_log_table( $rows, $page, $per_page );
 
 		echo '</div>';
+		AdminShell::close();
 	}
 
 	/**

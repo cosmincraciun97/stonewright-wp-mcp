@@ -182,6 +182,51 @@ if ( ! function_exists( 'wp_set_auth_cookie' ) ) {
 	}
 }
 
+
+$GLOBALS['stonewright_test_user_meta'] ??= [];
+
+if ( ! function_exists( 'get_user_meta' ) ) {
+	function get_user_meta( int $user_id, string $key = '', bool $single = false ): mixed {
+		$store = $GLOBALS['stonewright_test_user_meta'][$user_id] ?? [];
+		if ( '' === $key ) {
+			return $store;
+		}
+		if ( ! array_key_exists( $key, $store ) ) {
+			return $single ? '' : [];
+		}
+		return $single ? $store[ $key ] : [ $store[ $key ] ];
+	}
+}
+
+if ( ! function_exists( 'update_user_meta' ) ) {
+	function update_user_meta( int $user_id, string $meta_key, mixed $meta_value, mixed $prev_value = '' ): bool {
+		$GLOBALS['stonewright_test_user_meta'][$user_id][$meta_key] = $meta_value;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_send_json_success' ) ) {
+	function wp_send_json_success( mixed $data = null, ?int $status_code = null ): void {
+		$GLOBALS['stonewright_test_json_response'] = [ 'success' => true, 'data' => $data, 'status' => $status_code ];
+	}
+}
+
+if ( ! function_exists( 'wp_send_json_error' ) ) {
+	function wp_send_json_error( mixed $data = null, ?int $status_code = null ): void {
+		$GLOBALS['stonewright_test_json_response'] = [ 'success' => false, 'data' => $data, 'status' => $status_code ];
+	}
+}
+
+if ( ! function_exists( 'check_ajax_referer' ) ) {
+	/**
+	 * @param string|int  $action
+	 * @param false|string $query_arg
+	 * @return false|int
+	 */
+	function check_ajax_referer( $action = -1, $query_arg = false, bool $stop = true ) {
+		return 1;
+	}
+}
 $GLOBALS['stonewright_test_transients'] ??= [];
 
 if ( ! function_exists( 'set_transient' ) ) {

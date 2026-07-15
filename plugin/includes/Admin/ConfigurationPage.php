@@ -144,7 +144,8 @@ final class ConfigurationPage {
 		$remote_http_snippet = ConnectClientConfig::http_snippet( $username, $prompt_password );
 		$remote_http_json    = (string) wp_json_encode( $remote_http_snippet, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
 		?>
-		<div class="wrap stonewright-admin-shell stonewright-config-page">
+		<?php AdminShell::open( self::SLUG ); ?>
+		<div class="stonewright-config-page">
 			<div class="stonewright-brand-banner" aria-label="<?php esc_attr_e( 'Stonewright', 'stonewright' ); ?>">
 				<span>Stonewright</span>
 			</div>
@@ -475,6 +476,7 @@ final class ConfigurationPage {
 
 			<?php self::render_domain_lock_status(); ?>
 		</div>
+		<?php AdminShell::close(); ?>
 		<?php
 	}
 
