@@ -316,7 +316,7 @@
 					return;
 				}
 				button.disabled = true;
-				setButtonFeedback( button, 'Testing…' );
+				setButtonFeedback( button, 'Running preflight…' );
 				window.fetch( url, {
 					method: 'GET',
 					credentials: 'same-origin',
@@ -334,18 +334,23 @@
 						checks = [ {
 							id: 'request',
 							status: 'error',
-							label: 'Connection test',
+							label: 'Preflight',
 							detail: 'Request failed.',
 							fix: 'Reload the page and try again.',
 						} ];
 					}
 					renderConnectionResults( list, checks );
-					setButtonFeedback( button, result.data && result.data.ready ? 'Ready' : 'Issues found' );
+					setButtonFeedback(
+						button,
+						result.data && result.data.ready
+							? 'Preflight passed — run a real connection test from your MCP client'
+							: 'Issues found'
+					);
 				} ).catch( function () {
 					renderConnectionResults( list, [ {
 						id: 'request',
 						status: 'error',
-						label: 'Connection test',
+						label: 'Preflight',
 						detail: 'Network error.',
 						fix: 'Check that you are logged in as an administrator.',
 					} ] );

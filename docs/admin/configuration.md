@@ -178,6 +178,15 @@ Elementor page builds, ACF field groups, CPT UI content models, Figma to
 Elementor V3 implementation, WooCommerce catalog cleanup, and Gutenberg/FSE
 updates.
 
+### Setup preflight
+
+The Setup page includes a **Run preflight** check that reports local readiness:
+abilities enabled, MCP endpoint, Application Passwords, tool surface, and
+Elementor detection. A passing preflight means the site looks ready for MCP
+setup — it does **not** prove that an MCP client can connect, authenticate, or
+call tools. After configuration, run a real connection test from your MCP
+client (for example by calling `stonewright-task-start`).
+
 ### Browser MCP
 
 Configure Playwright MCP separately when the agent needs browser testing,

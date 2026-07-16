@@ -64,7 +64,7 @@ Build: `npm install && npm run build`. Point MCP at `node dist/index.js` (or pac
 | ID | Title | Notes |
 |---|---|---|
 | **U1** | Admin Shell | Sticky header, nav, mode pill, dark toggle (`user_meta`), notice drawer, design tokens `--sw-*`, button system |
-| **U2** | Setup page | Stepper, diagnostics checklist, client cards, live connection test REST |
+| **U2** | Setup page | Stepper, diagnostics checklist, client cards, local preflight REST (not a live MCP connection proof) |
 | **U3** | Restyle pages | Abilities / Dashboard / Audit / Skills / Memory / Sandbox premium CSS |
 
 ### Pilon B — Stonewright Direct (plugin-less companion)
@@ -145,7 +145,7 @@ Gates: real `Permissions` callbacks, backup before tree/blueprint writes, `Valid
 ## Suggested manual checklist (you)
 
 1. Install ZIP → activate → **Setup** page looks premium (shell, stepper, dark mode).  
-2. Run **connection test** on Setup.  
+2. Run **preflight** on Setup (local readiness only — confirm MCP from your client).  
 3. Open Blueprints / Abilities / Dashboard / Audit.  
 4. Toggle kill switch in admin bar.  
 5. Download `.mcpb` (no password inside).  

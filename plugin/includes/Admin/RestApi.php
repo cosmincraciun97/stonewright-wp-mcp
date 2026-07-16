@@ -56,7 +56,9 @@ final class RestApi {
 	}
 
 	/**
-	 * Self-test checklist for the Setup wizard (E1).
+	 * Local preflight checklist for the Setup wizard.
+	 *
+	 * Reports site readiness only. Does not prove a live MCP client connection.
 	 *
 	 * @param \WP_REST_Request $request REST request (unused).
 	 * @return \WP_REST_Response

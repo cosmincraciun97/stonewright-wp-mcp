@@ -575,11 +575,11 @@ final class ConfigurationPage {
 					</div>
 				</div>
 
-				<section class="sw-setup-card sw-setup-verify" aria-label="<?php esc_attr_e( 'Verify connection', 'stonewright' ); ?>">
+				<section class="sw-setup-card sw-setup-verify" aria-label="<?php esc_attr_e( 'Run preflight', 'stonewright' ); ?>">
 					<div class="stonewright-step-index" aria-hidden="true">✓</div>
 					<div class="stonewright-step-body">
-						<h2><?php esc_html_e( 'Verify connection', 'stonewright' ); ?></h2>
-						<p class="description"><?php esc_html_e( 'Run a self-test of the MCP endpoint, Application Passwords, tool surface, and Elementor detection.', 'stonewright' ); ?></p>
+						<h2><?php esc_html_e( 'Run preflight', 'stonewright' ); ?></h2>
+						<p class="description"><?php esc_html_e( 'Check local readiness: MCP endpoint, Application Passwords, tool surface, and Elementor detection. This is not a live MCP connection test.', 'stonewright' ); ?></p>
 						<div class="sw-actions">
 							<button
 								type="button"
@@ -587,7 +587,7 @@ final class ConfigurationPage {
 								data-stonewright-connection-test
 								data-rest-url="<?php echo esc_url( rest_url( 'stonewright/v1/admin/connection-test' ) ); ?>"
 								data-rest-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>"
-							><?php esc_html_e( 'Run connection test', 'stonewright' ); ?></button>
+							><?php esc_html_e( 'Run preflight', 'stonewright' ); ?></button>
 						</div>
 						<ul class="sw-checklist sw-connection-test-results" data-stonewright-connection-results hidden aria-live="polite"></ul>
 					</div>
