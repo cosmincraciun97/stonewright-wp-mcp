@@ -11,6 +11,10 @@
 - Setup “Apply now” control for MCP tool surface with honest per-transport messaging.
 - Blueprint render-output suite (bundled blueprints × engines) and extra e2e specs
   (blueprints, setup-profile, connect).
+- DesignEvidence pixel-perfect fields (`measured_targets`, spacing/typography
+  ramps, `figma_token_table`, layout intent); native plan per-element
+  `native_mapping` / `native_gap` for elementor|gutenberg|fse; ImplementationContract
+  `action=validate` rejects CSS without native_gap; front-end visual matrix e2e.
 
 ### Changed
 

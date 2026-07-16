@@ -86,6 +86,50 @@ final class Validator {
 		if ( $has_visual_source && count( $viewports ) < 2 ) {
 			$diagnostics[] = self::diagnostic( 'viewports', 'responsive_evidence_missing', 'Visual implementation needs at least two measured viewports, including desktop and mobile, before write planning.' );
 		}
+
+		$viewport_ids = [];
+		foreach ( $viewports as $viewport ) {
+			$viewport = is_array( $viewport ) ? $viewport : [];
+			$vid      = trim( (string) ( $viewport['id'] ?? '' ) );
+			if ( '' !== $vid ) {
+				$viewport_ids[ $vid ] = true;
+			}
+		}
+
+		// Pixel-perfect measured targets (optional but structured when present).
+		foreach ( (array) ( $evidence['measured_targets'] ?? [] ) as $index => $target ) {
+			$target = is_array( $target ) ? $target : [];
+			$vid    = trim( (string) ( $target['viewport_id'] ?? '' ) );
+			$prop   = trim( (string) ( $target['property'] ?? '' ) );
+			if ( '' === $vid || '' === $prop || ! is_numeric( $target['value_px'] ?? null ) ) {
+				$diagnostics[] = self::diagnostic(
+					'measured_targets[' . $index . ']',
+					'invalid_measured_target',
+					'Provide viewport_id, property, and numeric value_px for each measured target.'
+				);
+				continue;
+			}
+			if ( [] !== $viewport_ids && ! isset( $viewport_ids[ $vid ] ) ) {
+				$diagnostics[] = self::diagnostic(
+					'measured_targets[' . $index . '].viewport_id',
+					'measured_target_viewport_unknown',
+					'measured_targets.viewport_id must reference a declared viewport id.'
+				);
+			}
+		}
+
+		// Structured token tables when present.
+		$global = (array) ( $evidence['global'] ?? [] );
+		foreach ( [ 'spacing_scale', 'typography_ramp', 'figma_token_table' ] as $token_key ) {
+			if ( isset( $global[ $token_key ] ) && ! is_array( $global[ $token_key ] ) ) {
+				$diagnostics[] = self::diagnostic(
+					'global.' . $token_key,
+					'invalid_token_table',
+					'global.' . $token_key . ' must be an object or list of token entries.'
+				);
+			}
+		}
+
 		self::validate_unresolved( (array) $evidence['unresolved'], 'unresolved', $diagnostics );
 
 		$nodes = (array) $evidence['nodes'];
@@ -95,6 +139,8 @@ final class Validator {
 		$seen_nodes = [];
 		$global     = (array) $evidence['global'];
 		$global_provenance = isset( $global['provenance'] ) && is_array( $global['provenance'] ) ? $global['provenance'] : [];
+		// Provenance required for concrete style leaves; structured tables (scales/ramps/token tables)
+		// are metadata containers and may omit per-leaf provenance.
 		foreach ( [ 'container_max_widths', 'colors', 'typography', 'spacing' ] as $group ) {
 			foreach ( self::leaf_paths( (array) ( $global[ $group ] ?? [] ), $group ) as $setting => $value ) {
 				if ( self::neutral( $value ) ) {
@@ -134,14 +180,57 @@ final class Validator {
 
 	/** @param array<string, mixed> $input */
 	private static function normalize( array $input ): array {
+		$global = self::pick(
+			(array) ( $input['global'] ?? [] ),
+			[
+				'container_max_widths',
+				'colors',
+				'color_tokens',
+				'typography',
+				'typography_ramp',
+				'spacing',
+				'spacing_scale',
+				'figma_token_table',
+				'assets',
+				'provenance',
+			]
+		);
+		// color_tokens is an alias surface for pixel-perfect token tables.
+		if ( isset( $global['color_tokens'] ) && is_array( $global['color_tokens'] ) ) {
+			$colors = isset( $global['colors'] ) && is_array( $global['colors'] ) ? $global['colors'] : [];
+			$global['colors'] = array_merge( $colors, $global['color_tokens'] );
+		}
+
 		return [
-			'schema_version' => self::VERSION,
-			'sources'        => array_values( array_map( [ self::class, 'normalize_source' ], (array) ( $input['sources'] ?? [] ) ) ),
-			'viewports'      => array_values( array_map( [ self::class, 'normalize_viewport' ], (array) ( $input['viewports'] ?? [] ) ) ),
-			'global'         => self::pick( (array) ( $input['global'] ?? [] ), [ 'container_max_widths', 'colors', 'typography', 'spacing', 'assets', 'provenance' ] ),
-			'nodes'          => array_values( array_map( [ self::class, 'normalize_node' ], (array) ( $input['nodes'] ?? [] ) ) ),
-			'unresolved'     => array_values( array_map( [ self::class, 'normalize_unresolved' ], (array) ( $input['unresolved'] ?? [] ) ) ),
+			'schema_version'    => self::VERSION,
+			'sources'           => array_values( array_map( [ self::class, 'normalize_source' ], (array) ( $input['sources'] ?? [] ) ) ),
+			'viewports'         => array_values( array_map( [ self::class, 'normalize_viewport' ], (array) ( $input['viewports'] ?? [] ) ) ),
+			'global'            => $global,
+			'nodes'             => array_values( array_map( [ self::class, 'normalize_node' ], (array) ( $input['nodes'] ?? [] ) ) ),
+			'measured_targets'  => array_values( array_map( [ self::class, 'normalize_measured_target' ], (array) ( $input['measured_targets'] ?? [] ) ) ),
+			'unresolved'        => array_values( array_map( [ self::class, 'normalize_unresolved' ], (array) ( $input['unresolved'] ?? [] ) ) ),
 		];
+	}
+
+	/**
+	 * @param mixed $row
+	 * @return array<string, mixed>
+	 */
+	private static function normalize_measured_target( mixed $row ): array {
+		$row = self::pick(
+			is_array( $row ) ? $row : [],
+			[ 'viewport_id', 'node_id', 'property', 'value_px', 'unit', 'tolerance_px' ]
+		);
+		if ( isset( $row['value_px'] ) && is_numeric( $row['value_px'] ) ) {
+			$row['value_px'] = (float) $row['value_px'];
+		}
+		if ( isset( $row['tolerance_px'] ) && is_numeric( $row['tolerance_px'] ) ) {
+			$row['tolerance_px'] = (float) $row['tolerance_px'];
+		}
+		if ( ! isset( $row['unit'] ) || '' === (string) $row['unit'] ) {
+			$row['unit'] = 'px';
+		}
+		return $row;
 	}
 
 	private static function normalize_source( mixed $source ): array {
@@ -173,6 +262,7 @@ final class Validator {
 				'action',
 				'asset',
 				'responsive',
+				'measured_targets',
 				'provenance',
 				'menu_id',
 				'links',
@@ -183,6 +273,26 @@ final class Validator {
 				'unresolved',
 				'children',
 			]
+		);
+		if ( isset( $node['layout'] ) && is_array( $node['layout'] ) ) {
+			$node['layout'] = self::pick(
+				$node['layout'],
+				[
+					'type',
+					'direction',
+					'align_items',
+					'justify_content',
+					'gap',
+					'row_gap',
+					'column_gap',
+					'columns',
+					'wrap',
+					'content_width',
+				]
+			);
+		}
+		$node['measured_targets'] = array_values(
+			array_map( [ self::class, 'normalize_measured_target' ], (array) ( $node['measured_targets'] ?? [] ) )
 		);
 		$node['children']   = array_values( array_map( [ self::class, 'normalize_node' ], (array) ( $node['children'] ?? [] ) ) );
 		$node['unresolved'] = array_values( array_map( [ self::class, 'normalize_unresolved' ], (array) ( $node['unresolved'] ?? [] ) ) );

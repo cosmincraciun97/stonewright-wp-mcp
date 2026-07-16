@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-07-16T09:03:31+00:00",
+    "generated_at": "2026-07-16T09:10:07+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -599,8 +599,8 @@
             "ability_name": "stonewright/design-implementation-contract",
             "mcp_name": "stonewright-design-implementation-contract",
             "kind": "Read",
-            "input_schema_hash": "598937c840322346511f6235ce1ca4721a33db99336f1232bb3b8c6ba2e22901",
-            "output_schema_hash": "0ea9266ee130d31b5f1029d6c423017e0aa98e61fa53bb0d3d3b9f6aa395314b",
+            "input_schema_hash": "30060eb7abb0b4578938000fa1db646b8a025eca68f0b45007c1155da025857d",
+            "output_schema_hash": "a400f86b236dd81c7f34cf42f428a567b3042acead0e542ecefdac5be2babf87",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
@@ -641,7 +641,7 @@
             "ability_name": "stonewright/design-native-plan",
             "mcp_name": "stonewright-design-native-plan",
             "kind": "Read",
-            "input_schema_hash": "8c9d4f5803dff8aa70b7363df23dd23ac9ea9add1b1fc4516eb6f56e6aea5ceb",
+            "input_schema_hash": "f7351ef64d4ec661b2763e659a5559aab3723531aa6e72a2eceef8806a02f19d",
             "output_schema_hash": "24413946c4a1ea170fae42fa3bba693ba9f23bf82b694af62e4eb139b8565faa",
             "permission_class": "Permissions::read()",
             "gates": {

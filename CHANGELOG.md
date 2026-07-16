@@ -13,6 +13,7 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - FSE blueprint engine path with constrained layout + FSE transaction apply.
 - Brand-kit preview/diff mode and option/theme_mod restore points.
 - Setup “Apply now” for MCP tool surface; extra admin e2e coverage.
+- Figma→native DesignEvidence/native plan/CSS-gap gate; front-end visual matrix.
 
 ### Changed
 
