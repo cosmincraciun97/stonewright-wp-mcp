@@ -36,6 +36,8 @@
   exact schema requests, and block every partial write.
 - Typography aliases normalize to live keys with compact warnings.
 - Admin e2e writes are serialized, run once, and restore shared settings.
+- Visual e2e writes pass the required task context token, while nonce discovery
+  avoids waiting on an absent optional DOM attribute.
 
 ## [1.0.0-alpha.72] - 2026-07-16
 

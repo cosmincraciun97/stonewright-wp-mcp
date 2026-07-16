@@ -47,11 +47,10 @@ export async function detectRestMode(page: Page): Promise<RestMode> {
 
 export async function wpRestNonce(page: Page): Promise<string> {
 	// Prefer explicit nonce attributes from Setup / connection UI.
-	const fromAttr = await page
-		.locator('[data-rest-nonce]')
-		.first()
-		.getAttribute('data-rest-nonce')
-		.catch(() => null);
+	const nonceSource = page.locator('[data-rest-nonce]').first();
+	const fromAttr = (await nonceSource.count())
+		? await nonceSource.getAttribute('data-rest-nonce')
+		: null;
 	if (fromAttr) {
 		return fromAttr;
 	}

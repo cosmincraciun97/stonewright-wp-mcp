@@ -14,6 +14,8 @@
 
 - [x] Reproduce the failing admin e2e job and move project-specific skips into
   test bodies.
+- [x] Start write-oriented visual tests through the canonical task context gate
+  and make REST nonce discovery fail fast when an optional source is absent.
 - [x] Serialize shared WordPress e2e state and restore the MCP surface after
   the setup interaction test.
 - [x] Make Elementor V3 batch validation atomic and collect all dry-run errors

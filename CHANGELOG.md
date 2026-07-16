@@ -33,6 +33,8 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   normalization without requiring another model round trip.
 - Admin e2e writes run once, restore shared settings, and serialize CI access
   to the shared WordPress database.
+- Visual e2e writes obtain a task context token first, and REST nonce discovery
+  no longer waits for a missing optional DOM attribute.
 
 ## [1.0.0-alpha.72] - 2026-07-16
 

@@ -105,6 +105,25 @@ test.describe('Blueprint apply + front-end visual proof', () => {
 			});
 			nonce = await wpRestNonce(page);
 		}
+		const taskStart = await runAbility(page, nonce, 'stonewright/task-start', {
+			task: 'Apply representative blueprints for e2e visual verification',
+			surface: 'blueprints',
+			intent: 'write and verify',
+			responseMode: 'compact',
+			target_architecture: 'v3',
+		});
+		expect(
+			taskStart.ok,
+			`task-start failed: ${JSON.stringify(taskStart.body)} via ${taskStart.url}`,
+		).toBeTruthy();
+		const taskPayload = taskStart.body as {
+			result?: { context_token?: string };
+			context_token?: string;
+		};
+		const contextToken = String(
+			taskPayload.result?.context_token ?? taskPayload.context_token ?? '',
+		);
+		expect(contextToken).toMatch(/^swctx_/);
 
 		const engines: Array<'gutenberg' | 'fse' | 'elementor'> = ['gutenberg', 'fse', 'elementor'];
 		const applied: Array<{ blueprint: string; engine: string; url: string; postId: number }> =
@@ -121,6 +140,7 @@ test.describe('Blueprint apply + front-end visual proof', () => {
 					engine,
 					mode: 'publish',
 					page_title: `SW Apply ${blueprint_id} ${engine}`,
+					stonewright_context_token: contextToken,
 				});
 
 				if (engine === 'elementor' && !result.ok) {
