@@ -30,12 +30,21 @@ Three modes are stored in the `stonewright_mode` option:
 | `staging` | Same as development; useful for labelling deployments. |
 | `production-safe` | Destructive operations require a `confirmation_token` obtained from `stonewright/security-issue-confirmation-token`. Without the token, those calls are rejected before execution. |
 
-### Essential tools mode
+### MCP tool surface
 
-`stonewright_essential_tools_mode` defaults to enabled. It keeps MCP startup and
-tool discovery compact by exposing the most common Stonewright fast-path tools
-first. Turn it off only for specialist sessions that need the full registered
-ability surface.
+`stonewright_mcp_surface` controls how many abilities appear on the public MCP
+`tools/list` surface:
+
+| Value | Behaviour |
+|---|---|
+| `bootstrap` | Progressive-discovery entry surface (≤ 8 tools, ≤ ~2,500 est. tokens). New installs default here. Call `stonewright-tool-profile` / `stonewright-task-start` to expand. |
+| `essential` | Compact fast path (≤ 30 tools) with batch-first Elementor/Gutenberg/content/WP-CLI tools. |
+| `full` | Entire registered ability catalog. **Slow and high-context** — only for specialist sessions that truly need every ability. |
+
+The legacy `stonewright_essential_tools_mode` flag stays in sync: bootstrap and
+essential map to enabled; full maps to disabled. Existing installs without
+`stonewright_mcp_surface` keep their current essential/full behaviour via that
+legacy flag until an admin saves the Configuration page.
 
 Agents should call `stonewright-tool-profile` after bootstrap or preflight when
 the client has a tool cap or the user asks for token-efficient implementation.

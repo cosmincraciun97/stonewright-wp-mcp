@@ -211,6 +211,7 @@ final class WorkflowPreflight extends AbilityKernel {
 				'ability_count'        => count( AbilityRegistry::list() ),
 				'public_ability_count' => count( AbilityRegistry::enabled_abilities() ),
 				'essential_tools_mode' => (bool) get_option( 'stonewright_essential_tools_mode', true ),
+				'mcp_surface'          => AbilityRegistry::mcp_surface(),
 				'mcp_server_id'        => 'stonewright',
 				'ability_prefix'       => 'stonewright/',
 			],
@@ -244,6 +245,20 @@ final class WorkflowPreflight extends AbilityKernel {
 		$fast_path = is_array( $response['fast_path'] ?? null ) ? $response['fast_path'] : [];
 		$profile   = is_array( $fast_path['task_profile'] ?? null ) ? $fast_path['task_profile'] : [];
 		$tools     = array_values( array_slice( array_map( 'strval', (array) ( $fast_path['recommended_mcp_tools'] ?? [] ) ), 0, 8 ) );
+		$ordered_profile_tools = [];
+		$profile_name          = (string) ( $fast_path['tool_profile']['profile'] ?? 'essential' );
+		if ( class_exists( ToolProfile::class ) && method_exists( ToolProfile::class, 'profile_tools' ) ) {
+			$ordered_profile_tools = array_values(
+				array_slice(
+					array_map(
+						[ AbilityRegistry::class, 'mcp_tool_name' ],
+						ToolProfile::profile_tools( $profile_name )
+					),
+					0,
+					20
+				)
+			);
+		}
 		$compact_fast_path = [
 			'task_profile' => [
 				'surface'        => (string) ( $profile['surface'] ?? 'unknown' ),
@@ -252,8 +267,12 @@ final class WorkflowPreflight extends AbilityKernel {
 				'is_destructive' => (bool) ( $profile['is_destructive'] ?? false ),
 				'visual'         => (bool) ( $profile['needs_visual_check'] ?? false ),
 			],
-			'tool_profile' => (string) ( $fast_path['tool_profile']['profile'] ?? 'low-tools' ),
-			'next_tools'   => $tools,
+			'tool_profile'           => $profile_name,
+			'next_tools'             => $tools,
+			// Exact ordered MCP tool list for the resolved profile (client caps apply).
+			'ordered_tools'          => $ordered_profile_tools !== [] ? $ordered_profile_tools : $tools,
+			'recommended_tools'      => array_values( array_map( 'strval', (array) ( $fast_path['recommended_tools'] ?? [] ) ) ),
+			'recommended_mcp_tools'  => $tools,
 		];
 		if ( is_array( $fast_path['elementor_architecture'] ?? null ) ) {
 			$compact_fast_path['elementor_architecture'] = array_intersect_key(

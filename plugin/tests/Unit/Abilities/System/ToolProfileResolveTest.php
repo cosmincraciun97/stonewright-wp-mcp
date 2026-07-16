@@ -91,6 +91,26 @@ final class ToolProfileResolveTest extends TestCase {
 		}
 	}
 
+	public function test_bootstrap_profile_is_registered_and_capped(): void {
+		self::assertContains( 'bootstrap', ToolProfile::profile_names() );
+		$names = ToolProfile::profile_tools( 'bootstrap' );
+		self::assertLessThanOrEqual( 8, count( $names ) );
+		self::assertContains( 'stonewright/task-start', $names );
+		self::assertContains( 'stonewright/tool-profile', $names );
+
+		$ability = new ToolProfile();
+		$result  = $ability->execute(
+			[
+				'action'  => 'resolve',
+				'profile' => 'bootstrap',
+			]
+		);
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'bootstrap', $result['profile'] );
+		self::assertLessThanOrEqual( 8, count( $result['tools'] ) );
+	}
+
 	public function test_suggest_profile_routes_admin_ops_terms(): void {
 		self::assertSame( 'site-admin', ToolProfile::suggest_profile( 'moderate spam comments on the blog' ) );
 		self::assertSame( 'site-admin', ToolProfile::suggest_profile( 'create a new editor user account' ) );

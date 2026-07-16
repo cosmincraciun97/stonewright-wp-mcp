@@ -115,6 +115,20 @@ final class ConfigurationPage {
 			'sanitize_callback' => static fn( mixed $value ): bool => (bool) $value,
 		] );
 
+		register_setting( self::OPTION_GROUP, 'stonewright_mcp_surface', [
+			'type'              => 'string',
+			'default'           => 'bootstrap',
+			'sanitize_callback' => static function ( mixed $value ): string {
+				$value = is_string( $value ) ? strtolower( trim( $value ) ) : '';
+				if ( ! in_array( $value, [ 'bootstrap', 'essential', 'full' ], true ) ) {
+					$value = 'essential';
+				}
+				// Keep legacy essential_tools_mode aligned with the surface choice.
+				update_option( 'stonewright_essential_tools_mode', 'full' !== $value, false );
+				return $value;
+			},
+		] );
+
 		register_setting( self::OPTION_GROUP, 'stonewright_mode', [
 			'type'              => 'string',
 			'default'           => 'development',
@@ -178,6 +192,7 @@ final class ConfigurationPage {
 		);
 		$atomic_enabled      = (bool) get_option( 'stonewright_elementor_v4_atomic', false );
 		$essential_mode      = (bool) get_option( 'stonewright_essential_tools_mode', true );
+		$mcp_surface         = \Stonewright\WpMcp\Core\AbilityRegistry::mcp_surface();
 		$unsplash_key        = (string) get_option( 'stonewright_unsplash_access_key', '' );
 		$pexels_key          = (string) get_option( 'stonewright_pexels_api_key', '' );
 		$current_user        = wp_get_current_user();
@@ -311,16 +326,21 @@ final class ConfigurationPage {
 							<?php esc_html_e( 'Production-safe mode requires confirmation tokens for destructive operations.', 'stonewright' ); ?>
 						</div>
 						<div class="sw-field">
-							<label class="stonewright-switch">
-								<input
-									type="checkbox"
-									name="stonewright_essential_tools_mode"
-									id="stonewright_essential_tools_mode"
-									value="1"
-									<?php checked( $essential_mode ); ?>
-								/>
-								<span><?php esc_html_e( 'Keep essential tools mode enabled for faster MCP startup', 'stonewright' ); ?></span>
-							</label>
+							<label for="stonewright_mcp_surface"><?php esc_html_e( 'MCP tool surface', 'stonewright' ); ?></label>
+							<select name="stonewright_mcp_surface" id="stonewright_mcp_surface">
+								<option value="bootstrap" <?php selected( $mcp_surface, 'bootstrap' ); ?>>
+									<?php esc_html_e( 'Bootstrap (≤8 tools — progressive discovery)', 'stonewright' ); ?>
+								</option>
+								<option value="essential" <?php selected( $mcp_surface, 'essential' ); ?>>
+									<?php esc_html_e( 'Essential (compact fast path)', 'stonewright' ); ?>
+								</option>
+								<option value="full" <?php selected( $mcp_surface, 'full' ); ?>>
+									<?php esc_html_e( 'Full (slow / high-context — all registered tools)', 'stonewright' ); ?>
+								</option>
+							</select>
+							<p class="description">
+								<?php esc_html_e( 'Bootstrap is the recommended default for new clients. Full mode loads the entire ability surface and is slow and high-context — use only for specialist sessions.', 'stonewright' ); ?>
+							</p>
 						</div>
 						<div class="sw-field">
 							<label class="stonewright-switch">

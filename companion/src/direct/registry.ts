@@ -173,6 +173,33 @@ export const DIRECT_TOOL_NAMES = [
 	...DIRECT_WAVE5_TOOL_NAMES,
 ] as const;
 
+/**
+ * Compact Direct-mode essential surface for client tool caps / progressive discovery.
+ * Registration-time export so measure scripts and productization stay single-source.
+ */
+export const DIRECT_ESSENTIAL_TOOL_NAMES = [
+	'stonewright-content-list',
+	'stonewright-content-get',
+	'stonewright-content-create-page',
+	'stonewright-content-update',
+	'stonewright-media-list',
+	'stonewright-media-upload',
+	'stonewright-menu-list',
+	'stonewright-menu-get',
+	'stonewright-settings-get',
+	'stonewright-plugins-list',
+	'stonewright-themes-list',
+	'stonewright-site-discover',
+	'stonewright-gutenberg-compose',
+	'stonewright-blueprint-list',
+	'stonewright-blueprint-apply',
+	'stonewright-search',
+	'stonewright-rest-request',
+	'stonewright-health-check',
+	'stonewright-elementor-status',
+	'stonewright-gutenberg-validate',
+] as const;
+
 export interface DirectModeContext {
 	env: NodeJS.ProcessEnv;
 	fetchImpl?: typeof fetch;

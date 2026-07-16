@@ -20,7 +20,7 @@ final class ConfigurationPageTest extends TestCase {
 	private const FORM_FIELD_NAMES = [
 		'stonewright_enabled',
 		'stonewright_mode',
-		'stonewright_essential_tools_mode',
+		'stonewright_mcp_surface',
 		'stonewright_elementor_v4_atomic',
 		'stonewright_companion_url',
 		'stonewright_companion_token',

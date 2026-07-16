@@ -19,7 +19,7 @@ final class ToolProfile extends AbilityKernel {
 	 * @return list<string>
 	 */
 	public static function profile_names(): array {
-		return [ 'auto', 'low-tools', 'essential', 'elementor-design', 'content-model', 'gutenberg', 'wp-cli', 'site-admin', 'full' ];
+		return [ 'auto', 'bootstrap', 'low-tools', 'essential', 'elementor-design', 'content-model', 'gutenberg', 'wp-cli', 'site-admin', 'full' ];
 	}
 
 	public static function suggest_profile( string $task, string $surface = 'unknown', string $intent = 'unknown' ): string {
@@ -509,6 +509,10 @@ final class ToolProfile extends AbilityKernel {
 	 * @return list<string>
 	 */
 	public static function profile_tools( string $profile ): array {
+		if ( 'bootstrap' === $profile ) {
+			return AbilityRegistry::bootstrap_ability_names();
+		}
+
 		$startup = [
 			'stonewright/context-bootstrap',
 			'stonewright/task-start',
