@@ -23,6 +23,7 @@ import * as widgets from './tools/widgets.js';
 import * as health from './tools/health.js';
 import * as woocommerce from './tools/woocommerce.js';
 import * as restRequest from './tools/rest-request.js';
+import * as selfImprove from './tools/self-improve.js';
 
 export const DIRECT_WAVE1_TOOL_NAMES = [
 	'stonewright-content-list',
@@ -130,10 +131,25 @@ export const DIRECT_WAVE3_TOOL_NAMES = [
 	'stonewright-rest-request',
 ] as const;
 
+export const DIRECT_WAVE4_SELFIMPROVE_TOOL_NAMES = [
+	'stonewright-skill-list',
+	'stonewright-skill-get',
+	'stonewright-skill-save',
+	'stonewright-skill-delete',
+	'stonewright-memory-list',
+	'stonewright-learning-record',
+	'stonewright-task-start',
+] as const;
+
+export const DIRECT_WAVE4_TOOL_NAMES = [
+	...DIRECT_WAVE4_SELFIMPROVE_TOOL_NAMES,
+] as const;
+
 export const DIRECT_TOOL_NAMES = [
 	...DIRECT_WAVE1_TOOL_NAMES,
 	...DIRECT_WAVE2_TOOL_NAMES,
 	...DIRECT_WAVE3_TOOL_NAMES,
+	...DIRECT_WAVE4_TOOL_NAMES,
 ] as const;
 
 export interface DirectModeContext {
@@ -1188,6 +1204,102 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		(input, runtime) => restRequest.restRequest(runtime, input as never),
 	);
 
+	// --- Wave 4: pluginless self-improvement (no WordPress credentials required) ---
+	const selfCtx = (): selfImprove.SelfImproveContext => ({
+		env: ctx.env,
+		directToolCount: DIRECT_TOOL_NAMES.length,
+	});
+
+	const w4 = (
+		name: string,
+		description: string,
+		shape: Record<string, z.ZodTypeAny>,
+		handler: (input: Record<string, unknown>) => unknown | Promise<unknown>,
+	) => {
+		server.tool(name, description, shape, async (input) => {
+			try {
+				return toolResponse(await handler(input as Record<string, unknown>));
+			} catch (err) {
+				return toolError(err);
+			}
+		});
+	};
+
+	w4(
+		'stonewright-skill-list',
+		'List local companion skills for this site (or _global). Compact index only — no bodies.',
+		{ site: siteArg },
+		(input) => selfImprove.skillList(selfCtx(), input as never),
+	);
+	w4(
+		'stonewright-skill-get',
+		'Load one local skill body by slug (on-demand).',
+		{ site: siteArg, slug: z.string().min(1) },
+		(input) => selfImprove.skillGet(selfCtx(), input as never),
+	);
+	w4(
+		'stonewright-skill-save',
+		'Create or update a local companion skill under ~/.stonewright/skills/.',
+		{
+			site: siteArg,
+			slug: z.string().min(1),
+			name: z.string().min(1),
+			description: z.string(),
+			triggers: z.array(z.string()),
+			body: z.string(),
+			enabled: z.boolean().optional(),
+			global: z.boolean().optional(),
+		},
+		(input) => selfImprove.skillSave(selfCtx(), input as never),
+	);
+	w4(
+		'stonewright-skill-delete',
+		'Delete a local companion skill. Requires confirm:true.',
+		{
+			site: siteArg,
+			slug: z.string().min(1),
+			confirm: z.boolean().optional(),
+			global: z.boolean().optional(),
+		},
+		(input) => selfImprove.skillDelete(selfCtx(), input as never),
+	);
+	w4(
+		'stonewright-memory-list',
+		'List local companion memory entries (newest first).',
+		{ site: siteArg, limit: z.number().int().min(1).max(100).optional() },
+		(input) => selfImprove.memoryList(selfCtx(), input as never),
+	);
+	w4(
+		'stonewright-learning-record',
+		'Record a correction/lesson in local memory; optional disabled draft skill.',
+		{
+			site: siteArg,
+			text: z.string().min(1),
+			kind: z.enum(['correction', 'lesson', 'preference', 'fact']).optional(),
+			tags: z.array(z.string()).optional(),
+			draft_skill: z
+				.object({
+					slug: z.string(),
+					name: z.string(),
+					description: z.string(),
+					triggers: z.array(z.string()),
+					body: z.string(),
+				})
+				.optional(),
+		},
+		(input) => selfImprove.learningRecord(selfCtx(), input as never),
+	);
+	w4(
+		'stonewright-task-start',
+		'Direct-mode task start: matched local skills, memory highlights, write mode, and guidance. Works with zero WordPress credentials.',
+		{
+			site: siteArg,
+			task: z.string().min(1),
+			surface: z.string().optional(),
+			intent: z.string().optional(),
+		},
+		(input) => selfImprove.taskStart(selfCtx(), input as never),
+	);
 
 	return [...DIRECT_TOOL_NAMES];
 }
