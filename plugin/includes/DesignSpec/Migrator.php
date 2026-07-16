@@ -6,7 +6,7 @@ namespace Stonewright\WpMcp\DesignSpec;
 /**
  * DesignSpec version migrations.
  *
- * v1 remains fully supported. Callers that need v2 keys (native policy,
+ * Version 1 remains fully supported. Callers that need v2 keys (native policy,
  * content facts, design system) should migrate before validating against
  * the v2 schema.
  */
