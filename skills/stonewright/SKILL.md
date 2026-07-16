@@ -35,6 +35,20 @@ Elementor, content-model, Gutenberg, WP-CLI, or site-admin profile. Use
 keeps the client-visible startup surface under 30 tools before the agent
 switches to a specialist profile.
 
+### Profile self-upgrade loop
+
+When a needed tool is missing or an ability returns a gated/missing-tool error:
+
+1. Call `stonewright-tool-profile` with `action: "activate"` and a broader
+   profile (for example `elementor-design`, `content-model`, or `full`), or
+   follow `fast_path.tool_profile` from `stonewright-task-start`.
+2. If the result has `tools_changed: true` or a non-empty
+   `re_list_instruction`, re-list tools (`tools/list`) before continuing.
+   stdio companion sessions emit `notifications/tools/list_changed` and refresh
+   their proxy registration; HTTP MCP already serves a fresh list per request.
+3. Retry the original work with the newly visible tools. If the client still
+   shows the old list after notification, restart the MCP session.
+
 ## Route
 
 - Design/image/Figma-to-WordPress: use `design-to-wordpress`.

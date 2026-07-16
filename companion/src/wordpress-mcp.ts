@@ -531,17 +531,23 @@ export async function registerWordPressMcpTools(
 ): Promise<WordPressMcpRegistrationResult> {
 	const client = new WordPressMcpClient(config, fetchImpl);
 	const tools = await client.listTools();
-	const profile = proxyToolProfileFromEnv(env);
+	// Env profile is the INITIAL surface only; mid-session activate/task-start may expand it.
+	let activeProfile = proxyToolProfileFromEnv(env);
 	const registeredTools: RemoteTool[] = [];
 	const profileFilteredToolNames: string[] = [];
 	const maxTools = maxToolsFromEnv(env);
+	const registered = new Map<string, {
+		handle: { enable: () => void; disable: () => void; enabled: boolean };
+		tool: RemoteTool;
+	}>();
+	let refreshInFlight: Promise<ToolsChangedRefreshResult> | null = null;
 
 	// Prefer plugin-resolved ordered list; fall back to local FALLBACK lists (Direct / offline).
-	const resolved = await resolvePluginProxyToolNames(client, profile, maxTools);
+	const resolved = await resolvePluginProxyToolNames(client, activeProfile, maxTools);
 	const allowedOrder = resolved.tools;
-	const allowedSet = profile === 'full' && allowedOrder.length === 0
+	const allowedSet = activeProfile === 'full' && allowedOrder.length === 0
 		? null
-		: new Set(allowedOrder.length > 0 ? allowedOrder : proxyToolNamesForProfile(profile));
+		: new Set(allowedOrder.length > 0 ? allowedOrder : proxyToolNamesForProfile(activeProfile));
 
 	const candidates: RemoteTool[] = [];
 	for (const tool of tools) {
@@ -586,31 +592,57 @@ export async function registerWordPressMcpTools(
 	const keepSet = new Set(kept);
 	const finalTools = candidates.filter((t) => keepSet.has(t.name));
 
-	for (const tool of finalTools) {
-		server.tool(
+	const registerOneProxyTool = (tool: RemoteTool): void => {
+		if (registered.has(tool.name)) return;
+		const handle = server.tool(
 			tool.name,
 			tool.description ?? tool.title ?? 'Proxied Stonewright WordPress MCP tool.',
 			zodShapeFromJsonSchema(tool.inputSchema ?? emptyObjectSchema()),
-			async (input) => {
-				const response = normalizeToolResponse(await client.callTool(tool.name, input));
-				const structured = asRecord(response.structuredContent);
-				if (structured && structured['tools_changed'] === true) {
-					try {
-						// McpServer wraps Protocol Server; emit tools/list_changed for clients.
-						const inner = (server as unknown as { server?: { sendToolListChanged?: () => Promise<void> } }).server;
-						await inner?.sendToolListChanged?.();
-					} catch {
-						// Notification is best-effort; clients can re-list via re_list_instruction.
-					}
-				}
-				return response;
-			},
+			async (input) => handleProxyCall(tool.name, input as Record<string, unknown>),
 		);
+		registered.set(tool.name, {
+			handle: handle as { enable: () => void; disable: () => void; enabled: boolean },
+			tool,
+		});
 		registeredTools.push(tool);
+	};
+
+	const handleProxyCall = async (toolName: string, input: Record<string, unknown>) => {
+		const response = normalizeToolResponse(await client.callTool(toolName, input));
+		const structured = asRecord(response.structuredContent);
+		if (structuredIndicatesToolsChanged(structured) && structured) {
+			// Serialize refreshes so concurrent profile switches do not race registration.
+			if (!refreshInFlight) {
+				refreshInFlight = handleToolsChangedResponse({
+					server,
+					client,
+					structured,
+					activeProfile,
+					maxTools,
+					registered,
+					registerProxyTool: registerOneProxyTool,
+				}).then((result) => {
+					activeProfile = result.profile;
+					return result;
+				}).finally(() => {
+					refreshInFlight = null;
+				});
+			}
+			try {
+				await refreshInFlight;
+			} catch {
+				// Notification / re-registration is best-effort; clients can still honor re_list_instruction.
+			}
+		}
+		return response;
+	};
+
+	for (const tool of finalTools) {
+		registerOneProxyTool(tool);
 	}
 
 	return {
-		profile,
+		profile: activeProfile,
 		remoteTools: tools,
 		registeredTools,
 		profileFilteredToolNames: profileFilteredToolNames.slice(0, 12),
@@ -672,11 +704,15 @@ function extractStructured(raw: unknown): Record<string, unknown> | null {
 	return asObj;
 }
 
-export function proxyToolProfileFromEnv(env: NodeJS.ProcessEnv): ProxyToolProfile {
-	const raw = (env['STONEWRIGHT_MCP_TOOL_PROFILE'] ?? env['STONEWRIGHT_MCP_PROXY_PROFILE'] ?? 'essential')
+/**
+ * Normalize a free-form profile string (env, activate response, task-start) to a
+ * canonical ProxyToolProfile. Unknown values fall back to essential.
+ */
+export function coerceProxyToolProfile(raw: string | null | undefined): ProxyToolProfile {
+	const normalized = (raw ?? '')
 		.trim()
-		.toLowerCase();
-	const normalized = raw.replace(/[\s_]+/g, '-');
+		.toLowerCase()
+		.replace(/[\s_]+/g, '-');
 	if (['0', 'false', 'off', 'full', 'all'].includes(normalized)) {
 		return 'full';
 	}
@@ -690,6 +726,204 @@ export function proxyToolProfileFromEnv(env: NodeJS.ProcessEnv): ProxyToolProfil
 		return PROXY_TOOL_PROFILE_ALIASES[normalized] ?? 'essential';
 	}
 	return 'essential';
+}
+
+export function proxyToolProfileFromEnv(env: NodeJS.ProcessEnv): ProxyToolProfile {
+	return coerceProxyToolProfile(
+		env['STONEWRIGHT_MCP_TOOL_PROFILE'] ?? env['STONEWRIGHT_MCP_PROXY_PROFILE'] ?? 'essential',
+	);
+}
+
+/**
+ * True when a proxied ability result signals that the MCP tool list changed
+ * (explicit flag or non-empty re_list_instruction).
+ */
+export function structuredIndicatesToolsChanged(
+	structured: Record<string, unknown> | null | undefined,
+): boolean {
+	if (!structured) return false;
+	if (structured['tools_changed'] === true) return true;
+	const reList = structured['re_list_instruction'];
+	return typeof reList === 'string' && reList.trim() !== '';
+}
+
+/**
+ * Extract ordered MCP tool names from a tool-profile / task-start structured result.
+ */
+export function mcpToolNamesFromStructured(structured: Record<string, unknown> | null | undefined): string[] {
+	if (!structured) return [];
+	const names: string[] = [];
+	const push = (value: unknown): void => {
+		if (typeof value === 'string' && value.startsWith('stonewright-')) {
+			names.push(value);
+		} else if (value && typeof value === 'object' && typeof (value as { mcp_tool?: unknown }).mcp_tool === 'string') {
+			const mcp = (value as { mcp_tool: string }).mcp_tool;
+			if (mcp.startsWith('stonewright-')) names.push(mcp);
+		}
+	};
+	const recommended = structured['recommended_mcp_tools'];
+	if (Array.isArray(recommended)) {
+		for (const entry of recommended) push(entry);
+	}
+	if (names.length === 0) {
+		const tools = structured['tools'];
+		if (Array.isArray(tools)) {
+			for (const entry of tools) push(entry);
+		}
+	}
+	return names;
+}
+
+/**
+ * Emit notifications/tools/list_changed to the connected MCP client.
+ * Best-effort: returns false when the protocol server is unavailable.
+ */
+export async function emitToolListChanged(server: McpServer): Promise<boolean> {
+	try {
+		// Prefer the protocol Server (Promise) so notifications fire even when the
+		// high-level McpServer wrapper thinks it is not connected yet.
+		const inner = (server as unknown as {
+			server?: { sendToolListChanged?: () => void | Promise<void> };
+			sendToolListChanged?: () => void;
+		}).server;
+		if (inner?.sendToolListChanged) {
+			await Promise.resolve(inner.sendToolListChanged());
+			return true;
+		}
+		const highLevel = (server as unknown as { sendToolListChanged?: () => void }).sendToolListChanged;
+		if (typeof highLevel === 'function') {
+			highLevel.call(server);
+			return true;
+		}
+		return false;
+	} catch {
+		return false;
+	}
+}
+
+export interface ToolsChangedRefreshResult {
+	notified: boolean;
+	refreshed: boolean;
+	added: string[];
+	removed: string[];
+	profile: ProxyToolProfile;
+	desiredCount: number;
+}
+
+/**
+ * Re-derive the companion's proxied tool set after a tools_changed ability result
+ * and emit tools/list_changed. STONEWRIGHT_MCP_TOOL_PROFILE is only the initial profile;
+ * mid-session activate/task-start responses may expand or switch the live set.
+ *
+ * Extracted for unit tests; production path is wired inside registerWordPressMcpTools.
+ */
+export async function handleToolsChangedResponse(options: {
+	server: McpServer;
+	client: {
+		listTools: () => Promise<RemoteTool[]>;
+		callTool: (name: string, args: Record<string, unknown>) => Promise<unknown>;
+	};
+	structured: Record<string, unknown>;
+	activeProfile: ProxyToolProfile;
+	maxTools: number | null;
+	registered: Map<string, { handle: { enable: () => void; disable: () => void; enabled: boolean }; tool: RemoteTool }>;
+	registerProxyTool: (tool: RemoteTool) => void;
+}): Promise<ToolsChangedRefreshResult> {
+	const {
+		server,
+		client,
+		structured,
+		maxTools,
+		registered,
+		registerProxyTool,
+	} = options;
+
+	let activeProfile = options.activeProfile;
+	const profileHint =
+		(typeof structured['profile'] === 'string' && structured['profile'])
+		|| (typeof structured['tool_profile'] === 'string' && structured['tool_profile'])
+		|| (typeof structured['requested_profile'] === 'string' && structured['requested_profile'])
+		|| null;
+	if (profileHint) {
+		activeProfile = coerceProxyToolProfile(profileHint);
+	}
+
+	let desiredNames = mcpToolNamesFromStructured(structured);
+
+	try {
+		const remoteTools = await client.listTools();
+		const byName = new Map(remoteTools.map((t) => [t.name, t]));
+
+		if (desiredNames.length === 0) {
+			const resolved = await resolvePluginProxyToolNames(client, activeProfile, maxTools);
+			desiredNames = resolved.tools;
+		}
+
+		if (activeProfile === 'full' && desiredNames.length === 0) {
+			desiredNames = remoteTools
+				.map((t) => t.name)
+				.filter((name) => Boolean(name)
+					&& !name.startsWith('companion_')
+					&& !COMPANION_OWNED_TOOL_NAMES.has(name));
+		} else if (desiredNames.length === 0) {
+			desiredNames = proxyToolNamesForProfile(activeProfile);
+		}
+
+		const { kept } = trimToolsToMax(desiredNames, maxTools);
+		const desiredSet = new Set(kept);
+
+		const added: string[] = [];
+		const removed: string[] = [];
+
+		for (const [name, entry] of registered) {
+			if (!desiredSet.has(name)) {
+				if (entry.handle.enabled) {
+					entry.handle.disable();
+					removed.push(name);
+				}
+			}
+		}
+
+		for (const name of kept) {
+			if (COMPANION_OWNED_TOOL_NAMES.has(name) || name.startsWith('companion_')) {
+				continue;
+			}
+			const existing = registered.get(name);
+			if (existing) {
+				if (!existing.handle.enabled) {
+					existing.handle.enable();
+					added.push(name);
+				}
+				continue;
+			}
+			const remote = byName.get(name);
+			if (!remote) continue;
+			registerProxyTool(remote);
+			added.push(name);
+		}
+
+		const notified = await emitToolListChanged(server);
+		return {
+			notified,
+			refreshed: true,
+			added,
+			removed,
+			profile: activeProfile,
+			desiredCount: kept.length,
+		};
+	} catch {
+		// Still notify so clients re-list; companion process may keep the prior set
+		// until restart if re-fetch failed.
+		const notified = await emitToolListChanged(server);
+		return {
+			notified,
+			refreshed: false,
+			added: [],
+			removed: [],
+			profile: activeProfile,
+			desiredCount: 0,
+		};
+	}
 }
 
 
