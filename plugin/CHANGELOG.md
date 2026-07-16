@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.73] - 2026-07-16
+
 ### Added
 
 - Real FSE engine path on `blueprint-apply` (`engine=fse`) with constrained layout
@@ -38,6 +40,7 @@
 - Admin e2e writes are serialized, run once, and restore shared settings.
 - Visual e2e writes pass the required task context token, while nonce discovery
   avoids waiting on an absent optional DOM attribute.
+- Prompt Library loads catalog card CSS; blueprint action buttons have spacing.
 
 ## [1.0.0-alpha.72] - 2026-07-16
 
@@ -81,15 +84,3 @@
 
 - Essential tools for blueprints, brand kits, digest, pulse, learning.
 - HTML widget site hard-block; QA block on blueprint apply; rebuilt blueprint specs.
-
-## [1.0.0-alpha.68] - 2026-07-15
-
-### Fixed
-
-- Audit payload overflow inside fixed table layout.
-- Mode pill contrast on light theme (header chrome always light-on-dark).
-- Blueprint Copy AI Prompt now pastes a full multi-line tool playbook.
-
-## Older releases
-
-Older release notes were removed under the 5-release retention policy. See `docs/releases/` for the retained notes and `docs/licensing.md` for permanent licensing history.

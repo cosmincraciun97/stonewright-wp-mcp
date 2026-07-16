@@ -7,6 +7,8 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.73] - 2026-07-16
+
 ### Added
 
 - Repository documentation freshness gate in CI and release packaging.
@@ -35,6 +37,8 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   to the shared WordPress database.
 - Visual e2e writes obtain a task context token first, and REST nonce discovery
   no longer waits for a missing optional DOM attribute.
+- Prompt Library enqueues catalog CSS; blueprint card action buttons have spacing.
+- Connect e2e handles multi-snippet strict mode; visual e2e uses session REST helpers.
 
 ## [1.0.0-alpha.72] - 2026-07-16
 
@@ -99,19 +103,3 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Changed
 
 - Essential tool budget raised to 30; Direct full surface budget raised to 50.
-
-## [1.0.0-alpha.68] - 2026-07-15
-
-### Fixed
-
-- Audit log open payload no longer overflows the table; fixed layout + max-height scroll.
-- Mode pill (`development` / staging / production-safe) always uses light-on-dark header colors so light theme is readable.
-- Blueprint / brand-kit **Copy AI Prompt** now copies a full multi-line playbook (tools, sections, palette, constraints), not a one-liner.
-
-### Changed
-
-- Admin shell content clips horizontal overflow; audit Details column width constrained.
-
-## Older releases
-
-Older release notes were removed under the 5-release retention policy. See `docs/releases/` for the retained notes and `docs/licensing.md` for permanent licensing history.
