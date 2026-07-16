@@ -67,6 +67,7 @@ jobs:
           cache-dependency-path: companion/package-lock.json
       - run: npm ci
       - run: npm run typecheck
+      - run: npm run lint
       - run: npm test
       - run: npm run tokens:measure
       - run: npm run build

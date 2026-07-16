@@ -577,8 +577,9 @@ export async function registerWordPressMcpTools(
 	);
 	if (trimmed.length > 0) {
 		// Deterministic client-cap trim from the tail of the priority-ordered list.
-		console.error(
-			`[stonewright] ${trimmed.length} tools trimmed (client cap ${String(maxTools)}): ${trimmed.join(', ')}`,
+		// stderr only — stdout is the MCP JSON-RPC channel.
+		process.stderr.write(
+			`[stonewright] ${trimmed.length} tools trimmed (client cap ${String(maxTools)}): ${trimmed.join(', ')}\n`,
 		);
 		profileFilteredToolNames.push(...trimmed);
 	}

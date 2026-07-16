@@ -19,7 +19,7 @@ type ToolMap = Record<
 async function callTool(tools: ToolMap, name: string, input: unknown) {
 	const tool = tools[name];
 	expect(tool?.handler).toBeTypeOf('function');
-	const response = await tool!.handler!(input);
+	const response = await tool.handler!(input);
 	const text = response.content[0]?.text ?? '';
 	return JSON.parse(text) as Record<string, unknown>;
 }

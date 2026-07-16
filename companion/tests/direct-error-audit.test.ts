@@ -44,8 +44,8 @@ describe('direct error audit', () => {
 		});
 		const tools = (server as { _registeredTools?: Record<string, { handler?: (i: unknown) => Promise<{ content: Array<{ text: string }> }> }> })._registeredTools ?? {};
 		const start = tools['stonewright-task-start'];
-		const res = await start!.handler!({ task: 'fix something' });
-		const body = JSON.parse(res.content[0]!.text!) as {
+		const res = await start.handler!({ task: 'fix something' });
+		const body = JSON.parse(res.content[0].text) as {
 			recurring_errors: Array<{ tool: string; count: number }>;
 			guidance: string[];
 		};

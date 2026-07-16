@@ -15,7 +15,7 @@ describe('direct startup auto-detect', () => {
 				STONEWRIGHT_MODE: 'direct',
 				STONEWRIGHT_WP_URL: 'https://example.com',
 			},
-			fetchImpl: vi.fn(async () => new Response('', { status: 200 })),
+			fetchImpl: vi.fn(() => Promise.resolve(new Response('', { status: 200 }))),
 		});
 		expect(result.mode).toBe('direct');
 		expect(result.reason).toMatch(/direct/i);
@@ -27,16 +27,16 @@ describe('direct startup auto-detect', () => {
 				STONEWRIGHT_MODE: 'plugin',
 				STONEWRIGHT_WP_URL: 'https://example.com',
 			},
-			fetchImpl: vi.fn(async () => new Response('', { status: 404 })),
+			fetchImpl: vi.fn(() => Promise.resolve(new Response('', { status: 404 }))),
 		});
 		expect(result.mode).toBe('plugin');
 	});
 
 	it('auto-detects direct when plugin MCP endpoint returns 404', async () => {
 		const endpoint = pluginMcpEndpoint('https://example.com');
-		const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+		const fetchImpl = vi.fn((input: Parameters<typeof fetch>[0]) => {
 			expect(String(input)).toBe(endpoint);
-			return new Response('', { status: 404 });
+			return Promise.resolve(new Response('', { status: 404 }));
 		});
 		const result = await resolveRuntimeMode({
 			env: {
@@ -50,7 +50,7 @@ describe('direct startup auto-detect', () => {
 	});
 
 	it('auto-detects plugin when endpoint responds 200', async () => {
-		const fetchImpl = vi.fn(async () => new Response('', { status: 200 }));
+		const fetchImpl = vi.fn(() => Promise.resolve(new Response('', { status: 200 })));
 		const result = await resolveRuntimeMode({
 			env: {
 				STONEWRIGHT_MODE: 'auto',
@@ -65,7 +65,7 @@ describe('direct startup auto-detect', () => {
 	it('treats 401 on endpoint as plugin present', async () => {
 		const probe = await probePluginEndpoint(
 			'https://example.com/wp-json/mcp/stonewright',
-			vi.fn(async () => new Response('', { status: 401 })),
+			vi.fn(() => Promise.resolve(new Response('', { status: 401 }))),
 		);
 		expect(probe.present).toBe(true);
 	});
@@ -78,7 +78,7 @@ describe('direct startup auto-detect', () => {
 				STONEWRIGHT_WP_USERNAME: 'admin',
 				STONEWRIGHT_WP_APP_PASSWORD: 'pw',
 			},
-			fetchImpl: vi.fn(async () => new Response('', { status: 200 })),
+			fetchImpl: vi.fn(() => Promise.resolve(new Response('', { status: 200 }))),
 		});
 		const names = registeredToolNames(server);
 		expect(names).toEqual(expect.arrayContaining([
@@ -117,22 +117,22 @@ describe('direct startup auto-detect', () => {
 				WP_API_USERNAME: 'admin',
 				WP_API_PASSWORD: 'pw',
 			},
-			fetchImpl: async (input, init) => {
+			fetchImpl: (input, init) => {
 				const url = String(input);
 				if (!init?.body && (init?.method === 'HEAD' || init?.method === 'GET' || !init?.method)) {
-					return new Response('', { status: 200 });
+					return Promise.resolve(new Response('', { status: 200 }));
 				}
 				const body = JSON.parse(String(init?.body ?? '{}')) as { method?: string };
 				if (body.method === 'initialize') {
-					return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: { protocolVersion: '2025-06-18' } }), {
+					return Promise.resolve(new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: { protocolVersion: '2025-06-18' } }), {
 						headers: { 'mcp-session-id': 's1', 'content-type': 'application/json' },
-					});
+					}));
 				}
 				if (body.method === 'notifications/initialized') {
-					return new Response('', { status: 202 });
+					return Promise.resolve(new Response('', { status: 202 }));
 				}
 				if (body.method === 'tools/list') {
-					return new Response(JSON.stringify({
+					return Promise.resolve(new Response(JSON.stringify({
 						jsonrpc: '2.0',
 						id: 2,
 						result: {
@@ -142,16 +142,16 @@ describe('direct startup auto-detect', () => {
 								{ name: 'stonewright-skills-get', inputSchema: { type: 'object', properties: {} } },
 							],
 						},
-					}), { headers: { 'content-type': 'application/json' } });
+					}), { headers: { 'content-type': 'application/json' } }));
 				}
 				if (url.includes('/skills')) {
-					return new Response(JSON.stringify({ skills: [] }), {
+					return Promise.resolve(new Response(JSON.stringify({ skills: [] }), {
 						headers: { 'content-type': 'application/json' },
-					});
+					}));
 				}
-				return new Response(JSON.stringify({ jsonrpc: '2.0', id: 3, result: {} }), {
+				return Promise.resolve(new Response(JSON.stringify({ jsonrpc: '2.0', id: 3, result: {} }), {
 					headers: { 'content-type': 'application/json' },
-				});
+				}));
 			},
 		});
 

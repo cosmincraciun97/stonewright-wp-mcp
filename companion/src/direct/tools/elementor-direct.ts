@@ -11,9 +11,9 @@ function resolveScope(site?: string): string {
 	return s.length > 0 ? s.replace(/[^a-zA-Z0-9_.-]/g, '_') : '_global';
 }
 
-async function asFull(
+function asFull(
 	result: WpCliCommandResult,
-): Promise<{ ok: boolean; stdout: string; stderr: string; parsed_json?: unknown; error?: string }> {
+): { ok: boolean; stdout: string; stderr: string; parsed_json?: unknown; error?: string } {
 	return {
 		ok: Boolean(result.ok),
 		stdout: String((result as { stdout?: string }).stdout ?? ''),
@@ -53,7 +53,7 @@ export async function elementorStatus(
 		};
 	}
 
-	const list = await asFull(
+	const list = asFull(
 		await cli(
 			{
 				command: ['plugin', 'list', '--format=json'],
@@ -105,7 +105,7 @@ export async function elementorDataGet(
 		...(input.cwd ? { cwd: input.cwd } : {}),
 		...(input.path ? { path: input.path } : {}),
 	};
-	const meta = await asFull(
+	const meta = asFull(
 		await cli(
 			{
 				command: ['post', 'meta', 'get', String(input.post_id), '_elementor_data', '--format=json'],
@@ -135,7 +135,7 @@ export async function elementorDataGet(
 	}
 	const elements = Array.isArray(tree) ? tree.length : tree && typeof tree === 'object' ? 1 : 0;
 
-	const mode = await asFull(
+	const mode = asFull(
 		await cli(
 			{
 				command: ['post', 'meta', 'get', String(input.post_id), '_elementor_edit_mode'],
@@ -145,7 +145,7 @@ export async function elementorDataGet(
 			env,
 		),
 	);
-	const templateType = await asFull(
+	const templateType = asFull(
 		await cli(
 			{
 				command: ['post', 'meta', 'get', String(input.post_id), '_elementor_template_type'],
@@ -232,7 +232,7 @@ export async function elementorDataUpdate(
 		{ encoding: 'utf8', mode: 0o600 },
 	);
 
-	const updated = await asFull(
+	const updated = asFull(
 		await cli(
 			{
 				command: ['post', 'meta', 'update', String(input.post_id), '_elementor_data'],
@@ -256,7 +256,7 @@ export async function elementorDataUpdate(
 
 	// Best-effort CSS flush — never a write gate.
 	let cssFlushed = false;
-	const help = await asFull(
+	const help = asFull(
 		await cli({ command: ['help', 'elementor'], ...base }, undefined, env),
 	);
 	const helpText = `${help.stdout}\n${help.stderr}`.toLowerCase();
@@ -266,7 +266,7 @@ export async function elementorDataUpdate(
 			? ['elementor', 'flush_css']
 			: null;
 	if (flushCmd) {
-		const flush = await asFull(await cli({ command: flushCmd, ...base }, undefined, env));
+		const flush = asFull(await cli({ command: flushCmd, ...base }, undefined, env));
 		cssFlushed = flush.ok;
 	}
 

@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import {
 	loadSitesConfig,
 	resolveSite,
-	type SitesConfig,
 } from '../src/direct/sites-config.js';
 
 describe('direct sites-config', () => {
@@ -112,7 +111,7 @@ describe('direct sites-config', () => {
 				},
 			},
 		});
-		const config = loadSitesConfig({ sitesFile: file }) as SitesConfig;
+		const config = loadSitesConfig({ sitesFile: file });
 		expect(config.sites.prod?.disabledTools).toEqual(['stonewright-content-delete']);
 	});
 });

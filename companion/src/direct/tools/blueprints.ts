@@ -25,7 +25,7 @@ function blueprintsDir(): string {
 	for (const c of candidates) {
 		if (existsSync(c)) return c;
 	}
-	return candidates[0]!;
+	return candidates[0];
 }
 
 function loadAll(): Array<Record<string, unknown>> {
@@ -117,13 +117,13 @@ export async function applyBlueprint(
 		confirm: args.confirm,
 		tool: 'stonewright-blueprint-apply',
 	});
-	const created = (await client.post('/wp/v2/pages', {
+	const created = await client.post<{ id?: number }>('/wp/v2/pages', {
 		body: {
 			title,
 			content,
 			status: args.status ?? 'draft',
 		},
-	})) as { id?: number };
+	});
 
 	return {
 		ok: true,

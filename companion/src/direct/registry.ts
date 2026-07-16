@@ -1002,7 +1002,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			site: siteArg,
 			blocks: z.array(z.record(z.unknown())).min(1),
 		},
-		async (input) => {
+		(input) => {
 			try {
 				const runtime = buildContext(ctx, input.site);
 				return toolResponse(
@@ -1021,7 +1021,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		'stonewright-blueprint-list',
 		'List bundled landing blueprints available in Direct mode (Gutenberg apply only).',
 		{ site: siteArg },
-		async () => {
+		() => {
 			try {
 				return toolResponse({ ok: true, blueprints: blueprints.listBlueprints() });
 			} catch (err) {
@@ -1034,7 +1034,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		'stonewright-blueprint-get',
 		'Get a bundled blueprint JSON by id (Direct mode).',
 		{ site: siteArg, id: z.string().min(1) },
-		async (input) => {
+		(input) => {
 			try {
 				const bp = blueprints.getBlueprint(input.id);
 				if (!bp) {
@@ -1253,7 +1253,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		name: string,
 		description: string,
 		shape: Record<string, z.ZodTypeAny>,
-		handler: (input: Record<string, unknown>) => unknown | Promise<unknown>,
+		handler: (input: Record<string, unknown>) => unknown,
 	) => {
 		server.tool(name, description, shape, async (input) => {
 			const site = String((input as { site?: string }).site ?? '_global');

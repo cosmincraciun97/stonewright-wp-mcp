@@ -93,7 +93,7 @@ function parse(raw: string, slug: string): Skill {
 	if (!m) {
 		throw new Error(`Skill file missing frontmatter: ${slug}`);
 	}
-	const fm = JSON.parse(m[1]!) as {
+	const fm = JSON.parse(m[1]) as {
 		name?: string;
 		description?: string;
 		triggers?: string[];
@@ -164,8 +164,14 @@ export function listSkills(input: {
 		}
 		try {
 			const skill = parse(readFileSync(join(dir, name), 'utf8'), slug);
-			const { body: _body, ...meta } = skill;
-			items.push(meta);
+			items.push({
+				slug: skill.slug,
+				name: skill.name,
+				description: skill.description,
+				triggers: skill.triggers,
+				enabled: skill.enabled,
+				updated_at: skill.updated_at,
+			});
 		} catch {
 			// skip corrupt
 		}

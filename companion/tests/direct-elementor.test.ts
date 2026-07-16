@@ -8,15 +8,24 @@ import {
 	elementorDataUpdate,
 } from '../src/direct/tools/elementor-direct.js';
 import { markTaskStartSeen, resetTaskStartSeenForTests } from '../src/direct/writes.js';
-import type { ExecFileResult } from '../src/wp-cli.js';
+import type { WpCliCommandResult } from '../src/wp-cli.js';
 
-function mockCli(handlers: Record<string, () => ExecFileResult | { ok: boolean; available?: boolean; stdout?: string; stderr?: string; parsed_json?: unknown }>) {
-	return vi.fn(async (input: { command: string[] }) => {
+type MockCliPartial = {
+	ok?: boolean;
+	available?: boolean;
+	stdout?: string;
+	stderr?: string;
+	parsed_json?: unknown;
+	error?: string;
+};
+
+function mockCli(handlers: Record<string, () => MockCliPartial>) {
+	return vi.fn((input: { command: string[] }): Promise<WpCliCommandResult> => {
 		const key = input.command.join(' ');
 		for (const [pattern, fn] of Object.entries(handlers)) {
 			if (key.includes(pattern) || key === pattern) {
 				const r = fn();
-				return {
+				return Promise.resolve({
 					ok: r.ok !== false,
 					available: r.available ?? true,
 					command: input.command,
@@ -28,10 +37,10 @@ function mockCli(handlers: Record<string, () => ExecFileResult | { ok: boolean; 
 					wp_cli_source: 'test',
 					...(r.parsed_json !== undefined ? { parsed_json: r.parsed_json } : {}),
 					...(r.error ? { error: r.error } : {}),
-				};
+				});
 			}
 		}
-		return {
+		return Promise.resolve({
 			ok: true,
 			available: true,
 			command: input.command,
@@ -41,7 +50,7 @@ function mockCli(handlers: Record<string, () => ExecFileResult | { ok: boolean; 
 			exit_code: 0,
 			duration_ms: 1,
 			wp_cli_source: 'test',
-		};
+		});
 	});
 }
 
@@ -94,11 +103,11 @@ describe('direct elementor tools', () => {
 	it('data-update backs up then writes via stdin', async () => {
 		const tree = [{ id: 'abc', elType: 'container', elements: [] }];
 		const calls: Array<{ command: string[]; stdin?: string }> = [];
-		const cli = vi.fn(async (input: { command: string[]; stdin?: string }) => {
+		const cli = vi.fn((input: { command: string[]; stdin?: string }): Promise<WpCliCommandResult> => {
 			calls.push({ command: input.command, ...(input.stdin !== undefined ? { stdin: input.stdin } : {}) });
 			const key = input.command.join(' ');
 			if (key.includes('_elementor_data') && key.includes('get')) {
-				return {
+				return Promise.resolve({
 					ok: true,
 					available: true,
 					command: input.command,
@@ -109,11 +118,11 @@ describe('direct elementor tools', () => {
 					duration_ms: 1,
 					wp_cli_source: 'test',
 					parsed_json: tree,
-				};
+				});
 			}
 			if (key.includes('meta update')) {
 				expect(input.stdin).toBeDefined();
-				return {
+				return Promise.resolve({
 					ok: true,
 					available: true,
 					command: input.command,
@@ -123,10 +132,10 @@ describe('direct elementor tools', () => {
 					exit_code: 0,
 					duration_ms: 1,
 					wp_cli_source: 'test',
-				};
+				});
 			}
 			if (key.includes('help elementor')) {
-				return {
+				return Promise.resolve({
 					ok: true,
 					available: true,
 					command: input.command,
@@ -136,10 +145,10 @@ describe('direct elementor tools', () => {
 					exit_code: 0,
 					duration_ms: 1,
 					wp_cli_source: 'test',
-				};
+				});
 			}
 			if (key.includes('flush-css')) {
-				return {
+				return Promise.resolve({
 					ok: true,
 					available: true,
 					command: input.command,
@@ -149,9 +158,9 @@ describe('direct elementor tools', () => {
 					exit_code: 0,
 					duration_ms: 1,
 					wp_cli_source: 'test',
-				};
+				});
 			}
-			return {
+			return Promise.resolve({
 				ok: true,
 				available: true,
 				command: input.command,
@@ -161,7 +170,7 @@ describe('direct elementor tools', () => {
 				exit_code: 0,
 				duration_ms: 1,
 				wp_cli_source: 'test',
-			};
+			});
 		});
 
 		const env = { STONEWRIGHT_STATE_DIR: stateDir, STONEWRIGHT_DIRECT_WRITES: 'on' };

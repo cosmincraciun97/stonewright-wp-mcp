@@ -138,7 +138,7 @@ function loadFromFile(path: string): SitesConfig {
 	const defaultAlias =
 		typeof root.default === 'string' && root.default in sites
 			? root.default
-			: Object.keys(sites)[0]!;
+			: Object.keys(sites)[0];
 
 	let permissionWarning: string | undefined;
 	if (process.platform !== 'win32') {

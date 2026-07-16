@@ -13,6 +13,18 @@ import {
 
 const companionRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
+type ToolSurfaceBudgets = Record<string, boolean>;
+
+type ToolSurfaceReport = {
+	ok: boolean;
+	fixture?: string | null;
+	metrics: {
+		plugin_essential_tool_count: number;
+		plugin_low_tools_tool_count: number;
+	};
+	budgets: ToolSurfaceBudgets;
+};
+
 describe('measure-tool-surface budgets', () => {
 	it('marks over-budget metrics as failed', () => {
 		const budgets = evaluateToolSurfaceBudgets({
@@ -22,7 +34,7 @@ describe('measure-tool-surface budgets', () => {
 			direct_full_tool_count: TOOL_SURFACE_LIMITS.direct_full_max_tools + 1,
 			direct_essential_present: true,
 			direct_essential_tool_count: TOOL_SURFACE_LIMITS.direct_essential_max_tools + 1,
-		});
+		}) as ToolSurfaceBudgets;
 
 		expect(allBudgetsPass(budgets)).toBe(false);
 		expect(budgets.plugin_essential_max_20_tools).toBe(false);
@@ -32,14 +44,14 @@ describe('measure-tool-surface budgets', () => {
 	});
 
 	it('fixture report is not ok', () => {
-		const report = overBudgetFixtureReport();
+		const report = overBudgetFixtureReport() as ToolSurfaceReport;
 		expect(report.ok).toBe(false);
 		expect(report.fixture).toBe('over-budget');
 		expect(Object.values(report.budgets).every(Boolean)).toBe(false);
 	});
 
 	it('live companion surface stays under plugin budgets', () => {
-		const report = measureToolSurface();
+		const report = measureToolSurface() as ToolSurfaceReport;
 		expect(report.metrics.plugin_essential_tool_count).toBeLessThanOrEqual(
 			TOOL_SURFACE_LIMITS.plugin_essential_max_tools,
 		);
@@ -58,7 +70,7 @@ describe('measure-tool-surface budgets', () => {
 			{ encoding: 'utf8' },
 		);
 		expect(result.status).toBe(1);
-		const report = JSON.parse(result.stdout);
+		const report = JSON.parse(result.stdout) as ToolSurfaceReport;
 		expect(report.ok).toBe(false);
 		expect(report.budgets.plugin_essential_max_20_tools).toBe(false);
 	});
