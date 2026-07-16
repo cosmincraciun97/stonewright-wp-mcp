@@ -440,8 +440,11 @@ html.sw-theme-dark {
 	display: inline-flex;
 	align-items: center;
 	gap: var(--sw-space-3);
-	flex-shrink: 0;
+	flex-shrink: 1;
+	flex-wrap: wrap;
+	min-width: 0;
 	margin-left: auto;
+	max-width: 100%;
 }
 
 /* Mode pill sits on the always-dark header — keep light labels in BOTH themes. */
@@ -979,7 +982,7 @@ html.sw-theme-dark {
 }
 
 /* Ultra-narrow (e2e 320×568 / small phones): keep product surface inside viewport. */
-@media screen and (max-width: 360px) {
+@media screen and (max-width: 400px) {
 	.sw-shell,
 	.sw-shell__content,
 	.sw-shell__header {
@@ -987,10 +990,44 @@ html.sw-theme-dark {
 		padding-right: var(--sw-space-2);
 	}
 
+	/* Long group labels ("Safety & Diagnostics") force scrollWidth past 320. */
+	.sw-shell__nav-group--multi .sw-shell__nav-group-label {
+		display: none;
+	}
+
+	.sw-shell__nav-group--multi {
+		padding-left: 0;
+		border-left: 0;
+	}
+
+	.sw-shell__nav {
+		/* Contain nav width; links wrap instead of expanding the shell. */
+		width: 100%;
+		flex-basis: 100%;
+	}
+
+	.sw-shell__nav-link {
+		height: 28px;
+		padding: 0 var(--sw-space-2);
+		font-size: var(--sw-text-xs);
+	}
+
+	.sw-shell__meta {
+		flex-wrap: wrap;
+		max-width: 100%;
+	}
+
 	.sw-shell pre,
 	.sw-shell code,
-	.sw-shell table {
+	.sw-shell table,
+	.sw-shell .widefat {
 		max-width: 100%;
 		overflow-x: auto;
+	}
+
+	/* WP .wrap default margins add sideways push on tiny viewports. */
+	.sw-shell.wrap {
+		margin-right: 0;
+		margin-left: 0;
 	}
 }

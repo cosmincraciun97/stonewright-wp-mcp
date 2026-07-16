@@ -241,7 +241,7 @@
 
 .sw-client-cards {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 120px), 1fr));
 	gap: var(--sw-space-2);
 	margin: 0;
 }

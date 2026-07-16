@@ -207,7 +207,7 @@
 .stonewright-card-grid {
 	display: grid;
 	gap: 14px;
-	grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
 	margin-top: 14px;
 }
 
@@ -845,7 +845,9 @@
 
 .stonewright-schema-table {
 	margin-top: 8px;
-	min-width: 640px;
+	/* Prefer wrapping the scroll container, not the whole admin shell. */
+	min-width: min(640px, 100%);
+	width: 100%;
 }
 
 .stonewright-schema-table code {
