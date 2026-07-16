@@ -44,3 +44,7 @@ plugin/wordpress/
 
 # Git worktrees
 .worktrees/
+
+# Session screenshots and temp scratch at repo root
+/*.png
+/.tmp-*
