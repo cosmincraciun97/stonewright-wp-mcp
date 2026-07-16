@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.0-alpha.71
+
+### Added
+- Pluginless Direct self-improvement (local skills/memory + task-start).
+- ACF, multi-plugin SEO, and CPT/taxonomy registration abilities.
+- Discovery wiring for wave-3 admin ops profiles.
+- Dual-mode AI install prompts.
+
+### Fixed
+- wp-admin paste prompt starts with task-start.
+- REST parity security review items (audit redaction, search visibility, rest-request read-only).
+
+
 All notable changes to Stonewright are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
