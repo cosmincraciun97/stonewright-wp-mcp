@@ -53,6 +53,33 @@ final class RestApi {
 				'args'                => [],
 			]
 		);
+
+		register_rest_route(
+			'stonewright/v1',
+			'/admin/connection-verify',
+			[
+				'methods'             => \WP_REST_Server::CREATABLE,
+				'permission_callback' => [ Permissions::class, 'manage_options' ],
+				'callback'            => [ self::class, 'handle_connection_verify' ],
+				'args'                => [],
+			]
+		);
+	}
+
+	/**
+	 * Authenticated MCP loopback self-test for the Setup wizard.
+	 *
+	 * Mints a short-lived Application Password, exercises initialize → tools/list
+	 * → stonewright-task-start, then revokes the credential. Distinct from the
+	 * local preflight checklist on /admin/connection-test.
+	 *
+	 * @param \WP_REST_Request $request REST request (unused).
+	 * @return \WP_REST_Response
+	 */
+	public static function handle_connection_verify( \WP_REST_Request $request ): \WP_REST_Response {
+		unset( $request );
+
+		return rest_ensure_response( McpLoopbackSelfTest::run() );
 	}
 
 	/**

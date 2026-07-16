@@ -280,11 +280,36 @@
 		} );
 	}
 
+	function normalizeChecklistStatus( status ) {
+		if ( status === 'passed' || status === 'ok' ) {
+			return 'ok';
+		}
+		if ( status === 'warn' ) {
+			return 'warn';
+		}
+		if ( status === 'info' ) {
+			return 'info';
+		}
+		return 'error';
+	}
+
+	function humanizeStepId( id ) {
+		var labels = {
+			mint_credential: 'Mint credential',
+			initialize: 'Initialize',
+			tools_list: 'tools/list',
+			task_start: 'task-start',
+			cleanup: 'Cleanup',
+			request: 'Request',
+		};
+		return labels[ id ] || id || '';
+	}
+
 	function renderConnectionResults( list, checks ) {
 		list.innerHTML = '';
 		list.hidden = false;
 		( checks || [] ).forEach( function ( check ) {
-			var status = check.status || 'error';
+			var status = normalizeChecklistStatus( check.status || 'error' );
 			var icon = status === 'ok' ? '✓' : ( status === 'warn' ? '!' : '✗' );
 			var li = document.createElement( 'li' );
 			li.className = 'sw-checklist__item sw-checklist__item--' + status;
@@ -295,7 +320,7 @@
 				'<strong class="sw-checklist__label"></strong>' +
 				'<span class="sw-checklist__detail"></span>' +
 				'</span>';
-			li.querySelector( '.sw-checklist__label' ).textContent = check.label || check.id || '';
+			li.querySelector( '.sw-checklist__label' ).textContent = check.label || humanizeStepId( check.id ) || '';
 			var detail = check.detail || '';
 			if ( check.fix ) {
 				detail = detail ? ( detail + ' — ' + check.fix ) : check.fix;
@@ -343,7 +368,7 @@
 					setButtonFeedback(
 						button,
 						result.data && result.data.ready
-							? 'Preflight passed — run a real connection test from your MCP client'
+							? 'Preflight ready — next: Verify connection'
 							: 'Issues found'
 					);
 				} ).catch( function () {
@@ -351,6 +376,64 @@
 						id: 'request',
 						status: 'error',
 						label: 'Preflight',
+						detail: 'Network error.',
+						fix: 'Check that you are logged in as an administrator.',
+					} ] );
+					setButtonFeedback( button, 'Failed' );
+				} ).finally( function () {
+					button.disabled = false;
+				} );
+			} );
+		} );
+	}
+
+	function initConnectionVerify() {
+		document.querySelectorAll( '[data-stonewright-connection-verify]' ).forEach( function ( button ) {
+			button.addEventListener( 'click', function ( event ) {
+				event.preventDefault();
+				var url = button.getAttribute( 'data-rest-url' );
+				var nonce = button.getAttribute( 'data-rest-nonce' );
+				var list = document.querySelector( '[data-stonewright-connection-verify-results]' );
+				if ( ! url || ! list ) {
+					return;
+				}
+				button.disabled = true;
+				setButtonFeedback( button, 'Verifying MCP…' );
+				window.fetch( url, {
+					method: 'POST',
+					credentials: 'same-origin',
+					headers: {
+						'X-WP-Nonce': nonce || '',
+						'Accept': 'application/json',
+						'Content-Type': 'application/json',
+					},
+					body: '{}',
+				} ).then( function ( response ) {
+					return response.json().then( function ( data ) {
+						return { ok: response.ok, data: data };
+					} );
+				} ).then( function ( result ) {
+					var steps = ( result.data && result.data.steps ) ? result.data.steps : [];
+					if ( ! result.ok && steps.length === 0 ) {
+						steps = [ {
+							id: 'request',
+							status: 'failed',
+							detail: 'Request failed.',
+							fix: 'Reload the page and try again.',
+						} ];
+					}
+					renderConnectionResults( list, steps );
+					var verified = !!( result.data && result.data.ok );
+					setButtonFeedback(
+						button,
+						verified
+							? 'MCP loopback verified'
+							: 'Verification failed'
+					);
+				} ).catch( function () {
+					renderConnectionResults( list, [ {
+						id: 'request',
+						status: 'failed',
 						detail: 'Network error.',
 						fix: 'Check that you are logged in as an administrator.',
 					} ] );
@@ -604,6 +687,7 @@
 		initClientTabs();
 		initClientCards();
 		initConnectionTest();
+		initConnectionVerify();
 		initAbilitySearch();
 		initAbilityBulkControls();
 		initDeclarativeToggles();

@@ -122,8 +122,10 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringContainsString( 'data-stonewright-bridge-token-source', $html );
 		self::assertStringContainsString( 'data-stonewright-connection-test', $html );
 		self::assertStringContainsString( 'Run preflight', $html );
-		self::assertStringContainsString( 'This is not a live MCP connection test.', $html );
-		self::assertStringNotContainsString( 'Verify connection', $html );
+		self::assertStringContainsString( 'data-stonewright-connection-verify', $html );
+		self::assertStringContainsString( 'Verify connection', $html );
+		self::assertStringContainsString( 'stonewright/v1/admin/connection-verify', $html );
+		self::assertStringContainsString( 'live authenticated MCP loopback', $html );
 		self::assertStringNotContainsString( 'Run connection test', $html );
 		self::assertStringNotContainsString( 'stonewright-badge--ok', $html );
 		self::assertStringNotContainsString( 'stonewright-badge--neutral', $html );

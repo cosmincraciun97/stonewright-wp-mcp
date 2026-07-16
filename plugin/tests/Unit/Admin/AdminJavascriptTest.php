@@ -48,4 +48,14 @@ final class AdminJavascriptTest extends TestCase {
 		self::assertStringContainsString( 'data-stonewright-bridge-token-source', $script );
 		self::assertStringContainsString( 'COMPANION_BEARER_TOKEN=', $script );
 	}
+
+	public function test_connection_verify_posts_to_loopback_endpoint(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
+
+		self::assertStringContainsString( 'data-stonewright-connection-verify', $script );
+		self::assertStringContainsString( 'initConnectionVerify', $script );
+		self::assertStringContainsString( "method: 'POST'", $script );
+		self::assertStringContainsString( 'MCP loopback verified', $script );
+		self::assertStringContainsString( 'normalizeChecklistStatus', $script );
+	}
 }
