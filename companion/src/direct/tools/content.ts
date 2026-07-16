@@ -260,3 +260,101 @@ export async function contentRevisions(
 		total: list.length,
 	};
 }
+
+
+export async function contentRevisionGet(
+	ctx: ContentToolContext,
+	input: { type?: string | undefined; id: number; revision_id: number },
+) {
+	assertToolEnabled(ctx.site, 'stonewright-content-revision-get');
+	const collection = collectionFor(input.type ?? 'pages');
+	const rev = await ctx.client.get<WpPost>(
+		`/wp/v2/${collection}/${input.id}/revisions/${input.revision_id}`,
+		{ query: { _fields: 'id,title,slug,status,modified,content,author' } },
+	);
+	return {
+		id: rev.id,
+		title: titleOf(rev),
+		modified: rev.modified ?? '',
+		content: typeof rev.content === 'string' ? rev.content : (rev.content?.raw ?? rev.content?.rendered ?? ''),
+	};
+}
+
+export async function contentRevisionDelete(
+	ctx: ContentToolContext,
+	input: { type?: string | undefined; id: number; revision_id: number; confirm?: boolean | undefined },
+) {
+	assertToolEnabled(ctx.site, 'stonewright-content-revision-delete');
+	assertWriteAllowed({
+		mode: ctx.writeMode,
+		destructive: true,
+		...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
+		tool: 'stonewright-content-revision-delete',
+	});
+	const collection = collectionFor(input.type ?? 'pages');
+	const result = await ctx.client.del(
+		`/wp/v2/${collection}/${input.id}/revisions/${input.revision_id}`,
+		{ query: { force: true } },
+	);
+	appendDirectAudit({
+		tool: 'stonewright-content-revision-delete',
+		site: ctx.site.alias,
+		resource: `${collection}/${input.id}/revisions/${input.revision_id}`,
+		status: 'ok',
+	});
+	return result ?? { deleted: true, revision_id: input.revision_id };
+}
+
+export async function contentAutosaves(
+	ctx: ContentToolContext,
+	input: { type?: string | undefined; id: number; autosave_id?: number | undefined },
+) {
+	assertToolEnabled(ctx.site, 'stonewright-content-autosaves');
+	const collection = collectionFor(input.type ?? 'pages');
+	if (input.autosave_id !== undefined) {
+		const one = await ctx.client.get<WpPost>(
+			`/wp/v2/${collection}/${input.id}/autosaves/${input.autosave_id}`,
+			{ query: { _fields: 'id,title,modified,author' } },
+		);
+		return { items: [{ id: one.id, title: titleOf(one), modified: one.modified ?? '' }] };
+	}
+	const items = await ctx.client.get<WpPost[]>(`/wp/v2/${collection}/${input.id}/autosaves`, {
+		query: { _fields: 'id,title,modified,author' },
+	});
+	const list = Array.isArray(items) ? items : [];
+	return {
+		items: list.map((row) => ({ id: row.id, title: titleOf(row), modified: row.modified ?? '' })),
+		total: list.length,
+	};
+}
+
+export async function contentAutosaveCreate(
+	ctx: ContentToolContext,
+	input: {
+		type?: string | undefined;
+		id: number;
+		title?: string | undefined;
+		content?: string | undefined;
+		confirm?: boolean | undefined;
+	},
+) {
+	assertToolEnabled(ctx.site, 'stonewright-content-autosave-create');
+	assertWriteAllowed({
+		mode: ctx.writeMode,
+		destructive: false,
+		...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
+		tool: 'stonewright-content-autosave-create',
+	});
+	const collection = collectionFor(input.type ?? 'pages');
+	const body: Record<string, unknown> = {};
+	if (input.title !== undefined) body.title = input.title;
+	if (input.content !== undefined) body.content = input.content;
+	const saved = await ctx.client.post<WpPost>(`/wp/v2/${collection}/${input.id}/autosaves`, { body });
+	appendDirectAudit({
+		tool: 'stonewright-content-autosave-create',
+		site: ctx.site.alias,
+		resource: `${collection}/${input.id}/autosaves`,
+		status: 'ok',
+	});
+	return { id: saved.id, title: titleOf(saved), modified: saved.modified ?? '' };
+}

@@ -18,6 +18,11 @@ import * as blockPatterns from './tools/block-patterns.js';
 import * as siteDiscover from './tools/site-discover.js';
 import * as gutenberg from './tools/gutenberg-compose.js';
 import * as blueprints from './tools/blueprints.js';
+import * as comments from './tools/comments.js';
+import * as widgets from './tools/widgets.js';
+import * as health from './tools/health.js';
+import * as woocommerce from './tools/woocommerce.js';
+import * as restRequest from './tools/rest-request.js';
 
 export const DIRECT_WAVE1_TOOL_NAMES = [
 	'stonewright-content-list',
@@ -68,9 +73,67 @@ export const DIRECT_WAVE2_TOOL_NAMES = [
 	'stonewright-blueprint-apply',
 ] as const;
 
+
+export const DIRECT_WAVE3_TOOL_NAMES = [
+	// comments
+	'stonewright-comment-list',
+	'stonewright-comment-get',
+	'stonewright-comment-create',
+	'stonewright-comment-update',
+	'stonewright-comment-delete',
+	// users + application passwords
+	'stonewright-user-create',
+	'stonewright-user-update',
+	'stonewright-user-delete',
+	'stonewright-app-password-list',
+	'stonewright-app-password-create',
+	'stonewright-app-password-revoke',
+	// revisions + autosaves
+	'stonewright-content-revision-get',
+	'stonewright-content-revision-delete',
+	'stonewright-content-autosaves',
+	'stonewright-content-autosave-create',
+	// media
+	'stonewright-media-delete',
+	// widgets + sidebars
+	'stonewright-sidebar-list',
+	'stonewright-widget-list',
+	'stonewright-widget-manage',
+	// themes
+	'stonewright-theme-activate',
+	'stonewright-custom-css',
+	// site health
+	'stonewright-health-check',
+	'stonewright-health-test',
+	// search / editor utilities
+	'stonewright-oembed',
+	'stonewright-url-details',
+	'stonewright-block-directory-search',
+	'stonewright-pattern-directory-search',
+	// FSE completion
+	'stonewright-template-create',
+	'stonewright-template-delete',
+	'stonewright-template-part-create',
+	'stonewright-template-part-delete',
+	'stonewright-global-styles-theme',
+	'stonewright-global-styles-revisions',
+	// plugins completion
+	'stonewright-plugin-get',
+	'stonewright-plugin-delete',
+	// menus completion
+	'stonewright-menu-locations',
+	// WooCommerce (read-only)
+	'stonewright-wc-products',
+	'stonewright-wc-orders',
+	'stonewright-wc-sales-report',
+	// generic guarded passthrough
+	'stonewright-rest-request',
+] as const;
+
 export const DIRECT_TOOL_NAMES = [
 	...DIRECT_WAVE1_TOOL_NAMES,
 	...DIRECT_WAVE2_TOOL_NAMES,
+	...DIRECT_WAVE3_TOOL_NAMES,
 ] as const;
 
 export interface DirectModeContext {
@@ -964,6 +1027,167 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			}
 		},
 	);
+
+	// --- Wave 3 tools ---
+	const w3 = (name: string, desc: string, shape: Record<string, z.ZodTypeAny>, fn: (input: Record<string, unknown>, runtime: ReturnType<typeof buildContext>) => Promise<unknown>) => {
+		server.tool(name, desc, shape, async (input) => {
+			try {
+				return toolResponse(await fn(input as Record<string, unknown>, buildContext(ctx, (input as { site?: string }).site)));
+			} catch (err) {
+				return toolError(err);
+			}
+		});
+	};
+
+	w3('stonewright-comment-list', 'List comments via core REST (Direct mode).', {
+		site: siteArg, post: z.number().int().optional(), status: z.string().optional(), search: z.string().optional(),
+		per_page: z.number().int().min(1).max(50).optional(), page: z.number().int().min(1).optional(),
+	}, (input, runtime) => comments.commentList(runtime, input as never));
+	w3('stonewright-comment-get', 'Get a comment via core REST (Direct mode).', {
+		site: siteArg, id: z.number().int().positive(),
+	}, (input, runtime) => comments.commentGet(runtime, input as never));
+	w3('stonewright-comment-create', 'Create a comment via core REST (Direct mode).', {
+		site: siteArg, post: z.number().int().positive(), content: z.string().min(1), parent: z.number().int().optional(),
+		author_name: z.string().optional(), author_email: z.string().optional(), confirm: confirmArg,
+	}, (input, runtime) => comments.commentCreate(runtime, input as never));
+	w3('stonewright-comment-update', 'Update or moderate a comment (status: approved|hold|spam|trash) via core REST (Direct mode).', {
+		site: siteArg, id: z.number().int().positive(), content: z.string().optional(),
+		status: z.enum(['approved', 'hold', 'spam', 'trash']).optional(), confirm: confirmArg,
+	}, (input, runtime) => comments.commentUpdate(runtime, input as never));
+	w3('stonewright-comment-delete', 'Delete a comment via core REST (Direct mode).', {
+		site: siteArg, id: z.number().int().positive(), force: z.boolean().optional(), confirm: confirmArg,
+	}, (input, runtime) => comments.commentDelete(runtime, input as never));
+
+	w3('stonewright-user-create', 'Create a user via core REST (Direct mode).', {
+		site: siteArg, username: z.string().min(1), email: z.string().email(), password: z.string().min(12),
+		roles: z.array(z.string()).optional(), name: z.string().optional(), confirm: confirmArg,
+	}, (input, runtime) => users.userCreate(runtime, input as never));
+	w3('stonewright-user-update', 'Update a user via core REST (Direct mode).', {
+		site: siteArg, id: z.number().int().positive(), email: z.string().email().optional(), name: z.string().optional(),
+		roles: z.array(z.string()).optional(), password: z.string().min(12).optional(), confirm: confirmArg,
+	}, (input, runtime) => users.userUpdate(runtime, input as never));
+	w3('stonewright-user-delete', 'Delete a user via core REST (requires reassign + confirm:true always).', {
+		site: siteArg, id: z.number().int().positive(), reassign: z.number().int().positive(), confirm: confirmArg,
+	}, (input, runtime) => users.userDelete(runtime, input as never));
+	w3('stonewright-app-password-list', 'List application passwords for a user (no secret material).', {
+		site: siteArg, user_id: z.number().int().positive(),
+	}, (input, runtime) => users.appPasswordList(runtime, input as never));
+	w3('stonewright-app-password-create', 'Create an application password (plaintext returned once; confirm:true always).', {
+		site: siteArg, user_id: z.number().int().positive(), name: z.string().min(1), confirm: confirmArg,
+	}, (input, runtime) => users.appPasswordCreate(runtime, input as never));
+	w3('stonewright-app-password-revoke', 'Revoke an application password (confirm:true always).', {
+		site: siteArg, user_id: z.number().int().positive(), uuid: z.string().min(1), confirm: confirmArg,
+	}, (input, runtime) => users.appPasswordRevoke(runtime, input as never));
+
+	w3('stonewright-content-revision-get', 'Get a single post revision via core REST (Direct mode).', {
+		site: siteArg, type: z.string().optional(), id: z.number().int().positive(), revision_id: z.number().int().positive(),
+	}, (input, runtime) => content.contentRevisionGet(runtime, input as never));
+	w3('stonewright-content-revision-delete', 'Force-delete a post revision via core REST (Direct mode).', {
+		site: siteArg, type: z.string().optional(), id: z.number().int().positive(), revision_id: z.number().int().positive(), confirm: confirmArg,
+	}, (input, runtime) => content.contentRevisionDelete(runtime, input as never));
+	w3('stonewright-content-autosaves', 'List or get autosaves for a post via core REST (Direct mode).', {
+		site: siteArg, type: z.string().optional(), id: z.number().int().positive(), autosave_id: z.number().int().positive().optional(),
+	}, (input, runtime) => content.contentAutosaves(runtime, input as never));
+	w3('stonewright-content-autosave-create', 'Create an autosave via core REST (Direct mode).', {
+		site: siteArg, type: z.string().optional(), id: z.number().int().positive(), title: z.string().optional(), content: z.string().optional(), confirm: confirmArg,
+	}, (input, runtime) => content.contentAutosaveCreate(runtime, input as never));
+	w3('stonewright-media-delete', 'Delete a media item via core REST (Direct mode).', {
+		site: siteArg, id: z.number().int().positive(), force: z.boolean().optional(), confirm: confirmArg,
+	}, (input, runtime) => media.mediaDelete(runtime, input as never));
+
+	w3('stonewright-sidebar-list', 'List widget sidebars via core REST (Direct mode).', {
+		site: siteArg, id: z.string().optional(),
+	}, (input, runtime) => widgets.sidebarList(runtime, input as never));
+	w3('stonewright-widget-list', 'List widgets via core REST (Direct mode).', {
+		site: siteArg, sidebar: z.string().optional(),
+	}, (input, runtime) => widgets.widgetList(runtime, input as never));
+	w3('stonewright-widget-manage', 'Create, update, or delete a widget via core REST (Direct mode).', {
+		site: siteArg, action: z.enum(['create', 'update', 'delete']), id: z.string().optional(),
+		id_base: z.string().optional(), sidebar: z.string().optional(),
+		instance: z.record(z.string(), z.unknown()).optional(), confirm: confirmArg,
+	}, (input, runtime) => widgets.widgetManage(runtime, input as never));
+
+	w3('stonewright-theme-activate', 'Activate a theme via core REST (confirm:true always required).', {
+		site: siteArg, stylesheet: z.string().min(1), confirm: confirmArg,
+	}, (input, runtime) => themes.themeActivate(runtime, input as never));
+	w3('stonewright-custom-css', 'Probe or attempt custom CSS via settings REST (may require plugin).', {
+		site: siteArg, action: z.enum(['get', 'update']), css: z.string().optional(), confirm: confirmArg,
+	}, (input, runtime) => themes.customCss(runtime, input as never));
+
+	w3('stonewright-health-check', 'Aggregate site health tests + directory sizes (Direct mode).', {
+		site: siteArg,
+	}, (_input, runtime) => health.healthCheck(runtime));
+	w3('stonewright-health-test', 'Run one site health test via REST (Direct mode).', {
+		site: siteArg, test: z.enum(['authorization-header','background-updates','dotorg-communication','https-status','loopback-requests','page-cache']),
+	}, (input, runtime) => health.healthTest(runtime, input as never));
+
+	w3('stonewright-oembed', 'Resolve oEmbed data for a URL (Direct mode).', {
+		site: siteArg, url: z.string().url(), maxwidth: z.number().int().optional(), proxy: z.boolean().optional(),
+	}, (input, runtime) => search.oembed(runtime, input as never));
+	w3('stonewright-url-details', 'Fetch block-editor URL details (Direct mode).', {
+		site: siteArg, url: z.string().url(),
+	}, (input, runtime) => search.urlDetails(runtime, input as never));
+	w3('stonewright-block-directory-search', 'Search the WordPress.org block directory (Direct mode).', {
+		site: siteArg, term: z.string().min(1), page: z.number().int().min(1).optional(), per_page: z.number().int().min(1).max(50).optional(),
+	}, (input, runtime) => search.blockDirectorySearch(runtime, input as never));
+	w3('stonewright-pattern-directory-search', 'Search the pattern directory (Direct mode).', {
+		site: siteArg, search: z.string().optional(), category: z.string().optional(),
+		per_page: z.number().int().min(1).max(50).optional(), include_content: z.boolean().optional(),
+	}, (input, runtime) => search.patternDirectorySearch(runtime, input as never));
+
+	w3('stonewright-template-create', 'Create an FSE template via core REST (Direct mode).', {
+		site: siteArg, slug: z.string().min(1), title: z.string().optional(), content: z.string().optional(), description: z.string().optional(), confirm: confirmArg,
+	}, (input, runtime) => templates.templateCreate(runtime, input as never));
+	w3('stonewright-template-delete', 'Delete an FSE template via core REST (Direct mode).', {
+		site: siteArg, id: z.string().min(1), force: z.boolean().optional(), confirm: confirmArg,
+	}, (input, runtime) => templates.templateDelete(runtime, input as never));
+	w3('stonewright-template-part-create', 'Create an FSE template part via core REST (Direct mode).', {
+		site: siteArg, slug: z.string().min(1), title: z.string().optional(), content: z.string().optional(), area: z.string().optional(), confirm: confirmArg,
+	}, (input, runtime) => templates.templatePartCreate(runtime, input as never));
+	w3('stonewright-template-part-delete', 'Delete an FSE template part via core REST (Direct mode).', {
+		site: siteArg, id: z.string().min(1), force: z.boolean().optional(), confirm: confirmArg,
+	}, (input, runtime) => templates.templatePartDelete(runtime, input as never));
+	w3('stonewright-global-styles-theme', 'Get global styles theme defaults or variations (Direct mode).', {
+		site: siteArg, stylesheet: z.string().optional(), variations: z.boolean().optional(),
+	}, (input, runtime) => globalStyles.globalStylesTheme(runtime, input as never));
+	w3('stonewright-global-styles-revisions', 'List or get global styles revisions (Direct mode).', {
+		site: siteArg, parent: z.string().min(1), revision_id: z.number().int().positive().optional(),
+	}, (input, runtime) => globalStyles.globalStylesRevisions(runtime, input as never));
+
+	w3('stonewright-plugin-get', 'Get a plugin via core REST (Direct mode).', {
+		site: siteArg, plugin: z.string().min(1),
+	}, (input, runtime) => plugins.pluginGet(runtime, input as never));
+	w3('stonewright-plugin-delete', 'Delete an inactive plugin (confirm:true always).', {
+		site: siteArg, plugin: z.string().min(1), confirm: confirmArg,
+	}, (input, runtime) => plugins.pluginDelete(runtime, input as never));
+	w3('stonewright-menu-locations', 'List menu locations via core REST (Direct mode).', {
+		site: siteArg,
+	}, (_input, runtime) => menus.menuLocations(runtime));
+
+	w3('stonewright-wc-products', 'List WooCommerce products (read-only Direct mode).', {
+		site: siteArg, search: z.string().optional(), status: z.string().optional(),
+		per_page: z.number().int().min(1).max(50).optional(), page: z.number().int().min(1).optional(),
+	}, (input, runtime) => woocommerce.wcProducts(runtime, input as never));
+	w3('stonewright-wc-orders', 'List WooCommerce orders (read-only Direct mode).', {
+		site: siteArg, status: z.string().optional(), after: z.string().optional(), before: z.string().optional(),
+		per_page: z.number().int().min(1).max(50).optional(), page: z.number().int().min(1).optional(),
+	}, (input, runtime) => woocommerce.wcOrders(runtime, input as never));
+	w3('stonewright-wc-sales-report', 'WooCommerce sales report (read-only Direct mode).', {
+		site: siteArg, period: z.string().optional(), date_min: z.string().optional(), date_max: z.string().optional(),
+	}, (input, runtime) => woocommerce.wcSalesReport(runtime, input as never));
+
+	w3(
+		'stonewright-rest-request',
+		'Read-only escape hatch for REST namespaces without a dedicated tool (GET only). Use stonewright-site-discover first. Writes must use typed Direct tools or WP-CLI.',
+		{
+			site: siteArg,
+			method: z.enum(['GET']).optional().default('GET'),
+			path: z.string().min(1),
+			query: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+		},
+		(input, runtime) => restRequest.restRequest(runtime, input as never),
+	);
+
 
 	return [...DIRECT_TOOL_NAMES];
 }

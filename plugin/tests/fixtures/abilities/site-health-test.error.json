@@ -1,0 +1,6 @@
+{
+  "args": {
+    "test": "https-status"
+  },
+  "expect_permission_error": true
+}

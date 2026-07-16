@@ -163,3 +163,32 @@ export async function pluginInstall(
 		throw err;
 	}
 }
+
+
+export async function pluginGet(ctx: DirectToolContext, input: { plugin: string }) {
+	assertToolEnabled(ctx.site, 'stonewright-plugin-get');
+	const plugin = input.plugin.trim();
+	if (!plugin) throw new Error('plugin is required (e.g. akismet/akismet)');
+	const result = await ctx.client.get<WpPlugin>(`/wp/v2/plugins/${encodePlugin(plugin)}`);
+	return compactPlugin(result);
+}
+
+export async function pluginDelete(
+	ctx: DirectToolContext,
+	input: { plugin: string; confirm?: boolean | undefined },
+) {
+	assertToolEnabled(ctx.site, 'stonewright-plugin-delete');
+	if (input.confirm !== true) {
+		throw new Error('confirm:true is required for this tool (stonewright-plugin-delete)');
+	}
+	const plugin = input.plugin.trim();
+	if (!plugin) throw new Error('plugin is required (e.g. akismet/akismet)');
+	const result = await ctx.client.del(`/wp/v2/plugins/${encodePlugin(plugin)}`);
+	appendDirectAudit({
+		tool: 'stonewright-plugin-delete',
+		site: ctx.site.alias,
+		resource: plugin,
+		status: 'ok',
+	});
+	return result ?? { deleted: true, plugin, note: 'Plugin must be inactive first.' };
+}

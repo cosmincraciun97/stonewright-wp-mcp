@@ -99,7 +99,16 @@ abstract class AbilityKernel implements Ability {
 	 * @return array<int, string>
 	 */
 	protected function audit_redacted_keys(): array {
-		return [ 'confirmation_token', 'token', 'password', 'api_key', 'secret' ];
+		return [
+			'confirmation_token',
+			'token',
+			'password',
+			'user_pass',
+			'api_key',
+			'secret',
+			'app_password',
+			'application_password',
+		];
 	}
 
 	/**

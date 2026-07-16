@@ -195,6 +195,8 @@ flowchart LR
   Elem[Elementor]
   Content[Content / media / menus]
   Mem[Memory / skills]
+  Users[Users / comments / widgets]
+  WC[WooCommerce read]
   Gates[Backup / validation / readback / audit]
 
   Client --> Companion
@@ -205,6 +207,9 @@ flowchart LR
   Plugin --> Elem
   Plugin --> Content
   Plugin --> Mem
+  Plugin --> Users
+  Plugin --> WC
+  REST --> Users
   REST --> WP
   WP --> Content
   Plugin --> WP

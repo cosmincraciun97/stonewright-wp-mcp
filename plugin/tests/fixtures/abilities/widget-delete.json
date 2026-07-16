@@ -1,0 +1,7 @@
+{
+  "args": {
+    "sidebar_id": "sidebar-1",
+    "widget_id": "text-1"
+  },
+  "expect": "ok"
+}

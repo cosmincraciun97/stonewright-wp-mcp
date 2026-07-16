@@ -1,0 +1,6 @@
+{
+  "args": {
+    "test": "https-status"
+  },
+  "expect": "ok"
+}

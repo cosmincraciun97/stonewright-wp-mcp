@@ -82,3 +82,21 @@ changed and requires a new review.
 - Add unit, integration, failure, rollback, and packaging tests.
 - Compare tool count and token cost before and after the import.
 - Record deviations from upstream and the reason for each one.
+
+## Behavioral reference — core REST parity (Wave 3)
+
+### MIT WordPress MCP server (behavioral reference only)
+
+- Source repository: https://github.com/deus-h/claudeus-wp-mcp
+- Local snapshot: /Users/cosminiviteb/Downloads/claudeus-wp-mcp-master
+- Version: 3.0.2
+- License: MIT (LICENSE additionally grants unrestricted rename/reuse)
+- Reuse type: Behavioral evidence only — endpoint inventory and tool-surface
+  comparison for REST parity work (comments, users, application passwords,
+  widgets, settings, themes, site health, oEmbed/editor utilities, WooCommerce
+  read endpoints, revisions/autosaves). No source files copied or ported.
+- Destination: plugin/includes/Abilities/{Comments,Users,Widgets,Settings,
+  Themes,PluginsManage,Revisions,Search,WooCommerce}/,
+  companion/src/direct/tools/{comments,widgets,health,woocommerce,rest-request}.ts
+- Security review: all writes rerouted through Stonewright Permissions/
+  Backup/ConfirmationToken/AuditLog gates; upstream had no equivalent gating.

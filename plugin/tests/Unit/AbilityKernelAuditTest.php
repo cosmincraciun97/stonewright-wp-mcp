@@ -82,13 +82,14 @@ final class AbilityKernelAuditTest extends TestCase {
 
 	public function test_other_sensitive_keys_also_redacted(): void {
 		$result = $this->kernel->expose_sanitize( [
-			'token'   => 'plain-token',
-			'password' => 's3cr3t',
-			'api_key'  => 'ak_live_abc',
-			'secret'   => 'topsecret',
+			'token'     => 'plain-token',
+			'password'  => 's3cr3t',
+			'user_pass' => 'wp-user-password-plain',
+			'api_key'   => 'ak_live_abc',
+			'secret'    => 'topsecret',
 		] );
 
-		foreach ( [ 'token', 'password', 'api_key', 'secret' ] as $key ) {
+		foreach ( [ 'token', 'password', 'user_pass', 'api_key', 'secret' ] as $key ) {
 			$this->assertStringStartsWith(
 				'[redacted,',
 				(string) $result[ $key ],

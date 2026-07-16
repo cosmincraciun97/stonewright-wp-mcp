@@ -1,0 +1,7 @@
+{
+  "args": {
+    "id": 1,
+    "force": true
+  },
+  "expect": "ok"
+}

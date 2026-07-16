@@ -46,6 +46,46 @@ final class ContractTest extends TestCase {
 		$GLOBALS['stonewright_test_wpdb_inserts']    = [];
 		$GLOBALS['stonewright_test_next_post_id']    = 1001;
 		$GLOBALS['stonewright_test_posts']           = $this->posts();
+		$GLOBALS['stonewright_test_comments'] = [
+			1 => [
+				'comment_ID' => 1,
+				'comment_post_ID' => 1001,
+				'comment_content' => 'hello',
+				'comment_approved' => '1',
+				'comment_author' => 'A',
+				'comment_date' => '2026-01-01 00:00:00',
+			],
+		];
+		$GLOBALS['stonewright_test_users'] = [
+			1 => (object) [ 'ID' => 1, 'user_login' => 'admin', 'user_email' => 'a@example.com', 'display_name' => 'Admin', 'roles' => [ 'administrator' ] ],
+			2 => (object) [ 'ID' => 2, 'user_login' => 'editor', 'user_email' => 'e@example.com', 'display_name' => 'Editor', 'roles' => [ 'editor' ] ],
+		];
+		$GLOBALS['stonewright_test_revisions'] = [
+			1 => [
+				[ 'ID' => 99001, 'post_parent' => 1, 'post_title' => 'Rev', 'post_content' => 'body', 'post_modified' => '2026-01-01', 'post_type' => 'revision' ],
+			],
+		];
+		$GLOBALS['stonewright_test_posts'][99001] = (object) [
+			'ID' => 99001,
+			'post_type' => 'revision',
+			'post_parent' => 1,
+			'post_excerpt' => '',
+			'post_title' => 'Rev',
+			'post_content' => 'body',
+			'post_modified' => '2026-01-01',
+			'post_status' => 'inherit',
+		];
+		$GLOBALS['stonewright_test_user_caps']['moderate_comments'] = true;
+		$GLOBALS['stonewright_test_user_caps']['list_users'] = true;
+		$GLOBALS['stonewright_test_user_caps']['create_users'] = true;
+		$GLOBALS['stonewright_test_user_caps']['edit_users'] = true;
+		$GLOBALS['stonewright_test_user_caps']['delete_users'] = true;
+		$GLOBALS['stonewright_test_user_caps']['switch_themes'] = true;
+		$GLOBALS['stonewright_test_user_caps']['activate_plugins'] = true;
+		$GLOBALS['stonewright_test_user_caps']['delete_plugins'] = true;
+		$GLOBALS['stonewright_test_user_caps']['manage_woocommerce'] = true;
+		$GLOBALS['stonewright_test_user_caps']['edit_css'] = true;
+
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
 		$GLOBALS['stonewright_test_companion_responses'] = [];
 		// Seed nav-menu state so menu-* contract fixtures have a real menu to

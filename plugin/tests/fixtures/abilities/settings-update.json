@@ -1,0 +1,8 @@
+{
+  "args": {
+    "settings": {
+      "blogname": "Test"
+    }
+  },
+  "expect": "ok"
+}

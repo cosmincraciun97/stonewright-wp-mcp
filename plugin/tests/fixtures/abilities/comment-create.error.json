@@ -1,0 +1,7 @@
+{
+  "args": {
+    "post_id": 1,
+    "content": "hello"
+  },
+  "expect_permission_error": true
+}

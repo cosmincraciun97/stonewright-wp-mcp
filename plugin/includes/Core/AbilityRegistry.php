@@ -154,6 +154,38 @@ use Stonewright\WpMcp\Abilities\Media\StockImageSearch;
 use Stonewright\WpMcp\Abilities\Media\UploadMedia;
 use Stonewright\WpMcp\Abilities\Media\UploadMediaBatch;
 use Stonewright\WpMcp\Abilities\Menu\MenuAddItem;
+use Stonewright\WpMcp\Abilities\Comments\CommentCreate;
+use Stonewright\WpMcp\Abilities\Comments\CommentDelete;
+use Stonewright\WpMcp\Abilities\Comments\CommentGet;
+use Stonewright\WpMcp\Abilities\Comments\CommentList;
+use Stonewright\WpMcp\Abilities\Comments\CommentUpdate;
+use Stonewright\WpMcp\Abilities\Users\UserAppPasswords;
+use Stonewright\WpMcp\Abilities\Users\UserCreate;
+use Stonewright\WpMcp\Abilities\Users\UserDelete;
+use Stonewright\WpMcp\Abilities\Users\UserGet;
+use Stonewright\WpMcp\Abilities\Users\UserList;
+use Stonewright\WpMcp\Abilities\Users\UserUpdate;
+use Stonewright\WpMcp\Abilities\Widgets\WidgetDelete;
+use Stonewright\WpMcp\Abilities\Widgets\WidgetGet;
+use Stonewright\WpMcp\Abilities\Widgets\WidgetList;
+use Stonewright\WpMcp\Abilities\Widgets\WidgetSave;
+use Stonewright\WpMcp\Abilities\Settings\SettingsGet;
+use Stonewright\WpMcp\Abilities\Settings\SettingsUpdate;
+use Stonewright\WpMcp\Abilities\Themes\ThemeActivate;
+use Stonewright\WpMcp\Abilities\Themes\ThemeCustomCss;
+use Stonewright\WpMcp\Abilities\Themes\ThemeList;
+use Stonewright\WpMcp\Abilities\PluginsManage\PluginActivate;
+use Stonewright\WpMcp\Abilities\PluginsManage\PluginDeactivate;
+use Stonewright\WpMcp\Abilities\PluginsManage\PluginDelete;
+use Stonewright\WpMcp\Abilities\Revisions\PostRevisionGet;
+use Stonewright\WpMcp\Abilities\Revisions\PostRevisionList;
+use Stonewright\WpMcp\Abilities\Revisions\PostRevisionRestore;
+use Stonewright\WpMcp\Abilities\Site\SiteHealthTest;
+use Stonewright\WpMcp\Abilities\Search\OembedResolve;
+use Stonewright\WpMcp\Abilities\Search\SearchQuery;
+use Stonewright\WpMcp\Abilities\WooCommerce\WcOrderList;
+use Stonewright\WpMcp\Abilities\WooCommerce\WcProductList;
+use Stonewright\WpMcp\Abilities\WooCommerce\WcSalesReport;
 use Stonewright\WpMcp\Abilities\Menu\MenuAssignLocation;
 use Stonewright\WpMcp\Abilities\Menu\MenuCreate;
 use Stonewright\WpMcp\Abilities\Menu\MenuDelete;
@@ -403,6 +435,58 @@ final class AbilityRegistry {
 			ThemeBuilderListTemplates::class,
 			ThemeBuilderGetTemplate::class,
 			ThemeBuilderDeleteTemplate::class,
+
+			// Comments.
+			CommentList::class,
+			CommentGet::class,
+			CommentCreate::class,
+			CommentUpdate::class,
+			CommentDelete::class,
+
+			// Users.
+			UserList::class,
+			UserGet::class,
+			UserCreate::class,
+			UserUpdate::class,
+			UserDelete::class,
+			UserAppPasswords::class,
+
+			// Widgets.
+			WidgetList::class,
+			WidgetGet::class,
+			WidgetSave::class,
+			WidgetDelete::class,
+
+			// Settings.
+			SettingsGet::class,
+			SettingsUpdate::class,
+
+			// Themes.
+			ThemeList::class,
+			ThemeActivate::class,
+			ThemeCustomCss::class,
+
+			// Plugins manage.
+			PluginActivate::class,
+			PluginDeactivate::class,
+			PluginDelete::class,
+
+			// Revisions.
+			PostRevisionList::class,
+			PostRevisionGet::class,
+			PostRevisionRestore::class,
+
+			// Site health granular.
+			SiteHealthTest::class,
+
+			// Search / oEmbed.
+			SearchQuery::class,
+			OembedResolve::class,
+
+			// WooCommerce read.
+			WcProductList::class,
+			WcOrderList::class,
+			WcSalesReport::class,
 
 			// Menu.
 			MenuCreate::class,
@@ -919,6 +1003,15 @@ final class AbilityRegistry {
 			'elementor-widget'  => __( 'Elementor Widget Builder', 'stonewright' ),
 			'theme-builder'     => __( 'Theme Builder', 'stonewright' ),
 			'menu'              => __( 'Menu', 'stonewright' ),
+			'comments'          => __( 'Comments', 'stonewright' ),
+			'users'             => __( 'Users', 'stonewright' ),
+			'widgets'           => __( 'Widgets', 'stonewright' ),
+			'settings'          => __( 'Settings', 'stonewright' ),
+			'themes'            => __( 'Themes', 'stonewright' ),
+			'plugins'           => __( 'Plugins', 'stonewright' ),
+			'revisions'         => __( 'Revisions', 'stonewright' ),
+			'search'            => __( 'Search', 'stonewright' ),
+			'woocommerce'       => __( 'WooCommerce', 'stonewright' ),
 		];
 	}
 

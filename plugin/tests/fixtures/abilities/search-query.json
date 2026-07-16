@@ -1,0 +1,6 @@
+{
+  "args": {
+    "search": "hello"
+  },
+  "expect": "ok"
+}

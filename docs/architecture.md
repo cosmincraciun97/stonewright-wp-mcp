@@ -62,3 +62,9 @@ the companion through ad hoc shell scripts, creating action scripts, inspecting
 plugin/companion source to reverse-engineer tool schemas, hand-rolling
 JSON-RPC, calling the REST ability runner from shell, or running shell `wp ...`
 commands.
+
+
+## Direct + plugin REST parity surfaces
+
+Plugin abilities and Direct tools cover comments, users (including application passwords), widgets, allowlisted settings, themes, plugin lifecycle, revisions (with restore on the plugin), site health tests, search/oEmbed, and WooCommerce product/order/sales reads.
+

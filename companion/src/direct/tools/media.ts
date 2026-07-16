@@ -173,3 +173,27 @@ export async function mediaUpdate(
 		throw err;
 	}
 }
+
+
+export async function mediaDelete(
+	ctx: MediaToolContext,
+	input: { id: number; force?: boolean | undefined; confirm?: boolean | undefined },
+) {
+	assertToolEnabled(ctx.site, 'stonewright-media-delete');
+	assertWriteAllowed({
+		mode: ctx.writeMode,
+		destructive: true,
+		...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
+		tool: 'stonewright-media-delete',
+	});
+	const result = await ctx.client.del(`/wp/v2/media/${input.id}`, {
+		query: { force: input.force === true },
+	});
+	appendDirectAudit({
+		tool: 'stonewright-media-delete',
+		site: ctx.site.alias,
+		resource: `media/${input.id}`,
+		status: 'ok',
+	});
+	return result ?? { deleted: true, id: input.id };
+}
