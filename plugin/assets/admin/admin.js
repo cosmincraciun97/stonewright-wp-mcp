@@ -210,38 +210,19 @@
 		} );
 	}
 
-	function initClientTabs() {
-		document.querySelectorAll( '[data-stonewright-client-tab]' ).forEach( function ( tab ) {
-			tab.addEventListener( 'click', function ( event ) {
-				event.preventDefault();
-				var targetId = tab.getAttribute( 'data-stonewright-client-tab' );
-				document.querySelectorAll( '[data-stonewright-client-tab]' ).forEach( function ( item ) {
-					item.classList.remove( 'is-active' );
-					item.setAttribute( 'aria-selected', 'false' );
-				} );
-				document.querySelectorAll( '.stonewright-client-panel' ).forEach( function ( panel ) {
-					panel.classList.remove( 'is-active' );
-					panel.setAttribute( 'hidden', '' );
-				} );
-				tab.classList.add( 'is-active' );
-				tab.setAttribute( 'aria-selected', 'true' );
-				var target = document.getElementById( targetId );
-				if ( target ) {
-					target.classList.add( 'is-active' );
-					target.removeAttribute( 'hidden' );
-				}
-			} );
-		} );
-	}
-
-	function persistSetupClient( slug ) {
+	function persistSetupPreference( client, method ) {
 		if ( ! window.stonewrightSetup || ! window.stonewrightSetup.ajaxUrl ) {
 			return;
 		}
 		var body = new window.URLSearchParams();
 		body.set( 'action', 'stonewright_set_setup_client' );
 		body.set( 'nonce', window.stonewrightSetup.nonce || '' );
-		body.set( 'client', slug );
+		if ( client ) {
+			body.set( 'client', client );
+		}
+		if ( method ) {
+			body.set( 'method', method );
+		}
 		window.fetch( window.stonewrightSetup.ajaxUrl, {
 			method: 'POST',
 			credentials: 'same-origin',
@@ -249,6 +230,26 @@
 			body: body.toString(),
 		} ).catch( function () {
 			/* preference is best-effort */
+		} );
+	}
+
+	function currentSetupClient() {
+		var active = document.querySelector( '[data-stonewright-client-card].is-active' );
+		return active ? ( active.getAttribute( 'data-stonewright-client-card' ) || '' ) : '';
+	}
+
+	function currentSetupMethod() {
+		var active = document.querySelector( '[data-stonewright-method-picker] [data-stonewright-method].is-active' );
+		return active ? ( active.getAttribute( 'data-stonewright-method' ) || 'stdio' ) : 'stdio';
+	}
+
+	function showMethodSnippets( method ) {
+		document.querySelectorAll( '[data-stonewright-method-snippet]' ).forEach( function ( block ) {
+			if ( block.getAttribute( 'data-stonewright-method-snippet' ) === method ) {
+				block.removeAttribute( 'hidden' );
+			} else {
+				block.setAttribute( 'hidden', '' );
+			}
 		} );
 	}
 
@@ -275,7 +276,31 @@
 					target.classList.add( 'is-active' );
 					target.removeAttribute( 'hidden' );
 				}
-				persistSetupClient( slug );
+				persistSetupPreference( slug, currentSetupMethod() );
+			} );
+		} );
+	}
+
+	function initMethodPicker() {
+		var picker = document.querySelector( '[data-stonewright-method-picker]' );
+		if ( ! picker ) {
+			return;
+		}
+		picker.querySelectorAll( '[data-stonewright-method]' ).forEach( function ( option ) {
+			option.addEventListener( 'click', function ( event ) {
+				event.preventDefault();
+				var method = option.getAttribute( 'data-stonewright-method' );
+				if ( ! method || ( method !== 'stdio' && method !== 'http' ) ) {
+					return;
+				}
+				picker.querySelectorAll( '[data-stonewright-method]' ).forEach( function ( item ) {
+					item.classList.remove( 'is-active' );
+					item.setAttribute( 'aria-checked', 'false' );
+				} );
+				option.classList.add( 'is-active' );
+				option.setAttribute( 'aria-checked', 'true' );
+				showMethodSnippets( method );
+				persistSetupPreference( currentSetupClient(), method );
 			} );
 		} );
 	}
@@ -684,8 +709,8 @@
 		initCopyButtons();
 		initSecretToggles();
 		initTokenGenerators();
-		initClientTabs();
 		initClientCards();
+		initMethodPicker();
 		initConnectionTest();
 		initConnectionVerify();
 		initAbilitySearch();

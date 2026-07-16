@@ -80,6 +80,9 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringContainsString( 'sw-stepper', $html );
 		self::assertStringContainsString( 'sw-checklist', $html );
 		self::assertStringContainsString( 'sw-client-cards', $html );
+		self::assertStringContainsString( 'data-stonewright-client-picker', $html );
+		self::assertStringContainsString( 'data-stonewright-method-picker', $html );
+		self::assertStringContainsString( 'sw-method-picker', $html );
 		self::assertStringContainsString( 'stonewright-setup-step', $html );
 		self::assertStringContainsString( 'stonewright-risk-notice', $html );
 		self::assertStringContainsString( 'id="stonewright_enabled"', $html );
@@ -88,14 +91,21 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringContainsString( 'Application Password', $html );
 		self::assertStringContainsString( 'Connect MCP Client', $html );
 		self::assertStringContainsString( 'Setup diagnostics', $html );
-		self::assertStringContainsString( 'Remote HTTP', $html );
-		self::assertStringContainsString( 'no Node or companion required', $html );
-		self::assertStringContainsString( 'stonewright-remote-http-snippet', $html );
+		self::assertStringContainsString( 'Remote Streamable HTTP', $html );
+		self::assertStringContainsString( 'Local companion (stdio)', $html );
+		self::assertStringContainsString( 'No Node or companion required', $html );
+		self::assertStringContainsString( 'data-stonewright-method="stdio"', $html );
+		self::assertStringContainsString( 'data-stonewright-method="http"', $html );
+		self::assertStringContainsString( 'data-stonewright-method-snippet="stdio"', $html );
+		self::assertStringContainsString( 'data-stonewright-method-snippet="http"', $html );
+		self::assertStringNotContainsString( 'stonewright-client-tabs', $html );
+		self::assertStringNotContainsString( 'data-stonewright-client-tab', $html );
+		self::assertStringNotContainsString( 'Need the JSON config for a specific client?', $html );
+		self::assertStringNotContainsString( 'stonewright-remote-http-snippet', $html );
 		self::assertStringContainsString( 'stonewright-connect-prompt-full', $html );
 		self::assertSame( 1, substr_count( $html, 'class="stonewright-connect-prompt' ) );
 		self::assertStringContainsString( 'data-stonewright-text-preview', $html );
 		self::assertStringContainsString( 'data-stonewright-text-full', $html );
-		self::assertStringContainsString( 'Need the JSON config for a specific client?', $html );
 		self::assertStringContainsString( 'Examples: real Stonewright prompts', $html );
 		self::assertStringContainsString( 'stonewright-example-prompt-0', $html );
 		self::assertStringContainsString( 'stonewright-example-prompt-5', $html );
@@ -146,9 +156,15 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringContainsString( 'data-stonewright-client-card="cursor"', $html );
 		self::assertStringContainsString( 'data-stonewright-client-card="codex"', $html );
 		self::assertStringContainsString( 'data-stonewright-client-card="antigravity"', $html );
-		self::assertStringContainsString( 'data-stonewright-client-card="other"', $html );
-		self::assertStringContainsString( 'sw-client-snippet-claude-desktop', $html );
+		self::assertStringContainsString( 'data-stonewright-client-card="vscode-copilot"', $html );
+		self::assertStringContainsString( 'data-stonewright-client-card="generic-mcp"', $html );
+		self::assertStringNotContainsString( 'data-stonewright-client-card="other"', $html );
+		self::assertGreaterThanOrEqual( 16, substr_count( $html, 'data-stonewright-client-card="' ) );
+		self::assertStringContainsString( 'sw-client-snippet-claude-desktop-stdio', $html );
+		self::assertStringContainsString( 'sw-client-snippet-claude-desktop-http', $html );
 		self::assertStringContainsString( 'STONEWRIGHT_WP_URL', $html );
+		self::assertStringContainsString( 'data-stonewright-connection-test', $html );
+		self::assertStringContainsString( 'data-stonewright-connection-verify', $html );
 	}
 
 	public function test_form_field_name_snapshot_is_stable(): void {

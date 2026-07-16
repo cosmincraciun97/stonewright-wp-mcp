@@ -30,7 +30,7 @@ final class ConfigurationPage {
 	}
 
 	/**
-	 * Persist last selected setup client card for the current user.
+	 * Persist last selected setup client and/or transport method for the current user.
 	 */
 	public static function handle_set_setup_client(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
@@ -39,10 +39,18 @@ final class ConfigurationPage {
 
 		check_ajax_referer( 'stonewright_setup_client', 'nonce' );
 
-		$slug  = isset( $_POST['client'] ) ? sanitize_key( (string) wp_unslash( $_POST['client'] ) ) : '';
-		$known = array_column( self::featured_client_defs(), 'slug' );
-		if ( ! in_array( $slug, $known, true ) ) {
+		$slug   = isset( $_POST['client'] ) ? sanitize_key( (string) wp_unslash( $_POST['client'] ) ) : '';
+		$method = isset( $_POST['method'] ) ? sanitize_key( (string) wp_unslash( $_POST['method'] ) ) : '';
+		$known  = ClientCatalog::slugs();
+
+		if ( '' !== $slug && ! in_array( $slug, $known, true ) ) {
 			wp_send_json_error( [ 'message' => 'invalid_client' ], 400 );
+		}
+		if ( '' !== $method && ! in_array( $method, [ 'stdio', 'http' ], true ) ) {
+			wp_send_json_error( [ 'message' => 'invalid_method' ], 400 );
+		}
+		if ( '' === $slug && '' === $method ) {
+			wp_send_json_error( [ 'message' => 'missing_selection' ], 400 );
 		}
 
 		$user_id = get_current_user_id();
@@ -50,8 +58,21 @@ final class ConfigurationPage {
 			wp_send_json_error( [ 'message' => 'no_user' ], 400 );
 		}
 
-		update_user_meta( $user_id, 'stonewright_setup_client', $slug );
-		wp_send_json_success( [ 'client' => $slug ] );
+		if ( '' !== $slug ) {
+			update_user_meta( $user_id, 'stonewright_setup_client', $slug );
+		}
+		if ( '' !== $method ) {
+			update_user_meta( $user_id, 'stonewright_setup_method', $method );
+		}
+
+		$saved_client = self::selected_setup_client( $user_id );
+		$saved_method = self::selected_setup_method( $user_id );
+		wp_send_json_success(
+			[
+				'client' => $saved_client,
+				'method' => $saved_method,
+			]
+		);
 	}
 
 	public static function add_menu(): void {
@@ -159,7 +180,6 @@ final class ConfigurationPage {
 		$essential_mode      = (bool) get_option( 'stonewright_essential_tools_mode', true );
 		$unsplash_key        = (string) get_option( 'stonewright_unsplash_access_key', '' );
 		$pexels_key          = (string) get_option( 'stonewright_pexels_api_key', '' );
-		$server_url          = get_rest_url( null, 'mcp/stonewright' );
 		$current_user        = wp_get_current_user();
 		$current_user_id     = get_current_user_id();
 		$username            = isset( $current_user->user_login ) ? (string) $current_user->user_login : '';
@@ -179,11 +199,10 @@ final class ConfigurationPage {
 			? 'stonewright-risk-notice--ok'
 			: 'stonewright-risk-notice--warning';
 		$setup_diagnostics   = SetupDiagnostics::report();
-		$remote_http_snippet = ConnectClientConfig::http_snippet( $username, $prompt_password );
-		$remote_http_json    = (string) wp_json_encode( $remote_http_snippet, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
 		$has_app_password    = is_array( $generated_password ) || [] !== $app_passwords;
 		$step_states         = self::step_states( $enabled, $has_app_password );
 		$selected_client     = self::selected_setup_client( $current_user_id );
+		$selected_method     = self::selected_setup_method( $current_user_id );
 		?>
 		<?php AdminShell::open( self::SLUG ); ?>
 		<div class="stonewright-config-page sw-setup-page">
@@ -497,17 +516,17 @@ final class ConfigurationPage {
 					<div class="stonewright-step-index" aria-hidden="true">3</div>
 					<div class="stonewright-step-body">
 						<h2><?php esc_html_e( 'Connect MCP Client', 'stonewright' ); ?></h2>
-						<p><?php esc_html_e( 'Pick your AI client for a ready-to-paste config with this site URL and username already filled in.', 'stonewright' ); ?></p>
+						<p><?php esc_html_e( 'Pick your AI client and connection method. Snippets use this site URL, your username, and the Application Password from step 2.', 'stonewright' ); ?></p>
 						<div class="stonewright-share-warning">
 							<strong><?php esc_html_e( 'Heads up:', 'stonewright' ); ?></strong>
 							<?php if ( '' !== $app_password_value ) : ?>
 								<?php esc_html_e( 'This prompt includes the generated Application Password. Prefer manual configuration if you do not want to paste credentials into chat.', 'stonewright' ); ?>
 							<?php else : ?>
-								<?php esc_html_e( 'Generate an Application Password in step 2 to embed it automatically, or use manual configuration below.', 'stonewright' ); ?>
+								<?php esc_html_e( 'Generate an Application Password in step 2 to embed it automatically, or use the paste-to-agent prompt below with a placeholder password.', 'stonewright' ); ?>
 							<?php endif; ?>
 						</div>
 
-						<?php self::render_client_cards( $username, $prompt_password, $selected_client ); ?>
+						<?php self::render_client_method_picker( $username, $prompt_password, $selected_client, $selected_method ); ?>
 
 						<details class="sw-setup-details">
 							<summary><?php esc_html_e( 'Paste-to-agent prompt', 'stonewright' ); ?></summary>
@@ -541,33 +560,9 @@ final class ConfigurationPage {
 							<button
 								type="button"
 								class="button-link"
-								data-stonewright-toggle-target="stonewright-client-configs"
-								aria-expanded="false"
-							><?php esc_html_e( 'Need the JSON config for a specific client?', 'stonewright' ); ?></button>
-							<button
-								type="button"
-								class="button-link"
 								data-stonewright-toggle-target="stonewright-example-prompts"
 								aria-expanded="false"
 							><?php esc_html_e( 'Examples: real Stonewright prompts', 'stonewright' ); ?></button>
-						</div>
-						<div id="stonewright-client-configs" hidden>
-							<div class="stonewright-endpoint-row">
-								<span><?php esc_html_e( 'MCP endpoint', 'stonewright' ); ?></span>
-								<code id="stonewright-mcp-endpoint"><?php echo esc_html( $server_url ); ?></code>
-								<button type="button" class="button button-small" data-stonewright-copy="stonewright-mcp-endpoint">
-									<?php esc_html_e( 'Copy', 'stonewright' ); ?>
-								</button>
-							</div>
-							<details class="stonewright-remote-http-config">
-								<summary><?php esc_html_e( 'Remote HTTP — no Node or companion required', 'stonewright' ); ?></summary>
-								<p class="description"><?php esc_html_e( 'Use this when the MCP client supports Streamable HTTP. Keep the companion only for local WP-CLI workflows.', 'stonewright' ); ?></p>
-								<pre id="stonewright-remote-http-snippet"><code><?php echo esc_html( $remote_http_json ); ?></code></pre>
-								<button type="button" class="button button-small" data-stonewright-copy="stonewright-remote-http-snippet">
-									<?php esc_html_e( 'Copy remote config', 'stonewright' ); ?>
-								</button>
-							</details>
-							<?php self::render_client_tabs( $username, $prompt_password ); ?>
 						</div>
 						<div id="stonewright-example-prompts" class="stonewright-example-prompts" hidden>
 							<?php self::render_example_prompts( $example_prompts ); ?>
@@ -623,139 +618,190 @@ final class ConfigurationPage {
 
 	private static function selected_setup_client( int $user_id ): string {
 		$default = 'claude-desktop';
+		$known   = ClientCatalog::slugs();
+		if ( [] === $known ) {
+			return $default;
+		}
+		if ( ! in_array( $default, $known, true ) ) {
+			$default = (string) $known[0];
+		}
 		if ( $user_id <= 0 ) {
 			return $default;
 		}
 		$saved = get_user_meta( $user_id, 'stonewright_setup_client', true );
-		$known = array_column( self::featured_client_defs(), 'slug' );
 		return is_string( $saved ) && in_array( $saved, $known, true ) ? $saved : $default;
 	}
 
-	/**
-	 * Featured client cards for step 3 (E2 final configs).
-	 *
-	 * @return array<int, array{slug: string, label: string, blurb: string, snippet_slug: string}>
-	 */
-	private static function featured_client_defs(): array {
-		return [
-			[
-				'slug'         => 'claude-code',
-				'label'        => __( 'Claude Code', 'stonewright' ),
-				'blurb'        => __( 'One terminal command via claude mcp add.', 'stonewright' ),
-				'snippet_slug' => 'claude-code',
-			],
-			[
-				'slug'         => 'claude-desktop',
-				'label'        => __( 'Claude Desktop', 'stonewright' ),
-				'blurb'        => __( 'Paste JSON into claude_desktop_config.json.', 'stonewright' ),
-				'snippet_slug' => 'claude-desktop',
-			],
-			[
-				'slug'         => 'cursor',
-				'label'        => __( 'Cursor', 'stonewright' ),
-				'blurb'        => __( 'Project or global .cursor/mcp.json.', 'stonewright' ),
-				'snippet_slug' => 'cursor',
-			],
-			[
-				'slug'         => 'codex',
-				'label'        => __( 'Codex', 'stonewright' ),
-				'blurb'        => __( 'TOML block for ~/.codex/config.toml.', 'stonewright' ),
-				'snippet_slug' => 'codex',
-			],
-			[
-				'slug'         => 'antigravity',
-				'label'        => __( 'Antigravity / Gemini', 'stonewright' ),
-				'blurb'        => __( 'Low-tools profile for strict tool-cap clients.', 'stonewright' ),
-				'snippet_slug' => 'antigravity',
-			],
-			[
-				'slug'         => 'other',
-				'label'        => __( 'Other', 'stonewright' ),
-				'blurb'        => __( 'VS Code, Windsurf, Zed, OpenCode, and more.', 'stonewright' ),
-				'snippet_slug' => 'vscode-copilot',
-			],
-		];
+	private static function selected_setup_method( int $user_id ): string {
+		$default = 'stdio';
+		if ( $user_id <= 0 ) {
+			return $default;
+		}
+		$saved = get_user_meta( $user_id, 'stonewright_setup_method', true );
+		return is_string( $saved ) && in_array( $saved, [ 'stdio', 'http' ], true ) ? $saved : $default;
 	}
 
-	private static function render_client_cards( string $username, string $app_password, string $selected_slug ): void {
-		$clients = self::featured_client_defs();
-		if ( ! in_array( $selected_slug, array_column( $clients, 'slug' ), true ) ) {
-			$selected_slug = 'claude-desktop';
+	/**
+	 * Short card blurb derived from catalog snippet kind.
+	 *
+	 * @param array<string, mixed> $client Catalog client row.
+	 */
+	private static function client_card_blurb( array $client ): string {
+		return match ( (string) ( $client['snippet_kind'] ?? 'json' ) ) {
+			'cli'   => __( 'Terminal / CLI command', 'stonewright' ),
+			'toml'  => __( 'TOML config block', 'stonewright' ),
+			'mixed' => __( 'Client-specific config', 'stonewright' ),
+			default => __( 'JSON MCP config', 'stonewright' ),
+		};
+	}
+
+	/**
+	 * @param array<string, mixed> $snippet Snippet payload from ConnectClientConfig.
+	 */
+	private static function format_snippet_display( array $snippet ): string {
+		if ( isset( $snippet['command'] ) && is_string( $snippet['command'] ) ) {
+			return $snippet['command'];
+		}
+		if ( isset( $snippet['toml'] ) && is_string( $snippet['toml'] ) ) {
+			return $snippet['toml'];
+		}
+		return (string) wp_json_encode( $snippet, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
+	}
+
+	/**
+	 * Single client picker + transport method picker for setup step 3.
+	 */
+	private static function render_client_method_picker(
+		string $username,
+		string $app_password,
+		string $selected_slug,
+		string $selected_method
+	): void {
+		$clients = ClientCatalog::all();
+		$slugs   = array_map(
+			static fn( array $client ): string => (string) $client['slug'],
+			$clients
+		);
+		if ( ! in_array( $selected_slug, $slugs, true ) ) {
+			$selected_slug = self::selected_setup_client( 0 );
+		}
+		if ( ! in_array( $selected_method, [ 'stdio', 'http' ], true ) ) {
+			$selected_method = 'stdio';
 		}
 		?>
-		<div class="sw-client-cards" role="tablist" aria-label="<?php esc_attr_e( 'MCP clients', 'stonewright' ); ?>">
-			<?php foreach ( $clients as $client ) : ?>
-				<?php $is_active = $client['slug'] === $selected_slug; ?>
-				<button
-					type="button"
-					role="tab"
-					class="sw-client-card<?php echo $is_active ? ' is-active' : ''; ?>"
-					data-stonewright-client-card="<?php echo esc_attr( $client['slug'] ); ?>"
-					aria-selected="<?php echo $is_active ? 'true' : 'false'; ?>"
-					aria-controls="sw-client-panel-<?php echo esc_attr( $client['slug'] ); ?>"
-				>
-					<span class="sw-client-card__label"><?php echo esc_html( $client['label'] ); ?></span>
-					<span class="sw-client-card__blurb"><?php echo esc_html( $client['blurb'] ); ?></span>
-				</button>
-			<?php endforeach; ?>
+		<div class="sw-client-picker" data-stonewright-client-picker>
+			<div class="sw-client-cards" role="tablist" aria-label="<?php esc_attr_e( 'MCP clients', 'stonewright' ); ?>">
+				<?php foreach ( $clients as $client ) : ?>
+					<?php
+					$slug      = (string) $client['slug'];
+					$is_active = $slug === $selected_slug;
+					?>
+					<button
+						type="button"
+						role="tab"
+						class="sw-client-card<?php echo $is_active ? ' is-active' : ''; ?>"
+						data-stonewright-client-card="<?php echo esc_attr( $slug ); ?>"
+						aria-selected="<?php echo $is_active ? 'true' : 'false'; ?>"
+						aria-controls="sw-client-panel-<?php echo esc_attr( $slug ); ?>"
+					>
+						<span class="sw-client-card__label"><?php echo esc_html( (string) $client['label'] ); ?></span>
+						<span class="sw-client-card__blurb"><?php echo esc_html( self::client_card_blurb( $client ) ); ?></span>
+					</button>
+				<?php endforeach; ?>
+			</div>
 		</div>
 
-		<?php foreach ( $clients as $client ) : ?>
-			<?php
-			$snippet = ConnectClientConfig::snippet_for(
-				$client['snippet_slug'],
-				$username,
-				$app_password
-			);
-			if ( is_wp_error( $snippet ) ) {
-				continue;
-			}
-
-			$is_active = $client['slug'] === $selected_slug;
-			$is_cli    = isset( $snippet['command'] ) && is_string( $snippet['command'] );
-			$is_toml   = isset( $snippet['toml'] ) && is_string( $snippet['toml'] );
-			$display   = $is_cli
-				? $snippet['command']
-				: (
-					$is_toml
-						? $snippet['toml']
-						: (string) wp_json_encode( $snippet, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES )
-				);
-			$meta      = null;
-			foreach ( ConnectClientConfig::clients() as $row ) {
-				if ( $row['slug'] === $client['snippet_slug'] ) {
-					$meta = $row;
-					break;
-				}
-			}
-			$panel_id = 'sw-client-panel-' . $client['slug'];
-			$code_id  = 'sw-client-snippet-' . $client['slug'];
-			?>
-			<div
-				id="<?php echo esc_attr( $panel_id ); ?>"
-				class="sw-client-panel<?php echo $is_active ? ' is-active' : ''; ?>"
-				role="tabpanel"
-				data-stonewright-client-panel="<?php echo esc_attr( $client['slug'] ); ?>"
-				<?php echo $is_active ? '' : 'hidden'; ?>
-			>
-				<?php if ( is_array( $meta ) ) : ?>
-					<p class="stonewright-client-config-path">
-						<strong><?php echo $is_cli ? esc_html__( 'Run command:', 'stonewright' ) : esc_html__( 'Config file:', 'stonewright' ); ?></strong>
-						<code><?php echo esc_html( $meta['config_path'] ); ?></code>
-					</p>
-					<p class="description"><?php echo esc_html( $meta['notes'] ); ?></p>
-				<?php endif; ?>
-				<?php if ( 'other' === $client['slug'] ) : ?>
-					<p class="description"><?php esc_html_e( 'Showing VS Code (Copilot) as a starting point. Open “Need the JSON config for a specific client?” below for every supported client.', 'stonewright' ); ?></p>
-				<?php endif; ?>
-				<pre id="<?php echo esc_attr( $code_id ); ?>"><code><?php echo esc_html( $display ); ?></code></pre>
-				<div class="sw-actions">
-					<button type="button" class="button button-primary" data-stonewright-copy="<?php echo esc_attr( $code_id ); ?>">
-						<?php esc_html_e( 'Copy snippet', 'stonewright' ); ?>
-					</button>
-				</div>
+		<div
+			class="sw-method-picker"
+			data-stonewright-method-picker
+			role="radiogroup"
+			aria-label="<?php esc_attr_e( 'Connection method', 'stonewright' ); ?>"
+		>
+			<p class="description sw-method-picker__note">
+				<?php esc_html_e( 'Transports only. The Application Password from step 2 authenticates both methods.', 'stonewright' ); ?>
+			</p>
+			<div class="sw-method-picker__options">
+				<button
+					type="button"
+					role="radio"
+					class="sw-method-option<?php echo 'stdio' === $selected_method ? ' is-active' : ''; ?>"
+					data-stonewright-method="stdio"
+					aria-checked="<?php echo 'stdio' === $selected_method ? 'true' : 'false'; ?>"
+				>
+					<span class="sw-method-option__label"><?php esc_html_e( 'Local companion (stdio)', 'stonewright' ); ?></span>
+					<span class="sw-method-option__blurb"><?php esc_html_e( 'npx runs the Stonewright companion on your machine.', 'stonewright' ); ?></span>
+				</button>
+				<button
+					type="button"
+					role="radio"
+					class="sw-method-option<?php echo 'http' === $selected_method ? ' is-active' : ''; ?>"
+					data-stonewright-method="http"
+					aria-checked="<?php echo 'http' === $selected_method ? 'true' : 'false'; ?>"
+				>
+					<span class="sw-method-option__label"><?php esc_html_e( 'Remote Streamable HTTP', 'stonewright' ); ?></span>
+					<span class="sw-method-option__blurb"><?php esc_html_e( 'No Node or companion required.', 'stonewright' ); ?></span>
+				</button>
 			</div>
-		<?php endforeach; ?>
+		</div>
+
+		<div class="sw-snippet-panels" data-stonewright-snippet-panels>
+			<?php foreach ( $clients as $client ) : ?>
+				<?php
+				$slug      = (string) $client['slug'];
+				$is_active = $slug === $selected_slug;
+				$is_cli    = 'cli' === (string) ( $client['snippet_kind'] ?? '' );
+				$panel_id  = 'sw-client-panel-' . $slug;
+				$path      = (string) ( $client['config_path'] ?? '' );
+				$notes     = (string) ( $client['notes'] ?? '' );
+				?>
+				<div
+					id="<?php echo esc_attr( $panel_id ); ?>"
+					class="sw-client-panel<?php echo $is_active ? ' is-active' : ''; ?>"
+					role="tabpanel"
+					data-stonewright-client-panel="<?php echo esc_attr( $slug ); ?>"
+					<?php echo $is_active ? '' : 'hidden'; ?>
+				>
+					<?php if ( '' !== $path ) : ?>
+						<p class="stonewright-client-config-path">
+							<strong><?php echo $is_cli ? esc_html__( 'Run command:', 'stonewright' ) : esc_html__( 'Config file:', 'stonewright' ); ?></strong>
+							<code><?php echo esc_html( $path ); ?></code>
+						</p>
+					<?php endif; ?>
+					<?php if ( '' !== $notes ) : ?>
+						<p class="description"><?php echo esc_html( $notes ); ?></p>
+					<?php endif; ?>
+
+					<?php foreach ( [ 'stdio', 'http' ] as $method ) : ?>
+						<?php
+						$snippet = ConnectClientConfig::snippet_for( $slug, $username, $app_password, $method );
+						if ( is_wp_error( $snippet ) ) {
+							continue;
+						}
+						$code_id     = 'sw-client-snippet-' . $slug . '-' . $method;
+						$display     = self::format_snippet_display( $snippet );
+						$method_show = $method === $selected_method;
+						?>
+						<div
+							class="sw-method-snippet"
+							data-stonewright-method-snippet="<?php echo esc_attr( $method ); ?>"
+							<?php echo $method_show ? '' : 'hidden'; ?>
+						>
+							<?php if ( 'http' === $method ) : ?>
+								<p class="description">
+									<?php esc_html_e( 'Streamable HTTP against the WordPress MCP endpoint. Keep the companion only when you need local WP-CLI workflows.', 'stonewright' ); ?>
+								</p>
+							<?php endif; ?>
+							<pre id="<?php echo esc_attr( $code_id ); ?>"><code><?php echo esc_html( $display ); ?></code></pre>
+							<div class="sw-actions">
+								<button type="button" class="button button-primary" data-stonewright-copy="<?php echo esc_attr( $code_id ); ?>">
+									<?php esc_html_e( 'Copy snippet', 'stonewright' ); ?>
+								</button>
+							</div>
+						</div>
+					<?php endforeach; ?>
+				</div>
+			<?php endforeach; ?>
+		</div>
 		<?php
 	}
 
@@ -845,68 +891,6 @@ final class ConfigurationPage {
 				</div>
 			<?php endforeach; ?>
 		</div>
-		<?php
-	}
-
-	private static function render_client_tabs( string $username, string $app_password ): void {
-		$clients      = ConnectClientConfig::clients();
-		$default_slug = 'claude-desktop';
-		?>
-		<div class="stonewright-client-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Client snippets', 'stonewright' ); ?>">
-			<?php foreach ( $clients as $client ) : ?>
-				<?php $is_active = $client['slug'] === $default_slug; ?>
-				<button
-					type="button"
-					role="tab"
-					class="stonewright-client-tab<?php echo $is_active ? ' is-active' : ''; ?>"
-					data-stonewright-client-tab="stonewright-client-panel-<?php echo esc_attr( $client['slug'] ); ?>"
-					aria-selected="<?php echo $is_active ? 'true' : 'false'; ?>"
-					aria-controls="stonewright-client-panel-<?php echo esc_attr( $client['slug'] ); ?>"
-				><?php echo esc_html( $client['label'] ); ?></button>
-			<?php endforeach; ?>
-		</div>
-
-		<?php foreach ( $clients as $client ) : ?>
-			<?php
-			$snippet = ConnectClientConfig::snippet_for(
-				$client['slug'],
-				$username,
-				$app_password
-			);
-			if ( is_wp_error( $snippet ) ) {
-				continue;
-			}
-
-			$is_active = $client['slug'] === $default_slug;
-			$is_cli    = isset( $snippet['command'] ) && is_string( $snippet['command'] );
-			$is_toml   = isset( $snippet['toml'] ) && is_string( $snippet['toml'] );
-			$display   = $is_cli
-				? $snippet['command']
-				: (
-					$is_toml
-						? $snippet['toml']
-						: (string) wp_json_encode( $snippet, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES )
-				);
-			$panel_id  = 'stonewright-client-panel-' . $client['slug'];
-			$code_id   = 'stonewright-client-snippet-' . $client['slug'];
-			?>
-			<div
-				id="<?php echo esc_attr( $panel_id ); ?>"
-				class="stonewright-client-panel<?php echo $is_active ? ' is-active' : ''; ?>"
-				role="tabpanel"
-				<?php echo $is_active ? '' : 'hidden'; ?>
-			>
-				<p class="stonewright-client-config-path">
-					<strong><?php echo $is_cli ? esc_html__( 'Run command:', 'stonewright' ) : esc_html__( 'Config file:', 'stonewright' ); ?></strong>
-					<code><?php echo esc_html( $client['config_path'] ); ?></code>
-				</p>
-				<p class="description"><?php echo esc_html( $client['notes'] ); ?></p>
-				<pre id="<?php echo esc_attr( $code_id ); ?>"><code><?php echo esc_html( $display ); ?></code></pre>
-				<button type="button" class="button button-small" data-stonewright-copy="<?php echo esc_attr( $code_id ); ?>">
-					<?php esc_html_e( 'Copy snippet', 'stonewright' ); ?>
-				</button>
-			</div>
-		<?php endforeach; ?>
 		<?php
 	}
 

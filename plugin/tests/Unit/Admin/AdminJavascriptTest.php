@@ -58,4 +58,18 @@ final class AdminJavascriptTest extends TestCase {
 		self::assertStringContainsString( 'MCP loopback verified', $script );
 		self::assertStringContainsString( 'normalizeChecklistStatus', $script );
 	}
+
+	public function test_setup_client_and_method_pickers_are_wired(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
+
+		self::assertStringContainsString( 'initClientCards', $script );
+		self::assertStringContainsString( 'initMethodPicker', $script );
+		self::assertStringContainsString( 'persistSetupPreference', $script );
+		self::assertStringContainsString( 'data-stonewright-method-picker', $script );
+		self::assertStringContainsString( 'data-stonewright-method-snippet', $script );
+		self::assertStringContainsString( "body.set( 'method', method )", $script );
+		self::assertStringContainsString( "body.set( 'client', client )", $script );
+		self::assertStringNotContainsString( 'initClientTabs', $script );
+		self::assertStringNotContainsString( 'data-stonewright-client-tab', $script );
+	}
 }
