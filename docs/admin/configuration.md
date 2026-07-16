@@ -178,14 +178,33 @@ Elementor page builds, ACF field groups, CPT UI content models, Figma to
 Elementor V3 implementation, WooCommerce catalog cleanup, and Gutenberg/FSE
 updates.
 
-### Setup preflight
+### Setup preflight vs Verify connection
 
-The Setup page includes a **Run preflight** check that reports local readiness:
-abilities enabled, MCP endpoint, Application Passwords, tool surface, and
-Elementor detection. A passing preflight means the site looks ready for MCP
-setup — it does **not** prove that an MCP client can connect, authenticate, or
-call tools. After configuration, run a real connection test from your MCP
-client (for example by calling `stonewright-task-start`).
+The Setup page exposes two distinct checks:
+
+1. **Run preflight** — local readiness only: abilities enabled, MCP endpoint,
+   Application Passwords, tool surface, Elementor detection. Passing means the
+   site *looks* ready. It does **not** prove live MCP auth or tool calls.
+2. **Verify connection** — plugin-side MCP **loopback self-test**. Mints a
+   short-lived Application Password, then runs `initialize` → `tools/list`
+   (asserts `stonewright-task-start`) → a read-only `stonewright-task-start`
+   call → revokes the test password. Returns structured step results with
+   exact fixes on failure. Never turns green solely because Application
+   Passwords exist.
+
+For the companion stdio path, also run:
+
+```bash
+npx @stonewright/companion doctor
+```
+
+Doctor checks Node version, credentials (env or `~/.stonewright/sites.json`),
+WordPress REST auth, MCP initialize, and prints client-specific tool-cache
+refresh hints. It never prints secrets.
+
+Client definitions live in `plugin/data/clients/*.json` (see
+`docs/verified-client-versions.md`). Prefer user-level private config for
+credentials; never commit Application Passwords to project-tracked files.
 
 ### Browser MCP
 
