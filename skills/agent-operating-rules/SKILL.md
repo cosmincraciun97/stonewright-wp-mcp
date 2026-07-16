@@ -29,7 +29,7 @@ These rules ship with the plugin. They are **not** site Safety Memory entries.
 2. Official plugin REST/APIs  
 3. Stonewright typed abilities (`elementor-v3-*`, content, php-execute when appropriate)  
 4. Authenticated admin form POST + nonces  
-5. Browser clicks only as last resort; screenshots are fine  
+5. Browser clicks only as last resort; screenshots and visual verification are fine  
 
 ## Content model: additive only
 

@@ -47,7 +47,7 @@ final class McpUsePolicy {
 		return [
 			'Change only the WordPress environment the user named (this site). Do not also mutate local, staging, or another host for consistency unless the user explicitly asks.',
 			'Never scaffold, zip, upload, or activate ad-hoc custom plugins as a workaround for CPT/taxonomy/field registration. Prefer tools already on the site, typed Stonewright abilities, or tell the user server-side PHP is required.',
-			'Automate HTTP-first: WP REST and official plugin APIs, then Stonewright typed abilities, then authenticated admin form POST with nonces. Browser click/fill automation is last resort; screenshots/visual QA are fine.',
+			'Automate HTTP-first: WP REST and official plugin APIs, then Stonewright typed abilities, then authenticated admin form POST with nonces. Browser click/fill automation is last resort; screenshots and visual verification are fine.',
 			'Content-model changes are additive. Do not use CPT UI full Import to add one type — import replaces entire option bags and can wipe existing post types/taxonomies. Prefer Add New / targeted edit. Never bulk-transfer models or content between environments unless the user explicitly requests that transfer.',
 			'Implementation priority: Elementor native controls/widgets first; scoped child-theme CSS under a section parent class only when native controls cannot express the need; scripts/HTML/JS only as last resort with explicit user approval when required.',
 			'Never duplicate Elementor widgets with hide_desktop/hide_mobile only to change typography between breakpoints. Use one widget and native responsive Typography controls (font size / line-height / letter-spacing per device).',

@@ -25,7 +25,7 @@ export function agentsMdTemplate(): string {
 		'6. Change ONLY the environment the user named — no parallel local/staging edits unless asked.',
 		'7. Remote Direct work uses that site\'s REST/admin-HTTP only — never local WP-CLI/MySQL for a remote task.',
 		'8. Never scaffold/install ad-hoc plugins as a workaround; registration of new models needs server PHP or existing admin tools.',
-		'9. Automate HTTP-first (REST → APIs → form POST); Playwright admin clicks are last resort.',
+		'9. Automate HTTP-first (REST → APIs → form POST); browser admin clicks are last resort.',
 		'10. Content-model changes are additive — never CPT UI full import that replaces all types.',
 		MARK_END,
 		'',

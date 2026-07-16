@@ -29,7 +29,6 @@ final class AgentInstructions {
 			'- WP-CLI remains tokenized; use stonewright-php-execute for PHP runtime snippets instead of wp eval, wp eval-file, wp shell, wp package, --exec, or --require.',
 			'- Do not run wp cli info, wp plugin activate, wp option update, or other wp commands in a normal shell as Stonewright recovery. Use MCP tools stonewright-wp-cli-status, stonewright-wp-cli-discover, stonewright-wp-cli-run, or stonewright-wp-cli-batch-run.',
 			'- Do not use another MCP adapter execute-php to replace Stonewright php-execute.',
-			...array_map( static fn ( string $rule ): string => '- ' . $rule, McpUsePolicy::permanent_operating_rules() ),
 		];
 
 		$instructions_enabled = (bool) get_option( 'stonewright_custom_instructions_enabled', true );

@@ -1,9 +1,9 @@
 ---
 {
   "name": "HTTP-first WordPress automation",
-  "description": "Automate wp-admin via REST and form POST+nonces; Playwright click/fill is last resort.",
+  "description": "Automate wp-admin via REST and form POST+nonces; browser click/fill is last resort.",
   "triggers": [
-    "Playwright",
+    "browser admin",
     "admin click",
     "fill form",
     "CPT UI",
@@ -22,7 +22,7 @@
 
 ## Hard rule
 
-Do **not** drive wp-admin with Playwright click/fill as the default. Clicks are brittle (wrong select values, hidden submits, accidental wrong CPT).
+Do **not** drive wp-admin with browser click/fill as the default. Clicks are brittle (wrong select values, hidden submits, accidental wrong CPT).
 
 ## Preferred stack
 
@@ -30,7 +30,7 @@ Do **not** drive wp-admin with Playwright click/fill as the default. Clicks are 
 2. **Official plugin REST/APIs** when available  
 3. **Stonewright typed tools** (Direct or plugin mode)  
 4. **Admin form POST** with session cookies: GET page → extract nonces → POST fields  
-5. **Playwright**: screenshots / visual QA; UI clicks only if no HTTP path works  
+5. **Browser tools**: screenshots / visual verification; UI clicks only if no HTTP path works  
 
 ## CPT UI specifics
 
