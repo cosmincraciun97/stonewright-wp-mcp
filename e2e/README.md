@@ -63,9 +63,27 @@ The `e2e-admin-ui` job in `.github/workflows/ci.yml`:
 2. Starts `wp-env` from `e2e/.wp-env.json`
 3. Runs `npx playwright test`
 
+## WordPress matrix (Phase 12)
+
+| Config | Core | PHP | Use |
+|---|---|---|---|
+| `.wp-env.json` | **6.9** | 8.2 | Default CI / local |
+| `.wp-env.6.7.json` | **6.7** | 8.1 | Optional compatibility pin |
+
+```bash
+# Default (6.9)
+npx wp-env start
+
+# Optional 6.7 matrix
+npx wp-env start --config .wp-env.6.7.json
+```
+
+Plugin requires WordPress **6.7+**. When WordPress 7.0 ships, add `.wp-env.7.0.json`
+alongside the same plugin mount.
+
 ## Notes
 
-- WordPress core pin in `.wp-env.json` is **6.9** (stable for CI). Phase 12
-  extends the matrix to 6.7 / 6.9 / 7.0.
-- Screenshots under `e2e/artifacts/` are not committed. Baseline reference
-  screenshots for regression live under `docs/plans/evidence/phase-0/`.
+- Screenshots under `e2e/artifacts/` are not committed. Baseline reference path:
+  `docs/plans/evidence/phase-0/` (see that README for viewport matrix + invariants).
+- Packaging smoke (plugin ZIP layout, vendor include / tests exclude):
+  `node scripts/package-verify.mjs`

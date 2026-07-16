@@ -2,11 +2,22 @@
 
 Regression reference for the `e2e:admin-ui` Playwright gate scaffolded in Phase 0.
 
+## Benchmarks / evidence path
+
+| Artifact | Path |
+|---|---|
+| This baseline README | `docs/plans/evidence/phase-0/` |
+| MCP token budgets (historical PR series) | `docs/benchmarks/` |
+| Playwright artifacts (local, gitignored) | `e2e/artifacts/` |
+| Packaging smoke | `node scripts/package-verify.mjs` |
+
+Promote screenshots into this directory only when deliberately freezing a visual baseline for a PR.
+
 ## Gate
 
 - Package: `e2e/` (`@playwright/test`)
 - Spec: `e2e/tests/admin-ui.spec.ts`
-- Fixture: `e2e/.wp-env.json` (WordPress 6.9; Phase 12 extends to 6.7 / 6.9 / 7.0)
+- Fixture: `e2e/.wp-env.json` (WordPress **6.9** default; optional `e2e/.wp-env.6.7.json` for WP **6.7**)
 - Viewports: 1440×900, 1024×768, 782×1024, 390×844, 320×568 × light/dark
 
 ## Pages covered
