@@ -311,13 +311,17 @@ html.sw-theme-dark {
 /* Shell layout                                                         */
 /* ------------------------------------------------------------------ */
 .sw-shell {
-	max-width: none !important;
-	margin: 0 0 0 -20px;
+	/* Stay inside #wpcontent — negative pull-margins cause horizontal overflow
+	   at folded-admin / 320px viewports (e2e:admin-ui gate). */
+	max-width: 100% !important;
+	width: 100%;
+	margin: 0;
 	padding: 0;
 	background: var(--sw-shell-bg);
 	min-height: calc(100vh - 32px);
 	box-sizing: border-box;
 	color: var(--sw-text);
+	overflow-x: hidden;
 }
 
 .sw-shell *,
@@ -941,20 +945,52 @@ html.sw-theme-dark {
 /* Responsive                                                           */
 /* ------------------------------------------------------------------ */
 @media screen and (max-width: 782px) {
+	/* No negative margins — they force document scrollWidth past the viewport
+	   on folded WP admin (especially 320px e2e projects). */
 	.sw-shell {
-		margin-left: -10px;
+		margin-left: 0;
+		max-width: 100%;
+		box-sizing: border-box;
 	}
 
 	.sw-shell__header {
 		top: 46px;
-		padding: var(--sw-space-3) var(--sw-space-4);
+		padding: var(--sw-space-3) var(--sw-space-3);
+		max-width: 100%;
+		box-sizing: border-box;
 	}
 
 	.sw-shell__content {
-		padding: var(--sw-space-4);
+		padding: var(--sw-space-3);
+		max-width: 100%;
+		box-sizing: border-box;
 	}
 
 	.sw-shell__version {
 		display: none;
+	}
+
+	.sw-shell__nav,
+	.sw-shell__header-inner {
+		max-width: 100%;
+		min-width: 0;
+		box-sizing: border-box;
+	}
+}
+
+/* Ultra-narrow (e2e 320×568 / small phones): keep product surface inside viewport. */
+@media screen and (max-width: 360px) {
+	.sw-shell,
+	.sw-shell__content,
+	.sw-shell__header {
+		padding-left: var(--sw-space-2);
+		padding-right: var(--sw-space-2);
+	}
+
+	.sw-shell pre,
+	.sw-shell code,
+	.sw-shell table {
+		max-width: 100%;
+		overflow-x: auto;
 	}
 }

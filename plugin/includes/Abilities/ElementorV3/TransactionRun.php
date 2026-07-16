@@ -80,7 +80,10 @@ final class TransactionRun extends AbilityKernel {
 		return $this->audit(
 			$args,
 			function ( array $args ) {
-				$gate = $this->confirmation_token_error( $args, $args );
+				// Tokens are issued over the write payload without confirmation_token.
+				$verify_args = $args;
+				unset( $verify_args['confirmation_token'] );
+				$gate = $this->confirmation_token_error( $args, $verify_args );
 				if ( null !== $gate ) {
 					return $gate;
 				}

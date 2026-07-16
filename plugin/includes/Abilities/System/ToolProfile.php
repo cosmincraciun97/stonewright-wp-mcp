@@ -334,6 +334,9 @@ final class ToolProfile extends AbilityKernel {
 		if ( $tools_changed ) {
 			update_option( 'stonewright_tools_changed_at', gmdate( 'c' ), false );
 			update_option( 'stonewright_last_tool_profile', $profile, false );
+			// Progressive discovery: activating a non-bootstrap profile must expand
+			// the public tools/list surface so recommended tools become visible.
+			self::expand_mcp_surface_for_profile( $profile );
 		}
 
 		$visible_rows = array_values(
@@ -413,6 +416,28 @@ final class ToolProfile extends AbilityKernel {
 			'source'                => 'plugin',
 			'ordered'               => true,
 		];
+	}
+
+	/**
+	 * Expand stonewright_mcp_surface when leaving the bootstrap cold-start set.
+	 *
+	 * Bootstrap maps to essential for task profiles (elementor-design, content-model, …).
+	 * Bootstrap maps to full when the client requests the full profile.
+	 * Bootstrap stays put when the profile is still bootstrap.
+	 */
+	public static function expand_mcp_surface_for_profile( string $profile ): void {
+		$current = AbilityRegistry::mcp_surface();
+		if ( 'bootstrap' !== $current ) {
+			return;
+		}
+
+		$profile = strtolower( trim( $profile ) );
+		if ( 'bootstrap' === $profile || '' === $profile ) {
+			return;
+		}
+
+		$target = 'full' === $profile ? 'full' : 'essential';
+		AbilityRegistry::set_mcp_surface( $target );
 	}
 
 	/**
