@@ -22,9 +22,10 @@
     "contact"
   ],
   "spec": {
-    "version": "1.0.0",
+    "version": "2.0.0",
     "page": {
-      "title": "Transavia Construct"
+      "title": "Transavia Construct",
+      "template": "elementor_canvas"
     },
     "tokens": {
       "colors": {
@@ -56,18 +57,24 @@
                   {
                     "type": "heading",
                     "level": 1,
-                    "text": "Commercial builds delivered on schedule and on budget"
+                    "text": "Commercial builds delivered on schedule and on budget",
+                    "id": "hero_b0_b0_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "From site prep to handover, we run transparent schedules, safety-first crews, and fixed-scope packages for owners who need certainty."
+                    "text": "From site prep to handover, we run transparent schedules, safety-first crews, and fixed-scope packages for owners who need certainty.",
+                    "id": "hero_b0_b0_b1"
                   },
                   {
                     "type": "button",
                     "text": "Request a site visit",
-                    "url": "/contact/"
+                    "url": "/contact/",
+                    "id": "hero_b0_b0_b2"
                   }
-                ]
+                ],
+                "id": "hero_b0_b0",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
@@ -75,11 +82,20 @@
                   {
                     "type": "image",
                     "url": "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=1200&q=80",
-                    "alt": "Steel frame of a commercial building under construction"
+                    "alt": "Steel frame of a commercial building under construction",
+                    "id": "hero_b0_b1_b0"
                   }
-                ]
+                ],
+                "id": "hero_b0_b1",
+                "align_items": "center",
+                "justify_content": "flex-start"
               }
-            ]
+            ],
+            "id": "hero_b0",
+            "layout": "row",
+            "align_items": "center",
+            "justify_content": "center",
+            "gap": 24
           }
         ],
         "background": {
@@ -90,7 +106,14 @@
           "right": 24,
           "bottom": 64,
           "left": 24
-        }
+        },
+        "role": "hero",
+        "fullWidth": true,
+        "width": "full",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 24
       },
       {
         "id": "services",
@@ -98,11 +121,13 @@
           {
             "type": "heading",
             "level": 2,
-            "text": "Capabilities on site"
+            "text": "Capabilities on site",
+            "id": "services_b0"
           },
           {
             "type": "spacer",
-            "height": 24
+            "height": 24,
+            "id": "services_b1"
           },
           {
             "type": "row",
@@ -111,54 +136,77 @@
                 "type": "column",
                 "blocks": [
                   {
-                    "type": "separator"
+                    "type": "separator",
+                    "id": "services_b2_b0_b0"
                   },
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Shell & structure"
+                    "text": "Shell & structure",
+                    "id": "services_b2_b0_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "Foundations, steel, concrete, and envelope packages for mid-rise commercial shells."
+                    "text": "Foundations, steel, concrete, and envelope packages for mid-rise commercial shells.",
+                    "id": "services_b2_b0_b2"
                   }
-                ]
+                ],
+                "id": "services_b2_b0",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
                 "blocks": [
                   {
-                    "type": "separator"
+                    "type": "separator",
+                    "id": "services_b2_b1_b0"
                   },
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Fit-out"
+                    "text": "Fit-out",
+                    "id": "services_b2_b1_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "Tenant interiors with coordinated MEP and finishes that survive inspection first time."
+                    "text": "Tenant interiors with coordinated MEP and finishes that survive inspection first time.",
+                    "id": "services_b2_b1_b2"
                   }
-                ]
+                ],
+                "id": "services_b2_b1",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
                 "blocks": [
                   {
-                    "type": "separator"
+                    "type": "separator",
+                    "id": "services_b2_b2_b0"
                   },
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Project controls"
+                    "text": "Project controls",
+                    "id": "services_b2_b2_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "Weekly photo logs, open budget trackers, and single-point site leadership."
+                    "text": "Weekly photo logs, open budget trackers, and single-point site leadership.",
+                    "id": "services_b2_b2_b2"
                   }
-                ]
+                ],
+                "id": "services_b2_b2",
+                "align_items": "center",
+                "justify_content": "flex-start"
               }
-            ]
+            ],
+            "id": "services_b2",
+            "layout": "row",
+            "align_items": "center",
+            "justify_content": "center",
+            "gap": 24
           }
         ],
         "padding": {
@@ -166,7 +214,12 @@
           "right": 24,
           "bottom": 48,
           "left": 24
-        }
+        },
+        "width": "boxed",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 20
       },
       {
         "id": "pricing",
@@ -174,11 +227,13 @@
           {
             "type": "heading",
             "level": 2,
-            "text": "Project packages"
+            "text": "Project packages",
+            "id": "pricing_b0"
           },
           {
             "type": "spacer",
-            "height": 24
+            "height": 24,
+            "id": "pricing_b1"
           },
           {
             "type": "row",
@@ -189,26 +244,34 @@
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Shell only"
+                    "text": "Shell only",
+                    "id": "pricing_b2_b0_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Structure complete"
+                    "text": "• Structure complete",
+                    "id": "pricing_b2_b0_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Weather-tight envelope"
+                    "text": "• Weather-tight envelope",
+                    "id": "pricing_b2_b0_b2"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• As-built drawings"
+                    "text": "• As-built drawings",
+                    "id": "pricing_b2_b0_b3"
                   },
                   {
                     "type": "button",
                     "text": "Get shell quote",
-                    "url": "/contact/"
+                    "url": "/contact/",
+                    "id": "pricing_b2_b0_b4"
                   }
-                ]
+                ],
+                "id": "pricing_b2_b0",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
@@ -216,26 +279,34 @@
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Turnkey"
+                    "text": "Turnkey",
+                    "id": "pricing_b2_b1_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Design coordination"
+                    "text": "• Design coordination",
+                    "id": "pricing_b2_b1_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Full build"
+                    "text": "• Full build",
+                    "id": "pricing_b2_b1_b2"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Handover pack"
+                    "text": "• Handover pack",
+                    "id": "pricing_b2_b1_b3"
                   },
                   {
                     "type": "button",
                     "text": "Plan turnkey",
-                    "url": "/contact/"
+                    "url": "/contact/",
+                    "id": "pricing_b2_b1_b4"
                   }
-                ]
+                ],
+                "id": "pricing_b2_b1",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
@@ -243,28 +314,41 @@
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Fit-out"
+                    "text": "Fit-out",
+                    "id": "pricing_b2_b2_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Interior package"
+                    "text": "• Interior package",
+                    "id": "pricing_b2_b2_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• MEP coordination"
+                    "text": "• MEP coordination",
+                    "id": "pricing_b2_b2_b2"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Snag free walkthrough"
+                    "text": "• Snag free walkthrough",
+                    "id": "pricing_b2_b2_b3"
                   },
                   {
                     "type": "button",
                     "text": "Scope fit-out",
-                    "url": "/contact/"
+                    "url": "/contact/",
+                    "id": "pricing_b2_b2_b4"
                   }
-                ]
+                ],
+                "id": "pricing_b2_b2",
+                "align_items": "center",
+                "justify_content": "flex-start"
               }
-            ]
+            ],
+            "id": "pricing_b2",
+            "layout": "row",
+            "align_items": "center",
+            "justify_content": "center",
+            "gap": 24
           }
         ],
         "background": {
@@ -275,7 +359,12 @@
           "right": 24,
           "bottom": 48,
           "left": 24
-        }
+        },
+        "width": "boxed",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 20
       },
       {
         "id": "testimonials",
@@ -283,11 +372,13 @@
           {
             "type": "heading",
             "level": 2,
-            "text": "What clients say"
+            "text": "What clients say",
+            "id": "testimonials_b0"
           },
           {
             "type": "spacer",
-            "height": 16
+            "height": 16,
+            "id": "testimonials_b1"
           },
           {
             "type": "row",
@@ -297,28 +388,43 @@
                 "blocks": [
                   {
                     "type": "paragraph",
-                    "text": "“They finished our warehouse three weeks early without cutting corners on safety.”"
+                    "text": "“They finished our warehouse three weeks early without cutting corners on safety.”",
+                    "id": "testimonials_b2_b0_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "— Elena Varga, Ops Director, Freightway"
+                    "text": "— Elena Varga, Ops Director, Freightway",
+                    "id": "testimonials_b2_b0_b1"
                   }
-                ]
+                ],
+                "id": "testimonials_b2_b0",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
                 "blocks": [
                   {
                     "type": "paragraph",
-                    "text": "“Budget variance stayed under two percent. That never happens with other GCs.”"
+                    "text": "“Budget variance stayed under two percent. That never happens with other GCs.”",
+                    "id": "testimonials_b2_b1_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "— Marcus Holt, Owner, Holt Retail"
+                    "text": "— Marcus Holt, Owner, Holt Retail",
+                    "id": "testimonials_b2_b1_b1"
                   }
-                ]
+                ],
+                "id": "testimonials_b2_b1",
+                "align_items": "center",
+                "justify_content": "flex-start"
               }
-            ]
+            ],
+            "id": "testimonials_b2",
+            "layout": "row",
+            "align_items": "center",
+            "justify_content": "center",
+            "gap": 24
           }
         ],
         "padding": {
@@ -326,7 +432,12 @@
           "right": 24,
           "bottom": 48,
           "left": 24
-        }
+        },
+        "width": "boxed",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 20
       },
       {
         "id": "contact",
@@ -334,21 +445,25 @@
           {
             "type": "heading",
             "level": 2,
-            "text": "Need a reliable build partner?"
+            "text": "Need a reliable build partner?",
+            "id": "contact_b0"
           },
           {
             "type": "paragraph",
-            "text": "Share your plot details for {business} and we will return a clear milestone plan."
+            "text": "Share your plot details for {business} and we will return a clear milestone plan.",
+            "id": "contact_b1"
           },
           {
             "type": "button",
             "text": "Book an estimate",
-            "url": "/contact/"
+            "url": "/contact/",
+            "id": "contact_b2"
           },
           {
             "type": "image",
             "url": "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80",
-            "alt": "Workspace related to Construction Company"
+            "alt": "Workspace related to Construction Company",
+            "id": "contact_b3"
           }
         ],
         "background": {
@@ -359,8 +474,109 @@
           "right": 24,
           "bottom": 64,
           "left": 24
+        },
+        "fullWidth": true,
+        "width": "full",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 24
+      }
+    ],
+    "design_system": {
+      "colors": {
+        "primary": "#1C1917",
+        "secondary": "#44403C",
+        "accent": "#F59E0B",
+        "background": "#FAFAF9",
+        "text": "#1C1917"
+      },
+      "typography": {
+        "heading": {
+          "font_family": "Oswald, system-ui, sans-serif"
+        },
+        "body": {
+          "font_family": "Source Sans 3, system-ui, sans-serif"
         }
       }
-    ]
+    },
+    "content_facts": {
+      "required_facts": [
+        "company_name",
+        "services",
+        "quote_cta",
+        "project_types"
+      ],
+      "blocking_questions": [
+        "Confirm real copy for: company_name",
+        "Confirm real copy for: services"
+      ],
+      "facts": [
+        {
+          "id": "company_name",
+          "status": "placeholder"
+        },
+        {
+          "id": "services",
+          "status": "placeholder"
+        },
+        {
+          "id": "quote_cta",
+          "status": "placeholder"
+        },
+        {
+          "id": "project_types",
+          "status": "placeholder"
+        }
+      ]
+    },
+    "page_intent": {
+      "page_type": "landing",
+      "conversion_goal": "project_types",
+      "audience": "construction"
+    },
+    "native_policy": {
+      "strict": false,
+      "block_html_widgets": true,
+      "require_native_gap_for_custom_css": true,
+      "enforce_heading_hierarchy": true
+    },
+    "verification_policy": {
+      "structural_readback": true,
+      "responsive_breakpoints": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "contrast_check": true,
+      "rollback_on_failure": true
+    }
+  },
+  "version": "2.0.0",
+  "page_type": "landing",
+  "required_content_facts": [
+    "company_name",
+    "services",
+    "quote_cta",
+    "project_types"
+  ],
+  "engine_compatibility": {
+    "elementor": true,
+    "gutenberg": true,
+    "fse": true,
+    "notes": {
+      "elementor": "Native containers + widgets; layout intent via align_items/justify_content/fullWidth.",
+      "gutenberg": "core/group constrained layout; separators map to core/separator.",
+      "fse": "Constrained template/page markup via FseTransactionQueue; no Elementor meta."
+    }
+  },
+  "accessibility_intent": {
+    "target": "wcag-2.2-aa",
+    "contrast_pairs": [
+      "text/background",
+      "primary/background"
+    ],
+    "heading_hierarchy": true,
+    "landmarks": true
   }
 }

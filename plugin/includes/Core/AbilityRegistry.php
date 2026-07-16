@@ -229,6 +229,8 @@ use Stonewright\WpMcp\Abilities\Site\Theme as SiteTheme;
  * Lists every Stonewright ability and registers it with the Abilities API.
  */
 final class AbilityRegistry {
+	private const SESSION_PROFILE_TRANSIENT_PREFIX = 'stonewright_mcp_session_profile_';
+	private const SESSION_PROFILE_TTL              = 3600;
 
 	/**
 	 * @return array<class-string<Ability>>
@@ -942,7 +944,71 @@ final class AbilityRegistry {
 		update_option( 'stonewright_mcp_surface', $surface, false );
 		update_option( 'stonewright_essential_tools_mode', 'full' !== $surface, false );
 
-		return $surface;
+		return self::mcp_surface();
+	}
+
+	/**
+	 * Activate a task profile for the current MCP session without changing the
+	 * operator-selected site surface. Each ability still enforces its own
+	 * permission, backup, validation, and confirmation gates.
+	 *
+	 * @param list<string> $ability_names
+	 */
+	public static function set_session_tool_profile( string $profile, array $ability_names ): bool {
+		$key = self::session_profile_transient_key();
+		if ( null === $key ) {
+			return false;
+		}
+
+		$profile = strtolower( trim( $profile ) );
+		$names   = array_values(
+			array_unique(
+				array_filter(
+					array_map( 'strval', $ability_names ),
+					static fn( string $name ): bool => str_starts_with( $name, 'stonewright/' )
+				)
+			)
+		);
+
+		return set_transient(
+			$key,
+			[
+				'profile'       => '' !== $profile ? $profile : 'essential',
+				'ability_names' => $names,
+			],
+			self::SESSION_PROFILE_TTL
+		);
+	}
+
+	/**
+	 * @return array{profile:string, ability_names:list<string>}|null
+	 */
+	public static function session_tool_profile(): ?array {
+		$key = self::session_profile_transient_key();
+		if ( null === $key ) {
+			return null;
+		}
+
+		$value = get_transient( $key );
+		if ( ! is_array( $value ) || ! is_string( $value['profile'] ?? null ) || ! is_array( $value['ability_names'] ?? null ) ) {
+			return null;
+		}
+
+		return [
+			'profile'       => strtolower( trim( $value['profile'] ) ),
+			'ability_names' => array_values( array_map( 'strval', $value['ability_names'] ) ),
+		];
+	}
+
+	private static function session_profile_transient_key(): ?string {
+		$session_id = isset( $_SERVER['HTTP_MCP_SESSION_ID'] ) && is_string( $_SERVER['HTTP_MCP_SESSION_ID'] )
+			? trim( $_SERVER['HTTP_MCP_SESSION_ID'] )
+			: '';
+		if ( '' === $session_id || strlen( $session_id ) > 256 || 1 !== preg_match( '/^[\x21-\x7E]+$/D', $session_id ) ) {
+			return null;
+		}
+
+		return self::SESSION_PROFILE_TRANSIENT_PREFIX . hash_hmac( 'sha256', $session_id, wp_salt( 'auth' ) );
 	}
 
 	/**
@@ -950,6 +1016,34 @@ final class AbilityRegistry {
 	 */
 	private static function public_classes(): array {
 		$classes = self::list();
+		$session = self::session_tool_profile();
+		if ( is_array( $session ) ) {
+			if ( 'full' === $session['profile'] ) {
+				return $classes;
+			}
+			$allowed = array_fill_keys(
+				array_merge(
+					self::bootstrap_ability_names(),
+					$session['ability_names'],
+					self::essential_extra_ability_names()
+				),
+				true
+			);
+
+			return array_values(
+				array_filter(
+					$classes,
+					static function ( string $class ) use ( $allowed ): bool {
+						if ( ! class_exists( $class ) ) {
+							return false;
+						}
+						/** @var Ability $ability */
+						$ability = new $class();
+						return isset( $allowed[ $ability->name() ] );
+					}
+				)
+			);
+		}
 		$surface = self::mcp_surface();
 		if ( 'full' === $surface ) {
 			return $classes;

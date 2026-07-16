@@ -189,6 +189,7 @@ final class ToolProfile extends AbilityKernel {
 				'profile_tool_count'    => [ 'type' => 'integer' ],
 				'under_limit'           => [ 'type' => 'boolean' ],
 				'essential_tools_mode'  => [ 'type' => 'boolean' ],
+				'mcp_surface'            => [ 'type' => 'string' ],
 				'profiles_available'    => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'recommended_tools'     => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'recommended_mcp_tools' => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
@@ -259,8 +260,11 @@ final class ToolProfile extends AbilityKernel {
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
+		$action = isset( $args['action'] ) && is_string( $args['action'] )
+			? strtolower( trim( $args['action'] ) )
+			: 'activate';
 		$extras = $args['extras'] ?? [];
-		if ( is_array( $extras ) && [] !== $extras ) {
+		if ( 'activate' === $action || ( is_array( $extras ) && [] !== $extras ) ) {
 			return Permissions::manage_options();
 		}
 		return Permissions::read();
@@ -303,22 +307,54 @@ final class ToolProfile extends AbilityKernel {
 		// Read-only resolve: ordered MCP tool names for companion / clients. No option writes.
 		if ( 'resolve' === $action ) {
 			$ordered_abilities = self::profile_tools( $profile );
+			$visible_rows      = array_values(
+				array_filter(
+					AbilityRegistry::all_abilities(),
+					static fn( array $ability ): bool => (bool) $ability['enabled']
+				)
+			);
+			$all_visible       = array_fill_keys( array_column( $visible_rows, 'name' ), true );
+			$missing_names     = 'full' === $profile
+				? []
+				: array_values(
+					array_filter(
+						$ordered_abilities,
+						static fn( string $name ): bool => ! isset( $all_visible[ $name ] )
+					)
+				);
+			$ordered_abilities = array_values(
+				array_filter(
+					$ordered_abilities,
+					static fn( string $name ): bool => isset( $all_visible[ $name ] )
+				)
+			);
+			$profile_count     = count( $ordered_abilities );
+			$ordered_abilities = array_slice( $ordered_abilities, 0, $max_tools );
 			$mcp_tools         = array_map( [ AbilityRegistry::class, 'mcp_tool_name' ], $ordered_abilities );
-			if ( $max_tools < count( $mcp_tools ) ) {
-				$mcp_tools = array_slice( $mcp_tools, 0, $max_tools );
-			}
+			$tool_groups       = self::tool_groups( $ordered_abilities );
 
 			return [
 				'ok'                   => true,
 				'action'               => 'resolve',
 				'profile'              => $profile,
 				'requested_profile'    => $requested,
+				'mcp_surface'           => AbilityRegistry::mcp_surface(),
 				'tools'                => array_values( $mcp_tools ),
+				'recommended_tools'    => $ordered_abilities,
+				'recommended_mcp_tools' => array_values( $mcp_tools ),
+				'missing_profile_tools' => $missing_names,
+				'missing_mcp_tools'     => array_map( [ AbilityRegistry::class, 'mcp_tool_name' ], $missing_names ),
+				'tool_groups'           => $tool_groups,
+				'next_best_tools'       => self::next_best_tools( $profile, $tool_groups, $task, $surface, $intent ),
+				'recovery_hints'        => self::recovery_hints( $missing_names ),
+				'discovery_policy'      => self::discovery_policy(),
 				'ordered'              => true,
 				'source'               => 'plugin',
 				'essential_tools_mode' => (bool) get_option( 'stonewright_essential_tools_mode', true ),
 				'max_tools'            => $max_tools,
 				'tool_count'           => count( $mcp_tools ),
+				'profile_tool_count'   => $profile_count,
+				'under_limit'          => $profile_count <= $max_tools,
 				'tools_changed'        => false,
 			];
 		}
@@ -329,7 +365,6 @@ final class ToolProfile extends AbilityKernel {
 		}
 
 		$tools_changed = (bool) ( $extras_result['changed'] ?? false )
-			|| $requested !== 'auto'
 			|| $profile !== get_option( 'stonewright_last_tool_profile', '' );
 		if ( $tools_changed ) {
 			update_option( 'stonewright_tools_changed_at', gmdate( 'c' ), false );
@@ -388,6 +423,7 @@ final class ToolProfile extends AbilityKernel {
 			'profile_tool_count'    => $profile_tool_count,
 			'under_limit'           => $profile_tool_count <= $max_tools,
 			'essential_tools_mode'  => (bool) get_option( 'stonewright_essential_tools_mode', true ),
+			'mcp_surface'            => AbilityRegistry::mcp_surface(),
 			'profiles_available'    => self::profile_names(),
 			'recommended_tools'     => $limited_names,
 			'recommended_mcp_tools' => array_map( [ AbilityRegistry::class, 'mcp_tool_name' ], $limited_names ),

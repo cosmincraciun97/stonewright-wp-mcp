@@ -22,9 +22,10 @@
     "contact"
   ],
   "spec": {
-    "version": "1.0.0",
+    "version": "2.0.0",
     "page": {
-      "title": "Frame & Field Studio"
+      "title": "Frame & Field Studio",
+      "template": "elementor_canvas"
     },
     "tokens": {
       "colors": {
@@ -56,18 +57,24 @@
                   {
                     "type": "heading",
                     "level": 1,
-                    "text": "Portraits and campaigns with cinematic light"
+                    "text": "Portraits and campaigns with cinematic light",
+                    "id": "hero_b0_b0_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "Studio and location sessions for brands and families who want photographs that still look intentional a decade later."
+                    "text": "Studio and location sessions for brands and families who want photographs that still look intentional a decade later.",
+                    "id": "hero_b0_b0_b1"
                   },
                   {
                     "type": "button",
                     "text": "View availability",
-                    "url": "/contact/"
+                    "url": "/contact/",
+                    "id": "hero_b0_b0_b2"
                   }
-                ]
+                ],
+                "id": "hero_b0_b0",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
@@ -75,11 +82,20 @@
                   {
                     "type": "image",
                     "url": "https://images.unsplash.com/photo-1452587925148-ce544e77e70d?w=1200&q=80",
-                    "alt": "Photographer adjusting a camera on a tripod in studio"
+                    "alt": "Photographer adjusting a camera on a tripod in studio",
+                    "id": "hero_b0_b1_b0"
                   }
-                ]
+                ],
+                "id": "hero_b0_b1",
+                "align_items": "center",
+                "justify_content": "flex-start"
               }
-            ]
+            ],
+            "id": "hero_b0",
+            "layout": "row",
+            "align_items": "center",
+            "justify_content": "center",
+            "gap": 24
           }
         ],
         "background": {
@@ -90,7 +106,14 @@
           "right": 24,
           "bottom": 64,
           "left": 24
-        }
+        },
+        "role": "hero",
+        "fullWidth": true,
+        "width": "full",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 24
       },
       {
         "id": "services",
@@ -98,11 +121,13 @@
           {
             "type": "heading",
             "level": 2,
-            "text": "Session types"
+            "text": "Session types",
+            "id": "services_b0"
           },
           {
             "type": "spacer",
-            "height": 24
+            "height": 24,
+            "id": "services_b1"
           },
           {
             "type": "row",
@@ -111,54 +136,77 @@
                 "type": "column",
                 "blocks": [
                   {
-                    "type": "separator"
+                    "type": "separator",
+                    "id": "services_b2_b0_b0"
                   },
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Brand campaigns"
+                    "text": "Brand campaigns",
+                    "id": "services_b2_b0_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "Art-directed sets with lighting diagrams and usage licenses included."
+                    "text": "Art-directed sets with lighting diagrams and usage licenses included.",
+                    "id": "services_b2_b0_b2"
                   }
-                ]
+                ],
+                "id": "services_b2_b0",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
                 "blocks": [
                   {
-                    "type": "separator"
+                    "type": "separator",
+                    "id": "services_b2_b1_b0"
                   },
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Family portraits"
+                    "text": "Family portraits",
+                    "id": "services_b2_b1_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "Natural sessions with gentle direction and full gallery delivery."
+                    "text": "Natural sessions with gentle direction and full gallery delivery.",
+                    "id": "services_b2_b1_b2"
                   }
-                ]
+                ],
+                "id": "services_b2_b1",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
                 "blocks": [
                   {
-                    "type": "separator"
+                    "type": "separator",
+                    "id": "services_b2_b2_b0"
                   },
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Product stills"
+                    "text": "Product stills",
+                    "id": "services_b2_b2_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "E-commerce packs with consistent color and shadow control."
+                    "text": "E-commerce packs with consistent color and shadow control.",
+                    "id": "services_b2_b2_b2"
                   }
-                ]
+                ],
+                "id": "services_b2_b2",
+                "align_items": "center",
+                "justify_content": "flex-start"
               }
-            ]
+            ],
+            "id": "services_b2",
+            "layout": "row",
+            "align_items": "center",
+            "justify_content": "center",
+            "gap": 24
           }
         ],
         "padding": {
@@ -166,7 +214,12 @@
           "right": 24,
           "bottom": 48,
           "left": 24
-        }
+        },
+        "width": "boxed",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 20
       },
       {
         "id": "pricing",
@@ -174,11 +227,13 @@
           {
             "type": "heading",
             "level": 2,
-            "text": "Session investments"
+            "text": "Session investments",
+            "id": "pricing_b0"
           },
           {
             "type": "spacer",
-            "height": 24
+            "height": 24,
+            "id": "pricing_b1"
           },
           {
             "type": "row",
@@ -189,26 +244,34 @@
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Mini"
+                    "text": "Mini",
+                    "id": "pricing_b2_b0_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• 45 minutes"
+                    "text": "• 45 minutes",
+                    "id": "pricing_b2_b0_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• 15 edits"
+                    "text": "• 15 edits",
+                    "id": "pricing_b2_b0_b2"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Online gallery"
+                    "text": "• Online gallery",
+                    "id": "pricing_b2_b0_b3"
                   },
                   {
                     "type": "button",
                     "text": "Book mini",
-                    "url": "/contact/"
+                    "url": "/contact/",
+                    "id": "pricing_b2_b0_b4"
                   }
-                ]
+                ],
+                "id": "pricing_b2_b0",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
@@ -216,26 +279,34 @@
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Signature"
+                    "text": "Signature",
+                    "id": "pricing_b2_b1_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• 2 hours"
+                    "text": "• 2 hours",
+                    "id": "pricing_b2_b1_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• 40 edits"
+                    "text": "• 40 edits",
+                    "id": "pricing_b2_b1_b2"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Print credit"
+                    "text": "• Print credit",
+                    "id": "pricing_b2_b1_b3"
                   },
                   {
                     "type": "button",
                     "text": "Book signature",
-                    "url": "/contact/"
+                    "url": "/contact/",
+                    "id": "pricing_b2_b1_b4"
                   }
-                ]
+                ],
+                "id": "pricing_b2_b1",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
@@ -243,28 +314,41 @@
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Campaign"
+                    "text": "Campaign",
+                    "id": "pricing_b2_b2_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Full day"
+                    "text": "• Full day",
+                    "id": "pricing_b2_b2_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Unlimited selects"
+                    "text": "• Unlimited selects",
+                    "id": "pricing_b2_b2_b2"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Retouch tier"
+                    "text": "• Retouch tier",
+                    "id": "pricing_b2_b2_b3"
                   },
                   {
                     "type": "button",
                     "text": "Plan campaign",
-                    "url": "/contact/"
+                    "url": "/contact/",
+                    "id": "pricing_b2_b2_b4"
                   }
-                ]
+                ],
+                "id": "pricing_b2_b2",
+                "align_items": "center",
+                "justify_content": "flex-start"
               }
-            ]
+            ],
+            "id": "pricing_b2",
+            "layout": "row",
+            "align_items": "center",
+            "justify_content": "center",
+            "gap": 24
           }
         ],
         "background": {
@@ -275,7 +359,12 @@
           "right": 24,
           "bottom": 48,
           "left": 24
-        }
+        },
+        "width": "boxed",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 20
       },
       {
         "id": "testimonials",
@@ -283,11 +372,13 @@
           {
             "type": "heading",
             "level": 2,
-            "text": "What clients say"
+            "text": "What clients say",
+            "id": "testimonials_b0"
           },
           {
             "type": "spacer",
-            "height": 16
+            "height": 16,
+            "id": "testimonials_b1"
           },
           {
             "type": "row",
@@ -297,28 +388,43 @@
                 "blocks": [
                   {
                     "type": "paragraph",
-                    "text": "“Every frame felt intentional. Clients still comment on the campaign photos.”"
+                    "text": "“Every frame felt intentional. Clients still comment on the campaign photos.”",
+                    "id": "testimonials_b2_b0_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "— Elena Brooks, Creative Director"
+                    "text": "— Elena Brooks, Creative Director",
+                    "id": "testimonials_b2_b0_b1"
                   }
-                ]
+                ],
+                "id": "testimonials_b2_b0",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
                 "blocks": [
                   {
                     "type": "paragraph",
-                    "text": "“Family session was calm, quick, and the gallery arrived in five days.”"
+                    "text": "“Family session was calm, quick, and the gallery arrived in five days.”",
+                    "id": "testimonials_b2_b1_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "— Tom & Rina Hale, Clients"
+                    "text": "— Tom & Rina Hale, Clients",
+                    "id": "testimonials_b2_b1_b1"
                   }
-                ]
+                ],
+                "id": "testimonials_b2_b1",
+                "align_items": "center",
+                "justify_content": "flex-start"
               }
-            ]
+            ],
+            "id": "testimonials_b2",
+            "layout": "row",
+            "align_items": "center",
+            "justify_content": "center",
+            "gap": 24
           }
         ],
         "padding": {
@@ -326,7 +432,12 @@
           "right": 24,
           "bottom": 48,
           "left": 24
-        }
+        },
+        "width": "boxed",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 20
       },
       {
         "id": "contact",
@@ -334,21 +445,25 @@
           {
             "type": "heading",
             "level": 2,
-            "text": "Dates fill two months out"
+            "text": "Dates fill two months out",
+            "id": "contact_b0"
           },
           {
             "type": "paragraph",
-            "text": "Reserve a hold for {business} and we will confirm creative direction."
+            "text": "Reserve a hold for {business} and we will confirm creative direction.",
+            "id": "contact_b1"
           },
           {
             "type": "button",
             "text": "Check the calendar",
-            "url": "/contact/"
+            "url": "/contact/",
+            "id": "contact_b2"
           },
           {
             "type": "image",
             "url": "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80",
-            "alt": "Workspace related to Photography Studio"
+            "alt": "Workspace related to Photography Studio",
+            "id": "contact_b3"
           }
         ],
         "background": {
@@ -359,8 +474,109 @@
           "right": 24,
           "bottom": 64,
           "left": 24
+        },
+        "fullWidth": true,
+        "width": "full",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 24
+      }
+    ],
+    "design_system": {
+      "colors": {
+        "primary": "#111827",
+        "secondary": "#4B5563",
+        "accent": "#A78BFA",
+        "background": "#0B0B0C",
+        "text": "#F9FAFB"
+      },
+      "typography": {
+        "heading": {
+          "font_family": "Playfair Display, Georgia, serif"
+        },
+        "body": {
+          "font_family": "Inter, system-ui, sans-serif"
         }
       }
-    ]
+    },
+    "content_facts": {
+      "required_facts": [
+        "studio_name",
+        "genres",
+        "booking_cta",
+        "portfolio"
+      ],
+      "blocking_questions": [
+        "Confirm real copy for: studio_name",
+        "Confirm real copy for: genres"
+      ],
+      "facts": [
+        {
+          "id": "studio_name",
+          "status": "placeholder"
+        },
+        {
+          "id": "genres",
+          "status": "placeholder"
+        },
+        {
+          "id": "booking_cta",
+          "status": "placeholder"
+        },
+        {
+          "id": "portfolio",
+          "status": "placeholder"
+        }
+      ]
+    },
+    "page_intent": {
+      "page_type": "landing",
+      "conversion_goal": "portfolio",
+      "audience": "photography"
+    },
+    "native_policy": {
+      "strict": false,
+      "block_html_widgets": true,
+      "require_native_gap_for_custom_css": true,
+      "enforce_heading_hierarchy": true
+    },
+    "verification_policy": {
+      "structural_readback": true,
+      "responsive_breakpoints": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "contrast_check": true,
+      "rollback_on_failure": true
+    }
+  },
+  "version": "2.0.0",
+  "page_type": "landing",
+  "required_content_facts": [
+    "studio_name",
+    "genres",
+    "booking_cta",
+    "portfolio"
+  ],
+  "engine_compatibility": {
+    "elementor": true,
+    "gutenberg": true,
+    "fse": true,
+    "notes": {
+      "elementor": "Native containers + widgets; layout intent via align_items/justify_content/fullWidth.",
+      "gutenberg": "core/group constrained layout; separators map to core/separator.",
+      "fse": "Constrained template/page markup via FseTransactionQueue; no Elementor meta."
+    }
+  },
+  "accessibility_intent": {
+    "target": "wcag-2.2-aa",
+    "contrast_pairs": [
+      "text/background",
+      "primary/background"
+    ],
+    "heading_hierarchy": true,
+    "landmarks": true
   }
 }

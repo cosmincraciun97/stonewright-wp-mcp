@@ -58,6 +58,9 @@ test.describe('Setup MCP surface Apply now', () => {
 			await expect(page.locator('#stonewright_mcp_surface')).toHaveValue(next, {
 				timeout: 15_000,
 			});
+			await expect(page.locator('#sw-client-snippet-codex-stdio')).toContainText(
+				`STONEWRIGHT_MCP_TOOL_PROFILE = "${next}"`,
+			);
 		} finally {
 			// This option is shared by every project and must never leak test state.
 			await page.goto('/wp-admin/admin.php?page=stonewright', {

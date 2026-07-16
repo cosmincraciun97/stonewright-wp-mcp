@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.74] - 2026-07-16
+
+### Changed
+
+- `task-start` exposes `configured_mcp_surface` and resolves task-specific tool
+  recommendations without changing the admin-selected surface.
+- Activating a site-wide tool profile now requires `manage_options`; read-only
+  profile resolution remains available to authenticated readers.
+- Bootstrap task-start binds its recommended profile to `Mcp-Session-Id`, so
+  tools expand for that session without changing the saved site preference.
+
+### Fixed
+
+- Setup Apply-now verifies the persisted value, generated stdio snippets use it,
+  and shared admin JavaScript changes invalidate browser caches.
+- Elementor raw-write blocks are explicitly non-retryable and direct agents back
+  to typed schema requests plus one consolidated batch dry-run.
+
 ## [1.0.0-alpha.73] - 2026-07-16
 
 ### Added
@@ -77,10 +95,3 @@
 ### Changed
 
 - Companion consumes plugin-resolved tool lists; falls back only offline/Direct.
-
-## [1.0.0-alpha.69] - 2026-07-15
-
-### Added
-
-- Essential tools for blueprints, brand kits, digest, pulse, learning.
-- HTML widget site hard-block; QA block on blueprint apply; rebuilt blueprint specs.

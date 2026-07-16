@@ -11,6 +11,14 @@ use Stonewright\WpMcp\Admin\ConnectClientConfig;
  */
 final class ConnectClientConfigTest extends TestCase {
 
+	protected function setUp(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mcp_surface'] = 'essential';
+	}
+
+	protected function tearDown(): void {
+		$GLOBALS['stonewright_test_options'] = [];
+	}
+
 	public function test_clients_catalogue_has_required_shape(): void {
 		$clients = ConnectClientConfig::clients();
 		$this->assertIsArray( $clients );
@@ -127,6 +135,30 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'STONEWRIGHT_WP_USERNAME = "admin"', $result['toml'] );
 		$this->assertStringContainsString( 'STONEWRIGHT_WP_APP_PASSWORD = "pw"', $result['toml'] );
 		$this->assertStringContainsString( 'STONEWRIGHT_MCP_TOOL_PROFILE = "essential"', $result['toml'] );
+	}
+
+	public function test_stdio_snippets_use_the_saved_site_surface(): void {
+		update_option( 'stonewright_mcp_surface', 'full', false );
+
+		$codex  = ConnectClientConfig::snippet_for( 'codex', 'admin', 'pw' );
+		$cursor = ConnectClientConfig::snippet_for( 'cursor', 'admin', 'pw' );
+		$claude = ConnectClientConfig::snippet_for( 'claude-code', 'admin', 'pw' );
+
+		$this->assertIsArray( $codex );
+		$this->assertIsArray( $cursor );
+		$this->assertIsArray( $claude );
+		$this->assertStringContainsString( 'STONEWRIGHT_MCP_TOOL_PROFILE = "full"', $codex['toml'] );
+		$this->assertSame( 'full', $cursor['mcpServers']['stonewright']['env']['STONEWRIGHT_MCP_TOOL_PROFILE'] );
+		$this->assertStringContainsString( '--env STONEWRIGHT_MCP_TOOL_PROFILE=full', $claude['command'] );
+	}
+
+	public function test_strict_cap_client_override_wins_over_saved_site_surface(): void {
+		update_option( 'stonewright_mcp_surface', 'full', false );
+
+		$gemini = ConnectClientConfig::snippet_for( 'gemini-cli', 'admin', 'pw' );
+
+		$this->assertIsArray( $gemini );
+		$this->assertSame( 'low-tools', $gemini['mcpServers']['stonewright']['env']['STONEWRIGHT_MCP_TOOL_PROFILE'] );
 	}
 
 	public function test_snippet_for_known_client_returns_universal_block(): void {

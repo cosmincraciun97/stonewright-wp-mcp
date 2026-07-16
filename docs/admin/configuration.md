@@ -50,11 +50,24 @@ On **Setup → Connect**, the MCP tool surface select includes an **Apply now**
 button that saves the surface without a full form submit. Transport truth:
 
 - **HTTP clients** pick up the new surface on their next `tools/list`.
-- **Stdio companion** sessions refresh automatically on companions that ship
-  `tools/list_changed` re-registration; older companions need a client restart.
+- **Stdio companion** startup reads the saved WordPress surface and uses it as
+  the normal-client source of truth. Existing sessions sync on the next
+  `task-start` or `tool-profile` response and emit `tools/list_changed`; older
+  companions need a client restart.
 
-Agents should call `stonewright-tool-profile` after bootstrap or preflight when
-the client has a tool cap or the user asks for token-efficient implementation.
+Generated stdio snippets use the saved surface instead of hard-coding
+`essential`. Strict-cap clients keep the explicit `low-tools` override. Set
+`STONEWRIGHT_MCP_TOOL_PROFILE_LOCK=1` only when a client-specific profile must
+override the site preference.
+
+`task-start` returns `configured_mcp_surface` and `session_tool_profile`. When
+Bootstrap is selected it activates the compact task profile for the current
+`Mcp-Session-Id`, asks the client to re-list tools, and leaves the saved Setup
+preference unchanged. Direct/pluginless mode performs the same session-local
+expansion inside the companion.
+
+Agents should call `stonewright-tool-profile` only for an explicit manual
+override or recovery; normal Bootstrap tasks expand from `task-start`.
 The profile response keeps Elementor, Gutenberg, content-model, and WP-CLI
 tasks on a compact set of batch-first tools. If a profile expects a disabled or
 gated tool, the response includes `missing_profile_tools`, `missing_mcp_tools`,
@@ -143,7 +156,7 @@ install:
         "STONEWRIGHT_WP_URL": "https://example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
         "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
       }
     }
   }
@@ -151,7 +164,7 @@ install:
 ```
 
 Use the WordPress URL, username, and Application Password from Cards 2 and 3.
-The `STONEWRIGHT_MCP_TOOL_PROFILE=essential` env value keeps new MCP sessions
+The `STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap` env value keeps new MCP sessions
 compact while preserving Stonewright fast-path tools.
 Use `low-tools` for strict tool-cap clients. Aliases such as `antigravity`,
 `gemini`, `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli` normalize

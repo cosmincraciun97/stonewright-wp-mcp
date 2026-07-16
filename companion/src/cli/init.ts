@@ -82,7 +82,7 @@ export async function runInit(): Promise<number> {
 						STONEWRIGHT_WP_URL: base,
 						STONEWRIGHT_WP_USERNAME: username,
 						STONEWRIGHT_WP_APP_PASSWORD: password,
-						STONEWRIGHT_MCP_TOOL_PROFILE: 'essential',
+						STONEWRIGHT_MCP_TOOL_PROFILE: 'bootstrap',
 					},
 				},
 			},

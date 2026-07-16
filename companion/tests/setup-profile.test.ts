@@ -26,7 +26,7 @@ describe('buildSetupProfile', () => {
 			STONEWRIGHT_WP_URL: 'http://mcp-test.local',
 			STONEWRIGHT_WP_ROOT: '/Users/me/Local Sites/mcp-test/app/public',
 			STONEWRIGHT_WP_APP_PASSWORD_AUTO: 'local-only',
-			STONEWRIGHT_MCP_TOOL_PROFILE: 'essential',
+			STONEWRIGHT_MCP_TOOL_PROFILE: 'bootstrap',
 		});
 		expect(profile.first_calls).toEqual([
 			'stonewright-context-bootstrap',
@@ -37,18 +37,13 @@ describe('buildSetupProfile', () => {
 			'stonewright-task-start',
 			'stonewright-skills-get',
 			'stonewright-tool-profile',
-			'stonewright-php-execute',
-			'stonewright-blueprint-apply',
-			'stonewright-brand-kit-apply',
-			'stonewright-elementor-v3-batch-mutate',
-			'stonewright-gutenberg-apply-to-post',
 			'stonewright-setup-profile',
 			'stonewright-wordpress-mcp-status',
 			'stonewright-wp-cli-status',
 			'stonewright-wp-cli-batch-run',
 		]));
-		expect(profile.tool_inventory.profile).toBe('essential');
-		expect(profile.tool_inventory.startup_budget.client_visible_expected_tool_count).toBeGreaterThanOrEqual(20);
+		expect(profile.tool_inventory.profile).toBe('bootstrap');
+		expect(profile.tool_inventory.startup_budget.client_visible_expected_tool_count).toBeGreaterThanOrEqual(8);
 		expect(profile.tool_inventory.startup_budget.client_visible_expected_tool_count).toBeLessThanOrEqual(45);
 		// Expanded essential (blueprints + brand kits) exceeds the old 20-tool low-tools cap check.
 		expect(typeof profile.tool_inventory.startup_budget.under_low_tools_cap).toBe('boolean');
@@ -65,8 +60,7 @@ describe('buildSetupProfile', () => {
 			'stonewright-wp-cli-job-status',
 			'stonewright-wp-cli-install',
 		]));
-		expect(profile.tool_inventory.proxied_profile_tool_groups.elementor_design).toContain('stonewright-elementor-v3-batch-mutate');
-		expect(profile.tool_inventory.proxied_profile_tool_groups.runtime).toContain('stonewright-php-execute');
+		expect(profile.tool_inventory.proxied_profile_tool_groups.startup).toContain('stonewright-task-start');
 		expect(profile.tool_inventory.refresh_required_tool_names).toEqual([
 			'stonewright-context-bootstrap',
 			'stonewright-task-start',
@@ -80,7 +74,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.notes.join('\n')).toContain('After every Stonewright release or skill sync, restart the MCP client and re-run stonewright-setup-profile plus stonewright-wordpress-mcp-status');
 		expect(profile.notes.join('\n')).toContain('Verify the MCP tool list includes stonewright-context-bootstrap before starting WordPress work');
 		expect(profile.notes.join('\n')).toContain('Use fast_path.tool_profile from stonewright-task-start before making a separate stonewright-tool-profile call');
-		expect(profile.notes.join('\n')).toContain('STONEWRIGHT_MCP_TOOL_PROFILE=essential keeps new MCP sessions compact');
+		expect(profile.notes.join('\n')).toContain('STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap is the default progressive surface');
 		expect(profile.notes.join('\n')).toContain('Profile aliases such as elementor, design, acf, cpt-ui, fse, and wp cli normalize to compact canonical profiles.');
 		expect(profile.notes.join('\n')).toContain('Leave PORT unset for stdio-only MCP clients. To run the optional HTTP bridge, set STONEWRIGHT_HTTP_ENABLE=1 plus PORT.');
 		expect(profile.notes.join('\n')).toContain('GitHub release tarball');

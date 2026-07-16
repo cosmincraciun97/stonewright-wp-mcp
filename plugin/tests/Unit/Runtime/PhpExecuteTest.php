@@ -125,6 +125,10 @@ final class PhpExecuteTest extends TestCase {
 
 		self::assertInstanceOf( \WP_Error::class, $blocked );
 		self::assertSame( 'stonewright_php_elementor_raw_write_blocked', $blocked->get_error_code() );
+		self::assertFalse( $blocked->get_error_data()['retryable'] );
+		self::assertTrue( $blocked->get_error_data()['do_not_retry_php_execute'] );
+		self::assertSame( 'stonewright/elementor-v3-batch-mutate', $blocked->get_error_data()['next_call']['ability'] );
+		self::assertSame( 'dry_run', $blocked->get_error_data()['next_call']['mode'] );
 
 		$read = ( new PhpExecute() )->execute(
 			[

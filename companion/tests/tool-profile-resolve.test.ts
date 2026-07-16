@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+	coerceProxyToolProfile,
+	effectiveInitialProxyProfile,
 	maxToolsFromEnv,
 	proxyToolNamesForProfile,
+	proxyToolProfileFromEnv,
 	resolvePluginProxyToolNames,
 	trimToolsToMax,
 } from '../src/wordpress-mcp.js';
@@ -31,6 +34,7 @@ describe('tool profile resolve + client cap', () => {
 						'stonewright-blueprint-apply',
 						'stonewright-elementor-v3-build-page-from-spec',
 					],
+					mcp_surface: 'full',
 				}),
 			),
 		};
@@ -38,10 +42,28 @@ describe('tool profile resolve + client cap', () => {
 		expect(result.source).toBe('plugin');
 		expect(result.tools[0]).toBe('stonewright-task-start');
 		expect(result.tools).toContain('stonewright-blueprint-apply');
+		expect(result.configuredSurface).toBe('full');
 		expect(client.callTool).toHaveBeenCalledWith(
 			'stonewright-tool-profile',
 			expect.objectContaining({ action: 'resolve', profile: 'elementor-design' }),
 		);
+	});
+
+	it('supports the real bootstrap surface instead of coercing it to essential', () => {
+		expect(coerceProxyToolProfile('bootstrap')).toBe('bootstrap');
+		expect(proxyToolNamesForProfile('bootstrap')).toContain('stonewright-task-start');
+		expect(proxyToolNamesForProfile('bootstrap').length).toBeLessThanOrEqual(8);
+	});
+
+	it('defaults fresh companion installs to bootstrap', () => {
+		expect(proxyToolProfileFromEnv({})).toBe('bootstrap');
+	});
+
+	it('uses the saved plugin surface for normal clients and preserves strict overrides', () => {
+		expect(effectiveInitialProxyProfile('essential', 'full', {})).toBe('full');
+		expect(effectiveInitialProxyProfile('essential', 'bootstrap', {})).toBe('bootstrap');
+		expect(effectiveInitialProxyProfile('low-tools', 'full', {})).toBe('low-tools');
+		expect(effectiveInitialProxyProfile('essential', 'full', { STONEWRIGHT_MCP_TOOL_PROFILE_LOCK: '1' })).toBe('essential');
 	});
 
 	it('trims tools deterministically from the tail under STONEWRIGHT_MCP_MAX_TOOLS', () => {

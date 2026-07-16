@@ -13,7 +13,9 @@ It routes the agent to the right specialized skill and MCP tools.
 
 ## First Calls
 
-1. Call `stonewright-task-start` with the task, surface, and intent.
+1. Call `stonewright-task-start` with the task, surface, and intent. Treat
+   `configured_mcp_surface` as the user's active Setup preference; a suggested
+   task profile is guidance, not permission to overwrite it.
 2. Use `stonewright-context-bootstrap` or `stonewright-workflow-preflight` only
    as compatibility paths when task-start is unavailable.
 3. Use `fast_path.tool_profile` from task-start before making a separate
@@ -39,9 +41,10 @@ switches to a specialist profile.
 
 When a needed tool is missing or an ability returns a gated/missing-tool error:
 
-1. Call `stonewright-tool-profile` with `action: "activate"` and a broader
-   profile (for example `elementor-design`, `content-model`, or `full`), or
-   follow `fast_path.tool_profile` from `stonewright-task-start`.
+1. Read `configured_mcp_surface` first. Do not activate a broader site-wide
+   profile than the user selected. Ask the user to change Setup, or use
+   `action: "activate"` only when they explicitly authorize that preference
+   change. Otherwise follow the ordered tools from `stonewright-task-start`.
 2. If the result has `tools_changed: true` or a non-empty
    `re_list_instruction`, re-list tools (`tools/list`) before continuing.
    stdio companion sessions emit `notifications/tools/list_changed` and refresh

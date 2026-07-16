@@ -20,10 +20,14 @@ final class ToolProfileResolveTest extends TestCase {
 			'stonewright_last_tool_profile'         => '',
 			'stonewright_mcp_surface'               => 'essential',
 		];
+		$GLOBALS['stonewright_test_user_caps']      = [ 'read' => true, 'manage_options' => true ];
+		$GLOBALS['stonewright_test_user_logged_in'] = true;
 	}
 
 	protected function tearDown(): void {
 		$GLOBALS['stonewright_test_options'] = [];
+		$GLOBALS['stonewright_test_user_caps'] = [];
+		$GLOBALS['stonewright_test_user_logged_in'] = false;
 	}
 
 	public function test_resolve_returns_ordered_mcp_tools_without_side_effects(): void {
@@ -40,6 +44,7 @@ final class ToolProfileResolveTest extends TestCase {
 		self::assertTrue( $result['ordered'] );
 		self::assertSame( 'plugin', $result['source'] );
 		self::assertSame( 'elementor-design', $result['profile'] );
+		self::assertSame( 'essential', $result['mcp_surface'] );
 		self::assertIsArray( $result['tools'] );
 		self::assertNotEmpty( $result['tools'] );
 		foreach ( $result['tools'] as $name ) {
@@ -50,6 +55,14 @@ final class ToolProfileResolveTest extends TestCase {
 		self::assertContains( 'stonewright-brand-kit-apply', $result['tools'] );
 		// resolve must not flip last profile option.
 		self::assertSame( '', (string) ( $GLOBALS['stonewright_test_options']['stonewright_last_tool_profile'] ?? '' ) );
+	}
+
+	public function test_resolve_is_read_only_but_activate_requires_manage_options(): void {
+		$GLOBALS['stonewright_test_user_caps'] = [ 'read' => true, 'manage_options' => false ];
+		$ability = new ToolProfile();
+
+		self::assertTrue( $ability->permission_callback( [ 'action' => 'resolve' ] ) );
+		self::assertFalse( $ability->permission_callback( [ 'action' => 'activate' ] ) );
 	}
 
 	public function test_profile_tools_priority_puts_startup_and_blueprints_first(): void {

@@ -39,7 +39,8 @@ folder or site URL.
 | `STONEWRIGHT_WP_URL` | WordPress site URL; the companion derives `/wp-json/mcp/stonewright` when `STONEWRIGHT_MCP_URL` is absent |
 | `STONEWRIGHT_WP_USERNAME` | WordPress username for Application Password auth |
 | `STONEWRIGHT_WP_APP_PASSWORD` | WordPress Application Password |
-| `STONEWRIGHT_MCP_TOOL_PROFILE` | Optional compact client-visible tool surface. Defaults to `essential` for fast startup with Stonewright fast-path tools; use `low-tools` for strict tool-cap clients; aliases like `antigravity`, `gemini`, `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli` normalize to canonical compact profiles; set `full` to proxy every WordPress MCP tool |
+| `STONEWRIGHT_MCP_TOOL_PROFILE` | Initial/fallback client-visible surface. Normal plugin-mode clients follow the bootstrap/essential/full surface saved in WordPress Setup; `low-tools` and specialist profiles remain explicit overrides. |
+| `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK` | Set to `1` only when the environment profile must override the WordPress Setup preference. |
 | `STONEWRIGHT_MCP_URL` | Explicit WordPress MCP endpoint override |
 | `WP_API_USERNAME` | Legacy alias for `STONEWRIGHT_WP_USERNAME` |
 | `WP_API_PASSWORD` | Legacy alias for `STONEWRIGHT_WP_APP_PASSWORD` |
@@ -146,10 +147,9 @@ of first-call, diagnostic, direct WP-CLI, long-running WP-CLI, and proxied
 profile tools. Use it before broad tool discovery in token-sensitive sessions.
 
 For new stdio sessions, the companion defaults to
-`STONEWRIGHT_MCP_TOOL_PROFILE=essential`. It proxies only the compact
-Stonewright fast-path surface while keeping direct `stonewright-wp-cli-*` tools
-local and deduplicated. Set it to `full` when a specialist session needs every
-registered WordPress MCP tool.
+`STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap`. `stonewright-task-start` then enables
+the compact task profile for that session in plugin or Direct/pluginless mode.
+Set it to `full` only for deliberate specialist diagnostics.
 Use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` for Antigravity, Gemini API, or
 other strict tool-cap clients. It keeps the total client-visible surface under
 30 tools by hiding legacy duplicate aliases while direct WP-CLI recovery tools

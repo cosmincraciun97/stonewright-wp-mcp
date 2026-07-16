@@ -31,6 +31,8 @@ final class RemediationHints {
 		'stonewright_widget_invalid_name'    => 'Widget name/type is invalid. Read the live widget registry before defining or registering.',
 		'stonewright_tree_hash_mismatch'     => 'Elementor tree hash is stale. Re-read page structure, recompute mutations against the fresh tree, then retry batch-mutate.',
 		'stonewright_element_not_found'      => 'Element id missing from the Elementor tree. Re-read page structure and use a live element id.',
+		'stonewright_batch_operation_failed' => 'Read schema_requests from the failed batch response, call each exact schema request once, replace only rejected settings, and rerun one consolidated dry-run. Never fall back to php-execute or WP-CLI for Elementor document writes.',
+		'stonewright_php_elementor_raw_write_blocked' => 'Do not retry php-execute. Return to the typed Elementor batch or build ability, follow its schema_request, and rerun a consolidated dry-run.',
 		'stonewright_unknown_widget'         => 'Widget type is not registered on this site. List live widgets / read schema before writing controls.',
 		'stonewright_parent_missing'         => 'Parent container id is missing. Create or locate the parent first, then attach children.',
 		'sw_test_boom'                       => 'Test-only error: fix the fixture cause before retrying.',

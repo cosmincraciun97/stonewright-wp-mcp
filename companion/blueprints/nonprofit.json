@@ -22,9 +22,10 @@
     "contact"
   ],
   "spec": {
-    "version": "1.0.0",
+    "version": "2.0.0",
     "page": {
-      "title": "Riverlight Foundation"
+      "title": "Riverlight Foundation",
+      "template": "elementor_canvas"
     },
     "tokens": {
       "colors": {
@@ -56,18 +57,24 @@
                   {
                     "type": "heading",
                     "level": 1,
-                    "text": "Local programs funded by neighbors who care"
+                    "text": "Local programs funded by neighbors who care",
+                    "id": "hero_b0_b0_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "Food security, youth mentorship, and emergency rent support with public impact reports every quarter."
+                    "text": "Food security, youth mentorship, and emergency rent support with public impact reports every quarter.",
+                    "id": "hero_b0_b0_b1"
                   },
                   {
                     "type": "button",
                     "text": "Donate today",
-                    "url": "/contact/"
+                    "url": "/contact/",
+                    "id": "hero_b0_b0_b2"
                   }
-                ]
+                ],
+                "id": "hero_b0_b0",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
@@ -75,11 +82,20 @@
                   {
                     "type": "image",
                     "url": "https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=1200&q=80",
-                    "alt": "Volunteers packing food boxes in a community warehouse"
+                    "alt": "Volunteers packing food boxes in a community warehouse",
+                    "id": "hero_b0_b1_b0"
                   }
-                ]
+                ],
+                "id": "hero_b0_b1",
+                "align_items": "center",
+                "justify_content": "flex-start"
               }
-            ]
+            ],
+            "id": "hero_b0",
+            "layout": "row",
+            "align_items": "center",
+            "justify_content": "center",
+            "gap": 24
           }
         ],
         "background": {
@@ -90,7 +106,14 @@
           "right": 24,
           "bottom": 64,
           "left": 24
-        }
+        },
+        "role": "hero",
+        "fullWidth": true,
+        "width": "full",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 24
       },
       {
         "id": "services",
@@ -98,11 +121,13 @@
           {
             "type": "heading",
             "level": 2,
-            "text": "Where your gift goes"
+            "text": "Where your gift goes",
+            "id": "services_b0"
           },
           {
             "type": "spacer",
-            "height": 24
+            "height": 24,
+            "id": "services_b1"
           },
           {
             "type": "row",
@@ -111,54 +136,77 @@
                 "type": "column",
                 "blocks": [
                   {
-                    "type": "separator"
+                    "type": "separator",
+                    "id": "services_b2_b0_b0"
                   },
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Food access"
+                    "text": "Food access",
+                    "id": "services_b2_b0_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "Weekly pantries and school meal kits for families facing shortfalls."
+                    "text": "Weekly pantries and school meal kits for families facing shortfalls.",
+                    "id": "services_b2_b0_b2"
                   }
-                ]
+                ],
+                "id": "services_b2_b0",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
                 "blocks": [
                   {
-                    "type": "separator"
+                    "type": "separator",
+                    "id": "services_b2_b1_b0"
                   },
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Youth mentors"
+                    "text": "Youth mentors",
+                    "id": "services_b2_b1_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "Matched adult mentors with structured goals and safety training."
+                    "text": "Matched adult mentors with structured goals and safety training.",
+                    "id": "services_b2_b1_b2"
                   }
-                ]
+                ],
+                "id": "services_b2_b1",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
                 "blocks": [
                   {
-                    "type": "separator"
+                    "type": "separator",
+                    "id": "services_b2_b2_b0"
                   },
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Housing help"
+                    "text": "Housing help",
+                    "id": "services_b2_b2_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "Short-term rent bridges that keep households housed."
+                    "text": "Short-term rent bridges that keep households housed.",
+                    "id": "services_b2_b2_b2"
                   }
-                ]
+                ],
+                "id": "services_b2_b2",
+                "align_items": "center",
+                "justify_content": "flex-start"
               }
-            ]
+            ],
+            "id": "services_b2",
+            "layout": "row",
+            "align_items": "center",
+            "justify_content": "center",
+            "gap": 24
           }
         ],
         "padding": {
@@ -166,7 +214,12 @@
           "right": 24,
           "bottom": 48,
           "left": 24
-        }
+        },
+        "width": "boxed",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 20
       },
       {
         "id": "pricing",
@@ -174,11 +227,13 @@
           {
             "type": "heading",
             "level": 2,
-            "text": "Give monthly"
+            "text": "Give monthly",
+            "id": "pricing_b0"
           },
           {
             "type": "spacer",
-            "height": 24
+            "height": 24,
+            "id": "pricing_b1"
           },
           {
             "type": "row",
@@ -189,26 +244,34 @@
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Supporter"
+                    "text": "Supporter",
+                    "id": "pricing_b2_b0_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• $25/mo"
+                    "text": "• $25/mo",
+                    "id": "pricing_b2_b0_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Impact email"
+                    "text": "• Impact email",
+                    "id": "pricing_b2_b0_b2"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Volunteer invites"
+                    "text": "• Volunteer invites",
+                    "id": "pricing_b2_b0_b3"
                   },
                   {
                     "type": "button",
                     "text": "Give $25",
-                    "url": "/contact/"
+                    "url": "/contact/",
+                    "id": "pricing_b2_b0_b4"
                   }
-                ]
+                ],
+                "id": "pricing_b2_b0",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
@@ -216,26 +279,34 @@
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Advocate"
+                    "text": "Advocate",
+                    "id": "pricing_b2_b1_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• $75/mo"
+                    "text": "• $75/mo",
+                    "id": "pricing_b2_b1_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Program tours"
+                    "text": "• Program tours",
+                    "id": "pricing_b2_b1_b2"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Name on wall"
+                    "text": "• Name on wall",
+                    "id": "pricing_b2_b1_b3"
                   },
                   {
                     "type": "button",
                     "text": "Give $75",
-                    "url": "/contact/"
+                    "url": "/contact/",
+                    "id": "pricing_b2_b1_b4"
                   }
-                ]
+                ],
+                "id": "pricing_b2_b1",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
@@ -243,28 +314,41 @@
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Champion"
+                    "text": "Champion",
+                    "id": "pricing_b2_b2_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• $250/mo"
+                    "text": "• $250/mo",
+                    "id": "pricing_b2_b2_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Board briefings"
+                    "text": "• Board briefings",
+                    "id": "pricing_b2_b2_b2"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Directed fund"
+                    "text": "• Directed fund",
+                    "id": "pricing_b2_b2_b3"
                   },
                   {
                     "type": "button",
                     "text": "Give $250",
-                    "url": "/contact/"
+                    "url": "/contact/",
+                    "id": "pricing_b2_b2_b4"
                   }
-                ]
+                ],
+                "id": "pricing_b2_b2",
+                "align_items": "center",
+                "justify_content": "flex-start"
               }
-            ]
+            ],
+            "id": "pricing_b2",
+            "layout": "row",
+            "align_items": "center",
+            "justify_content": "center",
+            "gap": 24
           }
         ],
         "background": {
@@ -275,7 +359,12 @@
           "right": 24,
           "bottom": 48,
           "left": 24
-        }
+        },
+        "width": "boxed",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 20
       },
       {
         "id": "testimonials",
@@ -283,11 +372,13 @@
           {
             "type": "heading",
             "level": 2,
-            "text": "What clients say"
+            "text": "What clients say",
+            "id": "testimonials_b0"
           },
           {
             "type": "spacer",
-            "height": 16
+            "height": 16,
+            "id": "testimonials_b1"
           },
           {
             "type": "row",
@@ -297,28 +388,43 @@
                 "blocks": [
                   {
                     "type": "paragraph",
-                    "text": "“The rent bridge kept us in our apartment after a medical bill. Dignity intact.”"
+                    "text": "“The rent bridge kept us in our apartment after a medical bill. Dignity intact.”",
+                    "id": "testimonials_b2_b0_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "— Anonymous family, Program participant"
+                    "text": "— Anonymous family, Program participant",
+                    "id": "testimonials_b2_b0_b1"
                   }
-                ]
+                ],
+                "id": "testimonials_b2_b0",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
                 "blocks": [
                   {
                     "type": "paragraph",
-                    "text": "“Quarterly reports show exactly which programs my donation touched.”"
+                    "text": "“Quarterly reports show exactly which programs my donation touched.”",
+                    "id": "testimonials_b2_b1_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "— Jordan Lee, Monthly donor"
+                    "text": "— Jordan Lee, Monthly donor",
+                    "id": "testimonials_b2_b1_b1"
                   }
-                ]
+                ],
+                "id": "testimonials_b2_b1",
+                "align_items": "center",
+                "justify_content": "flex-start"
               }
-            ]
+            ],
+            "id": "testimonials_b2",
+            "layout": "row",
+            "align_items": "center",
+            "justify_content": "center",
+            "gap": 24
           }
         ],
         "padding": {
@@ -326,7 +432,12 @@
           "right": 24,
           "bottom": 48,
           "left": 24
-        }
+        },
+        "width": "boxed",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 20
       },
       {
         "id": "contact",
@@ -334,21 +445,25 @@
           {
             "type": "heading",
             "level": 2,
-            "text": "Help a neighbor this month"
+            "text": "Help a neighbor this month",
+            "id": "contact_b0"
           },
           {
             "type": "paragraph",
-            "text": "A gift through {business} funds real cases this week—not overhead theater."
+            "text": "A gift through {business} funds real cases this week—not overhead theater.",
+            "id": "contact_b1"
           },
           {
             "type": "button",
             "text": "Make a gift",
-            "url": "/contact/"
+            "url": "/contact/",
+            "id": "contact_b2"
           },
           {
             "type": "image",
             "url": "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80",
-            "alt": "Workspace related to Nonprofit Organization"
+            "alt": "Workspace related to Nonprofit Organization",
+            "id": "contact_b3"
           }
         ],
         "background": {
@@ -359,8 +474,109 @@
           "right": 24,
           "bottom": 64,
           "left": 24
+        },
+        "fullWidth": true,
+        "width": "full",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 24
+      }
+    ],
+    "design_system": {
+      "colors": {
+        "primary": "#065F46",
+        "secondary": "#047857",
+        "accent": "#FBBF24",
+        "background": "#FFFFFF",
+        "text": "#14532D"
+      },
+      "typography": {
+        "heading": {
+          "font_family": "Fraunces, Georgia, serif"
+        },
+        "body": {
+          "font_family": "Inter, system-ui, sans-serif"
         }
       }
-    ]
+    },
+    "content_facts": {
+      "required_facts": [
+        "org_name",
+        "mission",
+        "donate_cta",
+        "impact_stats"
+      ],
+      "blocking_questions": [
+        "Confirm real copy for: org_name",
+        "Confirm real copy for: mission"
+      ],
+      "facts": [
+        {
+          "id": "org_name",
+          "status": "placeholder"
+        },
+        {
+          "id": "mission",
+          "status": "placeholder"
+        },
+        {
+          "id": "donate_cta",
+          "status": "placeholder"
+        },
+        {
+          "id": "impact_stats",
+          "status": "placeholder"
+        }
+      ]
+    },
+    "page_intent": {
+      "page_type": "landing",
+      "conversion_goal": "impact_stats",
+      "audience": "nonprofit"
+    },
+    "native_policy": {
+      "strict": false,
+      "block_html_widgets": true,
+      "require_native_gap_for_custom_css": true,
+      "enforce_heading_hierarchy": true
+    },
+    "verification_policy": {
+      "structural_readback": true,
+      "responsive_breakpoints": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "contrast_check": true,
+      "rollback_on_failure": true
+    }
+  },
+  "version": "2.0.0",
+  "page_type": "landing",
+  "required_content_facts": [
+    "org_name",
+    "mission",
+    "donate_cta",
+    "impact_stats"
+  ],
+  "engine_compatibility": {
+    "elementor": true,
+    "gutenberg": true,
+    "fse": true,
+    "notes": {
+      "elementor": "Native containers + widgets; layout intent via align_items/justify_content/fullWidth.",
+      "gutenberg": "core/group constrained layout; separators map to core/separator.",
+      "fse": "Constrained template/page markup via FseTransactionQueue; no Elementor meta."
+    }
+  },
+  "accessibility_intent": {
+    "target": "wcag-2.2-aa",
+    "contrast_pairs": [
+      "text/background",
+      "primary/background"
+    ],
+    "heading_hierarchy": true,
+    "landmarks": true
   }
 }

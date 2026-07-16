@@ -80,10 +80,9 @@ Profile and surface switching is transport-specific. Agents should treat
 
 - **Admin option** `stonewright_mcp_surface`: `bootstrap` | `essential` | `full`
   controls which abilities the plugin exposes on `tools/list`.
-- Each `tools/list` request re-reads the live surface from WordPress options —
-  there is **no sticky tool list** for the HTTP transport. After
-  `stonewright-tool-profile` activate or admin Apply-now, the next `tools/list`
-  already reflects the new surface.
+- Each `tools/list` request reads the saved site surface plus an optional,
+  expiring profile bound to `Mcp-Session-Id`. Bootstrap task-start activates
+  only that session; it never rewrites the site option or another session.
 - The vendor initialize payload may not declare `tools.listChanged`. Clients
   must honor `re_list_instruction` in the ability response and call `tools/list`
   again even when no `notifications/tools/list_changed` arrives.
@@ -91,12 +90,14 @@ Profile and surface switching is transport-specific. Agents should treat
 
 ### stdio companion transport
 
-- `STONEWRIGHT_MCP_TOOL_PROFILE` sets only the **initial** compact profile for
-  the companion process. Mid-session
-  `stonewright-tool-profile {action:"activate"}` and profile-aware
-  `stonewright-task-start` results may expand or switch the live set.
-- When a proxied ability result includes `tools_changed: true` **or** a
-  non-empty `re_list_instruction`, the companion:
+- For normal clients, the companion reads `stonewright_mcp_surface` from the
+  plugin and treats the saved Setup value as its initial profile. Explicit
+  specialist profiles and `low-tools` remain client overrides. Set
+  `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK=1` to force the environment profile.
+- `bootstrap` is a real companion profile; it is not coerced to `essential`.
+- When a proxied ability result includes `tools_changed: true`, a non-empty
+  `re_list_instruction`, **or** a configured profile different from the active
+  companion profile, the companion:
   1. Re-fetches `tools/list` from the plugin (schemas for newly visible tools).
   2. Diffs against registered proxy tools (register missing, disable dropped).
   3. Emits `notifications/tools/list_changed` via the MCP protocol server.
@@ -108,6 +109,15 @@ Profile and surface switching is transport-specific. Agents should treat
 
 - **`stonewright-tool-profile` activate**: expands `stonewright_mcp_surface`
   when leaving bootstrap and sets `tools_changed` + `re_list_instruction`.
-- **`stonewright-task-start`**: surfaces `tool_profile`, `tools_changed`, and
-  `re_list_instruction` so agents are not silent after profile activation.
+- **`stonewright-task-start`**: surfaces `configured_mcp_surface` and
+  `session_tool_profile`, binds the task profile to the current MCP session,
+  and returns `tools_changed` + `re_list_instruction`. The saved Setup
+  preference remains unchanged.
 
+### Direct/pluginless transport
+
+- Fresh sessions also start on Bootstrap (at most eight Direct tools).
+- `stonewright-task-start` selects a compact Direct profile for Elementor,
+  Gutenberg, content-model, site-admin, or general work; the companion enables
+  only that profile and emits `tools/list_changed`.
+- Full remains an explicit diagnostic/specialist choice, never the default.

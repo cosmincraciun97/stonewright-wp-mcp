@@ -120,6 +120,9 @@ final class WorkflowPreflight extends AbilityKernel {
 				'changed_keys'  => [ 'type' => 'array' ],
 				'unchanged_keys' => [ 'type' => 'array' ],
 				'tool_profile'  => [ 'type' => 'string' ],
+				'configured_mcp_surface' => [ 'type' => 'string' ],
+				'session_tool_profile' => [ 'type' => 'string' ],
+				'session_profile_applied' => [ 'type' => 'boolean' ],
 				'tools_changed' => [ 'type' => 'boolean' ],
 				're_list_instruction' => [ 'type' => 'string' ],
 			],
@@ -198,11 +201,37 @@ final class WorkflowPreflight extends AbilityKernel {
 			}
 		}
 
+		$configured_surface = AbilityRegistry::mcp_surface();
+		$suggested_profile  = (string) ( $tool_profile['suggested_profile'] ?? $tool_profile['profile'] ?? 'essential' );
+		$session_profile    = 'bootstrap' === $configured_surface ? $suggested_profile : $configured_surface;
+		$session_applied    = false;
+		if ( 'bootstrap' === $configured_surface && 'bootstrap' !== $session_profile ) {
+			$session_applied = AbilityRegistry::set_session_tool_profile(
+				$session_profile,
+				ToolProfile::profile_tools( $session_profile )
+			);
+		}
+		$tools_changed = $session_applied && 'bootstrap' !== $session_profile;
+		$re_list       = $tools_changed
+			? 'Re-list tools now (tools/list). The task profile is active for this MCP session; the saved site surface remains Bootstrap.'
+			: '';
+		$fast_path['tool_profile']['profile']                 = $session_profile;
+		$fast_path['tool_profile']['configured_mcp_surface']  = $configured_surface;
+		$fast_path['tool_profile']['session_profile_applied'] = $session_applied;
+		$fast_path['tool_profile']['tools_changed']           = $tools_changed;
+		$fast_path['tool_profile']['re_list_instruction']     = $re_list;
+
 		$response = [
 			'ok'            => true,
 			'context_token' => (string) ( $context['context_token'] ?? '' ),
 			'expires_at'    => (string) ( $context['expires_at'] ?? '' ),
 			'mode'          => $mode,
+			'configured_mcp_surface' => $configured_surface,
+			'session_tool_profile'   => $session_profile,
+			'session_profile_applied' => $session_applied,
+			'tool_profile'            => $session_profile,
+			'tools_changed'           => $tools_changed,
+			're_list_instruction'     => $re_list,
 			'auth_guidance' => [
 				'Use a WordPress Application Password for HTTP MCP authentication.',
 				'Keep the Mcp-Session-Id response header on later JSON-RPC calls.',
@@ -250,13 +279,14 @@ final class WorkflowPreflight extends AbilityKernel {
 		$tools     = array_values( array_slice( array_map( 'strval', (array) ( $fast_path['recommended_mcp_tools'] ?? [] ) ), 0, 8 ) );
 		$ordered_profile_tools = [];
 		$profile_name          = (string) ( $fast_path['tool_profile']['profile'] ?? 'essential' );
+		$suggested_profile     = (string) ( $fast_path['tool_profile']['suggested_profile'] ?? $profile_name );
 		if ( class_exists( ToolProfile::class ) && method_exists( ToolProfile::class, 'profile_tools' ) ) {
 			// Cap at 8 names so compact task-start stays under the token budget.
 			$ordered_profile_tools = array_values(
 				array_slice(
 					array_map(
 						[ AbilityRegistry::class, 'mcp_tool_name' ],
-						ToolProfile::profile_tools( $profile_name )
+						ToolProfile::profile_tools( $suggested_profile )
 					),
 					0,
 					8
@@ -274,6 +304,7 @@ final class WorkflowPreflight extends AbilityKernel {
 				'visual'         => (bool) ( $profile['needs_visual_check'] ?? false ),
 			],
 			'tool_profile'  => $profile_name,
+			'suggested_profile' => $suggested_profile,
 			// Canonical exact next-tool path (capped for token budget).
 			'ordered_tools' => $next,
 		];
@@ -377,6 +408,9 @@ final class WorkflowPreflight extends AbilityKernel {
 			'changed_keys'        => $changed,
 			'unchanged_keys'      => $unchanged,
 			'tool_profile'        => $profile_name,
+			'configured_mcp_surface' => (string) ( $response['configured_mcp_surface'] ?? $profile_name ),
+			'session_tool_profile' => (string) ( $response['session_tool_profile'] ?? $profile_name ),
+			'session_profile_applied' => (bool) ( $response['session_profile_applied'] ?? false ),
 			'tools_changed'       => $tools_changed,
 			're_list_instruction' => $re_list,
 		];
@@ -460,9 +494,11 @@ final class WorkflowPreflight extends AbilityKernel {
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	private static function compact_tool_profile( string $task, string $surface, string $intent ): array|\WP_Error {
+		$suggested_profile = ToolProfile::suggest_profile( $task, $surface, $intent );
 		$profile = ( new ToolProfile() )->execute(
 			[
-				'profile'   => ToolProfile::suggest_profile( $task, $surface, $intent ),
+				'action'    => 'resolve',
+				'profile'   => $suggested_profile,
 				'task'      => $task,
 				'surface'   => $surface,
 				'intent'    => $intent,
@@ -474,7 +510,8 @@ final class WorkflowPreflight extends AbilityKernel {
 		}
 
 		return [
-			'profile'             => $profile['profile'],
+			'profile'             => AbilityRegistry::mcp_surface(),
+			'suggested_profile'   => $profile['profile'],
 			'tool_count'          => $profile['tool_count'],
 			'profile_tool_count'  => $profile['profile_tool_count'],
 			'under_limit'         => $profile['under_limit'],

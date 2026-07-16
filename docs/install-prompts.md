@@ -21,7 +21,7 @@ Connection values (I will provide secrets when asked):
 - Transport: command `npx`, args ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"]
 - Env vars only (never inline secrets in args): STONEWRIGHT_WP_URL,
   STONEWRIGHT_WP_USERNAME, STONEWRIGHT_WP_APP_PASSWORD,
-  STONEWRIGHT_MCP_TOOL_PROFILE=essential (use low-tools for strict tool-cap clients).
+  STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap (use low-tools for strict tool-cap clients).
 
 After reload:
 - Call stonewright-setup-profile and stonewright-wordpress-mcp-status.

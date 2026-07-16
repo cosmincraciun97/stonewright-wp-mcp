@@ -22,6 +22,8 @@ use Stonewright\WpMcp\Core\AbilityRegistry;
 final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 
 	protected function setUp(): void {
+		$_SERVER['HTTP_MCP_SESSION_ID'] = 'workflow-session';
+		$GLOBALS['stonewright_test_transients'] = [];
 		$GLOBALS['stonewright_test_options'] = [
 			'stonewright_mode' => 'development',
 		];
@@ -38,6 +40,8 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		unset( $_SERVER['HTTP_MCP_SESSION_ID'] );
+		$GLOBALS['stonewright_test_transients'] = [];
 		$GLOBALS['stonewright_test_options'] = [];
 		$GLOBALS['stonewright_test_user_caps'] = [];
 		$GLOBALS['stonewright_test_user_logged_in'] = false;
@@ -64,6 +68,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 	}
 
 	public function test_workflow_preflight_compact_mode_returns_hashes_and_refs(): void {
+		update_option( 'stonewright_mcp_surface', 'bootstrap', false );
 		$result = ( new WorkflowPreflight() )->execute(
 			[
 				'task'         => 'Build an Elementor page from a Figma visual reference.',
@@ -84,6 +89,13 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertArrayHasKey( 'design_contract_ref', $result['fast_path'] );
 		self::assertArrayHasKey( 'hash', $result['fast_path']['design_contract_ref'] );
 		self::assertArrayNotHasKey( 'design_implementation_contract', $result['fast_path'] );
+		self::assertSame( 'bootstrap', $result['configured_mcp_surface'] );
+		self::assertSame( 'elementor-design', $result['session_tool_profile'] );
+		self::assertTrue( $result['session_profile_applied'] );
+		self::assertTrue( $result['tools_changed'] );
+		self::assertNotSame( '', $result['re_list_instruction'] );
+		self::assertSame( 'bootstrap', AbilityRegistry::mcp_surface(), 'Task start must not overwrite the admin-selected surface.' );
+		self::assertContains( 'stonewright/elementor-v3-batch-mutate', array_column( AbilityRegistry::enabled_abilities(), 'name' ) );
 	}
 
 	public function test_task_start_defaults_to_the_compact_one_call_gateway(): void {
@@ -297,7 +309,8 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertArrayHasKey( 'elementor', $result );
 		self::assertArrayHasKey( 'fast_path', $result );
 		self::assertArrayHasKey( 'tool_profile', $result['fast_path'] );
-		self::assertSame( 'elementor-design', $result['fast_path']['tool_profile']['profile'] );
+		self::assertSame( 'essential', $result['fast_path']['tool_profile']['profile'] );
+		self::assertSame( 'elementor-design', $result['fast_path']['tool_profile']['suggested_profile'] );
 		self::assertIsBool( $result['fast_path']['tool_profile']['under_limit'] );
 		self::assertArrayHasKey( 'elementor_design', $result['fast_path']['tool_profile']['tool_groups'] );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $result['fast_path']['tool_profile']['tool_groups']['elementor_design']['abilities'] );

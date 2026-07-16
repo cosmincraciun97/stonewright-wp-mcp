@@ -50,7 +50,7 @@ shown on the GitHub Releases page.
         "STONEWRIGHT_WP_URL": "https://your-site.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
         "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
       }
     }
   }
@@ -120,7 +120,7 @@ args = ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mc
 STONEWRIGHT_WP_URL = "https://your-site.com"
 STONEWRIGHT_WP_USERNAME = "your-wp-username"
 STONEWRIGHT_WP_APP_PASSWORD = "xxxx xxxx xxxx xxxx xxxx xxxx"
-STONEWRIGHT_MCP_TOOL_PROFILE = "essential"
+        STONEWRIGHT_MCP_TOOL_PROFILE = "bootstrap"
 ```
 
 In the Codex IDE extension, open the gear menu, choose **Codex Settings >
@@ -145,7 +145,7 @@ claude mcp add stonewright \
   --env STONEWRIGHT_WP_URL='https://your-site.com' \
   --env STONEWRIGHT_WP_USERNAME='your-wp-username' \
   --env STONEWRIGHT_WP_APP_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx' \
-  --env STONEWRIGHT_MCP_TOOL_PROFILE=essential \
+  --env STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap \
   -- npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-mcp
 ```
 
@@ -189,7 +189,7 @@ VS Code-style clients use a `servers` top-level key instead of `mcpServers`:
         "STONEWRIGHT_WP_URL": "https://your-site.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
         "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
       }
     }
   }
@@ -209,7 +209,7 @@ Zed uses `context_servers`:
           "STONEWRIGHT_WP_URL": "https://your-site.com",
           "STONEWRIGHT_WP_USERNAME": "your-wp-username",
           "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-          "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
+          "STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
         }
       }
     }

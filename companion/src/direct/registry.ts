@@ -1,4 +1,4 @@
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { loadSitesConfig, resolveSite, type SitesConfig } from './sites-config.js';
 import { WpRestClient, WpRestError } from './wp-rest-client.js';
@@ -177,38 +177,69 @@ export const DIRECT_TOOL_NAMES = [
  * Compact Direct-mode essential surface for client tool caps / progressive discovery.
  * Registration-time export so measure scripts and productization stay single-source.
  */
+export const DIRECT_BOOTSTRAP_TOOL_NAMES = [
+	'stonewright-task-start',
+	'stonewright-site-discover',
+	'stonewright-skill-list',
+	'stonewright-skill-get',
+	'stonewright-memory-list',
+	'stonewright-learning-record',
+	'stonewright-health-check',
+	'stonewright-agents-md-sync',
+] as const;
+
 export const DIRECT_ESSENTIAL_TOOL_NAMES = [
+	...DIRECT_BOOTSTRAP_TOOL_NAMES,
 	'stonewright-content-list',
 	'stonewright-content-get',
 	'stonewright-content-create-page',
 	'stonewright-content-update',
 	'stonewright-media-list',
 	'stonewright-media-upload',
-	'stonewright-menu-list',
-	'stonewright-menu-get',
 	'stonewright-settings-get',
 	'stonewright-plugin-list',
-	'stonewright-theme-list',
-	'stonewright-site-discover',
 	'stonewright-gutenberg-compose',
-	'stonewright-blueprint-list',
-	'stonewright-blueprint-apply',
 	'stonewright-search',
 	'stonewright-rest-request',
-	'stonewright-health-check',
 	'stonewright-elementor-status',
-	'stonewright-gutenberg-validate',
 ] as const;
 
-export type DirectToolProfile = 'essential' | 'full';
+export type DirectToolProfile = 'bootstrap' | 'essential' | 'elementor-design' | 'content-model' | 'gutenberg' | 'site-admin' | 'full';
 
 export interface DirectModeContext {
 	env: NodeJS.ProcessEnv;
 	fetchImpl?: typeof fetch;
 	sitesConfig?: SitesConfig;
 	timeoutMs?: number;
-	/** When essential, only DIRECT_ESSENTIAL_TOOL_NAMES are registered. Default full. */
+	/** Initial Direct tool surface. Defaults to bootstrap in the companion. */
 	toolProfile?: DirectToolProfile;
+}
+
+function directProfileToolNames(profile: DirectToolProfile): readonly string[] {
+	if (profile === 'full') return DIRECT_TOOL_NAMES;
+	if (profile === 'bootstrap') return DIRECT_BOOTSTRAP_TOOL_NAMES;
+	if (profile === 'essential') return DIRECT_ESSENTIAL_TOOL_NAMES;
+
+	const profileNeedles: Record<Exclude<DirectToolProfile, 'bootstrap' | 'essential' | 'full'>, readonly string[]> = {
+		'elementor-design': ['elementor', 'media-', 'blueprint-', 'content-get', 'content-update', 'gutenberg-validate', 'settings-get'],
+		'content-model': ['content-', 'media-', 'taxonomy-', 'menu-', 'search', 'blueprint-', 'plugin-list', 'theme-list', 'rest-request'],
+		gutenberg: ['gutenberg', 'content-', 'media-', 'template-', 'global-styles', 'block-', 'pattern-', 'settings-get'],
+		'site-admin': ['comment-', 'user-', 'app-password-', 'plugin-', 'theme-', 'settings-', 'menu-', 'sidebar-', 'widget-', 'health-', 'custom-css'],
+	};
+	const needles = profileNeedles[profile];
+	return Array.from(new Set([
+		...DIRECT_BOOTSTRAP_TOOL_NAMES,
+		...DIRECT_TOOL_NAMES.filter((name) => needles.some((needle) => name.includes(needle))),
+	]));
+}
+
+export function suggestDirectToolProfile(task: string, surface = '', intent = ''): DirectToolProfile {
+	const haystack = `${task} ${surface} ${intent}`.toLowerCase();
+	if (/elementor|visual reference|design|pixel|layout|theme.builder/.test(haystack)) return 'elementor-design';
+	if (/gutenberg|block editor|site editor|fse|template|global style/.test(haystack)) return 'gutenberg';
+	if (/custom post|\bcpt\b|\bacf\b|taxonomy|woocommerce|product|order|catalog|content model|bulk content/.test(haystack)) return 'content-model';
+	if (/plugin|theme|user|comment|widget|sidebar|menu|setting|site health|admin/.test(haystack)) return 'site-admin';
+	return 'essential';
 }
 
 /**
@@ -216,12 +247,9 @@ export interface DirectModeContext {
  */
 export function shouldRegisterDirectTool(
 	name: string,
-	profile: DirectToolProfile = 'full',
+	profile: DirectToolProfile = 'bootstrap',
 ): boolean {
-	if (profile === 'full') {
-		return true;
-	}
-	return (DIRECT_ESSENTIAL_TOOL_NAMES as readonly string[]).includes(name);
+	return directProfileToolNames(profile).includes(name);
 }
 
 function toolResponse(data: unknown) {
@@ -285,20 +313,56 @@ function buildContext(ctx: DirectModeContext, siteAlias?: string) {
 export function registerDirectTools(server: McpServer, ctx: DirectModeContext): string[] {
 	const siteArg = z.string().optional().describe('Site alias from ~/.stonewright/sites.json');
 	const confirmArg = z.boolean().optional().describe('Required true for destructive tools when remote/confirm mode');
-	const profile: DirectToolProfile = ctx.toolProfile === 'essential' ? 'essential' : 'full';
+	let activeProfile: DirectToolProfile = ctx.toolProfile ?? 'bootstrap';
 	const registered: string[] = [];
+	const toolHandles = new Map<string, RegisteredTool>();
 	// MCP SDK overloads tool(); keep a typed wrapper without `any`.
 	type ToolRegistrar = {
 		tool: (name: string, ...args: never[]) => unknown;
 	};
 	const registerTool = ((name: string, ...rest: never[]) => {
-		if (!shouldRegisterDirectTool(name, profile)) {
-			return server;
-		}
-		registered.push(name);
-		return (server as unknown as ToolRegistrar).tool(name, ...rest);
+		const sdkHandle = (server as unknown as ToolRegistrar).tool(name, ...rest) as RegisteredTool | undefined;
+		const fallbackHandle: RegisteredTool = {
+			enabled: true,
+			handler: (() => ({ content: [] })) as RegisteredTool['handler'],
+			enable() { this.enabled = true; },
+			disable() { this.enabled = false; },
+			update() {},
+			remove() {},
+		};
+		const handle = sdkHandle ?? fallbackHandle;
+		toolHandles.set(name, handle);
+		if (shouldRegisterDirectTool(name, activeProfile)) registered.push(name);
+		else handle.disable();
+		return handle;
 	}) as typeof server.tool;
 	const tool = registerTool; // filtered registration helper
+
+	const activateProfile = async (profile: DirectToolProfile) => {
+		const added: string[] = [];
+		const removed: string[] = [];
+		for (const [name, handle] of toolHandles) {
+			const desired = shouldRegisterDirectTool(name, profile);
+			if (desired && !handle.enabled) {
+				handle.enable();
+				added.push(name);
+			} else if (!desired && handle.enabled) {
+				handle.disable();
+				removed.push(name);
+			}
+		}
+		activeProfile = profile;
+		const inner = (server as unknown as { server?: { sendToolListChanged?: () => void | Promise<void> } }).server;
+		if (added.length > 0 || removed.length > 0) {
+			try {
+				await Promise.resolve(inner?.sendToolListChanged?.());
+			} catch {
+				// The profile is still active; disconnected unit tests and older clients
+				// can re-list explicitly from the returned instruction.
+			}
+		}
+		return { added, removed };
+	};
 
 
 	// --- Wave 1: content ---
@@ -1398,7 +1462,23 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			surface: z.string().optional(),
 			intent: z.string().optional(),
 		},
-		(input) => selfImprove.taskStart(selfCtx(), input as never),
+		async (input) => {
+			const result = selfImprove.taskStart(selfCtx(), input as never);
+			const configuredProfile = ctx.toolProfile ?? 'bootstrap';
+			const sessionProfile = configuredProfile === 'bootstrap'
+				? suggestDirectToolProfile(String(input['task'] ?? ''), String(input['surface'] ?? ''), String(input['intent'] ?? ''))
+				: configuredProfile;
+			const changed = sessionProfile !== activeProfile ? await activateProfile(sessionProfile) : { added: [], removed: [] };
+			return {
+				...result,
+				configured_mcp_surface: configuredProfile,
+				session_tool_profile: sessionProfile,
+				tools_changed: changed.added.length > 0 || changed.removed.length > 0,
+				re_list_instruction: changed.added.length > 0 || changed.removed.length > 0
+					? 'Re-list tools now (tools/list). The Direct task profile is active for this session.'
+					: '',
+			};
+		},
 	);
 
 	w3(

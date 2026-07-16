@@ -30,6 +30,7 @@ describe('direct self-improve protocol e2e (zero WordPress)', () => {
 		const server = await createMcpServer({
 			env: {
 				STONEWRIGHT_MODE: 'direct',
+				STONEWRIGHT_MCP_TOOL_PROFILE: 'full',
 				STONEWRIGHT_STATE_DIR: stateDir,
 				// Explicitly no STONEWRIGHT_WP_* credentials
 			},
@@ -76,5 +77,31 @@ describe('direct self-improve protocol e2e (zero WordPress)', () => {
 		const mem = await callTool(tools, 'stonewright-memory-list', { limit: 5 });
 		const items = mem.items as Array<{ text: string }>;
 		expect(items.some((i) => i.text.includes('alt text'))).toBe(true);
+	});
+
+	it('starts on bootstrap and unlocks only the task profile for this session', async () => {
+		const stateDir = mkdtempSync(join(tmpdir(), 'sw-e2e-bootstrap-'));
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MODE: 'direct',
+				STONEWRIGHT_STATE_DIR: stateDir,
+			},
+		});
+		const tools = (server as { _registeredTools?: ToolMap & Record<string, { enabled?: boolean }> })._registeredTools ?? {};
+		expect(tools['stonewright-task-start']?.enabled).toBe(true);
+		expect(tools['stonewright-elementor-data-update']?.enabled).toBe(false);
+		expect(tools['stonewright-comment-list']?.enabled).toBe(false);
+
+		const start = await callTool(tools, 'stonewright-task-start', {
+			task: 'Implement a Figma design in Elementor',
+			surface: 'elementor',
+		});
+		expect(start).toMatchObject({
+			configured_mcp_surface: 'bootstrap',
+			session_tool_profile: 'elementor-design',
+			tools_changed: true,
+		});
+		expect(tools['stonewright-elementor-data-update']?.enabled).toBe(true);
+		expect(tools['stonewright-comment-list']?.enabled).toBe(false);
 	});
 });
