@@ -187,8 +187,8 @@ export const DIRECT_ESSENTIAL_TOOL_NAMES = [
 	'stonewright-menu-list',
 	'stonewright-menu-get',
 	'stonewright-settings-get',
-	'stonewright-plugins-list',
-	'stonewright-themes-list',
+	'stonewright-plugin-list',
+	'stonewright-theme-list',
 	'stonewright-site-discover',
 	'stonewright-gutenberg-compose',
 	'stonewright-blueprint-list',
@@ -200,11 +200,28 @@ export const DIRECT_ESSENTIAL_TOOL_NAMES = [
 	'stonewright-gutenberg-validate',
 ] as const;
 
+export type DirectToolProfile = 'essential' | 'full';
+
 export interface DirectModeContext {
 	env: NodeJS.ProcessEnv;
 	fetchImpl?: typeof fetch;
 	sitesConfig?: SitesConfig;
 	timeoutMs?: number;
+	/** When essential, only DIRECT_ESSENTIAL_TOOL_NAMES are registered. Default full. */
+	toolProfile?: DirectToolProfile;
+}
+
+/**
+ * Whether a Direct tool should be registered for the active profile.
+ */
+export function shouldRegisterDirectTool(
+	name: string,
+	profile: DirectToolProfile = 'full',
+): boolean {
+	if (profile === 'full') {
+		return true;
+	}
+	return (DIRECT_ESSENTIAL_TOOL_NAMES as readonly string[]).includes(name);
 }
 
 function toolResponse(data: unknown) {
@@ -263,13 +280,26 @@ function buildContext(ctx: DirectModeContext, siteAlias?: string) {
 /**
  * Register Direct mode wave-1 + wave-2 tools (REST-only, no plugin required).
  * Call when plugin MCP endpoint is unavailable or STONEWRIGHT_MODE=direct.
+ * When ctx.toolProfile === 'essential', only DIRECT_ESSENTIAL_TOOL_NAMES register.
  */
 export function registerDirectTools(server: McpServer, ctx: DirectModeContext): string[] {
 	const siteArg = z.string().optional().describe('Site alias from ~/.stonewright/sites.json');
 	const confirmArg = z.boolean().optional().describe('Required true for destructive tools when remote/confirm mode');
+	const profile: DirectToolProfile = ctx.toolProfile === 'essential' ? 'essential' : 'full';
+	const registered: string[] = [];
+	const registerTool: typeof server.tool = ((name: string, ...rest: unknown[]) => {
+		if (!shouldRegisterDirectTool(name, profile)) {
+			return server as never;
+		}
+		registered.push(name);
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		return (server.tool as any)(name, ...rest);
+	}) as typeof server.tool;
+	const tool = registerTool; // filtered registration helper
+
 
 	// --- Wave 1: content ---
-	server.tool(
+	tool(
 		'stonewright-content-list',
 		'List posts/pages/CPT items via core REST (Direct mode).',
 		{
@@ -289,7 +319,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-content-get',
 		'Get a single content item via core REST (Direct mode).',
 		{
@@ -307,7 +337,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-content-create-page',
 		'Create a page via core REST (Direct mode).',
 		{
@@ -330,7 +360,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-content-create-post',
 		'Create a post via core REST (Direct mode).',
 		{
@@ -353,7 +383,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-content-update',
 		'Update a content item via core REST (Direct mode). Only provided fields are sent. Accepts Gutenberg block markup in content.',
 		{
@@ -376,7 +406,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-content-delete',
 		'Delete/trash a content item via core REST (Direct mode). force:true requires confirm:true in confirm mode.',
 		{
@@ -395,7 +425,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-content-revisions',
 		'List content revisions via core REST (Direct mode).',
 		{
@@ -414,7 +444,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 
 	// --- Wave 1: media ---
-	server.tool(
+	tool(
 		'stonewright-media-list',
 		'List media via core REST (Direct mode).',
 		{
@@ -432,7 +462,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-media-get',
 		'Get a media item via core REST (Direct mode).',
 		{
@@ -448,7 +478,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-media-upload',
 		'Upload media from a local path or URL via core REST (Direct mode).',
 		{
@@ -469,7 +499,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-media-update',
 		'Update media title/alt/caption via core REST (Direct mode).',
 		{
@@ -488,7 +518,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-taxonomy-terms',
 		'List/create/update/delete taxonomy terms via core REST (Direct mode). action=delete requires confirm:true in confirm mode.',
 		{
@@ -560,7 +590,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 
 	// --- Wave 2: menus ---
-	server.tool(
+	tool(
 		'stonewright-menu-list',
 		'List navigation menus via core REST (Direct mode).',
 		{
@@ -578,7 +608,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-menu-get',
 		'Get a navigation menu via core REST (Direct mode).',
 		{ site: siteArg, id: z.number().int().positive() },
@@ -591,7 +621,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-menu-create',
 		'Create a navigation menu via core REST (Direct mode).',
 		{
@@ -609,7 +639,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-menu-update',
 		'Update a navigation menu via core REST (Direct mode).',
 		{
@@ -628,7 +658,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-menu-delete',
 		'Delete a navigation menu via core REST (Direct mode). Requires confirm:true on remote/confirm mode.',
 		{
@@ -646,7 +676,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-menu-items',
 		'List/create/update/delete menu items via core REST (Direct mode). action=delete requires confirm:true on remote.',
 		{
@@ -677,7 +707,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 
 	// --- Wave 2: templates ---
-	server.tool(
+	tool(
 		'stonewright-template-list',
 		'List FSE templates via core REST (Direct mode).',
 		{
@@ -695,7 +725,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-template-get',
 		'Get an FSE template via core REST (Direct mode).',
 		{ site: siteArg, id: z.string().min(1) },
@@ -708,7 +738,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-template-update',
 		'Update an FSE template via core REST (Direct mode).',
 		{
@@ -727,7 +757,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-template-part-list',
 		'List FSE template parts via core REST (Direct mode).',
 		{
@@ -745,7 +775,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-template-part-get',
 		'Get an FSE template part via core REST (Direct mode).',
 		{ site: siteArg, id: z.string().min(1) },
@@ -758,7 +788,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-template-part-update',
 		'Update an FSE template part via core REST (Direct mode).',
 		{
@@ -778,7 +808,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 
 	// --- Wave 2: global styles / settings ---
-	server.tool(
+	tool(
 		'stonewright-global-styles-get',
 		'Get global styles (theme.json) via core REST (Direct mode).',
 		{ site: siteArg, id: z.string().optional() },
@@ -791,7 +821,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-global-styles-update',
 		'Update global styles via core REST (Direct mode). Requires confirm:true on remote/confirm mode.',
 		{
@@ -810,7 +840,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-settings-get',
 		'Get site settings via core REST (Direct mode).',
 		{ site: siteArg },
@@ -823,7 +853,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-settings-update',
 		'Update site settings via core REST (Direct mode). Requires confirm:true on remote/confirm mode.',
 		{
@@ -841,7 +871,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 
 	// --- Wave 2: plugins / themes / users ---
-	server.tool(
+	tool(
 		'stonewright-plugin-list',
 		'List plugins via core REST (Direct mode).',
 		{
@@ -858,7 +888,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-plugin-activate',
 		'Activate a plugin via core REST (Direct mode). Requires confirm:true on remote/confirm mode.',
 		{
@@ -875,7 +905,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-plugin-deactivate',
 		'Deactivate a plugin via core REST (Direct mode). Requires confirm:true on remote/confirm mode.',
 		{
@@ -892,7 +922,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-plugin-install',
 		'Install a plugin from wordpress.org via core REST (Direct mode). Requires confirm:true on remote/confirm mode.',
 		{
@@ -910,7 +940,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-theme-list',
 		'List themes via core REST (Direct mode).',
 		{
@@ -926,7 +956,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-user-list',
 		'List users via core REST (Direct mode).',
 		{
@@ -945,7 +975,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-user-get',
 		'Get a user via core REST (Direct mode).',
 		{ site: siteArg, id: z.number().int().positive() },
@@ -958,7 +988,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-user-me',
 		'Get the authenticated user via core REST (Direct mode).',
 		{ site: siteArg },
@@ -971,7 +1001,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-search',
 		'Site search via core REST (Direct mode).',
 		{
@@ -991,7 +1021,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-block-patterns',
 		'List registered block patterns via core REST (Direct mode).',
 		{
@@ -1009,7 +1039,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-site-discover',
 		'Discover REST namespaces, post types, taxonomies, and plugin signals. First recommended tool in Direct mode. Reports plugin-only capabilities that are unavailable.',
 		{ site: siteArg },
@@ -1022,7 +1052,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-gutenberg-compose',
 		'Compose Gutenberg block markup from a simple JSON block spec (local, no network). Pass result.markup to content-create/update.',
 		{
@@ -1044,7 +1074,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-blueprint-list',
 		'List bundled landing blueprints available in Direct mode (Gutenberg apply only).',
 		{ site: siteArg },
@@ -1057,7 +1087,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-blueprint-get',
 		'Get a bundled blueprint JSON by id (Direct mode).',
 		{ site: siteArg, id: z.string().min(1) },
@@ -1074,7 +1104,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		},
 	);
 
-	server.tool(
+	tool(
 		'stonewright-blueprint-apply',
 		'Apply a bundled blueprint as a Gutenberg draft via core REST. Elementor engine requires the Stonewright plugin.',
 		{
@@ -1111,7 +1141,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	// --- Wave 3 tools ---
 	const w3 = (name: string, desc: string, shape: Record<string, z.ZodTypeAny>, fn: (input: Record<string, unknown>, runtime: ReturnType<typeof buildContext>) => Promise<unknown>) => {
-		server.tool(name, desc, shape, async (input) => {
+		tool(name, desc, shape, async (input) => {
 			const site = String((input as { site?: string }).site ?? '_global');
 			try {
 				return toolResponse(await fn(input as Record<string, unknown>, buildContext(ctx, (input as { site?: string }).site)));
@@ -1282,7 +1312,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		shape: Record<string, z.ZodTypeAny>,
 		handler: (input: Record<string, unknown>) => unknown,
 	) => {
-		server.tool(name, description, shape, async (input) => {
+		tool(name, description, shape, async (input) => {
 			const site = String((input as { site?: string }).site ?? '_global');
 			try {
 				return toolResponse(await handler(input as Record<string, unknown>));
@@ -1449,5 +1479,5 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		(input) => agentsMd.agentsMdSync(ctx.env, input as never),
 	);
 
-	return [...DIRECT_TOOL_NAMES];
+	return registered;
 }

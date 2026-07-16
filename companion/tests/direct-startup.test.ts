@@ -74,6 +74,8 @@ describe('direct startup auto-detect', () => {
 		const server = await createMcpServer({
 			env: {
 				STONEWRIGHT_MODE: 'direct',
+				// Full Direct surface for productization; essential filters via DIRECT_ESSENTIAL_TOOL_NAMES.
+				STONEWRIGHT_MCP_TOOL_PROFILE: 'full',
 				STONEWRIGHT_WP_URL: 'https://example.com',
 				STONEWRIGHT_WP_USERNAME: 'admin',
 				STONEWRIGHT_WP_APP_PASSWORD: 'pw',

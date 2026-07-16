@@ -186,6 +186,61 @@ export async function checkRestReachable(
 	}
 }
 
+/**
+ * Confirms the site REST index responds and exposes expected namespaces.
+ * Soft signal: warn when wp/v2 is missing; pass when namespaces include wp/v2.
+ */
+export async function checkRestIndex(
+	creds: CredentialSource,
+	fetchImpl: typeof fetch = fetch,
+): Promise<DoctorCheck> {
+	const indexUrl = `${creds.url}/wp-json/`;
+	try {
+		const res = await fetchImpl(indexUrl, {
+			headers: { Accept: 'application/json' },
+		});
+		if (!res.ok) {
+			return {
+				id: 'rest_index',
+				status: 'failed',
+				detail: `REST index returned HTTP ${res.status}.`,
+				fix: 'Confirm pretty permalinks or that /wp-json/ is reachable; security plugins must not block the REST index.',
+				retryable: true,
+			};
+		}
+		const body = (await res.json()) as { namespaces?: unknown; name?: string };
+		const namespaces = Array.isArray(body.namespaces)
+			? body.namespaces.map((n) => String(n).toLowerCase())
+			: [];
+		const hasWpV2 = namespaces.some((n) => n === 'wp/v2' || n.startsWith('wp/v2'));
+		const hasMcp = namespaces.some((n) => n.includes('mcp') || n.includes('stonewright'));
+		if (!hasWpV2) {
+			return {
+				id: 'rest_index',
+				status: 'warn',
+				detail: `REST index reachable but wp/v2 namespace not listed (${namespaces.slice(0, 8).join(', ') || 'none'}).`,
+				fix: 'Enable the WordPress REST API and ensure no plugin strips core namespaces.',
+				retryable: true,
+			};
+		}
+		return {
+			id: 'rest_index',
+			status: 'passed',
+			detail: hasMcp
+				? `REST index OK; namespaces include wp/v2 and a Stonewright/MCP route (${namespaces.length} total).`
+				: `REST index OK; wp/v2 present (${namespaces.length} namespaces). Plugin MCP namespace not listed — Direct mode is still available.`,
+		};
+	} catch (err) {
+		return {
+			id: 'rest_index',
+			status: 'failed',
+			detail: `Could not read REST index: ${err instanceof Error ? err.message : String(err)}`,
+			fix: 'Confirm STONEWRIGHT_WP_URL points at the WordPress root and /wp-json/ is publicly reachable.',
+			retryable: true,
+		};
+	}
+}
+
 export async function checkMcpInitialize(
 	creds: CredentialSource,
 	password: string,
@@ -294,9 +349,15 @@ export async function runDoctorChecks(options: DoctorEnv = {}): Promise<DoctorRe
 
 	if (creds) {
 		const password = passwordFromEnvOrFile(env, home);
+		checks.push(await checkRestIndex(creds, fetchImpl));
 		checks.push(await checkRestReachable(creds, password, fetchImpl));
 		checks.push(await checkMcpInitialize(creds, password, fetchImpl));
 	} else {
+		checks.push({
+			id: 'rest_index',
+			status: 'skipped',
+			detail: 'Skipped — no credentials.',
+		});
 		checks.push({
 			id: 'rest_auth',
 			status: 'skipped',

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	checkCredentialsPresent,
 	checkNodeVersion,
+	checkRestIndex,
 	checkStaleToolCacheHint,
 	resolveCredentials,
 	runDoctorChecks,
@@ -40,9 +41,33 @@ describe('companion doctor', () => {
 		expect(check.fix).toMatch(/Codex|Cursor|Claude/i);
 	});
 
+	it('checkRestIndex passes when wp/v2 namespace is present', async () => {
+		const fetchImpl = (() =>
+			Promise.resolve(
+				new Response(JSON.stringify({ namespaces: ['oembed/1.0', 'wp/v2'] }), {
+					status: 200,
+					headers: { 'Content-Type': 'application/json' },
+				}),
+			)) as typeof fetch;
+		const check = await checkRestIndex(
+			{ url: 'https://example.test', username: 'admin', hasPassword: true, source: 'environment' },
+			fetchImpl,
+		);
+		expect(check.status).toBe('passed');
+		expect(check.id).toBe('rest_index');
+	});
+
 	it('runDoctorChecks marks ok only when mcp initialize passes', async () => {
 		const fetchImpl = ((input: Parameters<typeof fetch>[0], _init?: RequestInit) => {
 			const url = String(input);
+			if (url.endsWith('/wp-json/') || url.includes('/wp-json/?') || /\/wp-json\/?$/.test(url)) {
+				return Promise.resolve(
+					new Response(JSON.stringify({ namespaces: ['wp/v2', 'mcp'] }), {
+						status: 200,
+						headers: { 'Content-Type': 'application/json' },
+					}),
+				);
+			}
 			if (url.includes('/users/me')) {
 				return Promise.resolve(new Response(JSON.stringify({ name: 'Admin' }), { status: 200 }));
 			}

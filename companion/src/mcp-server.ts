@@ -223,6 +223,8 @@ async function registerDirectMode(
 		const registered = registerDirectTools(server, {
 			env,
 			...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+			// Essential profile uses DIRECT_ESSENTIAL_TOOL_NAMES; other profiles register full Direct surface.
+			toolProfile: profile === 'essential' || profile === 'low-tools' ? 'essential' : 'full',
 		});
 		const localToolNames = localToolNamesForProfile(profile);
 		wpMcpStatus.ok = true;
