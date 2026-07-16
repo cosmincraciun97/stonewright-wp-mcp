@@ -56,7 +56,7 @@ export function recordMemory(input: {
 	if (text.length > MAX_TEXT) {
 		throw new Error(`Memory text exceeds ${MAX_TEXT} bytes`);
 	}
-	const kind = (input.kind ?? 'correction') as MemoryKind;
+	const kind = (input.kind ?? 'correction');
 	if (!KINDS.has(kind)) {
 		throw new Error(`Invalid memory kind: ${kind}`);
 	}
@@ -90,7 +90,7 @@ export function listMemory(input: {
 			if (row && typeof row.text === 'string' && typeof row.ts === 'string') {
 				items.push({
 					ts: row.ts,
-					kind: (KINDS.has(row.kind as MemoryKind) ? row.kind : 'fact') as MemoryKind,
+					kind: (KINDS.has(row.kind) ? row.kind : 'fact'),
 					text: row.text,
 					tags: Array.isArray(row.tags) ? row.tags.map(String) : [],
 				});

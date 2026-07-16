@@ -4,7 +4,8 @@ Copy **one** block below into your AI client. Both configure the same
 Stonewright companion MCP server (`stonewright-mcp`). The difference is
 whether the Stonewright WordPress plugin is installed on the site.
 
-Replace `VERSION` with the release you installed (for example `1.0.0-alpha.71`).
+Replace `VERSION` with the exact release version you installed, without the
+leading `v`, as shown on the GitHub Releases page.
 Companion package URL pattern:
 
 `https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz`
@@ -23,9 +24,13 @@ Connection values (I will provide secrets when asked):
   STONEWRIGHT_MCP_TOOL_PROFILE=essential (use low-tools for strict tool-cap clients).
 
 After reload:
+- Call stonewright-setup-profile and stonewright-wordpress-mcp-status.
+- Confirm companion_version matches VERSION, the WordPress MCP endpoint is
+  authenticated, and refresh_required_tool_names is empty.
 - Verify stonewright-task-start is in the tool list; if missing, stop and tell me.
 - Start every WordPress task with stonewright-task-start.
 - Follow the returned skills, memory, expertise, and fast_path.tool_profile.
+- For visual work, verify browser/Playwright tools before the first write.
 - Do not inspect private AI-client config files, hand-roll JSON-RPC, or run wp in a normal shell as an MCP workaround.
 - Use stonewright-php-execute for short runtime PHP; keep WP-CLI tokenized via stonewright-wp-cli-*.
 ```
@@ -40,6 +45,10 @@ search/oEmbed/block-directory utilities, WooCommerce reads, ACF field values
 (when ACF exposes them over REST), SEO head reads, a guarded read-only REST
 passthrough, and local self-improvement (per-site skills and memory under
 `~/.stonewright/` on this machine).
+
+Local sites with tokenized WP-CLI can also inspect and update Elementor document
+data with mandatory file backup. This is not remote pluginless Elementor engine
+parity.
 
 Plugin-only: php-execute, Elementor engines, DesignSpec render pipelines,
 production-safe confirmation tokens, CPT/field-group registration, and the
@@ -58,14 +67,19 @@ Connection values (I will provide secrets when asked):
   Optional: STONEWRIGHT_MODE=direct to force Direct mode.
 
 After reload:
+- Call stonewright-setup-profile and stonewright-wordpress-mcp-status.
+- Confirm mode is Direct, companion_version matches VERSION, and capability
+  gaps are reported honestly rather than silently falling back.
 - Verify stonewright-task-start is in the tool list; if missing, stop and tell me.
 - Start every WordPress task with stonewright-task-start — in Direct mode it
   returns this site's locally stored skills and memory (or _global).
+- Call stonewright-site-discover before choosing WordPress REST operations.
 - Load a matched skill body with stonewright-skill-get only when needed.
 - When I correct a repeatable mistake, call stonewright-learning-record so it
   persists for future sessions.
 - Destructive tools require confirm:true. Do not work around write gating.
 - One-time setup: call stonewright-agents-md-sync and offer to add the pointer to your global agent config.
 - Fix recurring_errors from task-start before new work; never invent Elementor/Gutenberg schemas.
+- For visual work, verify browser/Playwright tools before the first write.
 - Do not inspect private AI-client config files, hand-roll JSON-RPC, or run wp in a normal shell as an MCP workaround.
 ```

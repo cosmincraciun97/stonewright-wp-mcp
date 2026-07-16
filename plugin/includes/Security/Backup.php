@@ -12,6 +12,105 @@ final class Backup {
 
 	private const META_KEY = '_stonewright_backups';
 
+	/** Option that stores option/theme_mod restore points. */
+	public const OPTION_SNAPSHOTS = 'stonewright_option_snapshots';
+
+	/**
+	 * Snapshot named options and theme mods before a non-post write.
+	 *
+	 * @param list<string> $option_keys
+	 * @param list<string> $theme_mod_keys
+	 */
+	public static function snapshot_options( array $option_keys, array $theme_mod_keys = [] ): string {
+		$restore_id = self::new_snapshot_id();
+		$options    = [];
+		foreach ( $option_keys as $key ) {
+			if ( ! is_string( $key ) || '' === $key ) {
+				continue;
+			}
+			$sentinel = new \stdClass();
+			$value    = get_option( $key, $sentinel );
+			$exists   = $value !== $sentinel;
+			// Unit bootstrap stores options in a global; honor that presence map too.
+			if ( ! $exists && isset( $GLOBALS['stonewright_test_options'] ) && is_array( $GLOBALS['stonewright_test_options'] ) ) {
+				$exists = array_key_exists( $key, $GLOBALS['stonewright_test_options'] );
+				$value  = $exists ? $GLOBALS['stonewright_test_options'][ $key ] : null;
+			}
+			$options[ $key ] = [
+				'exists' => $exists,
+				'value'  => $exists ? $value : null,
+			];
+		}
+
+		$theme_mods = [];
+		foreach ( $theme_mod_keys as $key ) {
+			if ( ! is_string( $key ) || '' === $key ) {
+				continue;
+			}
+			$sentinel = new \stdClass();
+			$value    = function_exists( 'get_theme_mod' ) ? get_theme_mod( $key, $sentinel ) : $sentinel;
+			$exists   = $value !== $sentinel;
+			$theme_mods[ $key ] = [
+				'exists' => $exists,
+				'value'  => $exists ? $value : null,
+			];
+		}
+
+		$store                = get_option( self::OPTION_SNAPSHOTS, [] );
+		$store                = is_array( $store ) ? $store : [];
+		$store[ $restore_id ] = [
+			'restore_id' => $restore_id,
+			'created_at' => time(),
+			'options'    => $options,
+			'theme_mods' => $theme_mods,
+		];
+		$store = self::trim( $store );
+		update_option( self::OPTION_SNAPSHOTS, $store, false );
+
+		return $restore_id;
+	}
+
+	/**
+	 * Restore a previously captured option/theme_mod snapshot.
+	 */
+	public static function restore_options( string $restore_id ): bool {
+		$restore_id = (string) $restore_id;
+		if ( '' === $restore_id ) {
+			return false;
+		}
+		$store = get_option( self::OPTION_SNAPSHOTS, [] );
+		if ( ! is_array( $store ) || ! isset( $store[ $restore_id ] ) || ! is_array( $store[ $restore_id ] ) ) {
+			return false;
+		}
+		$row = $store[ $restore_id ];
+
+		foreach ( (array) ( $row['options'] ?? [] ) as $key => $payload ) {
+			if ( ! is_string( $key ) || ! is_array( $payload ) ) {
+				continue;
+			}
+			$exists = (bool) ( $payload['exists'] ?? false );
+			if ( $exists ) {
+				update_option( $key, $payload['value'] ?? null, false );
+			} else {
+				delete_option( $key );
+			}
+		}
+
+		foreach ( (array) ( $row['theme_mods'] ?? [] ) as $key => $payload ) {
+			if ( ! is_string( $key ) || ! is_array( $payload ) ) {
+				continue;
+			}
+			$exists = (bool) ( $payload['exists'] ?? false );
+			if ( $exists ) {
+				set_theme_mod( $key, $payload['value'] ?? null );
+			} else {
+				remove_theme_mod( $key );
+			}
+		}
+
+		return true;
+	}
+
 	public static function snapshot_post( int $post_id ): string {
 		$post = get_post( $post_id );
 		if ( ! $post ) {

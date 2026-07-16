@@ -48,4 +48,37 @@ final class AdminJavascriptTest extends TestCase {
 		self::assertStringContainsString( 'data-stonewright-bridge-token-source', $script );
 		self::assertStringContainsString( 'COMPANION_BEARER_TOKEN=', $script );
 	}
+
+	public function test_connection_verify_posts_to_loopback_endpoint(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
+
+		self::assertStringContainsString( 'data-stonewright-connection-verify', $script );
+		self::assertStringContainsString( 'initConnectionVerify', $script );
+		self::assertStringContainsString( "method: 'POST'", $script );
+		self::assertStringContainsString( 'MCP loopback verified', $script );
+		self::assertStringContainsString( 'normalizeChecklistStatus', $script );
+	}
+
+	public function test_setup_client_and_method_pickers_are_wired(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
+
+		self::assertStringContainsString( 'initClientCards', $script );
+		self::assertStringContainsString( 'initMethodPicker', $script );
+		self::assertStringContainsString( 'persistSetupPreference', $script );
+		self::assertStringContainsString( 'data-stonewright-method-picker', $script );
+		self::assertStringContainsString( 'data-stonewright-method-snippet', $script );
+		self::assertStringContainsString( "body.set( 'method', method )", $script );
+		self::assertStringContainsString( "body.set( 'client', client )", $script );
+		self::assertStringNotContainsString( 'initClientTabs', $script );
+		self::assertStringNotContainsString( 'data-stonewright-client-tab', $script );
+	}
+
+	public function test_apply_mcp_surface_button_is_wired(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
+
+		self::assertStringContainsString( 'initApplyMcpSurface', $script );
+		self::assertStringContainsString( 'data-sw-apply-mcp-surface', $script );
+		self::assertStringContainsString( 'stonewright_apply_mcp_surface', $script );
+		self::assertStringContainsString( 'transport_truth', $script );
+	}
 }

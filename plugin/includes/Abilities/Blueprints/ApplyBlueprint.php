@@ -48,9 +48,9 @@ final class ApplyBlueprint extends AbilityKernel {
 				'brand_kit'          => [ 'type' => 'string', 'description' => 'Optional brand kit id to merge into the spec tokens.' ],
 				'engine'             => [
 					'type'        => 'string',
-					'enum'        => [ 'auto', 'gutenberg', 'elementor' ],
+					'enum'        => [ 'auto', 'gutenberg', 'elementor', 'fse' ],
 					'default'     => 'auto',
-					'description' => 'Render engine. elementor fails loudly when Elementor is inactive (no silent Gutenberg fallback). gutenberg forces blocks. auto picks Elementor when active, otherwise Gutenberg.',
+					'description' => 'Render engine. elementor fails loudly when Elementor is inactive (no silent Gutenberg fallback). gutenberg/fse force blocks. auto picks Elementor when active, otherwise Gutenberg.',
 				],
 				'post_id'            => [ 'type' => 'integer', 'minimum' => 1, 'description' => 'Optional existing page id.' ],
 				'confirmation_token' => [ 'type' => 'string' ],

@@ -49,7 +49,10 @@ final class BatchMutate extends AbilityKernel {
 				'idempotency_key'     => [ 'type' => 'string', 'minLength' => 8, 'maxLength' => 128 ],
 				'expected_tree_hash'  => [ 'type' => 'string', 'pattern' => '^[a-f0-9]{64}$' ],
 				'require_evidence'    => [ 'type' => 'boolean', 'default' => false ],
-				'stop_on_error'      => [ 'type' => 'boolean', 'default' => true ],
+				'stop_on_error'      => [
+					'type'        => 'boolean',
+					'description' => 'Defaults to false for dry runs so all invalid operations are reported, and true for writes. A batch with any failure is never persisted.',
+				],
 				'confirmation_token' => [ 'type' => 'string' ],
 				'operations'         => [
 					'type'     => 'array',
@@ -199,7 +202,7 @@ final class BatchMutate extends AbilityKernel {
 				$refs       = [];
 				$applied    = 0;
 				$failed     = 0;
-				$stop       = ! array_key_exists( 'stop_on_error', $args ) || (bool) $args['stop_on_error'];
+				$stop       = array_key_exists( 'stop_on_error', $args ) ? (bool) $args['stop_on_error'] : ! $dry_run;
 
 				foreach ( $operations as $index => $operation ) {
 					$operation = is_array( $operation ) ? $operation : [];
@@ -224,6 +227,9 @@ final class BatchMutate extends AbilityKernel {
 									'cause_code'       => $cause_code,
 									'before_hash'      => $before_hash,
 									'document_state'   => [] === $tree ? 'empty' : 'populated',
+									'retryable'        => true,
+									'write_blocked'    => true,
+									'schema_requests'  => self::schema_requests( $items ),
 									'repair'           => self::repair_hint( $cause_code, $action ),
 								]
 							);
@@ -238,6 +244,32 @@ final class BatchMutate extends AbilityKernel {
 							'ok'    => true,
 						],
 						$result
+					);
+				}
+
+				if ( 0 < $failed ) {
+					$first_failed = array_values( array_filter( $items, static fn( array $item ): bool => empty( $item['ok'] ) ) )[0];
+					$failed_index = (int) $first_failed['index'];
+					$failed_action = (string) ( $operations[ $failed_index ]['action'] ?? '' );
+					$cause_code = (string) ( $first_failed['error']['code'] ?? '' );
+					return $this->error(
+						'batch_operation_failed',
+						sprintf( __( 'Elementor batch validation failed for %d operation(s). No page data was written.', 'stonewright' ), $failed ),
+						[
+							'status'          => 400,
+							'items'           => $items,
+							'applied'         => $applied,
+							'failed'          => $failed,
+							'failed_index'    => $failed_index,
+							'failed_action'   => $failed_action,
+							'cause_code'      => $cause_code,
+							'before_hash'     => $before_hash,
+							'document_state'  => [] === $tree ? 'empty' : 'populated',
+							'retryable'       => true,
+							'write_blocked'   => true,
+							'schema_requests' => self::schema_requests( $items ),
+							'repair'          => self::repair_hint( $cause_code, $failed_action ) . ' Fix every reported operation before retrying; no partial batch is persisted.',
+						]
 					);
 				}
 
@@ -417,7 +449,11 @@ final class BatchMutate extends AbilityKernel {
 		$position = isset( $operation['position'] ) ? (int) $operation['position'] : PHP_INT_MAX;
 		$tree     = ElementorData::insert( $tree, $parent_path, $position, $element );
 
-		return array_merge( $this->created_item( $operation, $refs, $element['id'], 'container' ), [ 'evidence' => $evidence ] );
+		return array_merge(
+			$this->created_item( $operation, $refs, $element['id'], 'container' ),
+			[ 'evidence' => $evidence ],
+			[] !== $validated['warnings'] ? [ 'normalization_warnings' => $validated['warnings'] ] : []
+		);
 	}
 
 	/**
@@ -442,12 +478,14 @@ final class BatchMutate extends AbilityKernel {
 		}
 
 		$settings = isset( $operation['settings'] ) && is_array( $operation['settings'] ) ? $operation['settings'] : [];
+		$warnings = [];
 		if ( 'html' !== $widget_type ) {
 			$validated = SettingsValidator::validate( $widget_type, $settings );
 			if ( $validated instanceof \WP_Error ) {
 				return $validated;
 			}
 			$settings = $validated['settings'];
+			$warnings = $validated['warnings'];
 		}
 		$evidence = EvidenceValidator::validate( $widget_type, $settings, self::operation_evidence( $operation ), $require_evidence );
 		if ( $evidence instanceof \WP_Error ) {
@@ -470,7 +508,11 @@ final class BatchMutate extends AbilityKernel {
 		$position = isset( $operation['position'] ) ? (int) $operation['position'] : PHP_INT_MAX;
 		$tree     = ElementorData::insert( $tree, $parent_path, $position, $element );
 
-		return array_merge( $this->created_item( $operation, $refs, $element['id'], 'widget' ), [ 'evidence' => $evidence ] );
+		return array_merge(
+			$this->created_item( $operation, $refs, $element['id'], 'widget' ),
+			[ 'evidence' => $evidence ],
+			[] !== $warnings ? [ 'normalization_warnings' => $warnings ] : []
+		);
 	}
 
 	/**
@@ -501,6 +543,7 @@ final class BatchMutate extends AbilityKernel {
 		$settings = 'replace' === $mode ? $incoming : array_merge( $existing, $incoming );
 		$element_type = (string) ( $element['elType'] ?? '' );
 		$effective_before = $existing;
+		$warnings = [];
 		if ( in_array( $element_type, [ 'container', 'section', 'column' ], true ) ) {
 			$before    = 'container' === $element_type ? ContainerSettings::normalize( $existing ) : $existing;
 			$effective_before = $before;
@@ -510,6 +553,7 @@ final class BatchMutate extends AbilityKernel {
 				return $validated;
 			}
 			$settings = $validated['settings'];
+			$warnings = $validated['warnings'];
 			$incoming = self::changed_settings( $before, $settings );
 			$evidence_widget_type = $element_type;
 		} elseif ( 'widget' === ( $element['elType'] ?? '' ) ) {
@@ -519,6 +563,7 @@ final class BatchMutate extends AbilityKernel {
 				return $validated;
 			}
 			$settings = $validated['settings'];
+			$warnings = $validated['warnings'];
 			$evidence_widget_type = $widget_type;
 		} else {
 			$evidence_widget_type = 'container';
@@ -541,11 +586,11 @@ final class BatchMutate extends AbilityKernel {
 		$element['settings'] = $settings;
 		$tree                = ElementorData::set( $tree, $path, $element );
 
-		return [
+		return array_merge( [
 			'action'     => 'update_element',
 			'element_id' => $element_id,
 			'evidence'   => $evidence,
-		];
+		], [] !== $warnings ? [ 'normalization_warnings' => $warnings ] : [] );
 	}
 
 	/**
@@ -746,7 +791,7 @@ final class BatchMutate extends AbilityKernel {
 				'operations'         => $operations,
 				'expected_tree_hash' => (string) ( $args['expected_tree_hash'] ?? '' ),
 				'require_evidence'   => ! empty( $args['require_evidence'] ),
-				'stop_on_error'      => ! array_key_exists( 'stop_on_error', $args ) || (bool) $args['stop_on_error'],
+				'stop_on_error'      => array_key_exists( 'stop_on_error', $args ) ? (bool) $args['stop_on_error'] : empty( $args['dry_run'] ),
 			]
 		);
 	}
@@ -764,6 +809,22 @@ final class BatchMutate extends AbilityKernel {
 				'data'    => (array) $error->get_error_data(),
 			],
 		];
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $items
+	 * @return list<array<string, mixed>>
+	 */
+	private static function schema_requests( array $items ): array {
+		$requests = [];
+		foreach ( $items as $item ) {
+			$request = $item['error']['data']['schema_request'] ?? null;
+			if ( ! is_array( $request ) ) {
+				continue;
+			}
+			$requests[ wp_json_encode( $request ) ] = $request;
+		}
+		return array_values( $requests );
 	}
 
 	private static function repair_hint( string $code, string $action ): string {

@@ -7,14 +7,21 @@ AI output never becomes raw Elementor settings.
 
 ## Contract
 
-`stonewright/design-native-plan` accepts `action: validate|plan`, a target, and
+`stonewright/design-native-plan` accepts `action: validate|plan`, a target
+(`elementor` / `elementor-v3` / `gutenberg` / `fse` / `wordpress`), and
 DesignEvidence 1.0:
 
 - `sources`: unique source IDs with type, reference, hash/date where available;
-- `viewports`: measured width and height;
-- `global`: reusable widths, colors, typography, spacing, assets, provenance;
-- `nodes`: semantic roles, content, actions, assets, layout/style intent,
-  responsive observations, provenance, children, and customization needs;
+- `viewports`: measured width and height (breakpoint frames);
+- `global`: reusable widths, colors, `color_tokens`, typography,
+  `typography_ramp`, spacing, `spacing_scale`, `figma_token_table`, assets,
+  provenance;
+- `measured_targets`: per-breakpoint measured values (`viewport_id`,
+  `property`, `value_px`, optional `node_id`, `tolerance_px`);
+- `nodes`: semantic roles, content, actions, assets, layout intent
+  (`type` flex|grid, `align_items`, `justify_content`, `gap`, …), style intent,
+  responsive observations, per-node measured targets, provenance, children, and
+  customization needs;
 - `unresolved`: explicit ambiguities that block planning.
 
 Normalization keeps only the contract fields. Raw Figma documents and unknown
@@ -51,10 +58,15 @@ with exact path, code, blocking status, and one repair action.
 
 ## Native plan
 
-For Elementor V3, each semantic node maps to an installed native container,
-widget, content model, or Theme Builder template. Widget and container results
-carry their live schema hash. The planner emits intent, not settings; settings
-are compiled only against the live schema during dry-run/write.
+Each semantic node emits **either** a `native_mapping` (engine-native construct)
+**or** a justified `native_gap` (CSS allowed only here). The same evidence can
+target `elementor`, `gutenberg`, or `fse` via the `target` / `engine` argument.
+
+For Elementor V3, nodes map to installed native containers, widgets, content
+models, or Theme Builder templates (schema hashes attached). Gutenberg/FSE map
+to core blocks; FSE also records constrained template surfaces. The planner
+emits intent, not settings; settings compile against the live schema during
+dry-run/write.
 
 The native phase order is:
 
@@ -64,11 +76,16 @@ The native phase order is:
 4. responsive settings;
 5. dry-run;
 6. approval and guarded write;
-7. immediate readback.
+7. immediate readback;
+8. agent Playwright verification against `measured_targets`.
 
 `status: ready_for_native_dry_run` is the only write-ready result. Native
 coverage is reported per task. The planner itself is read-only and applies
 nothing.
+
+Custom CSS without a recorded `native_gap.reason` fails
+`stonewright/design-implementation-contract` (`action: validate`) with
+`stonewright_spec_invalid` / `custom_css_without_native_gap`.
 
 ## Phase-two customization
 

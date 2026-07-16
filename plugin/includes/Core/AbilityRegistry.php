@@ -51,6 +51,7 @@ use Stonewright\WpMcp\Abilities\ElementorV3\AddWidget;
 use Stonewright\WpMcp\Abilities\ElementorV3\ApplyBundle as ElementorV3ApplyBundle;
 use Stonewright\WpMcp\Abilities\ElementorV3\BackupPage;
 use Stonewright\WpMcp\Abilities\ElementorV3\BatchMutate;
+use Stonewright\WpMcp\Abilities\ElementorV3\TransactionRun as ElementorV3TransactionRun;
 use Stonewright\WpMcp\Abilities\ElementorV3\BuildPageFromSpec;
 use Stonewright\WpMcp\Abilities\ElementorV3\CapabilitiesSummary as ElementorV3CapabilitiesSummary;
 use Stonewright\WpMcp\Abilities\ElementorV3\ContainerSchema;
@@ -95,6 +96,7 @@ use Stonewright\WpMcp\Abilities\FSE\WriteGlobalStyles;
 use Stonewright\WpMcp\Abilities\FSE\WriteTemplate;
 use Stonewright\WpMcp\Abilities\FSE\WriteTemplatePart;
 use Stonewright\WpMcp\Abilities\Gutenberg\ApplyToPost as GutenbergApplyToPost;
+use Stonewright\WpMcp\Abilities\Gutenberg\EditorSnapshotAbility;
 use Stonewright\WpMcp\Abilities\Gutenberg\GetBlockSchema;
 use Stonewright\WpMcp\Abilities\Gutenberg\InsertBlock;
 use Stonewright\WpMcp\Abilities\Gutenberg\RenderBlocks;
@@ -210,6 +212,7 @@ use Stonewright\WpMcp\Abilities\Site\BackupPage as SiteBackupPage;
 use Stonewright\WpMcp\Abilities\Site\Capabilities;
 use Stonewright\WpMcp\Abilities\Site\ChangeLog;
 use Stonewright\WpMcp\Abilities\Site\ChangeRestore;
+use Stonewright\WpMcp\Abilities\Site\ContentInventory;
 use Stonewright\WpMcp\Abilities\Site\CreateRevision;
 use Stonewright\WpMcp\Abilities\Site\DiscoverShortcodes;
 use Stonewright\WpMcp\Abilities\Site\Environment;
@@ -219,6 +222,7 @@ use Stonewright\WpMcp\Abilities\Site\ListPlugins;
 use Stonewright\WpMcp\Abilities\Site\Ping;
 use Stonewright\WpMcp\Abilities\Site\SetFrontPage;
 use Stonewright\WpMcp\Abilities\Site\SitePulse;
+use Stonewright\WpMcp\Abilities\Site\SiteSnapshot;
 use Stonewright\WpMcp\Abilities\Site\Theme as SiteTheme;
 
 /**
@@ -243,6 +247,8 @@ final class AbilityRegistry {
 			// Site.
 			Ping::class,
 			Info::class,
+			SiteSnapshot::class,
+			ContentInventory::class,
 			Capabilities::class,
 			Environment::class,
 			Health::class,
@@ -281,6 +287,7 @@ final class AbilityRegistry {
 
 			// Gutenberg.
 			ListRegisteredBlocks::class,
+			EditorSnapshotAbility::class,
 			GetBlockSchema::class,
 			ParseBlocks::class,
 			SerializeBlocks::class,
@@ -327,6 +334,7 @@ final class AbilityRegistry {
 			RemoveElement::class,
 			BuildPageFromSpec::class,
 			BatchMutate::class,
+			ElementorV3TransactionRun::class,
 			ElementorV3ApplyBundle::class,
 			UpdatePageSettings::class,
 			UpdateKitColors::class,
@@ -904,17 +912,54 @@ final class AbilityRegistry {
 	}
 
 	/**
+	 * MCP public surface mode: bootstrap | essential | full.
+	 *
+	 * New installs prefer bootstrap (set on activation). Existing installs without
+	 * `stonewright_mcp_surface` map from the legacy essential_tools_mode option:
+	 * true → essential, false → full.
+	 */
+	public static function mcp_surface(): string {
+		$raw = get_option( 'stonewright_mcp_surface', null );
+		if ( is_string( $raw ) ) {
+			$surface = strtolower( trim( $raw ) );
+			if ( in_array( $surface, [ 'bootstrap', 'essential', 'full' ], true ) ) {
+				return $surface;
+			}
+		}
+
+		return (bool) get_option( 'stonewright_essential_tools_mode', true ) ? 'essential' : 'full';
+	}
+
+	/**
+	 * Persist surface mode and keep the legacy essential_tools_mode flag in sync.
+	 */
+	public static function set_mcp_surface( string $surface ): string {
+		$surface = strtolower( trim( $surface ) );
+		if ( ! in_array( $surface, [ 'bootstrap', 'essential', 'full' ], true ) ) {
+			$surface = 'essential';
+		}
+
+		update_option( 'stonewright_mcp_surface', $surface, false );
+		update_option( 'stonewright_essential_tools_mode', 'full' !== $surface, false );
+
+		return $surface;
+	}
+
+	/**
 	 * @return array<int, class-string<Ability>>
 	 */
 	private static function public_classes(): array {
 		$classes = self::list();
-		if ( ! (bool) get_option( 'stonewright_essential_tools_mode', true ) ) {
+		$surface = self::mcp_surface();
+		if ( 'full' === $surface ) {
 			return $classes;
 		}
 
+		$base    = 'bootstrap' === $surface ? self::bootstrap_ability_names() : self::essential_ability_names();
 		$allowed = array_fill_keys(
 			array_merge(
-				self::essential_ability_names(),
+				$base,
+				// Extras apply to bootstrap and essential compact surfaces.
 				self::essential_extra_ability_names()
 			),
 			true
@@ -934,6 +979,60 @@ final class AbilityRegistry {
 				}
 			)
 		);
+	}
+
+	/**
+	 * Progressive-discovery bootstrap surface (≤ TokenSurfaceBudgets::BOOTSTRAP_MAX_TOOLS).
+	 *
+	 * Ordered for cold start: task gateway → site identity → connectivity →
+	 * profile expansion → runtime escape hatches → recovery.
+	 *
+	 * @return list<string>
+	 */
+	public static function bootstrap_ability_names(): array {
+		$registered = [];
+		foreach ( self::list() as $class ) {
+			if ( ! class_exists( $class ) ) {
+				continue;
+			}
+			/** @var Ability $ability */
+			$ability = new $class();
+			$registered[ $ability->name() ] = true;
+		}
+
+		$pick = static function ( array $candidates ) use ( $registered ): ?string {
+			foreach ( $candidates as $name ) {
+				if ( isset( $registered[ $name ] ) ) {
+					return $name;
+				}
+			}
+			return null;
+		};
+
+		$names = array_values(
+			array_filter(
+				[
+					// Core startup.
+					$pick( [ 'stonewright/task-start' ] ),
+					// Setup identity (prefer setup-profile when present).
+					$pick( [ 'stonewright/setup-profile', 'stonewright/site-info' ] ),
+					// Connectivity proof.
+					$pick( [ 'stonewright/connection-status', 'stonewright/ping' ] ),
+					// Progressive expansion.
+					$pick( [ 'stonewright/tool-profile' ] ),
+					// First-class runtime.
+					$pick( [ 'stonewright/php-execute' ] ),
+					// WP-CLI discovery / batch.
+					$pick( [ 'stonewright/wp-cli-status', 'stonewright/wp-cli-batch-run' ] ),
+					// Recovery (≤ 2).
+					$pick( [ 'stonewright/security-issue-confirmation-token' ] ),
+					$pick( [ 'stonewright/context-bootstrap' ] ),
+				]
+			)
+		);
+
+		// Hard cap — never exceed bootstrap budget even if candidates grow.
+		return array_slice( array_values( array_unique( $names ) ), 0, \Stonewright\WpMcp\Support\TokenSurfaceBudgets::BOOTSTRAP_MAX_TOOLS );
 	}
 
 	/**
@@ -987,6 +1086,15 @@ final class AbilityRegistry {
 	 */
 	public static function essential_ability_names_for_test(): array {
 		return self::essential_ability_names();
+	}
+
+	/**
+	 * Public bootstrap list for tests and budget tooling.
+	 *
+	 * @return list<string>
+	 */
+	public static function bootstrap_ability_names_for_test(): array {
+		return self::bootstrap_ability_names();
 	}
 
 	/**

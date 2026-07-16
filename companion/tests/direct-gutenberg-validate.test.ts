@@ -20,10 +20,12 @@ describe('gutenberg validate', () => {
 			site,
 			writeMode: 'on',
 			client: {
-				get: vi.fn(async () => ({
-					id: 3,
-					content: { raw, rendered: '<p>Hi</p><h2>X</h2>' },
-				})),
+				get: vi.fn(() =>
+					Promise.resolve({
+						id: 3,
+						content: { raw, rendered: '<p>Hi</p><h2>X</h2>' },
+					}),
+				),
 			} as never,
 		};
 		const result = await gutenbergValidate(ctx, { post_id: 3, type: 'page' });
@@ -37,10 +39,12 @@ describe('gutenberg validate', () => {
 			site,
 			writeMode: 'on',
 			client: {
-				get: vi.fn(async () => ({
-					id: 1,
-					content: { raw: '<!-- wp:paragraph --><p>x</p><!-- /wp:paragraph -->', rendered: '' },
-				})),
+				get: vi.fn(() =>
+					Promise.resolve({
+						id: 1,
+						content: { raw: '<!-- wp:paragraph --><p>x</p><!-- /wp:paragraph -->', rendered: '' },
+					}),
+				),
 			} as never,
 		};
 		const result = await gutenbergValidate(ctx, { post_id: 1 });

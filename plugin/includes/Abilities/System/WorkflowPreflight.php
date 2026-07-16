@@ -119,6 +119,9 @@ final class WorkflowPreflight extends AbilityKernel {
 				'payload_hashes' => [ 'type' => 'object' ],
 				'changed_keys'  => [ 'type' => 'array' ],
 				'unchanged_keys' => [ 'type' => 'array' ],
+				'tool_profile'  => [ 'type' => 'string' ],
+				'tools_changed' => [ 'type' => 'boolean' ],
+				're_list_instruction' => [ 'type' => 'string' ],
 			],
 			'required'   => [ 'ok', 'context_token', 'mode', 'auth_guidance', 'fast_path' ],
 		];
@@ -211,6 +214,7 @@ final class WorkflowPreflight extends AbilityKernel {
 				'ability_count'        => count( AbilityRegistry::list() ),
 				'public_ability_count' => count( AbilityRegistry::enabled_abilities() ),
 				'essential_tools_mode' => (bool) get_option( 'stonewright_essential_tools_mode', true ),
+				'mcp_surface'          => AbilityRegistry::mcp_surface(),
 				'mcp_server_id'        => 'stonewright',
 				'ability_prefix'       => 'stonewright/',
 			],
@@ -244,6 +248,23 @@ final class WorkflowPreflight extends AbilityKernel {
 		$fast_path = is_array( $response['fast_path'] ?? null ) ? $response['fast_path'] : [];
 		$profile   = is_array( $fast_path['task_profile'] ?? null ) ? $fast_path['task_profile'] : [];
 		$tools     = array_values( array_slice( array_map( 'strval', (array) ( $fast_path['recommended_mcp_tools'] ?? [] ) ), 0, 8 ) );
+		$ordered_profile_tools = [];
+		$profile_name          = (string) ( $fast_path['tool_profile']['profile'] ?? 'essential' );
+		if ( class_exists( ToolProfile::class ) && method_exists( ToolProfile::class, 'profile_tools' ) ) {
+			// Cap at 8 names so compact task-start stays under the token budget.
+			$ordered_profile_tools = array_values(
+				array_slice(
+					array_map(
+						[ AbilityRegistry::class, 'mcp_tool_name' ],
+						ToolProfile::profile_tools( $profile_name )
+					),
+					0,
+					8
+				)
+			);
+		}
+		// Prefer ordered profile tools when available; keep compact payload small.
+		$next = array_values( array_slice( $ordered_profile_tools !== [] ? $ordered_profile_tools : $tools, 0, 6 ) );
 		$compact_fast_path = [
 			'task_profile' => [
 				'surface'        => (string) ( $profile['surface'] ?? 'unknown' ),
@@ -252,8 +273,9 @@ final class WorkflowPreflight extends AbilityKernel {
 				'is_destructive' => (bool) ( $profile['is_destructive'] ?? false ),
 				'visual'         => (bool) ( $profile['needs_visual_check'] ?? false ),
 			],
-			'tool_profile' => (string) ( $fast_path['tool_profile']['profile'] ?? 'low-tools' ),
-			'next_tools'   => $tools,
+			'tool_profile'  => $profile_name,
+			// Canonical exact next-tool path (capped for token budget).
+			'ordered_tools' => $next,
 		];
 		if ( is_array( $fast_path['elementor_architecture'] ?? null ) ) {
 			$compact_fast_path['elementor_architecture'] = array_intersect_key(
@@ -296,19 +318,17 @@ final class WorkflowPreflight extends AbilityKernel {
 		$errors = array_values( array_slice( (array) ( $context['recurring_errors'] ?? [] ), 0, 3 ) );
 		// Keep compact task-start under budget: omit empty learning signals.
 		$compact_context = [
-			'matched_skills'  => $skills,
-			'memory_refs'     => self::compact_memory_entries( $context['memory_entries'] ?? [] ),
-			'expertise_refs'  => array_values( (array) ( $context['expertise_packs'] ?? [] ) ),
+			'matched_skills'   => array_values( array_slice( $skills, 0, 3 ) ),
+			'memory_refs'      => self::compact_memory_entries( $context['memory_entries'] ?? [] ),
+			'expertise_refs'   => array_values( array_slice( (array) ( $context['expertise_packs'] ?? [] ), 0, 2 ) ),
 			'required_actions' => array_values( array_filter( [
 				[] !== $errors ? 'fix_recurring_errors_first' : null,
 				[] !== $skills ? 'load_matched_skills' : null,
-				[] !== $skills ? 'execute_matched_skills' : null,
 				[] !== (array) ( $context['memory_entries'] ?? [] ) ? 'load_memory_refs' : null,
-				[] !== $errors ? 'review_recurring_errors' : null,
 				(bool) ( $profile['needs_visual_check'] ?? false ) ? 'connect_browser_before_visual_write' : null,
 				(bool) ( $profile['is_write'] ?? false ) ? 'pass_context_token_to_writes' : null,
 			] ) ),
-			'followups_ref'   => self::compact_object_ref( 'required_followups', $context['required_followups'] ?? [] ),
+			'followups_ref'    => self::compact_object_ref( 'required_followups', $context['required_followups'] ?? [] ),
 		];
 		if ( ! empty( $custom['enabled'] ) && '' !== trim( (string) ( $custom['text'] ?? '' ) ) ) {
 			// Presence flag only — full instructions live in admin/memory.
@@ -334,19 +354,31 @@ final class WorkflowPreflight extends AbilityKernel {
 			);
 		}
 
+		$tool_profile_block = is_array( $fast_path['tool_profile'] ?? null )
+			? $fast_path['tool_profile']
+			: [];
+		$tools_changed      = (bool) ( $tool_profile_block['tools_changed'] ?? false );
+		$re_list            = (string) ( $tool_profile_block['re_list_instruction'] ?? '' );
+		if ( $tools_changed && '' === $re_list ) {
+			$re_list = 'Re-list tools now (tools/list). New tools are available. If your client ignores tools/list_changed, call tools/list again before continuing.';
+		}
+
 		return [
-			'ok'             => (bool) ( $response['ok'] ?? false ),
-			'context_token'  => (string) ( $response['context_token'] ?? '' ),
-			'expires_at'     => (string) ( $response['expires_at'] ?? '' ),
-			'mode'           => (string) ( $response['mode'] ?? '' ),
-			'auth_guidance'  => [],
-			'fast_path'      => $compact_fast_path,
-			'elementor'      => $compact_elementor,
-			'context'        => $compact_context,
-			'response_mode'  => 'compact',
-			'payload_hashes' => $payload_hashes,
-			'changed_keys'   => $changed,
-			'unchanged_keys' => $unchanged,
+			'ok'                  => (bool) ( $response['ok'] ?? false ),
+			'context_token'       => (string) ( $response['context_token'] ?? '' ),
+			'expires_at'          => (string) ( $response['expires_at'] ?? '' ),
+			'mode'                => (string) ( $response['mode'] ?? '' ),
+			'auth_guidance'       => [],
+			'fast_path'           => $compact_fast_path,
+			'elementor'           => $compact_elementor,
+			'context'             => $compact_context,
+			'response_mode'       => 'compact',
+			'payload_hashes'      => $payload_hashes,
+			'changed_keys'        => $changed,
+			'unchanged_keys'      => $unchanged,
+			'tool_profile'        => $profile_name,
+			'tools_changed'       => $tools_changed,
+			're_list_instruction' => $re_list,
 		];
 	}
 
@@ -442,13 +474,16 @@ final class WorkflowPreflight extends AbilityKernel {
 		}
 
 		return [
-			'profile'            => $profile['profile'],
-			'tool_count'         => $profile['tool_count'],
-			'profile_tool_count' => $profile['profile_tool_count'],
-			'under_limit'        => $profile['under_limit'],
-			'tool_groups'        => $profile['tool_groups'],
-			'next_best_tools'    => $profile['next_best_tools'],
-			'discovery_policy'   => $profile['discovery_policy'],
+			'profile'             => $profile['profile'],
+			'tool_count'          => $profile['tool_count'],
+			'profile_tool_count'  => $profile['profile_tool_count'],
+			'under_limit'         => $profile['under_limit'],
+			'tool_groups'         => $profile['tool_groups'],
+			'next_best_tools'     => $profile['next_best_tools'],
+			'discovery_policy'    => $profile['discovery_policy'],
+			'tools_changed'       => (bool) ( $profile['tools_changed'] ?? false ),
+			're_list_instruction' => (string) ( $profile['re_list_instruction'] ?? '' ),
+			'recovery_hints'     => is_array( $profile['recovery_hints'] ?? null ) ? $profile['recovery_hints'] : [],
 		];
 	}
 

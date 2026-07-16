@@ -27,6 +27,9 @@ jobs:
             companion/package-lock.json
             visual/package-lock.json
 
+      - name: Verify documentation freshness
+        run: node scripts/check-docs-freshness.mjs
+
       - name: Verify plugin
         working-directory: plugin
         run: |

@@ -40,8 +40,9 @@ points are blocked.
 
 ## Agent Context
 
-Agents must call MCP tool `stonewright-context-bootstrap` at the beginning of
-every Stonewright task. The response includes:
+Agents must call MCP tool `stonewright-task-start` at the beginning of every
+Stonewright task. It issues the same write context token while returning a
+compact, task-aware response that includes:
 
 - current instructions
 - matched skill playbooks
@@ -52,11 +53,13 @@ every Stonewright task. The response includes:
 - a short-lived context token for write abilities
 
 Manual edits to skills, memory, or custom instructions persist in WordPress and
-are included in future context bootstrap responses.
+are included in future task-start responses. `stonewright-context-bootstrap`
+and `stonewright-workflow-preflight` remain compatibility paths.
 
-If `stonewright-context-bootstrap` is not visible in the MCP tool list, the
-client has not loaded Stonewright. Agents must stop WordPress work and ask for a
-client reload or config fix instead of inspecting private client config files,
+If neither `stonewright-task-start` nor compatibility
+`stonewright-context-bootstrap` is visible in the MCP tool list, the client has
+not loaded Stonewright. Agents must stop WordPress work and ask for a client
+reload or config fix instead of inspecting private client config files,
 creating scratch helper scripts, creating helper JSON argument files, launching
 the companion through ad hoc shell scripts, creating action scripts, inspecting
 plugin/companion source to reverse-engineer tool schemas, hand-rolling
@@ -67,4 +70,44 @@ commands.
 ## Direct + plugin REST parity surfaces
 
 Plugin abilities and Direct tools cover comments, users (including application passwords), widgets, allowlisted settings, themes, plugin lifecycle, revisions (with restore on the plugin), site health tests, search/oEmbed, and WooCommerce product/order/sales reads.
+
+## MCP tool surface switching (premium finalization)
+
+Profile and surface switching is transport-specific. Agents should treat
+`tools_changed` / `re_list_instruction` on ability results as the source of truth.
+
+### HTTP MCP transport (plugin adapter)
+
+- **Admin option** `stonewright_mcp_surface`: `bootstrap` | `essential` | `full`
+  controls which abilities the plugin exposes on `tools/list`.
+- Each `tools/list` request re-reads the live surface from WordPress options —
+  there is **no sticky tool list** for the HTTP transport. After
+  `stonewright-tool-profile` activate or admin Apply-now, the next `tools/list`
+  already reflects the new surface.
+- The vendor initialize payload may not declare `tools.listChanged`. Clients
+  must honor `re_list_instruction` in the ability response and call `tools/list`
+  again even when no `notifications/tools/list_changed` arrives.
+- **OAuth 2.1** for the HTTP transport is planned, not scheduled.
+
+### stdio companion transport
+
+- `STONEWRIGHT_MCP_TOOL_PROFILE` sets only the **initial** compact profile for
+  the companion process. Mid-session
+  `stonewright-tool-profile {action:"activate"}` and profile-aware
+  `stonewright-task-start` results may expand or switch the live set.
+- When a proxied ability result includes `tools_changed: true` **or** a
+  non-empty `re_list_instruction`, the companion:
+  1. Re-fetches `tools/list` from the plugin (schemas for newly visible tools).
+  2. Diffs against registered proxy tools (register missing, disable dropped).
+  3. Emits `notifications/tools/list_changed` via the MCP protocol server.
+- Clients that ignore `list_changed` must still re-call `tools/list` using
+  `re_list_instruction`. Older companions that only notify (or neither) need an
+  MCP client / companion restart after a profile upgrade.
+
+### Shared ability signals
+
+- **`stonewright-tool-profile` activate**: expands `stonewright_mcp_surface`
+  when leaving bootstrap and sets `tools_changed` + `re_list_instruction`.
+- **`stonewright-task-start`**: surfaces `tool_profile`, `tools_changed`, and
+  `re_list_instruction` so agents are not silent after profile activation.
 

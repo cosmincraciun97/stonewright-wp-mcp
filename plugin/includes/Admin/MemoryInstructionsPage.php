@@ -31,10 +31,11 @@ final class MemoryInstructionsPage {
 	}
 
 	public static function add_submenu(): void {
+		// IA group: Safety & Diagnostics — slug stonewright-memory unchanged.
 		add_submenu_page(
 			'stonewright',
-			'Memory & Instructions',
-			'Memory & Instructions',
+			__( 'Memory & Instructions', 'stonewright' ),
+			__( 'Safety: Memory', 'stonewright' ),
 			self::CAP,
 			self::SLUG,
 			[ self::class, 'render' ]

@@ -133,8 +133,10 @@ final class ElementorSchema extends AbilityKernel {
 			];
 		}
 
-		$controls = [];
-		foreach ( array_slice( (array) $schema['controls'], ( $page - 1 ) * $per_page, $per_page, true ) as $key => $control ) {
+		$query      = trim( (string) ( $args['query'] ?? '' ) );
+		$all_controls = self::rank_summary_controls( (array) $schema['controls'], (array) $schema['required_for_render'], $query );
+		$controls   = [];
+		foreach ( array_slice( $all_controls, ( $page - 1 ) * $per_page, $per_page, true ) as $key => $control ) {
 			$controls[ $key ] = [
 				'key'        => (string) $key,
 				'type'       => (string) ( $control['type'] ?? '' ),
@@ -145,10 +147,64 @@ final class ElementorSchema extends AbilityKernel {
 		}
 		return $base + [
 			'controls'            => $controls,
-			'total'               => count( (array) $schema['controls'] ),
+			'total'               => count( $all_controls ),
 			'page'                => $page,
 			'per_page'            => $per_page,
 			'required_for_render' => (array) $schema['required_for_render'],
 		];
+	}
+
+	/**
+	 * Put render-critical and content controls before generic Advanced controls.
+	 * A query narrows the live schema before pagination so repair calls stay small.
+	 *
+	 * @param array<string, array<string, mixed>> $controls
+	 * @param list<string>                        $required
+	 * @return array<string, array<string, mixed>>
+	 */
+	private static function rank_summary_controls( array $controls, array $required, string $query ): array {
+		$query = strtolower( $query );
+		if ( '' !== $query ) {
+			$controls = array_filter(
+				$controls,
+				static function ( array $control, string $key ) use ( $query ): bool {
+					$haystack = strtolower(
+						implode( ' ', [ $key, (string) ( $control['label'] ?? '' ), (string) ( $control['type'] ?? '' ), (string) ( $control['section'] ?? '' ) ] )
+					);
+					return str_contains( $haystack, $query );
+				},
+				ARRAY_FILTER_USE_BOTH
+			);
+		}
+
+		$ranked = [];
+		foreach ( $controls as $key => $control ) {
+			$ranked[] = [
+				'key'     => (string) $key,
+				'control' => $control,
+				'order'   => count( $ranked ),
+			];
+		}
+		usort(
+			$ranked,
+			static function ( array $left, array $right ) use ( $required ): int {
+				$score = static function ( string $key, array $control ) use ( $required ): int {
+					if ( in_array( $key, $required, true ) ) {
+						return 0;
+					}
+					if ( ! str_starts_with( $key, '_' ) && 'content' === (string) ( $control['tab'] ?? '' ) ) {
+						return 1;
+					}
+					return str_starts_with( $key, '_' ) ? 3 : 2;
+				};
+				return [ $score( $left['key'], $left['control'] ), $left['order'] ] <=> [ $score( $right['key'], $right['control'] ), $right['order'] ];
+			}
+		);
+
+		$result = [];
+		foreach ( $ranked as $entry ) {
+			$result[ $entry['key'] ] = $entry['control'];
+		}
+		return $result;
 	}
 }

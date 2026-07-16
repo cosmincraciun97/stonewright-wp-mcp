@@ -32,10 +32,11 @@ final class SandboxPage {
 	}
 
 	public static function add_submenu(): void {
+		// IA group: Workflows — slug stonewright-sandbox unchanged.
 		add_submenu_page(
 			'stonewright',
 			__( 'Sandbox', 'stonewright' ),
-			__( 'Sandbox', 'stonewright' ),
+			__( 'Workflows', 'stonewright' ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]

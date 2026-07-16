@@ -37,10 +37,20 @@ final class NativePlan extends AbilityKernel {
 			'additionalProperties' => false,
 			'properties'           => [
 				'action'   => [ 'type' => 'string', 'enum' => [ 'validate', 'plan' ], 'default' => 'plan' ],
-				'target'   => [ 'type' => 'string', 'enum' => [ 'elementor-v3', 'elementor-v4', 'gutenberg', 'wordpress' ], 'default' => 'elementor-v3' ],
+				'target'   => [
+					'type'        => 'string',
+					// phpcs:ignore WordPress.WP.CapitalPDangit.MisspelledInText -- Machine-readable target ids.
+					'enum'        => [ 'elementor', 'elementor-v3', 'elementor-v4', 'gutenberg', 'fse', 'wordpress' ],
+					'default'     => 'elementor-v3',
+					'description' => 'Render engine. Aliases: elementor→elementor-v3. fse uses constrained FSE template blocks.',
+				],
+				'engine'   => [
+					'type'        => 'string',
+					'description' => 'Alias for target (elementor|gutenberg|fse).',
+				],
 				'evidence' => [
 					'type'        => 'object',
-					'description' => 'DesignEvidence 1.0: sources, viewports, semantic nodes, per-style provenance, and unresolved items. Raw Figma trees are rejected by normalization.',
+					'description' => 'DesignEvidence 1.0: sources, viewports, semantic nodes, layout intent, measured_targets (px per breakpoint), figma_token_table / spacing_scale / typography_ramp, per-style provenance. Raw Figma trees are rejected by normalization.',
 				],
 			],
 			'required'             => [ 'evidence' ],
@@ -87,6 +97,7 @@ final class NativePlan extends AbilityKernel {
 			];
 		}
 
-		return NativePlanner::plan( $evidence, (string) ( $args['target'] ?? 'elementor-v3' ) );
+		$target = (string) ( $args['target'] ?? $args['engine'] ?? 'elementor-v3' );
+		return NativePlanner::plan( $evidence, $target );
 	}
 }

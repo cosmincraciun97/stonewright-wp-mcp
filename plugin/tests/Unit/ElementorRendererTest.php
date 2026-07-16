@@ -1007,4 +1007,26 @@ final class ElementorRendererTest extends TestCase {
 		$this->assertStringContainsString( '<ul>', $block['settings']['editor'] );
 		$this->assertStringContainsString( 'Alpha', $block['settings']['editor'] );
 	}
+
+	public function test_separator_node_renders_as_divider_widget(): void {
+		$spec = [
+			'version'  => '1.0.0',
+			'page'     => [ 'title' => 'Separator Test' ],
+			'sections' => [
+				[
+					'id'     => 's0',
+					'blocks' => [
+						[ 'type' => 'separator' ],
+					],
+				],
+			],
+		];
+
+		$diag   = [];
+		$output = Renderer::render( $spec, $diag );
+
+		$this->assertEmpty( $diag, 'separator must not land in unsupported diagnostics' );
+		$block = $output[0]['elements'][0];
+		$this->assertSame( 'divider', $block['widgetType'] );
+	}
 }

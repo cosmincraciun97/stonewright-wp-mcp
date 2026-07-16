@@ -15,124 +15,23 @@ final class ConnectClientConfig {
 	/**
 	 * Returns supported AI clients and their config metadata.
 	 *
+	 * Source of truth: plugin/data/clients/*.json via ClientCatalog.
+	 *
 	 * @return array<int, array{slug: string, label: string, config_path: string, kind: string, notes: string}>
 	 */
 	public static function clients(): array {
-		$clients = [
-			[
-				'slug'        => 'claude-code',
-				'label'       => 'Claude Code',
-				'config_path' => 'Terminal command: claude mcp add',
-				'kind'        => 'cli',
-				'notes'       => 'Uses the claude CLI; run the generated command in any terminal.',
-			],
-			[
-				'slug'        => 'claude-desktop',
-				'label'       => 'Claude Desktop',
-				'config_path' => '~/Library/Application Support/Claude/claude_desktop_config.json (macOS) or %APPDATA%\\Claude\\claude_desktop_config.json (Windows)',
-				'kind'        => 'desktop',
-				'notes'       => 'Paste the JSON block into the mcpServers object, then restart Claude Desktop.',
-			],
-			[
-				'slug'        => 'codex',
-				'label'       => 'Codex',
-				'config_path' => '~/.codex/config.toml or project .codex/config.toml',
-				'kind'        => 'editor',
-				'notes'       => 'Paste the TOML block, then restart Codex or reload the IDE MCP session. In Codex TUI, use /mcp to verify Stonewright is active.',
-			],
-			[
-				'slug'        => 'cursor',
-				'label'       => 'Cursor',
-				'config_path' => '.cursor/mcp.json (project) or ~/.cursor/mcp.json (global)',
-				'kind'        => 'editor',
-				'notes'       => 'Create the file if it does not exist. Project config wins over global config.',
-			],
-			[
-				'slug'        => 'vscode-copilot',
-				'label'       => 'VS Code (Copilot)',
-				'config_path' => '.vscode/mcp.json (workspace) or VS Code user settings under "mcp.servers"',
-				'kind'        => 'editor',
-				'notes'       => 'Workspace config can be shared with a team. Use user settings for private credentials.',
-			],
-			[
-				'slug'        => 'windsurf',
-				'label'       => 'Windsurf',
-				'config_path' => '~/.codeium/windsurf/mcp_config.json',
-				'kind'        => 'editor',
-				'notes'       => 'Merge the snippet into the existing file if one already exists.',
-			],
-			[
-				'slug'        => 'zed',
-				'label'       => 'Zed',
-				'config_path' => '~/.config/zed/settings.json (under the "context_servers" key)',
-				'kind'        => 'editor',
-				'notes'       => 'Zed uses context_servers rather than mcpServers.',
-			],
-			[
-				'slug'        => 'opencode',
-				'label'       => 'OpenCode',
-				'config_path' => '.opencode/config.json (project) or ~/.config/opencode/config.json (global)',
-				'kind'        => 'cli',
-				'notes'       => 'Add the snippet under the mcp key in the config file.',
-			],
-			[
-				'slug'        => 'cline',
-				'label'       => 'Cline',
-				'config_path' => 'VS Code extension settings > Cline > MCP Servers',
-				'kind'        => 'editor',
-				'notes'       => 'Paste the snippet in the settings UI or the backing JSON file.',
-			],
-			[
-				'slug'        => 'roo-code',
-				'label'       => 'Roo Code',
-				'config_path' => 'VS Code extension settings > Roo Code > MCP Servers',
-				'kind'        => 'editor',
-				'notes'       => 'Uses the same MCP server shape as other VS Code agent extensions.',
-			],
-			[
-				'slug'        => 'amazon-q',
-				'label'       => 'Amazon Q',
-				'config_path' => '~/.aws/amazonq/mcp.json',
-				'kind'        => 'desktop',
-				'notes'       => 'Paste the stonewright entry under mcpServers.',
-			],
-			[
-				'slug'        => 'kilo-code',
-				'label'       => 'Kilo Code',
-				'config_path' => 'VS Code extension settings > Kilo Code > MCP Servers config',
-				'kind'        => 'editor',
-				'notes'       => 'Configure through the extension panel or its backing JSON settings file.',
-			],
-			[
-				'slug'        => 'gemini-cli',
-				'label'       => 'Gemini CLI',
-				'config_path' => '~/.gemini/settings.json (under the "mcpServers" key)',
-				'kind'        => 'cli',
-				'notes'       => 'The Gemini CLI reads MCP server definitions from the settings file in your home directory.',
-			],
-			[
-				'slug'        => 'github-copilot',
-				'label'       => 'GitHub Copilot',
-				'config_path' => '.vscode/mcp.json (workspace) when MCP support is enabled.',
-				'kind'        => 'editor',
-				'notes'       => 'Requires VS Code with MCP support enabled.',
-			],
-			[
-				'slug'        => 'antigravity',
-				'label'       => 'Antigravity',
-				'config_path' => 'Project or global MCP config file.',
-				'kind'        => 'desktop',
-				'notes'       => 'Add Stonewright and Playwright entries, then restart or reload Antigravity before visual work.',
-			],
-		];
+		$clients = [];
+		foreach ( ClientCatalog::all() as $client ) {
+			$clients[] = [
+				'slug'        => (string) $client['slug'],
+				'label'       => (string) $client['label'],
+				'config_path' => (string) $client['config_path'],
+				'kind'        => (string) $client['kind'],
+				'notes'       => (string) $client['notes'] . ' ' . McpUsePolicy::client_note_suffix(),
+			];
+		}
 
-		return array_map(
-			static function ( array $client ): array {
-				$client['notes'] .= ' ' . McpUsePolicy::client_note_suffix();
-				return $client;
-			},
-			$clients
-		);
+		return $clients;
 	}
 
 	private static function site_url(): string {

@@ -337,6 +337,11 @@ async function main(): Promise<void> {
 		const code = await runInit();
 		process.exit(code);
 	}
+	if (argv[0] === 'doctor') {
+		const { runDoctor } = await import('./cli/doctor.js');
+		const code = await runDoctor();
+		process.exit(code);
+	}
 
 	log.info('Stonewright companion starting');
 

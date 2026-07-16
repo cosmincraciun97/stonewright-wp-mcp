@@ -41,6 +41,14 @@ final class ContextBootstrapTest extends TestCase {
 		unset( $GLOBALS['stonewright_test_memory_rows'] );
 	}
 
+	public function test_description_marks_task_start_as_canonical(): void {
+		$description = ( new ContextBootstrap() )->description();
+
+		self::assertStringContainsString( 'Compatibility full-context bootstrap', $description );
+		self::assertStringContainsString( 'stonewright/task-start as the canonical first call', $description );
+		self::assertStringNotContainsString( 'MUST be called at the start', $description );
+	}
+
 	public function test_returns_token_full_matching_skill_and_relevant_memory(): void {
 		$result = ( new ContextBootstrap() )->execute(
 			[

@@ -2236,10 +2236,16 @@ if ( ! function_exists( 'set_theme_mod' ) ) {
 
 if ( ! function_exists( 'get_theme_mod' ) ) {
 	function get_theme_mod( string $name, mixed $default = false ): mixed {
-		if ( array_key_exists( $name, (array) $GLOBALS['stonewright_test_theme_mods'] ) ) {
+		if ( array_key_exists( $name, (array) ( $GLOBALS['stonewright_test_theme_mods'] ?? [] ) ) ) {
 			return $GLOBALS['stonewright_test_theme_mods'][ $name ];
 		}
 		return $default;
+	}
+}
+
+if ( ! function_exists( 'remove_theme_mod' ) ) {
+	function remove_theme_mod( string $name ): void {
+		unset( $GLOBALS['stonewright_test_theme_mods'][ $name ] );
 	}
 }
 

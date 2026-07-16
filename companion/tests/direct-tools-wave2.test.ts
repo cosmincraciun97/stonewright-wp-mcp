@@ -53,35 +53,35 @@ describe('direct wave 2 tools', () => {
 	});
 
 	it('site-discover returns namespaces, types, detections, and plugin-only gaps', async () => {
-		const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+		const fetchImpl = vi.fn((input: Parameters<typeof fetch>[0]) => {
 			const url = String(input);
 			if (url.endsWith('/wp-json/') || url.endsWith('/wp-json')) {
-				return new Response(
+				return Promise.resolve(new Response(
 					JSON.stringify({
 						name: 'Demo',
 						namespaces: ['oembed/1.0', 'wp/v2', 'elementor/v1', 'wc/v3', 'acf/v3'],
 					}),
 					{ status: 200, headers: { 'content-type': 'application/json' } },
-				);
+				));
 			}
 			if (url.includes('/wp/v2/types')) {
-				return new Response(
+				return Promise.resolve(new Response(
 					JSON.stringify({
 						page: { slug: 'page', name: 'Pages', rest_base: 'pages', hierarchical: true },
 						post: { slug: 'post', name: 'Posts', rest_base: 'posts', hierarchical: false },
 					}),
 					{ status: 200, headers: { 'content-type': 'application/json' } },
-				);
+				));
 			}
 			if (url.includes('/wp/v2/taxonomies')) {
-				return new Response(
+				return Promise.resolve(new Response(
 					JSON.stringify({
 						category: { slug: 'category', name: 'Categories', rest_base: 'categories', hierarchical: true },
 					}),
 					{ status: 200, headers: { 'content-type': 'application/json' } },
-				);
+				));
 			}
-			return new Response('{}', { status: 404 });
+			return Promise.resolve(new Response('{}', { status: 404 }));
 		});
 		const client = new WpRestClient(site, { fetchImpl });
 		const result = await siteDiscover({ client, site, writeMode: 'confirm', fetchImpl });
@@ -96,7 +96,7 @@ describe('direct wave 2 tools', () => {
 
 	it('blocks remote settings update without confirm', async () => {
 		homeDir();
-		const fetchImpl = vi.fn(async () => new Response('{}', { status: 200 }));
+		const fetchImpl = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })));
 		const client = new WpRestClient(site, { fetchImpl });
 		await expect(
 			settingsUpdate({ client, site, writeMode: 'confirm' }, { settings: { title: 'X' } }),
@@ -106,11 +106,11 @@ describe('direct wave 2 tools', () => {
 
 	it('allows settings update when confirm:true', async () => {
 		homeDir();
-		const fetchImpl = vi.fn(async () =>
-			new Response(JSON.stringify({ title: 'X' }), {
+		const fetchImpl = vi.fn(() =>
+			Promise.resolve(new Response(JSON.stringify({ title: 'X' }), {
 				status: 200,
 				headers: { 'content-type': 'application/json' },
-			}),
+			})),
 		);
 		const client = new WpRestClient(site, { fetchImpl });
 		const result = await settingsUpdate(
@@ -123,7 +123,7 @@ describe('direct wave 2 tools', () => {
 
 	it('blocks plugin activate/install without confirm in confirm mode', async () => {
 		homeDir();
-		const fetchImpl = vi.fn(async () => new Response('{}', { status: 200 }));
+		const fetchImpl = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })));
 		const client = new WpRestClient(site, { fetchImpl });
 		await expect(
 			pluginActivate({ client, site, writeMode: 'confirm' }, { plugin: 'akismet/akismet' }),
@@ -136,7 +136,7 @@ describe('direct wave 2 tools', () => {
 
 	it('blocks menu delete and global styles update without confirm', async () => {
 		homeDir();
-		const fetchImpl = vi.fn(async () => new Response('{}', { status: 200 }));
+		const fetchImpl = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })));
 		const client = new WpRestClient(site, { fetchImpl });
 		await expect(
 			menuDelete({ client, site, writeMode: 'confirm' }, { id: 3 }),

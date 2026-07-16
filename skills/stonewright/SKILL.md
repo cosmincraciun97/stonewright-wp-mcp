@@ -13,9 +13,10 @@ It routes the agent to the right specialized skill and MCP tools.
 
 ## First Calls
 
-1. Call `stonewright-context-bootstrap` with the task, surface, and intent.
-2. Call `stonewright-workflow-preflight` when planning implementation work.
-3. Use `fast_path.tool_profile` from workflow preflight before making a separate
+1. Call `stonewright-task-start` with the task, surface, and intent.
+2. Use `stonewright-context-bootstrap` or `stonewright-workflow-preflight` only
+   as compatibility paths when task-start is unavailable.
+3. Use `fast_path.tool_profile` from task-start before making a separate
    `stonewright-tool-profile` call. Call `stonewright-tool-profile` only when
    switching or verifying a compact profile.
 4. Read `expertise_packs`; load only the matching section with
@@ -33,6 +34,20 @@ Elementor, content-model, Gutenberg, WP-CLI, or site-admin profile. Use
 `low-tools` for Antigravity, Gemini API, or other strict tool-cap clients; it
 keeps the client-visible startup surface under 30 tools before the agent
 switches to a specialist profile.
+
+### Profile self-upgrade loop
+
+When a needed tool is missing or an ability returns a gated/missing-tool error:
+
+1. Call `stonewright-tool-profile` with `action: "activate"` and a broader
+   profile (for example `elementor-design`, `content-model`, or `full`), or
+   follow `fast_path.tool_profile` from `stonewright-task-start`.
+2. If the result has `tools_changed: true` or a non-empty
+   `re_list_instruction`, re-list tools (`tools/list`) before continuing.
+   stdio companion sessions emit `notifications/tools/list_changed` and refresh
+   their proxy registration; HTTP MCP already serves a fresh list per request.
+3. Retry the original work with the newly visible tools. If the client still
+   shows the old list after notification, restart the MCP session.
 
 ## Route
 

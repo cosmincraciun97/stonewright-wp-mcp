@@ -311,13 +311,17 @@ html.sw-theme-dark {
 /* Shell layout                                                         */
 /* ------------------------------------------------------------------ */
 .sw-shell {
-	max-width: none !important;
-	margin: 0 0 0 -20px;
+	/* Stay inside #wpcontent — negative pull-margins cause horizontal overflow
+	   at folded-admin / 320px viewports (e2e:admin-ui gate). */
+	max-width: 100% !important;
+	width: 100%;
+	margin: 0;
 	padding: 0;
 	background: var(--sw-shell-bg);
 	min-height: calc(100vh - 32px);
 	box-sizing: border-box;
 	color: var(--sw-text);
+	overflow-x: hidden;
 }
 
 .sw-shell *,
@@ -370,10 +374,38 @@ html.sw-theme-dark {
 .sw-shell__nav {
 	display: flex;
 	align-items: center;
-	gap: var(--sw-space-1);
+	gap: var(--sw-space-2);
 	flex: 1 1 auto;
 	flex-wrap: wrap;
 	min-width: 0;
+}
+
+.sw-shell__nav-group {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--sw-space-1);
+	min-width: 0;
+}
+
+.sw-shell__nav-group-label {
+	display: none;
+	font-size: 10px;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--sw-shell-header-muted);
+	padding: 0 var(--sw-space-1);
+	white-space: nowrap;
+}
+
+/* Multi-page groups (Safety & Diagnostics) surface the group label. */
+.sw-shell__nav-group--multi {
+	padding-left: var(--sw-space-2);
+	border-left: 1px solid var(--sw-shell-header-border);
+}
+
+.sw-shell__nav-group--multi .sw-shell__nav-group-label {
+	display: inline-flex;
 }
 
 .sw-shell__nav-link {
@@ -408,8 +440,11 @@ html.sw-theme-dark {
 	display: inline-flex;
 	align-items: center;
 	gap: var(--sw-space-3);
-	flex-shrink: 0;
+	flex-shrink: 1;
+	flex-wrap: wrap;
+	min-width: 0;
 	margin-left: auto;
+	max-width: 100%;
 }
 
 /* Mode pill sits on the always-dark header — keep light labels in BOTH themes. */
@@ -488,8 +523,10 @@ html.sw-theme-dark {
 	margin: 0 auto;
 	padding: var(--sw-space-5) var(--sw-space-5) var(--sw-space-7);
 	color: var(--sw-text);
-	overflow-x: hidden;
+	overflow-x: clip;
 	min-width: 0;
+	width: 100%;
+	box-sizing: border-box;
 }
 
 .sw-shell h1,
@@ -697,9 +734,14 @@ html.sw-theme-dark {
 /* ------------------------------------------------------------------ */
 .sw-notice-drawer {
 	max-width: var(--sw-shell-content-max);
-	margin: var(--sw-space-4) auto 0;
+	/* Clear sticky header + admin bar (JS sets --sw-shell-offset). */
+	margin: max(var(--sw-space-6), calc(var(--sw-shell-offset, 76px) - 32px + var(--sw-space-4))) auto 0;
 	padding: 0 var(--sw-space-5);
 	border: none;
+}
+
+html.sw-has-shell {
+	scroll-padding-top: var(--sw-shell-offset, 76px);
 }
 
 .sw-notice-drawer[hidden] {
@@ -799,16 +841,31 @@ html.sw-theme-dark {
 	outline-offset: 2px;
 }
 
-.sw-btn--primary {
+/* Scope primary buttons under the shell so wp-admin .button/link rules lose. */
+.sw-shell .sw-btn--primary,
+.sw-shell .sw-btn--primary:visited,
+.sw-shell a.sw-btn--primary,
+.sw-shell button.sw-btn--primary {
 	background: var(--sw-brand-fill);
+	background-color: var(--sw-brand-fill);
 	color: var(--sw-on-brand);
+	border-color: transparent;
+	text-decoration: none;
+	box-shadow: none;
 }
 
-.sw-btn--primary:hover {
+.sw-shell .sw-btn--primary:hover,
+.sw-shell .sw-btn--primary:focus,
+.sw-shell .sw-btn--primary:active,
+.sw-shell a.sw-btn--primary:hover,
+.sw-shell button.sw-btn--primary:hover {
 	background: var(--sw-brand-fill-hover);
+	background-color: var(--sw-brand-fill-hover);
 	transform: translateY(-1px);
 	box-shadow: var(--sw-shadow-2);
 	color: var(--sw-on-brand);
+	text-decoration: none;
+	border-color: transparent;
 }
 
 .sw-btn--secondary {
@@ -913,20 +970,130 @@ html.sw-theme-dark {
 /* Responsive                                                           */
 /* ------------------------------------------------------------------ */
 @media screen and (max-width: 782px) {
+	/* No negative margins — they force document scrollWidth past the viewport
+	   on folded WP admin (especially 320px e2e projects). */
 	.sw-shell {
-		margin-left: -10px;
+		margin-left: 0;
+		max-width: 100%;
+		box-sizing: border-box;
 	}
 
 	.sw-shell__header {
 		top: 46px;
-		padding: var(--sw-space-3) var(--sw-space-4);
+		padding: var(--sw-space-3) var(--sw-space-3);
+		max-width: 100%;
+		box-sizing: border-box;
 	}
 
 	.sw-shell__content {
-		padding: var(--sw-space-4);
+		padding: var(--sw-space-3);
+		max-width: 100%;
+		box-sizing: border-box;
 	}
 
 	.sw-shell__version {
 		display: none;
 	}
+
+	.sw-shell__nav,
+	.sw-shell__header-inner {
+		max-width: 100%;
+		min-width: 0;
+		box-sizing: border-box;
+	}
+}
+
+/* Ultra-narrow (e2e 320×568 / small phones): keep product surface inside viewport. */
+@media screen and (max-width: 400px) {
+	.sw-shell,
+	.sw-shell__content,
+	.sw-shell__header {
+		padding-left: var(--sw-space-2);
+		padding-right: var(--sw-space-2);
+	}
+
+	/* Long group labels ("Safety & Diagnostics") force scrollWidth past 320. */
+	.sw-shell__nav-group--multi .sw-shell__nav-group-label {
+		display: none;
+	}
+
+	.sw-shell__nav-group--multi {
+		padding-left: 0;
+		border-left: 0;
+	}
+
+	.sw-shell__nav {
+		/* Contain nav width; links wrap instead of expanding the shell. */
+		width: 100%;
+		flex-basis: 100%;
+	}
+
+	.sw-shell__nav-link {
+		height: 28px;
+		padding: 0 var(--sw-space-2);
+		font-size: var(--sw-text-xs);
+	}
+
+	.sw-shell__meta {
+		flex-wrap: wrap;
+		max-width: 100%;
+	}
+
+	.sw-shell pre,
+	.sw-shell code,
+	.sw-shell table,
+	.sw-shell .widefat {
+		max-width: 100%;
+		overflow-x: auto;
+	}
+
+	/* WP .wrap default margins add sideways push on tiny viewports. */
+	.sw-shell.wrap {
+		margin-right: 0;
+		margin-left: 0;
+	}
+}
+
+/* ------------------------------------------------------------------ */
+/* Connect tab — domain lock status                                     */
+/* ------------------------------------------------------------------ */
+.sw-shell .stonewright-domain-lock-status {
+	margin: var(--sw-space-6) auto 0;
+	max-width: 560px;
+	text-align: center;
+	padding: var(--sw-space-4);
+	background: var(--sw-surface-raised);
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius-sm);
+	color: var(--sw-text-secondary);
+	font-size: var(--sw-text-sm);
+}
+
+/* ------------------------------------------------------------------ */
+/* Accessible tooltips                                                  */
+/* ------------------------------------------------------------------ */
+.sw-tooltip {
+	position: absolute;
+	z-index: 100000;
+	max-width: 280px;
+	padding: var(--sw-space-2) var(--sw-space-3);
+	background: var(--sw-text);
+	color: var(--sw-bg);
+	font-size: var(--sw-text-xs);
+	line-height: 1.4;
+	border-radius: var(--sw-radius-sm);
+	box-shadow: var(--sw-shadow-2);
+	opacity: 0;
+	transition: opacity var(--sw-dur) var(--sw-ease);
+	pointer-events: none;
+}
+
+.sw-tooltip.is-visible {
+	opacity: 1;
+}
+
+.sw-text-muted {
+	color: var(--sw-text-muted);
+	font-size: var(--sw-text-sm);
+	line-height: 1.45;
 }

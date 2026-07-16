@@ -5,7 +5,7 @@ namespace Stonewright\WpMcp\Elementor;
 
 use Stonewright\WpMcp\DesignSpec\Validator;
 use Stonewright\WpMcp\Security\AuditLog;
-use Stonewright\WpMcp\Security\Backup;
+use Stonewright\WpMcp\Support\ElementorData;
 
 /**
  * Orchestrates the full DesignSpec → Elementor V3 write pipeline:
@@ -14,8 +14,9 @@ use Stonewright\WpMcp\Security\Backup;
  * 2. Validator::validate()   — rejects invalid specs.
  * 3. Renderer::render()      — converts spec to Elementor element array.
  * 4. Writes _elementor_data, _elementor_edit_mode, _elementor_version.
- * 5. Clears Elementor file cache.
- * 6. Writes audit log entry.
+ * 5. Structural readback; rollback on empty/invalid tree when transactional.
+ * 6. Clears Elementor file cache.
+ * 7. Writes audit log entry.
  */
 final class ElementorWriter {
 
@@ -31,58 +32,93 @@ final class ElementorWriter {
 	 * @return bool|\WP_Error  True on success; WP_Error on backup failure, validation failure, or encode failure.
 	 */
 	public static function write( int $post_id, array $spec, array &$diagnostics = [] ): bool|\WP_Error {
-		// Step 1: snapshot before any mutation.
-		$snapshot_id = Backup::snapshot_post( $post_id );
-		if ( '' === $snapshot_id ) {
+		$result = self::write_transactional( $post_id, $spec, $diagnostics, true );
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+		return true;
+	}
+
+	/**
+	 * Full-tree Elementor write with snapshot + readback + optional rollback.
+	 *
+	 * Blueprints use this path (full DesignSpec render) rather than BatchMutate
+	 * operations; the safety contract matches ElementorTransactionRunner.
+	 *
+	 * @param int                              $post_id
+	 * @param array<string, mixed>             $spec
+	 * @param array<int, array<string, mixed>> $diagnostics
+	 * @return array{ok: bool, snapshot_id: string, element_count: int, rolled_back: bool}|\WP_Error
+	 */
+	public static function write_transactional( int $post_id, array $spec, array &$diagnostics = [], bool $rollback_on_error = true ) {
+		// Preserve historical error code for missing posts (tests + clients).
+		if ( $post_id < 1 || ! get_post( $post_id ) ) {
 			return new \WP_Error(
 				'stonewright_backup_failed',
 				sprintf( 'Backup::snapshot_post failed for post %d. Write aborted.', $post_id )
 			);
 		}
 
-		// Step 2: validate spec.
+		// Validate first (hard rule).
 		$validated = Validator::validate( $spec );
 		if ( is_wp_error( $validated ) ) {
 			return $validated;
 		}
 
-		// Step 3: render.
+		// Render DesignSpec → Elementor tree.
 		$element_array = Renderer::render( $validated, $diagnostics );
-
-		// Step 4: encode and persist.
-		$json = wp_json_encode( $element_array, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
-		if ( false === $json ) {
+		if ( ! is_array( $element_array ) || [] === $element_array ) {
 			return new \WP_Error(
-				'stonewright_json_encode_failed',
-				'Failed to JSON-encode the rendered Elementor element array.'
+				'stonewright_elementor_render_empty',
+				__( 'Elementor renderer produced an empty tree for this DesignSpec.', 'stonewright' ),
+				[ 'status' => 500 ]
 			);
 		}
 
-		update_post_meta( $post_id, '_elementor_data', wp_slash( $json ) );
+		$flat_preview = ElementorData::flatten( $element_array );
+		$expected     = [
+			'min_elements' => max( 1, (int) ceil( count( $flat_preview ) * 0.5 ) ),
+		];
 
-		// Step 5a: set edit mode and version.
+		// Transaction path: ElementorTransactionRunner (replace_tree / full_tree).
+		$txn = ElementorTransactionRunner::run(
+			$post_id,
+			[
+				'operations'        => [
+					[
+						'action' => 'replace_tree',
+						'tree'   => $element_array,
+					],
+				],
+				'stop_on_error'     => true,
+				'rollback_on_error' => $rollback_on_error,
+				'expected_readback' => $expected,
+			],
+			false
+		);
+		if ( is_wp_error( $txn ) ) {
+			return $txn;
+		}
+
+		// Ensure edit mode / version meta even when ElementorData::write already set them.
 		update_post_meta( $post_id, '_elementor_edit_mode', 'builder' );
-
 		$elementor_version = defined( 'ELEMENTOR_VERSION' ) ? (string) constant( 'ELEMENTOR_VERSION' ) : '3.0.0';
 		update_post_meta( $post_id, '_elementor_version', $elementor_version );
 
-		// Step 5b: clear Elementor file cache.
-		if ( class_exists( '\\Elementor\\Plugin' ) ) {
-			try {
-				$instance = \Elementor\Plugin::$instance;
-				if ( isset( $instance->files_manager ) ) {
-					$instance->files_manager->clear_cache();
-				}
-			} catch ( \Throwable $e ) {
-				// Cache layer best-effort; ignore if unavailable in tests or non-standard builds.
-			}
-		}
-
-		// Step 6: audit log.
 		$spec_sha8 = substr( sha1( (string) wp_json_encode( $validated ) ), 0, 8 );
 		self::audit( $post_id, $spec_sha8 );
 
-		return true;
+		return [
+			'ok'            => true,
+			'snapshot_id'   => (string) ( $txn['snapshot_id'] ?? '' ),
+			'element_count' => (int) ( $txn['element_count'] ?? count( $flat_preview ) ),
+			'rolled_back'   => false,
+			'transaction'   => [
+				'mode'        => (string) ( $txn['mode'] ?? 'full_tree' ),
+				'before_hash' => (string) ( $txn['before_hash'] ?? '' ),
+				'after_hash'  => (string) ( $txn['after_hash'] ?? '' ),
+			],
+		];
 	}
 
 	/**

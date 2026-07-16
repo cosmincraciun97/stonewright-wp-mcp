@@ -18,6 +18,7 @@ final class ToolProfileResolveTest extends TestCase {
 			'stonewright_essential_tools_mode'      => true,
 			'stonewright_essential_extra_abilities' => [],
 			'stonewright_last_tool_profile'         => '',
+			'stonewright_mcp_surface'               => 'essential',
 		];
 	}
 
@@ -89,6 +90,58 @@ final class ToolProfileResolveTest extends TestCase {
 		foreach ( $from_registry as $name ) {
 			self::assertContains( $name, $from_profile, $name . ' missing from essential profile_tools' );
 		}
+	}
+
+	public function test_bootstrap_profile_is_registered_and_capped(): void {
+		self::assertContains( 'bootstrap', ToolProfile::profile_names() );
+		$names = ToolProfile::profile_tools( 'bootstrap' );
+		self::assertLessThanOrEqual( 8, count( $names ) );
+		self::assertContains( 'stonewright/task-start', $names );
+		self::assertContains( 'stonewright/tool-profile', $names );
+
+		$ability = new ToolProfile();
+		$result  = $ability->execute(
+			[
+				'action'  => 'resolve',
+				'profile' => 'bootstrap',
+			]
+		);
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'bootstrap', $result['profile'] );
+		self::assertLessThanOrEqual( 8, count( $result['tools'] ) );
+	}
+
+	public function test_activate_non_bootstrap_profile_expands_mcp_surface(): void {
+		update_option( 'stonewright_mcp_surface', 'bootstrap', false );
+		self::assertSame( 'bootstrap', AbilityRegistry::mcp_surface() );
+
+		$ability = new ToolProfile();
+		$result  = $ability->execute(
+			[
+				'action'  => 'activate',
+				'profile' => 'elementor-design',
+			]
+		);
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'elementor-design', $result['profile'] );
+		// Leaving bootstrap must expand public tools/list surface.
+		self::assertSame( 'essential', AbilityRegistry::mcp_surface() );
+	}
+
+	public function test_activate_full_profile_expands_to_full_surface(): void {
+		update_option( 'stonewright_mcp_surface', 'bootstrap', false );
+		$ability = new ToolProfile();
+		$result  = $ability->execute(
+			[
+				'action'  => 'activate',
+				'profile' => 'full',
+			]
+		);
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'full', AbilityRegistry::mcp_surface() );
 	}
 
 	public function test_suggest_profile_routes_admin_ops_terms(): void {

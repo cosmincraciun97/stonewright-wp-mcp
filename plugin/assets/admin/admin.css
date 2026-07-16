@@ -207,7 +207,7 @@
 .stonewright-card-grid {
 	display: grid;
 	gap: 14px;
-	grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
 	margin-top: 14px;
 }
 
@@ -580,6 +580,28 @@
 	margin-top: 12px;
 }
 
+.stonewright-prompt-library__controls {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--sw-space-2, 8px);
+	margin-bottom: var(--sw-space-3, 12px);
+}
+
+.stonewright-prompt-library__controls input[type="search"],
+.stonewright-prompt-library__controls select {
+	max-width: 100%;
+}
+
+.stonewright-prompt-library__outcome {
+	margin: 0 0 6px;
+}
+
+.stonewright-prompt-library__tools {
+	margin: 0 0 8px;
+	font-size: 12px;
+	word-break: break-word;
+}
+
 .stonewright-example-grid {
 	display: grid;
 	gap: 12px;
@@ -823,7 +845,9 @@
 
 .stonewright-schema-table {
 	margin-top: 8px;
-	min-width: 640px;
+	/* Prefer wrapping the scroll container, not the whole admin shell. */
+	min-width: min(640px, 100%);
+	width: 100%;
 }
 
 .stonewright-schema-table code {

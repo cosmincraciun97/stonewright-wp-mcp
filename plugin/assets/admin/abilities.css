@@ -24,8 +24,9 @@
 }
 
 .sw-abilities-search {
-	min-width: 220px;
-	flex: 1 1 220px;
+	min-width: 0;
+	flex: 1 1 160px;
+	max-width: 100%;
 }
 
 .sw-abilities-stats {

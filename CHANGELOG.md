@@ -1,6 +1,42 @@
 # Changelog
 
-## 1.0.0-alpha.72
+All notable changes to Stonewright are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
+and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- Repository documentation freshness gate in CI and release packaging.
+- FSE blueprint engine path with constrained layout + FSE transaction apply.
+- Brand-kit preview/diff mode and option/theme_mod restore points.
+- Setup “Apply now” for MCP tool surface; extra admin e2e coverage.
+- Figma→native DesignEvidence/native plan/CSS-gap gate; front-end visual matrix.
+- Authored v2 blueprints with Elementor layout intent; transaction full-tree
+  path; e2e real blueprint-apply + screenshots.
+
+### Changed
+
+- Synchronized evergreen install/client guides, prompts, capability counts,
+  changelog retention, and skills with the canonical task-start workflow.
+- Elementor blueprint writes use transactional snapshot + readback rollback.
+- Elementor schema summaries rank useful controls first and support focused
+  control queries for smaller repair responses.
+
+### Fixed
+
+- Elementor V3 batch dry-runs collect all validation failures in one response,
+  return exact schema repair requests, and never persist partial batches.
+- Common typography aliases normalize to live Elementor keys and report the
+  normalization without requiring another model round trip.
+- Admin e2e writes run once, restore shared settings, and serialize CI access
+  to the shared WordPress database.
+- Visual e2e writes obtain a task context token first, and REST nonce discovery
+  no longer waits for a missing optional DOM attribute.
+
+## [1.0.0-alpha.72] - 2026-07-16
 
 ### Added
 - Actionable audit error codes/messages and RemediationHints at task-start.
@@ -11,7 +47,7 @@
 - README Elementor-first with full capability tables.
 
 
-## 1.0.0-alpha.71
+## [1.0.0-alpha.71] - 2026-07-16
 
 ### Added
 - Pluginless Direct self-improvement (local skills/memory + task-start).
@@ -23,13 +59,6 @@
 - wp-admin paste prompt starts with task-start.
 - REST parity security review items (audit redaction, search visibility, rest-request read-only).
 
-
-All notable changes to Stonewright are documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
-and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased]
 
 ## [1.0.0-alpha.70] - 2026-07-16
 
@@ -82,84 +111,6 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Changed
 
 - Admin shell content clips horizontal overflow; audit Details column width constrained.
-
-## [1.0.0-alpha.67] - 2026-07-15
-
-### Added
-
-- Premium admin shell: sticky nav, mode pill, dark/light theme toggle, notice
-  drawer, page-scoped CSS for Setup, Abilities, Dashboard, Audit, Skills,
-  Memory, Sandbox, and Blueprints.
-- Semantic design tokens with a deliberate dark palette (desaturated indigo
-  accents) and WCAG contrast guardrails in PHPUnit.
-- Site pulse, change timeline/restore, blueprints and brand kits, playbooks,
-  page digest/build-tree, MCPB bundle, admin-bar kill switch, GitHub updater.
-- Companion Direct mode: core WordPress REST tools without the plugin, multi-site
-  config, HTTP-safe Application Passwords, `scripts/e2e-direct.mjs` smoke script.
-- `stonewright/feedback-capture` and learning-record fields `trigger`,
-  `severity`, `source`; audit ErrorPatterns with Recurring errors UI and
-  task-start warnings.
-- CI token-surface budgets for plugin and companion measure scripts.
-
-### Changed
-
-- Setup treats HTTP transport as informational (not a hard failure).
-- Root README documents plugin and plugin-less install paths equally.
-
-### Fixed
-
-- Dark mode text/input contrast across admin pages (legacy raw hex removed).
-- Sandbox tab underline leak; Abilities table sticky header overlap.
-- Blueprints page missing stylesheet enqueue (raw dump fixed).
-
-## [1.0.0-alpha.66] - 2026-07-14
-
-### Added
-
-- Added the real `stonewright/task-start` one-call gateway, provenance linting,
-  PHP 8.1-8.5 CI, Visual CI, reproducible Visual release packaging, and nested
-  progressive-disclosure skill loading.
-- Added architecture-aware Elementor preflight with document classification,
-  explicit empty-document targets, and hard blocking for ambiguous Elementor 4
-  writes.
-
-### Changed
-
-- Reclassified bundled expertise without live fixture fingerprints as
-  advisory candidates; verification now requires persisted fixture, schema,
-  editor, frontend, and readback evidence.
-- Reduced the measured real task-start payload to 634 estimated tokens for
-  non-visual work and 837 for visual work, including architecture routing.
-- Required verifiable visual-source hashes, measured semantic bounds, and at
-  least desktop/mobile evidence before native visual planning.
-
-### Fixed
-
-- Kept the default companion profile aligned with the native design planner.
-- Restored draft skill reactivation and preserved inactive Elementor controls
-  during full-tree validation.
-- Rejected missing or duplicate Elementor node IDs before writes and kept
-  revision backups on the revision instead of redirecting them to its parent.
-- Fixed Gutenberg batch `client_id` refs, missing-ref preflight, recursive block
-  schema validation, and strict attribute type/enum checks.
-- Fixed Elementor V4 update/move/undo/redo readback and clean retry after
-  automatic rollback.
-- Blocked Atomic `e-*` widgets in V3 trees, stripped Unicode escape remnants,
-  mojibake, placeholder copy, and non-equal Elementor write readback.
-- Added exact failed-operation diagnostics, repair hints, optimistic hashes,
-  readback verification, and automatic restore to high-level V3 page builds.
-- Preserved schema-validated native `flex_wrap` and `_flex_*` container
-  controls and rejected normalized no-op updates instead of reporting silently
-  discarded layout settings as applied.
-- Recognized native responsive container controls when Elementor's live control
-  arrays omit responsive metadata, preserving explicit mobile/tablet layouts.
-
-### Security
-
-- Blocked `php-execute` from mutating protected Elementor document metadata or
-  calling internal Elementor writers outside typed permission, backup,
-  validation, confirmation, readback, and audit gates.
-
 
 ## Older releases
 

@@ -85,6 +85,9 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 		$data = $result->get_error_data();
 		self::assertSame( 'unknown_setting', $data['violations'][0]['code'] );
 		self::assertContains( 'title', $data['violations'][0]['suggestions'] );
+		self::assertTrue( $data['retryable'] );
+		self::assertSame( 'stonewright/elementor-schema', $data['schema_request']['ability'] );
+		self::assertSame( 'titel', $data['schema_request']['input']['query'] );
 	}
 
 	public function test_live_container_schema_accepts_injected_controls_and_rejects_unknown_keys(): void {
@@ -178,6 +181,12 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 		self::assertIsArray( $summary );
 		self::assertLessThan( 3200, strlen( (string) wp_json_encode( $summary ) ) );
 		self::assertArrayNotHasKey( 'default', $summary['controls']['title'] );
+		self::assertFalse( str_starts_with( (string) array_key_first( $summary['controls'] ), '_' ) );
+
+		$filtered = $ability->execute( [ 'mode' => 'summary', 'widget_type' => 'third-party-card', 'query' => 'spacing' ] );
+		self::assertIsArray( $filtered );
+		self::assertSame( [ 'spacing' ], array_keys( $filtered['controls'] ) );
+		self::assertSame( 1, $filtered['total'] );
 
 		$wide = $ability->execute( [ 'mode' => 'summary', 'widget_type' => 'wide-widget' ] );
 		self::assertIsArray( $wide );

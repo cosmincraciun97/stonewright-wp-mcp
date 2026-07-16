@@ -148,9 +148,17 @@ final class PluginRegistration {
 		if ( (bool) get_option( 'stonewright_enabled', false ) ) {
 			DomainLock::lock();
 		}
+		$is_first_activate = ! get_option( 'stonewright_version' );
 		update_option( 'stonewright_version', STONEWRIGHT_VERSION );
 		if ( ! get_option( 'stonewright_mode' ) ) {
 			update_option( 'stonewright_mode', 'development' );
+		}
+		// New installs only: bootstrap progressive-discovery surface.
+		// Upgrades leave stonewright_mcp_surface unset so mcp_surface() keeps mapping
+		// from the existing stonewright_essential_tools_mode choice.
+		if ( $is_first_activate ) {
+			update_option( 'stonewright_mcp_surface', 'bootstrap', false );
+			update_option( 'stonewright_essential_tools_mode', true, false );
 		}
 		Logger::info( 'activate', [ 'version' => STONEWRIGHT_VERSION ] );
 	}

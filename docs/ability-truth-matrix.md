@@ -31,6 +31,8 @@
 |---|---|---|---|---|---|---|---|---|---|---|
 | `stonewright/ping` | `stonewright-ping` | `Site\Ping` | Returns a static response confirming the MCP server is reachable. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/site-info` | `stonewright-site-info` | `Site\Info` | Returns basic descriptive metadata about this WordPress site. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/site-snapshot` | `stonewright-site-snapshot` | `Site\SiteSnapshot` | Compact site snapshot: name, URL, theme, plugin counts, post counts, mode, and MCP surface. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/content-inventory` | `stonewright-content-inventory` | `Site\ContentInventory` | Compact inventory of post types with publish/draft/trash counts for generalist workflows. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/site-capabilities` | `stonewright-site-capabilities` | `Site\Capabilities` | Reports which Stonewright abilities and integrations are available on this site. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/site-environment` | `stonewright-site-environment` | `Site\Environment` | Reports the runtime environment (memory limit, debug flag, environment type). | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/site-health` | `stonewright-site-health` | `Site\Health` | Returns a summary of WordPress site-health tests for this installation. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
@@ -82,6 +84,7 @@
 | Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `stonewright/blocks-list-registered` | `stonewright-blocks-list-registered` | `Gutenberg\ListRegisteredBlocks` | Lists every block type registered with the WP_Block_Type_Registry. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Unit/GutenbergRendererTest.php` |
+| `stonewright/gutenberg-editor-snapshot` | `stonewright-gutenberg-editor-snapshot` | `Gutenberg\EditorSnapshotAbility` | Returns a compact Gutenberg/FSE editor snapshot: theme type, templates summary, global styles presence, and registered block count. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Unit/GutenbergRendererTest.php` |
 | `stonewright/blocks-get-schema` | `stonewright-blocks-get-schema` | `Gutenberg\GetBlockSchema` | Returns the full block.json-style schema for a registered block type. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Unit/GutenbergRendererTest.php` |
 | `stonewright/blocks-parse` | `stonewright-blocks-parse` | `Gutenberg\ParseBlocks` | Parses post content or raw HTML into a block tree. | Read | `Permissions::edit_post( (int)` | No | No | No | stable | `tests/Unit/GutenbergRendererTest.php` |
 | `stonewright/blocks-serialize` | `stonewright-blocks-serialize` | `Gutenberg\SerializeBlocks` | Serializes a block tree into post-content HTML. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Unit/GutenbergRendererTest.php` |
@@ -143,6 +146,7 @@
 | `stonewright/elementor-v3-remove-element` | `stonewright-elementor-v3-remove-element` | `ElementorV3\RemoveElement` | Removes an element from an Elementor page by id. | Write | `Permissions::edit_post( $id )` | Yes | Yes | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-build-page-from-spec` | `stonewright-elementor-v3-build-page-from-spec` | `ElementorV3\BuildPageFromSpec` | Renders a validated Stonewright Design Spec into Elementor V3 elements and writes it to a post. | Write | `Permissions::edit_post( $id )` | Yes | Yes | Yes (DesignSpec) | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-batch-mutate` | `stonewright-elementor-v3-batch-mutate` | `ElementorV3\BatchMutate` | Applies many Elementor V3 add/update/move/remove operations to one page in one request, with one read, one snapshot, and one write. | Write | `Permissions::edit_post( $id )` | Yes | Yes | No | stable | `tests/Integration/ElementorWriterTest.php` |
+| `stonewright/elementor-v3-transaction-run` | `stonewright-elementor-v3-transaction-run` | `ElementorV3\TransactionRun` | Applies an Elementor V3 transaction envelope: precondition hash, pre-write snapshot, batch operations, structural readback, and optional rollback on failure. | Write | `Permissions::edit_post( $id )` | Yes | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-apply-bundle` | `stonewright-elementor-v3-apply-bundle` | `ElementorV3\ApplyBundle` | Applies multiple Elementor V3 page specs in one request. | Write | `Permissions::edit_posts()` | Yes | Yes | Yes (DesignSpec) | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-update-page-settings` | `stonewright-elementor-v3-update-page-settings` | `ElementorV3\UpdatePageSettings` | Updates _elementor_page_settings (background, layout, custom CSS). | Write | `Permissions::edit_post( $id )` | No | Yes | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-update-kit-colors` | `stonewright-elementor-v3-update-kit-colors` | `ElementorV3\UpdateKitColors` | Replaces or merges the global color palette in the Elementor active kit. | Write | `Permissions::edit_theme_options()` | Yes | Yes | No | stable | `tests/Integration/ElementorWriterTest.php` |
@@ -242,7 +246,7 @@
 
 | Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `stonewright/context-bootstrap` | `stonewright-context-bootstrap` | `System\ContextBootstrap` | MUST be called at the start of every Stonewright task. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/context-bootstrap` | `stonewright-context-bootstrap` | `System\ContextBootstrap` | Compatibility full-context bootstrap. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/task-start` | `stonewright-task-start` | `System\TaskStart` | Canonical one-call task start: issues the context token and returns compact skills, memory, expertise, capability gates, and the exact next tool path. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/system-instructions-get` | `stonewright-system-instructions-get` | `System\InstructionsGet` | Returns the current Stonewright custom instructions (system prompt prefix). | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/system-instructions-set` | `stonewright-system-instructions-set` | `System\InstructionsSet` | Replaces the Stonewright custom instructions. | Write | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
@@ -578,7 +582,7 @@
 
 ## Summary
 
-Total abilities registered: **308**
+Total abilities registered: **312**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

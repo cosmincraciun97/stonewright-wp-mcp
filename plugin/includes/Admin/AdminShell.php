@@ -14,23 +14,75 @@ final class AdminShell {
 	public const THEME_NONCE    = 'stonewright_admin_theme';
 
 	/**
-	 * Registered Stonewright admin pages (slug => label).
+	 * Premium IA: ≤6 menu groups. Page slugs stay stable; only labels/order change.
 	 *
-	 * Single source of truth for shell navigation.
+	 * @return list<array{id:string,label:string,pages:array<string,string>}>
+	 */
+	public static function menu_groups(): array {
+		return [
+			[
+				'id'    => 'overview',
+				'label' => __( 'Overview', 'stonewright' ),
+				'pages' => [
+					'stonewright-status' => __( 'Dashboard', 'stonewright' ),
+				],
+			],
+			[
+				'id'    => 'connect',
+				'label' => __( 'Connect', 'stonewright' ),
+				'pages' => [
+					'stonewright' => __( 'Setup', 'stonewright' ),
+				],
+			],
+			[
+				'id'    => 'capabilities',
+				'label' => __( 'Capabilities', 'stonewright' ),
+				'pages' => [
+					'stonewright-abilities' => __( 'AI Abilities', 'stonewright' ),
+				],
+			],
+			[
+				'id'    => 'workflows',
+				'label' => __( 'Workflows', 'stonewright' ),
+				'pages' => [
+					'stonewright-sandbox' => __( 'Sandbox', 'stonewright' ),
+				],
+			],
+			[
+				'id'    => 'design-library',
+				'label' => __( 'Design Library', 'stonewright' ),
+				'pages' => [
+					'stonewright-blueprints' => __( 'Blueprints', 'stonewright' ),
+					'stonewright-prompts'    => __( 'Prompts', 'stonewright' ),
+				],
+			],
+			[
+				'id'    => 'safety-diagnostics',
+				'label' => __( 'Safety & Diagnostics', 'stonewright' ),
+				'pages' => [
+					'stonewright-audit-log' => __( 'Audit Log', 'stonewright' ),
+					'stonewright-memory'    => __( 'Memory', 'stonewright' ),
+					'stonewright-skills'    => __( 'Skills', 'stonewright' ),
+				],
+			],
+		];
+	}
+
+	/**
+	 * Registered Stonewright admin pages (slug => label), IA order.
+	 *
+	 * Single source of truth for shell navigation (flattened from menu_groups).
 	 *
 	 * @return array<string, string>
 	 */
 	public static function pages(): array {
-		return [
-			'stonewright'            => __( 'Setup', 'stonewright' ),
-			'stonewright-abilities'  => __( 'AI Abilities', 'stonewright' ),
-			'stonewright-blueprints' => __( 'Blueprints', 'stonewright' ),
-			'stonewright-sandbox'    => __( 'Sandbox', 'stonewright' ),
-			'stonewright-skills'     => __( 'Skills', 'stonewright' ),
-			'stonewright-memory'     => __( 'Memory', 'stonewright' ),
-			'stonewright-audit-log'  => __( 'Audit Log', 'stonewright' ),
-			'stonewright-status'     => __( 'Dashboard', 'stonewright' ),
-		];
+		$pages = [];
+		foreach ( self::menu_groups() as $group ) {
+			foreach ( $group['pages'] as $slug => $label ) {
+				$pages[ $slug ] = $label;
+			}
+		}
+		return $pages;
 	}
 
 	/**
@@ -59,7 +111,7 @@ final class AdminShell {
 	 * @param array<string, mixed> $args Optional. Supports `title` string for page H1 in content.
 	 */
 	public static function open( string $current_slug, array $args = [] ): void {
-		$pages   = self::pages();
+		$groups  = self::menu_groups();
 		$mode    = (string) get_option( 'stonewright_mode', 'development' );
 		if ( ! in_array( $mode, [ 'development', 'staging', 'production-safe' ], true ) ) {
 			$mode = 'development';
@@ -99,7 +151,7 @@ final class AdminShell {
 							<?php if ( '' !== $logo_2x ) : ?>
 								srcset="<?php echo esc_url( $logo_url ); ?> 1x, <?php echo esc_url( $logo_2x ); ?> 2x"
 							<?php endif; ?>
-							alt="<?php echo esc_attr__( 'Stonewright', 'stonewright' ); ?>"
+							alt="<?php echo esc_attr( __( 'Stonewright', 'stonewright' ) ); ?>"
 							width="28"
 							height="28"
 							decoding="async"
@@ -110,16 +162,29 @@ final class AdminShell {
 					<span class="sw-shell__product"><?php esc_html_e( 'Stonewright', 'stonewright' ); ?></span>
 				</div>
 				<nav class="sw-shell__nav" aria-label="<?php esc_attr_e( 'Stonewright admin', 'stonewright' ); ?>">
-					<?php foreach ( $pages as $slug => $label ) : ?>
+					<?php foreach ( $groups as $group ) : ?>
 						<?php
-						$url     = admin_url( 'admin.php?page=' . rawurlencode( $slug ) );
-						$current = ( $slug === $current_slug );
+						$group_slugs   = array_keys( $group['pages'] );
+						$group_current = in_array( $current_slug, $group_slugs, true );
+						$is_multi      = count( $group['pages'] ) > 1;
 						?>
-						<a
-							class="sw-shell__nav-link<?php echo $current ? ' is-current' : ''; ?>"
-							href="<?php echo esc_url( $url ); ?>"
-							<?php echo $current ? ' aria-current="page"' : ''; ?>
-						><?php echo esc_html( $label ); ?></a>
+						<div
+							class="sw-shell__nav-group<?php echo $group_current ? ' is-current-group' : ''; ?><?php echo $is_multi ? ' sw-shell__nav-group--multi' : ''; ?>"
+							data-sw-nav-group="<?php echo esc_attr( $group['id'] ); ?>"
+						>
+							<span class="sw-shell__nav-group-label" aria-hidden="true"><?php echo esc_html( $group['label'] ); ?></span>
+							<?php foreach ( $group['pages'] as $slug => $label ) : ?>
+								<?php
+								$url     = admin_url( 'admin.php?page=' . rawurlencode( $slug ) );
+								$current = ( $slug === $current_slug );
+								?>
+								<a
+									class="sw-shell__nav-link<?php echo $current ? ' is-current' : ''; ?>"
+									href="<?php echo esc_url( $url ); ?>"
+									<?php echo $current ? ' aria-current="page"' : ''; ?>
+								><?php echo esc_html( $label ); ?></a>
+							<?php endforeach; ?>
+						</div>
 					<?php endforeach; ?>
 				</nav>
 				<div class="sw-shell__meta">

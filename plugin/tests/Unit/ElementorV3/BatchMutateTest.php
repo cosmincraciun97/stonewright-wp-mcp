@@ -127,6 +127,70 @@ final class BatchMutateTest extends TestCase {
 		self::assertArrayHasKey( 'preview', $result );
 	}
 
+	public function test_dry_run_collects_all_schema_failures_without_writing(): void {
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 501,
+				'dry_run'    => true,
+				'operations' => [
+					[ 'action' => 'add_widget', 'parent_id' => 'root', 'widget_type' => 'heading', 'settings' => [ 'made_up_one' => 'x' ] ],
+					[ 'action' => 'add_widget', 'parent_id' => 'root', 'widget_type' => 'heading', 'settings' => [ 'made_up_two' => 'y' ] ],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_batch_operation_failed', $result->get_error_code() );
+		self::assertSame( 2, $result->get_error_data()['failed'] );
+		self::assertCount( 2, $result->get_error_data()['items'] );
+		self::assertCount( 2, $result->get_error_data()['schema_requests'] );
+		self::assertTrue( $result->get_error_data()['write_blocked'] );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+	}
+
+	public function test_write_with_continue_policy_is_still_atomic_on_validation_failure(): void {
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'      => 501,
+				'stop_on_error' => false,
+				'operations'   => [
+					[ 'action' => 'add_container', 'parent_id' => 'root' ],
+					[ 'action' => 'add_widget', 'parent_id' => 'root', 'widget_type' => 'heading', 'settings' => [ 'made_up' => 'x' ] ],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 1, $result->get_error_data()['applied'] );
+		self::assertSame( 1, $result->get_error_data()['failed'] );
+		self::assertTrue( $result->get_error_data()['write_blocked'] );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+	}
+
+	public function test_widget_typography_alias_is_normalized_with_a_compact_warning(): void {
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 501,
+				'dry_run'    => true,
+				'operations' => [
+					[
+						'action'      => 'add_widget',
+						'parent_id'   => 'root',
+						'widget_type' => 'heading',
+						'settings'    => [
+							'title'     => 'Aliased',
+							'font_size' => [ 'size' => 18, 'unit' => 'px' ],
+						],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertArrayHasKey( 'typography_font_size', $result['preview'][0]['elements'][0]['settings'] );
+		self::assertSame( 'font_size', $result['items'][0]['normalization_warnings'][0]['alias'] );
+	}
+
 	public function test_batch_normalizes_aliases_and_preserves_native_flex_settings(): void {
 		self::assertTrue( class_exists( BatchMutate::class ), 'BatchMutate ability must exist.' );
 

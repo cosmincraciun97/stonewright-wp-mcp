@@ -9,9 +9,7 @@ import {
 describe('tool profile resolve + client cap', () => {
 	it('falls back to local lists when plugin resolve is unavailable', async () => {
 		const client = {
-			callTool: vi.fn(async () => {
-				throw new Error('offline');
-			}),
+			callTool: vi.fn(() => Promise.reject(new Error('offline'))),
 		};
 		const result = await resolvePluginProxyToolNames(client, 'essential');
 		expect(result.source).toBe('fallback');
@@ -23,16 +21,18 @@ describe('tool profile resolve + client cap', () => {
 
 	it('uses plugin-ordered tools when resolve succeeds', async () => {
 		const client = {
-			callTool: vi.fn(async () => ({
-				ok: true,
-				ordered: true,
-				source: 'plugin',
-				tools: [
-					'stonewright-task-start',
-					'stonewright-blueprint-apply',
-					'stonewright-elementor-v3-build-page-from-spec',
-				],
-			})),
+			callTool: vi.fn(() =>
+				Promise.resolve({
+					ok: true,
+					ordered: true,
+					source: 'plugin',
+					tools: [
+						'stonewright-task-start',
+						'stonewright-blueprint-apply',
+						'stonewright-elementor-v3-build-page-from-spec',
+					],
+				}),
+			),
 		};
 		const result = await resolvePluginProxyToolNames(client, 'elementor-design');
 		expect(result.source).toBe('plugin');

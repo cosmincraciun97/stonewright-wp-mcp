@@ -54,8 +54,8 @@ describe('direct content tools', () => {
 	});
 
 	it('lists pages compactly on happy path', async () => {
-		const fetchImpl = vi.fn(async () =>
-			new Response(
+		const fetchImpl = vi.fn(() =>
+			Promise.resolve(new Response(
 				JSON.stringify([
 					{
 						id: 3,
@@ -68,7 +68,7 @@ describe('direct content tools', () => {
 					},
 				]),
 				{ status: 200, headers: { 'content-type': 'application/json' } },
-			),
+			)),
 		);
 		const client = new WpRestClient(site, { fetchImpl });
 		const result = await contentList({ client, site, writeMode: 'on' }, { type: 'pages' });
@@ -78,11 +78,11 @@ describe('direct content tools', () => {
 	});
 
 	it('surfaces 401 errors from the REST client', async () => {
-		const fetchImpl = vi.fn(async () =>
-			new Response(JSON.stringify({ code: 'rest_forbidden', message: 'Unauthorized' }), {
+		const fetchImpl = vi.fn(() =>
+			Promise.resolve(new Response(JSON.stringify({ code: 'rest_forbidden', message: 'Unauthorized' }), {
 				status: 401,
 				headers: { 'content-type': 'application/json' },
-			}),
+			})),
 		);
 		const client = new WpRestClient(site, { fetchImpl });
 		await expect(contentGet({ client, site, writeMode: 'on' }, { id: 1 })).rejects.toMatchObject({
@@ -92,7 +92,7 @@ describe('direct content tools', () => {
 
 	it('blocks force delete without confirm in confirm mode', async () => {
 		homeDir();
-		const fetchImpl = vi.fn(async () => new Response('{}', { status: 200 }));
+		const fetchImpl = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })));
 		const client = new WpRestClient(site, { fetchImpl });
 		await expect(
 			contentDelete({ client, site, writeMode: 'confirm' }, { id: 9, force: true }),
@@ -102,11 +102,11 @@ describe('direct content tools', () => {
 
 	it('allows force delete when confirm:true is provided', async () => {
 		homeDir();
-		const fetchImpl = vi.fn(async () =>
-			new Response(JSON.stringify({ deleted: true, previous: { id: 9 } }), {
+		const fetchImpl = vi.fn(() =>
+			Promise.resolve(new Response(JSON.stringify({ deleted: true, previous: { id: 9 } }), {
 				status: 200,
 				headers: { 'content-type': 'application/json' },
-			}),
+			})),
 		);
 		const client = new WpRestClient(site, { fetchImpl });
 		const result = await contentDelete(
@@ -119,8 +119,8 @@ describe('direct content tools', () => {
 
 	it('creates a page and returns compact fields', async () => {
 		homeDir();
-		const fetchImpl = vi.fn(async () =>
-			new Response(
+		const fetchImpl = vi.fn(() =>
+			Promise.resolve(new Response(
 				JSON.stringify({
 					id: 12,
 					title: { raw: 'Hello' },
@@ -131,7 +131,7 @@ describe('direct content tools', () => {
 					type: 'page',
 				}),
 				{ status: 201, headers: { 'content-type': 'application/json' } },
-			),
+			)),
 		);
 		const client = new WpRestClient(site, { fetchImpl });
 		const result = await contentCreate(
@@ -143,10 +143,10 @@ describe('direct content tools', () => {
 
 	it('updates only provided fields', async () => {
 		homeDir();
-		const fetchImpl = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+		const fetchImpl = vi.fn((_url: Parameters<typeof fetch>[0], init?: RequestInit) => {
 			expect(init?.method).toBe('PUT');
 			expect(JSON.parse(String(init?.body))).toEqual({ title: 'Renamed' });
-			return new Response(
+			return Promise.resolve(new Response(
 				JSON.stringify({
 					id: 4,
 					title: { raw: 'Renamed' },
@@ -157,7 +157,7 @@ describe('direct content tools', () => {
 					type: 'page',
 				}),
 				{ status: 200, headers: { 'content-type': 'application/json' } },
-			);
+			));
 		});
 		const client = new WpRestClient(site, { fetchImpl });
 		const result = await contentUpdate(
@@ -172,7 +172,7 @@ describe('direct content tools', () => {
 			...site,
 			disabledTools: ['stonewright-content-delete'],
 		};
-		const fetchImpl = vi.fn(async () => new Response('{}', { status: 200 }));
+		const fetchImpl = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })));
 		const client = new WpRestClient(locked, { fetchImpl });
 		await expect(
 			contentDelete({ client, site: locked, writeMode: 'on' }, { id: 1 }),

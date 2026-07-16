@@ -13,8 +13,11 @@ workflows with operator controls.
 - [Stonewright onboarding](onboarding.md)
 - [Installation for Windows and macOS](installation.md)
 - [AI client install prompts (plugin + Direct)](install-prompts.md)
+- [Documentation maintenance and release freshness](documentation-maintenance.md)
 - [All abilities by category](abilities.md)
 - [Design Spec reference](design-spec.md)
+- [Elementor transactions + connection verify](transactions.md)
+- [Native planner evidence policy](design-evidence-native-planner.md)
 - [Security model](security.md)
 - [Companion](companion.md)
 - [Skill packs](skills.md)
@@ -40,3 +43,5 @@ workflows with operator controls.
 | `companion.md` | Node companion, stdio MCP, optional HTTP bridge, and tokenized WP-CLI |
 | `security.md` and `security-guarantees.md` | Threat model and hardening guarantees |
 | `upstream-code-reuse.md` | Third-party source, licensing, attribution, and import ledger |
+
+- OAuth 2.1 authorization for the HTTP transport — planned, not scheduled.

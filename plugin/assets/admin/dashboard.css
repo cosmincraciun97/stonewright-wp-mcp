@@ -8,7 +8,8 @@
 
 .sw-stat-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+	/* minmax floor must stay below ~280px usable width at 320 viewport. */
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
 	gap: var(--sw-space-4);
 	margin: 0 0 var(--sw-space-6);
 }

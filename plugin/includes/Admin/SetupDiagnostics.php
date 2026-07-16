@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Admin;
 
 use Stonewright\WpMcp\Companion\CompanionContract;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Support\TokenSurfaceBudgets;
 
 /**
  * Produces a compact, side-effect-free setup report for the configuration UI.
@@ -41,7 +42,7 @@ final class SetupDiagnostics {
 			],
 			self::check( 'application_passwords', $app_passwords, __( 'Application Passwords', 'stonewright' ), $app_password_detail ),
 			self::check( 'endpoint', '' !== $endpoint, __( 'MCP endpoint', 'stonewright' ), $endpoint ),
-			self::check( 'tool_budget', $tool_count <= 20, __( 'Compact tool surface', 'stonewright' ), sprintf( __( '%d tools exposed in the current profile.', 'stonewright' ), $tool_count ) ),
+			self::check( 'tool_budget', $tool_count <= TokenSurfaceBudgets::ESSENTIAL_MAX_TOOLS, __( 'Compact tool surface', 'stonewright' ), sprintf( __( '%d tools exposed in the current profile.', 'stonewright' ), $tool_count ) ),
 		];
 
 		return [

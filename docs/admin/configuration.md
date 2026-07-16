@@ -30,12 +30,28 @@ Three modes are stored in the `stonewright_mode` option:
 | `staging` | Same as development; useful for labelling deployments. |
 | `production-safe` | Destructive operations require a `confirmation_token` obtained from `stonewright/security-issue-confirmation-token`. Without the token, those calls are rejected before execution. |
 
-### Essential tools mode
+### MCP tool surface
 
-`stonewright_essential_tools_mode` defaults to enabled. It keeps MCP startup and
-tool discovery compact by exposing the most common Stonewright fast-path tools
-first. Turn it off only for specialist sessions that need the full registered
-ability surface.
+`stonewright_mcp_surface` controls how many abilities appear on the public MCP
+`tools/list` surface:
+
+| Value | Behaviour |
+|---|---|
+| `bootstrap` | Progressive-discovery entry surface (≤ 8 tools, ≤ ~2,500 est. tokens). New installs default here. Call `stonewright-tool-profile` / `stonewright-task-start` to expand. |
+| `essential` | Compact fast path (≤ 30 tools) with batch-first Elementor/Gutenberg/content/WP-CLI tools. |
+| `full` | Entire registered ability catalog. **Slow and high-context** — only for specialist sessions that truly need every ability. |
+
+The legacy `stonewright_essential_tools_mode` flag stays in sync: bootstrap and
+essential map to enabled; full maps to disabled. Existing installs without
+`stonewright_mcp_surface` keep their current essential/full behaviour via that
+legacy flag until an admin saves the Configuration page.
+
+On **Setup → Connect**, the MCP tool surface select includes an **Apply now**
+button that saves the surface without a full form submit. Transport truth:
+
+- **HTTP clients** pick up the new surface on their next `tools/list`.
+- **Stdio companion** sessions refresh automatically on companions that ship
+  `tools/list_changed` re-registration; older companions need a client restart.
 
 Agents should call `stonewright-tool-profile` after bootstrap or preflight when
 the client has a tool cap or the user asks for token-efficient implementation.
@@ -122,7 +138,7 @@ install:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -148,8 +164,9 @@ different top-level key or format, such as Codex `config.toml`, VS Code's
 
 The setup note is a short prompt for the current AI client. It includes the
 site URL, MCP endpoint, username, generated Application Password when present,
-the `npx` transport, and the required first Stonewright calls:
-`stonewright-context-bootstrap` and `stonewright-workflow-preflight`.
+the `npx` transport, and the canonical first Stonewright call:
+`stonewright-task-start`. Replace `VERSION` with the exact release version
+without a leading `v`.
 
 The note also tells agents that `npx` downloads and runs the versioned GitHub
 release tarball, and that Playwright MCP should be added for browser testing,
@@ -161,7 +178,8 @@ After releases or skill syncs, it tells agents to rerun
 `stonewright-setup-profile` and `stonewright-wordpress-mcp-status`, then compare
 `companion_version`, `expected_companion_package`, and
 `refresh_required_tool_names` against the visible tool list.
-It also tells agents to stop if `stonewright-context-bootstrap` is missing,
+It also tells agents to stop if both `stonewright-task-start` and compatibility
+`stonewright-context-bootstrap` are missing,
 rather than inspecting private client config files, creating scratch helper
 scripts, creating helper JSON argument files, launching the companion through
 ad hoc shell scripts, creating action scripts, inspecting plugin/companion
@@ -175,6 +193,34 @@ The **Examples** expander contains copyable real-world Stonewright prompts for
 Elementor page builds, ACF field groups, CPT UI content models, Figma to
 Elementor V3 implementation, WooCommerce catalog cleanup, and Gutenberg/FSE
 updates.
+
+### Setup preflight vs Verify connection
+
+The Setup page exposes two distinct checks:
+
+1. **Run preflight** — local readiness only: abilities enabled, MCP endpoint,
+   Application Passwords, tool surface, Elementor detection. Passing means the
+   site *looks* ready. It does **not** prove live MCP auth or tool calls.
+2. **Verify connection** — plugin-side MCP **loopback self-test**. Mints a
+   short-lived Application Password, then runs `initialize` → `tools/list`
+   (asserts `stonewright-task-start`) → a read-only `stonewright-task-start`
+   call → revokes the test password. Returns structured step results with
+   exact fixes on failure. Never turns green solely because Application
+   Passwords exist.
+
+For the companion stdio path, also run:
+
+```bash
+npx @stonewright/companion doctor
+```
+
+Doctor checks Node version, credentials (env or `~/.stonewright/sites.json`),
+WordPress REST auth, MCP initialize, and prints client-specific tool-cache
+refresh hints. It never prints secrets.
+
+Client definitions live in `plugin/data/clients/*.json` (see
+`docs/verified-client-versions.md`). Prefer user-level private config for
+credentials; never commit Application Passwords to project-tracked files.
 
 ### Browser MCP
 

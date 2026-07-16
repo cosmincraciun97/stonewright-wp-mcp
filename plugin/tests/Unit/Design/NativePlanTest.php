@@ -160,6 +160,105 @@ final class NativePlanTest extends TestCase {
 		self::assertContains( 'invalid_customization_need', array_column( $invalid->get_error_data()['diagnostics'], 'code' ) );
 	}
 
+	public function test_pixel_evidence_fixture_validates_and_plans_all_engines(): void {
+		$path = dirname( __DIR__, 2 ) . '/fixtures/design-evidence/pixel-hero.json';
+		self::assertFileExists( $path );
+		$evidence = json_decode( (string) file_get_contents( $path ), true );
+		self::assertIsArray( $evidence );
+
+		$validated = Validator::validate( $evidence );
+		self::assertIsArray( $validated, $validated instanceof \WP_Error ? $validated->get_error_message() . ' ' . wp_json_encode( $validated->get_error_data() ) : '' );
+		self::assertArrayHasKey( 'measured_targets', $validated['evidence'] );
+		self::assertNotEmpty( $validated['evidence']['measured_targets'] );
+		self::assertArrayHasKey( 'spacing_scale', $validated['evidence']['global'] );
+		self::assertArrayHasKey( 'typography_ramp', $validated['evidence']['global'] );
+		self::assertSame( '#E8A838', $validated['evidence']['global']['colors']['accent'] ?? null );
+
+		foreach ( [ 'elementor', 'gutenberg', 'fse' ] as $engine ) {
+			$plan = NativePlanner::plan( $evidence, $engine );
+			self::assertIsArray( $plan, $engine );
+			self::assertTrue( $plan['ok'], $engine . ' blockers: ' . wp_json_encode( $plan['blockers'] ?? [] ) );
+			self::assertNotEmpty( $plan['native_phase']['operations'] );
+			foreach ( $plan['native_phase']['operations'] as $op ) {
+				self::assertArrayHasKey( 'native_mapping', $op, $engine );
+				self::assertNotNull( $op['native_mapping'], $engine . ' missing mapping for ' . ( $op['node_id'] ?? '' ) );
+			}
+			if ( 'fse' === $engine ) {
+				self::assertSame( 'fse', $plan['engine'] );
+				self::assertSame( 'fse_block', $plan['native_phase']['operations'][0]['native_mapping']['kind'] );
+			}
+			if ( 'elementor' === $engine ) {
+				self::assertSame( 'elementor-v3', $plan['target'] );
+				self::assertSame( 'elementor', $plan['engine'] );
+			}
+		}
+	}
+
+	public function test_implementation_contract_rejects_css_without_native_gap(): void {
+		$spec = [
+			'version'       => '2.0.0',
+			'page'          => [ 'title' => 'X' ],
+			'native_policy' => [ 'strict' => true, 'require_native_gap_for_custom_css' => true ],
+			'sections'      => [
+				[
+					'id'     => 's1',
+					'blocks' => [
+						[
+							'id'         => 'b1',
+							'type'       => 'paragraph',
+							'text'       => 'Hello',
+							'custom_css' => '.x{letter-spacing:0.1em}',
+						],
+					],
+				],
+			],
+		];
+
+		$result = \Stonewright\WpMcp\Abilities\Design\ImplementationContract::validate_build_spec( $spec );
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_spec_invalid', $result->get_error_code() );
+		$codes = array_column( (array) ( $result->get_error_data()['errors'] ?? [] ), 'keyword' );
+		self::assertContains( 'custom_css_without_native_gap', $codes );
+	}
+
+	public function test_implementation_contract_allows_css_with_native_gap(): void {
+		$spec = [
+			'version'       => '2.0.0',
+			'page'          => [ 'title' => 'X' ],
+			'native_policy' => [ 'strict' => true ],
+			'sections'      => [
+				[
+					'id'     => 's1',
+					'blocks' => [
+						[
+							'id'         => 'b1',
+							'type'       => 'paragraph',
+							'text'       => 'Hello',
+							'custom_css' => '.k{letter-spacing:0.08em}',
+							'native_gap' => [
+								'reason' => 'No letter-spacing control on this widget version.',
+							],
+						],
+					],
+				],
+			],
+		];
+
+		$result = \Stonewright\WpMcp\Abilities\Design\ImplementationContract::validate_build_spec( $spec );
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+	}
+
+	public function test_invalid_measured_target_is_rejected(): void {
+		$evidence = self::evidence();
+		$evidence['measured_targets'] = [
+			[ 'viewport_id' => 'not-a-viewport', 'property' => 'gap', 'value_px' => 24 ],
+		];
+		$result = Validator::validate( $evidence );
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertContains( 'measured_target_viewport_unknown', array_column( $result->get_error_data()['diagnostics'], 'code' ) );
+	}
+
 	public function test_dynamic_content_templates_and_forms_need_real_behavior_contracts(): void {
 		$evidence = self::evidence();
 		$evidence['nodes'] = [

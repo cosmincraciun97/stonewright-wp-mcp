@@ -46,7 +46,8 @@ WordPress will not show it again.
 
 ## 3. Configure Claude Code
 
-Register Stonewright:
+Register Stonewright. Replace `VERSION` with the exact release version without
+a leading `v`:
 
 ```bash
 claude mcp add stonewright \
@@ -54,7 +55,7 @@ claude mcp add stonewright \
   --env STONEWRIGHT_WP_USERNAME='your-wp-username' \
   --env STONEWRIGHT_WP_APP_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx' \
   --env STONEWRIGHT_MCP_TOOL_PROFILE=essential \
-  -- npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz stonewright-mcp
+  -- npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-mcp
 ```
 
 Add `--env STONEWRIGHT_WP_ROOT='...'` only when you want WP-CLI helper tools or
@@ -96,16 +97,16 @@ with a heading block saying "It works" and a paragraph block saying
 "Stonewright is connected."
 ```
 
-Claude Code should first call `stonewright-context-bootstrap`, then use the
-returned `stonewright_context_token` for write tools. WordPress ability names in
-docs use slashes, but MCP tool names use hyphens:
+Claude Code should first call `stonewright-task-start`, then use the returned
+`stonewright_context_token` for write tools. WordPress ability names in docs use
+slashes, but MCP tool names use hyphens:
 `stonewright/content-create-page` becomes `stonewright-content-create-page`.
 
 Real Elementor prompt:
 
 ```text
 Use Stonewright to implement the attached Figma design in Elementor V3. Start
-with stonewright-context-bootstrap and stonewright-workflow-preflight, render a
+with stonewright-task-start, render a
 validated design spec with stonewright-elementor-v3-build-page-from-spec, then
 use stonewright-elementor-v3-batch-mutate for screenshot-driven polish. Verify
 desktop, tablet, and mobile with no horizontal overflow.

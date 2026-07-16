@@ -21,10 +21,11 @@ final class BlueprintsPage {
 	}
 
 	public static function add_submenu(): void {
+		// IA group: Design Library — slug stonewright-blueprints unchanged.
 		add_submenu_page(
 			'stonewright',
 			__( 'Blueprints', 'stonewright' ),
-			__( 'Blueprints', 'stonewright' ),
+			__( 'Design Library', 'stonewright' ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]
@@ -57,6 +58,9 @@ final class BlueprintsPage {
 				<div class="sw-section__head">
 					<h2><?php esc_html_e( 'Blueprints', 'stonewright' ); ?></h2>
 					<p class="sw-section__sub"><?php esc_html_e( 'Complete landing structures. Copy the full AI prompt, then replace {business} with the client name.', 'stonewright' ); ?></p>
+					<p class="sw-text-muted">
+						<?php esc_html_e( 'These buttons copy AI prompts for a connected MCP agent. Nothing is written to this site until the agent runs stonewright-blueprint-apply (or related tools).', 'stonewright' ); ?>
+					</p>
 				</div>
 				<?php if ( [] === $blueprints ) : ?>
 					<div class="sw-empty-state">
@@ -82,13 +86,24 @@ final class BlueprintsPage {
 									<code><?php echo esc_html( $id ); ?></code>
 									<span class="sw-blueprint-card__sha">sha <?php echo esc_html( (string) ( $bp['spec_sha8'] ?? '' ) ); ?></span>
 								</p>
-								<button
-									type="button"
-									class="sw-btn sw-btn--ghost sw-btn--sm sw-copy-prompt"
-									data-prompt="<?php echo esc_attr( $prompt ); ?>"
-								>
-									<?php esc_html_e( 'Copy AI Prompt', 'stonewright' ); ?>
-								</button>
+								<div class="sw-blueprint-card__actions">
+									<button
+										type="button"
+										class="sw-btn sw-btn--primary sw-btn--sm sw-copy-prompt"
+										data-prompt="<?php echo esc_attr( self::apply_to_draft_prompt( $bp ) ); ?>"
+										data-sw-tooltip="<?php echo esc_attr( __( 'Copies a ready-made AI prompt that tells your connected agent to apply this blueprint to a new draft. Paste it into your MCP client to run it.', 'stonewright' ) ); ?>"
+									>
+										<?php esc_html_e( 'Apply to draft', 'stonewright' ); ?>
+									</button>
+									<button
+										type="button"
+										class="sw-btn sw-btn--ghost sw-btn--sm sw-copy-prompt"
+										data-prompt="<?php echo esc_attr( $prompt ); ?>"
+										data-sw-tooltip="<?php echo esc_attr( __( 'Copies a customization prompt for this blueprint to your clipboard.', 'stonewright' ) ); ?>"
+									>
+										<?php esc_html_e( 'Copy AI Prompt', 'stonewright' ); ?>
+									</button>
+								</div>
 							</article>
 						<?php endforeach; ?>
 					</div>
@@ -230,6 +245,34 @@ final class BlueprintsPage {
 		);
 
 		return implode( "\n", $lines );
+	}
+
+	/**
+	 * Primary safe CTA: apply the blueprint to a new draft page.
+	 *
+	 * @param array<string, mixed> $bp
+	 */
+	public static function apply_to_draft_prompt( array $bp ): string {
+		$id   = (string) ( $bp['id'] ?? '' );
+		$name = (string) ( $bp['name'] ?? $id );
+		return implode(
+			"\n",
+			[
+				'Apply the Stonewright blueprint "' . $name . '" (id=' . $id . ') to a NEW draft page only.',
+				'',
+				'## Required tool path',
+				'1. Call stonewright-task-start with task="Apply blueprint ' . $id . ' to draft for {business}", intent="write".',
+				'2. If stonewright-blueprint-apply is missing, call stonewright-tool-profile with extras=["stonewright/blueprint-list","stonewright/blueprint-get","stonewright/blueprint-apply"], then tools/list.',
+				'3. Call stonewright/blueprint-get with id="' . $id . '".',
+				'4. Call stonewright/blueprint-apply with id="' . $id . '", engine=auto (or the user-chosen engine), creating a draft page (do not publish).',
+				'5. Report post_id, edit URL, engine_used, and QA score. Keep the page as draft until the user reviews.',
+				'',
+				'## Safety',
+				'- Never publish without an explicit user request.',
+				'- Never use HTML widgets or php-execute for the page body when blueprint-apply is available.',
+				'- Snapshot/backup gates stay on; pass the context token on every write.',
+			]
+		);
 	}
 
 	/**

@@ -11,7 +11,7 @@ flexible content, or content-model migration.
 
 ## First Call
 
-Call MCP tool `stonewright-workflow-preflight` with the user task, surface `wordpress`
+Call MCP tool `stonewright-task-start` with the user task, surface `wordpress`
 or the plugin surface (`acf`, `acpt`, `meta-box`, `ase`, `pods`), and intent.
 Read `fast_path.specializations` before choosing tools.
 
@@ -115,7 +115,7 @@ Useful docs:
 
 ## Controlled Write Pattern
 
-1. Call `stonewright-context-bootstrap`; keep `stonewright_context_token`.
+1. Keep the `stonewright_context_token` returned by `stonewright-task-start`.
 2. Discover plugin, schema, command groups, and value targets.
 3. Create a small write plan with exact target IDs and field names.
 4. For post/page content or meta writes, rely on Stonewright content abilities

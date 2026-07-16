@@ -18,7 +18,7 @@ final class SettingsKeyAliases {
 	 * @var array<string, string>
 	 */
 	private const ALIASES = [
-		// Flex / container (EMCP CONTAINER_KEY_ALIASES lesson).
+		// Flex / container short forms.
 		'justify_content' => 'flex_justify_content',
 		'align_items'     => 'flex_align_items',
 		'align_content'   => 'flex_align_content',
@@ -31,6 +31,10 @@ final class SettingsKeyAliases {
 		'font_family'     => 'typography_font_family',
 		'font_size'       => 'typography_font_size',
 		'font_weight'     => 'typography_font_weight',
+		'line_height'     => 'typography_line_height',
+		'letter_spacing'  => 'typography_letter_spacing',
+		'text_transform'  => 'typography_text_transform',
+		'text_decoration' => 'typography_text_decoration',
 		// Background short forms.
 		'bg_color'        => 'background_color',
 		'background'      => 'background_color',

@@ -3,9 +3,12 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Blueprints;
 
+use Stonewright\WpMcp\DesignSpec\Migrator;
 use Stonewright\WpMcp\DesignSpec\Validator;
 use Stonewright\WpMcp\DesignTokens\BrandKit;
 use Stonewright\WpMcp\Elementor\ElementorWriter;
+use Stonewright\WpMcp\Gutenberg\EditorSnapshot;
+use Stonewright\WpMcp\Gutenberg\FseTransactionQueue;
 use Stonewright\WpMcp\Renderers\GutenbergSpecRenderer;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Support\BlockSerializer;
@@ -14,7 +17,7 @@ use Stonewright\WpMcp\Support\BlockSerializer;
  * Applies a bundled blueprint DesignSpec to a new or existing WordPress page.
  *
  * Pipeline: load → optional brand kit / palette merge → Validator → create/update
- * page → Backup (when mutating an existing post) → render via Gutenberg or Elementor.
+ * page → Backup (when mutating an existing post) → render via Gutenberg, Elementor, or FSE.
  */
 final class BlueprintApplier {
 
@@ -25,7 +28,7 @@ final class BlueprintApplier {
 	 *     @type string               $mode         draft|publish. Default draft.
 	 *     @type array<string,string> $palette_override Optional color map merged into tokens.colors.
 	 *     @type string               $brand_kit    Optional brand kit id.
-	 *     @type string               $engine       auto|gutenberg|elementor. Default auto.
+	 *     @type string               $engine       auto|gutenberg|elementor|fse. Default auto.
 	 *     @type int                  $post_id      Optional existing page id.
 	 * }
 	 * @return array<string, mixed>|\WP_Error
@@ -77,6 +80,14 @@ final class BlueprintApplier {
 		$spec['page'] = isset( $spec['page'] ) && is_array( $spec['page'] ) ? $spec['page'] : [];
 		$spec['page']['title'] = $page_title;
 
+		// Promote v1 specs so content_facts / native_policy become real constraints.
+		if ( class_exists( Migrator::class ) && method_exists( Migrator::class, 'v1_to_v2' ) ) {
+			$version = (string) ( $spec['version'] ?? '1.0.0' );
+			if ( ! str_starts_with( $version, '2.' ) ) {
+				$spec = Migrator::v1_to_v2( $spec );
+			}
+		}
+
 		$validated = Validator::validate( $spec );
 		if ( is_wp_error( $validated ) ) {
 			return $validated;
@@ -89,7 +100,7 @@ final class BlueprintApplier {
 		}
 
 		$engine_requested = isset( $args['engine'] ) ? (string) $args['engine'] : 'auto';
-		if ( ! in_array( $engine_requested, [ 'auto', 'gutenberg', 'elementor' ], true ) ) {
+		if ( ! in_array( $engine_requested, [ 'auto', 'gutenberg', 'elementor', 'fse' ], true ) ) {
 			$engine_requested = 'auto';
 		}
 		$engine = $engine_requested;
@@ -106,10 +117,23 @@ final class BlueprintApplier {
 				]
 			);
 		}
+		if ( 'fse' === $engine ) {
+			if ( ! function_exists( 'parse_blocks' ) && ! class_exists( BlockSerializer::class ) ) {
+				return new \WP_Error(
+					'stonewright_engine_unavailable',
+					__( 'FSE/block editor APIs are not available on this site.', 'stonewright' ),
+					[
+						'status'           => 400,
+						'engine_requested' => 'fse',
+					]
+				);
+			}
+		}
 
 		$post_id     = isset( $args['post_id'] ) ? (int) $args['post_id'] : 0;
 		$snapshot_id = '';
 		$created     = false;
+		$fse_meta    = [];
 
 		if ( $post_id > 0 ) {
 			$existing = get_post( $post_id );
@@ -119,12 +143,15 @@ final class BlueprintApplier {
 					__( 'Target post was not found.', 'stonewright' )
 				);
 			}
-			$snapshot_id = Backup::snapshot_post( $post_id );
-			if ( '' === $snapshot_id ) {
-				return new \WP_Error(
-					'stonewright_backup_failed',
-					sprintf( 'Backup::snapshot_post failed for post %d. Write aborted.', $post_id )
-				);
+			// Pre-create snapshot for non-FSE paths; FSE path uses FseTransactionQueue.
+			if ( 'fse' !== $engine ) {
+				$snapshot_id = Backup::snapshot_post( $post_id );
+				if ( '' === $snapshot_id ) {
+					return new \WP_Error(
+						'stonewright_backup_failed',
+						sprintf( 'Backup::snapshot_post failed for post %d. Write aborted.', $post_id )
+					);
+				}
 			}
 			wp_update_post(
 				[
@@ -135,9 +162,10 @@ final class BlueprintApplier {
 				true
 			);
 		} else {
-			$insert = wp_insert_post(
+			$post_type = 'fse' === $engine ? 'page' : 'page';
+			$insert    = wp_insert_post(
 				[
-					'post_type'    => 'page',
+					'post_type'    => $post_type,
 					'post_title'   => $page_title,
 					'post_status'  => $mode,
 					'post_content' => '',
@@ -149,24 +177,34 @@ final class BlueprintApplier {
 			}
 			$post_id = (int) $insert;
 			$created = true;
-			// Snapshot the empty page so restore remains available after the write.
-			$snapshot_id = Backup::snapshot_post( $post_id );
+			if ( 'fse' !== $engine ) {
+				// Snapshot the empty page so restore remains available after the write.
+				$snapshot_id = Backup::snapshot_post( $post_id );
+			}
 		}
 
 		$diagnostics = [];
 		if ( 'elementor' === $engine ) {
-			$write = ElementorWriter::write( $post_id, $spec, $diagnostics );
+			$write = ElementorWriter::write_transactional( $post_id, $spec, $diagnostics, true );
 			if ( is_wp_error( $write ) ) {
 				return $write;
 			}
+			if ( is_array( $write ) && ! empty( $write['snapshot_id'] ) ) {
+				$snapshot_id = (string) $write['snapshot_id'];
+			}
+		} elseif ( 'fse' === $engine ) {
+			$fse_result = self::apply_fse( $post_id, $spec, $page_title, $mode, $diagnostics );
+			if ( is_wp_error( $fse_result ) ) {
+				return $fse_result;
+			}
+			$snapshot_id = (string) ( $fse_result['snapshot_id'] ?? '' );
+			$fse_meta    = $fse_result;
 		} else {
 			$blocks = GutenbergSpecRenderer::render( $spec, $diagnostics );
 			if ( is_wp_error( $blocks ) ) {
 				return $blocks;
 			}
 			$content = BlockSerializer::serialize( $blocks );
-			// ElementorWriter already snapshots; for Gutenberg on existing posts we already did.
-			// On newly created pages the empty snapshot is already taken above.
 			if ( ! $created && '' === $snapshot_id ) {
 				$snapshot_id = Backup::snapshot_post( $post_id );
 			}
@@ -191,7 +229,7 @@ final class BlueprintApplier {
 
 		$spec_json = (string) wp_json_encode( $spec, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
 
-		return [
+		$out = [
 			'ok'               => true,
 			'page_id'          => $post_id,
 			'post_id'          => $post_id,
@@ -208,6 +246,206 @@ final class BlueprintApplier {
 			'diagnostics'      => $diagnostics,
 			'qa'               => \Stonewright\WpMcp\DesignSpec\QaReport::for_spec( $spec ),
 		];
+
+		if ( [] !== $fse_meta ) {
+			$out['fse'] = [
+				'editor_snapshot' => $fse_meta['editor_snapshot'] ?? null,
+				'transaction'     => $fse_meta['transaction'] ?? null,
+				'template_id'     => $fse_meta['template_id'] ?? 0,
+			];
+		}
+
+		return $out;
+	}
+
+	/**
+	 * FSE engine: constrained block markup + EditorSnapshot + FseTransactionQueue write.
+	 *
+	 * Writes the page content and, when possible, a companion wp_template post so the
+	 * site can adopt the layout in a block theme. Never silently remaps to "gutenberg".
+	 *
+	 * @param array<string, mixed>             $spec
+	 * @param array<int, array<string, mixed>> $diagnostics
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private static function apply_fse( int $post_id, array $spec, string $page_title, string $mode, array &$diagnostics ) {
+		$editor_snapshot = EditorSnapshot::capture();
+
+		$blocks = GutenbergSpecRenderer::render( $spec, $diagnostics );
+		if ( is_wp_error( $blocks ) ) {
+			return $blocks;
+		}
+
+		// Wrap in a constrained layout group for FSE / block-theme content width.
+		$wrapped = [
+			[
+				'blockName'    => 'core/group',
+				'attrs'        => [
+					'layout'      => [
+						'type'           => 'constrained',
+						'contentSize'    => '720px',
+						'wideSize'       => '1100px',
+						'justifyContent' => 'center',
+					],
+					'className'   => 'stonewright-fse-root',
+					'metadata'    => [
+						'name' => 'Stonewright FSE blueprint',
+					],
+					'align'       => 'full',
+				],
+				'innerBlocks'  => $blocks,
+				'innerHTML'    => '',
+				'innerContent' => array_fill( 0, max( 1, count( $blocks ) ), null ),
+			],
+		];
+		// Ensure innerContent has correct placeholders for serializer.
+		$wrapped[0]['innerContent'] = [];
+		foreach ( $blocks as $_ ) {
+			$wrapped[0]['innerContent'][] = null;
+		}
+
+		$content = BlockSerializer::serialize( $wrapped );
+		if ( '' === trim( $content ) ) {
+			return new \WP_Error(
+				'stonewright_fse_render_empty',
+				__( 'FSE renderer produced empty block markup.', 'stonewright' ),
+				[ 'status' => 500 ]
+			);
+		}
+
+		$template_id = self::ensure_fse_template_post( $page_title, $content );
+
+		$queue = ( new FseTransactionQueue() )
+			->stop_on_error( true )
+			->rollback_on_error( true )
+			->enqueue(
+				[
+					'type'    => 'post',
+					'post_id' => $post_id,
+					'content' => $content,
+					'label'   => 'blueprint-page',
+				]
+			);
+
+		if ( $template_id > 0 ) {
+			$queue->enqueue(
+				[
+					'type'    => 'template',
+					'post_id' => $template_id,
+					'content' => $content,
+					'label'   => 'blueprint-template',
+				]
+			);
+		}
+
+		$txn = $queue->apply();
+		if ( is_wp_error( $txn ) ) {
+			return $txn;
+		}
+
+		// Keep page title/status in sync after content write.
+		wp_update_post(
+			[
+				'ID'          => $post_id,
+				'post_title'  => $page_title,
+				'post_status' => $mode,
+			],
+			true
+		);
+
+		$snapshots   = is_array( $txn['snapshots'] ?? null ) ? $txn['snapshots'] : [];
+		$snapshot_id = '';
+		if ( isset( $snapshots[0]['snapshot_id'] ) ) {
+			$snapshot_id = (string) $snapshots[0]['snapshot_id'];
+		}
+
+		return [
+			'snapshot_id'     => $snapshot_id,
+			'editor_snapshot' => [
+				'ok'          => (bool) ( $editor_snapshot['ok'] ?? false ),
+				'theme_type'  => (string) ( $editor_snapshot['theme']['type'] ?? '' ),
+				'block_theme' => (bool) ( $editor_snapshot['capabilities']['block_theme'] ?? false ),
+			],
+			'transaction'     => [
+				'phase'         => (string) ( $txn['phase'] ?? 'applied' ),
+				'target_count'  => count( $queue->targets() ),
+				'written'       => $txn['written'] ?? [],
+				'snapshot_ids'  => array_column( $snapshots, 'snapshot_id' ),
+			],
+			'template_id'     => $template_id,
+		];
+	}
+
+	/**
+	 * Create or reuse a custom wp_template post for the blueprint (best-effort).
+	 */
+	private static function ensure_fse_template_post( string $title, string $content ): int {
+		$slug  = sanitize_title( $title );
+		$slug  = '' !== $slug ? 'stonewright-blueprint-' . $slug : 'stonewright-blueprint';
+		$theme = function_exists( 'get_stylesheet' ) ? sanitize_key( (string) get_stylesheet() ) : 'stonewright';
+		if ( '' === $theme ) {
+			$theme = 'stonewright';
+		}
+
+		$existing = get_posts(
+			[
+				'post_type'      => 'wp_template',
+				'name'           => $theme . '//' . $slug,
+				'posts_per_page' => 1,
+				'post_status'    => [ 'publish', 'draft', 'auto-draft' ],
+			]
+		);
+		$found = self::first_post_id( is_array( $existing ) ? $existing : [] );
+		if ( $found > 0 ) {
+			return $found;
+		}
+
+		// Also match by post_name slug alone in unit bootstrap.
+		$by_slug = get_posts(
+			[
+				'post_type'      => 'wp_template',
+				'name'           => $slug,
+				'posts_per_page' => 1,
+				'post_status'    => [ 'publish', 'draft', 'auto-draft' ],
+			]
+		);
+		$found = self::first_post_id( is_array( $by_slug ) ? $by_slug : [] );
+		if ( $found > 0 ) {
+			return $found;
+		}
+
+		$insert = wp_insert_post(
+			[
+				'post_type'    => 'wp_template',
+				'post_name'    => $theme . '//' . $slug,
+				'post_title'   => $title,
+				'post_content' => $content,
+				'post_status'  => 'publish',
+				'post_excerpt' => 'Stonewright blueprint FSE template',
+			],
+			true
+		);
+		if ( is_wp_error( $insert ) ) {
+			return 0;
+		}
+		$template_id = (int) $insert;
+		if ( $template_id > 0 ) {
+			update_post_meta( $template_id, 'theme', $theme );
+			update_post_meta( $template_id, '_stonewright_blueprint_template', '1' );
+		}
+		return $template_id;
+	}
+
+	/**
+	 * @param list<mixed> $posts
+	 */
+	private static function first_post_id( array $posts ): int {
+		if ( ! isset( $posts[0] ) || ! is_object( $posts[0] ) ) {
+			return 0;
+		}
+		/** @var object{ID?: int|string} $post */
+		$post = $posts[0];
+		return isset( $post->ID ) ? (int) $post->ID : 0;
 	}
 
 	/**

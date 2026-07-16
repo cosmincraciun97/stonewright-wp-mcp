@@ -14,6 +14,8 @@ final class TokenSurfaceBudgetsTest extends TestCase {
 	public function test_passing_metrics_all_true(): void {
 		$budgets = TokenSurfaceBudgets::evaluate(
 			[
+				'bootstrap_tool_count'         => 8,
+				'bootstrap_token_estimate'     => 2000,
 				'essential_tool_count'         => 20,
 				'default_tool_count'           => 20,
 				'strict_tool_count'            => 12,
@@ -23,6 +25,8 @@ final class TokenSurfaceBudgetsTest extends TestCase {
 		);
 
 		self::assertTrue( TokenSurfaceBudgets::all_pass( $budgets ) );
+		self::assertTrue( $budgets['bootstrap_max_8_tools'] );
+		self::assertTrue( $budgets['bootstrap_max_2500_tokens'] );
 		self::assertTrue( $budgets['essential_max_30_tools'] );
 		self::assertTrue( $budgets['default_max_20_tools'] );
 		self::assertTrue( $budgets['strict_max_12_tools'] );
@@ -34,6 +38,8 @@ final class TokenSurfaceBudgetsTest extends TestCase {
 		$budgets = TokenSurfaceBudgets::evaluate( TokenSurfaceBudgets::over_budget_fixture_metrics() );
 
 		self::assertFalse( TokenSurfaceBudgets::all_pass( $budgets ) );
+		self::assertFalse( $budgets['bootstrap_max_8_tools'] );
+		self::assertFalse( $budgets['bootstrap_max_2500_tokens'] );
 		self::assertFalse( $budgets['essential_max_30_tools'] );
 		self::assertFalse( $budgets['default_max_20_tools'] );
 		self::assertFalse( $budgets['strict_max_12_tools'] );

@@ -55,6 +55,8 @@
 		"elementor:schema-diff": "php bin/elementor-schema-diff.php",
         "tokens:measure": "php bin/measure-token-surface.php",
         "tokens:measure:fixture-over-budget": "php bin/measure-token-surface.php --fixture=over-budget",
+        "contracts:generate": "php bin/generate-contracts.php",
+        "contracts:compat": "phpunit --filter PublicApiContractTest",
         "provenance:lint": "php bin/lint-upstream-provenance.php",
         "dependencies:audit": "composer audit --abandoned=report",
         "security:audit": "php bin/security-audit.php"

@@ -1,0 +1,23 @@
+{
+  "name": "@stonewright/e2e-admin-ui",
+  "private": true,
+  "version": "1.0.0-alpha.72",
+  "description": "Playwright admin-ui e2e gate for Stonewright wp-admin surfaces",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report",
+    "wp-env": "wp-env",
+    "wp-env:start": "wp-env start",
+    "wp-env:stop": "wp-env stop",
+    "wp-env:destroy": "wp-env destroy"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "@wordpress/env": "^10.20.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

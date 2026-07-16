@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import './helpers/task-start.js';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { rmSync } from 'node:fs';
 import { WpRestClient } from '../src/direct/wp-rest-client.js';
 import type { ResolvedSite } from '../src/direct/sites-config.js';
 import { DIRECT_TOOL_NAMES, DIRECT_WAVE3_TOOL_NAMES, registerDirectTools } from '../src/direct/registry.js';
@@ -56,13 +54,13 @@ describe('direct wave 3 tools', () => {
 	});
 
 	it('comment-list hits /wp/v2/comments with compact fields', async () => {
-		const fetchImpl = vi.fn(async () =>
-			new Response(
+		const fetchImpl = vi.fn(() =>
+			Promise.resolve(new Response(
 				JSON.stringify([
 					{ id: 5, post: 10, status: 'hold', author_name: 'A', content: { rendered: 'hi' }, date: '2026-01-01' },
 				]),
 				{ status: 200, headers: { 'content-type': 'application/json' } },
-			),
+			)),
 		);
 		const client = new WpRestClient(site, { fetchImpl });
 		const result = await commentList({ client, site, writeMode: 'confirm' }, {});
@@ -71,7 +69,7 @@ describe('direct wave 3 tools', () => {
 	});
 
 	it('comment-update moderates via status and requires confirm on remote', async () => {
-		const fetchImpl = vi.fn(async () => new Response('{}', { status: 200 }));
+		const fetchImpl = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })));
 		const client = new WpRestClient(site, { fetchImpl });
 		await expect(
 			commentUpdate({ client, site, writeMode: 'confirm' }, { id: 5, status: 'approved' }),
@@ -80,7 +78,7 @@ describe('direct wave 3 tools', () => {
 	});
 
 	it('comment-delete requires confirm', async () => {
-		const fetchImpl = vi.fn(async () => new Response('{}', { status: 200 }));
+		const fetchImpl = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })));
 		const client = new WpRestClient(site, { fetchImpl });
 		await expect(
 			commentDelete({ client, site, writeMode: 'confirm' }, { id: 5, force: true }),
@@ -88,7 +86,7 @@ describe('direct wave 3 tools', () => {
 	});
 
 	it('userDelete requires confirm even when writeMode is on', async () => {
-		const fetchImpl = vi.fn(async () => new Response('{}', { status: 200 }));
+		const fetchImpl = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })));
 		const client = new WpRestClient(site, { fetchImpl });
 		await expect(
 			userDelete({ client, site, writeMode: 'on' }, { id: 2, reassign: 1 }),
@@ -96,11 +94,11 @@ describe('direct wave 3 tools', () => {
 	});
 
 	it('userCreate posts to /wp/v2/users', async () => {
-		const fetchImpl = vi.fn(async () =>
-			new Response(JSON.stringify({ id: 9, username: 'n', email: 'n@example.com', name: 'N', roles: ['author'] }), {
+		const fetchImpl = vi.fn(() =>
+			Promise.resolve(new Response(JSON.stringify({ id: 9, username: 'n', email: 'n@example.com', name: 'N', roles: ['author'] }), {
 				status: 201,
 				headers: { 'content-type': 'application/json' },
-			}),
+			})),
 		);
 		const client = new WpRestClient(site, { fetchImpl });
 		await userCreate(
@@ -111,11 +109,11 @@ describe('direct wave 3 tools', () => {
 	});
 
 	it('appPasswordList omits password hashes', async () => {
-		const fetchImpl = vi.fn(async () =>
-			new Response(
+		const fetchImpl = vi.fn(() =>
+			Promise.resolve(new Response(
 				JSON.stringify([{ uuid: 'u1', name: 'cli', created: '2026-01-01', last_used: null, password: 'secret' }]),
 				{ status: 200, headers: { 'content-type': 'application/json' } },
-			),
+			)),
 		);
 		const client = new WpRestClient(site, { fetchImpl });
 		const result = await appPasswordList({ client, site, writeMode: 'on' }, { user_id: 1 });
@@ -124,21 +122,21 @@ describe('direct wave 3 tools', () => {
 	});
 
 	it('health-check captures per-test failures without rejecting', async () => {
-		const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+		const fetchImpl = vi.fn((input: Parameters<typeof fetch>[0]) => {
 			const url = String(input);
 			if (url.includes('authorization-header')) {
-				return new Response(JSON.stringify({ code: 'rest_forbidden' }), { status: 403 });
+				return Promise.resolve(new Response(JSON.stringify({ code: 'rest_forbidden' }), { status: 403 }));
 			}
 			if (url.includes('directory-sizes')) {
-				return new Response(JSON.stringify({ wordpress_size: 1 }), {
+				return Promise.resolve(new Response(JSON.stringify({ wordpress_size: 1 }), {
 					status: 200,
 					headers: { 'content-type': 'application/json' },
-				});
+				}));
 			}
-			return new Response(JSON.stringify({ status: 'good' }), {
+			return Promise.resolve(new Response(JSON.stringify({ status: 'good' }), {
 				status: 200,
 				headers: { 'content-type': 'application/json' },
-			});
+			}));
 		});
 		const client = new WpRestClient(site, { fetchImpl });
 		const result = await healthCheck({ client, site, writeMode: 'on' });
@@ -165,7 +163,7 @@ describe('direct wave 3 tools', () => {
 	});
 
 	it('media-delete requires confirm on remote', async () => {
-		const fetchImpl = vi.fn(async () => new Response('{}', { status: 200 }));
+		const fetchImpl = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })));
 		const client = new WpRestClient(site, { fetchImpl });
 		await expect(
 			mediaDelete({ client, site, writeMode: 'confirm' }, { id: 3, force: true }),

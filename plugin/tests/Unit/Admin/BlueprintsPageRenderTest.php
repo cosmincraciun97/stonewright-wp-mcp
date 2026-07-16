@@ -32,7 +32,11 @@ final class BlueprintsPageRenderTest extends TestCase {
 
 		$this->assertStringContainsString( 'sw-blueprint-card', $html );
 		$this->assertStringContainsString( 'sw-blueprint-grid', $html );
+		$this->assertStringContainsString( 'sw-blueprint-card__actions', $html );
 		$this->assertStringContainsString( 'Copy AI Prompt', $html );
+		$css = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/blueprints.css' );
+		$this->assertStringContainsString( '.sw-blueprint-card__actions', $css );
+		$this->assertStringContainsString( 'gap:', $css );
 		// Full multi-line prompt, not the old one-liner only.
 		$this->assertStringContainsString( 'stonewright/blueprint-apply', $html );
 		$this->assertStringContainsString( 'stonewright-task-start', $html );

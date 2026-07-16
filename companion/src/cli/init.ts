@@ -14,16 +14,26 @@ async function ask(rl: ReturnType<typeof createInterface>, q: string): Promise<s
 	return a.trim();
 }
 
+/** console.log-compatible CLI output (always terminates with a newline). */
+function writeOut(msg: string): void {
+	process.stdout.write(`${msg}\n`);
+}
+
+/** console.error-compatible CLI output on stderr. */
+function writeErr(msg: string): void {
+	process.stderr.write(`${msg}\n`);
+}
+
 export async function runInit(): Promise<number> {
 	const rl = createInterface({ input, output });
 	try {
-		console.log(`Stonewright companion ${APP_VERSION} — Direct mode setup\n`);
+		writeOut(`Stonewright companion ${APP_VERSION} — Direct mode setup\n`);
 		const url = await ask(rl, 'WordPress site URL (http(s)://…): ');
 		const username = await ask(rl, 'Username: ');
 		const password = await ask(rl, 'Application Password: ');
 
 		if (!url || !username || !password) {
-			console.error('URL, username, and Application Password are required.');
+			writeErr('URL, username, and Application Password are required.');
 			return 1;
 		}
 
@@ -34,11 +44,11 @@ export async function runInit(): Promise<number> {
 			headers: { Authorization: `Basic ${auth}`, Accept: 'application/json' },
 		});
 		if (!res.ok) {
-			console.error(`Auth failed: HTTP ${res.status}. Check URL, user, App Password, and WP_ENVIRONMENT_TYPE=local on HTTP.`);
+			writeErr(`Auth failed: HTTP ${res.status}. Check URL, user, App Password, and WP_ENVIRONMENT_TYPE=local on HTTP.`);
 			return 1;
 		}
 		const me = (await res.json()) as { name?: string; slug?: string };
-		console.log(`Authenticated as ${me.name ?? me.slug ?? username}.\n`);
+		writeOut(`Authenticated as ${me.name ?? me.slug ?? username}.\n`);
 
 		const dir = join(homedir(), '.stonewright');
 		mkdirSync(dir, { recursive: true });
@@ -59,7 +69,7 @@ export async function runInit(): Promise<number> {
 			applicationPassword: password,
 		};
 		writeFileSync(sitesPath, JSON.stringify(sites, null, 2) + '\n', { mode: 0o600 });
-		console.log(`Wrote ${sitesPath}\n`);
+		writeOut(`Wrote ${sitesPath}\n`);
 
 		const pkg = `https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v${APP_VERSION}/stonewright-companion-${APP_VERSION}.tgz`;
 		const config = {
@@ -78,9 +88,9 @@ export async function runInit(): Promise<number> {
 			},
 		};
 
-		console.log('Paste this into your MCP client config:\n');
-		console.log(JSON.stringify(config, null, 2));
-		console.log('\nThen restart the client and try: list my pages / stonewright-site-discover');
+		writeOut('Paste this into your MCP client config:\n');
+		writeOut(JSON.stringify(config, null, 2));
+		writeOut('\nThen restart the client and try: list my pages / stonewright-site-discover');
 		return 0;
 	} finally {
 		rl.close();

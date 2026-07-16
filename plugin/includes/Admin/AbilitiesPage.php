@@ -22,10 +22,11 @@ final class AbilitiesPage {
 	}
 
 	public static function add_submenu(): void {
+		// IA group: Capabilities — slug stonewright-abilities unchanged.
 		add_submenu_page(
 			'stonewright',
 			__( 'AI Abilities', 'stonewright' ),
-			__( 'AI Abilities', 'stonewright' ),
+			__( 'Capabilities', 'stonewright' ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]
