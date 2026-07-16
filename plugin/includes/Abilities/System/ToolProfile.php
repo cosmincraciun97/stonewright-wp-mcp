@@ -31,9 +31,24 @@ final class ToolProfile extends AbilityKernel {
 		}
 
 		if ( self::has_any_term( $query, [
-			'acf', 'acpt', 'cpt ui', 'custom field', 'custom post type', 'field group',
-			'meta box', 'metabox', 'pods', 'woocommerce', 'sales report', 'product catalog',
-			'seo', 'sitemap', 'meta description', 'focus keyword', 'rank math', 'yoast',
+			'acf',
+			'acpt',
+			'cpt ui',
+			'custom field',
+			'custom post type',
+			'field group',
+			'meta box',
+			'metabox',
+			'pods',
+			'woocommerce',
+			'sales report',
+			'product catalog',
+			'seo',
+			'sitemap',
+			'meta description',
+			'focus keyword',
+			'rank math',
+			'yoast',
 		] ) ) {
 			return 'content-model';
 		}
@@ -47,11 +62,34 @@ final class ToolProfile extends AbilityKernel {
 		}
 
 		if ( self::has_any_term( $query, [
-			'admin', 'app password', 'application password', 'comment', 'comments',
-			'custom css', 'health', 'menu', 'moderate', 'moderation', 'plugin list',
-			'revision', 'revisions', 'settings', 'sidebar', 'site info', 'spam',
-			'active theme', 'switch theme', 'user', 'users', 'user account', 'user role',
-			'widget', 'widgets', 'new user', 'delete user', 'site health',
+			'admin',
+			'app password',
+			'application password',
+			'comment',
+			'comments',
+			'custom css',
+			'health',
+			'menu',
+			'moderate',
+			'moderation',
+			'plugin list',
+			'revision',
+			'revisions',
+			'settings',
+			'sidebar',
+			'site info',
+			'spam',
+			'active theme',
+			'switch theme',
+			'user',
+			'users',
+			'user account',
+			'user role',
+			'widget',
+			'widgets',
+			'new user',
+			'delete user',
+			'site health',
 		] ) ) {
 			return 'site-admin';
 		}
@@ -559,15 +597,24 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/site-capabilities',
 				'stonewright/site-plugins-list',
 				'stonewright/system-abilities-list',
-				'stonewright/wc-product-list',
-				'stonewright/wc-order-list',
-				'stonewright/wc-sales-report',
+				// Keep WP-CLI near the front so compact max_tools caps still retain it.
 				'stonewright/wp-cli-status',
 				'stonewright/wp-cli-discover',
 				'stonewright/wp-cli-batch-run',
 				'stonewright/wp-cli-run',
 				'stonewright/wp-cli-job-start',
 				'stonewright/wp-cli-job-status',
+				'stonewright/wc-product-list',
+				'stonewright/wc-order-list',
+				'stonewright/wc-sales-report',
+				'stonewright/acf-field-group-list',
+				'stonewright/acf-field-group-get',
+				'stonewright/acf-field-group-save',
+				'stonewright/acf-values-get',
+				'stonewright/acf-value-update',
+				'stonewright/cpt-register',
+				'stonewright/cpt-list',
+				'stonewright/taxonomy-register',
 			],
 			'gutenberg' => [
 				'stonewright/gutenberg-apply-to-post',
@@ -639,6 +686,7 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/site-health-test',
 				'stonewright/search-query',
 				'stonewright/oembed-resolve',
+				'stonewright/seo-status',
 			],
 			// essential and unknown aliases: compact public surface from AbilityRegistry.
 			default => ( static function () use ( $startup, $blueprints ): array {

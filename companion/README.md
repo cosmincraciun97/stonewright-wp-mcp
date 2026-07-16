@@ -322,4 +322,17 @@ npm run build
 
 ## Direct mode tool surface
 
-Wave 1–3 tools cover core content, menus, FSE, settings, plugins/themes, comments, users/application passwords, widgets, site health, oEmbed utilities, WooCommerce read, and a guarded `stonewright-rest-request` passthrough. Full names: see `DIRECT_TOOL_NAMES` in `src/direct/registry.ts`.
+**93** Direct tools (`DIRECT_TOOL_NAMES` in `src/direct/registry.ts`):
+
+- Waves 1–3: content, menus, FSE, settings, plugins/themes, comments, users/application passwords, widgets, site health, oEmbed utilities, WooCommerce read, read-only `stonewright-rest-request`
+- Wave 4 self-improvement: `stonewright-skill-list|get|save|delete`, `stonewright-memory-list`, `stonewright-learning-record`, `stonewright-task-start` (works with zero WordPress credentials; storage under `~/.stonewright/`)
+- Wave 4 ACF/SEO: `stonewright-acf-fields-get|update`, `stonewright-seo-head-get`
+
+### Self-improvement (pluginless)
+
+| Path | Purpose |
+|---|---|
+| `~/.stonewright/skills/<scope>/<slug>.md` | Local skill playbooks (markdown + frontmatter) |
+| `~/.stonewright/memory/<scope>.jsonl` | Local memory entries |
+
+Set `STONEWRIGHT_STATE_DIR` in tests to override the base directory. Skills load on demand via `skill-get`; `task-start` only returns matched refs.

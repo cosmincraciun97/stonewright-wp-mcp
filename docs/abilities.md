@@ -1,6 +1,6 @@
 # Abilities Reference
 
-> Category counts are generated from `docs/ability-truth-matrix.md` (297 abilities after REST parity wave 3). New categories: Comments, Users, Widgets, Settings, Themes, Plugins manage, Revisions, Search, WooCommerce read.
+> Category counts are generated from `docs/ability-truth-matrix.md` (**308** abilities after wave 4: REST parity + ACF + SEO + CPT registration). Categories include Comments, Users, Widgets, Settings, Themes, Plugins manage, Revisions, Search, WooCommerce, ACF, SEO, Content Model.
 Stonewright registers WordPress abilities under the `stonewright/` prefix. MCP
 clients call the same names with slashes converted to hyphens: ability
 `stonewright/task-start` is MCP tool `stonewright-task-start`.
@@ -15,7 +15,9 @@ matrix after changing the registry.
 | Security | 2 | Confirmation tokens and one-time links. |
 | Site | 11 | WordPress diagnostics, active theme, plugin list, shortcodes, revisions, front page settings. |
 | Content | 8 | Create, update, duplicate, bulk upsert, and read posts/pages. |
-| Content Model | 1 | CPT/ACF-backed Elementor Loop Grid composite workflow. |
+| Content Model | 4 | CPT/ACF Loop Grid flow, CPT register/list, taxonomy register. |
+| ACF | 5 | Field groups list/get/save and post field values get/update. |
+| SEO | 3 | Multi-plugin SEO status and meta get/update (Yoast, Rank Math, AIOSEO, SEOPress). |
 | Media | 6 | Upload, batch upload, inspect, optimize, list, and annotate media. |
 | Gutenberg | 10 | Parse, render, serialize, insert, update, remove, and apply blocks. |
 | Patterns | 2 | List and create block patterns. |

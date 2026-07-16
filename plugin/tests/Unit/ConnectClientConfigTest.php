@@ -187,10 +187,15 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( '@playwright/mcp@latest', $prompt );
 		$this->assertStringContainsString( 'browser testing, screenshots, and visual QA', $prompt );
 		$this->assertStringContainsString( 'Restart or reload the MCP session', $prompt );
-		$this->assertStringContainsString( 'stonewright-context-bootstrap', $prompt );
-		$this->assertStringContainsString( 'Verify the MCP tool list includes stonewright-context-bootstrap', $prompt );
+		$this->assertStringContainsString( 'stonewright-task-start', $prompt );
+		$this->assertStringContainsString( 'Verify the MCP tool list includes stonewright-task-start', $prompt );
+		$this->assertLessThan(
+			strpos( $prompt, 'stonewright-context-bootstrap' ) ?: PHP_INT_MAX,
+			strpos( $prompt, 'stonewright-task-start' ) ?: PHP_INT_MAX,
+			'task-start should be mentioned before context-bootstrap as first-call guidance'
+		);
 		$this->assertStringContainsString( 'stonewright-tool-profile', $prompt );
-		$this->assertStringContainsString( 'Use fast_path.tool_profile from stonewright-workflow-preflight before making a separate stonewright-tool-profile call', $prompt );
+		$this->assertStringContainsString( 'Use fast_path.tool_profile from stonewright-task-start before making a separate stonewright-tool-profile call', $prompt );
 		$this->assertStringContainsString( 'stonewright-setup-profile', $prompt );
 		$this->assertStringContainsString( 'stonewright-wordpress-mcp-status', $prompt );
 		$this->assertStringContainsString( 'companion_version', $prompt );
@@ -198,7 +203,7 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'refresh_required_tool_names', $prompt );
 		$this->assertStringContainsString( 'Do not start by only announcing named skills', $prompt );
 		$this->assertStringContainsString( 'Do not treat local agent skills as a substitute for live Stonewright MCP tools', $prompt );
-		$this->assertStringContainsString( 'If stonewright-context-bootstrap is missing, stop', $prompt );
+		$this->assertStringNotContainsString( 'First Stonewright calls after connection: stonewright-context-bootstrap, then stonewright-workflow-preflight', $prompt );
 		$this->assertStringContainsString( 'Do not inspect private AI-client config files, parse repository files, or hand-roll JSON-RPC calls', $prompt );
 		$this->assertStringContainsString( 'Do not create scratch scripts such as query-mcp.js or run-ability.js', $prompt );
 		$this->assertStringContainsString( 'Do not create helper JSON argument files such as bootstrap-args.json, cli_command.json, or get_structure.json', $prompt );

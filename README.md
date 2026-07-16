@@ -202,6 +202,7 @@ flowchart LR
   Client --> Companion
   Companion -->|Plugin mode| Plugin
   Companion -->|Direct mode| REST
+  Companion --> Skills[Local skills / memory]
   Plugin --> Gates
   Plugin --> Guten
   Plugin --> Elem
@@ -215,7 +216,9 @@ flowchart LR
   Plugin --> WP
 ```
 
-Direct mode has a **smaller** capability surface (core REST). Not every request passes through every component.
+Direct mode has a **smaller** capability surface (core REST + local skills/memory; **93** tools). Plugin mode exposes **308** abilities. Not every request passes through every component.
+
+See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 
 ## Supported workflows and clients
 

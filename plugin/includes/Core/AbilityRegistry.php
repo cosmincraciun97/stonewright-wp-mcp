@@ -16,6 +16,17 @@ use Stonewright\WpMcp\Abilities\Content\GetPage;
 use Stonewright\WpMcp\Abilities\Content\UpdatePage;
 use Stonewright\WpMcp\Abilities\Content\UpdatePost;
 use Stonewright\WpMcp\Abilities\ContentModel\CptAcfLoopGridFlow;
+use Stonewright\WpMcp\Abilities\ContentModel\CptList;
+use Stonewright\WpMcp\Abilities\ContentModel\CptRegister;
+use Stonewright\WpMcp\Abilities\ContentModel\TaxonomyRegister;
+use Stonewright\WpMcp\Abilities\Acf\AcfFieldGroupGet;
+use Stonewright\WpMcp\Abilities\Acf\AcfFieldGroupList;
+use Stonewright\WpMcp\Abilities\Acf\AcfFieldGroupSave;
+use Stonewright\WpMcp\Abilities\Acf\AcfValueUpdate;
+use Stonewright\WpMcp\Abilities\Acf\AcfValuesGet;
+use Stonewright\WpMcp\Abilities\Seo\SeoMetaGet;
+use Stonewright\WpMcp\Abilities\Seo\SeoMetaUpdate;
+use Stonewright\WpMcp\Abilities\Seo\SeoStatus;
 use Stonewright\WpMcp\Abilities\Blueprints\ApplyBlueprint;
 use Stonewright\WpMcp\Abilities\Blueprints\GetBlueprint;
 use Stonewright\WpMcp\Abilities\Blueprints\ListBlueprints;
@@ -487,6 +498,23 @@ final class AbilityRegistry {
 			WcProductList::class,
 			WcOrderList::class,
 			WcSalesReport::class,
+
+			// ACF.
+			AcfFieldGroupList::class,
+			AcfFieldGroupGet::class,
+			AcfFieldGroupSave::class,
+			AcfValuesGet::class,
+			AcfValueUpdate::class,
+
+			// SEO multi-plugin.
+			SeoStatus::class,
+			SeoMetaGet::class,
+			SeoMetaUpdate::class,
+
+			// CPT / taxonomy registration.
+			CptRegister::class,
+			CptList::class,
+			TaxonomyRegister::class,
 
 			// Menu.
 			MenuCreate::class,
@@ -1012,6 +1040,8 @@ final class AbilityRegistry {
 			'revisions'         => __( 'Revisions', 'stonewright' ),
 			'search'            => __( 'Search', 'stonewright' ),
 			'woocommerce'       => __( 'WooCommerce', 'stonewright' ),
+			'acf'               => __( 'ACF', 'stonewright' ),
+			'seo'               => __( 'SEO', 'stonewright' ),
 		];
 	}
 

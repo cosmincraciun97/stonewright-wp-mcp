@@ -211,4 +211,12 @@ final class Permissions {
 		}
 		return current_user_can( 'manage_options' );
 	}
+
+	/**
+	 * ACF field-group management. ACF does not expose a dedicated capability;
+	 * manage_options is the practical admin gate.
+	 */
+	public static function manage_acf(): bool {
+		return current_user_can( 'manage_options' );
+	}
 }

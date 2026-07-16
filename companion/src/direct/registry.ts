@@ -24,6 +24,7 @@ import * as health from './tools/health.js';
 import * as woocommerce from './tools/woocommerce.js';
 import * as restRequest from './tools/rest-request.js';
 import * as selfImprove from './tools/self-improve.js';
+import * as acf from './tools/acf.js';
 
 export const DIRECT_WAVE1_TOOL_NAMES = [
 	'stonewright-content-list',
@@ -141,8 +142,15 @@ export const DIRECT_WAVE4_SELFIMPROVE_TOOL_NAMES = [
 	'stonewright-task-start',
 ] as const;
 
+export const DIRECT_WAVE4_ACF_SEO_TOOL_NAMES = [
+	'stonewright-acf-fields-get',
+	'stonewright-acf-fields-update',
+	'stonewright-seo-head-get',
+] as const;
+
 export const DIRECT_WAVE4_TOOL_NAMES = [
 	...DIRECT_WAVE4_SELFIMPROVE_TOOL_NAMES,
+	...DIRECT_WAVE4_ACF_SEO_TOOL_NAMES,
 ] as const;
 
 export const DIRECT_TOOL_NAMES = [
@@ -1299,6 +1307,39 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			intent: z.string().optional(),
 		},
 		(input) => selfImprove.taskStart(selfCtx(), input as never),
+	);
+
+	w3(
+		'stonewright-acf-fields-get',
+		'Read ACF field values from core REST when ACF Show in REST is enabled.',
+		{
+			site: siteArg,
+			id: z.number().int().positive(),
+			type: z.string().optional(),
+		},
+		(input, runtime) => acf.acfFieldsGet(runtime, input as never),
+	);
+	w3(
+		'stonewright-acf-fields-update',
+		'Update ACF field values via core REST (requires ACF Show in REST). Gated by STONEWRIGHT_DIRECT_WRITES.',
+		{
+			site: siteArg,
+			id: z.number().int().positive(),
+			type: z.string().optional(),
+			acf: z.record(z.string(), z.unknown()),
+			confirm: confirmArg,
+		},
+		(input, runtime) => acf.acfFieldsUpdate(runtime, input as never),
+	);
+	w3(
+		'stonewright-seo-head-get',
+		'Read Yoast SEO head JSON for a post when available over REST.',
+		{
+			site: siteArg,
+			id: z.number().int().positive(),
+			type: z.string().optional(),
+		},
+		(input, runtime) => acf.seoHeadGet(runtime, input as never),
 	);
 
 	return [...DIRECT_TOOL_NAMES];

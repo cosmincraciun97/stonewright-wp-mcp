@@ -2548,3 +2548,94 @@ if ( ! class_exists( 'WP_Query', false ) ) {
 		}
 	}
 }
+
+// --- Wave 4: ACF / CPT registration stubs ---
+if ( ! function_exists( 'acf_get_field_groups' ) ) {
+	function acf_get_field_groups( $filter = false ) {
+		if ( empty( $GLOBALS['stonewright_test_acf_active'] ) ) {
+			// When inactive tests call abilities that check function_exists first;
+			// keep functions defined but return empty unless flag is set.
+		}
+		return $GLOBALS['stonewright_test_acf_groups'] ?? [];
+	}
+}
+if ( ! function_exists( 'acf_get_field_group' ) ) {
+	function acf_get_field_group( $key ) {
+		foreach ( (array) ( $GLOBALS['stonewright_test_acf_groups'] ?? [] ) as $g ) {
+			if ( is_array( $g ) && (string) ( $g['key'] ?? '' ) === (string) $key ) {
+				return $g;
+			}
+		}
+		return false;
+	}
+}
+if ( ! function_exists( 'acf_get_fields' ) ) {
+	function acf_get_fields( $parent ) {
+		return $GLOBALS['stonewright_test_acf_field_defs'][ (string) $parent ] ?? [];
+	}
+}
+if ( ! function_exists( 'get_fields' ) ) {
+	function get_fields( $post_id = false, $format_value = true ) {
+		if ( empty( $GLOBALS['stonewright_test_acf_active'] ) ) {
+			// Ability checks function_exists — always defined in tests; abilities
+			// should still work when flag true.
+		}
+		if ( empty( $GLOBALS['stonewright_test_acf_active'] ) ) {
+			return false;
+		}
+		return $GLOBALS['stonewright_test_acf_fields'] ?? [];
+	}
+}
+if ( ! function_exists( 'get_field' ) ) {
+	function get_field( $selector, $post_id = false, $format_value = true ) {
+		$fields = $GLOBALS['stonewright_test_acf_fields'] ?? [];
+		return $fields[ (string) $selector ] ?? null;
+	}
+}
+if ( ! function_exists( 'update_field' ) ) {
+	function update_field( $selector, $value, $post_id = false ) {
+		if ( empty( $GLOBALS['stonewright_test_acf_active'] ) ) {
+			return false;
+		}
+		$GLOBALS['stonewright_test_acf_fields'][ (string) $selector ] = $value;
+		return true;
+	}
+}
+if ( ! function_exists( 'acf_import_field_group' ) ) {
+	function acf_import_field_group( $group ) {
+		$GLOBALS['stonewright_test_acf_groups'][] = $group;
+		return $group;
+	}
+}
+if ( ! function_exists( 'acf_update_field_group' ) ) {
+	function acf_update_field_group( $group ) {
+		return acf_import_field_group( $group );
+	}
+}
+if ( ! function_exists( 'register_post_type' ) ) {
+	function register_post_type( $post_type, $args = [] ) {
+		$GLOBALS['stonewright_test_registered_post_types'][ (string) $post_type ] = $args;
+		return true;
+	}
+}
+if ( ! function_exists( 'get_post_types' ) ) {
+	function get_post_types( $args = [], $output = 'names', $operator = 'and' ) {
+		$types = $GLOBALS['stonewright_test_post_types'] ?? [
+			'post' => (object) [ 'name' => 'post', 'label' => 'Posts', 'public' => true ],
+			'page' => (object) [ 'name' => 'page', 'label' => 'Pages', 'public' => true ],
+		];
+		if ( 'names' === $output ) {
+			return array_keys( $types );
+		}
+		return $types;
+	}
+}
+if ( ! function_exists( 'register_taxonomy' ) ) {
+	function register_taxonomy( $taxonomy, $object_type, $args = [] ) {
+		$GLOBALS['stonewright_test_registered_taxonomies'][ (string) $taxonomy ] = [
+			'object_type' => $object_type,
+			'args'        => $args,
+		];
+		return true;
+	}
+}

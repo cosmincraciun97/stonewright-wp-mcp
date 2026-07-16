@@ -175,6 +175,14 @@ const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, reado
 		'stonewright-wc-product-list',
 		'stonewright-wc-order-list',
 		'stonewright-wc-sales-report',
+		'stonewright-acf-field-group-list',
+		'stonewright-acf-field-group-get',
+		'stonewright-acf-field-group-save',
+		'stonewright-acf-values-get',
+		'stonewright-acf-value-update',
+		'stonewright-cpt-register',
+		'stonewright-cpt-list',
+		'stonewright-taxonomy-register',
 	],
 	gutenberg: [
 		...BASE_PROXY_TOOL_NAMES,
@@ -238,6 +246,7 @@ const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, reado
 		'stonewright-site-health-test',
 		'stonewright-search-query',
 		'stonewright-oembed-resolve',
+		'stonewright-seo-status',
 	],
 };
 
