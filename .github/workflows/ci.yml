@@ -33,6 +33,7 @@ jobs:
           tools: composer
       - run: composer install --no-interaction --prefer-dist
       - run: composer test
+      - run: composer contracts:compat
 
   php-quality:
     runs-on: ubuntu-latest
@@ -68,6 +69,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
+      - run: npm run contracts:compat
       - run: npm test
       - run: npm run tokens:measure
       - run: npm run build

@@ -1,0 +1,305 @@
+{
+  "version": 1,
+  "generated_at": "2026-07-16T07:19:08.470Z",
+  "allowlist": {
+    "removed": [],
+    "renamed": {},
+    "schema_changes": []
+  },
+  "tools": [
+    {
+      "name": "stonewright-acf-fields-get"
+    },
+    {
+      "name": "stonewright-acf-fields-update"
+    },
+    {
+      "name": "stonewright-agents-md-sync"
+    },
+    {
+      "name": "stonewright-app-password-create"
+    },
+    {
+      "name": "stonewright-app-password-list"
+    },
+    {
+      "name": "stonewright-app-password-revoke"
+    },
+    {
+      "name": "stonewright-block-directory-search"
+    },
+    {
+      "name": "stonewright-block-patterns"
+    },
+    {
+      "name": "stonewright-blueprint-apply"
+    },
+    {
+      "name": "stonewright-blueprint-get"
+    },
+    {
+      "name": "stonewright-blueprint-list"
+    },
+    {
+      "name": "stonewright-comment-create"
+    },
+    {
+      "name": "stonewright-comment-delete"
+    },
+    {
+      "name": "stonewright-comment-get"
+    },
+    {
+      "name": "stonewright-comment-list"
+    },
+    {
+      "name": "stonewright-comment-update"
+    },
+    {
+      "name": "stonewright-content-autosave-create"
+    },
+    {
+      "name": "stonewright-content-autosaves"
+    },
+    {
+      "name": "stonewright-content-create-page"
+    },
+    {
+      "name": "stonewright-content-create-post"
+    },
+    {
+      "name": "stonewright-content-delete"
+    },
+    {
+      "name": "stonewright-content-get"
+    },
+    {
+      "name": "stonewright-content-list"
+    },
+    {
+      "name": "stonewright-content-revision-delete"
+    },
+    {
+      "name": "stonewright-content-revision-get"
+    },
+    {
+      "name": "stonewright-content-revisions"
+    },
+    {
+      "name": "stonewright-content-update"
+    },
+    {
+      "name": "stonewright-custom-css"
+    },
+    {
+      "name": "stonewright-elementor-data-get"
+    },
+    {
+      "name": "stonewright-elementor-data-update"
+    },
+    {
+      "name": "stonewright-elementor-status"
+    },
+    {
+      "name": "stonewright-global-styles-get"
+    },
+    {
+      "name": "stonewright-global-styles-revisions"
+    },
+    {
+      "name": "stonewright-global-styles-theme"
+    },
+    {
+      "name": "stonewright-global-styles-update"
+    },
+    {
+      "name": "stonewright-gutenberg-compose"
+    },
+    {
+      "name": "stonewright-gutenberg-validate"
+    },
+    {
+      "name": "stonewright-health-check"
+    },
+    {
+      "name": "stonewright-health-test"
+    },
+    {
+      "name": "stonewright-learning-record"
+    },
+    {
+      "name": "stonewright-media-delete"
+    },
+    {
+      "name": "stonewright-media-get"
+    },
+    {
+      "name": "stonewright-media-list"
+    },
+    {
+      "name": "stonewright-media-update"
+    },
+    {
+      "name": "stonewright-media-upload"
+    },
+    {
+      "name": "stonewright-memory-list"
+    },
+    {
+      "name": "stonewright-menu-create"
+    },
+    {
+      "name": "stonewright-menu-delete"
+    },
+    {
+      "name": "stonewright-menu-get"
+    },
+    {
+      "name": "stonewright-menu-items"
+    },
+    {
+      "name": "stonewright-menu-list"
+    },
+    {
+      "name": "stonewright-menu-locations"
+    },
+    {
+      "name": "stonewright-menu-update"
+    },
+    {
+      "name": "stonewright-oembed"
+    },
+    {
+      "name": "stonewright-pattern-directory-search"
+    },
+    {
+      "name": "stonewright-plugin-activate"
+    },
+    {
+      "name": "stonewright-plugin-deactivate"
+    },
+    {
+      "name": "stonewright-plugin-delete"
+    },
+    {
+      "name": "stonewright-plugin-get"
+    },
+    {
+      "name": "stonewright-plugin-install"
+    },
+    {
+      "name": "stonewright-plugin-list"
+    },
+    {
+      "name": "stonewright-rest-request"
+    },
+    {
+      "name": "stonewright-search"
+    },
+    {
+      "name": "stonewright-seo-head-get"
+    },
+    {
+      "name": "stonewright-settings-get"
+    },
+    {
+      "name": "stonewright-settings-update"
+    },
+    {
+      "name": "stonewright-sidebar-list"
+    },
+    {
+      "name": "stonewright-site-discover"
+    },
+    {
+      "name": "stonewright-skill-delete"
+    },
+    {
+      "name": "stonewright-skill-get"
+    },
+    {
+      "name": "stonewright-skill-list"
+    },
+    {
+      "name": "stonewright-skill-save"
+    },
+    {
+      "name": "stonewright-task-start"
+    },
+    {
+      "name": "stonewright-taxonomy-terms"
+    },
+    {
+      "name": "stonewright-template-create"
+    },
+    {
+      "name": "stonewright-template-delete"
+    },
+    {
+      "name": "stonewright-template-get"
+    },
+    {
+      "name": "stonewright-template-list"
+    },
+    {
+      "name": "stonewright-template-part-create"
+    },
+    {
+      "name": "stonewright-template-part-delete"
+    },
+    {
+      "name": "stonewright-template-part-get"
+    },
+    {
+      "name": "stonewright-template-part-list"
+    },
+    {
+      "name": "stonewright-template-part-update"
+    },
+    {
+      "name": "stonewright-template-update"
+    },
+    {
+      "name": "stonewright-theme-activate"
+    },
+    {
+      "name": "stonewright-theme-list"
+    },
+    {
+      "name": "stonewright-url-details"
+    },
+    {
+      "name": "stonewright-user-create"
+    },
+    {
+      "name": "stonewright-user-delete"
+    },
+    {
+      "name": "stonewright-user-get"
+    },
+    {
+      "name": "stonewright-user-list"
+    },
+    {
+      "name": "stonewright-user-me"
+    },
+    {
+      "name": "stonewright-user-update"
+    },
+    {
+      "name": "stonewright-wc-orders"
+    },
+    {
+      "name": "stonewright-wc-products"
+    },
+    {
+      "name": "stonewright-wc-sales-report"
+    },
+    {
+      "name": "stonewright-widget-list"
+    },
+    {
+      "name": "stonewright-widget-manage"
+    }
+  ]
+}
