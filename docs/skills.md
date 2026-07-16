@@ -1,8 +1,24 @@
 # Skill Packs
 
-Stonewright ships skill packs in `skills/`. Persistent site skills can also be
-created or edited in the WordPress admin and are loaded through
-MCP tool `stonewright-context-bootstrap` at the start of each task.
+Stonewright ships skill packs in `skills/`. Persistent **plugin** site skills can
+also be created or edited in the WordPress admin and are loaded through
+MCP tool `stonewright-task-start` (or compatibility `stonewright-context-bootstrap`)
+at the start of each task.
+
+## Direct mode (companion-local) skills
+
+Pluginless installs store skills and memory on the companion host under
+`~/.stonewright/skills/<scope>/` and `~/.stonewright/memory/<scope>.jsonl`.
+
+| Tool | Role |
+|---|---|
+| `stonewright-task-start` | Returns matched skill refs + memory highlights (no bodies) |
+| `stonewright-skill-list` | Compact index |
+| `stonewright-skill-get` | Load one body on demand |
+| `stonewright-skill-save` / `delete` | Create/update/delete local playbooks |
+| `stonewright-memory-list` / `learning-record` | List and record corrections |
+
+These are per-machine, not shared across operators like the plugin Admin UI skills.
 
 Each skill has a master active toggle and two exposure flags:
 
@@ -24,7 +40,7 @@ Each skill has a master active toggle and two exposure flags:
 
 ## Conventions
 
-- Call `stonewright-context-bootstrap` before planning or writing.
+- Call `stonewright-task-start` before planning or writing.
 - If a returned skill matches the task, read and follow it.
 - Put large or rarely needed playbooks in prompt/command mode instead of
   auto-match mode.

@@ -90,4 +90,61 @@ final class ToolProfileResolveTest extends TestCase {
 			self::assertContains( $name, $from_profile, $name . ' missing from essential profile_tools' );
 		}
 	}
+
+	public function test_suggest_profile_routes_admin_ops_terms(): void {
+		self::assertSame( 'site-admin', ToolProfile::suggest_profile( 'moderate spam comments on the blog' ) );
+		self::assertSame( 'site-admin', ToolProfile::suggest_profile( 'create a new editor user account' ) );
+		self::assertSame( 'site-admin', ToolProfile::suggest_profile( 'add an application password for the api user' ) );
+		self::assertSame( 'site-admin', ToolProfile::suggest_profile( 'update footer widgets in sidebar' ) );
+		self::assertSame( 'site-admin', ToolProfile::suggest_profile( 'restore the previous revision of the about page' ) );
+		self::assertSame( 'site-admin', ToolProfile::suggest_profile( 'run site health tests' ) );
+		self::assertSame( 'site-admin', ToolProfile::suggest_profile( 'switch the active theme' ) );
+		self::assertSame( 'site-admin', ToolProfile::suggest_profile( 'edit theme custom css' ) );
+	}
+
+	public function test_suggest_profile_routes_wc_reads_to_content_model(): void {
+		self::assertSame( 'content-model', ToolProfile::suggest_profile( 'show woocommerce sales report for last month' ) );
+		self::assertSame( 'content-model', ToolProfile::suggest_profile( 'list woocommerce orders' ) );
+	}
+
+	public function test_site_admin_profile_contains_wave3_admin_ops(): void {
+		$names = ToolProfile::profile_tools( 'site-admin' );
+		foreach (
+			[
+				'stonewright/comment-list',
+				'stonewright/comment-update',
+				'stonewright/comment-delete',
+				'stonewright/user-list',
+				'stonewright/user-create',
+				'stonewright/user-delete',
+				'stonewright/user-app-passwords',
+				'stonewright/widget-list',
+				'stonewright/widget-save',
+				'stonewright/widget-delete',
+				'stonewright/settings-get',
+				'stonewright/settings-update',
+				'stonewright/theme-list',
+				'stonewright/theme-activate',
+				'stonewright/theme-custom-css',
+				'stonewright/plugin-activate',
+				'stonewright/plugin-deactivate',
+				'stonewright/plugin-delete',
+				'stonewright/post-revision-list',
+				'stonewright/post-revision-get',
+				'stonewright/post-revision-restore',
+				'stonewright/site-health-test',
+				'stonewright/search-query',
+				'stonewright/oembed-resolve',
+			] as $name
+		) {
+			self::assertContains( $name, $names, $name );
+		}
+	}
+
+	public function test_content_model_profile_contains_wc_reads(): void {
+		$names = ToolProfile::profile_tools( 'content-model' );
+		foreach ( [ 'stonewright/wc-product-list', 'stonewright/wc-order-list', 'stonewright/wc-sales-report' ] as $name ) {
+			self::assertContains( $name, $names, $name );
+		}
+	}
 }

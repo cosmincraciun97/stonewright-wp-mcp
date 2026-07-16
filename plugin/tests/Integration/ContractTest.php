@@ -85,6 +85,17 @@ final class ContractTest extends TestCase {
 		$GLOBALS['stonewright_test_user_caps']['delete_plugins'] = true;
 		$GLOBALS['stonewright_test_user_caps']['manage_woocommerce'] = true;
 		$GLOBALS['stonewright_test_user_caps']['edit_css'] = true;
+		// Wave-4 ACF/SEO contract fixtures: enable stubs.
+		$GLOBALS['stonewright_test_acf_active']  = true;
+		$GLOBALS['stonewright_test_acf_fields']  = [ 'color' => 'red' ];
+		$GLOBALS['stonewright_test_acf_groups']  = [
+			[ 'key' => 'group_test', 'title' => 'Test', 'active' => true, 'location' => [] ],
+		];
+		$GLOBALS['stonewright_test_seo_plugin']  = 'yoast';
+		$GLOBALS['stonewright_test_post_types']  = [
+			'post' => (object) [ 'name' => 'post', 'label' => 'Posts', 'public' => true ],
+			'page' => (object) [ 'name' => 'page', 'label' => 'Pages', 'public' => true ],
+		];
 
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
 		$GLOBALS['stonewright_test_companion_responses'] = [];

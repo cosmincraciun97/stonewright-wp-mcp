@@ -12,6 +12,7 @@ workflows with operator controls.
 - [Getting started with Antigravity](getting-started/antigravity.md)
 - [Stonewright onboarding](onboarding.md)
 - [Installation for Windows and macOS](installation.md)
+- [AI client install prompts (plugin + Direct)](install-prompts.md)
 - [All abilities by category](abilities.md)
 - [Design Spec reference](design-spec.md)
 - [Security model](security.md)

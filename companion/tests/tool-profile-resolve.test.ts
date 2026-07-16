@@ -71,4 +71,31 @@ describe('tool profile resolve + client cap', () => {
 			]),
 		);
 	});
+
+	it('fallback site-admin includes wave-3 admin ops', () => {
+		const names = proxyToolNamesForProfile('site-admin');
+		for (const n of [
+			'stonewright-comment-list',
+			'stonewright-user-list',
+			'stonewright-widget-list',
+			'stonewright-settings-get',
+			'stonewright-theme-activate',
+			'stonewright-post-revision-restore',
+			'stonewright-site-health-test',
+			'stonewright-search-query',
+		]) {
+			expect(names).toContain(n);
+		}
+	});
+
+	it('fallback content-model includes wc reads', () => {
+		const names = proxyToolNamesForProfile('content-model');
+		expect(names).toEqual(
+			expect.arrayContaining([
+				'stonewright-wc-product-list',
+				'stonewright-wc-order-list',
+				'stonewright-wc-sales-report',
+			]),
+		);
+	});
 });

@@ -28,9 +28,16 @@ export const PLUGIN_ONLY_CAPABILITIES = [
 	},
 	{
 		id: 'site-memory-skills',
-		label: 'Site memory, skills store, and learning abilities',
-		reason: 'Persistent memory and skills are stored by the plugin.',
-		upgrade: 'Install the Stonewright plugin to enable memory and skills tools.',
+		label: 'Server-side site memory, skills, and learning (wp-admin)',
+		reason: 'Shared, site-hosted memory/skills and Admin UI require the Stonewright plugin.',
+		upgrade:
+			'Install the plugin for shared site memory/skills. Direct mode already provides per-machine local skills/memory via stonewright-skill-* and stonewright-learning-record.',
+	},
+	{
+		id: 'content-model-registration',
+		label: 'CPT / taxonomy / field-group registration',
+		reason: 'Persistent registration APIs require the Stonewright plugin (or CPT UI + ACF on-site).',
+		upgrade: 'Install the Stonewright plugin for cpt-register, taxonomy-register, and acf-field-group-save.',
 	},
 	{
 		id: 'audit-log',

@@ -30,7 +30,26 @@ final class ToolProfile extends AbilityKernel {
 			return 'elementor-design';
 		}
 
-		if ( self::has_any_term( $query, [ 'acf', 'acpt', 'cpt ui', 'custom field', 'custom post type', 'field group', 'meta box', 'metabox', 'pods', 'woocommerce' ] ) ) {
+		if ( self::has_any_term( $query, [
+			'acf',
+			'acpt',
+			'cpt ui',
+			'custom field',
+			'custom post type',
+			'field group',
+			'meta box',
+			'metabox',
+			'pods',
+			'woocommerce',
+			'sales report',
+			'product catalog',
+			'seo',
+			'sitemap',
+			'meta description',
+			'focus keyword',
+			'rank math',
+			'yoast',
+		] ) ) {
 			return 'content-model';
 		}
 
@@ -42,7 +61,36 @@ final class ToolProfile extends AbilityKernel {
 			return 'wp-cli';
 		}
 
-		if ( self::has_any_term( $query, [ 'admin', 'health', 'menu', 'plugin list', 'settings', 'site info' ] ) ) {
+		if ( self::has_any_term( $query, [
+			'admin',
+			'app password',
+			'application password',
+			'comment',
+			'comments',
+			'custom css',
+			'health',
+			'menu',
+			'moderate',
+			'moderation',
+			'plugin list',
+			'revision',
+			'revisions',
+			'settings',
+			'sidebar',
+			'site info',
+			'spam',
+			'active theme',
+			'switch theme',
+			'user',
+			'users',
+			'user account',
+			'user role',
+			'widget',
+			'widgets',
+			'new user',
+			'delete user',
+			'site health',
+		] ) ) {
 			return 'site-admin';
 		}
 
@@ -549,12 +597,24 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/site-capabilities',
 				'stonewright/site-plugins-list',
 				'stonewright/system-abilities-list',
+				// Keep WP-CLI near the front so compact max_tools caps still retain it.
 				'stonewright/wp-cli-status',
 				'stonewright/wp-cli-discover',
 				'stonewright/wp-cli-batch-run',
 				'stonewright/wp-cli-run',
 				'stonewright/wp-cli-job-start',
 				'stonewright/wp-cli-job-status',
+				'stonewright/wc-product-list',
+				'stonewright/wc-order-list',
+				'stonewright/wc-sales-report',
+				'stonewright/acf-field-group-list',
+				'stonewright/acf-field-group-get',
+				'stonewright/acf-field-group-save',
+				'stonewright/acf-values-get',
+				'stonewright/acf-value-update',
+				'stonewright/cpt-register',
+				'stonewright/cpt-list',
+				'stonewright/taxonomy-register',
 			],
 			'gutenberg' => [
 				'stonewright/gutenberg-apply-to-post',
@@ -596,6 +656,37 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/system-abilities-list',
 				'stonewright/menu-list',
 				'stonewright/wp-cli-status',
+				// Wave-3 admin ops (REST parity).
+				'stonewright/comment-list',
+				'stonewright/comment-get',
+				'stonewright/comment-create',
+				'stonewright/comment-update',
+				'stonewright/comment-delete',
+				'stonewright/user-list',
+				'stonewright/user-get',
+				'stonewright/user-create',
+				'stonewright/user-update',
+				'stonewright/user-delete',
+				'stonewright/user-app-passwords',
+				'stonewright/widget-list',
+				'stonewright/widget-get',
+				'stonewright/widget-save',
+				'stonewright/widget-delete',
+				'stonewright/settings-get',
+				'stonewright/settings-update',
+				'stonewright/theme-list',
+				'stonewright/theme-activate',
+				'stonewright/theme-custom-css',
+				'stonewright/plugin-activate',
+				'stonewright/plugin-deactivate',
+				'stonewright/plugin-delete',
+				'stonewright/post-revision-list',
+				'stonewright/post-revision-get',
+				'stonewright/post-revision-restore',
+				'stonewright/site-health-test',
+				'stonewright/search-query',
+				'stonewright/oembed-resolve',
+				'stonewright/seo-status',
 			],
 			// essential and unknown aliases: compact public surface from AbilityRegistry.
 			default => ( static function () use ( $startup, $blueprints ): array {
@@ -645,6 +736,12 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/wp-cli-batch-run' => 'Run repeated tokenized WP-CLI argv commands with compact output.',
 			'stonewright/wp-cli-job-start' => 'Start long WP-CLI command or batch work without blocking the MCP request.',
 			'stonewright/wp-cli-job-status' => 'Poll a WP-CLI background job until the compact result is ready.',
+			'stonewright/comment-update' => 'Moderate comments via status enum (approve/hold/spam/trash) without separate tools.',
+			'stonewright/settings-update' => 'Update allowlisted settings only; siteurl/home are blocked.',
+			'stonewright/post-revision-restore' => 'Snapshot the post, then restore a revision.',
+			'stonewright/user-delete' => 'Delete a user with reassign; confirmation token required in production-safe.',
+			'stonewright/site-health-test' => 'Run one named Site Health check.',
+			'stonewright/wc-order-list' => 'List WooCommerce orders when WooCommerce is active.',
 			default => 'Use this tool only when it is needed by the selected profile step.',
 		};
 	}
@@ -696,6 +793,26 @@ final class ToolProfile extends AbilityKernel {
 
 		if ( str_contains( $name, '/wp-cli-' ) ) {
 			return 'wp_cli';
+		}
+
+		// Core sidebar widgets / users / comments — not Elementor widgets.
+		if (
+			str_starts_with( $name, 'stonewright/comment-' )
+			|| str_starts_with( $name, 'stonewright/user-' )
+			|| str_starts_with( $name, 'stonewright/widget-' )
+			|| str_starts_with( $name, 'stonewright/settings-' )
+			|| str_starts_with( $name, 'stonewright/theme-' )
+			|| str_starts_with( $name, 'stonewright/plugin-' )
+			|| str_starts_with( $name, 'stonewright/post-revision-' )
+			|| str_starts_with( $name, 'stonewright/search-' )
+			|| str_starts_with( $name, 'stonewright/oembed-' )
+			|| 'stonewright/site-health-test' === $name
+		) {
+			return 'site_admin';
+		}
+
+		if ( str_starts_with( $name, 'stonewright/wc-' ) ) {
+			return 'content_media';
 		}
 
 		if ( str_contains( $name, 'elementor' ) || str_contains( $name, 'design' ) || str_contains( $name, 'widget' ) || str_contains( $name, 'theme-builder' ) ) {
