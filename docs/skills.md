@@ -20,6 +20,20 @@ Pluginless installs store skills and memory on the companion host under
 
 These are per-machine, not shared across operators like the plugin Admin UI skills.
 
+### Built-in Direct skills
+
+The companion package ships `companion/skills-builtin/` and seeds them into
+`~/.stonewright/skills/_builtin/` on Direct startup (**copy-if-missing**):
+
+| Skill | Purpose |
+|---|---|
+| `elementor-direct-editing` | Local WP-CLI Elementor data edit protocol |
+| `gutenberg-authoring` | Compose + validate block content |
+| `no-hallucination-protocol` | Read before write; fix errors; never invent schemas |
+
+User edits to a seeded skill file are **never overwritten** on upgrade. Deleting
+a builtin file restores it on the next seed.
+
 Each skill has a master active toggle and two exposure flags:
 
 - **Auto-match** adds the skill description to the compact routing index used

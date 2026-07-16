@@ -65,5 +65,7 @@ After reload:
 - When I correct a repeatable mistake, call stonewright-learning-record so it
   persists for future sessions.
 - Destructive tools require confirm:true. Do not work around write gating.
+- One-time setup: call stonewright-agents-md-sync and offer to add the pointer to your global agent config.
+- Fix recurring_errors from task-start before new work; never invent Elementor/Gutenberg schemas.
 - Do not inspect private AI-client config files, hand-roll JSON-RPC, or run wp in a normal shell as an MCP workaround.
 ```

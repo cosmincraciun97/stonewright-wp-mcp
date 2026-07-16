@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import './helpers/task-start.js';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -22,9 +23,9 @@ function ctx() {
 }
 
 describe('direct self-improve tools', () => {
-	it('exports seven wave-4 self-improve tools and total surface >= 90', () => {
+	it('exports seven wave-4 self-improve tools and total surface >= 98', () => {
 		expect(DIRECT_WAVE4_SELFIMPROVE_TOOL_NAMES).toHaveLength(7);
-		expect(DIRECT_TOOL_NAMES.length).toBeGreaterThanOrEqual(90);
+		expect(DIRECT_TOOL_NAMES.length).toBeGreaterThanOrEqual(98);
 	});
 
 	it('save → list → get roundtrip without WordPress credentials', () => {
@@ -87,6 +88,7 @@ describe('direct self-improve tools', () => {
 		expect(start.site).toBeNull();
 		expect(start.matched_skills.some((s) => s.slug === 'wc-image-fix')).toBe(true);
 		expect(start.memory_highlights.length).toBeGreaterThan(0);
-		expect(start.capabilities.direct_tools).toBeGreaterThanOrEqual(90);
+		expect(start.capabilities.direct_tools).toBeGreaterThanOrEqual(98);
+		expect(start.setup?.agents_md).toBeTruthy();
 	});
 });

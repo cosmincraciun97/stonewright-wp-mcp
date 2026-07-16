@@ -300,7 +300,9 @@ final class WorkflowPreflight extends AbilityKernel {
 			'memory_refs'     => self::compact_memory_entries( $context['memory_entries'] ?? [] ),
 			'expertise_refs'  => array_values( (array) ( $context['expertise_packs'] ?? [] ) ),
 			'required_actions' => array_values( array_filter( [
+				[] !== $errors ? 'fix_recurring_errors_first' : null,
 				[] !== $skills ? 'load_matched_skills' : null,
+				[] !== $skills ? 'execute_matched_skills' : null,
 				[] !== (array) ( $context['memory_entries'] ?? [] ) ? 'load_memory_refs' : null,
 				[] !== $errors ? 'review_recurring_errors' : null,
 				(bool) ( $profile['needs_visual_check'] ?? false ) ? 'connect_browser_before_visual_write' : null,
@@ -318,9 +320,14 @@ final class WorkflowPreflight extends AbilityKernel {
 					if ( ! is_array( $row ) ) {
 						return [];
 					}
+					$code    = (string) ( $row['error_code'] ?? '' );
+					$ability = (string) ( $row['ability'] ?? '' );
 					return [
-						'ability' => (string) ( $row['ability'] ?? '' ),
-						'count'   => (int) ( $row['count'] ?? 0 ),
+						'ability'    => $ability,
+						'error_code' => $code,
+						'message'    => (string) ( $row['message'] ?? '' ),
+						'count'      => (int) ( $row['count'] ?? 0 ),
+						'repair'     => (string) ( $row['repair'] ?? \Stonewright\WpMcp\Security\RemediationHints::for_code( $code, $ability ) ),
 					];
 				},
 				$errors

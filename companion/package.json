@@ -11,6 +11,7 @@
 	"files": [
 		"dist",
 		"blueprints",
+		"skills-builtin",
 		"scripts/postinstall.mjs",
 		"README.md",
 		"LICENSE"

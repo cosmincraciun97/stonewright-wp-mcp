@@ -37,6 +37,8 @@ describe('createMcpServer', () => {
 		expect(instructions).toContain('stonewright-task-start');
 		expect(instructions).toContain('stonewright-skill-get');
 		expect(instructions).toContain('stonewright-learning-record');
+		expect(instructions).toContain('Never guess WordPress/Elementor/Gutenberg schemas');
+		expect(instructions).toContain('stonewright-agents-md-sync');
 		expect(instructions).toContain('stonewright-php-execute');
 		expect(instructions).toContain('fast_path.tool_profile');
 		expect(instructions).toContain('stonewright-wordpress-mcp-status');

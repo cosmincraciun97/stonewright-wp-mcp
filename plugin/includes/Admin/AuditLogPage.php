@@ -89,13 +89,21 @@ final class AuditLogPage {
 			$ability = (string) ( $p['ability'] ?? '' );
 			$count   = (int) ( $p['count'] ?? 0 );
 			$msg     = (string) ( $p['message'] ?? '' );
+			$code    = (string) ( $p['error_code'] ?? '' );
+			$repair  = (string) ( $p['repair'] ?? '' );
 			$sig     = (string) ( $p['signature'] ?? '' );
 			$view    = admin_url( 'admin.php?page=' . self::SLUG . '&status=error&ability=' . rawurlencode( $ability ) );
 			echo '<li class="sw-recurring-errors__item">';
 			echo '<div class="sw-recurring-errors__main">';
 			echo '<code>' . esc_html( $ability ) . '</code> ';
 			echo '<span class="sw-badge sw-badge--error">' . esc_html( (string) $count ) . '×</span> ';
+			if ( '' !== $code ) {
+				echo '<code class="sw-recurring-errors__code">' . esc_html( $code ) . '</code> ';
+			}
 			echo '<span class="sw-recurring-errors__msg">' . esc_html( $msg ) . '</span>';
+			if ( '' !== $repair ) {
+				echo '<p class="sw-recurring-errors__repair"><strong>' . esc_html__( 'Repair', 'stonewright' ) . ':</strong> ' . esc_html( $repair ) . '</p>';
+			}
 			echo '<span class="sw-recurring-errors__meta">' . esc_html( sprintf( /* translators: %s: datetime */ __( 'Last seen %s', 'stonewright' ), (string) ( $p['last_seen'] ?? '' ) ) ) . '</span>';
 			echo '</div>';
 			echo '<div class="sw-actions">';
@@ -245,6 +253,7 @@ final class AuditLogPage {
 			$badge     = 'ok' === $status ? 'sw-badge--ok' : 'sw-badge--error';
 			$payload   = (string) ( $row['sanitized_args'] ?? '' );
 			$pretty    = self::pretty_payload( $payload );
+			$error_ui  = self::error_cause_from_payload( $payload );
 
 			echo '<tr class="sw-audit-row">';
 			echo '<td>' . (int) $row['id'] . '</td>';
@@ -253,12 +262,15 @@ final class AuditLogPage {
 			echo '<td><span class="sw-badge ' . esc_attr( $badge ) . '">' . esc_html( strtoupper( $status ) ) . '</span></td>';
 			echo '<td>' . esc_html( (string) $row['created_at'] ) . '</td>';
 			echo '<td>';
+			if ( 'error' === $status && '' !== $error_ui ) {
+				echo '<div class="sw-audit-error-cause">' . esc_html( $error_ui ) . '</div>';
+			}
 			if ( '' !== $pretty ) {
 				echo '<details class="sw-audit-details">';
 				echo '<summary>' . esc_html__( 'Payload', 'stonewright' ) . '</summary>';
 				echo '<pre class="sw-audit-payload">' . esc_html( $pretty ) . '</pre>';
 				echo '</details>';
-			} else {
+			} elseif ( '' === $error_ui ) {
 				echo '<span class="sw-muted">' . esc_html__( '—', 'stonewright' ) . '</span>';
 			}
 			echo '</td>';
@@ -290,5 +302,25 @@ final class AuditLogPage {
 			return is_string( $pretty ) ? $pretty : $raw;
 		}
 		return $raw;
+	}
+
+	/**
+	 * Extract a human-readable error cause line from a sanitized_args JSON payload.
+	 */
+	public static function error_cause_from_payload( string $raw ): string {
+		$decoded = json_decode( $raw, true );
+		if ( ! is_array( $decoded ) ) {
+			return '';
+		}
+		$meta = is_array( $decoded['_meta'] ?? null ) ? $decoded['_meta'] : [];
+		$code = (string) ( $meta['error_code'] ?? '' );
+		$msg  = (string) ( $meta['error_message'] ?? '' );
+		if ( '' === $code && '' === $msg ) {
+			return '';
+		}
+		if ( '' !== $code && '' !== $msg ) {
+			return $code . ': ' . $msg;
+		}
+		return '' !== $code ? $code : $msg;
 	}
 }

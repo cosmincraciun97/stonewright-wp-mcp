@@ -322,11 +322,12 @@ npm run build
 
 ## Direct mode tool surface
 
-**93** Direct tools (`DIRECT_TOOL_NAMES` in `src/direct/registry.ts`):
+**98** Direct tools (`DIRECT_TOOL_NAMES` in `src/direct/registry.ts`):
 
 - Waves 1–3: content, menus, FSE, settings, plugins/themes, comments, users/application passwords, widgets, site health, oEmbed utilities, WooCommerce read, read-only `stonewright-rest-request`
 - Wave 4 self-improvement: `stonewright-skill-list|get|save|delete`, `stonewright-memory-list`, `stonewright-learning-record`, `stonewright-task-start` (works with zero WordPress credentials; storage under `~/.stonewright/`)
 - Wave 4 ACF/SEO: `stonewright-acf-fields-get|update`, `stonewright-seo-head-get`
+- Wave 5: `stonewright-elementor-status|data-get|data-update` (local WP-CLI + mandatory backup), `stonewright-gutenberg-validate`, `stonewright-agents-md-sync`
 
 ### Self-improvement (pluginless)
 

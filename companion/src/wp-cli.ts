@@ -16,6 +16,8 @@ export interface WpCliRunInput {
 	parseJson?: boolean;
 	responseMode?: 'full' | 'summary';
 	deep?: boolean;
+	/** Written to the child process stdin (no shell). Used for large meta values. */
+	stdin?: string;
 }
 
 export type WpCliContext = 'auto' | 'admin' | 'cli' | 'frontend';
@@ -48,6 +50,7 @@ export interface ExecFileOptions {
 	windowsHide: boolean;
 	shell: false;
 	env: NodeJS.ProcessEnv;
+	stdin?: string;
 }
 
 export interface ExecFileResult {
@@ -292,6 +295,7 @@ export async function runWpCli(
 		windowsHide: true,
 		shell: false,
 		env: { ...process.env, ...env },
+		...(input.stdin !== undefined ? { stdin: input.stdin } : {}),
 	};
 
 	const result = await runner(invocation.executable, args, options);
@@ -955,7 +959,7 @@ export async function wpCliEnsureReady(
 
 const defaultExecFileRunner: ExecFileRunner = async (file, args, options) =>
 	new Promise<ExecFileResult>((resolveResult) => {
-		execFile(
+		const child = execFile(
 			file,
 			args,
 			{
@@ -978,6 +982,10 @@ const defaultExecFileRunner: ExecFileRunner = async (file, args, options) =>
 				});
 			},
 		);
+		if (options.stdin !== undefined && child.stdin) {
+			child.stdin.write(options.stdin);
+			child.stdin.end();
+		}
 	});
 
 function parseJson(stdout: string): unknown {
