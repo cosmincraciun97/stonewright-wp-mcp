@@ -5,7 +5,44 @@
 .sw-skills-page,
 .sw-memory-page {
 	max-width: var(--sw-shell-content-max, 1200px);
+	width: 100%;
+	min-width: 0;
+	overflow-x: clip;
+	box-sizing: border-box;
 	color: var(--sw-text);
+}
+
+/* Memory list table: never expand the admin shell past the viewport. */
+.sw-memory-page .widefat,
+.sw-memory-page table.wp-list-table {
+	width: 100% !important;
+	max-width: 100%;
+	table-layout: fixed;
+}
+
+.sw-memory-page .widefat th,
+.sw-memory-page .widefat td,
+.sw-memory-page table.wp-list-table th,
+.sw-memory-page table.wp-list-table td {
+	word-break: break-word;
+	overflow-wrap: anywhere;
+	white-space: normal;
+}
+
+.sw-memory-page input.regular-text,
+.sw-memory-page input.large-text,
+.sw-memory-page textarea.large-text,
+.sw-memory-page textarea.code {
+	max-width: 100% !important;
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.sw-memory-page .sw-card,
+.sw-memory-page .stonewright-panel {
+	min-width: 0;
+	max-width: 100%;
+	overflow-x: clip;
 }
 
 .sw-skills-page h1,
@@ -95,7 +132,7 @@
 
 .sw-skills-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
 	gap: var(--sw-space-4);
 }
 

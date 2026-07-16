@@ -5,6 +5,52 @@
 
 .sw-setup-page {
 	max-width: var(--sw-shell-content-max, 1200px);
+	width: 100%;
+	min-width: 0;
+	overflow-x: clip;
+	box-sizing: border-box;
+}
+
+/* Long MCP snippets / form tables must never expand the shell on narrow viewports. */
+.sw-setup-page pre,
+.sw-setup-page .sw-client-panel pre,
+.sw-setup-page .stonewright-connect-prompt,
+.sw-setup-page code {
+	max-width: 100%;
+	box-sizing: border-box;
+}
+
+.sw-setup-page pre,
+.sw-setup-page .stonewright-connect-prompt {
+	overflow-x: auto;
+	white-space: pre-wrap;
+	word-break: break-word;
+	overflow-wrap: anywhere;
+}
+
+.sw-setup-page .form-table,
+.sw-setup-page .widefat,
+.sw-setup-page .stonewright-app-password-table {
+	width: 100% !important;
+	max-width: 100%;
+	table-layout: fixed;
+}
+
+.sw-setup-page .form-table th,
+.sw-setup-page .form-table td,
+.sw-setup-page .widefat th,
+.sw-setup-page .widefat td {
+	word-break: break-word;
+	overflow-wrap: anywhere;
+}
+
+.sw-setup-page input[type="text"],
+.sw-setup-page input[type="password"],
+.sw-setup-page input[type="url"],
+.sw-setup-page select,
+.sw-setup-page textarea {
+	max-width: 100%;
+	box-sizing: border-box;
 }
 
 .sw-setup-header {
@@ -365,6 +411,7 @@
 	margin: var(--sw-space-3) 0;
 	padding: var(--sw-space-3);
 	overflow: auto;
+	max-width: 100%;
 	max-height: 280px;
 	background: var(--sw-ink);
 	color: var(--sw-text-muted);
@@ -372,6 +419,10 @@
 	font-family: var(--sw-font-mono);
 	font-size: var(--sw-text-xs);
 	line-height: 1.45;
+	white-space: pre-wrap;
+	word-break: break-word;
+	overflow-wrap: anywhere;
+	box-sizing: border-box;
 }
 
 .sw-setup-details {
@@ -397,6 +448,8 @@
 	.sw-setup-card {
 		grid-template-columns: 1fr;
 		padding: var(--sw-space-4);
+		min-width: 0;
+		max-width: 100%;
 	}
 
 	.sw-client-cards {
@@ -405,6 +458,20 @@
 
 	.sw-method-picker__options {
 		grid-template-columns: 1fr;
+	}
+}
+
+@media (max-width: 400px) {
+	.sw-client-cards {
+		grid-template-columns: 1fr;
+	}
+
+	.sw-setup-page .form-table th,
+	.sw-setup-page .form-table td {
+		display: block;
+		width: 100%;
+		padding-left: 0;
+		padding-right: 0;
 	}
 }
 

@@ -523,8 +523,10 @@ html.sw-theme-dark {
 	margin: 0 auto;
 	padding: var(--sw-space-5) var(--sw-space-5) var(--sw-space-7);
 	color: var(--sw-text);
-	overflow-x: hidden;
+	overflow-x: clip;
 	min-width: 0;
+	width: 100%;
+	box-sizing: border-box;
 }
 
 .sw-shell h1,

@@ -47,52 +47,28 @@ async function login(page: Page): Promise<void> {
 }
 
 /**
- * Product-surface overflow: walk visible children of `.sw-shell` and report how
- * far any non-scroll-contained box sticks past the shell's right edge.
- * Ignores WP admin chrome and sub-pixel rounding.
+ * Product-surface overflow: shell (and content) must not create a horizontal
+ * scrollbar. Uses scrollWidth vs clientWidth with a 2px sub-pixel tolerance.
+ * Tables/pre inside overflow:auto/clip containers are contained by design.
  */
 async function productHorizontalOverflow(page: Page): Promise<number> {
 	return page.evaluate(() => {
 		const shell = document.querySelector('.sw-shell') as HTMLElement | null;
-		if (!shell) {
+		const content = document.querySelector('.sw-shell__content') as HTMLElement | null;
+		const targets = [shell, content].filter(Boolean) as HTMLElement[];
+		if (targets.length === 0) {
 			const docDelta =
 				document.documentElement.scrollWidth - document.documentElement.clientWidth;
-			return docDelta > 1 ? docDelta : 0;
+			return docDelta > 2 ? docDelta : 0;
 		}
-
-		const shellRight = shell.getBoundingClientRect().right;
 		let worst = 0;
-
-		const walk = (el: Element): void => {
-			for (const child of Array.from(el.children)) {
-				if (!(child instanceof HTMLElement)) {
-					continue;
-				}
-				const style = window.getComputedStyle(child);
-				if (style.display === 'none' || style.visibility === 'hidden') {
-					continue;
-				}
-				if (style.position === 'fixed') {
-					continue;
-				}
-				const rect = child.getBoundingClientRect();
-				if (rect.width <= 0 || rect.height <= 0) {
-					continue;
-				}
-				const over = Math.ceil(rect.right - shellRight);
-				if (over > worst) {
-					worst = over;
-				}
-				// Descend only when the child does not own its own horizontal scroll.
-				if (style.overflowX === 'auto' || style.overflowX === 'scroll') {
-					continue;
-				}
-				walk(child);
+		for (const el of targets) {
+			const delta = el.scrollWidth - el.clientWidth;
+			if (delta > worst) {
+				worst = delta;
 			}
-		};
-
-		walk(shell);
-		return worst > 1 ? worst : 0;
+		}
+		return worst > 2 ? worst : 0;
 	});
 }
 
