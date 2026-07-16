@@ -75,11 +75,13 @@ final class PageDigestBuildTreeTest extends TestCase {
 			[
 				'justify_content' => 'center',
 				'bg_color'        => '#fff',
+				'letter_spacing'  => [ 'size' => 1.5, 'unit' => 'px' ],
 			]
 		);
 		self::assertSame( 'center', $result['settings']['flex_justify_content'] );
 		self::assertArrayNotHasKey( 'justify_content', $result['settings'] );
 		self::assertSame( '#fff', $result['settings']['background_color'] );
+		self::assertSame( [ 'size' => 1.5, 'unit' => 'px' ], $result['settings']['typography_letter_spacing'] );
 		self::assertNotEmpty( $result['applied'] );
 	}
 

@@ -158,12 +158,14 @@ async function heroCenterOffset(page: Page): Promise<number | null> {
 }
 
 test.describe('Front-end visual matrix', () => {
-	// One project only — admin matrix already covers 5×2 viewports.
-	test.skip(({ }, testInfo) => testInfo.project.name !== 'desktop-1440-light');
-
 	test('seeded landings: no overflow, hero centered, screenshots archived', async ({
 		page,
 	}, testInfo) => {
+		// One project only — admin matrix already covers 5×2 viewports.
+		test.skip(
+			testInfo.project.name !== 'desktop-1440-light',
+			'Front-end visual proof runs once.',
+		);
 		fs.mkdirSync(artifactDir, { recursive: true });
 		await login(page);
 		const nonce = await wpRestNonce(page);

@@ -10,6 +10,19 @@
 
 **OAuth is explicitly OUT OF SCOPE.** It stays a roadmap-only item (see Phase 7.3). Do not implement any OAuth flow in this plan.
 
+## PR #8 validation and workflow hardening follow-up
+
+- [x] Reproduce the failing admin e2e job and move project-specific skips into
+  test bodies.
+- [x] Serialize shared WordPress e2e state and restore the MCP surface after
+  the setup interaction test.
+- [x] Make Elementor V3 batch validation atomic and collect all dry-run errors
+  in one response with exact schema repair requests.
+- [x] Rank and filter compact Elementor widget schemas; normalize common
+  typography aliases with explicit warnings.
+- [x] Add regression coverage, regenerate public contracts, and run focused
+  tests, PHPStan, PHPCS, contract compatibility, and security audits.
+
 ---
 
 ## Verified audit findings (evidence — do not re-audit, build on this)

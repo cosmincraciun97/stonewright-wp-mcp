@@ -6,7 +6,7 @@ namespace Stonewright\WpMcp\Blueprints;
 /**
  * Loads bundled DesignSpec blueprints from plugin/blueprints/*.json.
  *
- * Each file is original Stonewright content (not derived from EMCP templates).
+ * Each file contains original Stonewright content.
  * Compact list views omit the full DesignSpec; get() returns the full payload.
  */
 final class BlueprintStore {

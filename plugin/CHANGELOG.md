@@ -27,6 +27,15 @@
   structural readback + rollback) via `ElementorWriter::write_transactional`.
 - Marked `stonewright/task-start` as the canonical first call and retained
   `stonewright/context-bootstrap` as the full-context compatibility path.
+- Elementor schema summaries rank useful controls first and accept a focused
+  control query for compact validation repair.
+
+### Fixed
+
+- Elementor V3 batch dry-runs report all invalid operations together, return
+  exact schema requests, and block every partial write.
+- Typography aliases normalize to live keys with compact warnings.
+- Admin e2e writes are serialized, run once, and restore shared settings.
 
 ## [1.0.0-alpha.72] - 2026-07-16
 

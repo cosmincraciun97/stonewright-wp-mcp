@@ -38,10 +38,11 @@ function projects(): Project[] {
 
 export default defineConfig({
 	testDir: './tests',
-	fullyParallel: true,
+	// The suite shares one WordPress database and mutates global options/posts.
+	fullyParallel: false,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 1 : 0,
-	workers: process.env.CI ? 2 : undefined,
+	workers: process.env.CI ? 1 : undefined,
 	reporter: process.env.CI ? [['github'], ['list']] : 'list',
 	timeout: 60_000,
 	expect: { timeout: 15_000 },

@@ -22,6 +22,17 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Synchronized evergreen install/client guides, prompts, capability counts,
   changelog retention, and skills with the canonical task-start workflow.
 - Elementor blueprint writes use transactional snapshot + readback rollback.
+- Elementor schema summaries rank useful controls first and support focused
+  control queries for smaller repair responses.
+
+### Fixed
+
+- Elementor V3 batch dry-runs collect all validation failures in one response,
+  return exact schema repair requests, and never persist partial batches.
+- Common typography aliases normalize to live Elementor keys and report the
+  normalization without requiring another model round trip.
+- Admin e2e writes run once, restore shared settings, and serialize CI access
+  to the shared WordPress database.
 
 ## [1.0.0-alpha.72] - 2026-07-16
 

@@ -85,11 +85,13 @@ async function heroCenterOffset(page: Page): Promise<number | null> {
 }
 
 test.describe('Blueprint apply + front-end visual proof', () => {
-	test.skip(({ }, testInfo) => testInfo.project.name !== 'desktop-1440-light');
-
 	test('apply dental/saas/restaurant (gutenberg+fse) and screenshot front-end', async ({
 		page,
 	}, testInfo) => {
+		test.skip(
+			testInfo.project.name !== 'desktop-1440-light',
+			'Heavy visual write runs once.',
+		);
 		fs.mkdirSync(artifactDir, { recursive: true });
 		await login(page);
 		await ensurePluginEnabled(page);

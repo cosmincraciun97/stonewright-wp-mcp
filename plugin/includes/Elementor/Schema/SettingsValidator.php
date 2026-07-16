@@ -16,12 +16,13 @@ final class SettingsValidator {
 	 * @return array{settings:array<string,mixed>,schema_hash:string,warnings:list<array<string,mixed>>}|\WP_Error
 	 */
 	public static function validate( string $widget_type, array $settings, bool $require_render_settings = true, bool $enforce_conditions = true ): array|\WP_Error {
-		$settings = SettingsKeyAliases::normalize( $settings )['settings'];
+		$aliases  = SettingsKeyAliases::normalize( $settings );
+		$settings = $aliases['settings'];
 		$schema   = WidgetSchemaRepository::get( $widget_type );
 		if ( $schema instanceof \WP_Error ) {
 			return $schema;
 		}
-		return self::validate_schema( $widget_type, $settings, $schema, $require_render_settings, $enforce_conditions );
+		return self::validate_schema( $widget_type, $settings, $schema, $require_render_settings, $enforce_conditions, $aliases['applied'] );
 	}
 
 	/**
@@ -29,12 +30,13 @@ final class SettingsValidator {
 	 * @return array{settings:array<string,mixed>,schema_hash:string,warnings:list<array<string,mixed>>}|\WP_Error
 	 */
 	public static function validate_container( array $settings, string $element_type = 'container', bool $enforce_conditions = true ): array|\WP_Error {
-		$settings = SettingsKeyAliases::normalize( $settings )['settings'];
+		$aliases  = SettingsKeyAliases::normalize( $settings );
+		$settings = $aliases['settings'];
 		$schema   = ContainerSchemaRepository::get( $element_type );
 		if ( $schema instanceof \WP_Error ) {
 			return $schema;
 		}
-		return self::validate_schema( $element_type, $settings, $schema, false, $enforce_conditions );
+		return self::validate_schema( $element_type, $settings, $schema, false, $enforce_conditions, $aliases['applied'] );
 	}
 
 	/**
@@ -42,7 +44,7 @@ final class SettingsValidator {
 	 * @param array<string, mixed> $schema
 	 * @return array{settings:array<string,mixed>,schema_hash:string,warnings:list<array<string,mixed>>}|\WP_Error
 	 */
-	private static function validate_schema( string $subject, array $settings, array $schema, bool $require_render_settings, bool $enforce_conditions ): array|\WP_Error {
+	private static function validate_schema( string $subject, array $settings, array $schema, bool $require_render_settings, bool $enforce_conditions, array $aliases = [] ): array|\WP_Error {
 
 		$controls   = (array) ( $schema['controls'] ?? [] );
 		$violations = [];
@@ -82,6 +84,10 @@ final class SettingsValidator {
 		}
 
 		if ( [] !== $violations ) {
+			$first_path = (string) ( $violations[0]['path'] ?? '' );
+			$query      = preg_replace( '/^settings\./', '', $first_path );
+			$query      = explode( '.', (string) $query )[0];
+			$is_container = in_array( $subject, [ 'container', 'section', 'column' ], true );
 			return new \WP_Error(
 				'stonewright_elementor_settings_invalid',
 				__( 'Elementor settings do not match the live widget schema.', 'stonewright' ),
@@ -90,6 +96,14 @@ final class SettingsValidator {
 					'widget_type' => $subject,
 					'schema_hash' => (string) ( $schema['schema_hash'] ?? '' ),
 					'violations'  => $violations,
+					'retryable'   => true,
+					'schema_request' => [
+						'ability' => $is_container ? 'stonewright/elementor-v3-container-schema' : 'stonewright/elementor-schema',
+						'input'   => $is_container
+							? [ 'query' => $query ]
+							: [ 'mode' => 'summary', 'widget_type' => $subject, 'query' => $query ],
+					],
+					'repair'      => 'Call schema_request once, replace only rejected settings, then rerun the same batch dry-run.',
 				]
 			);
 		}
@@ -97,7 +111,14 @@ final class SettingsValidator {
 		return [
 			'settings'    => $normalized,
 			'schema_hash' => (string) ( $schema['schema_hash'] ?? '' ),
-			'warnings'    => [],
+			'warnings'    => array_map(
+				static fn( array $alias ): array => [
+					'code'      => 'settings_alias_applied',
+					'alias'     => (string) $alias['alias'],
+					'canonical' => (string) $alias['canonical'],
+				],
+				$aliases
+			),
 		];
 	}
 
