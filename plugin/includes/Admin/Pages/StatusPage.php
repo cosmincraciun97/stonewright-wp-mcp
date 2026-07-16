@@ -22,10 +22,11 @@ final class StatusPage {
 	}
 
 	public static function add_submenu(): void {
+		// IA group: Overview — page slug stonewright-status unchanged.
 		add_submenu_page(
 			'stonewright',
 			__( 'Dashboard', 'stonewright' ),
-			__( 'Dashboard', 'stonewright' ),
+			__( 'Overview', 'stonewright' ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]

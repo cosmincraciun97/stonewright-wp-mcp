@@ -36,10 +36,11 @@ final class AuditLogPage {
 	}
 
 	public static function add_submenu(): void {
+		// IA group: Safety & Diagnostics (nested with Memory/Skills) — slug unchanged.
 		add_submenu_page(
 			ConfigurationPage::SLUG,
 			__( 'Audit Log', 'stonewright' ),
-			__( 'Audit Log', 'stonewright' ),
+			__( 'Safety: Audit', 'stonewright' ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]

@@ -23,10 +23,11 @@ final class SkillsPage {
 	}
 
 	public static function add_submenu(): void {
+		// IA group: Safety & Diagnostics — slug stonewright-skills unchanged.
 		add_submenu_page(
 			'stonewright',
 			__( 'Skills', 'stonewright' ),
-			__( 'Skills', 'stonewright' ),
+			__( 'Safety: Skills', 'stonewright' ),
 			self::CAP,
 			self::SLUG,
 			[ self::class, 'render' ]

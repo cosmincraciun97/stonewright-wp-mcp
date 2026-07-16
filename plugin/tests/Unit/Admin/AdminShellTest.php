@@ -42,6 +42,30 @@ final class AdminShellTest extends TestCase {
 		self::assertSame( 'Setup', $pages['stonewright'] );
 	}
 
+	public function test_menu_groups_are_at_most_six_and_cover_all_page_slugs(): void {
+		$groups = AdminShell::menu_groups();
+		self::assertLessThanOrEqual( 6, count( $groups ) );
+		self::assertGreaterThanOrEqual( 1, count( $groups ) );
+
+		$ids = array_column( $groups, 'id' );
+		self::assertContains( 'overview', $ids );
+		self::assertContains( 'connect', $ids );
+		self::assertContains( 'capabilities', $ids );
+		self::assertContains( 'workflows', $ids );
+		self::assertContains( 'design-library', $ids );
+		self::assertContains( 'safety-diagnostics', $ids );
+
+		$from_groups = [];
+		foreach ( $groups as $group ) {
+			self::assertArrayHasKey( 'label', $group );
+			self::assertNotEmpty( $group['pages'] );
+			foreach ( array_keys( $group['pages'] ) as $slug ) {
+				$from_groups[] = $slug;
+			}
+		}
+		self::assertSame( array_keys( AdminShell::pages() ), $from_groups );
+	}
+
 	public function test_open_and_close_produce_shell_markup_with_nav_and_mode_pill(): void {
 		ob_start();
 		AdminShell::open( 'stonewright' );
@@ -52,6 +76,9 @@ final class AdminShellTest extends TestCase {
 		self::assertStringContainsString( 'class="sw-shell', $html );
 		self::assertStringContainsString( 'sw-shell__header', $html );
 		self::assertStringContainsString( 'sw-shell__nav', $html );
+		self::assertStringContainsString( 'sw-shell__nav-group', $html );
+		self::assertStringContainsString( 'data-sw-nav-group="connect"', $html );
+		self::assertStringContainsString( 'data-sw-nav-group="safety-diagnostics"', $html );
 		self::assertStringContainsString( 'sw-shell__content', $html );
 		self::assertStringContainsString( 'sw-notice-drawer', $html );
 		self::assertStringContainsString( 'aria-current="page"', $html );

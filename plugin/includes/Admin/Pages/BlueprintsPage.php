@@ -21,10 +21,11 @@ final class BlueprintsPage {
 	}
 
 	public static function add_submenu(): void {
+		// IA group: Design Library — slug stonewright-blueprints unchanged.
 		add_submenu_page(
 			'stonewright',
 			__( 'Blueprints', 'stonewright' ),
-			__( 'Blueprints', 'stonewright' ),
+			__( 'Design Library', 'stonewright' ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]

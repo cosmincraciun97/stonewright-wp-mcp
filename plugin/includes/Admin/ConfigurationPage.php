@@ -86,10 +86,11 @@ final class ConfigurationPage {
 			76
 		);
 
+		// IA group: Connect — slug unchanged for deep links and ConfigurationPage.
 		add_submenu_page(
 			self::SLUG,
 			__( 'Setup', 'stonewright' ),
-			__( 'Setup', 'stonewright' ),
+			__( 'Connect', 'stonewright' ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]
