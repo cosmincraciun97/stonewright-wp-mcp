@@ -218,6 +218,7 @@ export function taskStart(
 	const guidance = [
 		'Direct mode: core WordPress REST via Application Passwords; no plugin required.',
 		'Destructive tools require confirm:true; writes honor STONEWRIGHT_DIRECT_WRITES.',
+		'Content model: Direct mode fully edits EXISTING registered models — any CPT content via stonewright-content-* (type param), any taxonomy terms via stonewright-taxonomy-terms, ACF field values via stonewright-acf-fields-* (needs ACF "Show in REST"). Registering NEW post types, taxonomies, or field groups requires PHP running on the server: use the Stonewright plugin or theme/plugin code. No REST-only client can register models — do not build ad hoc plugins as a workaround; tell the user instead.',
 		'If the user corrects a repeatable mistake, call stonewright-learning-record.',
 		'Load a matched skill body with stonewright-skill-get before acting on its topic.',
 		'Never guess WordPress/Elementor/Gutenberg schemas — read first, research official docs when unknown, verify after writes.',
@@ -255,6 +256,12 @@ export function taskStart(
 		capabilities: {
 			direct_tools: ctx.directToolCount ?? 0,
 			plugin_only: PLUGIN_ONLY_CAPABILITIES.map((c) => c.id),
+			content_model: {
+				existing_models:
+					'Full CRUD for any registered CPT (stonewright-content-* with type), taxonomy terms (stonewright-taxonomy-terms), and ACF field values (stonewright-acf-fields-*).',
+				registration:
+					'Plugin-only: registering new post types/taxonomies/field groups needs server-side PHP; core REST has no registration endpoint.',
+			},
 		},
 		guidance,
 	};

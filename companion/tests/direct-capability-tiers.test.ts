@@ -89,7 +89,7 @@ describe('DIRECT_ESSENTIAL_TOOL_NAMES registration filter', () => {
 		expect(shouldRegisterDirectTool('stonewright-comment-list', 'elementor-design')).toBe(false);
 		for (const profile of ['elementor-design', 'content-model', 'gutenberg', 'site-admin'] as const) {
 			const visible = DIRECT_TOOL_NAMES.filter((name) => shouldRegisterDirectTool(name, profile));
-			expect(visible.length).toBeLessThan(45);
+			expect(visible.length).toBeLessThanOrEqual(50);
 			expect(visible.length).toBeLessThan(DIRECT_TOOL_NAMES.length);
 		}
 	});

@@ -100,9 +100,10 @@ export const CAPABILITY_FEATURES: readonly CapabilityFeature[] = [
 	},
 	{
 		id: 'content-model-registration',
-		label: 'CPT / taxonomy / field-group registration',
+		label: 'Registering NEW CPTs / taxonomies / ACF field groups',
 		availableIn: ['plugin', 'plugin-browser-qa'],
-		reasonUnavailable: 'Persistent registration APIs require the Stonewright plugin.',
+		reasonUnavailable:
+			'Core REST has no registration endpoint; registration needs server-side PHP, so no REST-only client can do it. Editing EXISTING CPT content, taxonomy terms, and ACF field values works in Direct mode.',
 		upgradePath: 'Install the Stonewright plugin for cpt-register, taxonomy-register, and acf-field-group-save.',
 	},
 	{
@@ -128,9 +129,10 @@ export const CAPABILITY_TIERS: readonly CapabilityTier[] = [
 		summary:
 			'Application Password + core WordPress REST from any host. No WP-CLI, no plugin engines.',
 		includes: [
-			'content list/get/create/update',
-			'media, menus, taxonomy, templates, global styles',
-			'search, settings, plugins list/activate, themes list',
+			'content CRUD for any registered post type incl. CPTs (create/list/get/update/delete)',
+			'taxonomy terms for any registered taxonomy, ACF field values (Show in REST)',
+			'media, menus, comments, users/app-passwords, widgets, templates, global styles',
+			'search, settings, site health, plugins list/activate, themes list, WooCommerce read',
 			'local companion skills/memory under ~/.stonewright',
 		],
 		excludes: [...PLUGIN_ONLY_FEATURE_IDS, 'elementor-data-wpcli'],

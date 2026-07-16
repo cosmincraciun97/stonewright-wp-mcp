@@ -79,6 +79,8 @@ describe('direct sites-config', () => {
 
 	it('falls back to env single-site when no file is present', () => {
 		const config = loadSitesConfig({
+			// Force file miss even when the developer machine has ~/.stonewright/sites.json.
+			sitesFile: '/tmp/does-not-exist-sw-sites-env-fallback.json',
 			env: {
 				STONEWRIGHT_WP_URL: 'https://example.test/',
 				STONEWRIGHT_WP_USERNAME: 'editor',

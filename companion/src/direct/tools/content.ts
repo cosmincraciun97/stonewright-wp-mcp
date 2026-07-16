@@ -1,6 +1,7 @@
 import type { WpRestClient } from '../wp-rest-client.js';
 import { assertToolEnabled, assertWriteAllowed, type DirectWriteMode } from '../writes.js';
 import { appendDirectAudit } from '../audit.js';
+import { resolveRestBase } from '../rest-discovery.js';
 import type { ResolvedSite } from '../sites-config.js';
 
 export interface ContentToolContext {
@@ -43,7 +44,7 @@ function compactPost(post: WpPost) {
 	};
 }
 
-function collectionFor(type: string): string {
+async function collectionFor(ctx: ContentToolContext, type: string): Promise<string> {
 	const normalized = type.trim().toLowerCase() || 'pages';
 	if (normalized === 'page' || normalized === 'pages') {
 		return 'pages';
@@ -51,7 +52,10 @@ function collectionFor(type: string): string {
 	if (normalized === 'post' || normalized === 'posts') {
 		return 'posts';
 	}
-	return normalized;
+	// CPT: resolve the real rest_base from /wp/v2/types (cached); a CPT whose
+	// rest_base differs from its slug would otherwise 404.
+	const discovered = await resolveRestBase(ctx.client, 'types', normalized);
+	return discovered ?? normalized;
 }
 
 export async function contentList(
@@ -65,7 +69,7 @@ export async function contentList(
 	},
 ) {
 	assertToolEnabled(ctx.site, 'stonewright-content-list');
-	const collection = collectionFor(input.type ?? 'pages');
+	const collection = await collectionFor(ctx, input.type ?? 'pages');
 	const perPage = Math.min(Math.max(input.per_page ?? 20, 1), 50);
 	const page = Math.max(input.page ?? 1, 1);
 	const items = await ctx.client.get<WpPost[]>(`/wp/v2/${collection}`, {
@@ -92,7 +96,7 @@ export async function contentGet(
 	input: { type?: string | undefined; id: number; fields?: 'raw' | 'rendered' | undefined },
 ) {
 	assertToolEnabled(ctx.site, 'stonewright-content-get');
-	const collection = collectionFor(input.type ?? 'pages');
+	const collection = await collectionFor(ctx, input.type ?? 'pages');
 	const context = input.fields === 'raw' ? 'edit' : 'view';
 	const post = await ctx.client.get<WpPost>(`/wp/v2/${collection}/${input.id}`, {
 		query: { context },
@@ -115,7 +119,8 @@ export async function contentGet(
 export async function contentCreate(
 	ctx: ContentToolContext,
 	input: {
-		kind: 'page' | 'post';
+		kind?: 'page' | 'post' | undefined;
+		type?: string | undefined;
 		title: string;
 		content?: string | undefined;
 		status?: string | undefined;
@@ -124,10 +129,15 @@ export async function contentCreate(
 		meta?: Record<string, unknown> | undefined;
 	},
 ) {
-	const tool = input.kind === 'page' ? 'stonewright-content-create-page' : 'stonewright-content-create-post';
+	const tool =
+		input.kind === 'page'
+			? 'stonewright-content-create-page'
+			: input.kind === 'post'
+				? 'stonewright-content-create-post'
+				: 'stonewright-content-create';
 	assertToolEnabled(ctx.site, tool);
 	assertWriteAllowed({ mode: ctx.writeMode, destructive: false, tool });
-	const collection = input.kind === 'page' ? 'pages' : 'posts';
+	const collection = await collectionFor(ctx, input.kind ?? input.type ?? 'page');
 	try {
 		const post = await ctx.client.post<WpPost>(`/wp/v2/${collection}`, {
 			body: {
@@ -173,7 +183,7 @@ export async function contentUpdate(
 ) {
 	assertToolEnabled(ctx.site, 'stonewright-content-update');
 	assertWriteAllowed({ mode: ctx.writeMode, destructive: false, tool: 'stonewright-content-update' });
-	const collection = collectionFor(input.type ?? 'pages');
+	const collection = await collectionFor(ctx, input.type ?? 'pages');
 	const body: Record<string, unknown> = {};
 	if (input.title !== undefined) body.title = input.title;
 	if (input.content !== undefined) body.content = input.content;
@@ -214,7 +224,7 @@ export async function contentDelete(
 		...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
 		tool: 'stonewright-content-delete',
 	});
-	const collection = collectionFor(input.type ?? 'pages');
+	const collection = await collectionFor(ctx, input.type ?? 'pages');
 	try {
 		const result = await ctx.client.del<unknown>(`/wp/v2/${collection}/${input.id}`, {
 			query: { force },
@@ -242,7 +252,7 @@ export async function contentRevisions(
 	input: { type?: string | undefined; id: number; per_page?: number | undefined },
 ) {
 	assertToolEnabled(ctx.site, 'stonewright-content-revisions');
-	const collection = collectionFor(input.type ?? 'pages');
+	const collection = await collectionFor(ctx, input.type ?? 'pages');
 	const perPage = Math.min(Math.max(input.per_page ?? 10, 1), 50);
 	const revisions = await ctx.client.get<WpPost[]>(`/wp/v2/${collection}/${input.id}/revisions`, {
 		query: {
@@ -267,7 +277,7 @@ export async function contentRevisionGet(
 	input: { type?: string | undefined; id: number; revision_id: number },
 ) {
 	assertToolEnabled(ctx.site, 'stonewright-content-revision-get');
-	const collection = collectionFor(input.type ?? 'pages');
+	const collection = await collectionFor(ctx, input.type ?? 'pages');
 	const rev = await ctx.client.get<WpPost>(
 		`/wp/v2/${collection}/${input.id}/revisions/${input.revision_id}`,
 		{ query: { _fields: 'id,title,slug,status,modified,content,author' } },
@@ -291,7 +301,7 @@ export async function contentRevisionDelete(
 		...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
 		tool: 'stonewright-content-revision-delete',
 	});
-	const collection = collectionFor(input.type ?? 'pages');
+	const collection = await collectionFor(ctx, input.type ?? 'pages');
 	const result = await ctx.client.del(
 		`/wp/v2/${collection}/${input.id}/revisions/${input.revision_id}`,
 		{ query: { force: true } },
@@ -310,7 +320,7 @@ export async function contentAutosaves(
 	input: { type?: string | undefined; id: number; autosave_id?: number | undefined },
 ) {
 	assertToolEnabled(ctx.site, 'stonewright-content-autosaves');
-	const collection = collectionFor(input.type ?? 'pages');
+	const collection = await collectionFor(ctx, input.type ?? 'pages');
 	if (input.autosave_id !== undefined) {
 		const one = await ctx.client.get<WpPost>(
 			`/wp/v2/${collection}/${input.id}/autosaves/${input.autosave_id}`,
@@ -345,7 +355,7 @@ export async function contentAutosaveCreate(
 		...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
 		tool: 'stonewright-content-autosave-create',
 	});
-	const collection = collectionFor(input.type ?? 'pages');
+	const collection = await collectionFor(ctx, input.type ?? 'pages');
 	const body: Record<string, unknown> = {};
 	if (input.title !== undefined) body.title = input.title;
 	if (input.content !== undefined) body.content = input.content;

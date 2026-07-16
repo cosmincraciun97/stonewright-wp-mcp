@@ -1,6 +1,7 @@
 import type { WpRestClient } from '../wp-rest-client.js';
 import { assertToolEnabled, assertWriteAllowed, type DirectWriteMode } from '../writes.js';
 import { appendDirectAudit } from '../audit.js';
+import { resolveRestBase } from '../rest-discovery.js';
 import type { ResolvedSite } from '../sites-config.js';
 
 export interface TaxonomyToolContext {
@@ -18,11 +19,13 @@ type WpTerm = {
 	parent?: number | undefined;
 };
 
-function collectionFor(taxonomy: string): string {
+async function collectionFor(ctx: TaxonomyToolContext, taxonomy: string): Promise<string> {
 	const normalized = taxonomy.trim().toLowerCase() || 'categories';
-	if (normalized === 'category') return 'categories';
-	if (normalized === 'tag' || normalized === 'post_tag') return 'tags';
-	return normalized;
+	if (normalized === 'category' || normalized === 'categories') return 'categories';
+	if (normalized === 'tag' || normalized === 'post_tag' || normalized === 'tags') return 'tags';
+	// Custom taxonomy: resolve the real rest_base from /wp/v2/taxonomies (cached).
+	const discovered = await resolveRestBase(ctx.client, 'taxonomies', normalized);
+	return discovered ?? normalized;
 }
 
 function compactTerm(term: WpTerm) {
@@ -41,7 +44,7 @@ export async function taxonomyList(
 	input: { taxonomy?: string | undefined; search?: string | undefined; per_page?: number | undefined; page?: number | undefined },
 ) {
 	assertToolEnabled(ctx.site, 'stonewright-taxonomy-terms');
-	const collection = collectionFor(input.taxonomy ?? 'categories');
+	const collection = await collectionFor(ctx, input.taxonomy ?? 'categories');
 	const perPage = Math.min(Math.max(input.per_page ?? 50, 1), 50);
 	const page = Math.max(input.page ?? 1, 1);
 	const items = await ctx.client.get<WpTerm[]>(`/wp/v2/${collection}`, {
@@ -69,7 +72,7 @@ export async function taxonomyCreate(
 ) {
 	assertToolEnabled(ctx.site, 'stonewright-taxonomy-terms');
 	assertWriteAllowed({ mode: ctx.writeMode, destructive: false, tool: 'stonewright-taxonomy-terms' });
-	const collection = collectionFor(input.taxonomy ?? 'categories');
+	const collection = await collectionFor(ctx, input.taxonomy ?? 'categories');
 	try {
 		const term = await ctx.client.post<WpTerm>(`/wp/v2/${collection}`, {
 			body: {
@@ -110,7 +113,7 @@ export async function taxonomyUpdate(
 ) {
 	assertToolEnabled(ctx.site, 'stonewright-taxonomy-terms');
 	assertWriteAllowed({ mode: ctx.writeMode, destructive: false, tool: 'stonewright-taxonomy-terms' });
-	const collection = collectionFor(input.taxonomy ?? 'categories');
+	const collection = await collectionFor(ctx, input.taxonomy ?? 'categories');
 	const body: Record<string, unknown> = {};
 	if (input.name !== undefined) body.name = input.name;
 	if (input.slug !== undefined) body.slug = input.slug;
@@ -148,7 +151,7 @@ export async function taxonomyDelete(
 		...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
 		tool: 'stonewright-taxonomy-terms',
 	});
-	const collection = collectionFor(input.taxonomy ?? 'categories');
+	const collection = await collectionFor(ctx, input.taxonomy ?? 'categories');
 	try {
 		const result = await ctx.client.del<unknown>(`/wp/v2/${collection}/${input.id}`, {
 			query: { force: input.force ?? true },

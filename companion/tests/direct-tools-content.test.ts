@@ -12,6 +12,8 @@ import {
 	contentList,
 	contentUpdate,
 } from '../src/direct/tools/content.js';
+import { taxonomyList } from '../src/direct/tools/taxonomy.js';
+import { clearRestDiscoveryCache } from '../src/direct/rest-discovery.js';
 import { DIRECT_WAVE1_TOOL_NAMES } from '../src/direct/registry.js';
 
 const site: ResolvedSite = {
@@ -36,6 +38,7 @@ describe('direct content tools', () => {
 		for (const dir of dirs.splice(0)) {
 			rmSync(dir, { recursive: true, force: true });
 		}
+		clearRestDiscoveryCache();
 		vi.restoreAllMocks();
 	});
 
@@ -51,6 +54,7 @@ describe('direct content tools', () => {
 		expect(DIRECT_WAVE1_TOOL_NAMES).toContain('stonewright-content-list');
 		expect(DIRECT_WAVE1_TOOL_NAMES).toContain('stonewright-media-upload');
 		expect(DIRECT_WAVE1_TOOL_NAMES).toContain('stonewright-taxonomy-terms');
+		expect(DIRECT_WAVE1_TOOL_NAMES).toContain('stonewright-content-create');
 	});
 
 	it('lists pages compactly on happy path', async () => {
@@ -178,5 +182,153 @@ describe('direct content tools', () => {
 			contentDelete({ client, site: locked, writeMode: 'on' }, { id: 1 }),
 		).rejects.toThrow(/disabled/i);
 		expect(fetchImpl).not.toHaveBeenCalled();
+	});
+
+	it('creates a generic CPT using discovered rest_base', async () => {
+		homeDir();
+		const fetchImpl = vi.fn((url: Parameters<typeof fetch>[0], init?: RequestInit) => {
+			const href = String(url);
+			if (init?.method === 'GET' || !init?.method) {
+				if (href.includes('/wp/v2/types')) {
+					return Promise.resolve(
+						new Response(
+							JSON.stringify({
+								sector: { slug: 'sector', rest_base: 'sectors' },
+							}),
+							{ status: 200, headers: { 'content-type': 'application/json' } },
+						),
+					);
+				}
+			}
+			if (init?.method === 'POST' && href.includes('/wp/v2/sectors')) {
+				return Promise.resolve(
+					new Response(
+						JSON.stringify({
+							id: 42,
+							title: { raw: 'X' },
+							slug: 'x',
+							status: 'draft',
+							modified: '2026-07-16T00:00:00',
+							link: 'http://example.test/sectors/x',
+							type: 'sector',
+						}),
+						{ status: 201, headers: { 'content-type': 'application/json' } },
+					),
+				);
+			}
+			return Promise.resolve(
+				new Response(JSON.stringify({ code: 'unexpected', message: href }), {
+					status: 500,
+					headers: { 'content-type': 'application/json' },
+				}),
+			);
+		});
+		const client = new WpRestClient(site, { fetchImpl });
+		const result = await contentCreate(
+			{ client, site, writeMode: 'on' },
+			{ type: 'sector', title: 'X' },
+		);
+		expect(result).toMatchObject({ id: 42, title: 'X', type: 'sector' });
+		const postCall = fetchImpl.mock.calls.find(
+			([url, init]) => String(init?.method ?? 'GET').toUpperCase() === 'POST',
+		);
+		expect(postCall).toBeDefined();
+		expect(String(postCall?.[0])).toContain('/wp/v2/sectors');
+	});
+
+	it('falls back to raw slug when type discovery fails', async () => {
+		const fetchImpl = vi.fn((url: Parameters<typeof fetch>[0]) => {
+			const href = String(url);
+			if (href.includes('/wp/v2/types')) {
+				return Promise.resolve(
+					new Response(JSON.stringify({ code: 'error', message: 'boom' }), {
+						status: 500,
+						headers: { 'content-type': 'application/json' },
+					}),
+				);
+			}
+			if (href.includes('/wp/v2/portfolio')) {
+				return Promise.resolve(
+					new Response(
+						JSON.stringify([
+							{
+								id: 7,
+								title: { rendered: 'Work' },
+								slug: 'work',
+								status: 'publish',
+								modified: '2026-07-16T00:00:00',
+								link: 'http://example.test/portfolio/work',
+								type: 'portfolio',
+							},
+						]),
+						{ status: 200, headers: { 'content-type': 'application/json' } },
+					),
+				);
+			}
+			return Promise.resolve(
+				new Response(JSON.stringify({ code: 'unexpected', message: href }), {
+					status: 500,
+					headers: { 'content-type': 'application/json' },
+				}),
+			);
+		});
+		const client = new WpRestClient(site, { fetchImpl });
+		const result = await contentList(
+			{ client, site, writeMode: 'on' },
+			{ type: 'portfolio' },
+		);
+		expect(result.items).toHaveLength(1);
+		expect(result.items[0]).toMatchObject({ id: 7, title: 'Work', type: 'portfolio' });
+		const listCall = fetchImpl.mock.calls.find(([url]) => String(url).includes('/wp/v2/portfolio'));
+		expect(listCall).toBeDefined();
+	});
+
+	it('lists taxonomy terms using discovered rest_base', async () => {
+		const fetchImpl = vi.fn((url: Parameters<typeof fetch>[0]) => {
+			const href = String(url);
+			if (href.includes('/wp/v2/taxonomies')) {
+				return Promise.resolve(
+					new Response(
+						JSON.stringify({
+							sector_area: { slug: 'sector_area', rest_base: 'sector-areas' },
+						}),
+						{ status: 200, headers: { 'content-type': 'application/json' } },
+					),
+				);
+			}
+			if (href.includes('/wp/v2/sector-areas')) {
+				return Promise.resolve(
+					new Response(
+						JSON.stringify([
+							{
+								id: 3,
+								name: 'North',
+								slug: 'north',
+								description: '',
+								count: 1,
+								parent: 0,
+							},
+						]),
+						{ status: 200, headers: { 'content-type': 'application/json' } },
+					),
+				);
+			}
+			return Promise.resolve(
+				new Response(JSON.stringify({ code: 'unexpected', message: href }), {
+					status: 500,
+					headers: { 'content-type': 'application/json' },
+				}),
+			);
+		});
+		const client = new WpRestClient(site, { fetchImpl });
+		const result = await taxonomyList(
+			{ client, site, writeMode: 'on' },
+			{ taxonomy: 'sector_area' },
+		);
+		expect(result.taxonomy).toBe('sector-areas');
+		expect(result.items).toHaveLength(1);
+		expect(result.items[0]).toMatchObject({ id: 3, name: 'North', slug: 'north' });
+		const termsCall = fetchImpl.mock.calls.find(([url]) => String(url).includes('/wp/v2/sector-areas'));
+		expect(termsCall).toBeDefined();
 	});
 });

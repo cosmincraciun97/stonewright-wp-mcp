@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.75] - 2026-07-16
+
+### Added
+
+- Direct mode: `stonewright-content-create` creates items of any registered post
+  type (**99** tools total).
+- Direct mode: `stonewright-task-start` returns `session_tools` (exact enabled
+  tool list) and structured `capabilities.content_model` guidance.
+
+### Changed
+
+- Direct mode: content and taxonomy tools auto-resolve `rest_base` from
+  `/wp/v2/types` and `/wp/v2/taxonomies` (CPTs whose `rest_base` differs from
+  the slug now work).
+- Direct mode: site-discover and capability tiers state that Direct fully edits
+  existing CPT content, taxonomy terms, and ACF field values; registering new
+  models requires server-side PHP (plugin) — a WordPress REST limit, not a
+  Stonewright gap.
+
 ## [1.0.0-alpha.74] - 2026-07-16
 
 ### Changed
@@ -82,16 +101,3 @@
 ### Fixed
 - wp-admin paste prompt starts with task-start.
 - REST parity security review items (audit redaction, search visibility, rest-request read-only).
-
-
-## [1.0.0-alpha.70] - 2026-07-16
-
-### Added
-
-- `tool-profile` resolve action and priority-ordered profile tools (blueprints first).
-- Strict blueprint `engine` gate; Gutenberg columns / alignfull / hero media-text.
-- Brand surface scanner and 5-release retention policy tests.
-
-### Changed
-
-- Companion consumes plugin-resolved tool lists; falls back only offline/Direct.

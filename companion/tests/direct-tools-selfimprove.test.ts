@@ -16,7 +16,11 @@ import { DIRECT_TOOL_NAMES, DIRECT_WAVE4_SELFIMPROVE_TOOL_NAMES } from '../src/d
 
 function ctx() {
 	return {
-		env: {} as NodeJS.ProcessEnv,
+		// Point sites lookup at a missing path so local ~/.stonewright/sites.json
+		// cannot leak a site alias into pluginless self-improve tests.
+		env: {
+			STONEWRIGHT_SITES_FILE: '/tmp/does-not-exist-sw-sites-selfimprove.json',
+		} as NodeJS.ProcessEnv,
 		baseDir: mkdtempSync(join(tmpdir(), 'sw-si-')),
 		directToolCount: DIRECT_TOOL_NAMES.length,
 	};

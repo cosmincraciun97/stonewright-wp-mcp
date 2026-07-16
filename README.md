@@ -62,7 +62,7 @@ Counts are derived from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL
 | Security + audit + sandbox | 12 | Tokens, one-time links, sandbox lifecycle |
 | Other (menus, blueprints, brand kits, runtime, search, WC, theme builder, …) | rest | See full [matrix](docs/ability-truth-matrix.md) |
 
-### Direct mode — **98** tools (pluginless)
+### Direct mode — **99** tools (pluginless)
 
 | Area | Tools (group) | Notes |
 |---|---|---|
@@ -112,7 +112,7 @@ Install the Stonewright plugin for advanced Elementor workflows, blueprints and 
 
 ### Direct mode — plugin-less core REST + local Elementor data
 
-The companion authenticates with a WordPress Application Password and exposes **98** tools without installing Stonewright. Local sites with WP-CLI can edit `_elementor_data` via `stonewright-elementor-data-*` (with file backup). Full Elementor engines, DesignSpec, php-execute, and site-hosted skills remain plugin-only. See [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md) and [docs/install-prompts.md](docs/install-prompts.md).
+The companion authenticates with a WordPress Application Password and exposes **99** tools without installing Stonewright. Local sites with WP-CLI can edit `_elementor_data` via `stonewright-elementor-data-*` (with file backup). Full Elementor engines, DesignSpec, php-execute, and site-hosted skills remain plugin-only. See [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md) and [docs/install-prompts.md](docs/install-prompts.md).
 
 ## Quick Start
 
@@ -260,7 +260,7 @@ flowchart LR
   Plugin --> WP
 ```
 
-Direct mode has a **smaller** capability surface (core REST + local Elementor data + skills/memory; **98** tools). Plugin mode exposes **312** abilities. Not every request passes through every component.
+Direct mode has a **smaller** capability surface (core REST + local Elementor data + skills/memory; **99** tools). Plugin mode exposes **312** abilities. Not every request passes through every component.
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 

@@ -6,7 +6,7 @@
  * - plugin essential (proxied + local) ≤ 20
  * - plugin low-tools (proxied + local) ≤ 12
  * - Direct full ≤ 100 (when companion/src/direct exists)
- * - Direct essential ≤ 20 (when Direct essential export exists)
+ * - Direct essential ≤ 21 (when Direct essential export exists)
  *
  * Usage:
  *   cd companion && npm run tokens:measure
@@ -27,7 +27,8 @@ export const TOOL_SURFACE_LIMITS = Object.freeze({
 	plugin_low_tools_max_tools: 12,
 	// Raised for Direct blueprints tools (list/get/apply).
 	direct_full_max_tools: 100,
-	direct_essential_max_tools: 20,
+	// Includes stonewright-content-create (generic CPT create) on the essential surface.
+	direct_essential_max_tools: 21,
 	direct_bootstrap_max_tools: 8,
 });
 
@@ -180,7 +181,7 @@ export function evaluateToolSurfaceBudgets(metrics, limits = TOOL_SURFACE_LIMITS
 			(metrics.direct_full_tool_count ?? Number.POSITIVE_INFINITY) <=
 			limits.direct_full_max_tools;
 		if (metrics.direct_essential_present) {
-			budgets.direct_essential_max_20_tools =
+			budgets.direct_essential_max_21_tools =
 				(metrics.direct_essential_tool_count ?? Number.POSITIVE_INFINITY) <=
 				limits.direct_essential_max_tools;
 		}

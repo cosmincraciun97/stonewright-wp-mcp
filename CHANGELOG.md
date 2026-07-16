@@ -7,6 +7,25 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.75] - 2026-07-16
+
+### Added
+
+- Direct mode: `stonewright-content-create` creates items of any registered post
+  type (**99** tools total).
+- Direct mode: `stonewright-task-start` returns `session_tools` (exact enabled
+  tool list) and structured `capabilities.content_model` guidance.
+
+### Changed
+
+- Direct mode: content and taxonomy tools auto-resolve `rest_base` from
+  `/wp/v2/types` and `/wp/v2/taxonomies` (CPTs whose `rest_base` differs from
+  the slug now work).
+- Direct mode: site-discover and capability tiers state that Direct fully edits
+  existing CPT content, taxonomy terms, and ACF field values; registering new
+  models requires server-side PHP (plugin) — a WordPress REST limit, not a
+  Stonewright gap.
+
 ## [1.0.0-alpha.74] - 2026-07-16
 
 ### Changed
@@ -41,7 +60,8 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Changed
 
 - Synchronized evergreen install/client guides, prompts, capability counts,
-  changelog retention, and skills with the canonical task-start workflow.
+  changelog retention (5-release retention policy), and skills with the
+  canonical task-start workflow.
 - Elementor blueprint writes use transactional snapshot + readback rollback.
 - Elementor schema summaries rank useful controls first and support focused
   control queries for smaller repair responses.
@@ -81,26 +101,3 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Fixed
 - wp-admin paste prompt starts with task-start.
 - REST parity security review items (audit redaction, search visibility, rest-request read-only).
-
-
-## [1.0.0-alpha.70] - 2026-07-16
-
-### Added
-
-- Tool profile `action=resolve` as the single ordered tool list source for the companion.
-- Deterministic client-cap trimming via `STONEWRIGHT_MCP_MAX_TOOLS` (trim from priority tail).
-- Companion emits tools/list_changed when a tool-profile response sets `tools_changed`.
-- Blueprint apply `engine` is strict: explicit `elementor` fails when Elementor is inactive.
-- Gutenberg renderer maps `row`/`column` to `core/columns`/`core/column`, full-width section bands, palette buttons, and hero `core/media-text`.
-- Blueprint section `role` (hero and others) in DesignSpec schema; all 12 blueprints mark hero.
-- Public surface brand scanner and 5-release retention policy tests; licensing history in `docs/licensing.md`.
-
-### Changed
-
-- Companion fallback profile lists include blueprints and brand kits on essential and thematic profiles.
-- Blueprint AI prompts and agent instructions map Elementor / Gutenberg / FSE to the engine parameter.
-- Changelog and `docs/releases/` retain only the most recent five versions.
-
-### Fixed
-
-- Silent Elementor-to-Gutenberg fallback on explicit `engine=elementor` is removed.

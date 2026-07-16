@@ -35,6 +35,7 @@ export const DIRECT_WAVE1_TOOL_NAMES = [
 	'stonewright-content-get',
 	'stonewright-content-create-page',
 	'stonewright-content-create-post',
+	'stonewright-content-create',
 	'stonewright-content-update',
 	'stonewright-content-delete',
 	'stonewright-content-revisions',
@@ -193,6 +194,7 @@ export const DIRECT_ESSENTIAL_TOOL_NAMES = [
 	'stonewright-content-list',
 	'stonewright-content-get',
 	'stonewright-content-create-page',
+	'stonewright-content-create',
 	'stonewright-content-update',
 	'stonewright-media-list',
 	'stonewright-media-upload',
@@ -368,7 +370,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	// --- Wave 1: content ---
 	tool(
 		'stonewright-content-list',
-		'List posts/pages/CPT items via core REST (Direct mode).',
+		'List items of any registered post type (posts/pages/CPT) via core REST (Direct mode). type accepts slug or rest_base (auto-resolved from /wp/v2/types).',
 		{
 			site: siteArg,
 			type: z.string().optional(),
@@ -451,8 +453,30 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 
 	tool(
+		'stonewright-content-create',
+		'Create a content item of ANY registered post type via core REST (Direct mode). type accepts the post type slug or rest_base; rest_base is auto-resolved from /wp/v2/types. Registering NEW post types still requires server-side PHP (plugin).',
+		{
+			site: siteArg,
+			type: z.string().min(1).describe('Post type slug or rest_base, e.g. "sector" or "portfolio"'),
+			title: z.string().min(1),
+			content: z.string().optional(),
+			status: z.string().optional(),
+			parent: z.number().int().optional(),
+			template: z.string().optional(),
+			meta: z.record(z.unknown()).optional(),
+		},
+		async (input) => {
+			try {
+				return toolResponse(await content.contentCreate(buildContext(ctx, input.site), input as never));
+			} catch (err) {
+				return toolError(err);
+			}
+		},
+	);
+
+	tool(
 		'stonewright-content-update',
-		'Update a content item via core REST (Direct mode). Only provided fields are sent. Accepts Gutenberg block markup in content.',
+		'Update a content item of any registered post type via core REST (Direct mode). Only provided fields are sent. Accepts Gutenberg block markup in content. type accepts slug or rest_base (auto-resolved).',
 		{
 			site: siteArg,
 			type: z.string().optional(),
@@ -587,7 +611,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	tool(
 		'stonewright-taxonomy-terms',
-		'List/create/update/delete taxonomy terms via core REST (Direct mode). action=delete requires confirm:true in confirm mode.',
+		'List/create/update/delete terms of ANY registered taxonomy (built-in or custom) via core REST (Direct mode). taxonomy accepts slug or rest_base (auto-resolved from /wp/v2/taxonomies). action=delete requires confirm:true in confirm mode.',
 		{
 			site: siteArg,
 			action: z.enum(['list', 'create', 'update', 'delete']).default('list'),
@@ -1473,6 +1497,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 				...result,
 				configured_mcp_surface: configuredProfile,
 				session_tool_profile: sessionProfile,
+				session_tools: [...directProfileToolNames(sessionProfile)],
 				tools_changed: changed.added.length > 0 || changed.removed.length > 0,
 				re_list_instruction: changed.added.length > 0 || changed.removed.length > 0
 					? 'Re-list tools now (tools/list). The Direct task profile is active for this session.'
