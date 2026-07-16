@@ -81,7 +81,7 @@ Fast path for MCP clients:
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
         "STONEWRIGHT_WP_APP_PASSWORD_AUTO": "local-only",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
       }
     }
   }
@@ -114,8 +114,9 @@ Documented in `src/direct/capability-tiers.ts`:
 | `plugin` | Full Stonewright plugin MCP surface |
 | `plugin-browser-qa` | Plugin + Playwright visual/admin gates |
 
-Direct `STONEWRIGHT_MCP_TOOL_PROFILE=essential` registers only
-`DIRECT_ESSENTIAL_TOOL_NAMES` from `src/direct/registry.ts`.
+Direct `STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap` exposes at most eight startup
+tools. `stonewright-task-start` selects and enables a compact Direct task
+profile for the current session; Full is explicit only.
 
 After the MCP server starts, call `stonewright-setup-profile` once. It returns
 the same config shape plus platform checks, credential status, and notes for

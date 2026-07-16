@@ -444,7 +444,7 @@ describe('createMcpServer', () => {
 		expect(names).not.toContain('stonewright-sandbox-write');
 	});
 
-	it('defaults proxied WordPress MCP tools to the essential profile', async () => {
+	it('defaults proxied WordPress MCP tools to the bootstrap profile', async () => {
 		const server = await createMcpServer({
 			env: {
 				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
@@ -467,13 +467,13 @@ describe('createMcpServer', () => {
 			'stonewright-context-bootstrap',
 			'stonewright-task-start',
 			'stonewright-tool-profile',
-			'stonewright-design-native-plan',
-			'stonewright-elementor-v3-batch-mutate',
 		]));
+		expect(names).not.toContain('stonewright-design-native-plan');
+		expect(names).not.toContain('stonewright-elementor-v3-batch-mutate');
 		expect(names).not.toContain('stonewright-experimental-heavy-tool');
 	});
 
-	it('keeps the default essential surface compact with blueprints under the client cap', async () => {
+	it('keeps the default bootstrap surface compact under the client cap', async () => {
 		const server = await createMcpServer({
 			env: {
 				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
@@ -484,13 +484,14 @@ describe('createMcpServer', () => {
 		});
 
 		const names = registeredToolNames(server);
-		// Local companion tools + essential proxied surface (includes blueprints / brand kits).
+		// Local recovery tools + bootstrap proxied surface.
 		expect(names.length).toBeLessThanOrEqual(40);
 		expect(names).toEqual(expect.arrayContaining([
-			'stonewright-blueprint-apply',
-			'stonewright-brand-kit-apply',
 			'stonewright-task-start',
+			'stonewright-tool-profile',
 		]));
+		expect(names).not.toContain('stonewright-blueprint-apply');
+		expect(names).not.toContain('stonewright-brand-kit-apply');
 		expect(names).not.toEqual(expect.arrayContaining([
 			'companion_wp_cli_run',
 			'companion_wp_cli_batch_run',

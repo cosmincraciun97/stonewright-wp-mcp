@@ -74,6 +74,28 @@ describe('emitToolListChanged', () => {
 });
 
 describe('handleToolsChangedResponse', () => {
+	it('prefers the session task profile over the saved bootstrap surface', async () => {
+		const server = { server: { sendToolListChanged: vi.fn() } } as unknown as McpServer;
+		const result = await handleToolsChangedResponse({
+			server,
+			client: {
+				listTools: vi.fn(() => Promise.resolve([{ name: 'stonewright-elementor-v3-batch-mutate' }])),
+				callTool: vi.fn(),
+			},
+			structured: {
+				configured_mcp_surface: 'bootstrap',
+				session_tool_profile: 'elementor-design',
+				tools_changed: true,
+				recommended_mcp_tools: ['stonewright-elementor-v3-batch-mutate'],
+			},
+			activeProfile: 'bootstrap',
+			maxTools: null,
+			registered: new Map(),
+			registerProxyTool: vi.fn(),
+		});
+		expect(result.profile).toBe('elementor-design');
+	});
+
 	it('registers newly desired tools, disables removed ones, and notifies', async () => {
 		const sendToolListChanged = vi.fn(() => Promise.resolve());
 		const server = {

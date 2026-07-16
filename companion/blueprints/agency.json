@@ -22,9 +22,10 @@
     "contact"
   ],
   "spec": {
-    "version": "1.0.0",
+    "version": "2.0.0",
     "page": {
-      "title": "Signal & Form Studio"
+      "title": "Signal & Form Studio",
+      "template": "elementor_canvas"
     },
     "tokens": {
       "colors": {
@@ -56,18 +57,24 @@
                   {
                     "type": "heading",
                     "level": 1,
-                    "text": "Brand systems that convert curious traffic into clients"
+                    "text": "Brand systems that convert curious traffic into clients",
+                    "id": "hero_b0_b0_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "We design websites, campaigns, and product stories for growth-stage brands that need craft and clarity."
+                    "text": "We design websites, campaigns, and product stories for growth-stage brands that need craft and clarity.",
+                    "id": "hero_b0_b0_b1"
                   },
                   {
                     "type": "button",
                     "text": "Book a strategy call",
-                    "url": "/contact/"
+                    "url": "/contact/",
+                    "id": "hero_b0_b0_b2"
                   }
-                ]
+                ],
+                "id": "hero_b0_b0",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
@@ -75,11 +82,20 @@
                   {
                     "type": "image",
                     "url": "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&q=80",
-                    "alt": "Design team collaborating around a large screen"
+                    "alt": "Design team collaborating around a large screen",
+                    "id": "hero_b0_b1_b0"
                   }
-                ]
+                ],
+                "id": "hero_b0_b1",
+                "align_items": "center",
+                "justify_content": "flex-start"
               }
-            ]
+            ],
+            "id": "hero_b0",
+            "layout": "row",
+            "align_items": "center",
+            "justify_content": "center",
+            "gap": 24
           }
         ],
         "background": {
@@ -90,7 +106,14 @@
           "right": 24,
           "bottom": 64,
           "left": 24
-        }
+        },
+        "role": "hero",
+        "fullWidth": true,
+        "width": "full",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 24
       },
       {
         "id": "services",
@@ -98,11 +121,13 @@
           {
             "type": "heading",
             "level": 2,
-            "text": "What we ship"
+            "text": "What we ship",
+            "id": "services_b0"
           },
           {
             "type": "spacer",
-            "height": 24
+            "height": 24,
+            "id": "services_b1"
           },
           {
             "type": "row",
@@ -111,54 +136,77 @@
                 "type": "column",
                 "blocks": [
                   {
-                    "type": "separator"
+                    "type": "separator",
+                    "id": "services_b2_b0_b0"
                   },
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Brand systems"
+                    "text": "Brand systems",
+                    "id": "services_b2_b0_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "Logo, type, color, and component libraries that stay consistent across every channel."
+                    "text": "Logo, type, color, and component libraries that stay consistent across every channel.",
+                    "id": "services_b2_b0_b2"
                   }
-                ]
+                ],
+                "id": "services_b2_b0",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
                 "blocks": [
                   {
-                    "type": "separator"
+                    "type": "separator",
+                    "id": "services_b2_b1_b0"
                   },
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Campaign sites"
+                    "text": "Campaign sites",
+                    "id": "services_b2_b1_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "Landing pages with measured conversion paths, not generic brochure layouts."
+                    "text": "Landing pages with measured conversion paths, not generic brochure layouts.",
+                    "id": "services_b2_b1_b2"
                   }
-                ]
+                ],
+                "id": "services_b2_b1",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
                 "blocks": [
                   {
-                    "type": "separator"
+                    "type": "separator",
+                    "id": "services_b2_b2_b0"
                   },
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Product UI"
+                    "text": "Product UI",
+                    "id": "services_b2_b2_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "Interfaces that make complex tools feel simple without dumbing them down."
+                    "text": "Interfaces that make complex tools feel simple without dumbing them down.",
+                    "id": "services_b2_b2_b2"
                   }
-                ]
+                ],
+                "id": "services_b2_b2",
+                "align_items": "center",
+                "justify_content": "flex-start"
               }
-            ]
+            ],
+            "id": "services_b2",
+            "layout": "row",
+            "align_items": "center",
+            "justify_content": "center",
+            "gap": 24
           }
         ],
         "padding": {
@@ -166,7 +214,12 @@
           "right": 24,
           "bottom": 48,
           "left": 24
-        }
+        },
+        "width": "boxed",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 20
       },
       {
         "id": "pricing",
@@ -174,11 +227,13 @@
           {
             "type": "heading",
             "level": 2,
-            "text": "Engagement models"
+            "text": "Engagement models",
+            "id": "pricing_b0"
           },
           {
             "type": "spacer",
-            "height": 24
+            "height": 24,
+            "id": "pricing_b1"
           },
           {
             "type": "row",
@@ -189,26 +244,34 @@
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Sprint"
+                    "text": "Sprint",
+                    "id": "pricing_b2_b0_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• 2-week discovery"
+                    "text": "• 2-week discovery",
+                    "id": "pricing_b2_b0_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Moodboards + sitemap"
+                    "text": "• Moodboards + sitemap",
+                    "id": "pricing_b2_b0_b2"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Stakeholder workshop"
+                    "text": "• Stakeholder workshop",
+                    "id": "pricing_b2_b0_b3"
                   },
                   {
                     "type": "button",
                     "text": "Start sprint",
-                    "url": "/contact/"
+                    "url": "/contact/",
+                    "id": "pricing_b2_b0_b4"
                   }
-                ]
+                ],
+                "id": "pricing_b2_b0",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
@@ -216,26 +279,34 @@
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Retain"
+                    "text": "Retain",
+                    "id": "pricing_b2_b1_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Monthly design ops"
+                    "text": "• Monthly design ops",
+                    "id": "pricing_b2_b1_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Priority support"
+                    "text": "• Priority support",
+                    "id": "pricing_b2_b1_b2"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Quarterly brand audit"
+                    "text": "• Quarterly brand audit",
+                    "id": "pricing_b2_b1_b3"
                   },
                   {
                     "type": "button",
                     "text": "Talk retainers",
-                    "url": "/contact/"
+                    "url": "/contact/",
+                    "id": "pricing_b2_b1_b4"
                   }
-                ]
+                ],
+                "id": "pricing_b2_b1",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
@@ -243,28 +314,41 @@
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Launch"
+                    "text": "Launch",
+                    "id": "pricing_b2_b2_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Full site redesign"
+                    "text": "• Full site redesign",
+                    "id": "pricing_b2_b2_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• CMS handoff"
+                    "text": "• CMS handoff",
+                    "id": "pricing_b2_b2_b2"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• 90-day polish window"
+                    "text": "• 90-day polish window",
+                    "id": "pricing_b2_b2_b3"
                   },
                   {
                     "type": "button",
                     "text": "Plan launch",
-                    "url": "/contact/"
+                    "url": "/contact/",
+                    "id": "pricing_b2_b2_b4"
                   }
-                ]
+                ],
+                "id": "pricing_b2_b2",
+                "align_items": "center",
+                "justify_content": "flex-start"
               }
-            ]
+            ],
+            "id": "pricing_b2",
+            "layout": "row",
+            "align_items": "center",
+            "justify_content": "center",
+            "gap": 24
           }
         ],
         "background": {
@@ -275,7 +359,12 @@
           "right": 24,
           "bottom": 48,
           "left": 24
-        }
+        },
+        "width": "boxed",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 20
       },
       {
         "id": "testimonials",
@@ -283,11 +372,13 @@
           {
             "type": "heading",
             "level": 2,
-            "text": "What clients say"
+            "text": "What clients say",
+            "id": "testimonials_b0"
           },
           {
             "type": "spacer",
-            "height": 16
+            "height": 16,
+            "id": "testimonials_b1"
           },
           {
             "type": "row",
@@ -297,28 +388,43 @@
                 "blocks": [
                   {
                     "type": "paragraph",
-                    "text": "“They rebuilt our site and our sales deck from the same system. Pipeline got cleaner overnight.”"
+                    "text": "“They rebuilt our site and our sales deck from the same system. Pipeline got cleaner overnight.”",
+                    "id": "testimonials_b2_b0_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "— Maya Chen, CMO, Northline"
+                    "text": "— Maya Chen, CMO, Northline",
+                    "id": "testimonials_b2_b0_b1"
                   }
-                ]
+                ],
+                "id": "testimonials_b2_b0",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
                 "blocks": [
                   {
                     "type": "paragraph",
-                    "text": "“Finally an agency that ships Figma and production HTML that match.”"
+                    "text": "“Finally an agency that ships Figma and production HTML that match.”",
+                    "id": "testimonials_b2_b1_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "— Jon Adeyemi, Founder, Relay"
+                    "text": "— Jon Adeyemi, Founder, Relay",
+                    "id": "testimonials_b2_b1_b1"
                   }
-                ]
+                ],
+                "id": "testimonials_b2_b1",
+                "align_items": "center",
+                "justify_content": "flex-start"
               }
-            ]
+            ],
+            "id": "testimonials_b2",
+            "layout": "row",
+            "align_items": "center",
+            "justify_content": "center",
+            "gap": 24
           }
         ],
         "padding": {
@@ -326,7 +432,12 @@
           "right": 24,
           "bottom": 48,
           "left": 24
-        }
+        },
+        "width": "boxed",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 20
       },
       {
         "id": "contact",
@@ -334,21 +445,25 @@
           {
             "type": "heading",
             "level": 2,
-            "text": "Ready for a sharper brand presence?"
+            "text": "Ready for a sharper brand presence?",
+            "id": "contact_b0"
           },
           {
             "type": "paragraph",
-            "text": "Tell us about {business} and we will map a 30-day plan."
+            "text": "Tell us about {business} and we will map a 30-day plan.",
+            "id": "contact_b1"
           },
           {
             "type": "button",
             "text": "Start the conversation",
-            "url": "/contact/"
+            "url": "/contact/",
+            "id": "contact_b2"
           },
           {
             "type": "image",
             "url": "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80",
-            "alt": "Workspace related to Creative Agency"
+            "alt": "Workspace related to Creative Agency",
+            "id": "contact_b3"
           }
         ],
         "background": {
@@ -359,8 +474,109 @@
           "right": 24,
           "bottom": 64,
           "left": 24
+        },
+        "fullWidth": true,
+        "width": "full",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 24
+      }
+    ],
+    "design_system": {
+      "colors": {
+        "primary": "#312E81",
+        "secondary": "#4F46E5",
+        "accent": "#F59E0B",
+        "background": "#FFFFFF",
+        "text": "#111827"
+      },
+      "typography": {
+        "heading": {
+          "font_family": "Space Grotesk, system-ui, sans-serif"
+        },
+        "body": {
+          "font_family": "Inter, system-ui, sans-serif"
         }
       }
-    ]
+    },
+    "content_facts": {
+      "required_facts": [
+        "agency_name",
+        "services",
+        "portfolio_proof",
+        "contact_cta"
+      ],
+      "blocking_questions": [
+        "Confirm real copy for: agency_name",
+        "Confirm real copy for: services"
+      ],
+      "facts": [
+        {
+          "id": "agency_name",
+          "status": "placeholder"
+        },
+        {
+          "id": "services",
+          "status": "placeholder"
+        },
+        {
+          "id": "portfolio_proof",
+          "status": "placeholder"
+        },
+        {
+          "id": "contact_cta",
+          "status": "placeholder"
+        }
+      ]
+    },
+    "page_intent": {
+      "page_type": "landing",
+      "conversion_goal": "contact_cta",
+      "audience": "agency"
+    },
+    "native_policy": {
+      "strict": false,
+      "block_html_widgets": true,
+      "require_native_gap_for_custom_css": true,
+      "enforce_heading_hierarchy": true
+    },
+    "verification_policy": {
+      "structural_readback": true,
+      "responsive_breakpoints": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "contrast_check": true,
+      "rollback_on_failure": true
+    }
+  },
+  "version": "2.0.0",
+  "page_type": "landing",
+  "required_content_facts": [
+    "agency_name",
+    "services",
+    "portfolio_proof",
+    "contact_cta"
+  ],
+  "engine_compatibility": {
+    "elementor": true,
+    "gutenberg": true,
+    "fse": true,
+    "notes": {
+      "elementor": "Native containers + widgets; layout intent via align_items/justify_content/fullWidth.",
+      "gutenberg": "core/group constrained layout; separators map to core/separator.",
+      "fse": "Constrained template/page markup via FseTransactionQueue; no Elementor meta."
+    }
+  },
+  "accessibility_intent": {
+    "target": "wcag-2.2-aa",
+    "contrast_pairs": [
+      "text/background",
+      "primary/background"
+    ],
+    "heading_hierarchy": true,
+    "landmarks": true
   }
 }

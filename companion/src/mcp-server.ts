@@ -32,7 +32,7 @@ import {
 	resolveWordPressMcpConfig,
 } from './wordpress-mcp.js';
 import { APP_VERSION, companionPackageSpec } from './version.js';
-import { registerDirectTools, DIRECT_TOOL_NAMES } from './direct/registry.js';
+import { registerDirectTools, DIRECT_TOOL_NAMES, type DirectToolProfile } from './direct/registry.js';
 import { resolveRuntimeMode, type ProbeResult } from './direct/mode.js';
 import { PLUGIN_ONLY_CAPABILITIES } from './direct/tools/site-discover.js';
 
@@ -223,12 +223,9 @@ async function registerDirectMode(
 		const registered = registerDirectTools(server, {
 			env,
 			...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
-			// Direct REST surface stays full by default. Opt into DIRECT_ESSENTIAL_TOOL_NAMES via
-			// STONEWRIGHT_DIRECT_TOOL_PROFILE=essential without stripping companion skill/memory tools.
-			toolProfile:
-				(env['STONEWRIGHT_DIRECT_TOOL_PROFILE'] ?? '').trim().toLowerCase() === 'essential'
-					? 'essential'
-					: 'full',
+			// Explicit Direct override wins; otherwise the shared MCP surface drives
+			// progressive registration. Bootstrap expands after task-start.
+			toolProfile: directToolProfileFromEnv(env, profile),
 		});
 		const localToolNames = localToolNamesForProfile(profile);
 		wpMcpStatus.ok = true;
@@ -240,7 +237,7 @@ async function registerDirectMode(
 		wpMcpStatus.direct_tool_names = registered.slice(0, 40);
 		wpMcpStatus.startup_ready = true;
 		wpMcpStatus.startup_missing_tool_names = [];
-		wpMcpStatus.startup_required_tool_names = ['stonewright-site-discover'];
+		wpMcpStatus.startup_required_tool_names = ['stonewright-task-start'];
 		wpMcpStatus.remote_tool_count = registered.length;
 		wpMcpStatus.proxied_tool_count = 0;
 		wpMcpStatus.profile_expected_tool_count = registered.length;
@@ -256,7 +253,8 @@ async function registerDirectMode(
 		];
 		wpMcpStatus.recovery = [
 			'Direct mode is active: core REST tools are registered without the Stonewright plugin.',
-			'Call stonewright-site-discover first to see available endpoints and plugin-only gaps.',
+			'Call stonewright-task-start first; Bootstrap unlocks the compact Direct task profile for this session.',
+			'Use stonewright-site-discover when endpoint or plugin-only capability details are needed.',
 			'Install the Stonewright plugin for Elementor engine, php-execute, memory, and production-safe confirmation tokens.',
 			'Set STONEWRIGHT_MODE=plugin after installing the plugin, then restart the MCP client.',
 		];
@@ -274,6 +272,17 @@ async function registerDirectMode(
 		wpMcpStatus.connected = false;
 		wpMcpStatus.error = { message: err instanceof Error ? err.message : String(err) };
 	}
+}
+
+function directToolProfileFromEnv(env: NodeJS.ProcessEnv, profile: ProxyToolProfile): DirectToolProfile {
+	const explicit = (env['STONEWRIGHT_DIRECT_TOOL_PROFILE'] ?? '').trim().toLowerCase();
+	if (['bootstrap', 'essential', 'elementor-design', 'content-model', 'gutenberg', 'site-admin', 'full'].includes(explicit)) {
+		return explicit as DirectToolProfile;
+	}
+	if (['bootstrap', 'essential', 'elementor-design', 'content-model', 'gutenberg', 'site-admin', 'full'].includes(profile)) {
+		return profile as DirectToolProfile;
+	}
+	return 'essential';
 }
 
 function companionInstructions(profile: ProxyToolProfile): string {

@@ -1,7 +1,7 @@
 {
   "name": "@stonewright/e2e-admin-ui",
   "private": true,
-  "version": "1.0.0-alpha.73",
+  "version": "1.0.0-alpha.74",
   "description": "Playwright admin-ui e2e gate for Stonewright wp-admin surfaces",
   "scripts": {
     "test": "playwright test",

@@ -125,7 +125,7 @@ shell wrapper, global install, or manual bridge:
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
         "STONEWRIGHT_WP_APP_PASSWORD_AUTO": "local-only",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
       }
     }
   }
@@ -144,9 +144,9 @@ Do not configure generic WordPress MCP adapters such as
 `@automattic/mcp-wordpress-remote` as the `stonewright` server. Use the
 Stonewright companion so setup, status, compact profiles, php-execute, and
 WP-CLI tools stay visible even while the WordPress endpoint is being fixed.
-`STONEWRIGHT_MCP_TOOL_PROFILE=essential` keeps startup compact while preserving
-the general Stonewright fast paths for Elementor, Gutenberg, content-model, and
-WP-CLI work.
+`STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap` is the default. It exposes the startup
+gateway first; `stonewright-task-start` then enables the compact task profile
+for the current session in plugin or Direct/pluginless mode.
 Use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` for Antigravity, Gemini API, or
 other strict tool-cap clients. It keeps the client-visible startup surface under
 30 tools. Aliases such as `antigravity`, `gemini`,
@@ -232,7 +232,7 @@ For MCP clients that use a local stdio server, configure:
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
         "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
       }
     }
   }

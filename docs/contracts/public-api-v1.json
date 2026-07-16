@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-07-16T11:50:43+00:00",
+    "generated_at": "2026-07-16T12:13:31+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -3918,7 +3918,7 @@
             "mcp_name": "stonewright-task-start",
             "kind": "Read",
             "input_schema_hash": "15f6fd543c01390a1e0b28feee3fca80b655e1ca4537b789cb8ce6be9bea755e",
-            "output_schema_hash": "6f4ae9a9f7e29f64aaf8ff140ce6322372e5e4deb8788359d2b22f23891a25c3",
+            "output_schema_hash": "7923577d1db2de726bfc68cdbaddf0f4dc8aaf3cc275785feab20a42ab9b6409",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
@@ -4282,7 +4282,7 @@
             "mcp_name": "stonewright-workflow-preflight",
             "kind": "Read",
             "input_schema_hash": "15f6fd543c01390a1e0b28feee3fca80b655e1ca4537b789cb8ce6be9bea755e",
-            "output_schema_hash": "6f4ae9a9f7e29f64aaf8ff140ce6322372e5e4deb8788359d2b22f23891a25c3",
+            "output_schema_hash": "7923577d1db2de726bfc68cdbaddf0f4dc8aaf3cc275785feab20a42ab9b6409",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,

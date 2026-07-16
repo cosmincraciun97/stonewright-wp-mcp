@@ -121,6 +121,8 @@ final class WorkflowPreflight extends AbilityKernel {
 				'unchanged_keys' => [ 'type' => 'array' ],
 				'tool_profile'  => [ 'type' => 'string' ],
 				'configured_mcp_surface' => [ 'type' => 'string' ],
+				'session_tool_profile' => [ 'type' => 'string' ],
+				'session_profile_applied' => [ 'type' => 'boolean' ],
 				'tools_changed' => [ 'type' => 'boolean' ],
 				're_list_instruction' => [ 'type' => 'string' ],
 			],
@@ -199,15 +201,37 @@ final class WorkflowPreflight extends AbilityKernel {
 			}
 		}
 
+		$configured_surface = AbilityRegistry::mcp_surface();
+		$suggested_profile  = (string) ( $tool_profile['suggested_profile'] ?? $tool_profile['profile'] ?? 'essential' );
+		$session_profile    = 'bootstrap' === $configured_surface ? $suggested_profile : $configured_surface;
+		$session_applied    = false;
+		if ( 'bootstrap' === $configured_surface && 'bootstrap' !== $session_profile ) {
+			$session_applied = AbilityRegistry::set_session_tool_profile(
+				$session_profile,
+				ToolProfile::profile_tools( $session_profile )
+			);
+		}
+		$tools_changed = $session_applied && 'bootstrap' !== $session_profile;
+		$re_list       = $tools_changed
+			? 'Re-list tools now (tools/list). The task profile is active for this MCP session; the saved site surface remains Bootstrap.'
+			: '';
+		$fast_path['tool_profile']['profile']                 = $session_profile;
+		$fast_path['tool_profile']['configured_mcp_surface']  = $configured_surface;
+		$fast_path['tool_profile']['session_profile_applied'] = $session_applied;
+		$fast_path['tool_profile']['tools_changed']           = $tools_changed;
+		$fast_path['tool_profile']['re_list_instruction']     = $re_list;
+
 		$response = [
 			'ok'            => true,
 			'context_token' => (string) ( $context['context_token'] ?? '' ),
 			'expires_at'    => (string) ( $context['expires_at'] ?? '' ),
 			'mode'          => $mode,
-			'configured_mcp_surface' => AbilityRegistry::mcp_surface(),
-			'tool_profile'  => AbilityRegistry::mcp_surface(),
-			'tools_changed' => false,
-			're_list_instruction' => '',
+			'configured_mcp_surface' => $configured_surface,
+			'session_tool_profile'   => $session_profile,
+			'session_profile_applied' => $session_applied,
+			'tool_profile'            => $session_profile,
+			'tools_changed'           => $tools_changed,
+			're_list_instruction'     => $re_list,
 			'auth_guidance' => [
 				'Use a WordPress Application Password for HTTP MCP authentication.',
 				'Keep the Mcp-Session-Id response header on later JSON-RPC calls.',
@@ -385,6 +409,8 @@ final class WorkflowPreflight extends AbilityKernel {
 			'unchanged_keys'      => $unchanged,
 			'tool_profile'        => $profile_name,
 			'configured_mcp_surface' => (string) ( $response['configured_mcp_surface'] ?? $profile_name ),
+			'session_tool_profile' => (string) ( $response['session_tool_profile'] ?? $profile_name ),
+			'session_profile_applied' => (bool) ( $response['session_profile_applied'] ?? false ),
 			'tools_changed'       => $tools_changed,
 			're_list_instruction' => $re_list,
 		];

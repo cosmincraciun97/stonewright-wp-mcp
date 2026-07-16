@@ -2,12 +2,16 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.74] - 2026-07-16
+
 ### Changed
 
 - `task-start` exposes `configured_mcp_surface` and resolves task-specific tool
   recommendations without changing the admin-selected surface.
 - Activating a site-wide tool profile now requires `manage_options`; read-only
   profile resolution remains available to authenticated readers.
+- Bootstrap task-start binds its recommended profile to `Mcp-Session-Id`, so
+  tools expand for that session without changing the saved site preference.
 
 ### Fixed
 
@@ -91,10 +95,3 @@
 ### Changed
 
 - Companion consumes plugin-resolved tool lists; falls back only offline/Direct.
-
-## [1.0.0-alpha.69] - 2026-07-15
-
-### Added
-
-- Essential tools for blueprints, brand kits, digest, pulse, learning.
-- HTML widget site hard-block; QA block on blueprint apply; rebuilt blueprint specs.

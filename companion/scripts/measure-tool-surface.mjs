@@ -22,11 +22,13 @@ const companionRoot = join(__dirname, '..');
 const srcRoot = join(companionRoot, 'src');
 
 export const TOOL_SURFACE_LIMITS = Object.freeze({
+	plugin_bootstrap_proxy_max_tools: 8,
 	plugin_essential_max_tools: 30,
 	plugin_low_tools_max_tools: 12,
 	// Raised for Direct blueprints tools (list/get/apply).
 	direct_full_max_tools: 100,
 	direct_essential_max_tools: 20,
+	direct_bootstrap_max_tools: 8,
 });
 
 const LOCAL_RECOVERY_TOOL_NAMES = [
@@ -109,14 +111,14 @@ function resolveArrayConst(source, constName, resolved = new Map()) {
 }
 
 /**
- * Parse profile tool names from wordpress-mcp.ts PROXY_TOOL_PROFILE_NAMES.
+ * Parse profile tool names from wordpress-mcp.ts FALLBACK_PROXY_TOOL_NAMES.
  * @param {string} source
  * @returns {Record<string, string[]>}
  */
 export function parseProxyProfileToolNames(source) {
 	const profiles = {};
 	const blockMatch = source.match(
-		/const\s+PROXY_TOOL_PROFILE_NAMES[^=]*=\s*\{([\s\S]*?)\n\};/,
+		/const\s+FALLBACK_PROXY_TOOL_NAMES[^=]*=\s*\{([\s\S]*?)\n\};/,
 	);
 	if (!blockMatch) {
 		return profiles;
@@ -148,19 +150,24 @@ export function parseProxyProfileToolNames(source) {
 
 /**
  * @param {{
+ *   plugin_bootstrap_proxy_tool_count?: number,
  *   plugin_essential_tool_count?: number,
  *   plugin_low_tools_tool_count?: number,
  *   direct_present?: boolean,
  *   direct_full_tool_count?: number,
  *   direct_essential_present?: boolean,
  *   direct_essential_tool_count?: number,
+ *   direct_bootstrap_tool_count?: number,
  * }} metrics
  * @param {typeof TOOL_SURFACE_LIMITS} [limits]
  * @returns {Record<string, boolean>}
  */
 export function evaluateToolSurfaceBudgets(metrics, limits = TOOL_SURFACE_LIMITS) {
 	const budgets = {
-		plugin_essential_max_20_tools:
+		plugin_bootstrap_proxy_max_8_tools:
+			(metrics.plugin_bootstrap_proxy_tool_count ?? Number.POSITIVE_INFINITY) <=
+			limits.plugin_bootstrap_proxy_max_tools,
+		plugin_essential_max_30_tools:
 			(metrics.plugin_essential_tool_count ?? Number.POSITIVE_INFINITY) <=
 			limits.plugin_essential_max_tools,
 		plugin_low_tools_max_12_tools:
@@ -169,7 +176,7 @@ export function evaluateToolSurfaceBudgets(metrics, limits = TOOL_SURFACE_LIMITS
 	};
 
 	if (metrics.direct_present) {
-		budgets.direct_full_max_40_tools =
+		budgets.direct_full_max_100_tools =
 			(metrics.direct_full_tool_count ?? Number.POSITIVE_INFINITY) <=
 			limits.direct_full_max_tools;
 		if (metrics.direct_essential_present) {
@@ -177,6 +184,9 @@ export function evaluateToolSurfaceBudgets(metrics, limits = TOOL_SURFACE_LIMITS
 				(metrics.direct_essential_tool_count ?? Number.POSITIVE_INFINITY) <=
 				limits.direct_essential_max_tools;
 		}
+		budgets.direct_bootstrap_max_8_tools =
+			(metrics.direct_bootstrap_tool_count ?? Number.POSITIVE_INFINITY) <=
+			limits.direct_bootstrap_max_tools;
 	}
 
 	return budgets;
@@ -197,6 +207,7 @@ export function measureToolSurface() {
 	const profiles = parseProxyProfileToolNames(wordpressSource);
 
 	const essentialProxy = profiles.essential ?? [];
+	const bootstrapProxy = profiles.bootstrap ?? [];
 	const lowToolsProxy = profiles['low-tools'] ?? [];
 
 	const pluginEssentialTools = Array.from(
@@ -209,28 +220,32 @@ export function measureToolSurface() {
 	const directPresent = existsSync(directRegistryPath);
 	let directFull = [];
 	let directEssential = [];
+	let directBootstrap = [];
 	let directEssentialPresent = false;
 
 	if (directPresent) {
 		const directSource = readFileSync(directRegistryPath, 'utf8');
-		directFull = extractStringArrayConst(directSource, 'DIRECT_TOOL_NAMES');
+		directFull = resolveArrayConst(directSource, 'DIRECT_TOOL_NAMES');
 		if (directFull.length === 0) {
 			const wave1 = extractStringArrayConst(directSource, 'DIRECT_WAVE1_TOOL_NAMES');
 			const wave2 = extractStringArrayConst(directSource, 'DIRECT_WAVE2_TOOL_NAMES');
 			const wave3 = extractStringArrayConst(directSource, 'DIRECT_WAVE3_TOOL_NAMES');
 			directFull = Array.from(new Set([...wave1, ...wave2, ...wave3]));
 		}
-		directEssential = extractStringArrayConst(directSource, 'DIRECT_ESSENTIAL_TOOL_NAMES');
+		directEssential = resolveArrayConst(directSource, 'DIRECT_ESSENTIAL_TOOL_NAMES');
+		directBootstrap = resolveArrayConst(directSource, 'DIRECT_BOOTSTRAP_TOOL_NAMES');
 		directEssentialPresent = directEssential.length > 0;
 	}
 
 	const metrics = {
+		plugin_bootstrap_proxy_tool_count: bootstrapProxy.length,
 		plugin_essential_tool_count: pluginEssentialTools.length,
 		plugin_low_tools_tool_count: pluginLowTools.length,
 		direct_present: directPresent,
 		direct_full_tool_count: directFull.length,
 		direct_essential_present: directEssentialPresent,
 		direct_essential_tool_count: directEssential.length,
+		direct_bootstrap_tool_count: directBootstrap.length,
 	};
 
 	const budgets = evaluateToolSurfaceBudgets(metrics);
@@ -238,6 +253,10 @@ export function measureToolSurface() {
 		metrics,
 		budgets,
 		surfaces: {
+			plugin_bootstrap_proxy: {
+				tool_count: bootstrapProxy.length,
+				tools: bootstrapProxy,
+			},
 			plugin_essential: {
 				tool_count: pluginEssentialTools.length,
 				tools: pluginEssentialTools,
@@ -253,6 +272,9 @@ export function measureToolSurface() {
 				? directEssentialPresent
 					? { tool_count: directEssential.length, tools: directEssential }
 					: { present: true, essential_export: false }
+				: { present: false },
+			direct_bootstrap: directPresent
+				? { tool_count: directBootstrap.length, tools: directBootstrap }
 				: { present: false },
 		},
 	});
@@ -276,12 +298,14 @@ function buildReport({ metrics, budgets, surfaces, fixture = null }) {
  */
 export function overBudgetFixtureReport() {
 	const metrics = {
+		plugin_bootstrap_proxy_tool_count: TOOL_SURFACE_LIMITS.plugin_bootstrap_proxy_max_tools + 1,
 		plugin_essential_tool_count: TOOL_SURFACE_LIMITS.plugin_essential_max_tools + 1,
 		plugin_low_tools_tool_count: TOOL_SURFACE_LIMITS.plugin_low_tools_max_tools + 1,
 		direct_present: true,
 		direct_full_tool_count: TOOL_SURFACE_LIMITS.direct_full_max_tools + 1,
 		direct_essential_present: true,
 		direct_essential_tool_count: TOOL_SURFACE_LIMITS.direct_essential_max_tools + 1,
+		direct_bootstrap_tool_count: TOOL_SURFACE_LIMITS.direct_bootstrap_max_tools + 1,
 	};
 	const budgets = evaluateToolSurfaceBudgets(metrics);
 	return buildReport({

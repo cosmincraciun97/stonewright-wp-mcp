@@ -7,11 +7,15 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.74] - 2026-07-16
+
 ### Changed
 
 - MCP companion startup now follows the tool surface saved in WordPress Setup;
   strict-cap and specialist client profiles remain explicit overrides.
 - `task-start` reports the configured MCP surface without silently rewriting it.
+- Fresh companion and Direct/pluginless sessions default to Bootstrap, then
+  unlock a compact task profile only for the current MCP session.
 
 ### Fixed
 
@@ -19,6 +23,8 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   or full surface across client restarts.
 - Raw Elementor write blocks return a non-retryable typed repair path instead of
   leaving agents to repeat `php-execute` fallbacks.
+- Direct Bootstrap always exposes task-start, stays at eight tools, and uses
+  task-aware Elementor, Gutenberg, content-model, and site-admin profiles.
 
 ## [1.0.0-alpha.73] - 2026-07-16
 
@@ -98,21 +104,3 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Fixed
 
 - Silent Elementor-to-Gutenberg fallback on explicit `engine=elementor` is removed.
-
-## [1.0.0-alpha.69] - 2026-07-15
-
-### Added
-
-- Essential profile exposes blueprint, brand-kit, page-digest, build-tree, site-pulse, learning-record.
-- Tool profile `extras` + `tools_changed` / re-list instruction for MCP clients.
-- Premium blueprints (12) with rows, images, per-industry copy; BlueprintSpecQualityTest guardrail.
-- Gutenberg renderer applies design tokens (button/heading/body fonts and colors).
-- Site-level HTML widget hard-block (`stonewright_allow_html_widgets`, default off).
-- `QaReport` block on blueprint-apply responses.
-- Skill pack `skills/elementor-site-clone`.
-- Direct mode blueprint list/get/apply (Gutenberg) + companion `init` CLI.
-- Security review notes in `docs/security-review-2026-07.md`.
-
-### Changed
-
-- Essential tool budget raised to 30; Direct full surface budget raised to 50.

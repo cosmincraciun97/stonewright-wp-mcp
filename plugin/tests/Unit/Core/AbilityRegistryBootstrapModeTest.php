@@ -14,6 +14,8 @@ use Stonewright\WpMcp\Support\TokenSurfaceBudgets;
 final class AbilityRegistryBootstrapModeTest extends TestCase {
 
 	protected function setUp(): void {
+		unset( $_SERVER['HTTP_MCP_SESSION_ID'] );
+		$GLOBALS['stonewright_test_transients'] = [];
 		$GLOBALS['stonewright_test_options'] = [
 			'stonewright_disabled_abilities'        => [],
 			'stonewright_essential_tools_mode'      => true,
@@ -22,6 +24,8 @@ final class AbilityRegistryBootstrapModeTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		unset( $_SERVER['HTTP_MCP_SESSION_ID'] );
+		$GLOBALS['stonewright_test_transients'] = [];
 		$GLOBALS['stonewright_test_options'] = [];
 	}
 
@@ -48,6 +52,23 @@ final class AbilityRegistryBootstrapModeTest extends TestCase {
 		self::assertContains( 'stonewright/task-start', $names );
 		self::assertNotContains( 'stonewright/elementor-v3-batch-mutate', $names );
 		self::assertNotContains( 'stonewright/sandbox-write', $names );
+	}
+
+	public function test_session_profile_expands_only_the_current_mcp_session(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mcp_surface'] = 'bootstrap';
+		$_SERVER['HTTP_MCP_SESSION_ID'] = 'session-a';
+
+		self::assertTrue(
+			AbilityRegistry::set_session_tool_profile(
+				'elementor-design',
+				[ 'stonewright/elementor-v3-batch-mutate' ]
+			)
+		);
+		self::assertContains( 'stonewright/elementor-v3-batch-mutate', array_column( AbilityRegistry::enabled_abilities(), 'name' ) );
+		self::assertSame( 'bootstrap', AbilityRegistry::mcp_surface() );
+
+		$_SERVER['HTTP_MCP_SESSION_ID'] = 'session-b';
+		self::assertNotContains( 'stonewright/elementor-v3-batch-mutate', array_column( AbilityRegistry::enabled_abilities(), 'name' ) );
 	}
 
 	public function test_legacy_essential_mode_maps_when_surface_unset(): void {

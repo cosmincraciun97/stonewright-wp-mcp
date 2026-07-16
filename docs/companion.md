@@ -147,10 +147,9 @@ of first-call, diagnostic, direct WP-CLI, long-running WP-CLI, and proxied
 profile tools. Use it before broad tool discovery in token-sensitive sessions.
 
 For new stdio sessions, the companion defaults to
-`STONEWRIGHT_MCP_TOOL_PROFILE=essential`. It proxies only the compact
-Stonewright fast-path surface while keeping direct `stonewright-wp-cli-*` tools
-local and deduplicated. Set it to `full` when a specialist session needs every
-registered WordPress MCP tool.
+`STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap`. `stonewright-task-start` then enables
+the compact task profile for that session in plugin or Direct/pluginless mode.
+Set it to `full` only for deliberate specialist diagnostics.
 Use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` for Antigravity, Gemini API, or
 other strict tool-cap clients. It keeps the total client-visible surface under
 30 tools by hiding legacy duplicate aliases while direct WP-CLI recovery tools

@@ -4,6 +4,7 @@ import {
 	effectiveInitialProxyProfile,
 	maxToolsFromEnv,
 	proxyToolNamesForProfile,
+	proxyToolProfileFromEnv,
 	resolvePluginProxyToolNames,
 	trimToolsToMax,
 } from '../src/wordpress-mcp.js';
@@ -52,6 +53,10 @@ describe('tool profile resolve + client cap', () => {
 		expect(coerceProxyToolProfile('bootstrap')).toBe('bootstrap');
 		expect(proxyToolNamesForProfile('bootstrap')).toContain('stonewright-task-start');
 		expect(proxyToolNamesForProfile('bootstrap').length).toBeLessThanOrEqual(8);
+	});
+
+	it('defaults fresh companion installs to bootstrap', () => {
+		expect(proxyToolProfileFromEnv({})).toBe('bootstrap');
 	});
 
 	it('uses the saved plugin surface for normal clients and preserves strict overrides', () => {

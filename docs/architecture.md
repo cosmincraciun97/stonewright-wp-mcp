@@ -80,10 +80,9 @@ Profile and surface switching is transport-specific. Agents should treat
 
 - **Admin option** `stonewright_mcp_surface`: `bootstrap` | `essential` | `full`
   controls which abilities the plugin exposes on `tools/list`.
-- Each `tools/list` request re-reads the live surface from WordPress options —
-  there is **no sticky tool list** for the HTTP transport. After
-  `stonewright-tool-profile` activate or admin Apply-now, the next `tools/list`
-  already reflects the new surface.
+- Each `tools/list` request reads the saved site surface plus an optional,
+  expiring profile bound to `Mcp-Session-Id`. Bootstrap task-start activates
+  only that session; it never rewrites the site option or another session.
 - The vendor initialize payload may not declare `tools.listChanged`. Clients
   must honor `re_list_instruction` in the ability response and call `tools/list`
   again even when no `notifications/tools/list_changed` arrives.
@@ -110,6 +109,15 @@ Profile and surface switching is transport-specific. Agents should treat
 
 - **`stonewright-tool-profile` activate**: expands `stonewright_mcp_surface`
   when leaving bootstrap and sets `tools_changed` + `re_list_instruction`.
-- **`stonewright-task-start`**: surfaces `configured_mcp_surface`, the
-  task-specific recommendation, `tools_changed`, and `re_list_instruction`.
-  It never changes the saved Setup preference by itself.
+- **`stonewright-task-start`**: surfaces `configured_mcp_surface` and
+  `session_tool_profile`, binds the task profile to the current MCP session,
+  and returns `tools_changed` + `re_list_instruction`. The saved Setup
+  preference remains unchanged.
+
+### Direct/pluginless transport
+
+- Fresh sessions also start on Bootstrap (at most eight Direct tools).
+- `stonewright-task-start` selects a compact Direct profile for Elementor,
+  Gutenberg, content-model, site-admin, or general work; the companion enables
+  only that profile and emits `tools/list_changed`.
+- Full remains an explicit diagnostic/specialist choice, never the default.

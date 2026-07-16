@@ -766,7 +766,7 @@ export function effectiveInitialProxyProfile(
 
 function profileHintFromStructured(structured: Record<string, unknown> | null | undefined): string | null {
 	if (!structured) return null;
-	for (const key of ['configured_mcp_surface', 'tool_profile', 'profile', 'requested_profile']) {
+	for (const key of ['session_tool_profile', 'tool_profile', 'profile', 'configured_mcp_surface', 'requested_profile']) {
 		const value = structured[key];
 		if (typeof value === 'string' && value.trim() !== '') return value;
 	}
@@ -775,7 +775,7 @@ function profileHintFromStructured(structured: Record<string, unknown> | null | 
 
 export function proxyToolProfileFromEnv(env: NodeJS.ProcessEnv): ProxyToolProfile {
 	return coerceProxyToolProfile(
-		env['STONEWRIGHT_MCP_TOOL_PROFILE'] ?? env['STONEWRIGHT_MCP_PROXY_PROFILE'] ?? 'essential',
+		env['STONEWRIGHT_MCP_TOOL_PROFILE'] ?? env['STONEWRIGHT_MCP_PROXY_PROFILE'] ?? 'bootstrap',
 	);
 }
 
