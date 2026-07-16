@@ -166,6 +166,7 @@ final class PublicApiContractSnapshot {
 
 	/**
 	 * @return array{version:int,generated_at?:string,allowlist:array<string,mixed>,abilities:list<array<string,mixed>>}
+	 * @throws \RuntimeException When the contract file is missing, empty, or invalid.
 	 */
 	public static function load( string $path ): array {
 		if ( ! is_readable( $path ) ) {
@@ -284,6 +285,7 @@ final class PublicApiContractSnapshot {
 	 * Stable pretty JSON for committed contract files.
 	 *
 	 * @param array<string, mixed> $document
+	 * @throws \RuntimeException When JSON encoding fails.
 	 */
 	public static function encode_document( array $document ): string {
 		// Normalize allowlist.renamed empty object vs empty array for stable output.
@@ -540,7 +542,7 @@ final class PublicApiContractSnapshot {
 			if ( is_array( $tok ) && T_FUNCTION === $tok[0] ) {
 				$j = $i + 1;
 				while ( $j < $count && is_array( $tokens[ $j ] ) && T_WHITESPACE === $tokens[ $j ][0] ) {
-					$j++;
+					++$j;
 				}
 				if ( $j < $count && is_array( $tokens[ $j ] ) && $tokens[ $j ][1] === $method ) {
 					$found_function = true;
@@ -548,7 +550,7 @@ final class PublicApiContractSnapshot {
 					break;
 				}
 			}
-			$i++;
+			++$i;
 		}
 
 		if ( ! $found_function ) {
@@ -558,10 +560,10 @@ final class PublicApiContractSnapshot {
 		while ( $i < $count ) {
 			$tok = $tokens[ $i ];
 			if ( '{' === $tok || ( is_array( $tok ) && '{' === $tok[1] ) ) {
-				$i++;
+				++$i;
 				break;
 			}
-			$i++;
+			++$i;
 		}
 
 		$depth = 1;
@@ -570,10 +572,10 @@ final class PublicApiContractSnapshot {
 			$tok = $tokens[ $i ];
 			if ( is_string( $tok ) ) {
 				if ( '{' === $tok ) {
-					$depth++;
+					++$depth;
 					$body .= $tok;
 				} elseif ( '}' === $tok ) {
-					$depth--;
+					--$depth;
 					if ( $depth > 0 ) {
 						$body .= $tok;
 					}
@@ -583,7 +585,7 @@ final class PublicApiContractSnapshot {
 			} else {
 				$body .= $tok[1];
 			}
-			$i++;
+			++$i;
 		}
 
 		return $body;
