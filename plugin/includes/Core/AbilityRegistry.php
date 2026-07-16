@@ -212,6 +212,7 @@ use Stonewright\WpMcp\Abilities\Site\BackupPage as SiteBackupPage;
 use Stonewright\WpMcp\Abilities\Site\Capabilities;
 use Stonewright\WpMcp\Abilities\Site\ChangeLog;
 use Stonewright\WpMcp\Abilities\Site\ChangeRestore;
+use Stonewright\WpMcp\Abilities\Site\ContentInventory;
 use Stonewright\WpMcp\Abilities\Site\CreateRevision;
 use Stonewright\WpMcp\Abilities\Site\DiscoverShortcodes;
 use Stonewright\WpMcp\Abilities\Site\Environment;
@@ -221,6 +222,7 @@ use Stonewright\WpMcp\Abilities\Site\ListPlugins;
 use Stonewright\WpMcp\Abilities\Site\Ping;
 use Stonewright\WpMcp\Abilities\Site\SetFrontPage;
 use Stonewright\WpMcp\Abilities\Site\SitePulse;
+use Stonewright\WpMcp\Abilities\Site\SiteSnapshot;
 use Stonewright\WpMcp\Abilities\Site\Theme as SiteTheme;
 
 /**
@@ -245,6 +247,8 @@ final class AbilityRegistry {
 			// Site.
 			Ping::class,
 			Info::class,
+			SiteSnapshot::class,
+			ContentInventory::class,
 			Capabilities::class,
 			Environment::class,
 			Health::class,

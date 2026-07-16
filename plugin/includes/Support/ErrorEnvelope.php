@@ -23,6 +23,9 @@ final class ErrorEnvelope {
 		'errors',
 		'widget',
 		'violations',
+		'cause',
+		'repair',
+		'retryable',
 	];
 
 	/**
@@ -81,6 +84,16 @@ final class ErrorEnvelope {
 
 			if ( 'widget' === $key && is_scalar( $value ) ) {
 				$out[ $key ] = mb_substr( (string) $value, 0, 120 );
+				continue;
+			}
+
+			if ( in_array( $key, [ 'cause', 'repair' ], true ) && is_scalar( $value ) ) {
+				$out[ $key ] = mb_substr( (string) $value, 0, 480 );
+				continue;
+			}
+
+			if ( 'retryable' === $key ) {
+				$out[ $key ] = (bool) $value;
 				continue;
 			}
 

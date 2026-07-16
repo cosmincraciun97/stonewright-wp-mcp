@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-07-16T07:46:40+00:00",
+    "generated_at": "2026-07-16T07:49:39+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -434,6 +434,20 @@
             "input_schema_hash": "3df2a0bb6e1f22f70958c255cc83d22d5502335e5bbbd790956bf8a17a3fb48d",
             "output_schema_hash": "a2c799262a3ce3c19ef5cdd983bf3d12b43ab3c426227091b909dcb7054738c0",
             "permission_class": "Permissions::edit_post( $id )",
+            "gates": {
+                "backup": false,
+                "token": false,
+                "validator": false,
+                "audit": false
+            }
+        },
+        {
+            "ability_name": "stonewright/content-inventory",
+            "mcp_name": "stonewright-content-inventory",
+            "kind": "Read",
+            "input_schema_hash": "b009fe591f2b509bb1803ea6f1d1af31f598787427c9df99b53226e8db9119a5",
+            "output_schema_hash": "5ad98d94bf9bf02aebed167fc3974a7a33bda350f36438484f3fc5f3e2ffd31c",
+            "permission_class": "Permissions::edit_posts()",
             "gates": {
                 "backup": false,
                 "token": false,
@@ -3752,6 +3766,20 @@
             "input_schema_hash": "75c3de9f7f1b34d17e7941df95abe28d54f02032e416608bd6bea9cd729d5e12",
             "output_schema_hash": "9250f6af421b21b24c8d7e9fe6ddc4e695bab45371704d0ea70b02bd623bead5",
             "permission_class": "Permissions::read()",
+            "gates": {
+                "backup": false,
+                "token": false,
+                "validator": false,
+                "audit": false
+            }
+        },
+        {
+            "ability_name": "stonewright/site-snapshot",
+            "mcp_name": "stonewright-site-snapshot",
+            "kind": "Read",
+            "input_schema_hash": "598937c840322346511f6235ce1ca4721a33db99336f1232bb3b8c6ba2e22901",
+            "output_schema_hash": "f12517246587bcaa43e1ddf2f6c799219617ac5d34d444014394d19ec372d88c",
+            "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
                 "token": false,
