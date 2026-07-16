@@ -90,6 +90,33 @@ Fast path for MCP clients:
 
 Replace `VERSION` with the exact release version without a leading `v`.
 
+### Doctor (connection health)
+
+```bash
+npx @stonewright/companion doctor
+# or from source: node dist/index.js doctor
+```
+
+Checks Node ≥ 20, credentials (env or `~/.stonewright/sites.json`), REST index
+namespaces (`wp/v2`), REST auth (`/wp/v2/users/me`), MCP initialize on
+`/wp-json/mcp/stonewright`, and a client tool-cache refresh hint. Never prints
+Application Passwords. Exit `0` only when MCP initialize succeeds without hard
+failures.
+
+### Capability tiers (honest limits)
+
+Documented in `src/direct/capability-tiers.ts`:
+
+| Tier | Promise |
+|---|---|
+| `remote-rest` | Core REST only — **no** php-execute, Elementor engines, DesignSpec, production tokens |
+| `local-rest-wpcli` | + local WP-CLI Elementor `_elementor_data` edit |
+| `plugin` | Full Stonewright plugin MCP surface |
+| `plugin-browser-qa` | Plugin + Playwright visual/admin gates |
+
+Direct `STONEWRIGHT_MCP_TOOL_PROFILE=essential` registers only
+`DIRECT_ESSENTIAL_TOOL_NAMES` from `src/direct/registry.ts`.
+
 After the MCP server starts, call `stonewright-setup-profile` once. It returns
 the same config shape plus platform checks, credential status, and notes for
 Windows, macOS, and Linux. Use its `first_calls` and

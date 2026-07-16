@@ -44,15 +44,15 @@ Stonewright is a WordPress MCP stack for AI coding agents. **Elementor** is a fi
 
 Counts are derived from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
 
-### Plugin mode — **308** abilities
+### Plugin mode — **312** abilities
 
 | Category | Count | Highlights |
 |---|---:|---|
 | Elementor widgets (compat) | 94 | Generated per-widget builders |
-| Elementor V3 | 25 | Structure edit, batch-mutate, kit globals, build-from-spec |
+| Elementor V3 | 25+ | Structure edit, batch-mutate, kit globals, build-from-spec, transactions |
 | Design | 14 | DesignSpec validate/render, native plan, intent |
 | Elementor V4 | 13 | Atomic nodes, variables, classes (experimental) |
-| Site | 15 | Health, pulse, plugins, theme, shortcodes |
+| Site | 17 | Snapshot, inventory, health, pulse, plugins, theme, shortcodes |
 | Gutenberg + FSE | 20 | Blocks, theme.json, templates, global styles |
 | Content + media | 16 | Pages/posts, bulk upsert, upload, stock |
 | ACF / SEO / CPT | 13 | Field groups/values, multi-plugin SEO, CPT/tax register |
@@ -122,7 +122,10 @@ The companion authenticates with a WordPress Application Password and exposes **
 2. In WordPress: **Plugins → Add New → Upload Plugin** → activate **Stonewright**.
 3. Open **Stonewright → Setup**, enable abilities, and create an Application Password.
 4. Configure your MCP client to run the companion (see below).
-5. Call `stonewright-task-start` (or `stonewright-context-bootstrap` as a compatibility path) before WordPress work.
+5. In Setup, run **Verify connection** (live MCP loopback). Optionally run `npx @stonewright/companion doctor` from a shell.
+6. Call `stonewright-task-start` (or `stonewright-context-bootstrap` as a compatibility path) before WordPress work.
+
+MCP surface modes (`bootstrap` / `essential` / `full`) control how many plugin abilities appear to clients. Public ability and Direct-tool contracts live under [docs/contracts/](docs/contracts/). Elementor multi-step edits use the [transaction envelope](docs/transactions.md).
 
 <details>
 <summary>MCP client config (Plugin mode companion)</summary>
@@ -257,7 +260,7 @@ flowchart LR
   Plugin --> WP
 ```
 
-Direct mode has a **smaller** capability surface (core REST + local Elementor data + skills/memory; **98** tools). Plugin mode exposes **308** abilities. Not every request passes through every component.
+Direct mode has a **smaller** capability surface (core REST + local Elementor data + skills/memory; **98** tools). Plugin mode exposes **312** abilities. Not every request passes through every component.
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 

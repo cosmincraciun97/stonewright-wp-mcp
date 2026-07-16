@@ -16,6 +16,8 @@ workflows with operator controls.
 - [Documentation maintenance and release freshness](documentation-maintenance.md)
 - [All abilities by category](abilities.md)
 - [Design Spec reference](design-spec.md)
+- [Elementor transactions + connection verify](transactions.md)
+- [Native planner evidence policy](design-evidence-native-planner.md)
 - [Security model](security.md)
 - [Companion](companion.md)
 - [Skill packs](skills.md)

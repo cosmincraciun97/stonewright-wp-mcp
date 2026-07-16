@@ -82,6 +82,31 @@ When the companion HTTP bridge is not running, use direct MCP tools exposed by
 the companion instead: `companion_wp_cli_status`, `companion_wp_cli_discover`,
 and `companion_wp_cli_run`, or the direct `stonewright-wp-cli-*` aliases.
 
+### MCP surface (`stonewright_mcp_surface`)
+
+Public tool surface for MCP clients: `bootstrap` | `essential` | `full`.
+
+- **bootstrap** — minimal first-call set (task-start / profile / recovery).
+- **essential** — compact day-to-day Elementor/content fast path (default for new installs when set on activation).
+- **full** — entire enabled ability registry.
+
+Toggle in **Stonewright → Setup**. Contracts for the public ability list live in
+`docs/contracts/public-api-v1.json` (regenerate with `composer contracts:generate`).
+
+### Verify connection
+
+**Stonewright → Setup → Verify connection** runs an authenticated MCP loopback
+(initialize → tools/list → task-start). Preflight alone does not prove a live
+client session. Companion CLI: `npx @stonewright/companion doctor` checks Node,
+credentials, REST index/namespaces, REST auth, and MCP initialize without
+printing secrets.
+
+### Prompt library
+
+Searchable outcome-tagged prompts ship in `data/prompts/catalog.json` and appear
+on Setup. Agents still start with `stonewright-task-start` (skill refs only) —
+do not inline the full library into task-start payloads.
+
 ### Persistent Skills And Memory
 
 The plugin stores site skills and memory in WordPress tables. Agents must call

@@ -57,6 +57,10 @@ const abilityCount = Number(read('docs/ability-truth-matrix.md').match(/Total ab
 if (!Number.isInteger(abilityCount) || abilityCount < 1) {
 	fail('Could not read the generated plugin ability count.');
 }
+// Premium surface has grown past 300; fail loudly if matrix regresses below the known floor.
+if (abilityCount < 300) {
+	fail(`Plugin ability count ${abilityCount} is below the expected premium floor (300+).`);
+}
 
 const directRegistry = read('companion/src/direct/registry.ts');
 const directArrays = new Map();
@@ -169,6 +173,23 @@ for (const required of [
 	'`stonewright-task-start` is the canonical first call',
 ]) {
 	if (!agentRules.includes(required)) fail(`AGENTS.md is missing documentation rule: ${required}`);
+}
+
+// Premium docs expected for connection center + transactions.
+for (const relativePath of ['docs/transactions.md', 'docs/contracts/public-api-v1.json', 'docs/contracts/direct-tools-v1.json']) {
+	if (!fs.existsSync(path.join(repoRoot, relativePath))) {
+		fail(`Missing required truth artifact: ${relativePath}`);
+	}
+}
+
+const transactions = read('docs/transactions.md');
+for (const required of [
+	'stonewright-elementor-v3-transaction-run',
+	'Verify connection',
+	'doctor',
+	'public-api-v1.json',
+]) {
+	if (!transactions.includes(required)) fail(`docs/transactions.md is missing: ${required}`);
 }
 
 if (errors.length > 0) {
