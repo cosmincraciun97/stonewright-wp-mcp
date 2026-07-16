@@ -9,6 +9,7 @@ const STONEWRIGHT_PAGES = [
 	{ slug: 'stonewright', label: 'Setup' },
 	{ slug: 'stonewright-abilities', label: 'AI Abilities' },
 	{ slug: 'stonewright-blueprints', label: 'Blueprints' },
+	{ slug: 'stonewright-prompts', label: 'Prompts' },
 	{ slug: 'stonewright-sandbox', label: 'Sandbox' },
 	{ slug: 'stonewright-skills', label: 'Skills' },
 	{ slug: 'stonewright-memory', label: 'Memory' },

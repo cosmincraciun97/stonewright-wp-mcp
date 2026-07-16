@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Blueprints;
 
+use Stonewright\WpMcp\DesignSpec\Migrator;
 use Stonewright\WpMcp\DesignSpec\Validator;
 use Stonewright\WpMcp\DesignTokens\BrandKit;
 use Stonewright\WpMcp\Elementor\ElementorWriter;
@@ -25,7 +26,7 @@ final class BlueprintApplier {
 	 *     @type string               $mode         draft|publish. Default draft.
 	 *     @type array<string,string> $palette_override Optional color map merged into tokens.colors.
 	 *     @type string               $brand_kit    Optional brand kit id.
-	 *     @type string               $engine       auto|gutenberg|elementor. Default auto.
+	 *     @type string               $engine       auto|gutenberg|elementor|fse. Default auto.
 	 *     @type int                  $post_id      Optional existing page id.
 	 * }
 	 * @return array<string, mixed>|\WP_Error
@@ -77,6 +78,14 @@ final class BlueprintApplier {
 		$spec['page'] = isset( $spec['page'] ) && is_array( $spec['page'] ) ? $spec['page'] : [];
 		$spec['page']['title'] = $page_title;
 
+		// Promote v1 specs so content_facts / native_policy become real constraints.
+		if ( class_exists( Migrator::class ) && method_exists( Migrator::class, 'v1_to_v2' ) ) {
+			$version = (string) ( $spec['version'] ?? '1.0.0' );
+			if ( ! str_starts_with( $version, '2.' ) ) {
+				$spec = Migrator::v1_to_v2( $spec );
+			}
+		}
+
 		$validated = Validator::validate( $spec );
 		if ( is_wp_error( $validated ) ) {
 			return $validated;
@@ -89,7 +98,7 @@ final class BlueprintApplier {
 		}
 
 		$engine_requested = isset( $args['engine'] ) ? (string) $args['engine'] : 'auto';
-		if ( ! in_array( $engine_requested, [ 'auto', 'gutenberg', 'elementor' ], true ) ) {
+		if ( ! in_array( $engine_requested, [ 'auto', 'gutenberg', 'elementor', 'fse' ], true ) ) {
 			$engine_requested = 'auto';
 		}
 		$engine = $engine_requested;
@@ -105,6 +114,22 @@ final class BlueprintApplier {
 					'engine_requested' => 'elementor',
 				]
 			);
+		}
+		if ( 'fse' === $engine ) {
+			// FSE uses the Gutenberg block pipeline into a regular page for now
+			// (template-part promotion is a follow-up). Fail closed if blocks unavailable.
+			if ( ! function_exists( 'parse_blocks' ) ) {
+				return new \WP_Error(
+					'stonewright_engine_unavailable',
+					__( 'FSE/block editor APIs are not available on this site.', 'stonewright' ),
+					[
+						'status'           => 400,
+						'engine_requested' => 'fse',
+					]
+				);
+			}
+			// Route FSE requests through the Gutenberg renderer path.
+			$engine = 'gutenberg';
 		}
 
 		$post_id     = isset( $args['post_id'] ) ? (int) $args['post_id'] : 0;

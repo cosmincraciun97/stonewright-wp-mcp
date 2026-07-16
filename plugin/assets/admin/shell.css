@@ -734,9 +734,14 @@ html.sw-theme-dark {
 /* ------------------------------------------------------------------ */
 .sw-notice-drawer {
 	max-width: var(--sw-shell-content-max);
-	margin: var(--sw-space-4) auto 0;
+	/* Clear sticky header + admin bar (JS sets --sw-shell-offset). */
+	margin: max(var(--sw-space-6), calc(var(--sw-shell-offset, 76px) - 32px + var(--sw-space-4))) auto 0;
 	padding: 0 var(--sw-space-5);
 	border: none;
+}
+
+html.sw-has-shell {
+	scroll-padding-top: var(--sw-shell-offset, 76px);
 }
 
 .sw-notice-drawer[hidden] {
@@ -836,16 +841,31 @@ html.sw-theme-dark {
 	outline-offset: 2px;
 }
 
-.sw-btn--primary {
+/* Scope primary buttons under the shell so wp-admin .button/link rules lose. */
+.sw-shell .sw-btn--primary,
+.sw-shell .sw-btn--primary:visited,
+.sw-shell a.sw-btn--primary,
+.sw-shell button.sw-btn--primary {
 	background: var(--sw-brand-fill);
+	background-color: var(--sw-brand-fill);
 	color: var(--sw-on-brand);
+	border-color: transparent;
+	text-decoration: none;
+	box-shadow: none;
 }
 
-.sw-btn--primary:hover {
+.sw-shell .sw-btn--primary:hover,
+.sw-shell .sw-btn--primary:focus,
+.sw-shell .sw-btn--primary:active,
+.sw-shell a.sw-btn--primary:hover,
+.sw-shell button.sw-btn--primary:hover {
 	background: var(--sw-brand-fill-hover);
+	background-color: var(--sw-brand-fill-hover);
 	transform: translateY(-1px);
 	box-shadow: var(--sw-shadow-2);
 	color: var(--sw-on-brand);
+	text-decoration: none;
+	border-color: transparent;
 }
 
 .sw-btn--secondary {
@@ -1032,4 +1052,48 @@ html.sw-theme-dark {
 		margin-right: 0;
 		margin-left: 0;
 	}
+}
+
+/* ------------------------------------------------------------------ */
+/* Connect tab — domain lock status                                     */
+/* ------------------------------------------------------------------ */
+.sw-shell .stonewright-domain-lock-status {
+	margin: var(--sw-space-6) auto 0;
+	max-width: 560px;
+	text-align: center;
+	padding: var(--sw-space-4);
+	background: var(--sw-surface-raised);
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius-sm);
+	color: var(--sw-text-secondary);
+	font-size: var(--sw-text-sm);
+}
+
+/* ------------------------------------------------------------------ */
+/* Accessible tooltips                                                  */
+/* ------------------------------------------------------------------ */
+.sw-tooltip {
+	position: absolute;
+	z-index: 100000;
+	max-width: 280px;
+	padding: var(--sw-space-2) var(--sw-space-3);
+	background: var(--sw-text);
+	color: var(--sw-bg);
+	font-size: var(--sw-text-xs);
+	line-height: 1.4;
+	border-radius: var(--sw-radius-sm);
+	box-shadow: var(--sw-shadow-2);
+	opacity: 0;
+	transition: opacity var(--sw-dur) var(--sw-ease);
+	pointer-events: none;
+}
+
+.sw-tooltip.is-visible {
+	opacity: 1;
+}
+
+.sw-text-muted {
+	color: var(--sw-text-muted);
+	font-size: var(--sw-text-sm);
+	line-height: 1.45;
 }

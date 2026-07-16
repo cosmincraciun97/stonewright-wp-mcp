@@ -106,9 +106,9 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertSame( 1, substr_count( $html, 'class="stonewright-connect-prompt' ) );
 		self::assertStringContainsString( 'data-stonewright-text-preview', $html );
 		self::assertStringContainsString( 'data-stonewright-text-full', $html );
-		self::assertStringContainsString( 'stonewright-prompt-library', $html );
-		self::assertStringContainsString( 'stonewright-example-prompts', $html );
-		self::assertStringContainsString( 'data-stonewright-prompt-grid', $html );
+		self::assertStringContainsString( 'stonewright-prompts', $html );
+		self::assertStringContainsString( 'Open the Prompt Library tab', $html );
+		self::assertStringContainsString( 'data-sw-tooltip', $html );
 		self::assertStringContainsString( 'required', $html );
 		self::assertStringNotContainsString( 'Leave blank to use "Stonewright".', $html );
 		self::assertStringContainsString( 'stonewright_revoke_application_password', $html );

@@ -209,7 +209,6 @@ final class ConfigurationPage {
 		$prompt_password     = '' !== $app_password_value ? $app_password_value : '<application-password-from-step-2>';
 		$connect_prompt      = ConnectClientConfig::paste_to_agent_prompt( $username, $prompt_password );
 		$prompt_preview      = self::prompt_preview( $connect_prompt );
-		$example_prompts     = self::example_prompts();
 		$app_passwords       = self::application_passwords_for_current_user();
 		$risk_class          = 'production-safe' === $mode
 			? 'stonewright-risk-notice--ok'
@@ -328,7 +327,11 @@ final class ConfigurationPage {
 						</div>
 						<div class="sw-field">
 							<label for="stonewright_mcp_surface"><?php esc_html_e( 'MCP tool surface', 'stonewright' ); ?></label>
-							<select name="stonewright_mcp_surface" id="stonewright_mcp_surface">
+							<select
+								name="stonewright_mcp_surface"
+								id="stonewright_mcp_surface"
+								data-sw-tooltip="<?php echo esc_attr( __( 'HTTP clients pick up this surface on their next tools/list. Stdio companion sessions refresh when tool-profile activates a broader profile (companion ≥ this release) or after a client restart on older companions.', 'stonewright' ) ); ?>"
+							>
 								<option value="bootstrap" <?php selected( $mcp_surface, 'bootstrap' ); ?>>
 									<?php esc_html_e( 'Bootstrap (≤8 tools — progressive discovery)', 'stonewright' ); ?>
 								</option>
@@ -340,7 +343,7 @@ final class ConfigurationPage {
 								</option>
 							</select>
 							<p class="description">
-								<?php esc_html_e( 'Bootstrap is the recommended default for new clients. Full mode loads the entire ability surface and is slow and high-context — use only for specialist sessions.', 'stonewright' ); ?>
+								<?php esc_html_e( 'Bootstrap is the recommended default for new clients. Full mode loads the entire ability surface and is slow and high-context — use only for specialist sessions. Click Save settings to apply. HTTP clients refresh on next tools/list; stdio clients may need a restart on older companions.', 'stonewright' ); ?>
 							</p>
 						</div>
 						<div class="sw-field">
@@ -577,17 +580,12 @@ final class ConfigurationPage {
 							</div>
 						</details>
 
-						<div class="stonewright-link-stack">
-							<button
-								type="button"
-								class="button-link"
-								data-stonewright-toggle-target="stonewright-example-prompts"
-								aria-expanded="false"
-							><?php esc_html_e( 'Prompt library (searchable by outcome)', 'stonewright' ); ?></button>
-						</div>
-						<div id="stonewright-example-prompts" class="stonewright-example-prompts stonewright-prompt-library" hidden>
-							<?php self::render_prompt_library( $example_prompts ); ?>
-						</div>
+						<p class="description">
+							<a href="<?php echo esc_url( admin_url( 'admin.php?page=stonewright-prompts' ) ); ?>">
+								<?php esc_html_e( 'Open the Prompt Library tab', 'stonewright' ); ?>
+							</a>
+							<?php esc_html_e( ' for searchable, outcome-grouped starters (20+ prompts).', 'stonewright' ); ?>
+						</p>
 					</div>
 				</div>
 
@@ -748,6 +746,7 @@ final class ConfigurationPage {
 					class="sw-method-option<?php echo 'stdio' === $selected_method ? ' is-active' : ''; ?>"
 					data-stonewright-method="stdio"
 					aria-checked="<?php echo 'stdio' === $selected_method ? 'true' : 'false'; ?>"
+					data-sw-tooltip="<?php echo esc_attr( __( 'Runs the Stonewright companion on the same machine as your AI client. Best for local development: fastest, no public endpoint needed. Requires Node.js on your machine.', 'stonewright' ) ); ?>"
 				>
 					<span class="sw-method-option__label"><?php esc_html_e( 'Local companion (stdio)', 'stonewright' ); ?></span>
 					<span class="sw-method-option__blurb"><?php esc_html_e( 'npx runs the Stonewright companion on your machine.', 'stonewright' ); ?></span>
@@ -758,6 +757,7 @@ final class ConfigurationPage {
 					class="sw-method-option<?php echo 'http' === $selected_method ? ' is-active' : ''; ?>"
 					data-stonewright-method="http"
 					aria-checked="<?php echo 'http' === $selected_method ? 'true' : 'false'; ?>"
+					data-sw-tooltip="<?php echo esc_attr( __( 'Your AI client connects directly to this WordPress site over HTTPS. Best for remote/production sites: nothing to install locally. Requires the application password from this page.', 'stonewright' ) ); ?>"
 				>
 					<span class="sw-method-option__label"><?php esc_html_e( 'Remote Streamable HTTP', 'stonewright' ); ?></span>
 					<span class="sw-method-option__blurb"><?php esc_html_e( 'No Node or companion required.', 'stonewright' ); ?></span>

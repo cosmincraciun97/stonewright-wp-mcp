@@ -249,11 +249,73 @@
 		});
 	}
 
+	function initTooltips() {
+		var tipEl = null;
+		var tipId = 0;
+
+		function hide() {
+			if (!tipEl) {
+				return;
+			}
+			document.querySelectorAll('[aria-describedby="' + tipEl.id + '"]').forEach(function (el) {
+				el.removeAttribute('aria-describedby');
+			});
+			tipEl.remove();
+			tipEl = null;
+		}
+
+		function show(trigger) {
+			hide();
+			var text = trigger.getAttribute('data-sw-tooltip');
+			if (!text) {
+				return;
+			}
+			tipEl = document.createElement('div');
+			tipEl.className = 'sw-tooltip';
+			tipEl.id = 'sw-tooltip-' + (++tipId);
+			tipEl.setAttribute('role', 'tooltip');
+			tipEl.textContent = text;
+			document.body.appendChild(tipEl);
+			trigger.setAttribute('aria-describedby', tipEl.id);
+			var r = trigger.getBoundingClientRect();
+			var left = r.left + r.width / 2 - tipEl.offsetWidth / 2;
+			left = Math.max(8, Math.min(window.innerWidth - tipEl.offsetWidth - 8, left));
+			tipEl.style.left = left + 'px';
+			tipEl.style.top = r.top + window.scrollY - tipEl.offsetHeight - 8 + 'px';
+			tipEl.classList.add('is-visible');
+		}
+
+		document.addEventListener('mouseover', function (e) {
+			var t = e.target && e.target.closest ? e.target.closest('[data-sw-tooltip]') : null;
+			if (t) {
+				show(t);
+			}
+		});
+		document.addEventListener('mouseout', function (e) {
+			if (e.target && e.target.closest && e.target.closest('[data-sw-tooltip]')) {
+				hide();
+			}
+		});
+		document.addEventListener('focusin', function (e) {
+			var t = e.target && e.target.closest ? e.target.closest('[data-sw-tooltip]') : null;
+			if (t) {
+				show(t);
+			}
+		});
+		document.addEventListener('focusout', hide);
+		document.addEventListener('keydown', function (e) {
+			if (e.key === 'Escape') {
+				hide();
+			}
+		});
+	}
+
 	ready(function () {
 		var shell = document.querySelector('[data-sw-shell]');
 		if (!shell) {
 			return;
 		}
+		document.documentElement.classList.add('sw-has-shell');
 		// Ensure light class is explicit for media-query exclusion.
 		if (!shell.classList.contains('sw-theme-dark')) {
 			shell.classList.add('sw-theme-light');
@@ -267,5 +329,6 @@
 		watchNotices(shell);
 		initThemeToggle(shell);
 		initCopyPrompts(shell);
+		initTooltips();
 	});
 })();

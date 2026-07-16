@@ -357,22 +357,3 @@
     background: var(--sw-text-muted);
 }
 
-/* ------------------------------------------------------------------ */
-/* Domain lock indicator                                                */
-/* ------------------------------------------------------------------ */
-.sw-domain-lock {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    color: var(--sw-color-muted);
-    margin-top: 6px;
-}
-
-.sw-domain-lock--locked::before {
-    content: '🔒';
-}
-
-.sw-domain-lock--unlocked::before {
-    content: '🔓';
-}

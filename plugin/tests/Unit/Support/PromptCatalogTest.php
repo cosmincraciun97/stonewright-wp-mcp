@@ -11,9 +11,9 @@ use Stonewright\WpMcp\Support\PromptCatalog;
  */
 final class PromptCatalogTest extends TestCase {
 
-	public function test_catalog_loads_at_least_ten_prompts(): void {
+	public function test_catalog_loads_at_least_twenty_prompts(): void {
 		$catalog = PromptCatalog::load();
-		self::assertGreaterThanOrEqual( 10, count( $catalog['prompts'] ) );
+		self::assertGreaterThanOrEqual( 20, count( $catalog['prompts'] ) );
 		self::assertGreaterThanOrEqual( 1, (int) $catalog['version'] );
 	}
 
@@ -26,7 +26,10 @@ final class PromptCatalogTest extends TestCase {
 			self::assertIsArray( $prompt['tools'] );
 			self::assertNotEmpty( $prompt['tools'] );
 			self::assertContains( 'stonewright-task-start', $prompt['tools'] );
+			self::assertStringContainsString( 'stonewright-task-start', $prompt['prompt'] );
 			self::assertNotSame( '', $prompt['verification'] );
+			// No competitor product names in public prompts.
+			self::assertDoesNotMatchRegularExpression( '/\b(wpbakery|divi|bricks|oxygen)\b/i', $prompt['prompt'] );
 		}
 	}
 

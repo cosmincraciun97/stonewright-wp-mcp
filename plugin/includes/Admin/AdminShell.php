@@ -53,6 +53,7 @@ final class AdminShell {
 				'label' => __( 'Design Library', 'stonewright' ),
 				'pages' => [
 					'stonewright-blueprints' => __( 'Blueprints', 'stonewright' ),
+					'stonewright-prompts'    => __( 'Prompts', 'stonewright' ),
 				],
 			],
 			[
@@ -150,7 +151,7 @@ final class AdminShell {
 							<?php if ( '' !== $logo_2x ) : ?>
 								srcset="<?php echo esc_url( $logo_url ); ?> 1x, <?php echo esc_url( $logo_2x ); ?> 2x"
 							<?php endif; ?>
-							alt="<?php echo esc_attr__( 'Stonewright', 'stonewright' ); ?>"
+							alt="<?php echo esc_attr( __( 'Stonewright', 'stonewright' ) ); ?>"
 							width="28"
 							height="28"
 							decoding="async"

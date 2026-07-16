@@ -131,6 +131,8 @@ final class Renderer {
 				return Spacer::render( $block, $resolver, $path );
 
 			case 'divider':
+			case 'separator':
+				// Blueprints use "separator"; Elementor widget is divider.
 				return Divider::render( $block, $resolver, $path );
 
 			// ------- icons -------

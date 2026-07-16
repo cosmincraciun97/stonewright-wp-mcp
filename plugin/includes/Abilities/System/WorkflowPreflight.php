@@ -119,6 +119,9 @@ final class WorkflowPreflight extends AbilityKernel {
 				'payload_hashes' => [ 'type' => 'object' ],
 				'changed_keys'  => [ 'type' => 'array' ],
 				'unchanged_keys' => [ 'type' => 'array' ],
+				'tool_profile'  => [ 'type' => 'string' ],
+				'tools_changed' => [ 'type' => 'boolean' ],
+				're_list_instruction' => [ 'type' => 'string' ],
 			],
 			'required'   => [ 'ok', 'context_token', 'mode', 'auth_guidance', 'fast_path' ],
 		];
@@ -351,19 +354,31 @@ final class WorkflowPreflight extends AbilityKernel {
 			);
 		}
 
+		$tool_profile_block = is_array( $fast_path['tool_profile'] ?? null )
+			? $fast_path['tool_profile']
+			: [];
+		$tools_changed      = (bool) ( $tool_profile_block['tools_changed'] ?? false );
+		$re_list            = (string) ( $tool_profile_block['re_list_instruction'] ?? '' );
+		if ( $tools_changed && '' === $re_list ) {
+			$re_list = 'Re-list tools now (tools/list). New tools are available. If your client ignores tools/list_changed, call tools/list again before continuing.';
+		}
+
 		return [
-			'ok'             => (bool) ( $response['ok'] ?? false ),
-			'context_token'  => (string) ( $response['context_token'] ?? '' ),
-			'expires_at'     => (string) ( $response['expires_at'] ?? '' ),
-			'mode'           => (string) ( $response['mode'] ?? '' ),
-			'auth_guidance'  => [],
-			'fast_path'      => $compact_fast_path,
-			'elementor'      => $compact_elementor,
-			'context'        => $compact_context,
-			'response_mode'  => 'compact',
-			'payload_hashes' => $payload_hashes,
-			'changed_keys'   => $changed,
-			'unchanged_keys' => $unchanged,
+			'ok'                  => (bool) ( $response['ok'] ?? false ),
+			'context_token'       => (string) ( $response['context_token'] ?? '' ),
+			'expires_at'          => (string) ( $response['expires_at'] ?? '' ),
+			'mode'                => (string) ( $response['mode'] ?? '' ),
+			'auth_guidance'       => [],
+			'fast_path'           => $compact_fast_path,
+			'elementor'           => $compact_elementor,
+			'context'             => $compact_context,
+			'response_mode'       => 'compact',
+			'payload_hashes'      => $payload_hashes,
+			'changed_keys'        => $changed,
+			'unchanged_keys'      => $unchanged,
+			'tool_profile'        => $profile_name,
+			'tools_changed'       => $tools_changed,
+			're_list_instruction' => $re_list,
 		];
 	}
 
@@ -459,13 +474,16 @@ final class WorkflowPreflight extends AbilityKernel {
 		}
 
 		return [
-			'profile'            => $profile['profile'],
-			'tool_count'         => $profile['tool_count'],
-			'profile_tool_count' => $profile['profile_tool_count'],
-			'under_limit'        => $profile['under_limit'],
-			'tool_groups'        => $profile['tool_groups'],
-			'next_best_tools'    => $profile['next_best_tools'],
-			'discovery_policy'   => $profile['discovery_policy'],
+			'profile'             => $profile['profile'],
+			'tool_count'          => $profile['tool_count'],
+			'profile_tool_count'  => $profile['profile_tool_count'],
+			'under_limit'         => $profile['under_limit'],
+			'tool_groups'         => $profile['tool_groups'],
+			'next_best_tools'     => $profile['next_best_tools'],
+			'discovery_policy'    => $profile['discovery_policy'],
+			'tools_changed'       => (bool) ( $profile['tools_changed'] ?? false ),
+			're_list_instruction' => (string) ( $profile['re_list_instruction'] ?? '' ),
+			'recovery_hints'     => is_array( $profile['recovery_hints'] ?? null ) ? $profile['recovery_hints'] : [],
 		];
 	}
 

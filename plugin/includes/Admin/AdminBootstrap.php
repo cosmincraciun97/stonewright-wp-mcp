@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Admin;
 
 use Stonewright\WpMcp\Admin\Pages\BlueprintsPage;
+use Stonewright\WpMcp\Admin\Pages\PromptLibraryPage;
 use Stonewright\WpMcp\Admin\Pages\SandboxLibraryPage;
 use Stonewright\WpMcp\Admin\Pages\StatusPage;
 use Stonewright\WpMcp\Admin\RestApi;
@@ -32,6 +33,7 @@ final class AdminBootstrap {
 
 		StatusPage::register();
 		BlueprintsPage::register();
+		PromptLibraryPage::register();
 		SandboxLibraryPage::register();
 		AdminShell::register();
 

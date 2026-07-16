@@ -7,8 +7,17 @@
       "title": "Inspect site snapshot",
       "outcome": "inspect",
       "summary": "Capture a compact operational overview before changing anything.",
-      "prerequisites": ["Stonewright plugin active", "Application Password authenticated", "stonewright-task-start available"],
-      "tools": ["stonewright-task-start", "stonewright-site-snapshot", "stonewright-content-inventory", "stonewright-site-pulse"],
+      "prerequisites": [
+        "Stonewright plugin active",
+        "Application Password authenticated",
+        "stonewright-task-start available"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-site-snapshot",
+        "stonewright-content-inventory",
+        "stonewright-site-pulse"
+      ],
       "prompt": "Use Stonewright on this WordPress site. Call stonewright-task-start first. Then run stonewright-site-snapshot and stonewright-content-inventory. Summarize name, theme, plugin counts, post counts, mode, MCP surface, and the top content types. Do not mutate the site.",
       "verification": "Response includes mode, mcp_surface, and at least post/page counts without write tools."
     },
@@ -17,8 +26,15 @@
       "title": "Repair from site pulse",
       "outcome": "repair",
       "summary": "Score hardening/performance and apply the top safe fixes.",
-      "prerequisites": ["manage_options credentials", "staging preferred for write fixes"],
-      "tools": ["stonewright-task-start", "stonewright-site-pulse", "stonewright-php-execute"],
+      "prerequisites": [
+        "manage_options credentials",
+        "staging preferred for write fixes"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-site-pulse",
+        "stonewright-php-execute"
+      ],
       "prompt": "Use Stonewright. Start with stonewright-task-start, then stonewright-site-pulse. For each failed high/critical check, propose a concrete repair. Apply only reversible option/config fixes after confirming mode; skip production-safe destructive steps without tokens.",
       "verification": "Pulse score and fixes list present; any writes audited; no confirmation_token skipped in production-safe."
     },
@@ -27,8 +43,18 @@
       "title": "Elementor landing page from brief",
       "outcome": "elementor",
       "summary": "Build a new Elementor landing page with native widgets first.",
-      "prerequisites": ["Elementor active", "plugin mode", "design brief or screenshot"],
-      "tools": ["stonewright-task-start", "stonewright-design-native-plan", "stonewright-elementor-v3-build-page-from-spec", "stonewright-elementor-v3-batch-mutate", "stonewright-elementor-page-digest"],
+      "prerequisites": [
+        "Elementor active",
+        "plugin mode",
+        "design brief or screenshot"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-design-native-plan",
+        "stonewright-elementor-v3-build-page-from-spec",
+        "stonewright-elementor-v3-batch-mutate",
+        "stonewright-elementor-page-digest"
+      ],
       "prompt": "Use Stonewright. Call stonewright-task-start. Plan with stonewright-design-native-plan, validate the DesignSpec, snapshot, then build with stonewright-elementor-v3-build-page-from-spec. Polish with stonewright-elementor-v3-batch-mutate. Prefer native Elementor widgets. Verify desktop/tablet/mobile with no horizontal overflow.",
       "verification": "Page has Elementor data; digest shows structure; no raw HTML widget dump for core sections."
     },
@@ -37,9 +63,17 @@
       "title": "Elementor section refactor",
       "outcome": "elementor",
       "summary": "Refactor one hero/section with backup and batch mutate.",
-      "prerequisites": ["Existing Elementor page id", "plugin mode"],
-      "tools": ["stonewright-task-start", "stonewright-elementor-page-digest", "stonewright-elementor-v3-backup-page", "stonewright-elementor-v3-batch-mutate"],
-      "prompt": "Use Stonewright on page {{post_id}}. Start with task-start, read stonewright-elementor-page-digest, snapshot via backup, then batch-mutate only the hero section for clearer hierarchy and spacing. Leave other sections untouched.",
+      "prerequisites": [
+        "Existing Elementor page id",
+        "plugin mode"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-elementor-page-digest",
+        "stonewright-elementor-v3-backup-page",
+        "stonewright-elementor-v3-batch-mutate"
+      ],
+      "prompt": "Use Stonewright on page {{post_id}}. Start with stonewright-task-start, read stonewright-elementor-page-digest, snapshot via backup, then batch-mutate only the hero section for clearer hierarchy and spacing. Leave other sections untouched.",
       "verification": "Backup snapshot id recorded; only targeted elements changed; digest before/after differs in hero only."
     },
     {
@@ -47,8 +81,16 @@
       "title": "Gutenberg homepage hero",
       "outcome": "gutenberg",
       "summary": "Update a block-theme homepage hero without breaking brand tokens.",
-      "prerequisites": ["Block theme active", "edit_posts capability"],
-      "tools": ["stonewright-task-start", "stonewright-fse-list-templates", "stonewright-gutenberg-parse-blocks", "stonewright-gutenberg-apply-to-post"],
+      "prerequisites": [
+        "Block theme active",
+        "edit_posts capability"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-fse-list-templates",
+        "stonewright-gutenberg-parse-blocks",
+        "stonewright-gutenberg-apply-to-post"
+      ],
       "prompt": "Use Stonewright. Call stonewright-task-start. Read the homepage template and current hero blocks. Snapshot before writes. Update the hero for stronger headline, CTA, and mobile spacing while preserving theme.json tokens. Verify desktop and mobile.",
       "verification": "Template/post updated; theme.json tokens unchanged unless explicitly requested."
     },
@@ -57,9 +99,15 @@
       "title": "FSE footer cleanup",
       "outcome": "gutenberg",
       "summary": "Clean footer template part structure.",
-      "prerequisites": ["FSE theme"],
-      "tools": ["stonewright-task-start", "stonewright-fse-read-template", "stonewright-fse-write-template-part"],
-      "prompt": "Use Stonewright. Start with task-start. Read the footer template part, snapshot, then simplify navigation/social rows for accessibility and consistent spacing. Do not invent brand colors outside theme.json.",
+      "prerequisites": [
+        "FSE theme"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-fse-read-template",
+        "stonewright-fse-write-template-part"
+      ],
+      "prompt": "Use Stonewright. Start with stonewright-task-start. Read the footer template part, snapshot, then simplify navigation/social rows for accessibility and consistent spacing. Do not invent brand colors outside theme.json.",
       "verification": "Footer part saves; no horizontal overflow at 390px width."
     },
     {
@@ -67,8 +115,14 @@
       "title": "Apply a brand kit",
       "outcome": "brand-kit",
       "summary": "List and apply a built-in brand kit carefully.",
-      "prerequisites": ["plugin mode"],
-      "tools": ["stonewright-task-start", "stonewright-brand-kit-list", "stonewright-brand-kit-apply"],
+      "prerequisites": [
+        "plugin mode"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-brand-kit-list",
+        "stonewright-brand-kit-apply"
+      ],
       "prompt": "Use Stonewright. Call stonewright-task-start, list brand kits, pick the kit that best matches the site brief, and apply it. Report which tokens changed and any follow-up Elementor kit steps.",
       "verification": "Kit id applied; token diff summarized; destructive paths token-gated in production-safe."
     },
@@ -77,9 +131,17 @@
       "title": "Apply industry blueprint",
       "outcome": "blueprint",
       "summary": "Scaffold pages from a Stonewright blueprint.",
-      "prerequisites": ["plugin mode", "writable content"],
-      "tools": ["stonewright-task-start", "stonewright-blueprint-list", "stonewright-blueprint-get", "stonewright-blueprint-apply"],
-      "prompt": "Use Stonewright. Start with task-start. List blueprints, choose the best industry match for this site, get the blueprint details, then apply with a clear page map. Prefer dry-run or review mode when available; confirm titles before publish.",
+      "prerequisites": [
+        "plugin mode",
+        "writable content"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-blueprint-list",
+        "stonewright-blueprint-get",
+        "stonewright-blueprint-apply"
+      ],
+      "prompt": "Use Stonewright. Start with stonewright-task-start. List blueprints, choose the best industry match for this site, get the blueprint details, then apply with a clear page map. Prefer dry-run or review mode when available; confirm titles before publish.",
       "verification": "Blueprint apply result lists created/updated pages; no silent overwrites without snapshot."
     },
     {
@@ -87,8 +149,16 @@
       "title": "Services CPT + fields",
       "outcome": "content-model",
       "summary": "Register a Services model and seed sample rows.",
-      "prerequisites": ["plugin mode", "edit_posts"],
-      "tools": ["stonewright-task-start", "stonewright-cpt-register", "stonewright-content-bulk-upsert-posts", "stonewright-content-inventory"],
+      "prerequisites": [
+        "plugin mode",
+        "edit_posts"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-cpt-register",
+        "stonewright-content-bulk-upsert-posts",
+        "stonewright-content-inventory"
+      ],
       "prompt": "Use Stonewright. Call stonewright-task-start. Create a Services content model with fields for icon, headline, summary, proof metric, and CTA. Seed six service rows with bulk upsert. Finish with content-inventory to confirm counts.",
       "verification": "CPT visible in inventory; six seeded posts; REST base documented."
     },
@@ -97,9 +167,17 @@
       "title": "Stock image fill for hero",
       "outcome": "media",
       "summary": "Search Openverse/stock, import, attach alt text.",
-      "prerequisites": ["upload_files", "outbound HTTP allowed"],
-      "tools": ["stonewright-task-start", "stonewright-media-stock-image-search", "stonewright-media-stock-image-import", "stonewright-media-set-alt"],
-      "prompt": "Use Stonewright. Start with task-start. Search stock images for the homepage hero brief, import the best licensed result, set meaningful alt text, and report the attachment id for the page builder to use.",
+      "prerequisites": [
+        "upload_files",
+        "outbound HTTP allowed"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-media-stock-image-search",
+        "stonewright-media-stock-image-import",
+        "stonewright-media-set-alt"
+      ],
+      "prompt": "Use Stonewright. Start with stonewright-task-start. Search stock images for the homepage hero brief, import the best licensed result, set meaningful alt text, and report the attachment id for the page builder to use.",
       "verification": "Attachment id returned; alt non-empty; license/source noted when available."
     },
     {
@@ -107,20 +185,171 @@
       "title": "On-page SEO meta pass",
       "outcome": "seo",
       "summary": "Inspect and update SEO meta for key pages.",
-      "prerequisites": ["SEO plugin with REST or Stonewright SEO adapters"],
-      "tools": ["stonewright-task-start", "stonewright-seo-status", "stonewright-seo-meta-get", "stonewright-seo-meta-update"],
+      "prerequisites": [
+        "SEO plugin with REST or Stonewright SEO adapters"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-seo-status",
+        "stonewright-seo-meta-get",
+        "stonewright-seo-meta-update"
+      ],
       "prompt": "Use Stonewright. Call stonewright-task-start and stonewright-seo-status. For the homepage and top three service pages, get meta, tighten titles/descriptions to intent, update, and report before/after strings.",
-      "verification": "Meta updated only on listed ids; titles ≤ ~60 chars; no keyword stuffing."
+      "verification": "Meta updated only on listed ids; titles \u2264 ~60 chars; no keyword stuffing."
     },
     {
       "id": "wp-cli-cache-rewrite",
       "title": "WP-CLI cache and rewrite health",
       "outcome": "ops",
       "summary": "Tokenized WP-CLI status, rewrite flush when safe.",
-      "prerequisites": ["Companion with WP-CLI path", "local or approved host"],
-      "tools": ["stonewright-task-start", "stonewright-wp-cli-status", "stonewright-wp-cli-discover", "stonewright-wp-cli-run"],
-      "prompt": "Use Stonewright companion WP-CLI tools only (never shell wp). Call task-start, wp-cli-status, discover rewrite/cache commands, then run a safe status check. Flush rewrites only if the operator confirmed staging.",
+      "prerequisites": [
+        "Companion with WP-CLI path",
+        "local or approved host"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-wp-cli-status",
+        "stonewright-wp-cli-discover",
+        "stonewright-wp-cli-run"
+      ],
+      "prompt": "Use Stonewright companion WP-CLI tools only (never shell wp). Call stonewright-task-start, wp-cli-status, discover rewrite/cache commands, then run a safe status check. Flush rewrites only if the operator confirmed staging.",
       "verification": "All WP-CLI calls tokenized; no eval/shell; output includes command results without secrets."
+    },
+    {
+      "id": "blueprint-engine-elementor",
+      "title": "Apply blueprint on Elementor engine",
+      "outcome": "blueprint",
+      "summary": "Explicit Elementor engine for a blueprint apply.",
+      "prerequisites": [
+        "plugin mode",
+        "Elementor active"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-blueprint-list",
+        "stonewright-blueprint-apply"
+      ],
+      "prompt": "Use Stonewright. Call stonewright-task-start first. List blueprints, pick the best industry match, then call stonewright-blueprint-apply with engine=elementor (never silently fall back). Prefer draft status. Snapshot before write; report created page ids and any unsupported nodes.",
+      "verification": "Apply uses engine=elementor; draft pages created; unsupported_nodes empty or listed honestly."
+    },
+    {
+      "id": "blueprint-engine-gutenberg",
+      "title": "Apply blueprint on Gutenberg engine",
+      "outcome": "blueprint",
+      "summary": "Explicit Gutenberg engine for a blueprint apply.",
+      "prerequisites": [
+        "plugin mode"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-blueprint-list",
+        "stonewright-blueprint-apply",
+        "stonewright-gutenberg-parse-blocks"
+      ],
+      "prompt": "Use Stonewright. Call stonewright-task-start first. Apply the chosen blueprint with engine=gutenberg. Validate blocks with parse/apply helpers. Prefer draft. Do not invent competitor product names.",
+      "verification": "engine=gutenberg; blocks parse cleanly; draft saved."
+    },
+    {
+      "id": "blueprint-engine-fse",
+      "title": "Apply blueprint toward FSE templates",
+      "outcome": "blueprint",
+      "summary": "FSE-oriented blueprint path with snapshot.",
+      "prerequisites": [
+        "block theme",
+        "plugin mode"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-blueprint-apply",
+        "stonewright-gutenberg-editor-snapshot",
+        "stonewright-fse-list-templates"
+      ],
+      "prompt": "Use Stonewright. Call stonewright-task-start. Snapshot FSE state, then apply the blueprint with engine=fse when available (or report stonewright_engine_unavailable honestly). Never bypass backup/snapshot gates.",
+      "verification": "Snapshot taken; FSE engine success or structured unavailable error; no silent fallback."
+    },
+    {
+      "id": "brand-kit-preview-restore",
+      "title": "Brand kit preview and restore point",
+      "outcome": "brand-kit",
+      "summary": "Preview brand kit impact and keep a restore handle.",
+      "prerequisites": [
+        "plugin mode"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-brand-kit-list",
+        "stonewright-brand-kit-apply"
+      ],
+      "prompt": "Use Stonewright. Call stonewright-task-start. List kits, then brand-kit-apply with preview=true when supported to get a before/after diff. Apply for real only after operator approval and capture restore_id.",
+      "verification": "Diff or change report present; restore_id when applied; production-safe tokens respected."
+    },
+    {
+      "id": "figma-to-native-pixel",
+      "title": "Figma to native pixel-perfect build",
+      "outcome": "design",
+      "summary": "External Figma MCP to evidence to native plan to verify.",
+      "prerequisites": [
+        "External Figma MCP tools in the client",
+        "plugin mode"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-design-native-plan",
+        "stonewright-elementor-v3-build-page-from-spec",
+        "stonewright-gutenberg-apply-to-post"
+      ],
+      "prompt": "Use Stonewright. Call stonewright-task-start. Extract design with the client's external Figma MCP tools, normalize into a DesignEvidence/figma_token_table (never embed Figma APIs inside Stonewright). Call stonewright-design-native-plan. Render with the user-chosen engine (elementor|gutenberg|fse). CSS only when native_gap is recorded. Verify each breakpoint with the client's own browser tools against evidence targets (\u00b12px spacing).",
+      "verification": "Native plan present; native_gap for any CSS; no raw Figma tree after normalization; verification notes per breakpoint."
+    },
+    {
+      "id": "profile-self-upgrade",
+      "title": "Upgrade tool profile mid-session",
+      "outcome": "ops",
+      "summary": "When a needed tool is missing, activate a broader profile and re-list.",
+      "prerequisites": [
+        "MCP session with stonewright-tool-profile"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-tool-profile"
+      ],
+      "prompt": "Use Stonewright. Call stonewright-task-start. If a required tool is missing from the list, call stonewright-tool-profile with action=activate and profile=full (or the matching specialist profile). Then re-list tools (tools/list) before continuing. Do not invent shell or REST workarounds.",
+      "verification": "tool-profile returns tools_changed/re_list_instruction when applicable; subsequent tools/list includes the needed tool."
+    },
+    {
+      "id": "woocommerce-catalog-setup",
+      "title": "WooCommerce catalog bootstrap",
+      "outcome": "woocommerce",
+      "summary": "Products, categories, and stock-safe content ops.",
+      "prerequisites": [
+        "WooCommerce active",
+        "plugin or Direct with REST"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-content-inventory",
+        "stonewright-content-bulk-upsert-posts",
+        "stonewright-media-upload"
+      ],
+      "prompt": "Use Stonewright. Call stonewright-task-start. Inventory products/categories. Seed a small catalog (\u226412 products) with bulk upsert, attach images, and keep drafts until review. No payment gateway or live checkout changes without explicit operator approval.",
+      "verification": "Inventory counts increase; products remain draft unless approved; no payment settings mutated."
+    },
+    {
+      "id": "elementor-transaction-repair",
+      "title": "Elementor transactional repair",
+      "outcome": "elementor",
+      "summary": "Batch mutate under transaction envelope with rollback.",
+      "prerequisites": [
+        "Elementor page id",
+        "plugin mode"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-elementor-page-digest",
+        "stonewright-elementor-v3-transaction-run"
+      ],
+      "prompt": "Use Stonewright. Call stonewright-task-start. Digest the page, then stonewright-elementor-v3-transaction-run with stop_on_error and rollback_on_error. Prefer native widgets. If readback fails, confirm automatic rollback and report snapshot id.",
+      "verification": "Transaction result ok or rolled_back with snapshot; no partial silent failure."
     }
   ]
 }

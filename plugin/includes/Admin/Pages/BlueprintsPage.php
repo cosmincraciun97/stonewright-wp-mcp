@@ -58,6 +58,9 @@ final class BlueprintsPage {
 				<div class="sw-section__head">
 					<h2><?php esc_html_e( 'Blueprints', 'stonewright' ); ?></h2>
 					<p class="sw-section__sub"><?php esc_html_e( 'Complete landing structures. Copy the full AI prompt, then replace {business} with the client name.', 'stonewright' ); ?></p>
+					<p class="sw-text-muted">
+						<?php esc_html_e( 'These buttons copy AI prompts for a connected MCP agent. Nothing is written to this site until the agent runs stonewright-blueprint-apply (or related tools).', 'stonewright' ); ?>
+					</p>
 				</div>
 				<?php if ( [] === $blueprints ) : ?>
 					<div class="sw-empty-state">
@@ -88,6 +91,7 @@ final class BlueprintsPage {
 										type="button"
 										class="sw-btn sw-btn--primary sw-btn--sm sw-copy-prompt"
 										data-prompt="<?php echo esc_attr( self::apply_to_draft_prompt( $bp ) ); ?>"
+										data-sw-tooltip="<?php echo esc_attr( __( 'Copies a ready-made AI prompt that tells your connected agent to apply this blueprint to a new draft. Paste it into your MCP client to run it.', 'stonewright' ) ); ?>"
 									>
 										<?php esc_html_e( 'Apply to draft', 'stonewright' ); ?>
 									</button>
@@ -95,6 +99,7 @@ final class BlueprintsPage {
 										type="button"
 										class="sw-btn sw-btn--ghost sw-btn--sm sw-copy-prompt"
 										data-prompt="<?php echo esc_attr( $prompt ); ?>"
+										data-sw-tooltip="<?php echo esc_attr( __( 'Copies a customization prompt for this blueprint to your clipboard.', 'stonewright' ) ); ?>"
 									>
 										<?php esc_html_e( 'Copy AI Prompt', 'stonewright' ); ?>
 									</button>
