@@ -583,10 +583,10 @@ final class ConfigurationPage {
 								class="button-link"
 								data-stonewright-toggle-target="stonewright-example-prompts"
 								aria-expanded="false"
-							><?php esc_html_e( 'Examples: real Stonewright prompts', 'stonewright' ); ?></button>
+							><?php esc_html_e( 'Prompt library (searchable by outcome)', 'stonewright' ); ?></button>
 						</div>
-						<div id="stonewright-example-prompts" class="stonewright-example-prompts" hidden>
-							<?php self::render_example_prompts( $example_prompts ); ?>
+						<div id="stonewright-example-prompts" class="stonewright-example-prompts stonewright-prompt-library" hidden>
+							<?php self::render_prompt_library( $example_prompts ); ?>
 						</div>
 					</div>
 				</div>
@@ -898,21 +898,91 @@ final class ConfigurationPage {
 	/**
 	 * @param array<int, array{title: string, prompt: string}> $examples Example prompts.
 	 */
-	private static function render_example_prompts( array $examples ): void {
+	/**
+	 * @param list<array<string, mixed>> $examples
+	 */
+	private static function render_prompt_library( array $examples ): void {
+		$outcomes = [];
+		foreach ( $examples as $example ) {
+			$outcome = (string) ( $example['outcome'] ?? 'general' );
+			$outcomes[ $outcome ] = true;
+		}
+		$outcome_keys = array_keys( $outcomes );
+		sort( $outcome_keys );
 		?>
-		<div class="stonewright-example-grid">
+		<div class="stonewright-prompt-library__controls">
+			<label class="screen-reader-text" for="stonewright-prompt-search"><?php esc_html_e( 'Search prompts', 'stonewright' ); ?></label>
+			<input
+				type="search"
+				id="stonewright-prompt-search"
+				class="regular-text"
+				data-stonewright-prompt-search
+				placeholder="<?php esc_attr_e( 'Search by outcome, tool, or keyword…', 'stonewright' ); ?>"
+			/>
+			<label class="screen-reader-text" for="stonewright-prompt-outcome"><?php esc_html_e( 'Filter by outcome', 'stonewright' ); ?></label>
+			<select id="stonewright-prompt-outcome" data-stonewright-prompt-outcome>
+				<option value=""><?php esc_html_e( 'All outcomes', 'stonewright' ); ?></option>
+				<?php foreach ( $outcome_keys as $outcome ) : ?>
+					<option value="<?php echo esc_attr( $outcome ); ?>"><?php echo esc_html( $outcome ); ?></option>
+				<?php endforeach; ?>
+			</select>
+		</div>
+		<p class="description stonewright-prompt-library__hint">
+			<?php esc_html_e( 'Catalog lives in plugin/data/prompts. Agents should call stonewright-task-start (skill refs only) — do not inline full library prompts into task-start.', 'stonewright' ); ?>
+		</p>
+		<div class="stonewright-example-grid" data-stonewright-prompt-grid>
 			<?php foreach ( $examples as $index => $example ) : ?>
-				<?php $code_id = 'stonewright-example-prompt-' . (string) $index; ?>
-				<div class="stonewright-example-card">
-					<h3><?php echo esc_html( $example['title'] ); ?></h3>
-					<pre id="<?php echo esc_attr( $code_id ); ?>"><?php echo esc_html( $example['prompt'] ); ?></pre>
+				<?php
+				$code_id = 'stonewright-example-prompt-' . (string) $index;
+				$outcome = (string) ( $example['outcome'] ?? 'general' );
+				$tools   = isset( $example['tools'] ) && is_array( $example['tools'] ) ? $example['tools'] : [];
+				$search  = strtolower(
+					implode(
+						' ',
+						[
+							(string) ( $example['id'] ?? '' ),
+							(string) ( $example['title'] ?? '' ),
+							$outcome,
+							(string) ( $example['summary'] ?? '' ),
+							(string) ( $example['prompt'] ?? '' ),
+							implode( ' ', $tools ),
+						]
+					)
+				);
+				?>
+				<div
+					class="stonewright-example-card"
+					data-stonewright-prompt-card
+					data-outcome="<?php echo esc_attr( $outcome ); ?>"
+					data-search="<?php echo esc_attr( $search ); ?>"
+				>
+					<p class="stonewright-prompt-library__outcome"><span class="sw-pill"><?php echo esc_html( $outcome ); ?></span></p>
+					<h3><?php echo esc_html( (string) ( $example['title'] ?? '' ) ); ?></h3>
+					<?php if ( ! empty( $example['summary'] ) ) : ?>
+						<p class="description"><?php echo esc_html( (string) $example['summary'] ); ?></p>
+					<?php endif; ?>
+					<?php if ( [] !== $tools ) : ?>
+						<p class="stonewright-prompt-library__tools"><code><?php echo esc_html( implode( ', ', $tools ) ); ?></code></p>
+					<?php endif; ?>
+					<pre id="<?php echo esc_attr( $code_id ); ?>"><?php echo esc_html( (string) ( $example['prompt'] ?? '' ) ); ?></pre>
+					<?php if ( ! empty( $example['verification'] ) ) : ?>
+						<p class="description"><strong><?php esc_html_e( 'Verify:', 'stonewright' ); ?></strong> <?php echo esc_html( (string) $example['verification'] ); ?></p>
+					<?php endif; ?>
 					<button type="button" class="button button-small" data-stonewright-copy="<?php echo esc_attr( $code_id ); ?>">
-						<?php esc_html_e( 'Copy example', 'stonewright' ); ?>
+						<?php esc_html_e( 'Copy prompt', 'stonewright' ); ?>
 					</button>
 				</div>
 			<?php endforeach; ?>
 		</div>
 		<?php
+	}
+
+	/**
+	 * @param list<array{title: string, prompt: string}> $examples
+	 * @deprecated Use render_prompt_library().
+	 */
+	private static function render_example_prompts( array $examples ): void {
+		self::render_prompt_library( $examples );
 	}
 
 	private static function prompt_preview( string $prompt ): string {
@@ -922,37 +992,27 @@ final class ConfigurationPage {
 	}
 
 	/**
-	 * @return array<int, array{title: string, prompt: string}>
+	 * Prompt library catalog (plugin/data/prompts) with hardcoded fallback.
+	 *
+	 * @return list<array<string, mixed>>
 	 */
 	private static function example_prompts(): array {
+		$catalog = \Stonewright\WpMcp\Support\PromptCatalog::all();
+		if ( count( $catalog ) >= 1 ) {
+			return $catalog;
+		}
+
+		// Minimal fallback if catalog file is missing in a broken install.
 		return [
 			[
-				'title'  => __( 'Elementor landing page from screenshot', 'stonewright' ),
-				'prompt' => __( 'Use Stonewright on this WordPress site. Start with stonewright-context-bootstrap and stonewright-workflow-preflight. Build a new Elementor landing page from the attached screenshot, use native Elementor widgets first, use stonewright-elementor-v3-build-page-from-spec for the first pass, then stonewright-elementor-v3-batch-mutate for grouped fixes. Verify desktop, tablet, and mobile with no horizontal overflow.', 'stonewright' ),
-			],
-			[
-				'title'  => __( 'CPT, custom fields, and Loop Grid', 'stonewright' ),
-				'prompt' => __( 'Use Stonewright to create a Services content model with fields for icon, headline, summary, proof metric, and CTA. Seed six service rows with stonewright-content-bulk-upsert-posts, then create an Elementor Loop Item and Loop Grid that reads those fields dynamically. Keep the result responsive and visually polished.', 'stonewright' ),
-			],
-			[
-				'title'  => __( 'ACF field group for case studies', 'stonewright' ),
-				'prompt' => __( 'Use Stonewright to create an ACF field group for Case Studies with client logo, industry, challenge, solution, results metrics, testimonial, gallery, and CTA fields. Attach it to the case-study post type, add three sample entries, and verify fields are available for dynamic Elementor templates.', 'stonewright' ),
-			],
-			[
-				'title'  => __( 'CPT UI content model and archive', 'stonewright' ),
-				'prompt' => __( 'Use Stonewright with CPT UI to create a Projects post type and Project Type taxonomy. Add labels, archive support, featured images, REST visibility, and sensible rewrite slugs. Then seed sample projects and build a responsive archive layout that can be filtered by taxonomy.', 'stonewright' ),
-			],
-			[
-				'title'  => __( 'Figma design to Elementor V3', 'stonewright' ),
-				'prompt' => __( 'Use Stonewright to implement the attached Figma design in Elementor V3. Start with context bootstrap and workflow preflight, extract layout, spacing, colors, typography, and responsive behavior, create a validated design spec, render with stonewright-elementor-v3-build-page-from-spec, then use batch mutate for polish. Verify desktop, tablet, and mobile screenshots against the design.', 'stonewright' ),
-			],
-			[
-				'title'  => __( 'WooCommerce product cleanup', 'stonewright' ),
-				'prompt' => __( 'Use Stonewright to inspect WooCommerce catalog data, normalize product titles, SKUs, prices, categories, and stock for the provided list, then verify the shop and product pages still render correctly. Use bulk or batch tools where possible and report changed products.', 'stonewright' ),
-			],
-			[
-				'title'  => __( 'Gutenberg/FSE site section', 'stonewright' ),
-				'prompt' => __( 'Use Stonewright to update the block theme homepage hero and footer. Start with workflow preflight, read current templates and theme.json, snapshot before writes, preserve existing brand tokens, then verify the frontend in desktop and mobile viewports.', 'stonewright' ),
+				'id'            => 'fallback-elementor-landing',
+				'title'         => __( 'Elementor landing page from screenshot', 'stonewright' ),
+				'outcome'       => 'elementor',
+				'summary'       => '',
+				'prerequisites' => [],
+				'tools'         => [ 'stonewright-task-start', 'stonewright-elementor-v3-build-page-from-spec' ],
+				'prompt'        => __( 'Use Stonewright on this WordPress site. Call stonewright-task-start. Build a new Elementor landing page from the attached screenshot with native widgets first via stonewright-elementor-v3-build-page-from-spec, then stonewright-elementor-v3-batch-mutate. Verify desktop, tablet, and mobile.', 'stonewright' ),
+				'verification'  => '',
 			],
 		];
 	}

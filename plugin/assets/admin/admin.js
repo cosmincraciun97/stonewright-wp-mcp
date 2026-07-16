@@ -717,5 +717,34 @@
 		initAbilityBulkControls();
 		initDeclarativeToggles();
 		initSkillEditorControls();
+		initPromptLibrary();
 	} );
+
+	function initPromptLibrary() {
+		var search = document.querySelector( '[data-stonewright-prompt-search]' );
+		var outcome = document.querySelector( '[data-stonewright-prompt-outcome]' );
+		var cards = document.querySelectorAll( '[data-stonewright-prompt-card]' );
+		if ( ! cards.length ) {
+			return;
+		}
+
+		function applyFilter() {
+			var q = search ? String( search.value || '' ).toLowerCase().trim() : '';
+			var o = outcome ? String( outcome.value || '' ) : '';
+			cards.forEach( function ( card ) {
+				var hay = String( card.getAttribute( 'data-search' ) || '' );
+				var cardOutcome = String( card.getAttribute( 'data-outcome' ) || '' );
+				var matchOutcome = ! o || cardOutcome === o;
+				var matchQuery = ! q || hay.indexOf( q ) !== -1;
+				card.hidden = ! ( matchOutcome && matchQuery );
+			} );
+		}
+
+		if ( search ) {
+			search.addEventListener( 'input', applyFilter );
+		}
+		if ( outcome ) {
+			outcome.addEventListener( 'change', applyFilter );
+		}
+	}
 }() );
