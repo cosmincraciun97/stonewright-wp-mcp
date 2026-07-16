@@ -60,14 +60,18 @@ requires `WP_ENVIRONMENT_TYPE=local` (or the Application Passwords availability 
 | blueprint-apply | Yes (Gutenberg draft) | Elementor requires plugin |
 
 
-## Wave 3–4 additions
+## Wave 3–5 additions
 
 Direct mode includes comments, user/app-password writes, widgets, health aggregate,
 oEmbed/editor utilities, FSE create/delete, WC read, **read-only**
 `stonewright-rest-request` (GET), ACF fields get/update when REST-exposed, SEO head
-read, and pluginless self-improvement (`skill-*`, `memory-list`, `learning-record`,
-`task-start`). Protocol e2e for self-improvement runs with zero WordPress credentials
-(`tests/direct-selfimprove-e2e.test.ts`). Live REST E2E remains an operator step.
+read, pluginless self-improvement (`skill-*`, `memory-list`, `learning-record`,
+`task-start`), **Elementor local data tools** (`elementor-status|data-get|data-update`),
+**gutenberg-validate**, **agents-md-sync**, error auditing + recurring errors at
+task-start, and a **task-start write gate** (opt-out `STONEWRIGHT_DIRECT_REQUIRE_TASK_START=off`).
+
+Protocol e2e for self-improvement runs with zero WordPress credentials
+(`tests/direct-selfimprove-e2e.test.ts`). Direct surface: **98** tools.
 
 ## Install prompts
 

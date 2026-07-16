@@ -25,6 +25,10 @@ import * as woocommerce from './tools/woocommerce.js';
 import * as restRequest from './tools/rest-request.js';
 import * as selfImprove from './tools/self-improve.js';
 import * as acf from './tools/acf.js';
+import * as elementorDirect from './tools/elementor-direct.js';
+import * as gutenbergValidate from './tools/gutenberg-validate.js';
+import * as agentsMd from './agents-md.js';
+import { appendDirectAudit } from './audit.js';
 
 export const DIRECT_WAVE1_TOOL_NAMES = [
 	'stonewright-content-list',
@@ -153,11 +157,20 @@ export const DIRECT_WAVE4_TOOL_NAMES = [
 	...DIRECT_WAVE4_ACF_SEO_TOOL_NAMES,
 ] as const;
 
+export const DIRECT_WAVE5_TOOL_NAMES = [
+	'stonewright-elementor-status',
+	'stonewright-elementor-data-get',
+	'stonewright-elementor-data-update',
+	'stonewright-gutenberg-validate',
+	'stonewright-agents-md-sync',
+] as const;
+
 export const DIRECT_TOOL_NAMES = [
 	...DIRECT_WAVE1_TOOL_NAMES,
 	...DIRECT_WAVE2_TOOL_NAMES,
 	...DIRECT_WAVE3_TOOL_NAMES,
 	...DIRECT_WAVE4_TOOL_NAMES,
+	...DIRECT_WAVE5_TOOL_NAMES,
 ] as const;
 
 export interface DirectModeContext {
@@ -173,14 +186,31 @@ function toolResponse(data: unknown) {
 	};
 }
 
-function toolError(err: unknown) {
+function toolError(err: unknown, meta?: { tool?: string; site?: string }) {
+	const message =
+		err instanceof WpRestError
+			? JSON.stringify(err.toJSON())
+			: err instanceof Error
+				? err.message
+				: String(err);
+	if (meta?.tool) {
+		try {
+			appendDirectAudit({
+				tool: meta.tool,
+				site: meta.site && meta.site.length > 0 ? meta.site : '_global',
+				status: 'error',
+				error: message.slice(0, 200),
+			});
+		} catch {
+			// best-effort audit
+		}
+	}
 	if (err instanceof WpRestError) {
 		return {
 			isError: true as const,
 			content: [{ type: 'text' as const, text: JSON.stringify(err.toJSON(), null, 2) }],
 		};
 	}
-	const message = err instanceof Error ? err.message : String(err);
 	return {
 		isError: true as const,
 		content: [{ type: 'text' as const, text: JSON.stringify({ error: message }, null, 2) }],
@@ -1055,10 +1085,11 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	// --- Wave 3 tools ---
 	const w3 = (name: string, desc: string, shape: Record<string, z.ZodTypeAny>, fn: (input: Record<string, unknown>, runtime: ReturnType<typeof buildContext>) => Promise<unknown>) => {
 		server.tool(name, desc, shape, async (input) => {
+			const site = String((input as { site?: string }).site ?? '_global');
 			try {
 				return toolResponse(await fn(input as Record<string, unknown>, buildContext(ctx, (input as { site?: string }).site)));
 			} catch (err) {
-				return toolError(err);
+				return toolError(err, { tool: name, site });
 			}
 		});
 	};
@@ -1225,10 +1256,11 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		handler: (input: Record<string, unknown>) => unknown | Promise<unknown>,
 	) => {
 		server.tool(name, description, shape, async (input) => {
+			const site = String((input as { site?: string }).site ?? '_global');
 			try {
 				return toolResponse(await handler(input as Record<string, unknown>));
 			} catch (err) {
-				return toolError(err);
+				return toolError(err, { tool: name, site });
 			}
 		});
 	};
@@ -1340,6 +1372,54 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			type: z.string().optional(),
 		},
 		(input, runtime) => acf.seoHeadGet(runtime, input as never),
+	);
+
+	// --- Wave 5: pluginless Elementor/Gutenberg + agents-md ---
+	w4(
+		'stonewright-elementor-status',
+		'Detect local WP-CLI + Elementor availability for Direct-mode data editing.',
+		{ site: siteArg, cwd: z.string().optional(), path: z.string().optional() },
+		(input) => elementorDirect.elementorStatus(ctx.env, input as never),
+	);
+	w4(
+		'stonewright-elementor-data-get',
+		'Read _elementor_data for a post via tokenized WP-CLI (local sites).',
+		{
+			site: siteArg,
+			post_id: z.number().int().positive(),
+			cwd: z.string().optional(),
+			path: z.string().optional(),
+		},
+		(input) => elementorDirect.elementorDataGet(ctx.env, input as never),
+	);
+	w4(
+		'stonewright-elementor-data-update',
+		'Update _elementor_data via WP-CLI with mandatory file backup. JSON is passed on stdin (ARG_MAX safe). CSS flush is best-effort.',
+		{
+			site: siteArg,
+			post_id: z.number().int().positive(),
+			data: z.union([z.string(), z.array(z.unknown()), z.record(z.string(), z.unknown())]),
+			confirm: confirmArg,
+			cwd: z.string().optional(),
+			path: z.string().optional(),
+		},
+		(input) => elementorDirect.elementorDataUpdate(ctx.env, input as never),
+	);
+	w3(
+		'stonewright-gutenberg-validate',
+		'Validate Gutenberg block markup round-trip for a post (raw vs rendered heuristics).',
+		{
+			site: siteArg,
+			post_id: z.number().int().positive(),
+			type: z.string().optional(),
+		},
+		(input, runtime) => gutenbergValidate.gutenbergValidate(runtime, input as never),
+	);
+	w4(
+		'stonewright-agents-md-sync',
+		'Read-only: report ~/.stonewright/AGENTS.md path and which global agent configs lack the Stonewright pointer.',
+		{ extra_paths: z.array(z.string()).optional() },
+		(input) => agentsMd.agentsMdSync(ctx.env, input as never),
 	);
 
 	return [...DIRECT_TOOL_NAMES];

@@ -121,4 +121,49 @@ final class AbilityKernelAuditTest extends TestCase {
 		$this->assertStringNotContainsString( $token, $sanitized_raw );
 		$this->assertStringContainsString( '[redacted,', $sanitized_raw );
 	}
+
+	public function test_audit_stamps_wp_error_code_and_message_into_meta(): void {
+		$kernel = new class() extends AbilityKernel {
+			public function name(): string {
+				return 'stonewright/test-error-audit';
+			}
+			public function label(): string {
+				return 'Test';
+			}
+			public function description(): string {
+				return 'Error audit test';
+			}
+			public function category(): string {
+				return 'test';
+			}
+			public function execute( array $args ): array|\WP_Error {
+				return $this->audit(
+					$args,
+					static fn () => new \WP_Error( 'sw_test_boom', 'Widget type "fake" is not registered on this site' )
+				);
+			}
+		};
+
+		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
+		$result = $kernel->execute( [ 'post_id' => 1 ] );
+		$this->assertInstanceOf( \WP_Error::class, $result );
+
+		$inserts = $GLOBALS['stonewright_test_wpdb_inserts'];
+		$this->assertNotEmpty( $inserts );
+		$decoded = json_decode( (string) ( $inserts[0]['data']['sanitized_args'] ?? '' ), true );
+		$this->assertIsArray( $decoded );
+		$this->assertSame( 'sw_test_boom', $decoded['_meta']['error_code'] ?? null );
+		$this->assertStringStartsWith( 'Widget type "fake"', (string) ( $decoded['_meta']['error_message'] ?? '' ) );
+		$this->assertSame( 'error', $inserts[0]['data']['result_status'] ?? null );
+	}
+
+	public function test_audit_success_omits_error_meta_keys(): void {
+		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
+		$this->kernel->execute( [ 'name' => 'ok.php' ] );
+		$decoded = json_decode( (string) ( $GLOBALS['stonewright_test_wpdb_inserts'][0]['data']['sanitized_args'] ?? '' ), true );
+		$this->assertIsArray( $decoded );
+		$meta = is_array( $decoded['_meta'] ?? null ) ? $decoded['_meta'] : [];
+		$this->assertArrayNotHasKey( 'error_code', $meta );
+		$this->assertArrayNotHasKey( 'error_message', $meta );
+	}
 }

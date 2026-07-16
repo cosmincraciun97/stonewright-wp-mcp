@@ -46,7 +46,7 @@ describe('direct self-improve protocol e2e (zero WordPress)', () => {
 		]) {
 			expect(names).toContain(n);
 		}
-		expect(DIRECT_TOOL_NAMES.length).toBeGreaterThanOrEqual(90);
+		expect(DIRECT_TOOL_NAMES.length).toBeGreaterThanOrEqual(98);
 
 		const tools = (server as { _registeredTools?: ToolMap })._registeredTools ?? {};
 

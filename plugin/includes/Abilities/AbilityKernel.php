@@ -59,20 +59,29 @@ abstract class AbilityKernel implements Ability {
 	/**
 	 * Convenience: wrap a write ability with audit-log recording.
 	 *
+	 * On WP_Error results, stamps error_code + error_message into `_meta` so
+	 * ErrorPatterns can form actionable recurring-error signatures. Ability
+	 * authors must never embed secret input values in WP_Error messages.
+	 *
 	 * @param array<string, mixed> $args
 	 * @param callable             $callback
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	protected function audit( array $args, callable $callback ) {
 		$started_ns = hrtime( true );
-		$result = $callback( $args );
-		$status = $result instanceof \WP_Error ? 'error' : 'ok';
-		$sanitized = $this->sanitize_for_audit( $args );
-		$metadata  = $this->audit_metadata(
+		$result     = $callback( $args );
+		$status     = $result instanceof \WP_Error ? 'error' : 'ok';
+		$sanitized  = $this->sanitize_for_audit( $args );
+		$metadata   = $this->audit_metadata(
 			$args,
 			$result,
 			(int) floor( ( hrtime( true ) - $started_ns ) / 1_000_000 )
 		);
+		if ( $result instanceof \WP_Error ) {
+			$message                   = preg_replace( '/\s+/', ' ', trim( (string) $result->get_error_message() ) ) ?? '';
+			$metadata['error_code']    = sanitize_key( (string) $result->get_error_code() );
+			$metadata['error_message'] = mb_substr( $message, 0, 200 );
+		}
 		if ( [] !== $metadata ) {
 			$sanitized['_meta'] = $metadata;
 		}

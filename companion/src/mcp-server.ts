@@ -216,6 +216,10 @@ async function registerDirectMode(
 	}));
 
 	try {
+		const { seedBuiltinSkills } = await import('./direct/skills-store.js');
+		const { ensureStonewrightAgentsMd } = await import('./direct/agents-md.js');
+		seedBuiltinSkills(undefined, env);
+		ensureStonewrightAgentsMd(undefined, env);
 		const registered = registerDirectTools(server, {
 			env,
 			...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
@@ -273,6 +277,8 @@ function companionInstructions(profile: ProxyToolProfile): string {
 		'- First call stonewright-setup-profile if connection, credentials, or tool visibility is unclear.',
 		'- For WordPress work, call stonewright-task-start and follow fast_path.tool_profile (works in plugin and Direct modes). Use stonewright-context-bootstrap only for the compatibility bootstrap path.',
 		'- In Direct (pluginless) mode, stonewright-task-start returns locally stored skills and memory for this site (or _global). Load matched skill bodies with stonewright-skill-get only when needed; record corrections with stonewright-learning-record.',
+		'- Never guess WordPress/Elementor/Gutenberg schemas — read first, research official docs when unknown, verify after writes.',
+		'- First Direct-mode session on a machine: offer stonewright-agents-md-sync so future sessions in any AI client auto-discover ~/.stonewright/AGENTS.md.',
 		`- ${MCP_MISSING_BOOTSTRAP_STOP}`,
 		'- Use stonewright-php-execute for direct full WordPress runtime access when a short PHP snippet is faster than many typed calls.',
 		'- Use stonewright-wordpress-mcp-status only to diagnose the Stonewright MCP connection when proxied WordPress tools are missing.',

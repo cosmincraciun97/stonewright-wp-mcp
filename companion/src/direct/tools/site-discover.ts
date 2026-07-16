@@ -10,9 +10,11 @@ export const PLUGIN_ONLY_CAPABILITIES = [
 	},
 	{
 		id: 'elementor-engine',
-		label: 'Elementor data editing / schema / V3–V4 engines',
-		reason: 'Elementor structural edits and schema tools run inside the WordPress plugin.',
-		upgrade: 'Install the Stonewright plugin (Setup page → about 1 minute) for Elementor engine tools.',
+		label: 'Elementor engines / schema / DesignSpec render',
+		reason:
+			'Full Elementor V3/V4 engines and schema tools require the plugin. Raw _elementor_data edit is available in Direct only on local WP-CLI sites via stonewright-elementor-data-*.',
+		upgrade:
+			'Install the Stonewright plugin for typed Elementor engines; on local sites use stonewright-elementor-status first.',
 	},
 	{
 		id: 'design-spec-render',

@@ -30,21 +30,23 @@ final class ErrorPatterns {
 
 		if ( ! isset( $store[ $signature ] ) ) {
 			$store[ $signature ] = [
-				'signature'   => $signature,
-				'ability'     => $ability,
-				'message'     => self::message_excerpt( $sanitized_args ),
-				'count'       => 0,
-				'first_seen'  => $now,
-				'last_seen'   => $now,
-				'dismissed'   => false,
-				'learning_key'=> '',
+				'signature'    => $signature,
+				'ability'      => $ability,
+				'error_code'   => self::error_code( $sanitized_args ),
+				'message'      => self::message_excerpt( $sanitized_args ),
+				'count'        => 0,
+				'first_seen'   => $now,
+				'last_seen'    => $now,
+				'dismissed'    => false,
+				'learning_key' => '',
 			];
 		}
 
-		$store[ $signature ]['count']     = (int) $store[ $signature ]['count'] + 1;
-		$store[ $signature ]['last_seen'] = $now;
-		$store[ $signature ]['message']   = self::message_excerpt( $sanitized_args );
-		$store[ $signature ]['ability']   = $ability;
+		$store[ $signature ]['count']      = (int) $store[ $signature ]['count'] + 1;
+		$store[ $signature ]['last_seen']  = $now;
+		$store[ $signature ]['message']    = self::message_excerpt( $sanitized_args );
+		$store[ $signature ]['error_code'] = self::error_code( $sanitized_args );
+		$store[ $signature ]['ability']    = $ability;
 
 		if ( (int) $store[ $signature ]['count'] >= 2 && ! $store[ $signature ]['dismissed'] ) {
 			$learning_key = self::ensure_learning_record( $store[ $signature ] );
@@ -57,7 +59,7 @@ final class ErrorPatterns {
 	/**
 	 * Active recurring patterns (count >= 2, not dismissed), newest first.
 	 *
-	 * @return list<array{signature:string,ability:string,message:string,count:int,last_seen:string,first_seen:string}>
+	 * @return list<array{signature:string,ability:string,error_code:string,message:string,count:int,last_seen:string,first_seen:string,repair:string}>
 	 */
 	public static function recurring( int $limit = 20 ): array {
 		$store = self::load();
@@ -69,13 +71,17 @@ final class ErrorPatterns {
 			if ( ! empty( $row['dismissed'] ) ) {
 				continue;
 			}
+			$code  = (string) ( $row['error_code'] ?? 'error' );
+			$ability = (string) ( $row['ability'] ?? '' );
 			$out[] = [
 				'signature'  => (string) ( $row['signature'] ?? '' ),
-				'ability'    => (string) ( $row['ability'] ?? '' ),
+				'ability'    => $ability,
+				'error_code' => $code,
 				'message'    => (string) ( $row['message'] ?? '' ),
 				'count'      => (int) ( $row['count'] ?? 0 ),
 				'last_seen'  => (string) ( $row['last_seen'] ?? '' ),
 				'first_seen' => (string) ( $row['first_seen'] ?? '' ),
+				'repair'     => RemediationHints::for_code( $code, $ability ),
 			];
 		}
 		usort(

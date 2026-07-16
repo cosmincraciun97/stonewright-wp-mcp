@@ -1,4 +1,4 @@
-import { appendDirectAudit } from '../audit.js';
+import { appendDirectAudit, recentRecurringErrors } from '../audit.js';
 import { listMemory, recordMemory, type MemoryKind } from '../memory-store.js';
 import { loadSitesConfig, resolveSite } from '../sites-config.js';
 import {
@@ -8,10 +8,12 @@ import {
 	matchSkills,
 	saveSkill,
 	defaultStonewrightDir,
+	seedBuiltinSkills,
 	type SkillMeta,
 } from '../skills-store.js';
 import { PLUGIN_ONLY_CAPABILITIES } from './site-discover.js';
-import { resolveDirectWriteMode } from '../writes.js';
+import { markTaskStartSeen, resolveDirectWriteMode } from '../writes.js';
+import { ensureStonewrightAgentsMd, pointerInstalled } from '../agents-md.js';
 
 export type SelfImproveContext = {
 	env: NodeJS.ProcessEnv;
@@ -54,16 +56,20 @@ function mergeIndex(scopes: string[], baseDir: string): SkillMeta[] {
 	return out;
 }
 
+function skillScopes(scope: string): string[] {
+	return scope === '_global' ? ['_global', '_builtin'] : [scope, '_global', '_builtin'];
+}
+
 export function skillList(ctx: SelfImproveContext, input: { site?: string } = {}) {
 	const { scope, baseDir } = resolveSelfImproveScope(ctx, input.site);
-	const scopes = scope === '_global' ? ['_global'] : [scope, '_global'];
-	return { scope, items: mergeIndex(scopes, baseDir) };
+	seedBuiltinSkills(baseDir, ctx.env);
+	return { scope, items: mergeIndex(skillScopes(scope), baseDir) };
 }
 
 export function skillGet(ctx: SelfImproveContext, input: { slug: string; site?: string }) {
 	const { scope, baseDir } = resolveSelfImproveScope(ctx, input.site);
-	const scopes = scope === '_global' ? ['_global'] : [scope, '_global'];
-	for (const s of scopes) {
+	seedBuiltinSkills(baseDir, ctx.env);
+	for (const s of skillScopes(scope)) {
 		try {
 			return getSkill({ baseDir, scope: s, slug: input.slug });
 		} catch {
@@ -184,11 +190,14 @@ export function taskStart(
 	input: { task: string; surface?: string; intent?: string; site?: string },
 ) {
 	const { scope, baseDir, siteAlias } = resolveSelfImproveScope(ctx, input.site);
+	seedBuiltinSkills(baseDir, ctx.env);
+	ensureStonewrightAgentsMd(baseDir, ctx.env);
+	markTaskStartSeen();
+
 	const taskText = [input.task, input.surface ?? '', input.intent ?? ''].join(' ').trim();
-	const scopes = scope === '_global' ? ['_global'] : [scope, '_global'];
 	const matched: SkillMeta[] = [];
 	const seen = new Set<string>();
-	for (const s of scopes) {
+	for (const s of skillScopes(scope)) {
 		for (const hit of matchSkills({ baseDir, scope: s, task: taskText, limit: 5 })) {
 			if (seen.has(hit.slug)) {
 				continue;
@@ -202,6 +211,27 @@ export function taskStart(
 		...(input.site !== undefined ? { site: input.site } : {}),
 	}).items;
 	const writeMode = resolveDirectWriteMode(ctx.env, undefined);
+	const recurring = recentRecurringErrors(baseDir, 3);
+	const pointerOk = pointerInstalled(ctx.env);
+	const agentsPath = joinStateAgents(baseDir);
+
+	const guidance = [
+		'Direct mode: core WordPress REST via Application Passwords; no plugin required.',
+		'Destructive tools require confirm:true; writes honor STONEWRIGHT_DIRECT_WRITES.',
+		'If the user corrects a repeatable mistake, call stonewright-learning-record.',
+		'Load a matched skill body with stonewright-skill-get before acting on its topic.',
+		'Never guess WordPress/Elementor/Gutenberg schemas — read first, research official docs when unknown, verify after writes.',
+	];
+	if (recurring.length > 0) {
+		guidance.unshift(
+			'Fix recurring_errors first: read last_error, correct the cause, then record the fix with stonewright-learning-record.',
+		);
+	}
+	if (!pointerOk) {
+		guidance.push(
+			'One-time setup available: call stonewright-agents-md-sync and offer the user the global pointer.',
+		);
+	}
 
 	return {
 		mode: 'direct' as const,
@@ -217,15 +247,19 @@ export function taskStart(
 			kind: m.kind,
 			text: m.text,
 		})),
+		recurring_errors: recurring,
+		setup: {
+			agents_md: agentsPath,
+			pointer_installed: pointerOk,
+		},
 		capabilities: {
 			direct_tools: ctx.directToolCount ?? 0,
 			plugin_only: PLUGIN_ONLY_CAPABILITIES.map((c) => c.id),
 		},
-		guidance: [
-			'Direct mode: core WordPress REST via Application Passwords; no plugin required.',
-			'Destructive tools require confirm:true; writes honor STONEWRIGHT_DIRECT_WRITES.',
-			'If the user corrects a repeatable mistake, call stonewright-learning-record.',
-			'Load a matched skill body with stonewright-skill-get before acting on its topic.',
-		],
+		guidance,
 	};
+}
+
+function joinStateAgents(baseDir: string): string {
+	return `${baseDir.replace(/\/$/, '')}/AGENTS.md`;
 }

@@ -1,4 +1,5 @@
 import {
+	copyFileSync,
 	existsSync,
 	mkdirSync,
 	readFileSync,
@@ -8,7 +9,8 @@ import {
 	writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const SCOPE_RE = /^[a-z0-9_][a-z0-9_.-]{0,63}$/;
@@ -219,4 +221,41 @@ export function matchSkills(input: {
 			return lb - la;
 		});
 	return hits.slice(0, input.limit ?? 5);
+}
+
+/**
+ * Copy packaged built-in skills into `<state>/skills/_builtin/` only when missing.
+ * User-edited files are never overwritten; deleted files are restored on next seed.
+ */
+export function seedBuiltinSkills(baseDir?: string, env: NodeJS.ProcessEnv = process.env): {
+	seeded: string[];
+	skipped: string[];
+} {
+	const rootDir = root(baseDir, env);
+	const destDir = join(rootDir, 'skills', '_builtin');
+	mkdirSync(destDir, { recursive: true, mode: 0o700 });
+
+	const candidates = [
+		// Packaged next to companion package root (npm pack includes skills-builtin/)
+		join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'skills-builtin'),
+		join(process.cwd(), 'skills-builtin'),
+		join(process.cwd(), 'companion', 'skills-builtin'),
+	];
+	const srcDir = candidates.find((d) => existsSync(d));
+	const seeded: string[] = [];
+	const skipped: string[] = [];
+	if (!srcDir) {
+		return { seeded, skipped };
+	}
+	for (const name of readdirSync(srcDir)) {
+		if (!name.endsWith('.md')) continue;
+		const dest = join(destDir, name);
+		if (existsSync(dest)) {
+			skipped.push(name);
+			continue;
+		}
+		copyFileSync(join(srcDir, name), dest);
+		seeded.push(name);
+	}
+	return { seeded, skipped };
 }

@@ -5,8 +5,8 @@
 <h1 align="center">Stonewright</h1>
 
 <p align="center">
-  <strong>Safe WordPress automation for AI agents</strong><br />
-  Build and operate real WordPress sites through guarded Gutenberg, Elementor, REST and WP-CLI tools—with backups, validation and audit logs.
+  <strong>AI agents that design and build Elementor pages safely</strong><br />
+  Plus guarded Gutenberg, full-site REST, WP-CLI, and self-improving skills — with or without a plugin.
 </p>
 
 <p align="center">
@@ -18,7 +18,7 @@
   <img alt="wordpress" src="https://img.shields.io/badge/WordPress-%3E%3D6.7-21759b" />
 </p>
 
-Stonewright is a WordPress MCP stack for AI coding agents. In **Plugin mode** it exposes guarded abilities for Gutenberg and Full Site Editing, Elementor, content and media, menus and site operations, persistent project memory, skills, and tokenized WP-CLI. In **Direct mode**, the companion can work against core WordPress REST with an Application Password without installing the plugin—on a smaller capability surface.
+Stonewright is a WordPress MCP stack for AI coding agents. **Elementor** is a first-class surface in Plugin mode (typed engines, DesignSpec, kit globals). **Direct mode** works against core REST with an Application Password without installing the plugin, including local Elementor meta edits via WP-CLI and companion-local skills/memory.
 
 > “Safe” here is a **design goal**: operating modes, permissions, confirmations, backups, validation, readback, and audit logging make agent-driven changes more recoverable. It is not an absolute security guarantee. Use staging, review changes, and keep normal WordPress backups.
 
@@ -26,6 +26,8 @@ Stonewright is a WordPress MCP stack for AI coding agents. In **Plugin mode** it
   <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases">Download latest release</a>
   ·
   <a href="docs/installation.md">Installation</a>
+  ·
+  <a href="docs/install-prompts.md">AI install prompts</a>
   ·
   <a href="SECURITY.md">Security</a>
   ·
@@ -37,6 +39,43 @@ Stonewright is a WordPress MCP stack for AI coding agents. In **Plugin mode** it
 </p>
 
 <!-- Maintainer: add the Stonewright workflow demo here. Do not remove this comment until the asset is available. -->
+
+## Capabilities
+
+Counts are derived from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
+
+### Plugin mode — **308** abilities
+
+| Category | Count | Highlights |
+|---|---:|---|
+| Elementor widgets (compat) | 94 | Generated per-widget builders |
+| Elementor V3 | 25 | Structure edit, batch-mutate, kit globals, build-from-spec |
+| Design | 14 | DesignSpec validate/render, native plan, intent |
+| Elementor V4 | 13 | Atomic nodes, variables, classes (experimental) |
+| Site | 15 | Health, pulse, plugins, theme, shortcodes |
+| Gutenberg + FSE | 20 | Blocks, theme.json, templates, global styles |
+| Content + media | 16 | Pages/posts, bulk upsert, upload, stock |
+| ACF / SEO / CPT | 13 | Field groups/values, multi-plugin SEO, CPT/tax register |
+| Comments / users / widgets / settings / themes / plugins / revisions | 28 | REST-parity admin ops |
+| WP-CLI | 6 | Status, discover, run, batch, jobs |
+| Memory + skills + expertise | 16 | Learning, skills, expertise packs |
+| Security + audit + sandbox | 12 | Tokens, one-time links, sandbox lifecycle |
+| Other (menus, blueprints, brand kits, runtime, search, WC, theme builder, …) | rest | See full [matrix](docs/ability-truth-matrix.md) |
+
+### Direct mode — **98** tools (pluginless)
+
+| Area | Tools (group) | Notes |
+|---|---|---|
+| Content & Gutenberg | list/get/create/update + compose + **validate** | Round-trip heuristics after writes |
+| Elementor (local WP-CLI) | **status / data-get / data-update** | Mandatory file backup; CSS flush best-effort |
+| Media, menus, taxonomy, templates, global styles | REST | Core endpoints |
+| Comments, users, app passwords, widgets | REST | Write-gated |
+| Plugins, themes, settings, health | REST | Destructive confirms |
+| WooCommerce | products/orders/sales | Read-only |
+| ACF / SEO | fields get/update, seo-head | REST when plugins expose them |
+| Self-improvement | skill-*, memory, learning, **task-start**, **agents-md-sync** | `~/.stonewright/` storage |
+| WP-CLI | status/discover/run/batch/jobs | Tokenized `execFile` argv |
+| Safety | write gating, confirm, audit JSONL, backups | Task-start required before writes (default) |
 
 ## What you can do with Stonewright
 
@@ -71,9 +110,9 @@ Capabilities differ between modes. Prefer Plugin mode when you need Elementor, b
 
 Install the Stonewright plugin for advanced Elementor workflows, blueprints and brand kits, memory and skills, audit/restore, DesignSpec validation, `php-execute`, and the broader ability surface.
 
-### Direct mode — plugin-less core REST workflows
+### Direct mode — plugin-less core REST + local Elementor data
 
-The companion authenticates with a WordPress Application Password and exposes supported **core REST** tools (content, media, menus, and related site reads) without installing Stonewright. Elementor DesignSpec engines, plugin audit, memory stores, and many plugin-only abilities are **not** available. See the honest matrix in [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md).
+The companion authenticates with a WordPress Application Password and exposes **98** tools without installing Stonewright. Local sites with WP-CLI can edit `_elementor_data` via `stonewright-elementor-data-*` (with file backup). Full Elementor engines, DesignSpec, php-execute, and site-hosted skills remain plugin-only. See [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md) and [docs/install-prompts.md](docs/install-prompts.md).
 
 ## Quick Start
 
@@ -216,7 +255,7 @@ flowchart LR
   Plugin --> WP
 ```
 
-Direct mode has a **smaller** capability surface (core REST + local skills/memory; **93** tools). Plugin mode exposes **308** abilities. Not every request passes through every component.
+Direct mode has a **smaller** capability surface (core REST + local Elementor data + skills/memory; **98** tools). Plugin mode exposes **308** abilities. Not every request passes through every component.
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 
