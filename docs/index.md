@@ -43,3 +43,5 @@ workflows with operator controls.
 | `companion.md` | Node companion, stdio MCP, optional HTTP bridge, and tokenized WP-CLI |
 | `security.md` and `security-guarantees.md` | Threat model and hardening guarantees |
 | `upstream-code-reuse.md` | Third-party source, licensing, attribution, and import ledger |
+
+- OAuth 2.1 authorization for the HTTP transport — planned, not scheduled.
