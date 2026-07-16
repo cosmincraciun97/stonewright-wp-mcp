@@ -942,7 +942,7 @@ final class AbilityRegistry {
 		update_option( 'stonewright_mcp_surface', $surface, false );
 		update_option( 'stonewright_essential_tools_mode', 'full' !== $surface, false );
 
-		return $surface;
+		return self::mcp_surface();
 	}
 
 	/**

@@ -59,12 +59,17 @@ final class AdminBootstrap {
 
 		$version  = defined( 'STONEWRIGHT_VERSION' ) ? (string) constant( 'STONEWRIGHT_VERSION' ) : '0.1.0';
 		$url_base = defined( 'STONEWRIGHT_URL' ) ? (string) constant( 'STONEWRIGHT_URL' ) : '';
-		// Bust browser cache when admin assets change without a version bump.
-		$shell_css = defined( 'STONEWRIGHT_PATH' )
-			? (string) constant( 'STONEWRIGHT_PATH' ) . 'assets/admin/shell.css'
-			: '';
-		if ( '' !== $shell_css && is_readable( $shell_css ) ) {
-			$version .= '.' . (string) filemtime( $shell_css );
+		// Bust browser cache when any shared admin asset changes without a version bump.
+		$asset_mtimes = [];
+		$plugin_path  = defined( 'STONEWRIGHT_PATH' ) ? (string) constant( 'STONEWRIGHT_PATH' ) : '';
+		foreach ( [ 'assets/admin/shell.css', 'assets/admin/shell.js', 'assets/admin/admin.css', 'assets/admin/admin.js' ] as $asset ) {
+			$path = $plugin_path . $asset;
+			if ( '' !== $plugin_path && is_readable( $path ) ) {
+				$asset_mtimes[] = (int) filemtime( $path );
+			}
+		}
+		if ( [] !== $asset_mtimes ) {
+			$version .= '.' . (string) max( $asset_mtimes );
 		}
 
 		if ( '' === $url_base ) {

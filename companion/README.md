@@ -187,7 +187,8 @@ cp .env.example .env
 | `STONEWRIGHT_WP_URL` | recommended for stdio | WordPress site URL; the companion derives `/wp-json/mcp/stonewright` |
 | `STONEWRIGHT_WP_USERNAME` | with `STONEWRIGHT_WP_URL` | WordPress username for Application Password auth |
 | `STONEWRIGHT_WP_APP_PASSWORD` | with `STONEWRIGHT_WP_URL` | WordPress Application Password |
-| `STONEWRIGHT_MCP_TOOL_PROFILE` | optional | Compact client-visible tool surface; defaults to `essential` for fast startup; use `low-tools` for strict tool-cap clients; aliases like `antigravity`, `gemini`, `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli` normalize to canonical compact profiles; set `full` for every WordPress MCP tool |
+| `STONEWRIGHT_MCP_TOOL_PROFILE` | optional | Initial/fallback client-visible surface. In plugin mode, normal bootstrap/essential/full clients follow the surface saved in WordPress Setup; `low-tools` and specialist profiles remain explicit overrides. |
+| `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK` | optional | Set to `1` to force the environment profile instead of the WordPress Setup preference. |
 | `STONEWRIGHT_MCP_URL` | optional | Explicit WordPress MCP endpoint override |
 | `WP_API_USERNAME` | optional legacy alias | Alias for `STONEWRIGHT_WP_USERNAME` |
 | `WP_API_PASSWORD` | optional legacy alias | Alias for `STONEWRIGHT_WP_APP_PASSWORD` |

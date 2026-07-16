@@ -29,7 +29,7 @@ final class PhpExecute extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Executes a short PHP body inside WordPress for compact runtime inspection or plugin API work. Requires manage_options, is audited and output-limited, and requires confirmation in production-safe mode.', 'stonewright' );
+		return __( 'Executes a short PHP body inside WordPress for compact runtime inspection or plugin API work. Raw Elementor document writes are never allowed: use typed Elementor abilities and their schema_request repair path. Requires manage_options, is audited and output-limited, and requires confirmation in production-safe mode.', 'stonewright' );
 	}
 
 	public function category(): string {

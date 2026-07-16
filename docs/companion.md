@@ -39,7 +39,8 @@ folder or site URL.
 | `STONEWRIGHT_WP_URL` | WordPress site URL; the companion derives `/wp-json/mcp/stonewright` when `STONEWRIGHT_MCP_URL` is absent |
 | `STONEWRIGHT_WP_USERNAME` | WordPress username for Application Password auth |
 | `STONEWRIGHT_WP_APP_PASSWORD` | WordPress Application Password |
-| `STONEWRIGHT_MCP_TOOL_PROFILE` | Optional compact client-visible tool surface. Defaults to `essential` for fast startup with Stonewright fast-path tools; use `low-tools` for strict tool-cap clients; aliases like `antigravity`, `gemini`, `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli` normalize to canonical compact profiles; set `full` to proxy every WordPress MCP tool |
+| `STONEWRIGHT_MCP_TOOL_PROFILE` | Initial/fallback client-visible surface. Normal plugin-mode clients follow the bootstrap/essential/full surface saved in WordPress Setup; `low-tools` and specialist profiles remain explicit overrides. |
+| `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK` | Set to `1` only when the environment profile must override the WordPress Setup preference. |
 | `STONEWRIGHT_MCP_URL` | Explicit WordPress MCP endpoint override |
 | `WP_API_USERNAME` | Legacy alias for `STONEWRIGHT_WP_USERNAME` |
 | `WP_API_PASSWORD` | Legacy alias for `STONEWRIGHT_WP_APP_PASSWORD` |

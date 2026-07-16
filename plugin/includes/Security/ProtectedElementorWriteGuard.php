@@ -34,11 +34,20 @@ final class ProtectedElementorWriteGuard {
 				__( 'Raw Elementor document writes are blocked in php-execute. Use typed Elementor abilities so schema validation, backup, architecture checks, readback, and audit gates run.', 'stonewright' ),
 				[
 					'status'            => 400,
+					'retryable'         => false,
+					'do_not_retry_php_execute' => true,
+					'cause'             => 'php-execute cannot mutate protected Elementor document metadata.',
+					'repair'            => 'Return to the typed Elementor ability that failed, follow its schema_request exactly, and rerun one consolidated dry-run. Do not retry this write through php-execute or WP-CLI.',
 					'protected_meta'    => self::META_KEYS,
 					'recommended_tools' => [
 						'stonewright/elementor-v3-build-page-from-spec',
 						'stonewright/elementor-v3-batch-mutate',
 						'stonewright/elementor-v4-read-atomic-tree',
+					],
+					'next_call'         => [
+						'ability' => 'stonewright/elementor-v3-batch-mutate',
+						'mode'    => 'dry_run',
+						'rule'    => 'Use the schema_requests returned by the failed typed batch; do not guess rejected controls.',
 					],
 				]
 			);

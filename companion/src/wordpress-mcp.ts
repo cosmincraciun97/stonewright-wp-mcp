@@ -82,7 +82,7 @@ const COMPANION_OWNED_TOOL_NAMES = new Set([
 	'stonewright-wordpress-mcp-status',
 ]);
 
-export type ProxyToolProfile = 'full' | 'low-tools' | 'essential' | 'elementor-design' | 'content-model' | 'gutenberg' | 'wp-cli' | 'site-admin';
+export type ProxyToolProfile = 'full' | 'bootstrap' | 'low-tools' | 'essential' | 'elementor-design' | 'content-model' | 'gutenberg' | 'wp-cli' | 'site-admin';
 
 export const STARTUP_REQUIRED_PROXY_TOOL_NAMES = [
 	'stonewright-context-bootstrap',
@@ -108,6 +108,10 @@ const BLUEPRINT_PROXY_TOOL_NAMES = [
  * single source of truth when WordPress is reachable.
  */
 const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, readonly string[]> = {
+	bootstrap: [
+		...STARTUP_REQUIRED_PROXY_TOOL_NAMES,
+		'stonewright-tool-profile',
+	],
 	'low-tools': [
 		...STARTUP_REQUIRED_PROXY_TOOL_NAMES,
 		'stonewright-php-execute',
@@ -532,7 +536,8 @@ export async function registerWordPressMcpTools(
 	const client = new WordPressMcpClient(config, fetchImpl);
 	const tools = await client.listTools();
 	// Env profile is the INITIAL surface only; mid-session activate/task-start may expand it.
-	let activeProfile = proxyToolProfileFromEnv(env);
+	const envProfile = proxyToolProfileFromEnv(env);
+	let activeProfile = envProfile;
 	const registeredTools: RemoteTool[] = [];
 	const profileFilteredToolNames: string[] = [];
 	const maxTools = maxToolsFromEnv(env);
@@ -543,7 +548,11 @@ export async function registerWordPressMcpTools(
 	let refreshInFlight: Promise<ToolsChangedRefreshResult> | null = null;
 
 	// Prefer plugin-resolved ordered list; fall back to local FALLBACK lists (Direct / offline).
-	const resolved = await resolvePluginProxyToolNames(client, activeProfile, maxTools);
+	let resolved = await resolvePluginProxyToolNames(client, activeProfile, maxTools);
+	activeProfile = effectiveInitialProxyProfile(envProfile, resolved.configuredSurface, env);
+	if (activeProfile !== envProfile) {
+		resolved = await resolvePluginProxyToolNames(client, activeProfile, maxTools);
+	}
 	const allowedOrder = resolved.tools;
 	const allowedSet = activeProfile === 'full' && allowedOrder.length === 0
 		? null
@@ -610,7 +619,9 @@ export async function registerWordPressMcpTools(
 	const handleProxyCall = async (toolName: string, input: Record<string, unknown>) => {
 		const response = normalizeToolResponse(await client.callTool(toolName, input));
 		const structured = asRecord(response.structuredContent);
-		if (structuredIndicatesToolsChanged(structured) && structured) {
+		const hintedProfile = profileHintFromStructured(structured);
+		const profileDrift = hintedProfile !== null && coerceProxyToolProfile(hintedProfile) !== activeProfile;
+		if ((structuredIndicatesToolsChanged(structured) || profileDrift) && structured) {
 			// Serialize refreshes so concurrent profile switches do not race registration.
 			if (!refreshInFlight) {
 				refreshInFlight = handleToolsChangedResponse({
@@ -658,17 +669,21 @@ export async function resolvePluginProxyToolNames(
 	client: { callTool: (name: string, args: Record<string, unknown>) => Promise<unknown> },
 	profile: ProxyToolProfile,
 	maxTools: number | null = null,
-): Promise<{ tools: string[]; source: 'plugin' | 'fallback'; ordered: boolean }> {
-	if (profile === 'full') {
-		return { tools: [], source: 'fallback', ordered: true };
-	}
+): Promise<{ tools: string[]; source: 'plugin' | 'fallback'; ordered: boolean; configuredSurface: ProxyToolProfile | null }> {
 	try {
+		const queryProfile = profile === 'full' ? 'essential' : profile;
 		const raw = await client.callTool('stonewright-tool-profile', {
 			action: 'resolve',
-			profile,
+			profile: queryProfile,
 			...(maxTools !== null ? { max_tools: maxTools } : {}),
 		});
 		const structured = extractStructured(raw);
+		const configuredSurface = typeof structured?.['mcp_surface'] === 'string'
+			? coerceProxyToolProfile(structured['mcp_surface'])
+			: null;
+		if (profile === 'full') {
+			return { tools: [], source: 'plugin', ordered: true, configuredSurface };
+		}
 		const toolsRaw = structured?.['tools'];
 		const names: string[] = [];
 		if (Array.isArray(toolsRaw)) {
@@ -681,7 +696,7 @@ export async function resolvePluginProxyToolNames(
 			}
 		}
 		if (names.length > 0) {
-			return { tools: names, source: 'plugin', ordered: true };
+			return { tools: names, source: 'plugin', ordered: true, configuredSurface };
 		}
 	} catch {
 		// Plugin unreachable (Direct mode) — use fallback.
@@ -690,6 +705,7 @@ export async function resolvePluginProxyToolNames(
 		tools: proxyToolNamesForProfile(profile),
 		source: 'fallback',
 		ordered: true,
+		configuredSurface: null,
 	};
 }
 
@@ -716,6 +732,9 @@ export function coerceProxyToolProfile(raw: string | null | undefined): ProxyToo
 	if (['0', 'false', 'off', 'full', 'all'].includes(normalized)) {
 		return 'full';
 	}
+	if (normalized === 'bootstrap') {
+		return 'bootstrap';
+	}
 	if (normalized === '' || normalized === 'auto' || normalized === 'fast' || normalized === 'general' || normalized === 'compact') {
 		return 'essential';
 	}
@@ -726,6 +745,32 @@ export function coerceProxyToolProfile(raw: string | null | undefined): ProxyToo
 		return PROXY_TOOL_PROFILE_ALIASES[normalized] ?? 'essential';
 	}
 	return 'essential';
+}
+
+/**
+ * Normal clients follow the surface persisted in WordPress Setup. Specialist and
+ * strict-cap profiles remain explicit client overrides. Set the lock env flag to
+ * force any configured env profile instead of the site preference.
+ */
+export function effectiveInitialProxyProfile(
+	envProfile: ProxyToolProfile,
+	configuredSurface: ProxyToolProfile | null,
+	env: NodeJS.ProcessEnv,
+): ProxyToolProfile {
+	if (!configuredSurface) return envProfile;
+	const locked = ['1', 'true', 'yes', 'on'].includes((env['STONEWRIGHT_MCP_TOOL_PROFILE_LOCK'] ?? '').trim().toLowerCase());
+	if (locked) return envProfile;
+	if (!['bootstrap', 'essential', 'full'].includes(envProfile)) return envProfile;
+	return configuredSurface;
+}
+
+function profileHintFromStructured(structured: Record<string, unknown> | null | undefined): string | null {
+	if (!structured) return null;
+	for (const key of ['configured_mcp_surface', 'tool_profile', 'profile', 'requested_profile']) {
+		const value = structured[key];
+		if (typeof value === 'string' && value.trim() !== '') return value;
+	}
+	return null;
 }
 
 export function proxyToolProfileFromEnv(env: NodeJS.ProcessEnv): ProxyToolProfile {
@@ -839,11 +884,7 @@ export async function handleToolsChangedResponse(options: {
 	} = options;
 
 	let activeProfile = options.activeProfile;
-	const profileHint =
-		(typeof structured['profile'] === 'string' && structured['profile'])
-		|| (typeof structured['tool_profile'] === 'string' && structured['tool_profile'])
-		|| (typeof structured['requested_profile'] === 'string' && structured['requested_profile'])
-		|| null;
+	const profileHint = profileHintFromStructured(structured);
 	if (profileHint) {
 		activeProfile = coerceProxyToolProfile(profileHint);
 	}

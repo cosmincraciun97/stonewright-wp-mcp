@@ -7,6 +7,19 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Changed
+
+- MCP companion startup now follows the tool surface saved in WordPress Setup;
+  strict-cap and specialist client profiles remain explicit overrides.
+- `task-start` reports the configured MCP surface without silently rewriting it.
+
+### Fixed
+
+- Setup-generated stdio snippets now preserve the selected bootstrap, essential,
+  or full surface across client restarts.
+- Raw Elementor write blocks return a non-retryable typed repair path instead of
+  leaving agents to repeat `php-execute` fallbacks.
+
 ## [1.0.0-alpha.73] - 2026-07-16
 
 ### Added

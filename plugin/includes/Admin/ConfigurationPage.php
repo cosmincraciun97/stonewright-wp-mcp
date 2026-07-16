@@ -46,11 +46,21 @@ final class ConfigurationPage {
 		}
 
 		$saved = \Stonewright\WpMcp\Core\AbilityRegistry::set_mcp_surface( $surface );
+		if ( $saved !== $surface ) {
+			wp_send_json_error(
+				[
+					'message' => __( 'The MCP surface could not be persisted. The previous value is still active.', 'stonewright' ),
+					'surface' => $saved,
+				],
+				500
+			);
+		}
 		wp_send_json_success(
 			[
-				'surface'  => $saved,
-				'message'  => __( 'MCP surface applied.', 'stonewright' ),
-				'transport_truth' => __( 'HTTP clients pick this up on their next tools/list. Stdio companion sessions refresh automatically (companion ≥ this release) or need a client restart on older companions.', 'stonewright' ),
+				'surface'         => $saved,
+				'mcp_surface'     => $saved,
+				'message'         => __( 'MCP surface applied and verified.', 'stonewright' ),
+				'transport_truth' => __( 'HTTP clients pick this up on their next tools/list. Current stdio companion sessions sync on the next task-start or tool-profile response; older companions need a client restart.', 'stonewright' ),
 			]
 		);
 	}
@@ -357,7 +367,7 @@ final class ConfigurationPage {
 								<select
 									name="stonewright_mcp_surface"
 									id="stonewright_mcp_surface"
-									data-sw-tooltip="<?php echo esc_attr( __( 'HTTP clients pick this up on their next tools/list. Stdio companion sessions refresh automatically (companion ≥ this release) or need a client restart on older companions.', 'stonewright' ) ); ?>"
+									data-sw-tooltip="<?php echo esc_attr( __( 'HTTP clients pick this up on their next tools/list. Current stdio companion sessions sync on the next task-start or tool-profile response; older companions need a client restart.', 'stonewright' ) ); ?>"
 								>
 									<option value="bootstrap" <?php selected( $mcp_surface, 'bootstrap' ); ?>>
 										<?php esc_html_e( 'Bootstrap (≤8 tools — progressive discovery)', 'stonewright' ); ?>
@@ -374,7 +384,7 @@ final class ConfigurationPage {
 									class="sw-btn sw-btn--secondary sw-btn--sm"
 									id="stonewright-apply-mcp-surface"
 									data-sw-apply-mcp-surface
-									data-sw-tooltip="<?php echo esc_attr( __( 'Saves the MCP surface immediately. HTTP clients pick this up on their next tools/list; stdio companion sessions refresh automatically (companion ≥ this release) or need a client restart on older companions.', 'stonewright' ) ); ?>"
+									data-sw-tooltip="<?php echo esc_attr( __( 'Saves and verifies the MCP surface immediately. HTTP clients pick this up on their next tools/list; current stdio sessions sync on the next task-start or tool-profile response.', 'stonewright' ) ); ?>"
 								>
 									<?php esc_html_e( 'Apply now', 'stonewright' ); ?>
 								</button>

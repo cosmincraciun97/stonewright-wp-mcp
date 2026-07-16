@@ -50,8 +50,18 @@ On **Setup → Connect**, the MCP tool surface select includes an **Apply now**
 button that saves the surface without a full form submit. Transport truth:
 
 - **HTTP clients** pick up the new surface on their next `tools/list`.
-- **Stdio companion** sessions refresh automatically on companions that ship
-  `tools/list_changed` re-registration; older companions need a client restart.
+- **Stdio companion** startup reads the saved WordPress surface and uses it as
+  the normal-client source of truth. Existing sessions sync on the next
+  `task-start` or `tool-profile` response and emit `tools/list_changed`; older
+  companions need a client restart.
+
+Generated stdio snippets use the saved surface instead of hard-coding
+`essential`. Strict-cap clients keep the explicit `low-tools` override. Set
+`STONEWRIGHT_MCP_TOOL_PROFILE_LOCK=1` only when a client-specific profile must
+override the site preference.
+
+`task-start` returns `configured_mcp_surface` at the top level. It may recommend
+a task-specific profile, but it does not rewrite the saved Setup preference.
 
 Agents should call `stonewright-tool-profile` after bootstrap or preflight when
 the client has a tool cap or the user asks for token-efficient implementation.
