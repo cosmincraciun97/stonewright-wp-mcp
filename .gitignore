@@ -48,3 +48,11 @@ plugin/wordpress/
 # Session screenshots and temp scratch at repo root
 /*.png
 /.tmp-*
+
+# Playwright e2e local artifacts (baseline evidence lives under docs/plans/evidence/)
+e2e/node_modules/
+e2e/artifacts/
+e2e/test-results/
+e2e/playwright-report/
+e2e/blob-report/
+e2e/playwright/.cache/

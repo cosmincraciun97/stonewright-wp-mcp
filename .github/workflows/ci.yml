@@ -90,3 +90,47 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  e2e-admin-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: e2e
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          tools: composer
+      - name: Install plugin production dependencies
+        working-directory: plugin
+        run: composer install --no-interaction --prefer-dist --no-dev
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Start wp-env
+        run: npx wp-env start
+      - name: Run admin-ui Playwright suite
+        env:
+          WP_BASE_URL: http://localhost:8888
+          WP_USERNAME: admin
+          WP_PASSWORD: password
+          CI: "true"
+        run: npx playwright test
+      - name: Stop wp-env
+        if: always()
+        run: npx wp-env stop
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-admin-ui-artifacts
+          path: |
+            e2e/artifacts/
+            e2e/test-results/
+            e2e/playwright-report/
+          if-no-files-found: ignore
