@@ -82,16 +82,29 @@ final class PromptLibraryPage {
 						<div class="sw-blueprint-grid" data-stonewright-prompt-grid>
 							<?php foreach ( $group as $prompt ) : ?>
 								<?php
-								$id    = (string) ( $prompt['id'] ?? '' );
-								$title = (string) ( $prompt['title'] ?? $id );
-								$body  = (string) ( $prompt['prompt'] ?? '' );
-								$tools = is_array( $prompt['tools'] ?? null ) ? $prompt['tools'] : [];
+								$id      = (string) ( $prompt['id'] ?? '' );
+								$title   = (string) ( $prompt['title'] ?? $id );
+								$summary = (string) ( $prompt['summary'] ?? '' );
+								$body    = (string) ( $prompt['prompt'] ?? '' );
+								$tools   = is_array( $prompt['tools'] ?? null ) ? $prompt['tools'] : [];
+								$search  = strtolower(
+									trim(
+										$title . ' ' . $outcome . ' ' . $summary . ' ' . $id . ' ' . implode( ' ', array_map( 'strval', $tools ) )
+									)
+								);
 								?>
-								<article class="sw-blueprint-card" data-sw-prompt-card data-outcome="<?php echo esc_attr( $outcome ); ?>" data-title="<?php echo esc_attr( strtolower( $title ) ); ?>">
+								<article
+									class="sw-blueprint-card"
+									data-sw-prompt-card
+									data-stonewright-prompt-card
+									data-outcome="<?php echo esc_attr( $outcome ); ?>"
+									data-title="<?php echo esc_attr( strtolower( $title ) ); ?>"
+									data-search="<?php echo esc_attr( $search ); ?>"
+								>
 									<span class="sw-blueprint-card__industry"><?php echo esc_html( $outcome ); ?></span>
 									<h3 class="sw-blueprint-card__name"><?php echo esc_html( $title ); ?></h3>
-									<?php if ( ! empty( $prompt['summary'] ) ) : ?>
-										<p class="sw-blueprint-card__desc"><?php echo esc_html( (string) $prompt['summary'] ); ?></p>
+									<?php if ( '' !== $summary ) : ?>
+										<p class="sw-blueprint-card__desc"><?php echo esc_html( $summary ); ?></p>
 									<?php endif; ?>
 									<?php if ( [] !== $tools ) : ?>
 										<p class="sw-blueprint-card__meta">

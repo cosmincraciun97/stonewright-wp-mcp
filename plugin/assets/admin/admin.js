@@ -787,29 +787,42 @@
 
 	function initPromptLibrary() {
 		var search = document.querySelector( '[data-stonewright-prompt-search]' );
-		var outcome = document.querySelector( '[data-stonewright-prompt-outcome]' );
-		var cards = document.querySelectorAll( '[data-stonewright-prompt-card]' );
+		var cards = document.querySelectorAll( '[data-stonewright-prompt-card], [data-sw-prompt-card]' );
 		if ( ! cards.length ) {
 			return;
 		}
 
 		function applyFilter() {
 			var q = search ? String( search.value || '' ).toLowerCase().trim() : '';
-			var o = outcome ? String( outcome.value || '' ) : '';
+			var visibleBySection = {};
 			cards.forEach( function ( card ) {
-				var hay = String( card.getAttribute( 'data-search' ) || '' );
-				var cardOutcome = String( card.getAttribute( 'data-outcome' ) || '' );
-				var matchOutcome = ! o || cardOutcome === o;
+				var hay = String(
+					card.getAttribute( 'data-search' )
+					|| ( card.getAttribute( 'data-title' ) || '' ) + ' ' + ( card.getAttribute( 'data-outcome' ) || '' )
+				).toLowerCase();
 				var matchQuery = ! q || hay.indexOf( q ) !== -1;
-				card.hidden = ! ( matchOutcome && matchQuery );
+				card.hidden = ! matchQuery;
+				var section = card.closest( '[data-sw-prompt-outcome], .sw-section' );
+				if ( section ) {
+					var key = section.getAttribute( 'data-sw-prompt-outcome' ) || section.id || 'default';
+					if ( ! visibleBySection[ key ] ) {
+						visibleBySection[ key ] = { section: section, count: 0 };
+					}
+					if ( matchQuery ) {
+						visibleBySection[ key ].count += 1;
+					}
+				}
+			} );
+			Object.keys( visibleBySection ).forEach( function ( key ) {
+				var row = visibleBySection[ key ];
+				if ( row && row.section ) {
+					row.section.hidden = q !== '' && row.count === 0;
+				}
 			} );
 		}
 
 		if ( search ) {
 			search.addEventListener( 'input', applyFilter );
-		}
-		if ( outcome ) {
-			outcome.addEventListener( 'change', applyFilter );
 		}
 	}
 }() );

@@ -123,6 +123,8 @@ final class AdminBootstrap {
 			'stonewright'             => 'setup.css',
 			'stonewright-abilities'   => 'abilities.css',
 			'stonewright-blueprints'  => 'blueprints.css',
+			// Prompt library reuses the catalog card/grid system from blueprints.css.
+			'stonewright-prompts'     => 'blueprints.css',
 			'stonewright-status'      => 'dashboard.css',
 			'stonewright-audit-log'   => 'audit.css',
 			'stonewright-skills'      => 'skills-memory.css',

@@ -30,7 +30,22 @@ final class PromptLibraryPageTest extends TestCase {
 		self::assertStringContainsString( 'sw-copy-prompt', $html );
 		self::assertStringContainsString( 'data-prompt=', $html );
 		self::assertStringContainsString( 'data-sw-prompt-card', $html );
+		self::assertStringContainsString( 'data-stonewright-prompt-card', $html );
+		self::assertStringContainsString( 'data-search=', $html );
+		self::assertStringContainsString( 'sw-blueprint-grid', $html );
+		self::assertStringContainsString( 'sw-blueprint-card__actions', $html );
 		self::assertStringContainsString( 'Copy prompt', $html );
+	}
+
+	public function test_admin_bootstrap_maps_prompts_to_blueprints_stylesheet(): void {
+		$source = (string) file_get_contents(
+			dirname( __DIR__, 3 ) . '/includes/Admin/AdminBootstrap.php'
+		);
+		self::assertStringContainsString( "'stonewright-prompts'", $source );
+		self::assertMatchesRegularExpression(
+			"/'stonewright-prompts'\s*=>\s*'blueprints\\.css'/",
+			$source
+		);
 	}
 
 	public function test_slug_constant(): void {
