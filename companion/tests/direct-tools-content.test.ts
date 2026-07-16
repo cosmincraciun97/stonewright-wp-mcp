@@ -230,7 +230,7 @@ describe('direct content tools', () => {
 		);
 		expect(result).toMatchObject({ id: 42, title: 'X', type: 'sector' });
 		const postCall = fetchImpl.mock.calls.find(
-			([url, init]) => String(init?.method ?? 'GET').toUpperCase() === 'POST',
+			([, init]) => String(init?.method ?? 'GET').toUpperCase() === 'POST',
 		);
 		expect(postCall).toBeDefined();
 		expect(String(postCall?.[0])).toContain('/wp/v2/sectors');
