@@ -54,9 +54,19 @@ test.describe('Connect wizard interactions', () => {
 		});
 
 		await expect(page.locator('[data-stonewright-client-picker]')).toBeVisible({ timeout: 15_000 });
-		await expect(page.locator('[data-stonewright-method="stdio"]')).toBeVisible();
-		await expect(page.locator('[data-stonewright-method="http"]')).toBeVisible();
-		await expect(page.locator('[data-stonewright-method-snippet="stdio"]')).toBeAttached();
-		await expect(page.locator('[data-stonewright-method-snippet="http"]')).toBeAttached();
+
+		// Method cards live in the picker (exactly one each).
+		const picker = page.locator('[data-stonewright-method-picker]');
+		await expect(picker.locator('[data-stonewright-method="stdio"]')).toBeVisible();
+		await expect(picker.locator('[data-stonewright-method="http"]')).toBeVisible();
+
+		// Snippets are repeated per client panel (many matches). Assert presence by count,
+		// not a single strict locator — Playwright strict mode fails at 16+ nodes.
+		const stdioSnippets = page.locator('[data-stonewright-method-snippet="stdio"]');
+		const httpSnippets = page.locator('[data-stonewright-method-snippet="http"]');
+		expect(await stdioSnippets.count()).toBeGreaterThan(0);
+		expect(await httpSnippets.count()).toBeGreaterThan(0);
+		await expect(stdioSnippets.first()).toBeAttached();
+		await expect(httpSnippets.first()).toBeAttached();
 	});
 });
