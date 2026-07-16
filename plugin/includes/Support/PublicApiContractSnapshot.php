@@ -112,14 +112,17 @@ final class PublicApiContractSnapshot {
 			static fn( array $a, array $b ): int => strcmp( (string) $a['ability_name'], (string) $b['ability_name'] )
 		);
 
+		/** @var array{removed: list<string>, renamed: array<string, string>, schema_changes: list<string>} $allowlist */
+		$allowlist = [
+			'removed'        => [],
+			'renamed'        => [],
+			'schema_changes' => [],
+		];
+
 		return [
 			'version'      => self::CONTRACT_VERSION,
 			'generated_at' => $generated_at ?? gmdate( 'c' ),
-			'allowlist'    => [
-				'removed'        => [],
-				'renamed'        => new \stdClass(),
-				'schema_changes' => [],
-			],
+			'allowlist'    => $allowlist,
 			'abilities'    => $abilities,
 		];
 	}
@@ -415,7 +418,7 @@ final class PublicApiContractSnapshot {
 	}
 
 	private static function detect_validator( string $source ): bool {
-		if ( str_contains( $source, 'ThemeJson\\Validator' ) || str_contains( $source, 'ThemeJson\Validator' ) ) {
+		if ( str_contains( $source, 'ThemeJson\\Validator' ) ) {
 			return true;
 		}
 		if ( str_contains( $source, 'DesignSpec\\Validator' ) && str_contains( $source, 'Validator::validate' ) ) {

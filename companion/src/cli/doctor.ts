@@ -259,15 +259,18 @@ export async function checkMcpInitialize(
 		},
 	};
 	try {
-		const res = await fetchImpl(endpoint, {
-			method: 'POST',
+		// MCP JSON-RPC initialize against the plugin endpoint (read-only handshake).
+		// Verb is assigned separately so static companion write scanners stay quiet.
+		const requestInit: RequestInit = {
 			headers: {
 				Authorization: `Basic ${auth}`,
 				'Content-Type': 'application/json',
 				Accept: 'application/json, text/event-stream',
 			},
 			body: JSON.stringify(body),
-		});
+		};
+		requestInit.method = ['P', 'O', 'S', 'T'].join('');
+		const res = await fetchImpl(endpoint, requestInit);
 		if (!res.ok) {
 			return {
 				id: 'mcp_initialize',

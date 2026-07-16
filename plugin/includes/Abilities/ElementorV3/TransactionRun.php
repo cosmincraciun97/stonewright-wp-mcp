@@ -80,8 +80,8 @@ final class TransactionRun extends AbilityKernel {
 		return $this->audit(
 			$args,
 			function ( array $args ) {
-				$gate = $this->require_confirmation_when_needed( $args, $this->name() );
-				if ( $gate instanceof \WP_Error ) {
+				$gate = $this->confirmation_token_error( $args, $args );
+				if ( null !== $gate ) {
 					return $gate;
 				}
 

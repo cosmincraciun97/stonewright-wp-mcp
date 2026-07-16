@@ -147,9 +147,9 @@ final class ElementorTransactionRunner {
 	}
 
 	/**
-	 * @param array<string, mixed>             $expected
-	 * @param array<int, array<string, mixed>> $tree
-	 * @param array<int, array<string, mixed>> $flat
+	 * @param array<string, mixed>               $expected
+	 * @param array<int|string, mixed>           $tree
+	 * @param array<int|string, array<string, mixed>|mixed> $flat
 	 */
 	private static function verify_expected_readback( array $expected, array $tree, string $read_hash, array $flat ): ?string {
 		if ( [] === $expected ) {

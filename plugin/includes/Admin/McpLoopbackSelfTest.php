@@ -126,8 +126,8 @@ final class McpLoopbackSelfTest {
 	 */
 	private static function mint_credential(): array {
 		$user     = wp_get_current_user();
-		$user_id  = (int) ( $user->ID ?? 0 );
-		$username = (string) ( $user->user_login ?? '' );
+		$user_id  = (int) $user->ID;
+		$username = (string) $user->user_login;
 
 		if ( $user_id <= 0 || '' === $username ) {
 			return self::mint_result(

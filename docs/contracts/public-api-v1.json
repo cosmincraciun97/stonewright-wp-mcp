@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-07-16T07:49:39+00:00",
+    "generated_at": "2026-07-16T07:56:16+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -208,7 +208,7 @@
             "mcp_name": "stonewright-blueprint-get",
             "kind": "Read",
             "input_schema_hash": "d2eeb2962e2d49b6a7e459144983848860f43e4df4687f4d53441922f0959a47",
-            "output_schema_hash": "2a3fd3b14fdfed1b74d4dea29f8de325106718784bfc1aa993b17860af6c479c",
+            "output_schema_hash": "b92282accdde4084b7ed79a1f554d61a348e0f9632bdeffb699d1fe885af4e58",
             "permission_class": "Permissions::edit_posts()",
             "gates": {
                 "backup": false,

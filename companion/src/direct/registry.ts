@@ -287,13 +287,16 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	const confirmArg = z.boolean().optional().describe('Required true for destructive tools when remote/confirm mode');
 	const profile: DirectToolProfile = ctx.toolProfile === 'essential' ? 'essential' : 'full';
 	const registered: string[] = [];
-	const registerTool: typeof server.tool = ((name: string, ...rest: unknown[]) => {
+	// MCP SDK overloads tool(); keep a typed wrapper without `any`.
+	type ToolRegistrar = {
+		tool: (name: string, ...args: never[]) => unknown;
+	};
+	const registerTool = ((name: string, ...rest: never[]) => {
 		if (!shouldRegisterDirectTool(name, profile)) {
-			return server as never;
+			return server;
 		}
 		registered.push(name);
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		return (server.tool as any)(name, ...rest);
+		return (server as unknown as ToolRegistrar).tool(name, ...rest);
 	}) as typeof server.tool;
 	const tool = registerTool; // filtered registration helper
 

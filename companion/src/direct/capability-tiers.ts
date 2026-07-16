@@ -4,7 +4,7 @@
  * remote-rest: Application Password + core REST only (no local WP-CLI).
  * local-rest-wpcli: REST + tokenized WP-CLI on a local site (Elementor meta edits).
  * plugin: Stonewright plugin MCP endpoint (full ability surface).
- * plugin-browser-qa: plugin + browser/visual QA tooling (Playwright e2e path).
+ * plugin-browser-qa: plugin + browser/visual QA tooling (e2e admin gate).
  */
 
 export type CapabilityTierId =
@@ -114,10 +114,10 @@ export const CAPABILITY_FEATURES: readonly CapabilityFeature[] = [
 	},
 	{
 		id: 'browser-qa',
-		label: 'Browser visual QA (Playwright admin/frontend checks)',
+		label: 'Browser visual QA (admin/frontend release checks)',
 		availableIn: ['plugin-browser-qa'],
 		reasonUnavailable: 'Browser QA is an optional matrix tier, not part of REST-only Direct mode.',
-		upgradePath: 'Run e2e/ Playwright against a wp-env or Local site with the plugin active.',
+		upgradePath: 'Run the e2e/ admin-ui suite against a wp-env or Local site with the plugin active.',
 	},
 ] as const;
 
@@ -165,15 +165,15 @@ export const CAPABILITY_TIERS: readonly CapabilityTier[] = [
 		],
 		excludes: ['browser-qa'],
 		upgradeTo: 'plugin-browser-qa',
-		upgradePath: 'Add Playwright e2e (e2e/) against wp-env or Local for visual admin QA.',
+		upgradePath: 'Add the e2e/ admin-ui suite against wp-env or Local for visual admin QA.',
 	},
 	{
 		id: 'plugin-browser-qa',
 		label: 'Plugin + browser QA',
-		summary: 'Plugin mode plus Playwright visual/admin checks for release gates.',
+		summary: 'Plugin mode plus browser visual/admin checks for release gates.',
 		includes: [
 			'everything in plugin',
-			'Playwright admin UI matrix (e2e/)',
+			'admin UI matrix under e2e/',
 		],
 		excludes: [],
 	},

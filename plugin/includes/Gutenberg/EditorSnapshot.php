@@ -77,16 +77,38 @@ final class EditorSnapshot {
 			$results = get_block_templates( [], $post_type );
 			if ( is_array( $results ) ) {
 				foreach ( array_slice( $results, 0, 40 ) as $tpl ) {
-					$items[] = [
-						'id'          => is_object( $tpl ) ? (string) ( $tpl->id ?? '' ) : (string) ( $tpl['id'] ?? '' ),
-						'slug'        => is_object( $tpl ) ? (string) ( $tpl->slug ?? '' ) : (string) ( $tpl['slug'] ?? '' ),
-						'title'       => self::template_title( $tpl ),
-						'source'      => is_object( $tpl ) ? (string) ( $tpl->source ?? '' ) : (string) ( $tpl['source'] ?? '' ),
-						'theme'       => is_object( $tpl ) ? (string) ( $tpl->theme ?? '' ) : (string) ( $tpl['theme'] ?? '' ),
-						'has_content' => is_object( $tpl )
-							? ( '' !== trim( (string) ( $tpl->content ?? '' ) ) )
-							: ( '' !== trim( (string) ( $tpl['content'] ?? '' ) ) ),
-					];
+					if ( $tpl instanceof \WP_Block_Template ) {
+						$items[] = [
+							'id'          => (string) $tpl->id,
+							'slug'        => (string) $tpl->slug,
+							'title'       => self::template_title( $tpl ),
+							'source'      => (string) $tpl->source,
+							'theme'       => (string) $tpl->theme,
+							'has_content' => '' !== trim( (string) $tpl->content ),
+						];
+						continue;
+					}
+					if ( is_object( $tpl ) ) {
+						$items[] = [
+							'id'          => (string) ( $tpl->id ?? '' ),
+							'slug'        => (string) ( $tpl->slug ?? '' ),
+							'title'       => self::template_title( $tpl ),
+							'source'      => (string) ( $tpl->source ?? '' ),
+							'theme'       => (string) ( $tpl->theme ?? '' ),
+							'has_content' => '' !== trim( (string) ( $tpl->content ?? '' ) ),
+						];
+						continue;
+					}
+					if ( is_array( $tpl ) ) {
+						$items[] = [
+							'id'          => (string) ( $tpl['id'] ?? '' ),
+							'slug'        => (string) ( $tpl['slug'] ?? '' ),
+							'title'       => self::template_title( $tpl ),
+							'source'      => (string) ( $tpl['source'] ?? '' ),
+							'theme'       => (string) ( $tpl['theme'] ?? '' ),
+							'has_content' => '' !== trim( (string) ( $tpl['content'] ?? '' ) ),
+						];
+					}
 				}
 			}
 		}
@@ -136,9 +158,8 @@ final class EditorSnapshot {
 					'order'          => 'DESC',
 				]
 			);
-			if ( is_array( $posts ) && isset( $posts[0] ) ) {
-				$post    = $posts[0];
-				$post_id = (int) ( is_object( $post ) ? ( $post->ID ?? 0 ) : 0 );
+			if ( is_array( $posts ) && isset( $posts[0] ) && $posts[0] instanceof \WP_Post ) {
+				$post_id = (int) $posts[0]->ID;
 				$present = $present || $post_id > 0;
 			}
 		}

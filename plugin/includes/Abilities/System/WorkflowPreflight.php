@@ -248,6 +248,7 @@ final class WorkflowPreflight extends AbilityKernel {
 		$ordered_profile_tools = [];
 		$profile_name          = (string) ( $fast_path['tool_profile']['profile'] ?? 'essential' );
 		if ( class_exists( ToolProfile::class ) && method_exists( ToolProfile::class, 'profile_tools' ) ) {
+			// Cap at 8 names so compact task-start stays under the token budget.
 			$ordered_profile_tools = array_values(
 				array_slice(
 					array_map(
@@ -255,10 +256,12 @@ final class WorkflowPreflight extends AbilityKernel {
 						ToolProfile::profile_tools( $profile_name )
 					),
 					0,
-					20
+					8
 				)
 			);
 		}
+		// Prefer ordered profile tools when available; keep compact payload small.
+		$next = array_values( array_slice( $ordered_profile_tools !== [] ? $ordered_profile_tools : $tools, 0, 6 ) );
 		$compact_fast_path = [
 			'task_profile' => [
 				'surface'        => (string) ( $profile['surface'] ?? 'unknown' ),
@@ -267,12 +270,9 @@ final class WorkflowPreflight extends AbilityKernel {
 				'is_destructive' => (bool) ( $profile['is_destructive'] ?? false ),
 				'visual'         => (bool) ( $profile['needs_visual_check'] ?? false ),
 			],
-			'tool_profile'           => $profile_name,
-			'next_tools'             => $tools,
-			// Exact ordered MCP tool list for the resolved profile (client caps apply).
-			'ordered_tools'          => $ordered_profile_tools !== [] ? $ordered_profile_tools : $tools,
-			'recommended_tools'      => array_values( array_map( 'strval', (array) ( $fast_path['recommended_tools'] ?? [] ) ) ),
-			'recommended_mcp_tools'  => $tools,
+			'tool_profile'  => $profile_name,
+			// Canonical exact next-tool path (capped for token budget).
+			'ordered_tools' => $next,
 		];
 		if ( is_array( $fast_path['elementor_architecture'] ?? null ) ) {
 			$compact_fast_path['elementor_architecture'] = array_intersect_key(
@@ -315,19 +315,17 @@ final class WorkflowPreflight extends AbilityKernel {
 		$errors = array_values( array_slice( (array) ( $context['recurring_errors'] ?? [] ), 0, 3 ) );
 		// Keep compact task-start under budget: omit empty learning signals.
 		$compact_context = [
-			'matched_skills'  => $skills,
-			'memory_refs'     => self::compact_memory_entries( $context['memory_entries'] ?? [] ),
-			'expertise_refs'  => array_values( (array) ( $context['expertise_packs'] ?? [] ) ),
+			'matched_skills'   => array_values( array_slice( $skills, 0, 3 ) ),
+			'memory_refs'      => self::compact_memory_entries( $context['memory_entries'] ?? [] ),
+			'expertise_refs'   => array_values( array_slice( (array) ( $context['expertise_packs'] ?? [] ), 0, 2 ) ),
 			'required_actions' => array_values( array_filter( [
 				[] !== $errors ? 'fix_recurring_errors_first' : null,
 				[] !== $skills ? 'load_matched_skills' : null,
-				[] !== $skills ? 'execute_matched_skills' : null,
 				[] !== (array) ( $context['memory_entries'] ?? [] ) ? 'load_memory_refs' : null,
-				[] !== $errors ? 'review_recurring_errors' : null,
 				(bool) ( $profile['needs_visual_check'] ?? false ) ? 'connect_browser_before_visual_write' : null,
 				(bool) ( $profile['is_write'] ?? false ) ? 'pass_context_token_to_writes' : null,
 			] ) ),
-			'followups_ref'   => self::compact_object_ref( 'required_followups', $context['required_followups'] ?? [] ),
+			'followups_ref'    => self::compact_object_ref( 'required_followups', $context['required_followups'] ?? [] ),
 		];
 		if ( ! empty( $custom['enabled'] ) && '' !== trim( (string) ( $custom['text'] ?? '' ) ) ) {
 			// Presence flag only — full instructions live in admin/memory.

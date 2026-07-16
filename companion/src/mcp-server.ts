@@ -223,8 +223,12 @@ async function registerDirectMode(
 		const registered = registerDirectTools(server, {
 			env,
 			...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
-			// Essential profile uses DIRECT_ESSENTIAL_TOOL_NAMES; other profiles register full Direct surface.
-			toolProfile: profile === 'essential' || profile === 'low-tools' ? 'essential' : 'full',
+			// Direct REST surface stays full by default. Opt into DIRECT_ESSENTIAL_TOOL_NAMES via
+			// STONEWRIGHT_DIRECT_TOOL_PROFILE=essential without stripping companion skill/memory tools.
+			toolProfile:
+				(env['STONEWRIGHT_DIRECT_TOOL_PROFILE'] ?? '').trim().toLowerCase() === 'essential'
+					? 'essential'
+					: 'full',
 		});
 		const localToolNames = localToolNamesForProfile(profile);
 		wpMcpStatus.ok = true;

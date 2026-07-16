@@ -86,10 +86,10 @@ final class ContentInventory extends AbilityKernel {
 
 		$items = [];
 		foreach ( (array) $types as $obj ) {
-			if ( ! is_object( $obj ) ) {
+			if ( ! $obj instanceof \WP_Post_Type ) {
 				continue;
 			}
-			$slug = (string) ( $obj->name ?? '' );
+			$slug = (string) $obj->name;
 			if ( '' === $slug || 'attachment' === $slug ) {
 				continue;
 			}
@@ -100,12 +100,13 @@ final class ContentInventory extends AbilityKernel {
 				? (int) ( $counts_obj->draft ?? 0 ) + (int) ( $counts_obj->pending ?? 0 )
 				: 0;
 			$trash      = is_object( $counts_obj ) ? (int) ( $counts_obj->trash ?? 0 ) : 0;
+			$rest_base  = is_string( $obj->rest_base ) ? $obj->rest_base : $slug;
 
 			$items[] = [
 				'slug'      => $slug,
-				'label'     => (string) ( $obj->label ?? $slug ),
-				'public'    => (bool) ( $obj->public ?? false ),
-				'rest_base' => (string) ( $obj->rest_base ?? $slug ),
+				'label'     => (string) $obj->label,
+				'public'    => (bool) $obj->public,
+				'rest_base' => $rest_base,
 				'counts'    => [
 					'publish' => $publish,
 					'draft'   => $draft,

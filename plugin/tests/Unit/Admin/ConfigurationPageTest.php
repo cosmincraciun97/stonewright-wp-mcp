@@ -106,12 +106,9 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertSame( 1, substr_count( $html, 'class="stonewright-connect-prompt' ) );
 		self::assertStringContainsString( 'data-stonewright-text-preview', $html );
 		self::assertStringContainsString( 'data-stonewright-text-full', $html );
-		self::assertStringContainsString( 'Examples: real Stonewright prompts', $html );
-		self::assertStringContainsString( 'stonewright-example-prompt-0', $html );
-		self::assertStringContainsString( 'stonewright-example-prompt-5', $html );
-		self::assertStringContainsString( 'ACF field group', $html );
-		self::assertStringContainsString( 'CPT UI', $html );
-		self::assertStringContainsString( 'Figma design to Elementor V3', $html );
+		self::assertStringContainsString( 'stonewright-prompt-library', $html );
+		self::assertStringContainsString( 'stonewright-example-prompts', $html );
+		self::assertStringContainsString( 'data-stonewright-prompt-grid', $html );
 		self::assertStringContainsString( 'required', $html );
 		self::assertStringNotContainsString( 'Leave blank to use "Stonewright".', $html );
 		self::assertStringContainsString( 'stonewright_revoke_application_password', $html );
