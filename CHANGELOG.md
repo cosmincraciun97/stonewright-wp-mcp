@@ -74,7 +74,7 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Blueprint apply `engine` is strict: explicit `elementor` fails when Elementor is inactive.
 - Gutenberg renderer maps `row`/`column` to `core/columns`/`core/column`, full-width section bands, palette buttons, and hero `core/media-text`.
 - Blueprint section `role` (hero and others) in DesignSpec schema; all 12 blueprints mark hero.
-- Public surface brand scanner and 5-release retention tests; licensing history in `docs/licensing.md`.
+- Public surface brand scanner and 5-release retention policy tests; licensing history in `docs/licensing.md`.
 
 ### Changed
 
