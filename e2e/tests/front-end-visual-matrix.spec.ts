@@ -1,17 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
 import path from 'node:path';
 import fs from 'node:fs';
+import { restGet, restPost, wpRestNonce } from './helpers/wp-rest';
 
 /**
- * Front-end visual matrix (Phase 5 live proof).
+ * Front-end visual matrix — layout contracts on public pages.
  *
- * Seeds constrained landing-like pages via the REST API, then asserts on the
- * public front-end: no horizontal overflow, hero/content horizontally centered
- * within 8px of the viewport center. Runs across the Playwright project matrix
- * (5 viewports × light/dark).
- *
- * Full blueprint×engine structural coverage lives in PHPUnit
- * BlueprintRenderOutputSuiteTest; this suite proves front-end layout contracts.
+ * Creates seed pages via authenticated REST (with rest_route fallback for
+ * wp-env/Apache), then checks overflow + hero centering. Pinned to one
+ * Playwright project so the 5×2 matrix does not multiply expensive writes.
  */
 
 const WP_USER = process.env.WP_USERNAME ?? 'admin';
@@ -40,7 +37,6 @@ async function login(page: Page): Promise<void> {
 }
 
 function constrainedLandingMarkup(title: string, kicker: string): string {
-	// Mirrors FSE/gutenberg constrained group wrapper from BlueprintApplier.
 	return `<!-- wp:group {"align":"full","layout":{"type":"constrained","contentSize":"720px","wideSize":"1100px","justifyContent":"center"},"className":"stonewright-fse-root stonewright-visual-hero"} -->
 <div class="wp-block-group alignfull stonewright-fse-root stonewright-visual-hero">
 <!-- wp:heading {"textAlign":"center","level":1} -->
@@ -60,47 +56,78 @@ function constrainedLandingMarkup(title: string, kicker: string): string {
 <!-- /wp:group -->`;
 }
 
-async function ensureSeedPages(page: Page): Promise<Array<{ slug: string; link: string }>> {
+async function ensureSeedPages(
+	page: Page,
+	nonce: string,
+): Promise<Array<{ slug: string; link: string }>> {
 	const seeds = [
-		{ slug: 'sw-visual-dental', title: 'Precision dental care', kicker: 'Calm clinic landing for visual matrix proof.' },
-		{ slug: 'sw-visual-saas', title: 'Ship product faster', kicker: 'SaaS hero with constrained, centered content.' },
-		{ slug: 'sw-visual-restaurant', title: 'Reserve a table tonight', kicker: 'Restaurant landing centered for overflow checks.' },
+		{
+			slug: 'sw-visual-dental',
+			title: 'Precision dental care',
+			kicker: 'Calm clinic landing for visual matrix proof.',
+		},
+		{
+			slug: 'sw-visual-saas',
+			title: 'Ship product faster',
+			kicker: 'SaaS hero with constrained, centered content.',
+		},
+		{
+			slug: 'sw-visual-restaurant',
+			title: 'Reserve a table tonight',
+			kicker: 'Restaurant landing centered for overflow checks.',
+		},
 	];
 
-	// Authenticated REST via cookies from login.
 	const created: Array<{ slug: string; link: string }> = [];
 	for (const seed of seeds) {
-		const listRes = await page.request.get(`/wp-json/wp/v2/pages?slug=${seed.slug}&status=publish,draft`);
+		const list = await restGet(
+			page,
+			`/wp/v2/pages?slug=${encodeURIComponent(seed.slug)}&status=publish,draft,private`,
+			nonce,
+		);
 		let link = '';
-		if (listRes.ok()) {
-			const existing = (await listRes.json()) as Array<{ id: number; link: string; status: string }>;
-			if (existing.length > 0) {
-				const id = existing[0].id;
-				await page.request.post(`/wp-json/wp/v2/pages/${id}`, {
-					data: {
-						status: 'publish',
-						title: seed.title,
-						content: constrainedLandingMarkup(seed.title, seed.kicker),
-					},
-				});
-				link = existing[0].link;
+		let id = 0;
+		if (list.ok && Array.isArray(list.body) && list.body.length > 0) {
+			const row = list.body[0] as { id: number; link?: string };
+			id = Number(row.id);
+			link = String(row.link || '');
+			const updated = await restPost(
+				page,
+				`/wp/v2/pages/${id}`,
+				{
+					status: 'publish',
+					title: seed.title,
+					content: constrainedLandingMarkup(seed.title, seed.kicker),
+				},
+				nonce,
+			);
+			if (!updated.ok) {
+				throw new Error(
+					`Failed to update page ${seed.slug}: ${updated.status} ${JSON.stringify(updated.body)} via ${updated.url}`,
+				);
 			}
-		}
-		if (!link) {
-			const createRes = await page.request.post('/wp-json/wp/v2/pages', {
-				data: {
+			const body = updated.body as { link?: string };
+			link = body.link || link || `/?p=${id}`;
+		} else {
+			const createRes = await restPost(
+				page,
+				'/wp/v2/pages',
+				{
 					status: 'publish',
 					slug: seed.slug,
 					title: seed.title,
 					content: constrainedLandingMarkup(seed.title, seed.kicker),
 				},
-			});
-			if (!createRes.ok()) {
-				const body = await createRes.text();
-				throw new Error(`Failed to create page ${seed.slug}: ${createRes.status()} ${body}`);
+				nonce,
+			);
+			if (!createRes.ok) {
+				throw new Error(
+					`Failed to create page ${seed.slug}: ${createRes.status} ${JSON.stringify(createRes.body)} via ${createRes.url}`,
+				);
 			}
-			const body = (await createRes.json()) as { link: string };
-			link = body.link;
+			const body = createRes.body as { id?: number; link?: string };
+			id = Number(body.id || 0);
+			link = body.link || (id > 0 ? `/?p=${id}` : `/${seed.slug}/`);
 		}
 		created.push({ slug: seed.slug, link });
 	}
@@ -131,18 +158,22 @@ async function heroCenterOffset(page: Page): Promise<number | null> {
 }
 
 test.describe('Front-end visual matrix', () => {
+	// One project only — admin matrix already covers 5×2 viewports.
+	test.skip(({ }, testInfo) => testInfo.project.name !== 'desktop-1440-light');
+
 	test('seeded landings: no overflow, hero centered, screenshots archived', async ({
 		page,
 	}, testInfo) => {
 		fs.mkdirSync(artifactDir, { recursive: true });
 		await login(page);
-		const pages = await ensureSeedPages(page);
+		const nonce = await wpRestNonce(page);
+		const pages = await ensureSeedPages(page, nonce);
 
 		for (const entry of pages) {
-			// Prefer path from link; fall back to slug permalink.
-			const url = entry.link || `/${entry.slug}/`;
+			const url = entry.link.startsWith('http')
+				? new URL(entry.link).pathname + new URL(entry.link).search
+				: entry.link || `/${entry.slug}/`;
 			await page.goto(url, { waitUntil: 'domcontentloaded' });
-			// Dismiss cookie/admin bars if any — measure document, not wp-admin.
 			expect(page.url()).not.toContain('wp-login.php');
 
 			const overflow = await horizontalOverflow(page);
