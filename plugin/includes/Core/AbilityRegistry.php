@@ -96,6 +96,7 @@ use Stonewright\WpMcp\Abilities\FSE\WriteGlobalStyles;
 use Stonewright\WpMcp\Abilities\FSE\WriteTemplate;
 use Stonewright\WpMcp\Abilities\FSE\WriteTemplatePart;
 use Stonewright\WpMcp\Abilities\Gutenberg\ApplyToPost as GutenbergApplyToPost;
+use Stonewright\WpMcp\Abilities\Gutenberg\EditorSnapshotAbility;
 use Stonewright\WpMcp\Abilities\Gutenberg\GetBlockSchema;
 use Stonewright\WpMcp\Abilities\Gutenberg\InsertBlock;
 use Stonewright\WpMcp\Abilities\Gutenberg\RenderBlocks;
@@ -282,6 +283,7 @@ final class AbilityRegistry {
 
 			// Gutenberg.
 			ListRegisteredBlocks::class,
+			EditorSnapshotAbility::class,
 			GetBlockSchema::class,
 			ParseBlocks::class,
 			SerializeBlocks::class,

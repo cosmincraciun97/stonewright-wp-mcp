@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-07-16T07:45:44+00:00",
+    "generated_at": "2026-07-16T07:46:40+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -2917,6 +2917,20 @@
                 "token": true,
                 "validator": true,
                 "audit": true
+            }
+        },
+        {
+            "ability_name": "stonewright/gutenberg-editor-snapshot",
+            "mcp_name": "stonewright-gutenberg-editor-snapshot",
+            "kind": "Read",
+            "input_schema_hash": "99334726611ccf58a148b0814696bfa6fe08c1b2d027e946beccf5a74331c9aa",
+            "output_schema_hash": "827a253f79b87711c58c7f9991a3611b9e9a9852be18ade66f167ef8cbf04f3c",
+            "permission_class": "Permissions::edit_posts()",
+            "gates": {
+                "backup": false,
+                "token": false,
+                "validator": false,
+                "audit": false
             }
         },
         {
