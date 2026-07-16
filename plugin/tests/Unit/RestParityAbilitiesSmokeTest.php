@@ -101,6 +101,54 @@ final class RestParityAbilitiesSmokeTest extends TestCase {
 		$this->assertNotEmpty( $result['items'] );
 	}
 
+	public function test_search_query_subscriber_only_sees_publish(): void {
+		$GLOBALS['stonewright_test_user_caps'] = [ 'read' => true ];
+		$GLOBALS['stonewright_test_search_posts'] = [
+			(object) [ 'ID' => 11, 'post_title' => 'Public', 'post_type' => 'post', 'post_status' => 'publish', 'post_modified' => '2026-01-01' ],
+			(object) [ 'ID' => 12, 'post_title' => 'Draft secret', 'post_type' => 'post', 'post_status' => 'draft', 'post_modified' => '2026-01-01' ],
+		];
+		// Bootstrap WP_Query stub uses stonewright_test_search_posts; ability filters by read_post.
+		$result = ( new SearchQuery() )->execute( [ 'search' => 'x' ] );
+		$this->assertIsArray( $result );
+		// With only read cap, private/draft results must not appear if read_post denies them.
+		foreach ( $result['items'] as $item ) {
+			$this->assertSame( 'publish', $item['status'] );
+		}
+	}
+
+	public function test_widget_save_requires_token_in_production_safe(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$result = ( new \Stonewright\WpMcp\Abilities\Widgets\WidgetSave() )->execute(
+			[
+				'sidebar_id' => 'sidebar-1',
+				'widgets'    => [],
+			]
+		);
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'stonewright_confirmation_required', $result->get_error_code() );
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'development';
+	}
+
+	public function test_app_passwords_require_edit_user_on_target(): void {
+		$GLOBALS['stonewright_test_user_caps'] = [ 'manage_options' => true ];
+		// manage_options alone does not imply edit_user on arbitrary accounts in the test stub.
+		$ability = new \Stonewright\WpMcp\Abilities\Users\UserAppPasswords();
+		$this->assertFalse(
+			$ability->permission_callback( [ 'action' => 'list', 'user_id' => 99 ] )
+		);
+
+		$GLOBALS['stonewright_test_user_can_callback'] = static function ( string $cap, mixed ...$args ): bool {
+			if ( 'edit_user' === $cap && 2 === (int) ( $args[0] ?? 0 ) ) {
+				return true;
+			}
+			return 'manage_options' === $cap;
+		};
+		$this->assertTrue(
+			$ability->permission_callback( [ 'action' => 'list', 'user_id' => 2 ] )
+		);
+		unset( $GLOBALS['stonewright_test_user_can_callback'] );
+	}
+
 	public function test_wc_products_reports_unsupported_without_woocommerce(): void {
 		$result = ( new WcProductList() )->execute( [] );
 		$this->assertIsArray( $result );

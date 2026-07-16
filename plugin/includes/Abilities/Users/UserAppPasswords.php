@@ -34,7 +34,22 @@ final class UserAppPasswords extends AbilityKernel {
 	public function output_schema(): array {
  return [ 'type'=>'object', 'additionalProperties'=>true ]; }
 	public function permission_callback( array $args ): bool|\WP_Error {
- return Permissions::manage_options(); }
+		$user_id = (int) ( $args['user_id'] ?? 0 );
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+		// Require edit_user on the target account (covers multisite/custom roles),
+		// not only manage_options for arbitrary user_ids.
+		if ( ! current_user_can( 'edit_user', $user_id ) ) {
+			return false;
+		}
+		$action = (string) ( $args['action'] ?? 'list' );
+		if ( 'list' === $action ) {
+			return true;
+		}
+		// Create/revoke also need manage_options for site-wide app-password admin.
+		return Permissions::manage_options();
+	}
 	public function execute( array $args ): array|\WP_Error {
 		return $this->audit($args, function ( array $args ) {
 			$action= (string) $args['action'];

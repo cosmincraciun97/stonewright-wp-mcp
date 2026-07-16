@@ -155,12 +155,12 @@ describe('direct wave 3 tools', () => {
 		).rejects.toThrow(/REST route/);
 	});
 
-	it('rest-request POST is confirm-gated on remote sites', async () => {
-		const fetchImpl = vi.fn(async () => new Response('{}', { status: 200 }));
-		const client = new WpRestClient(site, { fetchImpl });
+	it('rest-request rejects write methods (read-only passthrough)', async () => {
+		const client = new WpRestClient(site, { fetchImpl: vi.fn() });
 		await expect(
-			restRequest({ client, site, writeMode: 'confirm' }, { method: 'POST', path: '/custom/v1/x', body: {} }),
-		).rejects.toThrow(/confirm:true/i);
+			// @ts-expect-error intentional invalid write method
+			restRequest({ client, site, writeMode: 'on' }, { method: 'POST', path: '/custom/v1/x', body: {} }),
+		).rejects.toThrow(/read-only/i);
 	});
 
 	it('media-delete requires confirm on remote', async () => {

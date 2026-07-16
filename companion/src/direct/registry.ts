@@ -1178,14 +1178,12 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 
 	w3(
 		'stonewright-rest-request',
-		'Escape hatch for REST namespaces without a dedicated tool. Use stonewright-site-discover first. Writes require confirm on live sites.',
+		'Read-only escape hatch for REST namespaces without a dedicated tool (GET only). Use stonewright-site-discover first. Writes must use typed Direct tools or WP-CLI.',
 		{
 			site: siteArg,
-			method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']),
+			method: z.enum(['GET']).optional().default('GET'),
 			path: z.string().min(1),
 			query: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
-			body: z.record(z.string(), z.unknown()).optional(),
-			confirm: confirmArg,
 		},
 		(input, runtime) => restRequest.restRequest(runtime, input as never),
 	);
