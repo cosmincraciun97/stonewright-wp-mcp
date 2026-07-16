@@ -1,0 +1,18 @@
+{
+  "slug": "zed",
+  "label": "Zed",
+  "kind": "editor",
+  "snippet_kind": "json",
+  "preferred_method": "stdio",
+  "official_cli_add": "",
+  "config_paths": {
+    "macos": "~/.config/zed/settings.json",
+    "linux": "~/.config/zed/settings.json",
+    "windows": "%APPDATA%\\Zed\\settings.json",
+    "wsl": "~/.config/zed/settings.json"
+  },
+  "notes": "Zed uses context_servers rather than mcpServers. Prefer user-level or private client config; never commit Application Passwords to project-tracked files.",
+  "verified_against_docs_on": "2026-07-16",
+  "secret_storage": "user-level",
+  "config_path": "~/.config/zed/settings.json"
+}

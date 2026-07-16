@@ -1,0 +1,18 @@
+{
+  "slug": "antigravity",
+  "label": "Antigravity",
+  "kind": "desktop",
+  "snippet_kind": "json",
+  "preferred_method": "stdio",
+  "official_cli_add": "",
+  "config_paths": {
+    "macos": "Project or global MCP config file",
+    "linux": "Project or global MCP config file",
+    "windows": "Project or global MCP config file",
+    "wsl": "Project or global MCP config file"
+  },
+  "notes": "Add Stonewright and Playwright entries, then restart or reload Antigravity before visual work. Prefer user-level or private client config; never commit Application Passwords to project-tracked files.",
+  "verified_against_docs_on": "2026-07-16",
+  "secret_storage": "user-level",
+  "config_path": "Project or global MCP config file"
+}
