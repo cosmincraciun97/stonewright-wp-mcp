@@ -7,6 +7,22 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.76] - 2026-07-16
+
+### Added
+
+- Direct mode: permanent product HARD RULES on every `stonewright-task-start`
+  (single-target scope, remote tool path, no ad-hoc plugins, HTTP-first
+  automation, additive content models) plus five new enabled `_builtin` skills.
+- Plugin: permanent operating rules in agent instructions (not Safety Memory UI)
+  covering the same workflow discipline plus Elementor native-first lessons
+  (responsive typography, Nested Carousel offset, swiper overflow, CSS parent class).
+- Built-in skill pack `agent-operating-rules` for matched task playbooks.
+
+### Changed
+
+- Direct `AGENTS.md` managed template includes the permanent operating rules.
+
 ## [1.0.0-alpha.75] - 2026-07-16
 
 ### Added
@@ -88,16 +104,3 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 - README Elementor-first with full capability tables.
-
-
-## [1.0.0-alpha.71] - 2026-07-16
-
-### Added
-- Pluginless Direct self-improvement (local skills/memory + task-start).
-- ACF, multi-plugin SEO, and CPT/taxonomy registration abilities.
-- Discovery wiring for wave-3 admin ops profiles.
-- Dual-mode AI install prompts.
-
-### Fixed
-- wp-admin paste prompt starts with task-start.
-- REST parity security review items (audit redaction, search visibility, rest-request read-only).

@@ -36,4 +36,25 @@ final class McpUsePolicy {
 	public static function client_note_suffix(): string {
 		return 'Stonewright MCP must be visible (`stonewright-context-bootstrap`) before WordPress work; no private config inspection, no scratch scripts, no helper JSON argument files, no direct companion shell launch, no action scripts, no source-code schema spelunking, and no REST runner, shell WP-CLI, or generic PHP-adapter workaround.';
 	}
+
+	/**
+	 * Product-default operating rules shipped with the plugin (not site Safety Memory).
+	 * General only — never site-branded. Injected into agent instructions.
+	 *
+	 * @return array<int, string>
+	 */
+	public static function permanent_operating_rules(): array {
+		return [
+			'Change only the WordPress environment the user named (this site). Do not also mutate local, staging, or another host for consistency unless the user explicitly asks.',
+			'Never scaffold, zip, upload, or activate ad-hoc custom plugins as a workaround for CPT/taxonomy/field registration. Prefer tools already on the site, typed Stonewright abilities, or tell the user server-side PHP is required.',
+			'Automate HTTP-first: WP REST and official plugin APIs, then Stonewright typed abilities, then authenticated admin form POST with nonces. Browser click/fill automation is last resort; screenshots/visual QA are fine.',
+			'Content-model changes are additive. Do not use CPT UI full Import to add one type — import replaces entire option bags and can wipe existing post types/taxonomies. Prefer Add New / targeted edit. Never bulk-transfer models or content between environments unless the user explicitly requests that transfer.',
+			'Implementation priority: Elementor native controls/widgets first; scoped child-theme CSS under a section parent class only when native controls cannot express the need; scripts/HTML/JS only as last resort with explicit user approval when required.',
+			'Never duplicate Elementor widgets with hide_desktop/hide_mobile only to change typography between breakpoints. Use one widget and native responsive Typography controls (font size / line-height / letter-spacing per device).',
+			'Custom CSS for a section requires a custom class on the parent container first; scope all related CSS under that class. Prefer child-theme style.css over loose global selectors or Elementor page Custom CSS for native widgets.',
+			'For Nested Carousel peek/inset effects, use native Direction / Offset Sides / Offset Width controls (infinite often required). Do not fake peek with CSS padding on the carousel track.',
+			'Never set overflow:visible on .elementor-main-swiper to expose outside arrows — it breaks Swiper clipping. Keep overflow hidden and position native arrows inside the track.',
+			'Every Elementor V3 tree node needs a non-empty unique id. Never write raw _elementor_data through php-execute; use typed Elementor abilities with backup and schema validation.',
+		];
+	}
 }

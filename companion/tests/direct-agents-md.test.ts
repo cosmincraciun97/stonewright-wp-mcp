@@ -74,4 +74,22 @@ describe('builtin skills seed', () => {
 		expect(third.seeded.some((n) => n.includes('elementor'))).toBe(true);
 		expect(readFileSync(skillPath, 'utf8')).toContain('Elementor');
 	});
+
+	it('seeds permanent operating-rule builtins with no site branding', () => {
+		const dir = mkdtempSync(join(tmpdir(), 'sw-seed-rules-'));
+		const result = seedBuiltinSkills(dir);
+		const expected = [
+			'no-ad-hoc-plugins.md',
+			'single-environment-scope.md',
+			'remote-direct-tool-path.md',
+			'http-first-admin.md',
+			'content-model-additive.md',
+		];
+		for (const name of expected) {
+			expect(result.seeded).toContain(name);
+			const body = readFileSync(join(dir, 'skills', '_builtin', name), 'utf8');
+			expect(body.toLowerCase()).not.toContain('transavia');
+			expect(body).toMatch(/enabled": true|"enabled": true/);
+		}
+	});
 });

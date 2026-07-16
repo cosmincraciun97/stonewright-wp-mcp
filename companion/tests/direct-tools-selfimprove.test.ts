@@ -94,5 +94,9 @@ describe('direct self-improve tools', () => {
 		expect(start.memory_highlights.length).toBeGreaterThan(0);
 		expect(start.capabilities.direct_tools).toBeGreaterThanOrEqual(98);
 		expect(start.setup?.agents_md).toBeTruthy();
+		expect(start.guidance.some((g) => /HARD RULE:.*single-target scope/i.test(g))).toBe(true);
+		expect(start.guidance.some((g) => /HARD RULE:.*ad-hoc plugins/i.test(g))).toBe(true);
+		expect(start.guidance.some((g) => /HARD RULE:.*HTTP-first/i.test(g))).toBe(true);
+		expect(start.guidance.join('\n').toLowerCase()).not.toContain('transavia');
 	});
 });

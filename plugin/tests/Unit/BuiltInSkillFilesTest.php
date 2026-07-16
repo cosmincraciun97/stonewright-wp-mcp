@@ -14,6 +14,7 @@ final class BuiltInSkillFilesTest extends TestCase {
 		$root = dirname( __DIR__, 2 );
 
 		$content_model = $root . '/../skills/content-model-integrations/SKILL.md';
+		$operating     = $root . '/../skills/agent-operating-rules/SKILL.md';
 		$elementor     = $root . '/../skills/elementor-v3-builder/SKILL.md';
 		$evidence      = $root . '/../skills/elementor-v3-builder/references/design-evidence.md';
 		$gutenberg     = $root . '/../skills/gutenberg-fse-builder/SKILL.md';
@@ -22,6 +23,7 @@ final class BuiltInSkillFilesTest extends TestCase {
 		$woocommerce   = $root . '/../skills/woocommerce-catalog/SKILL.md';
 
 		self::assertFileExists( $content_model );
+		self::assertFileExists( $operating );
 		self::assertFileExists( $elementor );
 		self::assertFileExists( $evidence );
 		self::assertFileExists( $gutenberg );
@@ -30,6 +32,7 @@ final class BuiltInSkillFilesTest extends TestCase {
 		self::assertFileExists( $woocommerce );
 
 		$content_model_body = (string) file_get_contents( $content_model );
+		$operating_body     = (string) file_get_contents( $operating );
 		$elementor_body     = (string) file_get_contents( $elementor );
 		$evidence_body      = (string) file_get_contents( $evidence );
 		$gutenberg_body     = (string) file_get_contents( $gutenberg );
@@ -38,6 +41,10 @@ final class BuiltInSkillFilesTest extends TestCase {
 		$woocommerce_body   = (string) file_get_contents( $woocommerce );
 
 		self::assertStringContainsString( 'name: content-model-integrations', $content_model_body );
+		self::assertStringContainsString( 'name: agent-operating-rules', $operating_body );
+		self::assertStringContainsString( 'site Safety Memory', $operating_body );
+		self::assertStringContainsString( 'additive only', $operating_body );
+		self::assertStringNotContainsString( 'transavia', strtolower( $operating_body ) );
 		self::assertStringContainsString( 'ACF', $content_model_body );
 		self::assertStringContainsString( 'Pods', $content_model_body );
 		self::assertStringContainsString( 'stonewright-wp-cli-discover', $content_model_body );

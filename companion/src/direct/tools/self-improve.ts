@@ -14,6 +14,7 @@ import {
 import { PLUGIN_ONLY_CAPABILITIES } from './site-discover.js';
 import { markTaskStartSeen, resolveDirectWriteMode } from '../writes.js';
 import { ensureStonewrightAgentsMd, pointerInstalled } from '../agents-md.js';
+import { permanentRulesGuidance } from '../permanent-rules.js';
 
 export type SelfImproveContext = {
 	env: NodeJS.ProcessEnv;
@@ -218,6 +219,7 @@ export function taskStart(
 	const guidance = [
 		'Direct mode: core WordPress REST via Application Passwords; no plugin required.',
 		'Destructive tools require confirm:true; writes honor STONEWRIGHT_DIRECT_WRITES.',
+		...permanentRulesGuidance(),
 		'Content model: Direct mode fully edits EXISTING registered models — any CPT content via stonewright-content-* (type param), any taxonomy terms via stonewright-taxonomy-terms, ACF field values via stonewright-acf-fields-* (needs ACF "Show in REST"). Registering NEW post types, taxonomies, or field groups requires PHP running on the server: use the Stonewright plugin or theme/plugin code. No REST-only client can register models — do not build ad hoc plugins as a workaround; tell the user instead.',
 		'If the user corrects a repeatable mistake, call stonewright-learning-record.',
 		'Load a matched skill body with stonewright-skill-get before acting on its topic.',

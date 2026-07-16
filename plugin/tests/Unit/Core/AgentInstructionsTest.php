@@ -26,6 +26,9 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'shell wp commands', $summary );
 		$this->assertStringContainsString( 'stonewright-php-execute', $summary );
 		$this->assertStringContainsString( 'full WordPress runtime access', $summary );
+		$this->assertStringContainsString( 'Never scaffold, zip, upload, or activate ad-hoc custom plugins', $summary );
+		$this->assertStringContainsString( 'Content-model changes are additive', $summary );
+		$this->assertStringContainsString( 'Never duplicate Elementor widgets with hide_desktop/hide_mobile', $summary );
 	}
 
 	public function test_default_instructions_force_context_skills_memory_and_elementor_widget_discipline(): void {
@@ -123,6 +126,11 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'do not create sandbox', $instructions );
 		$this->assertStringNotContainsString( 'stonewright/qa-', $instructions );
 		$this->assertStringContainsString( 'raw Figma trees', $instructions );
+		$this->assertStringContainsString( 'Never scaffold, zip, upload, or activate ad-hoc custom plugins', $instructions );
+		$this->assertStringContainsString( 'Content-model changes are additive', $instructions );
+		$this->assertStringContainsString( 'Never duplicate Elementor widgets with hide_desktop/hide_mobile', $instructions );
+		$this->assertStringContainsString( 'Nested Carousel', $instructions );
+		$this->assertStringNotContainsString( 'transavia', strtolower( $instructions ) );
 	}
 
 	public function test_compact_instructions_omit_visual_build_rules_when_visual_context_is_disabled(): void {

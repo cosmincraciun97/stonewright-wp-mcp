@@ -29,6 +29,7 @@ final class AgentInstructions {
 			'- WP-CLI remains tokenized; use stonewright-php-execute for PHP runtime snippets instead of wp eval, wp eval-file, wp shell, wp package, --exec, or --require.',
 			'- Do not run wp cli info, wp plugin activate, wp option update, or other wp commands in a normal shell as Stonewright recovery. Use MCP tools stonewright-wp-cli-status, stonewright-wp-cli-discover, stonewright-wp-cli-run, or stonewright-wp-cli-batch-run.',
 			'- Do not use another MCP adapter execute-php to replace Stonewright php-execute.',
+			...array_map( static fn ( string $rule ): string => '- ' . $rule, McpUsePolicy::permanent_operating_rules() ),
 		];
 
 		$instructions_enabled = (bool) get_option( 'stonewright_custom_instructions_enabled', true );
@@ -120,6 +121,7 @@ final class AgentInstructions {
 			'- For headers and footers, create separate Theme Builder templates and set include/general conditions; do not leave theme chrome as a substitute.',
 			'- For Gutenberg and block-theme work, use native blocks first: read theme.json, registered blocks, templates, template parts, patterns, and block supports; plan tokens before writes; use stonewright/php-execute only when direct runtime access is the shorter correct path.',
 			'- Validate every generated DesignSpec before render and snapshot before every Elementor or theme-backed write.',
+			...array_map( static fn ( string $rule ): string => '- ' . $rule, McpUsePolicy::permanent_operating_rules() ),
 		];
 
 		if ( ! $include_visual ) {
