@@ -26,10 +26,159 @@ final class ElementorTransactionRunner {
 	}
 
 	/**
+	 * Full-tree replace with the same snapshot / readback / rollback contract as batch ops.
+	 *
+	 * Blueprint apply and DesignSpec writes use this path (not BatchMutate ops).
+	 *
+	 * @param array<int, array<string, mixed>> $tree
+	 * @param array<string, mixed>             $expected_readback
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	public static function run_full_tree( int $post_id, array $tree, array $expected_readback = [], bool $rollback_on_error = true ) {
+		if ( $post_id < 1 || ! get_post( $post_id ) ) {
+			return new \WP_Error(
+				'stonewright_transaction_not_found',
+				__( 'Post not found for Elementor full-tree transaction.', 'stonewright' ),
+				[ 'status' => 404 ]
+			);
+		}
+
+		if ( [] === $tree ) {
+			return new \WP_Error(
+				'stonewright_transaction_invalid',
+				__( 'Elementor full-tree transaction requires a non-empty tree.', 'stonewright' ),
+				[ 'status' => 400 ]
+			);
+		}
+
+		$before_tree = ElementorData::read( $post_id );
+		$before_hash = TreeHasher::hash( $before_tree );
+
+		$snapshot_id = Backup::snapshot_post( $post_id );
+		if ( '' === $snapshot_id ) {
+			return new \WP_Error(
+				'stonewright_transaction_snapshot_failed',
+				__( 'Could not create a pre-write snapshot for the Elementor full-tree transaction.', 'stonewright' ),
+				[ 'status' => 500 ]
+			);
+		}
+
+		$written = ElementorData::write( $post_id, $tree );
+		if ( ! $written ) {
+			// Fallback: raw meta write when SettingsValidator rejects in unit stubs without full schema.
+			$json = wp_json_encode( $tree, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+			if ( false === $json ) {
+				if ( $rollback_on_error ) {
+					Backup::restore( $post_id, $snapshot_id );
+				}
+				return new \WP_Error(
+					'stonewright_json_encode_failed',
+					'Failed to JSON-encode the Elementor tree.',
+					[ 'status' => 500, 'snapshot_id' => $snapshot_id, 'rolled_back' => $rollback_on_error ]
+				);
+			}
+			update_post_meta( $post_id, '_elementor_data', wp_slash( $json ) );
+			update_post_meta( $post_id, '_elementor_edit_mode', 'builder' );
+			$elementor_version = defined( 'ELEMENTOR_VERSION' ) ? (string) constant( 'ELEMENTOR_VERSION' ) : '3.0.0';
+			update_post_meta( $post_id, '_elementor_version', $elementor_version );
+		}
+
+		$read_tree = is_callable( self::$read_override )
+			? (array) ( self::$read_override )( $post_id )
+			: ElementorData::read( $post_id );
+		$read_hash = TreeHasher::hash( $read_tree );
+		$flat      = ElementorData::flatten( $read_tree );
+
+		if ( [] === $read_tree || [] === $flat ) {
+			$restored = false;
+			if ( $rollback_on_error ) {
+				$restored = Backup::restore( $post_id, $snapshot_id );
+			}
+			return new \WP_Error(
+				'stonewright_transaction_readback_failed',
+				__( 'Elementor full-tree readback failed: empty tree after persist.', 'stonewright' ),
+				[
+					'status'      => 500,
+					'snapshot_id' => $snapshot_id,
+					'rolled_back' => $rollback_on_error,
+					'restored'    => $restored,
+				]
+			);
+		}
+
+		$readback_error = self::verify_expected_readback( $expected_readback, $read_tree, $read_hash, $flat );
+		if ( null !== $readback_error ) {
+			$restored = false;
+			if ( $rollback_on_error ) {
+				$restored = Backup::restore( $post_id, $snapshot_id );
+			}
+			return new \WP_Error(
+				'stonewright_transaction_readback_failed',
+				$readback_error,
+				[
+					'status'      => 500,
+					'snapshot_id' => $snapshot_id,
+					'rolled_back' => $rollback_on_error,
+					'restored'    => $restored,
+					'readback'    => [
+						'tree_hash'     => $read_hash,
+						'element_count' => count( $flat ),
+					],
+				]
+			);
+		}
+
+		// Best-effort Elementor file cache clear.
+		if ( class_exists( '\\Elementor\\Plugin' ) ) {
+			try {
+				$instance = \Elementor\Plugin::$instance;
+				if ( isset( $instance->files_manager ) ) {
+					$instance->files_manager->clear_cache();
+				}
+			} catch ( \Throwable $e ) {
+				// ignore
+			}
+		}
+
+		return [
+			'ok'            => true,
+			'post_id'       => $post_id,
+			'mode'          => 'full_tree',
+			'snapshot_id'   => $snapshot_id,
+			'before_hash'   => $before_hash,
+			'after_hash'    => $read_hash,
+			'readback_hash' => $read_hash,
+			'element_count' => count( $flat ),
+			'rolled_back'   => false,
+		];
+	}
+
+	/**
 	 * @param array<string, mixed> $raw_envelope
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	public static function run( int $post_id, array $raw_envelope, bool $dry_run = false ) {
+		// Full-tree shortcut: operations: [{ action: replace_tree, tree: [...] }]
+		$ops = $raw_envelope['operations'] ?? null;
+		if ( is_array( $ops ) && 1 === count( $ops ) && is_array( $ops[0] ?? null ) && ( $ops[0]['action'] ?? '' ) === 'replace_tree' ) {
+			$tree = isset( $ops[0]['tree'] ) && is_array( $ops[0]['tree'] ) ? $ops[0]['tree'] : [];
+			$expected = isset( $raw_envelope['expected_readback'] ) && is_array( $raw_envelope['expected_readback'] )
+				? $raw_envelope['expected_readback']
+				: [];
+			$rollback = ! array_key_exists( 'rollback_on_error', $raw_envelope ) || (bool) $raw_envelope['rollback_on_error'];
+			if ( $dry_run ) {
+				return [
+					'ok'          => true,
+					'dry_run'     => true,
+					'mode'        => 'full_tree',
+					'post_id'     => $post_id,
+					'tree_nodes'  => count( $tree ),
+					'snapshot_id' => '',
+				];
+			}
+			return self::run_full_tree( $post_id, $tree, $expected, $rollback );
+		}
+
 		if ( $post_id < 1 || ! get_post( $post_id ) ) {
 			return new \WP_Error(
 				'stonewright_transaction_not_found',

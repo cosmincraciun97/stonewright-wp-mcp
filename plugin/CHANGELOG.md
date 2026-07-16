@@ -15,6 +15,11 @@
   ramps, `figma_token_table`, layout intent); native plan per-element
   `native_mapping` / `native_gap` for elementor|gutenberg|fse; ImplementationContract
   `action=validate` rejects CSS without native_gap; front-end visual matrix e2e.
+- All 12 bundled blueprints authored as DesignSpec 2.0.0 with content facts,
+  native policy, and Elementor layout intent (`fullWidth`, `align_items`,
+  `justify_content`). Elementor blueprint writes go through
+  `ElementorTransactionRunner` full-tree/`replace_tree`. e2e applies real
+  blueprints and screenshots the front-end.
 
 ### Changed
 

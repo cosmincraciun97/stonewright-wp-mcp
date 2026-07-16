@@ -5,7 +5,6 @@ namespace Stonewright\WpMcp\Elementor;
 
 use Stonewright\WpMcp\DesignSpec\Validator;
 use Stonewright\WpMcp\Security\AuditLog;
-use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Support\ElementorData;
 
 /**
@@ -52,89 +51,73 @@ final class ElementorWriter {
 	 * @return array{ok: bool, snapshot_id: string, element_count: int, rolled_back: bool}|\WP_Error
 	 */
 	public static function write_transactional( int $post_id, array $spec, array &$diagnostics = [], bool $rollback_on_error = true ) {
-		// Step 1: snapshot before any mutation.
-		$snapshot_id = Backup::snapshot_post( $post_id );
-		if ( '' === $snapshot_id ) {
+		// Preserve historical error code for missing posts (tests + clients).
+		if ( $post_id < 1 || ! get_post( $post_id ) ) {
 			return new \WP_Error(
 				'stonewright_backup_failed',
 				sprintf( 'Backup::snapshot_post failed for post %d. Write aborted.', $post_id )
 			);
 		}
 
-		// Step 2: validate spec.
+		// Validate first (hard rule).
 		$validated = Validator::validate( $spec );
 		if ( is_wp_error( $validated ) ) {
 			return $validated;
 		}
 
-		// Step 3: render.
+		// Render DesignSpec → Elementor tree.
 		$element_array = Renderer::render( $validated, $diagnostics );
 		if ( ! is_array( $element_array ) || [] === $element_array ) {
 			return new \WP_Error(
 				'stonewright_elementor_render_empty',
 				__( 'Elementor renderer produced an empty tree for this DesignSpec.', 'stonewright' ),
-				[ 'status' => 500, 'snapshot_id' => $snapshot_id ]
+				[ 'status' => 500 ]
 			);
 		}
 
-		// Step 4: encode and persist.
-		$json = wp_json_encode( $element_array, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
-		if ( false === $json ) {
-			return new \WP_Error(
-				'stonewright_json_encode_failed',
-				'Failed to JSON-encode the rendered Elementor element array.'
-			);
+		$flat_preview = ElementorData::flatten( $element_array );
+		$expected     = [
+			'min_elements' => max( 1, (int) ceil( count( $flat_preview ) * 0.5 ) ),
+		];
+
+		// Transaction path: ElementorTransactionRunner (replace_tree / full_tree).
+		$txn = ElementorTransactionRunner::run(
+			$post_id,
+			[
+				'operations'        => [
+					[
+						'action' => 'replace_tree',
+						'tree'   => $element_array,
+					],
+				],
+				'stop_on_error'     => true,
+				'rollback_on_error' => $rollback_on_error,
+				'expected_readback' => $expected,
+			],
+			false
+		);
+		if ( is_wp_error( $txn ) ) {
+			return $txn;
 		}
 
-		update_post_meta( $post_id, '_elementor_data', wp_slash( $json ) );
-
-		// Step 5a: set edit mode and version.
+		// Ensure edit mode / version meta even when ElementorData::write already set them.
 		update_post_meta( $post_id, '_elementor_edit_mode', 'builder' );
-
 		$elementor_version = defined( 'ELEMENTOR_VERSION' ) ? (string) constant( 'ELEMENTOR_VERSION' ) : '3.0.0';
 		update_post_meta( $post_id, '_elementor_version', $elementor_version );
 
-		// Step 5b: structural readback (transaction contract).
-		$read_tree = ElementorData::read( $post_id );
-		$flat      = ElementorData::flatten( $read_tree );
-		if ( [] === $read_tree || [] === $flat ) {
-			$restored = false;
-			if ( $rollback_on_error ) {
-				$restored = Backup::restore( $post_id, $snapshot_id );
-			}
-			return new \WP_Error(
-				'stonewright_transaction_readback_failed',
-				__( 'Elementor write readback failed: empty tree after persist.', 'stonewright' ),
-				[
-					'status'      => 500,
-					'snapshot_id' => $snapshot_id,
-					'rolled_back' => $rollback_on_error,
-					'restored'    => $restored,
-				]
-			);
-		}
-
-		// Step 6: clear Elementor file cache.
-		if ( class_exists( '\\Elementor\\Plugin' ) ) {
-			try {
-				$instance = \Elementor\Plugin::$instance;
-				if ( isset( $instance->files_manager ) ) {
-					$instance->files_manager->clear_cache();
-				}
-			} catch ( \Throwable $e ) {
-				// Cache layer best-effort; ignore if unavailable in tests or non-standard builds.
-			}
-		}
-
-		// Step 7: audit log.
 		$spec_sha8 = substr( sha1( (string) wp_json_encode( $validated ) ), 0, 8 );
 		self::audit( $post_id, $spec_sha8 );
 
 		return [
 			'ok'            => true,
-			'snapshot_id'   => $snapshot_id,
-			'element_count' => count( $flat ),
+			'snapshot_id'   => (string) ( $txn['snapshot_id'] ?? '' ),
+			'element_count' => (int) ( $txn['element_count'] ?? count( $flat_preview ) ),
 			'rolled_back'   => false,
+			'transaction'   => [
+				'mode'        => (string) ( $txn['mode'] ?? 'full_tree' ),
+				'before_hash' => (string) ( $txn['before_hash'] ?? '' ),
+				'after_hash'  => (string) ( $txn['after_hash'] ?? '' ),
+			],
 		];
 	}
 

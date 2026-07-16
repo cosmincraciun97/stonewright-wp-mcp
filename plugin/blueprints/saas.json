@@ -22,9 +22,10 @@
     "contact"
   ],
   "spec": {
-    "version": "1.0.0",
+    "version": "2.0.0",
     "page": {
-      "title": "Orbit Metrics"
+      "title": "Orbit Metrics",
+      "template": "elementor_canvas"
     },
     "tokens": {
       "colors": {
@@ -56,18 +57,24 @@
                   {
                     "type": "heading",
                     "level": 1,
-                    "text": "Product analytics your whole team can read"
+                    "text": "Product analytics your whole team can read",
+                    "id": "hero_b0_b0_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "Funnel truth without a data team. Dashboards that update in minutes, not sprint cycles."
+                    "text": "Funnel truth without a data team. Dashboards that update in minutes, not sprint cycles.",
+                    "id": "hero_b0_b0_b1"
                   },
                   {
                     "type": "button",
                     "text": "Start free trial",
-                    "url": "/contact/"
+                    "url": "/contact/",
+                    "id": "hero_b0_b0_b2"
                   }
-                ]
+                ],
+                "id": "hero_b0_b0",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
@@ -75,11 +82,20 @@
                   {
                     "type": "image",
                     "url": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80",
-                    "alt": "Analytics dashboard with charts on a laptop screen"
+                    "alt": "Analytics dashboard with charts on a laptop screen",
+                    "id": "hero_b0_b1_b0"
                   }
-                ]
+                ],
+                "id": "hero_b0_b1",
+                "align_items": "center",
+                "justify_content": "flex-start"
               }
-            ]
+            ],
+            "id": "hero_b0",
+            "layout": "row",
+            "align_items": "center",
+            "justify_content": "center",
+            "gap": 24
           }
         ],
         "background": {
@@ -91,7 +107,13 @@
           "bottom": 64,
           "left": 24
         },
-        "role": "hero"
+        "role": "hero",
+        "fullWidth": true,
+        "width": "full",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 24
       },
       {
         "id": "services",
@@ -99,11 +121,13 @@
           {
             "type": "heading",
             "level": 2,
-            "text": "Product capabilities"
+            "text": "Product capabilities",
+            "id": "services_b0"
           },
           {
             "type": "spacer",
-            "height": 24
+            "height": 24,
+            "id": "services_b1"
           },
           {
             "type": "row",
@@ -112,54 +136,77 @@
                 "type": "column",
                 "blocks": [
                   {
-                    "type": "separator"
+                    "type": "separator",
+                    "id": "services_b2_b0_b0"
                   },
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Live funnels"
+                    "text": "Live funnels",
+                    "id": "services_b2_b0_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "Drop-off charts that refresh as events land—no nightly batch lag."
+                    "text": "Drop-off charts that refresh as events land—no nightly batch lag.",
+                    "id": "services_b2_b0_b2"
                   }
-                ]
+                ],
+                "id": "services_b2_b0",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
                 "blocks": [
                   {
-                    "type": "separator"
+                    "type": "separator",
+                    "id": "services_b2_b1_b0"
                   },
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Cohort stories"
+                    "text": "Cohort stories",
+                    "id": "services_b2_b1_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "Retention curves with plain-language callouts for PMs."
+                    "text": "Retention curves with plain-language callouts for PMs.",
+                    "id": "services_b2_b1_b2"
                   }
-                ]
+                ],
+                "id": "services_b2_b1",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
                 "blocks": [
                   {
-                    "type": "separator"
+                    "type": "separator",
+                    "id": "services_b2_b2_b0"
                   },
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Alert rules"
+                    "text": "Alert rules",
+                    "id": "services_b2_b2_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "Slack pings when conversion slips past your threshold."
+                    "text": "Slack pings when conversion slips past your threshold.",
+                    "id": "services_b2_b2_b2"
                   }
-                ]
+                ],
+                "id": "services_b2_b2",
+                "align_items": "center",
+                "justify_content": "flex-start"
               }
-            ]
+            ],
+            "id": "services_b2",
+            "layout": "row",
+            "align_items": "center",
+            "justify_content": "center",
+            "gap": 24
           }
         ],
         "padding": {
@@ -167,7 +214,12 @@
           "right": 24,
           "bottom": 48,
           "left": 24
-        }
+        },
+        "width": "boxed",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 20
       },
       {
         "id": "pricing",
@@ -175,11 +227,13 @@
           {
             "type": "heading",
             "level": 2,
-            "text": "Plans"
+            "text": "Plans",
+            "id": "pricing_b0"
           },
           {
             "type": "spacer",
-            "height": 24
+            "height": 24,
+            "id": "pricing_b1"
           },
           {
             "type": "row",
@@ -190,26 +244,34 @@
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Starter"
+                    "text": "Starter",
+                    "id": "pricing_b2_b0_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• 3 seats"
+                    "text": "• 3 seats",
+                    "id": "pricing_b2_b0_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• 1M events"
+                    "text": "• 1M events",
+                    "id": "pricing_b2_b0_b2"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Email support"
+                    "text": "• Email support",
+                    "id": "pricing_b2_b0_b3"
                   },
                   {
                     "type": "button",
                     "text": "Try Starter",
-                    "url": "/contact/"
+                    "url": "/contact/",
+                    "id": "pricing_b2_b0_b4"
                   }
-                ]
+                ],
+                "id": "pricing_b2_b0",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
@@ -217,26 +279,34 @@
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Growth"
+                    "text": "Growth",
+                    "id": "pricing_b2_b1_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• 15 seats"
+                    "text": "• 15 seats",
+                    "id": "pricing_b2_b1_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• 10M events"
+                    "text": "• 10M events",
+                    "id": "pricing_b2_b1_b2"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• SSO + audits"
+                    "text": "• SSO + audits",
+                    "id": "pricing_b2_b1_b3"
                   },
                   {
                     "type": "button",
                     "text": "Choose Growth",
-                    "url": "/contact/"
+                    "url": "/contact/",
+                    "id": "pricing_b2_b1_b4"
                   }
-                ]
+                ],
+                "id": "pricing_b2_b1",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
@@ -244,28 +314,41 @@
                   {
                     "type": "heading",
                     "level": 3,
-                    "text": "Scale"
+                    "text": "Scale",
+                    "id": "pricing_b2_b2_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Unlimited seats"
+                    "text": "• Unlimited seats",
+                    "id": "pricing_b2_b2_b1"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Custom volume"
+                    "text": "• Custom volume",
+                    "id": "pricing_b2_b2_b2"
                   },
                   {
                     "type": "paragraph",
-                    "text": "• Success manager"
+                    "text": "• Success manager",
+                    "id": "pricing_b2_b2_b3"
                   },
                   {
                     "type": "button",
                     "text": "Talk Scale",
-                    "url": "/contact/"
+                    "url": "/contact/",
+                    "id": "pricing_b2_b2_b4"
                   }
-                ]
+                ],
+                "id": "pricing_b2_b2",
+                "align_items": "center",
+                "justify_content": "flex-start"
               }
-            ]
+            ],
+            "id": "pricing_b2",
+            "layout": "row",
+            "align_items": "center",
+            "justify_content": "center",
+            "gap": 24
           }
         ],
         "background": {
@@ -276,7 +359,12 @@
           "right": 24,
           "bottom": 48,
           "left": 24
-        }
+        },
+        "width": "boxed",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 20
       },
       {
         "id": "testimonials",
@@ -284,11 +372,13 @@
           {
             "type": "heading",
             "level": 2,
-            "text": "What clients say"
+            "text": "What clients say",
+            "id": "testimonials_b0"
           },
           {
             "type": "spacer",
-            "height": 16
+            "height": 16,
+            "id": "testimonials_b1"
           },
           {
             "type": "row",
@@ -298,28 +388,43 @@
                 "blocks": [
                   {
                     "type": "paragraph",
-                    "text": "“We cut weekly metric meetings in half because the board packet is auto-generated.”"
+                    "text": "“We cut weekly metric meetings in half because the board packet is auto-generated.”",
+                    "id": "testimonials_b2_b0_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "— Ivy Tan, Head of Product"
+                    "text": "— Ivy Tan, Head of Product",
+                    "id": "testimonials_b2_b0_b1"
                   }
-                ]
+                ],
+                "id": "testimonials_b2_b0",
+                "align_items": "center",
+                "justify_content": "flex-start"
               },
               {
                 "type": "column",
                 "blocks": [
                   {
                     "type": "paragraph",
-                    "text": "“Engineers stopped babysitting dashboards. Product finally owns the numbers.”"
+                    "text": "“Engineers stopped babysitting dashboards. Product finally owns the numbers.”",
+                    "id": "testimonials_b2_b1_b0"
                   },
                   {
                     "type": "paragraph",
-                    "text": "— Sam Okada, CTO"
+                    "text": "— Sam Okada, CTO",
+                    "id": "testimonials_b2_b1_b1"
                   }
-                ]
+                ],
+                "id": "testimonials_b2_b1",
+                "align_items": "center",
+                "justify_content": "flex-start"
               }
-            ]
+            ],
+            "id": "testimonials_b2",
+            "layout": "row",
+            "align_items": "center",
+            "justify_content": "center",
+            "gap": 24
           }
         ],
         "padding": {
@@ -327,7 +432,12 @@
           "right": 24,
           "bottom": 48,
           "left": 24
-        }
+        },
+        "width": "boxed",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 20
       },
       {
         "id": "contact",
@@ -335,21 +445,25 @@
           {
             "type": "heading",
             "level": 2,
-            "text": "See your funnel in under ten minutes"
+            "text": "See your funnel in under ten minutes",
+            "id": "contact_b0"
           },
           {
             "type": "paragraph",
-            "text": "Connect events from {business} and invite the rest of the team free."
+            "text": "Connect events from {business} and invite the rest of the team free.",
+            "id": "contact_b1"
           },
           {
             "type": "button",
             "text": "Start free trial",
-            "url": "/contact/"
+            "url": "/contact/",
+            "id": "contact_b2"
           },
           {
             "type": "image",
             "url": "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80",
-            "alt": "Workspace related to SaaS Product"
+            "alt": "Workspace related to SaaS Product",
+            "id": "contact_b3"
           }
         ],
         "background": {
@@ -360,8 +474,109 @@
           "right": 24,
           "bottom": 64,
           "left": 24
+        },
+        "fullWidth": true,
+        "width": "full",
+        "layout": "stack",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 24
+      }
+    ],
+    "design_system": {
+      "colors": {
+        "primary": "#4F46E5",
+        "secondary": "#4338CA",
+        "accent": "#22D3EE",
+        "background": "#FFFFFF",
+        "text": "#0F172A"
+      },
+      "typography": {
+        "heading": {
+          "font_family": "Satoshi, system-ui, sans-serif"
+        },
+        "body": {
+          "font_family": "Inter, system-ui, sans-serif"
         }
       }
-    ]
+    },
+    "content_facts": {
+      "required_facts": [
+        "product_name",
+        "value_prop",
+        "pricing_tiers",
+        "signup_cta"
+      ],
+      "blocking_questions": [
+        "Confirm real copy for: product_name",
+        "Confirm real copy for: value_prop"
+      ],
+      "facts": [
+        {
+          "id": "product_name",
+          "status": "placeholder"
+        },
+        {
+          "id": "value_prop",
+          "status": "placeholder"
+        },
+        {
+          "id": "pricing_tiers",
+          "status": "placeholder"
+        },
+        {
+          "id": "signup_cta",
+          "status": "placeholder"
+        }
+      ]
+    },
+    "page_intent": {
+      "page_type": "landing",
+      "conversion_goal": "signup_cta",
+      "audience": "saas"
+    },
+    "native_policy": {
+      "strict": false,
+      "block_html_widgets": true,
+      "require_native_gap_for_custom_css": true,
+      "enforce_heading_hierarchy": true
+    },
+    "verification_policy": {
+      "structural_readback": true,
+      "responsive_breakpoints": [
+        "desktop",
+        "tablet",
+        "mobile"
+      ],
+      "contrast_check": true,
+      "rollback_on_failure": true
+    }
+  },
+  "version": "2.0.0",
+  "page_type": "landing",
+  "required_content_facts": [
+    "product_name",
+    "value_prop",
+    "pricing_tiers",
+    "signup_cta"
+  ],
+  "engine_compatibility": {
+    "elementor": true,
+    "gutenberg": true,
+    "fse": true,
+    "notes": {
+      "elementor": "Native containers + widgets; layout intent via align_items/justify_content/fullWidth.",
+      "gutenberg": "core/group constrained layout; separators map to core/separator.",
+      "fse": "Constrained template/page markup via FseTransactionQueue; no Elementor meta."
+    }
+  },
+  "accessibility_intent": {
+    "target": "wcag-2.2-aa",
+    "contrast_pairs": [
+      "text/background",
+      "primary/background"
+    ],
+    "heading_hierarchy": true,
+    "landmarks": true
   }
 }

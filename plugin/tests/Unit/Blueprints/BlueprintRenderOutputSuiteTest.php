@@ -91,6 +91,13 @@ final class BlueprintRenderOutputSuiteTest extends TestCase {
 		$bp = BlueprintStore::get( $id );
 		self::assertIsArray( $bp );
 		$spec = is_array( $bp['spec'] ?? null ) ? $bp['spec'] : [];
+		// Promote authored v2 layout fields through validation path.
+		if ( class_exists( \Stonewright\WpMcp\DesignSpec\Validator::class ) ) {
+			$validated = \Stonewright\WpMcp\DesignSpec\Validator::validate( $spec );
+			if ( is_array( $validated ) ) {
+				$spec = $validated;
+			}
+		}
 		$diagnostics = [];
 		$tree = Renderer::render( $spec, $diagnostics );
 		self::assertIsArray( $tree, $id );
@@ -98,13 +105,20 @@ final class BlueprintRenderOutputSuiteTest extends TestCase {
 		$flat = ElementorData::flatten( $tree );
 		self::assertNotEmpty( $flat, $id . ' empty flat tree' );
 		$has_el_type = false;
+		$hero_centered = false;
 		foreach ( $flat as $el ) {
 			if ( is_array( $el ) && isset( $el['elType'] ) ) {
 				$has_el_type = true;
-				break;
+			}
+			if ( is_array( $el ) && ( $el['elType'] ?? '' ) === 'container' ) {
+				$settings = is_array( $el['settings'] ?? null ) ? $el['settings'] : [];
+				if ( ( $settings['content_width'] ?? '' ) === 'full' && ( $settings['flex_align_items'] ?? '' ) === 'center' ) {
+					$hero_centered = true;
+				}
 			}
 		}
 		self::assertTrue( $has_el_type, $id . ' missing elType' );
+		self::assertTrue( $hero_centered, $id . ' expected full-width container with flex_align_items=center from authored layout intent' );
 		$hard_drops = array_values(
 			array_filter(
 				$diagnostics,
@@ -167,5 +181,29 @@ final class BlueprintRenderOutputSuiteTest extends TestCase {
 		self::assertSame( 'fse', $result['engine'] );
 		self::assertSame( 'fse', $result['engine_used'] );
 		self::assertNotSame( 'gutenberg', $result['engine_used'] );
+	}
+
+	public function test_elementor_apply_uses_transaction_runner_full_tree(): void {
+		BlueprintApplier::$test_elementor_available = true;
+		$result = BlueprintApplier::apply(
+			[
+				'blueprint_id' => 'dental',
+				'engine'       => 'elementor',
+				'page_title'   => 'Elementor txn path',
+				'mode'         => 'draft',
+			]
+		);
+		self::assertIsArray(
+			$result,
+			$result instanceof \WP_Error ? $result->get_error_message() . ' ' . wp_json_encode( $result->get_error_data() ) : ''
+		);
+		self::assertTrue( $result['ok'] ?? false );
+		self::assertSame( 'elementor', $result['engine_used'] ?? null );
+		self::assertNotEmpty( $result['snapshot_id'] ?? '' );
+		$post_id = (int) ( $result['post_id'] ?? 0 );
+		$tree    = ElementorData::read( $post_id );
+		self::assertNotEmpty( $tree );
+		$flat = ElementorData::flatten( $tree );
+		self::assertGreaterThan( 1, count( $flat ) );
 	}
 }

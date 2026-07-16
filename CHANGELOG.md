@@ -14,6 +14,8 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Brand-kit preview/diff mode and option/theme_mod restore points.
 - Setup “Apply now” for MCP tool surface; extra admin e2e coverage.
 - Figma→native DesignEvidence/native plan/CSS-gap gate; front-end visual matrix.
+- Authored v2 blueprints with Elementor layout intent; transaction full-tree
+  path; e2e real blueprint-apply + screenshots.
 
 ### Changed
 

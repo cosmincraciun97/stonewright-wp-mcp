@@ -216,11 +216,13 @@ final class BlueprintStore {
 			: [
 				'elementor'  => true,
 				'gutenberg'  => true,
+				'fse'        => true,
 			];
 		// Normalize booleans with progressive defaults.
 		$engine_compat = [
 			'elementor' => array_key_exists( 'elementor', $engine_compat ) ? (bool) $engine_compat['elementor'] : true,
 			'gutenberg' => array_key_exists( 'gutenberg', $engine_compat ) ? (bool) $engine_compat['gutenberg'] : true,
+			'fse'       => array_key_exists( 'fse', $engine_compat ) ? (bool) $engine_compat['fse'] : true,
 		];
 
 		$a11y = isset( $raw['accessibility_intent'] ) && is_array( $raw['accessibility_intent'] )

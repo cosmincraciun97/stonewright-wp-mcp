@@ -124,4 +124,55 @@ final class TransactionEnvelopeTest extends TestCase {
 		self::assertNotEmpty( $result['snapshot_id'] );
 		self::assertFalse( $result['rolled_back'] );
 	}
+
+	public function test_replace_tree_full_tree_path(): void {
+		$tree = [
+			[
+				'id'       => 'hero',
+				'elType'   => 'container',
+				'settings' => [
+					'content_width'     => 'full',
+					'flex_direction'    => 'column',
+					'flex_align_items'  => 'center',
+					'container_type'    => 'flex',
+				],
+				'elements' => [
+					[
+						'id'         => 'h1',
+						'elType'     => 'widget',
+						'widgetType' => 'heading',
+						'settings'   => [ 'title' => 'Centered hero' ],
+						'elements'   => [],
+					],
+				],
+			],
+		];
+
+		$result = ElementorTransactionRunner::run(
+			601,
+			[
+				'operations' => [
+					[
+						'action' => 'replace_tree',
+						'tree'   => $tree,
+					],
+				],
+				'expected_readback' => [
+					'min_elements'          => 2,
+					'contains_widget_types' => [ 'heading' ],
+				],
+			],
+			false
+		);
+
+		self::assertIsArray(
+			$result,
+			'Expected array, got WP_Error: ' . ( $result instanceof \WP_Error ? $result->get_error_message() . ' ' . wp_json_encode( $result->get_error_data() ) : '' )
+		);
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'full_tree', $result['mode'] ?? null );
+		self::assertNotEmpty( $result['snapshot_id'] );
+		$read = ElementorData::read( 601 );
+		self::assertSame( 'center', $read[0]['settings']['flex_align_items'] ?? null );
+	}
 }
