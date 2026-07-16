@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.0-alpha.72
+
+### Added
+- Actionable audit error codes/messages and RemediationHints at task-start.
+- Direct Elementor data tools, gutenberg-validate, builtin skills, agents-md-sync.
+- Direct task-start write gate and recurring error surfacing.
+
+### Changed
+- README Elementor-first with full capability tables.
+
+
 ## 1.0.0-alpha.71
 
 ### Added
