@@ -1,5 +1,4 @@
 {
-  "$comment": "Default CI / local matrix pin: WordPress 6.9. Optional pins: .wp-env.6.7.json (WP 6.7). Phase 12 matrix: 6.7 / 6.9 (+ 7.0 when available).",
   "core": "WordPress/WordPress#6.9",
   "phpVersion": "8.2",
   "plugins": ["../plugin"],
