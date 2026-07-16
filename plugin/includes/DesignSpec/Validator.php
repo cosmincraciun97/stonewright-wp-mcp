@@ -16,6 +16,8 @@ final class Validator {
 
 	public const SCHEMA_ID = 'https://stonewright.dev/schemas/design-spec/1.0.0.json';
 
+	public const SCHEMA_ID_V2 = 'https://stonewright.dev/schemas/design-spec/2.0.0.json';
+
 	/**
 	 * Validates and normalizes a design spec.
 	 *
@@ -26,16 +28,18 @@ final class Validator {
 	public static function validate( array $spec ) {
 		$errors     = [];
 		$normalized = self::normalize( $spec );
+		$is_v2      = self::is_v2( $normalized );
+		$schema_id  = $is_v2 ? self::SCHEMA_ID_V2 : self::SCHEMA_ID;
 
 		if ( class_exists( '\\Opis\\JsonSchema\\Validator' ) ) {
 			try {
 				$validator = new \Opis\JsonSchema\Validator();
 				$resolver  = $validator->resolver();
-				$schema    = self::load_schema_object();
+				$schema    = $is_v2 ? self::load_schema_object_v2() : self::load_schema_object();
 				if ( null !== $schema && null !== $resolver ) {
-					$resolver->registerRaw( $schema, self::SCHEMA_ID );
+					$resolver->registerRaw( $schema, $schema_id );
 				}
-				$result = $validator->validate( json_decode( wp_json_encode( $normalized ) ), self::SCHEMA_ID );
+				$result = $validator->validate( json_decode( wp_json_encode( $normalized ) ), $schema_id );
 				if ( ! $result->isValid() ) {
 					foreach ( $result->error()->subErrors() ?? [ $result->error() ] as $error ) {
 						if ( ! $error ) {
@@ -56,6 +60,7 @@ final class Validator {
 		}
 
 		$errors = array_merge( self::repair_checks( $normalized ), $errors );
+		$errors = array_merge( self::native_policy_checks( $normalized ), $errors );
 		foreach ( ActionValidator::validate_design_spec( $normalized ) as $diagnostic ) {
 			$errors[] = [
 				'keyword' => (string) ( $diagnostic['code'] ?? 'semantic' ),
@@ -86,6 +91,14 @@ final class Validator {
 	}
 
 	/**
+	 * @param array<string, mixed> $spec
+	 */
+	private static function is_v2( array $spec ): bool {
+		$version = isset( $spec['version'] ) ? (string) $spec['version'] : '1.0.0';
+		return str_starts_with( $version, '2.' );
+	}
+
+	/**
 	 * @return array<string, mixed>|null
 	 */
 	private static function load_schema(): ?array {
@@ -105,7 +118,17 @@ final class Validator {
 	 * Returns the schema as a stdClass tree so Opis can register it correctly.
 	 */
 	private static function load_schema_object(): ?\stdClass {
-		$path = STONEWRIGHT_DIR . 'schemas/stonewright.schema.json';
+		return self::load_schema_object_from( STONEWRIGHT_DIR . 'schemas/stonewright.schema.json' );
+	}
+
+	/**
+	 * DesignSpec v2 schema (optional progressive keys + native policy).
+	 */
+	private static function load_schema_object_v2(): ?\stdClass {
+		return self::load_schema_object_from( STONEWRIGHT_DIR . 'schemas/stonewright.schema.v2.json' );
+	}
+
+	private static function load_schema_object_from( string $path ): ?\stdClass {
 		if ( ! file_exists( $path ) ) {
 			return null;
 		}
@@ -118,11 +141,108 @@ final class Validator {
 	}
 
 	/**
+	 * Native policy gates for blueprint/render paths.
+	 *
+	 * When native_policy.strict is true:
+	 * - HTML / Custom HTML widgets are blocked
+	 * - custom_css requires a structured native_gap reason
+	 * - heading hierarchy soft-checks (H1→H2→H3 order) become errors
+	 *
+	 * @param array<string, mixed> $spec
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function native_policy_checks( array $spec ): array {
+		$policy = isset( $spec['native_policy'] ) && is_array( $spec['native_policy'] )
+			? $spec['native_policy']
+			: [];
+		$strict = ! empty( $policy['strict'] );
+		if ( ! $strict && empty( $policy ) ) {
+			// No policy declared — only soft-enforce nothing; keep v1 behavior.
+			return [];
+		}
+
+		$block_html     = $strict || ! array_key_exists( 'block_html_widgets', $policy ) || ! empty( $policy['block_html_widgets'] );
+		$require_gap    = $strict || ! array_key_exists( 'require_native_gap_for_custom_css', $policy ) || ! empty( $policy['require_native_gap_for_custom_css'] );
+		$heading_check  = $strict || ! empty( $policy['enforce_heading_hierarchy'] );
+		$errors         = [];
+		$blocked_types  = [ 'html', 'html-widget', 'custom-html', 'raw-html', 'html_widget' ];
+		$heading_levels = [];
+
+		foreach ( (array) ( $spec['sections'] ?? [] ) as $si => $section ) {
+			if ( ! is_array( $section ) ) {
+				continue;
+			}
+			foreach ( (array) ( $section['blocks'] ?? [] ) as $bi => $block ) {
+				if ( ! is_array( $block ) ) {
+					continue;
+				}
+				$type = strtolower( (string) ( $block['type'] ?? '' ) );
+				$path = [ 'sections', $si, 'blocks', $bi ];
+
+				if ( $block_html && in_array( $type, $blocked_types, true ) ) {
+					$errors[] = [
+						'keyword' => 'native_policy_html_widget',
+						'message' => 'Native policy blocks HTML / Custom HTML widgets in the blueprint render path. Use native heading, paragraph, button, or container blocks.',
+						'path'    => array_merge( $path, [ 'type' ] ),
+					];
+				}
+
+				$custom_css = (string) ( $block['custom_css'] ?? $block['customCSS'] ?? '' );
+				if ( $require_gap && '' !== trim( $custom_css ) ) {
+					$gap = $block['native_gap'] ?? null;
+					$reason = is_array( $gap ) ? trim( (string) ( $gap['reason'] ?? '' ) ) : '';
+					if ( '' === $reason ) {
+						$errors[] = [
+							'keyword' => 'native_policy_custom_css',
+							'message' => 'custom_css requires a structured native_gap.reason explaining why no native control covers the need.',
+							'path'    => array_merge( $path, [ 'custom_css' ] ),
+						];
+					}
+				}
+
+				if ( 'heading' === $type && isset( $block['level'] ) ) {
+					$heading_levels[] = [
+						'level' => (int) $block['level'],
+						'path'  => array_merge( $path, [ 'level' ] ),
+					];
+				}
+			}
+		}
+
+		if ( $heading_check && count( $heading_levels ) > 1 ) {
+			$prev = $heading_levels[0]['level'];
+			foreach ( array_slice( $heading_levels, 1 ) as $entry ) {
+				$level = (int) $entry['level'];
+				// Soft hierarchy: do not skip more than one level downward (e.g. H1 → H3).
+				if ( $level > $prev + 1 ) {
+					$errors[] = [
+						'keyword' => 'native_policy_heading_hierarchy',
+						'message' => sprintf(
+							'Heading hierarchy jump from h%d to h%d is not allowed under native policy. Use sequential heading levels.',
+							$prev,
+							$level
+						),
+						'path'    => $entry['path'],
+					];
+				}
+				$prev = $level;
+			}
+		}
+
+		return $errors;
+	}
+
+	/**
 	 * @param array<string, mixed> $spec
 	 * @return array<string, mixed>
 	 */
 	public static function normalize( array $spec ): array {
-		$spec['version']  = isset( $spec['version'] ) ? (string) $spec['version'] : '1.0.0';
+		$version = isset( $spec['version'] ) ? (string) $spec['version'] : '1.0.0';
+		// Accept 1.x and 2.x; unknown → 1.0.0 for backward compatibility.
+		if ( ! preg_match( '/^[12]\./', $version ) ) {
+			$version = '1.0.0';
+		}
+		$spec['version']  = $version;
 		$spec['page']     = isset( $spec['page'] ) && is_array( $spec['page'] ) ? $spec['page'] : [];
 		$spec['sections'] = isset( $spec['sections'] ) && is_array( $spec['sections'] ) ? array_values( $spec['sections'] ) : [];
 
