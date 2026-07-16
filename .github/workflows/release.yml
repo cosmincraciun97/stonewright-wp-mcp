@@ -100,9 +100,14 @@ jobs:
           if [ ! -f "$notes" ]; then
             notes="docs/releases/checklist.md"
           fi
-          release_flags=()
+          # GitHub hides prereleases from the repo "Latest release" sidebar and
+          # shows "N tags" instead. Alpha builds are still versioned as alpha.*,
+          # but published as the Latest release so install links and the Releases
+          # panel stay usable. beta/rc stay prerelease.
+          release_flags=(--latest)
           case "$version" in
-            *-alpha*|*-beta*|*-rc*) release_flags+=(--prerelease) ;;
+            *-beta*|*-rc*) release_flags=(--prerelease) ;;
+            *-alpha*) release_flags=(--latest) ;;
           esac
           gh release create "$GITHUB_REF_NAME" \
             "dist/stonewright-${version}.zip" \
