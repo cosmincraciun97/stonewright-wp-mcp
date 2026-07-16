@@ -51,6 +51,7 @@ use Stonewright\WpMcp\Abilities\ElementorV3\AddWidget;
 use Stonewright\WpMcp\Abilities\ElementorV3\ApplyBundle as ElementorV3ApplyBundle;
 use Stonewright\WpMcp\Abilities\ElementorV3\BackupPage;
 use Stonewright\WpMcp\Abilities\ElementorV3\BatchMutate;
+use Stonewright\WpMcp\Abilities\ElementorV3\TransactionRun as ElementorV3TransactionRun;
 use Stonewright\WpMcp\Abilities\ElementorV3\BuildPageFromSpec;
 use Stonewright\WpMcp\Abilities\ElementorV3\CapabilitiesSummary as ElementorV3CapabilitiesSummary;
 use Stonewright\WpMcp\Abilities\ElementorV3\ContainerSchema;
@@ -327,6 +328,7 @@ final class AbilityRegistry {
 			RemoveElement::class,
 			BuildPageFromSpec::class,
 			BatchMutate::class,
+			ElementorV3TransactionRun::class,
 			ElementorV3ApplyBundle::class,
 			UpdatePageSettings::class,
 			UpdateKitColors::class,

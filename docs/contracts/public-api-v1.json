@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-07-16T07:43:32+00:00",
+    "generated_at": "2026-07-16T07:45:44+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -2385,6 +2385,20 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            }
+        },
+        {
+            "ability_name": "stonewright/elementor-v3-transaction-run",
+            "mcp_name": "stonewright-elementor-v3-transaction-run",
+            "kind": "Write",
+            "input_schema_hash": "bdaf41eb68533403f7b826bd79ffdf066260e021125d6691bc5b590e926e4c97",
+            "output_schema_hash": "2a82ccf6afb939ef441c6dd34131cd5837e665df69d0ad74b903cb6f9086d9a2",
+            "permission_class": "Permissions::edit_post( $id )",
+            "gates": {
+                "backup": false,
+                "token": true,
+                "validator": false,
+                "audit": true
             }
         },
         {
