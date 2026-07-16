@@ -39,8 +39,8 @@ In Antigravity IDE you can also open it from the agent panel:
 
 ## 3. Add Stonewright
 
-Use the latest release tarball shown by the Stonewright Configuration page. This
-example uses `1.0.0-alpha.66`:
+Use the latest release tarball shown by the Stonewright Configuration page.
+Replace `VERSION` with the exact release version without a leading `v`:
 
 ```json
 {
@@ -50,7 +50,7 @@ example uses `1.0.0-alpha.66`:
       "args": [
         "-y",
         "--package",
-        "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz",
+        "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz",
         "stonewright-mcp"
       ],
       "env": {
@@ -88,8 +88,7 @@ The first visible Stonewright tools should include:
 ```text
 stonewright-setup-profile
 stonewright-wordpress-mcp-status
-stonewright-context-bootstrap
-stonewright-workflow-preflight
+stonewright-task-start
 stonewright-wp-cli-status
 stonewright-wp-cli-run
 stonewright-wp-cli-batch-run
@@ -103,7 +102,7 @@ Use this smoke test before asking for site changes:
 
 ```text
 Use Stonewright. First call stonewright-setup-profile, then verify
-stonewright-context-bootstrap and stonewright-workflow-preflight are visible.
+stonewright-task-start or compatibility stonewright-context-bootstrap is visible.
 If Stonewright is not connected, call stonewright-wordpress-mcp-status and stop
 with the exact missing config value. Do not inspect private client config
 files, create scratch helper scripts, create helper JSON argument files, launch
@@ -116,7 +115,7 @@ For real work:
 
 ```text
 Use Stonewright for this WordPress task. Start with
-stonewright-context-bootstrap and stonewright-workflow-preflight. Keep
+stonewright-task-start. Keep
 STONEWRIGHT_MCP_TOOL_PROFILE=low-tools unless the preflight response says a
 specialist profile is required. Use stonewright-php-execute for short runtime
 snippets, batch or composite tools before many small calls, and tokenized

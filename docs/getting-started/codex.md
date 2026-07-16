@@ -6,12 +6,13 @@ trusted project when the Stonewright connection should be project-specific.
 
 ## Add Stonewright
 
-Open `config.toml` and add:
+Open `config.toml` and add the following. Replace `VERSION` with the exact
+release version without a leading `v`:
 
 ```toml
 [mcp_servers.stonewright]
 command = "npx"
-args = ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz", "stonewright-mcp"]
+args = ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"]
 
 [mcp_servers.stonewright.env]
 STONEWRIGHT_WP_URL = "https://your-site.com"
@@ -39,8 +40,9 @@ stonewright-wordpress-mcp-status
 stonewright-task-start
 ```
 
-If `stonewright-context-bootstrap` is not visible, Codex has not loaded the
-Stonewright MCP server yet. Restart or fix the config before WordPress work.
+If neither `stonewright-task-start` nor compatibility
+`stonewright-context-bootstrap` is visible, Codex has not loaded the Stonewright
+MCP server yet. Restart or fix the config before WordPress work.
 
 ## After Releases Or Skill Syncs
 

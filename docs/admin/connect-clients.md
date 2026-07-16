@@ -37,12 +37,15 @@ HTTP Authorization header. For local development with no HTTPS, set
 
 Most clients can run the Stonewright companion with `npx`:
 
+Replace `VERSION` with the exact release version without a leading `v`, as
+shown on the GitHub Releases page.
+
 ```json
 {
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -66,9 +69,10 @@ Do not configure generic WordPress MCP adapters such as
 Stonewright companion so setup, status, compact profiles, php-execute, and
 WP-CLI tools stay visible even while the WordPress endpoint is being fixed.
 
-After restart, the AI client should show `stonewright-context-bootstrap` in the
-MCP tool list. If that tool is missing, Stonewright is not connected yet: reload
-the client or fix the MCP config before asking the agent to edit WordPress. Do
+After restart, the AI client should show `stonewright-task-start` or
+compatibility `stonewright-context-bootstrap` in the MCP tool list. If both are
+missing, Stonewright is not connected yet: reload the client or fix the MCP
+config before asking the agent to edit WordPress. Do
 not use local agent skills, repository files, private client config files,
 scratch scripts such as `query-mcp.js` or `run-ability.js`, hand-rolled
 JSON-RPC, helper JSON argument files such as `bootstrap-args.json`,
@@ -110,7 +114,7 @@ Add Stonewright as a stdio MCP server:
 ```toml
 [mcp_servers.stonewright]
 command = "npx"
-args = ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz", "stonewright-mcp"]
+args = ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"]
 
 [mcp_servers.stonewright.env]
 STONEWRIGHT_WP_URL = "https://your-site.com"
@@ -142,7 +146,7 @@ claude mcp add stonewright \
   --env STONEWRIGHT_WP_USERNAME='your-wp-username' \
   --env STONEWRIGHT_WP_APP_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx' \
   --env STONEWRIGHT_MCP_TOOL_PROFILE=essential \
-  -- npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz stonewright-mcp
+  -- npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-mcp
 ```
 
 The server is registered for the current user. Restart or reload the client
@@ -180,7 +184,7 @@ VS Code-style clients use a `servers` top-level key instead of `mcpServers`:
   "servers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -200,7 +204,7 @@ Zed uses `context_servers`:
     "stonewright": {
       "command": {
         "path": "npx",
-        "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz", "stonewright-mcp"],
+        "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"],
         "env": {
           "STONEWRIGHT_WP_URL": "https://your-site.com",
           "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -243,14 +247,15 @@ After connecting, verify Stonewright with the real MCP tools:
 
 ```text
 Use MCP tool stonewright-ping.
-Verify the tool list includes stonewright-context-bootstrap.
-Then call stonewright-context-bootstrap and stonewright-workflow-preflight before
-the first real task. Use `fast_path.tool_profile` from workflow preflight before
+Verify the tool list includes stonewright-task-start or compatibility stonewright-context-bootstrap.
+Then call stonewright-task-start before the first real task. Use
+`fast_path.tool_profile` from task-start before
 making a separate stonewright-tool-profile call.
 ```
 
-If `stonewright-context-bootstrap` is not visible, stop and restart or reload
-the AI client. A good agent should not begin by only announcing named skills,
+If both `stonewright-task-start` and compatibility
+`stonewright-context-bootstrap` are missing, stop and restart or reload the AI
+client. A good agent should not begin by only announcing named skills,
 searching repository files, inspecting private client config files, creating
 scratch helper scripts, creating helper JSON argument files, launching the
 companion through ad hoc shell scripts, creating action scripts, inspecting
@@ -268,7 +273,7 @@ plugins, operating mode, and desktop/tablet/mobile acceptance checks.
 
 ```text
 Use Stonewright to implement the attached Figma design in Elementor V3. Start
-with stonewright-context-bootstrap and stonewright-workflow-preflight, extract
+with stonewright-task-start, extract
 layout, spacing, colors, typography, and responsive behavior, create a validated
 design spec, render with stonewright-elementor-v3-build-page-from-spec, then
 use stonewright-elementor-v3-batch-mutate for polish. Verify desktop, tablet,

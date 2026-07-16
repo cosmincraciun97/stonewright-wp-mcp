@@ -61,7 +61,7 @@ Set Application Password credentials and point at the site URL. With
 `/wp-json/mcp/stonewright`:
 
 - endpoint present → plugin proxy (full Stonewright abilities)
-- HTTP 404 → Direct mode (35+ core REST tools)
+- HTTP 404 → Direct mode (98 tools in the current full surface)
 
 Force either path with `STONEWRIGHT_MODE=direct` or `STONEWRIGHT_MODE=plugin`.
 
@@ -70,7 +70,7 @@ Force either path with `STONEWRIGHT_MODE=direct` or `STONEWRIGHT_MODE=plugin`.
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "admin",
@@ -82,7 +82,11 @@ Force either path with `STONEWRIGHT_MODE=direct` or `STONEWRIGHT_MODE=plugin`.
 }
 ```
 
-First call in Direct mode: `stonewright-site-discover`. It lists REST namespaces,
+Replace `VERSION` in every package URL with the exact release version without a
+leading `v`.
+
+First call in Direct mode: `stonewright-task-start`. Then use
+`stonewright-site-discover`; it lists REST namespaces,
 post types, taxonomies, detected plugins (Elementor/Woo/ACF signals), and
 plugin-only capabilities that remain unavailable until you install Stonewright.
 
@@ -93,7 +97,8 @@ plugin-only capabilities that remain unavailable until you install Stonewright.
 | Settings, plugins, themes, users, search | yes | yes |
 | WP-CLI (local companion) | yes | yes |
 | PHP execute, Elementor engines, DesignSpec | no | yes |
-| Memory, skills store, confirmation tokens | no | yes |
+| Memory and skills store | yes (local `~/.stonewright/`) | yes (site-hosted) |
+| Production-safe confirmation tokens | no | yes |
 
 Remote destructive Direct tools require `confirm: true` by default
 (`STONEWRIGHT_DIRECT_WRITES=confirm`). Local `.local`/`.test` hosts default to
@@ -115,7 +120,7 @@ shell wrapper, global install, or manual bridge:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
@@ -158,8 +163,9 @@ For Codex CLI or the Codex IDE extension, use
 `[mcp_servers.stonewright]`, not JSON.
 
 Before the first WordPress task, verify the client tool list includes
-`stonewright-context-bootstrap`. If that tool is missing, reload or fix the MCP
-client config before continuing. Local agent skills, repository files, private
+`stonewright-task-start` or compatibility `stonewright-context-bootstrap`. If
+both tools are missing, reload or fix the MCP client config before continuing.
+Local agent skills, repository files, private
 client config files, scratch scripts such as `query-mcp.js` or
 `run-ability.js`, helper JSON argument files such as `bootstrap-args.json`,
 `cli_command.json`, or `get_structure.json`, direct companion shell launch
@@ -190,7 +196,7 @@ not switch to another PHP adapter. Use the live Stonewright MCP tools:
 For design-to-WordPress and Elementor work, start with one preflight call, then
 use composite writes before small corrective edits:
 
-1. `stonewright-workflow-preflight`
+1. `stonewright-task-start`
 2. `stonewright-theme-builder-apply-template` for Elementor Theme Builder
    templates and display conditions.
 3. `stonewright-content-model-loop-grid-flow` for admin-editable repeated
@@ -221,7 +227,7 @@ For MCP clients that use a local stdio server, configure:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -316,7 +322,7 @@ ask the user to connect Playwright instead of building blind.
 
 ```text
 Use Stonewright to implement the attached Figma design in Elementor V3. Start
-with stonewright-context-bootstrap and stonewright-workflow-preflight, extract
+with stonewright-task-start, extract
 layout, spacing, colors, typography, and responsive behavior, render with
 stonewright-elementor-v3-build-page-from-spec, then use
 stonewright-elementor-v3-batch-mutate for polish. Verify desktop, tablet, and

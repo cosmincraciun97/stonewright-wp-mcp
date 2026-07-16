@@ -242,7 +242,7 @@
 
 | Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `stonewright/context-bootstrap` | `stonewright-context-bootstrap` | `System\ContextBootstrap` | MUST be called at the start of every Stonewright task. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/context-bootstrap` | `stonewright-context-bootstrap` | `System\ContextBootstrap` | Compatibility full-context bootstrap. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/task-start` | `stonewright-task-start` | `System\TaskStart` | Canonical one-call task start: issues the context token and returns compact skills, memory, expertise, capability gates, and the exact next tool path. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/system-instructions-get` | `stonewright-system-instructions-get` | `System\InstructionsGet` | Returns the current Stonewright custom instructions (system prompt prefix). | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/system-instructions-set` | `stonewright-system-instructions-set` | `System\InstructionsSet` | Replaces the Stonewright custom instructions. | Write | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |

@@ -76,7 +76,7 @@ Fast path for MCP clients:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.69/stonewright-companion-1.0.0-alpha.69.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
@@ -88,21 +88,24 @@ Fast path for MCP clients:
 }
 ```
 
+Replace `VERSION` with the exact release version without a leading `v`.
+
 After the MCP server starts, call `stonewright-setup-profile` once. It returns
 the same config shape plus platform checks, credential status, and notes for
 Windows, macOS, and Linux. Use its `first_calls` and
-`tool_visibility_checks` fields to verify `stonewright-context-bootstrap`,
-`stonewright-workflow-preflight`, `stonewright-skills-get`,
+`tool_visibility_checks` fields to verify `stonewright-task-start`,
+`stonewright-skills-get`,
 `stonewright-wordpress-mcp-status`, and direct WP-CLI aliases are visible before
-real work. Use `fast_path.tool_profile` from workflow preflight before making a
+real work. Use `fast_path.tool_profile` from task-start before making a
 separate `stonewright-tool-profile` call.
 After every Stonewright release or local skill sync, restart the MCP client and
 rerun `stonewright-setup-profile` plus `stonewright-wordpress-mcp-status`.
 Check `companion_version`, `expected_companion_package`, and
 `refresh_required_tool_names`; if any required tool is missing from the client
 tool list, the client is still running an old companion or stale MCP cache.
-If `stonewright-context-bootstrap` is not visible, stop WordPress work and
-reload or fix the MCP client config. Do not inspect private AI-client config
+If neither `stonewright-task-start` nor compatibility
+`stonewright-context-bootstrap` is visible, stop WordPress work and reload or
+fix the MCP client config. Do not inspect private AI-client config
 files, create scratch scripts such as `query-mcp.js` or `run-ability.js`,
 create helper JSON argument files such as `bootstrap-args.json`,
 `cli_command.json`, or `get_structure.json`, launch the companion through ad hoc

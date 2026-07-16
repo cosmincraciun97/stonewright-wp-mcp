@@ -12,6 +12,7 @@ Run from `plugin/` unless noted.
 - [ ] `composer security:audit` - exits 0.
 - [ ] `composer dependencies:audit` - exits 0 and reports any abandoned compatibility packages.
 - [ ] `composer docs:matrix` - regenerates the ability matrix cleanly.
+- [ ] `cd .. && node scripts/check-docs-freshness.mjs` - versions, release notes, install prompts, and Markdown links are current.
 - [ ] `cd ../companion && npm run typecheck` - zero TypeScript errors.
 - [ ] `cd ../companion && npm test` - all Vitest tests pass.
 - [ ] `cd ../companion && npm run build` - build succeeds.
@@ -39,7 +40,7 @@ Run from `plugin/` unless noted.
 ### 2. MCP Ping And Context
 
 - [ ] Call `stonewright-ping`.
-- [ ] Call `stonewright-context-bootstrap` with a real task summary.
+- [ ] Call `stonewright-task-start` with a real task summary.
 - [ ] Confirm the response includes active instructions, enabled skills, memory entries, and `stonewright_context_token`.
 
 ### 3. Ability List
@@ -86,8 +87,8 @@ Run from `plugin/` unless noted.
 
 - [ ] Save a manual instruction, skill, or memory entry.
 - [ ] Start a new MCP session.
-- [ ] Call `stonewright-context-bootstrap`.
-- [ ] Confirm the manual instruction, skill, or memory entry is present in the bootstrap response.
+- [ ] Call `stonewright-task-start`.
+- [ ] Confirm the manual instruction, skill, or memory entry is present in the task-start response.
 
 ## Rollback
 

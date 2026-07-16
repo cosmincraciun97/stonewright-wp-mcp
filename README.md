@@ -151,7 +151,9 @@ Use the latest release companion package URL from [Releases](https://github.com/
 }
 ```
 
-Replace `VERSION` with the release tag without a leading `v` in the filename (for example `1.0.0-alpha.70`). Site MCP endpoint when using the WordPress MCP adapter directly:
+Replace `VERSION` with the exact release version without the leading `v`, as
+shown on the GitHub Releases page. Site MCP endpoint when using the WordPress
+MCP adapter directly:
 
 ```text
 https://your-site.example.com/wp-json/mcp/stonewright

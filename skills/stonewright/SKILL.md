@@ -13,9 +13,10 @@ It routes the agent to the right specialized skill and MCP tools.
 
 ## First Calls
 
-1. Call `stonewright-context-bootstrap` with the task, surface, and intent.
-2. Call `stonewright-workflow-preflight` when planning implementation work.
-3. Use `fast_path.tool_profile` from workflow preflight before making a separate
+1. Call `stonewright-task-start` with the task, surface, and intent.
+2. Use `stonewright-context-bootstrap` or `stonewright-workflow-preflight` only
+   as compatibility paths when task-start is unavailable.
+3. Use `fast_path.tool_profile` from task-start before making a separate
    `stonewright-tool-profile` call. Call `stonewright-tool-profile` only when
    switching or verifying a compact profile.
 4. Read `expertise_packs`; load only the matching section with

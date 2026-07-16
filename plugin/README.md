@@ -1,6 +1,6 @@
 # Stonewright Plugin
 
-Version: 1.0.0-alpha.69
+Version: 1.0.0-alpha.72
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
 License: AGPL-3.0-or-later
@@ -85,12 +85,15 @@ and `companion_wp_cli_run`, or the direct `stonewright-wp-cli-*` aliases.
 ### Persistent Skills And Memory
 
 The plugin stores site skills and memory in WordPress tables. Agents must call
-MCP tool `stonewright-context-bootstrap` at the start of every task and follow returned
-skills, memory, custom instructions, and required followups.
+MCP tool `stonewright-task-start` at the start of every task and follow the
+returned skills, memory, custom instructions, capability gates, and next tool
+path. `stonewright-context-bootstrap` and `stonewright-workflow-preflight`
+remain compatibility paths.
 
-If `stonewright-context-bootstrap` is not visible in the MCP tool list, the
-client did not load Stonewright yet. Restart or reload the AI client and fix the
-MCP config before WordPress work. Local agent skills, repository files, private
+If neither `stonewright-task-start` nor compatibility
+`stonewright-context-bootstrap` is visible in the MCP tool list, the client did
+not load Stonewright yet. Restart or reload the AI client and fix the MCP config
+before WordPress work. Local agent skills, repository files, private
 client config files, scratch scripts such as `query-mcp.js` or
 `run-ability.js`, helper JSON argument files such as `bootstrap-args.json`,
 `cli_command.json`, or `get_structure.json`, direct companion shell launch
@@ -171,9 +174,9 @@ Authentication uses WordPress Application Passwords.
 
 MCP tool names are hyphenated by the WordPress MCP Adapter. Example:
 `stonewright/context-bootstrap` is called as `stonewright-context-bootstrap`.
-For a fast first pass, call `stonewright-workflow-preflight`; it returns a
-context token, auth guidance, mode, compact capability summary,
-task-aware `recommended_mcp_tools`, and a `call_sequence` with example args.
+For the canonical compact first pass, call `stonewright-task-start`; it returns
+a context token, auth guidance, mode, compact capability summary, task-aware
+`recommended_mcp_tools`, and a `call_sequence` with example args.
 
 Admins using authenticated REST directly can call:
 
@@ -182,4 +185,5 @@ POST /wp-json/stonewright/v1/abilities/run
 ```
 
 with a JSON body containing `name` and `input`. Write abilities still require
-the `stonewright_context_token` returned by `stonewright/context-bootstrap`.
+the `stonewright_context_token` returned by `stonewright/task-start` or the
+compatibility `stonewright/context-bootstrap` path.

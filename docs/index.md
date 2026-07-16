@@ -13,6 +13,7 @@ workflows with operator controls.
 - [Stonewright onboarding](onboarding.md)
 - [Installation for Windows and macOS](installation.md)
 - [AI client install prompts (plugin + Direct)](install-prompts.md)
+- [Documentation maintenance and release freshness](documentation-maintenance.md)
 - [All abilities by category](abilities.md)
 - [Design Spec reference](design-spec.md)
 - [Security model](security.md)

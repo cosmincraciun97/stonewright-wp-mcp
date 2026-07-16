@@ -11,7 +11,7 @@ shipping classes.
 
 ## First Call
 
-Call MCP tool `stonewright-workflow-preflight` with surface `woocommerce` and the task
+Call MCP tool `stonewright-task-start` with surface `woocommerce` and the task
 intent. Read the returned `woocommerce` specialization.
 
 Then call:
@@ -39,8 +39,8 @@ Before writing:
 
 ## Write Pattern
 
-1. Call `stonewright-context-bootstrap`; pass `stonewright_context_token` to
-   write tools.
+1. Keep the `stonewright_context_token` returned by `stonewright-task-start`
+   and pass it to write tools.
 2. Create or update global attributes and terms first.
 3. Create or update product categories/tags/shipping classes next.
 4. Create variable parent product with variation attributes.

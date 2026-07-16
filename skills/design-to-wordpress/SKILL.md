@@ -11,9 +11,9 @@ Use this for building a live WordPress page from a design reference, image, or
 manual Design Spec. Stonewright does not ingest external design-tool files; use
 a separate design MCP when a design file must be inspected.
 
-## Required bootstrap
+## Required task start
 
-1. Call MCP tool `stonewright-context-bootstrap` with the user request, surface, and intent.
+1. Call MCP tool `stonewright-task-start` with the user request, surface, and intent.
 2. Read all returned skill playbooks, memory entries, `visual_quality_contract`,
    `visual_build_gate`, and followups.
 3. For visual work, verify an external Playwright/browser MCP tool is visible

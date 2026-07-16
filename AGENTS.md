@@ -116,6 +116,30 @@ npm run build
   `docs/upstream-code-reuse.md` and SPDX file headers, which must never be
   removed.
 
+## Documentation freshness
+
+- Documentation changes ship in the same PR as the behavior they describe.
+  A release/version bump or major feature change must review and update, when
+  affected: root/plugin/companion READMEs, both changelogs, release notes,
+  `docs/install-prompts.md`, installation/client guides, architecture,
+  capability counts, examples, skills, and the roadmap.
+- Evergreen install docs use the `VERSION` placeholder for release asset URLs.
+  Exact version numbers belong only in package/plugin metadata, changelogs,
+  versioned release notes, migration records, and clearly dated historical
+  reports.
+- `stonewright-task-start` is the canonical first call. Describe
+  `stonewright-context-bootstrap` and `stonewright-workflow-preflight` only as
+  compatibility paths unless the document is explicitly about those tools.
+- Do not edit generated/imported Markdown by hand. Regenerate
+  `docs/ability-truth-matrix.md` with `composer docs:matrix`; refresh
+  `docs/knowledge/` through its importer and preserve source metadata.
+- Before closing documentation or release work, run
+  `node scripts/check-docs-freshness.mjs` and `git diff --check`. A release is
+  blocked while either command fails.
+- Every PR must state which public docs changed. If none changed, state why the
+  behavior, setup, capability surface, security contract, and release workflow
+  remain accurately documented.
+
 ## MCP workflow
 
 - Use the `Stonewright\WpMcp` PHP namespace.
@@ -125,7 +149,8 @@ npm run build
   `stonewright-workflow-preflight` remain compatibility paths.
   Slash names like `stonewright/context-bootstrap` are WordPress ability names;
   MCP tool names use hyphens.
-- If `stonewright-context-bootstrap` is not visible in the MCP tool list, stop
+- If neither `stonewright-task-start` nor compatibility
+  `stonewright-context-bootstrap` is visible in the MCP tool list, stop
   WordPress work and ask the user to reload the AI client or fix the
   Stonewright MCP config. Do not work around a missing Stonewright MCP server.
 - Do not inspect private AI-client config files, parse repository files as a

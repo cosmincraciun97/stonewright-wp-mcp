@@ -1,6 +1,13 @@
 # Changelog
 
-## 1.0.0-alpha.72
+## [Unreleased]
+
+### Changed
+
+- Marked `stonewright/task-start` as the canonical first call and retained
+  `stonewright/context-bootstrap` as the full-context compatibility path.
+
+## [1.0.0-alpha.72] - 2026-07-16
 
 ### Added
 - Actionable audit error codes/messages and RemediationHints at task-start.
@@ -11,7 +18,7 @@
 - README Elementor-first with full capability tables.
 
 
-## 1.0.0-alpha.71
+## [1.0.0-alpha.71] - 2026-07-16
 
 ### Added
 - Pluginless Direct self-improvement (local skills/memory + task-start).
@@ -23,8 +30,6 @@
 - wp-admin paste prompt starts with task-start.
 - REST parity security review items (audit redaction, search visibility, rest-request read-only).
 
-
-## [Unreleased]
 
 ## [1.0.0-alpha.70] - 2026-07-16
 
@@ -52,46 +57,6 @@
 - Audit payload overflow inside fixed table layout.
 - Mode pill contrast on light theme (header chrome always light-on-dark).
 - Blueprint Copy AI Prompt now pastes a full multi-line tool playbook.
-
-## [1.0.0-alpha.67] - 2026-07-14
-
-### Added
-
-- Added the canonical `stonewright/task-start` gateway, truthful token-budget
-  enforcement, provenance linting, and PHP 8.1-8.5 CI coverage.
-- Added architecture-aware Elementor task routing and explicit target selection
-  for empty documents on Elementor 4 runtimes.
-
-### Changed
-
-- Bundled expertise without exact live runtime evidence now stays candidate;
-  promotion requires fixture, schema, editor, frontend, and readback proof.
-- Real compact task start now measures 634 non-visual and 837 visual tokens,
-  including architecture routing.
-- Visual DesignEvidence now requires verifiable source hashes, measured node
-  bounds, and responsive viewport evidence.
-
-### Fixed
-
-- Restored draft skill reactivation from the admin and skills API.
-- Preserved inactive Elementor controls during full-tree validation while
-  keeping newly supplied settings strict.
-- Rejected missing or duplicate Elementor node IDs before writes and kept
-  revision backups on the revision instead of redirecting them to its parent.
-- Rejected Atomic widgets in V3 trees, corrupted Romanian Unicode remnants,
-  placeholder copy, and permissive non-equal write readback.
-- Added actionable batch failures and readback rollback to V3 page builds.
-- Preserved schema-validated native `flex_wrap` and `_flex_*` container
-  controls and rejected normalized no-op updates instead of reporting silently
-  discarded layout settings as applied.
-- Inferred native responsive container controls when Elementor omits that flag
-  from its live schema, preserving explicit mobile/tablet layout overrides.
-
-### Security
-
-- Blocked raw Elementor document mutation through `php-execute`; typed write
-  abilities remain the only supported mutation path.
-
 
 ## Older releases
 

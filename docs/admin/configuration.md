@@ -122,7 +122,7 @@ install:
   "mcpServers": {
     "stonewright": {
       "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.66/stonewright-companion-1.0.0-alpha.66.tgz", "stonewright-mcp"],
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"],
       "env": {
         "STONEWRIGHT_WP_URL": "https://example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
@@ -148,8 +148,9 @@ different top-level key or format, such as Codex `config.toml`, VS Code's
 
 The setup note is a short prompt for the current AI client. It includes the
 site URL, MCP endpoint, username, generated Application Password when present,
-the `npx` transport, and the required first Stonewright calls:
-`stonewright-context-bootstrap` and `stonewright-workflow-preflight`.
+the `npx` transport, and the canonical first Stonewright call:
+`stonewright-task-start`. Replace `VERSION` with the exact release version
+without a leading `v`.
 
 The note also tells agents that `npx` downloads and runs the versioned GitHub
 release tarball, and that Playwright MCP should be added for browser testing,
@@ -161,7 +162,8 @@ After releases or skill syncs, it tells agents to rerun
 `stonewright-setup-profile` and `stonewright-wordpress-mcp-status`, then compare
 `companion_version`, `expected_companion_package`, and
 `refresh_required_tool_names` against the visible tool list.
-It also tells agents to stop if `stonewright-context-bootstrap` is missing,
+It also tells agents to stop if both `stonewright-task-start` and compatibility
+`stonewright-context-bootstrap` are missing,
 rather than inspecting private client config files, creating scratch helper
 scripts, creating helper JSON argument files, launching the companion through
 ad hoc shell scripts, creating action scripts, inspecting plugin/companion

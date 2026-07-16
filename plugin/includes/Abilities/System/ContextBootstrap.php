@@ -8,8 +8,8 @@ use Stonewright\WpMcp\Context\ContextBuilder;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
- * Mandatory task bootstrap: returns instructions, matched skills, memory, and
- * a short-lived context token required by write abilities.
+ * Compatibility bootstrap: returns full instructions, matched skills, memory,
+ * and a short-lived context token required by write abilities.
  *
  * @stonewright-status stable
  */
@@ -24,7 +24,7 @@ final class ContextBootstrap extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'MUST be called at the start of every Stonewright task. Returns current instructions, matched skill playbooks, relevant persistent memory, required follow-up actions, and a context token for write abilities.', 'stonewright' );
+		return __( 'Compatibility full-context bootstrap. Use stonewright/task-start as the canonical first call. Returns current instructions, matched skill playbooks, relevant persistent memory, required follow-up actions, and a context token for write abilities.', 'stonewright' );
 	}
 
 	public function category(): string {

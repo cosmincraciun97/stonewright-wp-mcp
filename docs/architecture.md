@@ -40,8 +40,9 @@ points are blocked.
 
 ## Agent Context
 
-Agents must call MCP tool `stonewright-context-bootstrap` at the beginning of
-every Stonewright task. The response includes:
+Agents must call MCP tool `stonewright-task-start` at the beginning of every
+Stonewright task. It issues the same write context token while returning a
+compact, task-aware response that includes:
 
 - current instructions
 - matched skill playbooks
@@ -52,11 +53,13 @@ every Stonewright task. The response includes:
 - a short-lived context token for write abilities
 
 Manual edits to skills, memory, or custom instructions persist in WordPress and
-are included in future context bootstrap responses.
+are included in future task-start responses. `stonewright-context-bootstrap`
+and `stonewright-workflow-preflight` remain compatibility paths.
 
-If `stonewright-context-bootstrap` is not visible in the MCP tool list, the
-client has not loaded Stonewright. Agents must stop WordPress work and ask for a
-client reload or config fix instead of inspecting private client config files,
+If neither `stonewright-task-start` nor compatibility
+`stonewright-context-bootstrap` is visible in the MCP tool list, the client has
+not loaded Stonewright. Agents must stop WordPress work and ask for a client
+reload or config fix instead of inspecting private client config files,
 creating scratch helper scripts, creating helper JSON argument files, launching
 the companion through ad hoc shell scripts, creating action scripts, inspecting
 plugin/companion source to reverse-engineer tool schemas, hand-rolling
@@ -67,4 +70,3 @@ commands.
 ## Direct + plugin REST parity surfaces
 
 Plugin abilities and Direct tools cover comments, users (including application passwords), widgets, allowlisted settings, themes, plugin lifecycle, revisions (with restore on the plugin), site health tests, search/oEmbed, and WooCommerce product/order/sales reads.
-
