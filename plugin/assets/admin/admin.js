@@ -703,6 +703,70 @@
 		} );
 	}
 
+	function initApplyMcpSurface() {
+		var button = document.querySelector( '[data-sw-apply-mcp-surface]' );
+		var select = document.getElementById( 'stonewright_mcp_surface' );
+		var status = document.querySelector( '[data-sw-mcp-surface-status]' );
+		if ( ! button || ! select ) {
+			return;
+		}
+
+		button.addEventListener( 'click', function ( event ) {
+			event.preventDefault();
+			if ( ! window.stonewrightSetup || ! window.stonewrightSetup.ajaxUrl ) {
+				if ( status ) {
+					status.textContent = 'Setup AJAX is not available. Use Save settings instead.';
+				}
+				return;
+			}
+
+			var surface = select.value || 'bootstrap';
+			button.disabled = true;
+			var body = new window.URLSearchParams();
+			body.set( 'action', 'stonewright_apply_mcp_surface' );
+			body.set( 'nonce', window.stonewrightSetup.nonce || '' );
+			body.set( 'surface', surface );
+
+			window.fetch( window.stonewrightSetup.ajaxUrl, {
+				method: 'POST',
+				credentials: 'same-origin',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+				body: body.toString(),
+			} ).then( function ( response ) {
+				return response.json().then( function ( data ) {
+					return { ok: response.ok, data: data };
+				} );
+			} ).then( function ( result ) {
+				var payload = result.data && result.data.data ? result.data.data : ( result.data || {} );
+				var success = !!( result.data && result.data.success );
+				if ( success ) {
+					var msg = payload.message || 'MCP surface applied.';
+					var truth = payload.transport_truth || '';
+					if ( status ) {
+						status.textContent = truth ? ( msg + ' ' + truth ) : msg;
+					}
+					setButtonFeedback( button, 'Applied' );
+					if ( payload.surface && select.value !== payload.surface ) {
+						select.value = payload.surface;
+					}
+				} else {
+					var err = ( payload && payload.message ) ? payload.message : 'Could not apply MCP surface.';
+					if ( status ) {
+						status.textContent = err;
+					}
+					setButtonFeedback( button, 'Failed' );
+				}
+			} ).catch( function () {
+				if ( status ) {
+					status.textContent = 'Network error applying MCP surface.';
+				}
+				setButtonFeedback( button, 'Failed' );
+			} ).finally( function () {
+				button.disabled = false;
+			} );
+		} );
+	}
+
 	document.addEventListener( 'DOMContentLoaded', function () {
 		initDeleteConfirm();
 		initAutoDismissNotices();
@@ -718,6 +782,7 @@
 		initDeclarativeToggles();
 		initSkillEditorControls();
 		initPromptLibrary();
+		initApplyMcpSurface();
 	} );
 
 	function initPromptLibrary() {

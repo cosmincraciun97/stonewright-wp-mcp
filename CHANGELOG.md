@@ -10,11 +10,15 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Added
 
 - Repository documentation freshness gate in CI and release packaging.
+- FSE blueprint engine path with constrained layout + FSE transaction apply.
+- Brand-kit preview/diff mode and option/theme_mod restore points.
+- Setup “Apply now” for MCP tool surface; extra admin e2e coverage.
 
 ### Changed
 
 - Synchronized evergreen install/client guides, prompts, capability counts,
   changelog retention, and skills with the canonical task-start workflow.
+- Elementor blueprint writes use transactional snapshot + readback rollback.
 
 ## [1.0.0-alpha.72] - 2026-07-16
 

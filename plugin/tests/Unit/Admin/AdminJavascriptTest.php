@@ -72,4 +72,13 @@ final class AdminJavascriptTest extends TestCase {
 		self::assertStringNotContainsString( 'initClientTabs', $script );
 		self::assertStringNotContainsString( 'data-stonewright-client-tab', $script );
 	}
+
+	public function test_apply_mcp_surface_button_is_wired(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
+
+		self::assertStringContainsString( 'initApplyMcpSurface', $script );
+		self::assertStringContainsString( 'data-sw-apply-mcp-surface', $script );
+		self::assertStringContainsString( 'stonewright_apply_mcp_surface', $script );
+		self::assertStringContainsString( 'transport_truth', $script );
+	}
 }

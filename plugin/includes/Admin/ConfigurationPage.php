@@ -27,6 +27,32 @@ final class ConfigurationPage {
 			[ self::class, 'handle_revoke_application_password' ]
 		);
 		add_action( 'wp_ajax_stonewright_set_setup_client', [ self::class, 'handle_set_setup_client' ] );
+		add_action( 'wp_ajax_stonewright_apply_mcp_surface', [ self::class, 'handle_apply_mcp_surface' ] );
+	}
+
+	/**
+	 * Apply MCP surface immediately without a full settings form save.
+	 */
+	public static function handle_apply_mcp_surface(): void {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_send_json_error( [ 'message' => 'forbidden' ], 403 );
+		}
+
+		check_ajax_referer( 'stonewright_setup_client', 'nonce' );
+
+		$surface = isset( $_POST['surface'] ) ? sanitize_key( (string) wp_unslash( $_POST['surface'] ) ) : '';
+		if ( ! in_array( $surface, [ 'bootstrap', 'essential', 'full' ], true ) ) {
+			wp_send_json_error( [ 'message' => 'invalid_surface' ], 400 );
+		}
+
+		$saved = \Stonewright\WpMcp\Core\AbilityRegistry::set_mcp_surface( $surface );
+		wp_send_json_success(
+			[
+				'surface'  => $saved,
+				'message'  => __( 'MCP surface applied.', 'stonewright' ),
+				'transport_truth' => __( 'HTTP clients pick this up on their next tools/list. Stdio companion sessions refresh automatically (companion ≥ this release) or need a client restart on older companions.', 'stonewright' ),
+			]
+		);
 	}
 
 	/**
@@ -325,25 +351,36 @@ final class ConfigurationPage {
 						<div class="stonewright-risk-notice <?php echo esc_attr( $risk_class ); ?>">
 							<?php esc_html_e( 'Production-safe mode requires confirmation tokens for destructive operations.', 'stonewright' ); ?>
 						</div>
-						<div class="sw-field">
+						<div class="sw-field" data-sw-mcp-surface-field>
 							<label for="stonewright_mcp_surface"><?php esc_html_e( 'MCP tool surface', 'stonewright' ); ?></label>
-							<select
-								name="stonewright_mcp_surface"
-								id="stonewright_mcp_surface"
-								data-sw-tooltip="<?php echo esc_attr( __( 'HTTP clients pick up this surface on their next tools/list. Stdio companion sessions refresh when tool-profile activates a broader profile (companion ≥ this release) or after a client restart on older companions.', 'stonewright' ) ); ?>"
-							>
-								<option value="bootstrap" <?php selected( $mcp_surface, 'bootstrap' ); ?>>
-									<?php esc_html_e( 'Bootstrap (≤8 tools — progressive discovery)', 'stonewright' ); ?>
-								</option>
-								<option value="essential" <?php selected( $mcp_surface, 'essential' ); ?>>
-									<?php esc_html_e( 'Essential (compact fast path)', 'stonewright' ); ?>
-								</option>
-								<option value="full" <?php selected( $mcp_surface, 'full' ); ?>>
-									<?php esc_html_e( 'Full (slow / high-context — all registered tools)', 'stonewright' ); ?>
-								</option>
-							</select>
-							<p class="description">
-								<?php esc_html_e( 'Bootstrap is the recommended default for new clients. Full mode loads the entire ability surface and is slow and high-context — use only for specialist sessions. Click Save settings to apply. HTTP clients refresh on next tools/list; stdio clients may need a restart on older companions.', 'stonewright' ); ?>
+							<div class="sw-field-inline" style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
+								<select
+									name="stonewright_mcp_surface"
+									id="stonewright_mcp_surface"
+									data-sw-tooltip="<?php echo esc_attr( __( 'HTTP clients pick this up on their next tools/list. Stdio companion sessions refresh automatically (companion ≥ this release) or need a client restart on older companions.', 'stonewright' ) ); ?>"
+								>
+									<option value="bootstrap" <?php selected( $mcp_surface, 'bootstrap' ); ?>>
+										<?php esc_html_e( 'Bootstrap (≤8 tools — progressive discovery)', 'stonewright' ); ?>
+									</option>
+									<option value="essential" <?php selected( $mcp_surface, 'essential' ); ?>>
+										<?php esc_html_e( 'Essential (compact fast path)', 'stonewright' ); ?>
+									</option>
+									<option value="full" <?php selected( $mcp_surface, 'full' ); ?>>
+										<?php esc_html_e( 'Full (slow / high-context — all registered tools)', 'stonewright' ); ?>
+									</option>
+								</select>
+								<button
+									type="button"
+									class="sw-btn sw-btn--secondary sw-btn--sm"
+									id="stonewright-apply-mcp-surface"
+									data-sw-apply-mcp-surface
+									data-sw-tooltip="<?php echo esc_attr( __( 'Saves the MCP surface immediately. HTTP clients pick this up on their next tools/list; stdio companion sessions refresh automatically (companion ≥ this release) or need a client restart on older companions.', 'stonewright' ) ); ?>"
+								>
+									<?php esc_html_e( 'Apply now', 'stonewright' ); ?>
+								</button>
+							</div>
+							<p class="description" id="stonewright-mcp-surface-status" data-sw-mcp-surface-status role="status" aria-live="polite">
+								<?php esc_html_e( 'Bootstrap is the recommended default for new clients. Full mode loads the entire ability surface and is slow and high-context — use only for specialist sessions. Use Apply now to save the surface without a full form submit, or Save settings for all fields.', 'stonewright' ); ?>
 							</p>
 						</div>
 						<div class="sw-field">

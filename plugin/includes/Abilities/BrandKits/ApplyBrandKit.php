@@ -29,7 +29,7 @@ final class ApplyBrandKit extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Applies a bundled brand kit to site options and theme mods, and merges custom colors/typography into the Elementor active kit when available (snapshot first). Does not fully replace Elementor system colors or global classes.', 'stonewright' );
+		return __( 'Applies a bundled brand kit to site options and theme mods, and merges custom colors/typography into the Elementor active kit when available (snapshot first). Pass preview=true for a before/after diff without writing. Always returns restore_id for option/theme_mod undo. Does not fully replace Elementor system colors or global classes.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -43,6 +43,11 @@ final class ApplyBrandKit extends AbilityKernel {
 			'properties'           => [
 				'brand_kit_id'       => [ 'type' => 'string' ],
 				'id'                 => [ 'type' => 'string', 'description' => 'Alias for brand_kit_id.' ],
+				'preview'            => [
+					'type'        => 'boolean',
+					'description' => 'When true, return a structured before/after diff without writing.',
+					'default'     => false,
+				],
 				'confirmation_token' => [ 'type' => 'string' ],
 			],
 		];
@@ -53,14 +58,17 @@ final class ApplyBrandKit extends AbilityKernel {
 			'type'       => 'object',
 			'properties' => [
 				'ok'           => [ 'type' => 'boolean' ],
+				'preview'      => [ 'type' => 'boolean' ],
 				'brand_kit_id' => [ 'type' => 'string' ],
 				'name'         => [ 'type' => 'string' ],
+				'restore_id'   => [ 'type' => 'string' ],
+				'diff'         => [ 'type' => 'object' ],
 				'theme_mods'   => [ 'type' => 'array' ],
 				'elementor'    => [ 'type' => 'object' ],
 				'scope'        => [ 'type' => 'object' ],
 			],
 			'additionalProperties' => true,
-			'required'   => [ 'ok', 'brand_kit_id' ],
+			'required'   => [ 'ok', 'brand_kit_id', 'restore_id' ],
 		];
 	}
 
@@ -72,18 +80,23 @@ final class ApplyBrandKit extends AbilityKernel {
 		return $this->audit(
 			$args,
 			function ( array $args ) {
-				$verify_args = array_filter(
-					$args,
-					static fn( string $key ): bool => 'confirmation_token' !== $key,
-					ARRAY_FILTER_USE_KEY
-				);
-				$token_error = $this->confirmation_token_error( $args, $verify_args );
-				if ( null !== $token_error ) {
-					return $token_error;
+				$preview = ! empty( $args['preview'] );
+
+				// Preview is read-only — skip production-safe confirmation tokens.
+				if ( ! $preview ) {
+					$verify_args = array_filter(
+						$args,
+						static fn( string $key ): bool => 'confirmation_token' !== $key,
+						ARRAY_FILTER_USE_KEY
+					);
+					$token_error = $this->confirmation_token_error( $args, $verify_args );
+					if ( null !== $token_error ) {
+						return $token_error;
+					}
 				}
 
 				$id = (string) ( $args['brand_kit_id'] ?? $args['id'] ?? '' );
-				return BrandKit::apply( $id );
+				return BrandKit::apply( $id, $preview );
 			}
 		);
 	}

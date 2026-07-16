@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-07-16T08:54:50+00:00",
+    "generated_at": "2026-07-16T09:03:31+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -235,8 +235,8 @@
             "ability_name": "stonewright/brand-kit-apply",
             "mcp_name": "stonewright-brand-kit-apply",
             "kind": "Write",
-            "input_schema_hash": "d2ba5a98a4fb2d79228766ad271a9087f440f5689afad47c232d44bbe5b30380",
-            "output_schema_hash": "b8f3c1afe412a4b75b02dbd5d3febc671196a7f7f181ad58c1b568e2a409ff7a",
+            "input_schema_hash": "51ac1fe58f573c0fad3bf679cd6d3a268a3782c219bfdeb9deab5b81f4db92be",
+            "output_schema_hash": "f217c8feab78b08d2fdab7b72cc13a80e1b31ec0678ea98c8dd2aae83a986cfb",
             "permission_class": "Permissions::edit_theme_options()",
             "gates": {
                 "backup": false,

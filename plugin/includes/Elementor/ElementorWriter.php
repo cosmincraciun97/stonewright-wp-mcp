@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Elementor;
 use Stonewright\WpMcp\DesignSpec\Validator;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\Backup;
+use Stonewright\WpMcp\Support\ElementorData;
 
 /**
  * Orchestrates the full DesignSpec → Elementor V3 write pipeline:
@@ -14,8 +15,9 @@ use Stonewright\WpMcp\Security\Backup;
  * 2. Validator::validate()   — rejects invalid specs.
  * 3. Renderer::render()      — converts spec to Elementor element array.
  * 4. Writes _elementor_data, _elementor_edit_mode, _elementor_version.
- * 5. Clears Elementor file cache.
- * 6. Writes audit log entry.
+ * 5. Structural readback; rollback on empty/invalid tree when transactional.
+ * 6. Clears Elementor file cache.
+ * 7. Writes audit log entry.
  */
 final class ElementorWriter {
 
@@ -31,6 +33,25 @@ final class ElementorWriter {
 	 * @return bool|\WP_Error  True on success; WP_Error on backup failure, validation failure, or encode failure.
 	 */
 	public static function write( int $post_id, array $spec, array &$diagnostics = [] ): bool|\WP_Error {
+		$result = self::write_transactional( $post_id, $spec, $diagnostics, true );
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+		return true;
+	}
+
+	/**
+	 * Full-tree Elementor write with snapshot + readback + optional rollback.
+	 *
+	 * Blueprints use this path (full DesignSpec render) rather than BatchMutate
+	 * operations; the safety contract matches ElementorTransactionRunner.
+	 *
+	 * @param int                              $post_id
+	 * @param array<string, mixed>             $spec
+	 * @param array<int, array<string, mixed>> $diagnostics
+	 * @return array{ok: bool, snapshot_id: string, element_count: int, rolled_back: bool}|\WP_Error
+	 */
+	public static function write_transactional( int $post_id, array $spec, array &$diagnostics = [], bool $rollback_on_error = true ) {
 		// Step 1: snapshot before any mutation.
 		$snapshot_id = Backup::snapshot_post( $post_id );
 		if ( '' === $snapshot_id ) {
@@ -48,6 +69,13 @@ final class ElementorWriter {
 
 		// Step 3: render.
 		$element_array = Renderer::render( $validated, $diagnostics );
+		if ( ! is_array( $element_array ) || [] === $element_array ) {
+			return new \WP_Error(
+				'stonewright_elementor_render_empty',
+				__( 'Elementor renderer produced an empty tree for this DesignSpec.', 'stonewright' ),
+				[ 'status' => 500, 'snapshot_id' => $snapshot_id ]
+			);
+		}
 
 		// Step 4: encode and persist.
 		$json = wp_json_encode( $element_array, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
@@ -66,7 +94,27 @@ final class ElementorWriter {
 		$elementor_version = defined( 'ELEMENTOR_VERSION' ) ? (string) constant( 'ELEMENTOR_VERSION' ) : '3.0.0';
 		update_post_meta( $post_id, '_elementor_version', $elementor_version );
 
-		// Step 5b: clear Elementor file cache.
+		// Step 5b: structural readback (transaction contract).
+		$read_tree = ElementorData::read( $post_id );
+		$flat      = ElementorData::flatten( $read_tree );
+		if ( [] === $read_tree || [] === $flat ) {
+			$restored = false;
+			if ( $rollback_on_error ) {
+				$restored = Backup::restore( $post_id, $snapshot_id );
+			}
+			return new \WP_Error(
+				'stonewright_transaction_readback_failed',
+				__( 'Elementor write readback failed: empty tree after persist.', 'stonewright' ),
+				[
+					'status'      => 500,
+					'snapshot_id' => $snapshot_id,
+					'rolled_back' => $rollback_on_error,
+					'restored'    => $restored,
+				]
+			);
+		}
+
+		// Step 6: clear Elementor file cache.
 		if ( class_exists( '\\Elementor\\Plugin' ) ) {
 			try {
 				$instance = \Elementor\Plugin::$instance;
@@ -78,11 +126,16 @@ final class ElementorWriter {
 			}
 		}
 
-		// Step 6: audit log.
+		// Step 7: audit log.
 		$spec_sha8 = substr( sha1( (string) wp_json_encode( $validated ) ), 0, 8 );
 		self::audit( $post_id, $spec_sha8 );
 
-		return true;
+		return [
+			'ok'            => true,
+			'snapshot_id'   => $snapshot_id,
+			'element_count' => count( $flat ),
+			'rolled_back'   => false,
+		];
 	}
 
 	/**

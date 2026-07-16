@@ -46,6 +46,13 @@ essential map to enabled; full maps to disabled. Existing installs without
 `stonewright_mcp_surface` keep their current essential/full behaviour via that
 legacy flag until an admin saves the Configuration page.
 
+On **Setup → Connect**, the MCP tool surface select includes an **Apply now**
+button that saves the surface without a full form submit. Transport truth:
+
+- **HTTP clients** pick up the new surface on their next `tools/list`.
+- **Stdio companion** sessions refresh automatically on companions that ship
+  `tools/list_changed` re-registration; older companions need a client restart.
+
 Agents should call `stonewright-tool-profile` after bootstrap or preflight when
 the client has a tool cap or the user asks for token-efficient implementation.
 The profile response keeps Elementor, Gutenberg, content-model, and WP-CLI

@@ -114,10 +114,7 @@ final class FseTransactionQueue {
 	}
 
 	/**
-	 * Snapshot every target before any content write (skeleton apply).
-	 *
-	 * Does not yet mutate content — establishes snapshot handles for the
-	 * forthcoming multi-target precision writer.
+	 * Snapshot every target before any content write.
 	 *
 	 * @return array<string, mixed>|\WP_Error
 	 */
@@ -172,7 +169,92 @@ final class FseTransactionQueue {
 			'ok'        => true,
 			'snapshots' => $this->snapshots,
 			'phase'     => 'snapshotted',
-			'note'      => 'Content apply is intentionally not performed by this skeleton; use WriteTemplate/WriteGlobalStyles after snapshot handles are recorded, or the future fse-transaction-run ability.',
+		];
+	}
+
+	/**
+	 * Snapshot all targets, write content for those that provide it, verify non-empty content.
+	 *
+	 * On structural failure (empty content when content was supplied) rolls back when
+	 * rollback_on_error is true.
+	 *
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	public function apply() {
+		$snap = $this->snapshot_all();
+		if ( $snap instanceof \WP_Error ) {
+			return $snap;
+		}
+
+		$written = [];
+		foreach ( $this->targets as $index => $target ) {
+			$post_id = (int) $target['post_id'];
+			if ( ! array_key_exists( 'content', $target ) ) {
+				continue;
+			}
+			$content = (string) $target['content'];
+			$result  = wp_update_post(
+				[
+					'ID'           => $post_id,
+					'post_content' => $content,
+				],
+				true
+			);
+			if ( is_wp_error( $result ) ) {
+				$data = (array) $result->get_error_data();
+				if ( $this->rollback_on_error ) {
+					$data['rolled_back'] = true;
+					$data['rollback']    = $this->rollback();
+				}
+				return new \WP_Error(
+					$result->get_error_code(),
+					$result->get_error_message(),
+					$data
+				);
+			}
+
+			$post  = get_post( $post_id );
+			$after = '';
+			if ( is_object( $post ) && property_exists( $post, 'post_content' ) ) {
+				$after = (string) $post->post_content;
+			}
+			if ( '' !== $content && '' === trim( $after ) ) {
+				$rolled = false;
+				$rollback = null;
+				if ( $this->rollback_on_error ) {
+					$rollback = $this->rollback();
+					$rolled   = true;
+				}
+				return new \WP_Error(
+					'stonewright_fse_txn_readback_failed',
+					sprintf(
+						/* translators: %d: post id */
+						__( 'FSE transaction readback failed for post %d (empty content after write).', 'stonewright' ),
+						$post_id
+					),
+					[
+						'status'      => 500,
+						'post_id'     => $post_id,
+						'index'       => (int) $index,
+						'rolled_back' => $rolled,
+						'rollback'    => $rollback,
+					]
+				);
+			}
+
+			$written[] = [
+				'post_id' => $post_id,
+				'type'    => (string) ( $target['type'] ?? 'post' ),
+				'label'   => (string) ( $target['label'] ?? $target['type'] ?? 'post' ),
+				'bytes'   => strlen( $after ),
+			];
+		}
+
+		return [
+			'ok'        => true,
+			'snapshots' => $this->snapshots,
+			'written'   => $written,
+			'phase'     => 'applied',
 		];
 	}
 

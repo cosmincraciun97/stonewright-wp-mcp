@@ -87,6 +87,9 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringContainsString( 'stonewright-risk-notice', $html );
 		self::assertStringContainsString( 'id="stonewright_enabled"', $html );
 		self::assertStringContainsString( 'id="stonewright_mode"', $html );
+		self::assertStringContainsString( 'id="stonewright_mcp_surface"', $html );
+		self::assertStringContainsString( 'data-sw-apply-mcp-surface', $html );
+		self::assertStringContainsString( 'Apply now', $html );
 		self::assertStringContainsString( 'stonewright_generate_application_password', $html );
 		self::assertStringContainsString( 'Application Password', $html );
 		self::assertStringContainsString( 'Connect MCP Client', $html );

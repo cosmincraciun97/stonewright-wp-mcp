@@ -88,14 +88,67 @@ final class BrandKit {
 	}
 
 	/**
+	 * Theme mod keys that brand-kit apply may touch.
+	 *
+	 * @return list<string>
+	 */
+	public static function managed_theme_mod_keys(): array {
+		$keys = [];
+		foreach ( [ 'primary', 'secondary', 'accent', 'background', 'surface', 'text' ] as $key ) {
+			$keys[] = 'stonewright_color_' . $key;
+		}
+		foreach ( [ 'heading', 'body' ] as $key ) {
+			$keys[] = 'stonewright_font_' . $key;
+		}
+		return $keys;
+	}
+
+	/**
 	 * Apply a brand kit to site options / theme mods / Elementor kit (best-effort).
+	 *
+	 * Always creates an option/theme_mod restore point first (returned as restore_id).
+	 * When $preview is true, returns a structured before/after diff without writing.
 	 *
 	 * @return array<string, mixed>|\WP_Error
 	 */
-	public static function apply( string $id ) {
+	public static function apply( string $id, bool $preview = false ) {
 		$kit = self::get( $id );
 		if ( is_wp_error( $kit ) ) {
 			return $kit;
+		}
+
+		$theme_mod_keys = self::managed_theme_mod_keys();
+		$restore_id     = Backup::snapshot_options( [ self::OPTION_ACTIVE ], $theme_mod_keys );
+		if ( '' === $restore_id ) {
+			return new \WP_Error(
+				'stonewright_brand_kit_snapshot_failed',
+				__( 'Could not create a brand-kit restore point before apply.', 'stonewright' ),
+				[ 'status' => 500 ]
+			);
+		}
+
+		$before = self::capture_state();
+		$after  = self::projected_state( $kit, $before );
+		$diff   = self::diff_state( $before, $after );
+
+		if ( $preview ) {
+			$elementor_preview = self::preview_elementor_kit( $kit );
+			return [
+				'ok'           => true,
+				'preview'      => true,
+				'brand_kit_id' => (string) $kit['id'],
+				'name'         => (string) $kit['name'],
+				'restore_id'   => $restore_id,
+				'diff'         => $diff,
+				'theme_mods'   => array_keys( $after['theme_mods'] ),
+				'elementor'    => $elementor_preview,
+				'scope'        => [
+					'options'    => [ self::OPTION_ACTIVE ],
+					'theme_mods' => array_keys( $after['theme_mods'] ),
+					'elementor'  => (bool) ( $elementor_preview['would_apply'] ?? false ),
+					'notes'      => 'Preview only — no writes performed. Call again with preview=false to apply; use restore_id with Backup::restore_options to undo option/theme_mod state.',
+				],
+			];
 		}
 
 		update_option( self::OPTION_ACTIVE, $kit, false );
@@ -122,17 +175,150 @@ final class BrandKit {
 		$elementor = self::apply_elementor_kit( $kit );
 
 		return [
-			'ok'              => true,
-			'brand_kit_id'    => (string) $kit['id'],
-			'name'            => (string) $kit['name'],
-			'theme_mods'      => $theme_mods,
-			'elementor'       => $elementor,
-			'scope'           => [
-				'options'   => [ self::OPTION_ACTIVE ],
-				'theme_mods'=> $theme_mods,
-				'elementor' => $elementor['applied'] ?? false,
-				'notes'     => 'Conservative apply: options + theme mods always; Elementor custom_colors/custom_typography only when an active kit post exists. System colors, global classes, and full kit replacement are out of scope.',
+			'ok'           => true,
+			'preview'      => false,
+			'brand_kit_id' => (string) $kit['id'],
+			'name'         => (string) $kit['name'],
+			'restore_id'   => $restore_id,
+			'diff'         => $diff,
+			'theme_mods'   => $theme_mods,
+			'elementor'    => $elementor,
+			'scope'        => [
+				'options'    => [ self::OPTION_ACTIVE ],
+				'theme_mods' => $theme_mods,
+				'elementor'  => $elementor['applied'] ?? false,
+				'notes'      => 'Conservative apply: options + theme mods always (restore_id available); Elementor custom_colors/custom_typography only when an active kit post exists. System colors, global classes, and full kit replacement are out of scope.',
 			],
+		];
+	}
+
+	/**
+	 * Restore option/theme_mod state from a brand-kit restore_id.
+	 */
+	public static function restore( string $restore_id ): bool {
+		return Backup::restore_options( $restore_id );
+	}
+
+	/**
+	 * @return array{option: mixed, theme_mods: array<string, mixed>, elementor_kit_id: int}
+	 */
+	private static function capture_state(): array {
+		$mods = [];
+		foreach ( self::managed_theme_mod_keys() as $key ) {
+			$mods[ $key ] = function_exists( 'get_theme_mod' ) ? get_theme_mod( $key, null ) : null;
+		}
+		return [
+			'option'           => get_option( self::OPTION_ACTIVE, null ),
+			'theme_mods'       => $mods,
+			'elementor_kit_id' => (int) get_option( 'elementor_active_kit', 0 ),
+		];
+	}
+
+	/**
+	 * @param array<string, mixed> $kit
+	 * @param array{option: mixed, theme_mods: array<string, mixed>, elementor_kit_id: int} $before
+	 * @return array{option: mixed, theme_mods: array<string, mixed>, elementor_kit_id: int}
+	 */
+	private static function projected_state( array $kit, array $before ): array {
+		$mods   = $before['theme_mods'];
+		$colors = is_array( $kit['colors'] ?? null ) ? $kit['colors'] : [];
+		$fonts  = is_array( $kit['fonts'] ?? null ) ? $kit['fonts'] : [];
+		foreach ( [ 'primary', 'secondary', 'accent', 'background', 'surface', 'text' ] as $key ) {
+			if ( ! empty( $colors[ $key ] ) && is_string( $colors[ $key ] ) ) {
+				$mods[ 'stonewright_color_' . $key ] = $colors[ $key ];
+			}
+		}
+		foreach ( [ 'heading', 'body' ] as $key ) {
+			if ( ! empty( $fonts[ $key ] ) && is_string( $fonts[ $key ] ) ) {
+				$mods[ 'stonewright_font_' . $key ] = $fonts[ $key ];
+			}
+		}
+		return [
+			'option'           => $kit,
+			'theme_mods'       => $mods,
+			'elementor_kit_id' => $before['elementor_kit_id'],
+		];
+	}
+
+	/**
+	 * @param array{option: mixed, theme_mods: array<string, mixed>, elementor_kit_id: int} $before
+	 * @param array{option: mixed, theme_mods: array<string, mixed>, elementor_kit_id: int} $after
+	 * @return array{
+	 *   options: list<array{key: string, before: mixed, after: mixed}>,
+	 *   theme_mods: list<array{key: string, before: mixed, after: mixed}>,
+	 *   elementor_kit_id: int
+	 * }
+	 */
+	private static function diff_state( array $before, array $after ): array {
+		$option_diff = [];
+		$before_id   = is_array( $before['option'] ) ? (string) ( $before['option']['id'] ?? '' ) : '';
+		$after_id    = is_array( $after['option'] ) ? (string) ( $after['option']['id'] ?? '' ) : '';
+		if ( $before_id !== $after_id || $before['option'] !== $after['option'] ) {
+			$option_diff[] = [
+				'key'    => self::OPTION_ACTIVE,
+				'before' => is_array( $before['option'] ) ? ( $before['option']['id'] ?? null ) : $before['option'],
+				'after'  => is_array( $after['option'] ) ? ( $after['option']['id'] ?? null ) : $after['option'],
+			];
+		}
+
+		$mod_diff = [];
+		$keys     = array_unique(
+			array_merge(
+				array_keys( $before['theme_mods'] ),
+				array_keys( $after['theme_mods'] )
+			)
+		);
+		foreach ( $keys as $key ) {
+			$b = $before['theme_mods'][ $key ] ?? null;
+			$a = $after['theme_mods'][ $key ] ?? null;
+			if ( $b !== $a ) {
+				$mod_diff[] = [
+					'key'    => $key,
+					'before' => $b,
+					'after'  => $a,
+				];
+			}
+		}
+
+		return [
+			'options'          => $option_diff,
+			'theme_mods'       => $mod_diff,
+			'elementor_kit_id' => (int) $after['elementor_kit_id'],
+		];
+	}
+
+	/**
+	 * @param array<string, mixed> $kit
+	 * @return array<string, mixed>
+	 */
+	private static function preview_elementor_kit( array $kit ): array {
+		$kit_id = (int) get_option( 'elementor_active_kit', 0 );
+		if ( $kit_id <= 0 || ! get_post( $kit_id ) ) {
+			return [
+				'would_apply' => false,
+				'reason'      => $kit_id <= 0 ? 'no_active_kit' : 'kit_post_missing',
+				'kit_id'      => $kit_id,
+				'changes'     => [],
+			];
+		}
+
+		$changes = [];
+		foreach ( (array) ( $kit['colors'] ?? [] ) as $key => $value ) {
+			if ( is_string( $key ) && is_string( $value ) && '' !== $value ) {
+				$changes[] = [ 'type' => 'custom_color', 'id' => 'sw_' . sanitize_key( $key ), 'color' => $value ];
+			}
+		}
+		foreach ( (array) ( $kit['fonts'] ?? [] ) as $key => $value ) {
+			if ( is_string( $key ) && is_string( $value ) && '' !== $value ) {
+				$changes[] = [ 'type' => 'custom_typography', 'id' => 'sw_font_' . sanitize_key( $key ), 'font_family' => $value ];
+			}
+		}
+
+		return [
+			'would_apply' => [] !== $changes,
+			'reason'      => 'preview',
+			'kit_id'      => $kit_id,
+			'changes'     => $changes,
 		];
 	}
 

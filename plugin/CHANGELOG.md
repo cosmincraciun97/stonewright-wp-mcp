@@ -2,8 +2,20 @@
 
 ## [Unreleased]
 
+### Added
+
+- Real FSE engine path on `blueprint-apply` (`engine=fse`) with constrained layout
+  wrappers, `EditorSnapshot`, and `FseTransactionQueue` apply + readback/rollback.
+- Brand-kit `preview=true` diff mode and unconditional option/theme_mod
+  `restore_id` via `Backup::snapshot_options` / `restore_options`.
+- Setup “Apply now” control for MCP tool surface with honest per-transport messaging.
+- Blueprint render-output suite (bundled blueprints × engines) and extra e2e specs
+  (blueprints, setup-profile, connect).
+
 ### Changed
 
+- Elementor blueprint writes use transactional full-tree path (snapshot +
+  structural readback + rollback) via `ElementorWriter::write_transactional`.
 - Marked `stonewright/task-start` as the canonical first call and retained
   `stonewright/context-bootstrap` as the full-context compatibility path.
 

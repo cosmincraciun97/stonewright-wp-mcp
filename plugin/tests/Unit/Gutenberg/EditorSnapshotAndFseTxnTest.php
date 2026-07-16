@@ -145,4 +145,27 @@ final class EditorSnapshotAndFseTxnTest extends TestCase {
 		$result = ( new FseTransactionQueue() )->validate();
 		self::assertInstanceOf( \WP_Error::class, $result );
 	}
+
+	public function test_fse_transaction_queue_apply_writes_content(): void {
+		$queue = ( new FseTransactionQueue() )
+			->enqueue(
+				[
+					'type'    => 'template',
+					'post_id' => 701,
+					'content' => '<!-- wp:paragraph --><p>Applied</p><!-- /wp:paragraph -->',
+					'label'   => 'index',
+				]
+			);
+
+		$result = $queue->apply();
+		self::assertIsArray(
+			$result,
+			$result instanceof \WP_Error ? $result->get_error_message() : 'expected array'
+		);
+		self::assertTrue( $result['ok'] );
+		self::assertSame( 'applied', $result['phase'] );
+		$post = get_post( 701 );
+		self::assertNotNull( $post );
+		self::assertStringContainsString( 'Applied', (string) $post->post_content );
+	}
 }
