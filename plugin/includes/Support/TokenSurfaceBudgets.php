@@ -28,8 +28,11 @@ final class TokenSurfaceBudgets {
 	/** Essential profile may include blueprint/clone/learning path tools. */
 	public const ESSENTIAL_MAX_TOOLS = 30;
 
-	/** Non-visual task-start compact response (estimated tokens). */
-	public const TASK_START_NON_VISUAL_MAX_TOKENS = 700;
+	/**
+	 * Non-visual task-start compact response (estimated tokens).
+	 * Includes write_target_url / surface re-list signals for client sync.
+	 */
+	public const TASK_START_NON_VISUAL_MAX_TOKENS = 800;
 
 	/** Visual task-start compact response (estimated tokens). */
 	public const TASK_START_VISUAL_MAX_TOKENS = 1200;
@@ -50,11 +53,14 @@ final class TokenSurfaceBudgets {
 		$non_visual      = (int) ( $metrics['non_visual_task_start_tokens'] ?? PHP_INT_MAX );
 		$visual          = (int) ( $metrics['visual_task_start_tokens'] ?? PHP_INT_MAX );
 
-		$budgets = [
+		$non_visual_ok = $non_visual < self::TASK_START_NON_VISUAL_MAX_TOKENS;
+		$budgets       = [
 			'essential_max_30_tools'       => $essential <= self::ESSENTIAL_MAX_TOOLS,
 			'default_max_20_tools'         => $default <= self::DEFAULT_MAX_TOOLS,
 			'strict_max_12_tools'          => $strict <= self::STRICT_MAX_TOOLS,
-			'non_visual_task_start_lt_700' => $non_visual < self::TASK_START_NON_VISUAL_MAX_TOKENS,
+			'non_visual_task_start_lt_800' => $non_visual_ok,
+			// Legacy alias kept for older measure consumers.
+			'non_visual_task_start_lt_700' => $non_visual_ok,
 			'visual_task_start_lt_1200'    => $visual < self::TASK_START_VISUAL_MAX_TOKENS,
 		];
 

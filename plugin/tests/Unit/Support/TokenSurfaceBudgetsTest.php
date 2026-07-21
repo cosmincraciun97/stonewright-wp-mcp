@@ -19,7 +19,7 @@ final class TokenSurfaceBudgetsTest extends TestCase {
 				'essential_tool_count'         => 20,
 				'default_tool_count'           => 20,
 				'strict_tool_count'            => 12,
-				'non_visual_task_start_tokens' => 699,
+				'non_visual_task_start_tokens' => 799,
 				'visual_task_start_tokens'     => 1199,
 			]
 		);
@@ -32,6 +32,7 @@ final class TokenSurfaceBudgetsTest extends TestCase {
 		self::assertTrue( $budgets['essential_max_30_tools'] );
 		self::assertTrue( $budgets['default_max_20_tools'] );
 		self::assertTrue( $budgets['strict_max_12_tools'] );
+		self::assertTrue( $budgets['non_visual_task_start_lt_800'] );
 		self::assertTrue( $budgets['non_visual_task_start_lt_700'] );
 		self::assertTrue( $budgets['visual_task_start_lt_1200'] );
 	}
@@ -45,6 +46,7 @@ final class TokenSurfaceBudgetsTest extends TestCase {
 		self::assertFalse( $budgets['essential_max_30_tools'] );
 		self::assertFalse( $budgets['default_max_20_tools'] );
 		self::assertFalse( $budgets['strict_max_12_tools'] );
+		self::assertFalse( $budgets['non_visual_task_start_lt_800'] );
 		self::assertFalse( $budgets['non_visual_task_start_lt_700'] );
 		self::assertFalse( $budgets['visual_task_start_lt_1200'] );
 	}

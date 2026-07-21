@@ -95,17 +95,17 @@ describe('direct elementor tools', () => {
 			'cli info': () => ({ ok: false, available: false }),
 		});
 		const rest = {
-			get: vi.fn(async (path: string) => {
+			get: vi.fn((path: string) => {
 				if (path.includes('/pages/42')) {
-					return {
+					return Promise.resolve({
 						id: 42,
 						meta: {
 							_elementor_data: JSON.stringify(tree),
 							_elementor_edit_mode: 'builder',
 						},
-					};
+					});
 				}
-				throw new Error('not found');
+				return Promise.reject(new Error('not found'));
 			}),
 			post: vi.fn(),
 		};
@@ -251,17 +251,17 @@ describe('direct elementor tools', () => {
 			},
 		};
 		const rest = {
-			get: vi.fn(async (path: string) => {
+			get: vi.fn((path: string) => {
 				if (path.includes('/pages/7')) {
-					return { id: 7, ...posts };
+					return Promise.resolve({ id: 7, ...posts });
 				}
-				throw new Error('not found');
+				return Promise.reject(new Error('not found'));
 			}),
-			post: vi.fn(async (_path: string, opts?: { body?: { meta?: { _elementor_data?: string } } }) => {
+			post: vi.fn((_path: string, opts?: { body?: { meta?: { _elementor_data?: string } } }) => {
 				if (opts?.body?.meta?._elementor_data) {
 					(posts.meta as Record<string, unknown>)['_elementor_data'] = opts.body.meta._elementor_data;
 				}
-				return { id: 7, ...posts };
+				return Promise.resolve({ id: 7, ...posts });
 			}),
 		};
 		const env = { STONEWRIGHT_STATE_DIR: stateDir, STONEWRIGHT_DIRECT_WRITES: 'on' };

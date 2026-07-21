@@ -31,6 +31,13 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `task-start` returns `write_target_url` / `site.active_write_target` for clear
   live vs local binding.
 - `elementor-design` profile includes theme-file tools + confirmation token.
+- **Direct mode:** remote Elementor `data-get` / `data-update` without the editor
+  via core REST meta when registered (WP-CLI still preferred on local hosts).
+
+### Changed
+
+- Task-start non-visual compact token budget raised to **800** (write-target +
+  re-list signals for client surface sync).
 
 ## [1.0.0-alpha.76] - 2026-07-16
 
