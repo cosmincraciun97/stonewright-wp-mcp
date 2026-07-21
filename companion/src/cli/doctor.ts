@@ -385,8 +385,9 @@ export async function runDoctorChecks(options: DoctorEnv = {}): Promise<DoctorRe
 	};
 }
 
-export async function runDoctor(): Promise<number> {
-	writeOut(`Stonewright companion doctor ${APP_VERSION}\n`);
+export async function runDoctor(argv: string[] = []): Promise<number> {
+	const clientSurface = argv.includes('--client-surface');
+	writeOut(`Stonewright companion doctor ${APP_VERSION}${clientSurface ? ' (client-surface)' : ''}\n`);
 	const report = await runDoctorChecks();
 	for (const check of report.checks) {
 		const mark =
@@ -396,6 +397,27 @@ export async function runDoctor(): Promise<number> {
 			writeOut(`       fix: ${check.fix}`);
 		}
 	}
+
+	if (clientSurface) {
+		writeOut('');
+		writeOut('--- client-surface ---');
+		writeOut('Use MCP tool stonewright-client-surface-check inside the AI client for live companion state.');
+		writeOut('Typical mismatch: WP Setup=Full but companion env profile=bootstrap → php-execute filtered.');
+		writeOut('Fix order:');
+		writeOut('  1. stonewright-task-start (or stonewright-tool-profile action=activate profile=full)');
+		writeOut('  2. Re-list tools (honor tools/list_changed or re_list_instruction)');
+		writeOut('  3. If still missing: restart MCP client');
+		writeOut('  4. Never call /wp-json/stonewright/v1/abilities/run as a workaround');
+		const envProfile = (process.env.STONEWRIGHT_MCP_TOOL_PROFILE ?? process.env.STONEWRIGHT_MCP_PROXY_PROFILE ?? 'bootstrap').trim();
+		const lock = (process.env.STONEWRIGHT_MCP_TOOL_PROFILE_LOCK ?? '').trim();
+		const siteAlias = (process.env.STONEWRIGHT_SITE_ALIAS ?? '').trim();
+		const url = (process.env.STONEWRIGHT_WP_URL ?? process.env.STONEWRIGHT_MCP_URL ?? '').trim();
+		writeOut(`env STONEWRIGHT_MCP_TOOL_PROFILE=${envProfile || '(unset → bootstrap)'}`);
+		writeOut(`env STONEWRIGHT_MCP_TOOL_PROFILE_LOCK=${lock || '(unset)'}`);
+		writeOut(`env STONEWRIGHT_SITE_ALIAS=${siteAlias || '(unset)'}`);
+		writeOut(`env write target URL=${url || '(unset)'}`);
+	}
+
 	writeOut('');
 	if (report.ok) {
 		writeOut('Doctor passed — MCP initialize succeeded. Restart your client if tools look stale.');

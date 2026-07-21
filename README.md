@@ -18,7 +18,7 @@
   <img alt="wordpress" src="https://img.shields.io/badge/WordPress-%3E%3D6.7-21759b" />
 </p>
 
-Stonewright is a WordPress MCP stack for AI coding agents. **Elementor** is a first-class surface in Plugin mode (typed engines, DesignSpec, kit globals). **Direct mode** works against core REST with an Application Password without installing the plugin, including local Elementor meta edits via WP-CLI and companion-local skills/memory.
+Stonewright is a WordPress MCP stack for AI coding agents. **Elementor** is a first-class surface in Plugin mode (typed engines, DesignSpec, kit globals). **Direct mode** works against core REST with an Application Password without installing the plugin: companion-local skills/memory, and Elementor document edits **without opening the editor** via WP-CLI (local) or REST meta when registered (remote). Full batch-mutate engines remain plugin-only.
 
 > “Safe” here is a **design goal**: operating modes, permissions, confirmations, backups, validation, readback, and audit logging make agent-driven changes more recoverable. It is not an absolute security guarantee. Use staging, review changes, and keep normal WordPress backups.
 
@@ -44,7 +44,7 @@ Stonewright is a WordPress MCP stack for AI coding agents. **Elementor** is a fi
 
 Counts are derived from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
 
-### Plugin mode — **312** abilities
+### Plugin mode — **314** abilities
 
 | Category | Count | Highlights |
 |---|---:|---|
@@ -112,7 +112,7 @@ Install the Stonewright plugin for advanced Elementor workflows, blueprints and 
 
 ### Direct mode — plugin-less core REST + local Elementor data
 
-The companion authenticates with a WordPress Application Password and exposes **99** tools without installing Stonewright. Local sites with WP-CLI can edit `_elementor_data` via `stonewright-elementor-data-*` (with file backup). Full Elementor engines, DesignSpec, php-execute, and site-hosted skills remain plugin-only. See [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md) and [docs/install-prompts.md](docs/install-prompts.md).
+The companion authenticates with a WordPress Application Password and exposes **99** tools without installing Stonewright. Elementor documents can be edited **without the Elementor editor** via `stonewright-elementor-data-get` / `data-update` (local WP-CLI preferred; remote Direct falls back to core REST meta when `_elementor_data` is registered, with a file backup under `~/.stonewright/backups/`). This path has no Elementor schema validation — use Plugin mode `elementor-v3-batch-mutate` for production engines. DesignSpec, php-execute, and site-hosted skills remain plugin-only. See [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md) and [docs/install-prompts.md](docs/install-prompts.md).
 
 ## Quick Start
 
@@ -260,7 +260,7 @@ flowchart LR
   Plugin --> WP
 ```
 
-Direct mode has a **smaller** capability surface (core REST + local Elementor data + skills/memory; **99** tools). Plugin mode exposes **312** abilities. Not every request passes through every component.
+Direct mode has a **smaller** capability surface (core REST + local Elementor data + skills/memory; **99** tools). Plugin mode exposes **314** abilities. Not every request passes through every component.
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 

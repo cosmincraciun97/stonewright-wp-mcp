@@ -512,7 +512,49 @@ if ( ! function_exists( 'wp_get_theme' ) ) {
 
 if ( ! function_exists( 'get_stylesheet' ) ) {
 	function get_stylesheet(): string {
-		return 'stonewright-theme';
+		return (string) ( $GLOBALS['stonewright_test_stylesheet'] ?? 'stonewright-theme' );
+	}
+}
+
+if ( ! function_exists( 'get_template' ) ) {
+	function get_template(): string {
+		return (string) ( $GLOBALS['stonewright_test_template'] ?? get_stylesheet() );
+	}
+}
+
+if ( ! function_exists( 'get_stylesheet_directory' ) ) {
+	function get_stylesheet_directory(): string {
+		if ( ! empty( $GLOBALS['stonewright_test_stylesheet_directory'] ) ) {
+			return (string) $GLOBALS['stonewright_test_stylesheet_directory'];
+		}
+		$dir = sys_get_temp_dir() . '/stonewright-test-theme';
+		if ( ! is_dir( $dir ) ) {
+			@mkdir( $dir, 0777, true );
+		}
+		if ( ! is_file( $dir . '/style.css' ) ) {
+			@file_put_contents( $dir . '/style.css', "/* stonewright test theme */\n" );
+		}
+		if ( ! is_file( $dir . '/functions.php' ) ) {
+			@file_put_contents( $dir . '/functions.php', "<?php\n// stonewright test theme\n" );
+		}
+		return $dir;
+	}
+}
+
+if ( ! function_exists( 'get_template_directory' ) ) {
+	function get_template_directory(): string {
+		if ( ! empty( $GLOBALS['stonewright_test_template_directory'] ) ) {
+			return (string) $GLOBALS['stonewright_test_template_directory'];
+		}
+		return get_stylesheet_directory();
+	}
+}
+
+if ( ! function_exists( 'wp_normalize_path' ) ) {
+	function wp_normalize_path( string $path ): string {
+		$path = str_replace( '\\', '/', $path );
+		$path = preg_replace( '#/+#', '/', $path ) ?? $path;
+		return $path;
 	}
 }
 

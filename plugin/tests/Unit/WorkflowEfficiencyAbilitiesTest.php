@@ -112,7 +112,28 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertNotEmpty( $result['context_token'] );
 		self::assertArrayHasKey( 'fast_path', $result );
 		self::assertArrayHasKey( 'expertise_refs', $result['context'] );
-		self::assertLessThan( 2800, strlen( wp_json_encode( $result ) ?: '' ) );
+		// Compact payload grows slightly with write_target / re_list signals.
+		self::assertLessThan( 3600, strlen( wp_json_encode( $result ) ?: '' ) );
+	}
+
+	public function test_task_start_signals_relist_when_admin_surface_is_full(): void {
+		update_option( 'stonewright_mcp_surface', 'full', false );
+		$result = ( new TaskStart() )->execute(
+			[
+				'task'         => 'Patch theme CSS from design.',
+				'surface'      => 'wordpress',
+				'intent'       => 'write',
+				'responseMode' => 'compact',
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 'full', $result['configured_mcp_surface'] );
+		self::assertSame( 'full', $result['session_tool_profile'] );
+		self::assertTrue( $result['tools_changed'], 'Full surface must force tools_changed so companion re-lists even without session transient.' );
+		self::assertNotSame( '', $result['re_list_instruction'] );
+		self::assertArrayHasKey( 'write_target_url', $result );
+		self::assertArrayHasKey( 'active_write_target', $result['site'] );
 	}
 
 	public function test_tool_profile_returns_compact_elementor_design_fast_path(): void {

@@ -52,7 +52,9 @@ describe('tool profile resolve + client cap', () => {
 	it('supports the real bootstrap surface instead of coercing it to essential', () => {
 		expect(coerceProxyToolProfile('bootstrap')).toBe('bootstrap');
 		expect(proxyToolNamesForProfile('bootstrap')).toContain('stonewright-task-start');
-		expect(proxyToolNamesForProfile('bootstrap').length).toBeLessThanOrEqual(8);
+		expect(proxyToolNamesForProfile('bootstrap')).toContain('stonewright-php-execute');
+		expect(proxyToolNamesForProfile('bootstrap')).toContain('stonewright-security-issue-confirmation-token');
+		expect(proxyToolNamesForProfile('bootstrap').length).toBeLessThanOrEqual(12);
 	});
 
 	it('defaults fresh companion installs to bootstrap', () => {

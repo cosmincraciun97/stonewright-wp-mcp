@@ -8,12 +8,37 @@ import {
 	emitToolListChanged,
 	handleToolsChangedResponse,
 	mcpToolNamesFromStructured,
+	parseStructuredFromContent,
 	structuredIndicatesToolsChanged,
 } from '../src/wordpress-mcp.js';
+
+describe('parseStructuredFromContent', () => {
+	it('parses JSON ability payloads from content text when structuredContent is missing', () => {
+		const parsed = parseStructuredFromContent([
+			{
+				type: 'text',
+				text: JSON.stringify({
+					ok: true,
+					tools_changed: true,
+					session_tool_profile: 'full',
+					re_list_instruction: 'Re-list tools now (tools/list).',
+				}),
+			},
+		]);
+		expect(parsed?.tools_changed).toBe(true);
+		expect(parsed?.session_tool_profile).toBe('full');
+	});
+
+	it('returns null for non-JSON content', () => {
+		expect(parseStructuredFromContent([{ type: 'text', text: 'not json' }])).toBeNull();
+		expect(parseStructuredFromContent(undefined)).toBeNull();
+	});
+});
 
 describe('structuredIndicatesToolsChanged', () => {
 	it('detects tools_changed: true', () => {
 		expect(structuredIndicatesToolsChanged({ tools_changed: true })).toBe(true);
+		expect(structuredIndicatesToolsChanged({ tools_changed: false, re_list_instruction: 'Re-list tools now' })).toBe(true);
 	});
 
 	it('detects non-empty re_list_instruction', () => {

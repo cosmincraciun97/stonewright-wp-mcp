@@ -71,6 +71,11 @@ final class PhpExecute extends AbilityKernel {
 					'type'        => 'string',
 					'description' => 'Required in production-safe mode because runtime PHP may mutate WordPress state.',
 				],
+				'read_only'          => [
+					'type'        => 'boolean',
+					'default'     => false,
+					'description' => 'Advisory read-oriented mode: static inspection rejects common mutation APIs and runtime filters block post-meta/option writes. It is not a full sandbox — prefer typed abilities for production mutations. Useful for Elementor document reads.',
+				],
 			],
 		];
 	}
@@ -120,7 +125,11 @@ final class PhpExecute extends AbilityKernel {
 					return $token_error;
 				}
 
-				$guard = ProtectedElementorWriteGuard::inspect( (string) $runtime_args['code'] );
+				$read_only = (bool) ( $runtime_args['read_only'] ?? false );
+				$guard     = ProtectedElementorWriteGuard::inspect(
+					(string) $runtime_args['code'],
+					$read_only
+				);
 				if ( $guard instanceof \WP_Error ) {
 					return $guard;
 				}
@@ -129,7 +138,8 @@ final class PhpExecute extends AbilityKernel {
 					self::normalise_code( (string) $runtime_args['code'] ),
 					self::normalise_timeout( $runtime_args['timeout_seconds'] ?? 30 ),
 					self::normalise_return_mode( $runtime_args['return_mode'] ?? 'auto' ),
-					self::normalise_max_output_bytes( $runtime_args['max_output_bytes'] ?? self::DEFAULT_MAX_OUTPUT_BYTES )
+					self::normalise_max_output_bytes( $runtime_args['max_output_bytes'] ?? self::DEFAULT_MAX_OUTPUT_BYTES ),
+					$read_only
 				);
 			}
 		);
@@ -154,12 +164,12 @@ final class PhpExecute extends AbilityKernel {
 		];
 	}
 
-	private function execute_code( string $code, int $timeout_seconds, string $return_mode, int $max_output_bytes ): array|\WP_Error {
+	private function execute_code( string $code, int $timeout_seconds, string $return_mode, int $max_output_bytes, bool $read_only = false ): array|\WP_Error {
 		$started_ns          = hrtime( true );
 		$memory_before       = memory_get_usage( true );
 		$original_time_limit = self::current_time_limit();
 		$buffer_level        = ob_get_level();
-		$write_guards        = ProtectedElementorWriteGuard::install();
+		$write_guards        = ProtectedElementorWriteGuard::install( $read_only );
 
 		self::apply_time_limit( $timeout_seconds );
 		ob_start();
@@ -189,6 +199,7 @@ final class PhpExecute extends AbilityKernel {
 					'result_truncated' => false,
 					'elapsed_ms'       => self::elapsed_ms( $started_ns ),
 					'timeout_seconds'  => $timeout_seconds,
+					'read_only'        => $read_only,
 				]
 			);
 		} finally {

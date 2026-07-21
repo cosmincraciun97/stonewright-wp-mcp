@@ -30,6 +30,8 @@ final class McpUsePolicy {
 			'Do not create or modify action scripts such as run-loop-mutate.js or run-bootstrap-and-mutate.js to bypass typed Stonewright tool calls.',
 			'Do not inspect plugin or companion source code to reverse-engineer tool schemas during WordPress implementation tasks.',
 			'Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround.',
+			'If wordpress-mcp-status says connected and configured_mcp_surface is full/essential but php-execute is missing from the client tool list, this is a client surface / profile sync bug: call stonewright-task-start or stonewright-tool-profile activate, re-list tools, or restart the MCP client. Do not invent REST workarounds.',
+			'Use stonewright-client-surface-check (companion local) to diagnose profile vs client registration mismatches.',
 		];
 	}
 

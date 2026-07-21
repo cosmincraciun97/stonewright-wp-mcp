@@ -1,0 +1,9 @@
+{
+  "args": {
+    "path": "style.css",
+    "mode": "append",
+    "content": "/* stonewright-contract-fixture */\n",
+    "dry_run": true
+  },
+  "expect": "ok"
+}

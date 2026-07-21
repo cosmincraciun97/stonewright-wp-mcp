@@ -29,7 +29,7 @@ final class AbilityRegistryBootstrapModeTest extends TestCase {
 		$GLOBALS['stonewright_test_options'] = [];
 	}
 
-	public function test_bootstrap_ability_names_cap_at_eight(): void {
+	public function test_bootstrap_ability_names_cap_and_runtime_escape_hatches(): void {
 		$names = AbilityRegistry::bootstrap_ability_names_for_test();
 
 		self::assertLessThanOrEqual( TokenSurfaceBudgets::BOOTSTRAP_MAX_TOOLS, count( $names ) );
@@ -40,6 +40,8 @@ final class AbilityRegistryBootstrapModeTest extends TestCase {
 		self::assertContains( 'stonewright/ping', $names );
 		self::assertContains( 'stonewright/security-issue-confirmation-token', $names );
 		self::assertContains( 'stonewright/context-bootstrap', $names );
+		self::assertContains( 'stonewright/content-get-page', $names );
+		self::assertContains( 'stonewright/theme-file-read', $names );
 	}
 
 	public function test_bootstrap_surface_filters_public_abilities(): void {
@@ -92,13 +94,13 @@ final class AbilityRegistryBootstrapModeTest extends TestCase {
 	}
 
 	public function test_bootstrap_budget_constants(): void {
-		self::assertSame( 8, TokenSurfaceBudgets::BOOTSTRAP_MAX_TOOLS );
-		self::assertSame( 2500, TokenSurfaceBudgets::BOOTSTRAP_MAX_TOKENS );
+		self::assertSame( 12, TokenSurfaceBudgets::BOOTSTRAP_MAX_TOOLS );
+		self::assertSame( 3500, TokenSurfaceBudgets::BOOTSTRAP_MAX_TOKENS );
 
 		$ok = TokenSurfaceBudgets::evaluate(
 			[
-				'bootstrap_tool_count'         => 8,
-				'bootstrap_token_estimate'     => 2048,
+				'bootstrap_tool_count'         => 12,
+				'bootstrap_token_estimate'     => 3000,
 				'essential_tool_count'         => 29,
 				'default_tool_count'           => 20,
 				'strict_tool_count'            => 12,
@@ -106,8 +108,9 @@ final class AbilityRegistryBootstrapModeTest extends TestCase {
 				'visual_task_start_tokens'     => 1000,
 			]
 		);
+		self::assertTrue( $ok['bootstrap_max_12_tools'] );
 		self::assertTrue( $ok['bootstrap_max_8_tools'] );
-		self::assertTrue( $ok['bootstrap_max_2500_tokens'] );
+		self::assertTrue( $ok['bootstrap_max_3500_tokens'] );
 		self::assertTrue( TokenSurfaceBudgets::all_pass( $ok ) );
 	}
 }

@@ -108,9 +108,10 @@ final class ToolProfileResolveTest extends TestCase {
 	public function test_bootstrap_profile_is_registered_and_capped(): void {
 		self::assertContains( 'bootstrap', ToolProfile::profile_names() );
 		$names = ToolProfile::profile_tools( 'bootstrap' );
-		self::assertLessThanOrEqual( 8, count( $names ) );
+		self::assertLessThanOrEqual( 12, count( $names ) );
 		self::assertContains( 'stonewright/task-start', $names );
 		self::assertContains( 'stonewright/tool-profile', $names );
+		self::assertContains( 'stonewright/php-execute', $names );
 
 		$ability = new ToolProfile();
 		$result  = $ability->execute(
@@ -122,7 +123,7 @@ final class ToolProfileResolveTest extends TestCase {
 		self::assertIsArray( $result );
 		self::assertTrue( $result['ok'] );
 		self::assertSame( 'bootstrap', $result['profile'] );
-		self::assertLessThanOrEqual( 8, count( $result['tools'] ) );
+		self::assertLessThanOrEqual( 12, count( $result['tools'] ) );
 	}
 
 	public function test_activate_non_bootstrap_profile_expands_mcp_surface(): void {

@@ -7,6 +7,40 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.77] - 2026-07-22
+
+### Fixed
+
+- **MCP tool surface sync (P0):** `task-start` always emits `tools_changed` +
+  `re_list_instruction` when the effective profile is not bootstrap **or** the
+  admin-configured surface is already essential/full, so stdio companions stuck
+  on env bootstrap re-register `php-execute` without REST workarounds.
+- Companion parses ability JSON from `content[].text` when `structuredContent`
+  is missing (common WP MCP transport), so profile drift actually triggers
+  proxy re-registration + `tools/list_changed`.
+
+### Added
+
+- Bootstrap surface expands to ≤12 tools with runtime escape hatches:
+  `php-execute`, confirmation token, `site-info`, `content-get-page`, Elementor
+  structure/schema reads, `theme-file-read`.
+- Companion local tool `stonewright-client-surface-check` and
+  `stonewright doctor --client-surface` for profile/client mismatch diagnosis.
+- Theme abilities `stonewright/theme-file-read` and `stonewright/theme-file-patch`
+  (allowlisted child-theme CSS/JS/PHP with backup + production confirmation).
+- `php-execute` `read_only:true` input to block mutation APIs while allowing
+  Elementor meta reads.
+- `task-start` returns `write_target_url` / `site.active_write_target` for clear
+  live vs local binding.
+- `elementor-design` profile includes theme-file tools + confirmation token.
+- **Direct mode:** remote Elementor `data-get` / `data-update` without the editor
+  via core REST meta when registered (WP-CLI still preferred on local hosts).
+
+### Changed
+
+- Task-start non-visual compact token budget raised to **800** (write-target +
+  re-list signals for client surface sync).
+
 ## [1.0.0-alpha.76] - 2026-07-16
 
 ### Added
@@ -95,12 +129,3 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Prompt Library enqueues catalog CSS; blueprint card action buttons have spacing.
 - Connect e2e handles multi-snippet strict mode; visual e2e uses session REST helpers.
 
-## [1.0.0-alpha.72] - 2026-07-16
-
-### Added
-- Actionable audit error codes/messages and RemediationHints at task-start.
-- Direct Elementor data tools, gutenberg-validate, builtin skills, agents-md-sync.
-- Direct task-start write gate and recurring error surfacing.
-
-### Changed
-- README Elementor-first with full capability tables.

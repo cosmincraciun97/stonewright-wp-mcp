@@ -112,7 +112,17 @@ Profile and surface switching is transport-specific. Agents should treat
 - **`stonewright-task-start`**: surfaces `configured_mcp_surface` and
   `session_tool_profile`, binds the task profile to the current MCP session,
   and returns `tools_changed` + `re_list_instruction`. The saved Setup
-  preference remains unchanged.
+  preference remains unchanged. When the admin surface is already
+  essential/full (or the session profile is not bootstrap), task-start still
+  sets `tools_changed` so stdio companions that started on env bootstrap
+  re-register proxied tools. Companions must also parse ability JSON from
+  `content[].text` when transports omit `structuredContent`.
+- **Bootstrap surface** includes runtime escape hatches (`php-execute`,
+  confirmation token, content/Elementor reads, `theme-file-read`) — not only
+  four startup tools.
+- **Diagnosis**: companion local tool `stonewright-client-surface-check` and
+  `stonewright doctor --client-surface` explain profile vs client mismatches
+  without REST workarounds.
 
 ### Direct/pluginless transport
 

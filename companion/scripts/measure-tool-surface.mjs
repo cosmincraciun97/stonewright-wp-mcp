@@ -22,8 +22,10 @@ const companionRoot = join(__dirname, '..');
 const srcRoot = join(companionRoot, 'src');
 
 export const TOOL_SURFACE_LIMITS = Object.freeze({
-	plugin_bootstrap_proxy_max_tools: 8,
-	plugin_essential_max_tools: 30,
+	// Bootstrap includes runtime escape hatches (php-execute, theme-file-read, …).
+	plugin_bootstrap_proxy_max_tools: 12,
+	// +1 for stonewright-client-surface-check in local recovery diagnostics.
+	plugin_essential_max_tools: 31,
 	plugin_low_tools_max_tools: 12,
 	// Raised for Direct blueprints tools (list/get/apply).
 	direct_full_max_tools: 100,
@@ -35,6 +37,7 @@ export const TOOL_SURFACE_LIMITS = Object.freeze({
 const LOCAL_RECOVERY_TOOL_NAMES = [
 	'stonewright-setup-profile',
 	'stonewright-wordpress-mcp-status',
+	'stonewright-client-surface-check',
 	'stonewright-wp-cli-status',
 	'stonewright-wp-cli-discover',
 	'stonewright-wp-cli-run',
@@ -165,9 +168,16 @@ export function parseProxyProfileToolNames(source) {
  */
 export function evaluateToolSurfaceBudgets(metrics, limits = TOOL_SURFACE_LIMITS) {
 	const budgets = {
+		plugin_bootstrap_proxy_max_12_tools:
+			(metrics.plugin_bootstrap_proxy_tool_count ?? Number.POSITIVE_INFINITY) <=
+			limits.plugin_bootstrap_proxy_max_tools,
+		// Legacy alias kept so older fixtures keep a stable key name.
 		plugin_bootstrap_proxy_max_8_tools:
 			(metrics.plugin_bootstrap_proxy_tool_count ?? Number.POSITIVE_INFINITY) <=
 			limits.plugin_bootstrap_proxy_max_tools,
+		plugin_essential_max_31_tools:
+			(metrics.plugin_essential_tool_count ?? Number.POSITIVE_INFINITY) <=
+			limits.plugin_essential_max_tools,
 		plugin_essential_max_30_tools:
 			(metrics.plugin_essential_tool_count ?? Number.POSITIVE_INFINITY) <=
 			limits.plugin_essential_max_tools,

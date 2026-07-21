@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.77] - 2026-07-22
+
+### Fixed
+
+- Task-start always signals tools re-list when admin surface is full/essential or
+  the session profile leaves bootstrap (stdio companion surface sync).
+
+### Added
+
+- Bootstrap MCP surface ≤12 tools with php-execute, confirmation, content and
+  Elementor read tools, theme-file-read.
+- `stonewright/theme-file-read` and `stonewright/theme-file-patch` allowlisted
+  theme file abilities with backup and production confirmation.
+- `php-execute` `read_only` flag; clearer Elementor write-vs-read policy.
+- Task-start `write_target_url` / active write target labeling.
+- Direct remote Elementor data path via REST meta when registered.
+
 ## [1.0.0-alpha.76] - 2026-07-16
 
 ### Added
@@ -95,12 +112,3 @@
   avoids waiting on an absent optional DOM attribute.
 - Prompt Library loads catalog card CSS; blueprint action buttons have spacing.
 
-## [1.0.0-alpha.72] - 2026-07-16
-
-### Added
-- Actionable audit error codes/messages and RemediationHints at task-start.
-- Direct Elementor data tools, gutenberg-validate, builtin skills, agents-md-sync.
-- Direct task-start write gate and recurring error surfacing.
-
-### Changed
-- README Elementor-first with full capability tables.

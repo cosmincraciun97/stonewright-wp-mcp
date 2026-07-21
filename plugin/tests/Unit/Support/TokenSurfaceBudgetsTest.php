@@ -14,22 +14,25 @@ final class TokenSurfaceBudgetsTest extends TestCase {
 	public function test_passing_metrics_all_true(): void {
 		$budgets = TokenSurfaceBudgets::evaluate(
 			[
-				'bootstrap_tool_count'         => 8,
-				'bootstrap_token_estimate'     => 2000,
+				'bootstrap_tool_count'         => 12,
+				'bootstrap_token_estimate'     => 3000,
 				'essential_tool_count'         => 20,
 				'default_tool_count'           => 20,
 				'strict_tool_count'            => 12,
-				'non_visual_task_start_tokens' => 699,
+				'non_visual_task_start_tokens' => 799,
 				'visual_task_start_tokens'     => 1199,
 			]
 		);
 
 		self::assertTrue( TokenSurfaceBudgets::all_pass( $budgets ) );
+		self::assertTrue( $budgets['bootstrap_max_12_tools'] );
 		self::assertTrue( $budgets['bootstrap_max_8_tools'] );
+		self::assertTrue( $budgets['bootstrap_max_3500_tokens'] );
 		self::assertTrue( $budgets['bootstrap_max_2500_tokens'] );
 		self::assertTrue( $budgets['essential_max_30_tools'] );
 		self::assertTrue( $budgets['default_max_20_tools'] );
 		self::assertTrue( $budgets['strict_max_12_tools'] );
+		self::assertTrue( $budgets['non_visual_task_start_lt_800'] );
 		self::assertTrue( $budgets['non_visual_task_start_lt_700'] );
 		self::assertTrue( $budgets['visual_task_start_lt_1200'] );
 	}
@@ -43,6 +46,7 @@ final class TokenSurfaceBudgetsTest extends TestCase {
 		self::assertFalse( $budgets['essential_max_30_tools'] );
 		self::assertFalse( $budgets['default_max_20_tools'] );
 		self::assertFalse( $budgets['strict_max_12_tools'] );
+		self::assertFalse( $budgets['non_visual_task_start_lt_800'] );
 		self::assertFalse( $budgets['non_visual_task_start_lt_700'] );
 		self::assertFalse( $budgets['visual_task_start_lt_1200'] );
 	}

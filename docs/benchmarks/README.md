@@ -10,10 +10,11 @@ Hard budgets (non-zero exit on breach):
 
 | Gate | Limit |
 |---|---:|
-| Essential mode tools | ≤ 20 |
+| Essential mode tools | ≤ 30 |
 | Default profile cap | ≤ 20 tools |
 | Strict / low-tools cap | ≤ 12 tools |
-| `task-start` non-visual compact | < 700 estimated tokens |
+| Bootstrap tools | ≤ 12 |
+| `task-start` non-visual compact | < 800 estimated tokens |
 | `task-start` visual compact | < 1200 estimated tokens |
 
 Dry-run that must exit `1`:
@@ -31,10 +32,11 @@ cd companion && npm run tokens:measure
 
 | Gate | Limit |
 |---|---:|
-| Plugin essential (proxied + local) | ≤ 20 |
+| Plugin bootstrap (proxied) | ≤ 12 |
+| Plugin essential (proxied + local) | ≤ 31 |
 | Plugin low-tools (proxied + local) | ≤ 12 |
-| Direct full (when `src/direct` present) | ≤ 40 |
-| Direct essential (when export present) | ≤ 20 |
+| Direct full (when `src/direct` present) | ≤ 100 |
+| Direct essential (when export present) | ≤ 21 |
 
 Dry-run that must exit `1`:
 

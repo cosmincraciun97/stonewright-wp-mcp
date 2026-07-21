@@ -10,7 +10,7 @@
  * - essential mode tools ≤ 20
  * - default profile cap ≤ 20 tools
  * - strict/low-tools cap ≤ 12 tools
- * - task-start non-visual compact < 700 estimated tokens
+ * - task-start non-visual compact < 800 estimated tokens
  * - task-start visual compact < 1200 estimated tokens
  *
  * Usage:

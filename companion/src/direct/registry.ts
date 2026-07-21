@@ -1540,35 +1540,41 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 
 	// --- Wave 5: pluginless Elementor/Gutenberg + agents-md ---
-	w4(
+	// Prefer local WP-CLI; on remote Direct fall back to core REST meta when registered.
+	w3(
 		'stonewright-elementor-status',
-		'Detect local WP-CLI + Elementor availability for Direct-mode data editing.',
+		'Detect WP-CLI and/or REST Elementor data-edit paths for Direct mode (no full plugin engines).',
 		{ site: siteArg, cwd: z.string().optional(), path: z.string().optional() },
-		(input) => elementorDirect.elementorStatus(ctx.env, input as never),
+		(input, runtime) =>
+			elementorDirect.elementorStatus(ctx.env, input as never, undefined, runtime.client),
 	);
-	w4(
+	w3(
 		'stonewright-elementor-data-get',
-		'Read _elementor_data for a post via tokenized WP-CLI (local sites).',
+		'Read _elementor_data (WP-CLI when local; core REST meta fallback on remote if registered). Not plugin batch-mutate.',
 		{
 			site: siteArg,
 			post_id: z.number().int().positive(),
+			type: z.string().optional(),
 			cwd: z.string().optional(),
 			path: z.string().optional(),
 		},
-		(input) => elementorDirect.elementorDataGet(ctx.env, input as never),
+		(input, runtime) =>
+			elementorDirect.elementorDataGet(ctx.env, input as never, undefined, runtime.client),
 	);
-	w4(
+	w3(
 		'stonewright-elementor-data-update',
-		'Update _elementor_data via WP-CLI with mandatory file backup. JSON is passed on stdin (ARG_MAX safe). CSS flush is best-effort.',
+		'Update _elementor_data without opening the Elementor editor. Prefers WP-CLI; remote Direct uses REST meta with local file backup. No schema validation — prefer plugin batch-mutate on production.',
 		{
 			site: siteArg,
 			post_id: z.number().int().positive(),
+			type: z.string().optional(),
 			data: z.union([z.string(), z.array(z.unknown()), z.record(z.string(), z.unknown())]),
 			confirm: confirmArg,
 			cwd: z.string().optional(),
 			path: z.string().optional(),
 		},
-		(input) => elementorDirect.elementorDataUpdate(ctx.env, input as never),
+		(input, runtime) =>
+			elementorDirect.elementorDataUpdate(ctx.env, input as never, undefined, runtime.client),
 	);
 	w3(
 		'stonewright-gutenberg-validate',

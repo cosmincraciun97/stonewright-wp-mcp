@@ -153,6 +153,11 @@ npm run build
   `stonewright-context-bootstrap` is visible in the MCP tool list, stop
   WordPress work and ask the user to reload the AI client or fix the
   Stonewright MCP config. Do not work around a missing Stonewright MCP server.
+- If status is connected and the site surface is full/essential but
+  `stonewright-php-execute` (or another needed tool) is missing from the client
+  list, call `stonewright-client-surface-check`, then `stonewright-task-start` /
+  `stonewright-tool-profile` activate and re-list tools, or restart the MCP
+  client. Do **not** invent `/abilities/run` or other REST workarounds.
 - Do not inspect private AI-client config files, parse repository files as a
   substitute for the live MCP tool list, hand-roll JSON-RPC calls, create
   scratch scripts such as `query-mcp.js` or `run-ability.js`, helper JSON

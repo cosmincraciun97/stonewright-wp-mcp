@@ -56,8 +56,9 @@ surface and plugin-only gaps (Elementor engine, php-execute, memory, etc.).
 | Users list/get/me | yes | yes |
 | Search + block patterns | yes | yes |
 | Gutenberg compose helper (local markup) | yes | n/a (use plugin Gutenberg tools) |
-| WP-CLI tokenized tools | yes (local) | yes (local) |
+| WP-CLI tokenized tools | yes (local host only) | yes (local host only) |
 | `stonewright/php-execute` | no | yes |
+| Elementor edit **without editor** | yes — `elementor-data-get/update` (WP-CLI local; REST meta on remote when registered; file backup) | yes — typed `elementor-v3-batch-mutate` etc. |
 | Elementor V3/V4 engines + schema | no | yes |
 | DesignSpec validate/render | no | yes |
 | Site memory / skills store | no | yes |
@@ -114,8 +115,8 @@ Documented in `src/direct/capability-tiers.ts`:
 | `plugin` | Full Stonewright plugin MCP surface |
 | `plugin-browser-qa` | Plugin + Playwright visual/admin gates |
 
-Direct `STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap` exposes at most eight startup
-tools. `stonewright-task-start` selects and enables a compact Direct task
+Direct `STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap` starts with a compact surface.
+`stonewright-task-start` selects and enables a compact Direct task
 profile for the current session; Full is explicit only.
 
 After the MCP server starts, call `stonewright-setup-profile` once. It returns

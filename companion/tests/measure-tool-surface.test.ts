@@ -40,7 +40,9 @@ describe('measure-tool-surface budgets', () => {
 		}) as ToolSurfaceBudgets;
 
 		expect(allBudgetsPass(budgets)).toBe(false);
+		expect(budgets.plugin_bootstrap_proxy_max_12_tools).toBe(false);
 		expect(budgets.plugin_bootstrap_proxy_max_8_tools).toBe(false);
+		expect(budgets.plugin_essential_max_31_tools).toBe(false);
 		expect(budgets.plugin_essential_max_30_tools).toBe(false);
 		expect(budgets.plugin_low_tools_max_12_tools).toBe(false);
 		expect(budgets.direct_full_max_100_tools).toBe(false);
@@ -63,7 +65,9 @@ describe('measure-tool-surface budgets', () => {
 		expect(report.metrics.plugin_low_tools_tool_count).toBeLessThanOrEqual(
 			TOOL_SURFACE_LIMITS.plugin_low_tools_max_tools,
 		);
+		expect(report.budgets.plugin_bootstrap_proxy_max_12_tools).toBe(true);
 		expect(report.budgets.plugin_bootstrap_proxy_max_8_tools).toBe(true);
+		expect(report.budgets.plugin_essential_max_31_tools).toBe(true);
 		expect(report.budgets.plugin_essential_max_30_tools).toBe(true);
 		expect(report.budgets.plugin_low_tools_max_12_tools).toBe(true);
 		expect(report.ok).toBe(true);

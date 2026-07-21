@@ -339,7 +339,7 @@ async function main(): Promise<void> {
 	}
 	if (argv[0] === 'doctor') {
 		const { runDoctor } = await import('./cli/doctor.js');
-		const code = await runDoctor();
+		const code = await runDoctor(argv.slice(1));
 		process.exit(code);
 	}
 
