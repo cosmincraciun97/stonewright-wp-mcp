@@ -51,10 +51,14 @@ describe('Direct capability tiers honesty', () => {
 		}
 	});
 
-	it('local-rest-wpcli allows elementor data wpcli but not plugin engines', () => {
+	it('elementor document meta edits work on remote and local Direct; engines stay plugin-only', () => {
+		// remote-rest: REST meta fallback when _elementor_data is registered
+		// local-rest-wpcli: preferred WP-CLI path
+		expect(isFeatureAvailableInTier('elementor-data-wpcli', 'remote-rest')).toBe(true);
 		expect(isFeatureAvailableInTier('elementor-data-wpcli', 'local-rest-wpcli')).toBe(true);
-		expect(isFeatureAvailableInTier('elementor-data-wpcli', 'remote-rest')).toBe(false);
+		expect(isFeatureAvailableInTier('elementor-engine', 'remote-rest')).toBe(false);
 		expect(isFeatureAvailableInTier('elementor-engine', 'local-rest-wpcli')).toBe(false);
+		expect(isFeatureAvailableInTier('elementor-engine', 'plugin')).toBe(true);
 	});
 
 	it('every feature documents upgrade path', () => {
