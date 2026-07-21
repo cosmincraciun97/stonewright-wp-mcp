@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.77] - 2026-07-22
+
 ### Fixed
 
 - Task-start always signals tools re-list when admin surface is full/essential or
@@ -15,6 +17,7 @@
   theme file abilities with backup and production confirmation.
 - `php-execute` `read_only` flag; clearer Elementor write-vs-read policy.
 - Task-start `write_target_url` / active write target labeling.
+- Direct remote Elementor data path via REST meta when registered.
 
 ## [1.0.0-alpha.76] - 2026-07-16
 
@@ -109,12 +112,3 @@
   avoids waiting on an absent optional DOM attribute.
 - Prompt Library loads catalog card CSS; blueprint action buttons have spacing.
 
-## [1.0.0-alpha.72] - 2026-07-16
-
-### Added
-- Actionable audit error codes/messages and RemediationHints at task-start.
-- Direct Elementor data tools, gutenberg-validate, builtin skills, agents-md-sync.
-- Direct task-start write gate and recurring error surfacing.
-
-### Changed
-- README Elementor-first with full capability tables.

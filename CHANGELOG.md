@@ -7,6 +7,8 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.77] - 2026-07-22
+
 ### Fixed
 
 - **MCP tool surface sync (P0):** `task-start` always emits `tools_changed` +
@@ -127,12 +129,3 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Prompt Library enqueues catalog CSS; blueprint card action buttons have spacing.
 - Connect e2e handles multi-snippet strict mode; visual e2e uses session REST helpers.
 
-## [1.0.0-alpha.72] - 2026-07-16
-
-### Added
-- Actionable audit error codes/messages and RemediationHints at task-start.
-- Direct Elementor data tools, gutenberg-validate, builtin skills, agents-md-sync.
-- Direct task-start write gate and recurring error surfacing.
-
-### Changed
-- README Elementor-first with full capability tables.
