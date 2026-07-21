@@ -139,6 +139,26 @@ final class PhpExecuteTest extends TestCase {
 		self::assertTrue( $read['ok'] );
 	}
 
+	public function test_read_only_flag_blocks_mutation_apis(): void {
+		$blocked = ( new PhpExecute() )->execute(
+			[
+				'code'      => 'update_option("blogname", "x"); return true;',
+				'read_only' => true,
+			]
+		);
+		self::assertInstanceOf( \WP_Error::class, $blocked );
+		self::assertSame( 'stonewright_php_read_only_violation', $blocked->get_error_code() );
+
+		$ok = ( new PhpExecute() )->execute(
+			[
+				'code'      => 'return get_option("blogname");',
+				'read_only' => true,
+			]
+		);
+		self::assertIsArray( $ok );
+		self::assertTrue( $ok['ok'] );
+	}
+
 	public function test_blocks_direct_elementor_data_helper_bypass(): void {
 		$result = ( new PhpExecute() )->execute(
 			[

@@ -108,9 +108,19 @@ const BLUEPRINT_PROXY_TOOL_NAMES = [
  * single source of truth when WordPress is reachable.
  */
 const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, readonly string[]> = {
+	// Cold-start surface: always include runtime + confirmation + minimal reads so
+	// agents are not stuck waiting for task-start expansion on strict clients.
 	bootstrap: [
 		...STARTUP_REQUIRED_PROXY_TOOL_NAMES,
 		'stonewright-tool-profile',
+		'stonewright-php-execute',
+		'stonewright-security-issue-confirmation-token',
+		'stonewright-site-info',
+		'stonewright-content-get-page',
+		'stonewright-elementor-v3-get-page-structure',
+		'stonewright-elementor-schema',
+		'stonewright-theme-file-read',
+		'stonewright-ping',
 	],
 	'low-tools': [
 		...STARTUP_REQUIRED_PROXY_TOOL_NAMES,
@@ -131,10 +141,13 @@ const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, reado
 		'stonewright-media-upload-batch',
 		'stonewright-theme-builder-apply-template',
 		'stonewright-elementor-page-digest',
+		'stonewright-theme-file-read',
+		'stonewright-theme-file-patch',
 	],
 	'elementor-design': [
 		...BASE_PROXY_TOOL_NAMES,
 		...BLUEPRINT_PROXY_TOOL_NAMES,
+		'stonewright-security-issue-confirmation-token',
 		'stonewright-site-info',
 		'stonewright-site-plugins-list',
 		'stonewright-security-create-one-time-link',
@@ -155,7 +168,11 @@ const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, reado
 		'stonewright-media-upload-batch',
 		'stonewright-content-create-page',
 		'stonewright-content-update-page',
+		'stonewright-content-get-page',
 		'stonewright-content-bulk-upsert-posts',
+		'stonewright-theme-file-read',
+		'stonewright-theme-file-patch',
+		'stonewright-theme-custom-css',
 		'stonewright-elementor-v3-update-page-settings',
 		'stonewright-elementor-v3-update-kit-colors',
 		'stonewright-elementor-v3-update-kit-typography',
@@ -618,7 +635,10 @@ export async function registerWordPressMcpTools(
 
 	const handleProxyCall = async (toolName: string, input: Record<string, unknown>) => {
 		const response = normalizeToolResponse(await client.callTool(toolName, input));
-		const structured = asRecord(response.structuredContent);
+		// Prefer structuredContent; fall back to parsed text payload (many WP MCP
+		// transports only return JSON in content[].text without structuredContent).
+		const structured = asRecord(response.structuredContent)
+			?? parseStructuredFromContent(response.content);
 		const hintedProfile = profileHintFromStructured(structured);
 		const profileDrift = hintedProfile !== null && coerceProxyToolProfile(hintedProfile) !== activeProfile;
 		if ((structuredIndicatesToolsChanged(structured) || profileDrift) && structured) {
@@ -644,6 +664,10 @@ export async function registerWordPressMcpTools(
 			} catch {
 				// Notification / re-registration is best-effort; clients can still honor re_list_instruction.
 			}
+		}
+		// Ensure clients that only read structuredContent still see profile signals.
+		if (structured && !response.structuredContent) {
+			return { ...response, structuredContent: structured };
 		}
 		return response;
 	};
@@ -789,6 +813,7 @@ export function structuredIndicatesToolsChanged(
 	if (!structured) return false;
 	if (structured['tools_changed'] === true) return true;
 	const reList = structured['re_list_instruction'];
+	// Non-empty re_list always means the companion must re-register and notify.
 	return typeof reList === 'string' && reList.trim() !== '';
 }
 
@@ -1203,7 +1228,8 @@ function normalizeToolResponse(result: unknown): {
 			content: Array<{ type: 'text'; text: string }>;
 			structuredContent?: unknown;
 		};
-		const structuredContent = asRecord(response.structuredContent);
+		const structuredContent = asRecord(response.structuredContent)
+			?? parseStructuredFromContent(response.content);
 		return structuredContent
 			? { content: response.content, structuredContent }
 			: { content: response.content };
@@ -1218,6 +1244,30 @@ function normalizeToolResponse(result: unknown): {
 		],
 		structuredContent: asRecord(result) ?? { value: result },
 	};
+}
+
+/**
+ * Parse the first JSON object from MCP text content blocks.
+ * WordPress MCP adapters often omit structuredContent and only put the ability
+ * payload in content[0].text — without this, profile drift / tools_changed never fire.
+ */
+export function parseStructuredFromContent(
+	content: Array<{ type?: string; text?: string }> | undefined,
+): Record<string, unknown> | null {
+	if (!Array.isArray(content)) return null;
+	for (const block of content) {
+		if (!block || typeof block.text !== 'string') continue;
+		const text = block.text.trim();
+		if (!text.startsWith('{') && !text.startsWith('[')) continue;
+		try {
+			const parsed = JSON.parse(text) as unknown;
+			const record = asRecord(parsed);
+			if (record) return record;
+		} catch {
+			// keep looking
+		}
+	}
+	return null;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {

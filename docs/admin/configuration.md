@@ -37,7 +37,7 @@ Three modes are stored in the `stonewright_mode` option:
 
 | Value | Behaviour |
 |---|---|
-| `bootstrap` | Progressive-discovery entry surface (≤ 8 tools, ≤ ~2,500 est. tokens). New installs default here. Call `stonewright-tool-profile` / `stonewright-task-start` to expand. |
+| `bootstrap` | Progressive-discovery entry surface (≤ 12 tools, ≤ ~3,500 est. tokens). Includes `php-execute`, confirmation token, site/content reads, and theme-file-read so cold clients are not stuck. New installs default here. Call `stonewright-tool-profile` / `stonewright-task-start` to expand. |
 | `essential` | Compact fast path (≤ 30 tools) with batch-first Elementor/Gutenberg/content/WP-CLI tools. |
 | `full` | Entire registered ability catalog. **Slow and high-context** — only for specialist sessions that truly need every ability. |
 

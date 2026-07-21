@@ -15,11 +15,15 @@ final class TokenSurfaceBudgets {
 
 	public const STRICT_MAX_TOOLS = 12;
 
-	/** Bootstrap profile: progressive discovery entry surface only. */
-	public const BOOTSTRAP_MAX_TOOLS = 8;
+	/**
+	 * Bootstrap profile: progressive discovery entry surface.
+	 * Includes startup + minimal runtime/write escape hatches so agents are not
+	 * stuck without php-execute before the first task-start expansion.
+	 */
+	public const BOOTSTRAP_MAX_TOOLS = 12;
 
 	/** Estimated token budget for bootstrap tools/list payload. */
-	public const BOOTSTRAP_MAX_TOKENS = 2500;
+	public const BOOTSTRAP_MAX_TOKENS = 3500;
 
 	/** Essential profile may include blueprint/clone/learning path tools. */
 	public const ESSENTIAL_MAX_TOOLS = 30;
@@ -56,10 +60,15 @@ final class TokenSurfaceBudgets {
 
 		// Bootstrap metrics are optional so legacy measure callers stay valid.
 		if ( array_key_exists( 'bootstrap_tool_count', $metrics ) ) {
-			$budgets['bootstrap_max_8_tools'] = $bootstrap <= self::BOOTSTRAP_MAX_TOOLS;
+			// Keep legacy key alias so older measure callers still validate.
+			$within = $bootstrap <= self::BOOTSTRAP_MAX_TOOLS;
+			$budgets['bootstrap_max_12_tools'] = $within;
+			$budgets['bootstrap_max_8_tools']  = $within;
 		}
 		if ( array_key_exists( 'bootstrap_token_estimate', $metrics ) ) {
-			$budgets['bootstrap_max_2500_tokens'] = $bootstrap_tokens <= self::BOOTSTRAP_MAX_TOKENS;
+			$within_tokens = $bootstrap_tokens <= self::BOOTSTRAP_MAX_TOKENS;
+			$budgets['bootstrap_max_3500_tokens'] = $within_tokens;
+			$budgets['bootstrap_max_2500_tokens'] = $within_tokens;
 		}
 
 		return $budgets;

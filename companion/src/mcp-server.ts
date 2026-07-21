@@ -78,6 +78,7 @@ export interface CreateMcpServerOptions {
 const LOCAL_RECOVERY_TOOL_NAMES = [
 	'stonewright-setup-profile',
 	'stonewright-wordpress-mcp-status',
+	'stonewright-client-surface-check',
 	'stonewright-wp-cli-status',
 	'stonewright-wp-cli-discover',
 	'stonewright-wp-cli-run',
@@ -90,6 +91,7 @@ const LOCAL_RECOVERY_TOOL_NAMES = [
 const LOW_TOOLS_LOCAL_RECOVERY_TOOL_NAMES = [
 	'stonewright-setup-profile',
 	'stonewright-wordpress-mcp-status',
+	'stonewright-client-surface-check',
 	'stonewright-wp-cli-status',
 	'stonewright-wp-cli-batch-run',
 	'stonewright-wp-cli-job-start',
@@ -133,6 +135,7 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 	registerSetupTools(server, env);
 	const wpMcpStatus = createWordPressMcpConnectionStatus(profile);
 	registerWordPressMcpStatusTool(server, wpMcpStatus);
+	registerClientSurfaceCheckTool(server, wpMcpStatus, env);
 
 	const modeProbe = await resolveRuntimeMode({
 		env,
@@ -297,6 +300,7 @@ function companionInstructions(profile: ProxyToolProfile): string {
 		`- ${MCP_MISSING_BOOTSTRAP_STOP}`,
 		'- Use stonewright-php-execute for direct full WordPress runtime access when a short PHP snippet is faster than many typed calls.',
 		'- Use stonewright-wordpress-mcp-status only to diagnose the Stonewright MCP connection when proxied WordPress tools are missing.',
+		'- If a needed tool (e.g. php-execute) is missing from the client list while status is connected, call stonewright-client-surface-check then task-start/tool-profile and re-list tools — never call /abilities/run.',
 		'- Do not inspect private AI-client config files to find or call Stonewright.',
 		'- Do not create scratch scripts such as query-mcp.js or run-ability.js to bypass the MCP client tool surface.',
 		'- Do not create helper JSON argument files such as bootstrap-args.json, cli_command.json, or get_structure.json to bypass typed MCP tool input.',
@@ -439,6 +443,106 @@ function registerWordPressMcpStatusTool(server: McpServer, status: WordPressMcpC
 			inputSchema: {},
 		},
 		() => toolResponse(status),
+	);
+}
+
+/**
+ * Diagnose companion vs WordPress vs client tool-surface mismatches.
+ * Always local — works even when php-execute is filtered out of the proxy set.
+ */
+function registerClientSurfaceCheckTool(
+	server: McpServer,
+	status: WordPressMcpConnectionStatus,
+	env: NodeJS.ProcessEnv,
+): void {
+	server.registerTool(
+		'stonewright-client-surface-check',
+		{
+			description:
+				'Diagnose Stonewright client tool-surface problems: companion profile, remote tools, filtered tools, whether php-execute is registered, and concrete fixes (relist / activate profile / restart MCP). Prefer this over inventing REST abilities/run workarounds.',
+			inputSchema: {
+				expected_tool: z.string().optional(),
+			},
+		},
+		(input) => {
+			const expected = typeof input.expected_tool === 'string' && input.expected_tool.trim() !== ''
+				? input.expected_tool.trim().replaceAll('/', '-')
+				: 'stonewright-php-execute';
+			const expectedNorm = expected.startsWith('stonewright-') ? expected : `stonewright-${expected}`;
+			const remoteHas = status.remote_tool_count > 0;
+			const filtered = new Set(status.profile_filtered_tool_names ?? []);
+			const missingProfile = new Set(status.profile_missing_tool_names ?? []);
+			const serverHas = remoteHas && !missingProfile.has(expectedNorm);
+			// Approximated: if tool is in filtered list, companion saw it remotely but did not proxy it.
+			const clientHas = status.connected
+				&& status.proxied_tool_count > 0
+				&& !filtered.has(expectedNorm)
+				&& !missingProfile.has(expectedNorm)
+				&& (status.tool_profile === 'full'
+					|| proxyToolNamesForProfile((status.tool_profile as ProxyToolProfile) || 'bootstrap').includes(expectedNorm)
+					|| expectedNorm === 'stonewright-task-start'
+					|| expectedNorm === 'stonewright-tool-profile');
+
+			let errorCode = 'ok';
+			const fix: string[] = [];
+			if (!status.configured) {
+				errorCode = 'not_configured';
+				fix.push('run_setup_profile', 'set_STONEWRIGHT_WP_URL_and_credentials');
+			} else if (!status.connected) {
+				errorCode = 'auth_or_connectivity_fail';
+				fix.push('verify_app_password', 'verify_mcp_url', 'restart_mcp');
+			} else if (filtered.has(expectedNorm) || status.tool_profile === 'bootstrap') {
+				errorCode = 'client_tool_not_registered';
+				fix.push('call_task_start', 'activate_profile:full_or_elementor-design', 'relist_tools', 'restart_mcp');
+			} else if (!clientHas) {
+				errorCode = 'client_tool_not_registered';
+				fix.push('relist_tools', 'activate_profile:full', 'restart_mcp');
+			}
+
+			const siteAlias = (env['STONEWRIGHT_SITE_ALIAS'] ?? '').trim();
+			const writeTarget = status.url
+				? String(status.url).replace(/\/wp-json\/mcp\/stonewright\/?$/i, '/')
+				: null;
+
+			return toolResponse({
+				ok: errorCode === 'ok',
+				error_code: errorCode,
+				server_has_tool: serverHas || (status.connected && status.remote_tool_count > 50),
+				client_has_tool: clientHas,
+				expected_tool: expectedNorm,
+				companion: {
+					tool_profile: status.tool_profile,
+					connected: status.connected,
+					configured: status.configured,
+					remote_tool_count: status.remote_tool_count,
+					proxied_tool_count: status.proxied_tool_count,
+					profile_filtered_tool_count: status.profile_filtered_tool_count,
+					profile_filtered_tool_names: status.profile_filtered_tool_names,
+					profile_missing_tool_names: status.profile_missing_tool_names,
+					mode: status.mode,
+				},
+				write_target: {
+					url: writeTarget,
+					mcp_url: status.url,
+					site_alias: siteAlias || null,
+					label: writeTarget
+						? `active write target = ${writeTarget} (${status.mode})`
+						: 'active write target unknown — configure STONEWRIGHT_WP_URL',
+				},
+				diagnosis: errorCode === 'ok'
+					? 'Client surface looks healthy for the expected tool.'
+					: errorCode === 'auth_or_connectivity_fail'
+						? 'WordPress MCP endpoint is not connected (auth fail or host down).'
+						: errorCode === 'not_configured'
+							? 'Companion is not configured with site credentials.'
+							: 'Server likely has the tool but the companion client profile filtered it out. Re-list after task-start/tool-profile, or restart MCP. Do not call /abilities/run.',
+				fix,
+				agent_do_not_use: [
+					'Do not call /wp-json/stonewright/v1/abilities/run as a workaround.',
+					'Do not hand-roll JSON-RPC against the MCP endpoint.',
+				],
+			});
+		},
 	);
 }
 

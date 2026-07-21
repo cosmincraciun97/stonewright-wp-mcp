@@ -70,6 +70,7 @@ export const AGENT_DO_NOT_USE = [
 	'Do not inspect plugin or companion source code to reverse-engineer tool schemas during WordPress implementation tasks.',
 	'Do not hand-roll JSON-RPC calls to /mcp or /wp-json/mcp/stonewright as an MCP workaround.',
 	'Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround.',
+	'If status is connected and the site surface is full/essential but php-execute is missing from the client tool list, call stonewright-client-surface-check, then task-start / tool-profile activate and re-list tools — or restart the MCP client. Do not invent REST workarounds.',
 ];
 
 export const MCP_MISSING_BOOTSTRAP_STOP =

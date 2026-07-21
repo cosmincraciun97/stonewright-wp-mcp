@@ -446,9 +446,13 @@ final class ToolProfile extends AbilityKernel {
 			'tools_changed'         => $tools_changed,
 			'tools_changed_at'      => $changed_at,
 			'extras_applied'        => array_values( (array) ( $extras_result['extras'] ?? [] ) ),
+			// Always emit a re-list instruction on activate so stdio companions that
+			// missed tools_changed still expand (Grok / Cursor cache quirks).
 			're_list_instruction'   => $tools_changed
-				? 'Re-list tools now (tools/list). New tools are available. If your client ignores tools/list_changed, call tools/list again before continuing.'
-				: '',
+				? 'Re-list tools now (tools/list). New tools are available. If your client ignores tools/list_changed, call tools/list again before continuing. If php-execute is still missing after re-list, restart the MCP client — do not call /abilities/run.'
+				: ( 'activate' === (string) ( $args['action'] ?? 'activate' )
+					? 'Re-list tools now (tools/list) to confirm the active profile surface matches the server.'
+					: '' ),
 			'source'                => 'plugin',
 			'ordered'               => true,
 		];
@@ -612,6 +616,7 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/wp-cli-job-status',
 			],
 			'elementor-design' => [
+				'stonewright/security-issue-confirmation-token',
 				'stonewright/elementor-v3-build-page-from-spec',
 				'stonewright/theme-builder-apply-template',
 				'stonewright/elementor-v3-batch-mutate',
@@ -645,6 +650,10 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/stock-image-import',
 				'stonewright/content-create-page',
 				'stonewright/content-update-page',
+				'stonewright/content-get-page',
+				'stonewright/theme-file-read',
+				'stonewright/theme-file-patch',
+				'stonewright/theme-custom-css',
 				'stonewright/elementor-v3-update-page-settings',
 				'stonewright/elementor-v3-update-kit-colors',
 				'stonewright/elementor-v3-update-kit-typography',

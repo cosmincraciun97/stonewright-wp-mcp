@@ -211,15 +211,27 @@ final class WorkflowPreflight extends AbilityKernel {
 				ToolProfile::profile_tools( $session_profile )
 			);
 		}
-		$tools_changed = $session_applied && 'bootstrap' !== $session_profile;
-		$re_list       = $tools_changed
-			? 'Re-list tools now (tools/list). The task profile is active for this MCP session; the saved site surface remains Bootstrap.'
-			: '';
+		// Always signal re-list when the effective profile is not bootstrap, OR when
+		// the admin-configured surface is already essential/full. Stdio companions
+		// that started on env bootstrap must expand even if the WP surface is full
+		// and no session transient was written (session_profile_applied stays false).
+		$tools_changed = ( 'bootstrap' !== $session_profile )
+			|| ( 'bootstrap' !== $configured_surface );
+		if ( $tools_changed ) {
+			$re_list = 'Re-list tools now (tools/list). New tools are available for this session. '
+				. 'If your client ignores tools/list_changed, call tools/list again before continuing. '
+				. 'If php-execute is still missing after re-list, restart the MCP client — do not call /abilities/run.';
+		} else {
+			$re_list = '';
+		}
+		$write_target = function_exists( 'home_url' ) ? (string) home_url( '/' ) : '';
+		$site_url     = function_exists( 'site_url' ) ? (string) site_url( '/' ) : $write_target;
 		$fast_path['tool_profile']['profile']                 = $session_profile;
 		$fast_path['tool_profile']['configured_mcp_surface']  = $configured_surface;
 		$fast_path['tool_profile']['session_profile_applied'] = $session_applied;
 		$fast_path['tool_profile']['tools_changed']           = $tools_changed;
 		$fast_path['tool_profile']['re_list_instruction']     = $re_list;
+		$fast_path['tool_profile']['write_target_url']        = $write_target;
 
 		$response = [
 			'ok'            => true,
@@ -232,6 +244,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			'tool_profile'            => $session_profile,
 			'tools_changed'           => $tools_changed,
 			're_list_instruction'     => $re_list,
+			'write_target_url'        => $write_target,
 			'auth_guidance' => [
 				'Use a WordPress Application Password for HTTP MCP authentication.',
 				'Keep the Mcp-Session-Id response header on later JSON-RPC calls.',
@@ -242,6 +255,15 @@ final class WorkflowPreflight extends AbilityKernel {
 			'site'          => [
 				'ability_count'        => count( AbilityRegistry::list() ),
 				'public_ability_count' => count( AbilityRegistry::enabled_abilities() ),
+				'write_target_url'     => $write_target,
+				'site_url'             => $site_url,
+				'configured_mcp_surface' => $configured_surface,
+				'active_write_target'  => sprintf(
+					/* translators: 1: site URL, 2: MCP surface mode */
+					'%1$s (plugin, surface=%2$s)',
+					$write_target,
+					$configured_surface
+				),
 				'essential_tools_mode' => (bool) get_option( 'stonewright_essential_tools_mode', true ),
 				'mcp_surface'          => AbilityRegistry::mcp_surface(),
 				'mcp_server_id'        => 'stonewright',
@@ -394,6 +416,8 @@ final class WorkflowPreflight extends AbilityKernel {
 			$re_list = 'Re-list tools now (tools/list). New tools are available. If your client ignores tools/list_changed, call tools/list again before continuing.';
 		}
 
+		$site = is_array( $response['site'] ?? null ) ? $response['site'] : [];
+
 		return [
 			'ok'                  => (bool) ( $response['ok'] ?? false ),
 			'context_token'       => (string) ( $response['context_token'] ?? '' ),
@@ -403,6 +427,11 @@ final class WorkflowPreflight extends AbilityKernel {
 			'fast_path'           => $compact_fast_path,
 			'elementor'           => $compact_elementor,
 			'context'             => $compact_context,
+			'site'                => [
+				'write_target_url'       => (string) ( $site['write_target_url'] ?? $response['write_target_url'] ?? '' ),
+				'active_write_target'    => (string) ( $site['active_write_target'] ?? '' ),
+				'configured_mcp_surface' => (string) ( $site['configured_mcp_surface'] ?? $response['configured_mcp_surface'] ?? $profile_name ),
+			],
 			'response_mode'       => 'compact',
 			'payload_hashes'      => $payload_hashes,
 			'changed_keys'        => $changed,
@@ -413,6 +442,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			'session_profile_applied' => (bool) ( $response['session_profile_applied'] ?? false ),
 			'tools_changed'       => $tools_changed,
 			're_list_instruction' => $re_list,
+			'write_target_url'    => (string) ( $response['write_target_url'] ?? $site['write_target_url'] ?? '' ),
 		];
 	}
 

@@ -186,6 +186,8 @@ use Stonewright\WpMcp\Abilities\Settings\SettingsGet;
 use Stonewright\WpMcp\Abilities\Settings\SettingsUpdate;
 use Stonewright\WpMcp\Abilities\Themes\ThemeActivate;
 use Stonewright\WpMcp\Abilities\Themes\ThemeCustomCss;
+use Stonewright\WpMcp\Abilities\Themes\ThemeFilePatch;
+use Stonewright\WpMcp\Abilities\Themes\ThemeFileRead;
 use Stonewright\WpMcp\Abilities\Themes\ThemeList;
 use Stonewright\WpMcp\Abilities\PluginsManage\PluginActivate;
 use Stonewright\WpMcp\Abilities\PluginsManage\PluginDeactivate;
@@ -486,6 +488,8 @@ final class AbilityRegistry {
 			ThemeList::class,
 			ThemeActivate::class,
 			ThemeCustomCss::class,
+			ThemeFileRead::class,
+			ThemeFilePatch::class,
 
 			// Plugins manage.
 			PluginActivate::class,
@@ -1078,8 +1082,9 @@ final class AbilityRegistry {
 	/**
 	 * Progressive-discovery bootstrap surface (≤ TokenSurfaceBudgets::BOOTSTRAP_MAX_TOOLS).
 	 *
-	 * Ordered for cold start: task gateway → site identity → connectivity →
-	 * profile expansion → runtime escape hatches → recovery.
+	 * Ordered for cold start: task gateway → expansion → runtime/write escape
+	 * hatches → site identity → minimal content/Elementor reads. Agents must
+	 * never be stuck without php-execute or a profile switcher on a cold client.
 	 *
 	 * @return list<string>
 	 */
@@ -1106,21 +1111,23 @@ final class AbilityRegistry {
 		$names = array_values(
 			array_filter(
 				[
-					// Core startup.
+					// Core startup / progressive expansion.
 					$pick( [ 'stonewright/task-start' ] ),
-					// Setup identity (prefer setup-profile when present).
-					$pick( [ 'stonewright/setup-profile', 'stonewright/site-info' ] ),
-					// Connectivity proof.
-					$pick( [ 'stonewright/connection-status', 'stonewright/ping' ] ),
-					// Progressive expansion.
-					$pick( [ 'stonewright/tool-profile' ] ),
-					// First-class runtime.
-					$pick( [ 'stonewright/php-execute' ] ),
-					// WP-CLI discovery / batch.
-					$pick( [ 'stonewright/wp-cli-status', 'stonewright/wp-cli-batch-run' ] ),
-					// Recovery (≤ 2).
-					$pick( [ 'stonewright/security-issue-confirmation-token' ] ),
 					$pick( [ 'stonewright/context-bootstrap' ] ),
+					$pick( [ 'stonewright/tool-profile' ] ),
+					$pick( [ 'stonewright/skills-get' ] ),
+					// First-class runtime + confirmation (never hide these on cold start).
+					$pick( [ 'stonewright/php-execute' ] ),
+					$pick( [ 'stonewright/security-issue-confirmation-token' ] ),
+					// Site identity + connectivity.
+					$pick( [ 'stonewright/site-info', 'stonewright/setup-profile' ] ),
+					$pick( [ 'stonewright/ping', 'stonewright/connection-status' ] ),
+					// Minimal content + Elementor read tools for design tasks.
+					$pick( [ 'stonewright/content-get-page' ] ),
+					$pick( [ 'stonewright/elementor-v3-get-page-structure', 'stonewright/elementor-v3-status' ] ),
+					$pick( [ 'stonewright/elementor-schema', 'stonewright/elementor-v3-list-widgets' ] ),
+					// Theme CSS patch path (common Transavia-style work without full PHP).
+					$pick( [ 'stonewright/theme-file-read', 'stonewright/theme-custom-css' ] ),
 				]
 			)
 		);

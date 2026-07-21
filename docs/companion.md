@@ -147,9 +147,15 @@ of first-call, diagnostic, direct WP-CLI, long-running WP-CLI, and proxied
 profile tools. Use it before broad tool discovery in token-sensitive sessions.
 
 For new stdio sessions, the companion defaults to
-`STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap`. `stonewright-task-start` then enables
-the compact task profile for that session in plugin or Direct/pluginless mode.
-Set it to `full` only for deliberate specialist diagnostics.
+`STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap`. Bootstrap already exposes a minimal
+runtime set (`php-execute`, confirmation token, site/content reads, theme-file-read).
+`stonewright-task-start` then enables the compact task profile for that session
+in plugin or Direct/pluginless mode and always sets `tools_changed` +
+`re_list_instruction` when leaving bootstrap or when the admin surface is
+already essential/full so stuck clients re-list. Use companion tool
+`stonewright-client-surface-check` (or `stonewright doctor --client-surface`)
+to diagnose profile vs client registration mismatches. Set the env profile to
+`full` only for deliberate specialist diagnostics.
 Use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` for Antigravity, Gemini API, or
 other strict tool-cap clients. It keeps the total client-visible surface under
 30 tools by hiding legacy duplicate aliases while direct WP-CLI recovery tools
