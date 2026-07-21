@@ -58,10 +58,12 @@ export const CAPABILITY_FEATURES: readonly CapabilityFeature[] = [
 	},
 	{
 		id: 'elementor-data-wpcli',
-		label: 'Local Elementor _elementor_data edit via WP-CLI',
-		availableIn: ['local-rest-wpcli', 'plugin', 'plugin-browser-qa'],
-		reasonUnavailable: 'Remote REST cannot run WP-CLI; raw Elementor meta edits need local filesystem access.',
-		upgradePath: 'Run the companion on the same machine as the WordPress install (local REST + WP-CLI tier).',
+		label: 'Elementor _elementor_data edit (WP-CLI local, or REST meta when registered)',
+		availableIn: ['remote-rest', 'local-rest-wpcli', 'plugin', 'plugin-browser-qa'],
+		reasonUnavailable:
+			'Needs either local WP-CLI or REST-registered _elementor_data. Typed schema/batch-mutate still requires the plugin.',
+		upgradePath:
+			'Remote Direct: use stonewright-elementor-data-get/update when meta is REST-visible. For production engines install the Stonewright plugin (batch-mutate).',
 	},
 	{
 		id: 'php-execute',
@@ -135,10 +137,10 @@ export const CAPABILITY_TIERS: readonly CapabilityTier[] = [
 			'search, settings, site health, plugins list/activate, themes list, WooCommerce read',
 			'local companion skills/memory under ~/.stonewright',
 		],
-		excludes: [...PLUGIN_ONLY_FEATURE_IDS, 'elementor-data-wpcli'],
+		excludes: [...PLUGIN_ONLY_FEATURE_IDS],
 		upgradeTo: 'local-rest-wpcli',
 		upgradePath:
-			'For local Elementor meta edits, run the companion on the WordPress host with WP-CLI available. For full engines, install the Stonewright plugin.',
+			'Remote Direct can patch Elementor via REST meta when exposed (stonewright-elementor-data-*). Local WP-CLI is preferred when available. For schema-safe batch-mutate, install the Stonewright plugin.',
 	},
 	{
 		id: 'local-rest-wpcli',

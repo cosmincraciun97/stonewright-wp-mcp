@@ -56,9 +56,11 @@ final class ThemeFilePaths {
 			$probe          = $absolute;
 			if ( ! \file_exists( $probe ) ) {
 				// Walk up to nearest existing parent so create_if_missing stays safe.
-				$probe = \dirname( $absolute );
-				while ( ! \file_exists( $probe ) && \strlen( $probe ) > 1 ) {
-					$probe = \dirname( $probe );
+				$probe     = \dirname( $absolute );
+				$probe_len = \strlen( $probe );
+				while ( ! \file_exists( $probe ) && $probe_len > 1 ) {
+					$probe     = \dirname( $probe );
+					$probe_len = \strlen( $probe );
 				}
 			}
 			$canonical_probe = \realpath( $probe );

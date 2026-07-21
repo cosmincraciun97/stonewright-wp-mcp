@@ -28,7 +28,7 @@ requires `WP_ENVIRONMENT_TYPE=local` (or the Application Passwords availability 
 | Taxonomy terms | Yes | Yes |
 | Settings read | Yes | Yes |
 | Global styles / FSE | Yes when endpoints exist | Yes |
-| Elementor write / DesignSpec | **No** — clear “requires Stonewright plugin” message | Yes |
+| Elementor write / DesignSpec | **Limited** — `elementor-data-get/update` without editor (WP-CLI local or REST meta when registered). No DesignSpec / batch-mutate schema engines | Yes |
 | PHP execute | **No** | Yes (`stonewright/php-execute`) |
 | Skills / memory / learning | **Yes (local `~/.stonewright/`)** | Yes (site-hosted Admin UI) |
 | ACF field values | When ACF Show in REST | Yes (typed abilities) |

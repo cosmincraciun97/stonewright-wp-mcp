@@ -65,13 +65,54 @@ describe('direct elementor tools', () => {
 		resetTaskStartSeenForTests();
 	});
 
-	it('status reports no edit when wp-cli unavailable', async () => {
+	it('status reports no edit when wp-cli and REST unavailable', async () => {
 		const cli = mockCli({
 			'cli info': () => ({ ok: false, available: false, stdout: '', stderr: 'missing' }),
 		});
 		const result = await elementorStatus({}, {}, cli as never);
 		expect(result.can_edit_data).toBe(false);
 		expect(result.wp_cli).toBe(false);
+		expect(result.rest_fallback).toBe(false);
+	});
+
+	it('status allows REST fallback when wp-cli missing but REST client is present', async () => {
+		const cli = mockCli({
+			'cli info': () => ({ ok: false, available: false, stdout: '', stderr: 'missing' }),
+		});
+		const rest = {
+			get: vi.fn(),
+			post: vi.fn(),
+		};
+		const result = await elementorStatus({}, {}, cli as never, rest);
+		expect(result.wp_cli).toBe(false);
+		expect(result.rest_fallback).toBe(true);
+		expect(result.can_edit_data).toBe(true);
+	});
+
+	it('data-get falls back to REST meta when wp-cli is unavailable', async () => {
+		const tree = [{ id: 'abc', elType: 'container', elements: [] }];
+		const cli = mockCli({
+			'cli info': () => ({ ok: false, available: false }),
+		});
+		const rest = {
+			get: vi.fn(async (path: string) => {
+				if (path.includes('/pages/42')) {
+					return {
+						id: 42,
+						meta: {
+							_elementor_data: JSON.stringify(tree),
+							_elementor_edit_mode: 'builder',
+						},
+					};
+				}
+				throw new Error('not found');
+			}),
+			post: vi.fn(),
+		};
+		const result = await elementorDataGet({}, { post_id: 42 }, cli as never, rest);
+		expect(result.ok).toBe(true);
+		expect(result.transport).toBe('rest');
+		expect(result.element_count).toBe(1);
 	});
 
 	it('status detects active elementor', async () => {
@@ -196,4 +237,44 @@ describe('direct elementor tools', () => {
 			),
 		).rejects.toThrow(/JSON/i);
 	});
+
+	it('data-update uses REST when wp-cli is unavailable', async () => {
+		const tree = [{ id: 'abc', elType: 'container', elements: [] }];
+		const next = [{ id: 'abc', elType: 'container', elements: [{ id: 'w1' }] }];
+		const cli = mockCli({
+			'cli info': () => ({ ok: false, available: false }),
+		});
+		const posts: Record<string, unknown> = {
+			meta: {
+				_elementor_data: JSON.stringify(tree),
+				_elementor_edit_mode: 'builder',
+			},
+		};
+		const rest = {
+			get: vi.fn(async (path: string) => {
+				if (path.includes('/pages/7')) {
+					return { id: 7, ...posts };
+				}
+				throw new Error('not found');
+			}),
+			post: vi.fn(async (_path: string, opts?: { body?: { meta?: { _elementor_data?: string } } }) => {
+				if (opts?.body?.meta?._elementor_data) {
+					(posts.meta as Record<string, unknown>)['_elementor_data'] = opts.body.meta._elementor_data;
+				}
+				return { id: 7, ...posts };
+			}),
+		};
+		const env = { STONEWRIGHT_STATE_DIR: stateDir, STONEWRIGHT_DIRECT_WRITES: 'on' };
+		const result = await elementorDataUpdate(
+			env,
+			{ post_id: 7, data: next, confirm: true },
+			cli as never,
+			rest,
+		);
+		expect(result.ok).toBe(true);
+		expect(result.transport).toBe('rest');
+		expect(result.backup_path).toContain('post-7-');
+		expect(rest.post).toHaveBeenCalled();
+	});
 });
+
