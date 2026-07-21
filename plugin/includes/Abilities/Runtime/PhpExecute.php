@@ -74,7 +74,7 @@ final class PhpExecute extends AbilityKernel {
 				'read_only'          => [
 					'type'        => 'boolean',
 					'default'     => false,
-					'description' => 'When true, block WordPress mutation APIs (update_*/delete_*/wp_insert_*/$wpdb writes) and only allow inspection. Prefer this for Elementor document reads.',
+					'description' => 'Advisory read-oriented mode: static inspection rejects common mutation APIs and runtime filters block post-meta/option writes. It is not a full sandbox — prefer typed abilities for production mutations. Useful for Elementor document reads.',
 				],
 			],
 		];

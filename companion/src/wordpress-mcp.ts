@@ -141,8 +141,6 @@ const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, reado
 		'stonewright-media-upload-batch',
 		'stonewright-theme-builder-apply-template',
 		'stonewright-elementor-page-digest',
-		'stonewright-theme-file-read',
-		'stonewright-theme-file-patch',
 	],
 	'elementor-design': [
 		...BASE_PROXY_TOOL_NAMES,

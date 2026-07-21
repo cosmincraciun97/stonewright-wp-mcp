@@ -93,6 +93,11 @@ final class ThemeFilePatch extends AbilityKernel {
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
+		$path = (string) ( $args['path'] ?? '' );
+		// PHP patches must not be authorized by edit_css alone (would escalate to RCE).
+		if ( ThemeFilePaths::is_php_path( $path ) ) {
+			return Permissions::manage_options() || Permissions::edit_theme_options();
+		}
 		return Permissions::edit_theme_options() || Permissions::edit_css();
 	}
 

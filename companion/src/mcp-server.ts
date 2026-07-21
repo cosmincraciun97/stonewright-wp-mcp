@@ -91,7 +91,7 @@ const LOCAL_RECOVERY_TOOL_NAMES = [
 const LOW_TOOLS_LOCAL_RECOVERY_TOOL_NAMES = [
 	'stonewright-setup-profile',
 	'stonewright-wordpress-mcp-status',
-	'stonewright-client-surface-check',
+	// Keep low-tools under the 12-tool cap; surface-check stays on normal profiles.
 	'stonewright-wp-cli-status',
 	'stonewright-wp-cli-batch-run',
 	'stonewright-wp-cli-job-start',
@@ -135,7 +135,10 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 	registerSetupTools(server, env);
 	const wpMcpStatus = createWordPressMcpConnectionStatus(profile);
 	registerWordPressMcpStatusTool(server, wpMcpStatus);
-	registerClientSurfaceCheckTool(server, wpMcpStatus, env);
+	// Diagnostic surface stays off low-tools so strict clients remain ≤12 tools.
+	if (profile !== 'low-tools') {
+		registerClientSurfaceCheckTool(server, wpMcpStatus, env);
+	}
 
 	const modeProbe = await resolveRuntimeMode({
 		env,
@@ -469,19 +472,26 @@ function registerClientSurfaceCheckTool(
 				? input.expected_tool.trim().replaceAll('/', '-')
 				: 'stonewright-php-execute';
 			const expectedNorm = expected.startsWith('stonewright-') ? expected : `stonewright-${expected}`;
-			const remoteHas = status.remote_tool_count > 0;
 			const filtered = new Set(status.profile_filtered_tool_names ?? []);
 			const missingProfile = new Set(status.profile_missing_tool_names ?? []);
-			const serverHas = remoteHas && !missingProfile.has(expectedNorm);
-			// Approximated: if tool is in filtered list, companion saw it remotely but did not proxy it.
-			const clientHas = status.connected
-				&& status.proxied_tool_count > 0
-				&& !filtered.has(expectedNorm)
+			const profile = (status.tool_profile as ProxyToolProfile) || 'bootstrap';
+			const localNames = new Set(status.local_tool_names ?? []);
+			const profileNames = new Set(proxyToolNamesForProfile(profile));
+			// Prefer explicit inventory membership over "full ⇒ everything ok".
+			const serverHas = status.connected
+				&& status.remote_tool_count > 0
 				&& !missingProfile.has(expectedNorm)
-				&& (status.tool_profile === 'full'
-					|| proxyToolNamesForProfile((status.tool_profile as ProxyToolProfile) || 'bootstrap').includes(expectedNorm)
-					|| expectedNorm === 'stonewright-task-start'
-					|| expectedNorm === 'stonewright-tool-profile');
+				&& (profile === 'full' || profileNames.has(expectedNorm) || localNames.has(expectedNorm)
+					|| !filtered.has(expectedNorm));
+			// Filtered tools are remote-visible but not client-registered.
+			const clientHas = status.connected
+				&& (localNames.has(expectedNorm)
+					|| (status.proxied_tool_count > 0
+						&& !filtered.has(expectedNorm)
+						&& !missingProfile.has(expectedNorm)
+						&& (profile === 'full'
+							? status.remote_tool_count > 0 && !filtered.has(expectedNorm)
+							: profileNames.has(expectedNorm))));
 
 			let errorCode = 'ok';
 			const fix: string[] = [];
@@ -491,9 +501,12 @@ function registerClientSurfaceCheckTool(
 			} else if (!status.connected) {
 				errorCode = 'auth_or_connectivity_fail';
 				fix.push('verify_app_password', 'verify_mcp_url', 'restart_mcp');
-			} else if (filtered.has(expectedNorm) || status.tool_profile === 'bootstrap') {
+			} else if (filtered.has(expectedNorm)) {
 				errorCode = 'client_tool_not_registered';
-				fix.push('call_task_start', 'activate_profile:full_or_elementor-design', 'relist_tools', 'restart_mcp');
+				fix.push('call_task_start', 'activate_profile:elementor-design_or_full', 'relist_tools', 'restart_mcp');
+			} else if (!serverHas) {
+				errorCode = 'server_missing_tool';
+				fix.push('deploy_plugin_update', 'enable_ability', 'check_remote_tools_list');
 			} else if (!clientHas) {
 				errorCode = 'client_tool_not_registered';
 				fix.push('relist_tools', 'activate_profile:full', 'restart_mcp');

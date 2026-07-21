@@ -125,6 +125,7 @@ final class WorkflowPreflight extends AbilityKernel {
 				'session_profile_applied' => [ 'type' => 'boolean' ],
 				'tools_changed' => [ 'type' => 'boolean' ],
 				're_list_instruction' => [ 'type' => 'string' ],
+				'write_target_url' => [ 'type' => 'string' ],
 			],
 			'required'   => [ 'ok', 'context_token', 'mode', 'auth_guidance', 'fast_path' ],
 		];

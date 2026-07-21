@@ -64,16 +64,23 @@ final class ThemeFileRead extends AbilityKernel {
 				'path'          => [ 'type' => 'string' ],
 				'absolute_path' => [ 'type' => 'string' ],
 				'theme'         => [ 'type' => 'string' ],
+				'stylesheet'    => [ 'type' => 'string' ],
 				'content'       => [ 'type' => 'string' ],
 				'bytes'         => [ 'type' => 'integer' ],
 				'sha256'        => [ 'type' => 'string' ],
 				'truncated'    => [ 'type' => 'boolean' ],
+				'max_bytes'     => [ 'type' => 'integer' ],
 			],
 			'required'   => [ 'ok', 'path', 'content', 'bytes', 'sha256' ],
 		];
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
+		$path = (string) ( $args['path'] ?? '' );
+		// PHP sources require an admin/code-edit gate; CSS/JS may use edit_css.
+		if ( ThemeFilePaths::is_php_path( $path ) ) {
+			return Permissions::manage_options() || Permissions::edit_theme_options();
+		}
 		return Permissions::edit_theme_options() || Permissions::edit_css();
 	}
 

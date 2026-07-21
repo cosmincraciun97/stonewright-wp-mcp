@@ -557,6 +557,7 @@ describe('createMcpServer', () => {
 		expect(response.structuredContent?.local_recovery_tool_names).toEqual([
 			'stonewright-setup-profile',
 			'stonewright-wordpress-mcp-status',
+			'stonewright-client-surface-check',
 			'stonewright-wp-cli-status',
 			'stonewright-wp-cli-discover',
 			'stonewright-wp-cli-run',

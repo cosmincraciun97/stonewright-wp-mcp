@@ -117,12 +117,14 @@ final class ProtectedElementorWriteGuard {
 		}
 
 		if ( $read_only ) {
-			$pre_option = static function ( mixed $pre ): mixed {
-				// pre_update_option filter receives different args; block by throwing.
+			// Advisory runtime layer: blocks option updates that go through the
+			// standard WP filter. Indirect mutation (call_user_func, custom APIs)
+			// is still possible — read_only is not a full sandbox.
+			$pre_option = static function ( mixed $value, mixed $option = null, mixed $old_value = null ) {
 				throw new \RuntimeException( 'php-execute read_only:true blocked an option mutation.' );
 			};
-			// pre_update_option is the standard WP hook before options are written.
-			add_filter( 'pre_update_option', $pre_option, PHP_INT_MIN, 1 );
+			// @phpstan-ignore-next-line argument.type (throws; never returns a value)
+			add_filter( 'pre_update_option', $pre_option, PHP_INT_MIN, 3 );
 			$callbacks['pre_update_option'] = $pre_option;
 		}
 

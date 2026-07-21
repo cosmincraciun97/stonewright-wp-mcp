@@ -24,49 +24,78 @@ final class ThemeFilePaths {
 				'stonewright_theme_file_path_denied',
 				__( 'Path is outside the theme file allowlist (style.css, functions.php, *.css/*.js under root/assets/css/js/inc).', 'stonewright' ),
 				[
-					'status'    => 400,
-					'path'      => $relative,
-					'allowlist' => self::allowlist_description(),
-					'error_code'=> 'theme_file_path_denied',
+					'status'     => 400,
+					'path'       => $relative,
+					'allowlist'  => self::allowlist_description(),
+					'error_code' => 'theme_file_path_denied',
 				]
 			);
 		}
 
 		$theme_key = 'template' === $theme ? 'template' : 'stylesheet';
-		$root      = 'template' === $theme_key
-			? (string) get_template_directory()
-			: (string) get_stylesheet_directory();
-		$root      = wp_normalize_path( $root );
-		$absolute  = wp_normalize_path( $root . '/' . $relative );
+		$root_raw  = 'template' === $theme_key
+			? (string) \get_template_directory()
+			: (string) \get_stylesheet_directory();
+		$root      = \wp_normalize_path( $root_raw );
+		$absolute  = \wp_normalize_path( $root . '/' . $relative );
+		$root_trim = rtrim( $root, '/' );
 
-		// Prevent path traversal after realpath-style normalisation.
-		if ( ! str_starts_with( $absolute, rtrim( $root, '/' ) . '/' ) && $absolute !== $root . '/' . $relative ) {
-			// Fallback strict prefix check without realpath (unit tests / missing files).
-			if ( ! str_starts_with( $absolute, rtrim( $root, '/' ) . '/' ) ) {
-				return new \WP_Error(
-					'stonewright_theme_file_path_traversal',
-					__( 'Resolved path escapes the theme root.', 'stonewright' ),
-					[ 'status' => 400, 'path' => $relative ]
-				);
-			}
-		}
-
-		if ( str_contains( $relative, '..' ) ) {
+		// Lexical containment (unit tests / non-existing files).
+		if ( ! str_starts_with( $absolute, $root_trim . '/' ) ) {
 			return new \WP_Error(
 				'stonewright_theme_file_path_traversal',
-				__( 'Path traversal is not allowed.', 'stonewright' ),
+				__( 'Resolved path escapes the theme root.', 'stonewright' ),
 				[ 'status' => 400, 'path' => $relative ]
 			);
 		}
 
+		// When paths exist, resolve symlinks and re-check the canonical boundary.
+		$canonical_root = \realpath( $root );
+		if ( false !== $canonical_root ) {
+			$canonical_root = \wp_normalize_path( $canonical_root );
+			$probe          = $absolute;
+			if ( ! \file_exists( $probe ) ) {
+				// Walk up to nearest existing parent so create_if_missing stays safe.
+				$probe = \dirname( $absolute );
+				while ( ! \file_exists( $probe ) && \strlen( $probe ) > 1 ) {
+					$probe = \dirname( $probe );
+				}
+			}
+			$canonical_probe = \realpath( $probe );
+			if ( false === $canonical_probe ) {
+				return new \WP_Error(
+					'stonewright_theme_file_path_traversal',
+					__( 'Could not resolve theme path.', 'stonewright' ),
+					[ 'status' => 400, 'path' => $relative ]
+				);
+			}
+			$canonical_probe = \wp_normalize_path( $canonical_probe );
+			$root_prefix     = rtrim( $canonical_root, '/' );
+			if ( $canonical_probe !== $root_prefix && ! str_starts_with( $canonical_probe, $root_prefix . '/' ) ) {
+				return new \WP_Error(
+					'stonewright_theme_file_path_traversal',
+					__( 'Resolved path escapes the theme root after symlink resolution.', 'stonewright' ),
+					[ 'status' => 400, 'path' => $relative ]
+				);
+			}
+			// Prefer the realpath of the file when it exists.
+			if ( \is_file( $absolute ) ) {
+				$real_file = \realpath( $absolute );
+				if ( false !== $real_file ) {
+					$absolute = \wp_normalize_path( $real_file );
+				}
+			}
+			$root = $canonical_root;
+		}
+
 		return [
-			'relative'    => $relative,
-			'absolute'    => $absolute,
-			'theme_key'   => $theme_key,
-			'stylesheet'  => 'template' === $theme_key
-				? (string) get_template()
-				: (string) get_stylesheet(),
-			'root'        => $root,
+			'relative'   => $relative,
+			'absolute'   => $absolute,
+			'theme_key'  => $theme_key,
+			'stylesheet' => 'template' === $theme_key
+				? (string) \get_template()
+				: (string) \get_stylesheet(),
+			'root'       => $root,
 		];
 	}
 
@@ -97,7 +126,6 @@ final class ThemeFilePaths {
 		$relative = str_replace( '\\', '/', $relative );
 		$lower    = strtolower( $relative );
 
-		// Exact root allowlist.
 		$exact = [
 			'style.css',
 			'functions.php',
@@ -110,7 +138,6 @@ final class ThemeFilePaths {
 			return true;
 		}
 
-		// Directory allowlists.
 		$prefixes = [ 'inc/', 'css/', 'js/', 'assets/', 'src/' ];
 		$matched  = false;
 		foreach ( $prefixes as $prefix ) {
@@ -119,7 +146,6 @@ final class ThemeFilePaths {
 				break;
 			}
 		}
-		// Also allow root-level .css / .js (not php except functions.php).
 		if ( ! $matched && 1 === preg_match( '/^[^\/]+\.(css|js)$/', $lower ) ) {
 			$matched = true;
 		}
@@ -127,12 +153,15 @@ final class ThemeFilePaths {
 			return false;
 		}
 
-		// Under allowlisted dirs: only css/js/php in inc.
 		if ( str_starts_with( $lower, 'inc/' ) ) {
 			return (bool) preg_match( '/\.(css|js|php)$/', $lower );
 		}
 
 		return (bool) preg_match( '/\.(css|js)$/', $lower );
+	}
+
+	public static function is_php_path( string $relative ): bool {
+		return str_ends_with( strtolower( str_replace( '\\', '/', $relative ) ), '.php' );
 	}
 
 	/**

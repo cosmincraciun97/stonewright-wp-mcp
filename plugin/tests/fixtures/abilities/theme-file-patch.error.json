@@ -1,0 +1,8 @@
+{
+  "args": {
+    "path": "../../wp-config.php",
+    "mode": "append",
+    "content": "nope"
+  },
+  "expect": "error"
+}
