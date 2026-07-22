@@ -3310,7 +3310,7 @@ git commit -m "docs: recovery runbook, README architecture diagram, capped-clien
 
 ## Final verification & PR
 
-- [ ] **Full gates, both packages**
+- [x] **Full gates, both packages**
 
 ```bash
 cd plugin && composer test && composer phpstan && composer phpcs && composer security:audit
