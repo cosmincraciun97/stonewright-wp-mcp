@@ -193,7 +193,7 @@ export function taskStart(
 	const { scope, baseDir, siteAlias } = resolveSelfImproveScope(ctx, input.site);
 	seedBuiltinSkills(baseDir, ctx.env);
 	ensureStonewrightAgentsMd(baseDir, ctx.env);
-	markTaskStartSeen();
+	markTaskStartSeen(siteAlias ?? scope);
 
 	const taskText = [input.task, input.surface ?? '', input.intent ?? ''].join(' ').trim();
 	const matched: SkillMeta[] = [];

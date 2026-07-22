@@ -2,19 +2,41 @@ import type { ResolvedSite } from './sites-config.js';
 
 export type DirectWriteMode = 'on' | 'off' | 'confirm';
 
-/** Session flag: Direct writes require a prior stonewright-task-start (default ON). */
-let taskStartSeen = false;
+/** Match plugin context-token TTL. */
+export const TASK_START_TTL_MS = 30 * 60_000;
 
-export function markTaskStartSeen(): void {
-	taskStartSeen = true;
+const DEFAULT_SITE_KEY = '_default';
+
+/** Per-site timestamp of last successful stonewright-task-start. */
+let taskStartSeenAt: Record<string, number> = {};
+
+function siteKey(site?: string): string {
+	const trimmed = (site ?? '').trim();
+	return trimmed !== '' ? trimmed : DEFAULT_SITE_KEY;
+}
+
+/**
+ * Record that task-start ran for a site. Optional `now` is for tests.
+ */
+export function markTaskStartSeen(site?: string, now: number = Date.now()): void {
+	taskStartSeenAt[siteKey(site)] = now;
 }
 
 export function resetTaskStartSeenForTests(): void {
-	taskStartSeen = false;
+	taskStartSeenAt = {};
 }
 
-export function hasTaskStartSeen(): boolean {
-	return taskStartSeen;
+/**
+ * True when task-start was seen for the site within the 30-minute TTL.
+ * When `site` is omitted, any non-expired latch satisfies the check (legacy
+ * single-site call sites that do not pass a site alias).
+ */
+export function hasTaskStartSeen(site?: string, now: number = Date.now()): boolean {
+	if (site !== undefined && site.trim() !== '') {
+		const seenAt = taskStartSeenAt[site.trim()];
+		return seenAt !== undefined && now - seenAt <= TASK_START_TTL_MS;
+	}
+	return Object.values(taskStartSeenAt).some((seenAt) => now - seenAt <= TASK_START_TTL_MS);
 }
 
 export function resolveDirectWriteMode(env: NodeJS.ProcessEnv = process.env, siteUrl?: string): DirectWriteMode {
@@ -48,12 +70,17 @@ export function assertWriteAllowed(args: {
 	confirm?: boolean | undefined;
 	tool: string;
 	env?: NodeJS.ProcessEnv;
+	/** Site alias; when omitted any valid latch unlocks (legacy single-site). */
+	site?: string;
+	/** Injectable clock for TTL tests. */
+	now?: number;
 }): void {
 	const env = args.env ?? process.env;
 	const requireTaskStart = (env['STONEWRIGHT_DIRECT_REQUIRE_TASK_START'] ?? 'on').trim().toLowerCase() !== 'off';
-	if (requireTaskStart && !taskStartSeen) {
+	const now = args.now ?? Date.now();
+	if (requireTaskStart && !hasTaskStartSeen(args.site, now)) {
 		throw new Error(
-			'Call stonewright-task-start before write tools (it loads this site\'s skills, memory, and recurring errors). Then retry this call.',
+			'Call stonewright-task-start before write tools (it loads this site\'s skills, memory, and recurring errors). Then retry this call. It also re-arms 30 minutes after the last task-start.',
 		);
 	}
 	if (args.mode === 'off') {
