@@ -71,4 +71,23 @@ final class UpdateElementTest extends TestCase {
 		self::assertSame( '1', $settings['_flex_grow'] );
 		self::assertSame( '0', $settings['_flex_shrink'] );
 	}
+
+	public function test_merge_patch_preserves_preexisting_unknown_pro_key(): void {
+		$GLOBALS['stonewright_test_posts'][601]->meta['_elementor_data'] = '[{"id":"root","elType":"container","settings":{"container_type":"flex","pro_ribbon":"sale"},"elements":[]}]';
+
+		$result = ( new UpdateElement() )->execute(
+			[
+				'post_id'    => 601,
+				'element_id' => 'root',
+				'mode'       => 'merge',
+				'settings'   => [ 'flex_direction' => 'column' ],
+			]
+		);
+
+		self::assertIsArray( $result );
+		$post = $GLOBALS['stonewright_test_posts'][601];
+		$tree = json_decode( stripslashes( (string) $post->meta['_elementor_data'] ), true );
+		self::assertSame( 'column', $tree[0]['settings']['flex_direction'] );
+		self::assertSame( 'sale', $tree[0]['settings']['pro_ribbon'] );
+	}
 }

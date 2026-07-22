@@ -1655,7 +1655,7 @@ git commit -m "fix: accept cleared Elementor slider sentinel in settings validat
 - Modify: `plugin/includes/Abilities/ElementorV3/UpdateElement.php:90-103`
 - Test: `plugin/tests/Unit/ElementorV3/UpdateElementTest.php`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `UpdateElementTest.php` (it drives the ability directly through
 `$GLOBALS['stonewright_test_posts']`; follow the existing setUp pattern in that file for
@@ -1698,13 +1698,13 @@ public function test_merge_patch_preserves_preexisting_unknown_pro_key(): void {
 > seeding and `ElementorData::read( 321 )` readback the other tests in the file use —
 > do not invent new global names.
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `cd plugin && vendor/bin/phpunit --filter test_merge_patch_preserves_preexisting_unknown_pro_key`
 Expected: FAIL — strict `validate()` returns `unknown_setting` for `pro_ribbon`, so the
 ability returns a `WP_Error` and `assertIsArray` fails.
 
-- [ ] **Step 3: Make the merge path lenient, matching the tree path**
+- [x] **Step 3: Make the merge path lenient, matching the tree path**
 
 In `UpdateElement.php`, the container arm (line 92) and widget arm (line 98) both call the
 validator in strict mode. A merge/replace re-validates a *full merged blob* that includes
@@ -1739,7 +1739,7 @@ $validated = SettingsValidator::validate( (string) ( $existing['widgetType'] ?? 
 (`validate_container` signature: `(settings, element_type, enforce_conditions, preserve_unknown)`;
 `validate` signature: `(widget_type, settings, require_render_settings, enforce_conditions, preserve_unknown)`.)
 
-- [ ] **Step 4: Run to verify it passes**
+- [x] **Step 4: Run to verify it passes**
 
 Run: `cd plugin && vendor/bin/phpunit --filter test_merge_patch_preserves_preexisting_unknown_pro_key`
 Expected: PASS.
@@ -1748,7 +1748,7 @@ Then run the ability's whole suite to confirm no regression:
 Run: `vendor/bin/phpunit tests/Unit/ElementorV3/UpdateElementTest.php`
 Expected: PASS (all).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add plugin/includes/Abilities/ElementorV3/UpdateElement.php plugin/tests/Unit/ElementorV3/UpdateElementTest.php
