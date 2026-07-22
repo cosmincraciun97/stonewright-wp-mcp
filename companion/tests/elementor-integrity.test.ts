@@ -88,4 +88,52 @@ describe('Direct Elementor integrity gate', () => {
 		];
 		expect(assertWriteAllowed(tree, tree).ok).toBe(true);
 	});
+
+	it('allows a legitimate surgical edit that only lightly shrinks the document', () => {
+		const previous = [
+			{
+				id: 'a',
+				elType: 'container',
+				settings: { title: 'Hello world header text' },
+				elements: [
+					{
+						id: 'b',
+						elType: 'widget',
+						widgetType: 'flip-box',
+						settings: { text: 'front and back copy here' },
+						elements: [],
+					},
+				],
+			},
+		];
+		const incoming = [
+			{
+				id: 'a',
+				elType: 'container',
+				settings: { title: 'Hello world header text' },
+				elements: [
+					{
+						id: 'b',
+						elType: 'widget',
+						widgetType: 'flip-box',
+						settings: { text: 'front copy' },
+						elements: [],
+					},
+				],
+			},
+		];
+
+		expect(assertWriteAllowed(incoming, previous).ok).toBe(true);
+	});
+
+	it('still blocks a widgetType remap in a small document', () => {
+		const previous = [{ id: 'b', elType: 'widget', widgetType: 'flip-box', settings: {}, elements: [] }];
+		const incoming = [{ id: 'b', elType: 'widget', widgetType: 'text-editor', settings: {}, elements: [] }];
+
+		const result = assertWriteAllowed(incoming, previous);
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error_code).toBe('stonewright_elementor_widget_type_remap_blocked');
+		}
+	});
 });

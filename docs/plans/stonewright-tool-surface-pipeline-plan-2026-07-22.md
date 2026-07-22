@@ -2678,7 +2678,7 @@ equivalent false block: a legitimate surgical edit (e.g., the flipbox-style chan
 slightly shrinks the document) must pass the JS integrity gate, while genuine corruption
 (double-encode, mass size-collapse, widgetType remap) still fails.
 
-- [ ] **Step 1: Write the regression test**
+- [x] **Step 1: Write the regression test**
 
 Add to `companion/tests/elementor-integrity.test.ts`:
 
@@ -2719,12 +2719,12 @@ describe('direct-mode Elementor gate parity', () => {
 > assertions to the actual API — do not invent `assertElementorWriteAllowed` if the module
 > exports a differently named guard.
 
-- [ ] **Step 2: Run it**
+- [x] **Step 2: Run it**
 
 Run: `cd companion && npx vitest run tests/elementor-integrity.test.ts`
 Expected: the remap test passes; the surgical-edit test tells you whether the gate false-blocks.
 
-- [ ] **Step 3: Fix only if it false-blocks**
+- [x] **Step 3: Fix only if it false-blocks**
 
 If the surgical-edit case fails on `stonewright_elementor_size_collapse`, the
 `MIN_SIZE_RATIO` is too aggressive for small legitimate shrinks. Do **not** disable the
@@ -2733,12 +2733,12 @@ size-collapse when the incoming tree still has the same node count and the byte 
 under a small floor). Keep the remap/double-encode blocks untouched. If the test passes as
 written, this task is a pure regression guard — no source change, just the committed test.
 
-- [ ] **Step 4: Run to verify**
+- [x] **Step 4: Run to verify**
 
 Run: `cd companion && npx vitest run tests/elementor-integrity.test.ts`
 Expected: PASS (both).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add companion/src/direct/elementor-integrity.ts companion/tests/elementor-integrity.test.ts
