@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Security;
 
 use Stonewright\WpMcp\Memory\Memory;
+use Stonewright\WpMcp\Support\Logger;
 
 /**
  * Groups recurring audit ERROR signatures and promotes them to learning records.
@@ -166,7 +167,7 @@ final class ErrorPatterns {
 		);
 
 		// Dedupe: put_typed upserts on scope+key.
-		Memory::put_typed(
+		$row_id = Memory::put_typed(
 			'feedback',
 			'audit',
 			$key,
@@ -187,6 +188,16 @@ final class ErrorPatterns {
 				'precedence' => 700,
 			]
 		);
+
+		if ( 0 === $row_id ) {
+			Logger::error(
+				'error_pattern_learning_write_failed',
+				[
+					'key'     => $key,
+					'ability' => $ability,
+				]
+			);
+		}
 
 		return $key;
 	}

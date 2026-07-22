@@ -296,11 +296,37 @@ final class Memory {
 
 		if ( $existing_id > 0 ) {
 			$result = $wpdb->update( $table, $data, [ 'id' => $existing_id ], $formats, [ '%d' ] );
-			return ( false !== $result ) ? $existing_id : 0;
+			if ( false !== $result ) {
+				return $existing_id;
+			}
+			Logger::error(
+				'memory_put_failed',
+				[
+					'scope'      => $scope,
+					'memory_key' => $key,
+					'type'       => $type,
+					'wpdb_error' => (string) ( $wpdb->last_error ?? '' ),
+					'schema_ok'  => self::table_schema_ok(),
+				]
+			);
+			return 0;
 		}
 
 		$result = $wpdb->insert( $table, $data, $formats );
-		return ( false !== $result ) ? (int) $wpdb->insert_id : 0;
+		if ( false !== $result ) {
+			return (int) $wpdb->insert_id;
+		}
+		Logger::error(
+			'memory_put_failed',
+			[
+				'scope'      => $scope,
+				'memory_key' => $key,
+				'type'       => $type,
+				'wpdb_error' => (string) ( $wpdb->last_error ?? '' ),
+				'schema_ok'  => self::table_schema_ok(),
+			]
+		);
+		return 0;
 	}
 
 	/**

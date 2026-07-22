@@ -85,6 +85,53 @@ final class MemorySchemaTest extends TestCase {
 		self::assertSame( 3, (int) get_option( 'stonewright_memory_schema_version', 0 ) );
 	}
 
+	public function test_put_typed_failure_is_logged_and_returns_zero(): void {
+		$log_file = tempnam( sys_get_temp_dir(), 'sw-mem-log-' );
+		self::assertNotFalse( $log_file );
+		$previous_log = ini_get( 'error_log' );
+		ini_set( 'error_log', $log_file );
+
+		$GLOBALS['wpdb'] = new class() {
+			public string $prefix     = 'wp_';
+			public string $last_error = 'Table does not exist';
+			public int $insert_id    = 0;
+
+			public function get_var( string $query ): mixed {
+				return null;
+			}
+
+			public function prepare( string $query, mixed ...$args ): string {
+				return $query;
+			}
+
+			/** @return array<int, string> */
+			public function get_col( string $query, int $x = 0 ): array {
+				return [];
+			}
+
+			/** @param array<string, mixed> $data */
+			public function insert( string $table, array $data, array $format = [] ): false {
+				return false;
+			}
+
+			/** @param array<string, mixed> $data @param array<string, mixed> $where */
+			public function update( string $table, array $data, array $where, array $format = [], array $where_format = [] ): false {
+				return false;
+			}
+		};
+
+		$id = Memory::put_typed( 'feedback', 'audit', 'learning-test', 'Test', [ 'x' => 1 ] );
+
+		ini_set( 'error_log', (string) $previous_log );
+		$log = (string) file_get_contents( $log_file );
+		@unlink( $log_file );
+
+		self::assertSame( 0, $id );
+		self::assertStringContainsString( 'memory_put_failed', $log );
+		self::assertStringContainsString( 'learning-test', $log );
+		self::assertStringContainsString( 'Table does not exist', $log );
+	}
+
 	public function test_maybe_install_skips_when_version_already_current(): void {
 		update_option( 'stonewright_memory_schema_version', 3 );
 		$GLOBALS['wpdb'] = new class() {
