@@ -3060,7 +3060,7 @@ under its own SPDX header; per the reuse rules we do not silently fork it. The c
 PULL-on-revision (Task 20) is the propagation path for plugin-direct clients. This task
 records the limitation so nobody "rediscovers" it as a bug.
 
-- [ ] **Step 1: Write the note**
+- [x] **Step 1: Write the note**
 
 Create `docs/knowledge/notes/mcp-adapter-listchanged-limit.md`:
 
@@ -3092,7 +3092,7 @@ Re-evaluate: advertise `capabilities.tools.listChanged` and wire a push from
 `docs/upstream-code-reuse.md` before adopting.
 ```
 
-- [ ] **Step 2: Add a non-behavioral marker comment in the vendored handler**
+- [x] **Step 2: Add a non-behavioral marker comment in the vendored handler**
 
 In `InitializeHandler.php`, above the `capabilities.tools` assignment, add a comment
 (no code change) so a future reader is pointed at the note. Preserve the existing SPDX
@@ -3105,7 +3105,7 @@ header untouched:
 		// propagation is handled companion-side via surface_revision.
 ```
 
-- [ ] **Step 3: Freshness gate**
+- [x] **Step 3: Freshness gate**
 
 Run: `cd .. && node scripts/check-docs-freshness.mjs && git diff --check`
 Expected: exit 0 both. (The note is hand-authored under `docs/knowledge/notes/`, which is
@@ -3113,7 +3113,7 @@ not the importer-managed `docs/knowledge/` source tree — confirm the freshness
 not flag it; if it does, place the note under `docs/runbooks/` instead and link it from the
 recovery runbook.)
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs/knowledge/notes/mcp-adapter-listchanged-limit.md plugin/vendor/wordpress/mcp-adapter/includes/Handlers/Initialize/InitializeHandler.php
