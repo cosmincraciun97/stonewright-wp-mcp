@@ -24,6 +24,11 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Retry-storm brake:** repeated identical ability/tool failures (2+) escalate
+  with a hard-stop envelope (`STOP: this exact error occurred N times…`) plus
+  `occurrences` and `repair` fields so agents stop blind retries.
+  Plugin: `ErrorPatterns::escalate_error` after audit observe; Direct:
+  `escalateDirectError` at the registry dispatch choke point.
 - **Elementor Integrity Gate (P0)** on plugin `ElementorData::write` and Direct
   `elementor-data-update`: reject double-encoded JSON, size collapse, and
   widgetType remaps; auto-restore previous document on readback failure.

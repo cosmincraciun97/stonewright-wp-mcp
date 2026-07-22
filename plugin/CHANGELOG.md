@@ -18,6 +18,10 @@
 
 ### Added
 
+- Retry-storm brake: `ErrorPatterns::occurrence_count` + `escalate_error`
+  rewrites identical ability WP_Errors on the 2nd+ occurrence with STOP
+  guidance, `occurrences`, and RemediationHints repair text (wired from
+  `AbilityRegistry::execute_with_context_guard` after audit observe).
 - Elementor Integrity Gate P0 on `ElementorData::write` (double-encode, size
   collapse, widgetType remap blocks; readback restore).
 - Tree validation preserves unknown settings and coexisting `e-*` widgets.
