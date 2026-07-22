@@ -227,6 +227,8 @@ final class ToolProfile extends AbilityKernel {
 				'token_rules'           => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'counts'                => [ 'type' => 'object' ],
 				'tools_changed'         => [ 'type' => 'boolean' ],
+				'session_profile_applied' => [ 'type' => 'boolean' ],
+				'session_profile_reason'  => [ 'type' => 'string' ],
 				'tools_changed_at'      => [ 'type' => 'string' ],
 				'extras_applied'        => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				're_list_instruction'   => [ 'type' => 'string' ],
@@ -374,6 +376,23 @@ final class ToolProfile extends AbilityKernel {
 			self::expand_mcp_surface_for_profile( $profile );
 		}
 
+		// Activation must change what this session can call. The option surface
+		// stays operator-controlled; session expansion uses Mcp-Session-Id.
+		$session_applied = false;
+		$session_reason  = 'surface_full_already_exposes_all_tools';
+		if ( 'full' !== AbilityRegistry::mcp_surface() && 'bootstrap' !== $profile ) {
+			$session_applied = AbilityRegistry::set_session_tool_profile(
+				$profile,
+				'full' === $profile ? [] : self::profile_tools( $profile )
+			);
+			$session_reason  = $session_applied
+				? 'session_transient_written'
+				: 'missing_or_invalid_mcp_session_id_header';
+		} elseif ( 'bootstrap' === $profile ) {
+			$session_reason = 'bootstrap_profile_needs_no_expansion';
+		}
+		$tools_changed = $tools_changed || $session_applied;
+
 		$visible_rows = array_values(
 			array_filter(
 				AbilityRegistry::all_abilities(),
@@ -444,6 +463,8 @@ final class ToolProfile extends AbilityKernel {
 				'missing'        => count( $missing_names ),
 			],
 			'tools_changed'         => $tools_changed,
+			'session_profile_applied' => $session_applied,
+			'session_profile_reason'  => $session_reason,
 			'tools_changed_at'      => $changed_at,
 			'extras_applied'        => array_values( (array) ( $extras_result['extras'] ?? [] ) ),
 			// Always emit a re-list instruction on activate so stdio companions that
@@ -461,9 +482,9 @@ final class ToolProfile extends AbilityKernel {
 	/**
 	 * Expand stonewright_mcp_surface when leaving the bootstrap cold-start set.
 	 *
-	 * Bootstrap maps to essential for task profiles (elementor-design, content-model, …).
-	 * Bootstrap maps to full when the client requests the full profile.
-	 * Bootstrap stays put when the profile is still bootstrap.
+	 * This only widens the persistent option surface from bootstrap. Essential
+	 * surfaces are never silently promoted to full here; per-session expansion
+	 * beyond the option surface uses the Mcp-Session-Id transient from execute().
 	 */
 	public static function expand_mcp_surface_for_profile( string $profile ): void {
 		$current = AbilityRegistry::mcp_surface();

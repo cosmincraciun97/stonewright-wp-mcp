@@ -403,7 +403,7 @@ git commit -m "fix: session tool profile unions with configured surface instead 
 
 Current behavior: activate updates `stonewright_last_tool_profile`, maybe expands the surface option (bootstrap only), and returns recommendations — but never writes the session transient, so on an essential surface nothing actually becomes callable.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `plugin/tests/Unit/Abilities/System/ToolProfileActivateSessionTest.php` (mirror setup shims from `plugin/tests/Unit/Abilities/System/ToolProfileResolveTest.php` if that file registers abilities in setUp — copy its setUp/tearDown verbatim, then add):
 
@@ -494,12 +494,12 @@ final class ToolProfileActivateSessionTest extends TestCase {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `cd plugin && vendor/bin/phpunit --filter ToolProfileActivateSessionTest`
 Expected: FAIL — `session_profile_applied` key undefined in the activate response.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `plugin/includes/Abilities/System/ToolProfile.php`, inside `execute()`, directly after the `tools_changed` block (anchor: the closing `}` of `if ( $tools_changed ) { ... self::expand_mcp_surface_for_profile( $profile ); }`), insert:
 
@@ -545,12 +545,12 @@ Finally update the `expand_mcp_surface_for_profile()` doc comment (:461-467) to 
 
 The function body stays unchanged.
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `cd plugin && vendor/bin/phpunit --filter "ToolProfileActivateSessionTest|ToolProfileResolveTest"`
 Expected: PASS. Note `$tools_changed = $tools_changed || $session_applied;` must come AFTER the existing `update_option( 'stonewright_last_tool_profile', ... )` block so option writes still only happen on real profile switches.
 
-- [ ] **Step 5: Full suite, then commit**
+- [x] **Step 5: Full suite, then commit**
 
 Run: `cd plugin && composer test && composer phpstan && composer phpcs`
 Expected: PASS.

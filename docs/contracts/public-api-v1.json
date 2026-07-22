@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-07-22T09:07:38+00:00",
+    "generated_at": "2026-07-22T14:20:34+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -9,6 +9,7 @@
             "stonewright/task-start",
             "stonewright/theme-file-patch",
             "stonewright/theme-file-read",
+            "stonewright/tool-profile",
             "stonewright/workflow-preflight"
         ]
     },
@@ -2646,6 +2647,20 @@
             }
         },
         {
+            "ability_name": "stonewright/elementor-v4-update-node",
+            "mcp_name": "stonewright-elementor-v4-update-node",
+            "kind": "Write",
+            "input_schema_hash": "b282fc73dcdd046b7e1683e1f8a44669729495e4a1c85cb8b125d506e99dcb8e",
+            "output_schema_hash": "5da03f9dd574dfb45c090a2517d02fcaa79317a29e605b2f80a145434b1fd2ed",
+            "permission_class": "Permissions::edit_post( (int)",
+            "gates": {
+                "backup": true,
+                "token": false,
+                "validator": false,
+                "audit": true
+            }
+        },
+        {
             "ability_name": "stonewright/elementor-v4-update-variable",
             "mcp_name": "stonewright-elementor-v4-update-variable",
             "kind": "Write",
@@ -3924,7 +3939,7 @@
             "mcp_name": "stonewright-task-start",
             "kind": "Read",
             "input_schema_hash": "15f6fd543c01390a1e0b28feee3fca80b655e1ca4537b789cb8ce6be9bea755e",
-            "output_schema_hash": "a0cdc96d865d7abfd0c187dfa57cd047d5ec4bc5cb45054a06ce5970f84f35d1",
+            "output_schema_hash": "2f8c367ff9b112eb59d214446062ba86e3101d8d7625ad1ddcc403800070e287",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
@@ -4106,7 +4121,7 @@
             "mcp_name": "stonewright-tool-profile",
             "kind": "Write",
             "input_schema_hash": "2966ee25a73a4211eaafadc3f91791fe7f109a3c8bc3cc6ad4e355780793509e",
-            "output_schema_hash": "1117d25a1311c9ec4e91e65cb5f27c389c3718dc2fa1cbde52ec72bd740a6e85",
+            "output_schema_hash": "2c580b74a75d90f4cfabb1fd05ce2908060ca07d2ee95b35962851a84e2cabcf",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
@@ -4316,7 +4331,7 @@
             "mcp_name": "stonewright-workflow-preflight",
             "kind": "Read",
             "input_schema_hash": "15f6fd543c01390a1e0b28feee3fca80b655e1ca4537b789cb8ce6be9bea755e",
-            "output_schema_hash": "a0cdc96d865d7abfd0c187dfa57cd047d5ec4bc5cb45054a06ce5970f84f35d1",
+            "output_schema_hash": "2f8c367ff9b112eb59d214446062ba86e3101d8d7625ad1ddcc403800070e287",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
