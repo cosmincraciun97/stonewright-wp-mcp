@@ -8,7 +8,7 @@
   `ElementorData::write_error_for_ability()` instead of generic write_failed.
 - Context-token error names `stonewright-task-start` first.
 - V3 architecture mismatch and raw php-execute Elementor write remediation
-  hints name concrete V4/V3 tools (no dead-end "V4 editor pipeline" text).
+  hints name concrete V4/V3 tools including `elementor-v4-update-node`.
 - Memory schema install verifies columns via `Memory::table_schema_ok()` before
   bumping `stonewright_memory_schema_version`; failed installs log
   `memory_schema_install_failed` and retry on next `init`.
@@ -18,6 +18,9 @@
 
 ### Added
 
+- Experimental `stonewright/elementor-v4-update-node`: surgical settings patch
+  for one Atomic node by id (merge/replace, dry_run, snapshot, integrity-gated
+  write). Never writes the inspector `atomic_tree` projection.
 - Elementor tree reads default to capped summary outlines: V3
   `elementor-v3-get-page-structure` (existing), V4
   `elementor-v4-read-atomic-tree` (`responseMode` + `max_nodes`), shared

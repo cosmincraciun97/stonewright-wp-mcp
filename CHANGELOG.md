@@ -24,6 +24,10 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Elementor V4 surgical node update:** experimental ability
+  `stonewright/elementor-v4-update-node` patches one Atomic node's settings by
+  id (merge/replace, dry_run, snapshot, no integrity bypass). Remediation for
+  V3 architecture mismatch points agents at this tool.
 - **Elementor summary read defaults:** Direct `elementor-data-get` and plugin
   `elementor-v4-read-atomic-tree` return a capped outline by default
   (`responseMode=summary`, max 200 nodes; `full` opts into raw tree). Shared

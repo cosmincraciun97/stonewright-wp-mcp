@@ -44,7 +44,7 @@ Stonewright is a WordPress MCP stack for AI coding agents. **Elementor** is a fi
 
 Counts are derived from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
 
-### Plugin mode — **314** abilities
+### Plugin mode — **315** abilities
 
 | Category | Count | Highlights |
 |---|---:|---|
@@ -260,7 +260,7 @@ flowchart LR
   Plugin --> WP
 ```
 
-Direct mode has a **smaller** capability surface (core REST + local Elementor data + skills/memory; **99** tools). Plugin mode exposes **314** abilities. Not every request passes through every component.
+Direct mode has a **smaller** capability surface (core REST + local Elementor data + skills/memory; **99** tools). Plugin mode exposes **315** abilities. Not every request passes through every component.
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 
