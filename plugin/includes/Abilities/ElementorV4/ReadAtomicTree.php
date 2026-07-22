@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Elementor\V4\AtomicTreeInspector;
 use Stonewright\WpMcp\Elementor\V4\V4FeatureGate;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Support\ElementorData;
+use Stonewright\WpMcp\Support\TreeSummary;
 
 /**
  * Reads _elementor_data for a post and returns only atomic-aware elements.
@@ -121,8 +122,11 @@ final class ReadAtomicTree extends AbilityKernel {
 				$tree      = isset( $inspect['atomic_tree'] ) && is_array( $inspect['atomic_tree'] )
 					? $inspect['atomic_tree']
 					: [];
-				$count     = count( ElementorData::flatten( $tree ) );
-				$outline   = self::outline( $tree, $max_nodes );
+				$summary   = TreeSummary::outline(
+					$tree,
+					$max_nodes,
+					static fn( array $element, array $ctx ): array => TreeSummary::default_row( $element, $ctx )
+				);
 
 				unset( $inspect['atomic_tree'] );
 
@@ -131,82 +135,15 @@ final class ReadAtomicTree extends AbilityKernel {
 					[
 						'post_id'        => $post_id,
 						'response_mode'  => 'summary',
-						'count'          => $count,
-						'returned_count' => count( $outline ),
-						'truncated'      => $count > count( $outline ),
+						'count'          => $summary['count'],
+						'returned_count' => $summary['returned_count'],
+						'truncated'      => $summary['truncated'],
 						'tree_omitted'   => true,
-						'outline'        => $outline,
+						'outline'        => $summary['outline'],
 						'full_mode_hint' => 'Call with responseMode=full only when raw atomic Elementor JSON is required for the next edit.',
 					]
 				);
 			}
 		);
-	}
-
-	/**
-	 * @param array<int, array<string, mixed>> $tree
-	 * @return list<array<string, mixed>>
-	 */
-	private static function outline( array $tree, int $max_elements ): array {
-		$out = [];
-		self::walk_outline( $tree, [], null, $out, $max_elements );
-		return $out;
-	}
-
-	/**
-	 * @param array<int, array<string, mixed>> $elements
-	 * @param list<int>                       $path
-	 * @param list<array<string, mixed>>      $out
-	 */
-	private static function walk_outline( array $elements, array $path, ?string $parent_id, array &$out, int $max_elements ): void {
-		foreach ( $elements as $index => $element ) {
-			if ( count( $out ) >= $max_elements ) {
-				return;
-			}
-			if ( ! is_array( $element ) ) {
-				continue;
-			}
-
-			$current_path = array_merge( $path, [ (int) $index ] );
-			$id           = (string) ( $element['id'] ?? '' );
-			$settings     = isset( $element['settings'] ) && is_array( $element['settings'] ) ? $element['settings'] : [];
-			$children     = isset( $element['elements'] ) && is_array( $element['elements'] ) ? $element['elements'] : [];
-
-			$out[] = [
-				'id'            => $id,
-				'parent_id'     => $parent_id,
-				'path'          => implode( '.', array_map( 'strval', $current_path ) ),
-				'depth'         => count( $current_path ) - 1,
-				'elType'        => (string) ( $element['elType'] ?? '' ),
-				'widgetType'    => (string) ( $element['widgetType'] ?? '' ),
-				'label'         => self::label_from_settings( $settings ),
-				'settings_keys' => array_values( array_slice( array_map( 'strval', array_keys( $settings ) ), 0, 30 ) ),
-				'child_count'   => count( $children ),
-			];
-
-			if ( [] !== $children ) {
-				self::walk_outline( $children, $current_path, '' !== $id ? $id : null, $out, $max_elements );
-			}
-		}
-	}
-
-	/**
-	 * @param array<string, mixed> $settings
-	 */
-	private static function label_from_settings( array $settings ): string {
-		foreach ( [ '_title', 'title', 'header_title', 'text', 'editor' ] as $key ) {
-			if ( ! isset( $settings[ $key ] ) || ! is_scalar( $settings[ $key ] ) ) {
-				continue;
-			}
-			$raw_label = (string) $settings[ $key ];
-			$label     = function_exists( 'wp_strip_all_tags' )
-				? trim( wp_strip_all_tags( $raw_label ) )
-				: trim( strip_tags( $raw_label ) );
-			if ( '' === $label ) {
-				continue;
-			}
-			return strlen( $label ) > 80 ? substr( $label, 0, 77 ) . '...' : $label;
-		}
-		return '';
 	}
 }
