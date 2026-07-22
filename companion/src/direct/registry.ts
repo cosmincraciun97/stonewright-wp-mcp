@@ -1644,11 +1644,13 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 	w3(
 		'stonewright-elementor-data-get',
-		'Read _elementor_data (WP-CLI when local; core REST meta fallback on remote if registered). Not plugin batch-mutate.',
+		'Read _elementor_data as a capped summary outline by default (responseMode=full for raw JSON). WP-CLI when local; core REST meta fallback on remote if registered. Not plugin batch-mutate.',
 		{
 			site: siteArg,
 			post_id: z.number().int().positive(),
 			type: z.string().optional(),
+			responseMode: z.enum(['summary', 'full']).default('summary').optional(),
+			maxElements: z.number().int().min(1).max(500).default(200).optional(),
 			cwd: z.string().optional(),
 			path: z.string().optional(),
 		},

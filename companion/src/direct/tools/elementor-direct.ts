@@ -49,6 +49,143 @@ function parseElementorTree(raw: unknown): unknown {
 	return raw;
 }
 
+export type ElementorOutlineRow = {
+	id: string;
+	parent_id: string | null;
+	path: string;
+	depth: number;
+	elType: string;
+	widgetType: string;
+	label: string;
+	settings_keys: string[];
+	child_count: number;
+};
+
+type ElementorTreeNode = {
+	id?: unknown;
+	elType?: unknown;
+	widgetType?: unknown;
+	settings?: unknown;
+	elements?: unknown;
+	[key: string]: unknown;
+};
+
+function asTreeArray(tree: unknown): ElementorTreeNode[] {
+	if (Array.isArray(tree)) {
+		return tree.filter((n): n is ElementorTreeNode => n !== null && typeof n === 'object');
+	}
+	if (tree && typeof tree === 'object') {
+		return [tree as ElementorTreeNode];
+	}
+	return [];
+}
+
+function countTreeElements(nodes: ElementorTreeNode[]): number {
+	let count = 0;
+	const walk = (elements: ElementorTreeNode[]): void => {
+		for (const element of elements) {
+			count += 1;
+			const children = Array.isArray(element.elements)
+				? element.elements.filter((n): n is ElementorTreeNode => n !== null && typeof n === 'object')
+				: [];
+			if (children.length > 0) {
+				walk(children);
+			}
+		}
+	};
+	walk(nodes);
+	return count;
+}
+
+function labelFromSettings(settings: Record<string, unknown>): string {
+	for (const key of ['_title', 'title', 'header_title', 'text', 'editor'] as const) {
+		const value = settings[key];
+		if (value === null || value === undefined || typeof value === 'object') {
+			continue;
+		}
+		const raw = String(value);
+		const label = raw.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+		if (label === '') {
+			continue;
+		}
+		return label.length > 80 ? `${label.slice(0, 77)}...` : label;
+	}
+	return '';
+}
+
+/** Mirror plugin GetPageStructure summary outline (depth-first, capped). */
+export function outlineElementorTree(tree: unknown, maxElements: number): ElementorOutlineRow[] {
+	const out: ElementorOutlineRow[] = [];
+	const walk = (
+		elements: ElementorTreeNode[],
+		path: number[],
+		parentId: string | null,
+	): void => {
+		for (let index = 0; index < elements.length; index += 1) {
+			if (out.length >= maxElements) {
+				return;
+			}
+			const element = elements[index]!;
+			const currentPath = [...path, index];
+			const id = element.id != null ? String(element.id) : '';
+			const settings =
+				element.settings && typeof element.settings === 'object' && !Array.isArray(element.settings)
+					? (element.settings as Record<string, unknown>)
+					: {};
+			const children = Array.isArray(element.elements)
+				? element.elements.filter((n): n is ElementorTreeNode => n !== null && typeof n === 'object')
+				: [];
+
+			out.push({
+				id,
+				parent_id: parentId,
+				path: currentPath.map(String).join('.'),
+				depth: currentPath.length - 1,
+				elType: element.elType != null ? String(element.elType) : '',
+				widgetType: element.widgetType != null ? String(element.widgetType) : '',
+				label: labelFromSettings(settings),
+				settings_keys: Object.keys(settings).map(String).slice(0, 30),
+				child_count: children.length,
+			});
+
+			if (children.length > 0) {
+				walk(children, currentPath, id !== '' ? id : null);
+			}
+		}
+	};
+
+	walk(asTreeArray(tree), [], null);
+	return out;
+}
+
+function clampMaxElements(raw: unknown): number {
+	const n = typeof raw === 'number' && Number.isFinite(raw) ? Math.trunc(raw) : 200;
+	return Math.min(500, Math.max(1, n));
+}
+
+export type ElementorDataGetInput = {
+	post_id: number;
+	site?: string;
+	type?: string;
+	cwd?: string;
+	path?: string;
+	responseMode?: 'summary' | 'full';
+	maxElements?: number;
+};
+
+export type ElementorFullReadResult = {
+	ok: boolean;
+	post_id: number;
+	transport: 'wp-cli' | 'rest' | 'none';
+	collection?: string;
+	edit_mode?: string | null;
+	template_type?: string | null;
+	element_count?: number;
+	data?: unknown;
+	error?: string;
+	hint?: string;
+};
+
 function collectionCandidates(type?: string): string[] {
 	const t = (type ?? '').trim().toLowerCase();
 	if (t === 'page' || t === 'pages') return ['pages'];
@@ -119,7 +256,7 @@ async function restDataGet(
 		};
 	}
 	const tree = parseElementorTree(meta['_elementor_data']);
-	const elements = Array.isArray(tree) ? tree.length : tree && typeof tree === 'object' ? 1 : 0;
+	const elements = countTreeElements(asTreeArray(tree));
 	const editMode = meta['_elementor_edit_mode'];
 	const templateType = meta['_elementor_template_type'];
 	return {
@@ -222,12 +359,16 @@ export async function elementorStatus(
 	};
 }
 
-export async function elementorDataGet(
+/**
+ * Always returns the full parsed `_elementor_data` tree.
+ * Used by summary/full public reads and by data-update backup/integrity.
+ */
+async function readFullTree(
 	env: NodeJS.ProcessEnv,
-	input: { post_id: number; site?: string; type?: string; cwd?: string; path?: string },
+	input: Pick<ElementorDataGetInput, 'post_id' | 'type' | 'cwd' | 'path'>,
 	cli: ElementorCli = runWpCli,
 	rest?: ElementorRestClient,
-) {
+): Promise<ElementorFullReadResult> {
 	const base = {
 		...(input.cwd ? { cwd: input.cwd } : {}),
 		...(input.path ? { path: input.path } : {}),
@@ -266,14 +407,14 @@ export async function elementorDataGet(
 			return {
 				ok: false,
 				post_id: input.post_id,
-				transport: 'wp-cli' as const,
+				transport: 'wp-cli',
 				error: meta.stderr || meta.error || 'Failed to read _elementor_data',
 				hint: 'Post not found or this post is not an Elementor page.',
 			};
 		}
 
 		const tree = parseElementorTree(meta.parsed_json);
-		const elements = Array.isArray(tree) ? tree.length : tree && typeof tree === 'object' ? 1 : 0;
+		const count = countTreeElements(asTreeArray(tree));
 
 		const mode = asFull(
 			await cli(
@@ -299,10 +440,10 @@ export async function elementorDataGet(
 		return {
 			ok: true,
 			post_id: input.post_id,
-			transport: 'wp-cli' as const,
+			transport: 'wp-cli',
 			edit_mode: mode.stdout.trim() || null,
 			template_type: templateType.stdout.trim() || null,
-			element_count: elements,
+			element_count: count,
 			data: tree,
 		};
 	}
@@ -314,9 +455,61 @@ export async function elementorDataGet(
 	return {
 		ok: false,
 		post_id: input.post_id,
-		transport: 'none' as const,
+		transport: 'none',
 		error: 'Neither WP-CLI nor REST client is available for Elementor data.',
 		hint: 'On remote live Direct, configure Application Password REST credentials, or install the Stonewright plugin.',
+	};
+}
+
+export async function elementorDataGet(
+	env: NodeJS.ProcessEnv,
+	input: ElementorDataGetInput,
+	cli: ElementorCli = runWpCli,
+	rest?: ElementorRestClient,
+) {
+	const full = await readFullTree(env, input, cli, rest);
+	if (!full.ok) {
+		return full;
+	}
+
+	const responseMode = input.responseMode === 'full' ? 'full' : 'summary';
+	const tree = full.data;
+	const count = countTreeElements(asTreeArray(tree));
+
+	if (responseMode === 'full') {
+		return {
+			ok: true as const,
+			post_id: full.post_id,
+			transport: full.transport,
+			...(full.collection !== undefined ? { collection: full.collection } : {}),
+			edit_mode: full.edit_mode ?? null,
+			template_type: full.template_type ?? null,
+			element_count: count,
+			response_mode: 'full' as const,
+			count,
+			data: tree,
+		};
+	}
+
+	const maxElements = clampMaxElements(input.maxElements);
+	const outline = outlineElementorTree(tree, maxElements);
+
+	return {
+		ok: true as const,
+		post_id: full.post_id,
+		transport: full.transport,
+		...(full.collection !== undefined ? { collection: full.collection } : {}),
+		edit_mode: full.edit_mode ?? null,
+		template_type: full.template_type ?? null,
+		element_count: count,
+		response_mode: 'summary' as const,
+		count,
+		returned_count: outline.length,
+		truncated: count > outline.length,
+		tree_omitted: true as const,
+		outline,
+		full_mode_hint:
+			'Call with responseMode=full only when raw Elementor JSON is required for the next edit.',
 	};
 }
 
@@ -359,18 +552,15 @@ export async function elementorDataUpdate(
 		...(input.path ? { path: input.path } : {}),
 	};
 
-	// Mandatory backup before write (CLI or REST).
-	const current = await elementorDataGet(env, input, cli, rest);
+	// Mandatory backup before write (CLI or REST) — always the FULL tree, never a summary outline.
+	const current = await readFullTree(env, input, cli, rest);
 	if (!current.ok) {
 		throw new Error(
-			(current as { error?: string }).error
-				|| 'Cannot backup current Elementor data before write (get failed).',
+			current.error || 'Cannot backup current Elementor data before write (get failed).',
 		);
 	}
 
-	const previous = Array.isArray((current as { data?: unknown }).data)
-		? ((current as { data: unknown[] }).data)
-		: [];
+	const previous = Array.isArray(current.data) ? (current.data as unknown[]) : [];
 
 	const integrity = integrityAssertWrite(tree, previous, {
 		...(input.force_destructive !== undefined ? { force_destructive: input.force_destructive } : {}),
@@ -400,10 +590,10 @@ export async function elementorDataUpdate(
 			{
 				post_id: input.post_id,
 				backed_up_at: new Date().toISOString(),
-				transport: (current as { transport?: string }).transport ?? null,
-				edit_mode: (current as { edit_mode?: string | null }).edit_mode ?? null,
-				template_type: (current as { template_type?: string | null }).template_type ?? null,
-				data: (current as { data?: unknown }).data ?? null,
+				transport: current.transport ?? null,
+				edit_mode: current.edit_mode ?? null,
+				template_type: current.template_type ?? null,
+				data: current.data ?? null,
 			},
 			null,
 			2,
@@ -411,7 +601,7 @@ export async function elementorDataUpdate(
 		{ encoding: 'utf8', mode: 0o600 },
 	);
 
-	const transport = (current as { transport?: string }).transport;
+	const transport = current.transport;
 	const useCli = transport === 'wp-cli';
 
 	if (useCli) {
@@ -480,7 +670,7 @@ export async function elementorDataUpdate(
 	}
 
 	const collection =
-		(current as { collection?: string }).collection
+		current.collection
 		?? (await restFindCollection(rest, input.post_id, input.type));
 	if (!collection) {
 		throw new Error('Could not resolve REST collection for this post_id (pages/posts/type).');

@@ -113,6 +113,9 @@ describe('direct elementor tools', () => {
 		expect(result.ok).toBe(true);
 		expect(result.transport).toBe('rest');
 		expect(result.element_count).toBe(1);
+		expect(result.response_mode).toBe('summary');
+		expect(result.outline).toBeDefined();
+		expect((result as { data?: unknown }).data).toBeUndefined();
 	});
 
 	it('status detects active elementor', async () => {
@@ -129,16 +132,117 @@ describe('direct elementor tools', () => {
 		expect(result.version).toBe('3.20.0');
 	});
 
-	it('data-get returns parsed tree', async () => {
-		const tree = [{ id: 'abc', elType: 'container', elements: [] }];
+	it('elementor-data-get defaults to summary outline with cap', async () => {
+		const tree = [
+			{
+				id: 'root',
+				elType: 'container',
+				settings: { _title: 'Hero section', container_type: 'flex' },
+				elements: [
+					{
+						id: 'headline',
+						elType: 'widget',
+						widgetType: 'heading',
+						settings: { title: 'Fast native Elementor', header_size: 'h1' },
+						elements: [],
+					},
+					{
+						id: 'body',
+						elType: 'widget',
+						widgetType: 'text-editor',
+						settings: { editor: '<p>Summary should strip tags.</p>' },
+						elements: [],
+					},
+				],
+			},
+		];
 		const cli = mockCli({
-			'_elementor_data': () => ({ ok: true, parsed_json: tree }),
-			'_elementor_edit_mode': () => ({ ok: true, stdout: 'builder' }),
-			'_elementor_template_type': () => ({ ok: true, stdout: 'wp-page' }),
+			_elementor_data: () => ({ ok: true, parsed_json: tree }),
+			_elementor_edit_mode: () => ({ ok: true, stdout: 'builder' }),
+			_elementor_template_type: () => ({ ok: true, stdout: 'wp-page' }),
 		});
 		const result = await elementorDataGet({}, { post_id: 12 }, cli as never);
 		expect(result.ok).toBe(true);
+		expect(result.response_mode).toBe('summary');
+		expect(result.outline).toBeDefined();
+		expect(Array.isArray(result.outline)).toBe(true);
+		expect((result as { data?: unknown }).data).toBeUndefined();
+		expect(result.element_count).toBeGreaterThan(0);
+		expect(result.count).toBe(3);
+		expect(result.returned_count).toBe(3);
+		expect(result.truncated).toBe(false);
+		expect(result.tree_omitted).toBe(true);
+		expect(String(result.full_mode_hint)).toContain('responseMode');
+		expect(result.outline?.[0]).toMatchObject({
+			id: 'root',
+			parent_id: null,
+			path: '0',
+			depth: 0,
+			elType: 'container',
+			widgetType: '',
+			label: 'Hero section',
+			settings_keys: ['_title', 'container_type'],
+			child_count: 2,
+		});
+		expect(result.outline?.[1]).toMatchObject({
+			id: 'headline',
+			parent_id: 'root',
+			path: '0.0',
+			depth: 1,
+			widgetType: 'heading',
+			label: 'Fast native Elementor',
+		});
+		expect(result.outline?.[2]?.label).toBe('Summary should strip tags.');
+	});
+
+	it('elementor-data-get responseMode=full returns the tree', async () => {
+		const tree = [{ id: 'abc', elType: 'container', elements: [] }];
+		const cli = mockCli({
+			_elementor_data: () => ({ ok: true, parsed_json: tree }),
+			_elementor_edit_mode: () => ({ ok: true, stdout: 'builder' }),
+			_elementor_template_type: () => ({ ok: true, stdout: 'wp-page' }),
+		});
+		const result = await elementorDataGet(
+			{},
+			{ post_id: 12, responseMode: 'full' },
+			cli as never,
+		);
+		expect(result.ok).toBe(true);
+		expect(result.response_mode).toBe('full');
+		expect(result.data).toEqual(tree);
 		expect(result.element_count).toBe(1);
+	});
+
+	it('summary outline truncates at maxElements', async () => {
+		const tree = [
+			{
+				id: 'root',
+				elType: 'container',
+				settings: {},
+				elements: [
+					{ id: 'a', elType: 'widget', widgetType: 'heading', settings: { title: 'A' }, elements: [] },
+					{ id: 'b', elType: 'widget', widgetType: 'heading', settings: { title: 'B' }, elements: [] },
+					{ id: 'c', elType: 'widget', widgetType: 'heading', settings: { title: 'C' }, elements: [] },
+				],
+			},
+		];
+		const cli = mockCli({
+			_elementor_data: () => ({ ok: true, parsed_json: tree }),
+			_elementor_edit_mode: () => ({ ok: true, stdout: 'builder' }),
+			_elementor_template_type: () => ({ ok: true, stdout: 'wp-page' }),
+		});
+		const result = await elementorDataGet(
+			{},
+			{ post_id: 12, maxElements: 2 },
+			cli as never,
+		);
+		expect(result.ok).toBe(true);
+		expect(result.response_mode).toBe('summary');
+		expect(result.truncated).toBe(true);
+		expect(result.count).toBe(4);
+		expect(result.returned_count).toBe(2);
+		expect(result.outline).toHaveLength(2);
+		expect((result as { data?: unknown }).data).toBeUndefined();
 	});
 
 	it('data-update backs up then writes via stdin', async () => {
@@ -223,8 +327,13 @@ describe('direct elementor tools', () => {
 		expect(result.ok).toBe(true);
 		expect(result.backup_path).toContain('post-9-');
 		expect(existsSync(result.backup_path)).toBe(true);
-		const backup = JSON.parse(readFileSync(result.backup_path, 'utf8')) as { post_id: number };
+		const backup = JSON.parse(readFileSync(result.backup_path, 'utf8')) as {
+			post_id: number;
+			data: unknown;
+		};
 		expect(backup.post_id).toBe(9);
+		// Backup must store the full tree, never a summary outline.
+		expect(backup.data).toEqual(tree);
 		expect(calls.some((c) => c.command.includes('meta') && c.command.includes('update') && c.stdin)).toBe(true);
 	});
 
