@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Memory;
 
 use Stonewright\WpMcp\Support\Json;
+use Stonewright\WpMcp\Support\Logger;
 
 /**
  * Stonewright site memory: scoped key/value store backed by a custom table.
@@ -14,9 +15,55 @@ final class Memory {
 
 	private const SCHEMA_VERSION = 3;
 
+	/**
+	 * Required columns for the current schema version.
+	 *
+	 * @return array<int, string>
+	 */
+	private static function required_columns(): array {
+		return [
+			'id',
+			'scope',
+			'type',
+			'name',
+			'memory_key',
+			'value_json',
+			'confidence',
+			'topic',
+			'version_fingerprint',
+			'expires_at',
+			'status',
+			'precedence',
+			'created_by',
+			'created_at',
+			'updated_at',
+		];
+	}
+
 	public static function table_name(): string {
 		global $wpdb;
 		return $wpdb->prefix . self::TABLE;
+	}
+
+	/**
+	 * True when the memory table exists with all v3 columns.
+	 */
+	public static function table_schema_ok(): bool {
+		global $wpdb;
+
+		if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'get_col' ) ) {
+			return false;
+		}
+
+		$table = self::table_name();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is internal (prefix + const).
+		$columns = $wpdb->get_col( "SHOW COLUMNS FROM {$table}", 0 );
+		if ( ! is_array( $columns ) || [] === $columns ) {
+			return false;
+		}
+
+		$columns = array_map( 'strval', $columns );
+		return [] === array_diff( self::required_columns(), $columns );
 	}
 
 	/**
@@ -79,7 +126,17 @@ final class Memory {
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql );
 
-		update_option( 'stonewright_memory_schema_version', self::SCHEMA_VERSION );
+		if ( self::table_schema_ok() ) {
+			update_option( 'stonewright_memory_schema_version', self::SCHEMA_VERSION );
+		} else {
+			Logger::error(
+				'memory_schema_install_failed',
+				[
+					'table'          => self::table_name(),
+					'target_version' => self::SCHEMA_VERSION,
+				]
+			);
+		}
 	}
 
 	public static function put( string $scope, string $key, mixed $value, float $confidence = 1.0 ): void {
