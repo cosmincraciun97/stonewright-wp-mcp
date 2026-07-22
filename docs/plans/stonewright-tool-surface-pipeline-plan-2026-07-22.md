@@ -572,7 +572,7 @@ git commit -m "feat: tool-profile activate applies the profile to the MCP sessio
 
 The list keeps the exact same 48 names — only the order changes. With the 11 startup+blueprint names in front, positions 1-50 of the 59-name profile must contain every write/validation tool; the 9 names past position 50 (default `max_tools`) must all be diagnostics/discovery.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `plugin/tests/Unit/Abilities/System/ToolProfileOrderingTest.php`:
 
@@ -624,12 +624,12 @@ final class ToolProfileOrderingTest extends TestCase {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `cd plugin && vendor/bin/phpunit --filter ToolProfileOrderingTest`
 Expected: FAIL — `design-validate-spec`, `apply-bundle`, kit updates are currently past position 50.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `plugin/includes/Abilities/System/ToolProfile.php`, replace the entire `'elementor-design' => [ ... ]` match arm with (same 48 names, reordered):
 
@@ -689,12 +689,12 @@ In `plugin/includes/Abilities/System/ToolProfile.php`, replace the entire `'elem
 			],
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `cd plugin && vendor/bin/phpunit --filter "ToolProfileOrderingTest|ToolProfileResolveTest"`
 Expected: PASS. If other tests assert specific positions in this profile, update them — the SET is identical, only order changed.
 
-- [ ] **Step 5: Regenerate the ability matrix if it encodes ordering, run docs freshness, commit**
+- [x] **Step 5: Regenerate the ability matrix if it encodes ordering, run docs freshness, commit**
 
 Run: `cd plugin && composer test && cd .. && composer --working-dir=plugin docs:matrix 2>/dev/null || (cd plugin && composer docs:matrix)`
 Then: `node scripts/check-docs-freshness.mjs`
