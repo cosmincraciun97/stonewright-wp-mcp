@@ -1390,7 +1390,7 @@ git commit -m "fix: architecture-ambiguous gate names post_id as the unblock pat
 - Modify: `plugin/includes/Security/RemediationHints.php` (CODE_HINTS)
 - Test: `plugin/tests/Unit/Abilities/Runtime/PhpExecuteParseErrorTest.php` (create; if a PhpExecute test file already exists under `plugin/tests/`, add these cases there instead — find it with `grep -rl "PhpExecute" plugin/tests/`)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```php
 <?php
@@ -1438,12 +1438,12 @@ final class PhpExecuteParseErrorTest extends TestCase {
 
 If `PhpExecute::execute()` cannot run in the unit harness because of its permission/token wiring, test `execute_code` indirectly the same way the existing PhpExecute tests do — reuse their exact invocation pattern and only assert the error code and message.
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `cd plugin && vendor/bin/phpunit --filter PhpExecuteParseErrorTest`
 Expected: FAIL — error code is `stonewright_php_execute_failed`, hints are generic.
 
-- [ ] **Step 3: Implement PhpExecute catch**
+- [x] **Step 3: Implement PhpExecute catch**
 
 In `execute_code()`, insert a `\ParseError` catch BEFORE the existing `catch ( \Throwable $throwable )`:
 
@@ -1482,7 +1482,7 @@ Append to the `code` parameter's schema description (:45-49) — keep the existi
 Multi-line PHP is supported: send it as a normal JSON string. Do not wrap the code in shell heredocs (<<<PHP) or base64.
 ```
 
-- [ ] **Step 4: Implement RemediationHints**
+- [x] **Step 4: Implement RemediationHints**
 
 In `RemediationHints::CODE_HINTS`, after the `'stonewright_php_elementor_raw_write_blocked'` entry, add:
 
@@ -1491,7 +1491,7 @@ In `RemediationHints::CODE_HINTS`, after the `'stonewright_php_elementor_raw_wri
 		'stonewright_php_execute_failed'             => 'Read exception_class and exception_line in the error data, fix the snippet, and retry once — php-execute has no dry_run parameter. For Elementor document changes use the typed elementor-v3/v4 abilities instead of raw meta writes.',
 ```
 
-- [ ] **Step 5: Run tests, full suite, commit**
+- [x] **Step 5: Run tests, full suite, commit**
 
 Run: `cd plugin && vendor/bin/phpunit --filter PhpExecuteParseErrorTest && composer test && composer phpstan && composer phpcs`
 Expected: PASS.

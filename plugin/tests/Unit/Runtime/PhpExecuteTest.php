@@ -7,6 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\Runtime\PhpExecute;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Security\ConfirmationToken;
+use Stonewright\WpMcp\Security\RemediationHints;
 
 /**
  * @covers \Stonewright\WpMcp\Abilities\Runtime\PhpExecute
@@ -114,6 +115,28 @@ final class PhpExecuteTest extends TestCase {
 		self::assertSame( 'stonewright_php_execute_failed', $result->get_error_code() );
 		self::assertStringContainsString( 'runtime failed', $result->get_error_message() );
 		self::assertSame( 500, $result->get_error_data()['status'] ?? null );
+	}
+
+	public function test_parse_error_returns_dedicated_code_with_transport_guidance(): void {
+		$result = ( new PhpExecute() )->execute( [ 'code' => 'if (' ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_php_parse_error', $result->get_error_code() );
+		self::assertStringContainsString( 'heredoc', $result->get_error_message() );
+	}
+
+	public function test_remediation_hint_for_parse_error_never_mentions_dry_run(): void {
+		$hint = RemediationHints::for_code( 'stonewright_php_parse_error', 'stonewright/php-execute' );
+
+		self::assertStringContainsString( 'heredoc', $hint );
+		self::assertStringNotContainsString( 'dry_run:true', $hint );
+	}
+
+	public function test_generic_execute_failure_hint_exists(): void {
+		$hint = RemediationHints::for_code( 'stonewright_php_execute_failed', 'stonewright/php-execute' );
+
+		self::assertStringContainsString( 'exception_class', $hint );
+		self::assertStringContainsString( 'no dry_run', $hint );
 	}
 
 	public function test_blocks_raw_elementor_meta_writes_but_allows_reads(): void {

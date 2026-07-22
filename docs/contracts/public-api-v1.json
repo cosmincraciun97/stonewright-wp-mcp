@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-07-22T14:24:11+00:00",
+    "generated_at": "2026-07-22T14:32:07+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -3308,7 +3308,7 @@
             "ability_name": "stonewright/php-execute",
             "mcp_name": "stonewright-php-execute",
             "kind": "Write",
-            "input_schema_hash": "a35dd4050ed8cbe424c60df44f7e121bfda6e7f91fd1766a02def475ae692a2a",
+            "input_schema_hash": "edb62e49d228075f44c32ec13f48f906e5aef9d2e89869e49cd183199738f468",
             "output_schema_hash": "d5643004b7cb0e98893db8b47f0351ab14e3dfed0c01af4438be2ac56691168f",
             "permission_class": "Permissions::manage_options()",
             "gates": {

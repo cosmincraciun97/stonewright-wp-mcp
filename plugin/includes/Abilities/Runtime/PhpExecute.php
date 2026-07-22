@@ -45,7 +45,7 @@ final class PhpExecute extends AbilityKernel {
 				'code'               => [
 					'type'        => 'string',
 					'minLength'   => 1,
-					'description' => 'PHP source body to run inside WordPress. Do not include secrets unless the site owner explicitly asks.',
+					'description' => 'PHP source body to run inside WordPress. Do not include secrets unless the site owner explicitly asks. Multi-line PHP is supported: send it as a normal JSON string. Do not wrap the code in shell heredocs (<<<PHP) or base64.',
 				],
 				'timeout_seconds'    => [
 					'type'        => 'integer',
@@ -176,6 +176,31 @@ final class PhpExecute extends AbilityKernel {
 		try {
 			$result = self::evaluate( $code );
 			$stdout = self::close_execution_buffers( $buffer_level );
+		} catch ( \ParseError $parse_error ) {
+			$stdout         = self::close_execution_buffers( $buffer_level );
+			$stdout_payload = self::limit_string( $stdout, $max_output_bytes );
+
+			return $this->error(
+				'php_parse_error',
+				sprintf(
+					/* translators: %s: PHP parse error message. */
+					__( 'PHP snippet failed to parse: %s. This is usually a transport/quoting problem — resend the code as a plain multi-line JSON string without shell heredoc markers.', 'stonewright' ),
+					$parse_error->getMessage()
+				),
+				[
+					'status'           => 400,
+					'exception_class'  => \ParseError::class,
+					'exception_line'   => $parse_error->getLine(),
+					'stdout'           => $stdout_payload['value'],
+					'stdout_bytes'     => $stdout_payload['bytes'],
+					'stdout_truncated' => $stdout_payload['truncated'],
+					'result_bytes'     => 0,
+					'result_truncated' => false,
+					'elapsed_ms'       => self::elapsed_ms( $started_ns ),
+					'timeout_seconds'  => $timeout_seconds,
+					'read_only'        => $read_only,
+				]
+			);
 		} catch ( \Throwable $throwable ) {
 			$stdout         = self::close_execution_buffers( $buffer_level );
 			$stdout_payload = self::limit_string( $stdout, $max_output_bytes );
