@@ -24,6 +24,11 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Task-start delivery (Phase 4):** companion proxy merges plugin
+  `initialize.instructions` into MCP handshake instructions; Direct write latch
+  is per-site with a 30-minute TTL (matches plugin context token); pre-session
+  read responses carry a non-blocking `task_start_hint` until task-start runs
+  (plugin MCP sessions + Direct registry).
 - **Retry-storm brake:** repeated identical ability/tool failures (2+) escalate
   with a hard-stop envelope (`STOP: this exact error occurred N times…`) plus
   `occurrences` and `repair` fields so agents stop blind retries.

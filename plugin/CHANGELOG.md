@@ -18,6 +18,9 @@
 
 ### Added
 
+- Non-blocking `task_start_hint` on pre-session read ability results (MCP
+  sessions) until `task-start` / context-bootstrap / workflow-preflight marks
+  the session; latch is a 30-minute session transient.
 - Retry-storm brake: `ErrorPatterns::occurrence_count` + `escalate_error`
   rewrites identical ability WP_Errors on the 2nd+ occurrence with STOP
   guidance, `occurrences`, and RemediationHints repair text (wired from

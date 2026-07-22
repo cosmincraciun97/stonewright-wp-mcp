@@ -117,6 +117,16 @@ Profile and surface switching is transport-specific. Agents should treat
   sets `tools_changed` so stdio companions that started on env bootstrap
   re-register proxied tools. Companions must also parse ability JSON from
   `content[].text` when transports omit `structuredContent`.
+- **Instructions forwarding:** when the companion proxies the WordPress MCP
+  server, it captures plugin `initialize.instructions` during remote handshake
+  and merges them into the companion MCP server instructions under
+  `--- WordPress plugin instructions ---`. Unreachable sites keep companion-only
+  text. AI clients that read handshake instructions therefore see plugin
+  task-start rules without a separate call.
+- **Pre-session read nudge:** until task-start (or compatibility bootstrap /
+  preflight) marks the MCP session, read-only ability results may include a
+  non-blocking `task_start_hint` string. Writes still hard-require the context
+  token; the hint never blocks discovery tools.
 - **Bootstrap surface** includes runtime escape hatches (`php-execute`,
   confirmation token, content/Elementor reads, `theme-file-read`) — not only
   four startup tools.
@@ -130,4 +140,8 @@ Profile and surface switching is transport-specific. Agents should treat
 - `stonewright-task-start` selects a compact Direct profile for Elementor,
   Gutenberg, content-model, site-admin, or general work; the companion enables
   only that profile and emits `tools/list_changed`.
+- Direct write tools require a prior `stonewright-task-start` for the target
+  site (30-minute TTL, re-arms after expiry). Opt out with
+  `STONEWRIGHT_DIRECT_REQUIRE_TASK_START=off`.
+- Pre-session Direct reads attach the same non-blocking `task_start_hint`.
 - Full remains an explicit diagnostic/specialist choice, never the default.

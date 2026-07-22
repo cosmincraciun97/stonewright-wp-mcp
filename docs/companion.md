@@ -120,7 +120,10 @@ tell clients to call setup/profile/bootstrap tools first, use
 `stonewright-php-execute` for runtime snippets, use direct
 `stonewright-wp-cli-*` recovery tools, keep low-tools sessions compact, and
 avoid shell WP-CLI or generic PHP-adapter workarounds before the first tool
-call.
+call. When the WordPress plugin MCP is reachable, the companion appends the
+plugin's `initialize.instructions` after a `--- WordPress plugin instructions ---`
+separator so clients see site rules and the task-start contract without an
+extra tool call.
 
 If `stonewright-context-bootstrap` or other proxied WordPress tools are missing,
 call `stonewright-wordpress-mcp-status`. The companion keeps this diagnostic,
@@ -152,7 +155,9 @@ runtime set (`php-execute`, confirmation token, site/content reads, theme-file-r
 `stonewright-task-start` then enables the compact task profile for that session
 in plugin or Direct/pluginless mode and always sets `tools_changed` +
 `re_list_instruction` when leaving bootstrap or when the admin surface is
-already essential/full so stuck clients re-list. Use companion tool
+already essential/full so stuck clients re-list. In Direct mode it also stamps
+a per-site write latch (30-minute TTL); write tools re-require task-start after
+expiry or when targeting a different site. Use companion tool
 `stonewright-client-surface-check` (or `stonewright doctor --client-surface`)
 to diagnose profile vs client registration mismatches. Set the env profile to
 `full` only for deliberate specialist diagnostics.
