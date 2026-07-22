@@ -148,6 +148,8 @@ final class WorkflowPreflight extends AbilityKernel {
 			'' !== $surface ? $surface : 'unknown',
 			'' !== $intent ? $intent : 'unknown'
 		);
+		// Latch session so subsequent reads drop the non-blocking task-start hint.
+		AbilityRegistry::mark_session_task_started();
 		$mode            = (string) get_option( 'stonewright_mode', 'development' );
 		$specializations = SpecializationCatalog::match( $task, $surface );
 		$task_profile    = self::task_profile( $task, $surface, $intent, $mode, $specializations );

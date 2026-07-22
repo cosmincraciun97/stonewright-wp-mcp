@@ -2,7 +2,7 @@ import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server
 import { z } from 'zod';
 import { loadSitesConfig, resolveSite, type SitesConfig } from './sites-config.js';
 import { WpRestClient, WpRestError } from './wp-rest-client.js';
-import { resolveDirectWriteMode } from './writes.js';
+import { hasTaskStartSeen, resolveDirectWriteMode } from './writes.js';
 import * as content from './tools/content.js';
 import * as media from './tools/media.js';
 import * as taxonomy from './tools/taxonomy.js';
@@ -258,7 +258,45 @@ export function shouldRegisterDirectTool(
 	return directProfileToolNames(profile).includes(name);
 }
 
-function toolResponse(data: unknown, meta?: { tool?: string }) {
+const TASK_START_NUDGE_SKIP = new Set([
+	'stonewright-task-start',
+	'stonewright-context-bootstrap',
+	'stonewright-workflow-preflight',
+]);
+
+const TASK_START_HINT =
+	'Session not initialized: call stonewright-task-start with your task description to load site skills, memory, recurring errors, and the write token.';
+
+/**
+ * Non-blocking pre-session nudge on successful object payloads.
+ * Write tools throw via assertWriteAllowed before reaching here; task-start
+ * marks the latch before returning, so its response stays clean.
+ */
+export function maybeAttachTaskStartHint(
+	payload: unknown,
+	options: { tool?: string; site?: string; now?: number } = {},
+): unknown {
+	if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+		return payload;
+	}
+	const tool = options.tool ?? '';
+	if (tool && TASK_START_NUDGE_SKIP.has(tool)) {
+		return payload;
+	}
+	if (hasTaskStartSeen(options.site, options.now ?? Date.now())) {
+		return payload;
+	}
+	const row = payload as Record<string, unknown>;
+	if (row['ok'] === false) {
+		return payload;
+	}
+	if (typeof row['task_start_hint'] === 'string') {
+		return payload;
+	}
+	return { ...row, task_start_hint: TASK_START_HINT };
+}
+
+function toolResponse(data: unknown, meta?: { tool?: string; site?: string }) {
 	let payload: unknown = data;
 	if (
 		meta?.tool &&
@@ -275,6 +313,11 @@ function toolResponse(data: unknown, meta?: { tool?: string }) {
 			{ ...row, ok: false, error, message },
 			count,
 		);
+	} else {
+		payload = maybeAttachTaskStartHint(payload, {
+			...(meta?.tool !== undefined ? { tool: meta.tool } : {}),
+			...(meta?.site !== undefined ? { site: meta.site } : {}),
+		});
 	}
 	return {
 		content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }],
@@ -1285,7 +1328,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			try {
 				return toolResponse(
 					await fn(input as Record<string, unknown>, buildContext(ctx, (input as { site?: string }).site)),
-					{ tool: name },
+					{ tool: name, site },
 				);
 			} catch (err) {
 				return toolError(err, { tool: name, site });
@@ -1457,7 +1500,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		tool(name, description, shape, async (input) => {
 			const site = String((input as { site?: string }).site ?? '_global');
 			try {
-				return toolResponse(await handler(input as Record<string, unknown>), { tool: name });
+				return toolResponse(await handler(input as Record<string, unknown>), { tool: name, site });
 			} catch (err) {
 				return toolError(err, { tool: name, site });
 			}

@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { maybeAttachTaskStartHint } from '../src/direct/registry.js';
 import {
 	assertWriteAllowed,
 	hasTaskStartSeen,
@@ -97,5 +98,30 @@ describe('direct task-start write gate', () => {
 		expect(hasTaskStartSeen('site-a', TASK_START_TTL_MS)).toBe(true);
 		expect(hasTaskStartSeen('site-a', TASK_START_TTL_MS + 1)).toBe(false);
 		expect(hasTaskStartSeen('site-b', 1000)).toBe(false);
+	});
+
+	it('read payloads get a non-blocking task-start hint before session start', () => {
+		const nudged = maybeAttachTaskStartHint(
+			{ ok: true, items: [] },
+			{ tool: 'stonewright-content-list', site: 'site-a', now: 1000 },
+		) as Record<string, unknown>;
+		expect(nudged.task_start_hint).toMatch(/stonewright-task-start/);
+	});
+
+	it('task-start hint disappears after markTaskStartSeen', () => {
+		markTaskStartSeen('site-a', 0);
+		const clean = maybeAttachTaskStartHint(
+			{ ok: true, items: [] },
+			{ tool: 'stonewright-content-list', site: 'site-a', now: 1000 },
+		) as Record<string, unknown>;
+		expect(clean.task_start_hint).toBeUndefined();
+	});
+
+	it('skips hint on task-start tool itself even without latch', () => {
+		const result = maybeAttachTaskStartHint(
+			{ ok: true, context_token: 'x' },
+			{ tool: 'stonewright-task-start', now: 1000 },
+		) as Record<string, unknown>;
+		expect(result.task_start_hint).toBeUndefined();
 	});
 });
