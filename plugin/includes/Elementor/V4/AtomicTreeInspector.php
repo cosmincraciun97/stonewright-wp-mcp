@@ -79,4 +79,38 @@ final class AtomicTreeInspector {
 		$element['elements'] = $atomic_children;
 		return [ $element ];
 	}
+
+	/**
+	 * Architecture of the subtree rooted at an element id.
+	 *
+	 * @param array<int, mixed> $tree
+	 */
+	public static function subtree_architecture( array $tree, string $element_id ): string {
+		$node = self::find_node( $tree, $element_id );
+		if ( null === $node ) {
+			return 'not_found';
+		}
+		return (string) self::inspect( [ $node ] )['architecture'];
+	}
+
+	/**
+	 * @param array<int, mixed> $tree
+	 * @return array<string, mixed>|null
+	 */
+	private static function find_node( array $tree, string $element_id ): ?array {
+		foreach ( $tree as $element ) {
+			if ( ! is_array( $element ) ) {
+				continue;
+			}
+			if ( isset( $element['id'] ) && (string) $element['id'] === $element_id ) {
+				return $element;
+			}
+			$children = isset( $element['elements'] ) && is_array( $element['elements'] ) ? $element['elements'] : [];
+			$found    = self::find_node( $children, $element_id );
+			if ( null !== $found ) {
+				return $found;
+			}
+		}
+		return null;
+	}
 }

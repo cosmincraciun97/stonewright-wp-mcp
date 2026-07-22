@@ -2102,7 +2102,7 @@ then refuses every surgical V3 edit to an unrelated V3 section. The gate should 
 when the operations actually reach into an atomic/mixed subtree — never when the touched
 nodes are pure V3. It must still never convert `widgetType`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `BatchMutateTest.php`:
 
@@ -2157,13 +2157,13 @@ public function test_v3_edit_still_blocked_when_operation_targets_atomic_node():
 > Use whatever post-seeding helper `BatchMutateTest.php` already defines; if none, inline
 > the `$GLOBALS['stonewright_test_posts']` seeding the file's other tests use.
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 Run: `cd plugin && vendor/bin/phpunit --filter 'test_v3_edit_allowed_when_touched_subtree_is_pure_v3_despite_atomic_elsewhere|test_v3_edit_still_blocked_when_operation_targets_atomic_node'`
 Expected: the first test FAILS (whole-tree gate blocks because `atom1` exists anywhere);
 the second already passes.
 
-- [ ] **Step 3: Add a subtree classifier to `AtomicTreeInspector`**
+- [x] **Step 3: Add a subtree classifier to `AtomicTreeInspector`**
 
 Append to `AtomicTreeInspector.php` (before the closing brace):
 
@@ -2204,7 +2204,7 @@ Append to `AtomicTreeInspector.php` (before the closing brace):
 	}
 ```
 
-- [ ] **Step 4: Make the `BatchMutate` gate subtree-aware**
+- [x] **Step 4: Make the `BatchMutate` gate subtree-aware**
 
 In `BatchMutate.php`, replace the whole-tree gate (lines 186-198) from:
 
@@ -2288,7 +2288,7 @@ near the other private helpers:
 > here only decides whether to *start* the V3 batch; it must not block on atomic nodes the
 > batch never touches. Never convert `widgetType` to make a target "pass".
 
-- [ ] **Step 5: Run to verify both tests pass**
+- [x] **Step 5: Run to verify both tests pass**
 
 Run: `cd plugin && vendor/bin/phpunit --filter 'test_v3_edit_allowed_when_touched_subtree_is_pure_v3_despite_atomic_elsewhere|test_v3_edit_still_blocked_when_operation_targets_atomic_node'`
 Expected: PASS (2).
@@ -2297,7 +2297,7 @@ Then the full batch suite:
 Run: `vendor/bin/phpunit tests/Unit/ElementorV3/BatchMutateTest.php`
 Expected: PASS (all).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add plugin/includes/Elementor/V4/AtomicTreeInspector.php plugin/includes/Abilities/ElementorV3/BatchMutate.php plugin/tests/Unit/ElementorV3/BatchMutateTest.php
