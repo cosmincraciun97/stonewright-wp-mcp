@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Elementor write abilities return the real gate/validator error via
+  `ElementorData::write_error_for_ability()` instead of generic write_failed.
+- Context-token error names `stonewright-task-start` first.
+- V3 architecture mismatch and raw php-execute Elementor write remediation
+  hints name concrete V4/V3 tools (no dead-end "V4 editor pipeline" text).
+
 ### Added
 
 - Elementor Integrity Gate P0 on `ElementorData::write` (double-encode, size

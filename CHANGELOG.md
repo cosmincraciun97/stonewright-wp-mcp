@@ -7,6 +7,15 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+
+- Elementor write abilities surface the real integrity/validator error (code +
+  hints) instead of generic "Could not save Elementor data."
+- Context-token missing error points agents to canonical `stonewright-task-start`
+  (compatibility path: context-bootstrap).
+- Remediation for `v3_architecture_mismatch` and raw php-execute Elementor
+  writes names concrete V4/V3 tools and forbids blind php-execute retries.
+
 ### Added
 
 - **Elementor Integrity Gate (P0)** on plugin `ElementorData::write` and Direct
