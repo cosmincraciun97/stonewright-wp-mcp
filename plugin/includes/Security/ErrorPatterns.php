@@ -106,6 +106,78 @@ final class ErrorPatterns {
 	}
 
 	/**
+	 * How many times this exact error signature has been observed.
+	 *
+	 * Signature matches observe() storage: ability + error_code + message excerpt.
+	 *
+	 * @param array<string, mixed> $sanitized_args Keys such as error_code / message
+	 *                                             or _meta.error_code / _meta.error_message.
+	 */
+	public static function occurrence_count( string $ability, array $sanitized_args ): int {
+		$store = self::load();
+		$sig   = self::signature( $ability, $sanitized_args );
+		return (int) ( $store[ $sig ]['count'] ?? 0 );
+	}
+
+	/**
+	 * On the 2nd+ identical failure, rewrite the WP_Error with hard-stop guidance.
+	 *
+	 * Call after AbilityKernel audit() has already run ErrorPatterns::observe()
+	 * (via AuditLog::record). At that point the store count already includes the
+	 * current failure, so count >= 2 means "this is the second or later occurrence".
+	 *
+	 * Lookup uses the original error code/message so the signature matches what
+	 * observe() stored — never the post-escalation STOP message.
+	 *
+	 * @param array<string, mixed> $sanitized_args Optional audit args; merged under
+	 *                                             error_code/message from $error.
+	 */
+	public static function escalate_error( string $ability, \WP_Error $error, array $sanitized_args = [] ): \WP_Error {
+		// Build lookup from the error itself so signature matches observe() storage
+		// which uses error_code + message from the ability result.
+		$lookup = array_merge(
+			$sanitized_args,
+			[
+				'error_code' => $error->get_error_code(),
+				'message'    => $error->get_error_message(),
+			]
+		);
+		$count = self::occurrence_count( $ability, $lookup );
+		// If count is 0, try pure error-based args (observe may have used only those).
+		if ( $count < 1 ) {
+			$count = self::occurrence_count(
+				$ability,
+				[
+					'error_code' => $error->get_error_code(),
+					'message'    => $error->get_error_message(),
+				]
+			);
+		}
+		if ( $count < 2 ) {
+			return $error;
+		}
+
+		$code    = $error->get_error_code();
+		$repair  = RemediationHints::for_code( (string) $code, $ability );
+		$message = sprintf(
+			/* translators: 1: occurrence count, 2: original error message, 3: repair guidance */
+			__( 'STOP: this exact error occurred %1$d times — do not retry the same call. %2$s Next step: %3$s', 'stonewright' ),
+			$count,
+			$error->get_error_message(),
+			$repair
+		);
+		$data = array_merge(
+			(array) $error->get_error_data(),
+			[
+				'occurrences' => $count,
+				'repair'      => $repair,
+			]
+		);
+
+		return new \WP_Error( $code, $message, $data );
+	}
+
+	/**
 	 * @param array<string, mixed> $sanitized_args
 	 */
 	public static function signature( string $ability, array $sanitized_args ): string {

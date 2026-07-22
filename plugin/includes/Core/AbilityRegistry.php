@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Abilities\Content\BulkCreate;
 use Stonewright\WpMcp\Abilities\Content\BulkUpsertPosts;
 use Stonewright\WpMcp\Abilities\System\ContextBootstrap;
 use Stonewright\WpMcp\Context\ContextToken;
+use Stonewright\WpMcp\Security\ErrorPatterns;
 use Stonewright\WpMcp\Support\Utf8;
 use Stonewright\WpMcp\Abilities\Content\CreatePage;
 use Stonewright\WpMcp\Abilities\Content\CreatePost;
@@ -703,7 +704,7 @@ final class AbilityRegistry {
 		$name = $ability->name();
 		if ( ! self::requires_context_token( $ability ) ) {
 			unset( $input['stonewright_context_token'] );
-			return $ability->execute( $input );
+			return self::finalize_ability_result( $name, $ability->execute( $input ) );
 		}
 
 		$token = isset( $input['stonewright_context_token'] ) && is_string( $input['stonewright_context_token'] )
@@ -712,11 +713,28 @@ final class AbilityRegistry {
 
 		$verified = ContextToken::verify( $token, $name );
 		if ( $verified instanceof \WP_Error ) {
+			// Context-token failures are not ability-execution errors and are not
+			// observed into ErrorPatterns here — return as-is.
 			return $verified;
 		}
 
 		unset( $input['stonewright_context_token'] );
-		return $ability->execute( $input );
+		return self::finalize_ability_result( $name, $ability->execute( $input ) );
+	}
+
+	/**
+	 * After ability execute returns, escalate repeated identical WP_Errors.
+	 *
+	 * Observe order: AbilityKernel::audit() → AuditLog::record() →
+	 * ErrorPatterns::observe() runs *before* this method sees the result, so
+	 * occurrence_count already includes the current failure. Escalation fires
+	 * when count >= 2 (second+ identical error).
+	 */
+	private static function finalize_ability_result( string $ability_name, mixed $result ): mixed {
+		if ( $result instanceof \WP_Error ) {
+			return ErrorPatterns::escalate_error( $ability_name, $result, [] );
+		}
+		return $result;
 	}
 
 	private static function requires_context_token( Ability $ability ): bool {
