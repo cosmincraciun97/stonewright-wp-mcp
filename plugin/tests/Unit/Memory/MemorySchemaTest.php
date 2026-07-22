@@ -35,6 +35,7 @@ final class MemorySchemaTest extends TestCase {
 	protected function setUp(): void {
 		$this->original_wpdb = $GLOBALS['wpdb'] ?? null;
 		$GLOBALS['stonewright_test_options'] = [];
+		Memory::reset_schema_health_cache_for_tests();
 	}
 
 	protected function tearDown(): void {
@@ -132,11 +133,18 @@ final class MemorySchemaTest extends TestCase {
 		self::assertStringContainsString( 'Table does not exist', $log );
 	}
 
-	public function test_maybe_install_skips_when_version_already_current(): void {
+	public function test_maybe_install_skips_dbdelta_when_version_and_schema_ok(): void {
 		update_option( 'stonewright_memory_schema_version', 3 );
-		$GLOBALS['wpdb'] = new class() {
+		$GLOBALS['wpdb'] = new class( self::V3_COLUMNS ) {
 			public string $prefix = 'wp_';
 			public int $charset_calls = 0;
+			/** @var array<int, string> */
+			private array $columns;
+
+			/** @param array<int, string> $columns */
+			public function __construct( array $columns ) {
+				$this->columns = $columns;
+			}
 
 			public function get_charset_collate(): string {
 				++$this->charset_calls;
@@ -145,14 +153,59 @@ final class MemorySchemaTest extends TestCase {
 
 			/** @return array<int, string> */
 			public function get_col( string $query, int $x = 0 ): array {
-				return [];
+				return $this->columns;
 			}
 		};
 
 		Memory::maybe_install_table();
 
-		// Early return must not touch charset / dbDelta path.
+		// Healthy schema: verify columns, do not re-run dbDelta path.
 		self::assertSame( 0, $GLOBALS['wpdb']->charset_calls );
+		self::assertSame( 3, (int) get_option( 'stonewright_memory_schema_version', 0 ) );
+	}
+
+	public function test_maybe_install_repairs_when_version_current_but_columns_missing(): void {
+		update_option( 'stonewright_memory_schema_version', 3 );
+		// Incomplete columns: must attempt reinstall (charset/dbDelta path).
+		$GLOBALS['wpdb'] = new class() {
+			public string $prefix       = 'wp_';
+			public int $charset_calls   = 0;
+			/** @var array<int, string> */
+			public array $columns       = [ 'id', 'scope', 'memory_key' ];
+
+			public function get_charset_collate(): string {
+				++$this->charset_calls;
+				// After "dbDelta" simulate columns becoming complete.
+				$this->columns = [
+					'id',
+					'scope',
+					'type',
+					'name',
+					'memory_key',
+					'value_json',
+					'confidence',
+					'topic',
+					'version_fingerprint',
+					'expires_at',
+					'status',
+					'precedence',
+					'created_by',
+					'created_at',
+					'updated_at',
+				];
+				return 'DEFAULT CHARSET=utf8mb4';
+			}
+
+			/** @return array<int, string> */
+			public function get_col( string $query, int $x = 0 ): array {
+				return $this->columns;
+			}
+		};
+
+		Memory::maybe_install_table();
+
+		self::assertGreaterThan( 0, $GLOBALS['wpdb']->charset_calls );
+		self::assertTrue( Memory::table_schema_ok() );
 		self::assertSame( 3, (int) get_option( 'stonewright_memory_schema_version', 0 ) );
 	}
 

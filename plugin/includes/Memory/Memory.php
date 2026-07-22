@@ -15,6 +15,16 @@ final class Memory {
 
 	private const SCHEMA_VERSION = 3;
 
+	/** @var bool|null Per-request healthy-schema cache for maybe_install_table(). */
+	private static ?bool $schema_healthy = null;
+
+	/**
+	 * Reset install-path cache (unit tests only).
+	 */
+	public static function reset_schema_health_cache_for_tests(): void {
+		self::$schema_healthy = null;
+	}
+
 	/**
 	 * Required columns for the current schema version.
 	 *
@@ -93,8 +103,16 @@ final class Memory {
 	public static function maybe_install_table(): void {
 		global $wpdb;
 
+		// Per-request cache: healthy schema skips further checks/installs.
+		if ( true === self::$schema_healthy ) {
+			return;
+		}
+
 		$current_version = (int) get_option( 'stonewright_memory_schema_version', 0 );
-		if ( $current_version >= self::SCHEMA_VERSION ) {
+		// Version current still re-checks once per request so a previously
+		// bumped-but-broken schema (dbDelta failed after option write) self-heals.
+		if ( $current_version >= self::SCHEMA_VERSION && self::table_schema_ok() ) {
+			self::$schema_healthy = true;
 			return;
 		}
 
@@ -127,8 +145,10 @@ final class Memory {
 		dbDelta( $sql );
 
 		if ( self::table_schema_ok() ) {
+			self::$schema_healthy = true;
 			update_option( 'stonewright_memory_schema_version', self::SCHEMA_VERSION );
 		} else {
+			self::$schema_healthy = false;
 			Logger::error(
 				'memory_schema_install_failed',
 				[
