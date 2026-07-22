@@ -110,6 +110,7 @@ final class ContextBootstrap extends AbilityKernel {
 				'changed_keys'                   => [ 'type' => 'array' ],
 				'unchanged_keys'                 => [ 'type' => 'array' ],
 				'deltas'                         => [ 'type' => 'object' ],
+				'surface_revision'               => [ 'type' => 'integer' ],
 			],
 		];
 	}
@@ -132,6 +133,7 @@ final class ContextBootstrap extends AbilityKernel {
 			'' !== $surface ? $surface : 'unknown',
 			'' !== $intent ? $intent : 'unknown'
 		);
+		$response['surface_revision'] = AbilityRegistry::surface_revision();
 		// Compatibility bootstrap also clears the pre-session read nudge.
 		AbilityRegistry::mark_session_task_started();
 		if ( 'compact' === (string) ( $args['responseMode'] ?? 'full' ) ) {

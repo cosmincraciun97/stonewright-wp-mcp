@@ -42,6 +42,8 @@ final class ToolProfileActivateSessionTest extends TestCase {
 		self::assertTrue( $result['session_profile_applied'] );
 		self::assertSame( 'session_transient_written', $result['session_profile_reason'] );
 		self::assertTrue( $result['tools_changed'] );
+		self::assertArrayHasKey( 'surface_revision', $result );
+		self::assertIsInt( $result['surface_revision'] );
 
 		$session = AbilityRegistry::session_tool_profile();
 		self::assertIsArray( $session );

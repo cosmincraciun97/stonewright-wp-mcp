@@ -509,7 +509,7 @@
             "mcp_name": "stonewright-context-bootstrap",
             "kind": "Read",
             "input_schema_hash": "0e78dcf71a38cacc3b1c13321d79369e27248463d390f5836f4612328a561981",
-            "output_schema_hash": "52053abc2c7ad3c9b602ec0b964fb6f4a3b400e059dd41bba103af6f6a844624",
+            "output_schema_hash": "49adc899c7cca5145c80e80c3c09a7ad7787efd4e448f04d110ac20c0a14adb4",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
@@ -3953,7 +3953,7 @@
             "mcp_name": "stonewright-task-start",
             "kind": "Read",
             "input_schema_hash": "15f6fd543c01390a1e0b28feee3fca80b655e1ca4537b789cb8ce6be9bea755e",
-            "output_schema_hash": "2f8c367ff9b112eb59d214446062ba86e3101d8d7625ad1ddcc403800070e287",
+            "output_schema_hash": "5602b33929246a3298c057492eb8167ac8706aaa345bd976bcd9c38b2db3ac4d",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
@@ -4135,7 +4135,7 @@
             "mcp_name": "stonewright-tool-profile",
             "kind": "Write",
             "input_schema_hash": "2966ee25a73a4211eaafadc3f91791fe7f109a3c8bc3cc6ad4e355780793509e",
-            "output_schema_hash": "b0e0a6d119bcad4abdabb9a4bdf60f8873a008c8ff3d26896890c8cc228e26cd",
+            "output_schema_hash": "97992287d4738c74c674c0a512adfcf03fce9a35bb12f17f117b167f7ada7f7f",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
@@ -4345,7 +4345,7 @@
             "mcp_name": "stonewright-workflow-preflight",
             "kind": "Read",
             "input_schema_hash": "15f6fd543c01390a1e0b28feee3fca80b655e1ca4537b789cb8ce6be9bea755e",
-            "output_schema_hash": "2f8c367ff9b112eb59d214446062ba86e3101d8d7625ad1ddcc403800070e287",
+            "output_schema_hash": "5602b33929246a3298c057492eb8167ac8706aaa345bd976bcd9c38b2db3ac4d",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,

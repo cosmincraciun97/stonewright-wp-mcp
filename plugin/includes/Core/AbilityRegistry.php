@@ -1052,6 +1052,30 @@ final class AbilityRegistry {
 	}
 
 	/**
+	 * Monotonic signal clients use to detect a stale tool list.
+	 */
+	public static function surface_revision(): int {
+		return max( 0, (int) get_option( 'stonewright_surface_revision', 0 ) );
+	}
+
+	/**
+	 * Bump the visible-surface revision and notify in-process transports.
+	 */
+	public static function bump_surface_revision(): int {
+		$revision = self::surface_revision() + 1;
+		update_option( 'stonewright_surface_revision', $revision, false );
+
+		/**
+		 * Fires when the MCP tool surface changes.
+		 *
+		 * @param int $revision New monotonic surface revision.
+		 */
+		do_action( 'stonewright_tool_surface_changed', $revision );
+
+		return $revision;
+	}
+
+	/**
 	 * Persist surface mode and keep the legacy essential_tools_mode flag in sync.
 	 */
 	public static function set_mcp_surface( string $surface ): string {
@@ -1060,10 +1084,16 @@ final class AbilityRegistry {
 			$surface = 'essential';
 		}
 
+		$previous = self::mcp_surface();
 		update_option( 'stonewright_mcp_surface', $surface, false );
 		update_option( 'stonewright_essential_tools_mode', 'full' !== $surface, false );
 
-		return self::mcp_surface();
+		$current = self::mcp_surface();
+		if ( $current !== $previous ) {
+			self::bump_surface_revision();
+		}
+
+		return $current;
 	}
 
 	/**
@@ -1089,7 +1119,7 @@ final class AbilityRegistry {
 			)
 		);
 
-		return set_transient(
+		$updated = set_transient(
 			$key,
 			[
 				'profile'       => '' !== $profile ? $profile : 'essential',
@@ -1097,6 +1127,11 @@ final class AbilityRegistry {
 			],
 			self::SESSION_PROFILE_TTL
 		);
+		if ( $updated ) {
+			self::bump_surface_revision();
+		}
+
+		return $updated;
 	}
 
 	/**

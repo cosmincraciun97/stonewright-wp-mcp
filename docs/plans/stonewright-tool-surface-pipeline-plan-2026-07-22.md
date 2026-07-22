@@ -2769,7 +2769,7 @@ any one client's cache semantics.
 - Modify: `plugin/includes/Abilities/System/*` task-start + `wordpress-mcp-status` + `client-surface-check` responses (grep for the ability that returns `mcp_surface`)
 - Test: `plugin/tests/Unit/Core/AbilityRegistrySurfaceRevisionTest.php` (create)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```php
 public function test_surface_revision_bumps_on_surface_change_and_fires_hook(): void {
@@ -2794,12 +2794,12 @@ public function test_surface_revision_bumps_on_surface_change_and_fires_hook(): 
 }
 ```
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 Run: `cd plugin && vendor/bin/phpunit --filter test_surface_revision_bumps_on_surface_change_and_fires_hook`
 Expected: FAIL — `surface_revision()` does not exist.
 
-- [ ] **Step 3: Add the counter + hook to `AbilityRegistry`**
+- [x] **Step 3: Add the counter + hook to `AbilityRegistry`**
 
 Add these methods near `mcp_surface()`:
 
@@ -2867,12 +2867,12 @@ In `set_session_tool_profile()`, bump on a successful transient write. Change th
 		return $ok;
 ```
 
-- [ ] **Step 4: Run to verify it passes**
+- [x] **Step 4: Run to verify it passes**
 
 Run: `cd plugin && vendor/bin/phpunit --filter test_surface_revision_bumps_on_surface_change_and_fires_hook`
 Expected: PASS.
 
-- [ ] **Step 5: Surface the revision on every gateway response**
+- [x] **Step 5: Surface the revision on every gateway response**
 
 Add `'surface_revision' => AbilityRegistry::surface_revision(),` to:
 - the `ToolProfile` resolve return (after line 358, next to `tools_changed`),
@@ -2891,7 +2891,7 @@ public function test_activate_response_includes_surface_revision(): void {
 }
 ```
 
-- [ ] **Step 6: Report the new revision from the admin Apply handler**
+- [x] **Step 6: Report the new revision from the admin Apply handler**
 
 In `ConfigurationPage::handle_apply_mcp_surface()`, add the revision to the success payload
 so the admin UI (and anyone tailing it) can show it. Change the `wp_send_json_success([...])`
@@ -2907,12 +2907,12 @@ and tighten `transport_truth` to name the signal:
 			'transport_truth' => __( 'Surface revision bumped. HTTP clients pick this up on their next tools/list; companion sessions re-list automatically on the next task-start or tool-profile response when they see the new surface_revision. Older companions need a client restart.', 'stonewright' ),
 ```
 
-- [ ] **Step 7: Full plugin gate**
+- [x] **Step 7: Full plugin gate**
 
 Run: `cd plugin && vendor/bin/phpunit && composer phpstan && composer phpcs`
 Expected: PASS. Fix any test that snapshots a gateway response shape to include the new key.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add plugin/includes/Core/AbilityRegistry.php plugin/includes/Abilities/System/ plugin/includes/Admin/ConfigurationPage.php plugin/tests/
