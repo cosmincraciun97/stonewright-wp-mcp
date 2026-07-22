@@ -289,8 +289,10 @@
       "outcome": "design",
       "summary": "External Figma MCP to evidence to native plan to verify.",
       "prerequisites": [
-        "External Figma MCP tools in the client",
-        "plugin mode"
+        "External Figma MCP tools in the client (official and/or console-bridge)",
+        "plugin mode",
+        "design-to-wordpress skill references/figma-mcp-extraction.md for field-to-tool map",
+        "Browser/Playwright MCP for post-write measured_targets verification"
       ],
       "tools": [
         "stonewright-task-start",
@@ -298,8 +300,8 @@
         "stonewright-elementor-v3-build-page-from-spec",
         "stonewright-gutenberg-apply-to-post"
       ],
-      "prompt": "Use Stonewright. Call stonewright-task-start. Extract design with the client's external Figma MCP tools, normalize into a DesignEvidence/figma_token_table (never embed Figma APIs inside Stonewright). Call stonewright-design-native-plan. Render with the user-chosen engine (elementor|gutenberg|fse). CSS only when native_gap is recorded. Verify each breakpoint with the client's own browser tools against evidence targets (\u00b12px spacing).",
-      "verification": "Native plan present; native_gap for any CSS; no raw Figma tree after normalization; verification notes per breakpoint."
+      "prompt": "Use Stonewright. Call stonewright-task-start. List MCP tools and extract design with the client's external Figma MCP (console-bridge preferred when present: figma_export_tokens / figma_get_variables / deep component trees; official: get_variable_defs, get_design_context, get_metadata, get_screenshot). Map fields via skills/design-to-wordpress/references/figma-mcp-extraction.md. Normalize into DesignEvidence/figma_token_table (never embed Figma APIs inside Stonewright; no raw Figma tree after normalization). Call stonewright-design-native-plan. Render with the user-chosen engine (elementor|gutenberg|fse). CSS only when native_gap is recorded. Verify each breakpoint with the client's own browser tools against evidence targets (\u00b12px spacing).",
+      "verification": "Native plan present; native_gap for any CSS; no raw Figma tree after normalization; provenance set on measured values; verification notes per breakpoint."
     },
     {
       "id": "profile-self-upgrade",
