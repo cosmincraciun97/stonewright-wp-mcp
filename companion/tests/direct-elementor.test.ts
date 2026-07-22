@@ -173,7 +173,10 @@ describe('direct elementor tools', () => {
 		expect(result.truncated).toBe(false);
 		expect(result.tree_omitted).toBe(true);
 		expect(String(result.full_mode_hint)).toContain('responseMode');
-		expect(result.outline?.[0]).toMatchObject({
+		const outline = Array.isArray(result.outline)
+			? (result.outline as Array<Record<string, unknown>>)
+			: [];
+		expect(outline[0]).toMatchObject({
 			id: 'root',
 			parent_id: null,
 			path: '0',
@@ -184,7 +187,7 @@ describe('direct elementor tools', () => {
 			settings_keys: ['_title', 'container_type'],
 			child_count: 2,
 		});
-		expect(result.outline?.[1]).toMatchObject({
+		expect(outline[1]).toMatchObject({
 			id: 'headline',
 			parent_id: 'root',
 			path: '0.0',
@@ -192,7 +195,7 @@ describe('direct elementor tools', () => {
 			widgetType: 'heading',
 			label: 'Fast native Elementor',
 		});
-		expect(result.outline?.[2]?.label).toBe('Summary should strip tags.');
+		expect(outline[2]?.label).toBe('Summary should strip tags.');
 	});
 
 	it('elementor-data-get responseMode=full returns the tree', async () => {

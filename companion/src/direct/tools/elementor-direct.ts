@@ -125,7 +125,10 @@ export function outlineElementorTree(tree: unknown, maxElements: number): Elemen
 			if (out.length >= maxElements) {
 				return;
 			}
-			const element = elements[index]!;
+			const element = elements[index];
+			if (!element) {
+				continue;
+			}
 			const currentPath = [...path, index];
 			const id = element.id != null ? String(element.id) : '';
 			const settings =

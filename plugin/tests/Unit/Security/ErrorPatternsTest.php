@@ -87,8 +87,11 @@ final class ErrorPatternsTest extends TestCase {
 				return [];
 			}
 
-			/** @param array<string, mixed> $data */
-			public function insert( string $table, array $data, array $format = [] ): false {
+			/**
+			 * @param array<string, mixed> $data
+			 * @return false Always fails (broken table fixture).
+			 */
+			public function insert( string $table, array $data, array $format = [] ): bool {
 				return false;
 			}
 		};

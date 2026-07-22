@@ -334,7 +334,7 @@ function toolError(err: unknown, meta?: { tool?: string; site?: string }) {
 	const tool = meta?.tool && meta.tool.length > 0 ? meta.tool : 'stonewright-direct';
 	const errorCode =
 		err instanceof WpRestError
-			? String((err.toJSON() as { code?: string }).code ?? 'wp_rest_error')
+			? String(err.toJSON().code ?? 'wp_rest_error')
 			: 'error';
 	if (meta?.tool) {
 		try {
@@ -356,7 +356,7 @@ function toolError(err: unknown, meta?: { tool?: string; site?: string }) {
 		count,
 	);
 	if (err instanceof WpRestError) {
-		const base = err.toJSON() as Record<string, unknown>;
+		const base = err.toJSON();
 		return {
 			isError: true as const,
 			content: [

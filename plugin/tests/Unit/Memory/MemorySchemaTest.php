@@ -110,13 +110,20 @@ final class MemorySchemaTest extends TestCase {
 				return [];
 			}
 
-			/** @param array<string, mixed> $data */
-			public function insert( string $table, array $data, array $format = [] ): false {
+			/**
+			 * @param array<string, mixed> $data
+			 * @return false Always fails (broken table fixture).
+			 */
+			public function insert( string $table, array $data, array $format = [] ): bool {
 				return false;
 			}
 
-			/** @param array<string, mixed> $data @param array<string, mixed> $where */
-			public function update( string $table, array $data, array $where, array $format = [], array $where_format = [] ): false {
+			/**
+			 * @param array<string, mixed> $data
+			 * @param array<string, mixed> $where
+			 * @return false Always fails (broken table fixture).
+			 */
+			public function update( string $table, array $data, array $where, array $format = [], array $where_format = [] ): bool {
 				return false;
 			}
 		};
