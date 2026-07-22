@@ -85,6 +85,7 @@ use Stonewright\WpMcp\Abilities\ElementorV4\ReadAtomicTree;
 use Stonewright\WpMcp\Abilities\ElementorV4\RenderFromSpec as RenderV4FromSpec;
 use Stonewright\WpMcp\Abilities\ElementorV4\Status as ElementorV4Status;
 use Stonewright\WpMcp\Abilities\ElementorV4\UpdateClass;
+use Stonewright\WpMcp\Abilities\ElementorV4\UpdateNode;
 use Stonewright\WpMcp\Abilities\ElementorV4\UpdateVariable;
 use Stonewright\WpMcp\Abilities\FSE\CreateTemplatePart;
 use Stonewright\WpMcp\Abilities\FSE\GetThemeJson;
@@ -353,6 +354,7 @@ final class AbilityRegistry {
 			// Elementor V4 experimental.
 			ElementorV4Status::class,
 			ReadAtomicTree::class,
+			UpdateNode::class,
 			ListVariables::class,
 			CreateVariable::class,
 			UpdateVariable::class,

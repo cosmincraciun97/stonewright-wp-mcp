@@ -1,0 +1,15 @@
+{
+    "args": {
+        "post_id": 1,
+        "element_id": "parent1",
+        "settings": {
+            "tag": {
+                "$$type": "string",
+                "value": "h1"
+            }
+        },
+        "mode": "merge",
+        "dry_run": true
+    },
+    "expect": "wp_error"
+}

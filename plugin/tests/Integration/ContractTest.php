@@ -443,6 +443,21 @@ final class ContractTest extends TestCase {
 				'post_name'    => 'contract-front-page',
 				'meta'         => [],
 			],
+			// Pure V4 atomic document for elementor-v4-update-node contract fixtures.
+			6 => (object) [
+				'ID'           => 6,
+				'post_type'    => 'page',
+				'post_status'  => 'draft',
+				'post_title'   => 'Contract V4 Atomic',
+				'post_content' => '',
+				'post_excerpt' => '',
+				'post_parent'  => 0,
+				'post_name'    => 'contract-v4-atomic',
+				'meta'         => [
+					'_elementor_data'      => '[{"id":"atomic_root","version":"0.0","elType":"e-div-block","isInner":false,"settings":[],"editor_settings":[],"interactions":[],"styles":[],"elements":[{"id":"heading_v4","version":"0.0","elType":"widget","widgetType":"e-heading","isInner":false,"settings":{"tag":{"$$type":"string","value":"h2"}},"editor_settings":[],"interactions":[],"styles":[],"elements":[]}]}]',
+					'_elementor_edit_mode' => 'builder',
+				],
+			],
 		];
 	}
 }
