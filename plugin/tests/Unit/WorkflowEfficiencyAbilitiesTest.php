@@ -161,9 +161,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright/context-bootstrap', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/task-start', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/tool-profile', $result['recommended_tools'] );
-		self::assertContains( 'stonewright/security-create-one-time-link', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/design-native-plan', $result['recommended_tools'] );
-		self::assertContains( 'stonewright/knowledge-candidate-record', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/media-upload-batch', $result['recommended_tools'] );
@@ -330,8 +328,10 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertArrayHasKey( 'elementor', $result );
 		self::assertArrayHasKey( 'fast_path', $result );
 		self::assertArrayHasKey( 'tool_profile', $result['fast_path'] );
-		self::assertSame( 'essential', $result['fast_path']['tool_profile']['profile'] );
+		self::assertSame( 'elementor-design', $result['fast_path']['tool_profile']['profile'] );
 		self::assertSame( 'elementor-design', $result['fast_path']['tool_profile']['suggested_profile'] );
+		self::assertTrue( $result['fast_path']['tool_profile']['session_profile_applied'] );
+		self::assertSame( 'session_transient_written', $result['fast_path']['tool_profile']['session_profile_reason'] );
 		self::assertIsBool( $result['fast_path']['tool_profile']['under_limit'] );
 		self::assertArrayHasKey( 'elementor_design', $result['fast_path']['tool_profile']['tool_groups'] );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $result['fast_path']['tool_profile']['tool_groups']['elementor_design']['abilities'] );

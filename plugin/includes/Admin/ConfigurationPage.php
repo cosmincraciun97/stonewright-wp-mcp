@@ -59,8 +59,9 @@ final class ConfigurationPage {
 			[
 				'surface'         => $saved,
 				'mcp_surface'     => $saved,
+				'surface_revision' => \Stonewright\WpMcp\Core\AbilityRegistry::surface_revision(),
 				'message'         => __( 'MCP surface applied and verified.', 'stonewright' ),
-				'transport_truth' => __( 'HTTP clients pick this up on their next tools/list. Current stdio companion sessions sync on the next task-start or tool-profile response; older companions need a client restart.', 'stonewright' ),
+				'transport_truth' => __( 'Surface revision bumped. HTTP clients pick this up on their next tools/list; companion sessions re-list automatically on the next task-start or tool-profile response when they see the new surface_revision. Older companions need a client restart.', 'stonewright' ),
 			]
 		);
 	}

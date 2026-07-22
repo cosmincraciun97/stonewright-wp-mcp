@@ -34,19 +34,19 @@ final class SetupDiagnosticsTest extends TestCase {
 	}
 
 	public function test_tool_budget_passes_at_essential_maximum(): void {
-		// Essential profile currently exposes 29 tools (under ESSENTIAL_MAX_TOOLS=30).
+		// Essential profile fills ESSENTIAL_MAX_TOOLS=30 exactly.
 		$GLOBALS['stonewright_test_options']['stonewright_essential_tools_mode']    = true;
 		$GLOBALS['stonewright_test_options']['stonewright_essential_extra_abilities'] = [];
 
 		$report = SetupDiagnostics::report();
 		$budget = $this->find_check( $report['checks'], 'tool_budget' );
 
-		self::assertSame( 29, $report['versions']['tool_count'] );
-		self::assertSame( 'ok', $budget['status'], '29 tools is within ESSENTIAL_MAX_TOOLS and must pass.' );
+		self::assertSame( 30, $report['versions']['tool_count'] );
+		self::assertSame( 'ok', $budget['status'], '30 tools is within ESSENTIAL_MAX_TOOLS and must pass.' );
 	}
 
 	public function test_tool_budget_fails_above_essential_maximum(): void {
-		// Pad essential profile past 30 (29 base + 2 extras).
+		// Pad essential profile past 30 (30 base + 2 extras).
 		$GLOBALS['stonewright_test_options']['stonewright_essential_tools_mode'] = true;
 		$GLOBALS['stonewright_test_options']['stonewright_essential_extra_abilities'] = [
 			'stonewright/ping',
@@ -56,7 +56,7 @@ final class SetupDiagnosticsTest extends TestCase {
 		$report = SetupDiagnostics::report();
 		$budget = $this->find_check( $report['checks'], 'tool_budget' );
 
-		self::assertSame( 31, $report['versions']['tool_count'] );
+		self::assertSame( 32, $report['versions']['tool_count'] );
 		self::assertNotSame( 'ok', $budget['status'] );
 	}
 

@@ -188,8 +188,13 @@ final class ToolProfile extends AbilityKernel {
 				'tool_count'            => [ 'type' => 'integer' ],
 				'profile_tool_count'    => [ 'type' => 'integer' ],
 				'under_limit'           => [ 'type' => 'boolean' ],
+				'degraded'              => [ 'type' => 'boolean' ],
+				'truncated_tools'       => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'truncated_mcp_tools'   => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'truncation_hint'       => [ 'type' => 'string' ],
 				'essential_tools_mode'  => [ 'type' => 'boolean' ],
 				'mcp_surface'            => [ 'type' => 'string' ],
+				'surface_revision'       => [ 'type' => 'integer' ],
 				'profiles_available'    => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'recommended_tools'     => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'recommended_mcp_tools' => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
@@ -227,6 +232,8 @@ final class ToolProfile extends AbilityKernel {
 				'token_rules'           => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'counts'                => [ 'type' => 'object' ],
 				'tools_changed'         => [ 'type' => 'boolean' ],
+				'session_profile_applied' => [ 'type' => 'boolean' ],
+				'session_profile_reason'  => [ 'type' => 'string' ],
 				'tools_changed_at'      => [ 'type' => 'string' ],
 				'extras_applied'        => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				're_list_instruction'   => [ 'type' => 'string' ],
@@ -329,6 +336,7 @@ final class ToolProfile extends AbilityKernel {
 				)
 			);
 			$profile_count     = count( $ordered_abilities );
+			$dropped_names     = array_slice( $ordered_abilities, $max_tools );
 			$ordered_abilities = array_slice( $ordered_abilities, 0, $max_tools );
 			$mcp_tools         = array_map( [ AbilityRegistry::class, 'mcp_tool_name' ], $ordered_abilities );
 			$tool_groups       = self::tool_groups( $ordered_abilities );
@@ -339,6 +347,7 @@ final class ToolProfile extends AbilityKernel {
 				'profile'              => $profile,
 				'requested_profile'    => $requested,
 				'mcp_surface'           => AbilityRegistry::mcp_surface(),
+				'surface_revision'      => AbilityRegistry::surface_revision(),
 				'tools'                => array_values( $mcp_tools ),
 				'recommended_tools'    => $ordered_abilities,
 				'recommended_mcp_tools' => array_values( $mcp_tools ),
@@ -355,6 +364,10 @@ final class ToolProfile extends AbilityKernel {
 				'tool_count'           => count( $mcp_tools ),
 				'profile_tool_count'   => $profile_count,
 				'under_limit'          => $profile_count <= $max_tools,
+				'degraded'             => [] !== $dropped_names,
+				'truncated_tools'      => $dropped_names,
+				'truncated_mcp_tools'  => array_map( [ AbilityRegistry::class, 'mcp_tool_name' ], $dropped_names ),
+				'truncation_hint'      => self::truncation_hint( $dropped_names, $max_tools ),
 				'tools_changed'        => false,
 			];
 		}
@@ -373,6 +386,23 @@ final class ToolProfile extends AbilityKernel {
 			// the public tools/list surface so recommended tools become visible.
 			self::expand_mcp_surface_for_profile( $profile );
 		}
+
+		// Activation must change what this session can call. The option surface
+		// stays operator-controlled; session expansion uses Mcp-Session-Id.
+		$session_applied = false;
+		$session_reason  = 'surface_full_already_exposes_all_tools';
+		if ( 'full' !== AbilityRegistry::mcp_surface() && 'bootstrap' !== $profile ) {
+			$session_applied = AbilityRegistry::set_session_tool_profile(
+				$profile,
+				'full' === $profile ? [] : self::profile_tools( $profile )
+			);
+			$session_reason  = $session_applied
+				? 'session_transient_written'
+				: 'missing_or_invalid_mcp_session_id_header';
+		} elseif ( 'bootstrap' === $profile ) {
+			$session_reason = 'bootstrap_profile_needs_no_expansion';
+		}
+		$tools_changed = $tools_changed || $session_applied;
 
 		$visible_rows = array_values(
 			array_filter(
@@ -399,6 +429,7 @@ final class ToolProfile extends AbilityKernel {
 		);
 
 		$profile_tool_count = count( $names );
+		$dropped_names      = array_slice( $names, $max_tools );
 		$limited_names      = array_slice( $names, 0, $max_tools );
 		$tools              = [];
 		$tool_groups        = self::tool_groups( $limited_names );
@@ -422,8 +453,13 @@ final class ToolProfile extends AbilityKernel {
 			'tool_count'            => count( $limited_names ),
 			'profile_tool_count'    => $profile_tool_count,
 			'under_limit'           => $profile_tool_count <= $max_tools,
+			'degraded'              => [] !== $dropped_names,
+			'truncated_tools'       => $dropped_names,
+			'truncated_mcp_tools'   => array_map( [ AbilityRegistry::class, 'mcp_tool_name' ], $dropped_names ),
+			'truncation_hint'       => self::truncation_hint( $dropped_names, $max_tools ),
 			'essential_tools_mode'  => (bool) get_option( 'stonewright_essential_tools_mode', true ),
 			'mcp_surface'            => AbilityRegistry::mcp_surface(),
+			'surface_revision'       => AbilityRegistry::surface_revision(),
 			'profiles_available'    => self::profile_names(),
 			'recommended_tools'     => $limited_names,
 			'recommended_mcp_tools' => array_map( [ AbilityRegistry::class, 'mcp_tool_name' ], $limited_names ),
@@ -444,6 +480,8 @@ final class ToolProfile extends AbilityKernel {
 				'missing'        => count( $missing_names ),
 			],
 			'tools_changed'         => $tools_changed,
+			'session_profile_applied' => $session_applied,
+			'session_profile_reason'  => $session_reason,
 			'tools_changed_at'      => $changed_at,
 			'extras_applied'        => array_values( (array) ( $extras_result['extras'] ?? [] ) ),
 			// Always emit a re-list instruction on activate so stdio companions that
@@ -461,9 +499,9 @@ final class ToolProfile extends AbilityKernel {
 	/**
 	 * Expand stonewright_mcp_surface when leaving the bootstrap cold-start set.
 	 *
-	 * Bootstrap maps to essential for task profiles (elementor-design, content-model, …).
-	 * Bootstrap maps to full when the client requests the full profile.
-	 * Bootstrap stays put when the profile is still bootstrap.
+	 * This only widens the persistent option surface from bootstrap. Essential
+	 * surfaces are never silently promoted to full here; per-session expansion
+	 * beyond the option surface uses the Mcp-Session-Id transient from execute().
 	 */
 	public static function expand_mcp_surface_for_profile( string $profile ): void {
 		$current = AbilityRegistry::mcp_surface();
@@ -616,51 +654,54 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/wp-cli-job-status',
 			],
 			'elementor-design' => [
+				// Write-critical path first so capped clients keep every write gate.
 				'stonewright/security-issue-confirmation-token',
+				'stonewright/design-validate-spec',
 				'stonewright/elementor-v3-build-page-from-spec',
 				'stonewright/theme-builder-apply-template',
 				'stonewright/elementor-v3-batch-mutate',
+				'stonewright/elementor-v3-apply-bundle',
 				'stonewright/elementor-page-digest',
 				'stonewright/elementor-build-tree',
-				'stonewright/gutenberg-apply-to-post',
-				'stonewright/media-list',
-				'stonewright/media-upload-batch',
-				'stonewright/content-bulk-upsert-posts',
-				'stonewright/content-model-loop-grid-flow',
-				'stonewright/site-info',
-				'stonewright/site-plugins-list',
-				'stonewright/security-create-one-time-link',
-				'stonewright/design-native-plan',
-				'stonewright/design-implementation-contract',
-				'stonewright/widget-intent-resolve',
-				'stonewright/elementor-widget-implementation-guide',
-				'stonewright/elementor-v3-status',
-				'stonewright/elementor-v3-capabilities-summary',
-				'stonewright/elementor-v3-container-schema',
-				'stonewright/knowledge-candidate-record',
-				'stonewright/elementor-v3-get-kit-globals',
-				'stonewright/elementor-v3-list-widgets',
-				'stonewright/elementor-schema',
-				'stonewright/elementor-describe-widget',
-				'stonewright/elementor-v4-status',
 				'stonewright/elementor-v4-read-atomic-tree',
 				'stonewright/elementor-v4-update-node',
-				'stonewright/elementor-v4-list-variables',
-				'stonewright/elementor-v4-list-classes',
-				'stonewright/elementor-v4-list-atomic-node-types',
-				'stonewright/stock-image-search',
-				'stonewright/stock-image-import',
-				'stonewright/content-create-page',
-				'stonewright/content-update-page',
-				'stonewright/content-get-page',
 				'stonewright/theme-file-read',
 				'stonewright/theme-file-patch',
 				'stonewright/theme-custom-css',
 				'stonewright/elementor-v3-update-page-settings',
 				'stonewright/elementor-v3-update-kit-colors',
 				'stonewright/elementor-v3-update-kit-typography',
-				'stonewright/design-validate-spec',
-				'stonewright/elementor-v3-apply-bundle',
+				'stonewright/elementor-v3-get-kit-globals',
+				'stonewright/gutenberg-apply-to-post',
+				'stonewright/content-create-page',
+				'stonewright/content-update-page',
+				'stonewright/content-get-page',
+				'stonewright/media-list',
+				'stonewright/media-upload-batch',
+				'stonewright/stock-image-search',
+				'stonewright/stock-image-import',
+				'stonewright/content-bulk-upsert-posts',
+				'stonewright/content-model-loop-grid-flow',
+				'stonewright/design-native-plan',
+				'stonewright/design-implementation-contract',
+				'stonewright/widget-intent-resolve',
+				'stonewright/elementor-widget-implementation-guide',
+				'stonewright/site-info',
+				'stonewright/security-create-one-time-link',
+				'stonewright/knowledge-candidate-record',
+				'stonewright/elementor-v3-repair-document',
+				// Discovery and diagnostics are the first candidates dropped by low caps.
+				'stonewright/elementor-schema',
+				'stonewright/elementor-describe-widget',
+				'stonewright/elementor-v3-list-widgets',
+				'stonewright/elementor-v3-container-schema',
+				'stonewright/elementor-v3-status',
+				'stonewright/elementor-v3-capabilities-summary',
+				'stonewright/elementor-v4-status',
+				'stonewright/elementor-v4-list-variables',
+				'stonewright/elementor-v4-list-classes',
+				'stonewright/elementor-v4-list-atomic-node-types',
+				'stonewright/site-plugins-list',
 				'stonewright/wp-cli-status',
 				'stonewright/wp-cli-discover',
 				'stonewright/wp-cli-batch-run',
@@ -1070,6 +1111,24 @@ final class ToolProfile extends AbilityKernel {
 			'Prefer dry_run diagnostics and one section write over many exploratory writes.',
 			'Use system-abilities-list only when the selected profile is missing a needed capability.',
 		];
+	}
+
+	/**
+	 * Human-readable summary of tools omitted by max_tools.
+	 *
+	 * @param list<string> $dropped_names
+	 */
+	private static function truncation_hint( array $dropped_names, int $max_tools ): string {
+		if ( [] === $dropped_names ) {
+			return '';
+		}
+
+		return sprintf(
+			'%d profile tools were dropped from this list by max_tools=%d: %s. They stay callable once the session profile is active even when your client does not list them; re-run with a higher max_tools to see the full ordered list.',
+			count( $dropped_names ),
+			$max_tools,
+			implode( ', ', array_map( [ AbilityRegistry::class, 'mcp_tool_name' ], $dropped_names ) )
+		);
 	}
 
 	/**

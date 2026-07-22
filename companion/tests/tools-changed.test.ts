@@ -5,11 +5,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
+	applyRefreshToLiveState,
 	emitToolListChanged,
 	handleToolsChangedResponse,
 	mcpToolNamesFromStructured,
 	parseStructuredFromContent,
 	structuredIndicatesToolsChanged,
+	surfaceRevisionFromStructured,
+	type ToolsChangedRefreshResult,
 } from '../src/wordpress-mcp.js';
 
 describe('parseStructuredFromContent', () => {
@@ -58,6 +61,20 @@ describe('structuredIndicatesToolsChanged', () => {
 	});
 });
 
+describe('surface_revision propagation', () => {
+	it('extracts surface_revision from a structured gateway result', () => {
+		expect(surfaceRevisionFromStructured({ surface_revision: 7 })).toBe(7);
+		expect(surfaceRevisionFromStructured({})).toBeNull();
+		expect(surfaceRevisionFromStructured(null)).toBeNull();
+	});
+
+	it('treats a newer revision as a tools-changed signal even without the flag', () => {
+		expect(structuredIndicatesToolsChanged({ surface_revision: 5 }, 3)).toBe(true);
+		expect(structuredIndicatesToolsChanged({ surface_revision: 5 }, 5)).toBe(false);
+		expect(structuredIndicatesToolsChanged({ tools_changed: true }, 5)).toBe(true);
+	});
+});
+
 describe('mcpToolNamesFromStructured', () => {
 	it('prefers recommended_mcp_tools', () => {
 		expect(
@@ -99,6 +116,119 @@ describe('emitToolListChanged', () => {
 });
 
 describe('handleToolsChangedResponse', () => {
+	it('applyRefreshToLiveState reflects the post-refresh registry', () => {
+		const enabled = { enabled: true, enable: () => {}, disable: () => {} };
+		const disabled = { enabled: false, enable: () => {}, disable: () => {} };
+		const registered = new Map([
+			['stonewright-tool-profile', { handle: enabled, tool: { name: 'stonewright-tool-profile' } }],
+			['stonewright-elementor-page-digest', { handle: disabled, tool: { name: 'stonewright-elementor-page-digest' } }],
+		]);
+		const liveState = {
+			profile: 'bootstrap' as const,
+			surfaceRevision: null as number | null,
+			enabledToolNames: [] as string[],
+			registeredToolCount: 0,
+			lastRefreshAt: null as string | null,
+			lastRefresh: null as ToolsChangedRefreshResult | null,
+		};
+		const refresh: ToolsChangedRefreshResult = {
+			notified: true,
+			refreshed: true,
+			added: [],
+			removed: ['stonewright-elementor-page-digest'],
+			profile: 'essential',
+			desiredCount: 1,
+		};
+
+		applyRefreshToLiveState(liveState, refresh, registered);
+
+		expect(liveState.profile).toBe('essential');
+		expect(liveState.enabledToolNames).toEqual(['stonewright-tool-profile']);
+		expect(liveState.registeredToolCount).toBe(2);
+		expect(liveState.lastRefreshAt).toBeTruthy();
+		expect(liveState.lastRefresh).toBe(refresh);
+	});
+
+	const makeHandle = () => {
+		const handle = {
+			enabled: true,
+			enable: vi.fn(() => { handle.enabled = true; }),
+			disable: vi.fn(() => { handle.enabled = false; }),
+		};
+		return handle;
+	};
+
+	it('never disables pinned gateway tools even when an authoritative resolve omits them', async () => {
+		const server = { server: { sendToolListChanged: vi.fn() } } as unknown as McpServer;
+		const toolProfileHandle = makeHandle();
+		const phpExecuteHandle = makeHandle();
+		const digestHandle = makeHandle();
+		const registered = new Map([
+			['stonewright-tool-profile', { handle: toolProfileHandle, tool: { name: 'stonewright-tool-profile' } }],
+			['stonewright-php-execute', { handle: phpExecuteHandle, tool: { name: 'stonewright-php-execute' } }],
+			['stonewright-elementor-page-digest', { handle: digestHandle, tool: { name: 'stonewright-elementor-page-digest' } }],
+		]);
+
+		const result = await handleToolsChangedResponse({
+			server,
+			client: {
+				listTools: vi.fn(() => Promise.resolve([
+					{ name: 'stonewright-tool-profile' },
+					{ name: 'stonewright-php-execute' },
+					{ name: 'stonewright-elementor-v3-batch-mutate' },
+				])),
+				callTool: vi.fn(() => Promise.resolve({
+					structuredContent: {
+						ok: true,
+						source: 'plugin',
+						tools: ['stonewright-elementor-v3-batch-mutate'],
+					},
+				})),
+			},
+			structured: { tools_changed: true, session_tool_profile: 'essential' },
+			activeProfile: 'bootstrap',
+			maxTools: null,
+			registered,
+			registerProxyTool: vi.fn(),
+		});
+
+		expect(toolProfileHandle.disable).not.toHaveBeenCalled();
+		expect(phpExecuteHandle.disable).not.toHaveBeenCalled();
+		expect(digestHandle.disable).toHaveBeenCalledOnce();
+		expect(result.removed).toEqual(['stonewright-elementor-page-digest']);
+	});
+
+	it('treats advisory recommended_mcp_tools as additive and disables nothing without an authoritative resolve', async () => {
+		const server = { server: { sendToolListChanged: vi.fn() } } as unknown as McpServer;
+		const digestHandle = makeHandle();
+		const registered = new Map([
+			['stonewright-elementor-page-digest', { handle: digestHandle, tool: { name: 'stonewright-elementor-page-digest' } }],
+		]);
+
+		const result = await handleToolsChangedResponse({
+			server,
+			client: {
+				listTools: vi.fn(() => Promise.resolve([
+					{ name: 'stonewright-elementor-page-digest' },
+					{ name: 'stonewright-elementor-v3-batch-mutate' },
+				])),
+				callTool: vi.fn(() => Promise.reject(new Error('unreachable'))),
+			},
+			structured: {
+				tools_changed: true,
+				recommended_mcp_tools: ['stonewright-elementor-v3-batch-mutate'],
+			},
+			activeProfile: 'essential',
+			maxTools: null,
+			registered,
+			registerProxyTool: vi.fn(),
+		});
+
+		expect(digestHandle.disable).not.toHaveBeenCalled();
+		expect(result.removed).toEqual([]);
+		expect(result.added).toContain('stonewright-elementor-v3-batch-mutate');
+	});
+
 	it('prefers the session task profile over the saved bootstrap surface', async () => {
 		const server = { server: { sendToolListChanged: vi.fn() } } as unknown as McpServer;
 		const result = await handleToolsChangedResponse({
@@ -121,7 +251,7 @@ describe('handleToolsChangedResponse', () => {
 		expect(result.profile).toBe('elementor-design');
 	});
 
-	it('registers newly desired tools, disables removed ones, and notifies', async () => {
+	it('registers advisory tools without disabling existing ones, and notifies', async () => {
 		const sendToolListChanged = vi.fn(() => Promise.resolve());
 		const server = {
 			server: { sendToolListChanged },
@@ -186,8 +316,8 @@ describe('handleToolsChangedResponse', () => {
 		expect(result.notified).toBe(true);
 		expect(result.profile).toBe('elementor-design');
 		expect(result.added).toContain('stonewright-blueprint-apply');
-		expect(result.removed).toContain('stonewright-old-tool');
-		expect(disable).toHaveBeenCalledOnce();
+		expect(result.removed).toEqual([]);
+		expect(disable).not.toHaveBeenCalled();
 		expect(newlyRegistered).toEqual(['stonewright-blueprint-apply']);
 		expect(sendToolListChanged).toHaveBeenCalled();
 		expect(client.listTools).toHaveBeenCalledOnce();

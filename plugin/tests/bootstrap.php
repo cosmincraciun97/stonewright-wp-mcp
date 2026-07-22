@@ -1796,6 +1796,24 @@ if ( ! function_exists( 'add_action' ) ) {
 	}
 }
 
+if ( ! function_exists( 'do_action' ) ) {
+	function do_action( string $hook_name, mixed ...$args ): void {
+		$callbacks = $GLOBALS['stonewright_test_actions'][ $hook_name ] ?? [];
+		usort( $callbacks, static fn( array $a, array $b ): int => (int) $a['priority'] <=> (int) $b['priority'] );
+		foreach ( $callbacks as $registered ) {
+			$accepted = max( 0, (int) ( $registered['args'] ?? 1 ) );
+			call_user_func_array( $registered['callback'], array_slice( $args, 0, $accepted ) );
+		}
+	}
+}
+
+if ( ! function_exists( 'remove_all_actions' ) ) {
+	function remove_all_actions( string $hook_name ): bool {
+		unset( $GLOBALS['stonewright_test_actions'][ $hook_name ] );
+		return true;
+	}
+}
+
 $GLOBALS['stonewright_test_actions'] ??= [];
 
 if ( ! function_exists( 'add_menu_page' ) ) {

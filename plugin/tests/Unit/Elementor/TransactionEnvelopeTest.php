@@ -175,4 +175,25 @@ final class TransactionEnvelopeTest extends TestCase {
 		$read = ElementorData::read( 601 );
 		self::assertSame( 'center', $read[0]['settings']['flex_align_items'] ?? null );
 	}
+
+	public function test_runner_does_not_raw_write_when_integrity_gate_rejects(): void {
+		$GLOBALS['stonewright_test_post_meta_calls'] = [];
+		$rejected_tree = [
+			[
+				'id'       => 'root',
+				'elType'   => 'container',
+				'settings' => [ 'container_type' => (object) [ 'invalid' => true ] ],
+				'elements' => [],
+			],
+		];
+
+		$result = ElementorTransactionRunner::run_full_tree( 601, $rejected_tree, [], false );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		$data_writes = array_filter(
+			$GLOBALS['stonewright_test_post_meta_calls'],
+			static fn( array $call ): bool => '_elementor_data' === ( $call['meta_key'] ?? '' )
+		);
+		self::assertSame( [], $data_writes, 'runner must not raw-write _elementor_data past the gate' );
+	}
 }

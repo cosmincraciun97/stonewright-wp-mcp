@@ -72,7 +72,7 @@ final class ElementorData {
 	 * remap). On readback failure the previous document is restored.
 	 *
 	 * @param array<int, array<string, mixed>> $tree    Document tree.
-	 * @param array<string, mixed>             $options force_destructive?, allow_widget_type_remap?, min_size_ratio?, skip_integrity?.
+	 * @param array<string, mixed>             $options force_destructive?, allow_widget_type_remap?, min_size_ratio?, skip_integrity?, touched_ids?.
 	 */
 	public static function write( int $post_id, array $tree, array $options = [] ): bool {
 		self::$last_write_error = null;
@@ -86,7 +86,10 @@ final class ElementorData {
 			}
 		}
 
-		if ( ! SettingsValidator::validate_tree( $tree ) ) {
+		$touched_ids = isset( $options['touched_ids'] ) && is_array( $options['touched_ids'] )
+			? array_values( array_map( 'strval', $options['touched_ids'] ) )
+			: null;
+		if ( ! SettingsValidator::validate_tree( $tree, $touched_ids ) ) {
 			self::$last_write_error = SettingsValidator::last_error()
 				?? new \WP_Error(
 					'stonewright_elementor_tree_invalid',

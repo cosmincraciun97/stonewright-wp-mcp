@@ -184,15 +184,24 @@ final class BatchMutate extends AbilityKernel {
 				$read_ms    = self::elapsed_ms( $read_start );
 				$before_hash = TreeHasher::hash( $tree );
 				$architecture = (string) ( AtomicTreeInspector::inspect( $tree )['architecture'] ?? 'empty' );
-				if ( in_array( $architecture, [ 'v4', 'mixed' ], true ) ) {
+				$targeted_ids = self::operation_target_ids( $operations );
+				$blocking     = [];
+				foreach ( $targeted_ids as $target_id ) {
+					$subtree = AtomicTreeInspector::subtree_architecture( $tree, $target_id );
+					if ( in_array( $subtree, [ 'v4', 'mixed' ], true ) ) {
+						$blocking[ $target_id ] = $subtree;
+					}
+				}
+				if ( [] !== $blocking ) {
 					return $this->error(
 						'v3_architecture_mismatch',
-						__( 'This document contains Elementor V4 Atomic nodes. V3 batch mutation is blocked to prevent a mixed tree.', 'stonewright' ),
+						__( 'A targeted Elementor element is or contains V4 Atomic nodes. V3 batch mutation of that element is blocked.', 'stonewright' ),
 						[
-							'status'       => 409,
-							'architecture' => $architecture,
-							'before_hash'  => $before_hash,
-							'repair'       => RemediationHints::for_code( 'stonewright_v3_architecture_mismatch', $this->name() ),
+							'status'          => 409,
+							'architecture'    => $architecture,
+							'blocked_targets' => $blocking,
+							'before_hash'     => $before_hash,
+							'repair'          => RemediationHints::for_code( 'stonewright_v3_architecture_mismatch', $this->name() ),
 						]
 					);
 				}
@@ -288,7 +297,7 @@ final class BatchMutate extends AbilityKernel {
 					$write_start = microtime( true );
 					// Surgical batch may remove large subtrees; force_destructive is bound to this
 					// intentional, snapshotted write (not an accidental silent collapse).
-					if ( ! ElementorData::write( $post_id, $tree, [ 'force_destructive' => true ] ) ) {
+					if ( ! ElementorData::write( $post_id, $tree, [ 'force_destructive' => true, 'touched_ids' => $targeted_ids ] ) ) {
 						$restored = Backup::restore( $post_id, $snapshot_id );
 						$err      = ElementorData::write_error_for_ability();
 						// Preserve restore info for the agent without losing gate codes/fix hints.
@@ -353,6 +362,28 @@ final class BatchMutate extends AbilityKernel {
 			static fn( mixed $operation ): array => self::normalize_operation( is_array( $operation ) ? $operation : [] ),
 			$operations
 		);
+	}
+
+	/**
+	 * @param array<int, mixed> $operations
+	 * @return list<string>
+	 */
+	private static function operation_target_ids( array $operations ): array {
+		$ids = [];
+		foreach ( $operations as $operation ) {
+			if ( ! is_array( $operation ) ) {
+				continue;
+			}
+			foreach ( [ 'element_id', 'target_id', 'parent_id', 'new_parent_id', 'container_id', 'reference_id' ] as $key ) {
+				if ( isset( $operation[ $key ] ) && is_scalar( $operation[ $key ] ) ) {
+					$value = trim( (string) $operation[ $key ] );
+					if ( '' !== $value ) {
+						$ids[] = $value;
+					}
+				}
+			}
+		}
+		return array_values( array_unique( $ids ) );
 	}
 
 	/**

@@ -392,6 +392,9 @@ function detect_backup( string $source ): string {
 }
 
 function detect_validator( string $source ): string {
+	if ( strpos( $source, 'SettingsValidator::validate_tree' ) !== false ) {
+		return 'Yes (Elementor)';
+	}
 	if ( strpos( $source, 'ThemeJson\\Validator' ) !== false || strpos( $source, 'ThemeJson\Validator' ) !== false ) {
 		return 'Yes (ThemeJson)';
 	}
@@ -557,7 +560,7 @@ $lines[] = '- **MCP Tool**: the callable MCP tool name. The WordPress MCP Adapte
 $lines[] = '- **Permission**: the `Permissions::` method called from `permission_callback()`.';
 $lines[] = '- **Token**: `ConfirmationGuard` trait or explicit `ConfirmationToken::verify_or_error()` call.';
 $lines[] = '- **Backup**: calls `Backup::snapshot_post()` before mutation.';
-$lines[] = '- **Validator**: calls `DesignSpec\\Validator::validate()` or `ThemeJson\\Validator::validate()`.';
+$lines[] = '- **Validator**: calls an Elementor, DesignSpec, or ThemeJson validator.';
 $lines[] = '- **Status**: `stable` | `experimental` | `sandboxed` | `blocked` (from `@stonewright-status` docblock tag).';
 $lines[] = '- **Tests**: primary test file for this ability.';
 $lines[] = '';

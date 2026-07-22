@@ -191,6 +191,7 @@ cp .env.example .env
 | `STONEWRIGHT_WP_APP_PASSWORD` | with `STONEWRIGHT_WP_URL` | WordPress Application Password |
 | `STONEWRIGHT_MCP_TOOL_PROFILE` | optional | Initial/fallback client-visible surface. In plugin mode, normal bootstrap/essential/full clients follow the surface saved in WordPress Setup; `low-tools` and specialist profiles remain explicit overrides. |
 | `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK` | optional | Set to `1` to force the environment profile instead of the WordPress Setup preference. |
+| `STONEWRIGHT_MCP_MAX_TOOLS` | optional | Maximum proxied tools registered for the client. Use `50` for capped clients so Stonewright trims deterministically after write-critical ordering. |
 | `STONEWRIGHT_MCP_URL` | optional | Explicit WordPress MCP endpoint override |
 | `WP_API_USERNAME` | optional legacy alias | Alias for `STONEWRIGHT_WP_USERNAME` |
 | `WP_API_PASSWORD` | optional legacy alias | Alias for `STONEWRIGHT_WP_APP_PASSWORD` |

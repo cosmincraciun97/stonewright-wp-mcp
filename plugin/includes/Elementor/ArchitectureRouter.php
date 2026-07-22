@@ -14,10 +14,10 @@ final class ArchitectureRouter {
 		$runtime_version = defined( 'ELEMENTOR_VERSION' ) ? (string) ELEMENTOR_VERSION : '';
 		$version         = (string) apply_filters( 'stonewright_elementor_version', $runtime_version );
 		$site_v4         = '' !== $version && version_compare( $version, '4.0.0', '>=' );
-		$document        = 'unknown';
-		if ( $post_id > 0 && get_post( $post_id ) ) {
-			$document = (string) ( AtomicTreeInspector::inspect( ElementorData::read( $post_id ) )['architecture'] ?? 'unknown' );
-		}
+		$inspected = $post_id > 0 && (bool) get_post( $post_id );
+		$document  = $inspected
+			? (string) ( AtomicTreeInspector::inspect( ElementorData::read( $post_id ) )['architecture'] ?? 'unknown' )
+			: 'not_inspected';
 
 		$requested = in_array( $requested, [ 'auto', 'v3', 'v4' ], true ) ? $requested : 'auto';
 		$target    = 'v3';
@@ -40,7 +40,7 @@ final class ArchitectureRouter {
 			}
 		} elseif ( 'v3' === $requested ) {
 			$target = 'v3';
-			$reason = 'Caller explicitly selected a legacy V3 document for an empty or unknown target.';
+			$reason = 'No post_id was inspected; proceeding on the caller-selected V3 target. Pass post_id to detect the real document architecture before writing.';
 		} elseif ( 'v4' === $requested ) {
 			$target  = 'v4';
 			$blocked = true;
@@ -48,18 +48,24 @@ final class ArchitectureRouter {
 		} elseif ( $site_v4 ) {
 			$target  = 'none';
 			$blocked = true;
-			$reason  = 'Elementor 4 runtime with an empty or unspecified document is architecture-ambiguous. Select target_architecture=v3 explicitly or use a production-ready V4 editor adapter.';
+			$reason  = 'Elementor 4 runtime with an empty or unspecified document is architecture-ambiguous. Cheapest unblock: re-run stonewright/task-start (or workflow-preflight) with post_id set to the post you will edit — the document architecture is then detected automatically. Alternatively select target_architecture=v3 explicitly for a new V3 document.';
 		}
+
+		$repair_tools = $blocked
+			? [ 'stonewright/elementor-v3-repair-document', 'stonewright/task-start' ]
+			: [];
 
 		return [
 			'elementor_version'     => $version,
 			'site_v4'               => $site_v4,
 			'post_id'               => $post_id,
+			'document_inspected'    => $inspected,
 			'document_architecture' => $document,
 			'requested_architecture' => $requested,
 			'write_target'          => $target,
 			'write_blocked'         => $blocked,
 			'reason'                => $reason,
+			'repair_tools'          => $repair_tools,
 			'implicit_conversion'   => false,
 		];
 	}

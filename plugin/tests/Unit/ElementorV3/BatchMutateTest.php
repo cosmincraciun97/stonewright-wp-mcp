@@ -498,4 +498,65 @@ final class BatchMutateTest extends TestCase {
 		self::assertIsArray( $result );
 		self::assertCount( 2, $result['items'][0]['evidence'] );
 	}
+
+	public function test_v3_edit_allowed_when_touched_subtree_is_pure_v3_despite_atomic_elsewhere(): void {
+		$this->seed_post(
+			777,
+			[
+				[
+					'id' => 'sect1', 'elType' => 'container', 'settings' => [], 'elements' => [
+						[ 'id' => 'txt1', 'elType' => 'widget', 'widgetType' => 'heading', 'settings' => [ 'title' => 'Old' ], 'elements' => [] ],
+					],
+				],
+				[ 'id' => 'atom1', 'elType' => 'widget', 'widgetType' => 'e-heading', 'settings' => [], 'elements' => [] ],
+			]
+		);
+
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 777,
+				'operations' => [
+					[ 'action' => 'update_element', 'element_id' => 'txt1', 'settings' => [ 'title' => 'New' ] ],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+	}
+
+	public function test_v3_edit_still_blocked_when_operation_targets_atomic_node(): void {
+		$this->seed_post(
+			778,
+			[ [ 'id' => 'atom1', 'elType' => 'widget', 'widgetType' => 'e-heading', 'settings' => [], 'elements' => [] ] ]
+		);
+
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 778,
+				'operations' => [
+					[ 'action' => 'update_element', 'element_id' => 'atom1', 'settings' => [ 'title' => 'x' ] ],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_v3_architecture_mismatch', $result->get_error_code() );
+	}
+
+	/** @param array<int, array<string, mixed>> $tree */
+	private function seed_post( int $post_id, array $tree ): void {
+		$GLOBALS['stonewright_test_posts'][ $post_id ] = (object) [
+			'ID'           => $post_id,
+			'post_type'    => 'page',
+			'post_status'  => 'draft',
+			'post_title'   => 'Architecture target',
+			'post_content' => '',
+			'post_excerpt' => '',
+			'meta'         => [
+				'_elementor_data'      => wp_json_encode( $tree ),
+				'_elementor_edit_mode' => 'builder',
+				'_elementor_version'   => defined( 'ELEMENTOR_VERSION' ) ? ELEMENTOR_VERSION : '3.0.0',
+			],
+		];
+	}
 }

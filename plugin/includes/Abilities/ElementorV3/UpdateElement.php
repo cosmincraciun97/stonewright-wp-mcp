@@ -89,13 +89,13 @@ final class UpdateElement extends AbilityKernel {
 				$element_type = (string) ( $existing['elType'] ?? '' );
 				if ( in_array( $element_type, [ 'container', 'section', 'column' ], true ) ) {
 					$next      = 'container' === $element_type ? ContainerSettings::normalize( $next ) : $next;
-					$validated = SettingsValidator::validate_container( $next, $element_type );
+					$validated = SettingsValidator::validate_container( $next, $element_type, false, true );
 					if ( $validated instanceof \WP_Error ) {
 						return $validated;
 					}
 					$next = $validated['settings'];
 				} elseif ( 'widget' === ( $existing['elType'] ?? '' ) ) {
-					$validated = SettingsValidator::validate( (string) ( $existing['widgetType'] ?? '' ), $next );
+					$validated = SettingsValidator::validate( (string) ( $existing['widgetType'] ?? '' ), $next, false, false, true );
 					if ( $validated instanceof \WP_Error ) {
 						return $validated;
 					}
@@ -106,7 +106,7 @@ final class UpdateElement extends AbilityKernel {
 
 				$new_tree = ElementorData::set( $tree, $path, $existing );
 				$snapshot_id = Backup::snapshot_post( $post_id );
-				if ( ! ElementorData::write( $post_id, $new_tree ) ) {
+				if ( ! ElementorData::write( $post_id, $new_tree, [ 'touched_ids' => [ (string) $args['element_id'] ] ] ) ) {
 					return ElementorData::write_error_for_ability();
 				}
 

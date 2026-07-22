@@ -10,6 +10,33 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 ## [Unreleased]
 
+## [1.0.0-alpha.79] - 2026-07-22
+
+### Added
+
+- Tool-profile responses identify truncation, list omitted tools, and apply the
+  selected profile to the current MCP session without narrowing the configured
+  surface.
+- A monotonic `surface_revision` propagates tool-surface changes; the companion
+  re-lists tools and emits `notifications/tools/list_changed` when it advances.
+- `stonewright/elementor-v3-repair-document` provides backup-first,
+  idempotent recovery for malformed Elementor documents.
+- A recovery runbook and client-surface diagnostics cover capped or stale MCP
+  clients without unsupported REST or raw-meta workarounds.
+
+### Fixed
+
+- Essential and capped tool surfaces retain write-critical Elementor and theme
+  tools in deterministic priority order.
+- Elementor validation is scoped to touched nodes while whole-tree structure,
+  backup, permission, confirmation-token, audit, and integrity gates remain
+  enforced.
+- Elementor transactions no longer fall back to raw metadata writes; unknown
+  settings are preserved, atomic siblings do not block valid V3 edits, and
+  cleared responsive sliders validate correctly.
+- PHP parse failures return a dedicated code with actionable remediation, and
+  live registration status replaces stale startup-only reporting.
+
 ## [1.0.0-alpha.78] - 2026-07-22
 
 ### Fixed
@@ -129,22 +156,3 @@ Unreleased); older history lives in git tags and GitHub releases.
   existing CPT content, taxonomy terms, and ACF field values; registering new
   models requires server-side PHP (plugin) — a WordPress REST limit, not a
   Stonewright gap.
-
-## [1.0.0-alpha.74] - 2026-07-16
-
-### Changed
-
-- MCP companion startup now follows the tool surface saved in WordPress Setup;
-  strict-cap and specialist client profiles remain explicit overrides.
-- `task-start` reports the configured MCP surface without silently rewriting it.
-- Fresh companion and Direct/pluginless sessions default to Bootstrap, then
-  unlock a compact task profile only for the current MCP session.
-
-### Fixed
-
-- Setup-generated stdio snippets now preserve the selected bootstrap, essential,
-  or full surface across client restarts.
-- Raw Elementor write blocks return a non-retryable typed repair path instead of
-  leaving agents to repeat `php-execute` fallbacks.
-- Direct Bootstrap always exposes task-start, stays at eight tools, and uses
-  task-aware Elementor, Gutenberg, content-model, and site-admin profiles.

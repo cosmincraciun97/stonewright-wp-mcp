@@ -31,6 +31,7 @@ import {
 	registerWordPressMcpPrompts,
 	registerWordPressMcpTools,
 	resolveWordPressMcpConfig,
+	type WordPressProxyLiveState,
 } from './wordpress-mcp.js';
 import { APP_VERSION, companionPackageSpec } from './version.js';
 import { registerDirectTools, DIRECT_TOOL_NAMES, type DirectToolProfile } from './direct/registry.js';
@@ -43,6 +44,7 @@ interface WordPressMcpConnectionStatus extends Record<string, unknown> {
 	connected: boolean;
 	url: string | null;
 	tool_profile: string | null;
+	surface_revision: number | null;
 	startup_ready: boolean;
 	startup_required_tool_names: string[];
 	startup_missing_tool_names: string[];
@@ -69,6 +71,7 @@ interface WordPressMcpConnectionStatus extends Record<string, unknown> {
 	direct_tool_count: number;
 	direct_tool_names: string[];
 	unavailable_plugin_capabilities: Array<{ id: string; label: string; reason: string; upgrade: string }>;
+	live: WordPressProxyLiveState | null;
 }
 
 export interface CreateMcpServerOptions {
@@ -177,6 +180,7 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 			wpMcpStatus.connected = true;
 			wpMcpStatus.mode = 'plugin';
 			wpMcpStatus.tool_profile = registration.profile;
+			wpMcpStatus.live = registration.liveState;
 			wpMcpStatus.remote_tool_count = registration.remoteTools.length;
 			wpMcpStatus.proxied_tool_count = registration.registeredTools.length;
 			wpMcpStatus.profile_filtered_tool_count = registration.filteredToolCount;
@@ -242,19 +246,25 @@ async function registerDirectMode(
 		const { ensureStonewrightAgentsMd } = await import('./direct/agents-md.js');
 		seedBuiltinSkills(undefined, env);
 		ensureStonewrightAgentsMd(undefined, env);
+		const directProfile = directToolProfileFromEnv(env, profile);
 		const registered = registerDirectTools(server, {
 			env,
 			...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
 			// Explicit Direct override wins; otherwise the shared MCP surface drives
 			// progressive registration. Bootstrap expands after task-start.
-			toolProfile: directToolProfileFromEnv(env, profile),
+			toolProfile: directProfile,
+			onSurfaceChange: (revision, liveProfile) => {
+				wpMcpStatus.surface_revision = revision;
+				wpMcpStatus.tool_profile = liveProfile;
+			},
 		});
 		const localToolNames = localToolNamesForProfile(profile);
 		wpMcpStatus.ok = true;
 		wpMcpStatus.connected = true;
 		wpMcpStatus.configured = hasWordPressMcpConfig(env) || Boolean(env['STONEWRIGHT_WP_USERNAME']);
 		wpMcpStatus.url = modeProbe.endpoint;
-		wpMcpStatus.tool_profile = profile;
+		wpMcpStatus.tool_profile = directProfile;
+		wpMcpStatus.surface_revision = 0;
 		wpMcpStatus.direct_tool_count = registered.length;
 		wpMcpStatus.direct_tool_names = registered.slice(0, 40);
 		wpMcpStatus.startup_ready = true;
@@ -355,6 +365,7 @@ function createWordPressMcpConnectionStatus(profile: ProxyToolProfile): WordPres
 		connected: false,
 		url: null,
 		tool_profile: profile,
+		surface_revision: null,
 		startup_ready: false,
 		startup_required_tool_names: Array.from(STARTUP_REQUIRED_PROXY_TOOL_NAMES),
 		startup_missing_tool_names: Array.from(STARTUP_REQUIRED_PROXY_TOOL_NAMES),
@@ -385,6 +396,7 @@ function createWordPressMcpConnectionStatus(profile: ProxyToolProfile): WordPres
 		direct_tool_count: 0,
 		direct_tool_names: [],
 		unavailable_plugin_capabilities: [],
+		live: null,
 	};
 }
 
@@ -461,7 +473,21 @@ function registerWordPressMcpStatusTool(server: McpServer, status: WordPressMcpC
 			description: 'Return whether the companion successfully proxied the WordPress Stonewright MCP endpoint. Available even when the endpoint is down so agents can recover without losing setup and WP-CLI tools.',
 			inputSchema: {},
 		},
-		() => toolResponse(status),
+		() => {
+			const live = status.live;
+			const liveBlock = live
+				? {
+					live_tool_profile: live.profile,
+					surface_revision: live.surfaceRevision,
+					live_enabled_tool_count: live.enabledToolNames.length,
+					live_enabled_tool_names: live.enabledToolNames,
+					last_refresh_at: live.lastRefreshAt,
+					last_refresh_added: live.lastRefresh?.added ?? [],
+					last_refresh_removed: live.lastRefresh?.removed ?? [],
+				}
+				: { live_tool_profile: null };
+			return toolResponse({ ...status, ...liveBlock });
+		},
 	);
 }
 
@@ -488,9 +514,16 @@ function registerClientSurfaceCheckTool(
 				? input.expected_tool.trim().replaceAll('/', '-')
 				: 'stonewright-php-execute';
 			const expectedNorm = expected.startsWith('stonewright-') ? expected : `stonewright-${expected}`;
+			const live = status.live;
 			const filtered = new Set(status.profile_filtered_tool_names ?? []);
 			const missingProfile = new Set(status.profile_missing_tool_names ?? []);
-			const profile = (status.tool_profile as ProxyToolProfile) || 'bootstrap';
+			const profile = live?.profile ?? ((status.tool_profile as ProxyToolProfile) || 'bootstrap');
+			const liveEnabled = new Set(live?.enabledToolNames ?? []);
+			for (const name of liveEnabled) {
+				filtered.delete(name);
+				missingProfile.delete(name);
+			}
+			const proxiedToolCount = live?.enabledToolNames.length ?? status.proxied_tool_count;
 			const localNames = new Set(status.local_tool_names ?? []);
 			const profileNames = new Set(proxyToolNamesForProfile(profile));
 			// Prefer explicit inventory membership over "full ⇒ everything ok".
@@ -500,14 +533,15 @@ function registerClientSurfaceCheckTool(
 				&& (profile === 'full' || profileNames.has(expectedNorm) || localNames.has(expectedNorm)
 					|| !filtered.has(expectedNorm));
 			// Filtered tools are remote-visible but not client-registered.
+			const startupClientHas = proxiedToolCount > 0
+				&& !filtered.has(expectedNorm)
+				&& !missingProfile.has(expectedNorm)
+				&& (profile === 'full'
+					? status.remote_tool_count > 0 && !filtered.has(expectedNorm)
+					: profileNames.has(expectedNorm));
 			const clientHas = status.connected
 				&& (localNames.has(expectedNorm)
-					|| (status.proxied_tool_count > 0
-						&& !filtered.has(expectedNorm)
-						&& !missingProfile.has(expectedNorm)
-						&& (profile === 'full'
-							? status.remote_tool_count > 0 && !filtered.has(expectedNorm)
-							: profileNames.has(expectedNorm))));
+					|| (live !== null ? liveEnabled.has(expectedNorm) : startupClientHas));
 
 			let errorCode = 'ok';
 			const fix: string[] = [];
@@ -540,11 +574,13 @@ function registerClientSurfaceCheckTool(
 				client_has_tool: clientHas,
 				expected_tool: expectedNorm,
 				companion: {
-					tool_profile: status.tool_profile,
+					tool_profile: profile,
 					connected: status.connected,
 					configured: status.configured,
 					remote_tool_count: status.remote_tool_count,
-					proxied_tool_count: status.proxied_tool_count,
+					proxied_tool_count: proxiedToolCount,
+					live_enabled_tool_count: live?.enabledToolNames.length ?? null,
+					stale_startup_snapshot: live !== null && live.lastRefreshAt !== null,
 					profile_filtered_tool_count: status.profile_filtered_tool_count,
 					profile_filtered_tool_names: status.profile_filtered_tool_names,
 					profile_missing_tool_names: status.profile_missing_tool_names,

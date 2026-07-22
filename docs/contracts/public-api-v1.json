@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-07-22T09:07:38+00:00",
+    "generated_at": "2026-07-22T14:32:07+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -9,6 +9,7 @@
             "stonewright/task-start",
             "stonewright/theme-file-patch",
             "stonewright/theme-file-read",
+            "stonewright/tool-profile",
             "stonewright/workflow-preflight"
         ]
     },
@@ -508,7 +509,7 @@
             "mcp_name": "stonewright-context-bootstrap",
             "kind": "Read",
             "input_schema_hash": "0e78dcf71a38cacc3b1c13321d79369e27248463d390f5836f4612328a561981",
-            "output_schema_hash": "52053abc2c7ad3c9b602ec0b964fb6f4a3b400e059dd41bba103af6f6a844624",
+            "output_schema_hash": "49adc899c7cca5145c80e80c3c09a7ad7787efd4e448f04d110ac20c0a14adb4",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
@@ -2067,7 +2068,7 @@
             "gates": {
                 "backup": true,
                 "token": true,
-                "validator": false,
+                "validator": true,
                 "audit": true
             }
         },
@@ -2380,6 +2381,20 @@
             }
         },
         {
+            "ability_name": "stonewright/elementor-v3-repair-document",
+            "mcp_name": "stonewright-elementor-v3-repair-document",
+            "kind": "Write",
+            "input_schema_hash": "1f17c86d8b70e91e6e402904a44919488968c3eb0594ec1fdc6e7f7ee444ad95",
+            "output_schema_hash": "f70580fc818b57dd91154430da482817c1a04786ca4cb76ea54f68b961800b7b",
+            "permission_class": "Permissions::edit_post( $post_id )",
+            "gates": {
+                "backup": true,
+                "token": true,
+                "validator": true,
+                "audit": true
+            }
+        },
+        {
             "ability_name": "stonewright/elementor-v3-save-template",
             "mcp_name": "stonewright-elementor-v3-save-template",
             "kind": "Write",
@@ -2638,6 +2653,20 @@
             "input_schema_hash": "23f78a3e5ee19acdd1afd54de510b69719983018ed4fbf42ca42b6c69e0f89ac",
             "output_schema_hash": "3d2d876a8fb4fdef4e05419490f44d08e90c87ff6dd626ae930c4fc88a98c1ea",
             "permission_class": "Permissions::edit_theme_options() (compound)",
+            "gates": {
+                "backup": true,
+                "token": false,
+                "validator": false,
+                "audit": true
+            }
+        },
+        {
+            "ability_name": "stonewright/elementor-v4-update-node",
+            "mcp_name": "stonewright-elementor-v4-update-node",
+            "kind": "Write",
+            "input_schema_hash": "b282fc73dcdd046b7e1683e1f8a44669729495e4a1c85cb8b125d506e99dcb8e",
+            "output_schema_hash": "5da03f9dd574dfb45c090a2517d02fcaa79317a29e605b2f80a145434b1fd2ed",
+            "permission_class": "Permissions::edit_post( (int)",
             "gates": {
                 "backup": true,
                 "token": false,
@@ -3293,7 +3322,7 @@
             "ability_name": "stonewright/php-execute",
             "mcp_name": "stonewright-php-execute",
             "kind": "Write",
-            "input_schema_hash": "a35dd4050ed8cbe424c60df44f7e121bfda6e7f91fd1766a02def475ae692a2a",
+            "input_schema_hash": "edb62e49d228075f44c32ec13f48f906e5aef9d2e89869e49cd183199738f468",
             "output_schema_hash": "d5643004b7cb0e98893db8b47f0351ab14e3dfed0c01af4438be2ac56691168f",
             "permission_class": "Permissions::manage_options()",
             "gates": {
@@ -3924,7 +3953,7 @@
             "mcp_name": "stonewright-task-start",
             "kind": "Read",
             "input_schema_hash": "15f6fd543c01390a1e0b28feee3fca80b655e1ca4537b789cb8ce6be9bea755e",
-            "output_schema_hash": "a0cdc96d865d7abfd0c187dfa57cd047d5ec4bc5cb45054a06ce5970f84f35d1",
+            "output_schema_hash": "5602b33929246a3298c057492eb8167ac8706aaa345bd976bcd9c38b2db3ac4d",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
@@ -4106,7 +4135,7 @@
             "mcp_name": "stonewright-tool-profile",
             "kind": "Write",
             "input_schema_hash": "2966ee25a73a4211eaafadc3f91791fe7f109a3c8bc3cc6ad4e355780793509e",
-            "output_schema_hash": "1117d25a1311c9ec4e91e65cb5f27c389c3718dc2fa1cbde52ec72bd740a6e85",
+            "output_schema_hash": "97992287d4738c74c674c0a512adfcf03fce9a35bb12f17f117b167f7ada7f7f",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
@@ -4316,7 +4345,7 @@
             "mcp_name": "stonewright-workflow-preflight",
             "kind": "Read",
             "input_schema_hash": "15f6fd543c01390a1e0b28feee3fca80b655e1ca4537b789cb8ce6be9bea755e",
-            "output_schema_hash": "a0cdc96d865d7abfd0c187dfa57cd047d5ec4bc5cb45054a06ce5970f84f35d1",
+            "output_schema_hash": "5602b33929246a3298c057492eb8167ac8706aaa345bd976bcd9c38b2db3ac4d",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,

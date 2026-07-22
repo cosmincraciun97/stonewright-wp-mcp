@@ -121,8 +121,10 @@ final class WorkflowPreflight extends AbilityKernel {
 				'unchanged_keys' => [ 'type' => 'array' ],
 				'tool_profile'  => [ 'type' => 'string' ],
 				'configured_mcp_surface' => [ 'type' => 'string' ],
+				'surface_revision'       => [ 'type' => 'integer' ],
 				'session_tool_profile' => [ 'type' => 'string' ],
 				'session_profile_applied' => [ 'type' => 'boolean' ],
+				'session_profile_reason' => [ 'type' => 'string' ],
 				'tools_changed' => [ 'type' => 'boolean' ],
 				're_list_instruction' => [ 'type' => 'string' ],
 				'write_target_url' => [ 'type' => 'string' ],
@@ -206,13 +208,21 @@ final class WorkflowPreflight extends AbilityKernel {
 
 		$configured_surface = AbilityRegistry::mcp_surface();
 		$suggested_profile  = (string) ( $tool_profile['suggested_profile'] ?? $tool_profile['profile'] ?? 'essential' );
-		$session_profile    = 'bootstrap' === $configured_surface ? $suggested_profile : $configured_surface;
-		$session_applied    = false;
-		if ( 'bootstrap' === $configured_surface && 'bootstrap' !== $session_profile ) {
+		// Session profiles only add tools to the configured surface. Any non-full
+		// surface can therefore benefit from the task-specific profile.
+		$session_profile = 'full' === $configured_surface ? 'full' : $suggested_profile;
+		$session_applied = false;
+		$session_reason  = 'surface_full_already_exposes_all_tools';
+		if ( 'full' !== $configured_surface && 'bootstrap' !== $session_profile ) {
 			$session_applied = AbilityRegistry::set_session_tool_profile(
 				$session_profile,
 				ToolProfile::profile_tools( $session_profile )
 			);
+			$session_reason  = $session_applied
+				? 'session_transient_written'
+				: 'missing_or_invalid_mcp_session_id_header';
+		} elseif ( 'bootstrap' === $session_profile ) {
+			$session_reason = 'bootstrap_profile_needs_no_expansion';
 		}
 		// Always signal re-list when the effective profile is not bootstrap, OR when
 		// the admin-configured surface is already essential/full. Stdio companions
@@ -232,6 +242,7 @@ final class WorkflowPreflight extends AbilityKernel {
 		$fast_path['tool_profile']['profile']                 = $session_profile;
 		$fast_path['tool_profile']['configured_mcp_surface']  = $configured_surface;
 		$fast_path['tool_profile']['session_profile_applied'] = $session_applied;
+		$fast_path['tool_profile']['session_profile_reason']  = $session_reason;
 		$fast_path['tool_profile']['tools_changed']           = $tools_changed;
 		$fast_path['tool_profile']['re_list_instruction']     = $re_list;
 		$fast_path['tool_profile']['write_target_url']        = $write_target;
@@ -242,8 +253,10 @@ final class WorkflowPreflight extends AbilityKernel {
 			'expires_at'    => (string) ( $context['expires_at'] ?? '' ),
 			'mode'          => $mode,
 			'configured_mcp_surface' => $configured_surface,
+			'surface_revision'       => AbilityRegistry::surface_revision(),
 			'session_tool_profile'   => $session_profile,
 			'session_profile_applied' => $session_applied,
+			'session_profile_reason'  => $session_reason,
 			'tool_profile'            => $session_profile,
 			'tools_changed'           => $tools_changed,
 			're_list_instruction'     => $re_list,
@@ -443,6 +456,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			'configured_mcp_surface' => (string) ( $response['configured_mcp_surface'] ?? $profile_name ),
 			'session_tool_profile' => (string) ( $response['session_tool_profile'] ?? $profile_name ),
 			'session_profile_applied' => (bool) ( $response['session_profile_applied'] ?? false ),
+			'session_profile_reason' => (string) ( $response['session_profile_reason'] ?? '' ),
 			'tools_changed'       => $tools_changed,
 			're_list_instruction' => $re_list,
 			'write_target_url'    => (string) ( $response['write_target_url'] ?? $site['write_target_url'] ?? '' ),

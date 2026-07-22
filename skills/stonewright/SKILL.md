@@ -16,6 +16,10 @@ It routes the agent to the right specialized skill and MCP tools.
 1. Call `stonewright-task-start` with the task, surface, and intent. Treat
    `configured_mcp_surface` as the user's active Setup preference; a suggested
    task profile is guidance, not permission to overwrite it.
+   For Elementor work, pass `post_id` of the page you will edit so document
+   architecture is detected automatically and V4-runtime writes are not blocked
+   as ambiguous. If the document is already corrupt (double-encoded meta or
+   duplicate ids), call `stonewright/elementor-v3-repair-document` before editing.
 2. Use `stonewright-context-bootstrap` or `stonewright-workflow-preflight` only
    as compatibility paths when task-start is unavailable.
 3. Use `fast_path.tool_profile` from task-start before making a separate

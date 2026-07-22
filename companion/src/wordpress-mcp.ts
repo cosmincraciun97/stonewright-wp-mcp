@@ -49,6 +49,7 @@ export interface WordPressMcpRegistrationResult {
 	filteredToolCount: number;
 	/** Plugin MCP initialize.instructions captured during proxy handshake. */
 	remoteInstructions: string;
+	liveState: WordPressProxyLiveState;
 }
 
 /**
@@ -91,6 +92,16 @@ const COMPANION_OWNED_TOOL_NAMES = new Set([
 	'stonewright-wp-cli-job-start',
 	'stonewright-wp-cli-job-status',
 	'stonewright-wp-cli-install',
+	'stonewright-wordpress-mcp-status',
+]);
+
+/** Gateway tools that must survive every refresh so the surface can recover. */
+export const NEVER_DISABLE_TOOL_NAMES = new Set([
+	'stonewright-task-start',
+	'stonewright-context-bootstrap',
+	'stonewright-workflow-preflight',
+	'stonewright-tool-profile',
+	'stonewright-php-execute',
 	'stonewright-wordpress-mcp-status',
 ]);
 
@@ -580,6 +591,15 @@ export async function registerWordPressMcpTools(
 	if (activeProfile !== envProfile) {
 		resolved = await resolvePluginProxyToolNames(client, activeProfile, maxTools);
 	}
+	let lastSeenSurfaceRevision = resolved.surfaceRevision;
+	const liveState: WordPressProxyLiveState = {
+		profile: activeProfile,
+		surfaceRevision: lastSeenSurfaceRevision,
+		enabledToolNames: [],
+		registeredToolCount: 0,
+		lastRefreshAt: null,
+		lastRefresh: null,
+	};
 	const allowedOrder = resolved.tools;
 	const allowedSet = activeProfile === 'full' && allowedOrder.length === 0
 		? null
@@ -617,6 +637,12 @@ export async function registerWordPressMcpTools(
 		candidates.map((t) => t.name),
 		maxTools,
 	);
+	const remoteByName = new Map(tools.map((tool) => [tool.name, tool]));
+	for (const name of NEVER_DISABLE_TOOL_NAMES) {
+		if (!kept.includes(name) && remoteByName.has(name) && !COMPANION_OWNED_TOOL_NAMES.has(name)) {
+			kept.push(name);
+		}
+	}
 	if (trimmed.length > 0) {
 		// Deterministic client-cap trim from the tail of the priority-ordered list.
 		// stderr only — stdout is the MCP JSON-RPC channel.
@@ -626,7 +652,11 @@ export async function registerWordPressMcpTools(
 		profileFilteredToolNames.push(...trimmed);
 	}
 	const keepSet = new Set(kept);
-	const finalTools = candidates.filter((t) => keepSet.has(t.name));
+	const finalTools = tools.filter((tool) =>
+		Boolean(tool.name)
+		&& !tool.name.startsWith('companion_')
+		&& !COMPANION_OWNED_TOOL_NAMES.has(tool.name)
+		&& keepSet.has(tool.name));
 
 	const registerOneProxyTool = (tool: RemoteTool): void => {
 		if (registered.has(tool.name)) return;
@@ -651,7 +681,13 @@ export async function registerWordPressMcpTools(
 			?? parseStructuredFromContent(response.content);
 		const hintedProfile = profileHintFromStructured(structured);
 		const profileDrift = hintedProfile !== null && coerceProxyToolProfile(hintedProfile) !== activeProfile;
-		if ((structuredIndicatesToolsChanged(structured) || profileDrift) && structured) {
+		const revisionChanged = structuredIndicatesToolsChanged(structured, lastSeenSurfaceRevision);
+		const responseRevision = surfaceRevisionFromStructured(structured);
+		if (responseRevision !== null && (lastSeenSurfaceRevision === null || responseRevision > lastSeenSurfaceRevision)) {
+			lastSeenSurfaceRevision = responseRevision;
+			liveState.surfaceRevision = responseRevision;
+		}
+		if ((revisionChanged || profileDrift) && structured) {
 			// Serialize refreshes so concurrent profile switches do not race registration.
 			if (!refreshInFlight) {
 				refreshInFlight = handleToolsChangedResponse({
@@ -664,6 +700,7 @@ export async function registerWordPressMcpTools(
 					registerProxyTool: registerOneProxyTool,
 				}).then((result) => {
 					activeProfile = result.profile;
+					applyRefreshToLiveState(liveState, result, registered);
 					return result;
 				}).finally(() => {
 					refreshInFlight = null;
@@ -685,6 +722,8 @@ export async function registerWordPressMcpTools(
 	for (const tool of finalTools) {
 		registerOneProxyTool(tool);
 	}
+	liveState.registeredToolCount = registered.size;
+	liveState.enabledToolNames = [...registered.keys()].sort();
 
 	return {
 		profile: activeProfile,
@@ -693,6 +732,7 @@ export async function registerWordPressMcpTools(
 		profileFilteredToolNames: profileFilteredToolNames.slice(0, 12),
 		filteredToolCount: profileFilteredToolNames.length,
 		remoteInstructions: client.remoteInstructions,
+		liveState,
 	};
 }
 
@@ -704,7 +744,13 @@ export async function resolvePluginProxyToolNames(
 	client: { callTool: (name: string, args: Record<string, unknown>) => Promise<unknown> },
 	profile: ProxyToolProfile,
 	maxTools: number | null = null,
-): Promise<{ tools: string[]; source: 'plugin' | 'fallback'; ordered: boolean; configuredSurface: ProxyToolProfile | null }> {
+): Promise<{
+	tools: string[];
+	source: 'plugin' | 'fallback';
+	ordered: boolean;
+	configuredSurface: ProxyToolProfile | null;
+	surfaceRevision: number | null;
+}> {
 	try {
 		const queryProfile = profile === 'full' ? 'essential' : profile;
 		const raw = await client.callTool('stonewright-tool-profile', {
@@ -716,8 +762,9 @@ export async function resolvePluginProxyToolNames(
 		const configuredSurface = typeof structured?.['mcp_surface'] === 'string'
 			? coerceProxyToolProfile(structured['mcp_surface'])
 			: null;
+		const surfaceRevision = surfaceRevisionFromStructured(structured);
 		if (profile === 'full') {
-			return { tools: [], source: 'plugin', ordered: true, configuredSurface };
+			return { tools: [], source: 'plugin', ordered: true, configuredSurface, surfaceRevision };
 		}
 		const toolsRaw = structured?.['tools'];
 		const names: string[] = [];
@@ -731,7 +778,7 @@ export async function resolvePluginProxyToolNames(
 			}
 		}
 		if (names.length > 0) {
-			return { tools: names, source: 'plugin', ordered: true, configuredSurface };
+			return { tools: names, source: 'plugin', ordered: true, configuredSurface, surfaceRevision };
 		}
 	} catch {
 		// Plugin unreachable (Direct mode) — use fallback.
@@ -741,6 +788,7 @@ export async function resolvePluginProxyToolNames(
 		source: 'fallback',
 		ordered: true,
 		configuredSurface: null,
+		surfaceRevision: null,
 	};
 }
 
@@ -808,6 +856,15 @@ function profileHintFromStructured(structured: Record<string, unknown> | null | 
 	return null;
 }
 
+/** Extract the plugin's monotonic tool-surface revision. */
+export function surfaceRevisionFromStructured(
+	structured: Record<string, unknown> | null | undefined,
+): number | null {
+	if (!structured) return null;
+	const value = structured['surface_revision'];
+	return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
 export function proxyToolProfileFromEnv(env: NodeJS.ProcessEnv): ProxyToolProfile {
 	return coerceProxyToolProfile(
 		env['STONEWRIGHT_MCP_TOOL_PROFILE'] ?? env['STONEWRIGHT_MCP_PROXY_PROFILE'] ?? 'bootstrap',
@@ -815,17 +872,20 @@ export function proxyToolProfileFromEnv(env: NodeJS.ProcessEnv): ProxyToolProfil
 }
 
 /**
- * True when a proxied ability result signals that the MCP tool list changed
- * (explicit flag or non-empty re_list_instruction).
+ * True when a proxied ability result signals that the MCP tool list changed:
+ * explicit flag, re-list instruction, or a newer monotonic surface revision.
  */
 export function structuredIndicatesToolsChanged(
 	structured: Record<string, unknown> | null | undefined,
+	lastSeenRevision: number | null = null,
 ): boolean {
 	if (!structured) return false;
 	if (structured['tools_changed'] === true) return true;
 	const reList = structured['re_list_instruction'];
 	// Non-empty re_list always means the companion must re-register and notify.
-	return typeof reList === 'string' && reList.trim() !== '';
+	if (typeof reList === 'string' && reList.trim() !== '') return true;
+	const revision = surfaceRevisionFromStructured(structured);
+	return revision !== null && lastSeenRevision !== null && revision > lastSeenRevision;
 }
 
 /**
@@ -891,6 +951,31 @@ export interface ToolsChangedRefreshResult {
 	desiredCount: number;
 }
 
+export interface WordPressProxyLiveState {
+	profile: ProxyToolProfile;
+	surfaceRevision: number | null;
+	enabledToolNames: string[];
+	registeredToolCount: number;
+	lastRefreshAt: string | null;
+	lastRefresh: ToolsChangedRefreshResult | null;
+}
+
+/** Sync the mutable live-state snapshot after a tools_changed refresh. */
+export function applyRefreshToLiveState(
+	liveState: WordPressProxyLiveState,
+	refresh: ToolsChangedRefreshResult,
+	registered: Map<string, { handle: { enabled: boolean }; tool: { name: string } }>,
+): void {
+	liveState.profile = refresh.profile;
+	liveState.registeredToolCount = registered.size;
+	liveState.enabledToolNames = [...registered.entries()]
+		.filter(([, entry]) => entry.handle.enabled)
+		.map(([name]) => name)
+		.sort();
+	liveState.lastRefreshAt = new Date().toISOString();
+	liveState.lastRefresh = refresh;
+}
+
 /**
  * Re-derive the companion's proxied tool set after a tools_changed ability result
  * and emit tools/list_changed. STONEWRIGHT_MCP_TOOL_PROFILE is only the initial profile;
@@ -925,16 +1010,15 @@ export async function handleToolsChangedResponse(options: {
 		activeProfile = coerceProxyToolProfile(profileHint);
 	}
 
-	let desiredNames = mcpToolNamesFromStructured(structured);
+	const hintedNames = mcpToolNamesFromStructured(structured);
 
 	try {
 		const remoteTools = await client.listTools();
 		const byName = new Map(remoteTools.map((t) => [t.name, t]));
 
-		if (desiredNames.length === 0) {
-			const resolved = await resolvePluginProxyToolNames(client, activeProfile, maxTools);
-			desiredNames = resolved.tools;
-		}
+		const resolved = await resolvePluginProxyToolNames(client, activeProfile, maxTools);
+		let desiredNames = resolved.tools;
+		let authoritative = resolved.source === 'plugin';
 
 		if (activeProfile === 'full' && desiredNames.length === 0) {
 			desiredNames = remoteTools
@@ -942,17 +1026,31 @@ export async function handleToolsChangedResponse(options: {
 				.filter((name) => Boolean(name)
 					&& !name.startsWith('companion_')
 					&& !COMPANION_OWNED_TOOL_NAMES.has(name));
+			authoritative = authoritative || desiredNames.length > 0;
 		} else if (desiredNames.length === 0) {
 			desiredNames = proxyToolNamesForProfile(activeProfile);
+			authoritative = false;
 		}
 
-		const { kept } = trimToolsToMax(desiredNames, maxTools);
+		const merged = [...desiredNames];
+		for (const name of hintedNames) {
+			if (!merged.includes(name)) merged.push(name);
+		}
+		for (const name of NEVER_DISABLE_TOOL_NAMES) {
+			if (byName.has(name) && !merged.includes(name)) merged.push(name);
+		}
+		const { kept } = trimToolsToMax(merged, maxTools);
 		const desiredSet = new Set(kept);
+		for (const name of NEVER_DISABLE_TOOL_NAMES) {
+			if (byName.has(name)) desiredSet.add(name);
+		}
 
 		const added: string[] = [];
 		const removed: string[] = [];
 
 		for (const [name, entry] of registered) {
+			if (!authoritative) break;
+			if (NEVER_DISABLE_TOOL_NAMES.has(name)) continue;
 			if (!desiredSet.has(name)) {
 				if (entry.handle.enabled) {
 					entry.handle.disable();
@@ -961,7 +1059,7 @@ export async function handleToolsChangedResponse(options: {
 			}
 		}
 
-		for (const name of kept) {
+		for (const name of desiredSet) {
 			if (COMPANION_OWNED_TOOL_NAMES.has(name) || name.startsWith('companion_')) {
 				continue;
 			}
@@ -986,7 +1084,7 @@ export async function handleToolsChangedResponse(options: {
 			added,
 			removed,
 			profile: activeProfile,
-			desiredCount: kept.length,
+			desiredCount: desiredSet.size,
 		};
 	} catch {
 		// Still notify so clients re-list; companion process may keep the prior set

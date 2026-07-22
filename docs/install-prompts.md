@@ -83,3 +83,11 @@ After reload:
 - For visual work, verify browser/Playwright tools before the first write.
 - Do not inspect private AI-client config files, hand-roll JSON-RPC, or run wp in a normal shell as an MCP workaround.
 ```
+
+## Capped-client setup
+
+- Set `STONEWRIGHT_MCP_MAX_TOOLS=50` so the companion applies the same limit deliberately instead of letting the client truncate an arbitrary tail.
+- Configure exactly one Stonewright MCP server entry. Do not register plugin-proxy and Direct mode side by side.
+- `STONEWRIGHT_MCP_TOOL_PROFILE` selects the startup profile. Use `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK=1` only when you intentionally want the environment value to override WordPress Setup throughout the session.
+
+For stale, disabled, or truncated tools, follow the [tool surface recovery runbook](runbooks/tool-surface-recovery.md).

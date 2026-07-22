@@ -67,6 +67,7 @@ use Stonewright\WpMcp\Abilities\ElementorV3\GetWidgetSchema;
 use Stonewright\WpMcp\Abilities\ElementorV3\ListWidgets;
 use Stonewright\WpMcp\Abilities\ElementorV3\MoveElement;
 use Stonewright\WpMcp\Abilities\ElementorV3\RemoveElement;
+use Stonewright\WpMcp\Abilities\ElementorV3\RepairDocument;
 use Stonewright\WpMcp\Abilities\ElementorV3\SaveTemplate;
 use Stonewright\WpMcp\Abilities\ElementorV3\Status as ElementorStatus;
 use Stonewright\WpMcp\Abilities\ElementorV3\UpdateElement;
@@ -339,6 +340,7 @@ final class AbilityRegistry {
 			AddContainer::class,
 			AddWidget::class,
 			UpdateElement::class,
+			RepairDocument::class,
 			MoveElement::class,
 			RemoveElement::class,
 			BuildPageFromSpec::class,
@@ -1050,6 +1052,30 @@ final class AbilityRegistry {
 	}
 
 	/**
+	 * Monotonic signal clients use to detect a stale tool list.
+	 */
+	public static function surface_revision(): int {
+		return max( 0, (int) get_option( 'stonewright_surface_revision', 0 ) );
+	}
+
+	/**
+	 * Bump the visible-surface revision and notify in-process transports.
+	 */
+	public static function bump_surface_revision(): int {
+		$revision = self::surface_revision() + 1;
+		update_option( 'stonewright_surface_revision', $revision, false );
+
+		/**
+		 * Fires when the MCP tool surface changes.
+		 *
+		 * @param int $revision New monotonic surface revision.
+		 */
+		do_action( 'stonewright_tool_surface_changed', $revision );
+
+		return $revision;
+	}
+
+	/**
 	 * Persist surface mode and keep the legacy essential_tools_mode flag in sync.
 	 */
 	public static function set_mcp_surface( string $surface ): string {
@@ -1058,10 +1084,16 @@ final class AbilityRegistry {
 			$surface = 'essential';
 		}
 
+		$previous = self::mcp_surface();
 		update_option( 'stonewright_mcp_surface', $surface, false );
 		update_option( 'stonewright_essential_tools_mode', 'full' !== $surface, false );
 
-		return self::mcp_surface();
+		$current = self::mcp_surface();
+		if ( $current !== $previous ) {
+			self::bump_surface_revision();
+		}
+
+		return $current;
 	}
 
 	/**
@@ -1087,7 +1119,7 @@ final class AbilityRegistry {
 			)
 		);
 
-		return set_transient(
+		$updated = set_transient(
 			$key,
 			[
 				'profile'       => '' !== $profile ? $profile : 'essential',
@@ -1095,6 +1127,11 @@ final class AbilityRegistry {
 			],
 			self::SESSION_PROFILE_TTL
 		);
+		if ( $updated ) {
+			self::bump_surface_revision();
+		}
+
+		return $updated;
 	}
 
 	/**
@@ -1134,13 +1171,21 @@ final class AbilityRegistry {
 	private static function public_classes(): array {
 		$classes = self::list();
 		$session = self::session_tool_profile();
+		$surface = self::mcp_surface();
+		if ( 'full' === $surface ) {
+			// An operator-selected full surface is never narrowed by a session profile.
+			return $classes;
+		}
 		if ( is_array( $session ) ) {
 			if ( 'full' === $session['profile'] ) {
 				return $classes;
 			}
+			// Session profiles only add tools on top of the configured surface.
+			$base    = 'essential' === $surface ? self::essential_ability_names() : self::bootstrap_ability_names();
 			$allowed = array_fill_keys(
 				array_merge(
 					self::bootstrap_ability_names(),
+					$base,
 					$session['ability_names'],
 					self::essential_extra_ability_names()
 				),
@@ -1161,11 +1206,6 @@ final class AbilityRegistry {
 				)
 			);
 		}
-		$surface = self::mcp_surface();
-		if ( 'full' === $surface ) {
-			return $classes;
-		}
-
 		$base    = 'bootstrap' === $surface ? self::bootstrap_ability_names() : self::essential_ability_names();
 		$allowed = array_fill_keys(
 			array_merge(
@@ -1278,6 +1318,8 @@ final class AbilityRegistry {
 			'stonewright/elementor-v3-batch-mutate',
 			'stonewright/theme-builder-apply-template',
 			'stonewright/gutenberg-apply-to-post',
+			// Theme read lives in bootstrap; keep its write counterpart reachable.
+			'stonewright/theme-file-patch',
 			'stonewright/wp-cli-batch-run',
 
 			// Blueprints, brand kits, clone path, learning.
