@@ -121,18 +121,31 @@ final class ElementorData {
 		// Readback failed — restore previous document when we had one.
 		if ( [] !== $previous ) {
 			$prev_json = wp_json_encode( $previous, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+			$restored  = false;
 			if ( false !== $prev_json ) {
-				self::persist_encoded( $post_id, $prev_json, $previous );
+				$restored = self::persist_encoded( $post_id, $prev_json, $previous );
 			}
-			self::$last_write_error = new \WP_Error(
-				'stonewright_elementor_readback_failed_restored',
-				__( 'Elementor write readback failed; previous document was restored.', 'stonewright' ),
-				[
-					'status'  => 500,
-					'post_id' => $post_id,
-					'fix'   => [ 'use_batch_mutate', 'do_not_retry_raw_meta_write' ],
-				]
-			);
+			if ( $restored ) {
+				self::$last_write_error = new \WP_Error(
+					'stonewright_elementor_readback_failed_restored',
+					__( 'Elementor write readback failed; previous document was restored.', 'stonewright' ),
+					[
+						'status'  => 500,
+						'post_id' => $post_id,
+						'fix'   => [ 'use_batch_mutate', 'do_not_retry_raw_meta_write' ],
+					]
+				);
+			} else {
+				self::$last_write_error = new \WP_Error(
+					'stonewright_elementor_readback_failed_restore_failed',
+					__( 'Elementor write readback failed and the previous document could not be restored. Restore from a Stonewright snapshot before further edits.', 'stonewright' ),
+					[
+						'status'  => 500,
+						'post_id' => $post_id,
+						'fix'   => [ 'restore_snapshot', 'use_batch_mutate', 'do_not_retry_raw_meta_write' ],
+					]
+				);
+			}
 		} else {
 			self::$last_write_error = new \WP_Error(
 				'stonewright_elementor_readback_failed',

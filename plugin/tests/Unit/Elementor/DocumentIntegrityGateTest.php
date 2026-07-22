@@ -56,6 +56,34 @@ final class DocumentIntegrityGateTest extends TestCase {
 		self::assertSame( 'stonewright_elementor_size_collapse', $result->get_error_code() );
 	}
 
+	public function test_force_destructive_allows_size_collapse(): void {
+		$previous = [];
+		for ( $i = 0; $i < 50; $i++ ) {
+			$previous[] = [
+				'id'         => substr( md5( (string) $i ), 0, 7 ),
+				'elType'     => 'widget',
+				'widgetType' => 'heading',
+				'settings'   => [ 'title' => str_repeat( 'Hello world ', 20 ) ],
+				'elements'   => [],
+			];
+		}
+		$incoming = [
+			[
+				'id'         => substr( md5( '0' ), 0, 7 ),
+				'elType'     => 'widget',
+				'widgetType' => 'heading',
+				'settings'   => [ 'title' => 'x' ],
+				'elements'   => [],
+			],
+		];
+		$result = DocumentIntegrityGate::assert_write_allowed(
+			$incoming,
+			$previous,
+			[ 'force_destructive' => true ]
+		);
+		self::assertTrue( $result );
+	}
+
 	public function test_rejects_widget_type_remap(): void {
 		$previous = [
 			[

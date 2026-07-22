@@ -109,7 +109,7 @@ final class V4UpdateNodeTest extends TestCase {
 				'post_id'    => self::POST_V4,
 				'element_id' => 'heading1',
 				'settings'   => [
-					'tag' => [ '$$type' => 'string', 'value' => 'h1' ],
+					'tag' => [ '$$type' => 'heading-level', 'value' => 'h1' ],
 				],
 				'mode'       => 'merge',
 				'dry_run'    => true,
@@ -134,7 +134,7 @@ final class V4UpdateNodeTest extends TestCase {
 				'post_id'    => self::POST_V4,
 				'element_id' => 'heading1',
 				'settings'   => [
-					'tag' => [ '$$type' => 'string', 'value' => 'h3' ],
+					'tag' => [ '$$type' => 'heading-level', 'value' => 'h3' ],
 				],
 				'mode'       => 'merge',
 				'dry_run'    => false,
@@ -246,6 +246,25 @@ final class V4UpdateNodeTest extends TestCase {
 
 		self::assertIsArray( $result );
 		self::assertSame( 'Updated', $result['settings']['title']['value']['content']['value'] );
+	}
+
+	public function test_known_schema_key_rejects_wrong_envelope_type(): void {
+		$result = ( new UpdateNode() )->execute(
+			[
+				'post_id'    => self::POST_V4,
+				'element_id' => 'heading1',
+				'settings'   => [
+					'title' => [
+						'$$type' => 'string',
+						'value'  => 'wrong envelope type for title',
+					],
+				],
+				'dry_run'    => true,
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_invalid_settings_envelope_type', $result->get_error_code() );
 	}
 
 	public function test_unknown_new_key_without_envelope_rejected(): void {

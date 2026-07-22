@@ -324,6 +324,8 @@ describe('direct acf fields tools', () => {
 		expect(fetchImpl).not.toHaveBeenCalled();
 		// Restore for subsequent tests in this file.
 		markTaskStartSeen();
+		markTaskStartSeen('local');
+		markTaskStartSeen('remote');
 	});
 
 	it('blocks acf tools disabled via sites.json', async () => {

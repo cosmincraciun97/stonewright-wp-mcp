@@ -285,6 +285,30 @@ final class UpdateNode extends AbilityKernel {
 						]
 					);
 				}
+				$expected_type = (string) ( $reverse[ $key ] ?? '' );
+				// classes uses a dedicated envelope; raw-json accepts any runtime envelope type.
+				if (
+					'' !== $expected_type
+					&& 'raw-json' !== $expected_type
+					&& (string) $value['$$type'] !== $expected_type
+				) {
+					return $this->error(
+						'invalid_settings_envelope_type',
+						sprintf(
+							/* translators: 1: settings key, 2: expected $$type, 3: actual $$type */
+							__( 'Atomic setting "%1$s" expects $$type "%2$s", got "%3$s".', 'stonewright' ),
+							$key,
+							$expected_type,
+							(string) $value['$$type']
+						),
+						[
+							'status'        => 400,
+							'settings_key'  => $key,
+							'expected_type' => $expected_type,
+							'actual_type'   => (string) $value['$$type'],
+						]
+					);
+				}
 				$out[ $key ] = $value;
 				continue;
 			}

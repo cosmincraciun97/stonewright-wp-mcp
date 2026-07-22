@@ -286,7 +286,9 @@ final class BatchMutate extends AbilityKernel {
 				if ( ! $dry_run ) {
 					$snapshot_id = Backup::snapshot_post( $post_id );
 					$write_start = microtime( true );
-					if ( ! ElementorData::write( $post_id, $tree ) ) {
+					// Surgical batch may remove large subtrees; force_destructive is bound to this
+					// intentional, snapshotted write (not an accidental silent collapse).
+					if ( ! ElementorData::write( $post_id, $tree, [ 'force_destructive' => true ] ) ) {
 						$restored = Backup::restore( $post_id, $snapshot_id );
 						$err      = ElementorData::write_error_for_ability();
 						// Preserve restore info for the agent without losing gate codes/fix hints.

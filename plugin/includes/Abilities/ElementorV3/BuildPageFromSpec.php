@@ -179,7 +179,8 @@ final class BuildPageFromSpec extends AbilityKernel {
 				$snapshot_id = Backup::snapshot_post( $post_id );
 
 				$write_started_at = microtime( true );
-				if ( ! ElementorData::write( $post_id, $tree ) ) {
+				// Full-page builds can legitimately shrink the previous document after snapshot.
+				if ( ! ElementorData::write( $post_id, $tree, [ 'force_destructive' => true ] ) ) {
 					$restored = Backup::restore( $post_id, $snapshot_id );
 					return $this->error( 'write_failed', __( 'Could not save Elementor data; the snapshot was restored.', 'stonewright' ), [ 'restored' => $restored, 'validation_error' => SettingsValidator::last_error() ] );
 				}

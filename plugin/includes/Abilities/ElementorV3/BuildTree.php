@@ -129,7 +129,8 @@ final class BuildTree extends AbilityKernel {
 					return $this->error( 'backup_failed', __( 'Backup snapshot failed; write aborted.', 'stonewright' ) );
 				}
 
-				if ( ! ElementorData::write( $post_id, $normalized ) ) {
+				// Full tree writes are intentional replacements after snapshot.
+				if ( ! ElementorData::write( $post_id, $normalized, [ 'force_destructive' => true ] ) ) {
 					return $this->error( 'write_failed', __( 'Failed to persist Elementor tree.', 'stonewright' ) );
 				}
 

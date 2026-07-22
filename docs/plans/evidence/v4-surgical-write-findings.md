@@ -1,7 +1,7 @@
 # Task 9.1 — V4 surgical write investigation findings
 
-**Branch:** `feature/elementor-integrity-gate-p0`  
-**Date:** 2026-07-22  
+**Branch:** `feature/elementor-integrity-gate-p0`
+**Date:** 2026-07-22
 **Scope:** Investigation only. No production ability code. No `UpdateNode` implementation.
 
 ---
@@ -243,7 +243,7 @@ Explicit test:
 					$validated = SettingsValidator::validate( (string) ( $existing['widgetType'] ?? '' ), $next );
 ```
 
-`SettingsValidator::validate()` uses `WidgetSchemaRepository` (V3 controls). Atomic widgets will fail schema lookup / unknown keys.  
+`SettingsValidator::validate()` uses `WidgetSchemaRepository` (V3 controls). Atomic widgets will fail schema lookup / unknown keys.
 `BatchMutate` additionally hard-blocks v4/mixed architecture (`BatchMutate.php` L186–195) and refuses adding `e-*` widgets (L482–483).
 
 ### Integrity-gate options for 9.2
@@ -398,8 +398,8 @@ Obsolete guessed kit keys are explicitly not used.
 
 ### Implement
 
-1. **Ability** `stonewright/elementor-v4-update-node`  
-   File: `plugin/includes/Abilities/ElementorV4/UpdateNode.php`  
+1. **Ability** `stonewright/elementor-v4-update-node`
+   File: `plugin/includes/Abilities/ElementorV4/UpdateNode.php`
    Mirror structure of [`UpdateElement.php`](../../../plugin/includes/Abilities/ElementorV3/UpdateElement.php):
    - Inputs: `post_id`, `element_id`, `settings` (object), `mode` enum `merge|replace` (default `merge`), optional `dry_run` (recommended true-default or explicit for safety).
    - Permission: `V4FeatureGate::check( !$dry_run )` + `Permissions::edit_post( $post_id )`. **Never** `__return_true`.
@@ -444,7 +444,7 @@ Obsolete guessed kit keys are explicitly not used.
 
 ### Integrity gate options (decision)
 
-**Ship 9.2 with Option A:** normal `ElementorData::write()`, ability-layer atomic validation, no skip.  
+**Ship 9.2 with Option A:** normal `ElementorData::write()`, ability-layer atomic validation, no skip.
 Option C (deeper `validate_tree` atomic checks) can follow once tests prove envelope rules.
 
 ---
