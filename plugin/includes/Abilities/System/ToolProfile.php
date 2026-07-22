@@ -686,6 +686,7 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/site-info',
 				'stonewright/security-create-one-time-link',
 				'stonewright/knowledge-candidate-record',
+				'stonewright/elementor-v3-repair-document',
 				// Discovery and diagnostics are the first candidates dropped by low caps.
 				'stonewright/elementor-schema',
 				'stonewright/elementor-describe-widget',

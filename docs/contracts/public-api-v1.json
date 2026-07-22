@@ -2068,7 +2068,7 @@
             "gates": {
                 "backup": true,
                 "token": true,
-                "validator": false,
+                "validator": true,
                 "audit": true
             }
         },
@@ -2377,6 +2377,20 @@
                 "backup": true,
                 "token": true,
                 "validator": false,
+                "audit": true
+            }
+        },
+        {
+            "ability_name": "stonewright/elementor-v3-repair-document",
+            "mcp_name": "stonewright-elementor-v3-repair-document",
+            "kind": "Write",
+            "input_schema_hash": "1f17c86d8b70e91e6e402904a44919488968c3eb0594ec1fdc6e7f7ee444ad95",
+            "output_schema_hash": "f70580fc818b57dd91154430da482817c1a04786ca4cb76ea54f68b961800b7b",
+            "permission_class": "Permissions::edit_post( $post_id )",
+            "gates": {
+                "backup": true,
+                "token": true,
+                "validator": true,
                 "audit": true
             }
         },

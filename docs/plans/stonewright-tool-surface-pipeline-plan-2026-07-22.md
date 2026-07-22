@@ -2444,7 +2444,7 @@ duplicate/missing ids**, and re-persists through `ElementorData::write()` (so th
 gate and validator still run). It never converts `widgetType`, never strips unknown
 settings, and never touches node content beyond ids.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```php
 public function test_repair_decodes_double_encoded_root_and_persists_through_gate(): void {
@@ -2498,12 +2498,12 @@ public function test_repair_reindexes_duplicate_ids_without_touching_content(): 
 }
 ```
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 Run: `cd plugin && vendor/bin/phpunit --filter 'RepairDocumentTest'`
 Expected: FAIL — class `RepairDocument` does not exist.
 
-- [ ] **Step 3: Implement the ability**
+- [x] **Step 3: Implement the ability**
 
 Create `plugin/includes/Abilities/ElementorV3/RepairDocument.php`. Follow the shape of a
 sibling ability (open `UpdateElement.php` for the base class, `name()`, `register()`,
@@ -2645,19 +2645,19 @@ final class RepairDocument extends AbstractElementorAbility { // match the real 
 > nondeterminism so tests are stable — the counter+md5 scheme above is deterministic per
 > tree.
 
-- [ ] **Step 4: Register the ability**
+- [x] **Step 4: Register the ability**
 
 In `AbilityRegistry.php`, add `RepairDocument::class` to the ElementorV3 ability list
 (grep for `UpdateElement::class` to find the array). Add it to the `elementor-design`
 profile ordering in `ToolProfile` **after** the write-critical tools (diagnostics/recovery
 tier), consistent with Task 4.
 
-- [ ] **Step 5: Run to verify it passes**
+- [x] **Step 5: Run to verify it passes**
 
 Run: `cd plugin && vendor/bin/phpunit --filter 'RepairDocumentTest'`
 Expected: PASS (2).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add plugin/includes/Abilities/ElementorV3/RepairDocument.php plugin/includes/Core/AbilityRegistry.php plugin/includes/Abilities/System/ToolProfile.php plugin/tests/Unit/ElementorV3/RepairDocumentTest.php

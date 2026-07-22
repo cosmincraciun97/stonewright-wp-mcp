@@ -67,6 +67,7 @@ use Stonewright\WpMcp\Abilities\ElementorV3\GetWidgetSchema;
 use Stonewright\WpMcp\Abilities\ElementorV3\ListWidgets;
 use Stonewright\WpMcp\Abilities\ElementorV3\MoveElement;
 use Stonewright\WpMcp\Abilities\ElementorV3\RemoveElement;
+use Stonewright\WpMcp\Abilities\ElementorV3\RepairDocument;
 use Stonewright\WpMcp\Abilities\ElementorV3\SaveTemplate;
 use Stonewright\WpMcp\Abilities\ElementorV3\Status as ElementorStatus;
 use Stonewright\WpMcp\Abilities\ElementorV3\UpdateElement;
@@ -339,6 +340,7 @@ final class AbilityRegistry {
 			AddContainer::class,
 			AddWidget::class,
 			UpdateElement::class,
+			RepairDocument::class,
 			MoveElement::class,
 			RemoveElement::class,
 			BuildPageFromSpec::class,

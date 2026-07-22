@@ -10,7 +10,7 @@
 - **Permission**: the `Permissions::` method called from `permission_callback()`.
 - **Token**: `ConfirmationGuard` trait or explicit `ConfirmationToken::verify_or_error()` call.
 - **Backup**: calls `Backup::snapshot_post()` before mutation.
-- **Validator**: calls `DesignSpec\Validator::validate()` or `ThemeJson\Validator::validate()`.
+- **Validator**: calls an Elementor, DesignSpec, or ThemeJson validator.
 - **Status**: `stable` | `experimental` | `sandboxed` | `blocked` (from `@stonewright-status` docblock tag).
 - **Tests**: primary test file for this ability.
 
@@ -136,12 +136,13 @@
 | `stonewright/elementor-v3-get-widget-schema` | `stonewright-elementor-v3-get-widget-schema` | `ElementorV3\GetWidgetSchema` | Returns compact Content, Style, and Advanced control groups for a single Elementor widget by default, or full control defaults when responseMode=full. | Read | `Permissions::edit_posts()` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-get-page-structure` | `stonewright-elementor-v3-get-page-structure` | `ElementorV3\GetPageStructure` | Returns a compact Elementor V3 page outline by default, or the full element tree when responseMode=full. | Read | `Permissions::edit_post( $id )` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-page-digest` | `stonewright-elementor-page-digest` | `ElementorV3\PageDigest` | One-call compact Elementor page outline: tree of elType/widgetType/id/index-path/heading text, counts, and kit flags. | Read | `Permissions::edit_post( (int)` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
-| `stonewright/elementor-build-tree` | `stonewright-elementor-build-tree` | `ElementorV3\BuildTree` | Validates a full Elementor element tree (sections/containers/widgets), snapshots, writes atomically, regenerates CSS for the post, and returns a compact digest. | Write | `Permissions::edit_post( (int)` | Yes | Yes | No | stable | `tests/Integration/ElementorWriterTest.php` |
+| `stonewright/elementor-build-tree` | `stonewright-elementor-build-tree` | `ElementorV3\BuildTree` | Validates a full Elementor element tree (sections/containers/widgets), snapshots, writes atomically, regenerates CSS for the post, and returns a compact digest. | Write | `Permissions::edit_post( (int)` | Yes | Yes | Yes (Elementor) | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/design-mirror-export` | `stonewright-design-mirror-export` | `ElementorV3\DesignMirrorExport` | Exports Elementor tree JSON for selected posts into wp-content/uploads/stonewright-mirror/ with sorted keys for stable diffs. | Write | `Permissions::edit_post( (int) (compound)` | No | No | No | experimental | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-get-element` | `stonewright-elementor-v3-get-element` | `ElementorV3\GetElement` | Returns a single element from an Elementor page by element id. | Read | `Permissions::edit_post( $id )` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-add-container` | `stonewright-elementor-v3-add-container` | `ElementorV3\AddContainer` | Appends a new flex or grid container to an Elementor page. | Write | `Permissions::edit_post( $id )` | No | Yes | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-add-widget` | `stonewright-elementor-v3-add-widget` | `ElementorV3\AddWidget` | Adds a raw Elementor widget by writing the literal Elementor settings JSON for any widget_type. | Write | `Permissions::edit_post( $id )` | No | Yes | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-update-element` | `stonewright-elementor-v3-update-element` | `ElementorV3\UpdateElement` | Patches settings of an element identified by id. | Write | `Permissions::edit_post( $id )` | No | Yes | No | stable | `tests/Integration/ElementorWriterTest.php` |
+| `stonewright/elementor-v3-repair-document` | `stonewright-elementor-v3-repair-document` | `ElementorV3\RepairDocument` | Repairs double-encoded Elementor data and duplicate or missing element ids without changing content or settings. | Write | `Permissions::edit_post( $post_id )` | Yes | Yes | Yes (Elementor) | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-move-element` | `stonewright-elementor-v3-move-element` | `ElementorV3\MoveElement` | Moves an element to a new parent and position within the same page. | Write | `Permissions::edit_post( $id )` | No | Yes | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-remove-element` | `stonewright-elementor-v3-remove-element` | `ElementorV3\RemoveElement` | Removes an element from an Elementor page by id. | Write | `Permissions::edit_post( $id )` | Yes | Yes | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-build-page-from-spec` | `stonewright-elementor-v3-build-page-from-spec` | `ElementorV3\BuildPageFromSpec` | Renders a validated Stonewright Design Spec into Elementor V3 elements and writes it to a post. | Write | `Permissions::edit_post( $id )` | Yes | Yes | Yes (DesignSpec) | stable | `tests/Integration/ElementorWriterTest.php` |
@@ -585,7 +586,7 @@
 
 ## Summary
 
-Total abilities registered: **315**
+Total abilities registered: **316**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

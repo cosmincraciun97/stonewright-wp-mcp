@@ -425,6 +425,7 @@ final class PublicApiContractSnapshot {
 			return true;
 		}
 		return str_contains( $source, 'new ValidateSpec()' )
+			|| str_contains( $source, 'SettingsValidator::validate_tree' )
 			|| str_contains( $source, 'SpecToGutenberg()' )
 			|| str_contains( $source, 'SpecToElementorV3()' )
 			|| str_contains( $source, 'ApplyToPost()' )
