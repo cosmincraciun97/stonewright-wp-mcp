@@ -5,6 +5,9 @@ All notable changes to Stonewright are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+This file keeps a **5-release retention policy** for versioned sections (plus
+Unreleased); older history lives in git tags and GitHub releases.
+
 ## [Unreleased]
 
 ## [1.0.0-alpha.78] - 2026-07-22

@@ -4,7 +4,7 @@
         "element_id": "heading_v4",
         "settings": {
             "tag": {
-                "$$type": "string",
+                "$$type": "heading-level",
                 "value": "h1"
             }
         },
