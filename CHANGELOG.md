@@ -15,6 +15,12 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   (compatibility path: context-bootstrap).
 - Remediation for `v3_architecture_mismatch` and raw php-execute Elementor
   writes names concrete V4/V3 tools and forbids blind php-execute retries.
+- Memory schema version option bumps only after `table_schema_ok()` verifies all
+  v3 columns exist (failed `dbDelta` no longer pretends install succeeded).
+- `Memory::put_typed()` logs `memory_put_failed` with `wpdb_error` + schema
+  health; `learning-record` returns `stonewright_memory_write_failed` on store
+  failure; audit error-pattern promotion logs write/throw failures instead of
+  failing silently.
 
 ### Added
 
@@ -23,6 +29,8 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   widgetType remaps; auto-restore previous document on readback failure.
 - Tree validation preserves unknown settings and allows coexisting `e-*` atomic
   widgets (no forced convert-to-pass).
+- Memory admin page error notice when the `stonewright_memory` table is missing
+  or outdated (learning promotion cannot store rows).
 
 ## [1.0.0-alpha.77] - 2026-07-22
 

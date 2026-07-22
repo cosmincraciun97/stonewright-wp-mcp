@@ -9,12 +9,19 @@
 - Context-token error names `stonewright-task-start` first.
 - V3 architecture mismatch and raw php-execute Elementor write remediation
   hints name concrete V4/V3 tools (no dead-end "V4 editor pipeline" text).
+- Memory schema install verifies columns via `Memory::table_schema_ok()` before
+  bumping `stonewright_memory_schema_version`; failed installs log
+  `memory_schema_install_failed` and retry on next `init`.
+- `put_typed` / error-pattern learning promotion / AuditLog observe path log
+  failures; `stonewright/learning-record` returns
+  `stonewright_memory_write_failed` when the table cannot store the row.
 
 ### Added
 
 - Elementor Integrity Gate P0 on `ElementorData::write` (double-encode, size
   collapse, widgetType remap blocks; readback restore).
 - Tree validation preserves unknown settings and coexisting `e-*` widgets.
+- Memory admin schema-health notice when the memory table is missing/outdated.
 
 ## [1.0.0-alpha.77] - 2026-07-22
 
