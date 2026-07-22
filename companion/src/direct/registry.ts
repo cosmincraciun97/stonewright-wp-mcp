@@ -28,7 +28,11 @@ import * as acf from './tools/acf.js';
 import * as elementorDirect from './tools/elementor-direct.js';
 import * as gutenbergValidate from './tools/gutenberg-validate.js';
 import * as agentsMd from './agents-md.js';
-import { appendDirectAudit } from './audit.js';
+import {
+	appendDirectAudit,
+	escalateDirectError,
+	noteDirectErrorOccurrence,
+} from './audit.js';
 
 export const DIRECT_WAVE1_TOOL_NAMES = [
 	'stonewright-content-list',
@@ -254,9 +258,26 @@ export function shouldRegisterDirectTool(
 	return directProfileToolNames(profile).includes(name);
 }
 
-function toolResponse(data: unknown) {
+function toolResponse(data: unknown, meta?: { tool?: string }) {
+	let payload: unknown = data;
+	if (
+		meta?.tool &&
+		payload &&
+		typeof payload === 'object' &&
+		(payload as { ok?: unknown }).ok === false
+	) {
+		const row = payload as { ok: false; error?: string; message?: string; [key: string]: unknown };
+		const error = String(row.error ?? 'error');
+		const message = String(row.message ?? row.error ?? 'error');
+		const count = noteDirectErrorOccurrence(meta.tool, error, message);
+		payload = escalateDirectError(
+			meta.tool,
+			{ ...row, ok: false, error, message },
+			count,
+		);
+	}
 	return {
-		content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }],
+		content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }],
 	};
 }
 
@@ -267,27 +288,54 @@ function toolError(err: unknown, meta?: { tool?: string; site?: string }) {
 			: err instanceof Error
 				? err.message
 				: String(err);
+	const tool = meta?.tool && meta.tool.length > 0 ? meta.tool : 'stonewright-direct';
+	const errorCode =
+		err instanceof WpRestError
+			? String((err.toJSON() as { code?: string }).code ?? 'wp_rest_error')
+			: 'error';
 	if (meta?.tool) {
 		try {
 			appendDirectAudit({
 				tool: meta.tool,
 				site: meta.site && meta.site.length > 0 ? meta.site : '_global',
 				status: 'error',
+				code: errorCode,
 				error: message.slice(0, 200),
 			});
 		} catch {
 			// best-effort audit
 		}
 	}
+	const count = noteDirectErrorOccurrence(tool, errorCode, message.slice(0, 200));
+	const escalated = escalateDirectError(
+		tool,
+		{ ok: false, error: errorCode, message: message.slice(0, 500) },
+		count,
+	);
 	if (err instanceof WpRestError) {
+		const base = err.toJSON() as Record<string, unknown>;
 		return {
 			isError: true as const,
-			content: [{ type: 'text' as const, text: JSON.stringify(err.toJSON(), null, 2) }],
+			content: [
+				{
+					type: 'text' as const,
+					text: JSON.stringify(
+						{
+							...base,
+							message: escalated.message,
+							occurrences: escalated.occurrences,
+							repair: escalated.repair,
+						},
+						null,
+						2,
+					),
+				},
+			],
 		};
 	}
 	return {
 		isError: true as const,
-		content: [{ type: 'text' as const, text: JSON.stringify({ error: message }, null, 2) }],
+		content: [{ type: 'text' as const, text: JSON.stringify(escalated, null, 2) }],
 	};
 }
 
@@ -1235,7 +1283,10 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		tool(name, desc, shape, async (input) => {
 			const site = String((input as { site?: string }).site ?? '_global');
 			try {
-				return toolResponse(await fn(input as Record<string, unknown>, buildContext(ctx, (input as { site?: string }).site)));
+				return toolResponse(
+					await fn(input as Record<string, unknown>, buildContext(ctx, (input as { site?: string }).site)),
+					{ tool: name },
+				);
 			} catch (err) {
 				return toolError(err, { tool: name, site });
 			}
@@ -1406,7 +1457,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		tool(name, description, shape, async (input) => {
 			const site = String((input as { site?: string }).site ?? '_global');
 			try {
-				return toolResponse(await handler(input as Record<string, unknown>));
+				return toolResponse(await handler(input as Record<string, unknown>), { tool: name });
 			} catch (err) {
 				return toolError(err, { tool: name, site });
 			}
