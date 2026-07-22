@@ -188,6 +188,10 @@ final class ToolProfile extends AbilityKernel {
 				'tool_count'            => [ 'type' => 'integer' ],
 				'profile_tool_count'    => [ 'type' => 'integer' ],
 				'under_limit'           => [ 'type' => 'boolean' ],
+				'degraded'              => [ 'type' => 'boolean' ],
+				'truncated_tools'       => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'truncated_mcp_tools'   => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'truncation_hint'       => [ 'type' => 'string' ],
 				'essential_tools_mode'  => [ 'type' => 'boolean' ],
 				'mcp_surface'            => [ 'type' => 'string' ],
 				'profiles_available'    => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
@@ -331,6 +335,7 @@ final class ToolProfile extends AbilityKernel {
 				)
 			);
 			$profile_count     = count( $ordered_abilities );
+			$dropped_names     = array_slice( $ordered_abilities, $max_tools );
 			$ordered_abilities = array_slice( $ordered_abilities, 0, $max_tools );
 			$mcp_tools         = array_map( [ AbilityRegistry::class, 'mcp_tool_name' ], $ordered_abilities );
 			$tool_groups       = self::tool_groups( $ordered_abilities );
@@ -357,6 +362,10 @@ final class ToolProfile extends AbilityKernel {
 				'tool_count'           => count( $mcp_tools ),
 				'profile_tool_count'   => $profile_count,
 				'under_limit'          => $profile_count <= $max_tools,
+				'degraded'             => [] !== $dropped_names,
+				'truncated_tools'      => $dropped_names,
+				'truncated_mcp_tools'  => array_map( [ AbilityRegistry::class, 'mcp_tool_name' ], $dropped_names ),
+				'truncation_hint'      => self::truncation_hint( $dropped_names, $max_tools ),
 				'tools_changed'        => false,
 			];
 		}
@@ -418,6 +427,7 @@ final class ToolProfile extends AbilityKernel {
 		);
 
 		$profile_tool_count = count( $names );
+		$dropped_names      = array_slice( $names, $max_tools );
 		$limited_names      = array_slice( $names, 0, $max_tools );
 		$tools              = [];
 		$tool_groups        = self::tool_groups( $limited_names );
@@ -441,6 +451,10 @@ final class ToolProfile extends AbilityKernel {
 			'tool_count'            => count( $limited_names ),
 			'profile_tool_count'    => $profile_tool_count,
 			'under_limit'           => $profile_tool_count <= $max_tools,
+			'degraded'              => [] !== $dropped_names,
+			'truncated_tools'       => $dropped_names,
+			'truncated_mcp_tools'   => array_map( [ AbilityRegistry::class, 'mcp_tool_name' ], $dropped_names ),
+			'truncation_hint'       => self::truncation_hint( $dropped_names, $max_tools ),
 			'essential_tools_mode'  => (bool) get_option( 'stonewright_essential_tools_mode', true ),
 			'mcp_surface'            => AbilityRegistry::mcp_surface(),
 			'profiles_available'    => self::profile_names(),
@@ -1093,6 +1107,24 @@ final class ToolProfile extends AbilityKernel {
 			'Prefer dry_run diagnostics and one section write over many exploratory writes.',
 			'Use system-abilities-list only when the selected profile is missing a needed capability.',
 		];
+	}
+
+	/**
+	 * Human-readable summary of tools omitted by max_tools.
+	 *
+	 * @param list<string> $dropped_names
+	 */
+	private static function truncation_hint( array $dropped_names, int $max_tools ): string {
+		if ( [] === $dropped_names ) {
+			return '';
+		}
+
+		return sprintf(
+			'%d profile tools were dropped from this list by max_tools=%d: %s. They stay callable once the session profile is active even when your client does not list them; re-run with a higher max_tools to see the full ordered list.',
+			count( $dropped_names ),
+			$max_tools,
+			implode( ', ', array_map( [ AbilityRegistry::class, 'mcp_tool_name' ], $dropped_names ) )
+		);
 	}
 
 	/**

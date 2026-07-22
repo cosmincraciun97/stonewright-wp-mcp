@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-07-22T14:20:34+00:00",
+    "generated_at": "2026-07-22T14:24:11+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -4121,7 +4121,7 @@
             "mcp_name": "stonewright-tool-profile",
             "kind": "Write",
             "input_schema_hash": "2966ee25a73a4211eaafadc3f91791fe7f109a3c8bc3cc6ad4e355780793509e",
-            "output_schema_hash": "2c580b74a75d90f4cfabb1fd05ce2908060ca07d2ee95b35962851a84e2cabcf",
+            "output_schema_hash": "b0e0a6d119bcad4abdabb9a4bdf60f8873a008c8ff3d26896890c8cc228e26cd",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,

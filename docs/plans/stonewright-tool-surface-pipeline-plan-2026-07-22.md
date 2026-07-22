@@ -715,7 +715,7 @@ git commit -m "fix: order elementor-design profile write-critical-first for capp
 
 Contract decision: `ok` stays `true` (an over-cap profile is a degraded success, not a failure — flipping it would break every existing consumer). New fields: `degraded` (bool), `truncated_tools` (ability names), `truncated_mcp_tools` (MCP names), plus a `truncation_hint` string when non-empty.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `plugin/tests/Unit/Abilities/System/ToolProfileTruncationTest.php` (copy setUp/tearDown from `ToolProfileResolveTest.php` so ability registration matches that harness):
 
@@ -779,12 +779,12 @@ final class ToolProfileTruncationTest extends TestCase {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `cd plugin && vendor/bin/phpunit --filter ToolProfileTruncationTest`
 Expected: FAIL — `degraded` key undefined.
 
-- [ ] **Step 3: Implement (resolve path)**
+- [x] **Step 3: Implement (resolve path)**
 
 In the resolve branch, replace:
 
@@ -810,7 +810,7 @@ and add to the resolve return array (anchor: `'under_limit'          => $profile
 				'truncation_hint'      => self::truncation_hint( $dropped_names, $max_tools ),
 ```
 
-- [ ] **Step 4: Implement (activate path)**
+- [x] **Step 4: Implement (activate path)**
 
 Replace:
 
@@ -858,7 +858,7 @@ Then add the private helper next to `recovery_hints()`:
 	}
 ```
 
-- [ ] **Step 5: Run tests, full suite, commit**
+- [x] **Step 5: Run tests, full suite, commit**
 
 Run: `cd plugin && vendor/bin/phpunit --filter ToolProfileTruncationTest && composer test && composer phpstan && composer phpcs`
 Expected: PASS.
