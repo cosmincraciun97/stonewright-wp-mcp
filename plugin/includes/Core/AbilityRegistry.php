@@ -1134,13 +1134,21 @@ final class AbilityRegistry {
 	private static function public_classes(): array {
 		$classes = self::list();
 		$session = self::session_tool_profile();
+		$surface = self::mcp_surface();
+		if ( 'full' === $surface ) {
+			// An operator-selected full surface is never narrowed by a session profile.
+			return $classes;
+		}
 		if ( is_array( $session ) ) {
 			if ( 'full' === $session['profile'] ) {
 				return $classes;
 			}
+			// Session profiles only add tools on top of the configured surface.
+			$base    = 'essential' === $surface ? self::essential_ability_names() : self::bootstrap_ability_names();
 			$allowed = array_fill_keys(
 				array_merge(
 					self::bootstrap_ability_names(),
+					$base,
 					$session['ability_names'],
 					self::essential_extra_ability_names()
 				),
@@ -1161,11 +1169,6 @@ final class AbilityRegistry {
 				)
 			);
 		}
-		$surface = self::mcp_surface();
-		if ( 'full' === $surface ) {
-			return $classes;
-		}
-
 		$base    = 'bootstrap' === $surface ? self::bootstrap_ability_names() : self::essential_ability_names();
 		$allowed = array_fill_keys(
 			array_merge(

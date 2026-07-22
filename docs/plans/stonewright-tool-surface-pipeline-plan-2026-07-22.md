@@ -250,7 +250,7 @@ git commit -m "fix: apply suggested session tool profile on essential surfaces"
 
 Current behavior: when a session transient exists, visibility is `bootstrap ∪ session ∪ extras` — dropping essential-surface tools not in the profile, and narrowing a `full` surface.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `plugin/tests/Unit/Core/AbilityRegistrySessionUnionTest.php`:
 
@@ -328,12 +328,12 @@ final class AbilityRegistrySessionUnionTest extends TestCase {
 
 If `stonewright/wp-cli-run` is not registered in the unit harness, pick any ability that `AbilityRegistryBootstrapModeTest` proves exists but is outside both bootstrap and essential lists (e.g. `stonewright/sandbox-write` is asserted NotContains there, so it is registered — check its default-disabled state first with `AbilityRegistry::all_abilities()` in the test and choose a name that is enabled by default).
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `cd plugin && vendor/bin/phpunit --filter AbilityRegistrySessionUnionTest`
 Expected: FAIL on `keeps_essential_base_visible` (site-pulse/learning-record hidden) and on `never_narrows_full_surface`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `plugin/includes/Core/AbilityRegistry.php`, replace the session branch of `public_classes()` (anchor block starting `$session = self::session_tool_profile();` down to the closing of its `return array_values(...)`) with:
 
@@ -378,12 +378,12 @@ In `plugin/includes/Core/AbilityRegistry.php`, replace the session branch of `pu
 
 Keep the existing no-session fallthrough below it unchanged, but delete its now-duplicated `$surface = self::mcp_surface();` line and its `if ( 'full' === $surface ) { return $classes; }` block (the full check now happens once at the top).
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `cd plugin && vendor/bin/phpunit --filter "AbilityRegistrySessionUnionTest|AbilityRegistryBootstrapModeTest"`
 Expected: PASS — including the existing `test_session_profile_expands_only_the_current_mcp_session` (bootstrap surface base = bootstrap names, so behavior there is unchanged).
 
-- [ ] **Step 5: Full suite + static analysis, then commit**
+- [x] **Step 5: Full suite + static analysis, then commit**
 
 Run: `cd plugin && composer test && composer phpstan && composer phpcs`
 Expected: PASS.
