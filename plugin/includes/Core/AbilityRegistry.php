@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Abilities\Content\BulkCreate;
 use Stonewright\WpMcp\Abilities\Content\BulkUpsertPosts;
 use Stonewright\WpMcp\Abilities\System\ContextBootstrap;
 use Stonewright\WpMcp\Context\ContextToken;
+use Stonewright\WpMcp\Security\ErrorPatterns;
 use Stonewright\WpMcp\Support\Utf8;
 use Stonewright\WpMcp\Abilities\Content\CreatePage;
 use Stonewright\WpMcp\Abilities\Content\CreatePost;
@@ -84,6 +85,7 @@ use Stonewright\WpMcp\Abilities\ElementorV4\ReadAtomicTree;
 use Stonewright\WpMcp\Abilities\ElementorV4\RenderFromSpec as RenderV4FromSpec;
 use Stonewright\WpMcp\Abilities\ElementorV4\Status as ElementorV4Status;
 use Stonewright\WpMcp\Abilities\ElementorV4\UpdateClass;
+use Stonewright\WpMcp\Abilities\ElementorV4\UpdateNode;
 use Stonewright\WpMcp\Abilities\ElementorV4\UpdateVariable;
 use Stonewright\WpMcp\Abilities\FSE\CreateTemplatePart;
 use Stonewright\WpMcp\Abilities\FSE\GetThemeJson;
@@ -233,6 +235,9 @@ use Stonewright\WpMcp\Abilities\Site\Theme as SiteTheme;
 final class AbilityRegistry {
 	private const SESSION_PROFILE_TRANSIENT_PREFIX = 'stonewright_mcp_session_profile_';
 	private const SESSION_PROFILE_TTL              = 3600;
+	private const SESSION_TASK_STARTED_PREFIX      = 'stonewright_mcp_task_started_';
+	/** Align with ContextToken / Direct latch (30 minutes). */
+	private const SESSION_TASK_STARTED_TTL         = 1800;
 
 	/**
 	 * @return array<class-string<Ability>>
@@ -349,6 +354,7 @@ final class AbilityRegistry {
 			// Elementor V4 experimental.
 			ElementorV4Status::class,
 			ReadAtomicTree::class,
+			UpdateNode::class,
 			ListVariables::class,
 			CreateVariable::class,
 			UpdateVariable::class,
@@ -703,7 +709,8 @@ final class AbilityRegistry {
 		$name = $ability->name();
 		if ( ! self::requires_context_token( $ability ) ) {
 			unset( $input['stonewright_context_token'] );
-			return $ability->execute( $input );
+			$result = self::finalize_ability_result( $name, $ability->execute( $input ) );
+			return self::maybe_attach_task_start_hint( $ability, $result );
 		}
 
 		$token = isset( $input['stonewright_context_token'] ) && is_string( $input['stonewright_context_token'] )
@@ -712,11 +719,117 @@ final class AbilityRegistry {
 
 		$verified = ContextToken::verify( $token, $name );
 		if ( $verified instanceof \WP_Error ) {
+			// Context-token failures are not ability-execution errors and are not
+			// observed into ErrorPatterns here — return as-is.
 			return $verified;
 		}
 
 		unset( $input['stonewright_context_token'] );
-		return $ability->execute( $input );
+		$result = self::finalize_ability_result( $name, $ability->execute( $input ) );
+		return self::maybe_attach_task_start_hint( $ability, $result );
+	}
+
+	/**
+	 * After ability execute returns, escalate repeated identical WP_Errors.
+	 *
+	 * Observe order: AbilityKernel::audit() → AuditLog::record() →
+	 * ErrorPatterns::observe() runs *before* this method sees the result, so
+	 * occurrence_count already includes the current failure. Escalation fires
+	 * when count >= 2 (second+ identical error).
+	 */
+	private static function finalize_ability_result( string $ability_name, mixed $result ): mixed {
+		if ( $result instanceof \WP_Error ) {
+			return ErrorPatterns::escalate_error( $ability_name, $result, [] );
+		}
+		return $result;
+	}
+
+	/**
+	 * Non-blocking nudge on pre-session read responses so agents learn to call
+	 * task-start without a hard gate on discovery tools.
+	 *
+	 * @param mixed $result Ability result (array or WP_Error).
+	 * @return mixed
+	 */
+	private static function maybe_attach_task_start_hint( Ability $ability, mixed $result ): mixed {
+		if ( ! is_array( $result ) ) {
+			return $result;
+		}
+
+		// Only MCP sessions with a session id can track started state; avoid
+		// noisy hints on bare REST / unit paths without an MCP channel.
+		if ( null === self::session_task_started_transient_key() ) {
+			return $result;
+		}
+
+		if ( self::session_task_started() ) {
+			return $result;
+		}
+
+		$name = $ability->name();
+		if ( in_array(
+			$name,
+			[
+				'stonewright/task-start',
+				'stonewright/workflow-preflight',
+				'stonewright/context-bootstrap',
+			],
+			true
+		) ) {
+			return $result;
+		}
+
+		// Read-only / context-exempt only — never attach to write-gated paths.
+		if ( self::requires_context_token( $ability ) ) {
+			return $result;
+		}
+
+		$result['task_start_hint'] = __(
+			'Session not initialized: call stonewright-task-start with your task description to load site skills, memory, recurring errors, and the write token.',
+			'stonewright'
+		);
+
+		return $result;
+	}
+
+	/**
+	 * Mark the current MCP session as having run task-start (or compatible bootstrap).
+	 */
+	public static function mark_session_task_started(): bool {
+		$key = self::session_task_started_transient_key();
+		if ( null === $key ) {
+			return false;
+		}
+
+		return set_transient( $key, 1, self::SESSION_TASK_STARTED_TTL );
+	}
+
+	/**
+	 * Whether task-start (or compatible path) has run for this MCP session.
+	 * Also true when a session tool profile is already active.
+	 */
+	public static function session_task_started(): bool {
+		if ( null !== self::session_tool_profile() ) {
+			return true;
+		}
+
+		$key = self::session_task_started_transient_key();
+		if ( null === $key ) {
+			return false;
+		}
+
+		return (bool) get_transient( $key );
+	}
+
+	private static function session_task_started_transient_key(): ?string {
+		$session_id = isset( $_SERVER['HTTP_MCP_SESSION_ID'] ) && is_string( $_SERVER['HTTP_MCP_SESSION_ID'] )
+			? trim( $_SERVER['HTTP_MCP_SESSION_ID'] )
+			: '';
+		if ( '' === $session_id || strlen( $session_id ) > 256 || 1 !== preg_match( '/^[\x21-\x7E]+$/D', $session_id ) ) {
+			return null;
+		}
+
+		return self::SESSION_TASK_STARTED_PREFIX . hash_hmac( 'sha256', $session_id, wp_salt( 'auth' ) );
 	}
 
 	private static function requires_context_token( Ability $ability ): bool {

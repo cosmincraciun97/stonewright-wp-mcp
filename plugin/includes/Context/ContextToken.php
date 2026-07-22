@@ -65,7 +65,7 @@ final class ContextToken {
 	private static function error(): \WP_Error {
 		return new \WP_Error(
 			'stonewright_context_required',
-			__( 'Call MCP tool stonewright-context-bootstrap (WordPress ability stonewright/context-bootstrap) for this task and pass the returned stonewright_context_token before write or destructive abilities.', 'stonewright' ),
+			__( 'Call MCP tool stonewright-task-start (WordPress ability stonewright/task-start) first for this task and pass the returned stonewright_context_token to write or destructive abilities. Compatibility path: stonewright-context-bootstrap.', 'stonewright' ),
 			[ 'status' => 403 ]
 		);
 	}

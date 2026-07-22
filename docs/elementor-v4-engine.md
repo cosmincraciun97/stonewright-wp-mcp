@@ -34,6 +34,26 @@ The runtime source was verified at Elementor commit
   and requires readback.
 - Production-safe V4 writes stay disabled while the adapter is experimental.
 
+## Surgical node update
+
+`stonewright/elementor-v4-update-node` patches **settings only** on one atomic
+node by id (merge or replace). It:
+
+1. Loads the full `_elementor_data` tree via `ElementorData::read` — never the
+   lifted `atomic_tree` projection from `elementor-v4-read-atomic-tree`.
+2. Rejects pure V3 / empty documents (`v4_architecture_mismatch`) and
+   non-atomic targets (`non_atomic_target`).
+3. Validates patched keys against the Atomic schema reverse map (or requires a
+   `$$type`/`value` envelope for new keys); unknown keys already on the node are
+   preserved with a warning.
+4. Snapshots with `Backup::snapshot_post`, then writes through
+   `ElementorData::write` **without** `skip_integrity`.
+5. Supports `dry_run:true` to return the planned settings without writing.
+
+Prefer `dry_run` first. Use class/variable abilities for kit-level styles; do
+not use this ability for tree restructure, elType/widgetType remaps, or full
+styles-map editing.
+
 ## Fixture status
 
 The fixtures in `plugin/tests/fixtures/elementor-v4` are Stonewright-authored

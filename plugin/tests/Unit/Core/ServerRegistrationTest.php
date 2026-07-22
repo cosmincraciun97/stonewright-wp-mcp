@@ -39,7 +39,8 @@ final class ServerRegistrationTest extends TestCase {
 		self::assertStringContainsString( 'Site-specific instructions', $description );
 		self::assertSame( 1, substr_count( $description, 'Site rule unique.' ) );
 		self::assertStringNotContainsString( 'visual_build_gate', $description );
-		self::assertLessThan( 2600, strlen( $description ) );
+		// Compact bootstrap summary (task-start + Elementor integrity rules); keep under 3k.
+		self::assertLessThan( 3000, strlen( $description ) );
 	}
 
 	public function test_register_server_exposes_only_current_public_tools(): void {

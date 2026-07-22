@@ -54,6 +54,83 @@ export type DirectRecurringError = {
 const DIRECT_REPAIR =
 	'Re-read the error, verify the target exists (GET before write), and retry once with corrected input.';
 
+/** In-process counts of identical Direct tool failures (tool|error|message). */
+const directErrorOccurrences = new Map<string, number>();
+
+export type DirectErrorPayload = {
+	ok: false;
+	error: string;
+	message: string;
+	occurrences?: number;
+	repair?: string;
+	[key: string]: unknown;
+};
+
+function directErrorSignature(tool: string, error: string, message: string): string {
+	return `${tool}|${error}|${message}`.toLowerCase();
+}
+
+/**
+ * Increment and return the in-process occurrence count for an identical failure.
+ * Used by the registry dispatch choke point so escalateDirectError sees prior retries.
+ */
+export function noteDirectErrorOccurrence(tool: string, error: string, message: string): number {
+	const key = directErrorSignature(tool, error, message);
+	const next = (directErrorOccurrences.get(key) ?? 0) + 1;
+	directErrorOccurrences.set(key, next);
+	return next;
+}
+
+/** Test helper: clear process-local occurrence counters. */
+export function resetDirectErrorOccurrencesForTests(): void {
+	directErrorOccurrences.clear();
+}
+
+function directRepairHint(tool: string, errorCode: string): string {
+	if (
+		tool.includes('elementor') ||
+		errorCode.includes('elementor') ||
+		errorCode.includes('integrity')
+	) {
+		return 'Do not retry the same Elementor write. Re-read the document, fix the rejected cause, use surgical updates only — never raw full-tree rewrites or double-encoded JSON.';
+	}
+	return DIRECT_REPAIR;
+}
+
+/**
+ * Escalate repeated identical Direct tool failures with hard-stop guidance.
+ *
+ * @param tool  MCP tool name (hyphen form)
+ * @param result Structured failure payload
+ * @param count Occurrence count for this exact tool+error+message (1 = first fail)
+ */
+export function escalateDirectError(
+	tool: string,
+	result: { ok: false; error?: string; message?: string; [key: string]: unknown },
+	count: number,
+): DirectErrorPayload {
+	const error = String(result.error ?? 'error');
+	const originalMessage = String(result.message ?? result.error ?? 'error');
+	if (count < 2) {
+		return {
+			...result,
+			ok: false,
+			error,
+			message: originalMessage,
+			occurrences: count,
+		};
+	}
+	const repair = directRepairHint(tool, error);
+	return {
+		...result,
+		ok: false,
+		error,
+		message: `STOP: this exact error occurred ${count} times — do not retry the same call. ${originalMessage}. Next step: ${repair}`,
+		occurrences: count,
+		repair,
+	};
+}
+
 export function recentRecurringErrors(
 	baseDirOrPath?: string,
 	limit = 3,

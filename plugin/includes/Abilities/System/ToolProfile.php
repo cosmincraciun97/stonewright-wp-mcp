@@ -643,6 +643,8 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/elementor-schema',
 				'stonewright/elementor-describe-widget',
 				'stonewright/elementor-v4-status',
+				'stonewright/elementor-v4-read-atomic-tree',
+				'stonewright/elementor-v4-update-node',
 				'stonewright/elementor-v4-list-variables',
 				'stonewright/elementor-v4-list-classes',
 				'stonewright/elementor-v4-list-atomic-node-types',

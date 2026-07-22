@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\System;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Context\ContextBuilder;
+use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -131,6 +132,8 @@ final class ContextBootstrap extends AbilityKernel {
 			'' !== $surface ? $surface : 'unknown',
 			'' !== $intent ? $intent : 'unknown'
 		);
+		// Compatibility bootstrap also clears the pre-session read nudge.
+		AbilityRegistry::mark_session_task_started();
 		if ( 'compact' === (string) ( $args['responseMode'] ?? 'full' ) ) {
 			return self::compact_response( $response, is_array( $args['knownHashes'] ?? null ) ? $args['knownHashes'] : [] );
 		}

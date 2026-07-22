@@ -32,6 +32,24 @@ final class RemediationHintsTest extends TestCase {
 		$this->assertStringContainsString( 'learning-record', $hint );
 	}
 
+	public function test_v3_architecture_mismatch_names_concrete_tools(): void {
+		$hint = RemediationHints::for_code( 'stonewright_v3_architecture_mismatch', 'stonewright/elementor-v3-batch-mutate' );
+		self::assertStringContainsString( 'elementor-v4-read-atomic-tree', $hint );
+		self::assertStringContainsString( 'elementor-v4-update-node', $hint );
+		self::assertStringContainsString( 'do not use php-execute', strtolower( $hint ) );
+	}
+
+	public function test_v4_architecture_mismatch_points_to_v3_tools(): void {
+		$hint = RemediationHints::for_code( 'stonewright_v4_architecture_mismatch', 'stonewright/elementor-v4-update-node' );
+		self::assertStringContainsString( 'elementor-v3-update-element', $hint );
+		self::assertStringContainsString( 'elementor-v3-batch-mutate', $hint );
+	}
+
+	public function test_raw_write_blocked_hint_names_batch_mutate(): void {
+		$hint = RemediationHints::for_code( 'stonewright_php_elementor_raw_write_blocked', 'stonewright/php-execute' );
+		self::assertStringContainsString( 'elementor-v3-batch-mutate', $hint );
+	}
+
 	public function test_error_patterns_persist_error_code_and_repair(): void {
 		ErrorPatterns::observe(
 			'stonewright/elementor-v3-batch-mutate',

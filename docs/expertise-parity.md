@@ -25,3 +25,13 @@ fingerprints or maintainer approval. Missing adapters remain `draft` or
 | P2 | Bricksforge, Dynamic Shortcodes, Code Snippets, SEO suites | Not implemented | none | absent |
 
 No row becomes verified or stable because a README, skill, or curriculum case mentions it.
+
+## Direct mode note
+
+Expertise packs, curriculum fingerprints, and the table above score **plugin
+mode** runtime surfaces (typed abilities, DesignSpec, Elementor engines,
+site-hosted skills/memory). Direct mode exposes a smaller companion tool set
+over core REST/WP-CLI with local skills and memory under `~/.stonewright/`; that
+path is intentionally **unscored** here. For what Direct can and cannot do, use
+the capability matrix in [direct-mode-e2e.md](direct-mode-e2e.md) rather than
+treating a pack row as Direct evidence.

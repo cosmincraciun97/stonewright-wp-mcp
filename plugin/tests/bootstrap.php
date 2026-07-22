@@ -54,6 +54,17 @@ foreach ( [ 'file.php', 'media.php', 'image.php', 'plugin.php', 'upgrade.php', '
 	}
 }
 
+// WordPress upgrade.php provides dbDelta(); the test harness has no real DB.
+if ( ! function_exists( 'dbDelta' ) ) {
+	/**
+	 * @param string|array<int, string> $queries
+	 * @return array<string, string>
+	 */
+	function dbDelta( $queries = '', $execute = true ): array {
+		return [];
+	}
+}
+
 if ( ! defined( 'STONEWRIGHT_VERSION' ) ) {
 	define( 'STONEWRIGHT_VERSION', '0.0.0-test' );
 }

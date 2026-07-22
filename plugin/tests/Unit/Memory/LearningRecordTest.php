@@ -100,13 +100,37 @@ final class LearningRecordTest extends TestCase {
 		self::assertSame( 'draft', $skill_insert['data']['status'] );
 	}
 
-	private function make_wpdb(): object {
-		return new class() {
-			public string $prefix = 'wp_';
-			public int $insert_id = 100;
+	public function test_learning_record_returns_error_when_store_fails(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb( false );
+
+		$result = ( new LearningRecord() )->execute(
+			[
+				'topic'      => 'X',
+				'correction' => 'Y',
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_memory_write_failed', $result->get_error_code() );
+		self::assertStringContainsString( 'memory table is unavailable', $result->get_error_message() );
+	}
+
+	private function make_wpdb( bool $insert_ok = true ): object {
+		return new class( $insert_ok ) {
+			public string $prefix     = 'wp_';
+			public int $insert_id     = 100;
+			public string $last_error = '';
+			private bool $insert_ok;
 
 			/** @var array<int, array{table:string,data:array<string,mixed>}> */
 			public array $inserts = [];
+
+			public function __construct( bool $insert_ok ) {
+				$this->insert_ok = $insert_ok;
+				if ( ! $insert_ok ) {
+					$this->last_error = 'Table does not exist';
+				}
+			}
 
 			public function get_var( string $query ): mixed {
 				if ( str_contains( $query, 'SELECT id FROM' ) ) {
@@ -123,8 +147,16 @@ final class LearningRecordTest extends TestCase {
 				return null;
 			}
 
+			/** @return array<int, string> */
+			public function get_col( string $query, int $x = 0 ): array {
+				return [];
+			}
+
 			/** @param array<string, mixed> $data */
-			public function insert( string $table, array $data, array $format = [] ): int {
+			public function insert( string $table, array $data, array $format = [] ): int|false {
+				if ( ! $this->insert_ok ) {
+					return false;
+				}
 				++$this->insert_id;
 				$this->inserts[] = [
 					'table' => $table,

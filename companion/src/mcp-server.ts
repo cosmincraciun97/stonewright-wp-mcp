@@ -25,6 +25,7 @@ import { AGENT_DO_NOT_USE, MCP_MISSING_BOOTSTRAP_STOP, agentUseInstead, buildSet
 import {
 	STARTUP_REQUIRED_PROXY_TOOL_NAMES,
 	type ProxyToolProfile,
+	mergeServerInstructions,
 	proxyToolProfileFromEnv,
 	proxyToolNamesForProfile,
 	registerWordPressMcpPrompts,
@@ -114,6 +115,8 @@ const LOCAL_TOOL_NAMES = [
 export async function createMcpServer(options: CreateMcpServerOptions = {}): Promise<McpServer> {
 	const env = options.env ?? process.env;
 	const profile = proxyToolProfileFromEnv(env);
+	// Companion-only text first; plugin instructions are merged after remote init
+	// (AI client connects after createMcpServer returns, so late set is safe).
 	const server = new McpServer({
 		name: 'stonewright-companion',
 		version: APP_VERSION,
@@ -165,6 +168,11 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 		try {
 			const registration = await registerWordPressMcpTools(server, wpMcpConfig, options.fetchImpl ?? fetch, env);
 			const promptSkills = await registerWordPressMcpPrompts(server, wpMcpConfig, options.fetchImpl ?? fetch);
+			// Forward plugin initialize.instructions so clients see task-start + site rules.
+			setServerInstructions(
+				server,
+				mergeServerInstructions(companionInstructions(profile), registration.remoteInstructions),
+			);
 			wpMcpStatus.ok = true;
 			wpMcpStatus.connected = true;
 			wpMcpStatus.mode = 'plugin';
@@ -202,6 +210,14 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 	}
 
 	return server;
+}
+
+/** SDK stores instructions on the inner Server; mutate before client connect. */
+function setServerInstructions(server: McpServer, instructions: string): void {
+	const inner = (server as unknown as { server?: { _instructions?: string } }).server;
+	if (inner) {
+		inner._instructions = instructions;
+	}
 }
 
 async function registerDirectMode(

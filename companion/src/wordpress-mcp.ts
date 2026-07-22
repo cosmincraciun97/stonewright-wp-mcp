@@ -47,6 +47,18 @@ export interface WordPressMcpRegistrationResult {
 	registeredTools: RemoteTool[];
 	profileFilteredToolNames: string[];
 	filteredToolCount: number;
+	/** Plugin MCP initialize.instructions captured during proxy handshake. */
+	remoteInstructions: string;
+}
+
+/**
+ * Combine companion handshake text with plugin initialize.instructions.
+ * Empty remote falls back to companion-only text.
+ */
+export function mergeServerInstructions(companionText: string, remoteText: string | null | undefined): string {
+	const remote = (remoteText ?? '').trim();
+	if (!remote) return companionText;
+	return `${companionText}\n\n--- WordPress plugin instructions ---\n${remote}`;
 }
 
 interface PromptSkill {
@@ -680,6 +692,7 @@ export async function registerWordPressMcpTools(
 		registeredTools,
 		profileFilteredToolNames: profileFilteredToolNames.slice(0, 12),
 		filteredToolCount: profileFilteredToolNames.length,
+		remoteInstructions: client.remoteInstructions,
 	};
 }
 
@@ -1046,15 +1059,21 @@ export function wordpressRestUrlFromMcpUrl(mcpUrl: string, restPath: string): st
 	return url.toString();
 }
 
-class WordPressMcpClient {
+export class WordPressMcpClient {
 	private nextId = 1;
 	private sessionId = '';
 	private initialized = false;
+	private remoteInstructionsValue = '';
 
 	public constructor(
 		private readonly config: WordPressMcpConfig,
 		private readonly fetchImpl: FetchLike,
 	) {}
+
+	/** Plugin MCP initialize.instructions (empty until ensureInitialized succeeds). */
+	public get remoteInstructions(): string {
+		return this.remoteInstructionsValue;
+	}
 
 	public async listTools(): Promise<RemoteTool[]> {
 		await this.ensureInitialized();
@@ -1089,10 +1108,14 @@ class WordPressMcpClient {
 			: [];
 	}
 
-	private async ensureInitialized(): Promise<void> {
+	/**
+	 * Eager handshake used by companion startup so server instructions can include
+	 * the plugin text before the AI client connects.
+	 */
+	public async ensureInitialized(): Promise<void> {
 		if (this.initialized) return;
 
-		await this.request('initialize', {
+		const result = await this.request('initialize', {
 			protocolVersion: '2025-06-18',
 			capabilities: {},
 			clientInfo: {
@@ -1100,6 +1123,11 @@ class WordPressMcpClient {
 				version: APP_VERSION,
 			},
 		});
+
+		const instructions = asRecord(result)?.['instructions'];
+		if (typeof instructions === 'string' && instructions.trim() !== '') {
+			this.remoteInstructionsValue = instructions;
+		}
 
 		await this.notification('notifications/initialized', {});
 		this.initialized = true;

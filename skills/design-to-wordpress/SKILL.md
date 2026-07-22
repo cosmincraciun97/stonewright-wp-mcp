@@ -53,6 +53,23 @@ external Figma MCP (client) / screenshot / brief
 Use the client’s Figma MCP to read frames, tokens, and bounds. Do **not** pass
 the raw document into Stonewright.
 
+Tool map when one or both Figma MCP servers are connected:
+[references/figma-mcp-extraction.md](references/figma-mcp-extraction.md).
+
+Quick pick (always re-list MCP tools — names vary by server build):
+
+| Need | Console-bridge (prefer if present) | Official Figma MCP |
+|------|------------------------------------|--------------------|
+| Color / spacing tokens | `figma_export_tokens`, `figma_get_token_values`, `figma_get_variables` | `get_variable_defs` |
+| Type ramp | `figma_get_design_system_summary` + `figma_get_text_styles` | `get_variable_defs` + `get_design_context` |
+| Bounds / layout | `figma_get_component_for_development_deep`, `figma_get_file_data` | `get_metadata`, `get_design_context` |
+| Screenshot hash | `figma_capture_screenshot`, `figma_take_screenshot` | `get_screenshot` |
+| Copy | file/dev tree text | `get_design_context` text |
+
+One collection-level tokens call beats per-node color reads. Extract per
+top-level section/frame. After normalizing DesignEvidence, do not re-fetch the
+file.
+
 ### 2. Normalize DesignEvidence 1.0
 
 Minimum shape:

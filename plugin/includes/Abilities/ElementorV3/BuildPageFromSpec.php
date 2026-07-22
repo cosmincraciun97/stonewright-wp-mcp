@@ -13,6 +13,7 @@ use Stonewright\WpMcp\Elementor\V4\AtomicTreeInspector;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RemediationHints;
 use Stonewright\WpMcp\Support\ElementorData;
 
 /**
@@ -132,7 +133,16 @@ final class BuildPageFromSpec extends AbilityKernel {
 				$before_hash  = TreeHasher::hash( $existing );
 				$architecture = (string) ( AtomicTreeInspector::inspect( $existing )['architecture'] ?? 'empty' );
 				if ( in_array( $architecture, [ 'v4', 'mixed' ], true ) ) {
-					return $this->error( 'v3_architecture_mismatch', __( 'This document contains Elementor V4 Atomic nodes. V3 rendering is blocked to prevent a mixed tree.', 'stonewright' ), [ 'status' => 409, 'architecture' => $architecture, 'before_hash' => $before_hash ] );
+					return $this->error(
+						'v3_architecture_mismatch',
+						__( 'This document contains Elementor V4 Atomic nodes. V3 rendering is blocked to prevent a mixed tree.', 'stonewright' ),
+						[
+							'status'       => 409,
+							'architecture' => $architecture,
+							'before_hash'  => $before_hash,
+							'repair'       => RemediationHints::for_code( 'stonewright_v3_architecture_mismatch', $this->name() ),
+						]
+					);
 				}
 				$expected_hash = isset( $args['expected_tree_hash'] ) ? (string) $args['expected_tree_hash'] : '';
 				if ( '' !== $expected_hash && ! hash_equals( $expected_hash, $before_hash ) ) {
@@ -169,7 +179,8 @@ final class BuildPageFromSpec extends AbilityKernel {
 				$snapshot_id = Backup::snapshot_post( $post_id );
 
 				$write_started_at = microtime( true );
-				if ( ! ElementorData::write( $post_id, $tree ) ) {
+				// Full-page builds can legitimately shrink the previous document after snapshot.
+				if ( ! ElementorData::write( $post_id, $tree, [ 'force_destructive' => true ] ) ) {
 					$restored = Backup::restore( $post_id, $snapshot_id );
 					return $this->error( 'write_failed', __( 'Could not save Elementor data; the snapshot was restored.', 'stonewright' ), [ 'restored' => $restored, 'validation_error' => SettingsValidator::last_error() ] );
 				}

@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Security;
 
 use Stonewright\WpMcp\Support\Json;
+use Stonewright\WpMcp\Support\Logger;
 
 /**
  * Append-only audit log for write abilities.
@@ -65,8 +66,14 @@ final class AuditLog {
 		// Learn from recurring errors without blocking the audit write path.
 		try {
 			ErrorPatterns::observe( $ability, $status, $sanitized_args );
-		} catch ( \Throwable ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch
-			// Pattern learning is best-effort.
+		} catch ( \Throwable $t ) {
+			Logger::error(
+				'error_patterns_observe_threw',
+				[
+					'ability' => $ability,
+					'error'   => $t->getMessage(),
+				]
+			);
 		}
 	}
 

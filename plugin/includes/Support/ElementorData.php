@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Support;
 
+use Stonewright\WpMcp\Elementor\Integrity\DocumentIntegrityGate;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
 
 /**
@@ -12,6 +13,27 @@ use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
  *   [ { id, elType, settings, elements, widgetType? }, … ]
  */
 final class ElementorData {
+
+	private static ?\WP_Error $last_write_error = null;
+
+	public static function last_write_error(): ?\WP_Error {
+		return self::$last_write_error;
+	}
+
+	/**
+	 * WP_Error an ability should return after ElementorData::write() failed.
+	 * Prefers the specific gate/validator error; falls back to a generic code.
+	 */
+	public static function write_error_for_ability( string $fallback_code = 'stonewright_write_failed' ): \WP_Error {
+		if ( self::$last_write_error instanceof \WP_Error ) {
+			return self::$last_write_error;
+		}
+		return new \WP_Error(
+			$fallback_code,
+			__( 'Could not save Elementor data.', 'stonewright' ),
+			[ 'status' => 500 ]
+		);
+	}
 
 	/**
 	 * Pull the parsed _elementor_data for a post. Empty array if missing.
@@ -28,6 +50,14 @@ final class ElementorData {
 		}
 		foreach ( [ (string) $raw, (string) wp_unslash( $raw ) ] as $candidate ) {
 			$decoded = json_decode( $candidate, true );
+			// Guard: if first decode is still a JSON string, decode once more
+			// for read convenience — but never write that double-encoded form.
+			if ( is_string( $decoded ) ) {
+				$inner = json_decode( $decoded, true );
+				if ( is_array( $inner ) ) {
+					return $inner;
+				}
+			}
 			if ( is_array( $decoded ) ) {
 				return $decoded;
 			}
@@ -38,28 +68,99 @@ final class ElementorData {
 	/**
 	 * Persist tree back to post meta. Elementor expects slashed JSON.
 	 *
-	 * `update_post_meta()` returns `false` BOTH when the call truly fails AND
-	 * when the new value happens to equal the existing value (a successful
-	 * no-op). The mode + version meta keys are frequently already correct
-	 * when this runs (e.g. on Theme Builder templates created by
-	 * TemplateStore::create, where `_elementor_edit_mode = 'builder'` is set
-	 * at creation time). Treating the no-op as a failure used to make every
-	 * BuildPageFromSpec call into a freshly-created template error out with
-	 * `stonewright_write_failed` even though the data WAS persisted. We now
-	 * read back each key after the write and accept it as long as the
-	 * end-state matches what we asked for.
+	 * P0 integrity gate runs first (size collapse, double-encode, widgetType
+	 * remap). On readback failure the previous document is restored.
 	 *
-	 * @param array<int, array<string, mixed>> $tree
+	 * @param array<int, array<string, mixed>> $tree    Document tree.
+	 * @param array<string, mixed>             $options force_destructive?, allow_widget_type_remap?, min_size_ratio?, skip_integrity?.
 	 */
-	public static function write( int $post_id, array $tree ): bool {
-		if ( ! SettingsValidator::validate_tree( $tree ) ) {
-			return false;
+	public static function write( int $post_id, array $tree, array $options = [] ): bool {
+		self::$last_write_error = null;
+		$previous               = self::read( $post_id );
+
+		if ( empty( $options['skip_integrity'] ) ) {
+			$gate = DocumentIntegrityGate::assert_write_allowed( $tree, $previous, $options );
+			if ( $gate instanceof \WP_Error ) {
+				self::$last_write_error = $gate;
+				return false;
+			}
 		}
-		$json = wp_json_encode( $tree, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
-		if ( false === $json ) {
+
+		if ( ! SettingsValidator::validate_tree( $tree ) ) {
+			self::$last_write_error = SettingsValidator::last_error()
+				?? new \WP_Error(
+					'stonewright_elementor_tree_invalid',
+					__( 'Elementor tree structure is invalid.', 'stonewright' ),
+					[ 'status' => 400 ]
+				);
 			return false;
 		}
 
+		$json = wp_json_encode( $tree, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+		if ( false === $json ) {
+			self::$last_write_error = new \WP_Error(
+				'stonewright_elementor_json_encode_failed',
+				__( 'Could not encode Elementor tree as JSON.', 'stonewright' ),
+				[ 'status' => 500 ]
+			);
+			return false;
+		}
+
+		// Reject accidental double-encode of the encoded string itself.
+		$payload_check = DocumentIntegrityGate::assert_meta_payload_not_double_encoded( $json );
+		if ( $payload_check instanceof \WP_Error ) {
+			self::$last_write_error = $payload_check;
+			return false;
+		}
+
+		$ok = self::persist_encoded( $post_id, $json, $tree );
+		if ( $ok ) {
+			return true;
+		}
+
+		// Readback failed — restore previous document when we had one.
+		if ( [] !== $previous ) {
+			$prev_json = wp_json_encode( $previous, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+			$restored  = false;
+			if ( false !== $prev_json ) {
+				$restored = self::persist_encoded( $post_id, $prev_json, $previous );
+			}
+			if ( $restored ) {
+				self::$last_write_error = new \WP_Error(
+					'stonewright_elementor_readback_failed_restored',
+					__( 'Elementor write readback failed; previous document was restored.', 'stonewright' ),
+					[
+						'status'  => 500,
+						'post_id' => $post_id,
+						'fix'   => [ 'use_batch_mutate', 'do_not_retry_raw_meta_write' ],
+					]
+				);
+			} else {
+				self::$last_write_error = new \WP_Error(
+					'stonewright_elementor_readback_failed_restore_failed',
+					__( 'Elementor write readback failed and the previous document could not be restored. Restore from a Stonewright snapshot before further edits.', 'stonewright' ),
+					[
+						'status'  => 500,
+						'post_id' => $post_id,
+						'fix'   => [ 'restore_snapshot', 'use_batch_mutate', 'do_not_retry_raw_meta_write' ],
+					]
+				);
+			}
+		} else {
+			self::$last_write_error = new \WP_Error(
+				'stonewright_elementor_readback_failed',
+				__( 'Elementor write readback failed.', 'stonewright' ),
+				[ 'status' => 500, 'post_id' => $post_id ]
+			);
+		}
+
+		return false;
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $tree
+	 */
+	private static function persist_encoded( int $post_id, string $json, array $tree ): bool {
 		$elementor_version = defined( 'ELEMENTOR_VERSION' ) ? ELEMENTOR_VERSION : '3.0.0';
 
 		update_post_meta( $post_id, '_elementor_data', wp_slash( $json ) );
@@ -67,13 +168,6 @@ final class ElementorData {
 		update_post_meta( $post_id, '_elementor_version', $elementor_version );
 		self::clear_cache( $post_id );
 
-		// Verify end-state — robust against update_post_meta's "false means
-		// either failed-or-unchanged" ambiguity AND against WP / mysqli /
-		// magic-quotes encoding round-trips (slash counts can shift, and
-		// unicode escape sequences like `·` get re-rendered as their
-		// literal UTF-8 bytes by some intermediate layers). The safe end-
-		// state check is to decode what WordPress gave us back and verify
-		// the tree round-trips to the same value we asked it to store.
 		$stored_data = (string) get_post_meta( $post_id, '_elementor_data', true );
 		$stored_mode = (string) get_post_meta( $post_id, '_elementor_edit_mode', true );
 		$stored_ver  = (string) get_post_meta( $post_id, '_elementor_version', true );
@@ -82,33 +176,19 @@ final class ElementorData {
 			return false;
 		}
 
-		// Fast path — direct string match (live WP auto-unslashes
-		// get_post_meta output so this matches when nothing weird is
-		// happening upstream).
 		if ( $stored_data === $json ) {
 			return true;
 		}
 
-		// One-unslash variant — the stub WordPress used in tests does
-		// not auto-unslash, so values come back still slashed.
 		if ( wp_unslash( $stored_data ) === $json ) {
 			return true;
 		}
 
-		// Decode round-trip — survives slash-count drift and unicode-
-		// escape rendering quirks. Try both raw and unslashed forms;
-		// whichever decodes cleanly is what WP stored.
 		foreach ( [ $stored_data, wp_unslash( $stored_data ) ] as $candidate ) {
 			$decoded = json_decode( (string) $candidate, true );
 			if ( is_array( $decoded ) ) {
 				$canonical_stored = wp_json_encode( $decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
-				if ( $canonical_stored === $json ) {
-					return true;
-				}
-				// Compare decoded structure directly to the source tree —
-				// catches the case where canonical re-encoding differs by
-				// key order but the data is structurally identical.
-				if ( $decoded === $tree ) {
+				if ( $canonical_stored === $json || $decoded === $tree ) {
 					return true;
 				}
 			}

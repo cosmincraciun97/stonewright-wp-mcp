@@ -129,7 +129,7 @@ final class SpecToElementorV3 extends AbilityKernel {
 				$next_tree   = $replace ? $tree : array_merge( $existing, $tree );
 
 				if ( ! ElementorData::write( $post_id, $next_tree ) ) {
-					return $this->error( 'write_failed', __( 'Could not save Elementor data.', 'stonewright' ) );
+					return ElementorData::write_error_for_ability();
 				}
 				$this->apply_page_shell_settings( $post_id );
 

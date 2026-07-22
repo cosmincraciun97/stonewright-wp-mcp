@@ -127,6 +127,12 @@ final class MemoryInstructionsPage {
 				</div>
 			</div>
 
+			<?php if ( ! Memory::table_schema_ok() ) : ?>
+				<div class="notice notice-error"><p>
+					<?php esc_html_e( 'Stonewright memory table is missing or outdated. Learning promotion and memory abilities cannot store entries. Deactivate and reactivate the plugin, or check database ALTER/CREATE permissions, then reload this page.', 'stonewright' ); ?>
+				</p></div>
+			<?php endif; ?>
+
 			<details class="sw-callout">
 				<summary><?php esc_html_e( 'Guidance', 'stonewright' ); ?></summary>
 				<div class="sw-callout__body">

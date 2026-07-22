@@ -194,41 +194,56 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 		self::assertLessThan( 3200, strlen( (string) wp_json_encode( $wide ) ) );
 	}
 
-	public function test_final_write_guard_blocks_unknown_settings_before_post_meta(): void {
-		$written = ElementorData::write(
-			99,
+	public function test_final_write_guard_preserves_unknown_settings_on_write(): void {
+		// P0 integrity: unknown Pro/runtime keys must not be stripped to "pass".
+		$GLOBALS['stonewright_test_posts'][99] = (object) [
+			'ID'   => 99,
+			'meta' => [
+				'_elementor_data'      => '[]',
+				'_elementor_edit_mode' => 'builder',
+			],
+		];
+		$tree = [
 			[
-				[
-					'id'         => 'card1',
-					'elType'     => 'widget',
-					'widgetType' => 'third-party-card',
-					'settings'   => [ 'invented_color' => '#fff' ],
-					'elements'   => [],
-				],
-			]
-		);
+				'id'         => 'card1',
+				'elType'     => 'widget',
+				'widgetType' => 'third-party-card',
+				'settings'   => [ 'invented_color' => '#fff' ],
+				'elements'   => [],
+			],
+		];
+		self::assertTrue( SettingsValidator::validate_tree( $tree ) );
+		$written = ElementorData::write( 99, $tree );
 
-		self::assertFalse( $written );
-		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
-		self::assertSame( 'stonewright_elementor_settings_invalid', SettingsValidator::last_error()?->get_error_code() );
+		self::assertTrue( $written, (string) ( ElementorData::last_write_error()?->get_error_message() ?? '' ) );
+		self::assertNotSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+		$meta = (string) ( $GLOBALS['stonewright_test_posts'][99]->meta['_elementor_data'] ?? '' );
+		self::assertStringContainsString( 'invented_color', stripslashes( $meta ) );
 	}
 
-	public function test_final_write_guard_blocks_unknown_container_settings_before_post_meta(): void {
-		$written = ElementorData::write(
-			99,
+	public function test_final_write_guard_preserves_unknown_container_settings_on_write(): void {
+		$GLOBALS['stonewright_test_posts'][99] = (object) [
+			'ID'   => 99,
+			'meta' => [
+				'_elementor_data'      => '[]',
+				'_elementor_edit_mode' => 'builder',
+			],
+		];
+		$tree = [
 			[
-				[
-					'id'       => 'container1',
-					'elType'   => 'container',
-					'settings' => [ 'invented_layout_key' => 'bad' ],
-					'elements' => [],
-				],
-			]
-		);
+				'id'       => 'container1',
+				'elType'   => 'container',
+				'settings' => [ 'invented_layout_key' => 'bad' ],
+				'elements' => [],
+			],
+		];
+		self::assertTrue( SettingsValidator::validate_tree( $tree ) );
+		$written = ElementorData::write( 99, $tree );
 
-		self::assertFalse( $written );
-		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
-		self::assertSame( 'stonewright_elementor_settings_invalid', SettingsValidator::last_error()?->get_error_code() );
+		self::assertTrue( $written, (string) ( ElementorData::last_write_error()?->get_error_message() ?? '' ) );
+		self::assertNotSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+		$meta = (string) ( $GLOBALS['stonewright_test_posts'][99]->meta['_elementor_data'] ?? '' );
+		self::assertStringContainsString( 'invented_layout_key', stripslashes( $meta ) );
 	}
 
 	public function test_final_write_guard_blocks_nodes_without_ids_before_post_meta(): void {
@@ -245,8 +260,11 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 
 		self::assertFalse( $written );
 		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
-		self::assertSame( 'stonewright_elementor_tree_invalid', SettingsValidator::last_error()?->get_error_code() );
-		self::assertSame( 'missing_id', SettingsValidator::last_error()?->get_error_data()['violations'][0]['code'] );
+		// Integrity gate runs before SettingsValidator on write.
+		self::assertSame(
+			'stonewright_elementor_integrity_missing_id',
+			ElementorData::last_write_error()?->get_error_code()
+		);
 	}
 
 	public function test_final_tree_guard_blocks_duplicate_ids(): void {
@@ -261,15 +279,15 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 		self::assertSame( 'duplicate_id', SettingsValidator::last_error()?->get_error_data()['violations'][0]['code'] );
 	}
 
-	public function test_final_tree_guard_blocks_atomic_widgets_in_v3_tree(): void {
+	public function test_final_tree_guard_allows_atomic_widgets_in_mixed_tree(): void {
+		// P0: coexisting e-* nodes are structure-only; never force convert to text-editor.
 		$valid = SettingsValidator::validate_tree(
 			[
 				[ 'id' => 'atomic1', 'elType' => 'widget', 'widgetType' => 'e-heading', 'settings' => [], 'elements' => [] ],
 			]
 		);
 
-		self::assertFalse( $valid );
-		self::assertSame( 'atomic_widget_in_v3_tree', SettingsValidator::last_error()?->get_error_data()['violations'][0]['code'] );
+		self::assertTrue( $valid );
 	}
 
 	public function test_final_tree_guard_blocks_stripped_unicode_escapes(): void {

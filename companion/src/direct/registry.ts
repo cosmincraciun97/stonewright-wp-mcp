@@ -2,7 +2,7 @@ import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server
 import { z } from 'zod';
 import { loadSitesConfig, resolveSite, type SitesConfig } from './sites-config.js';
 import { WpRestClient, WpRestError } from './wp-rest-client.js';
-import { resolveDirectWriteMode } from './writes.js';
+import { hasTaskStartSeen, resolveDirectWriteMode } from './writes.js';
 import * as content from './tools/content.js';
 import * as media from './tools/media.js';
 import * as taxonomy from './tools/taxonomy.js';
@@ -28,7 +28,11 @@ import * as acf from './tools/acf.js';
 import * as elementorDirect from './tools/elementor-direct.js';
 import * as gutenbergValidate from './tools/gutenberg-validate.js';
 import * as agentsMd from './agents-md.js';
-import { appendDirectAudit } from './audit.js';
+import {
+	appendDirectAudit,
+	escalateDirectError,
+	noteDirectErrorOccurrence,
+} from './audit.js';
 
 export const DIRECT_WAVE1_TOOL_NAMES = [
 	'stonewright-content-list',
@@ -254,9 +258,69 @@ export function shouldRegisterDirectTool(
 	return directProfileToolNames(profile).includes(name);
 }
 
-function toolResponse(data: unknown) {
+const TASK_START_NUDGE_SKIP = new Set([
+	'stonewright-task-start',
+	'stonewright-context-bootstrap',
+	'stonewright-workflow-preflight',
+]);
+
+const TASK_START_HINT =
+	'Session not initialized: call stonewright-task-start with your task description to load site skills, memory, recurring errors, and the write token.';
+
+/**
+ * Non-blocking pre-session nudge on successful object payloads.
+ * Write tools throw via assertWriteAllowed before reaching here; task-start
+ * marks the latch before returning, so its response stays clean.
+ */
+export function maybeAttachTaskStartHint(
+	payload: unknown,
+	options: { tool?: string; site?: string; now?: number } = {},
+): unknown {
+	if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+		return payload;
+	}
+	const tool = options.tool ?? '';
+	if (tool && TASK_START_NUDGE_SKIP.has(tool)) {
+		return payload;
+	}
+	if (hasTaskStartSeen(options.site, options.now ?? Date.now())) {
+		return payload;
+	}
+	const row = payload as Record<string, unknown>;
+	if (row['ok'] === false) {
+		return payload;
+	}
+	if (typeof row['task_start_hint'] === 'string') {
+		return payload;
+	}
+	return { ...row, task_start_hint: TASK_START_HINT };
+}
+
+function toolResponse(data: unknown, meta?: { tool?: string; site?: string }) {
+	let payload: unknown = data;
+	if (
+		meta?.tool &&
+		payload &&
+		typeof payload === 'object' &&
+		(payload as { ok?: unknown }).ok === false
+	) {
+		const row = payload as { ok: false; error?: string; message?: string; [key: string]: unknown };
+		const error = String(row.error ?? 'error');
+		const message = String(row.message ?? row.error ?? 'error');
+		const count = noteDirectErrorOccurrence(meta.tool, error, message);
+		payload = escalateDirectError(
+			meta.tool,
+			{ ...row, ok: false, error, message },
+			count,
+		);
+	} else {
+		payload = maybeAttachTaskStartHint(payload, {
+			...(meta?.tool !== undefined ? { tool: meta.tool } : {}),
+			...(meta?.site !== undefined ? { site: meta.site } : {}),
+		});
+	}
 	return {
-		content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }],
+		content: [{ type: 'text' as const, text: JSON.stringify(payload, null, 2) }],
 	};
 }
 
@@ -267,27 +331,54 @@ function toolError(err: unknown, meta?: { tool?: string; site?: string }) {
 			: err instanceof Error
 				? err.message
 				: String(err);
+	const tool = meta?.tool && meta.tool.length > 0 ? meta.tool : 'stonewright-direct';
+	const errorCode =
+		err instanceof WpRestError
+			? String(err.toJSON().code ?? 'wp_rest_error')
+			: 'error';
 	if (meta?.tool) {
 		try {
 			appendDirectAudit({
 				tool: meta.tool,
 				site: meta.site && meta.site.length > 0 ? meta.site : '_global',
 				status: 'error',
+				code: errorCode,
 				error: message.slice(0, 200),
 			});
 		} catch {
 			// best-effort audit
 		}
 	}
+	const count = noteDirectErrorOccurrence(tool, errorCode, message.slice(0, 200));
+	const escalated = escalateDirectError(
+		tool,
+		{ ok: false, error: errorCode, message: message.slice(0, 500) },
+		count,
+	);
 	if (err instanceof WpRestError) {
+		const base = err.toJSON();
 		return {
 			isError: true as const,
-			content: [{ type: 'text' as const, text: JSON.stringify(err.toJSON(), null, 2) }],
+			content: [
+				{
+					type: 'text' as const,
+					text: JSON.stringify(
+						{
+							...base,
+							message: escalated.message,
+							occurrences: escalated.occurrences,
+							repair: escalated.repair,
+						},
+						null,
+						2,
+					),
+				},
+			],
 		};
 	}
 	return {
 		isError: true as const,
-		content: [{ type: 'text' as const, text: JSON.stringify({ error: message }, null, 2) }],
+		content: [{ type: 'text' as const, text: JSON.stringify(escalated, null, 2) }],
 	};
 }
 
@@ -1235,7 +1326,10 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		tool(name, desc, shape, async (input) => {
 			const site = String((input as { site?: string }).site ?? '_global');
 			try {
-				return toolResponse(await fn(input as Record<string, unknown>, buildContext(ctx, (input as { site?: string }).site)));
+				return toolResponse(
+					await fn(input as Record<string, unknown>, buildContext(ctx, (input as { site?: string }).site)),
+					{ tool: name, site },
+				);
 			} catch (err) {
 				return toolError(err, { tool: name, site });
 			}
@@ -1406,7 +1500,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		tool(name, description, shape, async (input) => {
 			const site = String((input as { site?: string }).site ?? '_global');
 			try {
-				return toolResponse(await handler(input as Record<string, unknown>));
+				return toolResponse(await handler(input as Record<string, unknown>), { tool: name, site });
 			} catch (err) {
 				return toolError(err, { tool: name, site });
 			}
@@ -1550,11 +1644,13 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 	w3(
 		'stonewright-elementor-data-get',
-		'Read _elementor_data (WP-CLI when local; core REST meta fallback on remote if registered). Not plugin batch-mutate.',
+		'Read _elementor_data as a capped summary outline by default (responseMode=full for raw JSON). WP-CLI when local; core REST meta fallback on remote if registered. Not plugin batch-mutate.',
 		{
 			site: siteArg,
 			post_id: z.number().int().positive(),
 			type: z.string().optional(),
+			responseMode: z.enum(['summary', 'full']).default('summary').optional(),
+			maxElements: z.number().int().min(1).max(500).default(200).optional(),
 			cwd: z.string().optional(),
 			path: z.string().optional(),
 		},
@@ -1563,13 +1659,15 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 	w3(
 		'stonewright-elementor-data-update',
-		'Update _elementor_data without opening the Elementor editor. Prefers WP-CLI; remote Direct uses REST meta with local file backup. No schema validation — prefer plugin batch-mutate on production.',
+		'Update _elementor_data without opening the Elementor editor. Prefers WP-CLI; remote Direct uses REST meta with local file backup. P0 integrity gate blocks double-encode, size collapse, and widgetType remaps. Prefer plugin batch-mutate on production.',
 		{
 			site: siteArg,
 			post_id: z.number().int().positive(),
 			type: z.string().optional(),
 			data: z.union([z.string(), z.array(z.unknown()), z.record(z.string(), z.unknown())]),
 			confirm: confirmArg,
+			force_destructive: z.boolean().optional(),
+			allow_widget_type_remap: z.boolean().optional(),
 			cwd: z.string().optional(),
 			path: z.string().optional(),
 		},

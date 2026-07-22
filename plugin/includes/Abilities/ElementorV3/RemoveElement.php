@@ -86,8 +86,9 @@ final class RemoveElement extends AbilityKernel {
 				}
 
 				$tree = ElementorData::set( $tree, $path, null );
-				if ( ! ElementorData::write( $post_id, $tree ) ) {
-					return $this->error( 'write_failed', __( 'Could not save Elementor data.', 'stonewright' ) );
+				// Intentional element removal is a confirmed destructive write; size-collapse is expected.
+				if ( ! ElementorData::write( $post_id, $tree, [ 'force_destructive' => true ] ) ) {
+					return ElementorData::write_error_for_ability();
 				}
 
 				return [

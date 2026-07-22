@@ -13,6 +13,7 @@ use Stonewright\WpMcp\Elementor\Write\IdempotencyStore;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RemediationHints;
 use Stonewright\WpMcp\Support\ElementorData;
 
 /**
@@ -187,7 +188,12 @@ final class BatchMutate extends AbilityKernel {
 					return $this->error(
 						'v3_architecture_mismatch',
 						__( 'This document contains Elementor V4 Atomic nodes. V3 batch mutation is blocked to prevent a mixed tree.', 'stonewright' ),
-						[ 'status' => 409, 'architecture' => $architecture, 'before_hash' => $before_hash, 'repair' => 'Read the atomic tree and use the V4 editor pipeline; never translate V4 nodes to V3 implicitly.' ]
+						[
+							'status'       => 409,
+							'architecture' => $architecture,
+							'before_hash'  => $before_hash,
+							'repair'       => RemediationHints::for_code( 'stonewright_v3_architecture_mismatch', $this->name() ),
+						]
 					);
 				}
 				$expected_tree_hash = isset( $args['expected_tree_hash'] ) ? (string) $args['expected_tree_hash'] : '';
@@ -280,9 +286,17 @@ final class BatchMutate extends AbilityKernel {
 				if ( ! $dry_run ) {
 					$snapshot_id = Backup::snapshot_post( $post_id );
 					$write_start = microtime( true );
-					if ( ! ElementorData::write( $post_id, $tree ) ) {
+					// Surgical batch may remove large subtrees; force_destructive is bound to this
+					// intentional, snapshotted write (not an accidental silent collapse).
+					if ( ! ElementorData::write( $post_id, $tree, [ 'force_destructive' => true ] ) ) {
 						$restored = Backup::restore( $post_id, $snapshot_id );
-						return $this->error( 'write_failed', __( 'Could not save Elementor data; the snapshot was restored.', 'stonewright' ), [ 'restored' => $restored ] );
+						$err      = ElementorData::write_error_for_ability();
+						// Preserve restore info for the agent without losing gate codes/fix hints.
+						return new \WP_Error(
+							$err->get_error_code(),
+							$err->get_error_message(),
+							array_merge( (array) $err->get_error_data(), [ 'restored' => $restored ] )
+						);
 					}
 					$write_ms = self::elapsed_ms( $write_start );
 					$readback_hash = TreeHasher::hash( ElementorData::read( $post_id ) );

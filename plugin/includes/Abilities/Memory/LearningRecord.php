@@ -172,6 +172,14 @@ final class LearningRecord extends AbilityKernel {
 					]
 				);
 
+				if ( 0 === $memory_id ) {
+					return $this->error(
+						'memory_write_failed',
+						__( 'Learning could not be stored — the memory table is unavailable. Report this to the site owner; the Memory admin page shows schema health.', 'stonewright' ),
+						[ 'status' => 500 ]
+					);
+				}
+
 				$skill_id   = null;
 				$skill_slug = null;
 				if ( (bool) ( $a['update_skill'] ?? false ) ) {
