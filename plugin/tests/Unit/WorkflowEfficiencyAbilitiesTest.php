@@ -330,8 +330,10 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertArrayHasKey( 'elementor', $result );
 		self::assertArrayHasKey( 'fast_path', $result );
 		self::assertArrayHasKey( 'tool_profile', $result['fast_path'] );
-		self::assertSame( 'essential', $result['fast_path']['tool_profile']['profile'] );
+		self::assertSame( 'elementor-design', $result['fast_path']['tool_profile']['profile'] );
 		self::assertSame( 'elementor-design', $result['fast_path']['tool_profile']['suggested_profile'] );
+		self::assertTrue( $result['fast_path']['tool_profile']['session_profile_applied'] );
+		self::assertSame( 'session_transient_written', $result['fast_path']['tool_profile']['session_profile_reason'] );
 		self::assertIsBool( $result['fast_path']['tool_profile']['under_limit'] );
 		self::assertArrayHasKey( 'elementor_design', $result['fast_path']['tool_profile']['tool_groups'] );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $result['fast_path']['tool_profile']['tool_groups']['elementor_design']['abilities'] );
