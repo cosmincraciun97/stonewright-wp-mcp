@@ -63,6 +63,7 @@ describe('direct self-improve protocol e2e (zero WordPress)', () => {
 			task: 'fix woocommerce product images on the catalog',
 		});
 		expect(start.mode).toBe('direct');
+		expect(start.surface_revision).toBe(0);
 		const matched = start.matched_skills as Array<{ slug: string }>;
 		expect(matched.some((s) => s.slug === 'wc-image-fix')).toBe(true);
 
@@ -99,8 +100,12 @@ describe('direct self-improve protocol e2e (zero WordPress)', () => {
 		expect(start).toMatchObject({
 			configured_mcp_surface: 'bootstrap',
 			session_tool_profile: 'elementor-design',
+			surface_revision: 1,
 			tools_changed: true,
 		});
+		const status = await callTool(tools, 'stonewright-wordpress-mcp-status', {});
+		expect(status.surface_revision).toBe(1);
+		expect(status.tool_profile).toBe('elementor-design');
 		expect(tools['stonewright-elementor-data-update']?.enabled).toBe(true);
 		expect(tools['stonewright-comment-list']?.enabled).toBe(false);
 	});

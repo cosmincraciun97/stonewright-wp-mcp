@@ -35,6 +35,7 @@ describe('tool profile resolve + client cap', () => {
 						'stonewright-elementor-v3-build-page-from-spec',
 					],
 					mcp_surface: 'full',
+					surface_revision: 4,
 				}),
 			),
 		};
@@ -43,6 +44,7 @@ describe('tool profile resolve + client cap', () => {
 		expect(result.tools[0]).toBe('stonewright-task-start');
 		expect(result.tools).toContain('stonewright-blueprint-apply');
 		expect(result.configuredSurface).toBe('full');
+		expect(result.surfaceRevision).toBe(4);
 		expect(client.callTool).toHaveBeenCalledWith(
 			'stonewright-tool-profile',
 			expect.objectContaining({ action: 'resolve', profile: 'elementor-design' }),

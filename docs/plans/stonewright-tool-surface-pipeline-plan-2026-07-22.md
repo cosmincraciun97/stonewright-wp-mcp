@@ -2935,7 +2935,7 @@ even when a response has no explicit `tools_changed:true` (the admin-toggle case
 Direct mode (no plugin), the companion owns the surface itself, so it tracks its own
 revision and fires the same notification on profile activation.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `companion/tests/tools-changed.test.ts`:
 
@@ -2961,13 +2961,13 @@ describe('surface_revision propagation', () => {
 });
 ```
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 Run: `cd companion && npx vitest run tests/tools-changed.test.ts`
 Expected: FAIL — `surfaceRevisionFromStructured` is not exported and
 `structuredIndicatesToolsChanged` takes one argument.
 
-- [ ] **Step 3: Add the extractor and extend the change signal**
+- [x] **Step 3: Add the extractor and extend the change signal**
 
 In `wordpress-mcp.ts`, add near `profileHintFromStructured` (line 802):
 
@@ -3007,7 +3007,7 @@ update it via `surfaceRevisionFromStructured` (only ever move it forward). When 
 returns true, the existing `handleToolsChangedResponse` + `emitToolListChanged` flow runs
 unchanged.
 
-- [ ] **Step 4: Live `wpMcpStatus` + Direct-mode revision**
+- [x] **Step 4: Live `wpMcpStatus` + Direct-mode revision**
 
 - `mcp-server.ts` (lines 176-204): `wpMcpStatus` is written once at startup. Store the
   latest `surface_revision`/`live_tool_profile` on the same mutable status object whenever a
@@ -3033,12 +3033,12 @@ it('wordpress-mcp-status reports the last seen surface_revision', async () => {
 > Fill the test body with the file's existing tool-invocation harness; do not invent a new
 > server bootstrap.
 
-- [ ] **Step 5: Run to verify**
+- [x] **Step 5: Run to verify**
 
 Run: `cd companion && npx vitest run tests/tools-changed.test.ts tests/mcp-server.test.ts && npm run typecheck`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add companion/src/wordpress-mcp.ts companion/src/mcp-server.ts companion/src/direct/registry.ts companion/tests/

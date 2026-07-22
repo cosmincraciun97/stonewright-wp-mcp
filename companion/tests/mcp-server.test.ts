@@ -574,6 +574,59 @@ describe('createMcpServer', () => {
 		expect(response.structuredContent?.recovery).toContain('If startup_ready is false, update/enable the missing startup tools in the WordPress Stonewright plugin, then restart the MCP session.');
 	});
 
+	it('wordpress-mcp-status reports the last seen surface_revision', async () => {
+		const remoteTools = [
+			{ name: 'stonewright-context-bootstrap' },
+			{ name: 'stonewright-task-start' },
+			{ name: 'stonewright-tool-profile' },
+		];
+		const fallback = stonewrightMcpFetch(remoteTools);
+		const fetchImpl: typeof fetch = async (url, init) => {
+			const body = JSON.parse(String(init?.body ?? '{}')) as {
+				method?: string;
+				params?: { name?: string };
+			};
+			if (body.method === 'tools/call') {
+				const structuredContent = body.params?.name === 'stonewright-tool-profile'
+					? {
+						ok: true,
+						tools: remoteTools.map((tool) => tool.name),
+						mcp_surface: 'bootstrap',
+						surface_revision: 8,
+					}
+					: {
+						ok: true,
+						session_tool_profile: 'bootstrap',
+						tools_changed: false,
+						surface_revision: 9,
+					};
+				return new Response(JSON.stringify({
+					jsonrpc: '2.0',
+					id: 3,
+					result: { structuredContent, content: [{ type: 'text', text: JSON.stringify(structuredContent) }] },
+				}), { headers: { 'content-type': 'application/json' } });
+			}
+			return fallback(url, init);
+		};
+
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+			},
+			fetchImpl,
+		});
+		const tools = (server as { _registeredTools?: Record<string, { handler?: (input: unknown) => Promise<unknown> }> })._registeredTools ?? {};
+		await tools['stonewright-task-start']?.handler?.({ task: 'check revision' });
+		const response = await tools['stonewright-wordpress-mcp-status']?.handler?.({}) as {
+			structuredContent?: { surface_revision?: number; live_tool_profile?: string };
+		};
+
+		expect(response.structuredContent?.surface_revision).toBe(9);
+		expect(response.structuredContent?.live_tool_profile).toBe('bootstrap');
+	});
+
 	it('reports startup ready when compact first-call tools are proxied', async () => {
 		const server = await createMcpServer({
 			env: {

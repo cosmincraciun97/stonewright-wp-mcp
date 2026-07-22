@@ -219,6 +219,8 @@ export interface DirectModeContext {
 	timeoutMs?: number;
 	/** Initial Direct tool surface. Defaults to bootstrap in the companion. */
 	toolProfile?: DirectToolProfile;
+	/** Keep companion status synchronized with Direct profile changes. */
+	onSurfaceChange?: (revision: number, profile: DirectToolProfile) => void;
 }
 
 function directProfileToolNames(profile: DirectToolProfile): readonly string[] {
@@ -407,6 +409,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	const siteArg = z.string().optional().describe('Site alias from ~/.stonewright/sites.json');
 	const confirmArg = z.boolean().optional().describe('Required true for destructive tools when remote/confirm mode');
 	let activeProfile: DirectToolProfile = ctx.toolProfile ?? 'bootstrap';
+	let directSurfaceRevision = 0;
 	const registered: string[] = [];
 	const toolHandles = new Map<string, RegisteredTool>();
 	// MCP SDK overloads tool(); keep a typed wrapper without `any`.
@@ -447,6 +450,8 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		activeProfile = profile;
 		const inner = (server as unknown as { server?: { sendToolListChanged?: () => void | Promise<void> } }).server;
 		if (added.length > 0 || removed.length > 0) {
+			directSurfaceRevision += 1;
+			ctx.onSurfaceChange?.(directSurfaceRevision, profile);
 			try {
 				await Promise.resolve(inner?.sendToolListChanged?.());
 			} catch {
@@ -454,7 +459,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 				// can re-list explicitly from the returned instruction.
 			}
 		}
-		return { added, removed };
+		return { added, removed, surfaceRevision: directSurfaceRevision };
 	};
 
 
@@ -1586,11 +1591,14 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			const sessionProfile = configuredProfile === 'bootstrap'
 				? suggestDirectToolProfile(String(input['task'] ?? ''), String(input['surface'] ?? ''), String(input['intent'] ?? ''))
 				: configuredProfile;
-			const changed = sessionProfile !== activeProfile ? await activateProfile(sessionProfile) : { added: [], removed: [] };
+			const changed = sessionProfile !== activeProfile
+				? await activateProfile(sessionProfile)
+				: { added: [], removed: [], surfaceRevision: directSurfaceRevision };
 			return {
 				...result,
 				configured_mcp_surface: configuredProfile,
 				session_tool_profile: sessionProfile,
+				surface_revision: changed.surfaceRevision,
 				session_tools: [...directProfileToolNames(sessionProfile)],
 				tools_changed: changed.added.length > 0 || changed.removed.length > 0,
 				re_list_instruction: changed.added.length > 0 || changed.removed.length > 0

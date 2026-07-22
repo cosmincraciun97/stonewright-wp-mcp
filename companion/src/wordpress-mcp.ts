@@ -591,8 +591,10 @@ export async function registerWordPressMcpTools(
 	if (activeProfile !== envProfile) {
 		resolved = await resolvePluginProxyToolNames(client, activeProfile, maxTools);
 	}
+	let lastSeenSurfaceRevision = resolved.surfaceRevision;
 	const liveState: WordPressProxyLiveState = {
 		profile: activeProfile,
+		surfaceRevision: lastSeenSurfaceRevision,
 		enabledToolNames: [],
 		registeredToolCount: 0,
 		lastRefreshAt: null,
@@ -679,7 +681,13 @@ export async function registerWordPressMcpTools(
 			?? parseStructuredFromContent(response.content);
 		const hintedProfile = profileHintFromStructured(structured);
 		const profileDrift = hintedProfile !== null && coerceProxyToolProfile(hintedProfile) !== activeProfile;
-		if ((structuredIndicatesToolsChanged(structured) || profileDrift) && structured) {
+		const revisionChanged = structuredIndicatesToolsChanged(structured, lastSeenSurfaceRevision);
+		const responseRevision = surfaceRevisionFromStructured(structured);
+		if (responseRevision !== null && (lastSeenSurfaceRevision === null || responseRevision > lastSeenSurfaceRevision)) {
+			lastSeenSurfaceRevision = responseRevision;
+			liveState.surfaceRevision = responseRevision;
+		}
+		if ((revisionChanged || profileDrift) && structured) {
 			// Serialize refreshes so concurrent profile switches do not race registration.
 			if (!refreshInFlight) {
 				refreshInFlight = handleToolsChangedResponse({
@@ -736,7 +744,13 @@ export async function resolvePluginProxyToolNames(
 	client: { callTool: (name: string, args: Record<string, unknown>) => Promise<unknown> },
 	profile: ProxyToolProfile,
 	maxTools: number | null = null,
-): Promise<{ tools: string[]; source: 'plugin' | 'fallback'; ordered: boolean; configuredSurface: ProxyToolProfile | null }> {
+): Promise<{
+	tools: string[];
+	source: 'plugin' | 'fallback';
+	ordered: boolean;
+	configuredSurface: ProxyToolProfile | null;
+	surfaceRevision: number | null;
+}> {
 	try {
 		const queryProfile = profile === 'full' ? 'essential' : profile;
 		const raw = await client.callTool('stonewright-tool-profile', {
@@ -748,8 +762,9 @@ export async function resolvePluginProxyToolNames(
 		const configuredSurface = typeof structured?.['mcp_surface'] === 'string'
 			? coerceProxyToolProfile(structured['mcp_surface'])
 			: null;
+		const surfaceRevision = surfaceRevisionFromStructured(structured);
 		if (profile === 'full') {
-			return { tools: [], source: 'plugin', ordered: true, configuredSurface };
+			return { tools: [], source: 'plugin', ordered: true, configuredSurface, surfaceRevision };
 		}
 		const toolsRaw = structured?.['tools'];
 		const names: string[] = [];
@@ -763,7 +778,7 @@ export async function resolvePluginProxyToolNames(
 			}
 		}
 		if (names.length > 0) {
-			return { tools: names, source: 'plugin', ordered: true, configuredSurface };
+			return { tools: names, source: 'plugin', ordered: true, configuredSurface, surfaceRevision };
 		}
 	} catch {
 		// Plugin unreachable (Direct mode) — use fallback.
@@ -773,6 +788,7 @@ export async function resolvePluginProxyToolNames(
 		source: 'fallback',
 		ordered: true,
 		configuredSurface: null,
+		surfaceRevision: null,
 	};
 }
 
@@ -840,6 +856,15 @@ function profileHintFromStructured(structured: Record<string, unknown> | null | 
 	return null;
 }
 
+/** Extract the plugin's monotonic tool-surface revision. */
+export function surfaceRevisionFromStructured(
+	structured: Record<string, unknown> | null | undefined,
+): number | null {
+	if (!structured) return null;
+	const value = structured['surface_revision'];
+	return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
 export function proxyToolProfileFromEnv(env: NodeJS.ProcessEnv): ProxyToolProfile {
 	return coerceProxyToolProfile(
 		env['STONEWRIGHT_MCP_TOOL_PROFILE'] ?? env['STONEWRIGHT_MCP_PROXY_PROFILE'] ?? 'bootstrap',
@@ -847,17 +872,20 @@ export function proxyToolProfileFromEnv(env: NodeJS.ProcessEnv): ProxyToolProfil
 }
 
 /**
- * True when a proxied ability result signals that the MCP tool list changed
- * (explicit flag or non-empty re_list_instruction).
+ * True when a proxied ability result signals that the MCP tool list changed:
+ * explicit flag, re-list instruction, or a newer monotonic surface revision.
  */
 export function structuredIndicatesToolsChanged(
 	structured: Record<string, unknown> | null | undefined,
+	lastSeenRevision: number | null = null,
 ): boolean {
 	if (!structured) return false;
 	if (structured['tools_changed'] === true) return true;
 	const reList = structured['re_list_instruction'];
 	// Non-empty re_list always means the companion must re-register and notify.
-	return typeof reList === 'string' && reList.trim() !== '';
+	if (typeof reList === 'string' && reList.trim() !== '') return true;
+	const revision = surfaceRevisionFromStructured(structured);
+	return revision !== null && lastSeenRevision !== null && revision > lastSeenRevision;
 }
 
 /**
@@ -925,6 +953,7 @@ export interface ToolsChangedRefreshResult {
 
 export interface WordPressProxyLiveState {
 	profile: ProxyToolProfile;
+	surfaceRevision: number | null;
 	enabledToolNames: string[];
 	registeredToolCount: number;
 	lastRefreshAt: string | null;

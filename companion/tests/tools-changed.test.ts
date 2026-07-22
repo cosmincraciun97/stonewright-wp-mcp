@@ -11,6 +11,7 @@ import {
 	mcpToolNamesFromStructured,
 	parseStructuredFromContent,
 	structuredIndicatesToolsChanged,
+	surfaceRevisionFromStructured,
 	type ToolsChangedRefreshResult,
 } from '../src/wordpress-mcp.js';
 
@@ -57,6 +58,20 @@ describe('structuredIndicatesToolsChanged', () => {
 		expect(structuredIndicatesToolsChanged({})).toBe(false);
 		expect(structuredIndicatesToolsChanged({ tools_changed: false, re_list_instruction: '' })).toBe(false);
 		expect(structuredIndicatesToolsChanged({ re_list_instruction: '   ' })).toBe(false);
+	});
+});
+
+describe('surface_revision propagation', () => {
+	it('extracts surface_revision from a structured gateway result', () => {
+		expect(surfaceRevisionFromStructured({ surface_revision: 7 })).toBe(7);
+		expect(surfaceRevisionFromStructured({})).toBeNull();
+		expect(surfaceRevisionFromStructured(null)).toBeNull();
+	});
+
+	it('treats a newer revision as a tools-changed signal even without the flag', () => {
+		expect(structuredIndicatesToolsChanged({ surface_revision: 5 }, 3)).toBe(true);
+		expect(structuredIndicatesToolsChanged({ surface_revision: 5 }, 5)).toBe(false);
+		expect(structuredIndicatesToolsChanged({ tools_changed: true }, 5)).toBe(true);
 	});
 });
 
@@ -110,6 +125,7 @@ describe('handleToolsChangedResponse', () => {
 		]);
 		const liveState = {
 			profile: 'bootstrap' as const,
+			surfaceRevision: null as number | null,
 			enabledToolNames: [] as string[],
 			registeredToolCount: 0,
 			lastRefreshAt: null as string | null,
