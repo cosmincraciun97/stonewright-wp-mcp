@@ -878,7 +878,7 @@ git commit -m "feat: report tool-profile truncation by name with degraded flag"
 
 The essential list has 29 names; `TokenSurfaceBudgets::ESSENTIAL_MAX_TOOLS` is 30, so exactly one slot is free. `theme-file-patch` is the one write tool the failure session actually needed and could not see (bootstrap already carries `theme-file-read`/`theme-custom-css` via its `$pick`). Everything else rides the session profile from Tasks 1-3.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 In `plugin/tests/Unit/Core/AbilityRegistryEssentialModeTest.php`, add:
 
@@ -894,12 +894,12 @@ In `plugin/tests/Unit/Core/AbilityRegistryEssentialModeTest.php`, add:
 	}
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `cd plugin && vendor/bin/phpunit --filter test_essential_surface_includes_theme_file_patch_within_budget`
 Expected: FAIL — name not in list.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `essential_ability_names()`, after the line `'stonewright/gutenberg-apply-to-post',` add:
 
@@ -909,7 +909,7 @@ In `essential_ability_names()`, after the line `'stonewright/gutenberg-apply-to-
 			'stonewright/theme-file-patch',
 ```
 
-- [ ] **Step 4: Run tests, full suite, commit**
+- [x] **Step 4: Run tests, full suite, commit**
 
 Run: `cd plugin && composer test && composer phpstan`
 Expected: PASS (if a budget snapshot test asserts the exact essential count, update it from 29 to 30).

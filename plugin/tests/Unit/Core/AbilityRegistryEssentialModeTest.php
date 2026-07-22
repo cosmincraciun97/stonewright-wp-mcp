@@ -60,6 +60,16 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 		}
 	}
 
+	public function test_essential_surface_includes_theme_file_patch_within_budget(): void {
+		$names = AbilityRegistry::essential_ability_names_for_test();
+
+		self::assertContains( 'stonewright/theme-file-patch', $names );
+		self::assertLessThanOrEqual(
+			\Stonewright\WpMcp\Support\TokenSurfaceBudgets::ESSENTIAL_MAX_TOOLS,
+			count( $names )
+		);
+	}
+
 	public function test_essential_mode_filters_to_compact_fast_path(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_essential_tools_mode'] = true;
 

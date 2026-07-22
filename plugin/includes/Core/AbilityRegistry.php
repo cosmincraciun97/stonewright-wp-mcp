@@ -1281,6 +1281,8 @@ final class AbilityRegistry {
 			'stonewright/elementor-v3-batch-mutate',
 			'stonewright/theme-builder-apply-template',
 			'stonewright/gutenberg-apply-to-post',
+			// Theme read lives in bootstrap; keep its write counterpart reachable.
+			'stonewright/theme-file-patch',
 			'stonewright/wp-cli-batch-run',
 
 			// Blueprints, brand kits, clone path, learning.
