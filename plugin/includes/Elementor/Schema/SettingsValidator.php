@@ -15,28 +15,28 @@ final class SettingsValidator {
 	 * @param array<string, mixed> $settings Candidate widget settings.
 	 * @return array{settings:array<string,mixed>,schema_hash:string,warnings:list<array<string,mixed>>}|\WP_Error
 	 */
-	public static function validate( string $widget_type, array $settings, bool $require_render_settings = true, bool $enforce_conditions = true ): array|\WP_Error {
+	public static function validate( string $widget_type, array $settings, bool $require_render_settings = true, bool $enforce_conditions = true, bool $preserve_unknown = false ): array|\WP_Error {
 		$aliases  = SettingsKeyAliases::normalize( $settings );
 		$settings = $aliases['settings'];
 		$schema   = WidgetSchemaRepository::get( $widget_type );
 		if ( $schema instanceof \WP_Error ) {
 			return $schema;
 		}
-		return self::validate_schema( $widget_type, $settings, $schema, $require_render_settings, $enforce_conditions, $aliases['applied'] );
+		return self::validate_schema( $widget_type, $settings, $schema, $require_render_settings, $enforce_conditions, $aliases['applied'], $preserve_unknown );
 	}
 
 	/**
 	 * @param array<string, mixed> $settings Candidate structural-element settings.
 	 * @return array{settings:array<string,mixed>,schema_hash:string,warnings:list<array<string,mixed>>}|\WP_Error
 	 */
-	public static function validate_container( array $settings, string $element_type = 'container', bool $enforce_conditions = true ): array|\WP_Error {
+	public static function validate_container( array $settings, string $element_type = 'container', bool $enforce_conditions = true, bool $preserve_unknown = false ): array|\WP_Error {
 		$aliases  = SettingsKeyAliases::normalize( $settings );
 		$settings = $aliases['settings'];
 		$schema   = ContainerSchemaRepository::get( $element_type );
 		if ( $schema instanceof \WP_Error ) {
 			return $schema;
 		}
-		return self::validate_schema( $element_type, $settings, $schema, false, $enforce_conditions, $aliases['applied'] );
+		return self::validate_schema( $element_type, $settings, $schema, false, $enforce_conditions, $aliases['applied'], $preserve_unknown );
 	}
 
 	/**
@@ -44,10 +44,11 @@ final class SettingsValidator {
 	 * @param array<string, mixed> $schema
 	 * @return array{settings:array<string,mixed>,schema_hash:string,warnings:list<array<string,mixed>>}|\WP_Error
 	 */
-	private static function validate_schema( string $subject, array $settings, array $schema, bool $require_render_settings, bool $enforce_conditions, array $aliases = [] ): array|\WP_Error {
+	private static function validate_schema( string $subject, array $settings, array $schema, bool $require_render_settings, bool $enforce_conditions, array $aliases = [], bool $preserve_unknown = false ): array|\WP_Error {
 
 		$controls   = (array) ( $schema['controls'] ?? [] );
 		$violations = [];
+		$warnings   = [];
 		$normalized = [];
 		foreach ( $settings as $key => $value ) {
 			$key = (string) $key;
@@ -59,6 +60,13 @@ final class SettingsValidator {
 
 			$control_key = self::control_key( $key, $controls );
 			if ( null === $control_key ) {
+				// P0 integrity: never strip unknown settings to "pass" validation.
+				// Unknown keys are kept with a warning (Pro / runtime extras).
+				if ( $preserve_unknown ) {
+					$warnings[]         = self::violation( 'settings.' . $key, 'unknown_setting_preserved', 'a key from the live widget schema', $value, self::nearest_keys( $key, array_keys( $controls ) ) );
+					$normalized[ $key ] = $value;
+					continue;
+				}
 				$violations[] = self::violation( 'settings.' . $key, 'unknown_setting', 'a key from the live widget schema', $value, self::nearest_keys( $key, array_keys( $controls ) ) );
 				continue;
 			}
@@ -108,23 +116,28 @@ final class SettingsValidator {
 			);
 		}
 
+		$alias_warnings = array_map(
+			static fn( array $alias ): array => [
+				'code'      => 'settings_alias_applied',
+				'alias'     => (string) $alias['alias'],
+				'canonical' => (string) $alias['canonical'],
+			],
+			$aliases
+		);
+
 		return [
 			'settings'    => $normalized,
 			'schema_hash' => (string) ( $schema['schema_hash'] ?? '' ),
-			'warnings'    => array_map(
-				static fn( array $alias ): array => [
-					'code'      => 'settings_alias_applied',
-					'alias'     => (string) $alias['alias'],
-					'canonical' => (string) $alias['canonical'],
-				],
-				$aliases
-			),
+			'warnings'    => array_merge( $alias_warnings, $warnings ),
 		];
 	}
 
 	/**
-	 * Final guard used immediately before persisting an Elementor V3 tree.
-	 * V4 atomic nodes are deliberately left to the separate V4 validator.
+	 * Final guard used immediately before persisting an Elementor document tree.
+	 *
+	 * Mixed V3/V4 documents may contain e-* atomic widgets; those are preserved
+	 * (structure-only checks) so agents are not forced to convert them.
+	 * Unknown settings are preserved so layout keys are never stripped-to-pass.
 	 *
 	 * @param array<int, array<string, mixed>> $tree Elementor element tree.
 	 */
@@ -162,16 +175,18 @@ final class SettingsValidator {
 				if ( '' === $widget_type ) {
 					return self::tree_error( $element_path . '.widgetType', 'missing_widget_type', 'a non-empty Elementor widget type', null );
 				}
+				// Allow e-* atomic widgets to coexist in mixed documents. Structure-only.
+				// Never force conversion to text-editor/heading to pass V3 schema.
 				if ( str_starts_with( $widget_type, 'e-' ) ) {
-					return self::tree_error( $element_path . '.widgetType', 'atomic_widget_in_v3_tree', 'a legacy Elementor V3 widget type; use the V4 atomic pipeline for e-* widgets', $widget_type );
-				}
-				if ( '' !== $widget_type && 'html' !== $widget_type ) {
+					// Skip V3 schema validation for atomic nodes.
+				} elseif ( '' !== $widget_type && 'html' !== $widget_type ) {
 					$settings = isset( $element['settings'] ) && is_array( $element['settings'] ) ? $element['settings'] : [];
 					$text_error = TextIntegrity::first_violation( $settings, $element_path . '.settings' );
 					if ( null !== $text_error ) {
 						return self::tree_error( $text_error['path'], $text_error['code'], 'valid UTF-8 human text without stripped Unicode escapes or mojibake', $text_error['value'] );
 					}
-					$result   = self::validate( $widget_type, $settings, false, false );
+					// preserve_unknown=true: unknown Pro/runtime keys stay; invalid known values still fail.
+					$result = self::validate( $widget_type, $settings, false, false, true );
 					if ( $result instanceof \WP_Error ) {
 						self::$last_error = $result;
 						return false;
@@ -183,7 +198,7 @@ final class SettingsValidator {
 				if ( null !== $text_error ) {
 					return self::tree_error( $text_error['path'], $text_error['code'], 'valid UTF-8 human text without stripped Unicode escapes or mojibake', $text_error['value'] );
 				}
-				$result   = self::validate_container( $settings, $element_type, false );
+				$result = self::validate_container( $settings, $element_type, false, true );
 				if ( $result instanceof \WP_Error ) {
 					self::$last_error = $result;
 					return false;

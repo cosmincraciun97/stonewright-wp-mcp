@@ -7,6 +7,14 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- **Elementor Integrity Gate (P0)** on plugin `ElementorData::write` and Direct
+  `elementor-data-update`: reject double-encoded JSON, size collapse, and
+  widgetType remaps; auto-restore previous document on readback failure.
+- Tree validation preserves unknown settings and allows coexisting `e-*` atomic
+  widgets (no forced convert-to-pass).
+
 ## [1.0.0-alpha.77] - 2026-07-22
 
 ### Fixed

@@ -240,7 +240,13 @@ describe('direct elementor tools', () => {
 
 	it('data-update uses REST when wp-cli is unavailable', async () => {
 		const tree = [{ id: 'abc', elType: 'container', elements: [] }];
-		const next = [{ id: 'abc', elType: 'container', elements: [{ id: 'w1' }] }];
+		const next = [
+			{
+				id: 'abc',
+				elType: 'container',
+				elements: [{ id: 'w1', elType: 'widget', widgetType: 'heading', settings: { title: 'Hi' }, elements: [] }],
+			},
+		];
 		const cli = mockCli({
 			'cli info': () => ({ ok: false, available: false }),
 		});

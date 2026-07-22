@@ -172,6 +172,11 @@ npm run build
   `stonewright/learning-record`.
 - Snapshot via `Backup::snapshot_post( $post_id )` before Elementor,
   template, global-style, or theme.json writes.
+- **Elementor integrity (hard):** never double-encode `_elementor_data`; never
+  strip unknown settings to pass validation; never convert `widgetType` (e.g.
+  `e-paragraph` → `text-editor`) without explicit user intent; never full-tree
+  rewrite to fix one control — use surgical `elementor-v3-batch-mutate`. Prefer
+  typed Elementor abilities over php-execute / raw REST / WP-CLI meta.
 - Validate via `Validator::validate( $spec )` before rendering.
 - Use `stonewright/wp-cli-status`, `stonewright/wp-cli-discover`, and
   `stonewright/wp-cli-run` for WordPress, Elementor, Gutenberg, ACF, CPT UI,

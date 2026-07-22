@@ -1,6 +1,11 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { appendDirectAudit, defaultStateDir } from '../audit.js';
+import {
+	assertWriteAllowed as integrityAssertWrite,
+	encodeTreeOnce,
+	normalizeToTree,
+} from '../elementor-integrity.js';
 import { assertWriteAllowed, resolveDirectWriteMode } from '../writes.js';
 import { runWpCli, type WpCliCommandResult } from '../../wp-cli.js';
 
@@ -315,14 +320,6 @@ export async function elementorDataGet(
 	};
 }
 
-function serializeData(data: string | unknown[] | Record<string, unknown>): string {
-	if (typeof data === 'string') {
-		JSON.parse(data); // throws if invalid
-		return data;
-	}
-	return JSON.stringify(data);
-}
-
 export async function elementorDataUpdate(
 	env: NodeJS.ProcessEnv,
 	input: {
@@ -331,6 +328,8 @@ export async function elementorDataUpdate(
 		site?: string;
 		type?: string;
 		confirm?: boolean;
+		force_destructive?: boolean;
+		allow_widget_type_remap?: boolean;
 		cwd?: string;
 		path?: string;
 	},
@@ -346,14 +345,14 @@ export async function elementorDataUpdate(
 		env,
 	});
 
-	let json: string;
-	try {
-		json = serializeData(input.data);
-	} catch {
+	const normalized = normalizeToTree(input.data);
+	if (!normalized.ok || !normalized.tree) {
+		const err = normalized as { error_code?: string; message?: string; data?: unknown };
 		throw new Error(
-			'data must be valid JSON (array tree or string). Call stonewright-elementor-data-get first and mutate the real tree.',
+			`[${err.error_code ?? 'integrity'}] ${err.message ?? 'Invalid Elementor document payload.'}`,
 		);
 	}
+	const tree = normalized.tree;
 
 	const base = {
 		...(input.cwd ? { cwd: input.cwd } : {}),
@@ -368,6 +367,27 @@ export async function elementorDataUpdate(
 				|| 'Cannot backup current Elementor data before write (get failed).',
 		);
 	}
+
+	const previous = Array.isArray((current as { data?: unknown }).data)
+		? ((current as { data: unknown[] }).data)
+		: [];
+
+	const integrity = integrityAssertWrite(tree, previous, {
+		...(input.force_destructive !== undefined ? { force_destructive: input.force_destructive } : {}),
+		...(input.allow_widget_type_remap !== undefined
+			? { allow_widget_type_remap: input.allow_widget_type_remap }
+			: {}),
+	});
+	if (!integrity.ok) {
+		throw new Error(
+			`[${integrity.error_code}] ${integrity.message}${
+				integrity.data ? ` ${JSON.stringify(integrity.data)}` : ''
+			}`,
+		);
+	}
+
+	// Encode once — never store an already-encoded JSON string as the meta value wrapper.
+	const json = encodeTreeOnce(tree);
 
 	const scope = resolveScope(input.site);
 	const backupDir = join(defaultStateDir(env), 'backups', scope);

@@ -57,6 +57,8 @@ final class McpUsePolicy {
 			'For Nested Carousel peek/inset effects, use native Direction / Offset Sides / Offset Width controls (infinite often required). Do not fake peek with CSS padding on the carousel track.',
 			'Never set overflow:visible on .elementor-main-swiper to expose outside arrows — it breaks Swiper clipping. Keep overflow hidden and position native arrows inside the track.',
 			'Every Elementor V3 tree node needs a non-empty unique id. Never write raw _elementor_data through php-execute; use typed Elementor abilities with backup and schema validation.',
+			'Elementor integrity (P0): never double-encode JSON; never strip unknown settings to pass validation; never convert widgetType (e.g. e-paragraph→text-editor) without explicit user intent; never full-tree rewrite to fix one control — use surgical batch-mutate.',
+			'If batch-mutate is missing from the client tool list, call task-start / tool-profile and re-list tools (or stonewright-client-surface-check). Do not invent php-execute or raw REST/WP-CLI meta writes.',
 		];
 	}
 }

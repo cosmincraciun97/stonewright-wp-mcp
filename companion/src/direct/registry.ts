@@ -1563,13 +1563,15 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 	w3(
 		'stonewright-elementor-data-update',
-		'Update _elementor_data without opening the Elementor editor. Prefers WP-CLI; remote Direct uses REST meta with local file backup. No schema validation — prefer plugin batch-mutate on production.',
+		'Update _elementor_data without opening the Elementor editor. Prefers WP-CLI; remote Direct uses REST meta with local file backup. P0 integrity gate blocks double-encode, size collapse, and widgetType remaps. Prefer plugin batch-mutate on production.',
 		{
 			site: siteArg,
 			post_id: z.number().int().positive(),
 			type: z.string().optional(),
 			data: z.union([z.string(), z.array(z.unknown()), z.record(z.string(), z.unknown())]),
 			confirm: confirmArg,
+			force_destructive: z.boolean().optional(),
+			allow_widget_type_remap: z.boolean().optional(),
 			cwd: z.string().optional(),
 			path: z.string().optional(),
 		},

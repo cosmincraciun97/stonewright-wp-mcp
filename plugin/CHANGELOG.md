@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+
+- Elementor Integrity Gate P0 on `ElementorData::write` (double-encode, size
+  collapse, widgetType remap blocks; readback restore).
+- Tree validation preserves unknown settings and coexisting `e-*` widgets.
+
 ## [1.0.0-alpha.77] - 2026-07-22
 
 ### Fixed

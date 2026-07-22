@@ -32,13 +32,23 @@ final class ProtectedElementorWriteGuard {
 			}
 		}
 
-		$direct_helper = preg_match( '/(?:ElementorData|ElementorWriter)\s*::\s*write\s*\(/i', $code );
+		$direct_helper = preg_match( '/(?:ElementorData|ElementorWriter|DocumentIntegrityGate)\s*::\s*(?:write|assert_write_allowed)\s*\(/i', $code );
 		$raw_mutator   = preg_match( '/\b(?:update_post_meta|add_post_meta|delete_post_meta|update_metadata|add_metadata|delete_metadata)\s*\(/i', $code );
 		// Only treat $wpdb write verbs as mutation when protected meta is mentioned.
 		$wpdb_write    = (bool) preg_match( '/\$wpdb\s*->\s*(?:update|insert|replace|delete|query)\s*\(/i', $code );
 		$wpdb_select   = (bool) preg_match( '/\$wpdb\s*->\s*(?:get_var|get_row|get_col|get_results|prepare)\s*\(/i', $code );
+		// Common indirection / shell / file bypasses used to mutate Elementor docs.
+		$indirect = (bool) preg_match(
+			'/\b(?:call_user_func(?:_array)?|forward_static_call(?:_array)?|invokeArgs|Reflection(?:Method|Function))\s*\(/i',
+			$code
+		);
+		$file_write = (bool) preg_match( '/\b(?:file_put_contents|fwrite|fputs)\s*\(/i', $code );
+		$wp_cli_meta = (bool) preg_match( '/\b(?:WP_CLI|wp_cli)\b/i', $code ) && $mentions_protected_meta;
 
-		if ( 1 === $direct_helper || ( $mentions_protected_meta && ( 1 === $raw_mutator || $wpdb_write ) ) ) {
+		if (
+			1 === $direct_helper
+			|| ( $mentions_protected_meta && ( 1 === $raw_mutator || $wpdb_write || $indirect || $file_write || $wp_cli_meta ) )
+		) {
 			return new \WP_Error(
 				'stonewright_php_elementor_raw_write_blocked',
 				__( 'Raw Elementor document writes are blocked in php-execute. Use typed Elementor abilities so schema validation, backup, architecture checks, readback, and audit gates run.', 'stonewright' ),
