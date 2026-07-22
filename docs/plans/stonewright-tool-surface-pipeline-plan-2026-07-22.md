@@ -3131,7 +3131,7 @@ git commit -m "docs: record vendored MCP-adapter tools/list_changed push limitat
 - Modify: `docs/install-prompts.md` (capped-client env guidance), `companion/README.md` (env var table), `plugin/CHANGELOG.md`, `companion/CHANGELOG.md`
 - Modify: `skills/` — the Elementor/task-start skill pack that describes calling `stonewright-task-start` (find it with `grep -rl "task-start" skills/`); add the `post_id` guidance sentence.
 
-- [ ] **Step 1: Write the runbook**
+- [x] **Step 1: Write the runbook**
 
 Create `docs/runbooks/tool-surface-recovery.md`:
 
@@ -3176,13 +3176,13 @@ task; everything below assumes it ran at least once.
    the plugin's authoritative ordered list, including `truncated_tools`.
 ```
 
-- [ ] **Step 2: Wire the docs**
+- [x] **Step 2: Wire the docs**
 
 - `docs/install-prompts.md`: in the client-configuration guidance, add the three capped-client bullets (max-tools env, single server entry, profile-lock semantics) and link `docs/runbooks/tool-surface-recovery.md`. Use the `VERSION` placeholder if any release-asset URL is touched.
 - `companion/README.md`: document `STONEWRIGHT_MCP_MAX_TOOLS` next to the existing `STONEWRIGHT_MCP_TOOL_PROFILE` / `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK` docs (grep for `STONEWRIGHT_MCP_TOOL_PROFILE` in the README to find the spot; add the variable if the table lacks it).
 - Skill pack: in the skill file found via `grep -rl "task-start" skills/`, add to the task-start guidance: "For Elementor work, pass `post_id` of the page you will edit so the document architecture is detected automatically and V4-runtime writes are not blocked as ambiguous. If a document is already corrupt (double-encoded meta, duplicate ids), call `stonewright/elementor-v3-repair-document` before editing."
 
-- [ ] **Step 3: Update the README architecture diagram (root README.md, lines 229-263)**
+- [x] **Step 3: Update the README architecture diagram (root README.md, lines 229-263)**
 
 The shipped mermaid diagram hides three pipeline stages that now matter for
 troubleshooting: the server-side surface gate + per-session profile, the
@@ -3259,7 +3259,7 @@ against it rather than assuming.
 > `docs/ability-truth-matrix.md` is generated — only ever change it via `composer docs:matrix`,
 > never by hand.
 
-- [ ] **Step 4: Changelogs**
+- [x] **Step 4: Changelogs**
 
 Add an Unreleased section entry to BOTH changelogs.
 
@@ -3294,12 +3294,12 @@ Add an Unreleased section entry to BOTH changelogs.
 - The companion re-lists tools and emits `notifications/tools/list_changed` when a gateway response carries a newer `surface_revision`, even without an explicit `tools_changed` flag — so an admin surface change propagates to any client. Direct mode exposes the same `surface_revision` contract from its own in-process profile counter.
 ```
 
-- [ ] **Step 5: Freshness gates**
+- [x] **Step 5: Freshness gates**
 
 Run: `node scripts/check-docs-freshness.mjs && git diff --check`
 Expected: both exit 0. Fix anything they flag before committing.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add docs/runbooks/tool-surface-recovery.md docs/install-prompts.md companion/README.md README.md docs/ability-truth-matrix.md plugin/CHANGELOG.md companion/CHANGELOG.md skills/

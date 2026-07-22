@@ -232,11 +232,16 @@ Not every surface uses every gate. Prefer typed abilities over unrestricted PHP 
 flowchart LR
   Client[AI / MCP client]
   Companion[Stonewright Companion]
+  CompFilter[Companion profile filter]
   Plugin[Stonewright plugin]
+  Surface[Surface gate: bootstrap / essential / full]
+  Session[Per-session tool profile]
+  Rev[surface_revision -> tools/list_changed]
   REST[WordPress REST API]
   WP[WordPress core]
   Guten[Gutenberg / FSE]
   Elem[Elementor]
+  Integrity[Elementor integrity gate: double-encode / size-collapse / widgetType-remap / delta-scoped validate]
   Content[Content / media / menus]
   Mem[Memory / skills]
   Users[Users / comments / widgets]
@@ -244,12 +249,18 @@ flowchart LR
   Gates[Backup / validation / readback / audit]
 
   Client --> Companion
-  Companion -->|Plugin mode| Plugin
-  Companion -->|Direct mode| REST
+  Companion --> CompFilter
+  CompFilter -->|Plugin mode| Plugin
+  CompFilter -->|Direct mode| REST
   Companion --> Skills[Local skills / memory]
+  Plugin --> Surface
+  Surface --> Session
+  Session --> Rev
+  Rev -. re-list .-> Client
   Plugin --> Gates
   Plugin --> Guten
   Plugin --> Elem
+  Elem --> Integrity
   Plugin --> Content
   Plugin --> Mem
   Plugin --> Users
@@ -260,7 +271,9 @@ flowchart LR
   Plugin --> WP
 ```
 
-Direct mode has a **smaller** capability surface (core REST + local Elementor data + skills/memory; **99** tools). Plugin mode exposes **316** abilities. Not every request passes through every component.
+Tool visibility is filtered twice before a client sees it: the plugin’s **surface gate** (`bootstrap` / `essential` / `full`) and optional **per-session tool profile** decide which abilities the MCP endpoint exposes, then the **companion profile filter** narrows that set again for the client. A monotonic `surface_revision` on every gateway response drives `tools/list_changed` so clients re-list when the surface changes.
+
+Direct mode has a **smaller** capability surface: core REST, local Elementor data, and skills/memory across **99 tools**. Plugin mode exposes **316 abilities**. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps.
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 
