@@ -49,6 +49,7 @@ export interface WordPressMcpRegistrationResult {
 	filteredToolCount: number;
 	/** Plugin MCP initialize.instructions captured during proxy handshake. */
 	remoteInstructions: string;
+	liveState: WordPressProxyLiveState;
 }
 
 /**
@@ -590,6 +591,13 @@ export async function registerWordPressMcpTools(
 	if (activeProfile !== envProfile) {
 		resolved = await resolvePluginProxyToolNames(client, activeProfile, maxTools);
 	}
+	const liveState: WordPressProxyLiveState = {
+		profile: activeProfile,
+		enabledToolNames: [],
+		registeredToolCount: 0,
+		lastRefreshAt: null,
+		lastRefresh: null,
+	};
 	const allowedOrder = resolved.tools;
 	const allowedSet = activeProfile === 'full' && allowedOrder.length === 0
 		? null
@@ -684,6 +692,7 @@ export async function registerWordPressMcpTools(
 					registerProxyTool: registerOneProxyTool,
 				}).then((result) => {
 					activeProfile = result.profile;
+					applyRefreshToLiveState(liveState, result, registered);
 					return result;
 				}).finally(() => {
 					refreshInFlight = null;
@@ -705,6 +714,8 @@ export async function registerWordPressMcpTools(
 	for (const tool of finalTools) {
 		registerOneProxyTool(tool);
 	}
+	liveState.registeredToolCount = registered.size;
+	liveState.enabledToolNames = [...registered.keys()].sort();
 
 	return {
 		profile: activeProfile,
@@ -713,6 +724,7 @@ export async function registerWordPressMcpTools(
 		profileFilteredToolNames: profileFilteredToolNames.slice(0, 12),
 		filteredToolCount: profileFilteredToolNames.length,
 		remoteInstructions: client.remoteInstructions,
+		liveState,
 	};
 }
 
@@ -909,6 +921,30 @@ export interface ToolsChangedRefreshResult {
 	removed: string[];
 	profile: ProxyToolProfile;
 	desiredCount: number;
+}
+
+export interface WordPressProxyLiveState {
+	profile: ProxyToolProfile;
+	enabledToolNames: string[];
+	registeredToolCount: number;
+	lastRefreshAt: string | null;
+	lastRefresh: ToolsChangedRefreshResult | null;
+}
+
+/** Sync the mutable live-state snapshot after a tools_changed refresh. */
+export function applyRefreshToLiveState(
+	liveState: WordPressProxyLiveState,
+	refresh: ToolsChangedRefreshResult,
+	registered: Map<string, { handle: { enabled: boolean }; tool: { name: string } }>,
+): void {
+	liveState.profile = refresh.profile;
+	liveState.registeredToolCount = registered.size;
+	liveState.enabledToolNames = [...registered.entries()]
+		.filter(([, entry]) => entry.handle.enabled)
+		.map(([name]) => name)
+		.sort();
+	liveState.lastRefreshAt = new Date().toISOString();
+	liveState.lastRefresh = refresh;
 }
 
 /**

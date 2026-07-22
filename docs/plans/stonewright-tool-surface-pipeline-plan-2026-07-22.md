@@ -1151,7 +1151,7 @@ git commit -m "fix: pin gateway tools and make advisory tool hints additive-only
 
 `wpMcpStatus` is a startup snapshot; after any mid-session refresh it lies. Fix: the registration result carries a mutable `liveState` object updated on every refresh; the two diagnostics tools read it at call time.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Export a pure helper so the update logic is unit-testable. In `companion/tests/tools-changed.test.ts` add:
 
@@ -1191,12 +1191,12 @@ Export a pure helper so the update logic is unit-testable. In `companion/tests/t
 
 Add `applyRefreshToLiveState` and `ToolsChangedRefreshResult` to the file's import list from `../src/wordpress-mcp.js`.
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `cd companion && npx vitest run tests/tools-changed.test.ts`
 Expected: FAIL — `applyRefreshToLiveState` is not exported.
 
-- [ ] **Step 3: Implement in wordpress-mcp.ts**
+- [x] **Step 3: Implement in wordpress-mcp.ts**
 
 Add near `ToolsChangedRefreshResult`:
 
@@ -1253,7 +1253,7 @@ In `handleProxyCall`, where the refresh result from `handleToolsChangedResponse`
 
 Add `liveState` to the returned object (anchor: the `return { profile, remoteTools, registeredTools, ... }` at the end of `registerWordPressMcpTools`).
 
-- [ ] **Step 4: Implement in mcp-server.ts**
+- [x] **Step 4: Implement in mcp-server.ts**
 
 Where the registration result is consumed and `wpMcpStatus` is populated (:176-204), keep the startup snapshot fields but attach the live reference:
 
@@ -1283,12 +1283,12 @@ and spread `...liveBlock` into the response payload.
 
 - In the `client-surface-check` handler (:468-576): wherever it reads the startup profile / proxied counts for its diagnosis, prefer `wpMcpStatus.live` when non-null (fall back to the startup snapshot in Direct mode). Update the diagnosis string builder so a session that expanded mid-flight reports the expanded profile, and add to its response: `live_enabled_tool_count` and `stale_startup_snapshot: live !== null && live.lastRefreshAt !== null`.
 
-- [ ] **Step 5: Run tests and full companion suite**
+- [x] **Step 5: Run tests and full companion suite**
 
 Run: `cd companion && npm test && npm run typecheck && npm run build`
 Expected: PASS. If `mcp-server.ts` types `wpMcpStatus` strictly, extend its interface with `live: WordPressProxyLiveState | null` (import the type from `./wordpress-mcp.js`).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add companion/src/wordpress-mcp.ts companion/src/mcp-server.ts companion/tests/tools-changed.test.ts

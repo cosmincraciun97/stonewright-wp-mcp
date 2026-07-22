@@ -5,11 +5,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
+	applyRefreshToLiveState,
 	emitToolListChanged,
 	handleToolsChangedResponse,
 	mcpToolNamesFromStructured,
 	parseStructuredFromContent,
 	structuredIndicatesToolsChanged,
+	type ToolsChangedRefreshResult,
 } from '../src/wordpress-mcp.js';
 
 describe('parseStructuredFromContent', () => {
@@ -99,6 +101,38 @@ describe('emitToolListChanged', () => {
 });
 
 describe('handleToolsChangedResponse', () => {
+	it('applyRefreshToLiveState reflects the post-refresh registry', () => {
+		const enabled = { enabled: true, enable: () => {}, disable: () => {} };
+		const disabled = { enabled: false, enable: () => {}, disable: () => {} };
+		const registered = new Map([
+			['stonewright-tool-profile', { handle: enabled, tool: { name: 'stonewright-tool-profile' } }],
+			['stonewright-elementor-page-digest', { handle: disabled, tool: { name: 'stonewright-elementor-page-digest' } }],
+		]);
+		const liveState = {
+			profile: 'bootstrap' as const,
+			enabledToolNames: [] as string[],
+			registeredToolCount: 0,
+			lastRefreshAt: null as string | null,
+			lastRefresh: null as ToolsChangedRefreshResult | null,
+		};
+		const refresh: ToolsChangedRefreshResult = {
+			notified: true,
+			refreshed: true,
+			added: [],
+			removed: ['stonewright-elementor-page-digest'],
+			profile: 'essential',
+			desiredCount: 1,
+		};
+
+		applyRefreshToLiveState(liveState, refresh, registered);
+
+		expect(liveState.profile).toBe('essential');
+		expect(liveState.enabledToolNames).toEqual(['stonewright-tool-profile']);
+		expect(liveState.registeredToolCount).toBe(2);
+		expect(liveState.lastRefreshAt).toBeTruthy();
+		expect(liveState.lastRefresh).toBe(refresh);
+	});
+
 	const makeHandle = () => {
 		const handle = {
 			enabled: true,
