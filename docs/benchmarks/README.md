@@ -48,3 +48,8 @@ The estimate is compact JSON UTF-8 byte length divided by four and rounded up.
 It is a stable regression metric, not a claim that every model tokenizer emits
 the same count. Commit a before/after report for changes that affect the public
 MCP surface or task-start context.
+
+Elementor document reads (`elementor-data-get`, `elementor-v3-get-page-structure`,
+`elementor-v4-read-atomic-tree`) default to capped summary outlines so large
+pages do not blow token budgets; pass `responseMode=full` only when raw JSON is
+required for the next edit.

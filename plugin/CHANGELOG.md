@@ -18,6 +18,10 @@
 
 ### Added
 
+- Elementor tree reads default to capped summary outlines: V3
+  `elementor-v3-get-page-structure` (existing), V4
+  `elementor-v4-read-atomic-tree` (`responseMode` + `max_nodes`), shared
+  `Support\TreeSummary` utility with `estimated_tokens`.
 - Non-blocking `task_start_hint` on pre-session read ability results (MCP
   sessions) until `task-start` / context-bootstrap / workflow-preflight marks
   the session; latch is a 30-minute session transient.

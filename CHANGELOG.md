@@ -24,6 +24,11 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Elementor summary read defaults:** Direct `elementor-data-get` and plugin
+  `elementor-v4-read-atomic-tree` return a capped outline by default
+  (`responseMode=summary`, max 200 nodes; `full` opts into raw tree). Shared
+  `TreeSummary` backs V3 get-page-structure and V4 atomic reads. Write backups
+  always snapshot the full tree.
 - **Task-start delivery (Phase 4):** companion proxy merges plugin
   `initialize.instructions` into MCP handshake instructions; Direct write latch
   is per-site with a 30-minute TTL (matches plugin context token); pre-session
