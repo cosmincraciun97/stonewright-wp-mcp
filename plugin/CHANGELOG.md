@@ -2,7 +2,14 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.78] - 2026-07-22
+
 ### Fixed
+
+- Direct task-start latch is strictly per-site (no any-site fallback); write tools pass the resolved site alias.
+- Intentional Elementor removals/full rebuilds pass `force_destructive` so confirmed size reductions are allowed after snapshot.
+- Elementor write readback rollback reports restore failure when previous document could not be re-persisted.
+- V4 `elementor-v4-update-node` rejects known settings with the wrong `$$type` envelope.
 
 - Elementor write abilities return the real gate/validator error via
   `ElementorData::write_error_for_ability()` instead of generic write_failed.
@@ -106,44 +113,3 @@
   and shared admin JavaScript changes invalidate browser caches.
 - Elementor raw-write blocks are explicitly non-retryable and direct agents back
   to typed schema requests plus one consolidated batch dry-run.
-
-## [1.0.0-alpha.73] - 2026-07-16
-
-### Added
-
-- Real FSE engine path on `blueprint-apply` (`engine=fse`) with constrained layout
-  wrappers, `EditorSnapshot`, and `FseTransactionQueue` apply + readback/rollback.
-- Brand-kit `preview=true` diff mode and unconditional option/theme_mod
-  `restore_id` via `Backup::snapshot_options` / `restore_options`.
-- Setup “Apply now” control for MCP tool surface with honest per-transport messaging.
-- Blueprint render-output suite (bundled blueprints × engines) and extra e2e specs
-  (blueprints, setup-profile, connect).
-- DesignEvidence pixel-perfect fields (`measured_targets`, spacing/typography
-  ramps, `figma_token_table`, layout intent); native plan per-element
-  `native_mapping` / `native_gap` for elementor|gutenberg|fse; ImplementationContract
-  `action=validate` rejects CSS without native_gap; front-end visual matrix e2e.
-- All 12 bundled blueprints authored as DesignSpec 2.0.0 with content facts,
-  native policy, and Elementor layout intent (`fullWidth`, `align_items`,
-  `justify_content`). Elementor blueprint writes go through
-  `ElementorTransactionRunner` full-tree/`replace_tree`. e2e applies real
-  blueprints and screenshots the front-end.
-
-### Changed
-
-- Elementor blueprint writes use transactional full-tree path (snapshot +
-  structural readback + rollback) via `ElementorWriter::write_transactional`.
-- Marked `stonewright/task-start` as the canonical first call and retained
-  `stonewright/context-bootstrap` as the full-context compatibility path.
-- Elementor schema summaries rank useful controls first and accept a focused
-  control query for compact validation repair.
-
-### Fixed
-
-- Elementor V3 batch dry-runs report all invalid operations together, return
-  exact schema requests, and block every partial write.
-- Typography aliases normalize to live keys with compact warnings.
-- Admin e2e writes are serialized, run once, and restore shared settings.
-- Visual e2e writes pass the required task context token, while nonce discovery
-  avoids waiting on an absent optional DOM attribute.
-- Prompt Library loads catalog card CSS; blueprint action buttons have spacing.
-

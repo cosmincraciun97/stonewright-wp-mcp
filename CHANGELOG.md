@@ -7,7 +7,14 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.0-alpha.78] - 2026-07-22
+
 ### Fixed
+
+- Direct task-start latch is strictly per-site (no any-site fallback); write tools pass the resolved site alias.
+- Intentional Elementor removals/full rebuilds pass `force_destructive` so confirmed size reductions are allowed after snapshot.
+- Elementor write readback rollback reports restore failure when previous document could not be re-persisted.
+- V4 `elementor-v4-update-node` rejects known settings with the wrong `$$type` envelope.
 
 - Elementor write abilities surface the real integrity/validator error (code +
   hints) instead of generic "Could not save Elementor data."
@@ -138,38 +145,3 @@ and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   leaving agents to repeat `php-execute` fallbacks.
 - Direct Bootstrap always exposes task-start, stays at eight tools, and uses
   task-aware Elementor, Gutenberg, content-model, and site-admin profiles.
-
-## [1.0.0-alpha.73] - 2026-07-16
-
-### Added
-
-- Repository documentation freshness gate in CI and release packaging.
-- FSE blueprint engine path with constrained layout + FSE transaction apply.
-- Brand-kit preview/diff mode and option/theme_mod restore points.
-- Setup “Apply now” for MCP tool surface; extra admin e2e coverage.
-- Figma→native DesignEvidence/native plan/CSS-gap gate; front-end visual matrix.
-- Authored v2 blueprints with Elementor layout intent; transaction full-tree
-  path; e2e real blueprint-apply + screenshots.
-
-### Changed
-
-- Synchronized evergreen install/client guides, prompts, capability counts,
-  changelog retention (5-release retention policy), and skills with the
-  canonical task-start workflow.
-- Elementor blueprint writes use transactional snapshot + readback rollback.
-- Elementor schema summaries rank useful controls first and support focused
-  control queries for smaller repair responses.
-
-### Fixed
-
-- Elementor V3 batch dry-runs collect all validation failures in one response,
-  return exact schema repair requests, and never persist partial batches.
-- Common typography aliases normalize to live Elementor keys and report the
-  normalization without requiring another model round trip.
-- Admin e2e writes run once, restore shared settings, and serialize CI access
-  to the shared WordPress database.
-- Visual e2e writes obtain a task context token first, and REST nonce discovery
-  no longer waits for a missing optional DOM attribute.
-- Prompt Library enqueues catalog CSS; blueprint card action buttons have spacing.
-- Connect e2e handles multi-snippet strict mode; visual e2e uses session REST helpers.
-
