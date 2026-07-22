@@ -3322,7 +3322,7 @@ grep -ri "<FORBIDDEN_NAME>" --exclude-dir=.git --exclude-dir=node_modules --excl
 
 Expected: all green; the grep must print `clean`.
 
-- [ ] **PR description must state:**
+- [x] **PR description must state:**
   - Changed abilities:
     - Surface/profile pipeline: `stonewright/task-start` (workflow-preflight), `stonewright/tool-profile`, `stonewright/php-execute` (error surface only), `stonewright/wordpress-mcp-status`, `stonewright/client-surface-check`, plus registry surface composition (`AbilityRegistry::public_classes`, essential list, new `surface_revision()` / `bump_surface_revision()` + `stonewright_tool_surface_changed` hook).
     - Elementor write path: `stonewright/elementor-v3-update-element` (merge preserves unknown settings, delta-scoped write), `stonewright/elementor-v3-batch-mutate` (subtree-aware architecture gate), and the shared `SettingsValidator` (empty-slider sentinel, `touched_ids` content scoping), `ElementorData::write()` (`touched_ids` option), `ElementorTransactionRunner` (raw-meta fallback removed), `AtomicTreeInspector` (`subtree_architecture()`), `ArchitectureRouter` (`not_inspected` / `repair_tools`).
