@@ -1983,7 +1983,7 @@ stubs without full schema", but the right fix is to make the stubs pass the gate
 smuggle writes past it. Tasks 11–13 already make legitimate trees pass, so the fallback is
 now both unsafe and unnecessary.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create/extend `ElementorTransactionRunnerTest.php`:
 
@@ -2017,12 +2017,12 @@ public function test_runner_does_not_raw_write_when_integrity_gate_rejects(): vo
 > the existing runner tests use; if a test double for `TreeHasher`/readback is already set
 > up in a sibling test, reuse it rather than introducing a new stub shape.
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `cd plugin && vendor/bin/phpunit --filter test_runner_does_not_raw_write_when_integrity_gate_rejects`
 Expected: FAIL — the fallback raw-writes `_elementor_data`, so `$data_writes` is non-empty.
 
-- [ ] **Step 3: Delete the fallback; roll back and surface the real error**
+- [x] **Step 3: Delete the fallback; roll back and surface the real error**
 
 In `ElementorTransactionRunner.php`, replace the fallback block (lines 66-84) from:
 
@@ -2069,7 +2069,7 @@ with a version that never bypasses the gate:
 		}
 ```
 
-- [ ] **Step 4: Run to verify it passes**
+- [x] **Step 4: Run to verify it passes**
 
 Run: `cd plugin && vendor/bin/phpunit --filter test_runner_does_not_raw_write_when_integrity_gate_rejects`
 Expected: PASS.
@@ -2080,7 +2080,7 @@ fallback by seeding a schema stub so `write()` succeeds legitimately (the setUp 
 Run: `vendor/bin/phpunit tests/Unit/Elementor`
 Expected: PASS (all).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add plugin/includes/Elementor/ElementorTransactionRunner.php plugin/tests/Unit/Elementor/ElementorTransactionRunnerTest.php

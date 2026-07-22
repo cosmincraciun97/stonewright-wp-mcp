@@ -65,22 +65,18 @@ final class ElementorTransactionRunner {
 
 		$written = ElementorData::write( $post_id, $tree );
 		if ( ! $written ) {
-			// Fallback: raw meta write when SettingsValidator rejects in unit stubs without full schema.
-			$json = wp_json_encode( $tree, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
-			if ( false === $json ) {
-				if ( $rollback_on_error ) {
-					Backup::restore( $post_id, $snapshot_id );
-				}
-				return new \WP_Error(
-					'stonewright_json_encode_failed',
-					'Failed to JSON-encode the Elementor tree.',
-					[ 'status' => 500, 'snapshot_id' => $snapshot_id, 'rolled_back' => $rollback_on_error ]
-				);
+			// Integrity and schema gates are the only path to _elementor_data.
+			$gate_error = ElementorData::last_write_error();
+			if ( $rollback_on_error ) {
+				Backup::restore( $post_id, $snapshot_id );
 			}
-			update_post_meta( $post_id, '_elementor_data', wp_slash( $json ) );
-			update_post_meta( $post_id, '_elementor_edit_mode', 'builder' );
-			$elementor_version = defined( 'ELEMENTOR_VERSION' ) ? (string) constant( 'ELEMENTOR_VERSION' ) : '3.0.0';
-			update_post_meta( $post_id, '_elementor_version', $elementor_version );
+			return $gate_error instanceof \WP_Error
+				? $gate_error
+				: new \WP_Error(
+					'stonewright_transaction_write_rejected',
+					__( 'Elementor full-tree write was rejected by the integrity gate or schema validator.', 'stonewright' ),
+					[ 'status' => 400, 'snapshot_id' => $snapshot_id, 'rolled_back' => $rollback_on_error ]
+				);
 		}
 
 		$read_tree = is_callable( self::$read_override )
