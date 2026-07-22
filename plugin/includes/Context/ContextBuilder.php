@@ -194,7 +194,9 @@ final class ContextBuilder {
 
 		$entries = Memory::list_all( 50, 0 );
 		$query   = self::normalise( $task . ' ' . $surface );
-		$rows    = [];
+		$user_rows    = [];
+		$project_rows = [];
+		$other_rows   = [];
 
 		foreach ( $entries as $entry ) {
 			if ( ! Memory::is_active( $entry ) ) {
@@ -210,20 +212,43 @@ final class ContextBuilder {
 			$score       = self::score( $query, $haystack );
 			$type        = (string) ( $entry['type'] ?? 'generic' );
 			$scope_match = '' !== $surface && strtolower( (string) ( $entry['scope'] ?? '' ) ) === strtolower( $surface );
+			// Always include user-authored learning; score project/feedback/others.
 			if ( 'user' === $type || $score > 0 || $scope_match ) {
-				$entry['_score']    = $score;
+				$entry['_score']    = $score + ( 'user' === $type ? 100 : ( 'project' === $type ? 50 : 0 ) );
 				$entry['_priority'] = self::memory_priority( $type ) + (int) ( $entry['precedence'] ?? 0 );
-				$rows[]             = $entry;
+				if ( 'user' === $type ) {
+					$user_rows[] = $entry;
+				} elseif ( 'project' === $type ) {
+					$project_rows[] = $entry;
+				} else {
+					$other_rows[] = $entry;
+				}
 			}
 		}
 
-		usort(
-			$rows,
-			static fn( array $a, array $b ): int => ( (int) $b['_priority'] <=> (int) $a['_priority'] )
-				?: ( (int) $b['_score'] <=> (int) $a['_score'] )
-		);
+		$by_priority = static fn( array $a, array $b ): int => ( (int) $b['_priority'] <=> (int) $a['_priority'] )
+			?: ( (int) $b['_score'] <=> (int) $a['_score'] );
+		usort( $user_rows, $by_priority );
+		usort( $project_rows, $by_priority );
+		usort( $other_rows, $by_priority );
 
-		$selected = array_slice( $rows, 0, 5 );
+		// Reserve contextual capacity for explicit user/project learning before audit feedback.
+		$selected = [];
+		foreach ( array_slice( $user_rows, 0, 3 ) as $row ) {
+			$selected[] = $row;
+		}
+		foreach ( array_slice( $project_rows, 0, 2 ) as $row ) {
+			if ( count( $selected ) >= 5 ) {
+				break;
+			}
+			$selected[] = $row;
+		}
+		foreach ( $other_rows as $row ) {
+			if ( count( $selected ) >= 5 ) {
+				break;
+			}
+			$selected[] = $row;
+		}
 		return array_map(
 			static function ( array $entry ) use ( $selected ): array {
 				$topic     = self::normalise( (string) ( $entry['topic'] ?? $entry['memory_key'] ?? '' ) );

@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-07-22T14:32:07+00:00",
+    "generated_at": "2026-07-22T20:06:56+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -3056,8 +3056,8 @@
             "ability_name": "stonewright/learning-record",
             "mcp_name": "stonewright-learning-record",
             "kind": "Write",
-            "input_schema_hash": "79ff76e23b387bc23f1242ce8232bb2a21af1c0ad7a2cb7e4466dec3676a3977",
-            "output_schema_hash": "41295ea35a4a0ecec9167b8abeead8cf6908c7afb0fafd522bacfa69fce6e13f",
+            "input_schema_hash": "ead6ad0756554f024647ee0825a7007b4ad4ea7b1588ebe1bd43a978846bd181",
+            "output_schema_hash": "aad4d2d0ee6b452de1023815301380fb79fe35f2134575db204b90e35a6ddf53",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,

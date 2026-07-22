@@ -39,8 +39,14 @@ aliases). A console-bridge Figma MCP exposes a wider `figma_*` surface
 4. Hash reference screenshots into `sources[].hash` so verification can prove
    which export the targets came from.
 5. After WordPress writes, verify against `measured_targets` with a **browser
-   MCP** (Playwright). Figma parity tools are optional helpers, not a substitute
-   for front-end screenshots.
+   MCP** (Playwright) on a separate `verification_page` tab. Figma parity tools
+   are optional helpers, not a substitute for front-end screenshots.
+6. **Section isolation is mandatory.** Multi-section page nodes require an
+   ordered section manifest and one screenshot/evidence block per section.
+   Plans that collapse all sections into a single evidence blob must be rejected.
+7. **Breakpoint-scoped source:** if only a mobile Figma node is supplied, set
+   `allowed_breakpoints: ["mobile"]` and do not derive or overwrite wider
+   breakpoints.
 
 ## Efficiency rules (token budget)
 

@@ -74,7 +74,30 @@ describe('direct self-improve tools', () => {
 			},
 		});
 		expect(result.skill?.enabled).toBe(false);
+		expect(result.verified).toBe(true);
+		expect(result.stored).toBe(true);
+		expect(result.backend).toBe('direct');
+		expect(result.memory_id).toBeTruthy();
+		expect(result.storage_ref).toMatch(/^direct:memory\//);
 		expect(memoryList(c).items.some((i) => i.text.includes('alt text'))).toBe(true);
+	});
+
+	it('learning-record accepts canonical topic+correction and dedupes', () => {
+		const c = ctx();
+		const first = learningRecord(c, {
+			topic: 'Device tabs',
+			correction: 'Use toolbar device tabs only',
+			scope: 'user',
+			source: 'explicit-user-request',
+		});
+		expect(first.verified).toBe(true);
+		const second = learningRecord(c, {
+			topic: 'Device tabs',
+			correction: 'Use toolbar device tabs only',
+			scope: 'user',
+		});
+		expect(second.memory_id).toBe(first.memory_id);
+		expect(memoryList(c).items.filter((i) => i.text.includes('toolbar device')).length).toBe(1);
 	});
 
 	it('task-start matches skills and returns direct mode without site', () => {
@@ -97,6 +120,9 @@ describe('direct self-improve tools', () => {
 		expect(start.guidance.some((g) => /HARD RULE:.*single-target scope/i.test(g))).toBe(true);
 		expect(start.guidance.some((g) => /HARD RULE:.*ad-hoc plugins/i.test(g))).toBe(true);
 		expect(start.guidance.some((g) => /HARD RULE:.*HTTP-first/i.test(g))).toBe(true);
+		expect(start.guidance.some((g) => /HARD RULE:.*Elementor responsive preview/i.test(g))).toBe(true);
+		expect(start.guidance.some((g) => /HARD RULE:.*Verified learning/i.test(g))).toBe(true);
+		expect(start.guidance.some((g) => /HARD RULE:.*Design section isolation/i.test(g))).toBe(true);
 		expect(start.guidance.join('\n').toLowerCase()).not.toContain('transavia');
 	});
 });

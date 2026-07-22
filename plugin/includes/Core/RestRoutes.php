@@ -15,11 +15,17 @@ use Stonewright\WpMcp\Support\Utf8;
 /**
  * Stonewright-specific REST routes outside of the MCP transport.
  *
- * Currently exposes a read-only audit log endpoint and a settings endpoint.
+ * Mutations under the stonewright/v1 namespace are audited centrally. When a
+ * route delegates to an AbilityKernel that already calls AuditLog::record(),
+ * the REST layer skips the duplicate row via request-scoped deduplication.
  */
 final class RestRoutes {
 
 	public static function register(): void {
+		// Central mutation audit for Stonewright-owned REST routes only.
+		add_filter( 'rest_pre_dispatch', [ self::class, 'audit_pre_dispatch' ], 5, 3 );
+		add_filter( 'rest_post_dispatch', [ self::class, 'audit_post_dispatch' ], 20, 3 );
+
 		register_rest_route(
 			'stonewright/v1',
 			'/audit-log',
@@ -42,12 +48,22 @@ final class RestRoutes {
 				'callback'            => static function ( \WP_REST_Request $request ) {
 					$per_page = absint( $request['per_page'] );
 					$page     = absint( $request['page'] );
-					$rows     = AuditLog::recent( $per_page, $page );
+					$filters  = [];
+					if ( $request->get_param( 'status' ) ) {
+						$filters['status'] = sanitize_key( (string) $request->get_param( 'status' ) );
+					}
+					if ( $request->get_param( 'ability' ) ) {
+						$filters['ability'] = sanitize_text_field( (string) $request->get_param( 'ability' ) );
+					}
+					$rows  = AuditLog::recent( $per_page, $page, $filters );
+					$total = AuditLog::count( $filters );
 
 					return rest_ensure_response( [
-						'page'     => $page,
-						'per_page' => $per_page,
-						'items'    => $rows,
+						'page'        => $page,
+						'per_page'    => $per_page,
+						'total'       => $total,
+						'total_pages' => (int) max( 1, (int) ceil( $total / max( 1, $per_page ) ) ),
+						'items'       => $rows,
 					] );
 				},
 			]
@@ -902,5 +918,98 @@ final class RestRoutes {
 				},
 			]
 		);
+	}
+
+	/**
+	 * Start a correlation id for Stonewright mutation requests.
+	 *
+	 * @param mixed            $result  Dispatch result so far.
+	 * @param \WP_REST_Server  $server  Server.
+	 * @param \WP_REST_Request $request Request.
+	 * @return mixed
+	 */
+	public static function audit_pre_dispatch( $result, $server, $request ) {
+		if ( ! self::is_stonewright_mutation( $request ) ) {
+			return $result;
+		}
+		AuditLog::begin_request();
+		return $result;
+	}
+
+	/**
+	 * Persist one audit row for Stonewright mutations that were not already
+	 * recorded by AbilityKernel.
+	 *
+	 * @param \WP_REST_Response|\WP_HTTP_Response|\WP_Error|mixed $response Response.
+	 * @param \WP_REST_Server                                      $server   Server.
+	 * @param \WP_REST_Request                                     $request  Request.
+	 * @return mixed
+	 */
+	public static function audit_post_dispatch( $response, $server, $request ) {
+		if ( ! self::is_stonewright_mutation( $request ) ) {
+			return $response;
+		}
+		if ( AuditLog::was_audited() ) {
+			return $response;
+		}
+
+		$status = 'ok';
+		if ( $response instanceof \WP_Error ) {
+			$data = $response->get_error_data();
+			$http = is_array( $data ) ? (int) ( $data['status'] ?? 0 ) : 0;
+			$code = (string) $response->get_error_code();
+			$status = ( 403 === $http || str_contains( $code, 'forbidden' ) || str_contains( $code, 'blocked' ) )
+				? 'blocked'
+				: 'error';
+		} elseif ( $response instanceof \WP_HTTP_Response ) {
+			$code = (int) $response->get_status();
+			if ( $code >= 400 ) {
+				$status = 403 === $code ? 'blocked' : 'error';
+			}
+		}
+
+		$route  = (string) $request->get_route();
+		$method = (string) $request->get_method();
+		$params = $request->get_params();
+		$params = is_array( $params ) ? $params : [];
+		// Drop noisy/large body keys; redact secrets.
+		unset( $params['_wpnonce'], $params['_locale'] );
+
+		AuditLog::record_rest_mutation(
+			$route,
+			$method,
+			[
+				'source'   => 'rest',
+				'route'    => $route,
+				'method'   => $method,
+				'mode'     => (string) get_option( 'stonewright_mode', 'development' ),
+				'resource' => self::resource_from_params( $params ),
+				'params'   => $params,
+			],
+			$status
+		);
+
+		return $response;
+	}
+
+	private static function is_stonewright_mutation( \WP_REST_Request $request ): bool {
+		$route  = (string) $request->get_route();
+		$method = strtoupper( (string) $request->get_method() );
+		if ( ! str_starts_with( $route, '/stonewright/v1' ) ) {
+			return false;
+		}
+		return in_array( $method, [ 'POST', 'PUT', 'PATCH', 'DELETE' ], true );
+	}
+
+	/**
+	 * @param array<string, mixed> $params
+	 */
+	private static function resource_from_params( array $params ): string {
+		foreach ( [ 'id', 'post_id', 'name', 'slug', 'ability' ] as $key ) {
+			if ( isset( $params[ $key ] ) && is_scalar( $params[ $key ] ) ) {
+				return $key . '=' . (string) $params[ $key ];
+			}
+		}
+		return '';
 	}
 }

@@ -1,5 +1,11 @@
 import { appendDirectAudit, recentRecurringErrors } from "../audit.js";
-import { listMemory, recordMemory, type MemoryKind } from "../memory-store.js";
+import {
+  getMemory,
+  listMemory,
+  memoryStorageRef,
+  recordMemory,
+  type MemoryKind,
+} from "../memory-store.js";
 import { loadSitesConfig, resolveSite } from "../sites-config.js";
 import {
   deleteSkill,
@@ -158,33 +164,92 @@ export function memoryList(
   return { scope, items: items.slice(0, input.limit ?? 20) };
 }
 
-export function learningRecord(
-  ctx: SelfImproveContext,
-  input: {
-    text: string;
-    kind?: MemoryKind;
-    tags?: string[];
-    draft_skill?: {
-      slug: string;
-      name: string;
-      description: string;
-      triggers: string[];
-      body: string;
-    };
-    site?: string;
-  },
-) {
+export type LearningRecordInput = {
+  /** Canonical fields (preferred). */
+  topic?: string;
+  correction?: string;
+  scope?: string;
+  source?: string;
+  evidence?: string;
+  /** Legacy Direct free-text. */
+  text?: string;
+  kind?: MemoryKind;
+  tags?: string[];
+  draft_skill?: {
+    slug: string;
+    name: string;
+    description: string;
+    triggers: string[];
+    body: string;
+  };
+  site?: string;
+};
+
+function normalizeLearningInput(input: LearningRecordInput): {
+  topic: string;
+  correction: string;
+  kind: MemoryKind;
+  source: string;
+  tags: string[];
+} {
+  const correction = (input.correction ?? input.text ?? "").trim();
+  let topic = (input.topic ?? "").trim();
+  if (!correction) {
+    throw new Error(
+      "Provide topic+correction, or text (Direct legacy). code=learning_record_invalid",
+    );
+  }
+  if (!topic) {
+    topic = correction.split("\n")[0]?.slice(0, 80) || "correction";
+  }
+  const kind: MemoryKind =
+    input.kind &&
+    (["correction", "lesson", "preference", "fact"] as const).includes(
+      input.kind,
+    )
+      ? input.kind
+      : "correction";
+  const source =
+    input.source?.trim() ||
+    (input.kind ? "explicit-user-request" : "explicit-user-request");
+  return {
+    topic,
+    correction,
+    kind,
+    source,
+    tags: input.tags ?? ["user-authored"],
+  };
+}
+
+export function learningRecord(ctx: SelfImproveContext, input: LearningRecordInput) {
   const { scope, baseDir, siteAlias } = resolveSelfImproveScope(
     ctx,
     input.site,
   );
+  const normalized = normalizeLearningInput(input);
   const entry = recordMemory({
     baseDir,
     scope,
-    text: input.text,
-    ...(input.kind !== undefined ? { kind: input.kind } : {}),
-    ...(input.tags !== undefined ? { tags: input.tags } : {}),
+    text: normalized.correction,
+    kind: normalized.kind,
+    tags: normalized.tags,
+    topic: normalized.topic,
+    source: normalized.source,
+    dedupe: true,
   });
+
+  const readback = getMemory({ baseDir, scope, id: entry.id });
+  if (!readback || readback.text.trim() !== entry.text.trim()) {
+    appendDirectAudit({
+      tool: "stonewright-learning-record",
+      site: siteAlias ?? "_global",
+      status: "error",
+    });
+    throw new Error(
+      "Learning readback mismatch. code=memory_readback_mismatch",
+    );
+  }
+
   let skill: SkillMeta | null = null;
   if (input.draft_skill) {
     skill = saveSkill({
@@ -203,7 +268,24 @@ export function learningRecord(
     site: siteAlias ?? "_global",
     status: "ok",
   });
-  return { ok: true, memory: entry, skill };
+
+  const canonicalScope =
+    input.scope === "user" || input.scope === "project"
+      ? input.scope
+      : "project";
+
+  return {
+    stored: true,
+    backend: "direct" as const,
+    scope: canonicalScope,
+    memory_id: entry.id,
+    storage_ref: memoryStorageRef(scope, entry.id),
+    verified: true,
+    ok: true,
+    memory_key: entry.id,
+    memory: entry,
+    skill,
+  };
 }
 
 export function taskStart(
@@ -251,7 +333,7 @@ export function taskStart(
     "Destructive tools require confirm:true; writes honor STONEWRIGHT_DIRECT_WRITES.",
     ...permanentRulesGuidance(),
     'Content model: Direct mode fully edits EXISTING registered models — any CPT content via stonewright-content-* (type param), any taxonomy terms via stonewright-taxonomy-terms, ACF field values via stonewright-acf-fields-* (needs ACF "Show in REST"). Registering NEW post types, taxonomies, or field groups requires PHP running on the server: use the Stonewright plugin or theme/plugin code. No REST-only client can register models — do not build ad hoc plugins as a workaround; tell the user instead.',
-    "If the user corrects a repeatable mistake, call stonewright-learning-record.",
+    "If the user explicitly asks to remember a correction, call stonewright-learning-record and only claim success when the response has verified:true; report memory_id and scope.",
     "Load a matched skill body with stonewright-skill-get before acting on its topic.",
     "Never guess WordPress/Elementor/Gutenberg schemas — read first, research official docs when unknown, verify after writes.",
   ];

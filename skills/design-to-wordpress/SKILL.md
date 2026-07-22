@@ -24,16 +24,52 @@ external Figma MCP (client) / screenshot / brief
 1. Call `stonewright-task-start` first. Read `visual_build_gate` and
    `visual_quality_contract`.
 2. **No raw Figma trees** after normalization — only DesignEvidence fields.
-3. **CSS only with `native_gap`**. Call
+3. **Mandatory section manifest** for multi-section Figma pages (see below).
+4. **CSS only with `native_gap`**. Call
    `stonewright-design-implementation-contract` with `action: validate` before
    shipping custom CSS. Missing gap → `stonewright_spec_invalid`.
-4. Verification is **agent-owned** (Playwright MCP). Tolerances:
+5. Verification is **agent-owned** (Playwright MCP) on a **separate
+   `verification_page` tab**. Never resize the Elementor `editor_page` tab.
+   Tolerances:
    - spacing ±2px
    - colors exact hex after token resolution
    - font-size exact
    - line-height ±0.05
-5. Engines: `elementor` (alias elementor-v3), `gutenberg`, `fse`. Never silent
+6. Engines: `elementor` (alias elementor-v3), `gutenberg`, `fse`. Never silent
    fallback.
+7. **Breakpoint isolation:** evidence for one breakpoint authorizes only that
+   breakpoint. Mobile-only Figma nodes must set `allowed_breakpoints: ["mobile"]`
+   and must not mutate desktop/tablet/base keys.
+
+## Mandatory per-section Figma extraction
+
+For every supplied Figma node:
+
+1. **Shallow metadata pass** (`get_metadata` / file summary) — always.
+2. Detect top-level visual sections and build an **ordered section manifest**:
+   `{ node_id, name, bounds, target_breakpoints[] }`.
+3. Capture **one screenshot per section** even when the link points at a full page.
+4. Per section extract: layout model, dimensions, grid/flex, typography, colors,
+   borders, radii, shadows, spacing, assets (with provenance/hashes), image
+   crop/fit, breakpoint evidence.
+5. Map each section to native Elementor/Gutenberg/FSE structures before code.
+6. **One section per guarded transaction.** Verify that section before the next.
+7. Full-page desktop + relevant responsive regression only after all sections pass.
+8. A multi-section plan with a single combined screenshot/evidence block is
+   **invalid** — reject and re-extract.
+
+## Browser tab roles
+
+| Role | Purpose | Resize allowed? |
+|------|---------|-----------------|
+| `editor_page` | Authenticated Elementor edit session | **No** — never resize to simulate breakpoints |
+| `verification_page` | Frontend URL after save/cache purge | **Yes** — desktop/tablet/mobile viewports |
+
+- Device switching in the editor uses runtime-discovered top-toolbar
+  `role=tab` controls (`aria-selected=true`), never window resize.
+- After verification, re-check editor URL, unsaved state, selected device tab,
+  and document ID.
+- A page handle must not serve both roles.
 
 ## Required task start
 

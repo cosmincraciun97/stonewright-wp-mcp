@@ -26,7 +26,12 @@ An MCP client that authenticates with an administrator account can call any abil
 If an MCP client is compromised, an attacker can issue ability calls on behalf of the authenticated user. Mitigations:
 
 - Enable `production-safe` mode on all sites that are not development or staging.
-- Monitor the audit log at `/wp-json/stonewright/v1/audit-log` for unexpected ability names or unusual argument patterns.
+- Monitor the audit log at `/wp-json/stonewright/v1/audit-log` for unexpected
+  ability names or unusual argument patterns. Coverage is **Stonewright-owned
+  mutations only**: abilities that call `AbilityKernel::audit()` and
+  POST/PUT/PATCH/DELETE routes under `stonewright/v1` (central middleware with
+  dedupe). Status vocabulary is `ok` | `error` | `blocked`. Unrelated WordPress
+  REST traffic is not logged.
 - Use the `ConfirmationToken` mechanism for any custom destructive abilities you add.
 
 ### Supply chain

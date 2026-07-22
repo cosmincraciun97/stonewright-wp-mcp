@@ -17,7 +17,7 @@ Stonewright plugin
   |-- Context bootstrap
   |-- Persistent skills and memory
   |-- Design Spec validators/renderers
-  |-- Direct PHP runtime, operator gates, backups, audit log
+  |-- Direct PHP runtime, operator gates, backups, Stonewright mutation audit
   |
 Companion
   |-- /health

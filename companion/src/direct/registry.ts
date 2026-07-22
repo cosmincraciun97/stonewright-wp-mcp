@@ -1558,10 +1558,15 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 	w4(
 		'stonewright-learning-record',
-		'Record a correction/lesson in local memory; optional disabled draft skill.',
+		'Record a verified correction/lesson in local memory (topic+correction or legacy text); optional disabled draft skill. Success includes verified:true after readback.',
 		{
 			site: siteArg,
-			text: z.string().min(1),
+			topic: z.string().min(1).optional(),
+			correction: z.string().min(1).optional(),
+			text: z.string().min(1).optional(),
+			scope: z.enum(['user', 'project']).optional(),
+			source: z.string().optional(),
+			evidence: z.string().optional(),
 			kind: z.enum(['correction', 'lesson', 'preference', 'fact']).optional(),
 			tags: z.array(z.string()).optional(),
 			draft_skill: z

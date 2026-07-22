@@ -7,15 +7,52 @@ use Stonewright\WpMcp\Support\Json;
 use Stonewright\WpMcp\Support\Logger;
 
 /**
- * Append-only audit log for write abilities.
+ * Append-only audit log for Stonewright-owned mutations and abilities.
  */
 final class AuditLog {
 
 	public const TABLE = 'stonewright_audit_log';
 
+	/** @var list<string> */
+	public const STATUSES = [ 'ok', 'error', 'blocked' ];
+
+	/**
+	 * When true, AbilityKernel (or another recorder) already wrote a row for
+	 * this request — REST mutation middleware must not create a duplicate.
+	 */
+	private static bool $request_already_audited = false;
+
+	private static ?string $request_correlation_id = null;
+
 	public static function table_name(): string {
 		global $wpdb;
 		return $wpdb->prefix . self::TABLE;
+	}
+
+	public static function reset_request_state(): void {
+		self::$request_already_audited = false;
+		self::$request_correlation_id  = null;
+	}
+
+	public static function begin_request( ?string $correlation_id = null ): string {
+		self::$request_already_audited = false;
+		self::$request_correlation_id  = $correlation_id ?? wp_generate_uuid4();
+		return self::$request_correlation_id;
+	}
+
+	public static function mark_audited(): void {
+		self::$request_already_audited = true;
+	}
+
+	public static function was_audited(): bool {
+		return self::$request_already_audited;
+	}
+
+	public static function request_id(): string {
+		if ( null === self::$request_correlation_id || '' === self::$request_correlation_id ) {
+			self::$request_correlation_id = wp_generate_uuid4();
+		}
+		return self::$request_correlation_id;
 	}
 
 	public static function maybe_install_table(): void {
@@ -43,11 +80,18 @@ final class AuditLog {
 		dbDelta( $sql );
 	}
 
-	public static function record( string $ability, array $sanitized_args, string $status = 'ok' ): void {
+	/**
+	 * @param array<string, mixed> $sanitized_args Already-redacted payload summary.
+	 * @return bool True when the row was persisted.
+	 */
+	public static function record( string $ability, array $sanitized_args, string $status = 'ok' ): bool {
 		global $wpdb;
 		$table = self::table_name();
 
-		$wpdb->insert(
+		$status = in_array( $status, self::STATUSES, true ) ? $status : 'error';
+		$sanitized_args = self::redact_sensitive( $sanitized_args );
+
+		$result = $wpdb->insert(
 			$table,
 			[
 				'ability_name'   => $ability,
@@ -57,11 +101,27 @@ final class AuditLog {
 				'result_status'  => $status,
 				'ip_hash'        => self::hash_value( $_SERVER['REMOTE_ADDR'] ?? '' ),
 				'ua_hash'        => self::hash_value( $_SERVER['HTTP_USER_AGENT'] ?? '' ),
-				'request_id'     => wp_generate_uuid4(),
+				'request_id'     => self::request_id(),
 				'created_at'     => current_time( 'mysql', true ),
 			],
 			[ '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ]
 		);
+
+		if ( false === $result ) {
+			// Do not recursively audit the audit failure.
+			Logger::error(
+				'audit_log_insert_failed',
+				[
+					'ability'    => $ability,
+					'status'     => $status,
+					'wpdb_error' => (string) ( $wpdb->last_error ?? '' ),
+				]
+			);
+			self::mark_audited();
+			return false;
+		}
+
+		self::mark_audited();
 
 		// Learn from recurring errors without blocking the audit write path.
 		try {
@@ -75,6 +135,21 @@ final class AuditLog {
 				]
 			);
 		}
+
+		return true;
+	}
+
+	/**
+	 * Record a Stonewright REST mutation unless an ability already audited this request.
+	 *
+	 * @param array<string, mixed> $sanitized_args
+	 */
+	public static function record_rest_mutation( string $route, string $method, array $sanitized_args, string $status = 'ok' ): bool {
+		if ( self::was_audited() ) {
+			return true;
+		}
+		$label = 'rest:' . strtoupper( $method ) . ' ' . $route;
+		return self::record( $label, $sanitized_args, $status );
 	}
 
 	/**
@@ -104,6 +179,29 @@ final class AuditLog {
 		// phpcs:enable WordPress.DB.PreparedSQL.NotPrepared
 
 		return is_array( $rows ) ? $rows : [];
+	}
+
+	/**
+	 * Exact matching row count for deterministic pagination.
+	 *
+	 * @param array<string, mixed> $filters
+	 */
+	public static function count( array $filters = [] ): int {
+		global $wpdb;
+		$table = self::table_name();
+		[ $where_sql, $params ] = self::build_filter_clause( $filters );
+
+		$sql = "SELECT COUNT(*) FROM {$table} {$where_sql}"; // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared
+		if ( [] === $params ) {
+			$total = $wpdb->get_var( $sql );
+		} else {
+			$total = $wpdb->get_var( $wpdb->prepare( $sql, ...$params ) );
+		}
+		// phpcs:enable WordPress.DB.PreparedSQL.NotPrepared
+
+		return (int) $total;
 	}
 
 	/**
@@ -164,7 +262,7 @@ final class AuditLog {
 		}
 
 		$status = isset( $filters['status'] ) ? sanitize_key( (string) $filters['status'] ) : '';
-		if ( in_array( $status, [ 'ok', 'error' ], true ) ) {
+		if ( in_array( $status, self::STATUSES, true ) ) {
 			$clauses[] = 'result_status = %s';
 			$params[]  = $status;
 		}
@@ -192,6 +290,47 @@ final class AuditLog {
 		}
 
 		return [ 'WHERE ' . implode( ' AND ', $clauses ), $params ];
+	}
+
+	/**
+	 * @param array<string, mixed> $payload
+	 * @return array<string, mixed>
+	 */
+	public static function redact_sensitive( array $payload ): array {
+		$keys = [
+			'password',
+			'user_pass',
+			'token',
+			'confirmation_token',
+			'api_key',
+			'secret',
+			'app_password',
+			'application_password',
+			'authorization',
+			'cookie',
+			'cookies',
+		];
+		$out = [];
+		foreach ( $payload as $key => $value ) {
+			$lk = strtolower( (string) $key );
+			// Preserve AbilityKernel digests already shaped as [redacted,...].
+			if ( is_string( $value ) && str_starts_with( $value, '[redacted' ) ) {
+				$out[ $key ] = $value;
+				continue;
+			}
+			if ( in_array( $lk, $keys, true ) || str_contains( $lk, 'password' ) || str_contains( $lk, 'token' ) || str_contains( $lk, 'secret' ) ) {
+				$out[ $key ] = is_string( $value ) && str_starts_with( $value, '[redacted' )
+					? $value
+					: '[redacted]';
+				continue;
+			}
+			if ( is_array( $value ) ) {
+				$out[ $key ] = self::redact_sensitive( $value );
+				continue;
+			}
+			$out[ $key ] = $value;
+		}
+		return $out;
 	}
 
 	private static function esc_like( string $value ): string {

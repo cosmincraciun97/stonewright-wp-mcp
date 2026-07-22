@@ -70,7 +70,15 @@ abstract class AbilityKernel implements Ability {
 	protected function audit( array $args, callable $callback ) {
 		$started_ns = hrtime( true );
 		$result     = $callback( $args );
-		$status     = $result instanceof \WP_Error ? 'error' : 'ok';
+		$status     = 'ok';
+		if ( $result instanceof \WP_Error ) {
+			$code   = (string) $result->get_error_code();
+			$data   = $result->get_error_data();
+			$http   = is_array( $data ) ? (int) ( $data['status'] ?? 0 ) : 0;
+			$status = ( 403 === $http || str_contains( $code, 'forbidden' ) || str_contains( $code, 'blocked' ) || str_contains( $code, 'permission' ) )
+				? 'blocked'
+				: 'error';
+		}
 		$sanitized  = $this->sanitize_for_audit( $args );
 		$metadata   = $this->audit_metadata(
 			$args,

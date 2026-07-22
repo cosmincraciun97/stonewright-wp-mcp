@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.80] - 2026-07-22
+
+### Added
+
+- Canonical permanent operating rules with Plugin/Direct/skill parity fingerprint.
+- Verified learning-record receipts (write-then-readback) and user/project memory types.
+- Central REST mutation audit under `stonewright/v1` with blocked status and exact counts.
+- MethodRouter ladder and Elementor ResponsiveScope isolation helpers.
+
 ## [1.0.0-alpha.79] - 2026-07-22
 
 ### Fixed
@@ -96,22 +105,3 @@
 ### Changed
 
 - Direct `AGENTS.md` managed template includes the permanent operating rules.
-
-## [1.0.0-alpha.75] - 2026-07-16
-
-### Added
-
-- Direct mode: `stonewright-content-create` creates items of any registered post
-  type (**99** tools total).
-- Direct mode: `stonewright-task-start` returns `session_tools` (exact enabled
-  tool list) and structured `capabilities.content_model` guidance.
-
-### Changed
-
-- Direct mode: content and taxonomy tools auto-resolve `rest_base` from
-  `/wp/v2/types` and `/wp/v2/taxonomies` (CPTs whose `rest_base` differs from
-  the slug now work).
-- Direct mode: site-discover and capability tiers state that Direct fully edits
-  existing CPT content, taxonomy terms, and ACF field values; registering new
-  models requires server-side PHP (plugin) — a WordPress REST limit, not a
-  Stonewright gap.

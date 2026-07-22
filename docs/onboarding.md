@@ -164,23 +164,29 @@ native:
   output still needs valid block markup, readable theme files, and browser
   verification.
 
-## Skills And Memory
+## Skills, Memory, And Permanent Rules
 
-Stonewright has two persistent teaching surfaces:
+Stonewright has three related but distinct surfaces:
 
+- **Permanent product rules** ship in code (`McpUsePolicy` / Direct
+  `permanent-rules`). They are always injected at task-start, are **not** Memory
+  rows, and are **not** controlled by Custom Instructions.
 - **Skills** are reusable playbooks. In plugin mode they live in the site DB /
   admin UI. Enable **Auto-match** for skills that should be selected from task
   descriptions. Enable **Prompt/command** for skills that should be exposed as
   explicit user entries. In Direct mode, skills live under
   `~/.stonewright/skills/` on the machine running the companion.
-- **Memory** stores site facts, project rules, and corrections. Use it for
-  repeatable constraints such as "do not use HTML widgets" or "newsletter forms
-  must use the native Elementor form widget." Direct mode stores memory under
-  `~/.stonewright/` as well.
+- **Memory** stores learned site facts, project rules, and user corrections.
+  Use it for repeatable constraints such as "do not use HTML widgets." Direct
+  mode stores memory as private JSONL under `~/.stonewright/memory/<scope>.jsonl`
+  (directory mode `0700`, files `0600`). Report only logical refs such as
+  `direct:memory/<scope>.jsonl#<id>` — never expand home paths with secrets.
 
-If an agent makes a repeatable mistake or the owner corrects a workflow, record
-that lesson with `stonewright-learning-record` so future tasks become faster
-and more precise.
+If the user explicitly asks Stonewright to remember a correction, call
+`stonewright-learning-record` (canonical: `topic` + `correction` + `scope`, or
+legacy Direct `text`). Success requires `verified:true` after readback; report
+`memory_id`, `scope`, and `storage_ref`. Never claim memory was stored without
+that receipt.
 
 ## Useful Ability Flow
 

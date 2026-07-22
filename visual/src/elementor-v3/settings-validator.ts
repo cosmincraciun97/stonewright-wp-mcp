@@ -5,11 +5,96 @@ import type { ElementorV3ControlSchema, ElementorV3Settings, ElementorV3WidgetSc
 
 const CTA_WIDGETS = new Set(["button", "call-to-action", "read-more", "price-table"]);
 
+const BREAKPOINT_SUFFIX: Record<string, string> = {
+  widescreen: "widescreen",
+  laptop: "laptop",
+  tablet_extra: "tablet_extra",
+  tablet: "tablet",
+  mobile_extra: "mobile_extra",
+  mobile: "mobile",
+};
+
+export function settingBreakpoint(key: string): string {
+  for (const name of Object.values(BREAKPOINT_SUFFIX)) {
+    if (key.endsWith(`_${name}`)) return name;
+  }
+  return "desktop";
+}
+
+/**
+ * Enforce design-derived responsive scope. Mobile-only evidence may only
+ * mutate mobile keys. Non-responsive controls return a structured no-op error.
+ */
+export function assertResponsiveScope(
+  settings: ElementorV3Settings,
+  allowedBreakpoints: string[],
+  schema?: ElementorV3WidgetSchema,
+): void {
+  const allowed = allowedBreakpoints.map((b) => b.toLowerCase().trim()).filter(Boolean);
+  if (allowed.length === 0) return;
+
+  for (const key of Object.keys(settings)) {
+    if (["__dynamic__", "__globals__"].includes(key)) continue;
+    const bp = settingBreakpoint(key);
+    if (!allowed.includes(bp)) {
+      throw new Error(
+        `responsive_scope_violation: ${key} targets ${bp}; allowed=${allowed.join(",")}`,
+      );
+    }
+    const base = baseResponsiveKey(key);
+    const control = schema?.controls[base];
+    if (control && !isResponsive(control) && key !== base) {
+      throw new Error(
+        `unsupported_responsive_control: widget=${schema?.widget_type ?? "unknown"} control=${base} breakpoint=${bp}`,
+      );
+    }
+    if (
+      control &&
+      isResponsive(control) &&
+      key === base &&
+      !allowed.includes("desktop") &&
+      !allowed.includes("base")
+    ) {
+      throw new Error(
+        `responsive_scope_violation: base key ${key} outside allowed scope ${allowed.join(",")}; use breakpoint-suffixed key`,
+      );
+    }
+  }
+}
+
+/** Hash settings outside the allowed breakpoint scope for before/after integrity. */
+export function hashNonTargetBreakpoints(
+  settings: ElementorV3Settings,
+  allowedBreakpoints: string[],
+): string {
+  const allowed = allowedBreakpoints.map((b) => b.toLowerCase());
+  const kept: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(settings)) {
+    if (["__dynamic__", "__globals__"].includes(key)) continue;
+    if (!allowed.includes(settingBreakpoint(key))) kept[key] = value;
+  }
+  const keys = Object.keys(kept).sort();
+  const ordered: Record<string, unknown> = {};
+  for (const k of keys) ordered[k] = kept[k];
+  // Simple stable hash without node crypto dependency in browser bundles.
+  const json = JSON.stringify(ordered);
+  let h = 2166136261;
+  for (let i = 0; i < json.length; i++) {
+    h ^= json.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
+
 export function validateElementorV3Settings(
   schema: ElementorV3WidgetSchema,
   settings: ElementorV3Settings,
   effectiveSettings: ElementorV3Settings = settings,
+  options: { allowedBreakpoints?: string[] } = {},
 ): void {
+  if (options.allowedBreakpoints?.length) {
+    assertResponsiveScope(settings, options.allowedBreakpoints, schema);
+  }
   const violations: string[] = [];
   for (const [key, value] of Object.entries(settings)) {
     if (["__dynamic__", "__globals__"].includes(key)) {
