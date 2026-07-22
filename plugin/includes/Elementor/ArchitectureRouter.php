@@ -48,7 +48,7 @@ final class ArchitectureRouter {
 		} elseif ( $site_v4 ) {
 			$target  = 'none';
 			$blocked = true;
-			$reason  = 'Elementor 4 runtime with an empty or unspecified document is architecture-ambiguous. Select target_architecture=v3 explicitly or use a production-ready V4 editor adapter.';
+			$reason  = 'Elementor 4 runtime with an empty or unspecified document is architecture-ambiguous. Cheapest unblock: re-run stonewright/task-start (or workflow-preflight) with post_id set to the post you will edit — the document architecture is then detected automatically. Alternatively select target_architecture=v3 explicitly for a new V3 document.';
 		}
 
 		return [

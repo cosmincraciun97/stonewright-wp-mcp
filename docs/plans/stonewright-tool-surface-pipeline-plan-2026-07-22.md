@@ -1305,7 +1305,7 @@ git commit -m "feat: live proxy registration state in companion status and surfa
 - Modify: `plugin/includes/Elementor/ArchitectureRouter.php:50-53`
 - Test: `plugin/tests/Unit/Elementor/ArchitectureRouterTest.php` (create)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `plugin/tests/Unit/Elementor/ArchitectureRouterTest.php`. The existing architecture tests in `plugin/tests/Unit/WorkflowEfficiencyAbilitiesTest.php` (around :350-385) already force the Elementor version via the `stonewright_elementor_version` filter — copy their exact filter mechanism (add_filter shim or `$GLOBALS` filter table) into this file's setUp:
 
@@ -1344,12 +1344,12 @@ final class ArchitectureRouterTest extends TestCase {
 }
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `cd plugin && vendor/bin/phpunit --filter ArchitectureRouterTest`
 Expected: `test_ambiguous_block_instructs_agent_to_pass_post_id` FAILS on the `post_id` assertion; the v3 test passes (guards against regressions while editing).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `ArchitectureRouter::describe()`, replace:
 
@@ -1371,7 +1371,7 @@ with:
 		}
 ```
 
-- [ ] **Step 4: Run tests, full suite, commit**
+- [x] **Step 4: Run tests, full suite, commit**
 
 Run: `cd plugin && vendor/bin/phpunit --filter "ArchitectureRouterTest|WorkflowEfficiencyAbilitiesTest" && composer test`
 Expected: PASS. If `WorkflowEfficiencyAbilitiesTest` asserts the old reason string verbatim, update that assertion.
