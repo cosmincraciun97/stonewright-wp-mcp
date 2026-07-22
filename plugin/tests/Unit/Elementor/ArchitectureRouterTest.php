@@ -34,4 +34,19 @@ final class ArchitectureRouterTest extends TestCase {
 		self::assertFalse( $out['write_blocked'] );
 		self::assertSame( 'v3', $out['write_target'] );
 	}
+
+	public function test_router_marks_document_not_inspected_without_post_id(): void {
+		$out = ArchitectureRouter::describe( 0, 'v3' );
+
+		self::assertFalse( $out['document_inspected'] );
+		self::assertSame( 'not_inspected', $out['document_architecture'] );
+		self::assertStringContainsString( 'post_id', (string) $out['reason'] );
+	}
+
+	public function test_router_names_repair_tools_when_blocked(): void {
+		$out = ArchitectureRouter::describe( 0, 'auto' );
+
+		self::assertTrue( $out['write_blocked'] );
+		self::assertContains( 'stonewright/elementor-v3-repair-document', $out['repair_tools'] );
+	}
 }

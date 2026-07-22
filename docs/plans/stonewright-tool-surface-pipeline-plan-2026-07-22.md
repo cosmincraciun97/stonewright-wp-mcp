@@ -2321,7 +2321,7 @@ simply never looked. The router should say so (`document_inspected = false`,
 `document_architecture = 'not_inspected'`) and, when it blocks, name the concrete repair
 tools instead of leaving the agent to guess.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```php
 public function test_router_marks_document_not_inspected_without_post_id(): void {
@@ -2343,13 +2343,13 @@ public function test_router_names_repair_tools_when_blocked(): void {
 }
 ```
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 Run: `cd plugin && vendor/bin/phpunit --filter 'test_router_marks_document_not_inspected_without_post_id|test_router_names_repair_tools_when_blocked'`
 Expected: FAIL — `document_inspected` / `repair_tools` keys do not exist; architecture is
 `'unknown'`.
 
-- [ ] **Step 3: Distinguish "not inspected" from "inspected empty", add repair tools**
+- [x] **Step 3: Distinguish "not inspected" from "inspected empty", add repair tools**
 
 In `ArchitectureRouter.php`, change the inspection block (lines 17-20) from:
 
@@ -2411,7 +2411,7 @@ to:
 			$reason = 'No post_id was inspected; proceeding on the caller-selected V3 target. Pass post_id to detect the real document architecture before writing.';
 ```
 
-- [ ] **Step 4: Run to verify it passes**
+- [x] **Step 4: Run to verify it passes**
 
 Run: `cd plugin && vendor/bin/phpunit --filter 'test_router_marks_document_not_inspected_without_post_id|test_router_names_repair_tools_when_blocked'`
 Expected: PASS (2).
@@ -2420,7 +2420,7 @@ Then run any callers' tests that assert on router output (grep first):
 Run: `grep -rl "document_architecture\|write_blocked" tests/ && vendor/bin/phpunit tests/Unit/Abilities/System tests/Unit/Elementor`
 Expected: PASS. If `WorkflowPreflight`/fast-path tests assert `document_architecture === 'unknown'`, update them to `'not_inspected'` for the no-post_id case.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add plugin/includes/Elementor/ArchitectureRouter.php plugin/tests/Unit/Elementor/ArchitectureRouterTest.php
