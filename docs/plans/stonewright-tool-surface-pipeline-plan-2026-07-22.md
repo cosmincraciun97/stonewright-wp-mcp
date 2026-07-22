@@ -931,7 +931,7 @@ git commit -m "feat: expose theme-file-patch on the essential surface"
 
 Design: a refresh always re-resolves against the plugin (`resolvePluginProxyToolNames`). Only a plugin-sourced resolve (`source === 'plugin'`, or the full-profile remote-list fallback) is *authoritative* and may disable tools. Structured `recommended_mcp_tools` are advisory: they merge in additively and never justify a disable. A pinned gateway set is never disabled by anyone.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `companion/tests/tools-changed.test.ts`, add to the `handleToolsChangedResponse` describe block (reuse the file's existing mock patterns; note `client.callTool` is what `resolvePluginProxyToolNames` invokes — mock it to return a structured tool-profile resolve payload):
 
@@ -1021,12 +1021,12 @@ In `companion/tests/tools-changed.test.ts`, add to the `handleToolsChangedRespon
 	});
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd companion && npx vitest run tests/tools-changed.test.ts`
 Expected: the two new tests FAIL (current code disables everything outside the advisory list).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `companion/src/wordpress-mcp.ts`, add next to `COMPANION_OWNED_TOOL_NAMES` (:86):
 
@@ -1125,12 +1125,12 @@ Also apply the pin at initial registration: inside `registerWordPressMcpTools`, 
 
 (Adapt the two identifier names to the actual local variables at that site — the kept-array variable and the remote-tools-by-name map; if no by-name map exists there, build one from the fetched remote tool list.)
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `cd companion && npx vitest run tests/tools-changed.test.ts`
 Expected: PASS, including the pre-existing cases. The existing test `prefers the session task profile over the saved bootstrap surface` exercises a fallback resolve (its `callTool` mock returns undefined) — with the new semantics it must see `removed: []`; update its expectations if they asserted disables.
 
-- [ ] **Step 5: Full companion suite, then commit**
+- [x] **Step 5: Full companion suite, then commit**
 
 Run: `cd companion && npm test && npm run typecheck && npm run build`
 Expected: PASS.

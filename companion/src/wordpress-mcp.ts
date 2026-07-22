@@ -94,6 +94,16 @@ const COMPANION_OWNED_TOOL_NAMES = new Set([
 	'stonewright-wordpress-mcp-status',
 ]);
 
+/** Gateway tools that must survive every refresh so the surface can recover. */
+export const NEVER_DISABLE_TOOL_NAMES = new Set([
+	'stonewright-task-start',
+	'stonewright-context-bootstrap',
+	'stonewright-workflow-preflight',
+	'stonewright-tool-profile',
+	'stonewright-php-execute',
+	'stonewright-wordpress-mcp-status',
+]);
+
 export type ProxyToolProfile = 'full' | 'bootstrap' | 'low-tools' | 'essential' | 'elementor-design' | 'content-model' | 'gutenberg' | 'wp-cli' | 'site-admin';
 
 export const STARTUP_REQUIRED_PROXY_TOOL_NAMES = [
@@ -617,6 +627,12 @@ export async function registerWordPressMcpTools(
 		candidates.map((t) => t.name),
 		maxTools,
 	);
+	const remoteByName = new Map(tools.map((tool) => [tool.name, tool]));
+	for (const name of NEVER_DISABLE_TOOL_NAMES) {
+		if (!kept.includes(name) && remoteByName.has(name) && !COMPANION_OWNED_TOOL_NAMES.has(name)) {
+			kept.push(name);
+		}
+	}
 	if (trimmed.length > 0) {
 		// Deterministic client-cap trim from the tail of the priority-ordered list.
 		// stderr only — stdout is the MCP JSON-RPC channel.
@@ -626,7 +642,11 @@ export async function registerWordPressMcpTools(
 		profileFilteredToolNames.push(...trimmed);
 	}
 	const keepSet = new Set(kept);
-	const finalTools = candidates.filter((t) => keepSet.has(t.name));
+	const finalTools = tools.filter((tool) =>
+		Boolean(tool.name)
+		&& !tool.name.startsWith('companion_')
+		&& !COMPANION_OWNED_TOOL_NAMES.has(tool.name)
+		&& keepSet.has(tool.name));
 
 	const registerOneProxyTool = (tool: RemoteTool): void => {
 		if (registered.has(tool.name)) return;
@@ -925,16 +945,15 @@ export async function handleToolsChangedResponse(options: {
 		activeProfile = coerceProxyToolProfile(profileHint);
 	}
 
-	let desiredNames = mcpToolNamesFromStructured(structured);
+	const hintedNames = mcpToolNamesFromStructured(structured);
 
 	try {
 		const remoteTools = await client.listTools();
 		const byName = new Map(remoteTools.map((t) => [t.name, t]));
 
-		if (desiredNames.length === 0) {
-			const resolved = await resolvePluginProxyToolNames(client, activeProfile, maxTools);
-			desiredNames = resolved.tools;
-		}
+		const resolved = await resolvePluginProxyToolNames(client, activeProfile, maxTools);
+		let desiredNames = resolved.tools;
+		let authoritative = resolved.source === 'plugin';
 
 		if (activeProfile === 'full' && desiredNames.length === 0) {
 			desiredNames = remoteTools
@@ -942,17 +961,31 @@ export async function handleToolsChangedResponse(options: {
 				.filter((name) => Boolean(name)
 					&& !name.startsWith('companion_')
 					&& !COMPANION_OWNED_TOOL_NAMES.has(name));
+			authoritative = authoritative || desiredNames.length > 0;
 		} else if (desiredNames.length === 0) {
 			desiredNames = proxyToolNamesForProfile(activeProfile);
+			authoritative = false;
 		}
 
-		const { kept } = trimToolsToMax(desiredNames, maxTools);
+		const merged = [...desiredNames];
+		for (const name of hintedNames) {
+			if (!merged.includes(name)) merged.push(name);
+		}
+		for (const name of NEVER_DISABLE_TOOL_NAMES) {
+			if (byName.has(name) && !merged.includes(name)) merged.push(name);
+		}
+		const { kept } = trimToolsToMax(merged, maxTools);
 		const desiredSet = new Set(kept);
+		for (const name of NEVER_DISABLE_TOOL_NAMES) {
+			if (byName.has(name)) desiredSet.add(name);
+		}
 
 		const added: string[] = [];
 		const removed: string[] = [];
 
 		for (const [name, entry] of registered) {
+			if (!authoritative) break;
+			if (NEVER_DISABLE_TOOL_NAMES.has(name)) continue;
 			if (!desiredSet.has(name)) {
 				if (entry.handle.enabled) {
 					entry.handle.disable();
@@ -961,7 +994,7 @@ export async function handleToolsChangedResponse(options: {
 			}
 		}
 
-		for (const name of kept) {
+		for (const name of desiredSet) {
 			if (COMPANION_OWNED_TOOL_NAMES.has(name) || name.startsWith('companion_')) {
 				continue;
 			}
@@ -986,7 +1019,7 @@ export async function handleToolsChangedResponse(options: {
 			added,
 			removed,
 			profile: activeProfile,
-			desiredCount: kept.length,
+			desiredCount: desiredSet.size,
 		};
 	} catch {
 		// Still notify so clients re-list; companion process may keep the prior set
