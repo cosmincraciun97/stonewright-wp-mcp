@@ -106,7 +106,7 @@ final class UpdateElement extends AbilityKernel {
 
 				$new_tree = ElementorData::set( $tree, $path, $existing );
 				$snapshot_id = Backup::snapshot_post( $post_id );
-				if ( ! ElementorData::write( $post_id, $new_tree ) ) {
+				if ( ! ElementorData::write( $post_id, $new_tree, [ 'touched_ids' => [ (string) $args['element_id'] ] ] ) ) {
 					return ElementorData::write_error_for_ability();
 				}
 

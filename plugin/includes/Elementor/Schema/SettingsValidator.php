@@ -140,18 +140,21 @@ final class SettingsValidator {
 	 * Unknown settings are preserved so layout keys are never stripped-to-pass.
 	 *
 	 * @param array<int, array<string, mixed>> $tree Elementor element tree.
+	 * @param list<string>|null $touched_ids Content-validation scope; null validates every node.
 	 */
-	public static function validate_tree( array $tree ): bool {
+	public static function validate_tree( array $tree, ?array $touched_ids = null ): bool {
 		self::$last_error = null;
 		$seen_ids         = [];
-		return self::validate_tree_nodes( $tree, 'root', $seen_ids );
+		$scope            = null === $touched_ids ? null : array_fill_keys( array_map( 'strval', $touched_ids ), true );
+		return self::validate_tree_nodes( $tree, 'root', $seen_ids, $scope );
 	}
 
 	/**
-	 * @param array<int, mixed> $tree
-	 * @param array<string, true> $seen_ids
+	 * @param array<int, mixed>        $tree
+	 * @param array<string, true>      $seen_ids
+	 * @param array<string, true>|null $scope
 	 */
-	private static function validate_tree_nodes( array $tree, string $path, array &$seen_ids ): bool {
+	private static function validate_tree_nodes( array $tree, string $path, array &$seen_ids, ?array $scope = null ): bool {
 		foreach ( $tree as $index => $element ) {
 			if ( ! is_array( $element ) ) {
 				return self::tree_error( $path . '.' . (string) $index, 'invalid_element', 'an Elementor element object', $element );
@@ -175,11 +178,9 @@ final class SettingsValidator {
 				if ( '' === $widget_type ) {
 					return self::tree_error( $element_path . '.widgetType', 'missing_widget_type', 'a non-empty Elementor widget type', null );
 				}
-				// Allow e-* atomic widgets to coexist in mixed documents. Structure-only.
-				// Never force conversion to text-editor/heading to pass V3 schema.
-				if ( str_starts_with( $widget_type, 'e-' ) ) {
-					// Skip V3 schema validation for atomic nodes.
-				} elseif ( '' !== $widget_type && 'html' !== $widget_type ) {
+				$in_scope = null === $scope || isset( $scope[ $id ] );
+				// Atomic and untouched widgets get structure-only validation.
+				if ( $in_scope && ! str_starts_with( $widget_type, 'e-' ) && 'html' !== $widget_type ) {
 					$settings = isset( $element['settings'] ) && is_array( $element['settings'] ) ? $element['settings'] : [];
 					$text_error = TextIntegrity::first_violation( $settings, $element_path . '.settings' );
 					if ( null !== $text_error ) {
@@ -192,7 +193,7 @@ final class SettingsValidator {
 						return false;
 					}
 				}
-			} elseif ( in_array( $element_type, [ 'container', 'section', 'column' ], true ) ) {
+			} elseif ( ( null === $scope || isset( $scope[ $id ] ) ) && in_array( $element_type, [ 'container', 'section', 'column' ], true ) ) {
 				$settings = isset( $element['settings'] ) && is_array( $element['settings'] ) ? $element['settings'] : [];
 				$text_error = TextIntegrity::first_violation( $settings, $element_path . '.settings' );
 				if ( null !== $text_error ) {
@@ -208,7 +209,7 @@ final class SettingsValidator {
 				return self::tree_error( $element_path . '.elements', 'invalid_children', 'an array of child Elementor elements', $element['elements'] );
 			}
 			$children = isset( $element['elements'] ) ? $element['elements'] : [];
-			if ( ! self::validate_tree_nodes( $children, $element_path . '.elements', $seen_ids ) ) {
+			if ( ! self::validate_tree_nodes( $children, $element_path . '.elements', $seen_ids, $scope ) ) {
 				return false;
 			}
 		}

@@ -1776,7 +1776,7 @@ list of ids is passed, only nodes whose `id` is in that set are content-validate
 `$options['touched_ids']` and forwards it. Callers that mutate a known set of nodes
 (`UpdateElement`, and `BatchMutate` in Task 15) pass exactly the ids they wrote.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `WidgetSchemaRepositoryTest.php`:
 
@@ -1823,14 +1823,14 @@ public function test_validate_tree_scopes_content_checks_to_touched_ids(): void 
 }
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `cd plugin && vendor/bin/phpunit --filter test_validate_tree_scopes_content_checks_to_touched_ids`
 Expected: FAIL — `validate_tree( $tree, [ 'clean1' ] )` currently ignores the second
 argument (it does not exist), so the dirty node is still content-validated and the call
 returns `false`.
 
-- [ ] **Step 3: Thread `touched_ids` through the validator**
+- [x] **Step 3: Thread `touched_ids` through the validator**
 
 In `SettingsValidator.php`, change `validate_tree()` (line 144) from:
 
@@ -1917,12 +1917,12 @@ to:
 (The `missing_widget_type` / `missing_element_type` / `invalid_children` structural checks
 stay outside the scope gate, so they run on every node.)
 
-- [ ] **Step 4: Run to verify it passes**
+- [x] **Step 4: Run to verify it passes**
 
 Run: `cd plugin && vendor/bin/phpunit --filter test_validate_tree_scopes_content_checks_to_touched_ids`
 Expected: PASS.
 
-- [ ] **Step 5: Forward `touched_ids` from `ElementorData::write()` and its callers**
+- [x] **Step 5: Forward `touched_ids` from `ElementorData::write()` and its callers**
 
 In `ElementorData.php`, change the `validate_tree` call in `write()` (line 89) from:
 
@@ -1954,13 +1954,13 @@ to:
 			if ( ! ElementorData::write( $post_id, $new_tree, [ 'touched_ids' => [ (string) $args['element_id'] ] ] ) ) {
 ```
 
-- [ ] **Step 6: Regression run**
+- [x] **Step 6: Regression run**
 
 Run: `cd plugin && vendor/bin/phpunit tests/Unit/Elementor tests/Unit/ElementorV3 tests/Unit/Support`
 Expected: PASS (all). The `write()` tests that pass no `touched_ids` keep the old
 whole-tree behavior (`$touched_ids === null`), so nothing regresses.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add plugin/includes/Elementor/Schema/SettingsValidator.php plugin/includes/Support/ElementorData.php plugin/includes/Abilities/ElementorV3/UpdateElement.php plugin/tests/Unit/Elementor/Schema/WidgetSchemaRepositoryTest.php
