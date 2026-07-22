@@ -70,6 +70,7 @@ final class ReadAtomicTree extends AbilityKernel {
 		return [
 			'type'       => 'object',
 			'properties' => [
+				'post_id'             => [ 'type' => 'integer' ],
 				'atomic_tree'         => [ 'type' => 'array' ],
 				'atomic_count'        => [ 'type' => 'integer' ],
 				'non_atomic_count'    => [ 'type' => 'integer' ],
@@ -83,6 +84,7 @@ final class ReadAtomicTree extends AbilityKernel {
 				'returned_count'      => [ 'type' => 'integer' ],
 				'truncated'           => [ 'type' => 'boolean' ],
 				'tree_omitted'        => [ 'type' => 'boolean' ],
+				'full_mode_hint'      => [ 'type' => 'string' ],
 			],
 		];
 	}
