@@ -127,6 +127,28 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 		self::assertSame( 'unknown_repeater_field', $invalid->get_error_data()['violations'][0]['code'] );
 	}
 
+	public function test_empty_responsive_slider_sentinel_is_accepted(): void {
+		$result = SettingsValidator::validate(
+			'third-party-card',
+			[ 'flex_gap' => [ 'unit' => '%', 'size' => '', 'sizes' => [] ] ],
+			false
+		);
+
+		self::assertIsArray( $result, 'empty slider sentinel must not be rejected' );
+		self::assertSame( [ 'unit' => '%', 'size' => '', 'sizes' => [] ], $result['settings']['flex_gap'] );
+	}
+
+	public function test_slider_still_rejects_non_slider_garbage(): void {
+		$result = SettingsValidator::validate(
+			'third-party-card',
+			[ 'flex_gap' => [ 'not_a_slider_key' => 'x' ] ],
+			false
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'invalid_shape', $result->get_error_data()['violations'][0]['code'] );
+	}
+
 	public function test_control_conditions_require_the_live_activator(): void {
 		$invalid = SettingsValidator::validate( 'third-party-card', [ 'subtitle' => 'Hidden' ] );
 		self::assertInstanceOf( \WP_Error::class, $invalid );
@@ -360,6 +382,7 @@ final class LiveThirdPartyWidget {
 			'subtitle' => [ 'type' => 'text', 'label' => 'Subtitle', 'tab' => 'content', 'section' => 'content', 'condition' => [ 'show_subtitle' => 'yes' ] ],
 			'link'    => [ 'type' => 'url', 'label' => 'Link', 'tab' => 'content', 'section' => 'content' ],
 			'spacing' => [ 'type' => 'dimensions', 'label' => 'Spacing', 'tab' => 'advanced', 'section' => 'layout', 'responsive' => true ],
+			'flex_gap' => [ 'type' => 'slider', 'label' => 'Gap', 'tab' => 'content', 'section' => 'content', 'responsive' => true ],
 			'items'   => [
 				'type'    => 'repeater',
 				'label'   => 'Items',

@@ -306,7 +306,7 @@ final class SettingsValidator {
 		}
 
 		$valid = match ( $type ) {
-			'number', 'slider'                         => is_numeric( $value ) || ( is_array( $value ) && isset( $value['size'] ) && is_numeric( $value['size'] ) ),
+			'number', 'slider'                         => self::valid_number_or_slider( $value ),
 			'url'                                      => self::valid_url_value( $value ),
 			'media', 'gallery'                         => self::valid_media_value( $value ),
 			'switcher', 'select', 'choose', 'select2'  => is_scalar( $value ) || is_array( $value ),
@@ -352,6 +352,21 @@ final class SettingsValidator {
 			return false;
 		}
 		return self::valid_url_value( $value['url'] );
+	}
+
+	/** Numbers and Elementor slider objects, including the cleared sentinel. */
+	private static function valid_number_or_slider( mixed $value ): bool {
+		if ( is_numeric( $value ) ) {
+			return true;
+		}
+		if ( ! is_array( $value ) ) {
+			return false;
+		}
+		if ( array_key_exists( 'size', $value ) ) {
+			$size = $value['size'];
+			return is_numeric( $size ) || '' === $size || null === $size;
+		}
+		return array_key_exists( 'sizes', $value ) && is_array( $value['sizes'] );
 	}
 
 	private static function valid_media_value( mixed $value ): bool {

@@ -1545,7 +1545,7 @@ surgical edit still passes that gate, so both topologies are covered.
 - Modify: `plugin/includes/Elementor/Schema/SettingsValidator.php:308-319`
 - Modify test fixture + Test: `plugin/tests/Unit/Elementor/Schema/WidgetSchemaRepositoryTest.php`
 
-- [ ] **Step 1: Add a `slider` control to the live fixture, then write the failing test**
+- [x] **Step 1: Add a `slider` control to the live fixture, then write the failing test**
 
 In `WidgetSchemaRepositoryTest.php`, add a slider control to `LiveThirdPartyWidget::get_controls()`
 (it lives near the bottom of the file, after the `spacing` dimensions control):
@@ -1586,12 +1586,12 @@ public function test_slider_still_rejects_non_slider_garbage(): void {
 }
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `cd plugin && vendor/bin/phpunit --filter test_empty_responsive_slider_sentinel_is_accepted`
 Expected: FAIL — `validate()` returns a `WP_Error` (`invalid_shape`), so `assertIsArray` fails.
 
-- [ ] **Step 3: Replace the slider arm with a shape-aware helper**
+- [x] **Step 3: Replace the slider arm with a shape-aware helper**
 
 In `SettingsValidator.php`, change the `number`/`slider` arm of the `match` (line 309) from:
 
@@ -1631,7 +1631,7 @@ private static function valid_number_or_slider( mixed $value ): bool {
 }
 ```
 
-- [ ] **Step 4: Run both tests to verify they pass**
+- [x] **Step 4: Run both tests to verify they pass**
 
 Run: `cd plugin && vendor/bin/phpunit --filter 'test_empty_responsive_slider_sentinel_is_accepted|test_slider_still_rejects_non_slider_garbage'`
 Expected: PASS (2 tests).
@@ -1640,7 +1640,7 @@ Then run the whole schema suite to prove the fixture change broke nothing:
 Run: `vendor/bin/phpunit tests/Unit/Elementor/Schema/WidgetSchemaRepositoryTest.php`
 Expected: PASS (all).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add plugin/includes/Elementor/Schema/SettingsValidator.php plugin/tests/Unit/Elementor/Schema/WidgetSchemaRepositoryTest.php
