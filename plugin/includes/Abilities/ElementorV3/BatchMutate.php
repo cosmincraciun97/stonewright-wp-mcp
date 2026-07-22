@@ -13,6 +13,7 @@ use Stonewright\WpMcp\Elementor\Write\IdempotencyStore;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RemediationHints;
 use Stonewright\WpMcp\Support\ElementorData;
 
 /**
@@ -187,7 +188,12 @@ final class BatchMutate extends AbilityKernel {
 					return $this->error(
 						'v3_architecture_mismatch',
 						__( 'This document contains Elementor V4 Atomic nodes. V3 batch mutation is blocked to prevent a mixed tree.', 'stonewright' ),
-						[ 'status' => 409, 'architecture' => $architecture, 'before_hash' => $before_hash, 'repair' => 'Read the atomic tree and use the V4 editor pipeline; never translate V4 nodes to V3 implicitly.' ]
+						[
+							'status'       => 409,
+							'architecture' => $architecture,
+							'before_hash'  => $before_hash,
+							'repair'       => RemediationHints::for_code( 'stonewright_v3_architecture_mismatch', $this->name() ),
+						]
 					);
 				}
 				$expected_tree_hash = isset( $args['expected_tree_hash'] ) ? (string) $args['expected_tree_hash'] : '';
