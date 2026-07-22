@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.79] - 2026-07-22
+
 ### Fixed
 
 - Profile refreshes never disable gateway tools, and advisory recommended-tool lists are additive. Tools are removed only after an authoritative plugin resolve, eliminating profile-refresh lockouts.

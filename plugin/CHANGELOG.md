@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.79] - 2026-07-22
+
 ### Fixed
 
 - Session tool profiles now apply on essential surfaces through task-start and tool-profile activation, and always union with the configured surface instead of narrowing it.
@@ -113,21 +115,3 @@
   existing CPT content, taxonomy terms, and ACF field values; registering new
   models requires server-side PHP (plugin) — a WordPress REST limit, not a
   Stonewright gap.
-
-## [1.0.0-alpha.74] - 2026-07-16
-
-### Changed
-
-- `task-start` exposes `configured_mcp_surface` and resolves task-specific tool
-  recommendations without changing the admin-selected surface.
-- Activating a site-wide tool profile now requires `manage_options`; read-only
-  profile resolution remains available to authenticated readers.
-- Bootstrap task-start binds its recommended profile to `Mcp-Session-Id`, so
-  tools expand for that session without changing the saved site preference.
-
-### Fixed
-
-- Setup Apply-now verifies the persisted value, generated stdio snippets use it,
-  and shared admin JavaScript changes invalidate browser caches.
-- Elementor raw-write blocks are explicitly non-retryable and direct agents back
-  to typed schema requests plus one consolidated batch dry-run.
