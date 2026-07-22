@@ -282,7 +282,13 @@ final class BatchMutate extends AbilityKernel {
 					$write_start = microtime( true );
 					if ( ! ElementorData::write( $post_id, $tree ) ) {
 						$restored = Backup::restore( $post_id, $snapshot_id );
-						return $this->error( 'write_failed', __( 'Could not save Elementor data; the snapshot was restored.', 'stonewright' ), [ 'restored' => $restored ] );
+						$err      = ElementorData::write_error_for_ability();
+						// Preserve restore info for the agent without losing gate codes/fix hints.
+						return new \WP_Error(
+							$err->get_error_code(),
+							$err->get_error_message(),
+							array_merge( (array) $err->get_error_data(), [ 'restored' => $restored ] )
+						);
 					}
 					$write_ms = self::elapsed_ms( $write_start );
 					$readback_hash = TreeHasher::hash( ElementorData::read( $post_id ) );

@@ -21,6 +21,21 @@ final class ElementorData {
 	}
 
 	/**
+	 * WP_Error an ability should return after ElementorData::write() failed.
+	 * Prefers the specific gate/validator error; falls back to a generic code.
+	 */
+	public static function write_error_for_ability( string $fallback_code = 'stonewright_write_failed' ): \WP_Error {
+		if ( self::$last_write_error instanceof \WP_Error ) {
+			return self::$last_write_error;
+		}
+		return new \WP_Error(
+			$fallback_code,
+			__( 'Could not save Elementor data.', 'stonewright' ),
+			[ 'status' => 500 ]
+		);
+	}
+
+	/**
 	 * Pull the parsed _elementor_data for a post. Empty array if missing.
 	 *
 	 * @return array<int, array<string, mixed>>

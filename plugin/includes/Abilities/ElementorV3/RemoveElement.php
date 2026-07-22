@@ -87,7 +87,7 @@ final class RemoveElement extends AbilityKernel {
 
 				$tree = ElementorData::set( $tree, $path, null );
 				if ( ! ElementorData::write( $post_id, $tree ) ) {
-					return $this->error( 'write_failed', __( 'Could not save Elementor data.', 'stonewright' ) );
+					return ElementorData::write_error_for_ability();
 				}
 
 				return [
