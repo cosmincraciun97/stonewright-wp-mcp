@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.82] - 2026-07-23
+
+### Fixed
+
+- User-scoped learning uses global Direct storage across sites.
+- Refreshed deduplicated memory moves to the newest position before highlight limits.
+
 ## [1.0.0-alpha.81] - 2026-07-23
 
 ### Fixed

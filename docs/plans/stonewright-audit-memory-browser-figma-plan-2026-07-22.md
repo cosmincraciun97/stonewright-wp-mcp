@@ -544,4 +544,3 @@ This work is complete only when all of the following are true:
 - Multi-section Figma nodes are extracted, implemented, and verified section by section.
 - Rendered verification occurs in a separate browser tab.
 - All required test, build, security, documentation-freshness, and diff checks pass.
-

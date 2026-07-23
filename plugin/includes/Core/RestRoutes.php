@@ -1011,8 +1011,9 @@ final class RestRoutes {
 		$method = (string) $request->get_method();
 		$params = $request->get_params();
 		$params = is_array( $params ) ? $params : [];
-		// Drop noisy/large body keys; redact secrets.
 		unset( $params['_wpnonce'], $params['_locale'] );
+		$resource     = self::resource_from_params( $params );
+		$audit_params = self::compact_audit_params( $params );
 
 		AuditLog::record_rest_mutation(
 			$route,
@@ -1022,8 +1023,8 @@ final class RestRoutes {
 				'route'    => $route,
 				'method'   => $method,
 				'mode'     => (string) get_option( 'stonewright_mode', 'development' ),
-				'resource' => self::resource_from_params( $params ),
-				'params'   => $params,
+				'resource' => $resource,
+				'params'   => $audit_params,
 			],
 			$status
 		);
@@ -1041,6 +1042,62 @@ final class RestRoutes {
 			return false;
 		}
 		return in_array( $method, [ 'POST', 'PUT', 'PATCH', 'DELETE' ], true );
+	}
+
+	/**
+	 * Replace free-form mutation bodies with compact, irreversible summaries.
+	 * This prevents credentials embedded in PHP, skills, instructions, or
+	 * memory text from being copied into the audit table.
+	 *
+	 * @param array<string, mixed> $params
+	 * @return array<string, mixed>
+	 */
+	private static function compact_audit_params( array $params ): array {
+		$body_keys = [
+			'body',
+			'code',
+			'content',
+			'contents',
+			'correction',
+			'evidence',
+			'instructions',
+			'new_string',
+			'old_string',
+			'php',
+			'text',
+			'value',
+		];
+		$summary   = [];
+		foreach ( $params as $key => $value ) {
+			$key = (string) $key;
+			if ( in_array( strtolower( $key ), $body_keys, true ) ) {
+				$summary[ $key ] = self::audit_body_summary( $value );
+				continue;
+			}
+			if ( is_array( $value ) ) {
+				$summary[ $key ] = self::compact_audit_params( $value );
+				continue;
+			}
+			$summary[ $key ] = $value;
+		}
+		return $summary;
+	}
+
+	/**
+	 * @return array{redacted: true, sha256: string, bytes: int}
+	 */
+	private static function audit_body_summary( mixed $value ): array {
+		if ( is_string( $value ) ) {
+			$serialized = $value;
+		} else {
+			$encoded    = wp_json_encode( $value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+			$serialized = false === $encoded ? get_debug_type( $value ) : $encoded;
+		}
+		return [
+			'redacted' => true,
+			'sha256'   => hash( 'sha256', $serialized ),
+			'bytes'    => strlen( $serialized ),
+		];
 	}
 
 	/**

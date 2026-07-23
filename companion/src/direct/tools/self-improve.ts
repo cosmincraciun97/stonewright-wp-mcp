@@ -315,14 +315,15 @@ export function learningRecord(ctx: SelfImproveContext, input: LearningRecordInp
       : wantGlobal
         ? "global"
         : "project";
+  const storeGlobally = wantGlobal || semanticScope === "user";
 
   // Explicit site alias: resolve or throw — never silent _global fallback.
-  // global:true writes _global intentionally.
+  // Global and user memories write _global intentionally so every site reads them.
   // No site: use default site if configured, else pluginless local store.
   let scope: string;
   let siteAlias: string | null;
   let baseDir: string;
-  if (wantGlobal) {
+  if (storeGlobally) {
     ({ scope, siteAlias, baseDir } = resolveSelfImproveScope(ctx, "_global", {
       global: true,
     }));
@@ -337,7 +338,7 @@ export function learningRecord(ctx: SelfImproveContext, input: LearningRecordInp
     }));
   }
 
-  if (!wantGlobal && (input.site ?? "").trim() && scope === "_global") {
+  if (!storeGlobally && (input.site ?? "").trim() && scope === "_global") {
     throw new Error(
       `Refusing to write project/user learning to _global for site "${input.site}". code=site_alias_unresolved`,
     );

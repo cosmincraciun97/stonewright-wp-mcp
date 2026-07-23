@@ -13,10 +13,11 @@ import {
 	taskStart,
 	taskStartAuthoritative,
 	learningRecordAuthoritative,
+	type SelfImproveContext,
 } from '../src/direct/tools/self-improve.js';
 import { DIRECT_TOOL_NAMES, DIRECT_WAVE4_SELFIMPROVE_TOOL_NAMES } from '../src/direct/registry.js';
 
-function ctx() {
+function ctx(): SelfImproveContext {
 	return {
 		// Point sites lookup at a missing path so local ~/.stonewright/sites.json
 		// cannot leak a site alias into pluginless self-improve tests.
@@ -102,6 +103,23 @@ describe('direct self-improve tools', () => {
 		});
 		expect(second.memory_id).toBe(first.memory_id);
 		expect(memoryList(c).items.filter((i) => i.text.includes('toolbar device')).length).toBe(1);
+	});
+
+	it('stores user-scoped learning globally even when a site is supplied', () => {
+		const c = ctx();
+		const result = learningRecord(c, {
+			topic: 'Device tabs',
+			correction: 'Keep user preference across sites',
+			scope: 'user',
+			site: 'demo',
+		});
+
+		expect(result.scope).toBe('user');
+		expect(result.storage_scope).toBe('_global');
+		expect(result.storage_ref).toMatch(/^direct:memory\/_global\.jsonl#/);
+		expect(memoryList(c).items.some(
+			(item) => item.text === 'Keep user preference across sites',
+		)).toBe(true);
 	});
 
 	it('task-start matches skills and returns direct mode without site', () => {
@@ -276,7 +294,7 @@ describe('direct self-improve tools', () => {
 		);
 
 		await taskStartAuthoritative(c, { task: 'bind target', site: 'local' });
-		c.sitesConfig.sites.local!.url = 'https://second.example.test';
+		c.sitesConfig.sites.local.url = 'https://second.example.test';
 
 		await expect(
 			learningRecordAuthoritative(c, {

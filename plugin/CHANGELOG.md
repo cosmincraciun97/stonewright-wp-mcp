@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.82] - 2026-07-23
+
+### Fixed
+
+- REST mutation audit replaces free-form code, instruction, skill, and memory
+  bodies with irreversible hashes and byte counts.
+- Elementor V3 batch mutations enforce authorized breakpoint scope and verify
+  non-target breakpoint hashes before persisting settings.
+- Compact task-start preserves target binding evidence within enforced token budgets.
+
 ## [1.0.0-alpha.81] - 2026-07-23
 
 ### Security
@@ -97,20 +107,3 @@
   collapse, widgetType remap blocks; readback restore).
 - Tree validation preserves unknown settings and coexisting `e-*` widgets.
 - Memory admin schema-health notice when the memory table is missing/outdated.
-
-## [1.0.0-alpha.77] - 2026-07-22
-
-### Fixed
-
-- Task-start always signals tools re-list when admin surface is full/essential or
-  the session profile leaves bootstrap (stdio companion surface sync).
-
-### Added
-
-- Bootstrap MCP surface ≤12 tools with php-execute, confirmation, content and
-  Elementor read tools, theme-file-read.
-- `stonewright/theme-file-read` and `stonewright/theme-file-patch` allowlisted
-  theme file abilities with backup and production confirmation.
-- `php-execute` `read_only` flag; clearer Elementor write-vs-read policy.
-- Task-start `write_target_url` / active write target labeling.
-- Direct remote Elementor data path via REST meta when registered.

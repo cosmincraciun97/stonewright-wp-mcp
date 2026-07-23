@@ -139,7 +139,7 @@ export function recordMemory(input: {
 	if (input.dedupe !== false) {
 		const matchIdx = existing.findIndex((e) => normalizeText(e.text) === norm);
 		if (matchIdx >= 0) {
-			const prev = existing[matchIdx]!;
+			const prev = existing[matchIdx];
 			const updated: MemoryEntry = {
 				...prev,
 				ts: new Date().toISOString(),
@@ -149,9 +149,9 @@ export function recordMemory(input: {
 				...(input.topic !== undefined ? { topic: input.topic } : {}),
 				...(input.source !== undefined ? { source: input.source } : {}),
 			};
-			// Keep chronological append order: rewrite file with update in place.
-			const next = [...existing];
-			next[matchIdx] = updated;
+			// A refreshed correction is newest: move it to the physical tail.
+			const next = existing.filter((_, index) => index !== matchIdx);
+			next.push(updated);
 			writeFileSync(file, `${next.map((e) => JSON.stringify(e)).join('\n')}\n`, {
 				encoding: 'utf8',
 				mode: 0o600,

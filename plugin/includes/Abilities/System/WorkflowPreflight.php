@@ -448,6 +448,9 @@ final class WorkflowPreflight extends AbilityKernel {
 		}
 
 		$site = is_array( $response['site'] ?? null ) ? $response['site'] : [];
+		$target_context = is_array( $response['target_context'] ?? null )
+			? $response['target_context']
+			: [];
 
 		return [
 			'ok'                  => (bool) ( $response['ok'] ?? false ),
@@ -475,7 +478,13 @@ final class WorkflowPreflight extends AbilityKernel {
 			'tools_changed'       => $tools_changed,
 			're_list_instruction' => $re_list,
 			'write_target_url'    => (string) ( $response['write_target_url'] ?? $site['write_target_url'] ?? '' ),
-			'target_context'      => is_array( $response['target_context'] ?? null ) ? $response['target_context'] : [],
+			'target_context'      => [
+				'backend'           => (string) ( $target_context['backend'] ?? 'plugin' ),
+				'normalized_url'    => (string) ( $target_context['normalized_url'] ?? '' ),
+				'site_fingerprint'  => (string) ( $target_context['site_fingerprint'] ?? '' ),
+				'environment_type'  => (string) ( $target_context['environment_type'] ?? 'unknown' ),
+				'memory_backend'    => (string) ( $target_context['memory_backend'] ?? 'plugin-site' ),
+			],
 		];
 	}
 

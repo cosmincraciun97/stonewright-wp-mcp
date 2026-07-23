@@ -48,4 +48,16 @@ describe('memory store', () => {
 		expect(getMemory({ baseDir, scope: 's', id: a.id })?.text).toBe('same rule');
 		expect(memoryStorageRef('s', a.id)).toBe(`direct:memory/s.jsonl#${a.id}`);
 	});
+
+	it('moves a refreshed correction to the newest position before limiting', () => {
+		const baseDir = tempBase();
+		recordMemory({ baseDir, scope: 's', text: 'old rule' });
+		recordMemory({ baseDir, scope: 's', text: 'newer rule' });
+		const refreshed = recordMemory({ baseDir, scope: 's', text: 'old rule' });
+
+		const latest = listMemory({ baseDir, scope: 's', limit: 1 }).items;
+		expect(latest).toHaveLength(1);
+		expect(latest[0]?.id).toBe(refreshed.id);
+		expect(latest[0]?.text).toBe('old rule');
+	});
 });

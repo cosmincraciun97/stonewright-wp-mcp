@@ -10,6 +10,19 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 ## [Unreleased]
 
+## [1.0.0-alpha.82] - 2026-07-23
+
+### Fixed
+
+- REST mutation audit stores hashes and byte counts instead of free-form code,
+  instruction, skill, and memory bodies.
+- User-scoped Direct learning is stored globally across configured sites, and
+  refreshed corrections move to the newest memory position.
+- Elementor V3 production mutations enforce authorized breakpoint scope and
+  roll back when readback detects non-target breakpoint drift.
+- Compact task-start retains target binding fields while staying inside the
+  enforced non-visual and visual token budgets.
+
 ## [1.0.0-alpha.81] - 2026-07-23
 
 ### Security
@@ -145,37 +158,3 @@ Unreleased); older history lives in git tags and GitHub releases.
   widgets (no forced convert-to-pass).
 - Memory admin page error notice when the `stonewright_memory` table is missing
   or outdated (learning promotion cannot store rows).
-
-## [1.0.0-alpha.77] - 2026-07-22
-
-### Fixed
-
-- **MCP tool surface sync (P0):** `task-start` always emits `tools_changed` +
-  `re_list_instruction` when the effective profile is not bootstrap **or** the
-  admin-configured surface is already essential/full, so stdio companions stuck
-  on env bootstrap re-register `php-execute` without REST workarounds.
-- Companion parses ability JSON from `content[].text` when `structuredContent`
-  is missing (common WP MCP transport), so profile drift actually triggers
-  proxy re-registration + `tools/list_changed`.
-
-### Added
-
-- Bootstrap surface expands to ≤12 tools with runtime escape hatches:
-  `php-execute`, confirmation token, `site-info`, `content-get-page`, Elementor
-  structure/schema reads, `theme-file-read`.
-- Companion local tool `stonewright-client-surface-check` and
-  `stonewright doctor --client-surface` for profile/client mismatch diagnosis.
-- Theme abilities `stonewright/theme-file-read` and `stonewright/theme-file-patch`
-  (allowlisted child-theme CSS/JS/PHP with backup + production confirmation).
-- `php-execute` `read_only:true` input to block mutation APIs while allowing
-  Elementor meta reads.
-- `task-start` returns `write_target_url` / `site.active_write_target` for clear
-  live vs local binding.
-- `elementor-design` profile includes theme-file tools + confirmation token.
-- **Direct mode:** remote Elementor `data-get` / `data-update` without the editor
-  via core REST meta when registered (WP-CLI still preferred on local hosts).
-
-### Changed
-
-- Task-start non-visual compact token budget raised to **800** (write-target +
-  re-list signals for client surface sync).
