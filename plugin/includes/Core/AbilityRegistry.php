@@ -191,6 +191,7 @@ use Stonewright\WpMcp\Abilities\Themes\ThemeActivate;
 use Stonewright\WpMcp\Abilities\Themes\ThemeCustomCss;
 use Stonewright\WpMcp\Abilities\Themes\ThemeFilePatch;
 use Stonewright\WpMcp\Abilities\Themes\ThemeFileRead;
+use Stonewright\WpMcp\Abilities\Themes\ThemeBackupRestore;
 use Stonewright\WpMcp\Abilities\Themes\ThemeList;
 use Stonewright\WpMcp\Abilities\PluginsManage\PluginActivate;
 use Stonewright\WpMcp\Abilities\PluginsManage\PluginDeactivate;
@@ -498,6 +499,7 @@ final class AbilityRegistry {
 			ThemeCustomCss::class,
 			ThemeFileRead::class,
 			ThemeFilePatch::class,
+			ThemeBackupRestore::class,
 
 			// Plugins manage.
 			PluginActivate::class,

@@ -28,6 +28,7 @@ final class MemoryInstructionsPage {
 		add_action( 'admin_post_stonewright_learning_disable', [ self::class, 'handle_learning_disable' ] );
 		add_action( 'admin_post_stonewright_knowledge_export', [ self::class, 'handle_export' ] );
 		add_action( 'admin_post_stonewright_knowledge_import', [ self::class, 'handle_import' ] );
+		add_action( 'admin_post_stonewright_memory_migrate_feedback', [ self::class, 'handle_migrate_feedback' ] );
 	}
 
 	public static function add_submenu(): void {
@@ -94,28 +95,29 @@ final class MemoryInstructionsPage {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$raw_type = isset( $_GET['type'] ) ? sanitize_key( wp_unslash( (string) $_GET['type'] ) ) : '';
 		$valid    = Memory::valid_types();
-		$active   = ( '' === $raw_type || 'all' === $raw_type ) ? 'all' : ( in_array( $raw_type, $valid, true ) ? $raw_type : 'all' );
-
-		// Fetch entries.
-		if ( 'all' === $active ) {
-			$entries = Memory::list_all( 200 );
-		} else {
-			$entries = Memory::list_by_type( $active, 200 );
-		}
-
-		// Build type counts.
+		$tabs     = [ 'all', 'user', 'project', 'verified_repairs', 'unresolved_incidents', 'audit_feedback', 'reference' ];
+		$active   = ( '' === $raw_type || 'all' === $raw_type ) ? 'all' : ( in_array( $raw_type, $tabs, true ) ? $raw_type : 'all' );
 		$all_entries = Memory::list_all( 10000 );
-		$counts      = [ 'all' => count( $all_entries ) ];
-		foreach ( $valid as $t ) {
-			$counts[ $t ] = 0;
-		}
+		$counts      = array_fill_keys( $tabs, 0 );
+		$counts['all'] = count( $all_entries );
 		foreach ( $all_entries as $e ) {
-			if ( isset( $counts[ $e['type'] ] ) ) {
-				++$counts[ $e['type'] ];
-			} else {
-				$counts['generic'] = ( $counts['generic'] ?? 0 ) + 1;
+			$bucket = self::entry_bucket( $e );
+			if ( isset( $counts[ $bucket ] ) ) {
+				++$counts[ $bucket ];
 			}
 		}
+		$entries = 'all' === $active
+			? array_slice( $all_entries, 0, 200 )
+			: array_values(
+				array_slice(
+					array_filter(
+						$all_entries,
+						static fn( array $entry ): bool => self::entry_bucket( $entry ) === $active
+					),
+					0,
+					200
+				)
+			);
 
 		?>
 		<?php AdminShell::open( self::SLUG ); ?>
@@ -132,6 +134,9 @@ final class MemoryInstructionsPage {
 					<?php esc_html_e( 'Stonewright memory table is missing or outdated. Learning promotion and memory abilities cannot store entries. Deactivate and reactivate the plugin, or check database ALTER/CREATE permissions, then reload this page.', 'stonewright' ); ?>
 				</p></div>
 			<?php endif; ?>
+			<div class="notice notice-info"><p>
+				<?php esc_html_e( 'This page shows the authoritative plugin-site store. Direct-local receipts live only on the companion machine and cannot appear here; use an explicit export/import instead of assuming synchronization.', 'stonewright' ); ?>
+			</p></div>
 
 			<details class="sw-callout">
 				<summary><?php esc_html_e( 'Guidance', 'stonewright' ); ?></summary>
@@ -212,6 +217,26 @@ final class MemoryInstructionsPage {
 
 			<?php self::render_learned_rules( $all_entries ); ?>
 
+			<div class="sw-card stonewright-panel">
+				<h2><?php esc_html_e( 'Receipt lookup and feedback migration', 'stonewright' ); ?></h2>
+				<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>">
+					<input type="hidden" name="page" value="<?php echo esc_attr( self::SLUG ); ?>">
+					<label><?php esc_html_e( 'Plugin memory ID', 'stonewright' ); ?>
+						<input type="number" name="receipt_id" min="1" value="">
+					</label>
+					<button type="submit" class="button button-secondary"><?php esc_html_e( 'Look up receipt', 'stonewright' ); ?></button>
+				</form>
+				<?php self::render_receipt_lookup(); ?>
+				<hr>
+				<p><?php esc_html_e( 'Alpha.80 automatic feedback can be reclassified without deleting audit history. Export JSON first; the migration preserves historical Post-deploy smoke feedback.', 'stonewright' ); ?></p>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+					<input type="hidden" name="action" value="stonewright_memory_migrate_feedback">
+					<?php wp_nonce_field( 'stonewright_memory_migrate_feedback', '_stonewright_nonce' ); ?>
+					<label><input type="checkbox" name="export_confirmed" value="1" required> <?php esc_html_e( 'I exported the current JSON bundle.', 'stonewright' ); ?></label>
+					<button type="submit" class="button button-secondary"><?php esc_html_e( 'Classify legacy feedback', 'stonewright' ); ?></button>
+				</form>
+			</div>
+
 			<!-- Section 2: Memory entries -->
 			<div class="sw-card stonewright-panel">
 				<header class="sw-card__header sw-memory-section-header">
@@ -242,7 +267,7 @@ final class MemoryInstructionsPage {
 					</div>
 				</header>
 
-				<!-- Tabs: All | User | Feedback | Project | Reference -->
+				<!-- Lifecycle tabs -->
 				<ul class="subsubsub">
 					<li>
 						<a href="?page=<?php echo esc_attr( self::SLUG ); ?>" class="<?php echo 'all' === $active ? 'current' : ''; ?>">
@@ -255,13 +280,23 @@ final class MemoryInstructionsPage {
 						</a> |
 					</li>
 					<li>
-						<a href="?page=<?php echo esc_attr( self::SLUG ); ?>&amp;type=feedback" class="<?php echo 'feedback' === $active ? 'current' : ''; ?>">
-							Feedback (<?php echo (int) ( $counts['feedback'] ?? 0 ); ?>)
+						<a href="?page=<?php echo esc_attr( self::SLUG ); ?>&amp;type=project" class="<?php echo 'project' === $active ? 'current' : ''; ?>">
+							Project (<?php echo (int) ( $counts['project'] ?? 0 ); ?>)
 						</a> |
 					</li>
 					<li>
-						<a href="?page=<?php echo esc_attr( self::SLUG ); ?>&amp;type=project" class="<?php echo 'project' === $active ? 'current' : ''; ?>">
-							Project (<?php echo (int) ( $counts['project'] ?? 0 ); ?>)
+						<a href="?page=<?php echo esc_attr( self::SLUG ); ?>&amp;type=verified_repairs" class="<?php echo 'verified_repairs' === $active ? 'current' : ''; ?>">
+							Verified Repairs (<?php echo (int) ( $counts['verified_repairs'] ?? 0 ); ?>)
+						</a> |
+					</li>
+					<li>
+						<a href="?page=<?php echo esc_attr( self::SLUG ); ?>&amp;type=unresolved_incidents" class="<?php echo 'unresolved_incidents' === $active ? 'current' : ''; ?>">
+							Unresolved Incidents (<?php echo (int) ( $counts['unresolved_incidents'] ?? 0 ); ?>)
+						</a> |
+					</li>
+					<li>
+						<a href="?page=<?php echo esc_attr( self::SLUG ); ?>&amp;type=audit_feedback" class="<?php echo 'audit_feedback' === $active ? 'current' : ''; ?>">
+							Audit Feedback (<?php echo (int) ( $counts['audit_feedback'] ?? 0 ); ?>)
 						</a> |
 					</li>
 					<li>
@@ -325,6 +360,7 @@ final class MemoryInstructionsPage {
 							<th>Scope</th>
 							<th>Key</th>
 							<th>Updated</th>
+							<th>Backend / lifecycle</th>
 							<th>Actions</th>
 						</tr>
 					</thead>
@@ -340,6 +376,13 @@ final class MemoryInstructionsPage {
 							<td><?php echo esc_html( $e['scope'] ); ?></td>
 							<td><code><?php echo esc_html( $e['memory_key'] ); ?></code></td>
 							<td><?php echo esc_html( $e['updated_at'] ); ?></td>
+							<td>
+								<?php $meta = self::entry_meta( $e ); ?>
+								<code><?php echo esc_html( $meta['backend'] ); ?></code><br>
+								<span><?php echo esc_html( $meta['origin'] . ' · ' . $meta['visibility'] ); ?></span><br>
+								<span><?php echo esc_html( $meta['state'] . ' · ' . $meta['verification'] ); ?></span><br>
+								<span><?php echo esc_html( sprintf( 'Last retrieved: %s', $meta['last_retrieved'] ) ); ?></span>
+							</td>
 							<td class="stonewright-action-cell">
 								<button
 									type="button"
@@ -359,7 +402,7 @@ final class MemoryInstructionsPage {
 							</td>
 						</tr>
 						<tr id="stonewright-memory-edit-<?php echo (int) $e['id']; ?>" hidden>
-							<td colspan="6">
+							<td colspan="7">
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 									<input type="hidden" name="action" value="stonewright_memory_update">
 									<input type="hidden" name="id" value="<?php echo (int) $e['id']; ?>">
@@ -399,7 +442,7 @@ final class MemoryInstructionsPage {
 						<?php endforeach; ?>
 						<?php if ( empty( $entries ) ) : ?>
 						<tr>
-							<td colspan="6">
+							<td colspan="7">
 								<div class="stonewright-empty-state">No memory entries.</div>
 							</td>
 						</tr>
@@ -419,6 +462,67 @@ final class MemoryInstructionsPage {
 
 		$encoded = wp_json_encode( $value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
 		return false === $encoded ? '' : $encoded;
+	}
+
+	/**
+	 * @param array<string, mixed> $entry
+	 */
+	private static function entry_bucket( array $entry ): string {
+		$type = (string) ( $entry['type'] ?? 'generic' );
+		if ( 'feedback' !== $type ) {
+			return in_array( $type, [ 'user', 'project', 'reference' ], true ) ? $type : 'all';
+		}
+		$value = is_array( $entry['value'] ?? null ) ? $entry['value'] : [];
+		$state = sanitize_key( (string) ( $value['state'] ?? '' ) );
+		if ( in_array( $state, [ 'verified_resolved', 'promoted_learning' ], true ) || 'verified-repairs' === (string) ( $entry['scope'] ?? '' ) ) {
+			return 'verified_repairs';
+		}
+		if ( in_array( $state, [ 'unresolved_incident', 'observed', 'repeated', 'repair_attempted', 'blocked_pending_repair' ], true ) ) {
+			return 'unresolved_incidents';
+		}
+		return 'audit_feedback';
+	}
+
+	/**
+	 * @param array<string, mixed> $entry
+	 * @return array{backend:string,origin:string,visibility:string,state:string,verification:string,last_retrieved:string}
+	 */
+	private static function entry_meta( array $entry ): array {
+		$value = is_array( $entry['value'] ?? null ) ? $entry['value'] : [];
+		$state = (string) ( $value['state'] ?? $entry['status'] ?? 'active' );
+		$source = (string) ( $value['source'] ?? ( 'feedback' === (string) ( $entry['type'] ?? '' ) ? 'audit-feedback' : 'operator-or-agent' ) );
+		$verification = (string) ( $value['verification'] ?? '' );
+		if ( '' === $verification ) {
+			$verification = in_array( $state, [ 'verified_resolved', 'promoted_learning' ], true ) ? 'verified' : 'unverified';
+		}
+		return [
+			'backend'        => 'plugin-site',
+			'origin'         => $source,
+			'visibility'     => 'site-admin',
+			'state'          => $state,
+			'verification'   => $verification,
+			'last_retrieved' => '' !== (string) ( $entry['last_retrieved_at'] ?? '' )
+				? (string) $entry['last_retrieved_at']
+				: 'never',
+		];
+	}
+
+	private static function render_receipt_lookup(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only lookup.
+		$id = isset( $_GET['receipt_id'] ) ? absint( $_GET['receipt_id'] ) : 0;
+		if ( $id <= 0 ) {
+			return;
+		}
+		$entry = Memory::get_by_id( $id );
+		if ( null === $entry ) {
+			echo '<div class="notice notice-warning inline"><p>' . esc_html__( 'No plugin-site memory receipt exists for that ID. A Direct-local ID must be inspected or exported from the companion machine.', 'stonewright' ) . '</p></div>';
+			return;
+		}
+		$meta = self::entry_meta( $entry );
+		echo '<div class="notice notice-success inline"><p><strong>' . esc_html__( 'Receipt verified', 'stonewright' ) . ':</strong> ';
+		echo '<code>' . esc_html( 'wp:stonewright_memory#' . (string) $id ) . '</code> · ';
+		echo esc_html( $meta['backend'] . ' · ' . $meta['visibility'] . ' · ' . $meta['state'] );
+		echo '</p></div>';
 	}
 
 	// ------------------------------------------------------------------
@@ -535,6 +639,55 @@ final class MemoryInstructionsPage {
 		wp_safe_redirect(
 			add_query_arg(
 				[ 'page' => self::SLUG, 'updated' => '1' ],
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
+	}
+
+	/**
+	 * Reclassify legacy automatic feedback in-place. No rows or audit history
+	 * are deleted; the operator must confirm an export was taken first.
+	 */
+	public static function handle_migrate_feedback(): void {
+		if ( ! current_user_can( self::CAP ) ) {
+			wp_die( esc_html__( 'You do not have permission to perform this action.', 'stonewright' ) );
+		}
+		check_admin_referer( 'stonewright_memory_migrate_feedback', '_stonewright_nonce' );
+		if ( '1' !== (string) ( $_POST['export_confirmed'] ?? '' ) ) {
+			wp_die( esc_html__( 'Export the current memory bundle before migration.', 'stonewright' ), '', [ 'response' => 400 ] );
+		}
+
+		$updated = 0;
+		foreach ( Memory::list_by_type( 'feedback', 10000 ) as $entry ) {
+			$value = is_array( $entry['value'] ?? null ) ? $entry['value'] : [];
+			$key   = (string) ( $entry['memory_key'] ?? '' );
+			$name  = strtolower( (string) ( $entry['name'] ?? '' ) );
+			if ( str_contains( $name, 'post-deploy smoke' ) || str_contains( $key, 'post-deploy-smoke' ) ) {
+				$value['state']  = 'historical_feedback';
+				$value['source'] = (string) ( $value['source'] ?? 'audit-feedback' );
+				Memory::update_by_id( (int) $entry['id'], [ 'value' => $value, 'status' => 'stale' ] );
+				++$updated;
+				continue;
+			}
+			if (
+				'audit-error' !== (string) ( $value['source'] ?? '' )
+				&& ! str_starts_with( $key, 'learning-audit-error-' )
+			) {
+				continue;
+			}
+			$value['state']        = (string) ( $value['state'] ?? 'unresolved_incident' );
+			$value['verification'] = (string) ( $value['verification'] ?? 'unverified' );
+			Memory::update_by_id( (int) $entry['id'], [ 'value' => $value, 'status' => 'stale' ] );
+			++$updated;
+		}
+
+		wp_safe_redirect(
+			add_query_arg(
+				[
+					'page'     => self::SLUG,
+					'migrated' => $updated,
+				],
 				admin_url( 'admin.php' )
 			)
 		);

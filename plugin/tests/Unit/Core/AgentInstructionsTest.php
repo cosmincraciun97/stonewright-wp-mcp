@@ -130,6 +130,33 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'Never duplicate Elementor widgets with hide_desktop/hide_mobile', $instructions );
 		$this->assertStringContainsString( 'Nested Carousel', $instructions );
 		$this->assertStringNotContainsString( 'transavia', strtolower( $instructions ) );
+		// Canonical permanent rules (invisible product defaults).
+		$this->assertStringContainsString( 'Elementor responsive preview', $instructions );
+		$this->assertStringContainsString( 'Never resize the whole editor browser window', $instructions );
+		$this->assertStringContainsString( 'Separate verification tab', $instructions );
+		$this->assertStringContainsString( 'verification_page', $instructions );
+		$this->assertStringContainsString( 'Design section isolation', $instructions );
+		$this->assertStringContainsString( 'Breakpoint isolation', $instructions );
+		$this->assertStringContainsString( 'unsupported_responsive_control', $instructions );
+		$this->assertStringContainsString( 'Native-first styling', $instructions );
+		$this->assertStringContainsString( 'Fastest safe interface', $instructions );
+		$this->assertStringContainsString( 'typed_api', $instructions );
+		$this->assertStringContainsString( 'Verified learning', $instructions );
+		$this->assertStringContainsString( 'verified:true', $instructions );
+	}
+
+	public function test_permanent_rules_present_when_custom_instructions_disabled(): void {
+		$GLOBALS['stonewright_test_options'] = [
+			'stonewright_custom_instructions_enabled' => false,
+			'stonewright_custom_instructions'         => 'SITE ONLY: do something custom',
+		];
+
+		$instructions = AgentInstructions::default();
+
+		$this->assertStringContainsString( 'Elementor responsive preview', $instructions );
+		$this->assertStringContainsString( 'Verified learning', $instructions );
+		$this->assertStringNotContainsString( 'SITE ONLY: do something custom', $instructions );
+		$this->assertStringNotContainsString( '## Site-specific instructions', $instructions );
 	}
 
 	public function test_compact_instructions_omit_visual_build_rules_when_visual_context_is_disabled(): void {

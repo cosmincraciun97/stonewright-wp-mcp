@@ -10,6 +10,77 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 ## [Unreleased]
 
+## [1.0.0-alpha.82] - 2026-07-23
+
+### Fixed
+
+- REST mutation audit stores hashes and byte counts instead of free-form code,
+  instruction, skill, and memory bodies.
+- User-scoped Direct learning is stored globally across configured sites, and
+  refreshed corrections move to the newest memory position.
+- Elementor V3 production mutations enforce authorized breakpoint scope and
+  roll back when readback detects non-target breakpoint drift.
+- Compact task-start retains target binding fields while staying inside the
+  enforced non-visual and visual token budgets.
+
+## [1.0.0-alpha.81] - 2026-07-23
+
+### Security
+
+- `php-execute` permanently blocks filesystem mutation of theme/plugin/core code files.
+- Theme file apply requires full-file validation, a wp-admin-reviewed custom-code
+  proposal/grant, atomic write, readback, smoke, and rollback. Backups use opaque
+  references, non-executable files, web-access guards, and a typed restore ability.
+- Production environment with non-`production-safe` mode shows a P0 admin warning.
+
+### Fixed
+
+- Direct learning no longer silently falls back to `_global` for unknown site aliases.
+- Direct sessions use authoritative plugin-site memory when the typed bridge exists,
+  reject target changes after task-start, and fall back locally only when the plugin
+  route is demonstrably absent.
+- Expected safety blocks no longer promote active project/user learning.
+
+### Added
+
+- Materialized effect/incident audit fields and filters in plugin mode, aligned
+  Direct JSONL records, Memory UI lifecycle tabs and controlled legacy-feedback
+  migration, Direct learning visibility labels, and canonical
+  `custom_code_operator_grant` rule.
+
+## [1.0.0-alpha.80] - 2026-07-22
+
+### Added
+
+- Seven canonical permanent operating rules (responsive device tabs, separate
+  verification tab, Figma section isolation, breakpoint isolation, native-first
+  styling, fastest safe interface, verified learning) injected in Plugin and
+  Direct modes and mirrored in `skills/agent-operating-rules`.
+- Cross-mode `stonewright-learning-record` receipts: `stored`, `backend`,
+  `scope`, `memory_id`, `storage_ref`, `verified` after write-then-readback.
+  Accepts canonical `topic`+`correction` and legacy Direct `text`.
+- Central Stonewright REST mutation audit for POST/PUT/PATCH/DELETE under
+  `stonewright/v1`, with ability-level deduplication, `blocked` status, exact
+  pagination counts, and insert-failure diagnostics.
+- `MethodRouter` capability matrix (`typed_api` → `editor_command_bus` →
+  `admin_form` → `browser_ui`).
+- Elementor responsive scope guards (`ResponsiveScope` PHP + visual
+  `assertResponsiveScope`) with non-target breakpoint hashing and
+  `unsupported_responsive_control` no-ops.
+
+### Fixed
+
+- Explicit user/project learning no longer stored as audit `feedback` type;
+  task-start reserves contextual slots for user/project memory before feedback.
+- Audit log UI copy matches real coverage (Stonewright mutations only).
+- Learning-record success requires verified readback in both modes.
+
+### Documentation
+
+- Design-to-WordPress skill requires per-section Figma manifests and separate
+  editor/verification browser tabs.
+- Agent operating rules skill documents the seven canonical product defaults.
+
 ## [1.0.0-alpha.79] - 2026-07-22
 
 ### Added
@@ -87,72 +158,3 @@ Unreleased); older history lives in git tags and GitHub releases.
   widgets (no forced convert-to-pass).
 - Memory admin page error notice when the `stonewright_memory` table is missing
   or outdated (learning promotion cannot store rows).
-
-## [1.0.0-alpha.77] - 2026-07-22
-
-### Fixed
-
-- **MCP tool surface sync (P0):** `task-start` always emits `tools_changed` +
-  `re_list_instruction` when the effective profile is not bootstrap **or** the
-  admin-configured surface is already essential/full, so stdio companions stuck
-  on env bootstrap re-register `php-execute` without REST workarounds.
-- Companion parses ability JSON from `content[].text` when `structuredContent`
-  is missing (common WP MCP transport), so profile drift actually triggers
-  proxy re-registration + `tools/list_changed`.
-
-### Added
-
-- Bootstrap surface expands to ≤12 tools with runtime escape hatches:
-  `php-execute`, confirmation token, `site-info`, `content-get-page`, Elementor
-  structure/schema reads, `theme-file-read`.
-- Companion local tool `stonewright-client-surface-check` and
-  `stonewright doctor --client-surface` for profile/client mismatch diagnosis.
-- Theme abilities `stonewright/theme-file-read` and `stonewright/theme-file-patch`
-  (allowlisted child-theme CSS/JS/PHP with backup + production confirmation).
-- `php-execute` `read_only:true` input to block mutation APIs while allowing
-  Elementor meta reads.
-- `task-start` returns `write_target_url` / `site.active_write_target` for clear
-  live vs local binding.
-- `elementor-design` profile includes theme-file tools + confirmation token.
-- **Direct mode:** remote Elementor `data-get` / `data-update` without the editor
-  via core REST meta when registered (WP-CLI still preferred on local hosts).
-
-### Changed
-
-- Task-start non-visual compact token budget raised to **800** (write-target +
-  re-list signals for client surface sync).
-
-## [1.0.0-alpha.76] - 2026-07-16
-
-### Added
-
-- Direct mode: permanent product HARD RULES on every `stonewright-task-start`
-  (single-target scope, remote tool path, no ad-hoc plugins, HTTP-first
-  automation, additive content models) plus five new enabled `_builtin` skills.
-- Plugin: permanent operating rules in agent instructions (not Safety Memory UI)
-  covering the same workflow discipline plus Elementor native-first lessons
-  (responsive typography, Nested Carousel offset, swiper overflow, CSS parent class).
-- Built-in skill pack `agent-operating-rules` for matched task playbooks.
-
-### Changed
-
-- Direct `AGENTS.md` managed template includes the permanent operating rules.
-
-## [1.0.0-alpha.75] - 2026-07-16
-
-### Added
-
-- Direct mode: `stonewright-content-create` creates items of any registered post
-  type (**99** tools total).
-- Direct mode: `stonewright-task-start` returns `session_tools` (exact enabled
-  tool list) and structured `capabilities.content_model` guidance.
-
-### Changed
-
-- Direct mode: content and taxonomy tools auto-resolve `rest_base` from
-  `/wp/v2/types` and `/wp/v2/taxonomies` (CPTs whose `rest_base` differs from
-  the slug now work).
-- Direct mode: site-discover and capability tiers state that Direct fully edits
-  existing CPT content, taxonomy terms, and ACF field values; registering new
-  models requires server-side PHP (plugin) — a WordPress REST limit, not a
-  Stonewright gap.

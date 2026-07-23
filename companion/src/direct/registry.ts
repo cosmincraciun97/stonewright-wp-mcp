@@ -1493,6 +1493,9 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	// --- Wave 4: pluginless self-improvement (no WordPress credentials required) ---
 	const selfCtx = (): selfImprove.SelfImproveContext => ({
 		env: ctx.env,
+		...(ctx.fetchImpl ? { fetchImpl: ctx.fetchImpl } : {}),
+		...(ctx.timeoutMs !== undefined ? { timeoutMs: ctx.timeoutMs } : {}),
+		...(ctx.sitesConfig ? { sitesConfig: ctx.sitesConfig } : {}),
 		directToolCount: DIRECT_TOOL_NAMES.length,
 	});
 
@@ -1558,10 +1561,15 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	);
 	w4(
 		'stonewright-learning-record',
-		'Record a correction/lesson in local memory; optional disabled draft skill.',
+		'Record a verified correction/lesson in the task-bound authoritative memory store; plugin site memory is preferred, pluginless Direct uses local memory.',
 		{
 			site: siteArg,
-			text: z.string().min(1),
+			topic: z.string().min(1).optional(),
+			correction: z.string().min(1).optional(),
+			text: z.string().min(1).optional(),
+			scope: z.enum(['user', 'project']).optional(),
+			source: z.string().optional(),
+			evidence: z.string().optional(),
 			kind: z.enum(['correction', 'lesson', 'preference', 'fact']).optional(),
 			tags: z.array(z.string()).optional(),
 			draft_skill: z
@@ -1574,7 +1582,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 				})
 				.optional(),
 		},
-		(input) => selfImprove.learningRecord(selfCtx(), input as never),
+		(input) => selfImprove.learningRecordAuthoritative(selfCtx(), input as never),
 	);
 	w4(
 		'stonewright-task-start',
@@ -1586,7 +1594,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			intent: z.string().optional(),
 		},
 		async (input) => {
-			const result = selfImprove.taskStart(selfCtx(), input as never);
+			const result = await selfImprove.taskStartAuthoritative(selfCtx(), input as never);
 			const configuredProfile = ctx.toolProfile ?? 'bootstrap';
 			const sessionProfile = configuredProfile === 'bootstrap'
 				? suggestDirectToolProfile(String(input['task'] ?? ''), String(input['surface'] ?? ''), String(input['intent'] ?? ''))

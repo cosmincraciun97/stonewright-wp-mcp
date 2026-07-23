@@ -59,3 +59,14 @@ disagreement is reported as a conflict instead of being silently merged.
 
 Runtime knowledge lives in versioned WordPress tables, not in the plugin
 directory, so plugin updates do not erase site learning.
+
+The Memory admin page separates User Rules, Project Rules, Verified Repairs,
+Unresolved Incidents, Audit Feedback, and Reference entries. It shows backend,
+origin, visibility, lifecycle state, verification state, and last retrieval.
+Legacy audit feedback is reclassified only through the explicit migration
+action after the operator confirms an export; migration preserves historical
+rows and never invents an active rule.
+
+Plugin-backed Direct sessions use this site table through typed task-start and
+learning routes. Pluginless Direct storage remains local and its receipt says
+that it is not visible in the site Memory UI.

@@ -47,6 +47,28 @@ final class ContextGateTest extends TestCase {
 		self::assertSame( [ 'received_keys' => [ 'value' ] ], $result );
 	}
 
+	public function test_context_token_is_invalid_after_site_target_changes(): void {
+		$GLOBALS['stonewright_test_home_url'] = 'https://first.example/';
+		$issued = ContextToken::issue( 'Update page', 'stonewright/test-write' );
+		$GLOBALS['stonewright_test_home_url'] = 'https://second.example/';
+
+		$result = ContextToken::verify( (string) $issued['token'], 'stonewright/test-write' );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_context_target_changed', $result->get_error_code() );
+	}
+
+	public function test_context_token_is_invalid_after_stonewright_mode_changes(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'development';
+		$issued = ContextToken::issue( 'Update page', 'stonewright/test-write' );
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+
+		$result = ContextToken::verify( (string) $issued['token'], 'stonewright/test-write' );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_context_target_changed', $result->get_error_code() );
+	}
+
 	public function test_read_ability_does_not_require_context_token(): void {
 		$result = AbilityRegistry::execute_with_context_guard( new Info(), [] );
 

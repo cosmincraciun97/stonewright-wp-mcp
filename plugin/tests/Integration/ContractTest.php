@@ -120,6 +120,7 @@ final class ContractTest extends TestCase {
 		$GLOBALS['stonewright_test_next_nav_menu_item_id'] = 6101;
 		$this->prepare_sandbox_files();
 		$this->seed_contract_snapshot();
+		$this->seed_theme_backup();
 		$this->seed_stock_http_mock();
 	}
 
@@ -148,6 +149,30 @@ final class ContractTest extends TestCase {
 			$GLOBALS['stonewright_test_post_meta'] = [];
 		}
 		$GLOBALS['stonewright_test_post_meta'][ $post_id ]['_stonewright_backups'] = $snapshots;
+	}
+
+	/**
+	 * Opaque owned backup used by theme-backup-restore contract fixtures.
+	 */
+	private function seed_theme_backup(): void {
+		$theme_dir = get_stylesheet_directory();
+		$target    = $theme_dir . '/style.css';
+		$backup    = WP_CONTENT_DIR . '/uploads/stonewright-theme-contract.swbak';
+		$bytes     = "/* restored Stonewright contract theme */\n";
+		wp_mkdir_p( dirname( $backup ) );
+		file_put_contents( $backup, $bytes );
+		file_put_contents( $target, "/* current Stonewright contract theme */\n" );
+		$canonical_target = realpath( $target );
+
+		$GLOBALS['stonewright_test_options']['stonewright_theme_backup_index'] = [
+			'sw-theme-backup-00000000-0000-4000-8000-000000000001' => [
+				'absolute'    => wp_normalize_path( false === $canonical_target ? $target : $canonical_target ),
+				'relative'    => 'style.css',
+				'backup_path' => wp_normalize_path( $backup ),
+				'sha256'      => hash( 'sha256', $bytes ),
+				'created_at'  => '2026-07-23 00:00:00',
+			],
+		];
 	}
 
 	/**
@@ -216,7 +241,11 @@ final class ContractTest extends TestCase {
 
 		$result = $ability->execute( $args );
 
-		$this->assertNotInstanceOf( \WP_Error::class, $result, $ability->name() );
+		$failure = $ability->name();
+		if ( $result instanceof \WP_Error ) {
+			$failure .= ' — ' . $result->get_error_code() . ': ' . $result->get_error_message();
+		}
+		$this->assertNotInstanceOf( \WP_Error::class, $result, $failure );
 		$this->assert_schema_matches( $ability->output_schema(), $result, $ability->name() );
 	}
 

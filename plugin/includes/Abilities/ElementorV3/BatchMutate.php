@@ -6,7 +6,10 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Elementor\ContainerSettings;
+use Stonewright\WpMcp\Elementor\Schema\ContainerSchemaRepository;
+use Stonewright\WpMcp\Elementor\Schema\ResponsiveScope;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
+use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Elementor\V4\AtomicTreeInspector;
 use Stonewright\WpMcp\Elementor\Write\EvidenceValidator;
 use Stonewright\WpMcp\Elementor\Write\IdempotencyStore;
@@ -101,6 +104,12 @@ final class BatchMutate extends AbilityKernel {
 							'widget'                 => [ 'type' => 'string' ],
 							'settings'               => [ 'type' => 'object' ],
 							'settings_evidence'      => [ 'type' => 'object' ],
+							'allowed_breakpoints'    => [
+								'type'        => 'array',
+								'items'       => [ 'type' => 'string' ],
+								'uniqueItems' => true,
+								'description' => 'Breakpoints this operation may change. Defaults to responsive_scope evidence, then desktop.',
+							],
 							'mode'                   => [ 'type' => 'string', 'enum' => [ 'merge', 'replace' ], 'default' => 'merge' ],
 							'allow_html_widget'      => [ 'type' => 'boolean', 'default' => false ],
 							'allow_raw_known_widget' => [ 'type' => 'boolean', 'default' => true ],
@@ -473,6 +482,10 @@ final class BatchMutate extends AbilityKernel {
 		}
 
 		$settings  = isset( $operation['settings'] ) && is_array( $operation['settings'] ) ? $operation['settings'] : [];
+		$scope     = self::validate_responsive_scope( $operation, $settings, 'container' );
+		if ( $scope instanceof \WP_Error ) {
+			return $scope;
+		}
 		$settings  = ContainerSettings::normalize( $settings );
 		$validated = SettingsValidator::validate_container( $settings );
 		if ( $validated instanceof \WP_Error ) {
@@ -523,6 +536,10 @@ final class BatchMutate extends AbilityKernel {
 		}
 
 		$settings = isset( $operation['settings'] ) && is_array( $operation['settings'] ) ? $operation['settings'] : [];
+		$scope    = self::validate_responsive_scope( $operation, $settings, $widget_type );
+		if ( $scope instanceof \WP_Error ) {
+			return $scope;
+		}
 		$warnings = [];
 		if ( 'html' !== $widget_type ) {
 			$validated = SettingsValidator::validate( $widget_type, $settings );
@@ -589,6 +606,25 @@ final class BatchMutate extends AbilityKernel {
 		$element_type = (string) ( $element['elType'] ?? '' );
 		$effective_before = $existing;
 		$warnings = [];
+		$scope_widget_type = 'widget' === $element_type ? (string) ( $element['widgetType'] ?? '' ) : $element_type;
+		$scope = self::validate_responsive_scope( $operation, $incoming, $scope_widget_type );
+		if ( $scope instanceof \WP_Error ) {
+			return $scope;
+		}
+		$non_target_before = ResponsiveScope::hash_non_target_breakpoints( $existing, $scope );
+		$empty_non_target  = ResponsiveScope::hash_non_target_breakpoints( [], $scope );
+		if ( 'replace' === $mode && ! hash_equals( $empty_non_target, $non_target_before ) ) {
+			return $this->error(
+				'responsive_scope_violation',
+				__( 'Replace mode would delete settings outside the authorized breakpoint scope. Use merge mode.', 'stonewright' ),
+				[
+					'status'                 => 400,
+					'element_id'             => $element_id,
+					'allowed_breakpoints'    => $scope,
+					'non_target_before_hash' => $non_target_before,
+				]
+			);
+		}
 		if ( in_array( $element_type, [ 'container', 'section', 'column' ], true ) ) {
 			$before    = 'container' === $element_type ? ContainerSettings::normalize( $existing ) : $existing;
 			$effective_before = $before;
@@ -609,6 +645,7 @@ final class BatchMutate extends AbilityKernel {
 			}
 			$settings = $validated['settings'];
 			$warnings = $validated['warnings'];
+			$incoming = self::changed_settings( $effective_before, $settings );
 			$evidence_widget_type = $widget_type;
 		} else {
 			$evidence_widget_type = 'container';
@@ -627,6 +664,20 @@ final class BatchMutate extends AbilityKernel {
 				]
 			);
 		}
+		$non_target_after = ResponsiveScope::hash_non_target_breakpoints( $settings, $scope );
+		if ( ! hash_equals( $non_target_before, $non_target_after ) ) {
+			return $this->error(
+				'responsive_scope_violation',
+				__( 'The requested Elementor update would change a non-target breakpoint. No write was performed.', 'stonewright' ),
+				[
+					'status'                 => 400,
+					'element_id'             => $element_id,
+					'allowed_breakpoints'    => $scope,
+					'non_target_before_hash' => $non_target_before,
+					'non_target_after_hash'  => $non_target_after,
+				]
+			);
+		}
 
 		$element['settings'] = $settings;
 		$tree                = ElementorData::set( $tree, $path, $element );
@@ -635,6 +686,9 @@ final class BatchMutate extends AbilityKernel {
 			'action'     => 'update_element',
 			'element_id' => $element_id,
 			'evidence'   => $evidence,
+			'allowed_breakpoints'    => $scope,
+			'non_target_before_hash' => $non_target_before,
+			'non_target_after_hash'  => $non_target_after,
 		], [] !== $warnings ? [ 'normalization_warnings' => $warnings ] : [] );
 	}
 
@@ -810,6 +864,68 @@ final class BatchMutate extends AbilityKernel {
 		return isset( $operation['settings_evidence'] ) && is_array( $operation['settings_evidence'] )
 			? $operation['settings_evidence']
 			: [];
+	}
+
+	/**
+	 * @param array<string, mixed> $operation
+	 * @param array<string, mixed> $settings
+	 * @return list<string>|\WP_Error
+	 */
+	private static function validate_responsive_scope( array $operation, array $settings, string $element_type ): array|\WP_Error {
+		$allowed = self::allowed_breakpoints( $operation );
+		if ( $allowed instanceof \WP_Error ) {
+			return $allowed;
+		}
+
+		$schema = in_array( $element_type, [ 'container', 'section', 'column' ], true )
+			? ContainerSchemaRepository::get( $element_type )
+			: WidgetSchemaRepository::get( $element_type );
+		if ( $schema instanceof \WP_Error ) {
+			return $schema;
+		}
+		$controls = isset( $schema['controls'] ) && is_array( $schema['controls'] ) ? $schema['controls'] : [];
+		$valid    = ResponsiveScope::assert_settings_in_scope( $settings, $allowed, $controls, $element_type );
+		return $valid instanceof \WP_Error ? $valid : $allowed;
+	}
+
+	/**
+	 * @param array<string, mixed> $operation
+	 * @return list<string>|\WP_Error
+	 */
+	private static function allowed_breakpoints( array $operation ): array|\WP_Error {
+		$requested = isset( $operation['allowed_breakpoints'] ) && is_array( $operation['allowed_breakpoints'] )
+			? $operation['allowed_breakpoints']
+			: [];
+		if ( [] === $requested ) {
+			foreach ( self::operation_evidence( $operation ) as $row ) {
+				if ( ! is_array( $row ) || ! is_scalar( $row['responsive_scope'] ?? null ) ) {
+					continue;
+				}
+				$parts     = preg_split( '/[\s,|]+/', (string) $row['responsive_scope'], -1, PREG_SPLIT_NO_EMPTY );
+				$requested = array_merge( $requested, is_array( $parts ) ? $parts : [] );
+			}
+		}
+		if ( [] === $requested ) {
+			$requested = [ 'desktop' ];
+		}
+
+		$allowed = [];
+		$known   = array_keys( ResponsiveScope::breakpoint_suffixes() );
+		foreach ( $requested as $breakpoint ) {
+			if ( ! is_scalar( $breakpoint ) ) {
+				return new \WP_Error( 'stonewright_responsive_scope_invalid', __( 'Responsive breakpoint scope must contain only breakpoint names.', 'stonewright' ), [ 'status' => 400 ] );
+			}
+			$name = strtolower( trim( (string) $breakpoint ) );
+			if ( ! in_array( $name, $known, true ) ) {
+				return new \WP_Error(
+					'stonewright_responsive_scope_invalid',
+					__( 'Responsive breakpoint scope contains an unsupported breakpoint.', 'stonewright' ),
+					[ 'status' => 400, 'breakpoint' => $name, 'known_breakpoints' => $known ]
+				);
+			}
+			$allowed[] = 'base' === $name ? 'desktop' : $name;
+		}
+		return array_values( array_unique( $allowed ) );
 	}
 
 	/**

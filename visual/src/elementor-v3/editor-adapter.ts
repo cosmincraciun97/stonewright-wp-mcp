@@ -4,7 +4,7 @@ import { PageToolRegistry } from "../page-tool-registry.js";
 import type { BatchTransaction, NestedEditorTool, NestedToolResult } from "../types.js";
 import { ElementorV3EvidenceLedger, type EvidenceLedgerEntry } from "./evidence-ledger.js";
 import { hashValue } from "./hash.js";
-import { validateElementorV3Settings } from "./settings-validator.js";
+import { hashNonTargetBreakpoints, validateElementorV3Settings } from "./settings-validator.js";
 import type {
   ElementorV3Element,
   ElementorV3Runtime,
@@ -160,6 +160,7 @@ export class ElementorV3EditorAdapter {
       parameters: mutationSchema({
         element_type: { type: "string", enum: ["container", "widget"] }, widget_type: { type: "string" }, parent_id: { type: "string" },
         position: { type: "integer" }, settings: { type: "object" }, settings_evidence: { type: "object" },
+        allowed_breakpoints: { type: "array", items: { type: "string" }, minItems: 1 },
       }, ["element_type", "idempotency_key"]),
       execute: async (args) => this.idempotent("create_element", args, async () => {
         const elType = requiredString(args, "element_type") as "container" | "widget";
@@ -192,22 +193,44 @@ export class ElementorV3EditorAdapter {
       label: "Update native Elementor V3 settings",
       description: "Updates only controls proven by the live schema and records per-setting evidence.",
       mutates: true,
-      parameters: mutationSchema({ element_id: { type: "string" }, settings: { type: "object" }, settings_evidence: { type: "object" } }, ["element_id", "settings", "idempotency_key"]),
+      parameters: mutationSchema({
+        element_id: { type: "string" },
+        settings: { type: "object" },
+        settings_evidence: { type: "object" },
+        allowed_breakpoints: { type: "array", items: { type: "string" }, minItems: 1 },
+      }, ["element_id", "settings", "idempotency_key"]),
       execute: async (args) => this.idempotent("update_settings", args, async () => {
         const element = await this.requireElement(requiredString(args, "element_id"));
         const settings = record(args.settings);
         const effective = { ...element.settings, ...settings };
         const widgetType = element.elType === "widget" ? requiredWidgetType(element) : "container";
-        const { entry } = await this.validateWrite(widgetType, settings, effective, args, element.id);
+        const { entry, allowedBreakpoints } = await this.validateWrite(widgetType, settings, effective, args, element.id);
+        const nonTargetBeforeHash = hashNonTargetBreakpoints(element.settings, allowedBreakpoints);
         await this.runtime.updateSettings(element.id, settings);
         this.historyPosition++;
         this.evidence.record(entry);
-        return result(`Updated ${element.id}: ${Object.keys(settings).join(", ")}.`, { element_id: element.id, expected_settings: settings, evidence_count: entry.settings.length });
+        return result(`Updated ${element.id}: ${Object.keys(settings).join(", ")}.`, {
+          element_id: element.id,
+          expected_settings: settings,
+          evidence_count: entry.settings.length,
+          allowed_breakpoints: allowedBreakpoints,
+          non_target_before_hash: nonTargetBeforeHash,
+        });
       }),
       readback: async (_args, mutation) => {
         const element = await this.requireElement(String(mutation.details?.element_id || ""));
         assertSubset(record(mutation.details?.expected_settings), element.settings, "Elementor settings readback mismatch");
-        return { element_id: element.id, element_hash: await hashValue(element), settings_verified: true };
+        const allowedBreakpoints = stringArray(mutation.details?.allowed_breakpoints);
+        const nonTargetAfterHash = hashNonTargetBreakpoints(element.settings, allowedBreakpoints);
+        if (nonTargetAfterHash !== mutation.details?.non_target_before_hash) {
+          throw new Error("responsive_scope_violation: non-target breakpoint settings changed during update");
+        }
+        return {
+          element_id: element.id,
+          element_hash: await hashValue(element),
+          settings_verified: true,
+          non_target_hash: nonTargetAfterHash,
+        };
       },
       rollback: async (args) => this.rollbackMutation("update_settings", args),
     };
@@ -314,13 +337,14 @@ export class ElementorV3EditorAdapter {
     effective: ElementorV3Settings,
     args: Record<string, unknown>,
     elementId?: string,
-  ): Promise<{ schema: ElementorV3WidgetSchema; entry: EvidenceLedgerEntry }> {
+  ): Promise<{ schema: ElementorV3WidgetSchema; entry: EvidenceLedgerEntry; allowedBreakpoints: string[] }> {
     let schema = widgetType === "container" ? await this.runtime.getContainerSchema() : await this.runtime.getWidgetSchema(widgetType);
     if (!schema && widgetType === "container" && Object.keys(settings).length === 0) {
       schema = { widget_type: "container", controls: {}, source: "empty-settings-no-schema", version: this.runtime.version };
     }
     if (!schema) throw new Error(`Live Elementor editor schema unavailable for ${widgetType}; write refused.`);
-    validateElementorV3Settings(schema, settings, effective);
+    const allowedBreakpoints = authorizedBreakpoints(args, settings);
+    validateElementorV3Settings(schema, settings, effective, { allowedBreakpoints });
     const schemaHash = await this.schemaHash(schema);
     const entry = this.evidence.validate({
       operationId: requiredString(args, "idempotency_key"),
@@ -330,7 +354,7 @@ export class ElementorV3EditorAdapter {
       schemaHash,
       evidence: record(args.settings_evidence) as SettingsEvidenceInput,
     });
-    return { schema, entry };
+    return { schema, entry, allowedBreakpoints };
   }
 
   private async schemaHash(schema: ElementorV3WidgetSchema): Promise<string> {
@@ -403,6 +427,11 @@ function requiredString(args: Record<string, unknown>, key: string): string {
   return value.trim();
 }
 function optionalString(value: unknown): string { return typeof value === "string" ? value.trim() : ""; }
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string").map((item) => item.trim().toLowerCase()).filter(Boolean)
+    : [];
+}
 function optionalInteger(value: unknown): number | undefined { return typeof value === "number" && Number.isInteger(value) ? value : undefined; }
 function integer(value: unknown, fallback: number, min: number, max: number): number {
   return typeof value === "number" && Number.isFinite(value) ? Math.max(min, Math.min(max, Math.floor(value))) : fallback;
@@ -419,6 +448,25 @@ function compactControl(control: Record<string, unknown>): Record<string, unknow
 function requiredWidgetType(element: ElementorV3Element): string {
   if (!element.widgetType) throw new Error(`Widget ${element.id} has no widgetType in the live editor model.`);
   return element.widgetType;
+}
+function authorizedBreakpoints(args: Record<string, unknown>, settings: ElementorV3Settings): string[] {
+  const explicit = stringArray(args.allowed_breakpoints).map((value) => value === "base" ? "desktop" : value);
+  const evidence = record(args.settings_evidence);
+  const derived = Object.keys(settings).flatMap((key) => {
+    const scope = optionalString(record(evidence[key]).responsive_scope).toLowerCase();
+    return scope.split(/[\s,|]+/).filter(Boolean).map((value) => value === "base" ? "desktop" : value);
+  });
+  const allowed = [...new Set(explicit.length > 0 ? explicit : derived)];
+  if (Object.keys(settings).length > 0 && allowed.length === 0) {
+    throw new Error("responsive_scope_required: provide allowed_breakpoints or per-setting responsive_scope evidence");
+  }
+  if (explicit.length > 0) {
+    const outsideAuthorization = derived.find((breakpoint) => !explicit.includes(breakpoint));
+    if (outsideAuthorization) {
+      throw new Error(`responsive_scope_violation: evidence targets ${outsideAuthorization}; allowed=${explicit.join(",")}`);
+    }
+  }
+  return allowed.length > 0 ? allowed : ["desktop"];
 }
 function assertSubset(expected: Record<string, unknown>, actual: Record<string, unknown>, message: string): void {
   for (const [key, value] of Object.entries(expected)) if (JSON.stringify(actual[key]) !== JSON.stringify(value)) throw new Error(`${message}: ${key}`);

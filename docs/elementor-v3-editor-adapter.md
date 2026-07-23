@@ -62,6 +62,11 @@ Each evidence row contains:
 ```text
 control_key, schema_hash, source, confidence,
 responsive_scope, requires_confirmation
+
+`create_element` and `update_settings` accept `allowed_breakpoints`. The
+production adapter always resolves an authorized scope from that list or the
+per-setting evidence, validates it before writing, and verifies that
+non-target breakpoint hashes remain unchanged after updates.
 ```
 
 Only successful mutations enter the page-session evidence ledger.

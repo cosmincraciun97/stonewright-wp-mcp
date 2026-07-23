@@ -33,7 +33,7 @@ final class ErrorPatternsPromotionTest extends TestCase {
 		$GLOBALS['stonewright_test_options'] = [];
 	}
 
-	public function test_two_identical_errors_create_active_learning_row(): void {
+	public function test_two_identical_errors_create_pending_feedback_incident(): void {
 		Memory::maybe_install_table();
 		delete_option( 'stonewright_error_patterns' );
 
@@ -54,8 +54,76 @@ final class ErrorPatternsPromotionTest extends TestCase {
 		self::assertNotEmpty( $hit, 'count>=2 must auto-create a learning-audit-error-* memory row' );
 		self::assertSame( 'feedback', $rows[0]['type'] ?? null );
 		self::assertSame( 'audit', $rows[0]['scope'] ?? null );
-		self::assertSame( 'active', $rows[0]['status'] ?? null );
-		self::assertSame( 700, (int) ( $rows[0]['precedence'] ?? 0 ) );
+		// Unresolved incidents are stale feedback — not active project/user rules.
+		self::assertSame( 'stale', $rows[0]['status'] ?? null );
+		self::assertSame( 400, (int) ( $rows[0]['precedence'] ?? 0 ) );
+	}
+
+	public function test_expected_safety_blocks_do_not_create_learning(): void {
+		Memory::maybe_install_table();
+		delete_option( 'stonewright_error_patterns' );
+
+		$args = [
+			'error_code' => 'stonewright_php_code_file_write_blocked',
+			'message'    => 'blocked',
+		];
+		ErrorPatterns::observe( 'stonewright/php-execute', 'blocked', $args );
+		ErrorPatterns::observe( 'stonewright/php-execute', 'blocked', $args );
+
+		$rows = Memory::list_by_type( 'feedback', 50, 0 );
+		$hit  = array_filter(
+			$rows,
+			static fn( $r ) => str_contains( (string) ( $r['memory_key'] ?? '' ), 'learning-audit-error-' )
+		);
+		self::assertSame( [], array_values( $hit ) );
+	}
+
+	public function test_verified_success_resolves_incident_without_inventing_a_rule(): void {
+		Memory::maybe_install_table();
+		$args = [ 'error_code' => 'stonewright_demo_failure', 'message' => 'Demo failed' ];
+		ErrorPatterns::observe( 'stonewright/demo-ability', 'error', $args );
+		ErrorPatterns::observe( 'stonewright/demo-ability', 'error', $args );
+
+		ErrorPatterns::observe_verified_repair(
+			'stonewright/demo-ability',
+			[
+				'effect_verified'     => true,
+				'verification_status' => 'verified',
+				'operation_class'     => 'content_update',
+			]
+		);
+
+		$rows = Memory::list_by_type( 'feedback', 50, 0 );
+		self::assertSame( 'verified_resolved', $rows[0]['value']['state'] ?? null );
+		self::assertSame( 'stale', $rows[0]['status'] ?? null );
+		self::assertCount( 1, $rows );
+	}
+
+	public function test_concrete_verified_recipe_promotes_one_active_repair(): void {
+		Memory::maybe_install_table();
+		$args = [ 'error_code' => 'stonewright_demo_failure', 'message' => 'Demo failed' ];
+		ErrorPatterns::observe( 'stonewright/demo-ability', 'error', $args );
+		ErrorPatterns::observe( 'stonewright/demo-ability', 'error', $args );
+
+		ErrorPatterns::observe_verified_repair(
+			'stonewright/demo-ability',
+			[
+				'effect_verified'     => true,
+				'verification_status' => 'verified',
+				'repair_recipe'       => 'Read the schema first, then update only the supported field.',
+			]
+		);
+
+		$rows = Memory::list_by_type( 'feedback', 50, 0 );
+		$active = array_values(
+			array_filter(
+				$rows,
+				static fn( array $row ): bool => 'active' === (string) ( $row['status'] ?? '' )
+			)
+		);
+		self::assertCount( 1, $active );
+		self::assertSame( 'promoted_learning', $active[0]['value']['state'] ?? null );
+		self::assertStringContainsString( 'Read the schema first', (string) ( $active[0]['value']['correction'] ?? '' ) );
 	}
 
 	/**
@@ -92,6 +160,7 @@ final class ErrorPatternsPromotionTest extends TestCase {
 					'created_by',
 					'created_at',
 					'updated_at',
+					'last_retrieved_at',
 				];
 			}
 

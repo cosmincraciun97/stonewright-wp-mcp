@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Admin\AdminBarIndicator;
 use Stonewright\WpMcp\Admin\AdminBootstrap;
 use Stonewright\WpMcp\Admin\AuditLogPage;
 use Stonewright\WpMcp\Admin\ConfigurationPage;
+use Stonewright\WpMcp\Admin\CustomCodeApprovalPage;
 use Stonewright\WpMcp\Admin\McpbBundle;
 use Stonewright\WpMcp\Admin\MemoryInstructionsPage;
 use Stonewright\WpMcp\Admin\SandboxPage;
@@ -124,6 +125,7 @@ final class PluginRegistration {
 		VendorGuard::register();
 
 		ConfigurationPage::register();
+		CustomCodeApprovalPage::register();
 		AbilitiesPage::register();
 		SandboxPage::register();
 		SkillsPage::register();
@@ -151,7 +153,13 @@ final class PluginRegistration {
 		$is_first_activate = ! get_option( 'stonewright_version' );
 		update_option( 'stonewright_version', STONEWRIGHT_VERSION );
 		if ( ! get_option( 'stonewright_mode' ) ) {
-			update_option( 'stonewright_mode', 'development' );
+			$environment = function_exists( 'wp_get_environment_type' ) ? wp_get_environment_type() : 'development';
+			$initial_mode = match ( $environment ) {
+				'production' => 'production-safe',
+				'staging'    => 'staging',
+				default      => 'development',
+			};
+			update_option( 'stonewright_mode', $initial_mode );
 		}
 		// New installs only: bootstrap progressive-discovery surface.
 		// Upgrades leave stonewright_mcp_surface unset so mcp_surface() keeps mapping

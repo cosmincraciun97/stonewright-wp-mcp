@@ -40,13 +40,18 @@ final class LearningRecordTest extends TestCase {
 			]
 		);
 
+		self::assertIsArray( $result );
 		self::assertSame( true, $result['ok'] );
+		self::assertTrue( $result['verified'] );
+		self::assertSame( 'plugin', $result['backend'] );
 		self::assertSame( 'learning-elementor-html-widget', $result['memory_key'] );
 		self::assertNull( $result['skill_slug'] );
+		self::assertStringStartsWith( 'wp:stonewright_memory#', (string) $result['storage_ref'] );
 
 		$memory_insert = $GLOBALS['wpdb']->inserts[0] ?? [];
 		self::assertStringEndsWith( 'stonewright_memory', (string) ( $memory_insert['table'] ?? '' ) );
-		self::assertSame( 'feedback', $memory_insert['data']['type'] );
+		// Explicit learning is project/user-authored, not audit feedback.
+		self::assertSame( 'project', $memory_insert['data']['type'] );
 		self::assertSame( 'elementor', $memory_insert['data']['scope'] );
 		self::assertSame( 'learning-elementor-html-widget', $memory_insert['data']['memory_key'] );
 		self::assertStringContainsString( 'Do not use HTML widgets', $memory_insert['data']['value_json'] );
@@ -70,13 +75,50 @@ final class LearningRecordTest extends TestCase {
 			]
 		);
 
+		self::assertIsArray( $result );
 		self::assertTrue( $result['ok'] );
+		self::assertTrue( $result['verified'] );
 		$memory_insert = $GLOBALS['wpdb']->inserts[0] ?? [];
 		$value         = (string) ( $memory_insert['data']['value_json'] ?? '' );
 		self::assertStringContainsString( 'user-correction', $value );
 		self::assertStringContainsString( 'high', $value );
 		self::assertStringContainsString( 'setup diagnostics', $value );
-		self::assertSame( 700, (int) ( $memory_insert['data']['precedence'] ?? 0 ) );
+		self::assertSame( 'project', $memory_insert['data']['type'] );
+		self::assertGreaterThanOrEqual( 700, (int) ( $memory_insert['data']['precedence'] ?? 0 ) );
+	}
+
+	public function test_accepts_legacy_text_and_returns_canonical_receipt(): void {
+		$result = ( new LearningRecord() )->execute(
+			[
+				'text'  => 'Always use native Elementor typography controls.',
+				'scope' => 'user',
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['stored'] );
+		self::assertTrue( $result['verified'] );
+		self::assertSame( 'plugin', $result['backend'] );
+		self::assertSame( 'user', $result['scope'] );
+		self::assertNotEmpty( $result['memory_id'] );
+		$memory_insert = $GLOBALS['wpdb']->inserts[0] ?? [];
+		self::assertSame( 'user', $memory_insert['data']['type'] );
+	}
+
+	public function test_canonical_request_with_explicit_user_source(): void {
+		$result = ( new LearningRecord() )->execute(
+			[
+				'topic'      => 'Device tabs',
+				'correction' => 'Use Elementor toolbar device tabs, never resize the editor window.',
+				'scope'      => 'user',
+				'source'     => 'explicit-user-request',
+				'evidence'   => 'User correction in chat',
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['verified'] );
+		self::assertSame( 'user', $result['memory_type'] );
 	}
 
 	public function test_opt_in_skill_is_saved_as_disabled_draft(): void {
@@ -125,6 +167,9 @@ final class LearningRecordTest extends TestCase {
 			/** @var array<int, array{table:string,data:array<string,mixed>}> */
 			public array $inserts = [];
 
+			/** @var array<int, array<string,mixed>> */
+			public array $rows_by_id = [];
+
 			public function __construct( bool $insert_ok ) {
 				$this->insert_ok = $insert_ok;
 				if ( ! $insert_ok ) {
@@ -140,10 +185,34 @@ final class LearningRecordTest extends TestCase {
 			}
 
 			public function prepare( string $query, mixed ...$args ): string {
-				return $query;
+				return $query . ' /*' . implode( ',', array_map( 'strval', $args ) ) . '*/';
 			}
 
 			public function get_row( string $query, string $output = 'OBJECT' ): ?array {
+				// Return last memory insert for readback verification.
+				if ( str_contains( $query, 'stonewright_memory' ) && str_contains( $query, 'WHERE id' ) ) {
+					foreach ( array_reverse( $this->inserts ) as $insert ) {
+						if ( str_ends_with( (string) $insert['table'], 'stonewright_memory' ) ) {
+							$data = $insert['data'];
+							return [
+								'id'                   => $this->insert_id,
+								'type'                 => $data['type'] ?? 'project',
+								'scope'                => $data['scope'] ?? 'project',
+								'memory_key'           => $data['memory_key'] ?? '',
+								'name'                 => $data['name'] ?? '',
+								'value_json'           => $data['value_json'] ?? '{}',
+								'confidence'           => $data['confidence'] ?? 1,
+								'topic'                => $data['topic'] ?? '',
+								'version_fingerprint'  => '',
+								'expires_at'           => null,
+								'status'               => 'active',
+								'precedence'           => $data['precedence'] ?? 0,
+								'created_at'           => '2026-07-22 00:00:00',
+								'updated_at'           => '2026-07-22 00:00:00',
+							];
+						}
+					}
+				}
 				return null;
 			}
 
@@ -167,6 +236,10 @@ final class LearningRecordTest extends TestCase {
 
 			/** @param array<string, mixed> $data @param array<string, mixed> $where */
 			public function update( string $table, array $data, array $where, array $format = [], array $where_format = [] ): int {
+				$this->inserts[] = [
+					'table' => $table,
+					'data'  => array_merge( $data, $where ),
+				];
 				return 1;
 			}
 		};

@@ -543,6 +543,109 @@ final class BatchMutateTest extends TestCase {
 		self::assertSame( 'stonewright_v3_architecture_mismatch', $result->get_error_code() );
 	}
 
+	public function test_mobile_update_preserves_and_hashes_non_target_breakpoints(): void {
+		$this->seed_post(
+			779,
+			[
+				[
+					'id'         => 'heading1',
+					'elType'     => 'widget',
+					'widgetType' => 'heading',
+					'settings'   => [
+						'title'                       => 'Desktop title',
+						'typography_font_size_tablet' => [ 'size' => 30, 'unit' => 'px' ],
+						'typography_font_size_mobile' => [ 'size' => 22, 'unit' => 'px' ],
+					],
+					'elements'   => [],
+				],
+			]
+		);
+
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 779,
+				'dry_run'    => true,
+				'operations' => [
+					[
+						'action'              => 'update_element',
+						'element_id'          => 'heading1',
+						'allowed_breakpoints' => [ 'mobile' ],
+						'settings'            => [ 'typography_font_size_mobile' => [ 'size' => 18, 'unit' => 'px' ] ],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( [ 'mobile' ], $result['items'][0]['allowed_breakpoints'] );
+		self::assertSame( $result['items'][0]['non_target_before_hash'], $result['items'][0]['non_target_after_hash'] );
+		self::assertSame( 'Desktop title', $result['preview'][0]['settings']['title'] );
+		self::assertSame( 30, $result['preview'][0]['settings']['typography_font_size_tablet']['size'] );
+		self::assertSame( 18, $result['preview'][0]['settings']['typography_font_size_mobile']['size'] );
+	}
+
+	public function test_mobile_scope_rejects_desktop_key_before_write(): void {
+		$this->seed_post(
+			780,
+			[ [ 'id' => 'heading1', 'elType' => 'widget', 'widgetType' => 'heading', 'settings' => [ 'title' => 'Old' ], 'elements' => [] ] ]
+		);
+
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 780,
+				'operations' => [
+					[
+						'action'              => 'update_element',
+						'element_id'          => 'heading1',
+						'allowed_breakpoints' => [ 'mobile' ],
+						'settings'            => [ 'title' => 'Desktop leak' ],
+					],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_responsive_scope_violation', $result->get_error_data()['cause_code'] );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+	}
+
+	public function test_mobile_replace_rejects_non_target_deletion(): void {
+		$this->seed_post(
+			781,
+			[
+				[
+					'id'         => 'heading1',
+					'elType'     => 'widget',
+					'widgetType' => 'heading',
+					'settings'   => [
+						'title'                       => 'Desktop title',
+						'typography_font_size_mobile' => [ 'size' => 22, 'unit' => 'px' ],
+					],
+					'elements'   => [],
+				],
+			]
+		);
+
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 781,
+				'operations' => [
+					[
+						'action'              => 'update_element',
+						'element_id'          => 'heading1',
+						'allowed_breakpoints' => [ 'mobile' ],
+						'mode'                => 'replace',
+						'settings'            => [ 'typography_font_size_mobile' => [ 'size' => 18, 'unit' => 'px' ] ],
+					],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_responsive_scope_violation', $result->get_error_data()['cause_code'] );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+	}
+
 	/** @param array<int, array<string, mixed>> $tree */
 	private function seed_post( int $post_id, array $tree ): void {
 		$GLOBALS['stonewright_test_posts'][ $post_id ] = (object) [

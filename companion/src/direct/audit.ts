@@ -1,4 +1,5 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
@@ -10,6 +11,24 @@ export interface DirectAuditEntry {
 	timestamp?: string;
 	code?: string;
 	error?: string;
+	eventType?: string;
+	operationClass?: string;
+	resourceType?: string;
+	changeSetId?: string;
+	requestId?: string;
+	parentRequestId?: string;
+	executionStatus?: string;
+	verificationStatus?: string;
+	rollbackStatus?: string;
+	beforeSha256?: string;
+	afterSha256?: string;
+	changedBytes?: number;
+	validatorSummary?: string;
+	smokeSummary?: string;
+	causeKey?: string;
+	durationMs?: number;
+	mode?: string;
+	severity?: string;
 }
 
 export function defaultStateDir(env: NodeJS.ProcessEnv = process.env): string {
@@ -32,6 +51,12 @@ export function appendDirectAudit(
 	if (!existsSync(dir)) {
 		mkdirSync(dir, { recursive: true, mode: 0o700 });
 	}
+	const executionStatus =
+		entry.executionStatus ??
+		(entry.status === 'ok' ? 'executed' : entry.status);
+	const verificationStatus =
+		entry.verificationStatus ??
+		(entry.status === 'ok' ? 'response_returned' : 'not_verified');
 	const row = {
 		tool: entry.tool,
 		site: entry.site,
@@ -40,6 +65,34 @@ export function appendDirectAudit(
 		code: entry.code ?? null,
 		error: entry.error ? entry.error.slice(0, 200) : null,
 		timestamp: entry.timestamp ?? new Date().toISOString(),
+		event_type: entry.eventType ?? 'direct_tool',
+		operation_class: entry.operationClass ?? 'direct',
+		resource_type: entry.resourceType ?? null,
+		resource_ref: entry.resource ?? null,
+		change_set_id: entry.changeSetId ?? null,
+		request_id: entry.requestId ?? randomUUID(),
+		parent_request_id: entry.parentRequestId ?? null,
+		execution_status: executionStatus,
+		verification_status: verificationStatus,
+		rollback_status: entry.rollbackStatus ?? 'not_required',
+		before_sha256: entry.beforeSha256 ?? null,
+		after_sha256: entry.afterSha256 ?? null,
+		changed_bytes: entry.changedBytes ?? null,
+		validator_summary: entry.validatorSummary?.slice(0, 500) ?? null,
+		smoke_summary: entry.smokeSummary?.slice(0, 500) ?? null,
+		error_code: entry.code ?? null,
+		cause_key: entry.causeKey ?? null,
+		duration_ms: entry.durationMs ?? null,
+		backend: 'direct',
+		site_fingerprint: createHash('sha256').update(entry.site).digest('hex'),
+		mode: entry.mode ?? 'direct',
+		severity:
+			entry.severity ??
+			(entry.status === 'error'
+				? 'error'
+				: entry.status === 'blocked'
+					? 'notice'
+					: 'info'),
 	};
 	appendFileSync(path, `${JSON.stringify(row)}\n`, { encoding: 'utf8', mode: 0o600 });
 }

@@ -2,6 +2,50 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.82] - 2026-07-23
+
+### Fixed
+
+- REST mutation audit replaces free-form code, instruction, skill, and memory
+  bodies with irreversible hashes and byte counts.
+- Elementor V3 batch mutations enforce authorized breakpoint scope and verify
+  non-target breakpoint hashes before persisting settings.
+- Compact task-start preserves target binding evidence within enforced token budgets.
+
+## [1.0.0-alpha.81] - 2026-07-23
+
+### Security
+
+- `php-execute` permanently blocks filesystem mutation APIs (theme/plugin/core code writes). Use `theme-file-patch` instead.
+- Theme file writes validate the complete candidate (in-process PHP parser), require a wp-admin-reviewed single-use custom-code grant for PHP/CSS/JS apply, atomic replace, readback, bootstrap smoke, and automatic rollback.
+- Theme backups are stored under opaque references with non-executable filenames and web-access guards; `stonewright/theme-backup-restore` restores only an owned, hash-verified backup.
+- Expected safety blocks no longer promote active project/user learning; audit feedback stays unresolved until verified repair.
+- Production WordPress environment with non-`production-safe` Stonewright mode surfaces a P0 admin warning.
+
+### Added
+
+- `ProtectedFilesystemWriteGuard`, `PhpSyntaxValidator`, `ThemeWriteTransaction`, `CustomCodeGrant`.
+- Materialized audit columns and admin filters for event/operation/resource/change-set, execution/verification/rollback, hashes, errors, backend, mode, and severity; failed audit persistence surfaces a degraded-state notice.
+- Custom-code proposal review page showing bounded diff, hashes, native-gap evidence, test plan, and rollback plan before minting a path/hash/user/site-bound grant.
+- Memory admin lifecycle tabs for user/project rules, verified repairs, unresolved incidents, audit feedback, and reference entries; controlled legacy-feedback migration preserves history.
+- Canonical rule `custom_code_operator_grant` (Plugin/Direct/skill parity).
+- Learning receipts report `memory_backend` and visibility labels.
+
+### Fixed
+
+- Direct learning no longer silently falls back to `_global` for unknown site aliases.
+- Direct learning receipts label local-only visibility (not wp-admin Memory UI).
+- Task context tokens bind site fingerprint, environment, Stonewright mode, and memory backend; task-start receipts expose those values.
+
+## [1.0.0-alpha.80] - 2026-07-22
+
+### Added
+
+- Canonical permanent operating rules with Plugin/Direct/skill parity fingerprint.
+- Verified learning-record receipts (write-then-readback) and user/project memory types.
+- Central REST mutation audit under `stonewright/v1` with blocked status and exact counts.
+- MethodRouter ladder and Elementor ResponsiveScope isolation helpers.
+
 ## [1.0.0-alpha.79] - 2026-07-22
 
 ### Fixed
@@ -63,55 +107,3 @@
   collapse, widgetType remap blocks; readback restore).
 - Tree validation preserves unknown settings and coexisting `e-*` widgets.
 - Memory admin schema-health notice when the memory table is missing/outdated.
-
-## [1.0.0-alpha.77] - 2026-07-22
-
-### Fixed
-
-- Task-start always signals tools re-list when admin surface is full/essential or
-  the session profile leaves bootstrap (stdio companion surface sync).
-
-### Added
-
-- Bootstrap MCP surface ≤12 tools with php-execute, confirmation, content and
-  Elementor read tools, theme-file-read.
-- `stonewright/theme-file-read` and `stonewright/theme-file-patch` allowlisted
-  theme file abilities with backup and production confirmation.
-- `php-execute` `read_only` flag; clearer Elementor write-vs-read policy.
-- Task-start `write_target_url` / active write target labeling.
-- Direct remote Elementor data path via REST meta when registered.
-
-## [1.0.0-alpha.76] - 2026-07-16
-
-### Added
-
-- Direct mode: permanent product HARD RULES on every `stonewright-task-start`
-  (single-target scope, remote tool path, no ad-hoc plugins, HTTP-first
-  automation, additive content models) plus five new enabled `_builtin` skills.
-- Plugin: permanent operating rules in agent instructions (not Safety Memory UI)
-  covering the same workflow discipline plus Elementor native-first lessons
-  (responsive typography, Nested Carousel offset, swiper overflow, CSS parent class).
-- Built-in skill pack `agent-operating-rules` for matched task playbooks.
-
-### Changed
-
-- Direct `AGENTS.md` managed template includes the permanent operating rules.
-
-## [1.0.0-alpha.75] - 2026-07-16
-
-### Added
-
-- Direct mode: `stonewright-content-create` creates items of any registered post
-  type (**99** tools total).
-- Direct mode: `stonewright-task-start` returns `session_tools` (exact enabled
-  tool list) and structured `capabilities.content_model` guidance.
-
-### Changed
-
-- Direct mode: content and taxonomy tools auto-resolve `rest_base` from
-  `/wp/v2/types` and `/wp/v2/taxonomies` (CPTs whose `rest_base` differs from
-  the slug now work).
-- Direct mode: site-discover and capability tiers state that Direct fully edits
-  existing CPT content, taxonomy terms, and ACF field values; registering new
-  models requires server-side PHP (plugin) — a WordPress REST limit, not a
-  Stonewright gap.

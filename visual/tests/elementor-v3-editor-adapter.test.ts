@@ -174,6 +174,75 @@ describe("ElementorV3EditorAdapter", () => {
     expect((await runtime.getElement("h1"))?.settings).toMatchObject({ title: "New", align_tablet: "center" });
   });
 
+  it("enforces authorized breakpoint scope in the production update path", async () => {
+    const runtime = new MemoryElementorRuntime();
+    runtime.tree[0].children.push({
+      id: "h1",
+      elType: "widget",
+      widgetType: "heading",
+      settings: { title: "Desktop", align_tablet: "left", align_mobile: "left" },
+      children: [],
+      parentId: "root",
+      position: 0,
+    });
+    const registry = new ElementorV3EditorAdapter(runtime).registry();
+    const schemaHash = await hashValue(controls.heading);
+
+    await expect(registry.call("update_settings", {
+      element_id: "h1",
+      idempotency_key: "mobile-scope-reject",
+      settings: { title: "Wrong target" },
+      settings_evidence: { title: evidence(schemaHash, "mobile") },
+      allowed_breakpoints: ["mobile"],
+    })).rejects.toThrow(/responsive_scope_violation/);
+
+    const updated = await registry.call("update_settings", {
+      element_id: "h1",
+      idempotency_key: "mobile-scope-accept",
+      settings: { align_mobile: "center" },
+      settings_evidence: { align_mobile: evidence(schemaHash, "mobile") },
+      allowed_breakpoints: ["mobile"],
+    });
+    expect(updated.details?.readback_verified).toBe(true);
+    expect((await runtime.getElement("h1"))?.settings).toMatchObject({
+      title: "Desktop",
+      align_tablet: "left",
+      align_mobile: "center",
+    });
+  });
+
+  it("rolls back when runtime mutation changes a non-target breakpoint", async () => {
+    const runtime = new MemoryElementorRuntime();
+    runtime.tree[0].children.push({
+      id: "h1",
+      elType: "widget",
+      widgetType: "heading",
+      settings: { title: "Desktop", align_mobile: "left" },
+      children: [],
+      parentId: "root",
+      position: 0,
+    });
+    const realUpdate = runtime.updateSettings.bind(runtime);
+    runtime.updateSettings = async (id, settings) => {
+      await realUpdate(id, settings);
+      requireElement(runtime.tree, id).settings.title = "Corrupted desktop";
+    };
+    const registry = new ElementorV3EditorAdapter(runtime).registry();
+    const schemaHash = await hashValue(controls.heading);
+
+    await expect(registry.call("update_settings", {
+      element_id: "h1",
+      idempotency_key: "mobile-scope-corruption",
+      settings: { align_mobile: "center" },
+      settings_evidence: { align_mobile: evidence(schemaHash, "mobile") },
+      allowed_breakpoints: ["mobile"],
+    })).rejects.toThrow(/non-target breakpoint/);
+    expect((await runtime.getElement("h1"))?.settings).toMatchObject({
+      title: "Desktop",
+      align_mobile: "left",
+    });
+  });
+
   it("rolls back a failed batch and resolves create refs", async () => {
     const runtime = new MemoryElementorRuntime();
     const adapter = new ElementorV3EditorAdapter(runtime);

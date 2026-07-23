@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Core;
 
+use Stonewright\WpMcp\Abilities\Memory\LearningRecord;
+use Stonewright\WpMcp\Abilities\System\TaskStart;
 use Stonewright\WpMcp\Admin\ConnectClientConfig;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
@@ -15,11 +17,17 @@ use Stonewright\WpMcp\Support\Utf8;
 /**
  * Stonewright-specific REST routes outside of the MCP transport.
  *
- * Currently exposes a read-only audit log endpoint and a settings endpoint.
+ * Mutations under the stonewright/v1 namespace are audited centrally. When a
+ * route delegates to an AbilityKernel that already calls AuditLog::record(),
+ * the REST layer skips the duplicate row via request-scoped deduplication.
  */
 final class RestRoutes {
 
 	public static function register(): void {
+		// Central mutation audit for Stonewright-owned REST routes only.
+		add_filter( 'rest_pre_dispatch', [ self::class, 'audit_pre_dispatch' ], 5, 3 );
+		add_filter( 'rest_post_dispatch', [ self::class, 'audit_post_dispatch' ], 20, 3 );
+
 		register_rest_route(
 			'stonewright/v1',
 			'/audit-log',
@@ -42,12 +50,22 @@ final class RestRoutes {
 				'callback'            => static function ( \WP_REST_Request $request ) {
 					$per_page = absint( $request['per_page'] );
 					$page     = absint( $request['page'] );
-					$rows     = AuditLog::recent( $per_page, $page );
+					$filters  = [];
+					if ( $request->get_param( 'status' ) ) {
+						$filters['status'] = sanitize_key( (string) $request->get_param( 'status' ) );
+					}
+					if ( $request->get_param( 'ability' ) ) {
+						$filters['ability'] = sanitize_text_field( (string) $request->get_param( 'ability' ) );
+					}
+					$rows  = AuditLog::recent( $per_page, $page, $filters );
+					$total = AuditLog::count( $filters );
 
 					return rest_ensure_response( [
-						'page'     => $page,
-						'per_page' => $per_page,
-						'items'    => $rows,
+						'page'        => $page,
+						'per_page'    => $per_page,
+						'total'       => $total,
+						'total_pages' => (int) max( 1, (int) ceil( $total / max( 1, $per_page ) ) ),
+						'items'       => $rows,
 					] );
 				},
 			]
@@ -65,6 +83,43 @@ final class RestRoutes {
 				'permission_callback' => [ Permissions::class, 'manage_options' ],
 				'callback'            => static function () {
 					return rest_ensure_response( AbilityRegistry::all_abilities() );
+				},
+			]
+		);
+
+		// Typed bridge for Direct-capable companions. This is deliberately not
+		// the generic abilities/run route: only task-start and verified learning
+		// are exposed, with the normal context and permission gates intact.
+		register_rest_route(
+			'stonewright/v1',
+			'/direct/task-start',
+			[
+				'methods'             => 'POST',
+				'permission_callback' => [ Permissions::class, 'manage_options' ],
+				'callback'            => static function ( \WP_REST_Request $request ) {
+					$args = [
+						'task'         => sanitize_textarea_field( (string) $request->get_param( 'task' ) ),
+						'surface'      => sanitize_key( (string) $request->get_param( 'surface' ) ),
+						'intent'       => sanitize_key( (string) $request->get_param( 'intent' ) ),
+						'responseMode' => 'compact',
+					];
+					$result = ( new TaskStart() )->execute( $args );
+					return $result instanceof \WP_Error ? $result : rest_ensure_response( $result );
+				},
+			]
+		);
+
+		register_rest_route(
+			'stonewright/v1',
+			'/direct/learning-record',
+			[
+				'methods'             => 'POST',
+				'permission_callback' => [ Permissions::class, 'manage_options' ],
+				'callback'            => static function ( \WP_REST_Request $request ) {
+					$params = $request->get_json_params();
+					$params = is_array( $params ) ? Utf8::deep_sanitize( $params ) : [];
+					$result = AbilityRegistry::execute_with_context_guard( new LearningRecord(), $params );
+					return $result instanceof \WP_Error ? $result : rest_ensure_response( $result );
 				},
 			]
 		);
@@ -902,5 +957,158 @@ final class RestRoutes {
 				},
 			]
 		);
+	}
+
+	/**
+	 * Start a correlation id for Stonewright mutation requests.
+	 *
+	 * @param mixed            $result  Dispatch result so far.
+	 * @param \WP_REST_Server  $server  Server.
+	 * @param \WP_REST_Request $request Request.
+	 * @return mixed
+	 */
+	public static function audit_pre_dispatch( $result, $server, $request ) {
+		if ( ! self::is_stonewright_mutation( $request ) ) {
+			return $result;
+		}
+		AuditLog::begin_request();
+		return $result;
+	}
+
+	/**
+	 * Persist one audit row for Stonewright mutations that were not already
+	 * recorded by AbilityKernel.
+	 *
+	 * @param \WP_REST_Response|\WP_HTTP_Response|\WP_Error|mixed $response Response.
+	 * @param \WP_REST_Server                                      $server   Server.
+	 * @param \WP_REST_Request                                     $request  Request.
+	 * @return mixed
+	 */
+	public static function audit_post_dispatch( $response, $server, $request ) {
+		if ( ! self::is_stonewright_mutation( $request ) ) {
+			return $response;
+		}
+		if ( AuditLog::was_audited() ) {
+			return $response;
+		}
+
+		$status = 'ok';
+		if ( $response instanceof \WP_Error ) {
+			$data = $response->get_error_data();
+			$http = is_array( $data ) ? (int) ( $data['status'] ?? 0 ) : 0;
+			$code = (string) $response->get_error_code();
+			$status = ( 403 === $http || str_contains( $code, 'forbidden' ) || str_contains( $code, 'blocked' ) )
+				? 'blocked'
+				: 'error';
+		} elseif ( $response instanceof \WP_HTTP_Response ) {
+			$code = (int) $response->get_status();
+			if ( $code >= 400 ) {
+				$status = 403 === $code ? 'blocked' : 'error';
+			}
+		}
+
+		$route  = (string) $request->get_route();
+		$method = (string) $request->get_method();
+		$params = $request->get_params();
+		$params = is_array( $params ) ? $params : [];
+		unset( $params['_wpnonce'], $params['_locale'] );
+		$resource     = self::resource_from_params( $params );
+		$audit_params = self::compact_audit_params( $params );
+
+		AuditLog::record_rest_mutation(
+			$route,
+			$method,
+			[
+				'source'   => 'rest',
+				'route'    => $route,
+				'method'   => $method,
+				'mode'     => (string) get_option( 'stonewright_mode', 'development' ),
+				'resource' => $resource,
+				'params'   => $audit_params,
+			],
+			$status
+		);
+
+		return $response;
+	}
+
+	private static function is_stonewright_mutation( \WP_REST_Request $request ): bool {
+		$route  = (string) $request->get_route();
+		$method = strtoupper( (string) $request->get_method() );
+		if ( ! str_starts_with( $route, '/stonewright/v1' ) ) {
+			return false;
+		}
+		if ( '/stonewright/v1/direct/task-start' === $route ) {
+			return false;
+		}
+		return in_array( $method, [ 'POST', 'PUT', 'PATCH', 'DELETE' ], true );
+	}
+
+	/**
+	 * Replace free-form mutation bodies with compact, irreversible summaries.
+	 * This prevents credentials embedded in PHP, skills, instructions, or
+	 * memory text from being copied into the audit table.
+	 *
+	 * @param array<string, mixed> $params
+	 * @return array<string, mixed>
+	 */
+	private static function compact_audit_params( array $params ): array {
+		$body_keys = [
+			'body',
+			'code',
+			'content',
+			'contents',
+			'correction',
+			'evidence',
+			'instructions',
+			'new_string',
+			'old_string',
+			'php',
+			'text',
+			'value',
+		];
+		$summary   = [];
+		foreach ( $params as $key => $value ) {
+			$key = (string) $key;
+			if ( in_array( strtolower( $key ), $body_keys, true ) ) {
+				$summary[ $key ] = self::audit_body_summary( $value );
+				continue;
+			}
+			if ( is_array( $value ) ) {
+				$summary[ $key ] = self::compact_audit_params( $value );
+				continue;
+			}
+			$summary[ $key ] = $value;
+		}
+		return $summary;
+	}
+
+	/**
+	 * @return array{redacted: true, sha256: string, bytes: int}
+	 */
+	private static function audit_body_summary( mixed $value ): array {
+		if ( is_string( $value ) ) {
+			$serialized = $value;
+		} else {
+			$encoded    = wp_json_encode( $value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+			$serialized = false === $encoded ? get_debug_type( $value ) : $encoded;
+		}
+		return [
+			'redacted' => true,
+			'sha256'   => hash( 'sha256', $serialized ),
+			'bytes'    => strlen( $serialized ),
+		];
+	}
+
+	/**
+	 * @param array<string, mixed> $params
+	 */
+	private static function resource_from_params( array $params ): string {
+		foreach ( [ 'id', 'post_id', 'name', 'slug', 'ability' ] as $key ) {
+			if ( isset( $params[ $key ] ) && is_scalar( $params[ $key ] ) ) {
+				return $key . '=' . (string) $params[ $key ];
+			}
+		}
+		return '';
 	}
 }

@@ -34,6 +34,19 @@ final class ContextBuilder {
 			'ok'                       => true,
 			'context_token'            => $token['token'],
 			'expires_at'               => $token['expires_at'],
+			'target_context'           => [
+				'backend'           => 'plugin',
+				'site_alias'        => null,
+				'normalized_url'    => rtrim( home_url( '/' ), '/' ),
+				'site_fingerprint'  => ContextToken::site_fingerprint(),
+				'environment_type'  => function_exists( 'wp_get_environment_type' ) ? wp_get_environment_type() : 'unknown',
+				'stonewright_mode'  => (string) get_option( 'stonewright_mode', 'development' ),
+				'memory_backend'    => 'plugin-site',
+				'memory_visibility' => 'site-admin (Stonewright Memory UI)',
+				'tool_profile'      => (string) ( ToolProfile::profile_hint( $task, $surface, $intent )['profile'] ?? 'essential' ),
+				'expires_at'        => $token['expires_at'],
+				'context_token'     => $token['token'],
+			],
 			'instructions'             => AgentInstructions::default( $is_visual ),
 			'mcp_tool_naming'          => self::mcp_tool_naming(),
 			'tool_profile_hint'        => ToolProfile::profile_hint( $task, $surface, $intent ),
@@ -194,7 +207,9 @@ final class ContextBuilder {
 
 		$entries = Memory::list_all( 50, 0 );
 		$query   = self::normalise( $task . ' ' . $surface );
-		$rows    = [];
+		$user_rows    = [];
+		$project_rows = [];
+		$other_rows   = [];
 
 		foreach ( $entries as $entry ) {
 			if ( ! Memory::is_active( $entry ) ) {
@@ -210,20 +225,51 @@ final class ContextBuilder {
 			$score       = self::score( $query, $haystack );
 			$type        = (string) ( $entry['type'] ?? 'generic' );
 			$scope_match = '' !== $surface && strtolower( (string) ( $entry['scope'] ?? '' ) ) === strtolower( $surface );
+			// Always include user-authored learning; score project/feedback/others.
 			if ( 'user' === $type || $score > 0 || $scope_match ) {
-				$entry['_score']    = $score;
+				$entry['_score']    = $score + ( 'user' === $type ? 100 : ( 'project' === $type ? 50 : 0 ) );
 				$entry['_priority'] = self::memory_priority( $type ) + (int) ( $entry['precedence'] ?? 0 );
-				$rows[]             = $entry;
+				if ( 'user' === $type ) {
+					$user_rows[] = $entry;
+				} elseif ( 'project' === $type ) {
+					$project_rows[] = $entry;
+				} else {
+					$other_rows[] = $entry;
+				}
 			}
 		}
 
-		usort(
-			$rows,
-			static fn( array $a, array $b ): int => ( (int) $b['_priority'] <=> (int) $a['_priority'] )
-				?: ( (int) $b['_score'] <=> (int) $a['_score'] )
+		$by_priority = static fn( array $a, array $b ): int => ( (int) $b['_priority'] <=> (int) $a['_priority'] )
+			?: ( (int) $b['_score'] <=> (int) $a['_score'] );
+		usort( $user_rows, $by_priority );
+		usort( $project_rows, $by_priority );
+		usort( $other_rows, $by_priority );
+
+		// Reserve contextual capacity for explicit user/project learning before audit feedback.
+		$selected = [];
+		foreach ( array_slice( $user_rows, 0, 3 ) as $row ) {
+			$selected[] = $row;
+		}
+		foreach ( array_slice( $project_rows, 0, 2 ) as $row ) {
+			if ( count( $selected ) >= 5 ) {
+				break;
+			}
+			$selected[] = $row;
+		}
+		foreach ( $other_rows as $row ) {
+			if ( count( $selected ) >= 5 ) {
+				break;
+			}
+			$selected[] = $row;
+		}
+		Memory::mark_retrieved(
+			array_values(
+				array_filter(
+					array_map( static fn( array $entry ): int => (int) ( $entry['id'] ?? 0 ), $selected )
+				)
+			)
 		);
 
-		$selected = array_slice( $rows, 0, 5 );
 		return array_map(
 			static function ( array $entry ) use ( $selected ): array {
 				$topic     = self::normalise( (string) ( $entry['topic'] ?? $entry['memory_key'] ?? '' ) );

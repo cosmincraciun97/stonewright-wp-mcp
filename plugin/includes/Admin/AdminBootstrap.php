@@ -40,6 +40,34 @@ final class AdminBootstrap {
 		add_action( 'rest_api_init', [ RestApi::class, 'register' ] );
 		add_action( 'admin_enqueue_scripts', [ self::class, 'enqueue_assets' ] );
 		add_action( 'admin_notices', [ CrashRecovery::class, 'admin_notice' ] );
+		add_action( 'admin_notices', [ self::class, 'production_mode_mismatch_notice' ] );
+	}
+
+	/**
+	 * P0: production environment with non-production-safe Stonewright mode.
+	 */
+	public static function production_mode_mismatch_notice(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		if ( ! function_exists( 'wp_get_environment_type' ) || 'production' !== wp_get_environment_type() ) {
+			return;
+		}
+		$mode = (string) get_option( 'stonewright_mode', 'development' );
+		if ( 'production-safe' === $mode ) {
+			return;
+		}
+		echo '<div class="notice notice-error"><p><strong>';
+		echo esc_html__( 'Stonewright P0:', 'stonewright' );
+		echo '</strong> ';
+		echo esc_html(
+			sprintf(
+				/* translators: %s: current mode */
+				__( 'WordPress environment is production but Stonewright mode is "%s". Switch to production-safe before agent writes.', 'stonewright' ),
+				$mode
+			)
+		);
+		echo '</p></div>';
 	}
 
 	/**

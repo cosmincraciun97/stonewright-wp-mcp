@@ -394,6 +394,9 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 		public string $prefix = 'wptests_';
 		public int $insert_id = 1;
 
+		/** @var array<int, array<string, mixed>> */
+		public array $memory_rows = [];
+
 		/**
 		 * @param array<string, mixed> $data
 		 * @param array<int, string>   $format
@@ -404,6 +407,21 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 				'table' => $table,
 				'data'  => $data,
 			];
+			if ( str_contains( $table, 'stonewright_memory' ) ) {
+				$this->memory_rows[ $this->insert_id ] = array_merge(
+					[
+						'id'                  => $this->insert_id,
+						'created_at'          => '2026-07-22 00:00:00',
+						'updated_at'          => '2026-07-22 00:00:00',
+						'version_fingerprint' => '',
+						'expires_at'          => null,
+						'status'              => 'active',
+						'precedence'          => 0,
+						'topic'               => '',
+					],
+					$data
+				);
+			}
 			return 1;
 		}
 
@@ -417,10 +435,22 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 		}
 
 		public function get_row( string $query, string $output = 'OBJECT' ): array|object|null {
+			// Support Memory::get_by_id readback after put_typed in contract tests.
+			if ( str_contains( $query, 'stonewright_memory' ) && str_contains( $query, 'WHERE id' ) ) {
+				if ( [] === $this->memory_rows ) {
+					return null;
+				}
+				$row = end( $this->memory_rows );
+				return is_array( $row ) ? $row : null;
+			}
 			return null;
 		}
 
 		public function get_var( string $query ): mixed {
+			// Existing-key probe for put_typed returns null (insert path).
+			if ( str_contains( $query, 'SELECT id FROM' ) && str_contains( $query, 'stonewright_memory' ) ) {
+				return null;
+			}
 			return null;
 		}
 
@@ -429,6 +459,12 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 		 * @param array<string, mixed> $where
 		 */
 		public function update( string $table, array $data, array $where, array $format = [], array $where_format = [] ): int|false {
+			if ( str_contains( $table, 'stonewright_memory' ) && isset( $where['id'] ) ) {
+				$id = (int) $where['id'];
+				if ( isset( $this->memory_rows[ $id ] ) ) {
+					$this->memory_rows[ $id ] = array_merge( $this->memory_rows[ $id ], $data );
+				}
+			}
 			return 1;
 		}
 

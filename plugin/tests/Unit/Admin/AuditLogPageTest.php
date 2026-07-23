@@ -39,6 +39,11 @@ final class AuditLogPageTest extends TestCase {
 				return $query;
 			}
 
+			public function get_var( string $query = '' ): string|int|null {
+				// Count queries and table existence probes.
+				return 2;
+			}
+
 			/** @return array<int, array<string, mixed>> */
 			public function get_results( string $query, string $output = 'OBJECT' ): array {
 				return [
@@ -60,10 +65,6 @@ final class AuditLogPageTest extends TestCase {
 					],
 				];
 			}
-
-			public function get_var( string $query = '' ): string|int|null {
-				return 2;
-			}
 		};
 
 		ob_start();
@@ -71,9 +72,15 @@ final class AuditLogPageTest extends TestCase {
 		$html = (string) ob_get_clean();
 
 		self::assertStringContainsString( 'sw-audit-page', $html );
+		self::assertStringContainsString( 'Stonewright mutation', $html );
 		self::assertStringContainsString( 'sw-audit-filters', $html );
+		self::assertStringContainsString( 'value="blocked"', $html );
 		self::assertStringContainsString( 'name="ability"', $html );
 		self::assertStringContainsString( 'name="status"', $html );
+		self::assertStringContainsString( 'name="verification_status"', $html );
+		self::assertStringContainsString( 'name="rollback_status"', $html );
+		self::assertStringContainsString( 'name="operation_class"', $html );
+		self::assertStringContainsString( 'Incidents', $html );
 		self::assertStringContainsString( 'name="user"', $html );
 		self::assertStringContainsString( 'name="from"', $html );
 		self::assertStringContainsString( 'name="to"', $html );
