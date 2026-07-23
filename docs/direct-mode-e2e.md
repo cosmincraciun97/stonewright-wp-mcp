@@ -30,11 +30,11 @@ requires `WP_ENVIRONMENT_TYPE=local` (or the Application Passwords availability 
 | Global styles / FSE | Yes when endpoints exist | Yes |
 | Elementor write / DesignSpec | **Limited** — `elementor-data-get/update` without editor (WP-CLI local or REST meta when registered). No DesignSpec / batch-mutate schema engines | Yes |
 | PHP execute | **No** | Yes (`stonewright/php-execute`) |
-| Skills / memory / learning | **Yes (local `~/.stonewright/`)** | Yes (site-hosted Admin UI) |
+| Skills / memory / learning | **Yes** — local `~/.stonewright/` without plugin; authoritative site memory through the typed bridge when installed | Yes (site-hosted Admin UI) |
 | ACF field values | When ACF Show in REST | Yes (typed abilities) |
 | SEO meta / head | Yoast head JSON when present | Yes (multi-plugin adapter) |
 | CPT / taxonomy registration | **No** | Yes |
-| Audit log / backups / tokens | Direct JSONL only | Yes |
+| Audit log / backups / tokens | Direct JSONL with aligned effect/incident fields; plugin-backed operations use plugin controls | Yes |
 | WP-CLI (tokenized companion) | Yes (local CLI, independent of plugin) | Yes |
 
 ## Live run log
@@ -72,6 +72,12 @@ task-start, and a **task-start write gate** (opt-out `STONEWRIGHT_DIRECT_REQUIRE
 
 Protocol e2e for self-improvement runs with zero WordPress credentials
 (`tests/direct-selfimprove-e2e.test.ts`). Direct surface: **99** tools.
+
+`task-start` binds learning to an alias, normalized URL, target fingerprint,
+backend, and expiry. A configured target change requires a new task-start.
+Authentication, transport, or server failure never silently redirects learning
+to local storage; local fallback is allowed only when the typed plugin route is
+confirmed absent.
 
 ## Install prompts
 

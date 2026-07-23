@@ -56,6 +56,13 @@ final class MemoryInstructionsPageTest extends TestCase {
 		self::assertStringContainsString( 'Export JSON', $html );
 		self::assertStringContainsString( 'Import JSON', $html );
 		self::assertStringContainsString( 'Use native Elementor widgets first.', $html );
+		self::assertStringContainsString( 'Verified Repairs', $html );
+		self::assertStringContainsString( 'Unresolved Incidents', $html );
+		self::assertStringContainsString( 'Audit Feedback', $html );
+		self::assertStringContainsString( 'plugin-site', $html );
+		self::assertStringContainsString( 'Last retrieved:', $html );
+		self::assertStringContainsString( 'Direct-local receipts', $html );
+		self::assertStringContainsString( 'stonewright_memory_migrate_feedback', $html );
 		self::assertStringNotContainsString( 'memory table is missing or outdated', $html );
 		self::assertMatchesRegularExpression(
 			'/<button\b(?=[^>]*\btype="submit")(?=[^>]*\bdata-confirm="Delete this memory\?")/i',
@@ -120,6 +127,7 @@ final class MemoryInstructionsPageTest extends TestCase {
 					'created_by',
 					'created_at',
 					'updated_at',
+					'last_retrieved_at',
 				];
 			}
 		};

@@ -71,6 +71,17 @@ final class PhpExecuteFilesystemGuardTest extends TestCase {
 			'wp_fs'      => [ 'global $wp_filesystem; $wp_filesystem->put_contents("functions.php","x"); return 1;' ],
 			'call_user'  => [ 'call_user_func("file_put_contents", "/x.php", "y"); return 1;' ],
 			'reflection' => [ '$r=new ReflectionFunction("file_put_contents"); $r->invoke("/x.php","y"); return 1;' ],
+			'variable_fn' => [ '$fn="file_put_contents"; $fn("/x.php","y"); return 1;' ],
+			'computed_fn' => [ '$fn="file_" . "put_contents"; $fn("/x.php","y"); return 1;' ],
+			'shell'       => [ 'shell_exec("printf x > functions.php"); return 1;' ],
+			'eval'        => [ 'eval(\'file_put_contents("/x.php","y");\'); return 1;' ],
+			'spl_file'    => [ '$f=new SplFileObject("/x.php","w"); $f->fwrite("y"); return 1;' ],
+			'grant_issue' => [ 'return \Stonewright\WpMcp\Security\CustomCodeGrant::issue(["path"=>"functions.php"]);' ],
+			'grant_approve' => [ 'return \Stonewright\WpMcp\Security\CustomCodeGrant::approve_proposal("proposal");' ],
+			'transaction_apply' => [ 'return \Stonewright\WpMcp\Security\ThemeWriteTransaction::apply([]);' ],
+			'theme_ability' => [ 'return (new \Stonewright\WpMcp\Abilities\Themes\ThemeFilePatch())->execute([]);' ],
+			'dynamic_static_class' => [ '$class="Stonewright\\\\WpMcp\\\\Security\\\\CustomCodeGrant"; return $class::issue([]);' ],
+			'callable_grant' => [ 'return call_user_func([\Stonewright\WpMcp\Security\CustomCodeGrant::class,"issue"], []);' ],
 		];
 	}
 

@@ -21,10 +21,14 @@ final class ContextToken {
 		set_transient(
 			self::transient_key( $token ),
 			[
-				'user_id'   => get_current_user_id(),
-				'task_hash' => hash( 'sha256', $task ),
-				'scope'     => $scope,
-				'issued_at' => time(),
+				'user_id'          => get_current_user_id(),
+				'task_hash'        => hash( 'sha256', $task ),
+				'scope'            => $scope,
+				'site_fingerprint' => self::site_fingerprint(),
+				'environment_type' => function_exists( 'wp_get_environment_type' ) ? wp_get_environment_type() : 'unknown',
+				'stonewright_mode' => (string) get_option( 'stonewright_mode', 'development' ),
+				'backend'          => 'plugin',
+				'issued_at'        => time(),
 				'expires_at' => $expires_at,
 			],
 			self::TTL
@@ -50,12 +54,37 @@ final class ContextToken {
 			return self::error();
 		}
 
+		$current_context = [
+			'site_fingerprint' => self::site_fingerprint(),
+			'environment_type' => function_exists( 'wp_get_environment_type' ) ? wp_get_environment_type() : 'unknown',
+			'stonewright_mode' => (string) get_option( 'stonewright_mode', 'development' ),
+			'backend'          => 'plugin',
+		];
+		foreach ( $current_context as $key => $value ) {
+			if ( ! isset( $data[ $key ] ) || ! hash_equals( (string) $data[ $key ], (string) $value ) ) {
+				return new \WP_Error(
+					'stonewright_context_target_changed',
+					__( 'The Stonewright target, backend, environment, or mode changed after task-start. Stop and call stonewright-task-start again before any write.', 'stonewright' ),
+					[
+						'status'     => 409,
+						'retryable'  => false,
+						'changed_key'=> $key,
+					]
+				);
+			}
+		}
+
 		$scope = (string) ( $data['scope'] ?? '*' );
 		if ( '*' !== $scope && $scope !== $ability_name && ! str_starts_with( $ability_name, rtrim( $scope, '*' ) ) ) {
 			return self::error();
 		}
 
 		return true;
+	}
+
+	public static function site_fingerprint(): string {
+		$blog_id = function_exists( 'get_current_blog_id' ) ? (int) get_current_blog_id() : 1;
+		return hash( 'sha256', home_url( '/' ) . '|' . (string) $blog_id );
 	}
 
 	private static function transient_key( string $token ): string {

@@ -1,10 +1,11 @@
 {
     "version": 1,
-    "generated_at": "2026-07-23T09:06:41+00:00",
+    "generated_at": "2026-07-23T09:43:50+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
         "schema_changes": [
+            "stonewright/context-bootstrap",
             "stonewright/php-execute",
             "stonewright/task-start",
             "stonewright/theme-file-patch",
@@ -509,7 +510,7 @@
             "mcp_name": "stonewright-context-bootstrap",
             "kind": "Read",
             "input_schema_hash": "0e78dcf71a38cacc3b1c13321d79369e27248463d390f5836f4612328a561981",
-            "output_schema_hash": "49adc899c7cca5145c80e80c3c09a7ad7787efd4e448f04d110ac20c0a14adb4",
+            "output_schema_hash": "eff4296f12b90f5ba89879b2bde4e3ee02ef471a5a9836b083e7916c4fcafefd",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
@@ -3953,7 +3954,7 @@
             "mcp_name": "stonewright-task-start",
             "kind": "Read",
             "input_schema_hash": "15f6fd543c01390a1e0b28feee3fca80b655e1ca4537b789cb8ce6be9bea755e",
-            "output_schema_hash": "5602b33929246a3298c057492eb8167ac8706aaa345bd976bcd9c38b2db3ac4d",
+            "output_schema_hash": "c1d62891d06162fee4fb13c188e2c95c4b7cea0a763a5ccc07e6b0f8b57781a7",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
@@ -3983,6 +3984,20 @@
             "input_schema_hash": "479a6e8f7634d0c1480ec988095753cf45036281f113015049846c546d744eab",
             "output_schema_hash": "f8851d706360d1f0f64b402044b6c00047ba362b98ba7415b2f46907e46382f5",
             "permission_class": "Permissions::switch_themes()",
+            "gates": {
+                "backup": false,
+                "token": true,
+                "validator": false,
+                "audit": true
+            }
+        },
+        {
+            "ability_name": "stonewright/theme-backup-restore",
+            "mcp_name": "stonewright-theme-backup-restore",
+            "kind": "Write",
+            "input_schema_hash": "bcdcaa072aa75979c405d07aed77ef65c24afd6287c5466d79252246978096f3",
+            "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
+            "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
                 "token": true,
@@ -4092,7 +4107,7 @@
             "ability_name": "stonewright/theme-file-patch",
             "mcp_name": "stonewright-theme-file-patch",
             "kind": "Write",
-            "input_schema_hash": "3acbc6b3b561b0d78bbe150ce2b90e9e8d587eadc9d8a997028b5534c7ca47c0",
+            "input_schema_hash": "2598d0763ef986712a008c53803e28fa3e67ddb9a911aa340ee99a62cf1c0df4",
             "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
             "permission_class": "Permissions::manage_options()",
             "gates": {
@@ -4107,7 +4122,7 @@
             "mcp_name": "stonewright-theme-file-read",
             "kind": "Read",
             "input_schema_hash": "e230421ef9f43eb9ffd1fef9314d8bc8dca97539a9c28436750e1b9d50be4dd2",
-            "output_schema_hash": "0ff8198d045de163b45ab2cba2423858627f97d767ac6065596c05fc2d7b3e44",
+            "output_schema_hash": "2166cdf2e606e678498d1607676abf4044c697cd993d7ffac53c1ab296908dbc",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
@@ -4345,7 +4360,7 @@
             "mcp_name": "stonewright-workflow-preflight",
             "kind": "Read",
             "input_schema_hash": "15f6fd543c01390a1e0b28feee3fca80b655e1ca4537b789cb8ce6be9bea755e",
-            "output_schema_hash": "5602b33929246a3298c057492eb8167ac8706aaa345bd976bcd9c38b2db3ac4d",
+            "output_schema_hash": "c1d62891d06162fee4fb13c188e2c95c4b7cea0a763a5ccc07e6b0f8b57781a7",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,

@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\Themes;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Core\MethodRouter;
 use Stonewright\WpMcp\Security\CustomCodeGrant;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\ThemeWriteTransaction;
@@ -83,6 +84,24 @@ final class ThemeFilePatch extends AbilityKernel {
 				'custom_code_grant'  => [
 					'type'        => 'string',
 					'description' => 'Single-use operator grant bound to candidate after_sha256. Required to apply PHP/CSS/JS writes.',
+				],
+				'native_gap'         => [
+					'type'                 => 'object',
+					'additionalProperties' => false,
+					'description'          => 'Required for code dry-run. Proof that supported native methods cannot satisfy the requested effect.',
+					'required'             => [ 'reason', 'methods_tried' ],
+					'properties'           => [
+						'reason'        => [ 'type' => 'string', 'minLength' => 1 ],
+						'methods_tried' => [
+							'type'     => 'array',
+							'minItems' => 1,
+							'items'    => [
+								'type' => 'string',
+								'enum' => [ 'typed_api', 'editor_command_bus', 'admin_form', 'browser_ui' ],
+							],
+						],
+						'evidence_ref'  => [ 'type' => 'string' ],
+					],
 				],
 				'smoke_url'          => [
 					'type'        => 'string',
@@ -167,7 +186,7 @@ final class ThemeFilePatch extends AbilityKernel {
 				$before_hash   = hash( 'sha256', $before );
 				$after_hash    = hash( 'sha256', $after );
 				$changed       = $before_hash !== $after_hash;
-				$changed_bytes = abs( strlen( $after ) - strlen( $before ) );
+				$changed_bytes = ThemeWriteTransaction::changed_bytes( $before, $after );
 				$max_bytes     = (int) ( $runtime_args['max_changed_bytes'] ?? ThemeWriteTransaction::DEFAULT_MAX_CHANGED_BYTES );
 
 				// Validate complete candidate before any write (including dry_run reporting).
@@ -201,7 +220,37 @@ final class ThemeFilePatch extends AbilityKernel {
 				$risk         = self::risk_class( $language, $mode, $changed_bytes );
 
 				if ( $dry_run || ! $changed ) {
-					return [
+					$proposal = null;
+					$native_gap = null;
+					if ( $is_code && $changed ) {
+						$native_gap = MethodRouter::validate_native_gap( $runtime_args['native_gap'] ?? null );
+						if ( $native_gap instanceof \WP_Error ) {
+							return $native_gap;
+						}
+						$proposal = CustomCodeGrant::stage_proposal(
+							[
+								'path'              => $resolved['relative'],
+								'language'          => $language,
+								'before_sha256'     => $before_hash,
+								'after_sha256'      => $after_hash,
+								'changed_bytes'     => $changed_bytes,
+								'max_changed_bytes' => $max_bytes,
+								'risk_class'        => $risk,
+								'native_gap'        => $native_gap,
+								'diff_preview'      => $diff_preview,
+								'test_plan'         => [
+									'Validate the complete candidate.',
+									'Apply the exact approved hash.',
+									'Verify readback and fresh WordPress bootstrap.',
+								],
+								'rollback_plan'     => 'Automatic atomic rollback to the original bytes on readback or smoke failure.',
+							]
+						);
+						if ( $proposal instanceof \WP_Error ) {
+							return $proposal;
+						}
+					}
+					$response = [
 						'ok'                  => true,
 						'dry_run'             => true,
 						'changed'             => $changed,
@@ -219,7 +268,10 @@ final class ThemeFilePatch extends AbilityKernel {
 						'validator_summary'   => $validator_summary,
 						'risk_class'          => $risk,
 						'approval_required'   => $is_code && $changed,
-						'approval_url'        => admin_url( 'admin.php?page=stonewright-custom-code-approval' ),
+						'approval_url'        => is_array( $proposal ) ? (string) $proposal['approval_url'] : '',
+						'proposal_id'         => is_array( $proposal ) ? (string) $proposal['proposal_id'] : '',
+						'proposal_expires_at' => is_array( $proposal ) ? (string) $proposal['expires_at'] : '',
+						'native_gap'          => $native_gap,
 						'execution_status'    => 'ok',
 						'verification_status' => 'dry_run',
 						'rollback_status'     => 'not_needed',
@@ -228,6 +280,7 @@ final class ThemeFilePatch extends AbilityKernel {
 						'resource_type'       => 'theme_file',
 						'resource_ref'        => $resolved['relative'],
 					];
+					return $response;
 				}
 
 				// Applying code assets requires a custom-code grant bound to candidate hash.
@@ -271,7 +324,8 @@ final class ThemeFilePatch extends AbilityKernel {
 						$resolved['relative'],
 						$after_hash,
 						$language,
-						$changed_bytes
+						$changed_bytes,
+						'php' === $language || str_contains( $risk, 'high_risk' )
 					);
 					if ( $grant_ok instanceof \WP_Error ) {
 						return $grant_ok;
@@ -465,6 +519,9 @@ final class ThemeFilePatch extends AbilityKernel {
 			'changed_bytes'       => (int) ( $data['changed_bytes'] ?? 0 ),
 			'effect_verified'     => (bool) ( $data['effect_verified'] ?? false ),
 			'dry_run'             => (bool) ( $args['dry_run'] ?? false ),
+			'validator_summary'   => wp_json_encode( $data['validator_summary'] ?? [] ) ?: '',
+			'smoke_summary'       => wp_json_encode( $data['smoke_summary'] ?? [] ) ?: '',
+			'cause_key'           => (string) ( $data['cause_key'] ?? ( $result instanceof \WP_Error ? $result->get_error_code() : '' ) ),
 		];
 	}
 }

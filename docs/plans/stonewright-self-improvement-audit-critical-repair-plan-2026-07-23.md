@@ -283,7 +283,7 @@ Checklist:
 - [ ] Create a new topic branch from commit `8efdfc7` or from its merged
   successor. Suggested name:
   `codex/self-improvement-audit-critical-repair`.
-- [ ] Do not touch the untracked `docs/plans.bak-local/` directory.
+- [x] Do not touch the untracked `docs/plans.bak-local/` directory.
 - [ ] Save redacted regression fixtures for audit IDs 264, 267, and 269.
 - [ ] Do not save raw PHP, credentials, cookies, authorization headers, cPanel
   URLs, or application passwords.
@@ -326,19 +326,19 @@ Required failing tests:
 - [ ] Indirect variants are blocked: `fopen`/`fwrite`, `copy`, `rename`,
   `unlink`, `WP_Filesystem`, `$wp_filesystem`, callable indirection, and
   reflection.
-- [ ] Invalid full-file PHP candidate is rejected before any target write.
+- [x] Invalid full-file PHP candidate is rejected before any target write.
 - [ ] Candidate valid as a fragment but invalid in the complete
   `functions.php` is rejected.
-- [ ] Candidate hash differs from approval-grant hash and is rejected.
+- [x] Candidate hash differs from approval-grant hash and is rejected.
 - [ ] Loopback bootstrap failure rolls back the original file.
-- [ ] Rollback readback must match the original hash.
-- [ ] Unknown Direct site alias fails; `_global` remains untouched.
+- [x] Rollback readback must match the original hash.
+- [x] Unknown Direct site alias fails; `_global` remains untouched.
 - [ ] Missing Direct site for project/user scope fails unless a single
   unambiguous default is bound by task-start.
-- [ ] Plugin-backed Direct learning writes to site memory, not local JSONL.
-- [ ] Local-only Direct receipt explicitly says it is not visible in wp-admin.
+- [x] Plugin-backed Direct learning writes to site memory, not local JSONL.
+- [x] Local-only Direct receipt explicitly says it is not visible in wp-admin.
 - [ ] Audit `ok` is impossible when semantic verification is missing.
-- [ ] Repeated safety blocks do not generate active project/user memory.
+- [x] Repeated safety blocks do not generate active project/user memory.
 
 Acceptance:
 
@@ -360,16 +360,16 @@ Primary files:
 
 Checklist:
 
-- [ ] Introduce a target-context receipt from `stonewright-task-start`.
+- [x] Introduce a target-context receipt from `stonewright-task-start`.
 - [ ] Receipt fields: backend, site alias, normalized URL, site fingerprint,
   environment type, Stonewright mode, memory backend, memory visibility, tool
   profile, expiry, and context token.
 - [ ] Require the bound target context for learning and every write.
-- [ ] Reject writes after target, alias, backend, mode, or environment changes.
-- [ ] Replace `resolveSelfImproveScope()` catch-all fallback with typed errors.
-- [ ] Permit `_global` only with `global:true`.
-- [ ] Make physical storage scope match response scope.
-- [ ] If Plugin memory is available, route learning to the site store.
+- [x] Reject writes after target, alias, backend, mode, or environment changes.
+- [x] Replace `resolveSelfImproveScope()` catch-all fallback with typed errors.
+- [x] Permit `_global` only with `global:true`.
+- [x] Make physical storage scope match response scope.
+- [x] If Plugin memory is available, route learning to the site store.
 - [ ] If Plugin memory is unavailable because the site is pluginless, use a
   resolved per-site Direct store.
 - [ ] If Plugin memory should be available but auth/connectivity fails, return
@@ -401,18 +401,18 @@ Primary files:
 
 Checklist:
 
-- [ ] Add canonical rule:
+- [x] Add canonical rule:
   custom PHP/CSS/JS/HTML requires explicit operator approval after a proven
   native gap.
-- [ ] Add this rule to Plugin/Direct/skill parity tests.
+- [x] Add this rule to Plugin/Direct/skill parity tests.
 - [ ] Integrate `MethodRouter` into real task/preflight output; remove its
   current status as an isolated helper used only by tests.
 - [ ] Classify operations as native, custom code, security-sensitive code, or
   render override.
 - [ ] Complete the native Elementor/WordPress phase before exposing a
   custom-code write path.
-- [ ] Require structured `native_gap` evidence for CSS/JS/HTML proposals.
-- [ ] Require a custom-code grant for PHP/CSS/JS/HTML writes.
+- [x] Require structured `native_gap` evidence for CSS/JS/HTML proposals.
+- [x] Require a custom-code grant for PHP/CSS/JS/HTML writes.
 - [ ] Require a narrower high-risk grant for
   `elementor/widget/render_content`, global render filters, bootstrap hooks, and
   active-theme PHP.
@@ -441,14 +441,14 @@ Primary files:
 Checklist:
 
 - [ ] Separate Elementor-document protection from filesystem protection.
-- [ ] Detect direct and indirect file mutation APIs before eval.
+- [x] Detect direct and indirect file mutation APIs before eval.
 - [ ] Resolve literal and computed paths when possible.
 - [ ] Install runtime protection for WordPress filesystem APIs.
 - [ ] Block theme/plugin/core/PHP code targets even when the path is assembled
   dynamically.
 - [ ] Fail closed when a write path under WordPress roots cannot be classified.
-- [ ] Preserve legitimate runtime reads and non-file WordPress API work.
-- [ ] Return `retryable:false`.
+- [x] Preserve legitimate runtime reads and non-file WordPress API work.
+- [x] Return `retryable:false`.
 - [ ] Return the exact typed replacement:
   `stonewright-theme-file-patch`, sandbox draft flow, or unavailable.
 - [ ] Audit the blocked target class and attempted operation without storing raw
@@ -474,32 +474,32 @@ Primary files:
 
 Checklist:
 
-- [ ] Require `dry_run:true` first for PHP, CSS, and JS changes.
+- [x] Require `dry_run:true` first for PHP, CSS, and JS changes.
 - [ ] Dry run returns bounded unified diff, changed-line count, changed bytes,
   before hash, candidate hash, validator results, risk class, and approval
   requirement.
-- [ ] Bind the custom-code grant to the candidate hash.
-- [ ] Validate the complete candidate file, not only inserted content.
+- [x] Bind the custom-code grant to the candidate hash.
+- [x] Validate the complete candidate file, not only inserted content.
 - [ ] Package a production-safe PHP parser with the plugin or implement an
   equally deterministic in-process validator. Do not depend on shell `php -l`
   being available.
-- [ ] Validate PHP version compatibility against the site runtime.
+- [x] Validate PHP version compatibility against the site runtime.
 - [ ] Add CSS and JS syntax checks appropriate to packaged runtime limits.
-- [ ] Backup before write.
-- [ ] Write a temp file in the same directory.
-- [ ] Apply safe permissions.
-- [ ] Atomically replace the target.
-- [ ] Read back and verify the exact candidate hash.
-- [ ] Perform a fresh loopback WordPress bootstrap against a minimal health URL.
+- [x] Backup before write.
+- [x] Write a temp file in the same directory.
+- [x] Apply safe permissions.
+- [x] Atomically replace the target.
+- [x] Read back and verify the exact candidate hash.
+- [x] Perform a fresh loopback WordPress bootstrap against a minimal health URL.
 - [ ] For frontend/theme changes, also smoke the affected public URL when
   supplied.
-- [ ] If any check fails, restore the original bytes atomically.
+- [x] If any check fails, restore the original bytes atomically.
 - [ ] Verify rollback hash and a second fresh bootstrap.
 - [ ] If rollback fails, emit P0 incident data and the exact backup recovery
   reference.
-- [ ] Never return success before readback and smoke checks pass.
-- [ ] Add change-size budgets and reject giant append blobs by default.
-- [ ] Prefer marker-bounded replacements over unrestricted append.
+- [x] Never return success before readback and smoke checks pass.
+- [x] Add change-size budgets and reject giant append blobs by default.
+- [x] Prefer marker-bounded replacements over unrestricted append.
 - [ ] Add an explicit restore ability for Stonewright-owned backups with the
   normal production-safe confirmation gate.
 
@@ -544,10 +544,10 @@ Schema additions:
 
 Checklist:
 
-- [ ] Add a backward-compatible audit schema migration.
-- [ ] Preserve all existing rows.
+- [x] Add a backward-compatible audit schema migration.
+- [x] Preserve all existing rows.
 - [ ] Require mutating abilities to report effect verification metadata.
-- [ ] Keep `ok`, `error`, and `blocked` as top-level compatibility statuses.
+- [x] Keep `ok`, `error`, and `blocked` as top-level compatibility statuses.
 - [ ] Represent rollback separately:
   `not_needed`, `succeeded`, or `failed`.
 - [ ] An execution success followed by verification failure records `error`.
@@ -557,10 +557,10 @@ Checklist:
 - [ ] Show target/resource information only in redacted logical form.
 - [ ] Ensure one event per mutation; linked sub-events use parent request IDs
   instead of duplicate top-level rows.
-- [ ] Align Direct audit JSONL fields with Plugin audit fields.
-- [ ] Keep secrets and raw code redacted.
+- [x] Align Direct audit JSONL fields with Plugin audit fields.
+- [x] Keep secrets and raw code redacted.
 - [ ] Add site-health/admin diagnostics when audit persistence fails.
-- [ ] Add a visible warning when audit coverage is degraded.
+- [x] Add a visible warning when audit coverage is degraded.
 
 Acceptance:
 
@@ -595,16 +595,16 @@ Checklist:
 - [ ] Replace message-excerpt signatures with structured `cause_key`.
 - [ ] Include ability, stable error code, architecture, schema path, and
   operation class; exclude volatile IDs and timestamps.
-- [ ] Classify expected safety blocks separately from agent-caused errors.
-- [ ] Do not create active learning for expected blocks.
+- [x] Classify expected safety blocks separately from agent-caused errors.
+- [x] Do not create active learning for expected blocks.
 - [ ] On second identical failure, return hard stop and forbid identical-args
   retry.
 - [ ] Store the last safe remediation hint and required next tool.
-- [ ] Link the later successful verified operation to the unresolved cause.
-- [ ] Promote the resolved recipe only after verification.
-- [ ] Explicit user corrections promote immediately after write/readback.
+- [x] Link the later successful verified operation to the unresolved cause.
+- [x] Promote the resolved recipe only after verification.
+- [x] Explicit user corrections promote immediately after write/readback.
 - [ ] Product-level bugs create a maintainer candidate, not a self-edit.
-- [ ] Keep audit feedback distinct from user and project learning.
+- [x] Keep audit feedback distinct from user and project learning.
 - [ ] Reserve task-start capacity for explicit user/project rules before
   automatic incident warnings.
 - [ ] Add expiry/staleness when plugin, WordPress, Elementor, or schema
@@ -626,24 +626,24 @@ Primary files:
 
 Checklist:
 
-- [ ] Display backend/origin, site scope, visibility, source, verification
+- [x] Display backend/origin, site scope, visibility, source, verification
   state, and last successful retrieval.
-- [ ] Separate tabs:
+- [x] Separate tabs:
   User, Project, Verified Repairs, Unresolved Incidents, Audit Feedback,
   Reference.
-- [ ] Keep permanent product rules out of editable Memory rows.
-- [ ] Keep Custom Instructions separate from learned memory.
+- [x] Keep permanent product rules out of editable Memory rows.
+- [x] Keep Custom Instructions separate from learned memory.
 - [ ] Keep draft skills visible as pending review, disabled by default.
-- [ ] Migrate generic alpha.80 audit feedback into unresolved incidents or
+- [x] Migrate generic alpha.80 audit feedback into unresolved incidents or
   verified repairs without deleting audit history.
 - [ ] Replace generic “check inputs and retry” text with exact remediation.
 - [ ] Deduplicate equivalent rows.
-- [ ] Preserve `Post-deploy smoke` as historical feedback unless an operator
+- [x] Preserve `Post-deploy smoke` as historical feedback unless an operator
   chooses to remove it.
 - [ ] Add export before any destructive memory migration.
-- [ ] Add a receipt lookup so an operator can paste a memory ID and see its
+- [x] Add a receipt lookup so an operator can paste a memory ID and see its
   authoritative store.
-- [ ] For Direct-local receipts, explain that wp-admin cannot read a local
+- [x] For Direct-local receipts, explain that wp-admin cannot read a local
   companion file; offer explicit export/import, never fake synchronization.
 
 Acceptance:
@@ -665,15 +665,15 @@ Checklist:
 
 - [ ] Guarantee task-start and compatibility bootstrap remain gateway tools
   inside strict tool caps.
-- [ ] Keep total initial client-visible surface within the declared budget.
+- [x] Keep total initial client-visible surface within the declared budget.
 - [ ] Do not advertise unavailable Elementor write tools.
 - [ ] Require a successful task-start context token for every mutation and
   learning call.
 - [ ] Refuse writes when startup tools are missing.
-- [ ] Detect stale local-versus-live target mismatch before writes.
+- [x] Detect stale local-versus-live target mismatch before writes.
 - [ ] Show a P0 admin warning when `wp_get_environment_type()` is `production`
   but Stonewright mode is `development`.
-- [ ] Default new production installs to a safe onboarding decision instead of
+- [x] Default new production installs to a safe onboarding decision instead of
   silently persisting `development`.
 - [ ] Keep all three supported modes:
   `development`, `staging`, `production-safe`.
@@ -695,33 +695,33 @@ approves a bounded canary.
 
 Automated scenarios:
 
-- [ ] Invalid PHP candidate rejected before write.
+- [x] Invalid PHP candidate rejected before write.
 - [ ] Valid PHP patch passes full-file parse, atomic write, readback, loopback,
   and audit.
 - [ ] Simulated fresh-bootstrap 500 triggers rollback.
 - [ ] Simulated rollback failure creates a P0 incident.
 - [ ] `php-execute` code-file write blocked in all modes.
-- [ ] Custom CSS/PHP/JS rejected without operator grant.
-- [ ] Grant cannot be reused, broadened, or applied to a different hash/path.
+- [x] Custom CSS/PHP/JS rejected without operator grant.
+- [x] Grant cannot be reused, broadened, or applied to a different hash/path.
 - [ ] Native Elementor mutation works without custom-code grant.
 - [ ] V3/V4 architecture mismatch returns the correct typed next step.
 - [ ] Explicit Plugin project learning appears in Memory UI and next task-start.
-- [ ] Direct unknown-site learning fails without touching `_global`.
-- [ ] Pluginless Direct learning returns local-only visibility.
-- [ ] Repeated failure creates unresolved incident, not active project memory.
-- [ ] Verified repair promotes one deduplicated rule.
+- [x] Direct unknown-site learning fails without touching `_global`.
+- [x] Pluginless Direct learning returns local-only visibility.
+- [x] Repeated failure creates unresolved incident, not active project memory.
+- [x] Verified repair promotes one deduplicated rule.
 - [ ] Audit successful mutation produces exactly one top-level event.
 - [ ] Audit verification failure records error + rollback outcome.
-- [ ] Audit storage failure is visible.
-- [ ] Bootstrap surface stays under tool cap.
+- [x] Audit storage failure is visible.
+- [x] Bootstrap surface stays under tool cap.
 
 Authenticated Chrome checks:
 
 - [ ] Audit filters, exact count, incident view, payload expansion, and
   pagination.
-- [ ] Memory tabs and authoritative-store labels.
-- [ ] Custom-code approval screen and one-time grant behavior.
-- [ ] Production-mode warning.
+- [x] Memory tabs and authoritative-store labels.
+- [x] Custom-code approval screen and one-time grant behavior.
+- [x] Production-mode warning.
 - [ ] No sensitive path, code, token, cookie, or credential appears in UI.
 
 ### Phase 11 — Documentation, release, and handoff
@@ -744,26 +744,26 @@ Review/update when affected:
 
 Checklist:
 
-- [ ] Document execution success versus verified mutation success.
-- [ ] Document authoritative memory store selection.
-- [ ] Document Direct-local visibility limitation.
-- [ ] Document code-file block in `php-execute`.
-- [ ] Document custom-code approval grant.
-- [ ] Document transaction/rollback guarantees and limits.
+- [x] Document execution success versus verified mutation success.
+- [x] Document authoritative memory store selection.
+- [x] Document Direct-local visibility limitation.
+- [x] Document code-file block in `php-execute`.
+- [x] Document custom-code approval grant.
+- [x] Document transaction/rollback guarantees and limits.
 - [ ] Document that remote break-glass recovery still requires hosting-level
   access if both WordPress and the original transaction are gone.
 - [ ] Do not promise SFTP/cPanel recovery without configured hosting authority.
-- [ ] Regenerate `docs/ability-truth-matrix.md` with `composer docs:matrix`.
-- [ ] Update public API and Direct tool contracts through generators.
-- [ ] Run Plugin tests, PHPStan, PHPCS, security audit, and dependency audit.
-- [ ] Run Companion install, typecheck, tests, and build.
+- [x] Regenerate `docs/ability-truth-matrix.md` with `composer docs:matrix`.
+- [x] Update public API and Direct tool contracts through generators.
+- [x] Run Plugin tests, PHPStan, PHPCS, security audit, and dependency audit.
+- [x] Run Companion install, typecheck, tests, and build.
 - [ ] Run Visual tests and build.
-- [ ] Run `node scripts/check-docs-freshness.mjs`.
-- [ ] Run `git diff --check`.
-- [ ] Verify packaged ZIP/TGZ contents.
+- [x] Run `node scripts/check-docs-freshness.mjs`.
+- [x] Run `git diff --check`.
+- [x] Verify packaged ZIP/TGZ contents.
 - [ ] Review diff for secrets, raw incident code, unsupported claims, and
   unrelated user changes.
-- [ ] Do not publish, merge, upload, or deploy without explicit approval.
+- [x] Do not publish, merge, upload, or deploy without explicit approval.
 
 ## 7. Required test matrix
 

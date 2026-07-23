@@ -3,7 +3,14 @@
     "path": "style.css",
     "mode": "append",
     "content": "/* stonewright-contract-fixture */\n",
-    "dry_run": true
+    "dry_run": true,
+    "native_gap": {
+      "reason": "Contract fixture proves the guarded custom-code proposal path.",
+      "methods_tried": [
+        "typed_api"
+      ],
+      "evidence_ref": "contract-fixture"
+    }
   },
   "expect": "ok"
 }

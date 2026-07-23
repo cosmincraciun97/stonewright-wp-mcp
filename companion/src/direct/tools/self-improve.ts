@@ -21,16 +21,56 @@ import { PLUGIN_ONLY_CAPABILITIES } from "./site-discover.js";
 import { markTaskStartSeen, resolveDirectWriteMode } from "../writes.js";
 import { ensureStonewrightAgentsMd, pointerInstalled } from "../agents-md.js";
 import { permanentRulesGuidance } from "../permanent-rules.js";
+import { createHash, randomBytes } from "node:crypto";
+import type { SitesConfig, ResolvedSite } from "../sites-config.js";
+import { WpRestClient, WpRestError } from "../wp-rest-client.js";
 
 export type SelfImproveContext = {
   env: NodeJS.ProcessEnv;
   baseDir?: string;
+  fetchImpl?: typeof fetch;
+  timeoutMs?: number;
+  sitesConfig?: SitesConfig;
   /** Injected at registration time to avoid circular imports with registry.ts */
   directToolCount?: number;
 };
 
+type TargetBinding = {
+  backend: "plugin" | "direct-site-local" | "direct-global";
+  siteAlias: string | null;
+  normalizedUrl: string | null;
+  siteFingerprint: string;
+  contextToken: string;
+  expiresAt: string;
+};
+
+const targetBindings = new Map<string, TargetBinding>();
+
 function stateDir(ctx: SelfImproveContext): string {
   return ctx.baseDir ?? defaultStonewrightDir(ctx.env);
+}
+
+function bindingKey(ctx: SelfImproveContext, siteAlias: string | null): string {
+  return `${stateDir(ctx)}\0${siteAlias ?? "_global"}`;
+}
+
+function configuredSite(
+  ctx: SelfImproveContext,
+  alias?: string,
+): ResolvedSite | null {
+  try {
+    const config = ctx.sitesConfig ?? loadSitesConfig({ env: ctx.env });
+    return resolveSite(config, alias);
+  } catch (err) {
+    if ((alias ?? "").trim()) {
+      throw err;
+    }
+    return null;
+  }
+}
+
+function fingerprint(url: string): string {
+  return createHash("sha256").update(`${url.replace(/\/+$/, "")}|1`).digest("hex");
 }
 
 export type ResolveScopeOptions = {
@@ -61,7 +101,7 @@ export function resolveSelfImproveScope(
 
   if (explicitSite) {
     try {
-      const config = loadSitesConfig({ env: ctx.env });
+      const config = ctx.sitesConfig ?? loadSitesConfig({ env: ctx.env });
       const resolved = resolveSite(config, explicitSite);
       return { scope: resolved.alias, siteAlias: resolved.alias, baseDir };
     } catch (err) {
@@ -73,7 +113,7 @@ export function resolveSelfImproveScope(
   }
 
   try {
-    const config = loadSitesConfig({ env: ctx.env });
+    const config = ctx.sitesConfig ?? loadSitesConfig({ env: ctx.env });
     const resolved = resolveSite(config, undefined);
     return { scope: resolved.alias, siteAlias: resolved.alias, baseDir };
   } catch {
@@ -388,6 +428,20 @@ export function taskStart(
     scope === "_global" ? "direct-global" : "direct-site-local";
   const memoryVisibility =
     "local-only (not visible in WordPress Stonewright Memory UI)";
+  const resolvedSite = siteAlias ? configuredSite(ctx, siteAlias) : null;
+  const normalizedUrl = resolvedSite?.url.replace(/\/+$/, "") ?? null;
+  const contextToken = `swdctx_${randomBytes(24).toString("hex")}`;
+  const expiresAt = new Date(Date.now() + 30 * 60_000).toISOString();
+  const siteFingerprint = fingerprint(normalizedUrl ?? `_global:${scope}`);
+  const binding: TargetBinding = {
+    backend: scope === "_global" ? "direct-global" : "direct-site-local",
+    siteAlias,
+    normalizedUrl,
+    siteFingerprint,
+    contextToken,
+    expiresAt,
+  };
+  targetBindings.set(bindingKey(ctx, siteAlias), binding);
 
   const taskText = [input.task, input.surface ?? "", input.intent ?? ""]
     .join(" ")
@@ -444,10 +498,21 @@ export function taskStart(
     target_context: {
       backend: "direct",
       site_alias: siteAlias,
+      normalized_url: normalizedUrl,
+      site_fingerprint: siteFingerprint,
+      environment_type:
+        normalizedUrl && /(?:localhost|127\.0\.0\.1|\.local|\.test)(?::|$)/i.test(new URL(normalizedUrl).hostname)
+          ? "local"
+          : normalizedUrl
+            ? "production"
+            : "pluginless",
+      stonewright_mode: writeMode,
       memory_backend: memoryBackend,
       memory_visibility: memoryVisibility,
       storage_scope: scope,
       tool_profile: "direct",
+      expires_at: expiresAt,
+      context_token: contextToken,
     },
     matched_skills: matched.map((s) => ({
       slug: s.slug,
@@ -476,6 +541,122 @@ export function taskStart(
     },
     guidance,
   };
+}
+
+/**
+ * Prefer the authoritative plugin site store when the typed bridge is
+ * available. A 404 rest_no_route proves pluginless operation; auth, transport,
+ * and server failures never silently fall back to local memory.
+ */
+export async function taskStartAuthoritative(
+  ctx: SelfImproveContext,
+  input: { task: string; surface?: string; intent?: string; site?: string },
+) {
+  const site = configuredSite(ctx, input.site);
+  if (!site) {
+    return taskStart(ctx, input);
+  }
+
+  const client = new WpRestClient(site, {
+    fetchImpl: ctx.fetchImpl,
+    timeoutMs: ctx.timeoutMs,
+  });
+  try {
+    const plugin = await client.post<Record<string, unknown>>(
+      "/stonewright/v1/direct/task-start",
+      { body: input },
+    );
+    const target =
+      plugin["target_context"] && typeof plugin["target_context"] === "object"
+        ? (plugin["target_context"] as Record<string, unknown>)
+        : {};
+    const contextToken = String(plugin["context_token"] ?? "");
+    const expiresAt = String(plugin["expires_at"] ?? "");
+    const binding: TargetBinding = {
+      backend: "plugin",
+      siteAlias: site.alias,
+      normalizedUrl: site.url,
+      siteFingerprint: String(target["site_fingerprint"] ?? fingerprint(site.url)),
+      contextToken,
+      expiresAt,
+    };
+    targetBindings.set(bindingKey(ctx, site.alias), binding);
+    markTaskStartSeen(site.alias);
+
+    return {
+      ...plugin,
+      mode: "direct" as const,
+      plugin_mode: String(plugin["mode"] ?? ""),
+      site: site.alias,
+      target_context: {
+        ...target,
+        backend: "plugin",
+        site_alias: site.alias,
+        normalized_url: site.url,
+        memory_backend: "plugin-site",
+        memory_visibility: "site-admin (Stonewright Memory UI)",
+        context_token: contextToken,
+        expires_at: expiresAt,
+      },
+    };
+  } catch (err) {
+    if (
+      err instanceof WpRestError &&
+      err.status === 404 &&
+      err.code.includes("rest_no_route")
+    ) {
+      return taskStart(ctx, input);
+    }
+    throw err;
+  }
+}
+
+export async function learningRecordAuthoritative(
+  ctx: SelfImproveContext,
+  input: LearningRecordInput,
+) {
+  if (input.global === true || input.scope === "global") {
+    return learningRecord(ctx, input);
+  }
+  const site = configuredSite(ctx, input.site);
+  if (!site) {
+    return learningRecord(ctx, input);
+  }
+  const binding = targetBindings.get(bindingKey(ctx, site.alias));
+  if (!binding) {
+    throw new Error(
+      `Call stonewright-task-start for site "${site.alias}" before learning-record. code=target_context_required`,
+    );
+  }
+  if (Date.parse(binding.expiresAt) <= Date.now()) {
+    targetBindings.delete(bindingKey(ctx, site.alias));
+    throw new Error(
+      `Target context expired for site "${site.alias}". Call stonewright-task-start again. code=target_context_expired`,
+    );
+  }
+  if (binding.normalizedUrl !== site.url) {
+    targetBindings.delete(bindingKey(ctx, site.alias));
+    throw new Error(
+      `Target URL changed for site "${site.alias}" after task-start. Call stonewright-task-start again. code=target_context_changed`,
+    );
+  }
+  if (binding.backend !== "plugin") {
+    return learningRecord(ctx, input);
+  }
+
+  const client = new WpRestClient(site, {
+    fetchImpl: ctx.fetchImpl,
+    timeoutMs: ctx.timeoutMs,
+  });
+  return client.post<Record<string, unknown>>(
+    "/stonewright/v1/direct/learning-record",
+    {
+      body: {
+        ...input,
+        stonewright_context_token: binding.contextToken,
+      },
+    },
+  );
 }
 
 function joinStateAgents(baseDir: string): string {

@@ -62,7 +62,6 @@ final class ThemeFileRead extends AbilityKernel {
 			'properties' => [
 				'ok'            => [ 'type' => 'boolean' ],
 				'path'          => [ 'type' => 'string' ],
-				'absolute_path' => [ 'type' => 'string' ],
 				'theme'         => [ 'type' => 'string' ],
 				'stylesheet'    => [ 'type' => 'string' ],
 				'content'       => [ 'type' => 'string' ],
@@ -113,7 +112,6 @@ final class ThemeFileRead extends AbilityKernel {
 		return [
 			'ok'            => true,
 			'path'          => $resolved['relative'],
-			'absolute_path' => $resolved['absolute'],
 			'theme'         => $resolved['theme_key'],
 			'stylesheet'    => $resolved['stylesheet'],
 			'content'       => $content,

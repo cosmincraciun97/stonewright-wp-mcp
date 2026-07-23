@@ -15,17 +15,24 @@ Unreleased); older history lives in git tags and GitHub releases.
 ### Security
 
 - `php-execute` permanently blocks filesystem mutation of theme/plugin/core code files.
-- Theme file apply requires full-file validation, custom-code operator grant, atomic write, smoke, and rollback.
+- Theme file apply requires full-file validation, a wp-admin-reviewed custom-code
+  proposal/grant, atomic write, readback, smoke, and rollback. Backups use opaque
+  references, non-executable files, web-access guards, and a typed restore ability.
 - Production environment with non-`production-safe` mode shows a P0 admin warning.
 
 ### Fixed
 
 - Direct learning no longer silently falls back to `_global` for unknown site aliases.
+- Direct sessions use authoritative plugin-site memory when the typed bridge exists,
+  reject target changes after task-start, and fall back locally only when the plugin
+  route is demonstrably absent.
 - Expected safety blocks no longer promote active project/user learning.
 
 ### Added
 
-- Effect verification audit metadata; Direct learning visibility labels; canonical
+- Materialized effect/incident audit fields and filters in plugin mode, aligned
+  Direct JSONL records, Memory UI lifecycle tabs and controlled legacy-feedback
+  migration, Direct learning visibility labels, and canonical
   `custom_code_operator_grant` rule.
 
 ## [1.0.0-alpha.80] - 2026-07-22

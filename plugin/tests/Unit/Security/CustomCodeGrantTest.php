@@ -110,4 +110,66 @@ final class CustomCodeGrantTest extends TestCase {
 		self::assertFalse( $proposal['applied'] );
 		self::assertTrue( $proposal['approval_required'] );
 	}
+
+	public function test_standard_grant_cannot_authorize_high_risk_php(): void {
+		$hash = hash( 'sha256', 'candidate' );
+		$issued = CustomCodeGrant::issue(
+			[
+				'path'         => 'functions.php',
+				'after_sha256' => $hash,
+				'language'     => 'php',
+				'high_risk'    => false,
+			]
+		);
+		self::assertIsArray( $issued );
+
+		$result = CustomCodeGrant::verify_and_consume(
+			(string) $issued['token'],
+			'functions.php',
+			$hash,
+			'php',
+			10,
+			true
+		);
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_custom_code_grant_risk_mismatch', $result->get_error_code() );
+	}
+
+	public function test_dry_run_proposal_can_be_approved_once_and_binds_requesting_user(): void {
+		$hash = hash( 'sha256', '<?php // approved candidate' );
+		$proposal = CustomCodeGrant::stage_proposal(
+			[
+				'path'              => 'functions.php',
+				'after_sha256'      => $hash,
+				'before_sha256'     => hash( 'sha256', '<?php // before' ),
+				'language'          => 'php',
+				'changed_bytes'     => 12,
+				'max_changed_bytes' => 100,
+				'risk_class'        => 'high_risk_active_theme_php',
+				'native_gap'        => [
+					'reason'        => 'No registered WordPress hook owns this site-specific behavior.',
+					'methods_tried' => [ 'typed_api', 'admin_form' ],
+				],
+				'diff_preview'      => [ 'changed_lines' => 1, 'preview' => '+ approved candidate' ],
+			]
+		);
+
+		self::assertIsArray( $proposal );
+		self::assertStringContainsString( 'stonewright-custom-code-approval', $proposal['approval_url'] );
+
+		$issued = CustomCodeGrant::approve_proposal( (string) $proposal['proposal_id'] );
+		self::assertIsArray( $issued );
+
+		$second = CustomCodeGrant::approve_proposal( (string) $proposal['proposal_id'] );
+		self::assertInstanceOf( \WP_Error::class, $second );
+
+		$verified = CustomCodeGrant::verify_and_consume(
+			(string) $issued['token'],
+			'functions.php',
+			$hash,
+			'php',
+			12
+		);
+		self::assertTrue( $verified );
+	}
 }

@@ -87,6 +87,34 @@ final class AuditLogCoverageTest extends TestCase {
 		self::assertSame( 'blocked', $GLOBALS['wpdb']->inserts[0]['data']['result_status'] );
 	}
 
+	public function test_effect_metadata_is_materialized_for_incident_filters(): void {
+		AuditLog::record(
+			'stonewright/theme-file-patch',
+			[
+				'_meta' => [
+					'operation_class'     => 'theme_file_write',
+					'resource_type'       => 'theme_file',
+					'resource_ref'        => 'functions.php',
+					'execution_status'    => 'ok',
+					'verification_status' => 'failed',
+					'rollback_status'     => 'succeeded',
+					'before_sha256'       => str_repeat( 'a', 64 ),
+					'after_sha256'        => str_repeat( 'b', 64 ),
+					'changed_bytes'       => 140000,
+				],
+			],
+			'error'
+		);
+
+		$row = $GLOBALS['wpdb']->inserts[0]['data'];
+		self::assertSame( 'incident', $row['event_type'] );
+		self::assertSame( 'theme_file_write', $row['operation_class'] );
+		self::assertSame( 'functions.php', $row['resource_ref'] );
+		self::assertSame( 'failed', $row['verification_status'] );
+		self::assertSame( 'succeeded', $row['rollback_status'] );
+		self::assertSame( 140000, $row['changed_bytes'] );
+	}
+
 	private function make_wpdb( bool $insert_ok ): object {
 		return new class( $insert_ok ) {
 			public string $prefix = 'wp_';

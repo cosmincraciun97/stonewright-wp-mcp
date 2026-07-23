@@ -75,7 +75,8 @@ abstract class AbilityKernel implements Ability {
 			$code   = (string) $result->get_error_code();
 			$data   = $result->get_error_data();
 			$http   = is_array( $data ) ? (int) ( $data['status'] ?? 0 ) : 0;
-			$status = ( 403 === $http || str_contains( $code, 'forbidden' ) || str_contains( $code, 'blocked' ) || str_contains( $code, 'permission' ) )
+			$execution = is_array( $data ) ? (string) ( $data['execution_status'] ?? '' ) : '';
+			$status = ( 403 === $http || 'blocked' === $execution || str_contains( $code, 'forbidden' ) || str_contains( $code, 'blocked' ) || str_contains( $code, 'permission' ) )
 				? 'blocked'
 				: 'error';
 		} elseif ( is_array( $result ) ) {
@@ -116,6 +117,9 @@ abstract class AbilityKernel implements Ability {
 			$sanitized['_meta'] = $metadata;
 		}
 		AuditLog::record( $this->name(), $sanitized, $status );
+		if ( 'ok' === $status && is_array( $result ) ) {
+			\Stonewright\WpMcp\Security\ErrorPatterns::observe_verified_repair( $this->name(), $result );
+		}
 		return $result;
 	}
 

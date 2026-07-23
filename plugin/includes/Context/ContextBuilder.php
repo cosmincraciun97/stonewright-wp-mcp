@@ -34,6 +34,19 @@ final class ContextBuilder {
 			'ok'                       => true,
 			'context_token'            => $token['token'],
 			'expires_at'               => $token['expires_at'],
+			'target_context'           => [
+				'backend'           => 'plugin',
+				'site_alias'        => null,
+				'normalized_url'    => rtrim( home_url( '/' ), '/' ),
+				'site_fingerprint'  => ContextToken::site_fingerprint(),
+				'environment_type'  => function_exists( 'wp_get_environment_type' ) ? wp_get_environment_type() : 'unknown',
+				'stonewright_mode'  => (string) get_option( 'stonewright_mode', 'development' ),
+				'memory_backend'    => 'plugin-site',
+				'memory_visibility' => 'site-admin (Stonewright Memory UI)',
+				'tool_profile'      => (string) ( ToolProfile::profile_hint( $task, $surface, $intent )['profile'] ?? 'essential' ),
+				'expires_at'        => $token['expires_at'],
+				'context_token'     => $token['token'],
+			],
 			'instructions'             => AgentInstructions::default( $is_visual ),
 			'mcp_tool_naming'          => self::mcp_tool_naming(),
 			'tool_profile_hint'        => ToolProfile::profile_hint( $task, $surface, $intent ),
@@ -249,6 +262,14 @@ final class ContextBuilder {
 			}
 			$selected[] = $row;
 		}
+		Memory::mark_retrieved(
+			array_values(
+				array_filter(
+					array_map( static fn( array $entry ): int => (int) ( $entry['id'] ?? 0 ), $selected )
+				)
+			)
+		);
+
 		return array_map(
 			static function ( array $entry ) use ( $selected ): array {
 				$topic     = self::normalise( (string) ( $entry['topic'] ?? $entry['memory_key'] ?? '' ) );

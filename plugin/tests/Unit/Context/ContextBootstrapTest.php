@@ -150,6 +150,10 @@ final class ContextBootstrapTest extends TestCase {
 
 		$verified = ContextToken::verify( (string) $result['context_token'], 'stonewright/elementor-add-heading' );
 		self::assertTrue( $verified );
+		self::assertSame( 'plugin', $result['target_context']['backend'] );
+		self::assertSame( 'plugin-site', $result['target_context']['memory_backend'] );
+		self::assertSame( ContextToken::site_fingerprint(), $result['target_context']['site_fingerprint'] );
+		self::assertSame( $result['context_token'], $result['target_context']['context_token'] );
 	}
 
 	public function test_task_start_excludes_stale_and_unrelated_memory_bodies(): void {

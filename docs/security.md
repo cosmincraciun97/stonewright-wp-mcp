@@ -32,7 +32,24 @@ If an MCP client is compromised, an attacker can issue ability calls on behalf o
   POST/PUT/PATCH/DELETE routes under `stonewright/v1` (central middleware with
   dedupe). Status vocabulary is `ok` | `error` | `blocked`. Unrelated WordPress
   REST traffic is not logged.
+- Treat the Audit page degraded-state notice as a failed safety control, not a
+  cosmetic warning. Effect fields distinguish execution, verification, and
+  rollback, and the Incidents view isolates failed verification or rollback.
 - Use the `ConfirmationToken` mechanism for any custom destructive abilities you add.
+
+### Custom code and theme-file recovery
+
+`stonewright/php-execute` cannot mutate code files. Theme PHP/CSS/JS changes use
+`stonewright/theme-file-patch`: dry-run validation, native-gap evidence,
+authenticated wp-admin approval, a single-use grant bound to the exact site,
+user, logical path, language, candidate hash, risk class, and byte budget, then
+atomic replace, readback, fresh bootstrap smoke, and rollback.
+
+Backups use opaque references. Stored files have a non-executable extension,
+restricted permissions, and Apache/IIS access-denial files; the backup directory
+also has a blank index. Recovery uses `stonewright/theme-backup-restore`, which
+verifies the reference, target, and backup hash before entering the same
+transaction and smoke gates. Do not expose or accept absolute backup paths.
 
 ### Supply chain
 

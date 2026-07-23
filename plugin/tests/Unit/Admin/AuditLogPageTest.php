@@ -77,6 +77,10 @@ final class AuditLogPageTest extends TestCase {
 		self::assertStringContainsString( 'value="blocked"', $html );
 		self::assertStringContainsString( 'name="ability"', $html );
 		self::assertStringContainsString( 'name="status"', $html );
+		self::assertStringContainsString( 'name="verification_status"', $html );
+		self::assertStringContainsString( 'name="rollback_status"', $html );
+		self::assertStringContainsString( 'name="operation_class"', $html );
+		self::assertStringContainsString( 'Incidents', $html );
 		self::assertStringContainsString( 'name="user"', $html );
 		self::assertStringContainsString( 'name="from"', $html );
 		self::assertStringContainsString( 'name="to"', $html );

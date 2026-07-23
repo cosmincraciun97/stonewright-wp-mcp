@@ -13,7 +13,7 @@ final class Memory {
 
 	public const TABLE = 'stonewright_memory';
 
-	private const SCHEMA_VERSION = 3;
+	private const SCHEMA_VERSION = 4;
 
 	/** @var bool|null Per-request healthy-schema cache for maybe_install_table(). */
 	private static ?bool $schema_healthy = null;
@@ -47,6 +47,7 @@ final class Memory {
 			'created_by',
 			'created_at',
 			'updated_at',
+			'last_retrieved_at',
 		];
 	}
 
@@ -134,6 +135,7 @@ final class Memory {
 			created_by BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			last_retrieved_at DATETIME NULL,
 			PRIMARY KEY (id),
 			UNIQUE KEY scope_key (scope, memory_key),
 			KEY type_idx (type),
@@ -259,6 +261,7 @@ final class Memory {
 			'precedence' => (int) ( $row['precedence'] ?? 0 ),
 			'created_at' => (string) $row['created_at'],
 			'updated_at' => (string) $row['updated_at'],
+			'last_retrieved_at' => isset( $row['last_retrieved_at'] ) ? (string) $row['last_retrieved_at'] : '',
 		];
 	}
 
@@ -364,7 +367,7 @@ final class Memory {
 
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, type, scope, memory_key, name, value_json, confidence, topic, version_fingerprint, expires_at, status, precedence, created_at, updated_at FROM {$table} WHERE type = %s ORDER BY id DESC LIMIT %d OFFSET %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT id, type, scope, memory_key, name, value_json, confidence, topic, version_fingerprint, expires_at, status, precedence, created_at, updated_at, last_retrieved_at FROM {$table} WHERE type = %s ORDER BY id DESC LIMIT %d OFFSET %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				$type,
 				$limit,
 				$offset
@@ -392,7 +395,7 @@ final class Memory {
 
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, type, scope, memory_key, name, value_json, confidence, topic, version_fingerprint, expires_at, status, precedence, created_at, updated_at FROM {$table} ORDER BY id DESC LIMIT %d OFFSET %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT id, type, scope, memory_key, name, value_json, confidence, topic, version_fingerprint, expires_at, status, precedence, created_at, updated_at, last_retrieved_at FROM {$table} ORDER BY id DESC LIMIT %d OFFSET %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				$limit,
 				$offset
 			),
@@ -438,7 +441,7 @@ final class Memory {
 
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT id, type, scope, memory_key, name, value_json, confidence, topic, version_fingerprint, expires_at, status, precedence, created_at, updated_at FROM {$table} WHERE id = %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT id, type, scope, memory_key, name, value_json, confidence, topic, version_fingerprint, expires_at, status, precedence, created_at, updated_at, last_retrieved_at FROM {$table} WHERE id = %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				$id
 			),
 			ARRAY_A
@@ -449,6 +452,28 @@ final class Memory {
 		}
 
 		return self::decode_row( $row );
+	}
+
+	/**
+	 * Record that task-start actually surfaced these memory references.
+	 *
+	 * @param list<int> $ids
+	 */
+	public static function mark_retrieved( array $ids ): void {
+		global $wpdb;
+		if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'update' ) ) {
+			return;
+		}
+		$when = current_time( 'mysql', true );
+		foreach ( array_values( array_unique( array_filter( array_map( static fn( mixed $id ): int => max( 0, (int) $id ), $ids ) ) ) ) as $id ) {
+			$wpdb->update(
+				self::table_name(),
+				[ 'last_retrieved_at' => $when ],
+				[ 'id' => $id ],
+				[ '%s' ],
+				[ '%d' ]
+			);
+		}
 	}
 
 	/**

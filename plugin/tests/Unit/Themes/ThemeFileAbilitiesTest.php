@@ -7,6 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\Themes\ThemeFilePaths;
 use Stonewright\WpMcp\Abilities\Themes\ThemeFilePatch;
 use Stonewright\WpMcp\Abilities\Themes\ThemeFileRead;
+use Stonewright\WpMcp\Abilities\Themes\ThemeBackupRestore;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 
 /**
@@ -58,6 +59,7 @@ final class ThemeFileAbilitiesTest extends TestCase {
 		);
 		self::assertContains( 'stonewright/theme-file-read', $names );
 		self::assertContains( 'stonewright/theme-file-patch', $names );
+		self::assertContains( 'stonewright/theme-backup-restore', $names );
 	}
 
 	public function test_allowlist_accepts_style_and_inc_css(): void {
@@ -85,6 +87,39 @@ final class ThemeFileAbilitiesTest extends TestCase {
 
 		$read = new ThemeFileRead();
 		self::assertSame( 'stonewright/theme-file-read', $read->name() );
+		self::assertSame( 'stonewright/theme-backup-restore', ( new ThemeBackupRestore() )->name() );
+	}
+
+	public function test_code_dry_run_requires_native_gap_and_stages_operator_proposal(): void {
+		$ability = new ThemeFilePatch();
+		$args    = [
+			'path'    => 'functions.php',
+			'mode'    => 'append',
+			'content' => "function sw_native_gap_test(){ return true; }\n",
+			'dry_run' => true,
+		];
+
+		$blocked = $ability->execute( $args );
+		self::assertInstanceOf( \WP_Error::class, $blocked );
+		self::assertSame( 'stonewright_native_gap_required', $blocked->get_error_code() );
+
+		$result = $ability->execute(
+			array_merge(
+				$args,
+				[
+					'native_gap' => [
+						'reason'        => 'No typed WordPress API owns this theme bootstrap hook.',
+						'methods_tried' => [ 'typed_api', 'admin_form' ],
+					],
+				]
+			)
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['dry_run'] );
+		self::assertTrue( $result['approval_required'] );
+		self::assertNotSame( '', $result['proposal_id'] );
+		self::assertStringContainsString( 'proposal_id=', $result['approval_url'] );
 	}
 
 	private function rmTree( string $dir ): void {

@@ -3,6 +3,8 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Core;
 
+use Stonewright\WpMcp\Abilities\Memory\LearningRecord;
+use Stonewright\WpMcp\Abilities\System\TaskStart;
 use Stonewright\WpMcp\Admin\ConnectClientConfig;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
@@ -81,6 +83,43 @@ final class RestRoutes {
 				'permission_callback' => [ Permissions::class, 'manage_options' ],
 				'callback'            => static function () {
 					return rest_ensure_response( AbilityRegistry::all_abilities() );
+				},
+			]
+		);
+
+		// Typed bridge for Direct-capable companions. This is deliberately not
+		// the generic abilities/run route: only task-start and verified learning
+		// are exposed, with the normal context and permission gates intact.
+		register_rest_route(
+			'stonewright/v1',
+			'/direct/task-start',
+			[
+				'methods'             => 'POST',
+				'permission_callback' => [ Permissions::class, 'manage_options' ],
+				'callback'            => static function ( \WP_REST_Request $request ) {
+					$args = [
+						'task'         => sanitize_textarea_field( (string) $request->get_param( 'task' ) ),
+						'surface'      => sanitize_key( (string) $request->get_param( 'surface' ) ),
+						'intent'       => sanitize_key( (string) $request->get_param( 'intent' ) ),
+						'responseMode' => 'compact',
+					];
+					$result = ( new TaskStart() )->execute( $args );
+					return $result instanceof \WP_Error ? $result : rest_ensure_response( $result );
+				},
+			]
+		);
+
+		register_rest_route(
+			'stonewright/v1',
+			'/direct/learning-record',
+			[
+				'methods'             => 'POST',
+				'permission_callback' => [ Permissions::class, 'manage_options' ],
+				'callback'            => static function ( \WP_REST_Request $request ) {
+					$params = $request->get_json_params();
+					$params = is_array( $params ) ? Utf8::deep_sanitize( $params ) : [];
+					$result = AbilityRegistry::execute_with_context_guard( new LearningRecord(), $params );
+					return $result instanceof \WP_Error ? $result : rest_ensure_response( $result );
 				},
 			]
 		);
@@ -996,6 +1035,9 @@ final class RestRoutes {
 		$route  = (string) $request->get_route();
 		$method = strtoupper( (string) $request->get_method() );
 		if ( ! str_starts_with( $route, '/stonewright/v1' ) ) {
+			return false;
+		}
+		if ( '/stonewright/v1/direct/task-start' === $route ) {
 			return false;
 		}
 		return in_array( $method, [ 'POST', 'PUT', 'PATCH', 'DELETE' ], true );

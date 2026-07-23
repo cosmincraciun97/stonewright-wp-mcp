@@ -14,6 +14,7 @@ final class MethodRouter {
 	public const EDITOR_COMMAND_BUS  = 'editor_command_bus';
 	public const ADMIN_FORM          = 'admin_form';
 	public const BROWSER_UI          = 'browser_ui';
+	public const CUSTOM_CODE         = 'custom_code';
 
 	/**
 	 * Capability matrix: operation class → preferred methods (ordered).
@@ -29,7 +30,52 @@ final class MethodRouter {
 			'admin_only_setting'     => [ self::ADMIN_FORM, self::BROWSER_UI ],
 			'visual_verification'    => [ self::BROWSER_UI ],
 			'device_preview_switch'  => [ self::EDITOR_COMMAND_BUS, self::BROWSER_UI ],
+			'theme_code'             => [ self::TYPED_API, self::ADMIN_FORM ],
 		];
+	}
+
+	/**
+	 * Enforce the proof boundary before a custom-code proposal can be staged.
+	 *
+	 * @param mixed $native_gap
+	 * @return array{reason:string,methods_tried:list<string>,evidence_ref:string}|\WP_Error
+	 */
+	public static function validate_native_gap( mixed $native_gap ) {
+		if ( ! is_array( $native_gap ) ) {
+			return self::native_gap_error();
+		}
+		$reason  = sanitize_textarea_field( (string) ( $native_gap['reason'] ?? '' ) );
+		$methods = is_array( $native_gap['methods_tried'] ?? null )
+			? array_values( array_filter( array_map( 'sanitize_key', $native_gap['methods_tried'] ) ) )
+			: [];
+		$allowed = [ self::TYPED_API, self::EDITOR_COMMAND_BUS, self::ADMIN_FORM, self::BROWSER_UI ];
+		foreach ( $methods as $method ) {
+			if ( ! in_array( $method, $allowed, true ) ) {
+				return self::native_gap_error();
+			}
+		}
+		if ( '' === trim( $reason ) || [] === $methods ) {
+			return self::native_gap_error();
+		}
+		return [
+			'reason'        => mb_substr( $reason, 0, 500 ),
+			'methods_tried' => array_slice( array_values( array_unique( $methods ) ), 0, 4 ),
+			'evidence_ref'  => mb_substr( sanitize_text_field( (string) ( $native_gap['evidence_ref'] ?? '' ) ), 0, 200 ),
+		];
+	}
+
+	private static function native_gap_error(): \WP_Error {
+		return new \WP_Error(
+			'stonewright_native_gap_required',
+			__( 'Custom code is blocked until native_gap includes a concrete reason and the native methods already tried.', 'stonewright' ),
+			[
+				'status'            => 400,
+				'retryable'         => false,
+				'required_methods'  => [ self::TYPED_API, self::EDITOR_COMMAND_BUS, self::ADMIN_FORM, self::BROWSER_UI ],
+				'operation_class'   => self::CUSTOM_CODE,
+				'execution_status'  => 'blocked',
+			]
+		);
 	}
 
 	/**

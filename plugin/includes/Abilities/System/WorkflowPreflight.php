@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
 use Stonewright\WpMcp\Abilities\ElementorV3\CapabilitiesSummary;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Context\ContextBuilder;
+use Stonewright\WpMcp\Context\ContextToken;
 use Stonewright\WpMcp\Context\SpecializationCatalog;
 use Stonewright\WpMcp\Elementor\ArchitectureRouter;
 use Stonewright\WpMcp\Security\Permissions;
@@ -128,6 +129,7 @@ final class WorkflowPreflight extends AbilityKernel {
 				'tools_changed' => [ 'type' => 'boolean' ],
 				're_list_instruction' => [ 'type' => 'string' ],
 				'write_target_url' => [ 'type' => 'string' ],
+				'target_context'   => [ 'type' => 'object' ],
 			],
 			'required'   => [ 'ok', 'context_token', 'mode', 'auth_guidance', 'fast_path' ],
 		];
@@ -261,6 +263,19 @@ final class WorkflowPreflight extends AbilityKernel {
 			'tools_changed'           => $tools_changed,
 			're_list_instruction'     => $re_list,
 			'write_target_url'        => $write_target,
+			'target_context'          => [
+				'backend'            => 'plugin',
+				'site_alias'         => null,
+				'normalized_url'     => rtrim( $write_target, '/' ),
+				'site_fingerprint'   => ContextToken::site_fingerprint(),
+				'environment_type'   => function_exists( 'wp_get_environment_type' ) ? wp_get_environment_type() : 'unknown',
+				'stonewright_mode'   => $mode,
+				'memory_backend'     => 'plugin-site',
+				'memory_visibility'  => 'site-admin (Stonewright Memory UI)',
+				'tool_profile'       => $session_profile,
+				'expires_at'         => (string) ( $context['expires_at'] ?? '' ),
+				'context_token'      => (string) ( $context['context_token'] ?? '' ),
+			],
 			'auth_guidance' => [
 				'Use a WordPress Application Password for HTTP MCP authentication.',
 				'Keep the Mcp-Session-Id response header on later JSON-RPC calls.',
@@ -460,6 +475,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			'tools_changed'       => $tools_changed,
 			're_list_instruction' => $re_list,
 			'write_target_url'    => (string) ( $response['write_target_url'] ?? $site['write_target_url'] ?? '' ),
+			'target_context'      => is_array( $response['target_context'] ?? null ) ? $response['target_context'] : [],
 		];
 	}
 

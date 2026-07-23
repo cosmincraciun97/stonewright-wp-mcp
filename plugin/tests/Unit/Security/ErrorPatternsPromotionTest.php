@@ -78,6 +78,54 @@ final class ErrorPatternsPromotionTest extends TestCase {
 		self::assertSame( [], array_values( $hit ) );
 	}
 
+	public function test_verified_success_resolves_incident_without_inventing_a_rule(): void {
+		Memory::maybe_install_table();
+		$args = [ 'error_code' => 'stonewright_demo_failure', 'message' => 'Demo failed' ];
+		ErrorPatterns::observe( 'stonewright/demo-ability', 'error', $args );
+		ErrorPatterns::observe( 'stonewright/demo-ability', 'error', $args );
+
+		ErrorPatterns::observe_verified_repair(
+			'stonewright/demo-ability',
+			[
+				'effect_verified'     => true,
+				'verification_status' => 'verified',
+				'operation_class'     => 'content_update',
+			]
+		);
+
+		$rows = Memory::list_by_type( 'feedback', 50, 0 );
+		self::assertSame( 'verified_resolved', $rows[0]['value']['state'] ?? null );
+		self::assertSame( 'stale', $rows[0]['status'] ?? null );
+		self::assertCount( 1, $rows );
+	}
+
+	public function test_concrete_verified_recipe_promotes_one_active_repair(): void {
+		Memory::maybe_install_table();
+		$args = [ 'error_code' => 'stonewright_demo_failure', 'message' => 'Demo failed' ];
+		ErrorPatterns::observe( 'stonewright/demo-ability', 'error', $args );
+		ErrorPatterns::observe( 'stonewright/demo-ability', 'error', $args );
+
+		ErrorPatterns::observe_verified_repair(
+			'stonewright/demo-ability',
+			[
+				'effect_verified'     => true,
+				'verification_status' => 'verified',
+				'repair_recipe'       => 'Read the schema first, then update only the supported field.',
+			]
+		);
+
+		$rows = Memory::list_by_type( 'feedback', 50, 0 );
+		$active = array_values(
+			array_filter(
+				$rows,
+				static fn( array $row ): bool => 'active' === (string) ( $row['status'] ?? '' )
+			)
+		);
+		self::assertCount( 1, $active );
+		self::assertSame( 'promoted_learning', $active[0]['value']['state'] ?? null );
+		self::assertStringContainsString( 'Read the schema first', (string) ( $active[0]['value']['correction'] ?? '' ) );
+	}
+
 	/**
 	 * In-memory stonewright_memory table so put_typed + list_by_type share state.
 	 */
@@ -112,6 +160,7 @@ final class ErrorPatternsPromotionTest extends TestCase {
 					'created_by',
 					'created_at',
 					'updated_at',
+					'last_retrieved_at',
 				];
 			}
 

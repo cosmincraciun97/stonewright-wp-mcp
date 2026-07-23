@@ -14,7 +14,7 @@ final class MemorySchemaTest extends TestCase {
 	private mixed $original_wpdb;
 
 	/** @var list<string> */
-	private const V3_COLUMNS = [
+	private const V4_COLUMNS = [
 		'id',
 		'scope',
 		'type',
@@ -30,6 +30,7 @@ final class MemorySchemaTest extends TestCase {
 		'created_by',
 		'created_at',
 		'updated_at',
+		'last_retrieved_at',
 	];
 
 	protected function setUp(): void {
@@ -59,8 +60,8 @@ final class MemorySchemaTest extends TestCase {
 		self::assertFalse( Memory::table_schema_ok() );
 	}
 
-	public function test_schema_ok_true_when_all_v3_columns_present(): void {
-		$GLOBALS['wpdb'] = $this->make_wpdb( self::V3_COLUMNS );
+	public function test_schema_ok_true_when_all_v4_columns_present(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb( self::V4_COLUMNS );
 
 		self::assertTrue( Memory::table_schema_ok() );
 	}
@@ -75,15 +76,15 @@ final class MemorySchemaTest extends TestCase {
 		self::assertSame( 0, (int) get_option( 'stonewright_memory_schema_version', 0 ) );
 	}
 
-	public function test_schema_ok_after_install_bumps_version_to_3(): void {
+	public function test_schema_ok_after_install_bumps_version_to_4(): void {
 		delete_option( 'stonewright_memory_schema_version' );
 		// Simulate successful dbDelta: columns present after install.
-		$GLOBALS['wpdb'] = $this->make_wpdb( self::V3_COLUMNS );
+		$GLOBALS['wpdb'] = $this->make_wpdb( self::V4_COLUMNS );
 
 		Memory::maybe_install_table();
 
 		self::assertTrue( Memory::table_schema_ok() );
-		self::assertSame( 3, (int) get_option( 'stonewright_memory_schema_version', 0 ) );
+		self::assertSame( 4, (int) get_option( 'stonewright_memory_schema_version', 0 ) );
 	}
 
 	public function test_put_typed_failure_is_logged_and_returns_zero(): void {
@@ -141,8 +142,8 @@ final class MemorySchemaTest extends TestCase {
 	}
 
 	public function test_maybe_install_skips_dbdelta_when_version_and_schema_ok(): void {
-		update_option( 'stonewright_memory_schema_version', 3 );
-		$GLOBALS['wpdb'] = new class( self::V3_COLUMNS ) {
+		update_option( 'stonewright_memory_schema_version', 4 );
+		$GLOBALS['wpdb'] = new class( self::V4_COLUMNS ) {
 			public string $prefix = 'wp_';
 			public int $charset_calls = 0;
 			/** @var array<int, string> */
@@ -168,11 +169,11 @@ final class MemorySchemaTest extends TestCase {
 
 		// Healthy schema: verify columns, do not re-run dbDelta path.
 		self::assertSame( 0, $GLOBALS['wpdb']->charset_calls );
-		self::assertSame( 3, (int) get_option( 'stonewright_memory_schema_version', 0 ) );
+		self::assertSame( 4, (int) get_option( 'stonewright_memory_schema_version', 0 ) );
 	}
 
 	public function test_maybe_install_repairs_when_version_current_but_columns_missing(): void {
-		update_option( 'stonewright_memory_schema_version', 3 );
+		update_option( 'stonewright_memory_schema_version', 4 );
 		// Incomplete columns: must attempt reinstall (charset/dbDelta path).
 		$GLOBALS['wpdb'] = new class() {
 			public string $prefix       = 'wp_';
@@ -199,6 +200,7 @@ final class MemorySchemaTest extends TestCase {
 					'created_by',
 					'created_at',
 					'updated_at',
+					'last_retrieved_at',
 				];
 				return 'DEFAULT CHARSET=utf8mb4';
 			}
@@ -213,7 +215,7 @@ final class MemorySchemaTest extends TestCase {
 
 		self::assertGreaterThan( 0, $GLOBALS['wpdb']->charset_calls );
 		self::assertTrue( Memory::table_schema_ok() );
-		self::assertSame( 3, (int) get_option( 'stonewright_memory_schema_version', 0 ) );
+		self::assertSame( 4, (int) get_option( 'stonewright_memory_schema_version', 0 ) );
 	}
 
 	/**

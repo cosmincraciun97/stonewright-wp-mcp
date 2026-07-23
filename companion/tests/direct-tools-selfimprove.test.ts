@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import './helpers/task-start.js';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -11,6 +11,8 @@ import {
 	learningRecord,
 	memoryList,
 	taskStart,
+	taskStartAuthoritative,
+	learningRecordAuthoritative,
 } from '../src/direct/tools/self-improve.js';
 import { DIRECT_TOOL_NAMES, DIRECT_WAVE4_SELFIMPROVE_TOOL_NAMES } from '../src/direct/registry.js';
 
@@ -147,5 +149,143 @@ describe('direct self-improve tools', () => {
 		const start = taskStart(c, { task: 'repair audit' });
 		expect(start.target_context?.memory_backend).toMatch(/direct/);
 		expect(start.target_context?.memory_visibility).toMatch(/local-only/i);
+	});
+
+	it('plugin-backed task-start and learning use site memory without local dual-write', async () => {
+		const c = ctx();
+		c.sitesConfig = {
+			default: 'local',
+			source: 'env',
+			sites: {
+				local: {
+					url: 'https://wp.example.test',
+					username: 'admin',
+					appPassword: 'app pass',
+				},
+			},
+		};
+		const fetchImpl = vi
+			.fn<typeof fetch>()
+			.mockResolvedValueOnce(
+				new Response(
+					JSON.stringify({
+						ok: true,
+						context_token: 'swctx_plugin_bound',
+						expires_at: new Date(Date.now() + 60_000).toISOString(),
+						mode: 'production-safe',
+						target_context: {
+							site_fingerprint: 'plugin-fingerprint',
+							memory_backend: 'plugin-site',
+						},
+					}),
+					{ status: 200, headers: { 'content-type': 'application/json' } },
+				),
+			)
+			.mockResolvedValueOnce(
+				new Response(
+					JSON.stringify({
+						stored: true,
+						backend: 'plugin',
+						memory_backend: 'plugin-site',
+						scope: 'project',
+						memory_id: 42,
+						storage_ref: 'wp:stonewright_memory#42',
+						verified: true,
+						ok: true,
+					}),
+					{ status: 200, headers: { 'content-type': 'application/json' } },
+				),
+			);
+		c.fetchImpl = fetchImpl;
+
+		const start = await taskStartAuthoritative(c, {
+			task: 'Remember a project correction',
+			site: 'local',
+		});
+		expect(start.target_context?.memory_backend).toBe('plugin-site');
+
+		const receipt = await learningRecordAuthoritative(c, {
+			topic: 'Audit truth',
+			correction: 'Never claim verified effect without readback.',
+			scope: 'project',
+			site: 'local',
+		});
+		expect(receipt).toMatchObject({
+			backend: 'plugin',
+			memory_backend: 'plugin-site',
+			verified: true,
+		});
+		expect(memoryList(c, { site: 'local' }).items).toHaveLength(0);
+		expect(fetchImpl).toHaveBeenCalledTimes(2);
+		expect(String(fetchImpl.mock.calls[1]?.[0])).toContain(
+			'/stonewright/v1/direct/learning-record',
+		);
+		const writeInit = fetchImpl.mock.calls[1]?.[1];
+		expect(String(writeInit?.body)).toContain('swctx_plugin_bound');
+	});
+
+	it('plugin auth failure does not silently fall back to local memory', async () => {
+		const c = ctx();
+		c.sitesConfig = {
+			default: 'remote',
+			source: 'env',
+			sites: {
+				remote: {
+					url: 'https://wp.example.test',
+					username: 'admin',
+					appPassword: 'bad pass',
+				},
+			},
+		};
+		c.fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+			new Response(
+				JSON.stringify({ code: 'rest_forbidden', message: 'No' }),
+				{ status: 401, headers: { 'content-type': 'application/json' } },
+			),
+		);
+
+		await expect(
+			taskStartAuthoritative(c, { task: 'repair', site: 'remote' }),
+		).rejects.toMatchObject({ status: 401 });
+		expect(memoryList(c, { site: 'remote' }).items).toHaveLength(0);
+	});
+
+	it('rejects learning when a configured target URL changes after task-start', async () => {
+		const c = ctx();
+		c.sitesConfig = {
+			default: 'local',
+			source: 'env',
+			sites: {
+				local: {
+					url: 'https://first.example.test',
+					username: 'admin',
+					appPassword: 'app pass',
+				},
+			},
+		};
+		c.fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+			new Response(
+				JSON.stringify({
+					ok: true,
+					context_token: 'swctx_target_bound',
+					expires_at: new Date(Date.now() + 60_000).toISOString(),
+					target_context: { site_fingerprint: 'first' },
+				}),
+				{ status: 200, headers: { 'content-type': 'application/json' } },
+			),
+		);
+
+		await taskStartAuthoritative(c, { task: 'bind target', site: 'local' });
+		c.sitesConfig.sites.local!.url = 'https://second.example.test';
+
+		await expect(
+			learningRecordAuthoritative(c, {
+				topic: 'Target safety',
+				correction: 'Keep task context bound to one URL.',
+				scope: 'project',
+				site: 'local',
+			}),
+		).rejects.toThrow(/target_context_changed/i);
+		expect(c.fetchImpl).toHaveBeenCalledTimes(1);
 	});
 });

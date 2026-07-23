@@ -40,6 +40,37 @@ final class ProtectedFilesystemWriteGuard {
 	];
 
 	/**
+	 * Execution primitives that can trivially reconstruct or invoke a blocked
+	 * filesystem mutation and therefore cannot run inside php-execute.
+	 *
+	 * @var list<string>
+	 */
+	private const INDIRECT_EXECUTION_FUNCTIONS = [
+		'eval',
+		'assert',
+		'exec',
+		'shell_exec',
+		'system',
+		'passthru',
+		'proc_open',
+		'popen',
+	];
+
+	/**
+	 * Internal gates that php-execute must never call to mint its own authority
+	 * or enter a code-file transaction outside the typed ability boundary.
+	 *
+	 * @var list<string>
+	 */
+	private const PRIVILEGED_WRITE_CLASSES = [
+		'CustomCodeGrant',
+		'ThemeWriteTransaction',
+		'ThemeFilePatch',
+		'ThemeBackupRestore',
+		'ConfirmationToken',
+	];
+
+	/**
 	 * Static inspection before eval. Fail closed when mutation APIs appear and
 	 * the target cannot be proven safe (outside WP code roots).
 	 */
@@ -84,6 +115,40 @@ final class ProtectedFilesystemWriteGuard {
 		}
 		if ( preg_match( '/Reflection(?:Method|Function)\s*\(/i', $code ) && ( str_contains( $lower, 'file_put' ) || str_contains( $lower, 'fwrite' ) || str_contains( $lower, 'unlink' ) ) ) {
 			$found[] = 'reflection_indirection';
+		}
+		foreach ( self::INDIRECT_EXECUTION_FUNCTIONS as $fn ) {
+			if ( 'eval' === $fn ) {
+				if ( preg_match( '/\beval\s*\(/i', $code ) ) {
+					$found[] = 'dynamic_code_execution';
+				}
+				continue;
+			}
+			if ( preg_match( '/\b' . preg_quote( $fn, '/' ) . '\s*\(/i', $code ) ) {
+				$found[] = 'indirect_execution:' . $fn;
+			}
+		}
+		if ( preg_match( '/\b(?:include|include_once|require|require_once)\b/i', $code ) ) {
+			$found[] = 'dynamic_include';
+		}
+		if ( preg_match( '/(?<!->)(?<!::)\$[A-Za-z_][A-Za-z0-9_]*\s*\(/', $code ) ) {
+			$found[] = 'variable_function_call';
+		}
+		if ( preg_match( '/\b(?:SplFileObject|ZipArchive|PharData?)\b/i', $code ) ) {
+			$found[] = 'filesystem_object';
+		}
+		if ( preg_match( '/(?:->|::)\s*\{?\s*\$[A-Za-z_][A-Za-z0-9_]*\s*\}?\s*\(/', $code ) ) {
+			$found[] = 'dynamic_method_call';
+		}
+		if ( preg_match( '/\$[A-Za-z_][A-Za-z0-9_]*\s*::\s*[A-Za-z_][A-Za-z0-9_]*\s*\(/', $code ) ) {
+			$found[] = 'dynamic_static_class_call';
+		}
+		foreach ( self::PRIVILEGED_WRITE_CLASSES as $class ) {
+			if ( preg_match( '/\b' . preg_quote( $class, '/' ) . '\b/i', $code ) ) {
+				$found[] = 'privileged_write_bypass:' . $class;
+			}
+		}
+		if ( preg_match( '/\b(?:AbilityRegistry|rest_do_request|WP_REST_Request)\b/i', $code ) ) {
+			$found[] = 'privileged_dispatch_bypass';
 		}
 		return array_values( array_unique( $found ) );
 	}

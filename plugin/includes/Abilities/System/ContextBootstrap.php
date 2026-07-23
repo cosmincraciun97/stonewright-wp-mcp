@@ -111,6 +111,7 @@ final class ContextBootstrap extends AbilityKernel {
 				'unchanged_keys'                 => [ 'type' => 'array' ],
 				'deltas'                         => [ 'type' => 'object' ],
 				'surface_revision'               => [ 'type' => 'integer' ],
+				'target_context'                 => [ 'type' => 'object' ],
 			],
 		];
 	}
@@ -183,6 +184,16 @@ final class ContextBootstrap extends AbilityKernel {
 		$response['expertise_packs']                = self::compact_expertise( $response['expertise_packs'] ?? [], $known_hashes['expertise'] ?? [] );
 		$response['specializations']                = self::compact_specializations( $response['specializations'] ?? [] );
 		$response['recommended_external_mcps']      = self::compact_external_mcps( $response['recommended_external_mcps'] ?? [] );
+		$target_context = is_array( $response['target_context'] ?? null ) ? $response['target_context'] : [];
+		$response['target_context'] = [
+			'backend'           => (string) ( $target_context['backend'] ?? 'plugin' ),
+			'normalized_url'    => (string) ( $target_context['normalized_url'] ?? '' ),
+			'site_fingerprint'  => (string) ( $target_context['site_fingerprint'] ?? '' ),
+			'environment_type'  => (string) ( $target_context['environment_type'] ?? 'unknown' ),
+			'stonewright_mode'  => (string) ( $target_context['stonewright_mode'] ?? 'development' ),
+			'memory_backend'    => (string) ( $target_context['memory_backend'] ?? 'plugin-site' ),
+			'memory_visibility' => 'site-admin',
+		];
 		$response['visual_quality_contract']        = self::compact_object_ref( 'visual_quality_contract', $response['visual_quality_contract'] ?? [] );
 		$response['visual_build_gate']              = self::compact_object_ref( 'visual_build_gate', $response['visual_build_gate'] ?? [] );
 		$response['design_implementation_contract'] = self::compact_object_ref( 'design_implementation_contract', $response['design_implementation_contract'] ?? [] );
@@ -200,11 +211,17 @@ final class ContextBootstrap extends AbilityKernel {
 				continue;
 			}
 			$id = (string) ( $pack['id'] ?? '' );
+			$compact = [
+				'id'        => $id,
+				'hash'      => (string) ( $pack['hash'] ?? '' ),
+				'body_tool' => (string) ( $pack['body_tool'] ?? 'stonewright/expertise-get' ),
+				'trigger'   => (string) ( $pack['trigger'] ?? '' ),
+			];
 			if ( isset( $known[ $id ] ) && hash_equals( (string) ( $pack['hash'] ?? '' ), (string) $known[ $id ] ) ) {
-				unset( $pack['trigger'] );
-				$pack['cached'] = true;
+				unset( $compact['trigger'] );
+				$compact['cached'] = true;
 			}
-			$out[] = $pack;
+			$out[] = $compact;
 		}
 		return array_slice( $out, 0, 3 );
 	}

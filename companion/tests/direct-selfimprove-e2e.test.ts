@@ -32,6 +32,7 @@ describe('direct self-improve protocol e2e (zero WordPress)', () => {
 				STONEWRIGHT_MODE: 'direct',
 				STONEWRIGHT_MCP_TOOL_PROFILE: 'full',
 				STONEWRIGHT_STATE_DIR: stateDir,
+				STONEWRIGHT_SITES_FILE: join(stateDir, 'missing-sites.json'),
 				// Explicitly no STONEWRIGHT_WP_* credentials
 			},
 		});
@@ -86,6 +87,7 @@ describe('direct self-improve protocol e2e (zero WordPress)', () => {
 			env: {
 				STONEWRIGHT_MODE: 'direct',
 				STONEWRIGHT_STATE_DIR: stateDir,
+				STONEWRIGHT_SITES_FILE: join(stateDir, 'missing-sites.json'),
 			},
 		});
 		const tools = (server as { _registeredTools?: ToolMap & Record<string, { enabled?: boolean }> })._registeredTools ?? {};

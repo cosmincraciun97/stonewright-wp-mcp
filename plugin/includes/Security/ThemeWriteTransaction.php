@@ -9,6 +9,7 @@ namespace Stonewright\WpMcp\Security;
 final class ThemeWriteTransaction {
 
 	public const DEFAULT_MAX_CHANGED_BYTES = 65536;
+	private const BACKUP_INDEX_OPTION       = 'stonewright_theme_backup_index';
 
 	/**
 	 * Apply a verified candidate to an allowlisted theme path.
@@ -30,7 +31,7 @@ final class ThemeWriteTransaction {
 
 		$before_hash = hash( 'sha256', $before );
 		$after_hash  = hash( 'sha256', $after );
-		$changed_bytes = abs( strlen( $after ) - strlen( $before ) );
+		$changed_bytes = self::changed_bytes( $before, $after );
 
 		if ( $changed_bytes > $max_bytes ) {
 			return self::err(
@@ -43,13 +44,33 @@ final class ThemeWriteTransaction {
 			);
 		}
 
+		// Optimistic concurrency: never overwrite bytes changed since the
+		// ability built its candidate.
+		$target_exists = is_file( $absolute );
+		$current       = $target_exists ? file_get_contents( $absolute ) : false;
+		if (
+			( false === $current && '' !== $before )
+			|| ( false !== $current && ! hash_equals( $before_hash, hash( 'sha256', (string) $current ) ) )
+		) {
+			return self::err(
+				'theme_write_precondition_failed',
+				__( 'Theme file changed after the candidate was prepared. Run dry_run again and request a new operator grant.', 'stonewright' ),
+				[
+					'execution_status'    => 'blocked',
+					'verification_status' => 'stale_candidate',
+					'before_sha256'       => $before_hash,
+					'current_sha256'      => false === $current ? '' : hash( 'sha256', (string) $current ),
+				]
+			);
+		}
+
 		// Full-file validation before any target mutation.
 		$validation = self::validate_candidate( $after, $language );
 		if ( $validation instanceof \WP_Error ) {
 			return $validation;
 		}
 
-		$backup = self::write_backup( $absolute, $before );
+		$backup = self::write_backup( $absolute, $relative, $before );
 		if ( $backup instanceof \WP_Error ) {
 			return $backup;
 		}
@@ -68,12 +89,17 @@ final class ThemeWriteTransaction {
 		@chmod( $temp, 0644 );
 
 		if ( ! @rename( $temp, $absolute ) ) {
-			// Fallback: copy then unlink temp.
-			if ( false === file_put_contents( $absolute, $after, LOCK_EX ) ) {
-				@unlink( $temp );
-				return self::err( 'theme_file_write_failed', __( 'Failed to atomically replace theme file.', 'stonewright' ) );
-			}
 			@unlink( $temp );
+			return self::err(
+				'theme_file_atomic_replace_failed',
+				__( 'Atomic theme file replacement failed; the original target was left untouched.', 'stonewright' ),
+				[
+					'execution_status'    => 'error',
+					'verification_status' => 'not_applied',
+					'before_sha256'       => $before_hash,
+					'after_sha256'        => $after_hash,
+				]
+			);
 		}
 
 		// Readback must match candidate hash exactly.
@@ -92,6 +118,8 @@ final class ThemeWriteTransaction {
 					'after_sha256'        => $after_hash,
 					'readback_sha256'     => $read_hash,
 					'backup_path'         => $backup,
+					'backup_ref'          => $backup,
+					'recovery_ref'        => 'failed' === $rollback['status'] ? $backup : '',
 					'rollback'            => $rollback,
 				]
 			);
@@ -116,6 +144,8 @@ final class ThemeWriteTransaction {
 						'before_sha256'       => $before_hash,
 						'after_sha256'        => $after_hash,
 						'backup_path'         => $backup,
+						'backup_ref'          => $backup,
+						'recovery_ref'        => 'failed' === $rollback['status'] ? $backup : '',
 						'smoke_summary'       => $smoke,
 						'post_rollback_smoke' => $second,
 						'rollback'            => $rollback,
@@ -132,6 +162,7 @@ final class ThemeWriteTransaction {
 			'after_sha256'        => $after_hash,
 			'changed_bytes'       => $changed_bytes,
 			'backup_path'         => $backup,
+			'backup_ref'          => $backup,
 			'execution_status'    => 'ok',
 			'verification_status' => 'verified',
 			'rollback_status'     => 'not_needed',
@@ -142,6 +173,36 @@ final class ThemeWriteTransaction {
 			'smoke_summary'       => $smoke,
 			'effect_verified'     => true,
 		];
+	}
+
+	/**
+	 * Count bytes removed plus bytes inserted after trimming the unchanged
+	 * prefix and suffix. Equal-length replacements therefore cannot evade the
+	 * operator grant and transaction budgets.
+	 */
+	public static function changed_bytes( string $before, string $after ): int {
+		if ( $before === $after ) {
+			return 0;
+		}
+
+		$before_len = strlen( $before );
+		$after_len  = strlen( $after );
+		$prefix     = 0;
+		$limit      = min( $before_len, $after_len );
+		while ( $prefix < $limit && $before[ $prefix ] === $after[ $prefix ] ) {
+			++$prefix;
+		}
+
+		$suffix = 0;
+		while (
+			$suffix < ( $before_len - $prefix )
+			&& $suffix < ( $after_len - $prefix )
+			&& $before[ $before_len - 1 - $suffix ] === $after[ $after_len - 1 - $suffix ]
+		) {
+			++$suffix;
+		}
+
+		return ( $before_len - $prefix - $suffix ) + ( $after_len - $prefix - $suffix );
 	}
 
 	/**
@@ -157,21 +218,18 @@ final class ThemeWriteTransaction {
 				'before_sha256'  => $original_hash,
 				'error'          => 'rollback_temp_write_failed',
 				'recovery_ref'   => 'uploads/stonewright-theme-backups',
-				'severity'      => true,
+				'severity'       => 'p0',
 			];
 		}
 		if ( ! @rename( $temp, $absolute ) ) {
-			if ( false === file_put_contents( $absolute, $original_bytes, LOCK_EX ) ) {
-				@unlink( $temp );
-				return [
-					'status'        => 'failed',
-					'before_sha256' => $original_hash,
-					'error'         => 'rollback_replace_failed',
-					'recovery_ref'  => 'uploads/stonewright-theme-backups',
-					'severity'     => true,
-				];
-			}
 			@unlink( $temp );
+			return [
+				'status'        => 'failed',
+				'before_sha256' => $original_hash,
+				'error'         => 'rollback_atomic_replace_failed',
+				'recovery_ref'  => 'uploads/stonewright-theme-backups',
+				'severity'      => 'p0',
+			];
 		}
 
 		$read = is_file( $absolute ) ? (string) file_get_contents( $absolute ) : '';
@@ -183,7 +241,7 @@ final class ThemeWriteTransaction {
 				'readback_sha256'  => $rh,
 				'error'            => 'rollback_readback_mismatch',
 				'recovery_ref'     => 'uploads/stonewright-theme-backups',
-				'severity'        => true,
+				'severity'         => 'p0',
 			];
 		}
 
@@ -306,8 +364,58 @@ final class ThemeWriteTransaction {
 		return 'text';
 	}
 
+	/**
+	 * Restore a Stonewright-owned backup through the same transaction gates.
+	 *
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	public static function restore_owned_backup( string $backup_ref, string $expected_absolute, ?string $smoke_url = null ) {
+		$entry = self::backup_entry( $backup_ref );
+		if ( $entry instanceof \WP_Error ) {
+			return $entry;
+		}
+		if ( ! hash_equals( wp_normalize_path( $expected_absolute ), wp_normalize_path( (string) $entry['absolute'] ) ) ) {
+			return self::err( 'theme_backup_target_mismatch', __( 'Backup target does not match the currently resolved theme path.', 'stonewright' ) );
+		}
+		$backup_path = (string) $entry['backup_path'];
+		$bytes       = is_file( $backup_path ) ? file_get_contents( $backup_path ) : false;
+		if ( false === $bytes || ! hash_equals( (string) $entry['sha256'], hash( 'sha256', (string) $bytes ) ) ) {
+			return self::err( 'theme_backup_integrity_failed', __( 'Stonewright backup is missing or failed its integrity hash.', 'stonewright' ) );
+		}
+		$current = is_file( $expected_absolute ) ? (string) file_get_contents( $expected_absolute ) : '';
+		return self::apply(
+			[
+				'absolute'  => $expected_absolute,
+				'relative'  => (string) $entry['relative'],
+				'before'    => $current,
+				'after'     => (string) $bytes,
+				'language'  => self::detect_language( (string) $entry['relative'] ),
+				'smoke_url' => $smoke_url,
+				// A restore may legitimately exceed ordinary patch delta size;
+				// it is already bound to a Stonewright-owned exact backup.
+				'max_changed_bytes' => max( self::DEFAULT_MAX_CHANGED_BYTES, self::changed_bytes( $current, (string) $bytes ) ),
+			]
+		);
+	}
+
+	/**
+	 * @return array{backup_ref:string,relative:string,sha256:string,created_at:string}|\WP_Error
+	 */
+	public static function backup_metadata( string $backup_ref ) {
+		$entry = self::backup_entry( $backup_ref );
+		if ( $entry instanceof \WP_Error ) {
+			return $entry;
+		}
+		return [
+			'backup_ref' => $backup_ref,
+			'relative'   => (string) $entry['relative'],
+			'sha256'     => (string) $entry['sha256'],
+			'created_at' => (string) $entry['created_at'],
+		];
+	}
+
 	/** @return string|null|\WP_Error */
-	private static function write_backup( string $absolute, string $before ) {
+	private static function write_backup( string $absolute, string $relative, string $before ) {
 		if ( '' === $before ) {
 			return null;
 		}
@@ -319,12 +427,67 @@ final class ThemeWriteTransaction {
 		if ( ! is_dir( $dir ) && ! wp_mkdir_p( $dir ) ) {
 			return self::err( 'theme_file_backup_failed', __( 'Could not create theme backup directory.', 'stonewright' ) );
 		}
+		$protection = self::protect_backup_directory( $dir );
+		if ( $protection instanceof \WP_Error ) {
+			return $protection;
+		}
 		$basename = basename( $absolute );
-		$target   = $dir . '/' . gmdate( 'Ymd-His' ) . '-' . hash( 'sha256', $absolute ) . '-' . $basename;
-		if ( false === file_put_contents( $target, $before ) ) {
+		$target   = $dir . '/' . gmdate( 'Ymd-His' ) . '-' . hash( 'sha256', $absolute ) . '-' . $basename . '.swbak';
+		if ( false === file_put_contents( $target, $before, LOCK_EX ) ) {
 			return self::err( 'theme_file_backup_failed', __( 'Could not write theme backup file.', 'stonewright' ) );
 		}
-		return $target;
+		@chmod( $target, 0600 );
+		$backup_ref = 'sw-theme-backup-' . wp_generate_uuid4();
+		$index      = get_option( self::BACKUP_INDEX_OPTION, [] );
+		$index      = is_array( $index ) ? $index : [];
+		$index[ $backup_ref ] = [
+			'absolute'    => wp_normalize_path( $absolute ),
+			'relative'    => $relative,
+			'backup_path' => wp_normalize_path( $target ),
+			'sha256'      => hash( 'sha256', $before ),
+			'created_at'  => current_time( 'mysql', true ),
+		];
+		if ( count( $index ) > 100 ) {
+			$index = array_slice( $index, -100, null, true );
+		}
+		update_option( self::BACKUP_INDEX_OPTION, $index, false );
+		return $backup_ref;
+	}
+
+	/** @return true|\WP_Error */
+	private static function protect_backup_directory( string $dir ) {
+		$files = [
+			'.htaccess' => "Require all denied\nDeny from all\n",
+			'web.config' => "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<configuration><system.webServer><security><authorization><remove users=\"*\" roles=\"\" verbs=\"\"/><add accessType=\"Deny\" users=\"*\"/></authorization></security></system.webServer></configuration>\n",
+			'index.html' => '',
+		];
+		foreach ( $files as $name => $contents ) {
+			$path = trailingslashit( $dir ) . $name;
+			if ( is_file( $path ) ) {
+				continue;
+			}
+			if ( false === file_put_contents( $path, $contents, LOCK_EX ) ) {
+				return self::err( 'theme_file_backup_protection_failed', __( 'Could not protect the theme backup directory from web access.', 'stonewright' ) );
+			}
+			@chmod( $path, 0600 );
+		}
+		@chmod( $dir, 0700 );
+		return true;
+	}
+
+	/**
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private static function backup_entry( string $backup_ref ) {
+		if ( 1 !== preg_match( '/^sw-theme-backup-[a-f0-9-]{36}$/i', $backup_ref ) ) {
+			return self::err( 'theme_backup_ref_invalid', __( 'Invalid Stonewright theme backup reference.', 'stonewright' ) );
+		}
+		$index = get_option( self::BACKUP_INDEX_OPTION, [] );
+		$entry = is_array( $index ) && is_array( $index[ $backup_ref ] ?? null ) ? $index[ $backup_ref ] : null;
+		if ( null === $entry ) {
+			return self::err( 'theme_backup_not_found', __( 'Stonewright theme backup reference was not found.', 'stonewright' ) );
+		}
+		return $entry;
 	}
 
 	private static function redact_url( string $url ): string {
@@ -352,8 +515,8 @@ final class ThemeWriteTransaction {
 				[
 					'status'              => 400,
 					'retryable'           => false,
-					'execution_status'    => 'ok',
-					'verification_status' => 'failed',
+					'execution_status'    => 'blocked',
+					'verification_status' => 'not_applied',
 				],
 				$data
 			)
