@@ -266,12 +266,27 @@ final class ConfigurationPage {
 			</header>
 
 			<?php if ( wp_get_environment_type() === 'production' && $enabled ) : ?>
-				<div class="notice notice-warning sw-notice">
-					<p>
-						<strong><?php esc_html_e( 'Production site detected.', 'stonewright' ); ?></strong>
-						<?php esc_html_e( 'Use production-safe mode for confirmation-token checks on destructive operations.', 'stonewright' ); ?>
-					</p>
-				</div>
+				<?php if ( 'production-safe' !== $mode ) : ?>
+					<div class="notice notice-error sw-notice" data-stonewright-severity="p0">
+						<p>
+							<strong><?php esc_html_e( 'P0: WordPress environment is production but Stonewright mode is not production-safe.', 'stonewright' ); ?></strong>
+							<?php
+							printf(
+								/* translators: %s: current mode */
+								esc_html__( 'Current mode: %s. Switch to production-safe before any destructive agent work so confirmation tokens gate writes. Development mode on a live host is an explicit operator risk.', 'stonewright' ),
+								esc_html( $mode )
+							);
+							?>
+						</p>
+					</div>
+				<?php else : ?>
+					<div class="notice notice-info sw-notice">
+						<p>
+							<strong><?php esc_html_e( 'Production site detected.', 'stonewright' ); ?></strong>
+							<?php esc_html_e( 'production-safe mode is active: destructive operations require confirmation tokens.', 'stonewright' ); ?>
+						</p>
+					</div>
+				<?php endif; ?>
 			<?php endif; ?>
 
 			<section class="sw-setup-diagnostics" aria-label="<?php esc_attr_e( 'Setup diagnostics', 'stonewright' ); ?>">

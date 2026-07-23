@@ -91,6 +91,8 @@ describe('direct self-improve tools', () => {
 			source: 'explicit-user-request',
 		});
 		expect(first.verified).toBe(true);
+		expect(first.visibility).toMatch(/local-only/i);
+		expect(first.memory_backend).toMatch(/direct/);
 		const second = learningRecord(c, {
 			topic: 'Device tabs',
 			correction: 'Use toolbar device tabs only',
@@ -124,5 +126,26 @@ describe('direct self-improve tools', () => {
 		expect(start.guidance.some((g) => /HARD RULE:.*Verified learning/i.test(g))).toBe(true);
 		expect(start.guidance.some((g) => /HARD RULE:.*Design section isolation/i.test(g))).toBe(true);
 		expect(start.guidance.join('\n').toLowerCase()).not.toContain('transavia');
+	});
+
+	it('unknown site alias fails without writing _global', () => {
+		const c = ctx();
+		const before = memoryList(c).items.length;
+		expect(() =>
+			learningRecord(c, {
+				topic: 'x',
+				correction: 'must not land global',
+				scope: 'project',
+				site: 'totally-unknown-site-alias-xyz',
+			}),
+		).toThrow(/site_alias_unresolved/i);
+		expect(memoryList(c).items.length).toBe(before);
+	});
+
+	it('task-start reports memory backend and local-only visibility', () => {
+		const c = ctx();
+		const start = taskStart(c, { task: 'repair audit' });
+		expect(start.target_context?.memory_backend).toMatch(/direct/);
+		expect(start.target_context?.memory_visibility).toMatch(/local-only/i);
 	});
 });

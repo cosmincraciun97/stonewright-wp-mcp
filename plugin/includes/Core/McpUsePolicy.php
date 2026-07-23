@@ -54,6 +54,7 @@ final class McpUsePolicy {
 			'native_first_styling'         => 'Native-first styling: use native Elementor, Gutenberg, or FSE controls before Custom CSS or code. If native implementation is impossible, stop and explain the proven native gap before adding Custom CSS or code.',
 			'fastest_safe_interface'       => 'Fastest safe interface: prefer typed Stonewright/native APIs (typed_api), then the Elementor editor command bus (editor_command_bus), then authenticated admin form POST (admin_form), then browser UI locators (browser_ui) only when no safe programmatic interface exists. Never skip permission, backup, validation, confirmation, audit, or readback gates for speed. Never implement via DOM mutation through browser evaluate().',
 			'verified_learning'            => 'Verified learning: when the user explicitly asks Stonewright to remember a correction or stable preference, call stonewright-learning-record in the active mode, read it back, and report memory_id, scope, and verified:true. Never claim it was remembered without verification.',
+			'custom_code_operator_grant'   => 'Custom code requires operator approval: custom PHP/CSS/JS/HTML may run only after a proven native gap and a short-lived single-use custom-code grant issued from authenticated wp-admin, bound to path + candidate after_sha256. Never write theme/plugin/core code files through php-execute; use stonewright/theme-file-patch with dry_run, full-file validation, atomic write, smoke, and rollback.',
 		];
 	}
 

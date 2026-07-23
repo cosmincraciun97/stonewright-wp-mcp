@@ -19,9 +19,16 @@ final class AuditLog {
 	/**
 	 * When true, AbilityKernel (or another recorder) already wrote a row for
 	 * this request — REST mutation middleware must not create a duplicate.
+	 *
+	 * @var bool
 	 */
 	private static bool $request_already_audited = false;
 
+	/**
+	 * Request correlation UUID for the current MCP/REST mutation.
+	 *
+	 * @var string|null
+	 */
 	private static ?string $request_correlation_id = null;
 
 	public static function table_name(): string {

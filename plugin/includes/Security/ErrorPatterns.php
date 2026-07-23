@@ -20,41 +20,87 @@ final class ErrorPatterns {
 	 *
 	 * @param array<string, mixed> $sanitized_args
 	 */
+	/**
+	 * Expected safety blocks / hard stops that must not become active project/user learning.
+	 *
+	 * @var list<string>
+	 */
+	private const EXPECTED_SAFETY_CODES = [
+		'stonewright_php_elementor_raw_write_blocked',
+		'stonewright_php_code_file_write_blocked',
+		'stonewright_php_read_only_violation',
+		'stonewright_custom_code_grant_required',
+		'stonewright_confirmation_required',
+		'stonewright_confirmation_invalid',
+		'stonewright_permission_denied',
+	];
+
 	public static function observe( string $ability, string $status, array $sanitized_args = [] ): void {
-		if ( 'error' !== strtolower( $status ) ) {
+		$status = strtolower( $status );
+		if ( ! in_array( $status, [ 'error', 'blocked' ], true ) ) {
 			return;
 		}
+
+		$code = self::error_code( $sanitized_args );
+		// Expected safety blocks: track count for hard-stop, never promote active learning.
+		$expected_block = 'blocked' === $status || self::is_expected_safety_code( $code );
 
 		$signature = self::signature( $ability, $sanitized_args );
 		$store     = self::load();
 		$now       = gmdate( 'c' );
+		$cause_key = self::cause_key( $ability, $sanitized_args );
 
 		if ( ! isset( $store[ $signature ] ) ) {
 			$store[ $signature ] = [
 				'signature'    => $signature,
+				'cause_key'    => $cause_key,
 				'ability'      => $ability,
-				'error_code'   => self::error_code( $sanitized_args ),
+				'error_code'   => $code,
 				'message'      => self::message_excerpt( $sanitized_args ),
 				'count'        => 0,
 				'first_seen'   => $now,
 				'last_seen'    => $now,
 				'dismissed'    => false,
 				'learning_key' => '',
+				'state'        => $expected_block ? 'blocked_pending_repair' : 'observed',
+				'expected'     => $expected_block,
 			];
 		}
 
 		$store[ $signature ]['count']      = (int) $store[ $signature ]['count'] + 1;
 		$store[ $signature ]['last_seen']  = $now;
 		$store[ $signature ]['message']    = self::message_excerpt( $sanitized_args );
-		$store[ $signature ]['error_code'] = self::error_code( $sanitized_args );
+		$store[ $signature ]['error_code'] = $code;
 		$store[ $signature ]['ability']    = $ability;
+		$store[ $signature ]['cause_key']  = $cause_key;
+		$store[ $signature ]['expected']   = $expected_block;
+		if ( (int) $store[ $signature ]['count'] >= 2 ) {
+			$store[ $signature ]['state'] = $expected_block ? 'blocked_pending_repair' : 'repeated';
+		}
 
-		if ( (int) $store[ $signature ]['count'] >= 2 && ! $store[ $signature ]['dismissed'] ) {
+		// Only promote durable feedback learning for unexpected agent-caused errors.
+		if (
+			! $expected_block
+			&& (int) $store[ $signature ]['count'] >= 2
+			&& ! $store[ $signature ]['dismissed']
+		) {
+			// Store as unresolved incident-style feedback (not project/user rules).
 			$learning_key = self::ensure_learning_record( $store[ $signature ] );
 			$store[ $signature ]['learning_key'] = $learning_key;
+			$store[ $signature ]['state']        = 'repair_attempted';
 		}
 
 		self::save( $store );
+	}
+
+	public static function is_expected_safety_code( string $code ): bool {
+		$code = strtolower( sanitize_key( $code ) );
+		foreach ( self::EXPECTED_SAFETY_CODES as $known ) {
+			if ( $code === sanitize_key( $known ) || str_contains( $code, 'blocked' ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -181,10 +227,31 @@ final class ErrorPatterns {
 	 * @param array<string, mixed> $sanitized_args
 	 */
 	public static function signature( string $ability, array $sanitized_args ): string {
-		$code    = self::error_code( $sanitized_args );
-		$message = self::message_excerpt( $sanitized_args );
-		$raw     = strtolower( $ability ) . '|' . strtolower( $code ) . '|' . strtolower( $message );
+		// Prefer structured cause_key so equivalent failures do not fragment.
+		$raw = self::cause_key( $ability, $sanitized_args );
 		return hash( 'sha256', $raw );
+	}
+
+	/**
+	 * Stable cause key: ability + error code + operation class (no volatile IDs).
+	 *
+	 * @param array<string, mixed> $sanitized_args
+	 */
+	public static function cause_key( string $ability, array $sanitized_args ): string {
+		$code = self::error_code( $sanitized_args );
+		$meta = is_array( $sanitized_args['_meta'] ?? null ) ? $sanitized_args['_meta'] : [];
+		$op   = '';
+		foreach ( [ 'operation_class', 'resource_type', 'cause_key' ] as $key ) {
+			if ( ! empty( $meta[ $key ] ) && is_scalar( $meta[ $key ] ) ) {
+				$op = (string) $meta[ $key ];
+				break;
+			}
+			if ( ! empty( $sanitized_args[ $key ] ) && is_scalar( $sanitized_args[ $key ] ) ) {
+				$op = (string) $sanitized_args[ $key ];
+				break;
+			}
+		}
+		return strtolower( $ability ) . '|' . strtolower( $code ) . '|' . strtolower( $op );
 	}
 
 	/**
@@ -232,13 +299,16 @@ final class ErrorPatterns {
 		$sig8     = substr( (string) ( $row['signature'] ?? '' ), 0, 8 );
 		$key      = 'learning-audit-error-' . $sig8;
 		$topic    = 'Recurring error: ' . $ability;
+		$repair = RemediationHints::for_code( (string) ( $row['error_code'] ?? '' ), $ability );
 		$correction = sprintf(
-			'Ability %s failed repeatedly with: %s. Check inputs, permissions, and prior successful args before retrying.',
+			'Unresolved incident for %s (cause %s): %s Exact remediation: %s Promote to project/user learning only after a verified repair or explicit user correction.',
 			$ability,
-			'' !== $message ? $message : 'unknown error'
+			(string) ( $row['cause_key'] ?? $row['signature'] ?? '' ),
+			'' !== $message ? $message : 'unknown error',
+			$repair
 		);
 
-		// Dedupe: put_typed upserts on scope+key.
+		// Audit feedback only — never project/user rules. Status pending until verified repair.
 		$row_id = Memory::put_typed(
 			'feedback',
 			'audit',
@@ -251,13 +321,16 @@ final class ErrorPatterns {
 				'severity'   => 'high',
 				'source'      => 'audit-error',
 				'signature'   => (string) ( $row['signature'] ?? '' ),
+				'cause_key'   => (string) ( $row['cause_key'] ?? '' ),
+				'state'       => 'unresolved_incident',
 				'recorded_at' => current_time( 'mysql', true ),
 			],
 			1.0,
 			[
 				'topic'      => $topic,
-				'status'     => 'active',
-				'precedence' => 700,
+				// Unresolved audit incidents are not active user/project rules.
+				'status'     => 'stale',
+				'precedence' => 400,
 			]
 		);
 

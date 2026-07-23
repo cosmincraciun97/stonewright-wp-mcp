@@ -2,6 +2,27 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.81] - 2026-07-23
+
+### Security
+
+- `php-execute` permanently blocks filesystem mutation APIs (theme/plugin/core code writes). Use `theme-file-patch` instead.
+- Theme file writes validate the complete candidate (in-process PHP parser), require a single-use custom-code grant for PHP/CSS/JS apply, atomic replace, readback, bootstrap smoke, and automatic rollback.
+- Expected safety blocks no longer promote active project/user learning; audit feedback stays unresolved until verified repair.
+- Production WordPress environment with non-`production-safe` Stonewright mode surfaces a P0 admin warning.
+
+### Added
+
+- `ProtectedFilesystemWriteGuard`, `PhpSyntaxValidator`, `ThemeWriteTransaction`, `CustomCodeGrant`.
+- Effect-oriented audit metadata: execution/verification/rollback status, hashes, resource refs.
+- Canonical rule `custom_code_operator_grant` (Plugin/Direct/skill parity).
+- Learning receipts report `memory_backend` and visibility labels.
+
+### Fixed
+
+- Direct learning no longer silently falls back to `_global` for unknown site aliases.
+- Direct learning receipts label local-only visibility (not wp-admin Memory UI).
+
 ## [1.0.0-alpha.80] - 2026-07-22
 
 ### Added
@@ -89,19 +110,3 @@
 - `php-execute` `read_only` flag; clearer Elementor write-vs-read policy.
 - Task-start `write_target_url` / active write target labeling.
 - Direct remote Elementor data path via REST meta when registered.
-
-## [1.0.0-alpha.76] - 2026-07-16
-
-### Added
-
-- Direct mode: permanent product HARD RULES on every `stonewright-task-start`
-  (single-target scope, remote tool path, no ad-hoc plugins, HTTP-first
-  automation, additive content models) plus five new enabled `_builtin` skills.
-- Plugin: permanent operating rules in agent instructions (not Safety Memory UI)
-  covering the same workflow discipline plus Elementor native-first lessons
-  (responsive typography, Nested Carousel offset, swiper overflow, CSS parent class).
-- Built-in skill pack `agent-operating-rules` for matched task playbooks.
-
-### Changed
-
-- Direct `AGENTS.md` managed template includes the permanent operating rules.

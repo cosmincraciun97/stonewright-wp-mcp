@@ -15,8 +15,8 @@ const PLUGIN_POLICY = resolve(
 );
 
 describe('permanent rules parity', () => {
-	it('exports seven canonical rules', () => {
-		expect(Object.keys(CANONICAL_OPERATING_RULES)).toHaveLength(7);
+	it('exports eight canonical rules', () => {
+		expect(Object.keys(CANONICAL_OPERATING_RULES)).toHaveLength(8);
 		expect(CANONICAL_OPERATING_RULES.verified_learning).toMatch(/verified:true/);
 		expect(CANONICAL_OPERATING_RULES.elementor_responsive_preview).toMatch(
 			/Never resize the whole editor browser window/,
@@ -31,6 +31,9 @@ describe('permanent rules parity', () => {
 			/unsupported_responsive_control/,
 		);
 		expect(CANONICAL_OPERATING_RULES.fastest_safe_interface).toMatch(/typed_api/);
+		expect(CANONICAL_OPERATING_RULES.custom_code_operator_grant).toMatch(
+			/custom-code grant/,
+		);
 	});
 
 	it('includes canonical rules in Direct permanent list and guidance', () => {

@@ -33,17 +33,61 @@ function stateDir(ctx: SelfImproveContext): string {
   return ctx.baseDir ?? defaultStonewrightDir(ctx.env);
 }
 
+export type ResolveScopeOptions = {
+  /** When true, missing site config falls back to _global (reads/skills only). */
+  allowGlobalFallback?: boolean;
+  /** Explicit global intent (writes to _global.jsonl). */
+  global?: boolean;
+  /** Require a resolved non-global site (learning project/user writes). */
+  requireSite?: boolean;
+};
+
+/**
+ * Resolve memory/skills scope. Never silently maps unknown aliases to _global.
+ * Unknown explicit site aliases throw with code=site_alias_unresolved.
+ */
 export function resolveSelfImproveScope(
   ctx: SelfImproveContext,
   site?: string,
+  options: ResolveScopeOptions = {},
 ): { scope: string; siteAlias: string | null; baseDir: string } {
   const baseDir = stateDir(ctx);
+  const allowGlobalFallback = options.allowGlobalFallback !== false;
+  const explicitSite = (site ?? "").trim();
+
+  if (options.global === true || explicitSite === "_global") {
+    return { scope: "_global", siteAlias: null, baseDir };
+  }
+
+  if (explicitSite) {
+    try {
+      const config = loadSitesConfig({ env: ctx.env });
+      const resolved = resolveSite(config, explicitSite);
+      return { scope: resolved.alias, siteAlias: resolved.alias, baseDir };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(
+        `Unknown or unresolvable site alias "${explicitSite}". ${msg} code=site_alias_unresolved`,
+      );
+    }
+  }
+
   try {
     const config = loadSitesConfig({ env: ctx.env });
-    const resolved = resolveSite(config, site);
+    const resolved = resolveSite(config, undefined);
     return { scope: resolved.alias, siteAlias: resolved.alias, baseDir };
   } catch {
-    return { scope: "_global", siteAlias: null, baseDir };
+    if (options.requireSite) {
+      throw new Error(
+        "No site bound for this operation. Pass site alias, bind task-start to a site, or set global:true for global memory. code=site_required",
+      );
+    }
+    if (allowGlobalFallback) {
+      return { scope: "_global", siteAlias: null, baseDir };
+    }
+    throw new Error(
+      "No site bound and global fallback disabled. code=site_required",
+    );
   }
 }
 
@@ -171,6 +215,8 @@ export type LearningRecordInput = {
   scope?: string;
   source?: string;
   evidence?: string;
+  /** Explicit global memory intent — required to write _global.jsonl. */
+  global?: boolean;
   /** Legacy Direct free-text. */
   text?: string;
   kind?: MemoryKind;
@@ -222,10 +268,41 @@ function normalizeLearningInput(input: LearningRecordInput): {
 }
 
 export function learningRecord(ctx: SelfImproveContext, input: LearningRecordInput) {
-  const { scope, baseDir, siteAlias } = resolveSelfImproveScope(
-    ctx,
-    input.site,
-  );
+  const wantGlobal = input.global === true || input.scope === "global";
+  const semanticScope =
+    input.scope === "user" || input.scope === "project"
+      ? input.scope
+      : wantGlobal
+        ? "global"
+        : "project";
+
+  // Explicit site alias: resolve or throw — never silent _global fallback.
+  // global:true writes _global intentionally.
+  // No site: use default site if configured, else pluginless local store.
+  let scope: string;
+  let siteAlias: string | null;
+  let baseDir: string;
+  if (wantGlobal) {
+    ({ scope, siteAlias, baseDir } = resolveSelfImproveScope(ctx, "_global", {
+      global: true,
+    }));
+  } else if ((input.site ?? "").trim()) {
+    ({ scope, siteAlias, baseDir } = resolveSelfImproveScope(ctx, input.site, {
+      allowGlobalFallback: false,
+      requireSite: true,
+    }));
+  } else {
+    ({ scope, siteAlias, baseDir } = resolveSelfImproveScope(ctx, undefined, {
+      allowGlobalFallback: true,
+    }));
+  }
+
+  if (!wantGlobal && (input.site ?? "").trim() && scope === "_global") {
+    throw new Error(
+      `Refusing to write project/user learning to _global for site "${input.site}". code=site_alias_unresolved`,
+    );
+  }
+
   const normalized = normalizeLearningInput(input);
   const entry = recordMemory({
     baseDir,
@@ -242,7 +319,7 @@ export function learningRecord(ctx: SelfImproveContext, input: LearningRecordInp
   if (!readback || readback.text.trim() !== entry.text.trim()) {
     appendDirectAudit({
       tool: "stonewright-learning-record",
-      site: siteAlias ?? "_global",
+      site: siteAlias ?? scope,
       status: "error",
     });
     throw new Error(
@@ -265,19 +342,24 @@ export function learningRecord(ctx: SelfImproveContext, input: LearningRecordInp
   }
   appendDirectAudit({
     tool: "stonewright-learning-record",
-    site: siteAlias ?? "_global",
+    site: siteAlias ?? scope,
     status: "ok",
   });
 
-  const canonicalScope =
-    input.scope === "user" || input.scope === "project"
-      ? input.scope
-      : "project";
+  const memoryBackend =
+    scope === "_global" ? "direct-global" : "direct-site-local";
+  const visibility =
+    "local-only (not visible in WordPress Stonewright Memory UI; companion ~/.stonewright/memory only)";
 
   return {
     stored: true,
     backend: "direct" as const,
-    scope: canonicalScope,
+    memory_backend: memoryBackend,
+    scope: semanticScope,
+    storage_scope: scope,
+    site_alias: siteAlias,
+    visibility,
+    memory_type: normalized.kind,
     memory_id: entry.id,
     storage_ref: memoryStorageRef(scope, entry.id),
     verified: true,
@@ -285,6 +367,8 @@ export function learningRecord(ctx: SelfImproveContext, input: LearningRecordInp
     memory_key: entry.id,
     memory: entry,
     skill,
+    note:
+      "Direct-local memory is machine-local. wp-admin cannot read this file; use export/import for cross-host sync.",
   };
 }
 
@@ -295,10 +379,15 @@ export function taskStart(
   const { scope, baseDir, siteAlias } = resolveSelfImproveScope(
     ctx,
     input.site,
+    { allowGlobalFallback: true },
   );
   seedBuiltinSkills(baseDir, ctx.env);
   ensureStonewrightAgentsMd(baseDir, ctx.env);
   markTaskStartSeen(siteAlias ?? scope);
+  const memoryBackend =
+    scope === "_global" ? "direct-global" : "direct-site-local";
+  const memoryVisibility =
+    "local-only (not visible in WordPress Stonewright Memory UI)";
 
   const taskText = [input.task, input.surface ?? "", input.intent ?? ""]
     .join(" ")
@@ -352,6 +441,14 @@ export function taskStart(
     mode: "direct" as const,
     site: siteAlias,
     write_mode: writeMode,
+    target_context: {
+      backend: "direct",
+      site_alias: siteAlias,
+      memory_backend: memoryBackend,
+      memory_visibility: memoryVisibility,
+      storage_scope: scope,
+      tool_profile: "direct",
+    },
     matched_skills: matched.map((s) => ({
       slug: s.slug,
       description: s.description,

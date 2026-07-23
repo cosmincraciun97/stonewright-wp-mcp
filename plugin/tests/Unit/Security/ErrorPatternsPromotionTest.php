@@ -33,7 +33,7 @@ final class ErrorPatternsPromotionTest extends TestCase {
 		$GLOBALS['stonewright_test_options'] = [];
 	}
 
-	public function test_two_identical_errors_create_active_learning_row(): void {
+	public function test_two_identical_errors_create_pending_feedback_incident(): void {
 		Memory::maybe_install_table();
 		delete_option( 'stonewright_error_patterns' );
 
@@ -54,8 +54,28 @@ final class ErrorPatternsPromotionTest extends TestCase {
 		self::assertNotEmpty( $hit, 'count>=2 must auto-create a learning-audit-error-* memory row' );
 		self::assertSame( 'feedback', $rows[0]['type'] ?? null );
 		self::assertSame( 'audit', $rows[0]['scope'] ?? null );
-		self::assertSame( 'active', $rows[0]['status'] ?? null );
-		self::assertSame( 700, (int) ( $rows[0]['precedence'] ?? 0 ) );
+		// Unresolved incidents are stale feedback — not active project/user rules.
+		self::assertSame( 'stale', $rows[0]['status'] ?? null );
+		self::assertSame( 400, (int) ( $rows[0]['precedence'] ?? 0 ) );
+	}
+
+	public function test_expected_safety_blocks_do_not_create_learning(): void {
+		Memory::maybe_install_table();
+		delete_option( 'stonewright_error_patterns' );
+
+		$args = [
+			'error_code' => 'stonewright_php_code_file_write_blocked',
+			'message'    => 'blocked',
+		];
+		ErrorPatterns::observe( 'stonewright/php-execute', 'blocked', $args );
+		ErrorPatterns::observe( 'stonewright/php-execute', 'blocked', $args );
+
+		$rows = Memory::list_by_type( 'feedback', 50, 0 );
+		$hit  = array_filter(
+			$rows,
+			static fn( $r ) => str_contains( (string) ( $r['memory_key'] ?? '' ), 'learning-audit-error-' )
+		);
+		self::assertSame( [], array_values( $hit ) );
 	}
 
 	/**

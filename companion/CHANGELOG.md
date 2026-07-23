@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.81] - 2026-07-23
+
+### Fixed
+
+- Direct `resolveSelfImproveScope` no longer silently maps unknown site aliases to `_global`.
+- Explicit unknown site on `learning-record` fails with `site_alias_unresolved` and does not write global memory.
+
+### Added
+
+- Learning receipts include `memory_backend`, `storage_scope`, `visibility` (local-only), and site alias.
+- Task-start returns `target_context` with memory backend and visibility.
+- Canonical rule `custom_code_operator_grant` parity with the plugin.
+
 ## [1.0.0-alpha.80] - 2026-07-22
 
 ### Added

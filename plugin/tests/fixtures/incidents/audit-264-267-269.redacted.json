@@ -1,0 +1,42 @@
+{
+  "note": "Redacted incident regression fixtures. No raw PHP, credentials, cookies, or absolute host paths.",
+  "captured_at": "2026-07-23",
+  "plugin_version_at_incident": "1.0.0-alpha.80",
+  "rows": [
+    {
+      "id": 264,
+      "result": "error",
+      "ability": "stonewright/php-execute",
+      "error_code": "stonewright_php_parse_error",
+      "evidence": "Snippet parse failure (transport/backslash). No effect verification fields present at alpha.80."
+    },
+    {
+      "id": 267,
+      "result": "blocked",
+      "ability": "stonewright/php-execute",
+      "error_code": "stonewright_php_elementor_raw_write_blocked",
+      "evidence": "Raw Elementor write correctly blocked."
+    },
+    {
+      "id": 269,
+      "result": "ok",
+      "ability": "stonewright/php-execute",
+      "defect": "Audit marked OK for a filesystem mutation without target path, lint, backup, smoke, or rollback fields. Correlates with toxic theme functions.php append.",
+      "redacted": {
+        "read_only": false,
+        "code_length_bytes": 8162,
+        "duration_ms": 3,
+        "result_marker": "ok"
+      },
+      "required_after_repair": [
+        "execution_status",
+        "verification_status",
+        "rollback_status",
+        "resource_type",
+        "resource_ref (logical)",
+        "before_sha256",
+        "after_sha256"
+      ]
+    }
+  ]
+}

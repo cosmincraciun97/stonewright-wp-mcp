@@ -13,9 +13,9 @@ use Stonewright\WpMcp\Core\MethodRouter;
  */
 final class CanonicalOperatingRulesTest extends TestCase {
 
-	public function test_seven_canonical_rules_have_stable_ids(): void {
+	public function test_canonical_rules_have_stable_ids(): void {
 		$rules = McpUsePolicy::canonical_operating_rules();
-		self::assertCount( 7, $rules );
+		self::assertCount( 8, $rules );
 		self::assertArrayHasKey( 'elementor_responsive_preview', $rules );
 		self::assertArrayHasKey( 'separate_verification_tab', $rules );
 		self::assertArrayHasKey( 'design_section_isolation', $rules );
@@ -23,6 +23,8 @@ final class CanonicalOperatingRulesTest extends TestCase {
 		self::assertArrayHasKey( 'native_first_styling', $rules );
 		self::assertArrayHasKey( 'fastest_safe_interface', $rules );
 		self::assertArrayHasKey( 'verified_learning', $rules );
+		self::assertArrayHasKey( 'custom_code_operator_grant', $rules );
+		self::assertStringContainsString( 'php-execute', $rules['custom_code_operator_grant'] );
 	}
 
 	public function test_fingerprint_is_stable_sha256(): void {

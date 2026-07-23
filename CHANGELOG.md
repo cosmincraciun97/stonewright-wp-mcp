@@ -10,6 +10,24 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 ## [Unreleased]
 
+## [1.0.0-alpha.81] - 2026-07-23
+
+### Security
+
+- `php-execute` permanently blocks filesystem mutation of theme/plugin/core code files.
+- Theme file apply requires full-file validation, custom-code operator grant, atomic write, smoke, and rollback.
+- Production environment with non-`production-safe` mode shows a P0 admin warning.
+
+### Fixed
+
+- Direct learning no longer silently falls back to `_global` for unknown site aliases.
+- Expected safety blocks no longer promote active project/user learning.
+
+### Added
+
+- Effect verification audit metadata; Direct learning visibility labels; canonical
+  `custom_code_operator_grant` rule.
+
 ## [1.0.0-alpha.80] - 2026-07-22
 
 ### Added
@@ -154,19 +172,3 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 - Task-start non-visual compact token budget raised to **800** (write-target +
   re-list signals for client surface sync).
-
-## [1.0.0-alpha.76] - 2026-07-16
-
-### Added
-
-- Direct mode: permanent product HARD RULES on every `stonewright-task-start`
-  (single-target scope, remote tool path, no ad-hoc plugins, HTTP-first
-  automation, additive content models) plus five new enabled `_builtin` skills.
-- Plugin: permanent operating rules in agent instructions (not Safety Memory UI)
-  covering the same workflow discipline plus Elementor native-first lessons
-  (responsive typography, Nested Carousel offset, swiper overflow, CSS parent class).
-- Built-in skill pack `agent-operating-rules` for matched task playbooks.
-
-### Changed
-
-- Direct `AGENTS.md` managed template includes the permanent operating rules.

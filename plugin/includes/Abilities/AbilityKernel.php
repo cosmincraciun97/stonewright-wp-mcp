@@ -78,6 +78,14 @@ abstract class AbilityKernel implements Ability {
 			$status = ( 403 === $http || str_contains( $code, 'forbidden' ) || str_contains( $code, 'blocked' ) || str_contains( $code, 'permission' ) )
 				? 'blocked'
 				: 'error';
+		} elseif ( is_array( $result ) ) {
+			// Mutation success requires effect verification when the ability reports it.
+			if ( array_key_exists( 'effect_verified', $result ) && true !== $result['effect_verified'] ) {
+				$status = 'error';
+			}
+			if ( isset( $result['verification_status'] ) && in_array( (string) $result['verification_status'], [ 'failed', 'missing' ], true ) ) {
+				$status = 'error';
+			}
 		}
 		$sanitized  = $this->sanitize_for_audit( $args );
 		$metadata   = $this->audit_metadata(
@@ -89,6 +97,20 @@ abstract class AbilityKernel implements Ability {
 			$message                   = preg_replace( '/\s+/', ' ', trim( (string) $result->get_error_message() ) ) ?? '';
 			$metadata['error_code']    = sanitize_key( (string) $result->get_error_code() );
 			$metadata['error_message'] = mb_substr( $message, 0, 200 );
+			$data                      = $result->get_error_data();
+			if ( is_array( $data ) ) {
+				foreach ( [ 'execution_status', 'verification_status', 'rollback_status', 'before_sha256', 'after_sha256', 'cause_key', 'resource_type', 'operation_class' ] as $effect_key ) {
+					if ( isset( $data[ $effect_key ] ) && is_scalar( $data[ $effect_key ] ) ) {
+						$metadata[ $effect_key ] = $data[ $effect_key ];
+					}
+				}
+			}
+		} elseif ( is_array( $result ) ) {
+			foreach ( [ 'execution_status', 'verification_status', 'rollback_status', 'before_sha256', 'after_sha256', 'changed_bytes', 'effect_verified', 'operation_class', 'resource_type' ] as $effect_key ) {
+				if ( array_key_exists( $effect_key, $result ) && ( is_scalar( $result[ $effect_key ] ) || null === $result[ $effect_key ] ) ) {
+					$metadata[ $effect_key ] = $result[ $effect_key ];
+				}
+			}
 		}
 		if ( [] !== $metadata ) {
 			$sanitized['_meta'] = $metadata;

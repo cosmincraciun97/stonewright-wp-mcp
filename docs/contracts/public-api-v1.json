@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-07-22T20:06:56+00:00",
+    "generated_at": "2026-07-23T09:06:41+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -3057,7 +3057,7 @@
             "mcp_name": "stonewright-learning-record",
             "kind": "Write",
             "input_schema_hash": "ead6ad0756554f024647ee0825a7007b4ad4ea7b1588ebe1bd43a978846bd181",
-            "output_schema_hash": "aad4d2d0ee6b452de1023815301380fb79fe35f2134575db204b90e35a6ddf53",
+            "output_schema_hash": "d096c3424720d7c9879f36c46d5ab3dfc3c5545815d858b699b5abbf4a5d95bb",
             "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
@@ -4092,7 +4092,7 @@
             "ability_name": "stonewright/theme-file-patch",
             "mcp_name": "stonewright-theme-file-patch",
             "kind": "Write",
-            "input_schema_hash": "417648be13c705046ecbbc1063c77968fba8595e80d5c90e99ae475951155b6a",
+            "input_schema_hash": "3acbc6b3b561b0d78bbe150ce2b90e9e8d587eadc9d8a997028b5534c7ca47c0",
             "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
             "permission_class": "Permissions::manage_options()",
             "gates": {

@@ -7,6 +7,7 @@ use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\ProtectedElementorWriteGuard;
+use Stonewright\WpMcp\Security\ProtectedFilesystemWriteGuard;
 
 /**
  * Executes short, guarded PHP snippets inside the loaded WordPress runtime.
@@ -29,7 +30,7 @@ final class PhpExecute extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Executes a short PHP body inside WordPress for compact runtime inspection or plugin API work. Raw Elementor document writes are never allowed: use typed Elementor abilities and their schema_request repair path. Requires manage_options, is audited and output-limited, and requires confirmation in production-safe mode.', 'stonewright' );
+		return __( 'Executes a short PHP body inside WordPress for compact runtime inspection or plugin API work. Never writes theme/plugin/core code files (use theme-file-patch). Raw Elementor document writes are never allowed: use typed Elementor abilities. Requires manage_options, is audited and output-limited, and requires confirmation in production-safe mode.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -126,10 +127,15 @@ final class PhpExecute extends AbilityKernel {
 				}
 
 				$read_only = (bool) ( $runtime_args['read_only'] ?? false );
-				$guard     = ProtectedElementorWriteGuard::inspect(
-					(string) $runtime_args['code'],
-					$read_only
-				);
+				$code_body = (string) $runtime_args['code'];
+
+				// P0: never mutate WordPress code files through php-execute.
+				$fs_guard = ProtectedFilesystemWriteGuard::inspect( $code_body );
+				if ( $fs_guard instanceof \WP_Error ) {
+					return $fs_guard;
+				}
+
+				$guard = ProtectedElementorWriteGuard::inspect( $code_body, $read_only );
 				if ( $guard instanceof \WP_Error ) {
 					return $guard;
 				}
@@ -152,16 +158,38 @@ final class PhpExecute extends AbilityKernel {
 
 	protected function audit_metadata( array $args, array|\WP_Error $result, int $elapsed_ms ): array {
 		$data = $result instanceof \WP_Error ? (array) $result->get_error_data() : $result;
-		return [
-			'code_sha256'      => hash( 'sha256', (string) ( $args['code'] ?? '' ) ),
-			'duration_ms'      => $elapsed_ms,
-			'result_status'    => $result instanceof \WP_Error ? 'error' : 'ok',
-			'result_type'      => (string) ( $data['result_type'] ?? ( $result instanceof \WP_Error ? 'WP_Error' : 'unknown' ) ),
-			'stdout_bytes'     => (int) ( $data['stdout_bytes'] ?? 0 ),
-			'result_bytes'     => (int) ( $data['result_bytes'] ?? 0 ),
-			'stdout_truncated' => (bool) ( $data['stdout_truncated'] ?? false ),
-			'result_truncated' => (bool) ( $data['result_truncated'] ?? false ),
+		$meta = [
+			'code_sha256'         => hash( 'sha256', (string) ( $args['code'] ?? '' ) ),
+			'duration_ms'         => $elapsed_ms,
+			'result_status'       => $result instanceof \WP_Error ? 'error' : 'ok',
+			'result_type'         => (string) ( $data['result_type'] ?? ( $result instanceof \WP_Error ? 'WP_Error' : 'unknown' ) ),
+			'stdout_bytes'        => (int) ( $data['stdout_bytes'] ?? 0 ),
+			'result_bytes'        => (int) ( $data['result_bytes'] ?? 0 ),
+			'stdout_truncated'    => (bool) ( $data['stdout_truncated'] ?? false ),
+			'result_truncated'    => (bool) ( $data['result_truncated'] ?? false ),
+			'operation_class'     => 'runtime_php',
+			'execution_status'    => $result instanceof \WP_Error ? 'error' : 'ok',
+			'verification_status' => $result instanceof \WP_Error ? 'not_applicable' : 'runtime_return',
+			'effect_verified'     => false,
 		];
+		if ( $result instanceof \WP_Error ) {
+			$code = (string) $result->get_error_code();
+			if ( str_contains( $code, 'blocked' ) ) {
+				$meta['execution_status']    = 'blocked';
+				$meta['verification_status'] = 'blocked';
+			}
+			if ( isset( $data['target_class'] ) ) {
+				$meta['resource_type'] = is_array( $data['target_class'] )
+					? implode( ',', $data['target_class'] )
+					: (string) $data['target_class'];
+			}
+			if ( isset( $data['attempted_operation'] ) ) {
+				$meta['attempted_operation'] = is_array( $data['attempted_operation'] )
+					? implode( ',', $data['attempted_operation'] )
+					: (string) $data['attempted_operation'];
+			}
+		}
+		return $meta;
 	}
 
 	private function execute_code( string $code, int $timeout_seconds, string $return_mode, int $max_output_bytes, bool $read_only = false ): array|\WP_Error {

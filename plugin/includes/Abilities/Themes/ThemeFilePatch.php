@@ -5,10 +5,12 @@ namespace Stonewright\WpMcp\Abilities\Themes;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Security\CustomCodeGrant;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\ThemeWriteTransaction;
 
 /**
- * Patch allowlisted theme files with backup + optional production confirmation.
+ * Patch allowlisted theme files with validation, grant, backup, atomic write, smoke, rollback.
  *
  * Modes: append | insert_after_marker | replace_between_markers | replace_all.
  *
@@ -26,7 +28,7 @@ final class ThemeFilePatch extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Safely patch child-theme CSS/JS/PHP within an allowlist. Supports append, insert_after_marker, and replace_between_markers. Backs up the file before write and requires confirmation in production-safe mode.', 'stonewright' );
+		return __( 'Safely patch child-theme CSS/JS/PHP within an allowlist. Requires dry_run first for code assets, full-file validation, operator custom-code grant for apply, atomic write, readback, and bootstrap smoke with automatic rollback. Prefer marker-bounded replacements over unrestricted append.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -74,8 +76,23 @@ final class ThemeFilePatch extends AbilityKernel {
 					'default' => false,
 				],
 				'dry_run'            => [
-					'type'    => 'boolean',
-					'default' => false,
+					'type'        => 'boolean',
+					'default'     => false,
+					'description' => 'Required true first for PHP/CSS/JS apply. Returns candidate hashes, risk, and approval requirement without writing.',
+				],
+				'custom_code_grant'  => [
+					'type'        => 'string',
+					'description' => 'Single-use operator grant bound to candidate after_sha256. Required to apply PHP/CSS/JS writes.',
+				],
+				'smoke_url'          => [
+					'type'        => 'string',
+					'description' => 'Optional public URL to smoke after theme changes.',
+				],
+				'max_changed_bytes'  => [
+					'type'        => 'integer',
+					'minimum'     => 1,
+					'maximum'     => 262144,
+					'description' => 'Change-size budget (default 65536).',
 				],
 				'confirmation_token' => [
 					'type'        => 'string',
@@ -106,7 +123,7 @@ final class ThemeFilePatch extends AbilityKernel {
 			$args,
 			function ( array $runtime_args ): array|\WP_Error {
 				$verify = $runtime_args;
-				unset( $verify['confirmation_token'] );
+				unset( $verify['confirmation_token'], $verify['custom_code_grant'] );
 				$token_error = $this->confirmation_token_error( $runtime_args, $verify );
 				if ( $token_error instanceof \WP_Error ) {
 					return $token_error;
@@ -120,11 +137,13 @@ final class ThemeFilePatch extends AbilityKernel {
 					return $resolved;
 				}
 
-				$mode    = (string) ( $runtime_args['mode'] ?? '' );
-				$content = (string) ( $runtime_args['content'] ?? '' );
-				$dry_run = (bool) ( $runtime_args['dry_run'] ?? false );
-				$create  = (bool) ( $runtime_args['create_if_missing'] ?? false );
-				$exists  = is_file( $resolved['absolute'] );
+				$mode     = (string) ( $runtime_args['mode'] ?? '' );
+				$content  = (string) ( $runtime_args['content'] ?? '' );
+				$dry_run  = (bool) ( $runtime_args['dry_run'] ?? false );
+				$create   = (bool) ( $runtime_args['create_if_missing'] ?? false );
+				$exists   = is_file( $resolved['absolute'] );
+				$language = ThemeWriteTransaction::detect_language( $resolved['relative'] );
+				$is_code  = in_array( $language, [ 'php', 'css', 'js' ], true );
 
 				if ( ! $exists && ! $create ) {
 					return $this->error(
@@ -134,70 +153,160 @@ final class ThemeFilePatch extends AbilityKernel {
 					);
 				}
 
+				// Prefer marker-bounded modes for PHP.
+				if ( 'php' === $language && 'append' === $mode && ! $dry_run ) {
+					// Still allowed with grant, but risk elevated.
+				}
+
 				$before = $exists ? (string) file_get_contents( $resolved['absolute'] ) : '';
 				$after  = self::apply_patch( $before, $mode, $content, $runtime_args );
 				if ( $after instanceof \WP_Error ) {
 					return $after;
 				}
 
-				$before_hash = hash( 'sha256', $before );
-				$after_hash  = hash( 'sha256', $after );
-				$changed     = $before_hash !== $after_hash;
+				$before_hash   = hash( 'sha256', $before );
+				$after_hash    = hash( 'sha256', $after );
+				$changed       = $before_hash !== $after_hash;
+				$changed_bytes = abs( strlen( $after ) - strlen( $before ) );
+				$max_bytes     = (int) ( $runtime_args['max_changed_bytes'] ?? ThemeWriteTransaction::DEFAULT_MAX_CHANGED_BYTES );
+
+				// Validate complete candidate before any write (including dry_run reporting).
+				$validation = ThemeWriteTransaction::validate_candidate( $after, $language );
+				$validator_summary = [
+					'language' => $language,
+					'result'   => $validation instanceof \WP_Error ? 'fail' : 'pass',
+				];
+				if ( $validation instanceof \WP_Error ) {
+					$data = (array) $validation->get_error_data();
+					return new \WP_Error(
+						$validation->get_error_code(),
+						$validation->get_error_message(),
+						array_merge(
+							$data,
+							[
+								'path'                => $resolved['relative'],
+								'before_sha256'       => $before_hash,
+								'after_sha256'        => $after_hash,
+								'execution_status'    => 'ok',
+								'verification_status' => 'failed',
+								'rollback_status'     => 'not_needed',
+								'effect_verified'     => false,
+								'validator_summary'   => $validator_summary,
+							]
+						)
+					);
+				}
+
+				$diff_preview = self::bounded_diff_preview( $before, $after );
+				$risk         = self::risk_class( $language, $mode, $changed_bytes );
 
 				if ( $dry_run || ! $changed ) {
 					return [
-						'ok'            => true,
-						'dry_run'       => $dry_run,
-						'changed'       => $changed,
-						'path'          => $resolved['relative'],
-						'absolute_path' => $resolved['absolute'],
-						'mode'          => $mode,
-						'before_bytes'  => strlen( $before ),
-						'after_bytes'   => strlen( $after ),
-						'before_sha256' => $before_hash,
-						'after_sha256'  => $after_hash,
-						'backup_path'   => null,
-						'preview'       => self::preview_tail( $after ),
+						'ok'                  => true,
+						'dry_run'             => true,
+						'changed'             => $changed,
+						'path'                => $resolved['relative'],
+						'mode'                => $mode,
+						'language'            => $language,
+						'before_bytes'        => strlen( $before ),
+						'after_bytes'         => strlen( $after ),
+						'changed_bytes'       => $changed_bytes,
+						'before_sha256'       => $before_hash,
+						'after_sha256'        => $after_hash,
+						'backup_path'         => null,
+						'preview'             => self::preview_tail( $after ),
+						'diff_preview'        => $diff_preview,
+						'validator_summary'   => $validator_summary,
+						'risk_class'          => $risk,
+						'approval_required'   => $is_code && $changed,
+						'approval_url'        => admin_url( 'admin.php?page=stonewright-custom-code-approval' ),
+						'execution_status'    => 'ok',
+						'verification_status' => 'dry_run',
+						'rollback_status'     => 'not_needed',
+						'effect_verified'     => true, // dry_run is intentionally non-mutating.
+						'operation_class'     => 'theme_file_write',
+						'resource_type'       => 'theme_file',
+						'resource_ref'        => $resolved['relative'],
 					];
 				}
 
-				$backup = self::backup_file( $resolved['absolute'], $before, $exists );
-				if ( $backup instanceof \WP_Error ) {
-					return $backup;
-				}
+				// Applying code assets requires a custom-code grant bound to candidate hash.
+				if ( $is_code ) {
+					$grant = (string) ( $runtime_args['custom_code_grant'] ?? '' );
+					if ( '' === $grant ) {
+						$proposal = CustomCodeGrant::missing_grant_proposal(
+							[
+								'path'          => $resolved['relative'],
+								'language'      => $language,
+								'after_sha256'  => $after_hash,
+								'before_sha256' => $before_hash,
+								'changed_bytes' => $changed_bytes,
+								'diff_preview'  => $diff_preview,
+								'risk_class'    => $risk,
+								'test_plan'     => [
+									'Validate complete candidate (already done in dry_run).',
+									'Issue custom-code grant for after_sha256.',
+									'Apply with same content + grant.',
+									'Confirm smoke and Memory/Audit effect fields.',
+								],
+								'rollback_plan' => 'Automatic rollback on smoke/readback failure; backups under uploads/stonewright-theme-backups.',
+								'execution_status'    => 'blocked',
+								'verification_status' => 'blocked',
+								'rollback_status'     => 'not_needed',
+								'effect_verified'     => false,
+								'operation_class'     => 'custom_code',
+								'resource_type'       => 'theme_file',
+								'resource_ref'        => $resolved['relative'],
+							]
+						);
+						return new \WP_Error(
+							'stonewright_custom_code_grant_required',
+							(string) $proposal['message'],
+							array_merge( [ 'status' => 400, 'retryable' => false ], $proposal )
+						);
+					}
 
-				$dir = dirname( $resolved['absolute'] );
-				if ( ! is_dir( $dir ) && ! wp_mkdir_p( $dir ) ) {
-					return $this->error(
-						'theme_file_mkdir_failed',
-						__( 'Could not create theme directory for the target path.', 'stonewright' ),
-						[ 'status' => 500, 'path' => $resolved['relative'] ]
+					$grant_ok = CustomCodeGrant::verify_and_consume(
+						$grant,
+						$resolved['relative'],
+						$after_hash,
+						$language,
+						$changed_bytes
 					);
+					if ( $grant_ok instanceof \WP_Error ) {
+						return $grant_ok;
+					}
 				}
 
-				$written = file_put_contents( $resolved['absolute'], $after );
-				if ( false === $written ) {
-					return $this->error(
-						'theme_file_write_failed',
-						__( 'Failed to write theme file.', 'stonewright' ),
-						[ 'status' => 500, 'path' => $resolved['relative'] ]
-					);
+				$applied = ThemeWriteTransaction::apply(
+					[
+						'absolute'           => $resolved['absolute'],
+						'relative'           => $resolved['relative'],
+						'before'             => $before,
+						'after'              => $after,
+						'language'           => $language,
+						'smoke_url'          => isset( $runtime_args['smoke_url'] ) ? (string) $runtime_args['smoke_url'] : null,
+						'max_changed_bytes'  => $max_bytes,
+					]
+				);
+				if ( $applied instanceof \WP_Error ) {
+					return $applied;
 				}
 
-				return [
-					'ok'            => true,
-					'dry_run'       => false,
-					'changed'       => true,
-					'path'          => $resolved['relative'],
-					'absolute_path' => $resolved['absolute'],
-					'mode'          => $mode,
-					'before_bytes'  => strlen( $before ),
-					'after_bytes'   => strlen( $after ),
-					'before_sha256' => $before_hash,
-					'after_sha256'  => $after_hash,
-					'backup_path'   => $backup,
-					'preview'       => self::preview_tail( $after ),
-				];
+				return array_merge(
+					$applied,
+					[
+						'dry_run'       => false,
+						'mode'          => $mode,
+						'language'      => $language,
+						'before_bytes'  => strlen( $before ),
+						'after_bytes'   => strlen( $after ),
+						'preview'       => self::preview_tail( $after ),
+						'operation_class' => 'theme_file_write',
+						'resource_type'   => 'theme_file',
+						'resource_ref'    => $resolved['relative'],
+					]
+				);
 			}
 		);
 	}
@@ -242,9 +351,9 @@ final class ThemeFilePatch extends AbilityKernel {
 				'stonewright_theme_file_marker_missing',
 				__( 'Marker not found in theme file.', 'stonewright' ),
 				[
-					'status'       => 400,
-					'marker'       => $marker,
-					'error_code'   => 'marker_missing',
+					'status'     => 400,
+					'marker'     => $marker,
+					'error_code' => 'marker_missing',
 				]
 			);
 		}
@@ -292,41 +401,70 @@ final class ThemeFilePatch extends AbilityKernel {
 		return '…' . substr( $text, -$max );
 	}
 
-	/** @return string|\WP_Error|null */
-	private static function backup_file( string $absolute, string $before, bool $exists ) {
-		if ( ! $exists || '' === $before ) {
-			return null;
+	/**
+	 * Bounded unified-diff style preview (no full source dump).
+	 *
+	 * @return array{changed_lines:int,preview:string}
+	 */
+	private static function bounded_diff_preview( string $before, string $after ): array {
+		$b         = explode( "\n", $before );
+		$a         = explode( "\n", $after );
+		$max       = max( count( $b ), count( $a ) );
+		$lines     = [];
+		$line_count = 0;
+		$changed   = 0;
+		for ( $i = 0; $i < $max && $line_count < 40; $i++ ) {
+			$bl = $b[ $i ] ?? null;
+			$al = $a[ $i ] ?? null;
+			if ( $bl === $al ) {
+				continue;
+			}
+			++$changed;
+			if ( null !== $bl ) {
+				$lines[] = '- ' . mb_substr( (string) $bl, 0, 120 );
+				++$line_count;
+			}
+			if ( null !== $al ) {
+				$lines[] = '+ ' . mb_substr( (string) $al, 0, 120 );
+				++$line_count;
+			}
 		}
-		$upload = wp_upload_dir();
-		if ( ! empty( $upload['error'] ) ) {
-			return new \WP_Error(
-				'stonewright_theme_file_backup_failed',
-				__( 'Could not resolve uploads directory for theme backup.', 'stonewright' ),
-				[ 'status' => 500 ]
-			);
+		return [
+			'changed_lines' => $changed,
+			'preview'       => implode( "\n", $lines ),
+		];
+	}
+
+	private static function risk_class( string $language, string $mode, int $changed_bytes ): string {
+		if ( 'php' === $language ) {
+			return 'high_risk_active_theme_php';
 		}
-		$dir = trailingslashit( (string) $upload['basedir'] ) . 'stonewright-theme-backups';
-		if ( ! is_dir( $dir ) && ! wp_mkdir_p( $dir ) ) {
-			return new \WP_Error(
-				'stonewright_theme_file_backup_failed',
-				__( 'Could not create theme backup directory.', 'stonewright' ),
-				[ 'status' => 500 ]
-			);
+		if ( $changed_bytes > 16384 || 'replace_all' === $mode ) {
+			return 'elevated';
 		}
-		$basename = basename( $absolute );
-		$target   = $dir . '/' . gmdate( 'Ymd-His' ) . '-' . hash( 'sha256', $absolute ) . '-' . $basename;
-		if ( false === file_put_contents( $target, $before ) ) {
-			return new \WP_Error(
-				'stonewright_theme_file_backup_failed',
-				__( 'Could not write theme backup file.', 'stonewright' ),
-				[ 'status' => 500 ]
-			);
-		}
-		return $target;
+		return 'standard_custom_code';
 	}
 
 	/** @return array<int, string> */
 	protected function audit_redacted_keys(): array {
-		return array_merge( parent::audit_redacted_keys(), [ 'content' ] );
+		return array_merge( parent::audit_redacted_keys(), [ 'content', 'custom_code_grant' ] );
+	}
+
+	protected function audit_metadata( array $args, array|\WP_Error $result, int $elapsed_ms ): array {
+		$data = $result instanceof \WP_Error ? (array) $result->get_error_data() : $result;
+		return [
+			'duration_ms'         => $elapsed_ms,
+			'operation_class'     => (string) ( $data['operation_class'] ?? 'theme_file_write' ),
+			'resource_type'       => 'theme_file',
+			'resource_ref'        => (string) ( $data['path'] ?? $data['resource_ref'] ?? ( $args['path'] ?? '' ) ),
+			'execution_status'    => (string) ( $data['execution_status'] ?? ( $result instanceof \WP_Error ? 'error' : 'ok' ) ),
+			'verification_status' => (string) ( $data['verification_status'] ?? ( $result instanceof \WP_Error ? 'failed' : 'verified' ) ),
+			'rollback_status'     => (string) ( $data['rollback_status'] ?? 'not_needed' ),
+			'before_sha256'       => (string) ( $data['before_sha256'] ?? '' ),
+			'after_sha256'        => (string) ( $data['after_sha256'] ?? '' ),
+			'changed_bytes'       => (int) ( $data['changed_bytes'] ?? 0 ),
+			'effect_verified'     => (bool) ( $data['effect_verified'] ?? false ),
+			'dry_run'             => (bool) ( $args['dry_run'] ?? false ),
+		];
 	}
 }

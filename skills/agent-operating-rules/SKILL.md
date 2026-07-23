@@ -70,6 +70,15 @@ gates for speed. Never implement via DOM mutation through browser `evaluate()`.
 - Read it back and report `memory_id`, `scope`, and `verified:true`.
 - Never claim it was remembered without verification.
 
+### Custom code operator grant
+
+- Custom PHP/CSS/JS/HTML may run only after a proven native gap and a short-lived
+  single-use custom-code grant issued from authenticated wp-admin.
+- Grant is bound to path + candidate `after_sha256`.
+- Never write theme/plugin/core code files through `php-execute`.
+- Use `stonewright/theme-file-patch` with `dry_run`, full-file validation, atomic
+  write, smoke, and rollback.
+
 ## Environment scope
 
 - Mutate **only** the site the user named.
