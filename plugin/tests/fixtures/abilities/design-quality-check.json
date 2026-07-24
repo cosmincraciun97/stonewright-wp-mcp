@@ -1,0 +1,33 @@
+{
+    "args": {
+        "id": 7001,
+        "evidence": {
+            "schema_version": "1.0",
+            "target": {
+                "post_id": 4213,
+                "url": "https://example.test/?p=4213",
+                "render_hash": "4f2d425115260cad7e4182b6c9d23e5f708192a3b4c5d6e7f8091a2b3c4d5e6f"
+            },
+            "viewports": [
+                {
+                    "id": "desktop",
+                    "width": 1440,
+                    "height": 900,
+                    "scroll_width": 1440,
+                    "scroll_height": 2400,
+                    "elements": [
+                        {
+                            "ref": "hero-title",
+                            "kind": "text",
+                            "box": { "width": 880, "height": 124 },
+                            "text_color": "#0b1f3a",
+                            "background_color": "#ffffff",
+                            "font": { "family": "Inter", "size_px": 56, "weight": 700, "line_height_px": 62 },
+                            "content_box": { "scroll_width": 860, "client_width": 880 }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

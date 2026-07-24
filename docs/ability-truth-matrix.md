@@ -217,6 +217,7 @@
 | `stonewright/design-direction-restore` | `stonewright-design-direction-restore` | `Design\DirectionRestore` | Writes a stored design direction revision back as a new revision, leaving history intact. | Write | `Permissions::can_manage_design()` | Yes | No | No | stable | `tests/Unit/Design/DirectionAbilitiesTest.php` |
 | `stonewright/design-direction-sync-plan` | `stonewright-design-direction-sync-plan` | `Design\DirectionSyncPlan` | Dry run: compares a design direction with the live Elementor kit and returns the operations, warnings, and blockers. | Read | `Permissions::can_manage_design()` | No | No | No | stable | `tests/Unit/Design/DirectionSyncAbilitiesTest.php` |
 | `stonewright/design-direction-sync-apply` | `stonewright-design-direction-sync-apply` | `Design\DirectionSyncApply` | Writes a sync-ready design direction into the live Elementor kit globals. | Write | `Permissions::can_manage_design()` | Yes | Yes | No | stable | `tests/Unit/Design/DirectionSyncAbilitiesTest.php` |
+| `stonewright/design-quality-check` | `stonewright-design-quality-check` | `Design\QualityCheck` | Evaluates measured browser evidence for a rendered page against the design direction and returns coverage, findings, and repair hints. | Write | `Permissions::can_manage_design() (compound)` | No | No | No | stable | `tests/Unit/Design/QualityCheckAbilityTest.php` |
 
 ---
 
@@ -597,7 +598,7 @@
 
 ## Summary
 
-Total abilities registered: **327**
+Total abilities registered: **328**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

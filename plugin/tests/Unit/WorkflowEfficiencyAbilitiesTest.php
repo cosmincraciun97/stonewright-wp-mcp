@@ -9,6 +9,7 @@ use Stonewright\WpMcp\Abilities\ElementorV3\ApplyBundle;
 use Stonewright\WpMcp\Abilities\ElementorV3\CapabilitiesSummary;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetWidgetSchema;
 use Stonewright\WpMcp\Abilities\Media\UploadMediaBatch;
+use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Abilities\System\WorkflowPreflight;
 use Stonewright\WpMcp\Abilities\System\TaskStart;
 use Stonewright\WpMcp\Core\AbilityRegistry;
@@ -185,7 +186,12 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/elementor-wire-loop', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/media-upload-batch', $result['recommended_tools'] );
-		self::assertContains( 'stonewright/content-bulk-upsert-posts', $result['recommended_tools'] );
+		// Verification of what was rendered outranks bulk content writes, so at a
+		// 40-tool cap the bulk writer falls out of the returned set while staying
+		// in the full profile.
+		self::assertContains( 'stonewright/design-quality-check', $result['recommended_tools'] );
+		self::assertNotContains( 'stonewright/content-bulk-upsert-posts', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/content-bulk-upsert-posts', ToolProfile::profile_tools( 'elementor-design' ) );
 		self::assertContains( 'stonewright/blueprint-apply', $result['recommended_tools'] );
 		// Full profile list may exceed max_tools; wp-cli is lower priority than blueprints/engine paths.
 		self::assertContains( 'Use profile tools before full ability discovery when the client has a strict tool cap.', $result['token_rules'] );

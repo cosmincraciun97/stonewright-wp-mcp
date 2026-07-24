@@ -671,6 +671,8 @@ final class ToolProfile extends AbilityKernel {
 				// Design intent is read before any render, so the reads outrank builders.
 				'stonewright/design-direction-list',
 				'stonewright/design-direction-get',
+				// Verification of what was rendered belongs next to the builders.
+				'stonewright/design-quality-check',
 				'stonewright/elementor-v3-build-page-from-spec',
 				'stonewright/theme-builder-apply-template',
 				'stonewright/elementor-v3-batch-mutate',
@@ -913,6 +915,7 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/design-direction-restore' => 'Bring an older direction revision back as a new revision; confirmation token required in production-safe.',
 			'stonewright/design-direction-sync-plan' => 'Dry run: see exactly which Elementor kit globals a direction would change before writing anything.',
 			'stonewright/design-direction-sync-apply' => 'Write a sync-ready direction into the Elementor kit globals; needs the dry-run base_hash and snapshots the kit.',
+			'stonewright/design-quality-check' => 'Turn measured browser evidence for a rendered Elementor or Gutenberg page into coverage, findings, and repair hints; store the report with persist.',
 			'stonewright/widget-intent-resolve' => 'Map visual intent to native Elementor widgets before writing controls.',
 			'stonewright/elementor-widget-implementation-guide' => 'Get Content, Style, and Advanced controls before Elementor writes.',
 			'stonewright/elementor-v3-get-kit-globals' => 'Read active Elementor kit colors and typography before global-style writes.',

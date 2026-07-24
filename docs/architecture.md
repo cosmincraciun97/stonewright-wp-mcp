@@ -130,7 +130,8 @@ depend on content alone rather than on the order a caller supplied.
 
 ### Ability surface
 
-Eight abilities expose the store to MCP clients, all in the `design` category:
+Nine abilities expose the store and its verification loop to MCP clients, all in
+the `design` category:
 
 | Ability | R/W | Gates |
 |---|---|---|
@@ -142,6 +143,7 @@ Eight abilities expose the store to MCP clients, all in the `design` category:
 | `stonewright/design-direction-restore` | Write | `can_manage_design()`, context token, confirmation token |
 | `stonewright/design-direction-sync-plan` | Read | `can_manage_design()`, context token |
 | `stonewright/design-direction-sync-apply` | Write | `can_manage_design()`, context token, confirmation token, `Backup::snapshot_post()` |
+| `stonewright/design-quality-check` | Read, or Write with `persist` | `can_view_design()`; `can_manage_design()` to persist, context token, `QualityEvidenceValidator` |
 
 Activation and restore replace the answer to "what should this site look like"
 for every later render, so both carry the destructive envelope: in
@@ -202,6 +204,52 @@ builders, because design intent is read before anything renders. The writes are
 intent-gated: they appear only when the task text names design-system work,
 and then immediately after the startup tools rather than at the tail, so a low
 `max_tools` cap cannot trim the tools the task exists for.
+
+## Rendered design quality
+
+`stonewright/design-quality-check` closes the loop the direction opens: the
+direction states intent, the renderers apply it, and this ability reports what
+the rendered page actually measures. The agent supplies the measurements; the
+plugin owns what they mean.
+
+There is no invented score. A report states how many checks ran, how many could
+not run and why, and for each finding the numbers that produced it — `actual`,
+`required`, the viewport, the element reference, and a repair hint. Evidence
+that was never captured is reported as `not_checked` and counted separately, so
+a thin browser session reads as unverified rather than clean. A report with
+nothing checked returns `not_checked`; it can never return `pass`.
+
+`QualityEvidenceValidator` holds the trust boundary, because evidence is the
+least trusted input in the subsystem: allowlist-only keys, hard bounds on
+viewports, elements, string length, and encoded size, and colors resolved to hex
+exactly once through the same `BrandKit` math the rest of the plugin uses. A
+color the plugin cannot measure — a CSS variable, a named keyword, a partially
+transparent value — is refused rather than guessed, because a substituted
+backdrop produces a confident wrong contrast ratio. A partially captured
+`states` object is preserved rather than filled in: "focus was captured and is
+missing" is a defect, while "states were never captured" is unknown, and the two
+must not collapse into one another.
+
+Rules split by what they can prove. Objective rules — text and focus contrast,
+horizontal overflow, target size, clipped text, a missing focus state — are
+errors, because they describe a page that is measurably broken. Rules that
+compare the render against the active direction's own token scale are warnings,
+because a direction is intent and a designer may deviate deliberately.
+Promoting a guidance rule to a hard failure would need a direction field the
+locked contract does not have, so guidance stays advisory in this release.
+Waivers named by exact rule id downgrade their findings to `info` and carry the
+stated reason into the report; the finding stays visible, because a waiver
+records an accepted trade-off rather than deleting evidence.
+
+Evaluating supplied evidence writes nothing and gates on
+`Permissions::can_view_design()`. `persist: true` stores a compact report and
+gates on `can_manage_design()`, is audited, and refuses when the report cannot
+be tied to both a post and a direction revision — a stored report that names no
+revision cannot be verified later. `QualityReportStore` keeps that ledger in one
+post meta row per page, newest first, capped at 20 reports and 200 findings per
+report, and accepts only numbers and rule ids: no screenshots, no markup, no
+credentials. MCP returns the report id, coverage, the honest total, and the
+first 20 findings; the full bounded report stays retrievable by id.
 
 ## Direct + plugin REST parity surfaces
 

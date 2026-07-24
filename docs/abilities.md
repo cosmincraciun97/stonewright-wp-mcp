@@ -1,6 +1,6 @@
 # Abilities Reference
 
-> Category counts are generated from `docs/ability-truth-matrix.md` (**327** abilities). Categories include Comments, Users, Widgets, Settings, Themes, Plugins manage, Revisions, Search, WooCommerce, ACF, SEO, Content Model.
+> Category counts are generated from `docs/ability-truth-matrix.md` (**328** abilities). Categories include Comments, Users, Widgets, Settings, Themes, Plugins manage, Revisions, Search, WooCommerce, ACF, SEO, Content Model.
 Stonewright registers WordPress abilities under the `stonewright/` prefix. MCP
 clients call the same names with slashes converted to hyphens: ability
 `stonewright/task-start` is MCP tool `stonewright-task-start`.
@@ -25,7 +25,7 @@ matrix after changing the registry.
 | Elementor V3 | 22 | Elementor V3 structure editing, document health, page specs, kit globals, capability preflight, and batch mutation. |
 | Elementor V4 (Experimental) | 12 | Atomic nodes, variables, classes, and experimental V4 rendering. |
 | Elementor Widget Builder | 98 | Deprecated generated per-widget compatibility builders plus custom widget project helpers. |
-| Design | 22 | Validate Design Spec, build specs from manual input, choose renderers, normalize assets, intent routing, apply to Gutenberg or Elementor, capture directions from Elementor kit evidence, read/write versioned Design Directions, and dry-run or apply a direction to the Elementor kit globals. |
+| Design | 23 | Validate Design Spec, build specs from manual input, choose renderers, normalize assets, intent routing, apply to Gutenberg or Elementor, capture directions from Elementor kit evidence, read/write versioned Design Directions, and dry-run or apply a direction to the Elementor kit globals, and evaluate measured browser evidence for a rendered page. |
 | Knowledge | 5 | Elementor knowledge search, widget descriptions, implementation guidance, and refresh. |
 | Memory | 5 | Persistent project memory, user corrections, and learning records. |
 | System | 8 | Context bootstrap, tool profiles, workflow preflight, instructions, ability list, and knowledge import/export. |

@@ -51,6 +51,7 @@ use Stonewright\WpMcp\Abilities\Design\ImportImage;
 use Stonewright\WpMcp\Abilities\Design\NativePlan;
 use Stonewright\WpMcp\Abilities\Design\NormalizeAssets;
 use Stonewright\WpMcp\Abilities\Design\PreviewRender;
+use Stonewright\WpMcp\Abilities\Design\QualityCheck;
 use Stonewright\WpMcp\Abilities\Design\SpecToElementorV3;
 use Stonewright\WpMcp\Abilities\Design\SpecToElementorV4;
 use Stonewright\WpMcp\Abilities\Design\SpecToGutenberg;
@@ -414,6 +415,9 @@ final class AbilityRegistry {
 			DirectionRestore::class,
 			DirectionSyncPlan::class,
 			DirectionSyncApply::class,
+
+			// Design — evidence-based verification of a rendered page.
+			QualityCheck::class,
 
 			// Blueprints + brand kits.
 			ListBlueprints::class,
