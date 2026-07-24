@@ -20,6 +20,12 @@ test.describe('Tooltips', () => {
 	test('method cards expose tooltips on hover and Escape hides them', async ({ page }) => {
 		await login(page);
 		await page.goto('/wp-admin/admin.php?page=stonewright', { waitUntil: 'domcontentloaded' });
+		const passwordButton = page.locator(
+			'[data-stonewright-auth-method="application-password"]',
+		);
+		await expect(passwordButton).toBeVisible({ timeout: 15_000 });
+		await passwordButton.click();
+		await expect(passwordButton).toHaveAttribute('aria-checked', 'true');
 		const card = page.locator('[data-stonewright-method="stdio"][data-sw-tooltip]').first();
 		await expect(card).toBeVisible();
 		await card.hover();
