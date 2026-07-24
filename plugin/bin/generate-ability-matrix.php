@@ -444,6 +444,7 @@ function find_test_file( string $class ): string {
 		'DirectionList'     => 'tests/Unit/Design/DirectionAbilitiesTest.php',
 		'DirectionGet'      => 'tests/Unit/Design/DirectionAbilitiesTest.php',
 		'DirectionSave'     => 'tests/Unit/Design/DirectionAbilitiesTest.php',
+		'DirectionCapture'  => 'tests/Unit/Design/DirectionCaptureAbilityTest.php',
 		'DirectionActivate' => 'tests/Unit/Design/DirectionAbilitiesTest.php',
 		'DirectionRestore'  => 'tests/Unit/Design/DirectionAbilitiesTest.php',
 	];

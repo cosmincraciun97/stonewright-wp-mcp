@@ -1,6 +1,6 @@
 # Abilities Reference
 
-> Category counts are generated from `docs/ability-truth-matrix.md` (**324** abilities). Categories include Comments, Users, Widgets, Settings, Themes, Plugins manage, Revisions, Search, WooCommerce, ACF, SEO, Content Model.
+> Category counts are generated from `docs/ability-truth-matrix.md` (**325** abilities). Categories include Comments, Users, Widgets, Settings, Themes, Plugins manage, Revisions, Search, WooCommerce, ACF, SEO, Content Model.
 Stonewright registers WordPress abilities under the `stonewright/` prefix. MCP
 clients call the same names with slashes converted to hyphens: ability
 `stonewright/task-start` is MCP tool `stonewright-task-start`.
@@ -25,7 +25,7 @@ matrix after changing the registry.
 | Elementor V3 | 22 | Elementor V3 structure editing, document health, page specs, kit globals, capability preflight, and batch mutation. |
 | Elementor V4 (Experimental) | 12 | Atomic nodes, variables, classes, and experimental V4 rendering. |
 | Elementor Widget Builder | 98 | Deprecated generated per-widget compatibility builders plus custom widget project helpers. |
-| Design | 19 | Validate Design Spec, build specs from manual input, choose renderers, normalize assets, intent routing, apply to Gutenberg or Elementor, and read/write versioned Design Directions. |
+| Design | 20 | Validate Design Spec, build specs from manual input, choose renderers, normalize assets, intent routing, apply to Gutenberg or Elementor, capture directions from Elementor kit evidence, and read/write versioned Design Directions. |
 | Knowledge | 5 | Elementor knowledge search, widget descriptions, implementation guidance, and refresh. |
 | Memory | 5 | Persistent project memory, user corrections, and learning records. |
 | System | 8 | Context bootstrap, tool profiles, workflow preflight, instructions, ability list, and knowledge import/export. |
@@ -168,6 +168,14 @@ for debugging and operational tasks.
 - `stonewright/design-direction-save` validates the contract allowlist-only and
   rejects unknown fields instead of stripping them. It creates a new revision
   only when the contract hash changed, and returns the hash before and after.
+- `stonewright/design-direction-capture` turns compact Elementor kit evidence,
+  as returned by `stonewright/elementor-v3-get-kit-globals`, into a draft
+  contract with provenance for every mapped token. It previews by default and
+  stores only when `save` is true; a stored capture is always a draft, is never
+  marked ready, and never becomes the active direction. Values the kit did not
+  report stay absent instead of being guessed, contradictory values keep the
+  first and report a conflict, and unusable or unsupported evidence is reported
+  in `unmapped` rather than silently dropped.
 - `stonewright/design-direction-activate` and
   `stonewright/design-direction-restore` change live design intent. Both
   require the task context token, and in production-safe mode a confirmation

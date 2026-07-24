@@ -130,13 +130,14 @@ depend on content alone rather than on the order a caller supplied.
 
 ### Ability surface
 
-Five abilities expose the store to MCP clients, all in the `design` category:
+Six abilities expose the store to MCP clients, all in the `design` category:
 
 | Ability | R/W | Gates |
 |---|---|---|
 | `stonewright/design-direction-list` | Read | `Permissions::read()` |
 | `stonewright/design-direction-get` | Read | `Permissions::read()` |
 | `stonewright/design-direction-save` | Write | `can_manage_design()`, context token, `DirectionContractValidator` |
+| `stonewright/design-direction-capture` | Write | `can_manage_design()`, context token, `DirectionContractValidator` |
 | `stonewright/design-direction-activate` | Write | `can_manage_design()`, context token, confirmation token |
 | `stonewright/design-direction-restore` | Write | `can_manage_design()`, context token, confirmation token |
 
@@ -145,6 +146,16 @@ for every later render, so both carry the destructive envelope: in
 production-safe mode the confirmation token must be issued for that exact
 direction id — and, for restore, that exact revision — so a token minted for
 one direction cannot move another.
+
+Capture is the one path where a contract is produced by machine rather than
+authored, so it is gated as a write even when it only previews: a single `save`
+flag turns the same call into one. It reads nothing itself — the caller passes
+evidence collected with the typed Elementor reads — and it maps that evidence
+conservatively. Absent values stay absent, contradictory values keep the first
+occurrence and surface a conflict, unsupported or unusable evidence is reported
+in `unmapped`, and every mapped token carries provenance naming the kit it came
+from. A stored capture is always a draft: capture proposes, and promotion stays
+the separately gated decision it is for any other draft.
 
 Each write reads its own effect back before the receipt claims success: save
 and restore re-read the stored contract hash, activate re-reads the active
@@ -155,8 +166,8 @@ Receipts report `before_sha256`, `after_sha256`, `operation_class`,
 into the audit record.
 
 The two reads ship in the `elementor-design` tool profile ahead of the
-builders, because design intent is read before anything renders. The write trio
-is intent-gated: it appears only when the task text names design-system work,
+builders, because design intent is read before anything renders. The writes are
+intent-gated: they appear only when the task text names design-system work,
 and then immediately after the startup tools rather than at the tail, so a low
 `max_tools` cap cannot trim the tools the task exists for.
 

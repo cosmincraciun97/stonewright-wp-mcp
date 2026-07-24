@@ -38,6 +38,7 @@ use Stonewright\WpMcp\Abilities\Design\ApplyToPost;
 use Stonewright\WpMcp\Abilities\Design\BuildSpec;
 use Stonewright\WpMcp\Abilities\Design\ChooseRenderer;
 use Stonewright\WpMcp\Abilities\Design\DirectionActivate;
+use Stonewright\WpMcp\Abilities\Design\DirectionCapture;
 use Stonewright\WpMcp\Abilities\Design\DirectionGet;
 use Stonewright\WpMcp\Abilities\Design\DirectionList;
 use Stonewright\WpMcp\Abilities\Design\DirectionRestore;
@@ -406,6 +407,7 @@ final class AbilityRegistry {
 			DirectionList::class,
 			DirectionGet::class,
 			DirectionSave::class,
+			DirectionCapture::class,
 			DirectionActivate::class,
 			DirectionRestore::class,
 

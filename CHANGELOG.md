@@ -15,10 +15,15 @@ Unreleased); older history lives in git tags and GitHub releases.
 - Design Directions: a site's design language is now stored as a validated,
   versioned contract instead of prose, with append-only revision history and one
   active direction per site.
-- Five MCP abilities to list, read, save, activate, and restore design
+- Six MCP abilities to list, read, save, capture, activate, and restore design
   directions. Activation and restore replace live design intent, so both are
   gated by permission, task context token, and a confirmation token bound to the
   exact direction in production-safe mode.
+- Capture a starting direction from an existing Elementor kit: colors,
+  typography, spacing, breakpoints, and button styles become a reviewable draft
+  contract that records where each value came from. It shows the draft without
+  storing anything unless asked, and never guesses a value the kit did not
+  report.
 
 ## [1.0.0-alpha.86] - 2026-07-24
 

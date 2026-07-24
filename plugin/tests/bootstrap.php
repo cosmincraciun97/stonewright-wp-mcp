@@ -1359,7 +1359,14 @@ if ( ! function_exists( 'wp_strip_all_tags' ) ) {
 
 if ( ! function_exists( 'sanitize_title' ) ) {
 	function sanitize_title( string $title, string $fallback_title = '', string $context = 'save' ): string {
-		return sanitize_key( $title );
+		// Mirrors the part of sanitize_title_with_dashes() the plugin relies on:
+		// whitespace becomes a single dash instead of disappearing.
+		$slug = strtolower( trim( $title ) );
+		$slug = (string) preg_replace( '/[^a-z0-9_\s-]/', '', $slug );
+		$slug = (string) preg_replace( '/[\s-]+/', '-', $slug );
+		$slug = trim( $slug, '-' );
+
+		return '' === $slug ? sanitize_key( $fallback_title ) : $slug;
 	}
 }
 

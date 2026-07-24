@@ -212,6 +212,7 @@
 | `stonewright/design-direction-list` | `stonewright-design-direction-list` | `Design\DirectionList` | Lists stored design directions with status, revision, readiness, and contract hash. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/Design/DirectionAbilitiesTest.php` |
 | `stonewright/design-direction-get` | `stonewright-design-direction-get` | `Design\DirectionGet` | Returns one design direction contract by id or slug, with optional revision history. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/Design/DirectionAbilitiesTest.php` |
 | `stonewright/design-direction-save` | `stonewright-design-direction-save` | `Design\DirectionSave` | Validates and stores a design direction contract, creating a new revision when the contract changed. | Write | `Permissions::can_manage_design()` | No | No | Yes (Direction) | stable | `tests/Unit/Design/DirectionAbilitiesTest.php` |
+| `stonewright/design-direction-capture` | `stonewright-design-direction-capture` | `Design\DirectionCapture` | Turns compact Elementor kit evidence into a draft design direction contract with provenance. | Write | `Permissions::can_manage_design()` | No | No | Yes (Direction) | stable | `tests/Unit/Design/DirectionCaptureAbilityTest.php` |
 | `stonewright/design-direction-activate` | `stonewright-design-direction-activate` | `Design\DirectionActivate` | Makes a ready design direction the active one for the site. | Write | `Permissions::can_manage_design()` | Yes | No | No | stable | `tests/Unit/Design/DirectionAbilitiesTest.php` |
 | `stonewright/design-direction-restore` | `stonewright-design-direction-restore` | `Design\DirectionRestore` | Writes a stored design direction revision back as a new revision, leaving history intact. | Write | `Permissions::can_manage_design()` | Yes | No | No | stable | `tests/Unit/Design/DirectionAbilitiesTest.php` |
 
@@ -594,7 +595,7 @@
 
 ## Summary
 
-Total abilities registered: **324**
+Total abilities registered: **325**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

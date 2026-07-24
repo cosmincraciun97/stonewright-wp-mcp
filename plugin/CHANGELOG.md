@@ -12,6 +12,12 @@
   token; activate and restore additionally require a confirmation token bound to
   the direction id (and revision) in production-safe mode. Every write reads its
   effect back and reports the contract hash before and after.
+- Ability `stonewright/design-direction-capture`, which maps compact Elementor
+  kit evidence into a draft contract with provenance for every mapped token. It
+  previews by default and needs an explicit `save` to store; a stored capture is
+  a draft, is never marked ready, and never becomes the active direction. Absent
+  evidence stays absent, contradictory evidence keeps the first value and reports
+  a conflict, and unusable evidence is reported rather than dropped silently.
 
 ## [1.0.0-alpha.86] - 2026-07-24
 
