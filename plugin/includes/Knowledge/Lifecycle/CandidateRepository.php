@@ -54,7 +54,52 @@ final class CandidateRepository {
 		}
 
 		$created = self::get( $id );
+		self::prune();
 		return null !== $created ? $created : array_merge( [ 'id' => $id ], self::decode_row( $row ) );
+	}
+
+	/**
+	 * Delete only non-approved, expired or excess candidates.
+	 */
+	public static function prune( int $max_total = 500, int $max_per_topic = 25 ): int {
+		global $wpdb;
+		$table         = CandidateTable::table_name();
+		$max_total     = max( 1, $max_total );
+		$max_per_topic = max( 1, $max_per_topic );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$rows = $wpdb->get_results(
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- CandidateTable returns the prefix-owned table name; this query has no user values.
+			"SELECT id, topic, status, expires_at, updated_at FROM {$table} WHERE status IN ('candidate','verified','stale','rejected') ORDER BY updated_at DESC",
+			ARRAY_A
+		);
+		if ( ! is_array( $rows ) ) {
+			return 0;
+		}
+
+		$keep         = 0;
+		$topic_counts = [];
+		$delete_ids   = [];
+		foreach ( $rows as $row ) {
+			$id      = (int) ( $row['id'] ?? 0 );
+			$topic   = (string) ( $row['topic'] ?? '' );
+			$expired = strtotime( (string) ( $row['expires_at'] ?? '' ) . ' UTC' ) <= time();
+			$topic_counts[ $topic ] = (int) ( $topic_counts[ $topic ] ?? 0 );
+			if ( $id < 1 || $expired || $keep >= $max_total || $topic_counts[ $topic ] >= $max_per_topic ) {
+				if ( $id > 0 ) {
+					$delete_ids[] = $id;
+				}
+				continue;
+			}
+			++$keep;
+			++$topic_counts[ $topic ];
+		}
+		if ( [] === $delete_ids ) {
+			return 0;
+		}
+
+		$placeholders = implode( ',', array_fill( 0, count( $delete_ids ), '%d' ) );
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+		return (int) $wpdb->query( $wpdb->prepare( "DELETE FROM {$table} WHERE id IN ({$placeholders}) AND status <> 'approved'", ...$delete_ids ) );
 	}
 
 	/** @return array<string, mixed>|null */

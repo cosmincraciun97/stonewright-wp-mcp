@@ -183,6 +183,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright/design-native-plan', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/elementor-wire-loop', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/media-upload-batch', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/content-bulk-upsert-posts', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/blueprint-apply', $result['recommended_tools'] );

@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Knowledge;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateRepository;
 use Stonewright\WpMcp\Knowledge\Lifecycle\CandidateTable;
+use Stonewright\WpMcp\Knowledge\Lifecycle\SchemaRepairLearning;
 use Stonewright\WpMcp\Skills\Skills;
 use Stonewright\WpMcp\Skills\SkillsTable;
 
@@ -21,6 +22,7 @@ final class KnowledgeLifecycleTest extends TestCase {
 	protected function setUp(): void {
 		$this->original_wpdb = $GLOBALS['wpdb'] ?? null;
 		$GLOBALS['stonewright_test_current_user_id'] = 7;
+		$GLOBALS['stonewright_test_options'] = [];
 		$GLOBALS['wpdb'] = self::wpdb();
 	}
 
@@ -30,6 +32,7 @@ final class KnowledgeLifecycleTest extends TestCase {
 		} else {
 			unset( $GLOBALS['wpdb'] );
 		}
+		$GLOBALS['stonewright_test_options'] = [];
 	}
 
 	public function test_schema_contains_provenance_ttl_verification_and_status_indexes(): void {
@@ -162,6 +165,89 @@ final class KnowledgeLifecycleTest extends TestCase {
 		$GLOBALS['wpdb']->candidates[ (int) $compatible['id'] ]['expires_at'] = '2020-01-01 00:00:00';
 		self::assertSame( 'stale', CandidateRepository::get( (int) $compatible['id'] )['status'] );
 		self::assertSame( 'stale', Skills::get( (string) $compatible_promotion['skill_slug'] )['status'] );
+	}
+
+	public function test_schema_failure_alone_never_creates_candidate(): void {
+		SchemaRepairLearning::observe_failure(
+			'loop-carousel',
+			[ 'slides_to_show' => [ 'size' => 3 ] ],
+			self::schema_error(),
+			str_repeat( '1', 64 )
+		);
+
+		self::assertSame(
+			[],
+			CandidateRepository::list( [ 'topic' => 'Elementor schema repair: loop-carousel/slides_to_show' ] )
+		);
+	}
+
+	public function test_two_distinct_verified_tasks_promote_one_deduplicated_candidate(): void {
+		$schema = self::repair_schema();
+		SchemaRepairLearning::observe_failure(
+			'loop-carousel',
+			[ 'slides_to_show' => [ 'size' => 3 ] ],
+			self::schema_error(),
+			str_repeat( '1', 64 )
+		);
+		$first = SchemaRepairLearning::observe_verified(
+			'loop-carousel',
+			[ 'slides_to_show' => 3 ],
+			$schema,
+			str_repeat( '1', 64 )
+		);
+		$repeat = SchemaRepairLearning::observe_verified(
+			'loop-carousel',
+			[ 'slides_to_show' => 4 ],
+			$schema,
+			str_repeat( '1', 64 )
+		);
+		$second = SchemaRepairLearning::observe_verified(
+			'loop-carousel',
+			[ 'slides_to_show' => 5 ],
+			$schema,
+			str_repeat( '2', 64 )
+		);
+
+		self::assertSame( 1, $first[0]['candidate']['verification_count'] );
+		self::assertSame( 1, $repeat[0]['candidate']['verification_count'] );
+		self::assertSame( 'approved', $second[0]['candidate']['status'] );
+		self::assertCount(
+			1,
+			CandidateRepository::list( [ 'topic' => 'Elementor schema repair: loop-carousel/slides_to_show' ] )
+		);
+		self::assertStringNotContainsString( '"size":3', (string) $second[0]['candidate']['recipe'] );
+		self::assertStringNotContainsString( '5', (string) $second[0]['candidate']['fact'] );
+	}
+
+	private static function schema_error(): \WP_Error {
+		return new \WP_Error(
+			'stonewright_elementor_settings_invalid',
+			'Invalid control.',
+			[
+				'violations' => [
+					[
+						'path'     => 'slides_to_show',
+						'expected' => 'number',
+						'received' => 'object',
+					],
+				],
+				'schema_hash'        => str_repeat( 'a', 64 ),
+				'runtime_fingerprint'=> str_repeat( 'b', 64 ),
+			]
+		);
+	}
+
+	/** @return array<string, mixed> */
+	private static function repair_schema(): array {
+		return [
+			'schema_hash'         => str_repeat( 'a', 64 ),
+			'runtime_fingerprint' => str_repeat( 'b', 64 ),
+			'elementor_core'      => '3.30.0',
+			'elementor_pro'       => '3.30.0',
+			'controls'            => [
+				'slides_to_show' => [ 'type' => 'number' ],
+			],
+		];
 	}
 
 	/** @return array<string, mixed> */

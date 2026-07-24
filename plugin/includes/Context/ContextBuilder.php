@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Context;
 use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
 use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Core\AgentInstructions;
+use Stonewright\WpMcp\Elementor\Schema\RuntimeFingerprint;
 use Stonewright\WpMcp\Expertise\ExpertiseResolver;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Security\ErrorPatterns;
@@ -177,6 +178,10 @@ final class ContextBuilder {
 		$query = self::normalise( $task . ' ' . $surface );
 		$rows  = [];
 		foreach ( $skills as $skill ) {
+			if ( 'candidate' === (string) ( $skill['source'] ?? '' )
+				&& ! RuntimeFingerprint::matches_constraints( (array) ( $skill['version_constraints'] ?? [] ) ) ) {
+				continue;
+			}
 			$haystack = self::normalise(
 				(string) ( $skill['slug'] ?? '' ) . ' ' .
 				(string) ( $skill['title'] ?? '' ) . ' ' .
@@ -194,7 +199,22 @@ final class ContextBuilder {
 			static fn( array $a, array $b ): int => ( (int) $b['_score'] <=> (int) $a['_score'] )
 		);
 
-		return array_slice( $rows, 0, 5 );
+		$selected      = [];
+		$learned_count = 0;
+		foreach ( $rows as $row ) {
+			$is_schema_repair = 'candidate' === (string) ( $row['source'] ?? '' )
+				&& str_starts_with( (string) ( $row['topic'] ?? '' ), 'Elementor schema repair:' );
+			if ( $is_schema_repair && $learned_count >= 2 ) {
+				continue;
+			}
+			$selected[] = $row;
+			$learned_count += $is_schema_repair ? 1 : 0;
+			if ( count( $selected ) >= 5 ) {
+				break;
+			}
+		}
+
+		return $selected;
 	}
 
 	/**

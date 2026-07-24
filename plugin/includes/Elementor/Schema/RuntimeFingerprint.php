@@ -8,6 +8,22 @@ namespace Stonewright\WpMcp\Elementor\Schema;
  */
 final class RuntimeFingerprint {
 
+	/** @param array<string, mixed> $constraints */
+	public static function matches_constraints( array $constraints ): bool {
+		$components = (array) ( self::describe()['components'] ?? [] );
+		foreach ( $constraints as $component => $expression ) {
+			$expression = trim( (string) $expression );
+			if ( '' === $expression || in_array( strtolower( $expression ), [ '*', 'optional' ], true ) ) {
+				continue;
+			}
+			$version = trim( (string) ( $components[ (string) $component ] ?? '' ) );
+			if ( '' === $version || ! self::matches_expression( $version, $expression ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	/**
 	 * @return array<string, mixed>
 	 */
@@ -45,5 +61,28 @@ final class RuntimeFingerprint {
 			'hash'       => hash( 'sha256', (string) wp_json_encode( $payload ) ),
 			'components' => $payload,
 		];
+	}
+
+	private static function matches_expression( string $version, string $expression ): bool {
+		foreach ( preg_split( '/\s+/', trim( $expression ) ) ?: [] as $clause ) {
+			if ( '' === $clause ) {
+				continue;
+			}
+			if ( str_ends_with( $clause, '.*' ) ) {
+				if ( ! str_starts_with( $version . '.', substr( $clause, 0, -1 ) ) ) {
+					return false;
+				}
+				continue;
+			}
+			if ( ! preg_match( '/^(>=|<=|>|<|=)?(.+)$/', $clause, $matches ) ) {
+				return false;
+			}
+			$operator = '' === (string) $matches[1] ? '=' : (string) $matches[1];
+			$required = trim( (string) $matches[2] );
+			if ( '' === $required || ! version_compare( $version, $required, $operator ) ) {
+				return false;
+			}
+		}
+		return true;
 	}
 }

@@ -148,6 +148,7 @@
 | `stonewright/elementor-v3-remove-element` | `stonewright-elementor-v3-remove-element` | `ElementorV3\RemoveElement` | Removes an element from an Elementor page by id. | Write | `Permissions::edit_post( $id )` | Yes | Yes | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-build-page-from-spec` | `stonewright-elementor-v3-build-page-from-spec` | `ElementorV3\BuildPageFromSpec` | Renders a validated Stonewright Design Spec into Elementor V3 elements and writes it to a post. | Write | `Permissions::edit_post( $id )` | Yes | Yes | Yes (DesignSpec) | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-batch-mutate` | `stonewright-elementor-v3-batch-mutate` | `ElementorV3\BatchMutate` | Applies many Elementor V3 add/update/move/remove operations to one page in one request, with one read, one snapshot, and one write. | Write | `Permissions::edit_post( $id )` | Yes | Yes | No | stable | `tests/Integration/ElementorWriterTest.php` |
+| `stonewright/elementor-wire-loop` | `stonewright-elementor-wire-loop` | `ElementorV3\WireLoop` | Plan or transactionally add a native Elementor Pro Loop Carousel or Loop Grid using an existing loop-item template or a validated template spec. | Write | `Permissions::edit_post( (int)` | Yes | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-transaction-run` | `stonewright-elementor-v3-transaction-run` | `ElementorV3\TransactionRun` | Applies an Elementor V3 transaction envelope: precondition hash, pre-write snapshot, batch operations, structural readback, and optional rollback on failure. | Write | `Permissions::edit_post( $id )` | Yes | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-apply-bundle` | `stonewright-elementor-v3-apply-bundle` | `ElementorV3\ApplyBundle` | Applies multiple Elementor V3 page specs in one request. | Write | `Permissions::edit_posts()` | Yes | Yes | Yes (DesignSpec) | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-update-page-settings` | `stonewright-elementor-v3-update-page-settings` | `ElementorV3\UpdatePageSettings` | Updates _elementor_page_settings (background, layout, custom CSS). | Write | `Permissions::edit_post( $id )` | No | Yes | No | stable | `tests/Integration/ElementorWriterTest.php` |
@@ -588,7 +589,7 @@
 
 ## Summary
 
-Total abilities registered: **318**
+Total abilities registered: **319**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

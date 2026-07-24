@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Context\ExecutionContext;
 use Stonewright\WpMcp\Elementor\ContainerSettings;
 use Stonewright\WpMcp\Elementor\Schema\ContainerSchemaRepository;
 use Stonewright\WpMcp\Elementor\Schema\ResponsiveScope;
@@ -13,10 +14,13 @@ use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Elementor\V4\AtomicTreeInspector;
 use Stonewright\WpMcp\Elementor\Write\EvidenceValidator;
 use Stonewright\WpMcp\Elementor\Write\IdempotencyStore;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
+use Stonewright\WpMcp\Elementor\Write\V3MutationCompiler;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\RemediationHints;
+use Stonewright\WpMcp\Knowledge\Lifecycle\SchemaRepairLearning;
 use Stonewright\WpMcp\Support\ElementorData;
 
 /**
@@ -141,6 +145,7 @@ final class BatchMutate extends AbilityKernel {
 				'after_hash'    => [ 'type' => 'string' ],
 				'readback_hash' => [ 'type' => 'string' ],
 				'idempotent_replay' => [ 'type' => 'boolean' ],
+				'learning'      => [ 'type' => 'array', 'items' => [ 'type' => 'object' ] ],
 			],
 		];
 	}
@@ -239,12 +244,21 @@ final class BatchMutate extends AbilityKernel {
 				$applied    = 0;
 				$failed     = 0;
 				$stop       = array_key_exists( 'stop_on_error', $args ) ? (bool) $args['stop_on_error'] : ! $dry_run;
+				$task_hash  = ExecutionContext::task_hash();
 
 				foreach ( $operations as $index => $operation ) {
 					$operation = is_array( $operation ) ? $operation : [];
 					$result    = $this->apply_operation( $tree, $operation, $refs, $require_evidence );
 
 					if ( $result instanceof \WP_Error ) {
+						if ( 'add_widget' === (string) ( $operation['action'] ?? '' ) ) {
+							SchemaRepairLearning::observe_compilation_error(
+								(string) ( $operation['widget_type'] ?? '' ),
+								is_array( $operation['settings'] ?? null ) ? $operation['settings'] : [],
+								$result,
+								$task_hash
+							);
+						}
 						++$failed;
 						$items[] = self::error_item( $index, $result );
 						if ( $stop ) {
@@ -314,29 +328,51 @@ final class BatchMutate extends AbilityKernel {
 				$after_hash  = TreeHasher::hash( $tree );
 				$readback_hash = $dry_run ? $after_hash : '';
 				if ( ! $dry_run ) {
-					$snapshot_id = Backup::snapshot_post( $post_id );
-					$write_start = microtime( true );
-					// Surgical batch may remove large subtrees; force_destructive is bound to this
-					// intentional, snapshotted write (not an accidental silent collapse).
-					if ( ! ElementorData::write( $post_id, $tree, [ 'force_destructive' => true, 'touched_ids' => $targeted_ids ] ) ) {
-						$restored = Backup::restore( $post_id, $snapshot_id );
-						$err      = ElementorData::write_error_for_ability();
-						// Preserve restore info for the agent without losing gate codes/fix hints.
-						return new \WP_Error(
-							$err->get_error_code(),
-							$err->get_error_message(),
-							array_merge( (array) $err->get_error_data(), [ 'restored' => $restored ] )
-						);
+					$lock_owner = 'batch-' . substr( $request_hash, 0, 24 );
+					$lease      = PostWriteLock::acquire( $post_id, $lock_owner );
+					if ( $lease instanceof \WP_Error ) {
+						return $lease;
 					}
-					$write_ms = self::elapsed_ms( $write_start );
-					$readback_hash = TreeHasher::hash( ElementorData::read( $post_id ) );
-					if ( ! hash_equals( $after_hash, $readback_hash ) ) {
-						$restored = Backup::restore( $post_id, $snapshot_id );
-						return $this->error(
-							'readback_mismatch',
-							__( 'Elementor write readback did not match the compiled tree; the snapshot was restored.', 'stonewright' ),
-							[ 'status' => 500, 'expected_hash' => $after_hash, 'readback_hash' => $readback_hash, 'restored' => $restored ]
-						);
+					try {
+						$current_tree_hash = TreeHasher::hash( ElementorData::read( $post_id ) );
+						if ( ! hash_equals( $before_hash, $current_tree_hash ) ) {
+							return $this->error(
+								'tree_conflict',
+								__( 'Elementor page changed before the batch acquired its write lock; refresh structure before retrying.', 'stonewright' ),
+								[
+									'status'            => 409,
+									'expected_tree_hash'=> $before_hash,
+									'current_tree_hash' => $current_tree_hash,
+									'retryable'         => true,
+								]
+							);
+						}
+						$snapshot_id = Backup::snapshot_post( $post_id );
+						$write_start = microtime( true );
+						// Surgical batch may remove large subtrees; force_destructive is bound to this
+						// intentional, snapshotted write (not an accidental silent collapse).
+						if ( ! ElementorData::write( $post_id, $tree, [ 'force_destructive' => true, 'touched_ids' => $targeted_ids ] ) ) {
+							$restored = Backup::restore( $post_id, $snapshot_id );
+							$err      = ElementorData::write_error_for_ability();
+							// Preserve restore info for the agent without losing gate codes/fix hints.
+							return new \WP_Error(
+								$err->get_error_code(),
+								$err->get_error_message(),
+								array_merge( (array) $err->get_error_data(), [ 'restored' => $restored ] )
+							);
+						}
+						$write_ms      = self::elapsed_ms( $write_start );
+						$readback_hash = TreeHasher::hash( ElementorData::read( $post_id ) );
+						if ( ! hash_equals( $after_hash, $readback_hash ) ) {
+							$restored = Backup::restore( $post_id, $snapshot_id );
+							return $this->error(
+								'readback_mismatch',
+								__( 'Elementor write readback did not match the compiled tree; the snapshot was restored.', 'stonewright' ),
+								[ 'status' => 500, 'expected_hash' => $after_hash, 'readback_hash' => $readback_hash, 'restored' => $restored ]
+							);
+						}
+					} finally {
+						PostWriteLock::release( $post_id, $lock_owner );
 					}
 				}
 
@@ -361,16 +397,55 @@ final class BatchMutate extends AbilityKernel {
 					'after_hash'    => $after_hash,
 					'readback_hash' => $readback_hash,
 					'idempotent_replay' => false,
+					'learning'      => [],
 				];
 
 				if ( $dry_run ) {
 					$response['preview'] = $tree;
 				} else {
+					$learning = [];
+					foreach ( $operations as $operation ) {
+						if ( 'add_widget' !== (string) ( $operation['action'] ?? '' ) ) {
+							continue;
+						}
+						$widget_type = (string) ( $operation['widget_type'] ?? '' );
+						$schema      = WidgetSchemaRepository::get( $widget_type );
+						if ( $schema instanceof \WP_Error ) {
+							continue;
+						}
+						$learning = array_merge(
+							$learning,
+							SchemaRepairLearning::observe_verified(
+								$widget_type,
+								is_array( $operation['settings'] ?? null ) ? $operation['settings'] : [],
+								$schema,
+								$task_hash
+							)
+						);
+					}
+					$response['learning'] = self::learning_summary( $learning );
 					IdempotencyStore::remember( $post_id, $idempotency_key, $request_hash, $response );
 				}
 
 				return $response;
 			}
+		);
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $rows
+	 * @return list<array{id:int,status:string,verification_count:int}>
+	 */
+	private static function learning_summary( array $rows ): array {
+		return array_values(
+			array_map(
+				static fn( array $row ): array => [
+					'id'                 => (int) ( $row['candidate']['id'] ?? 0 ),
+					'status'             => (string) ( $row['candidate']['status'] ?? '' ),
+					'verification_count' => (int) ( $row['candidate']['verification_count'] ?? 0 ),
+				],
+				$rows
+			)
 		);
 	}
 
@@ -566,24 +641,24 @@ final class BatchMutate extends AbilityKernel {
 			return $evidence;
 		}
 
-		$parent_path = $this->parent_path( $tree, $operation, $refs, 'parent_id', 'parent_ref' );
-		if ( $parent_path instanceof \WP_Error ) {
-			return $parent_path;
+		if ( isset( $operation['parent_ref'] ) ) {
+			$parent_ref = (string) $operation['parent_ref'];
+			if ( ! isset( $refs[ $parent_ref ] ) ) {
+				return $this->error( 'unknown_ref', __( 'Batch operation references an unknown op_id.', 'stonewright' ), [ 'ref' => $parent_ref ] );
+			}
+			$operation['parent_id'] = $refs[ $parent_ref ];
+			unset( $operation['parent_ref'] );
 		}
-
-		$element = [
-			'id'         => ElementorData::generate_id(),
-			'elType'     => 'widget',
-			'widgetType' => $widget_type,
-			'settings'   => $settings,
-			'elements'   => [],
-		];
-
-		$position = isset( $operation['position'] ) ? (int) $operation['position'] : PHP_INT_MAX;
-		$tree     = ElementorData::insert( $tree, $parent_path, $position, $element );
+		$operation['settings'] = $settings;
+		$compiled = ( new V3MutationCompiler() )->compile( $tree, [ $operation ] );
+		if ( $compiled instanceof \WP_Error ) {
+			return $compiled;
+		}
+		$tree       = $compiled['tree'];
+		$element_id = (string) ( $compiled['items'][0]['element_id'] ?? '' );
 
 		return array_merge(
-			$this->created_item( $operation, $refs, $element['id'], 'widget' ),
+			$this->created_item( $operation, $refs, $element_id, 'widget' ),
 			[ 'evidence' => $evidence ],
 			[] !== $warnings ? [ 'normalization_warnings' => $warnings ] : []
 		);

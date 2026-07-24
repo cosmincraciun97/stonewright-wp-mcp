@@ -41,6 +41,24 @@ final class ContextToken {
 	}
 
 	public static function verify( string $token, string $ability_name ): bool|\WP_Error {
+		$claims = self::verified_claims( $token, $ability_name );
+		return $claims instanceof \WP_Error ? $claims : true;
+	}
+
+	public static function task_hash( string $token, string $ability_name ): string|\WP_Error {
+		$claims = self::verified_claims( $token, $ability_name );
+		if ( $claims instanceof \WP_Error ) {
+			return $claims;
+		}
+		$task_hash = (string) ( $claims['task_hash'] ?? '' );
+		if ( ! preg_match( '/^[a-f0-9]{64}$/', $task_hash ) ) {
+			return self::error();
+		}
+		return $task_hash;
+	}
+
+	/** @return array<string, mixed>|\WP_Error */
+	private static function verified_claims( string $token, string $ability_name ): array|\WP_Error {
 		if ( ! str_starts_with( $token, self::PREFIX ) ) {
 			return self::error();
 		}
@@ -79,7 +97,7 @@ final class ContextToken {
 			return self::error();
 		}
 
-		return true;
+		return $data;
 	}
 
 	public static function site_fingerprint(): string {

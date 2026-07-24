@@ -13,6 +13,9 @@ Operates on the Elementor V3 widget tree using the container model. All write
 operations take a backup snapshot before executing. Use
 `stonewright/elementor-v3-build-page-from-spec` for spec-driven builds and
 `stonewright/elementor-v3-batch-mutate` for surgical edits to an existing tree.
+For a new native Loop Grid or Loop Carousel, prefer
+`stonewright/elementor-wire-loop`: dry-run first, then apply the same
+idempotent request after reviewing the resolved live controls and query probe.
 
 ## Pre-flight
 

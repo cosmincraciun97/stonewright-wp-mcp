@@ -146,6 +146,25 @@ Plugin::$instance = (object) [
 						];
 					}
 				},
+				'loop-grid' => new class() {
+					public function get_title(): string {
+						return 'Loop Grid';
+					}
+
+					/** @return list<string> */
+					public function get_categories(): array {
+						return [ 'pro-elements' ];
+					}
+
+					/** @return array<string, array<string, mixed>> */
+					public function get_controls(): array {
+						return [
+							'template_id' => [ 'type' => 'number', 'required' => true ],
+							'post_type'   => [ 'type' => 'text' ],
+							'columns'     => [ 'type' => 'number', 'responsive' => true ],
+						];
+					}
+				},
 			];
 
 			if ( null !== $name ) {

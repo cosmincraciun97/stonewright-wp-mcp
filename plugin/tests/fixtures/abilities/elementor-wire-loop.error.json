@@ -1,0 +1,11 @@
+{
+    "args": {
+        "post_id": 1,
+        "parent_id": "parent1",
+        "display": "grid",
+        "post_type": "post",
+        "idempotency_key": "contract-wire-loop-error",
+        "dry_run": true
+    },
+    "expect": "wp_error"
+}

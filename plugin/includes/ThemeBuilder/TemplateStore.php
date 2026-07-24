@@ -53,6 +53,57 @@ final class TemplateStore {
 	 * (invalid type, or whatever wp_insert_post() refused).
 	 */
 	public static function create( string $title, string $type ): int|\WP_Error {
+		return self::insert( $title, $type, 'publish', '' );
+	}
+
+	public static function create_staged( string $title, string $type, string $owner ): int|\WP_Error {
+		$owner = sanitize_key( $owner );
+		if ( 'loop-item' !== $type || '' === $owner ) {
+			return new \WP_Error(
+				'stonewright_staged_template_invalid',
+				__( 'Staged templates require loop-item type and a transaction owner.', 'stonewright' ),
+				[ 'status' => 400 ]
+			);
+		}
+
+		return self::insert( $title, $type, 'draft', $owner );
+	}
+
+	public static function publish_staged( int $template_id, string $owner ): bool|\WP_Error {
+		$owned = self::assert_owner( $template_id, $owner );
+		if ( $owned instanceof \WP_Error ) {
+			return $owned;
+		}
+		$result = wp_update_post(
+			[
+				'ID'          => $template_id,
+				'post_status' => 'publish',
+			],
+			true
+		);
+
+		return is_wp_error( $result ) ? $result : true;
+	}
+
+	public static function finalize_staged( int $template_id, string $owner ): bool|\WP_Error {
+		$owned = self::assert_owner( $template_id, $owner );
+		if ( $owned instanceof \WP_Error ) {
+			return $owned;
+		}
+
+		return delete_post_meta( $template_id, '_stonewright_transaction_owner' );
+	}
+
+	public static function delete_staged( int $template_id, string $owner ): bool|\WP_Error {
+		$owned = self::assert_owner( $template_id, $owner );
+		if ( $owned instanceof \WP_Error ) {
+			return $owned;
+		}
+
+		return false !== wp_delete_post( $template_id, true );
+	}
+
+	private static function insert( string $title, string $type, string $status, string $owner ): int|\WP_Error {
 		if ( ! self::is_allowed_type( $type ) ) {
 			return new \WP_Error(
 				'stonewright_invalid_template_type',
@@ -66,7 +117,7 @@ final class TemplateStore {
 			[
 				'post_title'  => $title,
 				'post_type'   => 'elementor_library',
-				'post_status' => 'publish',
+				'post_status' => $status,
 			],
 			true
 		);
@@ -77,8 +128,33 @@ final class TemplateStore {
 		update_post_meta( (int) $id, '_elementor_template_type', $type );
 		update_post_meta( (int) $id, '_elementor_edit_mode', 'builder' );
 		update_post_meta( (int) $id, '_elementor_data', wp_json_encode( [] ) );
+		if ( '' !== $owner ) {
+			update_post_meta( (int) $id, '_stonewright_transaction_owner', $owner );
+		}
 
 		return (int) $id;
+	}
+
+	private static function assert_owner( int $template_id, string $owner ): bool|\WP_Error {
+		$post  = get_post( $template_id );
+		$owner = sanitize_key( $owner );
+		if ( ! $post || 'elementor_library' !== (string) $post->post_type ) {
+			return new \WP_Error(
+				'stonewright_staged_template_not_found',
+				__( 'The staged template was not found.', 'stonewright' ),
+				[ 'status' => 404, 'template_id' => $template_id ]
+			);
+		}
+		$stored = (string) get_post_meta( $template_id, '_stonewright_transaction_owner', true );
+		if ( '' === $owner || '' === $stored || ! hash_equals( $stored, $owner ) ) {
+			return new \WP_Error(
+				'stonewright_staged_template_owner_mismatch',
+				__( 'The staged template belongs to a different transaction.', 'stonewright' ),
+				[ 'status' => 409, 'template_id' => $template_id ]
+			);
+		}
+
+		return true;
 	}
 
 	/**

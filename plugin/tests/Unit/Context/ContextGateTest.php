@@ -11,6 +11,7 @@ use Stonewright\WpMcp\Abilities\WpCli\Discover as WpCliDiscover;
 use Stonewright\WpMcp\Abilities\WpCli\Run as WpCliRun;
 use Stonewright\WpMcp\Abilities\WpCli\Status as WpCliStatus;
 use Stonewright\WpMcp\Context\ContextToken;
+use Stonewright\WpMcp\Context\ExecutionContext;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 
 /**
@@ -45,6 +46,52 @@ final class ContextGateTest extends TestCase {
 		);
 
 		self::assertSame( [ 'received_keys' => [ 'value' ] ], $result );
+	}
+
+	public function test_task_hash_exposes_only_the_verified_task_digest(): void {
+		$issued = ContextToken::issue( 'Repair loop schema', 'stonewright/test-write' );
+
+		self::assertSame(
+			hash( 'sha256', 'Repair loop schema' ),
+			ContextToken::task_hash( (string) $issued['token'], 'stonewright/test-write' )
+		);
+		self::assertInstanceOf(
+			\WP_Error::class,
+			ContextToken::task_hash( (string) $issued['token'], 'stonewright/other-write' )
+		);
+	}
+
+	public function test_verified_task_hash_exists_only_during_guarded_execution(): void {
+		$issued = ContextToken::issue( 'Repair loop schema', 'stonewright/test-write' );
+		$ability = new class() extends AbilityKernel {
+			public function name(): string {
+				return 'stonewright/test-write';
+			}
+
+			public function label(): string {
+				return 'Test write';
+			}
+
+			public function description(): string {
+				return 'Test write ability.';
+			}
+
+			public function category(): string {
+				return 'content';
+			}
+
+			public function execute( array $args ): array|\WP_Error {
+				return [ 'task_hash' => ExecutionContext::task_hash() ];
+			}
+		};
+
+		$result = AbilityRegistry::execute_with_context_guard(
+			$ability,
+			[ 'stonewright_context_token' => $issued['token'] ]
+		);
+
+		self::assertSame( hash( 'sha256', 'Repair loop schema' ), $result['task_hash'] );
+		self::assertSame( '', ExecutionContext::task_hash() );
 	}
 
 	public function test_context_token_is_invalid_after_site_target_changes(): void {

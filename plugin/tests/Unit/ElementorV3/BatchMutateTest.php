@@ -7,6 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\BatchMutate;
 use Stonewright\WpMcp\Elementor\Schema\ContainerSchemaRepository;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Support\ElementorData;
 
@@ -80,6 +81,7 @@ final class BatchMutateTest extends TestCase {
 		$GLOBALS['stonewright_test_user_caps'] = [];
 		$GLOBALS['stonewright_test_user_logged_in'] = false;
 		$GLOBALS['stonewright_test_transients'] = [];
+		unset( $GLOBALS['stonewright_test_after_add_option'] );
 	}
 
 	public function test_batch_adds_updates_and_writes_elementor_data_once(): void {
@@ -160,6 +162,69 @@ final class BatchMutateTest extends TestCase {
 		self::assertSame( 1, $result['applied'] );
 		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
 		self::assertArrayHasKey( 'preview', $result );
+	}
+
+	public function test_write_returns_busy_without_mutation_when_page_is_locked(): void {
+		PostWriteLock::acquire( 501, 'other-transaction', 30 );
+
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 501,
+				'operations' => [
+					[
+						'action'      => 'add_widget',
+						'parent_id'   => 'root',
+						'widget_type' => 'heading',
+						'settings'    => [ 'title' => 'Blocked write' ],
+					],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_write_busy', $result->get_error_code() );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+	}
+
+	public function test_write_rechecks_page_after_acquiring_lock(): void {
+		$intervening_tree = [
+			[
+				'id'       => 'root',
+				'elType'   => 'container',
+				'settings' => [ 'container_type' => 'flex' ],
+				'elements' => [
+					[
+						'id'         => 'external',
+						'elType'     => 'widget',
+						'widgetType' => 'heading',
+						'settings'   => [ 'title' => 'Intervening write' ],
+						'elements'   => [],
+					],
+				],
+			],
+		];
+		$GLOBALS['stonewright_test_after_add_option'] = static function () use ( $intervening_tree ): void {
+			$GLOBALS['stonewright_test_posts'][501]->meta['_elementor_data'] = wp_json_encode( $intervening_tree );
+		};
+
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 501,
+				'operations' => [
+					[
+						'action'      => 'add_widget',
+						'parent_id'   => 'root',
+						'widget_type' => 'heading',
+						'settings'    => [ 'title' => 'Stale batch' ],
+					],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_tree_conflict', $result->get_error_code() );
+		self::assertSame( TreeHasher::hash( $intervening_tree ), $result->get_error_data()['current_tree_hash'] );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
 	}
 
 	public function test_mixed_document_rejects_unparented_root_add(): void {
