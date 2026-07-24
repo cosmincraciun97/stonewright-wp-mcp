@@ -92,13 +92,20 @@ final class SettingsValidator {
 		}
 
 		if ( [] !== $violations ) {
-			$first_path = (string) ( $violations[0]['path'] ?? '' );
+			$first      = $violations[0];
+			$first_path = (string) ( $first['path'] ?? '' );
 			$query      = preg_replace( '/^settings\./', '', $first_path );
 			$query      = explode( '.', (string) $query )[0];
 			$is_container = in_array( $subject, [ 'container', 'section', 'column' ], true );
 			return new \WP_Error(
 				'stonewright_elementor_settings_invalid',
-				__( 'Elementor settings do not match the live widget schema.', 'stonewright' ),
+				sprintf(
+					/* translators: 1: setting path, 2: expected shape, 3: received PHP type */
+					__( 'Elementor setting %1$s rejected: expected %2$s; received %3$s.', 'stonewright' ),
+					$first_path,
+					(string) ( $first['expected'] ?? 'a value accepted by the live widget schema' ),
+					(string) ( $first['got_type'] ?? 'unknown' )
+				),
 				[
 					'status'      => 400,
 					'widget_type' => $subject,

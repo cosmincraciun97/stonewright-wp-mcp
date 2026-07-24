@@ -147,6 +147,10 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'invalid_shape', $result->get_error_data()['violations'][0]['code'] );
+		self::assertStringContainsString( 'settings.flex_gap', $result->get_error_message() );
+		self::assertStringContainsString( 'expected a value compatible with Elementor control type slider', $result->get_error_message() );
+		self::assertStringContainsString( 'received array', $result->get_error_message() );
+		self::assertStringNotContainsString( 'not_a_slider_key', $result->get_error_message() );
 	}
 
 	public function test_control_conditions_require_the_live_activator(): void {
