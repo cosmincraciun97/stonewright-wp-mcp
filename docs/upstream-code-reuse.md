@@ -7,7 +7,7 @@ carry the correct license, and pass Stonewright's own security and test gates.
 ## License gate
 
 Stonewright ships the WordPress plugin as `AGPL-3.0-or-later` and the
-Node companion as `MIT`. Novamira 1.9.1 is primarily
+Node companion as `MIT`. The inspected Novamira 1.10.1 snapshot is primarily
 `AGPL-3.0-or-later`. Its `novamira-visual/composer.json` declares the visual
 subpackage as `MIT`, while PHP integration files inside that subpackage carry
 AGPL SPDX headers.
@@ -20,15 +20,32 @@ Visual is distributed as a separate AGPL-3.0-or-later package.
 
 - Source: `use-novamira/novamira`
 - Local snapshot: `/Users/cosminiviteb/Downloads/novamira-main`
-- Reported version: `1.9.1`
+- Reported version: `1.10.1`
 - Top-level license: `AGPL-3.0-or-later`
-- Snapshot date: `2026-07-14`
+- Snapshot date: `2026-07-24`
 
 The inspected open-source snapshot contains WordPress abilities, skill
 discovery, OAuth onboarding, a Gutenberg finalization queue, and the Novamira
 Visual workspace. It does not contain the commercial Elementor or Bricks tool
 implementations; only integration hooks and guidance for those tools are
 present.
+
+### OAuth parity import source set
+
+The `1.10.1` OAuth parity work imports all 21 PHP files under
+`includes/oauth/`, the OAuth configuration builders from
+`includes/connect-methods.php`, the OAuth chooser/client panel from
+`includes/connect-page.php`, and the 15 test families under `tests/oauth/`.
+Machine-readable ledger rows are added with each destination file so
+`composer provenance:lint` verifies the copied source header and source hash.
+
+- `novamira.php`: `bab84cac0eb3fa5101e506a7b19aa16818a2b953430180e6ba26dda3fae3bbf7`
+- `includes/connect-methods.php`: `f3c46c9cfaf027a864c1671063d10b0b0c945c0458a9fa952bb86c668feb55db`
+- `includes/connect-page.php`: `cad3348707d451e431c1b0aa964ea53d31c502bd8b86b5ca6fb9f15a3bf217d0`
+- sorted `includes/oauth/**` manifest:
+  `fce687f4b99d6f9b6dc87d494fd024338cc857ee913d878880fe7d7d342490be`
+- sorted `tests/oauth/**` manifest:
+  `9ca2d7d1a7983907e963db86ec356024348f2ae47d7e9ff4b8e781d9850aa887`
 
 ## Reuse ledger
 
@@ -53,7 +70,7 @@ changed and requires a new review.
 
 | Source path | SHA-256 |
 |---|---|
-| `novamira.php` | `08f9af1d945579f8f77268cd8e21b4208f794e393b01a061c33d1a92df0cf0e4` |
+| `novamira.php` | `bab84cac0eb3fa5101e506a7b19aa16818a2b953430180e6ba26dda3fae3bbf7` |
 | `novamira-visual/src/expose-tools.ts` | `b4423c9f610af5faf7898dd36ed42e8f81b04e6a0b23c5c7121d168bc58d6f1a` |
 | `novamira-visual/src/workspace-tool-schema-summary.ts` | `e879f2f80db51a59af3c288334cabcb6c74feb2c08873b209704c3432b10c549` |
 | `novamira-visual/src/workspace-dispatcher.ts` | `0d7818ef8d76347b32770be6aba2ce9fce1dee0528b309d9f9bf1fd749af4253` |
@@ -65,9 +82,11 @@ changed and requires a new review.
 | `includes/skills/catalog.php` | `1d437e36d25a016200315d21c6c123864eb7570b08e1d3efe75692dab48116ee` |
 | `includes/skills/parser.php` | `ed7707d7004b854df2f99ed5b9b0a5181681c9b8de5be5f5b77cf1dfff8ab6a7` |
 | `includes/skills/sources.php` | `409ef84ad24edeca243d847346f1073660d3b42a789241c96c5a140720bb3d79` |
-| `includes/connect-methods.php` | `c24169751ae8d5a4cf675ab675a0a16f53ecde71ea5c45f011968921483574a8` |
-| `includes/oauth/client-validation.php` | `16456d11d582204f8791c29f1ae9006b99f5bd4861ee72a75780f798bbc67309` |
-| sorted `includes/oauth/**` hash manifest | `229221936e8f66c412d1fc33cc0b4229a125173356b874e92f76cad55fdf3112` |
+| `includes/connect-methods.php` | `f3c46c9cfaf027a864c1671063d10b0b0c945c0458a9fa952bb86c668feb55db` |
+| `includes/connect-page.php` | `cad3348707d451e431c1b0aa964ea53d31c502bd8b86b5ca6fb9f15a3bf217d0` |
+| `includes/oauth/client-validation.php` | `aa9d865d5a8d7fa41f73f6740523c65a248294653ad8d99530f82759ae578523` |
+| sorted `includes/oauth/**` hash manifest | `fce687f4b99d6f9b6dc87d494fd024338cc857ee913d878880fe7d7d342490be` |
+| sorted `tests/oauth/**` hash manifest | `9ca2d7d1a7983907e963db86ec356024348f2ae47d7e9ff4b8e781d9850aa887` |
 | sorted `novamira-visual/src/tools/gutenberg/**` hash manifest | `2471aab10ca51c7365642971087abdf2e8ef997342ef7de37116e93fb306e94f` |
 
 ## Required review per import
