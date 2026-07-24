@@ -593,6 +593,45 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		}
 	}
 
+	public function test_workflow_preflight_announces_the_first_section_checkpoint_for_a_new_direction(): void {
+		$result = ( new WorkflowPreflight() )->execute(
+			[
+				'task'    => 'Rebrand the site around the new brand identity and rebuild the homepage.',
+				'surface' => 'elementor',
+				'intent'  => 'write',
+			]
+		);
+
+		self::assertIsArray( $result );
+
+		$checkpoint = $result['fast_path']['visual_checkpoint'];
+		self::assertTrue( $checkpoint['required'] );
+		self::assertSame( 'rebrand', $checkpoint['design_scope'] );
+		self::assertSame( 1, $checkpoint['first_section_limit'] );
+		self::assertNotSame( '', $checkpoint['reason'] );
+		self::assertSame( 'stonewright/design-checkpoint-record', $checkpoint['continuation_action']['ability'] );
+		self::assertSame( 'stonewright-design-checkpoint-record', $checkpoint['continuation_action']['mcp_tool'] );
+		self::assertContains( 'approved', $checkpoint['continuation_action']['required_args'] );
+		self::assertNotEmpty( $checkpoint['loop'] );
+	}
+
+	public function test_workflow_preflight_leaves_maintenance_work_uninterrupted(): void {
+		$result = ( new WorkflowPreflight() )->execute(
+			[
+				'task'    => 'Fix a typo in the hero subtitle on the about page.',
+				'surface' => 'elementor',
+				'intent'  => 'update',
+			]
+		);
+
+		self::assertIsArray( $result );
+
+		$checkpoint = $result['fast_path']['visual_checkpoint'];
+		self::assertFalse( $checkpoint['required'] );
+		self::assertSame( 'content_only', $checkpoint['design_scope'] );
+		self::assertArrayNotHasKey( 'continuation_action', $checkpoint );
+	}
+
 	public function test_workflow_preflight_includes_confirmation_token_step_for_production_safe_destructive_tasks(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
 

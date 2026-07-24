@@ -144,6 +144,7 @@ the `design` category:
 | `stonewright/design-direction-sync-plan` | Read | `can_manage_design()`, context token |
 | `stonewright/design-direction-sync-apply` | Write | `can_manage_design()`, context token, confirmation token, `Backup::snapshot_post()` |
 | `stonewright/design-quality-check` | Read, or Write with `persist` | `can_view_design()`; `can_manage_design()` to persist, context token, `QualityEvidenceValidator` |
+| `stonewright/design-checkpoint-record` | Read | `can_manage_design()` and `edit_post()`, context token, live section and direction must both resolve |
 
 Activation and restore replace the answer to "what should this site look like"
 for every later render, so both carry the destructive envelope: in
@@ -250,6 +251,53 @@ post meta row per page, newest first, capped at 20 reports and 200 findings per
 report, and accepts only numbers and rule ids: no screenshots, no markup, no
 credentials. MCP returns the report id, coverage, the honest total, and the
 first 20 findings; the full bounded report stays retrievable by id.
+
+## First-section checkpoint
+
+A build that establishes a new visual direction stops once, after the first
+section, and asks. A build that maintains an existing page never stops. That is
+the whole gate: `design_scope` declares which of the two is happening, and only
+`new_identity`, `replacement`, and `rebrand` are gated. `preserve`, `repair`,
+`content_only`, and `responsive_fix` pass straight through, so routine editing
+gains no new blocker.
+
+The scope is a caller claim, not a measurement, and Stonewright treats it as
+one. An unknown scope fails closed and is gated. An omitted scope is read as
+`preserve`, because refusing every build that declares nothing would put a
+confirmation in front of ordinary work, and a gate that fires on everything is
+a gate agents learn to route around. `stonewright/workflow-preflight` derives
+the scope from the task text and returns the verdict in
+`fast_path.visual_checkpoint` before the first write, so the agent learns it
+will be stopped before it has built anything.
+
+`stonewright/elementor-v3-build-page-from-spec` enforces it. The trigger is the
+number of top-level sections the write would leave on the page, not the number
+supplied: one section is always allowed, more than one needs a token. That
+covers a first single-section write, a first multi-section write, a later append,
+and a section replacement without a separate rule for each.
+
+`stonewright/design-checkpoint-record` issues the token, and it refuses any
+approval it cannot tie to real state. The section has to exist in the document
+as it stands now, and a direction revision has to be in force, because an
+approval that names neither cannot be verified afterwards. `approved` has to
+arrive as boolean `true`; an omitted flag is not a yes, and neither is a truthy
+string. Evidence is optional but linkable: a stored `report_id` from
+`stonewright/design-quality-check` ties the approval to the measurements the
+user was shown.
+
+The token is an HMAC over the decision, signed with `wp_salt('auth')` plus a
+per-site secret, and it binds four things: post, section, direction hash, and
+the render hash of the approved section. Verification compares all four with
+`hash_equals` and reports which one moved. Editing the approved section, or
+activating a different direction, stops the token working — the approval
+described a specific render, so it cannot authorize a page that no longer
+matches it. It expires (two hours by default, one day maximum) and is bound to
+the approving user, so it is not a credential another session can borrow.
+
+It is deliberately not single-use. One approval authorizes the remaining
+sections of one page, because the decision the user made was about the visual
+direction, not about section two. `checkpoint_token` is in the kernel's default
+redaction list, so no ability writes it into an audit row.
 
 ## Direct + plugin REST parity surfaces
 

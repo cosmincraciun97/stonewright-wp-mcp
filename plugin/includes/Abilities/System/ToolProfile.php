@@ -671,8 +671,10 @@ final class ToolProfile extends AbilityKernel {
 				// Design intent is read before any render, so the reads outrank builders.
 				'stonewright/design-direction-list',
 				'stonewright/design-direction-get',
-				// Verification of what was rendered belongs next to the builders.
+				// Verification of what was rendered belongs next to the builders,
+				// and the checkpoint that unblocks the rest of the page sits with it.
 				'stonewright/design-quality-check',
+				'stonewright/design-checkpoint-record',
 				'stonewright/elementor-v3-build-page-from-spec',
 				'stonewright/theme-builder-apply-template',
 				'stonewright/elementor-v3-batch-mutate',
@@ -683,9 +685,6 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/elementor-build-tree',
 				'stonewright/elementor-v4-read-atomic-tree',
 				'stonewright/elementor-v4-update-node',
-				'stonewright/theme-file-read',
-				'stonewright/theme-file-patch',
-				'stonewright/theme-custom-css',
 				'stonewright/elementor-v3-update-page-settings',
 				'stonewright/elementor-v3-update-kit-colors',
 				'stonewright/elementor-v3-update-kit-typography',
@@ -696,6 +695,11 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/content-get-page',
 				'stonewright/media-list',
 				'stonewright/media-upload-batch',
+				// Theme-file edits are a fallback on an Elementor design task, so
+				// page and media writes keep the earlier slots under a client cap.
+				'stonewright/theme-file-read',
+				'stonewright/theme-file-patch',
+				'stonewright/theme-custom-css',
 				// Content writes outrank stock-image discovery under a low cap.
 				'stonewright/content-bulk-upsert-posts',
 				'stonewright/content-model-loop-grid-flow',
@@ -916,6 +920,7 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/design-direction-sync-plan' => 'Dry run: see exactly which Elementor kit globals a direction would change before writing anything.',
 			'stonewright/design-direction-sync-apply' => 'Write a sync-ready direction into the Elementor kit globals; needs the dry-run base_hash and snapshots the kit.',
 			'stonewright/design-quality-check' => 'Turn measured browser evidence for a rendered Elementor or Gutenberg page into coverage, findings, and repair hints; store the report with persist.',
+			'stonewright/design-checkpoint-record' => 'Record explicit user approval of the first rendered section and get the checkpoint token that unblocks the remaining sections of a new visual direction.',
 			'stonewright/widget-intent-resolve' => 'Map visual intent to native Elementor widgets before writing controls.',
 			'stonewright/elementor-widget-implementation-guide' => 'Get Content, Style, and Advanced controls before Elementor writes.',
 			'stonewright/elementor-v3-get-kit-globals' => 'Read active Elementor kit colors and typography before global-style writes.',

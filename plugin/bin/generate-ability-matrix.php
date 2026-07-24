@@ -454,6 +454,7 @@ function find_test_file( string $class ): string {
 		'DirectionSyncPlan'  => 'tests/Unit/Design/DirectionSyncAbilitiesTest.php',
 		'DirectionSyncApply' => 'tests/Unit/Design/DirectionSyncAbilitiesTest.php',
 		'QualityCheck'       => 'tests/Unit/Design/QualityCheckAbilityTest.php',
+		'CheckpointRecord'   => 'tests/Unit/Design/DesignCheckpointTest.php',
 	];
 	if ( isset( $class_tests[ $short ] ) ) {
 		return $class_tests[ $short ];

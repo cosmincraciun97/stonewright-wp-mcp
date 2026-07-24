@@ -218,6 +218,7 @@
 | `stonewright/design-direction-sync-plan` | `stonewright-design-direction-sync-plan` | `Design\DirectionSyncPlan` | Dry run: compares a design direction with the live Elementor kit and returns the operations, warnings, and blockers. | Read | `Permissions::can_manage_design()` | No | No | No | stable | `tests/Unit/Design/DirectionSyncAbilitiesTest.php` |
 | `stonewright/design-direction-sync-apply` | `stonewright-design-direction-sync-apply` | `Design\DirectionSyncApply` | Writes a sync-ready design direction into the live Elementor kit globals. | Write | `Permissions::can_manage_design()` | Yes | Yes | No | stable | `tests/Unit/Design/DirectionSyncAbilitiesTest.php` |
 | `stonewright/design-quality-check` | `stonewright-design-quality-check` | `Design\QualityCheck` | Evaluates measured browser evidence for a rendered page against the design direction and returns coverage, findings, and repair hints. | Write | `Permissions::can_manage_design() (compound)` | No | No | No | stable | `tests/Unit/Design/QualityCheckAbilityTest.php` |
+| `stonewright/design-checkpoint-record` | `stonewright-design-checkpoint-record` | `Design\CheckpointRecord` | Records explicit user approval of the first rendered section and returns a checkpoint token that unblocks the remaining section writes for that page. | Read | `Permissions::can_manage_design() (compound)` | No | No | No | stable | `tests/Unit/Design/DesignCheckpointTest.php` |
 
 ---
 
@@ -598,7 +599,7 @@
 
 ## Summary
 
-Total abilities registered: **328**
+Total abilities registered: **329**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`
