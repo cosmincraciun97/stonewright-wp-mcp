@@ -22,6 +22,7 @@ use Stonewright\WpMcp\Expertise\ExpertiseTable;
 use Stonewright\WpMcp\Elementor\WidgetBuilder\Loader as WidgetLoader;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Memory\Memory;
+use Stonewright\WpMcp\OAuth\Bootstrap as OAuthBootstrap;
 use Stonewright\WpMcp\Sandbox\CrashRecovery;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\DomainLock;
@@ -63,6 +64,7 @@ final class PluginRegistration {
 
 		add_action( 'plugins_loaded', [ $this, 'load_textdomain' ], 5 );
 		add_action( 'plugins_loaded', [ $this, 'check_domain_lock' ], 10 );
+		add_action( 'plugins_loaded', [ OAuthBootstrap::class, 'boot' ], 20 );
 		// Two flavours of the Abilities API exist in the wild and we must
 		// support both:
 		//

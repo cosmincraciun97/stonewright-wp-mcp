@@ -12,12 +12,38 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\OAuth;
 
+use Stonewright\WpMcp\OAuth\Endpoints\Authorize;
+use Stonewright\WpMcp\OAuth\Endpoints\Discovery;
+use Stonewright\WpMcp\OAuth\Endpoints\Introspect;
+use Stonewright\WpMcp\OAuth\Endpoints\Register;
+use Stonewright\WpMcp\OAuth\Endpoints\Revoke;
+use Stonewright\WpMcp\OAuth\Endpoints\Token;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
  * Canonical OAuth-protected MCP resource.
  */
 final class Bootstrap {
+
+	/**
+	 * Register the OAuth subsystem when Stonewright and secure transport are enabled.
+	 */
+	public static function boot(): void {
+		if ( ! (bool) get_option( 'stonewright_enabled', false ) || ! Transport::allowed() ) {
+			return;
+		}
+
+		Schema::maybe_install();
+		Discovery::register();
+		Authorize::repair_folded_request();
+		add_action( 'admin_menu', [ Authorize::class, 'register' ] );
+		add_action( 'rest_api_init', [ Register::class, 'register' ] );
+		add_action( 'rest_api_init', [ Token::class, 'register' ] );
+		add_action( 'rest_api_init', [ Revoke::class, 'register' ] );
+		add_action( 'rest_api_init', [ Introspect::class, 'register' ] );
+		Middleware::register();
+	}
 
 	/**
 	 * Canonical audience minted into every OAuth access token.
