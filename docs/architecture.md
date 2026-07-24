@@ -130,7 +130,7 @@ depend on content alone rather than on the order a caller supplied.
 
 ### Ability surface
 
-Six abilities expose the store to MCP clients, all in the `design` category:
+Eight abilities expose the store to MCP clients, all in the `design` category:
 
 | Ability | R/W | Gates |
 |---|---|---|
@@ -140,6 +140,8 @@ Six abilities expose the store to MCP clients, all in the `design` category:
 | `stonewright/design-direction-capture` | Write | `can_manage_design()`, context token, `DirectionContractValidator` |
 | `stonewright/design-direction-activate` | Write | `can_manage_design()`, context token, confirmation token |
 | `stonewright/design-direction-restore` | Write | `can_manage_design()`, context token, confirmation token |
+| `stonewright/design-direction-sync-plan` | Read | `can_manage_design()`, context token |
+| `stonewright/design-direction-sync-apply` | Write | `can_manage_design()`, context token, confirmation token, `Backup::snapshot_post()` |
 
 Activation and restore replace the answer to "what should this site look like"
 for every later render, so both carry the destructive envelope: in
@@ -157,9 +159,39 @@ in `unmapped`, and every mapped token carries provenance naming the kit it came
 from. A stored capture is always a draft: capture proposes, and promotion stays
 the separately gated decision it is for any other draft.
 
+### Elementor kit synchronization
+
+Sync is the only path where a stored contract changes what the site renders, so
+it is split into a dry run and a guarded apply.
+
+`ElementorKitSyncPlanner` is pure: given a contract and a normalized kit, it
+returns the exact operations, the values the kit cannot store (`blocked`), and
+the design intent the kit has no global for (`warnings`). It owns the CSS value
+grammar, so `var(--brand)`, a unitless font size, or a `clamp()` expression is
+refused rather than coerced into something Elementor would accept but nobody
+asked for. Its `base_hash` fingerprints the live kit — not the contract — and is
+order-sensitive, so any change to kit globals invalidates a reviewed plan.
+
+`ElementorKitWriter` owns the kit meta shape, so no sync code handles the
+serialized `_elementor_page_settings` array directly. Reads project the kit down
+to the colors and typography groups sync understands, tagged with the bucket each
+entry lives in. Writes merge: only the planned entry properties are set, and
+unknown keys, unknown entry properties, and entry order are written back
+untouched. `Backup::snapshot_post()` runs before the mutation, and a kit that
+cannot be snapshotted is not written at all.
+
+`sync-apply` requires the dry run's `base_hash`, re-reads and re-plans the kit
+itself, and returns `stonewright_direction_sync_stale` when the kit moved since
+the review. In production-safe mode its confirmation token is bound to both the
+direction id and that `base_hash`, so a token cannot be replayed against a
+different plan. Sync covers kit colors and typography; spacing, radii,
+elevation, motion, and component styles are reported as warnings rather than
+forced into unrelated kit fields.
+
 Each write reads its own effect back before the receipt claims success: save
 and restore re-read the stored contract hash, activate re-reads the active
-pointer. A mismatch returns
+pointer, and sync-apply re-plans the kit and fails when any operation is still
+outstanding. A mismatch returns
 `stonewright_direction_verification_failed` rather than a successful receipt.
 Receipts report `before_sha256`, `after_sha256`, `operation_class`,
 `resource_type`, and `verification_status`, which the ability kernel forwards

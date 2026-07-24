@@ -215,6 +215,8 @@
 | `stonewright/design-direction-capture` | `stonewright-design-direction-capture` | `Design\DirectionCapture` | Turns compact Elementor kit evidence into a draft design direction contract with provenance. | Write | `Permissions::can_manage_design()` | No | No | Yes (Direction) | stable | `tests/Unit/Design/DirectionCaptureAbilityTest.php` |
 | `stonewright/design-direction-activate` | `stonewright-design-direction-activate` | `Design\DirectionActivate` | Makes a ready design direction the active one for the site. | Write | `Permissions::can_manage_design()` | Yes | No | No | stable | `tests/Unit/Design/DirectionAbilitiesTest.php` |
 | `stonewright/design-direction-restore` | `stonewright-design-direction-restore` | `Design\DirectionRestore` | Writes a stored design direction revision back as a new revision, leaving history intact. | Write | `Permissions::can_manage_design()` | Yes | No | No | stable | `tests/Unit/Design/DirectionAbilitiesTest.php` |
+| `stonewright/design-direction-sync-plan` | `stonewright-design-direction-sync-plan` | `Design\DirectionSyncPlan` | Dry run: compares a design direction with the live Elementor kit and returns the operations, warnings, and blockers. | Read | `Permissions::can_manage_design()` | No | No | No | stable | `tests/Unit/Design/DirectionSyncAbilitiesTest.php` |
+| `stonewright/design-direction-sync-apply` | `stonewright-design-direction-sync-apply` | `Design\DirectionSyncApply` | Writes a sync-ready design direction into the live Elementor kit globals. | Write | `Permissions::can_manage_design()` | Yes | Yes | No | stable | `tests/Unit/Design/DirectionSyncAbilitiesTest.php` |
 
 ---
 
@@ -595,7 +597,7 @@
 
 ## Summary
 
-Total abilities registered: **325**
+Total abilities registered: **327**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

@@ -43,6 +43,8 @@ use Stonewright\WpMcp\Abilities\Design\DirectionGet;
 use Stonewright\WpMcp\Abilities\Design\DirectionList;
 use Stonewright\WpMcp\Abilities\Design\DirectionRestore;
 use Stonewright\WpMcp\Abilities\Design\DirectionSave;
+use Stonewright\WpMcp\Abilities\Design\DirectionSyncApply;
+use Stonewright\WpMcp\Abilities\Design\DirectionSyncPlan;
 use Stonewright\WpMcp\Abilities\Design\ExtractTokens;
 use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
 use Stonewright\WpMcp\Abilities\Design\ImportImage;
@@ -410,6 +412,8 @@ final class AbilityRegistry {
 			DirectionCapture::class,
 			DirectionActivate::class,
 			DirectionRestore::class,
+			DirectionSyncPlan::class,
+			DirectionSyncApply::class,
 
 			// Blueprints + brand kits.
 			ListBlueprints::class,

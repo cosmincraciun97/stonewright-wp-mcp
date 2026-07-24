@@ -390,6 +390,8 @@ function detect_backup( string $source ): string {
 		|| strpos( $source, 'SpecToElementorV3()' ) !== false
 		|| strpos( $source, 'ApplyToPost()' ) !== false
 		|| strpos( $source, 'new BuildPageFromSpec()' ) !== false
+		// Typed writers that snapshot on their caller's behalf.
+		|| strpos( $source, 'ElementorKitWriter::apply' ) !== false
 	) ? 'Yes' : 'No';
 }
 
@@ -447,6 +449,8 @@ function find_test_file( string $class ): string {
 		'DirectionCapture'  => 'tests/Unit/Design/DirectionCaptureAbilityTest.php',
 		'DirectionActivate' => 'tests/Unit/Design/DirectionAbilitiesTest.php',
 		'DirectionRestore'  => 'tests/Unit/Design/DirectionAbilitiesTest.php',
+		'DirectionSyncPlan'  => 'tests/Unit/Design/DirectionSyncAbilitiesTest.php',
+		'DirectionSyncApply' => 'tests/Unit/Design/DirectionSyncAbilitiesTest.php',
 	];
 	if ( isset( $class_tests[ $short ] ) ) {
 		return $class_tests[ $short ];

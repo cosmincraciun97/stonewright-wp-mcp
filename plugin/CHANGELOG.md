@@ -18,6 +18,20 @@
   a draft, is never marked ready, and never becomes the active direction. Absent
   evidence stays absent, contradictory evidence keeps the first value and reports
   a conflict, and unusable evidence is reported rather than dropped silently.
+- Abilities `stonewright/design-direction-sync-plan` and `-sync-apply`, which
+  compare a direction with the live Elementor kit and then write it. The plan
+  half writes nothing and returns the exact operations plus `warnings` for
+  unsupported kit groups and `blocked` for values the kit cannot store. The apply
+  half requires the plan's `base_hash` and returns
+  `stonewright_direction_sync_stale` when the kit moved, refuses any blocked
+  value instead of coercing it, snapshots the kit through
+  `Backup::snapshot_post()`, merges only the planned entry properties so unknown
+  kit settings survive, and re-plans the kit before reporting success. In
+  production-safe mode its confirmation token is bound to the direction id and
+  the `base_hash`.
+- `ElementorKitSyncPlanner` (pure contract-to-kit diff and CSS value grammar)
+  and `ElementorKitWriter` (typed read/merge for `_elementor_page_settings`), so
+  no sync code handles the serialized kit settings array directly.
 
 ## [1.0.0-alpha.86] - 2026-07-24
 

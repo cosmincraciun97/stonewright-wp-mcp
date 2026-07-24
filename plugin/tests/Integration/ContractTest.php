@@ -8,6 +8,8 @@ use Stonewright\WpMcp\Abilities\Ability;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Design\Direction\DesignDirectionService;
 use Stonewright\WpMcp\Design\Direction\DirectionContractValidator;
+use Stonewright\WpMcp\Design\Direction\ElementorKitSyncPlanner;
+use Stonewright\WpMcp\Design\Direction\ElementorKitWriter;
 use Stonewright\WpMcp\Support\ErrorEnvelope;
 
 /**
@@ -416,7 +418,49 @@ final class ContractTest extends TestCase {
 
 		$decoded = json_decode( (string) file_get_contents( $path ), true );
 		$this->assertIsArray( $decoded, $filename );
-		return $decoded;
+		return $this->resolve_placeholders( $decoded );
+	}
+
+	/**
+	 * Fills in fixture values that only exist at runtime.
+	 *
+	 * design-direction-sync-apply refuses any base_hash that does not describe
+	 * the live kit, by design — that is the concurrency guard. A static fixture
+	 * cannot know it, so the harness performs the dry run the real caller would
+	 * have performed and substitutes its hash. Hard-coding a digest here would
+	 * instead break as a confusing staleness error whenever the kit fixture or
+	 * the fingerprint changes.
+	 *
+	 * @param array<string, mixed> $fixture Decoded fixture.
+	 * @return array<string, mixed>
+	 */
+	private function resolve_placeholders( array $fixture ): array {
+		array_walk_recursive(
+			$fixture,
+			function ( &$value ): void {
+				if ( '{{elementor_kit_sync_base_hash}}' === $value ) {
+					$value = $this->elementor_kit_sync_base_hash();
+				}
+			}
+		);
+
+		return $fixture;
+	}
+
+	/**
+	 * The dry-run base hash for the seeded direction against the seeded kit.
+	 */
+	private function elementor_kit_sync_base_hash(): string {
+		$kit_id = (int) get_option( 'elementor_active_kit', 0 );
+		$plan   = ElementorKitSyncPlanner::plan(
+			$this->direction_contract( 'Stone and precision.' ),
+			ElementorKitWriter::read( $kit_id )
+		);
+
+		$this->assertNotInstanceOf( \WP_Error::class, $plan, 'Seeded direction must plan against the seeded kit.' );
+
+		/** @var array<string,mixed> $plan */
+		return (string) $plan['base_hash'];
 	}
 
 	/**

@@ -1,6 +1,6 @@
 # Abilities Reference
 
-> Category counts are generated from `docs/ability-truth-matrix.md` (**325** abilities). Categories include Comments, Users, Widgets, Settings, Themes, Plugins manage, Revisions, Search, WooCommerce, ACF, SEO, Content Model.
+> Category counts are generated from `docs/ability-truth-matrix.md` (**327** abilities). Categories include Comments, Users, Widgets, Settings, Themes, Plugins manage, Revisions, Search, WooCommerce, ACF, SEO, Content Model.
 Stonewright registers WordPress abilities under the `stonewright/` prefix. MCP
 clients call the same names with slashes converted to hyphens: ability
 `stonewright/task-start` is MCP tool `stonewright-task-start`.
@@ -25,7 +25,7 @@ matrix after changing the registry.
 | Elementor V3 | 22 | Elementor V3 structure editing, document health, page specs, kit globals, capability preflight, and batch mutation. |
 | Elementor V4 (Experimental) | 12 | Atomic nodes, variables, classes, and experimental V4 rendering. |
 | Elementor Widget Builder | 98 | Deprecated generated per-widget compatibility builders plus custom widget project helpers. |
-| Design | 20 | Validate Design Spec, build specs from manual input, choose renderers, normalize assets, intent routing, apply to Gutenberg or Elementor, capture directions from Elementor kit evidence, and read/write versioned Design Directions. |
+| Design | 22 | Validate Design Spec, build specs from manual input, choose renderers, normalize assets, intent routing, apply to Gutenberg or Elementor, capture directions from Elementor kit evidence, read/write versioned Design Directions, and dry-run or apply a direction to the Elementor kit globals. |
 | Knowledge | 5 | Elementor knowledge search, widget descriptions, implementation guidance, and refresh. |
 | Memory | 5 | Persistent project memory, user corrections, and learning records. |
 | System | 8 | Context bootstrap, tool profiles, workflow preflight, instructions, ability list, and knowledge import/export. |
@@ -182,3 +182,17 @@ for debugging and operational tasks.
   token issued for that exact direction id — and, for restore, that exact
   revision. Both read their effect back and return
   `stonewright_direction_verification_failed` when storage disagrees.
+- `stonewright/design-direction-sync-plan` is the dry run for Elementor kit
+  globals. It writes nothing and returns the exact operations a sync would
+  perform, plus `warnings` for what the kit has no global for and `blocked` for
+  values it cannot store. Its `base_hash` describes the live kit and is the
+  concurrency guard for the apply half.
+- `stonewright/design-direction-sync-apply` writes a sync-ready direction into
+  the kit. It requires the dry run's `base_hash` and refuses as
+  `stonewright_direction_sync_stale` when the kit moved since then, refuses any
+  plan with blocked values rather than coercing them, snapshots the kit before
+  mutating it, merges only the planned entry properties so unknown kit settings
+  survive, and re-reads the kit before the receipt claims success. Sync covers
+  kit colors and typography; spacing, radii, elevation, motion, and component
+  styles are reported as warnings instead of being forced into unrelated kit
+  fields.

@@ -864,6 +864,8 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/design-direction-capture',
 			'stonewright/design-direction-activate',
 			'stonewright/design-direction-restore',
+			'stonewright/design-direction-sync-plan',
+			'stonewright/design-direction-sync-apply',
 		];
 	}
 
@@ -909,6 +911,8 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/design-direction-capture' => 'Turn Elementor kit globals into a draft direction contract with provenance; previews unless save is true.',
 			'stonewright/design-direction-activate' => 'Point the site at a ready design direction; confirmation token required in production-safe.',
 			'stonewright/design-direction-restore' => 'Bring an older direction revision back as a new revision; confirmation token required in production-safe.',
+			'stonewright/design-direction-sync-plan' => 'Dry run: see exactly which Elementor kit globals a direction would change before writing anything.',
+			'stonewright/design-direction-sync-apply' => 'Write a sync-ready direction into the Elementor kit globals; needs the dry-run base_hash and snapshots the kit.',
 			'stonewright/widget-intent-resolve' => 'Map visual intent to native Elementor widgets before writing controls.',
 			'stonewright/elementor-widget-implementation-guide' => 'Get Content, Style, and Advanced controls before Elementor writes.',
 			'stonewright/elementor-v3-get-kit-globals' => 'Read active Elementor kit colors and typography before global-style writes.',
