@@ -216,6 +216,12 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 		self::assertNotSame( $before['hash'], $after['hash'] );
 	}
 
+	public function test_runtime_constraints_require_every_component_clause(): void {
+		self::assertTrue( RuntimeFingerprint::matches_constraints( [ 'elementor_core' => '*' ] ) );
+		self::assertTrue( RuntimeFingerprint::matches_constraints( [ 'elementor_pro' => 'optional' ] ) );
+		self::assertFalse( RuntimeFingerprint::matches_constraints( [ 'elementor_core' => '>=999.0 <1000.0' ] ) );
+	}
+
 	public function test_explicit_invalidation_deletes_tracked_schema_shards(): void {
 		self::assertIsArray( WidgetSchemaRepository::get( 'third-party-card' ) );
 		self::assertNotEmpty( $GLOBALS['stonewright_test_transients'] );

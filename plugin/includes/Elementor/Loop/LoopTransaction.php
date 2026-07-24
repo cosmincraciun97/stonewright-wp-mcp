@@ -3,14 +3,17 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Elementor\Loop;
 
+use Stonewright\WpMcp\Context\ExecutionContext;
 use Stonewright\WpMcp\DesignSpec\Validator;
 use Stonewright\WpMcp\Elementor\Renderer;
+use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Elementor\V4\AtomicTreeInspector;
 use Stonewright\WpMcp\Elementor\Write\IdempotencyStore;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Elementor\Write\V3MutationCompiler;
 use Stonewright\WpMcp\Security\Backup;
+use Stonewright\WpMcp\Knowledge\Lifecycle\SchemaRepairLearning;
 use Stonewright\WpMcp\Support\ElementorData;
 use Stonewright\WpMcp\ThemeBuilder\TemplateStore;
 
@@ -155,7 +158,19 @@ final class LoopTransaction {
 				'rollback_status'     => 'not_required',
 				'effect_verified'     => true,
 				'idempotent_replay'   => false,
+				'learning'            => [],
 			];
+			$schema = WidgetSchemaRepository::get( (string) $plan['widget_type'] );
+			if ( is_array( $schema ) ) {
+				$response['learning'] = self::learning_summary(
+					SchemaRepairLearning::observe_verified(
+						(string) $plan['widget_type'],
+						(array) $plan['expected_readback']['settings'],
+						$schema,
+						ExecutionContext::task_hash()
+					)
+				);
+			}
 			IdempotencyStore::remember( $post_id, $idempotency_key, $request_hash, $response );
 
 			return $response;
@@ -163,6 +178,23 @@ final class LoopTransaction {
 			PostWriteLock::release( $post_id, $owner );
 			self::$fail_at = '';
 		}
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $rows
+	 * @return list<array{id:int,status:string,verification_count:int}>
+	 */
+	private static function learning_summary( array $rows ): array {
+		return array_values(
+			array_map(
+				static fn( array $row ): array => [
+					'id'                 => (int) ( $row['candidate']['id'] ?? 0 ),
+					'status'             => (string) ( $row['candidate']['status'] ?? '' ),
+					'verification_count' => (int) ( $row['candidate']['verification_count'] ?? 0 ),
+				],
+				$rows
+			)
+		);
 	}
 
 	/**

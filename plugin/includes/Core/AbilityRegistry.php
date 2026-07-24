@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Abilities\Content\BulkCreate;
 use Stonewright\WpMcp\Abilities\Content\BulkUpsertPosts;
 use Stonewright\WpMcp\Abilities\System\ContextBootstrap;
 use Stonewright\WpMcp\Context\ContextToken;
+use Stonewright\WpMcp\Context\ExecutionContext;
 use Stonewright\WpMcp\Security\ErrorPatterns;
 use Stonewright\WpMcp\Support\Utf8;
 use Stonewright\WpMcp\Abilities\Content\CreatePage;
@@ -733,8 +734,17 @@ final class AbilityRegistry {
 		}
 
 		unset( $input['stonewright_context_token'] );
-		$result = self::finalize_ability_result( $name, $ability->execute( $input ) );
-		return self::maybe_attach_task_start_hint( $ability, $result );
+		$task_hash = ContextToken::task_hash( $token, $name );
+		if ( $task_hash instanceof \WP_Error ) {
+			return $task_hash;
+		}
+		ExecutionContext::set_task_hash( $task_hash );
+		try {
+			$result = self::finalize_ability_result( $name, $ability->execute( $input ) );
+			return self::maybe_attach_task_start_hint( $ability, $result );
+		} finally {
+			ExecutionContext::clear();
+		}
 	}
 
 	/**

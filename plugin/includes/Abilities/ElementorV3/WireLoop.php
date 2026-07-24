@@ -113,6 +113,7 @@ final class WireLoop extends AbilityKernel {
 				'rollback_status'     => [ 'type' => 'string' ],
 				'effect_verified'     => [ 'type' => 'boolean' ],
 				'idempotent_replay'   => [ 'type' => 'boolean' ],
+				'learning'            => [ 'type' => 'array', 'items' => [ 'type' => 'object' ] ],
 			],
 			'required'   => [ 'ok' ],
 		];

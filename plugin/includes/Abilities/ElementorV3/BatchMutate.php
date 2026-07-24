@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Context\ExecutionContext;
 use Stonewright\WpMcp\Elementor\ContainerSettings;
 use Stonewright\WpMcp\Elementor\Schema\ContainerSchemaRepository;
 use Stonewright\WpMcp\Elementor\Schema\ResponsiveScope;
@@ -19,6 +20,7 @@ use Stonewright\WpMcp\Elementor\Write\V3MutationCompiler;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\RemediationHints;
+use Stonewright\WpMcp\Knowledge\Lifecycle\SchemaRepairLearning;
 use Stonewright\WpMcp\Support\ElementorData;
 
 /**
@@ -143,6 +145,7 @@ final class BatchMutate extends AbilityKernel {
 				'after_hash'    => [ 'type' => 'string' ],
 				'readback_hash' => [ 'type' => 'string' ],
 				'idempotent_replay' => [ 'type' => 'boolean' ],
+				'learning'      => [ 'type' => 'array', 'items' => [ 'type' => 'object' ] ],
 			],
 		];
 	}
@@ -241,12 +244,21 @@ final class BatchMutate extends AbilityKernel {
 				$applied    = 0;
 				$failed     = 0;
 				$stop       = array_key_exists( 'stop_on_error', $args ) ? (bool) $args['stop_on_error'] : ! $dry_run;
+				$task_hash  = ExecutionContext::task_hash();
 
 				foreach ( $operations as $index => $operation ) {
 					$operation = is_array( $operation ) ? $operation : [];
 					$result    = $this->apply_operation( $tree, $operation, $refs, $require_evidence );
 
 					if ( $result instanceof \WP_Error ) {
+						if ( 'add_widget' === (string) ( $operation['action'] ?? '' ) ) {
+							SchemaRepairLearning::observe_compilation_error(
+								(string) ( $operation['widget_type'] ?? '' ),
+								is_array( $operation['settings'] ?? null ) ? $operation['settings'] : [],
+								$result,
+								$task_hash
+							);
+						}
 						++$failed;
 						$items[] = self::error_item( $index, $result );
 						if ( $stop ) {
@@ -372,16 +384,55 @@ final class BatchMutate extends AbilityKernel {
 					'after_hash'    => $after_hash,
 					'readback_hash' => $readback_hash,
 					'idempotent_replay' => false,
+					'learning'      => [],
 				];
 
 				if ( $dry_run ) {
 					$response['preview'] = $tree;
 				} else {
+					$learning = [];
+					foreach ( $operations as $operation ) {
+						if ( 'add_widget' !== (string) ( $operation['action'] ?? '' ) ) {
+							continue;
+						}
+						$widget_type = (string) ( $operation['widget_type'] ?? '' );
+						$schema      = WidgetSchemaRepository::get( $widget_type );
+						if ( $schema instanceof \WP_Error ) {
+							continue;
+						}
+						$learning = array_merge(
+							$learning,
+							SchemaRepairLearning::observe_verified(
+								$widget_type,
+								is_array( $operation['settings'] ?? null ) ? $operation['settings'] : [],
+								$schema,
+								$task_hash
+							)
+						);
+					}
+					$response['learning'] = self::learning_summary( $learning );
 					IdempotencyStore::remember( $post_id, $idempotency_key, $request_hash, $response );
 				}
 
 				return $response;
 			}
+		);
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $rows
+	 * @return list<array{id:int,status:string,verification_count:int}>
+	 */
+	private static function learning_summary( array $rows ): array {
+		return array_values(
+			array_map(
+				static fn( array $row ): array => [
+					'id'                 => (int) ( $row['candidate']['id'] ?? 0 ),
+					'status'             => (string) ( $row['candidate']['status'] ?? '' ),
+					'verification_count' => (int) ( $row['candidate']['verification_count'] ?? 0 ),
+				],
+				$rows
+			)
 		);
 	}
 
