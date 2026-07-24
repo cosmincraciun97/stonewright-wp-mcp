@@ -166,6 +166,10 @@ final class ClientValidation {
 			return true;
 		}
 
+		if ( self::is_ipv4_mapped_ipv6( $ip ) ) {
+			return true;
+		}
+
 		if ( $dev_mode && self::is_loopback_ip( $ip ) ) {
 			return false;
 		}
@@ -187,6 +191,22 @@ final class ClientValidation {
 		}
 
 		return false !== filter_var( $ip, FILTER_VALIDATE_IP ) ? $ip : '';
+	}
+
+	/**
+	 * Detect IPv4-mapped IPv6 literals consistently across supported PHP versions.
+	 */
+	public static function is_ipv4_mapped_ipv6( string $ip ): bool {
+		$normalized = self::normalize_ip_literal( $ip );
+		if ( '' === $normalized ) {
+			return false;
+		}
+
+		$packed = inet_pton( $normalized );
+		return is_string( $packed )
+			&& 16 === strlen( $packed )
+			&& str_repeat( "\0", 10 ) === substr( $packed, 0, 10 )
+			&& "\xff\xff" === substr( $packed, 10, 2 );
 	}
 
 	/**

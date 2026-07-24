@@ -22,6 +22,9 @@ final class ClientValidationIpv6Test extends TestCase {
 		self::assertFalse( ClientValidation::is_allowed_redirect_uri( 'https://[fd00::1]/cb' ) );
 		self::assertFalse( ClientValidation::is_allowed_redirect_uri( 'https://[fe80::1]/cb' ) );
 		self::assertFalse( ClientValidation::is_allowed_redirect_uri( 'https://[::ffff:127.0.0.1]/cb' ) );
+		self::assertTrue( ClientValidation::is_ipv4_mapped_ipv6( '::ffff:127.0.0.1' ) );
+		self::assertTrue( ClientValidation::is_ipv4_mapped_ipv6( '::ffff:93.184.216.34' ) );
+		self::assertFalse( ClientValidation::is_ipv4_mapped_ipv6( '2001:4860:4860::8888' ) );
 	}
 
 	public function test_public_ipv6_is_allowed_for_https(): void {
