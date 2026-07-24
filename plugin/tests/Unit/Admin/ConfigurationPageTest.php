@@ -193,6 +193,31 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringContainsString( 'stonewright-settings-form', $html );
 	}
 
+	public function test_v4_toggle_posts_explicit_false_and_true_values(): void {
+		ob_start();
+		ConfigurationPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertMatchesRegularExpression(
+			'/<input[^>]+type="hidden"[^>]+name="stonewright_elementor_v4_atomic"[^>]+value="0"[^>]*>.*'
+			. '<input[^>]+type="checkbox"[^>]+name="stonewright_elementor_v4_atomic"[^>]+value="1"/s',
+			$html
+		);
+	}
+
+	public function test_v4_toggle_reflects_enabled_option(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_elementor_v4_atomic'] = true;
+
+		ob_start();
+		ConfigurationPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertMatchesRegularExpression(
+			'/name="stonewright_elementor_v4_atomic"[^>]+value="1"[^>]+checked/',
+			$html
+		);
+	}
+
 	public function test_render_embeds_generated_application_password_once(): void {
 		$GLOBALS['stonewright_test_transients']['stonewright_app_password_flash_42'] = [
 			'generated' => [
