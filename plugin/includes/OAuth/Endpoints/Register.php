@@ -42,7 +42,7 @@ final class Register {
 	}
 
 	public static function is_self_test_request( WP_REST_Request $request ): bool {
-		$token = trim( $request->get_header( 'x-stonewright-self-test' ) );
+		$token = trim( (string) $request->get_header( 'x-stonewright-self-test' ) );
 		if ( '' === $token ) {
 			return false;
 		}

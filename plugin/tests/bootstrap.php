@@ -2239,8 +2239,8 @@ if ( ! class_exists( 'WP_REST_Request' ) ) {
 			$this->params      = array_merge( $this->params, $params );
 		}
 
-		public function get_header( string $key ): string {
-			return $this->headers[ strtolower( $key ) ] ?? '';
+		public function get_header( string $key ): ?string {
+			return $this->headers[ strtolower( $key ) ] ?? null;
 		}
 
 		public function set_header( string $key, string $value ): void {

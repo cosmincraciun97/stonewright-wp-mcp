@@ -55,6 +55,12 @@ final class EndpointContractTest extends TestCase {
 		self::assertTrue( Introspect::can_introspect() );
 	}
 
+	public function test_missing_self_test_header_is_not_a_self_test_request(): void {
+		$request = new WP_REST_Request( 'POST', '/oauth/register' );
+
+		self::assertFalse( Register::is_self_test_request( $request ) );
+	}
+
 	public function test_registration_rejects_invalid_payload_before_database_write(): void {
 		$request = new WP_REST_Request( 'POST', '/oauth/register' );
 		$request->set_json_params( [ 'client_name' => '' ] );

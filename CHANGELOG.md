@@ -10,6 +10,13 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 ## [Unreleased]
 
+## [1.0.0-alpha.86] - 2026-07-24
+
+### Fixed
+
+- OAuth client registration now accepts requests without the internal self-test
+  header, restoring sign-in from Codex and other standards-compliant clients.
+
 ## [1.0.0-alpha.85] - 2026-07-24
 
 ### Added
@@ -72,28 +79,3 @@ Unreleased); older history lives in git tags and GitHub releases.
   roll back when readback detects non-target breakpoint drift.
 - Compact task-start retains target binding fields while staying inside the
   enforced non-visual and visual token budgets.
-
-## [1.0.0-alpha.81] - 2026-07-23
-
-### Security
-
-- `php-execute` permanently blocks filesystem mutation of theme/plugin/core code files.
-- Theme file apply requires full-file validation, a wp-admin-reviewed custom-code
-  proposal/grant, atomic write, readback, smoke, and rollback. Backups use opaque
-  references, non-executable files, web-access guards, and a typed restore ability.
-- Production environment with non-`production-safe` mode shows a P0 admin warning.
-
-### Fixed
-
-- Direct learning no longer silently falls back to `_global` for unknown site aliases.
-- Direct sessions use authoritative plugin-site memory when the typed bridge exists,
-  reject target changes after task-start, and fall back locally only when the plugin
-  route is demonstrably absent.
-- Expected safety blocks no longer promote active project/user learning.
-
-### Added
-
-- Materialized effect/incident audit fields and filters in plugin mode, aligned
-  Direct JSONL records, Memory UI lifecycle tabs and controlled legacy-feedback
-  migration, Direct learning visibility labels, and canonical
-  `custom_code_operator_grant` rule.
