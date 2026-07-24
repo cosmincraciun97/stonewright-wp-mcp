@@ -124,8 +124,11 @@ The companion authenticates with a WordPress Application Password and exposes **
 
 1. Download the latest `stonewright-*.zip` from [GitHub Releases](https://github.com/cosmincraciun97/stonewright-wp-mcp/releases) (includes prereleases).
 2. In WordPress: **Plugins → Add New → Upload Plugin** → activate **Stonewright**.
-3. Open **Stonewright → Setup**, enable abilities, and create an Application Password.
-4. Configure your MCP client to run the companion (see below).
+3. Open **Stonewright → Setup**, enable abilities, and choose OAuth
+   (recommended) or create an Application Password.
+4. Follow the client-specific OAuth instructions shown in Setup. Use the
+   companion configuration below only for Application Password or local
+   WP-CLI workflows.
 5. In Setup, run **Verify connection** (live MCP loopback). Optionally run `npx @stonewright/companion doctor` from a shell.
 6. Call `stonewright-task-start` (or `stonewright-context-bootstrap` as a compatibility path) before WordPress work.
 

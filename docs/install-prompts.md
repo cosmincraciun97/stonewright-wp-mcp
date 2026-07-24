@@ -10,6 +10,19 @@ Companion package URL pattern:
 
 `https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz`
 
+## OAuth connection (recommended in Plugin mode)
+
+```text
+Connect Stonewright using OAuth.
+
+Server URL:
+https://YOUR-SITE/wp-json/mcp/stonewright-oauth
+
+Open the browser sign-in, let me approve access in WordPress, then verify
+initialize, tools/list, and stonewright-task-start. Do not request or store a
+WordPress password.
+```
+
 ## Option A — With the Stonewright plugin (full surface)
 
 ```text

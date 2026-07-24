@@ -1,10 +1,30 @@
-# Connect MCP Client
+# Connect Your AI Client
+
+OAuth is recommended. It opens WordPress in the browser, asks the current
+administrator to approve the client, and avoids copying a WordPress password
+into client configuration.
+
+1. Open **Stonewright → Setup**.
+2. Enable Stonewright.
+3. Choose **OAuth**.
+4. Pick the client in **Connect Your AI Client** and follow its instructions.
+5. Approve the application in WordPress when the browser opens.
+
+The OAuth MCP resource is:
+
+```text
+https://example.com/wp-json/mcp/stonewright-oauth
+```
+
+Use **Manage connected apps** to inspect or revoke active grants.
+
+## Application Password fallback
 
 This guide covers wiring supported AI clients to Stonewright. The shortest path
 is the **Stonewright > Configuration** page:
 
 1. Enable Stonewright abilities.
-2. Generate a WordPress Application Password in the page.
+2. Choose **Application Password** and generate one in the page.
 3. Copy the setup note, or expand the JSON snippets for your client.
 
 ---

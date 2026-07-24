@@ -2069,6 +2069,32 @@ if ( ! function_exists( 'wp_date' ) ) {
 	}
 }
 
+$GLOBALS['stonewright_test_scheduled_hooks'] ??= [];
+
+if ( ! function_exists( 'wp_next_scheduled' ) ) {
+	function wp_next_scheduled( string $hook, array $args = [] ): int|false {
+		unset( $args );
+		return $GLOBALS['stonewright_test_scheduled_hooks'][ $hook ] ?? false;
+	}
+}
+
+if ( ! function_exists( 'wp_schedule_event' ) ) {
+	function wp_schedule_event( int $timestamp, string $recurrence, string $hook, array $args = [], bool $wp_error = false ): bool|\WP_Error {
+		unset( $recurrence, $args, $wp_error );
+		$GLOBALS['stonewright_test_scheduled_hooks'][ $hook ] = $timestamp;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_clear_scheduled_hook' ) ) {
+	function wp_clear_scheduled_hook( string $hook, array $args = [], bool $wp_error = false ): int|false|\WP_Error {
+		unset( $args, $wp_error );
+		$found = isset( $GLOBALS['stonewright_test_scheduled_hooks'][ $hook ] );
+		unset( $GLOBALS['stonewright_test_scheduled_hooks'][ $hook ] );
+		return $found ? 1 : 0;
+	}
+}
+
 if ( ! function_exists( 'size_format' ) ) {
 	function size_format( int $bytes, int $decimals = 0 ): string {
 		if ( $bytes >= 1048576 ) {

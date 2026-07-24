@@ -25,6 +25,10 @@ final class ContextGateTest extends TestCase {
 		$GLOBALS['stonewright_test_transients'] = [];
 	}
 
+	protected function tearDown(): void {
+		unset( $GLOBALS['stonewright_test_home_url'] );
+	}
+
 	public function test_write_ability_requires_context_token(): void {
 		$result = AbilityRegistry::execute_with_context_guard(
 			$this->make_write_ability(),

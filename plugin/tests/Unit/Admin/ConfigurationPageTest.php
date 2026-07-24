@@ -157,6 +157,24 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringNotContainsString( 'Novamira', $html );
 	}
 
+	public function test_oauth_ready_setup_does_not_require_an_application_password_to_reach_connect_step(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_enabled'] = true;
+		$GLOBALS['stonewright_test_app_passwords']                  = [];
+
+		ob_start();
+		ConfigurationPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertMatchesRegularExpression(
+			'/class="sw-stepper__step sw-stepper__step--done" data-step="2" data-state="done"/',
+			$html
+		);
+		self::assertMatchesRegularExpression(
+			'/class="sw-stepper__step sw-stepper__step--current" data-step="3" data-state="current"/',
+			$html
+		);
+	}
+
 	public function test_render_includes_stepper_checklist_and_client_cards(): void {
 		ob_start();
 		ConfigurationPage::render();

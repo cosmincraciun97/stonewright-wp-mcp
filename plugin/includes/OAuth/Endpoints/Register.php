@@ -85,7 +85,7 @@ final class Register {
 			return new WP_Error( 'invalid_request', 'Max 5 redirect_uris', [ 'status' => 400 ] );
 		}
 
-		$dev_mode  = defined( 'WP_DEBUG' ) && (bool) WP_DEBUG;
+		$dev_mode   = ClientValidation::local_redirects_allowed();
 		$clean_uris = [];
 		foreach ( $redirect_uris as $uri ) {
 			$uri = is_string( $uri ) ? trim( $uri ) : '';

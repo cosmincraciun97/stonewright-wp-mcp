@@ -121,4 +121,11 @@ final class Schema {
 			wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', self::GC_HOOK );
 		}
 	}
+
+	/**
+	 * Remove the OAuth garbage collection schedule.
+	 */
+	public static function unschedule_gc(): void {
+		wp_clear_scheduled_hook( self::GC_HOOK );
+	}
 }

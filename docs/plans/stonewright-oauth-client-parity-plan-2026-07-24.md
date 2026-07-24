@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Port the complete Novamira 1.10.1 OAuth and AI-client connection
+**Goal:** Port the complete reference OAuth and AI-client connection
 experience into Stonewright and ship it as a verified `1.0.0-alpha.85`
 release without deploying it to Transavia.
 
@@ -18,8 +18,8 @@ Playwright admin E2E, Composer.
 
 ## Global Constraints
 
-- Source snapshot is Novamira `1.10.1` at
-  `/Users/cosminiviteb/Downloads/novamira-main`.
+- Source snapshot and hashes are recorded in the dedicated upstream reuse
+  ledger.
 - Preserve upstream Ovation S.r.l. copyright and AGPL SPDX headers.
 - Record every copied/adapted source file in `docs/upstream-code-reuse.md`.
 - Do not place AGPL-derived code in the MIT companion.
@@ -41,7 +41,7 @@ Playwright admin E2E, Composer.
 - Test: `plugin/tests/Unit/OAuth/DependencyContractTest.php`
 
 **Interfaces:**
-- Consumes: Novamira `1.10.1` source hashes.
+- Consumes: source hashes recorded in the dedicated upstream reuse ledger.
 - Produces: installed OAuth/PSR-7 classes and an auditable import ledger.
 
 - [ ] **Step 1: Write the failing dependency test**
@@ -599,9 +599,10 @@ secrets are in archives and all OAuth runtime dependencies are present.
 
 - [ ] **Step 5: Push and open PR**
 
-PR body must list imported source, affected routes, tables, permissions,
+PR body must list affected routes, tables, permissions,
 backups/tokens/validation/audit impact, tests, docs, and no-live-deployment
-statement.
+statement. Source provenance remains only in the dedicated technical ledger
+and required file headers.
 
 - [ ] **Step 6: Wait for every check, fix failures, merge**
 

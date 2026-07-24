@@ -5,6 +5,9 @@ namespace Stonewright\WpMcp\Admin;
 
 use Stonewright\WpMcp\Companion\CompanionContract;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\OAuth\Bootstrap as OAuthBootstrap;
+use Stonewright\WpMcp\OAuth\Endpoints\Discovery;
+use Stonewright\WpMcp\OAuth\Transport as OAuthTransport;
 use Stonewright\WpMcp\Support\TokenSurfaceBudgets;
 
 /**
@@ -21,6 +24,9 @@ final class SetupDiagnostics {
 		$app_passwords = self::application_passwords_available();
 		$endpoint      = ConnectClientConfig::mcp_endpoint_url();
 		$tool_count    = count( AbilityRegistry::enabled_abilities() );
+		$oauth_allowed = OAuthTransport::allowed();
+		$oauth_endpoint = OAuthBootstrap::resource_identifier();
+		$oauth_discovery = Discovery::protected_resource_metadata_url();
 
 		$transport_detail = $https
 			? __( 'HTTPS active.', 'stonewright' )
@@ -43,6 +49,16 @@ final class SetupDiagnostics {
 			self::check( 'application_passwords', $app_passwords, __( 'Application Passwords', 'stonewright' ), $app_password_detail ),
 			self::check( 'endpoint', '' !== $endpoint, __( 'MCP endpoint', 'stonewright' ), $endpoint ),
 			self::check( 'tool_budget', $tool_count <= TokenSurfaceBudgets::ESSENTIAL_MAX_TOOLS, __( 'Compact tool surface', 'stonewright' ), sprintf( __( '%d tools exposed in the current profile.', 'stonewright' ), $tool_count ) ),
+			self::check(
+				'oauth_transport',
+				$oauth_allowed,
+				__( 'OAuth transport', 'stonewright' ),
+				$oauth_allowed
+					? __( 'HTTPS or an explicit local WordPress environment is active.', 'stonewright' )
+					: __( 'OAuth is disabled on public plain HTTP sites.', 'stonewright' )
+			),
+			self::check( 'oauth_endpoint', '' !== $oauth_endpoint, __( 'OAuth MCP endpoint', 'stonewright' ), $oauth_endpoint ),
+			self::check( 'oauth_discovery', '' !== $oauth_discovery, __( 'OAuth discovery', 'stonewright' ), $oauth_discovery ),
 		];
 
 		return [

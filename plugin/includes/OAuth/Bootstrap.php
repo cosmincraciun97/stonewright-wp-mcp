@@ -35,6 +35,8 @@ final class Bootstrap {
 		}
 
 		Schema::maybe_install();
+		Schema::schedule_gc();
+		add_action( Schema::GC_HOOK, [ Schema::class, 'gc' ] );
 		Discovery::register();
 		Authorize::repair_folded_request();
 		add_action( 'admin_menu', [ Authorize::class, 'register' ] );

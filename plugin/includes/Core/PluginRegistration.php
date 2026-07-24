@@ -23,6 +23,8 @@ use Stonewright\WpMcp\Elementor\WidgetBuilder\Loader as WidgetLoader;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\OAuth\Bootstrap as OAuthBootstrap;
+use Stonewright\WpMcp\OAuth\Keys as OAuthKeys;
+use Stonewright\WpMcp\OAuth\Schema as OAuthSchema;
 use Stonewright\WpMcp\Sandbox\CrashRecovery;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\DomainLock;
@@ -143,6 +145,9 @@ final class PluginRegistration {
 	public function on_activate(): void {
 		Memory::maybe_install_table();
 		AuditLog::maybe_install_table();
+		OAuthSchema::maybe_install();
+		OAuthKeys::get();
+		OAuthSchema::schedule_gc();
 		SkillsTable::force_create_table();
 		SkillVersionsTable::force_create_table();
 		CandidateTable::force_create_table();
@@ -199,6 +204,7 @@ final class PluginRegistration {
 	}
 
 	public function on_deactivate(): void {
+		OAuthSchema::unschedule_gc();
 		Logger::info( 'deactivate', [ 'version' => STONEWRIGHT_VERSION ] );
 	}
 

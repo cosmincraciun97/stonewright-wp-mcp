@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-24  
 **Target release:** `1.0.0-alpha.85`  
-**Approved direction:** Port the complete open-source Novamira `1.10.1`
+**Approved direction:** Port the complete inspected open-source reference
 OAuth and AI-client connection experience into Stonewright, preserving upstream
 copyright, SPDX notices, behavior, security checks, and attribution.
 
@@ -10,22 +10,19 @@ copyright, SPDX notices, behavior, security checks, and attribution.
 
 Stonewright must offer the same browser-based OAuth connection flow, discovery
 compatibility, client-specific setup instructions, consent experience, and
-Connected Apps management as the inspected Novamira `1.10.1` snapshot, while
+Connected Apps management as the inspected reference snapshot, while
 retaining Stonewright's existing Application Password path and its permission,
 domain-lock, mode, audit, and compact tool-surface contracts.
 
 ## Source and license
 
-- Upstream: `use-novamira/novamira`
-- Local inspected snapshot:
-  `/Users/cosminiviteb/Downloads/novamira-main`
+- Upstream identity and local inspected snapshot are recorded only in the
+  dedicated technical reuse ledger.
 - Reported version: `1.10.1`
 - Upstream license: `AGPL-3.0-or-later`
 - Stonewright plugin license: `AGPL-3.0-or-later`
 - Port type: copied and adapted source, not behavioral reference only
-- Required notices:
-  `SPDX-FileCopyrightText: 2026 Ovation S.r.l. <dev@novamira.ai>` and
-  `SPDX-License-Identifier: AGPL-3.0-or-later`
+- Required notices: upstream copyright and SPDX license headers.
 - The MIT companion must not contain copied AGPL PHP or JavaScript.
 
 ## Non-goals
@@ -275,8 +272,8 @@ Manual client smoke testing before release:
 
 After every local gate passes:
 
-1. push `codex/oauth-novamira-parity`;
-2. open a PR that names the imported source and security changes;
+1. push `codex/oauth-client-connect`;
+2. open a PR that describes the OAuth and security changes;
 3. resolve review and CI failures;
 4. merge only when every required check is green;
 5. tag `v1.0.0-alpha.85`;

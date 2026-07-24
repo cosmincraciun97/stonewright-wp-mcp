@@ -36,4 +36,13 @@ final class BootstrapIntegrationTest extends TestCase {
 			self::assertStringContainsString( $class, $bootstrap );
 		}
 	}
+
+	public function test_plugin_lifecycle_installs_keys_schema_and_clears_gc(): void {
+		$registration = file_get_contents( dirname( __DIR__, 3 ) . '/includes/Core/PluginRegistration.php' );
+		self::assertIsString( $registration );
+		self::assertStringContainsString( 'OAuthSchema::maybe_install()', $registration );
+		self::assertStringContainsString( 'OAuthKeys::get()', $registration );
+		self::assertStringContainsString( 'OAuthSchema::schedule_gc()', $registration );
+		self::assertStringContainsString( 'OAuthSchema::unschedule_gc()', $registration );
+	}
 }

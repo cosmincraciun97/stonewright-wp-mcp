@@ -10,6 +10,22 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 ## [Unreleased]
 
+## [1.0.0-alpha.85] - 2026-07-24
+
+### Added
+
+- Browser-based OAuth for a dedicated `stonewright-oauth` MCP resource with
+  PKCE, discovery, rotating refresh tokens, consent, revocation, and Connected
+  Apps.
+- OAuth-first onboarding for 17 AI clients while preserving the independent
+  Application Password route.
+
+### Security
+
+- OAuth tokens are audience-bound to the dedicated MCP resource; redirect URIs,
+  scopes, transport, registration rates, replay, and refresh rotation fail
+  closed.
+
 ## [1.0.0-alpha.84] - 2026-07-24
 
 ### Added
@@ -81,36 +97,3 @@ Unreleased); older history lives in git tags and GitHub releases.
   Direct JSONL records, Memory UI lifecycle tabs and controlled legacy-feedback
   migration, Direct learning visibility labels, and canonical
   `custom_code_operator_grant` rule.
-
-## [1.0.0-alpha.80] - 2026-07-22
-
-### Added
-
-- Seven canonical permanent operating rules (responsive device tabs, separate
-  verification tab, Figma section isolation, breakpoint isolation, native-first
-  styling, fastest safe interface, verified learning) injected in Plugin and
-  Direct modes and mirrored in `skills/agent-operating-rules`.
-- Cross-mode `stonewright-learning-record` receipts: `stored`, `backend`,
-  `scope`, `memory_id`, `storage_ref`, `verified` after write-then-readback.
-  Accepts canonical `topic`+`correction` and legacy Direct `text`.
-- Central Stonewright REST mutation audit for POST/PUT/PATCH/DELETE under
-  `stonewright/v1`, with ability-level deduplication, `blocked` status, exact
-  pagination counts, and insert-failure diagnostics.
-- `MethodRouter` capability matrix (`typed_api` → `editor_command_bus` →
-  `admin_form` → `browser_ui`).
-- Elementor responsive scope guards (`ResponsiveScope` PHP + visual
-  `assertResponsiveScope`) with non-target breakpoint hashing and
-  `unsupported_responsive_control` no-ops.
-
-### Fixed
-
-- Explicit user/project learning no longer stored as audit `feedback` type;
-  task-start reserves contextual slots for user/project memory before feedback.
-- Audit log UI copy matches real coverage (Stonewright mutations only).
-- Learning-record success requires verified readback in both modes.
-
-### Documentation
-
-- Design-to-WordPress skill requires per-section Figma manifests and separate
-  editor/verification browser tabs.
-- Agent operating rules skill documents the seven canonical product defaults.

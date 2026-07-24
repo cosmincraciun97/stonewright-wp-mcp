@@ -47,6 +47,13 @@ final class ClientValidation {
 	}
 
 	/**
+	 * Local/private redirect exceptions belong only to explicit local sites.
+	 */
+	public static function local_redirects_allowed(): bool {
+		return 'local' === wp_get_environment_type();
+	}
+
+	/**
 	 * Validate a Dynamic Client Registration redirect URI.
 	 */
 	public static function is_allowed_redirect_uri( string $uri, bool $dev_mode = false ): bool {

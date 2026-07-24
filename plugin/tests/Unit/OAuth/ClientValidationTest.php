@@ -13,6 +13,10 @@ use Stonewright\WpMcp\OAuth\ClientValidation;
 
 final class ClientValidationTest extends TestCase {
 
+	protected function tearDown(): void {
+		unset( $GLOBALS['stonewright_test_environment_type'] );
+	}
+
 	public function test_https_allowed(): void {
 		self::assertTrue( ClientValidation::is_allowed_redirect_uri( 'https://93.184.216.34/cb' ) );
 	}
@@ -41,5 +45,13 @@ final class ClientValidationTest extends TestCase {
 		self::assertFalse( ClientValidation::is_allowed_redirect_uri( 'https://93.184.216.34/cb#frag' ) );
 		self::assertFalse( ClientValidation::is_allowed_redirect_uri( 'claude://callback#x' ) );
 		self::assertTrue( ClientValidation::is_allowed_redirect_uri( 'https://93.184.216.34/cb%23x' ) );
+	}
+
+	public function test_local_redirect_exception_depends_on_environment_not_debug_mode(): void {
+		$GLOBALS['stonewright_test_environment_type'] = 'production';
+		self::assertFalse( ClientValidation::local_redirects_allowed() );
+
+		$GLOBALS['stonewright_test_environment_type'] = 'local';
+		self::assertTrue( ClientValidation::local_redirects_allowed() );
 	}
 }

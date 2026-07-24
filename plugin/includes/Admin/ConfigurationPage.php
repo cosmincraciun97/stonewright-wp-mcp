@@ -253,10 +253,10 @@ final class ConfigurationPage {
 			: 'stonewright-risk-notice--warning';
 		$setup_diagnostics   = SetupDiagnostics::report();
 		$has_app_password    = is_array( $generated_password ) || [] !== $app_passwords;
-		$step_states         = self::step_states( $enabled, $has_app_password );
+		$oauth_available     = Transport::allowed();
+		$step_states         = self::step_states( $enabled, $has_app_password, $oauth_available );
 		$selected_client     = self::selected_setup_client( $current_user_id );
 		$selected_method     = self::selected_setup_method( $current_user_id );
-		$oauth_available     = Transport::allowed();
 		$oauth_url           = rest_url( 'mcp/stonewright-oauth' );
 		$oauth_server_name   = OAuthClientConfig::default_server_name();
 		?>
@@ -333,7 +333,7 @@ final class ConfigurationPage {
 				<?php
 				$step_labels = [
 					1 => __( 'Enable', 'stonewright' ),
-					2 => __( 'App Password', 'stonewright' ),
+					2 => __( 'Authentication', 'stonewright' ),
 					3 => __( 'Connect client', 'stonewright' ),
 				];
 				foreach ( $step_labels as $num => $label ) :
@@ -762,11 +762,11 @@ final class ConfigurationPage {
 	/**
 	 * @return array{1: string, 2: string, 3: string} done|current|todo per step.
 	 */
-	private static function step_states( bool $enabled, bool $has_app_password ): array {
+	private static function step_states( bool $enabled, bool $has_app_password, bool $oauth_available ): array {
 		if ( ! $enabled ) {
 			return [ 1 => 'current', 2 => 'todo', 3 => 'todo' ];
 		}
-		if ( ! $has_app_password ) {
+		if ( ! $has_app_password && ! $oauth_available ) {
 			return [ 1 => 'done', 2 => 'current', 3 => 'todo' ];
 		}
 		return [ 1 => 'done', 2 => 'done', 3 => 'current' ];

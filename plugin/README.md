@@ -1,6 +1,6 @@
 # Stonewright Plugin
 
-Version: 1.0.0-alpha.84
+Version: 1.0.0-alpha.85
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
 License: AGPL-3.0-or-later
@@ -21,9 +21,9 @@ Release install:
 
 1. Download `stonewright-<version>.zip` from GitHub Releases.
 2. Upload it in WordPress Admin under **Plugins > Add New > Upload Plugin**.
-3. Activate Stonewright and open **Stonewright > Configuration**.
-4. Enable AI Abilities, generate a WordPress Application Password, and copy the
-   MCP client setup note.
+3. Activate Stonewright and open **Stonewright > Setup**.
+4. Enable AI Abilities, choose OAuth (recommended) or Application Password,
+   and copy the MCP client setup instructions.
 
 Source install:
 
@@ -151,9 +151,9 @@ public docs, commits, issues, or release notes.
 
 ### Client Setup In Admin
 
-The Configuration page has a three-step setup flow: enable abilities, generate a
-WordPress Application Password for the current user, then copy a client setup
-note or a per-client JSON snippet. It also includes copyable real-world prompt
+The Configuration page has a three-step setup flow: enable abilities, choose
+OAuth or generate a WordPress Application Password, then copy client-specific
+instructions. It also includes copyable real-world prompt
 examples for Elementor, content modeling, WooCommerce, and Gutenberg/FSE work.
 
 ## Adding An Ability
@@ -200,6 +200,12 @@ https://your-site.example.com/wp-json/mcp/stonewright
 ```
 
 Authentication uses WordPress Application Passwords.
+
+Plugin mode also supports browser-based OAuth at:
+
+```text
+https://your-site.example.com/wp-json/mcp/stonewright-oauth
+```
 
 MCP tool names are hyphenated by the WordPress MCP Adapter. Example:
 `stonewright/context-bootstrap` is called as `stonewright-context-bootstrap`.

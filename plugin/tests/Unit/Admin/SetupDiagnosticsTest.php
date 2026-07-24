@@ -27,7 +27,10 @@ final class SetupDiagnosticsTest extends TestCase {
 		$report = SetupDiagnostics::report();
 
 		self::assertArrayHasKey( 'ready', $report );
-		self::assertCount( 5, $report['checks'] );
+		self::assertCount( 8, $report['checks'] );
+		self::assertSame( 'ok', $this->find_check( $report['checks'], 'oauth_transport' )['status'] );
+		self::assertSame( 'ok', $this->find_check( $report['checks'], 'oauth_endpoint' )['status'] );
+		self::assertSame( 'ok', $this->find_check( $report['checks'], 'oauth_discovery' )['status'] );
 		self::assertSame( '0.0.0-test', $report['versions']['plugin'] );
 		self::assertSame( '1.0.0', $report['versions']['companion_contract'] );
 		self::assertLessThanOrEqual( 30, $report['versions']['tool_count'] );
