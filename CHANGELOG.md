@@ -10,6 +10,25 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 ## [Unreleased]
 
+## [1.0.0-alpha.83] - 2026-07-24
+
+### Added
+
+- `stonewright/elementor-document-health` reports architecture, serialized
+  size, V3/V4 counts, invalid setting paths, and bounded `e-paragraph` ids
+  without exposing document content.
+
+### Fixed
+
+- Elementor writes invalidate only the target post's generated CSS instead of
+  clearing Elementor's global CSS cache and slowing the next editor load.
+- Mixed documents allow surgical V3 batch writes under an explicit V3 parent
+  while ambiguous root adds and high-level full-document writes stay blocked.
+- Elementor schema failures identify the first rejected setting path, expected
+  shape, and received type without echoing user content.
+- The V4 atomic-abilities checkbox now submits an explicit disabled value when
+  unchecked; enable and disable persistence is covered bidirectionally.
+
 ## [1.0.0-alpha.82] - 2026-07-23
 
 ### Fixed
@@ -107,54 +126,3 @@ Unreleased); older history lives in git tags and GitHub releases.
   cleared responsive sliders validate correctly.
 - PHP parse failures return a dedicated code with actionable remediation, and
   live registration status replaces stale startup-only reporting.
-
-## [1.0.0-alpha.78] - 2026-07-22
-
-### Fixed
-
-- Direct task-start latch is strictly per-site (no any-site fallback); write tools pass the resolved site alias.
-- Intentional Elementor removals/full rebuilds pass `force_destructive` so confirmed size reductions are allowed after snapshot.
-- Elementor write readback rollback reports restore failure when previous document could not be re-persisted.
-- V4 `elementor-v4-update-node` rejects known settings with the wrong `$$type` envelope.
-
-- Elementor write abilities surface the real integrity/validator error (code +
-  hints) instead of generic "Could not save Elementor data."
-- Context-token missing error points agents to canonical `stonewright-task-start`
-  (compatibility path: context-bootstrap).
-- Remediation for `v3_architecture_mismatch` and raw php-execute Elementor
-  writes names concrete V4/V3 tools and forbids blind php-execute retries.
-- Memory schema version option bumps only after `table_schema_ok()` verifies all
-  v3 columns exist (failed `dbDelta` no longer pretends install succeeded).
-- `Memory::put_typed()` logs `memory_put_failed` with `wpdb_error` + schema
-  health; `learning-record` returns `stonewright_memory_write_failed` on store
-  failure; audit error-pattern promotion logs write/throw failures instead of
-  failing silently.
-
-### Added
-
-- **Elementor V4 surgical node update:** experimental ability
-  `stonewright/elementor-v4-update-node` patches one Atomic node's settings by
-  id (merge/replace, dry_run, snapshot, no integrity bypass). Remediation for
-  V3 architecture mismatch points agents at this tool.
-- **Elementor summary read defaults:** Direct `elementor-data-get` and plugin
-  `elementor-v4-read-atomic-tree` return a capped outline by default
-  (`responseMode=summary`, max 200 nodes; `full` opts into raw tree). Shared
-  `TreeSummary` backs V3 get-page-structure and V4 atomic reads. Write backups
-  always snapshot the full tree.
-- **Task-start delivery (Phase 4):** companion proxy merges plugin
-  `initialize.instructions` into MCP handshake instructions; Direct write latch
-  is per-site with a 30-minute TTL (matches plugin context token); pre-session
-  read responses carry a non-blocking `task_start_hint` until task-start runs
-  (plugin MCP sessions + Direct registry).
-- **Retry-storm brake:** repeated identical ability/tool failures (2+) escalate
-  with a hard-stop envelope (`STOP: this exact error occurred N times…`) plus
-  `occurrences` and `repair` fields so agents stop blind retries.
-  Plugin: `ErrorPatterns::escalate_error` after audit observe; Direct:
-  `escalateDirectError` at the registry dispatch choke point.
-- **Elementor Integrity Gate (P0)** on plugin `ElementorData::write` and Direct
-  `elementor-data-update`: reject double-encoded JSON, size collapse, and
-  widgetType remaps; auto-restore previous document on readback failure.
-- Tree validation preserves unknown settings and allows coexisting `e-*` atomic
-  widgets (no forced convert-to-pass).
-- Memory admin page error notice when the `stonewright_memory` table is missing
-  or outdated (learning promotion cannot store rows).

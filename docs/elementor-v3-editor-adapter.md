@@ -114,6 +114,17 @@ Success requires `after_hash === readback_hash`. Replaying an identical key
 returns `idempotent_replay=true`; changing input under the same key returns
 HTTP-style conflict data and performs no write.
 
+Mixed V3/V4 documents are not globally write-blocked. Batch mutation may edit
+an existing V3 subtree or add a V3 widget under an explicit V3 parent. Root
+adds and high-level full-document renderers remain blocked because their
+architecture target is ambiguous. `stonewright/elementor-document-health`
+reports the mixed counts, serialized size, invalid settings, and bounded
+`e-paragraph` ids before an agent chooses the surgical target.
+
+Successful writes invalidate only the target post's generated Elementor CSS.
+Stonewright no longer clears Elementor's global CSS cache after every document
+mutation, avoiding unnecessary regeneration work on the next editor load.
+
 ## Compatibility abilities
 
 The generated `stonewright/elementor-add-*` abilities remain available only in
