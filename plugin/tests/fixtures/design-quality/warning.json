@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0",
+  "target": {
+    "post_id": 4212,
+    "url": "https://example.test/?p=4212",
+    "render_hash": "3e1c31400415b9c6d3071af5b8c12d4e6f708192b3c4d5e6f708192a3b4c5d6e"
+  },
+  "viewports": [
+    {
+      "id": "desktop",
+      "width": 1440,
+      "height": 900,
+      "scroll_width": 1440,
+      "scroll_height": 3200,
+      "elements": [
+        {
+          "ref": "hero-title",
+          "kind": "text",
+          "box": { "width": 1200, "height": 64 },
+          "text_color": "rgb(11, 31, 58)",
+          "background_color": "#ffffff",
+          "font": { "family": "Inter", "size_px": 57, "weight": 700, "line_height_px": 62 },
+          "content_box": { "scroll_width": 1200, "client_width": 1200, "scroll_height": 64, "client_height": 64 },
+          "spacing": { "padding_top_px": 100 }
+        },
+        {
+          "ref": "hero-cta",
+          "kind": "interactive",
+          "box": { "width": 180, "height": 48 },
+          "text_color": "#ffffff",
+          "background_color": "#0b1f3a",
+          "font": { "family": "Inter", "size_px": 18, "weight": 600, "line_height_px": 24 },
+          "content_box": { "scroll_width": 180, "client_width": 180, "scroll_height": 48, "client_height": 48 },
+          "spacing": { "gap_px": 16 },
+          "states": {
+            "focus": { "outline_color": "#e8a838", "outline_width_px": 2 }
+          }
+        }
+      ]
+    }
+  ]
+}
