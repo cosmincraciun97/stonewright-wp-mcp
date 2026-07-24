@@ -16,6 +16,7 @@ Stonewright plugin
   |-- Abilities
   |-- Context bootstrap
   |-- Persistent skills and memory
+  |-- Design Direction contract, versions, active pointer
   |-- Design Spec validators/renderers
   |-- Direct PHP runtime, operator gates, backups, Stonewright mutation audit
   |
@@ -66,6 +67,66 @@ plugin/companion source to reverse-engineer tool schemas, hand-rolling
 JSON-RPC, calling the REST ability runner from shell, or running shell `wp ...`
 commands.
 
+
+## Design Direction
+
+A Design Direction is the persistent, versioned answer to "what should this
+site look like". It is stored as a validated contract rather than prose, so
+renderers, verification, and the admin UI all read the same locked shape:
+identity, tokens, components, dials, guidance, provenance, waivers, and
+readiness.
+
+### Two tables
+
+- `{prefix}stonewright_design_directions` holds one row per direction: its
+  slug, lifecycle status, current contract, contract hash, source type and
+  references, and current revision.
+- `{prefix}stonewright_design_direction_versions` holds a complete immutable
+  snapshot per revision, unique on `(direction_id, revision)`.
+
+History is append-only. A contract change writes the next revision and its
+snapshot; a byte-identical save writes neither, so history never fills with
+no-op rows. Restoring an old revision writes a *new* revision carrying the old
+contract instead of rewriting the row that was restored.
+
+### Active is a pointer, not a status
+
+Statuses are `draft`, `ready`, `stale`, and `archived`. "Active" is
+deliberately not one of them: the active direction is the id held in the
+`stonewright_active_design_direction_id` option. One option means exactly one
+active direction with no second source of truth for the same fact.
+
+Two invariants follow: only a contract whose `readiness.ready` is true can be
+activated, and the active direction cannot be archived — another direction must
+be activated first.
+
+### Raw source versus trusted contract
+
+An imported direction document has two halves, and they are trusted
+differently.
+
+- The `---` delimited front matter is a machine block: a JSON object that must
+  pass `DirectionContractValidator`. Validation is allowlist-only and rejects
+  unknown fields rather than stripping them, so nothing unrecognized reaches
+  storage.
+- The body is human prose and is never trusted. `DirectionImportSanitizer`
+  scans it line by line for instruction-shaped content — credential requests,
+  tool invocations, permission bypasses, embedded markup, encoded payloads —
+  drops every flagged line, reports it as a trust finding, and reduces what
+  survives to plain paragraphs.
+
+Contract guidance comes only from the front matter. Imported prose never
+becomes agent instructions. The verbatim document is kept in `raw_source` for
+audit and export, and is the only field that carries unsanitized input.
+
+### Layering
+
+`DesignDirectionRepository` owns every SQL statement and no rules.
+`DesignDirectionService` owns validation, contract hashing, revision decisions,
+the active pointer, and the audit payload each write reports. Every write
+result carries the contract hash before and after, so an audit trail can prove
+what changed. Contracts are encoded in canonical key order, making the hash
+depend on content alone rather than on the order a caller supplied.
 
 ## Direct + plugin REST parity surfaces
 

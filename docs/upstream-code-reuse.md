@@ -153,3 +153,23 @@ changed and requires a new review.
   companion/src/direct/tools/{comments,widgets,health,woocommerce,rest-request}.ts
 - Security review: all writes rerouted through Stonewright Permissions/
   Backup/ConfirmationToken/AuditLog gates; upstream had no equivalent gating.
+
+## Clean-room components
+
+These components carry no upstream code and therefore no ledger rows. They are
+recorded here so the absence of provenance is a documented fact rather than an
+oversight.
+
+### Design Direction storage and lifecycle
+
+- Destination: `plugin/includes/Design/Direction/`
+- Reuse type: None. The contract shape, validator, import sanitizer,
+  two-table schema, and lifecycle service were written for Stonewright.
+- Upstream comparison: the inspected Novamira snapshot has no persistent,
+  versioned design direction, no direction contract schema, and no trust
+  boundary between imported prose and machine-readable design tokens. Nothing
+  was available to port.
+- Security review: contracts pass allowlist-only validation that rejects
+  unknown fields instead of stripping them; imported prose is scanned and
+  dropped line by line before it can reach guidance; every write result reports
+  the contract hash before and after.
