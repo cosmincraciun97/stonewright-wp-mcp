@@ -644,7 +644,7 @@ if ( ! function_exists( 'wp_normalize_path' ) ) {
 
 if ( ! function_exists( 'wp_get_environment_type' ) ) {
 	function wp_get_environment_type(): string {
-		return 'local';
+		return (string) ( $GLOBALS['stonewright_test_environment_type'] ?? 'local' );
 	}
 }
 
