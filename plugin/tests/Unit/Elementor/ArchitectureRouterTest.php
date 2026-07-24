@@ -13,10 +13,28 @@ final class ArchitectureRouterTest extends TestCase {
 
 	protected function setUp(): void {
 		$GLOBALS['stonewright_test_filters']['stonewright_elementor_version'] = static fn (): string => '4.1.0';
+		$GLOBALS['stonewright_test_posts'][9049] = (object) [
+			'ID'   => 9049,
+			'meta' => [
+				'_elementor_data' => wp_json_encode(
+					[
+						[
+							'id'       => 'legacy-root',
+							'elType'   => 'container',
+							'settings' => [ 'container_type' => 'flex' ],
+							'elements' => [
+								[ 'id' => 'atomic', 'elType' => 'widget', 'widgetType' => 'e-paragraph', 'settings' => [], 'elements' => [] ],
+							],
+						],
+					]
+				),
+			],
+		];
 	}
 
 	protected function tearDown(): void {
 		$GLOBALS['stonewright_test_filters'] = [];
+		$GLOBALS['stonewright_test_posts']   = [];
 	}
 
 	public function test_ambiguous_block_instructs_agent_to_pass_post_id(): void {
@@ -48,5 +66,17 @@ final class ArchitectureRouterTest extends TestCase {
 
 		self::assertTrue( $out['write_blocked'] );
 		self::assertContains( 'stonewright/elementor-v3-repair-document', $out['repair_tools'] );
+	}
+
+	public function test_mixed_document_routes_only_surgical_v3_writes(): void {
+		$out = ArchitectureRouter::describe( 9049, 'auto' );
+
+		self::assertSame( 'mixed', $out['document_architecture'] );
+		self::assertSame( 'v3-surgical', $out['write_target'] );
+		self::assertFalse( $out['write_blocked'] );
+		self::assertTrue( $out['surgical_v3_allowed'] );
+		self::assertTrue( $out['high_level_write_blocked'] );
+		self::assertContains( 'stonewright/elementor-document-health', $out['repair_tools'] );
+		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $out['repair_tools'] );
 	}
 }

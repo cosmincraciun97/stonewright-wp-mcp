@@ -193,6 +193,18 @@ final class BatchMutate extends AbilityKernel {
 				$read_ms    = self::elapsed_ms( $read_start );
 				$before_hash = TreeHasher::hash( $tree );
 				$architecture = (string) ( AtomicTreeInspector::inspect( $tree )['architecture'] ?? 'empty' );
+				if ( 'mixed' === $architecture && self::contains_unparented_add( $operations ) ) {
+					return $this->error(
+						'mixed_root_add_blocked',
+						__( 'Mixed Elementor documents require every added V3 node to name an existing V3-only parent.', 'stonewright' ),
+						[
+							'status'       => 409,
+							'architecture' => $architecture,
+							'before_hash'  => $before_hash,
+							'repair'       => 'Run elementor-document-health, read the current structure, then set parent_id or parent_ref to a V3-only container.',
+						]
+					);
+				}
 				$targeted_ids = self::operation_target_ids( $operations );
 				$blocking     = [];
 				foreach ( $targeted_ids as $target_id ) {
@@ -832,6 +844,24 @@ final class BatchMutate extends AbilityKernel {
 			}
 		}
 
+		return false;
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $operations
+	 */
+	private static function contains_unparented_add( array $operations ): bool {
+		foreach ( $operations as $operation ) {
+			$action = (string) ( $operation['action'] ?? '' );
+			if ( ! in_array( $action, [ 'add_container', 'add_widget' ], true ) ) {
+				continue;
+			}
+			$parent_id  = trim( (string) ( $operation['parent_id'] ?? '' ) );
+			$parent_ref = trim( (string) ( $operation['parent_ref'] ?? '' ) );
+			if ( '' === $parent_id && '' === $parent_ref ) {
+				return true;
+			}
+		}
 		return false;
 	}
 

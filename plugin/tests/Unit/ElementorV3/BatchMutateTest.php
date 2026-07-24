@@ -30,6 +30,41 @@ final class BatchMutateTest extends TestCase {
 					'_elementor_version'   => defined( 'ELEMENTOR_VERSION' ) ? ELEMENTOR_VERSION : '3.0.0',
 				],
 			],
+			9049 => (object) [
+				'ID'           => 9049,
+				'post_type'    => 'page',
+				'post_status'  => 'draft',
+				'post_title'   => 'Mixed target',
+				'post_content' => '',
+				'post_excerpt' => '',
+				'meta'         => [
+					'_elementor_data'      => wp_json_encode(
+						[
+							[
+								'id'       => 'mixed-root',
+								'elType'   => 'container',
+								'settings' => [ 'container_type' => 'flex' ],
+								'elements' => [
+									[
+										'id'         => 'atomic-child',
+										'elType'     => 'widget',
+										'widgetType' => 'e-paragraph',
+										'settings'   => [],
+										'elements'   => [],
+									],
+									[
+										'id'       => 'v3-child',
+										'elType'   => 'container',
+										'settings' => [ 'container_type' => 'flex' ],
+										'elements' => [],
+									],
+								],
+							],
+						]
+					),
+					'_elementor_edit_mode' => 'builder',
+				],
+			],
 		];
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
 		$GLOBALS['stonewright_test_options'] = [ 'stonewright_mode' => 'development' ];
@@ -125,6 +160,45 @@ final class BatchMutateTest extends TestCase {
 		self::assertSame( 1, $result['applied'] );
 		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
 		self::assertArrayHasKey( 'preview', $result );
+	}
+
+	public function test_mixed_document_rejects_unparented_root_add(): void {
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'   => 9049,
+				'dry_run'   => true,
+				'operations' => [
+					[
+						'action'      => 'add_widget',
+						'widget_type' => 'heading',
+						'settings'    => [ 'title' => 'Unsafe root add' ],
+					],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_mixed_root_add_blocked', $result->get_error_code() );
+	}
+
+	public function test_mixed_document_allows_add_inside_v3_only_parent(): void {
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'   => 9049,
+				'dry_run'   => true,
+				'operations' => [
+					[
+						'action'      => 'add_widget',
+						'parent_id'   => 'v3-child',
+						'widget_type' => 'heading',
+						'settings'    => [ 'title' => 'Safe surgical add' ],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 1, $result['applied'] );
 	}
 
 	public function test_dry_run_collects_all_schema_failures_without_writing(): void {
