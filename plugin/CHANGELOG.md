@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Added
+
+- Persistent versioned Design Direction storage: two tables, append-only
+  revision history, contract hashing in canonical key order, allowlist-only
+  contract validation, and an active-direction option pointer.
+- Abilities `stonewright/design-direction-list`, `-get`, `-save`, `-activate`,
+  and `-restore`. Writes require `can_manage_design()` and the task context
+  token; activate and restore additionally require a confirmation token bound to
+  the direction id (and revision) in production-safe mode. Every write reads its
+  effect back and reports the contract hash before and after.
+
 ## [1.0.0-alpha.86] - 2026-07-24
 
 ### Fixed

@@ -128,6 +128,38 @@ result carries the contract hash before and after, so an audit trail can prove
 what changed. Contracts are encoded in canonical key order, making the hash
 depend on content alone rather than on the order a caller supplied.
 
+### Ability surface
+
+Five abilities expose the store to MCP clients, all in the `design` category:
+
+| Ability | R/W | Gates |
+|---|---|---|
+| `stonewright/design-direction-list` | Read | `Permissions::read()` |
+| `stonewright/design-direction-get` | Read | `Permissions::read()` |
+| `stonewright/design-direction-save` | Write | `can_manage_design()`, context token, `DirectionContractValidator` |
+| `stonewright/design-direction-activate` | Write | `can_manage_design()`, context token, confirmation token |
+| `stonewright/design-direction-restore` | Write | `can_manage_design()`, context token, confirmation token |
+
+Activation and restore replace the answer to "what should this site look like"
+for every later render, so both carry the destructive envelope: in
+production-safe mode the confirmation token must be issued for that exact
+direction id — and, for restore, that exact revision — so a token minted for
+one direction cannot move another.
+
+Each write reads its own effect back before the receipt claims success: save
+and restore re-read the stored contract hash, activate re-reads the active
+pointer. A mismatch returns
+`stonewright_direction_verification_failed` rather than a successful receipt.
+Receipts report `before_sha256`, `after_sha256`, `operation_class`,
+`resource_type`, and `verification_status`, which the ability kernel forwards
+into the audit record.
+
+The two reads ship in the `elementor-design` tool profile ahead of the
+builders, because design intent is read before anything renders. The write trio
+is intent-gated: it appears only when the task text names design-system work,
+and then immediately after the startup tools rather than at the tail, so a low
+`max_tools` cap cannot trim the tools the task exists for.
+
 ## Direct + plugin REST parity surfaces
 
 Plugin abilities and Direct tools cover comments, users (including application passwords), widgets, allowlisted settings, themes, plugin lifecycle, revisions (with restore on the plugin), site health tests, search/oEmbed, and WooCommerce product/order/sales reads.

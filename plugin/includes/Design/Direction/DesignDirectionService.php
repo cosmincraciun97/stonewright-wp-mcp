@@ -344,6 +344,34 @@ final class DesignDirectionService {
 	}
 
 	/**
+	 * Returns one stored direction, or null when the id is unknown.
+	 *
+	 * @return array<string,mixed>|null
+	 */
+	public function get( int $id ): ?array {
+		if ( $id < 1 ) {
+			return null;
+		}
+
+		return $this->repository->get( $id );
+	}
+
+	/**
+	 * Returns one stored direction by slug, or null when the slug is unknown.
+	 *
+	 * @return array<string,mixed>|null
+	 */
+	public function find_by_slug( string $slug ): ?array {
+		$slug = sanitize_title( $slug );
+
+		if ( '' === $slug ) {
+			return null;
+		}
+
+		return $this->repository->find_by_slug( $slug );
+	}
+
+	/**
 	 * Returns a direction's version history, newest revision first.
 	 *
 	 * @return list<array<string,mixed>>

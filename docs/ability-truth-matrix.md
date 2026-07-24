@@ -10,7 +10,7 @@
 - **Permission**: the `Permissions::` method called from `permission_callback()`.
 - **Token**: `ConfirmationGuard` trait or explicit `ConfirmationToken::verify_or_error()` call.
 - **Backup**: calls `Backup::snapshot_post()` before mutation.
-- **Validator**: calls an Elementor, DesignSpec, or ThemeJson validator.
+- **Validator**: calls an Elementor, DesignSpec, ThemeJson, or Design Direction validator.
 - **Status**: `stable` | `experimental` | `sandboxed` | `blocked` (from `@stonewright-status` docblock tag).
 - **Tests**: primary test file for this ability.
 
@@ -209,6 +209,11 @@
 | `stonewright/design-preview-render` | `stonewright-design-preview-render` | `Design\PreviewRender` | Validates a Stonewright Design Spec and renders it to an Elementor element array without writing to any post. | Read | `Permissions::can_view_design()` | No | No | Yes (DesignSpec) | stable | `tests/Integration/DesignIngestionTest.php` |
 | `stonewright/design-apply-to-post` | `stonewright-design-apply-to-post` | `Design\ApplyToPost` | Sideloads image assets, then applies a Stonewright Design Spec to an Elementor page. | Write | `Permissions::can_edit_post( $post_id )` | Yes | No | Yes (DesignSpec) | stable | `tests/Integration/DesignIngestionTest.php` |
 | `stonewright/widget-intent-resolve` | `stonewright-widget-intent-resolve` | `Design\WidgetIntentResolve` | Maps a high-level design intent to the right Elementor widget choice + a settings template + the prerequisite steps to run first. | Read | `Permissions::read()` | No | No | No | stable | `tests/Integration/DesignIngestionTest.php` |
+| `stonewright/design-direction-list` | `stonewright-design-direction-list` | `Design\DirectionList` | Lists stored design directions with status, revision, readiness, and contract hash. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/Design/DirectionAbilitiesTest.php` |
+| `stonewright/design-direction-get` | `stonewright-design-direction-get` | `Design\DirectionGet` | Returns one design direction contract by id or slug, with optional revision history. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/Design/DirectionAbilitiesTest.php` |
+| `stonewright/design-direction-save` | `stonewright-design-direction-save` | `Design\DirectionSave` | Validates and stores a design direction contract, creating a new revision when the contract changed. | Write | `Permissions::can_manage_design()` | No | No | Yes (Direction) | stable | `tests/Unit/Design/DirectionAbilitiesTest.php` |
+| `stonewright/design-direction-activate` | `stonewright-design-direction-activate` | `Design\DirectionActivate` | Makes a ready design direction the active one for the site. | Write | `Permissions::can_manage_design()` | Yes | No | No | stable | `tests/Unit/Design/DirectionAbilitiesTest.php` |
+| `stonewright/design-direction-restore` | `stonewright-design-direction-restore` | `Design\DirectionRestore` | Writes a stored design direction revision back as a new revision, leaving history intact. | Write | `Permissions::can_manage_design()` | Yes | No | No | stable | `tests/Unit/Design/DirectionAbilitiesTest.php` |
 
 ---
 
@@ -589,7 +594,7 @@
 
 ## Summary
 
-Total abilities registered: **319**
+Total abilities registered: **324**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

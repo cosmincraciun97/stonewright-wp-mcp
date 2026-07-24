@@ -6,6 +6,8 @@ namespace Stonewright\WpMcp\Tests\Integration;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\Ability;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Design\Direction\DesignDirectionService;
+use Stonewright\WpMcp\Design\Direction\DirectionContractValidator;
 use Stonewright\WpMcp\Support\ErrorEnvelope;
 
 /**
@@ -119,9 +121,128 @@ final class ContractTest extends TestCase {
 		$GLOBALS['stonewright_test_next_nav_menu_id']      = 6001;
 		$GLOBALS['stonewright_test_next_nav_menu_item_id'] = 6101;
 		$this->prepare_sandbox_files();
+		$this->seed_design_direction();
 		$this->seed_contract_snapshot();
 		$this->seed_theme_backup();
 		$this->seed_stock_http_mock();
+	}
+
+	/**
+	 * Stored design direction used by the design-direction-* fixtures.
+	 *
+	 * Revision 1 carries a different summary than revision 2, so the restore
+	 * fixture exercises the real versioned path (new revision, appended history)
+	 * instead of a no-op restore.
+	 */
+	private function seed_design_direction(): void {
+		global $wpdb;
+
+		if ( ! property_exists( $wpdb, 'direction_rows' ) ) {
+			return;
+		}
+
+		$current  = $this->direction_contract( 'Stone and precision.' );
+		$previous = $this->direction_contract( 'Earlier stone language.' );
+
+		$wpdb->direction_rows = [
+			7001 => [
+				'id'               => 7001,
+				'slug'             => 'contract-direction',
+				'status'           => 'ready',
+				'contract_json'    => (string) wp_json_encode( $current ),
+				'contract_hash'    => DesignDirectionService::hash( $current ),
+				'source_type'      => 'manual',
+				'source_refs_json' => (string) wp_json_encode( [ 'brief' => 'brief:12' ] ),
+				'revision'         => 2,
+				'created_at'       => '2026-07-01 00:00:00',
+				'updated_at'       => '2026-07-02 00:00:00',
+			],
+		];
+
+		$wpdb->direction_version_rows = [
+			1 => [
+				'id'               => 1,
+				'direction_id'     => 7001,
+				'revision'         => 1,
+				'status'           => 'draft',
+				'contract_json'    => (string) wp_json_encode( $previous ),
+				'contract_hash'    => DesignDirectionService::hash( $previous ),
+				'source_type'      => 'manual',
+				'source_refs_json' => (string) wp_json_encode( [ 'brief' => 'brief:11' ] ),
+				'created_at'       => '2026-07-01 00:00:00',
+			],
+			2 => [
+				'id'               => 2,
+				'direction_id'     => 7001,
+				'revision'         => 2,
+				'status'           => 'ready',
+				'contract_json'    => (string) wp_json_encode( $current ),
+				'contract_hash'    => DesignDirectionService::hash( $current ),
+				'source_type'      => 'manual',
+				'source_refs_json' => (string) wp_json_encode( [ 'brief' => 'brief:12' ] ),
+				'created_at'       => '2026-07-02 00:00:00',
+			],
+		];
+	}
+
+	/**
+	 * A canonical, ready design direction contract.
+	 *
+	 * Built through the validator so the seeded hash matches what the service
+	 * computes when it reads the row back.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function direction_contract( string $summary ): array {
+		$contract = DirectionContractValidator::validate(
+			[
+				'schema_version' => '1.0',
+				'identity'       => [
+					'name'    => 'Contract Quarry',
+					'summary' => $summary,
+				],
+				'tokens'         => [
+					'colors'     => [ 'brand' => '#1f2933' ],
+					'typography' => [
+						'body' => [
+							'family' => 'Inter',
+							'size'   => '1rem',
+						],
+					],
+					'spacing'    => [ 'md' => '1rem' ],
+					'radii'      => [ 'sm' => '2px' ],
+					'elevation'  => [ 'low' => '0 1px 2px rgba(0,0,0,0.12)' ],
+					'motion'     => [ 'fast' => 120 ],
+				],
+				'components'     => [],
+				'dials'          => [
+					'variance' => 20,
+					'density'  => 40,
+					'motion'   => 10,
+				],
+				'guidance'       => [
+					'do'    => [ 'Keep surfaces quiet.' ],
+					'avoid' => [ 'Decorative gradients.' ],
+				],
+				'provenance'     => [
+					'tokens.colors.brand' => [
+						'source'    => 'brief',
+						'reference' => 'brief:12',
+					],
+				],
+				'waivers'        => [],
+				'readiness'      => [
+					'ready'      => true,
+					'sync_ready' => true,
+					'issues'     => [],
+				],
+			]
+		);
+
+		$this->assertNotInstanceOf( \WP_Error::class, $contract, 'Seeded direction contract must validate.' );
+
+		/** @var array<string,mixed> $contract */
+		return $contract;
 	}
 
 	/**

@@ -10,6 +10,16 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 ## [Unreleased]
 
+### Added
+
+- Design Directions: a site's design language is now stored as a validated,
+  versioned contract instead of prose, with append-only revision history and one
+  active direction per site.
+- Five MCP abilities to list, read, save, activate, and restore design
+  directions. Activation and restore replace live design intent, so both are
+  gated by permission, task context token, and a confirmation token bound to the
+  exact direction in production-safe mode.
+
 ## [1.0.0-alpha.86] - 2026-07-24
 
 ### Fixed

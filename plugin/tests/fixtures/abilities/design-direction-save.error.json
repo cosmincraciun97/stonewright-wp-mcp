@@ -1,0 +1,7 @@
+{
+    "args": {
+        "contract": {
+            "not_a_contract_key": true
+        }
+    }
+}

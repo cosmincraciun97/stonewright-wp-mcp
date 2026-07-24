@@ -1,0 +1,68 @@
+{
+    "args": {
+        "slug": "contract-save-direction",
+        "status": "draft",
+        "source_type": "manual",
+        "source_refs": {
+            "brief": "brief:12"
+        },
+        "contract": {
+            "schema_version": "1.0",
+            "identity": {
+                "name": "Contract Quarry",
+                "summary": "Stone and precision."
+            },
+            "tokens": {
+                "colors": {
+                    "brand": "#1f2933"
+                },
+                "typography": {
+                    "body": {
+                        "family": "Inter",
+                        "size": "1rem"
+                    }
+                },
+                "spacing": {
+                    "md": "1rem"
+                },
+                "radii": {
+                    "sm": "2px"
+                },
+                "elevation": {
+                    "low": "0 1px 2px rgba(0,0,0,0.12)"
+                },
+                "motion": {
+                    "fast": 120
+                }
+            },
+            "components": [],
+            "dials": {
+                "variance": 20,
+                "density": 40,
+                "motion": 10
+            },
+            "guidance": {
+                "do": [
+                    "Keep surfaces quiet."
+                ],
+                "avoid": [
+                    "Decorative gradients."
+                ]
+            },
+            "provenance": {
+                "tokens.colors.brand": {
+                    "source": "brief",
+                    "reference": "brief:12"
+                }
+            },
+            "waivers": [],
+            "readiness": {
+                "ready": false,
+                "sync_ready": false,
+                "issues": [
+                    "Component coverage incomplete."
+                ]
+            }
+        }
+    }
+}

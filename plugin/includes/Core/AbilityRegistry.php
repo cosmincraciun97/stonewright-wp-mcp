@@ -37,6 +37,11 @@ use Stonewright\WpMcp\Abilities\BrandKits\ListBrandKits;
 use Stonewright\WpMcp\Abilities\Design\ApplyToPost;
 use Stonewright\WpMcp\Abilities\Design\BuildSpec;
 use Stonewright\WpMcp\Abilities\Design\ChooseRenderer;
+use Stonewright\WpMcp\Abilities\Design\DirectionActivate;
+use Stonewright\WpMcp\Abilities\Design\DirectionGet;
+use Stonewright\WpMcp\Abilities\Design\DirectionList;
+use Stonewright\WpMcp\Abilities\Design\DirectionRestore;
+use Stonewright\WpMcp\Abilities\Design\DirectionSave;
 use Stonewright\WpMcp\Abilities\Design\ExtractTokens;
 use Stonewright\WpMcp\Abilities\Design\ImplementationContract;
 use Stonewright\WpMcp\Abilities\Design\ImportImage;
@@ -396,6 +401,13 @@ final class AbilityRegistry {
 
 			// Design — smart-detection intent resolver.
 			WidgetIntentResolve::class,
+
+			// Design Direction — persistent, versioned design intent.
+			DirectionList::class,
+			DirectionGet::class,
+			DirectionSave::class,
+			DirectionActivate::class,
+			DirectionRestore::class,
 
 			// Blueprints + brand kits.
 			ListBlueprints::class,
