@@ -477,6 +477,11 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 			return null;
 		}
 
+		public function query( string $query ): int|false {
+			unset( $query );
+			return 0;
+		}
+
 		/**
 		 * @param array<string, mixed> $data
 		 * @param array<string, mixed> $where
@@ -645,6 +650,12 @@ if ( ! function_exists( 'wp_normalize_path' ) ) {
 if ( ! function_exists( 'wp_get_environment_type' ) ) {
 	function wp_get_environment_type(): string {
 		return (string) ( $GLOBALS['stonewright_test_environment_type'] ?? 'local' );
+	}
+}
+
+if ( ! function_exists( 'is_admin' ) ) {
+	function is_admin(): bool {
+		return (bool) ( $GLOBALS['stonewright_test_is_admin'] ?? true );
 	}
 }
 
@@ -2141,12 +2152,35 @@ if ( ! class_exists( 'WP_REST_Server' ) ) {
 
 if ( ! class_exists( 'WP_REST_Request' ) ) {
 	class WP_REST_Request {
+		private string $method = 'GET';
+
+		private string $route = '';
+
 		/** @var array<string, mixed> */
 		private array $params = [];
 
+		/** @var array<string, mixed> */
+		private array $json_params = [];
+
+		/** @var array<string, mixed> */
+		private array $body_params = [];
+
+		/** @var array<string, string> */
+		private array $headers = [];
+
 		/** @param array<string, mixed> $params */
 		public function __construct( string $method = 'GET', string $route = '', array $params = [] ) {
+			$this->method = $method;
+			$this->route  = $route;
 			$this->params = $params;
+		}
+
+		public function get_method(): string {
+			return $this->method;
+		}
+
+		public function get_route(): string {
+			return $this->route;
 		}
 
 		public function get_param( string $key ): mixed {
@@ -2156,6 +2190,53 @@ if ( ! class_exists( 'WP_REST_Request' ) ) {
 		/** @param array<string, mixed> $params */
 		public function set_params( array $params ): void {
 			$this->params = $params;
+		}
+
+		/** @return array<string, mixed> */
+		public function get_json_params(): array {
+			return $this->json_params;
+		}
+
+		/** @param array<string, mixed> $params */
+		public function set_json_params( array $params ): void {
+			$this->json_params = $params;
+		}
+
+		/** @return array<string, mixed> */
+		public function get_body_params(): array {
+			return $this->body_params;
+		}
+
+		/** @param array<string, mixed> $params */
+		public function set_body_params( array $params ): void {
+			$this->body_params = $params;
+			$this->params      = array_merge( $this->params, $params );
+		}
+
+		public function get_header( string $key ): string {
+			return $this->headers[ strtolower( $key ) ] ?? '';
+		}
+
+		public function set_header( string $key, string $value ): void {
+			$this->headers[ strtolower( $key ) ] = $value;
+		}
+
+		/** @return array<string, list<string>> */
+		public function get_headers(): array {
+			$headers = [];
+			foreach ( $this->headers as $name => $value ) {
+				$headers[ $name ] = [ $value ];
+			}
+			return $headers;
+		}
+
+		/** @return array<string, mixed> */
+		public function get_query_params(): array {
+			return $this->params;
+		}
+
+		public function get_body(): string {
+			return '';
 		}
 	}
 }
