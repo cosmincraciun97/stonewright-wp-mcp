@@ -7,6 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\ElementorV3\BatchMutate;
 use Stonewright\WpMcp\Elementor\Schema\ContainerSchemaRepository;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Support\ElementorData;
 
@@ -160,6 +161,28 @@ final class BatchMutateTest extends TestCase {
 		self::assertSame( 1, $result['applied'] );
 		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
 		self::assertArrayHasKey( 'preview', $result );
+	}
+
+	public function test_write_returns_busy_without_mutation_when_page_is_locked(): void {
+		PostWriteLock::acquire( 501, 'other-transaction', 30 );
+
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 501,
+				'operations' => [
+					[
+						'action'      => 'add_widget',
+						'parent_id'   => 'root',
+						'widget_type' => 'heading',
+						'settings'    => [ 'title' => 'Blocked write' ],
+					],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_write_busy', $result->get_error_code() );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
 	}
 
 	public function test_mixed_document_rejects_unparented_root_add(): void {

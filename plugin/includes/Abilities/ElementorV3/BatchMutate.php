@@ -13,6 +13,7 @@ use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Elementor\V4\AtomicTreeInspector;
 use Stonewright\WpMcp\Elementor\Write\EvidenceValidator;
 use Stonewright\WpMcp\Elementor\Write\IdempotencyStore;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
 use Stonewright\WpMcp\Elementor\Write\V3MutationCompiler;
 use Stonewright\WpMcp\Security\Backup;
@@ -315,29 +316,38 @@ final class BatchMutate extends AbilityKernel {
 				$after_hash  = TreeHasher::hash( $tree );
 				$readback_hash = $dry_run ? $after_hash : '';
 				if ( ! $dry_run ) {
-					$snapshot_id = Backup::snapshot_post( $post_id );
-					$write_start = microtime( true );
-					// Surgical batch may remove large subtrees; force_destructive is bound to this
-					// intentional, snapshotted write (not an accidental silent collapse).
-					if ( ! ElementorData::write( $post_id, $tree, [ 'force_destructive' => true, 'touched_ids' => $targeted_ids ] ) ) {
-						$restored = Backup::restore( $post_id, $snapshot_id );
-						$err      = ElementorData::write_error_for_ability();
-						// Preserve restore info for the agent without losing gate codes/fix hints.
-						return new \WP_Error(
-							$err->get_error_code(),
-							$err->get_error_message(),
-							array_merge( (array) $err->get_error_data(), [ 'restored' => $restored ] )
-						);
+					$lock_owner = 'batch-' . substr( $request_hash, 0, 24 );
+					$lease      = PostWriteLock::acquire( $post_id, $lock_owner );
+					if ( $lease instanceof \WP_Error ) {
+						return $lease;
 					}
-					$write_ms = self::elapsed_ms( $write_start );
-					$readback_hash = TreeHasher::hash( ElementorData::read( $post_id ) );
-					if ( ! hash_equals( $after_hash, $readback_hash ) ) {
-						$restored = Backup::restore( $post_id, $snapshot_id );
-						return $this->error(
-							'readback_mismatch',
-							__( 'Elementor write readback did not match the compiled tree; the snapshot was restored.', 'stonewright' ),
-							[ 'status' => 500, 'expected_hash' => $after_hash, 'readback_hash' => $readback_hash, 'restored' => $restored ]
-						);
+					try {
+						$snapshot_id = Backup::snapshot_post( $post_id );
+						$write_start = microtime( true );
+						// Surgical batch may remove large subtrees; force_destructive is bound to this
+						// intentional, snapshotted write (not an accidental silent collapse).
+						if ( ! ElementorData::write( $post_id, $tree, [ 'force_destructive' => true, 'touched_ids' => $targeted_ids ] ) ) {
+							$restored = Backup::restore( $post_id, $snapshot_id );
+							$err      = ElementorData::write_error_for_ability();
+							// Preserve restore info for the agent without losing gate codes/fix hints.
+							return new \WP_Error(
+								$err->get_error_code(),
+								$err->get_error_message(),
+								array_merge( (array) $err->get_error_data(), [ 'restored' => $restored ] )
+							);
+						}
+						$write_ms      = self::elapsed_ms( $write_start );
+						$readback_hash = TreeHasher::hash( ElementorData::read( $post_id ) );
+						if ( ! hash_equals( $after_hash, $readback_hash ) ) {
+							$restored = Backup::restore( $post_id, $snapshot_id );
+							return $this->error(
+								'readback_mismatch',
+								__( 'Elementor write readback did not match the compiled tree; the snapshot was restored.', 'stonewright' ),
+								[ 'status' => 500, 'expected_hash' => $after_hash, 'readback_hash' => $readback_hash, 'restored' => $restored ]
+							);
+						}
+					} finally {
+						PostWriteLock::release( $post_id, $lock_owner );
 					}
 				}
 
