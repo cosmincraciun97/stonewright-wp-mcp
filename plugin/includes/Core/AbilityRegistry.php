@@ -52,6 +52,7 @@ use Stonewright\WpMcp\Abilities\ElementorV3\AddWidget;
 use Stonewright\WpMcp\Abilities\ElementorV3\ApplyBundle as ElementorV3ApplyBundle;
 use Stonewright\WpMcp\Abilities\ElementorV3\BackupPage;
 use Stonewright\WpMcp\Abilities\ElementorV3\BatchMutate;
+use Stonewright\WpMcp\Abilities\ElementorV3\WireLoop;
 use Stonewright\WpMcp\Abilities\ElementorV3\TransactionRun as ElementorV3TransactionRun;
 use Stonewright\WpMcp\Abilities\ElementorV3\BuildPageFromSpec;
 use Stonewright\WpMcp\Abilities\ElementorV3\CapabilitiesSummary as ElementorV3CapabilitiesSummary;
@@ -348,6 +349,7 @@ final class AbilityRegistry {
 			RemoveElement::class,
 			BuildPageFromSpec::class,
 			BatchMutate::class,
+			WireLoop::class,
 			ElementorV3TransactionRun::class,
 			ElementorV3ApplyBundle::class,
 			UpdatePageSettings::class,
@@ -1308,7 +1310,6 @@ final class AbilityRegistry {
 			'stonewright/php-execute',
 			'stonewright/security-issue-confirmation-token',
 			'stonewright/site-info',
-			'stonewright/expertise-get',
 
 			// Composite content and design paths.
 			'stonewright/content-bulk-upsert-posts',
@@ -1320,6 +1321,7 @@ final class AbilityRegistry {
 			'stonewright/elementor-v3-get-page-structure',
 			'stonewright/elementor-v3-build-page-from-spec',
 			'stonewright/elementor-v3-batch-mutate',
+			'stonewright/elementor-wire-loop',
 			'stonewright/theme-builder-apply-template',
 			'stonewright/gutenberg-apply-to-post',
 			// Theme read lives in bootstrap; keep its write counterpart reachable.

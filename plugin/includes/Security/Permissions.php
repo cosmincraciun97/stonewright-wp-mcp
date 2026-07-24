@@ -123,6 +123,14 @@ final class Permissions {
 	}
 
 	/**
+	 * Returns true if the current user can publish posts of the given type.
+	 */
+	public static function can_publish_post_type( string $post_type ): bool {
+		$capability = self::publish_cap_for_status( $post_type, 'publish' );
+		return null !== $capability && current_user_can( $capability );
+	}
+
+	/**
 	 * Permission gate for design management abilities (validate and apply specs).
 	 *
 	 * Requires manage_options + edit_pages — design writes affect live page content

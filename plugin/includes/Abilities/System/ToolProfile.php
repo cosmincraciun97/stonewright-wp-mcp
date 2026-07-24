@@ -639,6 +639,7 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/elementor-v3-build-page-from-spec',
 				'stonewright/theme-builder-apply-template',
 				'stonewright/elementor-v3-batch-mutate',
+				'stonewright/elementor-wire-loop',
 				'stonewright/gutenberg-apply-to-post',
 				'stonewright/elementor-page-digest',
 				'stonewright/content-bulk-upsert-posts',
@@ -657,9 +658,11 @@ final class ToolProfile extends AbilityKernel {
 				// Write-critical path first so capped clients keep every write gate.
 				'stonewright/security-issue-confirmation-token',
 				'stonewright/design-validate-spec',
+				'stonewright/design-native-plan',
 				'stonewright/elementor-v3-build-page-from-spec',
 				'stonewright/theme-builder-apply-template',
 				'stonewright/elementor-v3-batch-mutate',
+				'stonewright/elementor-wire-loop',
 				'stonewright/elementor-v3-apply-bundle',
 				'stonewright/elementor-page-digest',
 				'stonewright/elementor-document-health',
@@ -683,7 +686,6 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/stock-image-import',
 				'stonewright/content-bulk-upsert-posts',
 				'stonewright/content-model-loop-grid-flow',
-				'stonewright/design-native-plan',
 				'stonewright/design-implementation-contract',
 				'stonewright/widget-intent-resolve',
 				'stonewright/elementor-widget-implementation-guide',
@@ -850,6 +852,7 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/theme-builder-apply-template' => 'Create or update a real Elementor Theme Builder template, render the spec, apply conditions, and return verification hints in one request.',
 			'stonewright/elementor-v3-container-schema' => 'Get container layout, style, Advanced, alias, and blocked-key guidance before section writes.',
 			'stonewright/elementor-v3-batch-mutate' => 'Apply grouped surgical Elementor mutations after screenshot review.',
+			'stonewright/elementor-wire-loop' => 'Plan or transactionally add a native Elementor Pro Loop Carousel or Loop Grid using an existing loop-item template or a validated template spec.',
 			'stonewright/content-bulk-upsert-posts' => 'Create or update repeated posts, CPT rows, and meta values in one call.',
 			'stonewright/content-model-loop-grid-flow' => 'Create CPT UI-style config, ACF field contract, repeated CPT rows, optional loop item, and Loop Grid settings in one call.',
 			'stonewright/wp-cli-batch-run' => 'Run repeated tokenized WP-CLI argv commands with compact output.',
@@ -971,6 +974,7 @@ final class ToolProfile extends AbilityKernel {
 		$preferred_abilities = match ( $profile ) {
 			'elementor-design', 'low-tools' => array_merge( $elementor_preferences, [
 				'stonewright/elementor-v3-batch-mutate',
+				'stonewright/elementor-wire-loop',
 				'stonewright/elementor-v3-get-kit-globals',
 				'stonewright/content-model-loop-grid-flow',
 				'stonewright/content-bulk-upsert-posts',

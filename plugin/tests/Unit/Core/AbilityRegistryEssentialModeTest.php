@@ -37,6 +37,7 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 		self::assertContains( 'stonewright/theme-builder-apply-template', $names );
 		self::assertContains( 'stonewright/content-model-loop-grid-flow', $names );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $names );
+		self::assertContains( 'stonewright/elementor-wire-loop', $names );
 		self::assertContains( 'stonewright/media-upload-batch', $names );
 		self::assertLessThanOrEqual( 30, count( $names ) );
 	}
@@ -81,6 +82,7 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 		self::assertContains( 'stonewright/php-execute', $names );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $names );
 		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $names );
+		self::assertContains( 'stonewright/elementor-wire-loop', $names );
 		self::assertContains( 'stonewright/content-bulk-upsert-posts', $names );
 		self::assertContains( 'stonewright/media-upload-batch', $names );
 		self::assertContains( 'stonewright/wp-cli-batch-run', $names );
