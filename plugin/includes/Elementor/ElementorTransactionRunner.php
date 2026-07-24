@@ -124,18 +124,6 @@ final class ElementorTransactionRunner {
 			);
 		}
 
-		// Best-effort Elementor file cache clear.
-		if ( class_exists( '\\Elementor\\Plugin' ) ) {
-			try {
-				$instance = \Elementor\Plugin::$instance;
-				if ( isset( $instance->files_manager ) ) {
-					$instance->files_manager->clear_cache();
-				}
-			} catch ( \Throwable $e ) {
-				// ignore
-			}
-		}
-
 		return [
 			'ok'            => true,
 			'post_id'       => $post_id,

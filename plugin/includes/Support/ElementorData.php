@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Support;
 
 use Stonewright\WpMcp\Elementor\Integrity\DocumentIntegrityGate;
+use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
 
 /**
@@ -169,7 +170,7 @@ final class ElementorData {
 		update_post_meta( $post_id, '_elementor_data', wp_slash( $json ) );
 		update_post_meta( $post_id, '_elementor_edit_mode', 'builder' );
 		update_post_meta( $post_id, '_elementor_version', $elementor_version );
-		self::clear_cache( $post_id );
+		PostCacheInvalidator::invalidate( $post_id );
 
 		$stored_data = (string) get_post_meta( $post_id, '_elementor_data', true );
 		$stored_mode = (string) get_post_meta( $post_id, '_elementor_edit_mode', true );
@@ -322,15 +323,4 @@ final class ElementorData {
 		return $tree;
 	}
 
-	private static function clear_cache( int $post_id ): void {
-		clean_post_cache( $post_id );
-		if ( did_action( 'elementor/loaded' ) && class_exists( '\\Elementor\\Plugin' ) ) {
-			try {
-				\Elementor\Plugin::$instance->files_manager->clear_cache();
-				\Elementor\Plugin::$instance->posts_css_manager->clear_cache_post( $post_id );
-			} catch ( \Throwable $e ) {
-				// Cache layer is best-effort; ignore if unavailable.
-			}
-		}
-	}
 }
