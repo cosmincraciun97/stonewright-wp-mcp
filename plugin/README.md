@@ -1,6 +1,6 @@
 # Stonewright Plugin
 
-Version: 1.0.0-alpha.83
+Version: 1.0.0-alpha.84
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
 License: AGPL-3.0-or-later
@@ -10,6 +10,10 @@ Stonewright registers WordPress Abilities as MCP tools through the official
 Elementor V4 atomic experiments, Design Spec rendering, Elementor widget
 building, persistent skills/memory, direct PHP runtime execution, and
 companion-backed WP-CLI.
+
+For native repeated content, `stonewright/elementor-wire-loop` plans or adds a
+Loop Grid/Carousel with live Pro schemas, a validated existing or newly staged
+loop-item template, one page write, readback verification, and rollback.
 
 ## Quick Start
 

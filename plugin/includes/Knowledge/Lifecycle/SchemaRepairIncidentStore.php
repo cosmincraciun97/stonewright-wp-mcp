@@ -28,6 +28,7 @@ final class SchemaRepairIncidentStore {
 					$row['widget'],
 					$row['control'],
 					$row['schema_hash'],
+					$row['runtime_fingerprint'],
 					$row['received_type'],
 				]
 			)

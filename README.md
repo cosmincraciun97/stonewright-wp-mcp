@@ -44,7 +44,7 @@ Stonewright is a WordPress MCP stack for AI coding agents. **Elementor** is a fi
 
 Counts are derived from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
 
-### Plugin mode — **318** abilities
+### Plugin mode — **319** abilities
 
 | Category | Count | Highlights |
 |---|---:|---|
@@ -82,6 +82,8 @@ Counts are derived from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL
 - Inspect an existing WordPress site before changing it
 - Create or update Gutenberg content and block-theme structures (Plugin mode; partial Direct mode for core posts/pages)
 - Build and modify Elementor documents through validated DesignSpec workflows (**Plugin mode**)
+- Wire native Elementor Pro Loop Grid/Carousel widgets transactionally from an
+  existing loop-item template or a validated template spec (**Plugin mode**)
 - Manage content, media, navigation, and selected site settings
 - Create snapshots or revisions before supported mutations
 - Validate DesignSpec payloads and read back important changes
@@ -95,6 +97,8 @@ Counts are derived from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL
 - **Elementor widget and schema intelligence** — live controls and typed writes (Plugin mode)
 - **Gutenberg, FSE, templates, patterns, and `theme.json`**
 - **Persistent project memory and learned corrections** (Plugin mode)
+- **Controlled schema learning** — only verified repairs become active, scoped
+  to matching Elementor runtimes
 - **Validation and readback** on DesignSpec and major write paths
 - **Audit logging and change history** (Plugin mode)
 - **Backups and restore workflows** for supported post mutations
@@ -273,7 +277,7 @@ flowchart LR
 
 Tool visibility is filtered twice before a client sees it: the plugin’s **surface gate** (`bootstrap` / `essential` / `full`) and optional **per-session tool profile** decide which abilities the MCP endpoint exposes, then the **companion profile filter** narrows that set again for the client. A monotonic `surface_revision` on every gateway response drives `tools/list_changed` so clients re-list when the surface changes.
 
-Direct mode has a **smaller** capability surface: core REST, local Elementor data, and skills/memory across **99 tools**. Plugin mode exposes **318 abilities**. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps.
+Direct mode has a **smaller** capability surface: core REST, local Elementor data, and skills/memory across **99 tools**. Plugin mode exposes **319 abilities**. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps.
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 

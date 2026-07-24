@@ -38,4 +38,20 @@ final class SchemaRepairLearningTest extends TestCase {
 		self::assertCount( 20, $stored );
 		self::assertStringNotContainsString( 'size', wp_json_encode( $stored ) );
 	}
+
+	public function test_identical_incidents_from_different_runtimes_do_not_overwrite_each_other(): void {
+		$incident = [
+			'widget'        => 'loop-grid',
+			'control'       => 'columns',
+			'expected_type' => 'number',
+			'received_type' => 'object',
+			'schema_hash'   => str_repeat( 'a', 64 ),
+			'task_hash'     => str_repeat( 'c', 64 ),
+		];
+
+		SchemaRepairIncidentStore::record( $incident + [ 'runtime_fingerprint' => str_repeat( 'b', 64 ) ] );
+		SchemaRepairIncidentStore::record( $incident + [ 'runtime_fingerprint' => str_repeat( 'd', 64 ) ] );
+
+		self::assertCount( 2, (array) get_option( 'stonewright_schema_repair_incidents', [] ) );
+	}
 }

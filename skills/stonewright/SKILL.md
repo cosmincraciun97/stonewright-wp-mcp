@@ -74,7 +74,9 @@ When a needed tool is missing or an ability returns a gated/missing-tool error:
   Elementor tree edits, `stonewright/theme-builder-apply-template` for real
   Elementor Theme Builder templates with display conditions,
   `stonewright/content-model-loop-grid-flow` for CPT/ACF-backed Loop Grid
-  sections, `stonewright/content-bulk-upsert-posts` for repeated
+  data, then `stonewright/elementor-wire-loop` to plan or transactionally wire
+  the native Loop Grid/Carousel widget and loop-item template,
+  `stonewright/content-bulk-upsert-posts` for repeated
   post/CPT/custom-field rows, `stonewright/media-upload-batch`,
   `stonewright/php-execute` for short runtime snippets, and tokenized
   `stonewright-wp-cli-run` for plugin/theme/content operations.

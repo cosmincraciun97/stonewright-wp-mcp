@@ -66,8 +66,9 @@ final class CandidateRepository {
 		$table         = CandidateTable::table_name();
 		$max_total     = max( 1, $max_total );
 		$max_per_topic = max( 1, $max_per_topic );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$rows = $wpdb->get_results(
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- CandidateTable returns the prefix-owned table name; this query has no user values.
 			"SELECT id, topic, status, expires_at, updated_at FROM {$table} WHERE status IN ('candidate','verified','stale','rejected') ORDER BY updated_at DESC",
 			ARRAY_A
 		);

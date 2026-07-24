@@ -35,9 +35,8 @@ final class PostWriteLock {
 
 		$current = get_option( $key, [] );
 		if ( is_array( $current ) && (int) ( $current['expires_at'] ?? 0 ) <= $now ) {
-			delete_option( $key );
-			if ( add_option( $key, $lease, '', false ) ) {
-				return $lease;
+			if ( delete_option( $key ) ) {
+				return self::acquire( $post_id, $owner, $ttl );
 			}
 			$current = get_option( $key, [] );
 		}

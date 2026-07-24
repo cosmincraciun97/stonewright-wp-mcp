@@ -83,6 +83,43 @@ final class LoopIntentCompilerTest extends TestCase {
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_loop_display_invalid', $result->get_error_code() );
 	}
+
+	public function test_requested_query_filter_is_never_silently_dropped(): void {
+		$result = LoopIntentCompiler::compile(
+			'grid',
+			88,
+			'project',
+			[ 'query' => [ 'post__in' => [ 10, 11 ] ] ]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_loop_schema_incompatible', $result->get_error_code() );
+		self::assertSame( 'post__in', $result->get_error_data()['missing_semantic_control'] );
+	}
+
+	public function test_query_relations_survive_live_control_mapping(): void {
+		$result = LoopIntentCompiler::compile(
+			'grid',
+			88,
+			'project',
+			[
+				'query' => [
+					'tax_query'  => [
+						'relation' => 'OR',
+						[ 'taxonomy' => 'project_type', 'terms' => [ 3 ] ],
+					],
+					'meta_query' => [
+						'relation' => 'AND',
+						[ 'key' => 'featured', 'value' => '1' ],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 'OR', $result['settings']['tax_query']['relation'] );
+		self::assertSame( 'AND', $result['settings']['meta_query']['relation'] );
+	}
 }
 
 final class LoopWidgetManager {
@@ -133,6 +170,8 @@ final class LoopGridWidget {
 			'template_id' => [ 'type' => 'select' ],
 			'post_type'   => [ 'type' => 'text' ],
 			'columns'     => [ 'type' => 'number', 'responsive' => true ],
+			'tax_query'   => [ 'type' => 'repeater' ],
+			'meta_query'  => [ 'type' => 'repeater' ],
 		];
 	}
 }

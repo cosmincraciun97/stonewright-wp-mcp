@@ -135,7 +135,7 @@ final class TemplateStore {
 		return (int) $id;
 	}
 
-	private static function assert_owner( int $template_id, string $owner ): true|\WP_Error {
+	private static function assert_owner( int $template_id, string $owner ): bool|\WP_Error {
 		$post  = get_post( $template_id );
 		$owner = sanitize_key( $owner );
 		if ( ! $post || 'elementor_library' !== (string) $post->post_type ) {

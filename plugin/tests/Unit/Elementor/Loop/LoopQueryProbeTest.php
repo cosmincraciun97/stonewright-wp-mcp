@@ -38,10 +38,7 @@ final class LoopQueryProbeTest extends TestCase {
 	}
 
 	public function test_probe_returns_bounded_ids_and_rejects_unknown_query_keys(): void {
-		$GLOBALS['stonewright_test_search_posts'] = array_map(
-			static fn( int $id ): object => (object) [ 'ID' => $id ],
-			range( 1, 30 )
-		);
+		$GLOBALS['stonewright_test_search_posts'] = range( 1, 30 );
 		$result = LoopQueryProbe::probe( 'project', [ 'posts_per_page' => 50 ], false );
 
 		self::assertIsArray( $result );
@@ -58,5 +55,25 @@ final class LoopQueryProbeTest extends TestCase {
 
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_loop_post_type_invalid', $result->get_error_code() );
+	}
+
+	public function test_tax_and_meta_operators_keep_valid_wordpress_semantics(): void {
+		$method = new \ReflectionMethod( LoopQueryProbe::class, 'sanitize_query' );
+		$args = $method->invoke(
+			null,
+			'project',
+			[
+				'tax_query'  => [
+					[ 'taxonomy' => 'project_type', 'field' => 'term_id', 'terms' => [ 4 ], 'operator' => 'NOT IN' ],
+				],
+				'meta_query' => [
+					[ 'key' => 'featured', 'value' => '1', 'compare' => '!=', 'type' => 'NUMERIC' ],
+				],
+			]
+		);
+
+		self::assertSame( 'NOT IN', $args['tax_query'][0]['operator'] );
+		self::assertSame( '!=', $args['meta_query'][0]['compare'] );
+		self::assertSame( 'NUMERIC', $args['meta_query'][0]['type'] );
 	}
 }

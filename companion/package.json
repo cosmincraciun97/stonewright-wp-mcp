@@ -1,6 +1,6 @@
 {
 	"name": "@stonewright/companion",
-	"version": "1.0.0-alpha.83",
+	"version": "1.0.0-alpha.84",
 	"description": "Node companion for the Stonewright WordPress MCP plugin: WP-CLI, health checks, and optional MCP HTTP proxy.",
 	"type": "module",
 	"license": "MIT",
@@ -28,6 +28,7 @@
 		".": "./dist/index.js"
 	},
 	"overrides": {
+		"@hono/node-server": "^2.0.5",
 		"esbuild": "^0.28.1",
 		"js-yaml": "^4.2.0"
 	},

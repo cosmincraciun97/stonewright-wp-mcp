@@ -43,8 +43,8 @@ final class LoopQueryProbe {
 
 		$args = self::sanitize_query( $post_type, $query );
 		$result = new \WP_Query( $args );
-		$posts  = is_array( $result->posts ?? null ) ? $result->posts : [];
-		$found  = isset( $result->found_posts ) ? (int) $result->found_posts : count( $posts );
+		$posts  = $result->posts;
+		$found  = (int) $result->found_posts;
 		if ( 0 === $found && $require_results ) {
 			return new \WP_Error(
 				'stonewright_loop_query_empty',
@@ -57,7 +57,7 @@ final class LoopQueryProbe {
 		}
 
 		$ids = array_map(
-			static fn( mixed $post ): int => is_object( $post ) ? (int) ( $post->ID ?? 0 ) : (int) $post,
+			self::post_id( ... ),
 			$posts
 		);
 
@@ -120,7 +120,11 @@ final class LoopQueryProbe {
 				'taxonomy' => sanitize_key( (string) ( $row['taxonomy'] ?? '' ) ),
 				'field'    => sanitize_key( (string) ( $row['field'] ?? 'term_id' ) ),
 				'terms'    => array_values( array_map( 'sanitize_text_field', (array) ( $row['terms'] ?? [] ) ) ),
-				'operator' => sanitize_key( (string) ( $row['operator'] ?? 'IN' ) ),
+				'operator' => self::allowed_value(
+					strtoupper( trim( (string) ( $row['operator'] ?? 'IN' ) ) ),
+					[ 'IN', 'NOT IN', 'AND', 'EXISTS', 'NOT EXISTS' ],
+					'IN'
+				),
 			];
 		}
 		return $clean;
@@ -142,10 +146,34 @@ final class LoopQueryProbe {
 				'value'   => is_array( $row['value'] ?? null )
 					? array_map( 'sanitize_text_field', $row['value'] )
 					: sanitize_text_field( (string) ( $row['value'] ?? '' ) ),
-				'compare' => sanitize_key( (string) ( $row['compare'] ?? '=' ) ),
-				'type'    => sanitize_key( (string) ( $row['type'] ?? 'CHAR' ) ),
+				'compare' => self::allowed_value(
+					strtoupper( trim( (string) ( $row['compare'] ?? '=' ) ) ),
+					[ '=', '!=', '>', '>=', '<', '<=', 'LIKE', 'NOT LIKE', 'IN', 'NOT IN', 'BETWEEN', 'NOT BETWEEN', 'EXISTS', 'NOT EXISTS', 'REGEXP', 'NOT REGEXP', 'RLIKE' ],
+					'='
+				),
+				'type'    => self::allowed_value(
+					strtoupper( trim( (string) ( $row['type'] ?? 'CHAR' ) ) ),
+					[ 'NUMERIC', 'BINARY', 'CHAR', 'DATE', 'DATETIME', 'DECIMAL', 'SIGNED', 'TIME', 'UNSIGNED' ],
+					'CHAR'
+				),
 			];
 		}
 		return $clean;
+	}
+
+	/** @param list<string> $allowed */
+	private static function allowed_value( string $value, array $allowed, string $fallback ): string {
+		return in_array( $value, $allowed, true ) ? $value : $fallback;
+	}
+
+	private static function post_id( mixed $post ): int {
+		if ( $post instanceof \WP_Post ) {
+			return $post->ID;
+		}
+		if ( is_object( $post ) ) {
+			$properties = get_object_vars( $post );
+			return isset( $properties['ID'] ) ? (int) $properties['ID'] : 0;
+		}
+		return (int) $post;
 	}
 }

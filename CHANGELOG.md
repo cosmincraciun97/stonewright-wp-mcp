@@ -10,6 +10,21 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 ## [Unreleased]
 
+## [1.0.0-alpha.84] - 2026-07-24
+
+### Added
+
+- Add a transactional native Elementor Loop Grid/Carousel workflow with live
+  schema mapping, query probing, staged templates, idempotency, readback, and
+  rollback.
+- Learn Elementor schema repairs only after verified readback in two distinct
+  tasks or explicit operator approval.
+
+### Changed
+
+- Serialize Elementor writes per post and keep learned schema guidance bounded
+  by runtime compatibility and task-start limits.
+
 ## [1.0.0-alpha.83] - 2026-07-24
 
 ### Added
@@ -99,30 +114,3 @@ Unreleased); older history lives in git tags and GitHub releases.
 - Design-to-WordPress skill requires per-section Figma manifests and separate
   editor/verification browser tabs.
 - Agent operating rules skill documents the seven canonical product defaults.
-
-## [1.0.0-alpha.79] - 2026-07-22
-
-### Added
-
-- Tool-profile responses identify truncation, list omitted tools, and apply the
-  selected profile to the current MCP session without narrowing the configured
-  surface.
-- A monotonic `surface_revision` propagates tool-surface changes; the companion
-  re-lists tools and emits `notifications/tools/list_changed` when it advances.
-- `stonewright/elementor-v3-repair-document` provides backup-first,
-  idempotent recovery for malformed Elementor documents.
-- A recovery runbook and client-surface diagnostics cover capped or stale MCP
-  clients without unsupported REST or raw-meta workarounds.
-
-### Fixed
-
-- Essential and capped tool surfaces retain write-critical Elementor and theme
-  tools in deterministic priority order.
-- Elementor validation is scoped to touched nodes while whole-tree structure,
-  backup, permission, confirmation-token, audit, and integrity gates remain
-  enforced.
-- Elementor transactions no longer fall back to raw metadata writes; unknown
-  settings are preserved, atomic siblings do not block valid V3 edits, and
-  cleared responsive sliders validate correctly.
-- PHP parse failures return a dedicated code with actionable remediation, and
-  live registration status replaces stale startup-only reporting.

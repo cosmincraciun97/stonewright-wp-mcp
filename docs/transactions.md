@@ -9,6 +9,12 @@ Stonewright applies multi-step Elementor V3 mutations through a **transaction en
 
 Related batch path: `stonewright/elementor-v3-batch-mutate` (grouped ops without the full envelope).
 
+Native repeated-content path:
+`stonewright/elementor-wire-loop` plans or transactionally adds one Loop Grid
+or Loop Carousel. It validates the live Pro widget schema and query, stages a
+new loop-item template only when requested, writes the page once, verifies
+readback, and rolls back both resources on failure.
+
 ## Envelope contract (summary)
 
 | Field | Role |

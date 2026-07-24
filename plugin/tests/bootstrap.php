@@ -2654,10 +2654,12 @@ if ( ! function_exists( 'wp_oembed_get' ) ) {
 
 if ( ! class_exists( 'WP_Query', false ) ) {
 	class WP_Query {
-		/** @var array<int, object> */
+		/** @var array<int, int|\WP_Post> */
 		public array $posts = [];
+		public int $found_posts = 0;
 		public function __construct( $args = [] ) {
-			$this->posts = array_values( $GLOBALS['stonewright_test_search_posts'] ?? [] );
+			$this->posts       = array_values( $GLOBALS['stonewright_test_search_posts'] ?? [] );
+			$this->found_posts = count( $this->posts );
 		}
 	}
 }

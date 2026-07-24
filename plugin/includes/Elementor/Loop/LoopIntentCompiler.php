@@ -22,6 +22,10 @@ final class LoopIntentCompiler {
 		'order'           => [ 'order', 'query_order' ],
 		'orderby'         => [ 'orderby', 'query_orderby' ],
 		'offset'          => [ 'offset', 'query_offset' ],
+		'post__in'        => [ 'post__in' ],
+		'post__not_in'    => [ 'post__not_in' ],
+		'tax_query'       => [ 'tax_query' ],
+		'meta_query'      => [ 'meta_query' ],
 	];
 
 	/**
@@ -65,7 +69,7 @@ final class LoopIntentCompiler {
 		}
 
 		$query = is_array( $intent['query'] ?? null ) ? $intent['query'] : [];
-		foreach ( [ 'posts_per_page', 'order', 'orderby', 'offset' ] as $semantic ) {
+		foreach ( [ 'posts_per_page', 'post__in', 'post__not_in', 'tax_query', 'meta_query', 'order', 'orderby', 'offset' ] as $semantic ) {
 			if ( ! array_key_exists( $semantic, $query ) ) {
 				continue;
 			}
@@ -101,12 +105,17 @@ final class LoopIntentCompiler {
 				return $control;
 			}
 			$value = $intent[ $semantic ];
-			if ( 'arrows' === $semantic ) {
-				$value = self::switcher_value( $controls[ $control ], (bool) $value );
+			if ( in_array( $semantic, [ 'arrows', 'pagination' ], true ) ) {
+				if ( 'pagination' === $semantic && ! self::is_switcher( $controls[ $control ] ) ) {
+					$value = self::pagination_value( $controls[ $control ], (bool) $value );
+					if ( $value instanceof \WP_Error ) {
+						return $value;
+					}
+				} else {
+					$value = self::switcher_value( $controls[ $control ], (bool) $value );
+				}
 			} elseif ( 'slides_to_scroll' === $semantic ) {
 				$value = max( 1, (int) $value );
-			} else {
-				$value = sanitize_key( (string) $value );
 			}
 			$settings[ $control ] = $value;
 			$resolved[ $semantic ] = $control;
@@ -151,11 +160,13 @@ final class LoopIntentCompiler {
 		);
 	}
 
-	private static function query_value( string $semantic, mixed $value ): int|string {
+	private static function query_value( string $semantic, mixed $value ): mixed {
 		return match ( $semantic ) {
 			'posts_per_page' => max( 1, min( 100, (int) $value ) ),
 			'offset'         => max( 0, (int) $value ),
 			'order'          => 'ASC' === strtoupper( (string) $value ) ? 'ASC' : 'DESC',
+			'post__in', 'post__not_in' => array_values( array_unique( array_map( 'absint', (array) $value ) ) ),
+			'tax_query', 'meta_query'  => (array) $value,
 			default          => sanitize_key( (string) $value ),
 		};
 	}
@@ -164,6 +175,31 @@ final class LoopIntentCompiler {
 	private static function switcher_value( array $control, bool $enabled ): string {
 		$on = is_scalar( $control['return_value'] ?? null ) ? (string) $control['return_value'] : 'yes';
 		return $enabled ? $on : '';
+	}
+
+	/** @param array<string, mixed> $control */
+	private static function is_switcher( array $control ): bool {
+		return 'switcher' === strtolower( (string) ( $control['type'] ?? '' ) );
+	}
+
+	/** @param array<string, mixed> $control */
+	private static function pagination_value( array $control, bool $enabled ): string|\WP_Error {
+		$options = array_map( 'strval', array_keys( (array) ( $control['options'] ?? [] ) ) );
+		$candidates = $enabled ? [ 'numbers', 'dots', 'bullets', 'yes' ] : [ '', 'none', 'no' ];
+		foreach ( $candidates as $candidate ) {
+			if ( in_array( $candidate, $options, true ) ) {
+				return $candidate;
+			}
+		}
+		return self::error(
+			'schema_incompatible',
+			__( 'Live pagination control has no safe boolean mapping.', 'stonewright' ),
+			[
+				'status'                   => 409,
+				'missing_semantic_control' => 'pagination',
+				'available_options'        => array_slice( $options, 0, 10 ),
+			]
+		);
 	}
 
 	/** @param array<string, mixed> $data */

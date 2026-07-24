@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.84] - 2026-07-24
+
+### Added
+
+- Add `stonewright/elementor-wire-loop` for transactional native Loop
+  Grid/Carousel planning and writes with live schemas, staged templates,
+  idempotency, readback, and rollback.
+- Add controlled schema-repair learning that activates only after two distinct
+  verified tasks or explicit approval.
+
+### Changed
+
+- Serialize Elementor page writes and bound learned repairs by runtime,
+  retention, and task-start limits.
+
 ## [1.0.0-alpha.83] - 2026-07-24
 
 ### Added
@@ -60,23 +75,3 @@
 - Verified learning-record receipts (write-then-readback) and user/project memory types.
 - Central REST mutation audit under `stonewright/v1` with blocked status and exact counts.
 - MethodRouter ladder and Elementor ResponsiveScope isolation helpers.
-
-## [1.0.0-alpha.79] - 2026-07-22
-
-### Fixed
-
-- Session tool profiles now apply on essential surfaces through task-start and tool-profile activation, and always union with the configured surface instead of narrowing it.
-- The architecture-ambiguous Elementor gate names `post_id` as the unblock path; when no post is inspected, the router reports `not_inspected` instead of falsely reassuring `unknown`.
-- php-execute parse failures return `stonewright_php_parse_error` with transport guidance instead of a generic failure.
-- Elementor settings validation accepts the cleared responsive-slider sentinel (`{size:'', sizes:[]}`) instead of rejecting it as `invalid_shape`.
-- `update-element` merge and replace preserve pre-existing unknown Elementor settings instead of rejecting a valid patch because of a key the agent never sent.
-- Per-node Elementor content validation is scoped to touched nodes; structural integrity, backup, permission, confirmation-token, and audit gates remain whole-tree.
-- V3 batch mutation uses a subtree-aware architecture gate, so atomic nodes elsewhere do not block a legitimate V3 edit; `widgetType` is never auto-converted.
-- The Elementor transaction runner no longer falls back to raw meta writes that bypass the integrity gate and validator; it rolls back and surfaces the real error.
-
-### Added
-
-- Tool-profile responses report `degraded`, `truncated_tools`, and `truncation_hint`; `session_profile_applied` is paired with `session_profile_reason`.
-- `theme-file-patch` joined the essential surface, and the `elementor-design` profile is ordered write-critical-first so capped clients retain write gates.
-- `stonewright/elementor-v3-repair-document` provides backup-first, idempotent recovery for double-encoded data and duplicate or missing ids without converting `widgetType` or stripping settings.
-- Gateway and status responses expose monotonic `surface_revision`, backed by the `stonewright_tool_surface_changed` action, so clients detect and re-list a stale tool surface.
