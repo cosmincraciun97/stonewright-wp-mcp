@@ -14,6 +14,7 @@ use Stonewright\WpMcp\Elementor\V4\AtomicTreeInspector;
 use Stonewright\WpMcp\Elementor\Write\EvidenceValidator;
 use Stonewright\WpMcp\Elementor\Write\IdempotencyStore;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
+use Stonewright\WpMcp\Elementor\Write\V3MutationCompiler;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\RemediationHints;
@@ -566,24 +567,24 @@ final class BatchMutate extends AbilityKernel {
 			return $evidence;
 		}
 
-		$parent_path = $this->parent_path( $tree, $operation, $refs, 'parent_id', 'parent_ref' );
-		if ( $parent_path instanceof \WP_Error ) {
-			return $parent_path;
+		if ( isset( $operation['parent_ref'] ) ) {
+			$parent_ref = (string) $operation['parent_ref'];
+			if ( ! isset( $refs[ $parent_ref ] ) ) {
+				return $this->error( 'unknown_ref', __( 'Batch operation references an unknown op_id.', 'stonewright' ), [ 'ref' => $parent_ref ] );
+			}
+			$operation['parent_id'] = $refs[ $parent_ref ];
+			unset( $operation['parent_ref'] );
 		}
-
-		$element = [
-			'id'         => ElementorData::generate_id(),
-			'elType'     => 'widget',
-			'widgetType' => $widget_type,
-			'settings'   => $settings,
-			'elements'   => [],
-		];
-
-		$position = isset( $operation['position'] ) ? (int) $operation['position'] : PHP_INT_MAX;
-		$tree     = ElementorData::insert( $tree, $parent_path, $position, $element );
+		$operation['settings'] = $settings;
+		$compiled = ( new V3MutationCompiler() )->compile( $tree, [ $operation ] );
+		if ( $compiled instanceof \WP_Error ) {
+			return $compiled;
+		}
+		$tree       = $compiled['tree'];
+		$element_id = (string) ( $compiled['items'][0]['element_id'] ?? '' );
 
 		return array_merge(
-			$this->created_item( $operation, $refs, $element['id'], 'widget' ),
+			$this->created_item( $operation, $refs, $element_id, 'widget' ),
 			[ 'evidence' => $evidence ],
 			[] !== $warnings ? [ 'normalization_warnings' => $warnings ] : []
 		);
