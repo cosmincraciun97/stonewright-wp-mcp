@@ -24,7 +24,10 @@ use Stonewright\WpMcp\Support\ElementorData;
  */
 final class ElementorDataWriteTest extends TestCase {
 
+	private object $elementor_instance;
+
 	protected function setUp(): void {
+		$this->elementor_instance = \Elementor\Plugin::$instance;
 		$GLOBALS['stonewright_test_post_meta_calls']  = [];
 		$GLOBALS['stonewright_test_posts'][ 8800 ]    = (object) [
 			'ID'           => 8800,
@@ -42,6 +45,10 @@ final class ElementorDataWriteTest extends TestCase {
 				'_elementor_edit_mode' => 'builder',
 			],
 		];
+	}
+
+	protected function tearDown(): void {
+		\Elementor\Plugin::$instance = $this->elementor_instance;
 	}
 
 	public function test_write_succeeds_when_edit_mode_is_already_builder(): void {
@@ -106,5 +113,43 @@ final class ElementorDataWriteTest extends TestCase {
 		$post = $GLOBALS['stonewright_test_posts'][ 8800 ];
 		$this->assertArrayHasKey( '_elementor_version', $post->meta );
 		$this->assertNotSame( '', (string) $post->meta['_elementor_version'] );
+	}
+
+	public function test_write_invalidates_only_the_edited_post_css_cache(): void {
+		$files_manager = new class() {
+			public int $calls = 0;
+
+			public function clear_cache(): void {
+				++$this->calls;
+			}
+		};
+		$posts_css_manager = new class() {
+			/** @var list<int> */
+			public array $post_ids = [];
+
+			public function clear_cache_post( int $post_id ): void {
+				$this->post_ids[] = $post_id;
+			}
+		};
+		\Elementor\Plugin::$instance = (object) [
+			'files_manager'     => $files_manager,
+			'posts_css_manager' => $posts_css_manager,
+		];
+
+		$result = ElementorData::write(
+			8800,
+			[
+				[
+					'id'       => 'cache01',
+					'elType'   => 'section',
+					'settings' => [],
+					'elements' => [],
+				],
+			]
+		);
+
+		$this->assertTrue( $result );
+		$this->assertSame( [ 8800 ], $posts_css_manager->post_ids );
+		$this->assertSame( 0, $files_manager->calls, 'Normal writes must never clear every Elementor CSS file.' );
 	}
 }

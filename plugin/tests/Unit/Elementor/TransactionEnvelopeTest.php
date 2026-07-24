@@ -15,7 +15,10 @@ use Stonewright\WpMcp\Support\ElementorData;
  */
 final class TransactionEnvelopeTest extends TestCase {
 
+	private object $elementor_instance;
+
 	protected function setUp(): void {
+		$this->elementor_instance = \Elementor\Plugin::$instance;
 		$GLOBALS['stonewright_test_posts'] = [
 			601 => (object) [
 				'ID'           => 601,
@@ -40,6 +43,7 @@ final class TransactionEnvelopeTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		\Elementor\Plugin::$instance = $this->elementor_instance;
 		ElementorTransactionRunner::set_read_override( null );
 		$GLOBALS['stonewright_test_posts']           = [];
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
@@ -126,6 +130,26 @@ final class TransactionEnvelopeTest extends TestCase {
 	}
 
 	public function test_replace_tree_full_tree_path(): void {
+		$files_manager = new class() {
+			public int $calls = 0;
+
+			public function clear_cache(): void {
+				++$this->calls;
+			}
+		};
+		$posts_css_manager = new class() {
+			/** @var list<int> */
+			public array $post_ids = [];
+
+			public function clear_cache_post( int $post_id ): void {
+				$this->post_ids[] = $post_id;
+			}
+		};
+		\Elementor\Plugin::$instance = (object) [
+			'files_manager'     => $files_manager,
+			'posts_css_manager' => $posts_css_manager,
+			'widgets_manager'   => $this->elementor_instance->widgets_manager,
+		];
 		$tree = [
 			[
 				'id'       => 'hero',
@@ -172,6 +196,8 @@ final class TransactionEnvelopeTest extends TestCase {
 		self::assertTrue( $result['ok'] );
 		self::assertSame( 'full_tree', $result['mode'] ?? null );
 		self::assertNotEmpty( $result['snapshot_id'] );
+		self::assertSame( [ 601 ], $posts_css_manager->post_ids );
+		self::assertSame( 0, $files_manager->calls, 'Full-tree transactions must not perform a second global cache clear.' );
 		$read = ElementorData::read( 601 );
 		self::assertSame( 'center', $read[0]['settings']['flex_align_items'] ?? null );
 	}

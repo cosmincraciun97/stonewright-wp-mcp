@@ -412,6 +412,11 @@ final class ConfigurationPage {
 						<div class="sw-field">
 							<label class="stonewright-switch">
 								<input
+									type="hidden"
+									name="stonewright_elementor_v4_atomic"
+									value="0"
+								/>
+								<input
 									type="checkbox"
 									name="stonewright_elementor_v4_atomic"
 									id="stonewright_elementor_v4_atomic"

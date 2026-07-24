@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.83] - 2026-07-24
+
+### Added
+
+- Bounded, content-free Elementor document health diagnostics for architecture,
+  document weight, invalid settings, and excessive `e-paragraph` use.
+
+### Fixed
+
+- Elementor CSS invalidation is scoped to the changed post.
+- Mixed documents permit surgical V3 batch writes under explicit V3 parents;
+  root adds and full-document renderers remain blocked.
+- Schema errors identify the rejected setting path and expected/received shape.
+- The V4 abilities checkbox persists both checked and unchecked states.
+
 ## [1.0.0-alpha.82] - 2026-07-23
 
 ### Fixed
@@ -65,45 +80,3 @@
 - `theme-file-patch` joined the essential surface, and the `elementor-design` profile is ordered write-critical-first so capped clients retain write gates.
 - `stonewright/elementor-v3-repair-document` provides backup-first, idempotent recovery for double-encoded data and duplicate or missing ids without converting `widgetType` or stripping settings.
 - Gateway and status responses expose monotonic `surface_revision`, backed by the `stonewright_tool_surface_changed` action, so clients detect and re-list a stale tool surface.
-
-## [1.0.0-alpha.78] - 2026-07-22
-
-### Fixed
-
-- Direct task-start latch is strictly per-site (no any-site fallback); write tools pass the resolved site alias.
-- Intentional Elementor removals/full rebuilds pass `force_destructive` so confirmed size reductions are allowed after snapshot.
-- Elementor write readback rollback reports restore failure when previous document could not be re-persisted.
-- V4 `elementor-v4-update-node` rejects known settings with the wrong `$$type` envelope.
-
-- Elementor write abilities return the real gate/validator error via
-  `ElementorData::write_error_for_ability()` instead of generic write_failed.
-- Context-token error names `stonewright-task-start` first.
-- V3 architecture mismatch and raw php-execute Elementor write remediation
-  hints name concrete V4/V3 tools including `elementor-v4-update-node`.
-- Memory schema install verifies columns via `Memory::table_schema_ok()` before
-  bumping `stonewright_memory_schema_version`; failed installs log
-  `memory_schema_install_failed` and retry on next `init`.
-- `put_typed` / error-pattern learning promotion / AuditLog observe path log
-  failures; `stonewright/learning-record` returns
-  `stonewright_memory_write_failed` when the table cannot store the row.
-
-### Added
-
-- Experimental `stonewright/elementor-v4-update-node`: surgical settings patch
-  for one Atomic node by id (merge/replace, dry_run, snapshot, integrity-gated
-  write). Never writes the inspector `atomic_tree` projection.
-- Elementor tree reads default to capped summary outlines: V3
-  `elementor-v3-get-page-structure` (existing), V4
-  `elementor-v4-read-atomic-tree` (`responseMode` + `max_nodes`), shared
-  `Support\TreeSummary` utility with `estimated_tokens`.
-- Non-blocking `task_start_hint` on pre-session read ability results (MCP
-  sessions) until `task-start` / context-bootstrap / workflow-preflight marks
-  the session; latch is a 30-minute session transient.
-- Retry-storm brake: `ErrorPatterns::occurrence_count` + `escalate_error`
-  rewrites identical ability WP_Errors on the 2nd+ occurrence with STOP
-  guidance, `occurrences`, and RemediationHints repair text (wired from
-  `AbilityRegistry::execute_with_context_guard` after audit observe).
-- Elementor Integrity Gate P0 on `ElementorData::write` (double-encode, size
-  collapse, widgetType remap blocks; readback restore).
-- Tree validation preserves unknown settings and coexisting `e-*` widgets.
-- Memory admin schema-health notice when the memory table is missing/outdated.

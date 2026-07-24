@@ -96,6 +96,7 @@ describe('tool profile resolve + client cap', () => {
 				'stonewright-brand-kit-apply',
 			]),
 		);
+		expect(names).toContain('stonewright-elementor-document-health');
 	});
 
 	it('fallback site-admin includes wave-3 admin ops', () => {

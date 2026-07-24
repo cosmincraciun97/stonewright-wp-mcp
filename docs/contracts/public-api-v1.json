@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-07-23T10:25:18+00:00",
+    "generated_at": "2026-07-24T10:04:26+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -2094,6 +2094,20 @@
             "input_schema_hash": "1376575357938a6090723cdec2722fe784ed73d0672b1b511ffa0a7b583264ea",
             "output_schema_hash": "e85b42d069d2c6ecbfb3d4e7d10e49ca250bb72b616496e8c86325f627183ced",
             "permission_class": "Permissions::read()",
+            "gates": {
+                "backup": false,
+                "token": false,
+                "validator": false,
+                "audit": false
+            }
+        },
+        {
+            "ability_name": "stonewright/elementor-document-health",
+            "mcp_name": "stonewright-elementor-document-health",
+            "kind": "Read",
+            "input_schema_hash": "c0e464afe59fcaed8043441e28f7eb584c064e7336e39b08a2afb9e578ef8179",
+            "output_schema_hash": "3ad66205a6e792636791704649c6140240c6b344f743d96ff50b9e65e99fd50b",
+            "permission_class": "Permissions::edit_post( (int)",
             "gates": {
                 "backup": false,
                 "token": false,

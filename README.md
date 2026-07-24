@@ -44,7 +44,7 @@ Stonewright is a WordPress MCP stack for AI coding agents. **Elementor** is a fi
 
 Counts are derived from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
 
-### Plugin mode — **317** abilities
+### Plugin mode — **318** abilities
 
 | Category | Count | Highlights |
 |---|---:|---|
@@ -273,7 +273,7 @@ flowchart LR
 
 Tool visibility is filtered twice before a client sees it: the plugin’s **surface gate** (`bootstrap` / `essential` / `full`) and optional **per-session tool profile** decide which abilities the MCP endpoint exposes, then the **companion profile filter** narrows that set again for the client. A monotonic `surface_revision` on every gateway response drives `tools/list_changed` so clients re-list when the surface changes.
 
-Direct mode has a **smaller** capability surface: core REST, local Elementor data, and skills/memory across **99 tools**. Plugin mode exposes **317 abilities**. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps.
+Direct mode has a **smaller** capability surface: core REST, local Elementor data, and skills/memory across **99 tools**. Plugin mode exposes **318 abilities**. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps.
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 

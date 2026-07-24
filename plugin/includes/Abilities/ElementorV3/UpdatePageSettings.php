@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -79,13 +80,7 @@ final class UpdatePageSettings extends AbilityKernel {
 					return $this->error( 'write_failed', __( 'Could not save Elementor page settings.', 'stonewright' ) );
 				}
 
-				if ( class_exists( '\\Elementor\\Plugin' ) ) {
-					try {
-						\Elementor\Plugin::$instance->files_manager->clear_cache();
-					} catch ( \Throwable $e ) {
-						// best-effort.
-					}
-				}
+				PostCacheInvalidator::invalidate( $post_id );
 
 				return [
 					'post_id'     => $post_id,

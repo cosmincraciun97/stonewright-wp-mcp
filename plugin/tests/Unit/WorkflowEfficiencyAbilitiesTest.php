@@ -37,6 +37,24 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		$GLOBALS['stonewright_test_media_handle_sideload'] = null;
 		$GLOBALS['stonewright_test_download_url'] = null;
 		$GLOBALS['stonewright_test_filters'] = [];
+		$GLOBALS['stonewright_test_posts'][9049] = (object) [
+			'ID'   => 9049,
+			'meta' => [
+				'_elementor_data' => wp_json_encode(
+					[
+						[
+							'id'       => 'legacy-root',
+							'elType'   => 'container',
+							'settings' => [ 'container_type' => 'flex' ],
+							'elements' => [
+								[ 'id' => 'atomic', 'elType' => 'widget', 'widgetType' => 'e-paragraph', 'settings' => [], 'elements' => [] ],
+								[ 'id' => 'v3-only', 'elType' => 'container', 'settings' => [ 'container_type' => 'flex' ], 'elements' => [] ],
+							],
+						],
+					]
+				),
+			],
+		];
 	}
 
 	protected function tearDown(): void {
@@ -48,6 +66,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		$GLOBALS['stonewright_test_media_handle_sideload'] = null;
 		$GLOBALS['stonewright_test_download_url'] = null;
 		$GLOBALS['stonewright_test_filters'] = [];
+		$GLOBALS['stonewright_test_posts'] = [];
 	}
 
 	public function test_registry_exposes_efficiency_abilities(): void {
@@ -398,6 +417,40 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertFalse( $result['fast_path']['elementor_architecture']['write_blocked'] );
 		self::assertSame( 'v3', $result['fast_path']['elementor_architecture']['write_target'] );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $result['fast_path']['recommended_tools'] );
+	}
+
+	public function test_workflow_preflight_routes_mixed_document_to_surgical_v3_only(): void {
+		$result = ( new WorkflowPreflight() )->execute(
+			[
+				'task'    => 'Add a heading inside the existing V3 container',
+				'surface' => 'elementor',
+				'intent'  => 'write',
+				'post_id' => 9049,
+			]
+		);
+
+		self::assertIsArray( $result );
+		$architecture = $result['fast_path']['elementor_architecture'];
+		self::assertSame( 'v3-surgical', $architecture['write_target'] );
+		self::assertFalse( $architecture['write_blocked'] );
+		self::assertTrue( $architecture['surgical_v3_allowed'] );
+		self::assertTrue( $architecture['high_level_write_blocked'] );
+		self::assertContains( 'stonewright/elementor-document-health', $result['fast_path']['recommended_tools'] );
+		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $result['fast_path']['recommended_tools'] );
+		self::assertNotContains( 'stonewright/elementor-v3-build-page-from-spec', $result['fast_path']['recommended_tools'] );
+
+		$task_start = ( new TaskStart() )->execute(
+			[
+				'task'    => 'Add a heading inside the existing V3 container',
+				'surface' => 'elementor',
+				'intent'  => 'write',
+				'post_id' => 9049,
+			]
+		);
+		self::assertIsArray( $task_start );
+		self::assertSame( 'v3-surgical', $task_start['fast_path']['elementor_architecture']['write_target'] );
+		self::assertTrue( $task_start['fast_path']['elementor_architecture']['surgical_v3_allowed'] );
+		self::assertTrue( $task_start['fast_path']['elementor_architecture']['high_level_write_blocked'] );
 	}
 
 	public function test_workflow_preflight_keeps_non_visual_elementor_discovery_compact(): void {

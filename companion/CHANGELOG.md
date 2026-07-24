@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.83] - 2026-07-24
+
+### Added
+
+- The Elementor design profile includes the plugin's document-health ability.
+
+### Fixed
+
+- Companion profile guidance reflects surgical mixed-document V3 writes and
+  the new health-first workflow.
+
 ## [1.0.0-alpha.82] - 2026-07-23
 
 ### Fixed

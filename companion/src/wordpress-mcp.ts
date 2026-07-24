@@ -203,6 +203,7 @@ const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, reado
 		'stonewright-elementor-v3-apply-bundle',
 		'stonewright-theme-builder-apply-template',
 		'stonewright-elementor-page-digest',
+		'stonewright-elementor-document-health',
 	],
 	'content-model': [
 		...BASE_PROXY_TOOL_NAMES,

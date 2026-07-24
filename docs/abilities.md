@@ -1,6 +1,6 @@
 # Abilities Reference
 
-> Category counts are generated from `docs/ability-truth-matrix.md` (**308** abilities after wave 4: REST parity + ACF + SEO + CPT registration). Categories include Comments, Users, Widgets, Settings, Themes, Plugins manage, Revisions, Search, WooCommerce, ACF, SEO, Content Model.
+> Category counts are generated from `docs/ability-truth-matrix.md` (**318** abilities). Categories include Comments, Users, Widgets, Settings, Themes, Plugins manage, Revisions, Search, WooCommerce, ACF, SEO, Content Model.
 Stonewright registers WordPress abilities under the `stonewright/` prefix. MCP
 clients call the same names with slashes converted to hyphens: ability
 `stonewright/task-start` is MCP tool `stonewright-task-start`.
@@ -22,7 +22,7 @@ matrix after changing the registry.
 | Gutenberg | 10 | Parse, render, serialize, insert, update, remove, and apply blocks. |
 | Patterns | 2 | List and create block patterns. |
 | Full Site Editing | 10 | Read/write theme.json, templates, template parts, and global styles. |
-| Elementor V3 | 21 | Elementor V3 structure editing, page specs, kit globals, capability preflight, and batch mutation. |
+| Elementor V3 | 22 | Elementor V3 structure editing, document health, page specs, kit globals, capability preflight, and batch mutation. |
 | Elementor V4 (Experimental) | 12 | Atomic nodes, variables, classes, and experimental V4 rendering. |
 | Elementor Widget Builder | 98 | Deprecated generated per-widget compatibility builders plus custom widget project helpers. |
 | Design | 13 | Validate Design Spec, build specs from manual input, choose renderers, normalize assets, intent routing, and apply to Gutenberg or Elementor. |

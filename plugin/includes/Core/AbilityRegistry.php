@@ -61,6 +61,7 @@ use Stonewright\WpMcp\Abilities\ElementorV3\GetElement;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetKitGlobals;
 use Stonewright\WpMcp\Abilities\ElementorV3\BuildTree;
 use Stonewright\WpMcp\Abilities\ElementorV3\DesignMirrorExport;
+use Stonewright\WpMcp\Abilities\ElementorV3\DocumentHealth;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetPageStructure;
 use Stonewright\WpMcp\Abilities\ElementorV3\PageDigest;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetWidgetSchema;
@@ -335,6 +336,7 @@ final class AbilityRegistry {
 			GetWidgetSchema::class,
 			GetPageStructure::class,
 			PageDigest::class,
+			DocumentHealth::class,
 			BuildTree::class,
 			DesignMirrorExport::class,
 			GetElement::class,

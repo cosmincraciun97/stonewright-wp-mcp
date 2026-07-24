@@ -32,10 +32,13 @@ Do not claim absolute transactional ACID guarantees across WP-CLI, object cache,
 ## Agent workflow
 
 1. `stonewright-task-start`
-2. `stonewright-elementor-page-digest` (or structure get) on the target post
-3. Prefer `stonewright-design-native-plan` + DesignSpec when building from evidence
-4. `stonewright-elementor-v3-transaction-run` (or batch-mutate for smaller edits)
-5. Re-read digest / frontend; restore from audit/snapshot if needed
+2. `stonewright-elementor-document-health` to measure architecture, serialized
+   size, invalid settings, and heavy `e-paragraph` usage without returning
+   content
+3. `stonewright-elementor-page-digest` (or structure get) on the target post
+4. Prefer `stonewright-design-native-plan` + DesignSpec when building from evidence
+5. `stonewright-elementor-v3-transaction-run` (or batch-mutate for smaller edits)
+6. Re-read health + digest / frontend; restore from audit/snapshot if needed
 
 ## Native policy note
 

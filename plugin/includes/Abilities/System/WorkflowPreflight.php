@@ -164,6 +164,8 @@ final class WorkflowPreflight extends AbilityKernel {
 		if ( 'elementor' === $surface ) {
 			$task_profile['elementor_write_target']  = (string) $architecture['write_target'];
 			$task_profile['elementor_write_blocked'] = (bool) $architecture['write_blocked'];
+			$task_profile['elementor_surgical_v3_allowed'] = (bool) $architecture['surgical_v3_allowed'];
+			$task_profile['elementor_high_level_write_blocked'] = (bool) $architecture['high_level_write_blocked'];
 			$task_profile['document_architecture']   = (string) $architecture['document_architecture'];
 		}
 		$recommended     = self::recommended_tools( $task_profile );
@@ -364,7 +366,7 @@ final class WorkflowPreflight extends AbilityKernel {
 		if ( is_array( $fast_path['elementor_architecture'] ?? null ) ) {
 			$compact_fast_path['elementor_architecture'] = array_intersect_key(
 				$fast_path['elementor_architecture'],
-				array_flip( [ 'elementor_version', 'document_architecture', 'requested_architecture', 'write_target', 'write_blocked', 'reason', 'implicit_conversion' ] )
+				array_flip( [ 'elementor_version', 'document_architecture', 'requested_architecture', 'write_target', 'write_blocked', 'surgical_v3_allowed', 'high_level_write_blocked', 'reason', 'implicit_conversion' ] )
 			);
 		}
 		if ( isset( $fast_path['visual_build_gate'] ) ) {
@@ -717,7 +719,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			$tools[] = 'stonewright/elementor-schema';
 			$target = (string) ( $profile['elementor_write_target'] ?? 'v3' );
 			$blocked = ! empty( $profile['elementor_write_blocked'] );
-			if ( 'v3' === $target ) {
+			if ( in_array( $target, [ 'v3', 'v3-surgical' ], true ) ) {
 				$tools[] = 'stonewright/elementor-v3-get-kit-globals';
 			} else {
 				$tools[] = 'stonewright/elementor-v4-status';
@@ -731,6 +733,10 @@ final class WorkflowPreflight extends AbilityKernel {
 				$tools[] = 'stonewright/elementor-v3-build-page-from-spec';
 				$tools[] = 'stonewright/elementor-v3-batch-mutate';
 				$tools[] = 'stonewright/elementor-v3-apply-bundle';
+			} elseif ( $profile['is_write'] && ! $blocked && 'v3-surgical' === $target ) {
+				$tools[] = 'stonewright/elementor-document-health';
+				$tools[] = 'stonewright/elementor-v3-get-page-structure';
+				$tools[] = 'stonewright/elementor-v3-batch-mutate';
 			}
 		}
 
@@ -799,6 +805,11 @@ final class WorkflowPreflight extends AbilityKernel {
 				'Implement visual pages in write-and-verify batches of one section, or two sections only when they are simple and tightly coupled.',
 				'After each batch, verify desktop, tablet, and mobile screenshots plus overflow before starting the next batch.',
 				'Auto-continue to the next section batch when screenshots, diagnostics, and overflow checks pass; do not wait for user approval between passing batches.'
+			);
+		} elseif ( ! empty( $profile['is_write'] ) && 'v3-surgical' === (string) ( $profile['elementor_write_target'] ?? '' ) ) {
+			array_unshift(
+				$rules,
+				'Run elementor-document-health, read the V3-only parent, then use one dry-run batch-mutate request before the write.'
 			);
 		} elseif ( ! empty( $profile['is_write'] ) ) {
 			array_unshift(
@@ -875,7 +886,7 @@ final class WorkflowPreflight extends AbilityKernel {
 				'Normalize DesignEvidence, block unresolved actions/styles, and map semantic nodes to live native schemas before any write.',
 				[
 					'action'   => 'plan',
-					'target'   => 'v3' === $target ? 'elementor-v3' : 'elementor-v4',
+					'target'   => in_array( $target, [ 'v3', 'v3-surgical' ], true ) ? 'elementor-v3' : 'elementor-v4',
 					'evidence' => '<DesignEvidence 1.0 from Figma/image/brief>',
 				]
 			);
@@ -922,6 +933,33 @@ final class WorkflowPreflight extends AbilityKernel {
 					[
 						'post_id'                  => '<target post id>',
 						'operations'               => [ '<batched mutations>' ],
+						'dry_run'                  => true,
+						'stonewright_context_token' => '<context_token>',
+					]
+				);
+			} elseif ( $profile['is_write'] && ! $blocked && 'v3-surgical' === $target ) {
+				$out[] = self::call_step(
+					'stonewright/elementor-document-health',
+					'Measure mixed-document size, V3/V4 composition, atomic paragraphs, and bounded schema issues before mutation.',
+					[
+						'post_id'    => '<target post id>',
+						'max_issues' => 20,
+					]
+				);
+				$out[] = self::call_step(
+					'stonewright/elementor-v3-get-page-structure',
+					'Read the compact structure and select an existing V3-only parent. Do not add at mixed document root.',
+					[
+						'post_id' => '<target post id>',
+						'mode'    => 'summary',
+					]
+				);
+				$out[] = self::call_step(
+					'stonewright/elementor-v3-batch-mutate',
+					'Apply only surgical V3 operations under the reviewed V3-only parent, starting with dry_run=true.',
+					[
+						'post_id'                  => '<target post id>',
+						'operations'               => [ '<V3-only parent-scoped mutations>' ],
 						'dry_run'                  => true,
 						'stonewright_context_token' => '<context_token>',
 					]

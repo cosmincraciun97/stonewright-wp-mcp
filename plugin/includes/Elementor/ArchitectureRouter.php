@@ -22,20 +22,25 @@ final class ArchitectureRouter {
 		$requested = in_array( $requested, [ 'auto', 'v3', 'v4' ], true ) ? $requested : 'auto';
 		$target    = 'v3';
 		$blocked   = false;
+		$surgical_v3_allowed    = false;
+		$high_level_write_blocked = false;
 		$reason    = 'Elementor V3 runtime or legacy V3 document detected.';
 
 		if ( 'mixed' === $document ) {
-			$target  = 'none';
-			$blocked = true;
-			$reason  = 'Document already mixes V3 and V4 nodes; repair or restore it before any write.';
+			$target                   = 'v3-surgical';
+			$surgical_v3_allowed      = true;
+			$high_level_write_blocked = true;
+			$reason                   = 'Mixed V3/V4 document detected. High-level and full-tree writes remain blocked; use elementor-v3-batch-mutate only inside an existing V3-only parent or subtree.';
 		} elseif ( 'v4' === $document ) {
 			$target  = 'v4';
 			$blocked = true;
+			$high_level_write_blocked = true;
 			$reason  = 'Atomic document detected; the current high-level V4 renderer remains experimental, so automatic page writes are blocked.';
 		} elseif ( 'v3' === $document ) {
 			$target = 'v3';
 			if ( 'v4' === $requested ) {
 				$blocked = true;
+				$high_level_write_blocked = true;
 				$reason  = 'Explicit V4 target conflicts with an existing V3 document; use reviewed migration first.';
 			}
 		} elseif ( 'v3' === $requested ) {
@@ -44,16 +49,21 @@ final class ArchitectureRouter {
 		} elseif ( 'v4' === $requested ) {
 			$target  = 'v4';
 			$blocked = true;
+			$high_level_write_blocked = true;
 			$reason  = 'V4 was selected, but the high-level V4 renderer is not production-ready.';
 		} elseif ( $site_v4 ) {
 			$target  = 'none';
 			$blocked = true;
+			$high_level_write_blocked = true;
 			$reason  = 'Elementor 4 runtime with an empty or unspecified document is architecture-ambiguous. Cheapest unblock: re-run stonewright/task-start (or workflow-preflight) with post_id set to the post you will edit — the document architecture is then detected automatically. Alternatively select target_architecture=v3 explicitly for a new V3 document.';
 		}
 
-		$repair_tools = $blocked
-			? [ 'stonewright/elementor-v3-repair-document', 'stonewright/task-start' ]
-			: [];
+		$repair_tools = [];
+		if ( 'mixed' === $document ) {
+			$repair_tools = [ 'stonewright/elementor-document-health', 'stonewright/elementor-v3-batch-mutate', 'stonewright/task-start' ];
+		} elseif ( $blocked ) {
+			$repair_tools = [ 'stonewright/elementor-v3-repair-document', 'stonewright/task-start' ];
+		}
 
 		return [
 			'elementor_version'     => $version,
@@ -64,6 +74,8 @@ final class ArchitectureRouter {
 			'requested_architecture' => $requested,
 			'write_target'          => $target,
 			'write_blocked'         => $blocked,
+			'surgical_v3_allowed'   => $surgical_v3_allowed,
+			'high_level_write_blocked' => $high_level_write_blocked,
 			'reason'                => $reason,
 			'repair_tools'          => $repair_tools,
 			'implicit_conversion'   => false,
