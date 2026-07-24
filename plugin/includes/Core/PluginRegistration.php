@@ -13,6 +13,8 @@ use Stonewright\WpMcp\Admin\McpbBundle;
 use Stonewright\WpMcp\Admin\MemoryInstructionsPage;
 use Stonewright\WpMcp\Admin\SandboxPage;
 use Stonewright\WpMcp\Admin\SkillsPage;
+use Stonewright\WpMcp\Design\Direction\DesignDirectionsTable;
+use Stonewright\WpMcp\Design\Direction\DesignDirectionVersionsTable;
 use Stonewright\WpMcp\Skills\SkillsSeeder;
 use Stonewright\WpMcp\Skills\SkillsTable;
 use Stonewright\WpMcp\Skills\SkillVersionsTable;
@@ -107,6 +109,8 @@ final class PluginRegistration {
 		add_action( 'init', [ OneTimeLink::class, 'maybe_handle_request' ], 1 );
 		add_action( 'init', [ SkillsTable::class, 'create_table' ] );
 		add_action( 'init', [ SkillVersionsTable::class, 'create_table' ] );
+		add_action( 'init', [ DesignDirectionsTable::class, 'install' ] );
+		add_action( 'init', [ DesignDirectionVersionsTable::class, 'install' ] );
 		add_action( 'init', [ CandidateTable::class, 'create_table' ] );
 		add_action( 'init', [ ExpertiseTable::class, 'create_tables' ] );
 		add_action( 'init', [ ResourceRegistry::class, 'register' ], 30 );
@@ -150,6 +154,8 @@ final class PluginRegistration {
 		OAuthSchema::schedule_gc();
 		SkillsTable::force_create_table();
 		SkillVersionsTable::force_create_table();
+		DesignDirectionsTable::install();
+		DesignDirectionVersionsTable::install();
 		CandidateTable::force_create_table();
 		ExpertiseTable::force_create_tables();
 		SkillsSeeder::seed();
