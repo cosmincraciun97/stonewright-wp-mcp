@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.86] - 2026-07-24
+
+### Changed
+
+- Align the companion package with the OAuth registration hotfix release.
+
 ## [1.0.0-alpha.84] - 2026-07-24
 
 ### Changed
