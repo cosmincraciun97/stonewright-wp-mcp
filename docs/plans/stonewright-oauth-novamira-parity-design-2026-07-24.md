@@ -90,7 +90,8 @@ append/insert path matrix.
 - Add and advertise `offline_access` so ChatGPT can retain a refresh token.
   This is the one forward-compatible extension required by current ChatGPT.
 - Access tokens expire after one hour.
-- Refresh tokens expire after thirty days and rotate on use.
+- Refresh tokens expire after fourteen days and rotate on use, matching the
+  inspected upstream implementation.
 - Authorization codes and refresh tokens are single-use.
 - Token, authorization-code, and secret identifiers are stored hashed.
 - RSA keys are stored as non-autoload WordPress options.

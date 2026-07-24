@@ -114,8 +114,7 @@ git commit -m "build: add OAuth server dependencies"
   `Bootstrap::supported_scopes(): array`,
   `Transport::allowed(): bool`,
   `Schema::maybe_install(): void`,
-  `Keys::private_key(): CryptKey`,
-  `Keys::public_key(): CryptKey`.
+  `Keys::get(): array{private:CryptKey,public:CryptKey,encryption:string}`.
 
 - [ ] **Step 1: Port and adapt upstream transport/audience/schema tests only**
 
