@@ -477,6 +477,11 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 			return null;
 		}
 
+		public function query( string $query ): int|false {
+			unset( $query );
+			return 0;
+		}
+
 		/**
 		 * @param array<string, mixed> $data
 		 * @param array<string, mixed> $where
@@ -644,7 +649,13 @@ if ( ! function_exists( 'wp_normalize_path' ) ) {
 
 if ( ! function_exists( 'wp_get_environment_type' ) ) {
 	function wp_get_environment_type(): string {
-		return 'local';
+		return (string) ( $GLOBALS['stonewright_test_environment_type'] ?? 'local' );
+	}
+}
+
+if ( ! function_exists( 'is_admin' ) ) {
+	function is_admin(): bool {
+		return (bool) ( $GLOBALS['stonewright_test_is_admin'] ?? true );
 	}
 }
 
@@ -2058,6 +2069,32 @@ if ( ! function_exists( 'wp_date' ) ) {
 	}
 }
 
+$GLOBALS['stonewright_test_scheduled_hooks'] ??= [];
+
+if ( ! function_exists( 'wp_next_scheduled' ) ) {
+	function wp_next_scheduled( string $hook, array $args = [] ): int|false {
+		unset( $args );
+		return $GLOBALS['stonewright_test_scheduled_hooks'][ $hook ] ?? false;
+	}
+}
+
+if ( ! function_exists( 'wp_schedule_event' ) ) {
+	function wp_schedule_event( int $timestamp, string $recurrence, string $hook, array $args = [], bool $wp_error = false ): bool|\WP_Error {
+		unset( $recurrence, $args, $wp_error );
+		$GLOBALS['stonewright_test_scheduled_hooks'][ $hook ] = $timestamp;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_clear_scheduled_hook' ) ) {
+	function wp_clear_scheduled_hook( string $hook, array $args = [], bool $wp_error = false ): int|false|\WP_Error {
+		unset( $args, $wp_error );
+		$found = isset( $GLOBALS['stonewright_test_scheduled_hooks'][ $hook ] );
+		unset( $GLOBALS['stonewright_test_scheduled_hooks'][ $hook ] );
+		return $found ? 1 : 0;
+	}
+}
+
 if ( ! function_exists( 'size_format' ) ) {
 	function size_format( int $bytes, int $decimals = 0 ): string {
 		if ( $bytes >= 1048576 ) {
@@ -2141,12 +2178,35 @@ if ( ! class_exists( 'WP_REST_Server' ) ) {
 
 if ( ! class_exists( 'WP_REST_Request' ) ) {
 	class WP_REST_Request {
+		private string $method = 'GET';
+
+		private string $route = '';
+
 		/** @var array<string, mixed> */
 		private array $params = [];
 
+		/** @var array<string, mixed> */
+		private array $json_params = [];
+
+		/** @var array<string, mixed> */
+		private array $body_params = [];
+
+		/** @var array<string, string> */
+		private array $headers = [];
+
 		/** @param array<string, mixed> $params */
 		public function __construct( string $method = 'GET', string $route = '', array $params = [] ) {
+			$this->method = $method;
+			$this->route  = $route;
 			$this->params = $params;
+		}
+
+		public function get_method(): string {
+			return $this->method;
+		}
+
+		public function get_route(): string {
+			return $this->route;
 		}
 
 		public function get_param( string $key ): mixed {
@@ -2157,11 +2217,61 @@ if ( ! class_exists( 'WP_REST_Request' ) ) {
 		public function set_params( array $params ): void {
 			$this->params = $params;
 		}
+
+		/** @return array<string, mixed> */
+		public function get_json_params(): array {
+			return $this->json_params;
+		}
+
+		/** @param array<string, mixed> $params */
+		public function set_json_params( array $params ): void {
+			$this->json_params = $params;
+		}
+
+		/** @return array<string, mixed> */
+		public function get_body_params(): array {
+			return $this->body_params;
+		}
+
+		/** @param array<string, mixed> $params */
+		public function set_body_params( array $params ): void {
+			$this->body_params = $params;
+			$this->params      = array_merge( $this->params, $params );
+		}
+
+		public function get_header( string $key ): string {
+			return $this->headers[ strtolower( $key ) ] ?? '';
+		}
+
+		public function set_header( string $key, string $value ): void {
+			$this->headers[ strtolower( $key ) ] = $value;
+		}
+
+		/** @return array<string, list<string>> */
+		public function get_headers(): array {
+			$headers = [];
+			foreach ( $this->headers as $name => $value ) {
+				$headers[ $name ] = [ $value ];
+			}
+			return $headers;
+		}
+
+		/** @return array<string, mixed> */
+		public function get_query_params(): array {
+			return $this->params;
+		}
+
+		public function get_body(): string {
+			return '';
+		}
 	}
 }
 
 if ( ! class_exists( 'WP_REST_Response' ) ) {
 	class WP_REST_Response {
+		/** @var array<string, string> */
+		private array $headers = [];
+
 		/** @param mixed $data */
 		public function __construct( private mixed $data = null, private int $status = 200 ) {}
 
@@ -2171,6 +2281,16 @@ if ( ! class_exists( 'WP_REST_Response' ) ) {
 
 		public function get_status(): int {
 			return $this->status;
+		}
+
+		public function header( string $key, string $value, bool $replace = true ): void {
+			unset( $replace );
+			$this->headers[ $key ] = $value;
+		}
+
+		/** @return array<string, string> */
+		public function get_headers(): array {
+			return $this->headers;
 		}
 	}
 }

@@ -24,6 +24,15 @@ async function login(page: Page): Promise<void> {
 	}
 }
 
+async function selectApplicationPassword(page: Page): Promise<void> {
+	const button = page.locator(
+		'[data-stonewright-auth-method="application-password"]',
+	);
+	await expect(button).toBeVisible({ timeout: 15_000 });
+	await button.click();
+	await expect(button).toHaveAttribute('aria-checked', 'true');
+}
+
 test.describe('Connect wizard interactions', () => {
 	test.use({ viewport: { width: 1440, height: 900 }, colorScheme: 'light' });
 
@@ -32,6 +41,7 @@ test.describe('Connect wizard interactions', () => {
 		await page.goto('/wp-admin/admin.php?page=stonewright', {
 			waitUntil: 'domcontentloaded',
 		});
+		await selectApplicationPassword(page);
 
 		const picker = page.locator('[data-stonewright-method-picker]');
 		await expect(picker).toBeVisible({ timeout: 15_000 });
@@ -52,6 +62,7 @@ test.describe('Connect wizard interactions', () => {
 		await page.goto('/wp-admin/admin.php?page=stonewright', {
 			waitUntil: 'domcontentloaded',
 		});
+		await selectApplicationPassword(page);
 
 		await expect(page.locator('[data-stonewright-client-picker]')).toBeVisible({ timeout: 15_000 });
 

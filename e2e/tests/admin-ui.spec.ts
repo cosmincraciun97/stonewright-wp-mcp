@@ -159,4 +159,37 @@ test.describe('Stonewright admin UI', () => {
 			});
 		});
 	}
+
+	test('Setup OAuth chooser switches all client instructions and preserves fallback auth', async ({
+		page,
+	}) => {
+		await page.goto('/wp-admin/admin.php?page=stonewright', {
+			waitUntil: 'domcontentloaded',
+		});
+
+		const oauthButton = page.locator('[data-stonewright-auth-method="oauth"]');
+		const passwordButton = page.locator(
+			'[data-stonewright-auth-method="application-password"]',
+		);
+		await expect(oauthButton).toHaveAttribute('aria-checked', 'true');
+		await expect(page.locator('[data-sw-oauth-tab]')).toHaveCount(17);
+
+		const codexTab = page.locator('[data-sw-oauth-tab="codex"]');
+		await codexTab.click();
+		await expect(codexTab).toHaveAttribute('aria-selected', 'true');
+		await expect(page.locator('[data-sw-oauth-panel="codex"]')).toBeVisible();
+		await expect(page.locator('#stonewright-oauth-code-codex')).toContainText(
+			'[mcp_servers.',
+		);
+
+		await passwordButton.click();
+		await expect(passwordButton).toHaveAttribute('aria-checked', 'true');
+		await expect(
+			page.locator('[data-stonewright-auth-panel="application-password"]').first(),
+		).toBeVisible();
+
+		await oauthButton.click();
+		await expect(oauthButton).toHaveAttribute('aria-checked', 'true');
+		await expect(page.getByRole('link', { name: 'Manage connected apps' }).first()).toBeVisible();
+	});
 });

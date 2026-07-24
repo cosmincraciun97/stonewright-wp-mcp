@@ -35,7 +35,7 @@
 - Changelogs (`CHANGELOG.md` + `plugin/CHANGELOG.md`) and affected docs ship in the same PR as behavior.
 - PR description lists changed abilities and whether backup/token/permission/validation/audit gates changed.
 - Never weaken permission, backup, validation, confirmation-token, or audit gates.
-- No competitor product names in public docs/commits. No automated-authorship claims.
+- No automated-authorship claims in public docs or commits.
 - Before closing docs/release work: `node scripts/check-docs-freshness.mjs` and `git diff --check` must pass.
 - Elementor integrity hard rules: no double-encoding, no stripping unknown settings, no widgetType conversion without user intent, surgical mutations only.
 
@@ -1155,7 +1155,7 @@ Each phase = one PR (Phases 1–3 may combine into one "live-failure fixes" PR i
 2. Gate statement: which backup/token/permission/validation/audit gates changed (Phases 1–8: none weakened; Phase 3 enriches error envelopes; Phase 4 adds a *non-blocking* hint and a TTL that *strengthens* the Direct write gate; Phase 9 adds new gated ability).
 3. Public docs changed, or why none needed changing.
 4. `node scripts/check-docs-freshness.mjs` + `git diff --check` output confirmation.
-5. No competitor product names, no automated-authorship claims, in any public text.
+5. No automated-authorship claims in public text.
 
 ## Execution order and independence
 

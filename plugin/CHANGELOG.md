@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.85] - 2026-07-24
+
+### Added
+
+- OAuth 2.0 MCP authentication with PKCE, discovery, rotating refresh tokens,
+  consent, Connected Apps, and 17-client onboarding.
+- Independent `/mcp/stonewright-oauth` server while retaining Application
+  Password authentication on `/mcp/stonewright`.
+
 ## [1.0.0-alpha.84] - 2026-07-24
 
 ### Added
@@ -66,12 +75,3 @@
 - Direct learning no longer silently falls back to `_global` for unknown site aliases.
 - Direct learning receipts label local-only visibility (not wp-admin Memory UI).
 - Task context tokens bind site fingerprint, environment, Stonewright mode, and memory backend; task-start receipts expose those values.
-
-## [1.0.0-alpha.80] - 2026-07-22
-
-### Added
-
-- Canonical permanent operating rules with Plugin/Direct/skill parity fingerprint.
-- Verified learning-record receipts (write-then-readback) and user/project memory types.
-- Central REST mutation audit under `stonewright/v1` with blocked status and exact counts.
-- MethodRouter ladder and Elementor ResponsiveScope isolation helpers.

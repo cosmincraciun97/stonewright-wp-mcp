@@ -2,7 +2,17 @@
 
 The Configuration page is the first sub-page under the **Stonewright** menu
 (`dashicons-hammer`, position 76). It owns three numbered cards: master enable,
-Application Password generation, and MCP client connection.
+OAuth approval, Application Password fallback, and MCP client connection.
+
+## Authentication chooser
+
+Card 2 recommends OAuth on HTTPS and explicit local WordPress environments.
+OAuth uses browser sign-in, mandatory PKCE S256, dynamic client registration,
+resource-bound access tokens, rotating refresh tokens, and Connected Apps
+revocation. Public plain HTTP sites do not expose OAuth.
+
+Application Password remains an independent fallback on the existing
+`/wp-json/mcp/stonewright` route.
 
 Source: `plugin/includes/Admin/ConfigurationPage.php`
 
@@ -110,10 +120,16 @@ Elementor 3.18+.
 
 ---
 
-## Card 2 - Application Password
+## Card 2 - Authentication
 
-AI clients authenticate using a WordPress Application Password sent as HTTP
-Basic Auth with every request (`username:app-password`).
+OAuth is the default on HTTPS and explicit local environments. Select OAuth,
+pick the AI client, and follow the generated instructions. WordPress opens a
+consent screen and records the grant under **Connected Apps**; no WordPress
+password is copied into the client.
+
+Application Password remains the independent fallback. It is sent as HTTP
+Basic Auth with every request (`username:app-password`) to the existing
+`/wp-json/mcp/stonewright` resource.
 
 To generate one from the Configuration page:
 
@@ -131,7 +147,11 @@ WordPress user.
 
 ---
 
-## Card 3 - Connect MCP Client
+## Card 3 - Connect Your AI Client
+
+The OAuth panel provides instructions for Claude Code, Claude Desktop,
+Claude.ai, ChatGPT, Codex, Antigravity, Cursor, VS Code, GitHub Copilot,
+Windsurf, Cline, Gemini CLI, Roo Code, Amazon Q, Zed, Kilo Code, and OpenCode.
 
 ### MCP endpoint URL
 

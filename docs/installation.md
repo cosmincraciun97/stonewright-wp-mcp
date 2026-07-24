@@ -14,7 +14,7 @@ Stonewright has two parts:
 - Node.js 20+ for the optional companion
 - WP-CLI for fast local WordPress work. The companion can use `wp` from `PATH`
   or auto-detect LocalWP's `wp-cli.phar` plus PHP on Windows/macOS.
-- A WordPress Application Password
+- OAuth browser access (recommended) or a WordPress Application Password
 
 ## Install The WordPress Plugin From Release
 
@@ -23,8 +23,8 @@ Stonewright has two parts:
 2. In WordPress Admin, open **Plugins > Add New > Upload Plugin**.
 3. Upload the ZIP and activate **Stonewright**.
 4. Open **Stonewright → Setup** and enable AI Abilities.
-5. Generate an Application Password from Setup (or Users → Profile). The
-   MCP client authenticates with `username:application-password`.
+5. Choose OAuth in Setup and approve the browser sign-in. Alternatively,
+   generate an Application Password from Setup (or Users → Profile).
 
 The release ZIP includes production Composer dependencies.
 

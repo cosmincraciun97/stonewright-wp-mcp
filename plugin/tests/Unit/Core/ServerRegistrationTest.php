@@ -66,11 +66,24 @@ final class ServerRegistrationTest extends TestCase {
 		self::assertCount( 30, $tools );
 	}
 
+	public function test_registers_separate_application_password_and_oauth_servers(): void {
+		$adapter = new CapturingMcpAdapter();
+
+		ServerRegistration::register_server( $adapter );
+
+		self::assertCount( 2, $adapter->calls );
+		self::assertSame( 'stonewright', $adapter->calls[0][0] );
+		self::assertSame( 'stonewright', $adapter->calls[0][2] );
+		self::assertSame( 'stonewright-oauth', $adapter->calls[1][0] );
+		self::assertSame( 'stonewright-oauth', $adapter->calls[1][2] );
+		self::assertSame( $adapter->calls[0][9], $adapter->calls[1][9] );
+	}
+
 	/**
 	 * @return mixed
 	 */
 	private function created_server_argument( CapturingMcpAdapter $adapter, int $index ) {
-		self::assertCount( 1, $adapter->calls );
+		self::assertNotEmpty( $adapter->calls );
 		self::assertArrayHasKey( $index, $adapter->calls[0] );
 
 		return $adapter->calls[0][ $index ];

@@ -443,6 +443,90 @@
 	margin-top: var(--sw-space-4);
 }
 
+.sw-auth-methods {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--sw-space-3);
+	margin: var(--sw-space-4) 0;
+}
+
+.sw-auth-method {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-2);
+	padding: var(--sw-space-4);
+	text-align: left;
+	background: var(--sw-surface);
+	color: var(--sw-text);
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius-sm);
+	cursor: pointer;
+}
+
+.sw-auth-method > span:last-child {
+	flex-basis: 100%;
+	color: var(--sw-text-muted);
+	font-size: var(--sw-text-sm);
+}
+
+.sw-auth-method.is-active {
+	border-color: var(--sw-brand);
+	box-shadow: 0 0 0 1px var(--sw-brand);
+}
+
+.sw-oauth-tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--sw-space-2);
+	margin: var(--sw-space-4) 0;
+}
+
+.sw-oauth-tab.is-active {
+	background: var(--sw-brand);
+	border-color: var(--sw-brand);
+	color: var(--sw-brand-contrast);
+}
+
+.sw-oauth-client-panel {
+	min-width: 0;
+	padding-top: var(--sw-space-2);
+}
+
+.sw-oauth-client-panel pre,
+.sw-oauth-note {
+	box-sizing: border-box;
+	max-width: 100%;
+	max-height: 320px;
+	overflow: auto;
+	padding: var(--sw-space-3);
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	background: var(--sw-ink);
+	color: var(--sw-text-muted);
+	border-radius: var(--sw-radius-sm);
+	font: var(--sw-text-xs)/1.5 var(--sw-font-mono);
+}
+
+.sw-oauth-steps {
+	padding-left: 1.4rem;
+}
+
+.sw-oauth-copy-row {
+	display: flex;
+	align-items: center;
+	gap: var(--sw-space-2);
+	flex-wrap: wrap;
+}
+
+.sw-oauth-copy-row code {
+	padding: var(--sw-space-2);
+	background: var(--sw-surface-subtle);
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius-sm);
+	overflow-wrap: anywhere;
+}
+
 @media (max-width: 782px) {
 	.sw-setup-card.stonewright-setup-step,
 	.sw-setup-card {
@@ -457,6 +541,10 @@
 	}
 
 	.sw-method-picker__options {
+		grid-template-columns: 1fr;
+	}
+
+	.sw-auth-methods {
 		grid-template-columns: 1fr;
 	}
 }

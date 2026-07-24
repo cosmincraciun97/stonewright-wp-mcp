@@ -308,7 +308,7 @@ function initTooltips() {
 - Modify: `plugin/data/prompts/catalog.json`
 - Test: `plugin/tests/Unit/Support/PromptCatalogTest.php`
 
-- [ ] **Step 1: Correctness gate first (failing test).** Extend `PromptCatalogTest` with a content-eval test: every MCP tool name mentioned in any prompt's text or `tools` array must exist in the ability contracts (load the registry/contract fixture the truth-matrix generator uses; hyphenated MCP names). Also assert: every prompt instructs calling `stonewright-task-start` first; no prompt names competitor products; no prompt tells the agent to bypass backup/validator/token gates.
+- [ ] **Step 1: Correctness gate first (failing test).** Extend `PromptCatalogTest` with a content-eval test: every MCP tool name mentioned in any prompt's text or `tools` array must exist in the ability contracts (load the registry/contract fixture the truth-matrix generator uses; hyphenated MCP names). Also assert: every prompt instructs calling `stonewright-task-start` first and no prompt tells the agent to bypass backup/validator/token gates.
 - [ ] **Step 2:** Fix any of the 12 existing prompts the test flags.
 - [ ] **Step 3:** Author ≥8 new Stonewright-specific prompts (target ≥20 total), covering at minimum: apply blueprint with explicit engine choice (elementor / gutenberg / fse once Phase 4.5 lands), brand-kit apply with diff preview + restore, Figma→native pixel-perfect build (references the Phase 5 workflow: external Figma MCP → `figma_token_table` → native plan → verify), profile self-upgrade ("if a tool you need is missing, activate the full profile and re-list" — matches Phase 3 behavior), site health/ops triage, WooCommerce catalog setup, content-model (ACF/CPT) scaffold, FSE template edit with snapshot/rollback.
 - [ ] **Step 4:** Bump the min-count assertion from ≥10 to ≥20. Green. **Commit** `feat(prompts): 20+ evaluated prompts incl. engine choice, Figma, profile upgrade`.
@@ -417,4 +417,4 @@ function initTooltips() {
 4. **PR D–G:** Phase 4 chunks (a)–(d) + docs.
 5. **PR H:** Phase 5 (Figma pipeline) + docs + roadmap note 7.3.
 
-Each PR: topic branch off `feat/premium-enhancement-2026-07` (or off main after PR #8 merges — executing agent decides based on merge status), gates green, honest PR body (no automated-authorship claims, no competitor names, no internal tooling disclosure).
+Each PR: topic branch off `feat/premium-enhancement-2026-07` (or off main after PR #8 merges — executing agent decides based on merge status), gates green, honest PR body (no automated-authorship claims or internal tooling disclosure).

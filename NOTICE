@@ -2,8 +2,9 @@ Stonewright
 Copyright (c) Stonewright contributors
 
 The Stonewright WordPress plugin and Stonewright Visual include or adapt code
-from Novamira by Ovation S.r.l., licensed under AGPL-3.0-or-later unless an
-individual source file states another license.
+from Novamira by Ovation S.r.l., including the inspected Novamira 1.10.1
+snapshot, licensed under AGPL-3.0-or-later unless an individual source file
+states another license.
 
 Upstream project: https://github.com/use-novamira/novamira
 Detailed source paths, hashes, destinations, modifications, and verification

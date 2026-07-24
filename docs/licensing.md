@@ -9,10 +9,11 @@ Stonewright ships:
 ## Third-party AGPL components
 
 Before the first third-party AGPL import, the WordPress plugin was relicensed to
-`AGPL-3.0-or-later`. Attribution, source hashes, and reuse details live only in
-`docs/upstream-code-reuse.md` and SPDX headers on derived files under `visual/`.
+`AGPL-3.0-or-later`. Attribution, source hashes, and reuse details live in
+`docs/upstream-code-reuse.md` and SPDX headers on copied or derived files.
 
-Those attribution surfaces must never be removed. Public product copy must not
-name third-party competitor products; point to the reuse ledger instead.
+Those attribution surfaces must never be removed. Public documentation and UI
+may name upstream projects when useful for provenance, compatibility, or
+migration guidance.
 
 The MIT companion must not receive AGPL-derived code.

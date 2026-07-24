@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\OAuth\Transport;
 use Stonewright\WpMcp\Security\DomainLock;
 
 /**
@@ -252,16 +253,19 @@ final class ConfigurationPage {
 			: 'stonewright-risk-notice--warning';
 		$setup_diagnostics   = SetupDiagnostics::report();
 		$has_app_password    = is_array( $generated_password ) || [] !== $app_passwords;
-		$step_states         = self::step_states( $enabled, $has_app_password );
+		$oauth_available     = Transport::allowed();
+		$step_states         = self::step_states( $enabled, $has_app_password, $oauth_available );
 		$selected_client     = self::selected_setup_client( $current_user_id );
 		$selected_method     = self::selected_setup_method( $current_user_id );
+		$oauth_url           = rest_url( 'mcp/stonewright-oauth' );
+		$oauth_server_name   = OAuthClientConfig::default_server_name();
 		?>
 		<?php AdminShell::open( self::SLUG ); ?>
 		<div class="stonewright-config-page sw-setup-page">
 			<header class="sw-setup-header">
 				<div>
 					<h1><?php esc_html_e( 'Setup', 'stonewright' ); ?></h1>
-					<p><?php esc_html_e( 'Enable Stonewright, generate an Application Password, then connect your AI client.', 'stonewright' ); ?></p>
+					<p><?php esc_html_e( 'Enable Stonewright, choose OAuth or an Application Password, then connect your AI client.', 'stonewright' ); ?></p>
 				</div>
 			</header>
 
@@ -329,7 +333,7 @@ final class ConfigurationPage {
 				<?php
 				$step_labels = [
 					1 => __( 'Enable', 'stonewright' ),
-					2 => __( 'App Password', 'stonewright' ),
+					2 => __( 'Authentication', 'stonewright' ),
 					3 => __( 'Connect client', 'stonewright' ),
 				];
 				foreach ( $step_labels as $num => $label ) :
@@ -525,8 +529,44 @@ final class ConfigurationPage {
 				<div class="stonewright-setup-step sw-setup-card sw-setup-card--<?php echo esc_attr( $step_states[2] ); ?>" id="stonewright-application-password">
 					<div class="stonewright-step-index" aria-hidden="true">2</div>
 					<div class="stonewright-step-body">
-						<h2><?php esc_html_e( 'Application Password', 'stonewright' ); ?></h2>
-						<p class="description"><?php esc_html_e( 'Generate one WordPress Application Password for your AI client. It is embedded into the connection prompt in step 3 and shown only once.', 'stonewright' ); ?></p>
+						<h2><?php esc_html_e( 'Choose your authentication method', 'stonewright' ); ?></h2>
+						<div class="sw-auth-methods" role="radiogroup" aria-label="<?php esc_attr_e( 'Authentication method', 'stonewright' ); ?>">
+							<button
+								type="button"
+								role="radio"
+								class="sw-auth-method is-active"
+								data-stonewright-auth-method="oauth"
+								aria-checked="true"
+								<?php echo $oauth_available ? '' : 'disabled'; ?>
+							>
+								<strong><?php esc_html_e( 'OAuth', 'stonewright' ); ?></strong>
+								<?php if ( $oauth_available ) : ?>
+									<span class="sw-pill"><?php esc_html_e( 'Recommended for your setup', 'stonewright' ); ?></span>
+								<?php endif; ?>
+								<span><?php esc_html_e( 'Sign in through the browser; no password to copy.', 'stonewright' ); ?></span>
+							</button>
+							<button
+								type="button"
+								role="radio"
+								class="sw-auth-method"
+								data-stonewright-auth-method="application-password"
+								aria-checked="false"
+							>
+								<strong><?php esc_html_e( 'Application Password', 'stonewright' ); ?></strong>
+								<span><?php esc_html_e( 'Generate a password and paste it into the client config.', 'stonewright' ); ?></span>
+							</button>
+						</div>
+
+						<div data-stonewright-auth-panel="oauth" <?php echo $oauth_available ? '' : 'hidden'; ?>>
+							<p><?php esc_html_e( 'OAuth is ready. In step 3, choose your client and sign in when its browser window opens.', 'stonewright' ); ?></p>
+							<p><a href="<?php echo esc_url( admin_url( 'admin.php?page=stonewright-connected-apps' ) ); ?>">
+								<?php esc_html_e( 'Manage connected apps', 'stonewright' ); ?>
+							</a></p>
+						</div>
+
+						<div data-stonewright-auth-panel="application-password" <?php echo $oauth_available ? 'hidden' : ''; ?>>
+						<h3><?php esc_html_e( 'Application Password', 'stonewright' ); ?></h3>
+						<p class="description"><?php esc_html_e( 'Generate one WordPress Application Password for your AI client. It is embedded into the fallback connection prompt in step 3 and shown only once.', 'stonewright' ); ?></p>
 
 						<?php if ( '' !== $app_password_error ) : ?>
 							<div class="notice notice-error inline sw-notice">
@@ -601,14 +641,21 @@ final class ConfigurationPage {
 								rel="noopener noreferrer"
 							><?php esc_html_e( 'Open WordPress profile', 'stonewright' ); ?></a>
 						<?php endif; ?>
+						</div>
 					</div>
 				</div>
 
 				<div class="stonewright-setup-step stonewright-setup-step--wide sw-setup-card sw-setup-card--<?php echo esc_attr( $step_states[3] ); ?>">
 					<div class="stonewright-step-index" aria-hidden="true">3</div>
 					<div class="stonewright-step-body">
-						<h2><?php esc_html_e( 'Connect MCP Client', 'stonewright' ); ?></h2>
-						<p><?php esc_html_e( 'Pick your AI client and connection method. Snippets use this site URL, your username, and the Application Password from step 2.', 'stonewright' ); ?></p>
+						<h2><?php esc_html_e( 'Connect Your AI Client', 'stonewright' ); ?></h2>
+						<p><?php esc_html_e( 'Pick your AI client. OAuth opens a browser sign-in and keeps credentials out of copied config.', 'stonewright' ); ?></p>
+
+						<div data-stonewright-auth-panel="oauth" <?php echo $oauth_available ? '' : 'hidden'; ?>>
+							<?php OAuthConnectPanel::render( $oauth_url, $oauth_server_name ); ?>
+						</div>
+
+						<div data-stonewright-auth-panel="application-password" <?php echo $oauth_available ? 'hidden' : ''; ?>>
 						<div class="stonewright-share-warning">
 							<strong><?php esc_html_e( 'Heads up:', 'stonewright' ); ?></strong>
 							<?php if ( '' !== $app_password_value ) : ?>
@@ -654,8 +701,30 @@ final class ConfigurationPage {
 							</a>
 							<?php esc_html_e( ' for searchable, outcome-grouped starters (20+ prompts).', 'stonewright' ); ?>
 						</p>
+						</div>
 					</div>
 				</div>
+
+				<script>
+				(function () {
+					var buttons = document.querySelectorAll('[data-stonewright-auth-method]');
+					var panels = document.querySelectorAll('[data-stonewright-auth-panel]');
+					buttons.forEach(function (button) {
+						button.addEventListener('click', function () {
+							if (button.disabled) return;
+							var method = button.getAttribute('data-stonewright-auth-method');
+							buttons.forEach(function (item) {
+								var active = item === button;
+								item.classList.toggle('is-active', active);
+								item.setAttribute('aria-checked', active ? 'true' : 'false');
+							});
+							panels.forEach(function (panel) {
+								panel.hidden = panel.getAttribute('data-stonewright-auth-panel') !== method;
+							});
+						});
+					});
+				}());
+				</script>
 
 				<section class="sw-setup-card sw-setup-verify" aria-label="<?php esc_attr_e( 'Verify connection', 'stonewright' ); ?>">
 					<div class="stonewright-step-index" aria-hidden="true">✓</div>
@@ -693,11 +762,11 @@ final class ConfigurationPage {
 	/**
 	 * @return array{1: string, 2: string, 3: string} done|current|todo per step.
 	 */
-	private static function step_states( bool $enabled, bool $has_app_password ): array {
+	private static function step_states( bool $enabled, bool $has_app_password, bool $oauth_available ): array {
 		if ( ! $enabled ) {
 			return [ 1 => 'current', 2 => 'todo', 3 => 'todo' ];
 		}
-		if ( ! $has_app_password ) {
+		if ( ! $has_app_password && ! $oauth_available ) {
 			return [ 1 => 'done', 2 => 'current', 3 => 'todo' ];
 		}
 		return [ 1 => 'done', 2 => 'done', 3 => 'current' ];

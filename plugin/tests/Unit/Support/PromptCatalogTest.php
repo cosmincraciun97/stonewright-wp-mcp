@@ -28,8 +28,6 @@ final class PromptCatalogTest extends TestCase {
 			self::assertContains( 'stonewright-task-start', $prompt['tools'] );
 			self::assertStringContainsString( 'stonewright-task-start', $prompt['prompt'] );
 			self::assertNotSame( '', $prompt['verification'] );
-			// No competitor product names in public prompts.
-			self::assertDoesNotMatchRegularExpression( '/\b(wpbakery|divi|bricks|oxygen)\b/i', $prompt['prompt'] );
 		}
 	}
 

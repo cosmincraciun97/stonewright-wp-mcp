@@ -60,7 +60,7 @@ The original plan is **feasible and factually accurate**. Every load-bearing cla
 - [ ] No HTML-widget generation; `AddHtml` stays disabled-by-default compatibility surface.
 - [ ] Native builder controls win over CSS/custom code.
 - [ ] Existing UI routes keep working via redirects/compatibility views.
-- [ ] Public commits/changelogs/docs/skills/PR text: no automated-authorship claims, no internal-tooling disclosure, no competitor product names (attribution only in `docs/upstream-code-reuse.md` + SPDX headers).
+- [ ] Public commits/changelogs/docs/skills/PR text: no automated-authorship claims and no internal-tooling disclosure; preserve upstream attribution in `docs/upstream-code-reuse.md` and SPDX headers.
 - [ ] Docs ship in the same PR as behavior; `node scripts/check-docs-freshness.mjs` and `git diff --check` must pass before any phase closes.
 
 ## 4. Phase dependency graph and parallel lanes
@@ -354,7 +354,7 @@ Acceptance: `e2e:admin-ui` suite green across 5 viewports × light/dark; keyboar
 - [ ] Generate from single sources: current version, plugin ability count, Direct tool count, MCP endpoints, client snippets, requirements — consumed by README/docs.
 - [ ] Rewrite `docs/installation.md` around Connection Center + capability tiers; update `README.md`, `docs/onboarding.md`, `docs/install-prompts.md`, `docs/admin/*`, `docs/getting-started/*`, companion README (generated counts).
 - [ ] New docs: Elementor native policy, Gutenberg/FSE native policy, blueprint/brand-kit v2, transactions, visual QA (Playwright), recovery.
-- [ ] Extend `scripts/check-docs-freshness.mjs`: generated endpoint checks, config example parsing (JSON/TOML/bash), forbidden competitor-name enforcement outside provenance docs, verified-client-versions table check.
+- [ ] Extend `scripts/check-docs-freshness.mjs`: generated endpoint checks, config example parsing (JSON/TOML/bash), provenance coverage checks, and verified-client-versions table checks.
 
 Acceptance: README, plugin metadata, companion package, tag, changelogs, release note, ZIP, TGZ all agree; every copied config parses; freshness gate covers the new checks.
 

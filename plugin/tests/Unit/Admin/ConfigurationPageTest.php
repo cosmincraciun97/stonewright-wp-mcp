@@ -92,7 +92,7 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringContainsString( 'Apply now', $html );
 		self::assertStringContainsString( 'stonewright_generate_application_password', $html );
 		self::assertStringContainsString( 'Application Password', $html );
-		self::assertStringContainsString( 'Connect MCP Client', $html );
+		self::assertStringContainsString( 'Connect Your AI Client', $html );
 		self::assertStringContainsString( 'Setup diagnostics', $html );
 		self::assertStringContainsString( 'Remote Streamable HTTP', $html );
 		self::assertStringContainsString( 'Local companion (stdio)', $html );
@@ -139,6 +139,40 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringNotContainsString( 'Run connection test', $html );
 		self::assertStringNotContainsString( 'stonewright-badge--ok', $html );
 		self::assertStringNotContainsString( 'stonewright-badge--neutral', $html );
+	}
+
+	public function test_render_recommends_oauth_and_preserves_application_password_fallback(): void {
+		ob_start();
+		ConfigurationPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( 'Choose your authentication method', $html );
+		self::assertStringContainsString( 'data-stonewright-auth-method="oauth"', $html );
+		self::assertStringContainsString( 'Recommended for your setup', $html );
+		self::assertStringContainsString( 'data-stonewright-auth-method="application-password"', $html );
+		self::assertStringContainsString( '/wp-json/mcp/stonewright-oauth', $html );
+		self::assertStringContainsString( 'data-stonewright-oauth-connect', $html );
+		self::assertStringContainsString( 'Manage connected apps', $html );
+		self::assertStringContainsString( 'Generate application password', $html );
+		self::assertStringNotContainsString( 'Novamira', $html );
+	}
+
+	public function test_oauth_ready_setup_does_not_require_an_application_password_to_reach_connect_step(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_enabled'] = true;
+		$GLOBALS['stonewright_test_app_passwords']                  = [];
+
+		ob_start();
+		ConfigurationPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertMatchesRegularExpression(
+			'/class="sw-stepper__step sw-stepper__step--done" data-step="2" data-state="done"/',
+			$html
+		);
+		self::assertMatchesRegularExpression(
+			'/class="sw-stepper__step sw-stepper__step--current" data-step="3" data-state="current"/',
+			$html
+		);
 	}
 
 	public function test_render_includes_stepper_checklist_and_client_cards(): void {
