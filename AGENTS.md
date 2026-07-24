@@ -111,10 +111,9 @@ npm run build
   permission, validation, or audit gates changed.
 - Public commits, changelog entries, docs, skills, and PR text must not claim
   automated authorship or disclose internal development tooling.
-- Public commits, changelogs, docs, skills, and UI copy must not name
-  third-party competitor products. Upstream attribution lives only in
-  `docs/upstream-code-reuse.md` and SPDX file headers, which must never be
-  removed.
+- Public docs and UI may name upstream projects when that helps users understand
+  compatibility, provenance, or migration. Copied and derived code must keep
+  attribution in `docs/upstream-code-reuse.md` and SPDX file headers.
 
 ## Documentation freshness
 

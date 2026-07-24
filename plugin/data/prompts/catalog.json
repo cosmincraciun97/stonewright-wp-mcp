@@ -246,7 +246,7 @@
         "stonewright-blueprint-apply",
         "stonewright-gutenberg-parse-blocks"
       ],
-      "prompt": "Use Stonewright. Call stonewright-task-start first. Apply the chosen blueprint with engine=gutenberg. Validate blocks with parse/apply helpers. Prefer draft. Do not invent competitor product names.",
+      "prompt": "Use Stonewright. Call stonewright-task-start first. Apply the chosen blueprint with engine=gutenberg. Validate blocks with parse/apply helpers. Prefer draft.",
       "verification": "engine=gutenberg; blocks parse cleanly; draft saved."
     },
     {

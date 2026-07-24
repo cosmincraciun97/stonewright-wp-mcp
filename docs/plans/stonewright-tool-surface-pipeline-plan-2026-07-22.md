@@ -55,7 +55,8 @@ A live session (one AI client, plugin-proxy mode, Elementor task) failed to reac
 - Repo state when this plan was written: `main` at `06ffa86` (1.0.0-alpha.78). **Re-verify line numbers before editing** — use the quoted anchor code, not the line number, as truth.
 - Never weaken permission, backup, validation, confirmation-token, or audit gates.
 - Plugin checks: `cd plugin && composer test && composer phpstan && composer phpcs`. Companion checks: `cd companion && npm test && npm run typecheck && npm run build`.
-- The forbidden competitor codename named in the repo's standing constraints (see `CLAUDE.md` — "Public commits, changelogs, docs, skills, and UI copy must not name third-party competitor products") must not appear in any tracked file, including this plan.
+- Upstream project names may appear where needed for provenance, compatibility,
+  or migration guidance.
 - Every task's test goes in the same commit as the change it covers.
 
 ---
@@ -3316,8 +3317,8 @@ git commit -m "docs: recovery runbook, README architecture diagram, capped-clien
 cd plugin && composer test && composer phpstan && composer phpcs && composer security:audit
 cd ../companion && npm test && npm run typecheck && npm run build
 cd .. && node scripts/check-docs-freshness.mjs && git diff --check
-# Forbidden-name check: substitute the actual competitor codename from CLAUDE.md's standing constraint for <FORBIDDEN_NAME> (do not commit the literal into any tracked file).
-grep -ri "<FORBIDDEN_NAME>" --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=vendor . && echo "FORBIDDEN NAME FOUND" || echo "clean"
+# Provenance check: copied or derived files must be represented in the reuse ledger.
+php plugin/bin/lint-upstream-provenance.php
 ```
 
 Expected: all green; the grep must print `clean`.
