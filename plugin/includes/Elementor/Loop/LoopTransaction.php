@@ -277,6 +277,20 @@ final class LoopTransaction {
 					[ 'status' => 409, 'retryable' => false, 'template_id' => $template_id ]
 				);
 			}
+			if ( 0 === $resolved_template_id && 'publish' !== (string) $template->post_status ) {
+				return self::phase_error(
+					'template_validation',
+					'none',
+					'not_required',
+					__( 'The selected loop-item template must be published before wiring.', 'stonewright' ),
+					[
+						'status'          => 409,
+						'retryable'       => false,
+						'template_id'     => $template_id,
+						'template_status' => sanitize_key( (string) $template->post_status ),
+					]
+				);
+			}
 		}
 
 		$query = is_array( $args['query'] ?? null ) ? $args['query'] : [];

@@ -17,6 +17,7 @@ final class PostWriteLockTest extends TestCase {
 
 	protected function tearDown(): void {
 		$GLOBALS['stonewright_test_options'] = [];
+		unset( $GLOBALS['stonewright_test_before_option_delete'] );
 	}
 
 	public function test_second_owner_is_busy_until_first_releases(): void {
@@ -47,5 +48,24 @@ final class PostWriteLockTest extends TestCase {
 
 		self::assertIsArray( $replacement );
 		self::assertSame( 'txn-two', $replacement['owner'] );
+	}
+
+	public function test_expired_takeover_cannot_delete_a_newer_live_lease(): void {
+		PostWriteLock::acquire( 9049, 'txn-one', 30 );
+		$key = array_key_first( $GLOBALS['stonewright_test_options'] );
+		$GLOBALS['stonewright_test_options'][ $key ]['expires_at'] = time() - 1;
+		$GLOBALS['stonewright_test_before_option_delete'] = static function ( string $option ): void {
+			$GLOBALS['stonewright_test_options'][ $option ] = [
+				'post_id'    => 9049,
+				'owner'      => 'txn-three',
+				'expires_at' => time() + 30,
+			];
+		};
+
+		$replacement = PostWriteLock::acquire( 9049, 'txn-two', 30 );
+
+		self::assertInstanceOf( \WP_Error::class, $replacement );
+		self::assertSame( 'stonewright_elementor_write_busy', $replacement->get_error_code() );
+		self::assertSame( 'txn-three', $GLOBALS['stonewright_test_options'][ $key ]['owner'] );
 	}
 }

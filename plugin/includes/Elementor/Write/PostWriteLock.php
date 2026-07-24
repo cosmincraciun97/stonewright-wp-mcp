@@ -35,7 +35,7 @@ final class PostWriteLock {
 
 		$current = get_option( $key, [] );
 		if ( is_array( $current ) && (int) ( $current['expires_at'] ?? 0 ) <= $now ) {
-			if ( delete_option( $key ) ) {
+			if ( self::delete_if_unchanged( $key, $current ) ) {
 				return self::acquire( $post_id, $owner, $ttl );
 			}
 			$current = get_option( $key, [] );
@@ -65,5 +65,24 @@ final class PostWriteLock {
 
 	private static function key( int $post_id ): string {
 		return self::PREFIX . $post_id;
+	}
+
+	/** @param array<string, mixed> $observed */
+	private static function delete_if_unchanged( string $key, array $observed ): bool {
+		global $wpdb;
+		// The option name and its exact serialized lease form a compare-and-delete
+		// guard, so an expired observer cannot remove a newer owner's live lease.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$deleted = $wpdb->delete(
+			$wpdb->options,
+			[
+				'option_name'  => $key,
+				'option_value' => maybe_serialize( $observed ),
+			],
+			[ '%s', '%s' ]
+		);
+		wp_cache_delete( $key, 'options' );
+
+		return 1 === $deleted;
 	}
 }

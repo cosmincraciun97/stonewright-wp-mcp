@@ -62,11 +62,12 @@ final class LoopIntentCompiler {
 
 		$settings = [ $template_control => $template_id ];
 		$resolved = [ 'template' => $template_control ];
-		$post_type_control = self::resolve( $controls, 'post_type', false );
-		if ( is_string( $post_type_control ) ) {
-			$settings[ $post_type_control ] = sanitize_key( $post_type );
-			$resolved['post_type'] = $post_type_control;
+		$post_type_control = self::resolve( $controls, 'post_type', true );
+		if ( $post_type_control instanceof \WP_Error ) {
+			return $post_type_control;
 		}
+		$settings[ $post_type_control ] = sanitize_key( $post_type );
+		$resolved['post_type'] = $post_type_control;
 
 		$query = is_array( $intent['query'] ?? null ) ? $intent['query'] : [];
 		foreach ( [ 'posts_per_page', 'post__in', 'post__not_in', 'tax_query', 'meta_query', 'order', 'orderby', 'offset' ] as $semantic ) {

@@ -334,6 +334,19 @@ final class BatchMutate extends AbilityKernel {
 						return $lease;
 					}
 					try {
+						$current_tree_hash = TreeHasher::hash( ElementorData::read( $post_id ) );
+						if ( ! hash_equals( $before_hash, $current_tree_hash ) ) {
+							return $this->error(
+								'tree_conflict',
+								__( 'Elementor page changed before the batch acquired its write lock; refresh structure before retrying.', 'stonewright' ),
+								[
+									'status'            => 409,
+									'expected_tree_hash'=> $before_hash,
+									'current_tree_hash' => $current_tree_hash,
+									'retryable'         => true,
+								]
+							);
+						}
 						$snapshot_id = Backup::snapshot_post( $post_id );
 						$write_start = microtime( true );
 						// Surgical batch may remove large subtrees; force_destructive is bound to this

@@ -28,6 +28,7 @@ final class LoopIntentCompilerTest extends TestCase {
 		$GLOBALS['stonewright_test_options']    = [];
 		$GLOBALS['stonewright_test_transients'] = [];
 		WidgetSchemaRepository::reset_request_cache();
+		unset( $GLOBALS['stonewright_test_loop_schema_without_post_type'] );
 	}
 
 	public function test_carousel_uses_only_controls_exposed_by_live_schema(): void {
@@ -82,6 +83,16 @@ final class LoopIntentCompilerTest extends TestCase {
 
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_loop_display_invalid', $result->get_error_code() );
+	}
+
+	public function test_requested_post_type_is_never_silently_dropped(): void {
+		$GLOBALS['stonewright_test_loop_schema_without_post_type'] = true;
+
+		$result = LoopIntentCompiler::compile( 'grid', 88, 'project', [] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_loop_schema_incompatible', $result->get_error_code() );
+		self::assertSame( 'post_type', $result->get_error_data()['missing_semantic_control'] );
 	}
 
 	public function test_requested_query_filter_is_never_silently_dropped(): void {
@@ -166,12 +177,15 @@ final class LoopGridWidget {
 
 	/** @return array<string, array<string, mixed>> */
 	public function get_controls(): array {
-		return [
+		$controls = [
 			'template_id' => [ 'type' => 'select' ],
-			'post_type'   => [ 'type' => 'text' ],
 			'columns'     => [ 'type' => 'number', 'responsive' => true ],
 			'tax_query'   => [ 'type' => 'repeater' ],
 			'meta_query'  => [ 'type' => 'repeater' ],
 		];
+		if ( empty( $GLOBALS['stonewright_test_loop_schema_without_post_type'] ) ) {
+			$controls['post_type'] = [ 'type' => 'text' ];
+		}
+		return $controls;
 	}
 }

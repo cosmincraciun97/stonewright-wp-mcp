@@ -325,6 +325,11 @@ if ( ! function_exists( 'delete_option' ) ) {
 		if ( ! array_key_exists( $option, $GLOBALS['stonewright_test_options'] ?? [] ) ) {
 			return false;
 		}
+		if ( is_callable( $GLOBALS['stonewright_test_before_option_delete'] ?? null ) ) {
+			$callback = $GLOBALS['stonewright_test_before_option_delete'];
+			unset( $GLOBALS['stonewright_test_before_option_delete'] );
+			$callback( $option );
+		}
 		unset( $GLOBALS['stonewright_test_options'][ $option ] );
 		return true;
 	}
@@ -336,6 +341,23 @@ if ( ! function_exists( 'add_option' ) ) {
 			return false;
 		}
 		$GLOBALS['stonewright_test_options'][ $option ] = $value;
+		if ( is_callable( $GLOBALS['stonewright_test_after_add_option'] ?? null ) ) {
+			$callback = $GLOBALS['stonewright_test_after_add_option'];
+			unset( $GLOBALS['stonewright_test_after_add_option'] );
+			$callback( $option, $value );
+		}
+		return true;
+	}
+}
+
+if ( ! function_exists( 'maybe_serialize' ) ) {
+	function maybe_serialize( mixed $value ): mixed {
+		return is_array( $value ) || is_object( $value ) ? serialize( $value ) : $value;
+	}
+}
+
+if ( ! function_exists( 'wp_cache_delete' ) ) {
+	function wp_cache_delete( string $key, string $group = '' ): bool {
 		return true;
 	}
 }
@@ -392,6 +414,7 @@ $GLOBALS['stonewright_test_wpdb_inserts'] ??= [];
 if ( ! isset( $GLOBALS['wpdb'] ) ) {
 	$GLOBALS['wpdb'] = new class() {
 		public string $prefix = 'wptests_';
+		public string $options = 'wptests_options';
 		public int $insert_id = 1;
 
 		/** @var array<int, array<string, mixed>> */
@@ -472,6 +495,20 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 		 * @param array<string, mixed> $where
 		 */
 		public function delete( string $table, array $where, array $where_format = [] ): int|false {
+			if ( $this->options === $table && isset( $where['option_name'], $where['option_value'] ) ) {
+				$option = (string) $where['option_name'];
+				if ( is_callable( $GLOBALS['stonewright_test_before_option_delete'] ?? null ) ) {
+					$callback = $GLOBALS['stonewright_test_before_option_delete'];
+					unset( $GLOBALS['stonewright_test_before_option_delete'] );
+					$callback( $option );
+				}
+				if ( ! array_key_exists( $option, $GLOBALS['stonewright_test_options'] ?? [] )
+					|| maybe_serialize( $GLOBALS['stonewright_test_options'][ $option ] ) !== $where['option_value'] ) {
+					return 0;
+				}
+				unset( $GLOBALS['stonewright_test_options'][ $option ] );
+				return 1;
+			}
 			return 1;
 		}
 

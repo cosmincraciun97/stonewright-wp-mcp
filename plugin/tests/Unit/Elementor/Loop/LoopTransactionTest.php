@@ -108,6 +108,17 @@ final class LoopTransactionTest extends TestCase {
 		self::assertCount( 1, self::elementor_data_writes( 9049 ) );
 	}
 
+	public function test_existing_template_must_be_published_before_wiring(): void {
+		$GLOBALS['stonewright_test_posts'][77]->post_status = 'draft';
+
+		$result = LoopTransaction::run( self::args( [ 'dry_run' => true, 'template_id' => 77 ] ) );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'template_validation', $result->get_error_data()['transaction_phase'] );
+		self::assertSame( 'draft', $result->get_error_data()['template_status'] );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+	}
+
 	public function test_new_template_is_published_only_after_verified_page_write(): void {
 		$result = LoopTransaction::run(
 			self::args(
