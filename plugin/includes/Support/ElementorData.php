@@ -322,5 +322,4 @@ final class ElementorData {
 		$tree[ $head ]['elements'] = self::insert( $children, $parent_path, $position, $element );
 		return $tree;
 	}
-
 }
