@@ -42,6 +42,8 @@ final class Bootstrap {
 		add_action( 'rest_api_init', [ Token::class, 'register' ] );
 		add_action( 'rest_api_init', [ Revoke::class, 'register' ] );
 		add_action( 'rest_api_init', [ Introspect::class, 'register' ] );
+		add_action( 'admin_menu', [ Consent::class, 'register' ] );
+		add_action( 'admin_menu', [ ConnectedApps::class, 'register' ] );
 		Middleware::register();
 	}
 

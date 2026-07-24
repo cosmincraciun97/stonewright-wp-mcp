@@ -120,4 +120,52 @@ final class ClientRepository implements ClientRepositoryInterface {
 		global $wpdb;
 		$wpdb->delete( $wpdb->prefix . 'stonewright_oauth_clients', [ 'client_id' => $client_id ] );
 	}
+
+	/**
+	 * @return list<array{client_id:string,client_name:string,created_at:string,last_used_at:string|null}>
+	 */
+	public function list_recent( int $limit = 50 ): array {
+		global $wpdb;
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT client_id, client_name, created_at, last_used_at
+				FROM {$wpdb->prefix}stonewright_oauth_clients
+				ORDER BY created_at DESC LIMIT %d",
+				$limit
+			),
+			ARRAY_A
+		);
+		return is_array( $rows ) ? $rows : [];
+	}
+
+	public function find_admin_client_id( string $client_name ): ?string {
+		global $wpdb;
+
+		$id = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT client_id FROM {$wpdb->prefix}stonewright_oauth_clients
+				WHERE admin_created = 1 AND client_name = %s
+				ORDER BY created_at DESC LIMIT 1",
+				$client_name
+			)
+		);
+		return is_string( $id ) && '' !== $id ? $id : null;
+	}
+
+	/**
+	 * @return list<array{client_id:string,client_name:string,created_at:string,last_used_at:string|null}>
+	 */
+	public function list_admin_clients(): array {
+		global $wpdb;
+
+		$rows = $wpdb->get_results(
+			"SELECT client_id, client_name, created_at, last_used_at
+			FROM {$wpdb->prefix}stonewright_oauth_clients
+			WHERE admin_created = 1
+			ORDER BY created_at DESC",
+			ARRAY_A
+		);
+		return is_array( $rows ) ? $rows : [];
+	}
 }

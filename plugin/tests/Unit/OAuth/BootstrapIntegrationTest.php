@@ -29,6 +29,8 @@ final class BootstrapIntegrationTest extends TestCase {
 				'OAuth\\Endpoints\\Revoke',
 				'OAuth\\Endpoints\\Introspect',
 				'Middleware::register',
+				'Consent::class',
+				'ConnectedApps::class',
 			] as $class
 		) {
 			self::assertStringContainsString( $class, $bootstrap );
