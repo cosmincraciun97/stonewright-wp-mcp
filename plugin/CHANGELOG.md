@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+### Added
+
+- Admin page `stonewright-design-studio` with four views (overview, editor,
+  quality, history) and REST routes under `stonewright/v1/design-studio`. Every
+  route delegates to the typed design-direction and quality abilities, so
+  permission checks, task context tokens, confirmation tokens, backups,
+  validation, audit records, and effect readback are inherited rather than
+  reimplemented. Reads require `can_read_design()`; writes require
+  `can_manage_design()` and a `wp_rest` nonce.
+- Design Studio front end (`assets/admin/design-studio.js`,
+  `assets/admin/design-studio.css`): no framework, no jQuery, no native browser
+  dialogs, and no markup built from stored content — every value reaches the DOM
+  through `textContent`. Keyboard-operable tablist with URL-restored views,
+  session-scoped draft recovery, a focus-trapping review drawer that returns
+  focus on close, a polite live region, token-only theming for light and dark,
+  and a reduced-motion path.
+
 ## [1.0.0-alpha.87] - 2026-07-25
 
 ### Added
