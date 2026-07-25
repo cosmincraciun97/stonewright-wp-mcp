@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- OAuth consent now autoloads its user entity through the normal PSR-4 path, so
+  approved authorization-code requests reach the client callback.
+
 ## [1.0.0-alpha.88] - 2026-07-25
 
 ### Added

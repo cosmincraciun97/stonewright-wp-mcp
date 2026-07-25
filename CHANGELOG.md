@@ -10,6 +10,11 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 ## [Unreleased]
 
+### Fixed
+
+- ChatGPT and other OAuth clients can now complete administrator consent instead
+  of stopping on a generic authorization error.
+
 ## [1.0.0-alpha.88] - 2026-07-25
 
 ### Added
