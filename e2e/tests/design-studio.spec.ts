@@ -233,13 +233,15 @@ test.describe('Design Studio write path', () => {
 					);
 				}),
 		);
-		await page.getByRole('link', { name: 'Overview' }).click();
+		// The view switcher is a tablist, and the admin shell has its own
+		// "Overview" navigation group — asking for a link would leave the page.
+		await page.getByRole('tab', { name: 'Overview' }).click();
 		await page.locator('#sw-ds-direction-picker').selectOption(String(seeded.id));
 		await page.getByRole('button', { name: 'Activate' }).click();
 		await page.locator('[data-sw-ds-drawer]').getByRole('button', { name: 'Activate' }).click();
 		expect(await activated).toBe(seeded.id);
 
-		await page.getByRole('link', { name: 'History' }).click();
+		await page.getByRole('tab', { name: 'History' }).click();
 		const rows = page.locator('.sw-ds-table tbody tr');
 		await expect(rows.first()).toBeVisible();
 		expect(await rows.count()).toBeGreaterThanOrEqual(2);
