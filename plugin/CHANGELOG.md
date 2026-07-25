@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.88] - 2026-07-25
+
 ### Added
 
 - Admin page `stonewright-visual-workspace` (`Admin\Pages\VisualWorkspacePage`),
@@ -191,18 +193,3 @@
 
 - Serialize Elementor page writes and bound learned repairs by runtime,
   retention, and task-start limits.
-
-## [1.0.0-alpha.83] - 2026-07-24
-
-### Added
-
-- Bounded, content-free Elementor document health diagnostics for architecture,
-  document weight, invalid settings, and excessive `e-paragraph` use.
-
-### Fixed
-
-- Elementor CSS invalidation is scoped to the changed post.
-- Mixed documents permit surgical V3 batch writes under explicit V3 parents;
-  root adds and full-document renderers remain blocked.
-- Schema errors identify the rejected setting path and expected/received shape.
-- The V4 abilities checkbox persists both checked and unchecked states.
