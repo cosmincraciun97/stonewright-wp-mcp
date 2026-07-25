@@ -12,6 +12,16 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 ### Added
 
+- A Visual Workspace page in wp-admin. Stonewright Visual could previously be
+  driven by an AI client and by nothing else; now a person can open a post in it
+  and watch the same steps. It names the editor it found, refuses to guess when
+  an editor is present but cannot be driven, and walks read, preview, explicit
+  confirmation, apply, and verify in that order. The confirmation panel states
+  the target, the breakpoint, and the before and after text for every change,
+  with the active design direction named beside it. Applying without evidence
+  behind it is reported as unverified rather than as a success. The inspector
+  collapses into a keyboard-operable drawer on narrow screens, and there are no
+  browser confirm dialogs anywhere in the flow.
 - A Design Studio page in wp-admin. It shows which direction is active, whether
   it is ready and whether it matches the Elementor kit, and where each token
   came from. Directions are edited in a structured form with a live specimen

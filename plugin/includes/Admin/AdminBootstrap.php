@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Admin\Pages\DesignStudioPage;
 use Stonewright\WpMcp\Admin\Pages\PromptLibraryPage;
 use Stonewright\WpMcp\Admin\Pages\SandboxLibraryPage;
 use Stonewright\WpMcp\Admin\Pages\StatusPage;
+use Stonewright\WpMcp\Admin\Pages\VisualWorkspacePage;
 use Stonewright\WpMcp\Admin\RestApi;
 use Stonewright\WpMcp\Sandbox\CrashRecovery;
 
@@ -34,6 +35,7 @@ final class AdminBootstrap {
 
 		StatusPage::register();
 		DesignStudioPage::register();
+		VisualWorkspacePage::register();
 		BlueprintsPage::register();
 		PromptLibraryPage::register();
 		SandboxLibraryPage::register();
@@ -168,6 +170,7 @@ final class AdminBootstrap {
 			'stonewright-memory'        => 'skills-memory.css',
 			'stonewright-sandbox'       => 'sandbox.css',
 			'stonewright-design-studio' => 'design-studio.css',
+			'stonewright-visual-workspace' => 'visual-workspace.css',
 		];
 
 		if ( isset( $page_styles[ $page ] ) ) {
@@ -236,6 +239,41 @@ final class AdminBootstrap {
 				'stonewrightDesignStudio',
 				DesignStudioPage::boot_payload()
 			);
+		}
+
+		// The workspace page chrome — the inspector drawer and its focus
+		// handling — works with or without the browser bundle.
+		if ( VisualWorkspacePage::SLUG === $page ) {
+			wp_enqueue_script(
+				'stonewright-admin-visual-workspace',
+				$url_base . 'assets/admin/visual-workspace.js',
+				[ 'stonewright-admin' ],
+				$version,
+				true
+			);
+
+			// The Stonewright Visual browser bundle is built from the `visual`
+			// package and staged during packaging, so a source checkout does
+			// not carry it. The page reports that instead of requesting a file
+			// that is not there.
+			if ( VisualWorkspacePage::bundle_ready( VisualWorkspacePage::bundle_path() ) ) {
+				wp_enqueue_script(
+					'stonewright-visual-workspace',
+					$url_base . 'assets/visual/workspace-browser.js',
+					[ 'stonewright-admin-visual-workspace' ],
+					$version,
+					true
+				);
+
+				wp_localize_script(
+					'stonewright-visual-workspace',
+					'stonewrightVisualWorkspace',
+					VisualWorkspacePage::boot_payload(
+						VisualWorkspacePage::current_post_id(),
+						VisualWorkspacePage::requested_editor()
+					)
+				);
+			}
 		}
 
 		// The skill lifecycle app and its boot payload load on that page only.

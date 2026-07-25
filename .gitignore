@@ -15,6 +15,9 @@ visual/dist/
 visual/coverage/
 dist/
 
+# Built Stonewright Visual bundle, staged into the plugin during packaging
+plugin/assets/visual/
+
 # Local
 *.log
 .DS_Store

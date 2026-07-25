@@ -10,10 +10,12 @@
     "NOTICE"
   ],
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.js",
+    "./workspace-browser": "./dist/workspace-browser.js"
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean --outDir dist",
+    "prebuild": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "tsup",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

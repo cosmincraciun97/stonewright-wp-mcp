@@ -299,6 +299,68 @@ sections of one page, because the decision the user made was about the visual
 direction, not about section two. `checkpoint_token` is in the kernel's default
 redaction list, so no ability writes it into an audit row.
 
+## Visual Workspace in wp-admin
+
+`Stonewright Visual` is a browser workspace, and until this release it had no
+visible surface: it could be driven by an MCP client and by nothing else. The
+Visual Workspace admin page hosts it, so a person can watch the same ladder an
+agent walks.
+
+The page owns the chrome and the bundle owns the workspace. PHP renders the
+heading, the post it is pointed at, the editor it expects, the canvas, and the
+inspector, then hands the bundle three slots to fill: the adapter chip, the
+canvas body, and the inspector body. Nothing else in the page is replaced, so
+the screen still reads correctly while the bundle is connecting, and it still
+reads correctly if the bundle never loads. A missing bundle is stated on the
+page, with the command that builds it, rather than producing an empty frame.
+
+What reaches the browser is deliberately thin. The boot payload carries the REST
+base, a `wp_rest` nonce, the post id, the requested editor, and the active
+direction *row* — identity, revision, and contract hash. The contract itself
+stays on the server: the workspace states which direction is in force, it does
+not re-derive its rules in JavaScript. The page is gated on `edit_posts` and, for
+the post it targets, on `Permissions::can_edit_post()`.
+
+Adapter resolution is honest about failure. Detection walks Elementor V4 atomic,
+then Elementor V3, then Gutenberg, and an editor that is present but cannot be
+driven stops the walk instead of falling through — editing an Elementor page as
+if it were Gutenberg is precisely the outcome that must not happen. The admin
+page is not an editor screen, so "no supported editor was found on this page" is
+a normal, reported state, and the stored quality report is still read and shown
+so the screen says what was last observed.
+
+The write ladder is enforced by the controller, not by the markup: read, then
+preview, then an explicit confirmation, then apply, then verify. Every editor
+write goes through one private dispatch that refuses to run outside the applying
+state. A proposed operation carries both a human-readable diff and the exact
+arguments the editor tool will receive, so the confirmation panel shows what a
+person needs and the adapter gets what its schema requires — with no second,
+looser schema invented in the middle. Applying with no evidence behind it does
+not report success: it reports the change as unverified, which is the same
+contract `stonewright/design-quality-check` uses on the server.
+
+The bundle is built from `visual/` and staged into `plugin/assets/visual/` at
+packaging time; it is not committed. `scripts/package-verify.mjs` warns about a
+missing bundle in a source checkout and fails on it under
+`--require-visual-bundle`, which CI and the release workflow pass after staging.
+The same check rejects Node build inputs from the archive, and the release job
+asserts the built zip actually contains the bundle.
+
+### Where each part's authority ends
+
+| Part | Supplies | Does not supply |
+|---|---|---|
+| Design Direction | Validated design intent, versioned, with provenance | Any claim about what a page currently looks like |
+| DesignEvidence | Normalized observations of a source design | Permission to write anything |
+| NativePlanner | A mapping from evidence to native Gutenberg/Elementor schemas | A guarantee the mapping is what the user wanted |
+| `design-quality-check` | Measurements of a supplied render, with coverage | A score, or a pass for anything unmeasured |
+| Visual Workspace | Browser-side evidence and the confirmation gate | Correctness of the design it is showing |
+| Typed Elementor abilities | Guarded, backed-up, readback-verified writes | Visual judgement |
+
+No part of this subsystem certifies that a page looks right. Together they make
+the intent explicit, the observations measurable, the writes reversible, and the
+unverified parts visible as unverified.
+
 ## Direct + plugin REST parity surfaces
 
 Plugin abilities and Direct tools cover comments, users (including application passwords), widgets, allowlisted settings, themes, plugin lifecycle, revisions (with restore on the plugin), site health tests, search/oEmbed, and WooCommerce product/order/sales reads.

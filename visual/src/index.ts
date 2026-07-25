@@ -25,6 +25,11 @@ export * from "./gutenberg/window-runtime.js";
 export * from "./gutenberg/editor-adapter.js";
 export * from "./skills/skill-registry.js";
 export * from "./skills/use-skill-tool.js";
+export * from "./workspace-ui/state.js";
+export * from "./workspace-ui/adapter-status.js";
+export * from "./workspace-ui/evidence-panel.js";
+export * from "./workspace-ui/confirmation-panel.js";
+export * from "./workspace-ui/workspace.js";
 
 export const STONEWRIGHT_WORKSPACE_TOOL = {
   name: "stonewright-workspace-request",

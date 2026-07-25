@@ -90,6 +90,12 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - name: Verify the packaged plugin can carry the built bundle
+        working-directory: .
+        run: |
+          mkdir -p plugin/assets/visual
+          cp visual/dist/workspace-browser.js plugin/assets/visual/workspace-browser.js
+          node scripts/package-verify.mjs --require-visual-bundle
 
   e2e-admin-ui:
     runs-on: ubuntu-latest
@@ -113,6 +119,16 @@ jobs:
           cache-dependency-path: e2e/package-lock.json
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      - name: Build the Stonewright Visual bundle
+        working-directory: visual
+        run: |
+          npm ci
+          npm run build
+      - name: Stage the bundle into the plugin
+        working-directory: .
+        run: |
+          mkdir -p plugin/assets/visual
+          cp visual/dist/workspace-browser.js plugin/assets/visual/workspace-browser.js
       - name: Start wp-env
         run: npx wp-env start
       - name: Run admin-ui Playwright suite
