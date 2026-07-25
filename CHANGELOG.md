@@ -21,6 +21,11 @@ Unreleased); older history lives in git tags and GitHub releases.
   page, filtered by severity, viewport, or rule, and evidence that was never
   captured stays visible as unverified instead of being rounded up to a pass.
 
+### Fixed
+
+- Design Studio history now explicitly requests revision versions, so saved
+  revisions appear and can be reviewed or restored.
+
 ## [1.0.0-alpha.87] - 2026-07-25
 
 ### Added

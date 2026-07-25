@@ -673,7 +673,10 @@
 			return Promise.resolve( null );
 		}
 
-		return get( DIRECTIONS_ROUTE + '/' + encodeURIComponent( String( id ) ) ).then( function ( payload ) {
+		return get(
+			DIRECTIONS_ROUTE + '/' + encodeURIComponent( String( id ) ),
+			{ include_versions: true }
+		).then( function ( payload ) {
 			state.direction = payload.direction || null;
 			state.versions = Array.isArray( payload.versions ) ? payload.versions : [];
 
