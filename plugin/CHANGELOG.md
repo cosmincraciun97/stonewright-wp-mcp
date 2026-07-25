@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+### Added
+
+- Admin page `stonewright-design-studio` with four views (overview, editor,
+  quality, history) and REST routes under `stonewright/v1/design-studio`. Every
+  route delegates to the typed design-direction and quality abilities, so
+  permission checks, task context tokens, confirmation tokens, backups,
+  validation, audit records, and effect readback are inherited rather than
+  reimplemented. Reads require `can_read_design()`; writes require
+  `can_manage_design()` and a `wp_rest` nonce.
+- Design Studio front end (`assets/admin/design-studio.js`,
+  `assets/admin/design-studio.css`): no framework, no jQuery, no native browser
+  dialogs, and no markup built from stored content — every value reaches the DOM
+  through `textContent`. Keyboard-operable tablist with URL-restored views,
+  session-scoped draft recovery, a focus-trapping review drawer that returns
+  focus on close, a polite live region, token-only theming for light and dark,
+  and a reduced-motion path.
+
 ## [1.0.0-alpha.87] - 2026-07-25
 
 ### Added
@@ -61,6 +78,19 @@
   therefore `stonewright/task-start`), plus a matching default agent
   instruction, so the gate is announced before the first write rather than
   discovered by a rejected one.
+
+### Fixed
+
+- Saving a design direction from the Design Studio editor no longer drops the
+  contract sections the editor does not expose. `components`, `provenance`,
+  `waivers`, and `readiness` are carried over from the stored contract, so
+  editing a summary no longer erases the provenance record or resets readiness
+  to false and leaves an activated direction refusing to activate.
+- The Design Studio live region keeps the result of a write on screen. A
+  restore or an activation re-renders its view, and the render's "loaded"
+  message used to replace the outcome before a screen reader could reach it.
+- Design Studio history explicitly opts into revision versions when reading a
+  direction, so real saved revisions are listed and remain restorable.
 
 ## [1.0.0-alpha.86] - 2026-07-24
 

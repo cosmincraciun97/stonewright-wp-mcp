@@ -10,6 +10,22 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 ## [Unreleased]
 
+### Added
+
+- A Design Studio page in wp-admin. It shows which direction is active, whether
+  it is ready and whether it matches the Elementor kit, and where each token
+  came from. Directions are edited in a structured form with a live specimen
+  beside it, and unsaved work survives a reload. Saving, activating, restoring a
+  revision, and pushing to Elementor each open a review drawer that lists what is
+  about to change before anything runs. Quality reports are read on the same
+  page, filtered by severity, viewport, or rule, and evidence that was never
+  captured stays visible as unverified instead of being rounded up to a pass.
+
+### Fixed
+
+- Design Studio history now explicitly requests revision versions, so saved
+  revisions appear and can be reviewed or restored.
+
 ## [1.0.0-alpha.87] - 2026-07-25
 
 ### Added

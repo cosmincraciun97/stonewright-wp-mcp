@@ -52,8 +52,9 @@ final class AdminShell {
 				'id'    => 'design-library',
 				'label' => __( 'Design Library', 'stonewright' ),
 				'pages' => [
-					'stonewright-blueprints' => __( 'Blueprints', 'stonewright' ),
-					'stonewright-prompts'    => __( 'Prompts', 'stonewright' ),
+					'stonewright-design-studio' => __( 'Design Studio', 'stonewright' ),
+					'stonewright-blueprints'    => __( 'Blueprints', 'stonewright' ),
+					'stonewright-prompts'       => __( 'Prompts', 'stonewright' ),
 				],
 			],
 			[

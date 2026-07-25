@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Admin;
 
 use Stonewright\WpMcp\Admin\Pages\BlueprintsPage;
+use Stonewright\WpMcp\Admin\Pages\DesignStudioPage;
 use Stonewright\WpMcp\Admin\Pages\PromptLibraryPage;
 use Stonewright\WpMcp\Admin\Pages\SandboxLibraryPage;
 use Stonewright\WpMcp\Admin\Pages\StatusPage;
@@ -32,12 +33,14 @@ final class AdminBootstrap {
 		self::$registered = true;
 
 		StatusPage::register();
+		DesignStudioPage::register();
 		BlueprintsPage::register();
 		PromptLibraryPage::register();
 		SandboxLibraryPage::register();
 		AdminShell::register();
 
 		add_action( 'rest_api_init', [ RestApi::class, 'register' ] );
+		add_action( 'rest_api_init', [ DesignStudioRestApi::class, 'register' ] );
 		add_action( 'admin_enqueue_scripts', [ self::class, 'enqueue_assets' ] );
 		add_action( 'admin_notices', [ CrashRecovery::class, 'admin_notice' ] );
 		add_action( 'admin_notices', [ self::class, 'production_mode_mismatch_notice' ] );
@@ -153,16 +156,17 @@ final class AdminBootstrap {
 		// Page-scoped premium styles (only on Stonewright admin pages).
 		$page = isset( $_GET['page'] ) ? sanitize_key( (string) wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$page_styles = [
-			'stonewright'             => 'setup.css',
-			'stonewright-abilities'   => 'abilities.css',
-			'stonewright-blueprints'  => 'blueprints.css',
+			'stonewright'               => 'setup.css',
+			'stonewright-abilities'     => 'abilities.css',
+			'stonewright-blueprints'    => 'blueprints.css',
 			// Prompt library reuses the catalog card/grid system from blueprints.css.
-			'stonewright-prompts'     => 'blueprints.css',
-			'stonewright-status'      => 'dashboard.css',
-			'stonewright-audit-log'   => 'audit.css',
-			'stonewright-skills'      => 'skills-memory.css',
-			'stonewright-memory'      => 'skills-memory.css',
-			'stonewright-sandbox'     => 'sandbox.css',
+			'stonewright-prompts'       => 'blueprints.css',
+			'stonewright-status'        => 'dashboard.css',
+			'stonewright-audit-log'     => 'audit.css',
+			'stonewright-skills'        => 'skills-memory.css',
+			'stonewright-memory'        => 'skills-memory.css',
+			'stonewright-sandbox'       => 'sandbox.css',
+			'stonewright-design-studio' => 'design-studio.css',
 		];
 
 		if ( isset( $page_styles[ $page ] ) ) {
@@ -181,6 +185,8 @@ final class AdminBootstrap {
 				$handle = 'stonewright-admin-audit';
 			} elseif ( 'sandbox.css' === $page_styles[ $page ] ) {
 				$handle = 'stonewright-admin-sandbox';
+			} elseif ( 'design-studio.css' === $page_styles[ $page ] ) {
+				$handle = 'stonewright-admin-design-studio';
 			}
 
 			wp_enqueue_style(
@@ -211,6 +217,23 @@ final class AdminBootstrap {
 					'ajaxUrl' => admin_url( 'admin-ajax.php' ),
 					'nonce'   => wp_create_nonce( 'stonewright_setup_client' ),
 				]
+			);
+		}
+
+		// The Design Studio app and its boot payload load on that page only.
+		if ( DesignStudioPage::SLUG === $page ) {
+			wp_enqueue_script(
+				'stonewright-admin-design-studio',
+				$url_base . 'assets/admin/design-studio.js',
+				[ 'stonewright-admin' ],
+				$version,
+				true
+			);
+
+			wp_localize_script(
+				'stonewright-admin-design-studio',
+				'stonewrightDesignStudio',
+				DesignStudioPage::boot_payload()
 			);
 		}
 	}

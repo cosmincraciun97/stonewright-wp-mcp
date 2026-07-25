@@ -297,7 +297,7 @@ Stonewright speaks standard MCP (stdio via the companion, and HTTP MCP when the 
 
 ## Admin interface
 
-Plugin mode admin pages include Setup, Dashboard (Site Pulse), Abilities, Blueprints, Skills, Memory, Sandbox, and Audit Log. Theme toggle lives in the admin shell header.
+Plugin mode admin pages include Setup, Dashboard (Site Pulse), Abilities, Blueprints, Design Studio, Skills, Memory, Sandbox, and Audit Log. Theme toggle lives in the admin shell header.
 
 <!-- Maintainer: add the Dashboard or Site Pulse screenshot here. Do not remove this comment until the asset is available. -->
 <!-- Maintainer: add the Blueprints or brand-kit screenshot here. Do not remove this comment until the asset is available. -->
