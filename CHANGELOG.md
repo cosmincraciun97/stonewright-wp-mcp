@@ -10,6 +10,8 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 ## [Unreleased]
 
+## [1.0.0-alpha.89] - 2026-07-26
+
 ### Fixed
 
 - ChatGPT and other OAuth clients can now complete administrator consent instead
@@ -135,18 +137,3 @@ Unreleased); older history lives in git tags and GitHub releases.
 - OAuth tokens are audience-bound to the dedicated MCP resource; redirect URIs,
   scopes, transport, registration rates, replay, and refresh rotation fail
   closed.
-
-## [1.0.0-alpha.84] - 2026-07-24
-
-### Added
-
-- Add a transactional native Elementor Loop Grid/Carousel workflow with live
-  schema mapping, query probing, staged templates, idempotency, readback, and
-  rollback.
-- Learn Elementor schema repairs only after verified readback in two distinct
-  tasks or explicit operator approval.
-
-### Changed
-
-- Serialize Elementor writes per post and keep learned schema guidance bounded
-  by runtime compatibility and task-start limits.
