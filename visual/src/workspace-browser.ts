@@ -35,7 +35,11 @@ export interface WorkspaceBootConfig {
   nonce: string;
   postId: number;
   editorKind?: AdapterKind | "auto";
-  direction?: DirectionSummary | null;
+  /**
+   * The WordPress direction row, or an already-normalised summary. The row
+   * carries the contract hash and never the contract itself.
+   */
+  direction?: DirectionSummary | Record<string, unknown> | null;
   mountSelector?: string;
 }
 
@@ -44,6 +48,8 @@ interface EditorWindow {
   $e?: unknown;
   wp?: { blocks?: unknown; data?: unknown };
   stonewrightVisualWorkspace?: WorkspaceBootConfig;
+  /** The mounted controller, so a host script can drive the workspace. */
+  stonewrightVisual?: WorkspaceController;
 }
 
 const MOUNT_SELECTOR = "[data-sw-visual-workspace]";
@@ -122,6 +128,45 @@ export function evidenceFromReport(payload: unknown): EvidenceEntry[] {
   return entries;
 }
 
+/**
+ * Normalises the WordPress direction row into the summary the workspace shows.
+ *
+ * The row is `DirectionSummary::row()` from the plugin: identity, revision, and
+ * `contract_hash`. There is no contract in it, and none is reconstructed here —
+ * the workspace states which direction is in force, it does not re-derive its
+ * rules in the browser.
+ */
+export function directionFromPayload(value: unknown): DirectionSummary | null {
+  const row = asRecord(value);
+  const id = typeof row.id === "number" || typeof row.id === "string" ? String(row.id) : "";
+  if (id === "" || id === "0") {
+    return null;
+  }
+
+  return {
+    id,
+    title: text(row.name ?? row.title ?? row.slug, `Direction ${id}`),
+    revision: typeof row.revision === "number" ? row.revision : Number(row.revision ?? 0) || 0,
+    hash: text(row.contract_hash ?? row.hash, ""),
+  };
+}
+
+/**
+ * Region slots a host page may provide. All three must be present, otherwise
+ * the workspace builds its own regions inside the mount root.
+ */
+function hostRegions(root: HTMLElement): { header: HTMLElement; canvas: HTMLElement; inspector: HTMLElement } | undefined {
+  const header = root.querySelector<HTMLElement>("[data-sw-visual-adapter]");
+  const canvas = root.querySelector<HTMLElement>("[data-sw-visual-workspace-canvas]");
+  const inspector = root.querySelector<HTMLElement>("[data-sw-visual-workspace-inspector]");
+
+  if (header === null || canvas === null || inspector === null) {
+    return undefined;
+  }
+
+  return { header, canvas, inspector };
+}
+
 export function mountFromConfig(
   config: WorkspaceBootConfig,
   target: EditorWindow = window as unknown as EditorWindow,
@@ -132,15 +177,52 @@ export function mountFromConfig(
     return null;
   }
 
-  return mountStonewrightWorkspace(root, {
+  const options: WorkspaceOptions = {
     restBase: config.restBase,
     nonce: config.nonce,
     postId: config.postId,
     editorKind: config.editorKind ?? "auto",
-    direction: config.direction ?? null,
+    direction: directionFromPayload(config.direction),
     adapters: defaultAdapterCandidates(target),
     verify: createQualityVerifier(config),
-  });
+  };
+
+  const regions = hostRegions(root);
+  if (regions !== undefined) {
+    options.regions = regions;
+  }
+
+  return mountStonewrightWorkspace(root, options);
+}
+
+/**
+ * Mounts, connects, and shows what is already known about the post.
+ *
+ * Connecting can legitimately fail: the workspace host page is not an editor,
+ * so there is often no editor runtime to attach to. That is reported in the
+ * status line rather than hidden. Either way the stored quality report is read
+ * and shown, so the page still says what the last verification observed.
+ */
+async function start(config: WorkspaceBootConfig, target: EditorWindow): Promise<void> {
+  const controller = mountFromConfig(config, target);
+  if (controller === null) {
+    return;
+  }
+
+  target.stonewrightVisual = controller;
+  await controller.connect();
+
+  try {
+    const stored = await createQualityVerifier(config)({
+      postId: config.postId,
+      operations: [],
+      direction: directionFromPayload(config.direction),
+    });
+    controller.recordEvidence(stored);
+  } catch {
+    // No readable report is not an error state of its own: the evidence panel
+    // stays empty, which is exactly what "nothing was verified" looks like.
+  }
 }
 
 function boot(): void {
@@ -149,7 +231,7 @@ function boot(): void {
   if (!config) {
     return;
   }
-  mountFromConfig(config, target);
+  void start(config, target);
 }
 
 if (typeof window !== "undefined" && typeof document !== "undefined") {

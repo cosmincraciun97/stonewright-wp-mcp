@@ -15,6 +15,13 @@ export interface ProposedOperation {
   before?: string;
   after?: string;
   breakpoint?: string;
+  /**
+   * Exact arguments for the editor tool. The other fields describe the change
+   * to a person; these are what the adapter is actually called with, so a tool
+   * that needs a client id or an idempotency key can be driven from here
+   * without the panel inventing a schema of its own.
+   */
+  args?: Record<string, unknown>;
 }
 
 export interface ConfirmationRow extends ProposedOperation {

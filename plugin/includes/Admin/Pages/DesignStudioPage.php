@@ -64,14 +64,17 @@ final class DesignStudioPage {
 		$active  = $service->active();
 
 		return [
-			'restRoot'        => rest_url( DesignStudioRestApi::REST_NAMESPACE . DesignStudioRestApi::ROUTE_PREFIX ),
-			'nonce'           => wp_create_nonce( DesignStudioRestApi::NONCE_ACTION ),
-			'view'            => self::current_view(),
-			'views'           => self::VIEWS,
-			'activeDirection' => is_array( $active )
+			'restRoot'           => rest_url( DesignStudioRestApi::REST_NAMESPACE . DesignStudioRestApi::ROUTE_PREFIX ),
+			'nonce'              => wp_create_nonce( DesignStudioRestApi::NONCE_ACTION ),
+			'view'               => self::current_view(),
+			'views'              => self::VIEWS,
+			// The quality view appends `post_id` and `editor` to this base so a
+			// finding can be opened in the workspace that produced it.
+			'visualWorkspaceUrl' => VisualWorkspacePage::url(),
+			'activeDirection'    => is_array( $active )
 				? DirectionSummary::row( $active, (int) ( $active['id'] ?? 0 ) )
 				: null,
-			'can'             => [
+			'can'                => [
 				'manageOptions' => Permissions::manage_options(),
 				'manageDesign'  => Permissions::can_manage_design(),
 			],

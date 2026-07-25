@@ -361,6 +361,50 @@ describe("workspace controller", () => {
     expect(controller.snapshot().adapter.kind).toBe("elementor-v3");
   });
 
+  it("passes the exact tool arguments the operation carries", async () => {
+    const calls: RegistryCall[] = [];
+    const controller = controllerWith(calls, {
+      verify: async () => [{ label: "Body contrast", status: "pass" as const }],
+    });
+
+    await controller.connect();
+    await controller.read();
+    controller.preview([
+      {
+        tool: "update_settings",
+        target: "hero-title",
+        summary: "Set desktop font size to 48px",
+        after: "48px",
+        breakpoint: "desktop",
+        args: { element_id: "abc123", idempotency_key: "key-1" },
+      },
+    ]);
+    controller.requestConfirmation();
+    await controller.decide("allow");
+
+    const write = calls.find((call) => call.tool === "update_settings");
+    expect(write?.args).toEqual({
+      target: "hero-title",
+      element_id: "abc123",
+      idempotency_key: "key-1",
+      breakpoint: "desktop",
+      value: "48px",
+    });
+  });
+
+  it("tells subscribers when evidence is recorded outside a transition", async () => {
+    const controller = controllerWith([]);
+    const seen: number[] = [];
+    const stop = controller.subscribe((snapshot) => seen.push(snapshot.evidence.total));
+
+    await controller.connect();
+    controller.recordEvidence([{ label: "Stored finding", status: "fail" }]);
+    stop();
+
+    expect(seen).toEqual([0, 1]);
+    expect(controller.getState()).toBe("connected");
+  });
+
   it("fails to connect when no editor answers, and says so", async () => {
     const controller = controllerWith([], {
       adapters: [candidate("elementor-v3", { detect: () => false })],

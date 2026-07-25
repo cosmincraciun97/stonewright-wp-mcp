@@ -1,0 +1,283 @@
+/**
+ * Visual Workspace — stone & precision.
+ *
+ * Same palette, spacing, and elevation tokens as the Design Studio, so the two
+ * pages read as one product and follow the light/dark toggle without owning a
+ * palette. The layout is mobile-first: header, canvas, and inspector stack in a
+ * single column, and the inspector only becomes a side column once there is
+ * room for it. Below that width it is a drawer, which is why the drawer rules
+ * live in a max-width query rather than the default cascade.
+ */
+
+.sw-visual-page {
+	--sw-vw-radius: 12px;
+	--sw-vw-radius-sm: 10px;
+	--sw-vw-rule: 1px solid var(--sw-border);
+	--sw-vw-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+	--sw-vw-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+	max-width: var(--sw-shell-content-max, 1200px);
+	color: var(--sw-text);
+	font-family: var(--sw-vw-sans);
+	font-size: var(--sw-text-md);
+	line-height: 1.5;
+}
+
+.sw-visual-page h1 {
+	margin: 0 0 var(--sw-space-2);
+	font-family: var(--sw-vw-serif);
+	font-size: var(--sw-text-2xl);
+	font-weight: 600;
+	letter-spacing: -0.015em;
+	line-height: 1.2;
+	color: var(--sw-text);
+}
+
+.sw-visual-page :focus-visible {
+	outline: var(--sw-focus-ring);
+	outline-offset: 2px;
+}
+
+/* ============ Header ============ */
+
+.sw-visual-page__header {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--sw-space-3);
+	align-items: flex-start;
+	justify-content: space-between;
+	padding: 0 0 var(--sw-space-4);
+	border-bottom: var(--sw-vw-rule);
+}
+
+.sw-visual-page__post {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--sw-space-2);
+	align-items: center;
+	margin: 0;
+	font-size: var(--sw-text-sm);
+	color: var(--sw-text-secondary);
+}
+
+.sw-visual-page__post-title {
+	font-weight: 600;
+	color: var(--sw-text);
+}
+
+.sw-visual-page__post-id,
+.sw-visual-page__editor {
+	padding: var(--sw-space-1) var(--sw-space-2);
+	border: var(--sw-vw-rule);
+	border-radius: var(--sw-radius-pill);
+	background: var(--sw-surface-raised);
+	font-family: var(--sw-font-mono);
+	font-size: var(--sw-text-xs);
+}
+
+.sw-visual-page__header-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--sw-space-2);
+	align-items: center;
+}
+
+.sw-visual-page__adapter {
+	font-size: var(--sw-text-sm);
+	color: var(--sw-text-secondary);
+}
+
+.sw-visual-page__status {
+	min-height: 1.5em;
+	margin: var(--sw-space-3) 0 0;
+	font-size: var(--sw-text-sm);
+	color: var(--sw-text-secondary);
+}
+
+/* ============ Body ============ */
+
+.sw-visual-page__body {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: var(--sw-space-4);
+	margin-top: var(--sw-space-4);
+}
+
+.sw-visual-page__canvas,
+.sw-visual-page__inspector {
+	padding: var(--sw-space-4);
+	border: var(--sw-vw-rule);
+	border-radius: var(--sw-vw-radius);
+	background: var(--sw-surface);
+}
+
+.sw-visual-page__inspector-heading {
+	margin: 0 0 var(--sw-space-3);
+	font-family: var(--sw-vw-serif);
+	font-size: var(--sw-text-lg);
+	font-weight: 600;
+	color: var(--sw-text);
+}
+
+.sw-visual-page__placeholder {
+	margin: 0;
+	font-size: var(--sw-text-sm);
+	color: var(--sw-text-secondary);
+}
+
+/* ============ Picker ============ */
+
+.sw-visual-picker {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--sw-space-2);
+	align-items: flex-end;
+	padding: var(--sw-space-4);
+	border: var(--sw-vw-rule);
+	border-radius: var(--sw-vw-radius);
+	background: var(--sw-surface);
+}
+
+.sw-visual-picker label {
+	flex-basis: 100%;
+	font-size: var(--sw-text-sm);
+	font-weight: 600;
+	color: var(--sw-text);
+}
+
+.sw-visual-picker__input {
+	width: 10rem;
+	padding: var(--sw-space-2);
+	border: 1px solid var(--sw-border-strong);
+	border-radius: var(--sw-vw-radius-sm);
+	background: var(--sw-bg);
+	color: var(--sw-text);
+	font-family: var(--sw-font-mono);
+}
+
+.sw-visual-picker__hint {
+	margin: var(--sw-space-3) 0 0;
+	font-size: var(--sw-text-sm);
+	color: var(--sw-text-secondary);
+}
+
+/* ============ Workspace regions rendered by the browser bundle ============ */
+
+.sw-visual__viewports {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--sw-space-2);
+	margin: 0 0 var(--sw-space-3);
+}
+
+.sw-visual__viewport {
+	padding: var(--sw-space-1) var(--sw-space-3);
+	border: var(--sw-vw-rule);
+	border-radius: var(--sw-radius-pill);
+	background: var(--sw-surface-raised);
+	color: var(--sw-text);
+	font-size: var(--sw-text-sm);
+	cursor: pointer;
+	transition: background var(--sw-dur) var(--sw-ease);
+}
+
+.sw-visual__viewport[aria-pressed='true'] {
+	border-color: var(--sw-border-strong);
+	background: var(--sw-brand-fill);
+	color: var(--sw-on-brand);
+}
+
+.sw-visual__evidence,
+.sw-visual-confirm {
+	display: block;
+	margin: 0 0 var(--sw-space-3);
+	font-size: var(--sw-text-sm);
+}
+
+.sw-visual__evidence-row,
+.sw-visual-confirm__row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--sw-space-2);
+	padding: var(--sw-space-2) 0;
+	border-bottom: var(--sw-vw-rule);
+}
+
+.sw-visual__evidence-row[data-status='fail'] {
+	color: var(--sw-danger-text);
+}
+
+.sw-visual__evidence-row[data-status='pass'] {
+	color: var(--sw-ok-text);
+}
+
+.sw-visual__evidence-row[data-status='not_checked'] {
+	color: var(--sw-text-secondary);
+}
+
+.sw-visual-confirm__warning {
+	padding: var(--sw-space-2) var(--sw-space-3);
+	border-radius: var(--sw-vw-radius-sm);
+	background: var(--sw-danger-soft);
+	color: var(--sw-danger-text);
+}
+
+.sw-visual-confirm__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--sw-space-2);
+	margin-top: var(--sw-space-3);
+}
+
+.sw-visual-confirm__actions button[disabled] {
+	background: var(--sw-disabled-bg);
+	color: var(--sw-disabled-fg);
+	cursor: not-allowed;
+}
+
+/* ============ Two columns once there is room ============ */
+
+@media (min-width: 1025px) {
+	.sw-visual-page__body {
+		grid-template-columns: minmax(0, 1fr) 22rem;
+		align-items: start;
+	}
+
+	.sw-visual-page__inspector-toggle {
+		display: none;
+	}
+}
+
+/* ============ Drawer below 1024px ============ */
+
+@media (max-width: 1024px) {
+	.sw-visual-page__inspector {
+		position: fixed;
+		z-index: 100;
+		top: var(--sw-shell-offset, 0);
+		right: 0;
+		bottom: 0;
+		width: min(24rem, 100%);
+		overflow-y: auto;
+		border-radius: 0;
+		border-left: var(--sw-vw-rule);
+		box-shadow: var(--sw-shadow-3);
+		transform: translateX(100%);
+		transition: transform var(--sw-dur) var(--sw-ease);
+	}
+
+	.sw-visual-page__inspector.is-open {
+		transform: translateX(0);
+	}
+
+	.sw-visual-page__inspector[hidden] {
+		display: none;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.sw-visual-page__inspector,
+	.sw-visual__viewport {
+		transition: none;
+	}
+}

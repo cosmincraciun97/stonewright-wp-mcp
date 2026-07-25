@@ -1354,9 +1354,38 @@
 		return 'info';
 	}
 
+	/**
+	 * Link from a quality report to the Visual Workspace for the same post.
+	 *
+	 * The workspace is where a finding gets fixed with the editor open, so the
+	 * link only appears once a post is loaded. `editor=auto` leaves adapter
+	 * detection to the browser: only the live page knows which editor loaded.
+	 */
+	function workspaceLink() {
+		var base = boot.visualWorkspaceUrl || '';
+		var node = el( 'a', { className: 'sw-ds-button', text: 'Open Visual Workspace' } );
+
+		node.hidden = true;
+
+		return {
+			node: node,
+			sync: function ( postId ) {
+				if ( ! base || ! postId || postId <= 0 ) {
+					node.hidden = true;
+					node.removeAttribute( 'href' );
+
+					return;
+				}
+				node.href = base + '&post_id=' + encodeURIComponent( String( postId ) ) + '&editor=' + encodeURIComponent( 'auto' );
+				node.hidden = false;
+			}
+		};
+	}
+
 	function renderQuality( panel ) {
 		clear( panel );
 
+		var openWorkspace = workspaceLink();
 		var postInput = el( 'input', { attrs: { id: 'sw-ds-post-id', type: 'number', min: '1', step: '1' } } );
 
 		postInput.value = state.postId ? String( state.postId ) : '';
@@ -1405,6 +1434,7 @@
 							.then( function () {
 								busy( false );
 								announce( 'Loaded ' + state.reports.length + ' quality reports for post ' + postId + '.' );
+								openWorkspace.sync( postId );
 								paintFindings( panel );
 							} )
 							.catch( function ( error ) {
@@ -1412,10 +1442,12 @@
 								announce( error.message, 'danger' );
 							} );
 					}
-				} )
+				} ),
+				openWorkspace.node
 			] )
 		);
 
+		openWorkspace.sync( state.postId );
 		panel.appendChild( el( 'div', { attrs: { 'data-sw-ds-findings': '' } } ) );
 		paintFindings( panel );
 	}

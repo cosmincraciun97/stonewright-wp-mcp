@@ -55,6 +55,21 @@ export interface WorkspaceOptions {
   /** Network access, injected. Nothing in this module calls fetch directly. */
   request?: (path: string, init?: RequestInit) => Promise<unknown>;
   viewports?: readonly WorkspaceViewport[];
+  /**
+   * Slots supplied by a host page. When present the workspace fills them
+   * instead of building its own regions, so the host keeps its heading,
+   * breadcrumbs, and drawer chrome. Absent, the workspace owns the whole root.
+   */
+  regions?: WorkspaceRegions;
+}
+
+export interface WorkspaceRegions {
+  /** Receives the adapter status line. */
+  header: HTMLElement;
+  /** Receives the viewport controls and the evidence panel. */
+  canvas: HTMLElement;
+  /** Receives the direction line, the confirmation panel, and the status. */
+  inspector: HTMLElement;
 }
 
 export interface VerifyContext {
@@ -261,6 +276,11 @@ export function createWorkspaceController(options: WorkspaceOptions): WorkspaceC
 
     recordEvidence(entries) {
       evidence = [...evidence, ...entries];
+      // Recorded evidence changes the snapshot, so subscribers have to see it;
+      // the state itself does not move, which is why this does not use `move`.
+      for (const listener of listeners) {
+        listener(snapshot());
+      }
     },
 
     setViewport(id) {
@@ -291,24 +311,37 @@ export function mountStonewrightWorkspace(root: HTMLElement, options: WorkspaceO
   const controller = createWorkspaceController(options);
   const viewports = options.viewports ?? DEFAULT_VIEWPORTS;
 
-  root.textContent = "";
+  const hosted = options.regions !== undefined;
+
+  if (!hosted) {
+    root.textContent = "";
+  }
   root.classList.add("sw-visual");
 
-  const header = doc.createElement("header");
-  header.className = "sw-visual__header";
+  const header = options.regions?.header ?? doc.createElement("header");
+  if (hosted) {
+    header.textContent = "";
+  } else {
+    header.className = "sw-visual__header";
 
-  const title = doc.createElement("h2");
-  title.className = "sw-visual__title";
-  title.textContent = `Post ${options.postId}`;
+    const title = doc.createElement("h2");
+    title.className = "sw-visual__title";
+    title.textContent = `Post ${options.postId}`;
+    header.append(title);
+  }
 
   const adapterSlot = doc.createElement("div");
   adapterSlot.className = "sw-visual__adapter-slot";
 
-  header.append(title, adapterSlot);
+  header.append(adapterSlot);
 
-  const canvas = doc.createElement("section");
-  canvas.className = "sw-visual__canvas";
-  canvas.setAttribute("aria-label", "Evidence canvas");
+  const canvas = options.regions?.canvas ?? doc.createElement("section");
+  if (hosted) {
+    canvas.textContent = "";
+  } else {
+    canvas.className = "sw-visual__canvas";
+    canvas.setAttribute("aria-label", "Evidence canvas");
+  }
 
   const viewportControls = doc.createElement("div");
   viewportControls.className = "sw-visual__viewports";
@@ -332,9 +365,13 @@ export function mountStonewrightWorkspace(root: HTMLElement, options: WorkspaceO
   evidenceSlot.className = "sw-visual__evidence-slot";
   canvas.append(viewportControls, evidenceSlot);
 
-  const inspector = doc.createElement("aside");
-  inspector.className = "sw-visual__inspector";
-  inspector.setAttribute("aria-label", "Inspector");
+  const inspector = options.regions?.inspector ?? doc.createElement("aside");
+  if (hosted) {
+    inspector.textContent = "";
+  } else {
+    inspector.className = "sw-visual__inspector";
+    inspector.setAttribute("aria-label", "Inspector");
+  }
 
   const directionLine = doc.createElement("p");
   directionLine.className = "sw-visual__direction";
@@ -348,7 +385,9 @@ export function mountStonewrightWorkspace(root: HTMLElement, options: WorkspaceO
   status.setAttribute("aria-live", "polite");
 
   inspector.append(directionLine, confirmSlot, status);
-  root.append(header, canvas, inspector);
+  if (!hosted) {
+    root.append(header, canvas, inspector);
+  }
 
   function paint(): void {
     const current = controller.snapshot();
@@ -419,7 +458,7 @@ function directionLabel(direction: DirectionSummary | null): string {
 }
 
 function operationArgs(operation: ProposedOperation): Record<string, unknown> {
-  const args: Record<string, unknown> = {};
+  const args: Record<string, unknown> = { ...(operation.args ?? {}) };
   if (operation.breakpoint !== undefined) {
     args.breakpoint = operation.breakpoint;
   }

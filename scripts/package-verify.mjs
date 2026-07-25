@@ -11,7 +11,8 @@
  *
  * Usage:
  *   node scripts/package-verify.mjs
- *   node scripts/package-verify.mjs --strict-vendor   # fail if vendor/ missing
+ *   node scripts/package-verify.mjs --strict-vendor          # fail if vendor/ missing
+ *   node scripts/package-verify.mjs --require-visual-bundle  # fail if the Visual bundle is not staged
  */
 
 import fs from 'node:fs';
@@ -21,6 +22,8 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pluginRoot = path.join(repoRoot, 'plugin');
 const strictVendor = process.argv.includes('--strict-vendor');
+const requireVisualBundle = process.argv.includes('--require-visual-bundle');
+const visualBundle = 'assets/visual/workspace-browser.js';
 const errors = [];
 const warnings = [];
 
@@ -131,6 +134,32 @@ if (fs.existsSync(vendorAutoload)) {
 	}
 }
 
+// The Stonewright Visual browser bundle is built from the `visual` package and
+// staged into the plugin during packaging, so a source checkout does not carry
+// it. Release runs pass --require-visual-bundle to turn that into an error.
+const visualStaged = included.includes(visualBundle);
+if (!visualStaged) {
+	const msg = `Stonewright Visual bundle not staged at plugin/${visualBundle} — run \`cd visual && npm run build\` and copy dist/workspace-browser.js before packaging.`;
+	if (requireVisualBundle) fail(msg);
+	else warn(msg);
+} else if (fs.statSync(path.join(pluginRoot, visualBundle)).size === 0) {
+	fail(`Staged Visual bundle plugin/${visualBundle} is empty.`);
+}
+
+// Only the built bundle ships. Node build inputs must never reach the archive.
+const nodeArtifacts = included.filter(
+	(rel) =>
+		rel.startsWith('assets/visual/') &&
+		(rel.includes('node_modules/') ||
+			rel.endsWith('/package.json') ||
+			rel.endsWith('/package-lock.json') ||
+			rel.endsWith('.ts')),
+);
+
+if (nodeArtifacts.length > 0) {
+	fail(`Simulated package includes Node-only artefacts: ${nodeArtifacts.slice(0, 8).join(', ')}`);
+}
+
 // Dev paths should still exist in the repo (excluded, not deleted).
 for (const rel of ['tests', 'bin', 'phpunit.xml']) {
 	if (!exists(rel)) warn(`Expected development path missing from checkout: plugin/${rel}`);
@@ -141,6 +170,7 @@ const report = {
 	pluginRoot: path.relative(repoRoot, pluginRoot),
 	included_file_count: included.length,
 	vendor_present: fs.existsSync(vendorAutoload),
+	visual_bundle_staged: visualStaged,
 	excludes: mustExclude,
 	warnings,
 	errors,
