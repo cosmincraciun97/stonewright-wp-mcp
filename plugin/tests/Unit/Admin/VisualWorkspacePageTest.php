@@ -354,13 +354,19 @@ final class VisualWorkspacePageTest extends TestCase {
 		$file = $dir . '/workspace-browser.js';
 		mkdir( $dir, 0o777, true );
 
+		// PHP caches stat results per request, and this test rewrites the same
+		// path three times. Production reads the bundle once per request, so
+		// only the test has to invalidate the cache between states.
 		try {
+			clearstatcache( true, $file );
 			self::assertFalse( VisualWorkspacePage::bundle_ready( $file ), 'A missing bundle is not ready.' );
 
 			file_put_contents( $file, '' );
+			clearstatcache( true, $file );
 			self::assertFalse( VisualWorkspacePage::bundle_ready( $file ), 'An empty bundle is not ready.' );
 
 			file_put_contents( $file, 'var StonewrightVisual = (() => {})();' );
+			clearstatcache( true, $file );
 			self::assertTrue( VisualWorkspacePage::bundle_ready( $file ) );
 		} finally {
 			if ( is_file( $file ) ) {
