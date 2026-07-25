@@ -10,6 +10,8 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 ## [Unreleased]
 
+## [1.0.0-alpha.87] - 2026-07-25
+
 ### Added
 
 - Design Directions: a site's design language is now stored as a validated,
@@ -31,6 +33,24 @@ Unreleased); older history lives in git tags and GitHub releases.
   proceed if the kit changed in the meantime, backs the kit up first, leaves every
   setting it was not asked to change alone, and checks the result before
   reporting success.
+
+- Evidence-based visual verification: `stonewright/design-quality-check` turns
+  measured browser evidence for a rendered page into coverage, findings, and
+  repair hints. There is no invented score. Every finding carries the numbers
+  that produced it, evidence that was never captured is reported as
+  `not_checked` and counted separately, and a report with nothing checked can
+  never come back clean.
+- A first-section checkpoint for builds that establish a new visual direction.
+  The build stops once, after the first section, so the user can approve the
+  rendered result before the rest of the page is written. Maintenance work is
+  never interrupted: only `new_identity`, `replacement`, and `rebrand` are
+  gated, while `preserve`, `repair`, `content_only`, and `responsive_fix` pass
+  straight through.
+- Ability `stonewright/design-checkpoint-record`, which records that approval
+  and returns the token later section writes are checked against. It refuses
+  any approval it cannot tie to live state, and the token binds the post, the
+  section, the direction, and the render that was approved — so editing the
+  approved section or switching direction stops it working.
 
 ## [1.0.0-alpha.86] - 2026-07-24
 
@@ -88,16 +108,3 @@ Unreleased); older history lives in git tags and GitHub releases.
   shape, and received type without echoing user content.
 - The V4 atomic-abilities checkbox now submits an explicit disabled value when
   unchecked; enable and disable persistence is covered bidirectionally.
-
-## [1.0.0-alpha.82] - 2026-07-23
-
-### Fixed
-
-- REST mutation audit stores hashes and byte counts instead of free-form code,
-  instruction, skill, and memory bodies.
-- User-scoped Direct learning is stored globally across configured sites, and
-  refreshed corrections move to the newest memory position.
-- Elementor V3 production mutations enforce authorized breakpoint scope and
-  roll back when readback detects non-target breakpoint drift.
-- Compact task-start retains target binding fields while staying inside the
-  enforced non-visual and visual token budgets.

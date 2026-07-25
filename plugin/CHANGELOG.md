@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.87] - 2026-07-25
+
 ### Added
 
 - Persistent versioned Design Direction storage: two tables, append-only
@@ -32,6 +34,33 @@
 - `ElementorKitSyncPlanner` (pure contract-to-kit diff and CSS value grammar)
   and `ElementorKitWriter` (typed read/merge for `_elementor_page_settings`), so
   no sync code handles the serialized kit settings array directly.
+
+- Ability `stonewright/design-quality-check`, which evaluates supplied browser
+  evidence for a rendered page and returns coverage, findings, and repair hints.
+  `QualityEvidenceValidator` holds the trust boundary with allowlist-only keys,
+  hard bounds on viewports, elements, string length, and encoded size, and hex
+  resolution through the same `BrandKit` math used elsewhere; a color it cannot
+  measure is refused rather than guessed. Objective rules are errors, direction
+  token-scale rules are warnings, and waivers downgrade a finding to `info`
+  without deleting it. Evaluation is read-only under `can_view_design()`;
+  `persist` requires `can_manage_design()`, the task context token, and both a
+  post and a direction revision to bind the report to.
+- `QualityReportStore`, a bounded per-post ledger of stored reports: newest
+  first, 20 reports and 200 findings per report, numbers and rule ids only.
+- Ability `stonewright/design-checkpoint-record` and the `DesignCheckpoint`
+  workflow gate. `stonewright/elementor-v3-build-page-from-spec` gained optional
+  `design_scope` and `checkpoint_token` inputs and stops a gated build that
+  would leave more than one top-level section on the page. An unknown scope
+  fails closed; an omitted scope reads as `preserve`. The token is an HMAC over
+  the decision, signed with `wp_salt('auth')` plus a per-site secret, binding
+  post, section, direction hash, and the approved section's render hash; it
+  expires in two hours, is bound to the approving user, and authorizes the
+  remaining sections of that one page. `checkpoint_token` joins the ability
+  kernel's default audit redaction list.
+- `fast_path.visual_checkpoint` on `stonewright/workflow-preflight` (and
+  therefore `stonewright/task-start`), plus a matching default agent
+  instruction, so the gate is announced before the first write rather than
+  discovered by a rejected one.
 
 ## [1.0.0-alpha.86] - 2026-07-24
 
@@ -78,13 +107,3 @@
   root adds and full-document renderers remain blocked.
 - Schema errors identify the rejected setting path and expected/received shape.
 - The V4 abilities checkbox persists both checked and unchecked states.
-
-## [1.0.0-alpha.82] - 2026-07-23
-
-### Fixed
-
-- REST mutation audit replaces free-form code, instruction, skill, and memory
-  bodies with irreversible hashes and byte counts.
-- Elementor V3 batch mutations enforce authorized breakpoint scope and verify
-  non-target breakpoint hashes before persisting settings.
-- Compact task-start preserves target binding evidence within enforced token budgets.
