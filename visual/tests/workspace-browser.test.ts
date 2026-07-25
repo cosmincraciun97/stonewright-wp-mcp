@@ -109,8 +109,38 @@ describe("adapter detection", () => {
   });
 
   it("requires both halves of the block editor before claiming Gutenberg", () => {
+    const editorStores = (name: string) =>
+      name === "core/block-editor"
+        ? { getBlocks: () => [] }
+        : { getCurrentPostId: () => 1 };
+
     expect(detectionsFor({ wp: { blocks: {} } }).gutenberg).toBe(false);
-    expect(detectionsFor({ wp: { blocks: {}, data: {} } }).gutenberg).toBe(true);
+    expect(
+      detectionsFor({ wp: { blocks: { getBlockTypes: () => [] }, data: { select: editorStores } } })
+        .gutenberg,
+    ).toBe(true);
+  });
+
+  it("does not read a plain admin screen that merely loaded wp.data as an editor", () => {
+    // The workspace host page enqueues the block libraries without ever
+    // registering an editor store. Claiming Gutenberg here would report a
+    // connected editor with nothing behind it.
+    expect(detectionsFor({ wp: { blocks: {}, data: {} } }).gutenberg).toBe(false);
+    expect(
+      detectionsFor({
+        wp: { blocks: { getBlockTypes: () => [] }, data: { select: () => undefined } },
+      }).gutenberg,
+    ).toBe(false);
+    expect(
+      detectionsFor({
+        wp: {
+          blocks: { getBlockTypes: () => [] },
+          data: {
+            select: (name: string) => (name === "core/block-editor" ? { getBlocks: () => [] } : undefined),
+          },
+        },
+      }).gutenberg,
+    ).toBe(false);
   });
 });
 

@@ -46,7 +46,7 @@ export interface WorkspaceBootConfig {
 interface EditorWindow {
   elementor?: { widgetsCache?: Record<string, { atomic?: boolean }>; config?: { elements?: Record<string, { atomic?: boolean }> } };
   $e?: unknown;
-  wp?: { blocks?: unknown; data?: unknown };
+  wp?: { blocks?: unknown; data?: { select?: unknown; dispatch?: unknown } };
   stonewrightVisualWorkspace?: WorkspaceBootConfig;
   /** The mounted controller, so a host script can drive the workspace. */
   stonewrightVisual?: WorkspaceController;
@@ -68,7 +68,7 @@ export function defaultAdapterCandidates(target: EditorWindow = window as unknow
     },
     {
       kind: "gutenberg",
-      detect: () => Boolean(target.wp?.blocks && target.wp?.data),
+      detect: () => hasBlockEditor(target),
       create: () => new GutenbergEditorAdapter(createWindowGutenbergRuntime(target as never)),
     },
   ];
@@ -244,6 +244,34 @@ if (typeof window !== "undefined" && typeof document !== "undefined") {
 
 function hasElementor(target: EditorWindow): boolean {
   return Boolean(target.elementor && target.$e);
+}
+
+/**
+ * True when a block editor is really attached to this page.
+ *
+ * `wp.blocks` and `wp.data` are enqueued on plenty of admin screens that hold
+ * no editor at all — the workspace host page is one of them. Their presence
+ * proves nothing, so detection asks for the stores the Gutenberg runtime
+ * actually calls. Without this the workspace reports "connected" against a
+ * page that has no blocks to read and no post to save.
+ */
+function hasBlockEditor(target: EditorWindow): boolean {
+  const blocks = target.wp?.blocks as { getBlockTypes?: unknown } | undefined;
+  const select = target.wp?.data?.select;
+
+  if (typeof blocks?.getBlockTypes !== "function" || typeof select !== "function") {
+    return false;
+  }
+
+  try {
+    const store = (select as (name: string) => unknown)("core/block-editor") as { getBlocks?: unknown } | undefined;
+    const editor = (select as (name: string) => unknown)("core/editor") as { getCurrentPostId?: unknown } | undefined;
+
+    return typeof store?.getBlocks === "function" && typeof editor?.getCurrentPostId === "function";
+  } catch {
+    // An unregistered store is a missing editor, not a crash.
+    return false;
+  }
 }
 
 function hasAtomicTypes(target: EditorWindow): boolean {
