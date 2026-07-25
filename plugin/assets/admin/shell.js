@@ -4,6 +4,10 @@
 (function () {
 	'use strict';
 
+	// Keep these in sync with AdminShell::ICON_SUN and AdminShell::ICON_MOON.
+	var THEME_ICON_SUN = 'M8 2.4v1.5M8 12.1v1.5M2.4 8h1.5M12.1 8h1.5M4.05 4.05l1.06 1.06M10.89 10.89l1.06 1.06M11.95 4.05l-1.06 1.06M5.11 10.89l-1.06 1.06M8 5.3a2.7 2.7 0 100 5.4 2.7 2.7 0 000-5.4';
+	var THEME_ICON_MOON = 'M13.2 9.7A5.7 5.7 0 016.3 2.8a5.7 5.7 0 106.9 6.9z';
+
 	function ready(fn) {
 		if (document.readyState === 'loading') {
 			document.addEventListener('DOMContentLoaded', fn);
@@ -150,9 +154,9 @@
 			shell.setAttribute('data-sw-theme', next);
 			applyThemeClass(next);
 			btn.setAttribute('aria-pressed', next === 'dark' ? 'true' : 'false');
-			var icon = btn.querySelector('.sw-theme-toggle__icon');
+			var icon = btn.querySelector('[data-sw-theme-icon]');
 			if (icon) {
-				icon.textContent = next === 'dark' ? '☀' : '☾';
+				icon.setAttribute('d', next === 'dark' ? THEME_ICON_SUN : THEME_ICON_MOON);
 			}
 
 			var cfg = window.stonewrightShell || {};

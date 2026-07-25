@@ -3,10 +3,20 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Skills\Skills;
 
 /**
  * Admin page: Skills (slug: stonewright-skills).
+ *
+ * The page renders the shell, the view tabs, and the regions the skills script
+ * boots into. Reading the catalog, importing, exporting, trashing, restoring,
+ * and destroying all happen over `SkillsRestApi`, which delegates to `Skills`,
+ * `SkillImporter`, and `SkillExporter` — so no lifecycle rule lives here.
+ *
+ * The editor view stays a plain nonce-checked form post. It is the write path
+ * that still works with JavaScript switched off, and it is the only form on
+ * the page.
  *
  * @stonewright-status stable
  */
@@ -15,11 +25,16 @@ final class SkillsPage {
 	public const SLUG = 'stonewright-skills';
 	public const CAP  = 'manage_options';
 
+	/**
+	 * The views the page can show. The URL carries the current one so a reload,
+	 * a bookmark, and the back button all land where the user was.
+	 */
+	public const VIEWS = [ 'catalog', 'editor', 'import', 'trash' ];
+
 	public static function register(): void {
 		add_action( 'admin_menu', [ self::class, 'add_submenu' ] );
 		add_action( 'admin_post_stonewright_skill_save', [ self::class, 'handle_save' ] );
 		add_action( 'admin_post_stonewright_skill_toggle', [ self::class, 'handle_toggle' ] );
-		add_action( 'admin_post_stonewright_skill_delete', [ self::class, 'handle_delete' ] );
 	}
 
 	public static function add_submenu(): void {
@@ -49,7 +64,7 @@ final class SkillsPage {
 		$enable_prompt  = ! empty( $_POST['enable_prompt'] );
 
 		if ( '' === $slug || '' === $title || '' === $content ) {
-			wp_safe_redirect( add_query_arg( [ 'page' => self::SLUG, 'error' => 'missing_fields' ], admin_url( 'admin.php' ) ) );
+			wp_safe_redirect( self::redirect_url( 'editor', [ 'error' => 'missing_fields' ] ) );
 			exit;
 		}
 
@@ -58,7 +73,7 @@ final class SkillsPage {
 			+ [ 'source' => 'user' ]
 		);
 
-		wp_safe_redirect( add_query_arg( [ 'page' => self::SLUG, 'saved' => '1' ], admin_url( 'admin.php' ) ) );
+		wp_safe_redirect( self::redirect_url( 'catalog', [ 'saved' => '1' ] ) );
 		exit;
 	}
 
@@ -75,24 +90,40 @@ final class SkillsPage {
 			Skills::toggle( $id, $enabled );
 		}
 
-		wp_safe_redirect( add_query_arg( [ 'page' => self::SLUG, 'toggled' => '1' ], admin_url( 'admin.php' ) ) );
+		wp_safe_redirect( self::redirect_url( 'catalog', [ 'toggled' => '1' ] ) );
 		exit;
 	}
 
-	public static function handle_delete(): void {
-		if ( ! current_user_can( self::CAP ) ) {
-			wp_die( esc_html__( 'You do not have permission to do this.', 'stonewright' ) );
-		}
-		check_admin_referer( 'stonewright_skill_delete' );
+	/**
+	 * The requested view, falling back to the catalog.
+	 */
+	public static function current_view(): string {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only view selector.
+		$requested = isset( $_GET['view'] ) ? sanitize_key( (string) wp_unslash( $_GET['view'] ) ) : '';
 
-		$id = absint( $_POST['id'] ?? 0 );
+		return in_array( $requested, self::VIEWS, true ) ? $requested : 'catalog';
+	}
 
-		if ( $id > 0 ) {
-			Skills::delete( $id );
-		}
-
-		wp_safe_redirect( add_query_arg( [ 'page' => self::SLUG, 'deleted' => '1' ], admin_url( 'admin.php' ) ) );
-		exit;
+	/**
+	 * Everything the front-end needs to boot without a second round trip.
+	 *
+	 * `mode` travels with the payload because a hard delete needs a
+	 * confirmation token in production-safe mode, and the review drawer has to
+	 * say so before the user commits to it.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function boot_payload(): array {
+		return [
+			'restRoot' => rest_url( SkillsRestApi::REST_NAMESPACE . SkillsRestApi::ROUTE_PREFIX ),
+			'nonce'    => wp_create_nonce( SkillsRestApi::NONCE_ACTION ),
+			'view'     => self::current_view(),
+			'views'    => self::VIEWS,
+			'mode'     => (string) get_option( 'stonewright_mode', 'development' ),
+			'can'      => [
+				'manageOptions' => Permissions::manage_options(),
+			],
+		];
 	}
 
 	public static function render(): void {
@@ -100,25 +131,20 @@ final class SkillsPage {
 			wp_die( esc_html__( 'You do not have permission to view this page.', 'stonewright' ) );
 		}
 
-		$skills = Skills::list();
+		$current = self::current_view();
+		$labels  = self::view_labels();
+
+		AdminShell::open( self::SLUG );
 		?>
-		<?php AdminShell::open( self::SLUG ); ?>
-		<div class="sw-skills-page stonewright-skills-page">
+		<div
+			class="sw-skills-page stonewright-skills-page"
+			data-sw-skills
+			data-sw-current-view="<?php echo esc_attr( $current ); ?>"
+		>
 			<div class="stonewright-page-header">
 				<div>
 					<h1><?php esc_html_e( 'Skills', 'stonewright' ); ?></h1>
 					<p><?php esc_html_e( 'Site-owned Markdown playbooks for repeatable WordPress work. Agents skim descriptions first, then load full bodies only when a task matches.', 'stonewright' ); ?></p>
-				</div>
-				<div class="sw-actions">
-					<button
-						type="button"
-						class="sw-btn sw-btn--primary"
-						id="sw-new-skill-btn"
-						data-stonewright-toggle-target="sw-new-skill-form"
-						data-stonewright-focus-target="sw-new-title"
-					>
-						<?php esc_html_e( 'New Skill', 'stonewright' ); ?>
-					</button>
 				</div>
 			</div>
 
@@ -128,201 +154,194 @@ final class SkillsPage {
 				<summary><?php esc_html_e( 'How skills work', 'stonewright' ); ?></summary>
 				<div class="sw-callout__body">
 					<p><strong><?php esc_html_e( 'How skills reach agents', 'stonewright' ); ?></strong> — <?php esc_html_e( 'Keep descriptions short and specific. They are the trigger text agents read during discovery; long Markdown bodies stay out of context until needed.', 'stonewright' ); ?></p>
-					<p><strong><?php esc_html_e( 'Best fit', 'stonewright' ); ?></strong> — <?php esc_html_e( 'Use skills for site conventions, builder rules, QA checklists, naming standards, and fragile workflows that should repeat the same way.', 'stonewright' ); ?></p>
-					<p><strong><?php esc_html_e( 'Trust boundary', 'stonewright' ); ?></strong> — <?php esc_html_e( 'Review every skill before enabling it. A skill is guidance for a powerful connected operator, so it should be concise, intentional, and reviewed.', 'stonewright' ); ?></p>
+					<p><strong><?php esc_html_e( 'Provenance', 'stonewright' ); ?></strong> — <?php esc_html_e( 'Built-in skills ship with Stonewright and can be disabled but not removed. Local skills are yours. External skills come from another plugin and always carry their source.', 'stonewright' ); ?></p>
+					<p><strong><?php esc_html_e( 'Trust boundary', 'stonewright' ); ?></strong> — <?php esc_html_e( 'Review every skill before enabling it. An imported file lands disabled, as a draft, and is re-checked on the server no matter what the file claims about itself.', 'stonewright' ); ?></p>
 				</div>
 			</details>
 
-			<div id="sw-new-skill-form" class="sw-card stonewright-panel stonewright-new-skill-form" hidden>
-				<h2><?php esc_html_e( 'Create New Skill', 'stonewright' ); ?></h2>
-				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-					<?php wp_nonce_field( 'stonewright_skill_save' ); ?>
-					<input type="hidden" name="action" value="stonewright_skill_save">
-					<table class="form-table" role="presentation">
-						<tbody>
-							<tr>
-								<th scope="row"><label for="sw-new-title"><?php esc_html_e( 'Title', 'stonewright' ); ?> *</label></th>
-								<td><input type="text" id="sw-new-title" name="title" class="regular-text" required></td>
-							</tr>
-							<tr>
-								<th scope="row"><label for="sw-new-slug"><?php esc_html_e( 'Slug', 'stonewright' ); ?> *</label></th>
-								<td><input type="text" id="sw-new-slug" name="slug" class="regular-text" required pattern="[a-z0-9\-]+" placeholder="my-skill-slug"></td>
-							</tr>
-							<tr>
-								<th scope="row"><label for="sw-new-desc"><?php esc_html_e( 'Description', 'stonewright' ); ?></label></th>
-								<td><input type="text" id="sw-new-desc" name="description" class="regular-text" placeholder="<?php esc_attr_e( 'When to use this skill', 'stonewright' ); ?>"></td>
-							</tr>
-							<tr>
-								<th scope="row"><label for="sw-new-content"><?php esc_html_e( 'Content (Markdown)', 'stonewright' ); ?> *</label></th>
-								<td><textarea id="sw-new-content" name="content" rows="12" class="large-text code" required placeholder="# My Skill&#10;&#10;Step 1: ..."></textarea></td>
-							</tr>
-							<tr>
-								<th scope="row"><?php esc_html_e( 'Enabled', 'stonewright' ); ?></th>
-								<td>
-									<label><input type="checkbox" name="enabled" value="1" checked> <?php esc_html_e( 'Skill is active', 'stonewright' ); ?></label>
-									<p class="description"><?php esc_html_e( 'Disabled skills stay saved for review but are hidden from connected agents.', 'stonewright' ); ?></p>
-									<label><input type="checkbox" name="enable_agentic" value="1" checked> <?php esc_html_e( 'Auto-match from task descriptions', 'stonewright' ); ?></label><br>
-									<label><input type="checkbox" name="enable_prompt" value="1" checked> <?php esc_html_e( 'Show as a prompt or command', 'stonewright' ); ?></label>
-									<p class="description"><?php esc_html_e( 'Use auto-match for concise, broadly useful rules. Use prompt mode for larger playbooks agents should open only when explicitly requested.', 'stonewright' ); ?></p>
-								</td>
-							</tr>
-						</tbody>
-					</table>
-					<div class="sw-actions">
-						<button type="submit" class="sw-btn sw-btn--primary"><?php esc_html_e( 'Create Skill', 'stonewright' ); ?></button>
-						<button
-							type="button"
-							class="sw-btn sw-btn--secondary"
-							id="sw-cancel-skill-btn"
-							data-stonewright-hide-target="sw-new-skill-form"
-						><?php esc_html_e( 'Cancel', 'stonewright' ); ?></button>
-					</div>
-				</form>
+			<div class="sw-skills-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Skill views', 'stonewright' ); ?>">
+				<?php foreach ( self::VIEWS as $view ) : ?>
+					<?php $is_current = ( $view === $current ); ?>
+					<a
+						class="sw-skills-tab<?php echo $is_current ? ' is-current' : ''; ?>"
+						role="tab"
+						id="sw-skills-tab-<?php echo esc_attr( $view ); ?>"
+						href="<?php echo esc_url( self::view_url( $view ) ); ?>"
+						data-sw-view="<?php echo esc_attr( $view ); ?>"
+						aria-selected="<?php echo $is_current ? 'true' : 'false'; ?>"
+						aria-controls="sw-skills-panel-<?php echo esc_attr( $view ); ?>"
+						tabindex="<?php echo $is_current ? '0' : '-1'; ?>"
+					><?php echo esc_html( $labels[ $view ] ); ?></a>
+				<?php endforeach; ?>
 			</div>
 
-			<?php if ( empty( $skills ) ) : ?>
-				<div class="stonewright-empty-state sw-empty-state">
-					<p><?php esc_html_e( 'No skills yet. Create your first skill above.', 'stonewright' ); ?></p>
+			<p class="sw-skills-status" data-sw-skills-status role="status" aria-live="polite"></p>
+
+			<?php foreach ( self::VIEWS as $view ) : ?>
+				<section
+					class="sw-skills-panel"
+					role="tabpanel"
+					id="sw-skills-panel-<?php echo esc_attr( $view ); ?>"
+					aria-labelledby="sw-skills-tab-<?php echo esc_attr( $view ); ?>"
+					data-sw-panel="<?php echo esc_attr( $view ); ?>"
+					<?php echo $view === $current ? '' : 'hidden'; ?>
+				>
+					<?php if ( 'editor' === $view ) : ?>
+						<?php self::render_editor(); ?>
+					<?php else : ?>
+						<div class="sw-skills-panel__loading" data-sw-skills-loading>
+							<?php echo esc_html( $labels[ $view ] ); ?>
+						</div>
+					<?php endif; ?>
+				</section>
+			<?php endforeach; ?>
+
+			<noscript>
+				<div class="sw-empty-state stonewright-empty-state">
+					<p><?php esc_html_e( 'The catalog, import review, and trash need JavaScript. The editor below still saves without it, and every skill stays readable and writable through the Stonewright MCP abilities.', 'stonewright' ); ?></p>
 				</div>
-			<?php else : ?>
-				<div class="sw-skills-grid stonewright-card-grid stonewright-skills-grid">
-					<?php foreach ( $skills as $skill ) : ?>
-						<?php self::render_skill_card( $skill ); ?>
-					<?php endforeach; ?>
-				</div>
-			<?php endif; ?>
+			</noscript>
 		</div>
-		<?php AdminShell::close(); ?>
+		<?php
+		AdminShell::close();
+	}
+
+	/**
+	 * The one form on the page: create a skill, or edit the one named by
+	 * `?skill=<slug>`.
+	 */
+	private static function render_editor(): void {
+		$skill = self::requested_skill();
+
+		$slug           = (string) ( $skill['slug'] ?? '' );
+		$title          = (string) ( $skill['title'] ?? '' );
+		$description    = (string) ( $skill['description'] ?? '' );
+		$content        = (string) ( $skill['content'] ?? '' );
+		$enabled        = null === $skill || (bool) ( $skill['enabled'] ?? true );
+		$enable_agentic = null === $skill || (bool) ( $skill['enable_agentic'] ?? true );
+		$enable_prompt  = null === $skill || (bool) ( $skill['enable_prompt'] ?? true );
+		$locked_slug    = null !== $skill;
+		?>
+		<div class="sw-card sw-skills-editor">
+			<h2>
+				<?php
+				echo $locked_slug
+					? esc_html__( 'Edit skill', 'stonewright' )
+					: esc_html__( 'New skill', 'stonewright' );
+				?>
+			</h2>
+			<p class="description"><?php esc_html_e( 'The description is the trigger text agents read during discovery. State when the skill applies, not what it contains.', 'stonewright' ); ?></p>
+
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="sw-skills-form">
+				<?php wp_nonce_field( 'stonewright_skill_save' ); ?>
+				<input type="hidden" name="action" value="stonewright_skill_save">
+
+				<p class="sw-field">
+					<label for="sw-skill-title"><?php esc_html_e( 'Title', 'stonewright' ); ?></label>
+					<input type="text" id="sw-skill-title" name="title" value="<?php echo esc_attr( $title ); ?>" required>
+				</p>
+
+				<p class="sw-field">
+					<label for="sw-skill-slug"><?php esc_html_e( 'Slug', 'stonewright' ); ?></label>
+					<input
+						type="text"
+						id="sw-skill-slug"
+						name="slug"
+						value="<?php echo esc_attr( $slug ); ?>"
+						pattern="[a-z0-9\-]+"
+						placeholder="my-skill-slug"
+						required
+						<?php echo $locked_slug ? 'readonly' : ''; ?>
+					>
+				</p>
+
+				<p class="sw-field">
+					<label for="sw-skill-description"><?php esc_html_e( 'Description', 'stonewright' ); ?></label>
+					<input
+						type="text"
+						id="sw-skill-description"
+						name="description"
+						value="<?php echo esc_attr( $description ); ?>"
+						placeholder="<?php esc_attr_e( 'Use when …', 'stonewright' ); ?>"
+					>
+				</p>
+
+				<p class="sw-field">
+					<label for="sw-skill-content"><?php esc_html_e( 'Content (Markdown)', 'stonewright' ); ?></label>
+					<textarea id="sw-skill-content" name="content" rows="16" class="code" required><?php echo esc_textarea( $content ); ?></textarea>
+				</p>
+
+				<fieldset class="sw-fieldset">
+					<legend><?php esc_html_e( 'Availability', 'stonewright' ); ?></legend>
+					<label class="sw-check">
+						<input type="checkbox" name="enabled" value="1" <?php checked( $enabled ); ?>>
+						<span><?php esc_html_e( 'Skill is active', 'stonewright' ); ?></span>
+					</label>
+					<label class="sw-check">
+						<input type="checkbox" name="enable_agentic" value="1" <?php checked( $enable_agentic ); ?>>
+						<span><?php esc_html_e( 'Auto-match from task descriptions', 'stonewright' ); ?></span>
+					</label>
+					<label class="sw-check">
+						<input type="checkbox" name="enable_prompt" value="1" <?php checked( $enable_prompt ); ?>>
+						<span><?php esc_html_e( 'Show as a prompt or command', 'stonewright' ); ?></span>
+					</label>
+					<p class="description"><?php esc_html_e( 'Use auto-match for concise, broadly useful rules. Use prompt mode for larger playbooks agents should open only when explicitly requested.', 'stonewright' ); ?></p>
+				</fieldset>
+
+				<div class="sw-actions">
+					<button type="submit" class="sw-btn sw-btn--primary"><?php esc_html_e( 'Save skill', 'stonewright' ); ?></button>
+					<a class="sw-btn sw-btn--secondary" href="<?php echo esc_url( self::view_url( 'catalog' ) ); ?>"><?php esc_html_e( 'Back to catalog', 'stonewright' ); ?></a>
+				</div>
+			</form>
+		</div>
 		<?php
 	}
 
 	/**
-	 * @param array<string, mixed> $skill
+	 * The skill named by `?skill=<slug>`, when there is one.
+	 *
+	 * @return array<string, mixed>|null
 	 */
-	private static function render_skill_card( array $skill ): void {
-		$id          = (int) $skill['id'];
-		$slug        = (string) $skill['slug'];
-		$title       = (string) $skill['title'];
-		$description = (string) $skill['description'];
-		$content     = (string) $skill['content'];
-		$enabled     = (bool) $skill['enabled'];
-		$source         = (string) $skill['source'];
-		$enable_agentic = (bool) ( $skill['enable_agentic'] ?? $enabled );
-		$enable_prompt  = (bool) ( $skill['enable_prompt'] ?? $enabled );
-		$is_builtin  = 'builtin' === $source;
-		$is_playbook = 'playbook' === $source;
-		$is_locked   = $is_builtin || $is_playbook;
-		?>
-		<div class="sw-skill-card sw-card stonewright-card stonewright-skill-card <?php echo $enabled ? 'stonewright-card--enabled' : 'stonewright-card--disabled'; ?>">
-			<div class="stonewright-card__header">
-				<div class="stonewright-card__title-row">
-					<strong class="stonewright-card__title"><?php echo esc_html( $title ); ?></strong>
-					<?php if ( $is_playbook ) : ?>
-						<span class="sw-badge sw-badge--playbook"><?php esc_html_e( 'PLAYBOOK', 'stonewright' ); ?></span>
-					<?php else : ?>
-						<span class="sw-badge sw-badge--<?php echo esc_attr( $source ); ?>"><?php echo esc_html( ucfirst( $source ) ); ?></span>
-					<?php endif; ?>
-					<?php if ( $enabled ) : ?>
-						<span class="sw-badge sw-badge--active"><?php esc_html_e( 'Active', 'stonewright' ); ?></span>
-						<?php if ( $enable_agentic ) : ?>
-							<span class="sw-badge sw-badge--agentic"><?php esc_html_e( 'Auto', 'stonewright' ); ?></span>
-						<?php endif; ?>
-						<?php if ( $enable_prompt ) : ?>
-							<span class="sw-badge sw-badge--prompt"><?php esc_html_e( 'Command', 'stonewright' ); ?></span>
-						<?php endif; ?>
-					<?php else : ?>
-						<span class="sw-badge sw-badge--disabled"><?php esc_html_e( 'Disabled', 'stonewright' ); ?></span>
-					<?php endif; ?>
-				</div>
-				<code class="stonewright-card__slug"><?php echo esc_html( $slug ); ?></code>
-			</div>
+	private static function requested_skill(): ?array {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only editor selector.
+		$slug = isset( $_GET['skill'] ) ? sanitize_title( (string) wp_unslash( $_GET['skill'] ) ) : '';
 
-			<div class="stonewright-card__body">
-				<?php if ( $description ) : ?>
-					<p class="stonewright-card__description"><?php echo esc_html( $description ); ?></p>
-				<?php endif; ?>
-				<div class="sw-skill-preview">
-					<pre class="sw-skill-preview__text"><?php echo esc_html( mb_substr( $content, 0, 200 ) . ( mb_strlen( $content ) > 200 ? '…' : '' ) ); ?></pre>
-				</div>
-			</div>
+		return '' === $slug ? null : Skills::get( $slug );
+	}
 
-			<div class="stonewright-card__footer sw-actions">
-				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form">
-					<?php wp_nonce_field( 'stonewright_skill_toggle' ); ?>
-					<input type="hidden" name="action" value="stonewright_skill_toggle">
-					<input type="hidden" name="id" value="<?php echo esc_attr( (string) $id ); ?>">
-					<input type="hidden" name="enabled" value="<?php echo $enabled ? '0' : '1'; ?>">
-					<button type="submit" class="sw-btn sw-btn--secondary sw-btn--sm">
-						<?php echo $enabled ? esc_html__( 'Disable', 'stonewright' ) : esc_html__( 'Enable', 'stonewright' ); ?>
-					</button>
-				</form>
+	/**
+	 * @return array<string, string>
+	 */
+	private static function view_labels(): array {
+		return [
+			'catalog' => __( 'Catalog', 'stonewright' ),
+			'editor'  => __( 'Editor', 'stonewright' ),
+			'import'  => __( 'Import', 'stonewright' ),
+			'trash'   => __( 'Trash', 'stonewright' ),
+		];
+	}
 
-				<button
-					type="button"
-					class="sw-btn sw-btn--ghost sw-btn--sm"
-					data-stonewright-skill-toggle="sw-edit-<?php echo esc_attr( (string) $id ); ?>"
-					aria-expanded="false"
-				>
-					<?php esc_html_e( 'View / Edit', 'stonewright' ); ?>
-				</button>
+	private static function view_url( string $view ): string {
+		return admin_url( 'admin.php?page=' . rawurlencode( self::SLUG ) . '&view=' . rawurlencode( $view ) );
+	}
 
-				<?php if ( ! $is_locked ) : ?>
-					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form">
-						<?php wp_nonce_field( 'stonewright_skill_delete' ); ?>
-						<input type="hidden" name="action" value="stonewright_skill_delete">
-						<input type="hidden" name="id" value="<?php echo esc_attr( (string) $id ); ?>">
-						<button
-							type="submit"
-							class="sw-btn sw-btn--danger sw-btn--sm"
-							data-confirm="<?php esc_attr_e( 'Delete this skill?', 'stonewright' ); ?>"
-						><?php esc_html_e( 'Delete', 'stonewright' ); ?></button>
-					</form>
-				<?php endif; ?>
-			</div>
-
-			<div id="sw-edit-<?php echo esc_attr( (string) $id ); ?>" class="stonewright-card__edit-panel" hidden>
-				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-					<?php wp_nonce_field( 'stonewright_skill_save' ); ?>
-					<input type="hidden" name="action" value="stonewright_skill_save">
-					<input type="hidden" name="slug" value="<?php echo esc_attr( $slug ); ?>">
-					<p>
-						<label><strong><?php esc_html_e( 'Title', 'stonewright' ); ?></strong><br>
-						<input type="text" name="title" value="<?php echo esc_attr( $title ); ?>" class="regular-text"></label>
-					</p>
-					<p>
-						<label><strong><?php esc_html_e( 'Description', 'stonewright' ); ?></strong><br>
-						<input type="text" name="description" value="<?php echo esc_attr( $description ); ?>" class="regular-text"></label>
-					</p>
-					<p>
-						<label><strong><?php esc_html_e( 'Content (Markdown)', 'stonewright' ); ?></strong><br>
-						<textarea name="content" rows="16" class="large-text code"><?php echo esc_textarea( $content ); ?></textarea></label>
-					</p>
-					<p>
-						<label><input type="checkbox" name="enabled" value="1" <?php checked( $enabled ); ?>>
-						<?php esc_html_e( 'Skill is active', 'stonewright' ); ?></label>
-					</p>
-					<p>
-						<label><input type="checkbox" name="enable_agentic" value="1" <?php checked( $enable_agentic ); ?>>
-						<?php esc_html_e( 'Auto-match from task descriptions', 'stonewright' ); ?></label><br>
-						<label><input type="checkbox" name="enable_prompt" value="1" <?php checked( $enable_prompt ); ?>>
-						<?php esc_html_e( 'Show as a prompt or command', 'stonewright' ); ?></label>
-					</p>
-					<p>
-						<button type="submit" class="button button-primary"><?php esc_html_e( 'Save Changes', 'stonewright' ); ?></button>
-					</p>
-				</form>
-			</div>
-		</div>
-		<?php
+	/**
+	 * @param array<string, string> $args Extra query arguments.
+	 */
+	private static function redirect_url( string $view, array $args ): string {
+		return add_query_arg(
+			$args + [
+				'page' => self::SLUG,
+				'view' => $view,
+			],
+			admin_url( 'admin.php' )
+		);
 	}
 
 	private static function render_notices(): void {
 		// phpcs:disable WordPress.Security.NonceVerification
 		if ( ! empty( $_GET['saved'] ) ) {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Skill saved.', 'stonewright' ) . '</p></div>';
-		}
-		if ( ! empty( $_GET['deleted'] ) ) {
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Skill deleted.', 'stonewright' ) . '</p></div>';
 		}
 		if ( ! empty( $_GET['toggled'] ) ) {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Skill updated.', 'stonewright' ) . '</p></div>';

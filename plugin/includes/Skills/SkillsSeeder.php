@@ -101,6 +101,8 @@ final class SkillsSeeder {
 
 		$title          = self::slug_to_title( $dir_name );
 		$description    = '';
+		$topic          = '';
+		$constraints    = [];
 		$enable_agentic = true;
 		$enable_prompt  = true;
 
@@ -112,12 +114,14 @@ final class SkillsSeeder {
 
 				$title          = self::front_matter_string( $front_matter, 'name', $title );
 				$description    = self::front_matter_string( $front_matter, 'description', $description );
+				$topic          = self::front_matter_string( $front_matter, 'topic', $topic );
+				$constraints    = self::front_matter_map( $front_matter, 'version_constraints' );
 				$enable_agentic = self::front_matter_bool( $front_matter, 'enable_agentic', $enable_agentic );
 				$enable_prompt  = self::front_matter_bool( $front_matter, 'enable_prompt', $enable_prompt );
 			}
 		}
 
-		Skills::save( [
+		$fields = [
 			'slug'           => 'stonewright-' . $dir_name,
 			'title'          => $title,
 			'description'    => $description,
@@ -126,7 +130,19 @@ final class SkillsSeeder {
 			'enable_agentic' => $enable_agentic,
 			'enable_prompt'  => $enable_prompt,
 			'source'         => 'builtin',
-		] );
+		];
+
+		// Only declared metadata is forwarded. A pack that says nothing about
+		// its topic or its runtime constraints must not wipe what the site
+		// already recorded for that slug on the next reseed.
+		if ( '' !== $topic ) {
+			$fields['topic'] = $topic;
+		}
+		if ( [] !== $constraints ) {
+			$fields['version_constraints'] = $constraints;
+		}
+
+		Skills::save( $fields );
 	}
 
 	private static function seed_meta_skill(): void {
@@ -188,6 +204,36 @@ MD,
 		}
 
 		return trim( $value, " \t\n\r\0\x0B\"'" );
+	}
+
+	/**
+	 * Read a front-matter value written as a single-line JSON object.
+	 *
+	 * Front matter here is a handful of scalars, not a YAML implementation, so
+	 * nested maps are declared inline as JSON. Anything that is not an object
+	 * of scalars is ignored rather than half-parsed.
+	 *
+	 * @return array<string, string>
+	 */
+	private static function front_matter_map( string $front_matter, string $key ): array {
+		$value = self::front_matter_value( $front_matter, $key );
+		if ( null === $value || '' === trim( $value ) ) {
+			return [];
+		}
+
+		$decoded = json_decode( trim( $value ), true );
+		if ( ! is_array( $decoded ) ) {
+			return [];
+		}
+
+		$map = [];
+		foreach ( $decoded as $name => $expression ) {
+			if ( is_string( $name ) && ( is_string( $expression ) || is_numeric( $expression ) ) ) {
+				$map[ sanitize_key( $name ) ] = sanitize_text_field( (string) $expression );
+			}
+		}
+
+		return $map;
 	}
 
 	private static function front_matter_bool( string $front_matter, string $key, bool $default ): bool {

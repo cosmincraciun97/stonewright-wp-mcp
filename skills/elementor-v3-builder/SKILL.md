@@ -45,6 +45,19 @@ Any `inference` evidence must remain confirmation-gated.
 Read [references/design-evidence.md](references/design-evidence.md) when the
 task starts from a design source or needs custom CSS/JS/PHP.
 
+## When to load the visual-direction pack
+
+Load the `visual-direction` skill for new or changed visual direction — a
+rebrand, a new palette or type scale, a different spacing rhythm, or any work
+that alters how the site is meant to look. It owns direction capture, reviewed
+kit sync, the first-section checkpoint, and the rendered quality loop.
+
+Do not load it for work that stays inside an existing direction: copy edits,
+adding a widget in the established style, or repairing a broken control. This
+skill still owns every write. The pack decides what the page should look like;
+`stonewright/elementor-v3-batch-mutate` remains the only way to change an
+existing tree, and the responsive rules below still apply unchanged.
+
 Use the plan in two phases:
 
 1. Finish the native, editable page: global kit, content model, containers,

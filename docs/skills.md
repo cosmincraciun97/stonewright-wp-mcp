@@ -51,6 +51,68 @@ Each skill has a master active toggle and two exposure flags:
 | `woocommerce-catalog` | `skills/woocommerce-catalog/` | Manage WooCommerce catalog work: products, variations, SKUs, attributes, terms, and shipping classes |
 | `wp-plugin-dev` | `skills/wp-plugin-dev/` | Build WordPress plugins, blocks, widgets, and abilities |
 | `stonewright-review` | `skills/stonewright-review/` | Review generated page structure against the Design Spec and site state |
+| `visual-direction` | `skills/visual-direction/` | Decide and prove visual direction: capture, reviewed kit sync, first-section checkpoint, rendered evidence |
+
+`visual-direction` is loaded for new or changed visual direction — a rebrand, a
+new palette or type scale, a different spacing rhythm. It does not replace a
+renderer skill: `elementor-v3-builder` still owns every write to an Elementor
+tree, and cross-references the pack instead of duplicating its rules. Work that
+stays inside an existing direction (copy edits, adding a widget in the
+established style, repairing a control) does not load it.
+
+A skill directory may declare `topic` and `version_constraints` in its front
+matter. `version_constraints` is a single-line JSON object of component to
+version expression, for example `{"elementor": ">=3.16"}`; the seeder forwards
+both to the skill record, and a pack that declares neither leaves whatever the
+site already recorded for that slug untouched.
+
+## Skill lifecycle in wp-admin
+
+**Stonewright → Skills** has four views: Catalog, Editor, Import, and Trash.
+
+**Catalog.** Every skill states where it came from — `built-in` (ships with
+Stonewright), `local` (created on this site), or the id of the plugin that
+registered it — plus its state, revision, and how many times it has been
+verified. Search filters the list in place. Inspect opens a drawer with the
+body, lint findings, trust findings, and history. Export downloads normalized
+Markdown with provenance and a content hash.
+
+**Editor.** Creating and editing a skill is a nonce-checked form that works
+with JavaScript disabled. It is the only write path on the page that does not
+go through the REST routes.
+
+**Import.** Import is two steps. The file is inspected first — UTF-8 Markdown,
+1 MiB ceiling, front matter with `name` and `description` required — and the
+review lists lint errors and trust findings before anything is stored. The
+confirmation binds the content hash, so a file cannot change between review and
+persistence. An imported skill lands **disabled, as a draft**, and is re-checked
+on the server regardless of what the file claims about itself. An import never
+overwrites an existing skill.
+
+**Trash and restore.** Trashing disables a skill everywhere an agent could read
+it and offers an undo. Trashed skills never match `stonewright-task-start`.
+Restore returns the skill as a disabled draft, so somebody has to enable it
+deliberately. Built-in skills can be disabled but not removed.
+
+**Permanent deletion** is a separate, irreversible action in the Trash view. It
+opens a review drawer listing exactly what is about to be destroyed, and in
+`production-safe` mode it also requires a confirmation token issued by
+`stonewright-security-issue-confirmation-token`.
+
+No action on the page uses a native browser dialog. Titles, descriptions, and
+imported Markdown reach the DOM as text, never as markup.
+
+## External skill sources
+
+Another plugin can publish skills through the `stonewright_skill_sources`
+filter. Source enumeration is read-only: Stonewright does not execute source
+code and does not fetch URLs.
+
+Resolution order is built-in, then this site's database, then registered
+external sources. Built-in ids are reserved and external sources must use
+source-qualified ids, so a source cannot silently shadow a built-in or a local
+skill. Anything that tried to is reported as a visible conflict in the catalog
+instead of quietly winning.
 
 ## Conventions
 

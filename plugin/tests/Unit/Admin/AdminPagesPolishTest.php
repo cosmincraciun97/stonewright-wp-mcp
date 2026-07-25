@@ -96,15 +96,17 @@ final class AdminPagesPolishTest extends TestCase {
 
 		self::assertStringContainsString( 'stonewright-admin-shell', $html );
 		self::assertStringContainsString( 'stonewright-page-header', $html );
-		self::assertStringContainsString( 'sw-skills-grid', $html );
-		self::assertStringContainsString( 'sw-skill-card', $html );
-		self::assertStringContainsString( 'sw-badge', $html );
-		self::assertStringContainsString( 'sw-badge--agentic', $html );
+		self::assertStringContainsString( 'sw-skills-tabs', $html );
+		self::assertStringContainsString( 'sw-skills-panel', $html );
 		self::assertStringContainsString( 'sw-actions', $html );
-		self::assertStringContainsString( 'Auto-match from task descriptions', $html );
-		self::assertStringContainsString( 'Show as a prompt or command', $html );
-		self::assertStringContainsString( 'data-stonewright-skill-toggle', $html );
-		self::assertStringContainsString( 'data-confirm="Delete this skill?"', $html );
+
+		// The catalog, import review, and trash are the script's job now, so the
+		// page ships a shell it can fill instead of a card and a form per skill.
+		self::assertStringNotContainsString( 'sw-skill-card', $html );
+		self::assertStringNotContainsString( 'data-stonewright-skill-toggle', $html );
+		self::assertStringNotContainsString( 'data-confirm', $html );
+
+		// The editor keeps a write path that works without JavaScript.
 		self::assertStringContainsString( 'name="title"', $html );
 		self::assertStringContainsString( 'name="slug"', $html );
 		self::assertStringContainsString( 'name="content"', $html );

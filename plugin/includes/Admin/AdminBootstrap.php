@@ -41,6 +41,7 @@ final class AdminBootstrap {
 
 		add_action( 'rest_api_init', [ RestApi::class, 'register' ] );
 		add_action( 'rest_api_init', [ DesignStudioRestApi::class, 'register' ] );
+		add_action( 'rest_api_init', [ SkillsRestApi::class, 'register' ] );
 		add_action( 'admin_enqueue_scripts', [ self::class, 'enqueue_assets' ] );
 		add_action( 'admin_notices', [ CrashRecovery::class, 'admin_notice' ] );
 		add_action( 'admin_notices', [ self::class, 'production_mode_mismatch_notice' ] );
@@ -234,6 +235,23 @@ final class AdminBootstrap {
 				'stonewright-admin-design-studio',
 				'stonewrightDesignStudio',
 				DesignStudioPage::boot_payload()
+			);
+		}
+
+		// The skill lifecycle app and its boot payload load on that page only.
+		if ( SkillsPage::SLUG === $page ) {
+			wp_enqueue_script(
+				'stonewright-admin-skills',
+				$url_base . 'assets/admin/skills.js',
+				[ 'stonewright-admin' ],
+				$version,
+				true
+			);
+
+			wp_localize_script(
+				'stonewright-admin-skills',
+				'stonewrightSkills',
+				SkillsPage::boot_payload()
 			);
 		}
 	}
