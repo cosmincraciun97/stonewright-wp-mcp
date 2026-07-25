@@ -123,6 +123,17 @@
   instruction, so the gate is announced before the first write rather than
   discovered by a rejected one.
 
+### Fixed
+
+- Saving a design direction from the Design Studio editor no longer drops the
+  contract sections the editor does not expose. `components`, `provenance`,
+  `waivers`, and `readiness` are carried over from the stored contract, so
+  editing a summary no longer erases the provenance record or resets readiness
+  to false and leaves an activated direction refusing to activate.
+- The Design Studio live region keeps the result of a write on screen. A
+  restore or an activation re-renders its view, and the render's "loaded"
+  message used to replace the outcome before a screen reader could reach it.
+
 ## [1.0.0-alpha.86] - 2026-07-24
 
 ### Fixed
