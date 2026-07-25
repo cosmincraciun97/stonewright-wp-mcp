@@ -10,6 +10,8 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 ## [Unreleased]
 
+## [1.0.0-alpha.88] - 2026-07-25
+
 ### Added
 
 - A Visual Workspace page in wp-admin. Stonewright Visual could previously be
@@ -143,22 +145,3 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 - Serialize Elementor writes per post and keep learned schema guidance bounded
   by runtime compatibility and task-start limits.
-
-## [1.0.0-alpha.83] - 2026-07-24
-
-### Added
-
-- `stonewright/elementor-document-health` reports architecture, serialized
-  size, V3/V4 counts, invalid setting paths, and bounded `e-paragraph` ids
-  without exposing document content.
-
-### Fixed
-
-- Elementor writes invalidate only the target post's generated CSS instead of
-  clearing Elementor's global CSS cache and slowing the next editor load.
-- Mixed documents allow surgical V3 batch writes under an explicit V3 parent
-  while ambiguous root adds and high-level full-document writes stay blocked.
-- Elementor schema failures identify the first rejected setting path, expected
-  shape, and received type without echoing user content.
-- The V4 atomic-abilities checkbox now submits an explicit disabled value when
-  unchecked; enable and disable persistence is covered bidirectionally.

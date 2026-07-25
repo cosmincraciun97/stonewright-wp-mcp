@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.88] - 2026-07-25
+
+### Changed
+
+- Align the companion package with the plugin release that adds Design Studio,
+  reviewed skill lifecycle, and the Visual Workspace.
+
 ## [1.0.0-alpha.87] - 2026-07-25
 
 ### Changed
