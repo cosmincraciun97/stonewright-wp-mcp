@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Admin;
 
 use Stonewright\WpMcp\Admin\Pages\BlueprintsPage;
+use Stonewright\WpMcp\Admin\Pages\DesignStudioPage;
 use Stonewright\WpMcp\Admin\Pages\PromptLibraryPage;
 use Stonewright\WpMcp\Admin\Pages\SandboxLibraryPage;
 use Stonewright\WpMcp\Admin\Pages\StatusPage;
@@ -32,12 +33,14 @@ final class AdminBootstrap {
 		self::$registered = true;
 
 		StatusPage::register();
+		DesignStudioPage::register();
 		BlueprintsPage::register();
 		PromptLibraryPage::register();
 		SandboxLibraryPage::register();
 		AdminShell::register();
 
 		add_action( 'rest_api_init', [ RestApi::class, 'register' ] );
+		add_action( 'rest_api_init', [ DesignStudioRestApi::class, 'register' ] );
 		add_action( 'admin_enqueue_scripts', [ self::class, 'enqueue_assets' ] );
 		add_action( 'admin_notices', [ CrashRecovery::class, 'admin_notice' ] );
 		add_action( 'admin_notices', [ self::class, 'production_mode_mismatch_notice' ] );
