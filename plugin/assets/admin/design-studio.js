@@ -1670,6 +1670,22 @@
 	/* View plumbing                                                       */
 	/* ------------------------------------------------------------------ */
 
+	/**
+	 * Loads the direction list once, for views that assume a selection.
+	 *
+	 * Only the overview fetches the list on its own. A deep link straight to
+	 * the editor, quality, or history view therefore used to render against
+	 * `selectedId` zero: no revisions, nothing to edit, and no way back except
+	 * visiting the overview first.
+	 */
+	function ensureDirections() {
+		if ( state.listLoaded ) {
+			return Promise.resolve( state.directions );
+		}
+
+		return loadDirections();
+	}
+
 	function render( view ) {
 		var panel = panelFor( view );
 
@@ -1679,13 +1695,30 @@
 
 		if ( 'overview' === view ) {
 			renderOverview( panel );
-		} else if ( 'editor' === view ) {
-			renderEditor( panel );
-		} else if ( 'quality' === view ) {
-			renderQuality( panel );
-		} else if ( 'history' === view ) {
-			renderHistory( panel );
+
+			return;
 		}
+
+		pending( panel, 'Loading design directions.' );
+
+		ensureDirections()
+			.then( function () {
+				// The reader may have moved on while the list was in flight.
+				if ( state.view !== view ) {
+					return;
+				}
+
+				if ( 'editor' === view ) {
+					renderEditor( panel );
+				} else if ( 'quality' === view ) {
+					renderQuality( panel );
+				} else if ( 'history' === view ) {
+					renderHistory( panel );
+				}
+			} )
+			.catch( function ( error ) {
+				renderError( panel, error );
+			} );
 	}
 
 	function showView( view ) {
