@@ -91,7 +91,13 @@ export function contract(overrides: Record<string, unknown> = {}): Record<string
 				accent: '#8a5a2b',
 				muted: '#6b6862',
 			},
-			typography: { body: '16px', lead: '20px', display: '32px' },
+			// Typography entries are maps of CSS properties, not bare sizes —
+			// the write-path test posts this contract to the real validator.
+			typography: {
+				body: { family: 'Inter', size: '16px', line_height: 1.5 },
+				lead: { family: 'Inter', size: '20px', line_height: 1.4 },
+				display: { family: 'Inter', size: '32px', line_height: 1.15, weight: 600 },
+			},
 			spacing: { xs: '4px', sm: '8px', md: '16px', lg: '32px' },
 			radii: { sm: '4px', md: '10px' },
 			elevation: {},
@@ -103,7 +109,9 @@ export function contract(overrides: Record<string, unknown> = {}): Record<string
 			do: ['Lead with one accent colour.', 'Keep body copy at 16px or larger.'],
 			avoid: ['Gradient text.', 'More than two type families.'],
 		},
-		provenance: { captured_from: 'kit 42', method: 'manual' },
+		// Provenance is keyed by contract path, and each entry names a source
+		// and a reference.
+		provenance: { 'tokens.colors': { source: 'elementor-kit', reference: 'kit:42' } },
 		waivers: [],
 		readiness: { ready: true, sync_ready: true, issues: [] },
 		...overrides,
