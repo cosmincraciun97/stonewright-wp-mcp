@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.87] - 2026-07-25
+
+### Changed
+
+- Align the companion package with the plugin release that adds evidence-based
+  visual verification and the first-section design checkpoint.
+
 ## [1.0.0-alpha.86] - 2026-07-24
 
 ### Changed
