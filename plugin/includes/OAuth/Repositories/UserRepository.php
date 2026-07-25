@@ -16,15 +16,10 @@ namespace Stonewright\WpMcp\OAuth\Repositories;
 // phpcs:disable Generic.Files.OneObjectStructurePerFile.MultipleFound, WordPress.NamingConventions.ValidVariableName.VariableNotSnakeCase
 
 use League\OAuth2\Server\Entities\ClientEntityInterface;
-use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\Repositories\UserRepositoryInterface;
 
 defined( 'ABSPATH' ) || exit;
-
-final class UserEntity implements UserEntityInterface {
-	use EntityTrait;
-}
 
 final class UserRepository implements UserRepositoryInterface {
 
