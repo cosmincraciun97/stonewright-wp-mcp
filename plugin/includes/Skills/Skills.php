@@ -179,6 +179,33 @@ final class Skills {
 		return (int) $wpdb->insert_id;
 	}
 
+	/**
+	 * Every skill this site can see, merged across sources.
+	 *
+	 * `list()` answers "what is in our table". This answers "what is on offer",
+	 * which on a default site is the same thing and stops being the same thing
+	 * the moment somebody registers an external source. The conflicts list says
+	 * what was dropped and why, so a source that tried to shadow a built-in
+	 * shows up in the admin instead of quietly winning.
+	 *
+	 * @return array{skills: list<array<string, mixed>>, conflicts: list<array<string, string>>}
+	 */
+	public static function catalog(): array {
+		return SkillSourceRegistry::resolve();
+	}
+
+	/**
+	 * The sources behind the catalog, in resolution order.
+	 *
+	 * @return list<array{id: string, label: string, kind: string, count: int}>
+	 */
+	public static function sources(): array {
+		return array_map(
+			static fn( SkillSource $source ): array => $source->to_array(),
+			SkillSourceRegistry::sources()
+		);
+	}
+
 	/** @return list<array<string, mixed>> */
 	public static function find_active_by_topic( string $topic ): array {
 		$topic = sanitize_text_field( $topic );
