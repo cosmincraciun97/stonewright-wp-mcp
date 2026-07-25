@@ -18,6 +18,50 @@
   session-scoped draft recovery, a focus-trapping review drawer that returns
   focus on close, a polite live region, token-only theming for light and dark,
   and a reduced-motion path.
+- `SkillSource` and `SkillSourceRegistry`: a read-only registry for skills
+  published by other plugins through the `stonewright_skill_sources` filter.
+  Resolution order is built-in, then this site's database, then registered
+  sources. Built-in ids are reserved and external ids must be source-qualified;
+  a source that tries to claim a taken id is surfaced as a conflict rather than
+  applied. The registry never executes source callables for their side effects
+  and never performs HTTP requests.
+- `SkillImportSanitizer`, `SkillImporter`, and `SkillExporter`. Import is split
+  into inspect and confirm: inspection enforces a 1 MiB ceiling, valid UTF-8,
+  and required `name`/`description` front matter, then returns lint and trust
+  findings plus a SHA-256 content hash that the confirm step must echo back.
+  Imported skills are stored as `uploaded`, disabled, `draft`, with server-side
+  values only — nothing the file claims about its own source, status, or enabled
+  flags is honoured. An import never overwrites an existing slug. Export emits
+  normalized Markdown with provenance front matter and the content hash.
+- Skill trash lifecycle: `SkillsTable` schema `1.3` adds `trashed_at`, and
+  `Skills::trash()`, `Skills::restore()`, and `Skills::destroy()` implement it.
+  Trashed rows are excluded from every agent-facing read, so they cannot match
+  context bootstrap. Restore returns the row as a disabled draft.
+  `Skills::destroy()` refuses built-ins and, in production-safe mode, verifies a
+  confirmation token bound to the skill id. `Skills::delete()` remains as a bool
+  wrapper for existing callers.
+- Admin page `stonewright-skills` rebuilt on the shared admin shell, with REST
+  routes under `stonewright/v1/skills-studio`: `/catalog`, `/import/inspect`,
+  `/import`, and `/skills/(?P<id>\d+)` plus its `/export`, `/trash`, and
+  `/restore` sub-routes. Every route requires `Permissions::manage_options()`;
+  anything that is not a plain read additionally requires a `wp_rest` nonce and
+  records an audit entry.
+- Skills front end (`assets/admin/skills.js`): keyboard-operable tablist,
+  in-place search, a focus-trapping review drawer that returns focus on close,
+  an undo affordance after trashing, and no native browser dialogs. Titles,
+  descriptions, and imported Markdown reach the DOM through `textContent`.
+  The editor remains a nonce-checked form that works without JavaScript.
+- `SkillsSeeder` now forwards `topic` and `version_constraints` from a skill
+  pack's front matter, the latter written as a single-line JSON object. Only
+  declared keys are forwarded, so a reseed of a pack that declares neither
+  leaves whatever the site recorded for that slug untouched.
+- Skill pack `skills/visual-direction/` with three references
+  (direction contract, composition checklist, rendered quality loop), declaring
+  `topic: elementor-visual-direction` and `{"elementor": ">=3.16"}`.
+  `skills/elementor-v3-builder/` cross-references it instead of duplicating its
+  rules and keeps sole ownership of Elementor writes.
+- `AdminShell` theme toggle now uses inline SVG icons instead of text
+  dingbats, so the control renders identically across platform fonts.
 
 ## [1.0.0-alpha.87] - 2026-07-25
 

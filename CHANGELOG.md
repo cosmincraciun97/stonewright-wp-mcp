@@ -20,6 +20,34 @@ Unreleased); older history lives in git tags and GitHub releases.
   about to change before anything runs. Quality reports are read on the same
   page, filtered by severity, viewport, or rule, and evidence that was never
   captured stays visible as unverified instead of being rounded up to a pass.
+- A rebuilt Skills page in wp-admin with four views: catalog, editor, import,
+  and trash. Every skill states where it came from — shipped with Stonewright,
+  created on this site, or registered by another plugin — along with its state,
+  revision, and how many times it has been verified. Search filters the list in
+  place, and inspecting a skill opens a drawer with its body, lint findings,
+  trust findings, and history.
+- Skill import and export. Export produces normalized Markdown carrying
+  provenance and a content hash. Import is two steps: the file is inspected
+  first and the review lists lint errors and trust findings before anything is
+  stored, the confirmation is bound to the content hash so the file cannot
+  change between review and persistence, and an imported skill lands disabled as
+  a draft. An import never overwrites an existing skill.
+- Trash and restore for skills. Trashing disables a skill everywhere an agent
+  could read it and offers an undo; trashed skills never match
+  `stonewright-task-start`. Restore returns the skill as a disabled draft.
+  Built-in skills can be disabled but not removed. Permanent deletion is a
+  separate, irreversible action that lists exactly what will be destroyed and,
+  in production-safe mode, needs a confirmation token.
+- Skills published by other plugins. A plugin can register a read-only skill
+  source; Stonewright never executes source code and never fetches URLs.
+  Built-in ids are reserved and external ids must be source-qualified, so a
+  source cannot silently shadow a built-in or a local skill — an attempt is
+  reported as a visible conflict in the catalog instead.
+- A `visual-direction` skill pack for work that decides how a site should look:
+  direction capture, reviewed kit sync, the checkpoint after the first section,
+  and rendered evidence before a build is called done. It is loaded for a
+  rebrand or a new palette, type scale, or spacing rhythm, and not for work that
+  stays inside the direction already in place.
 
 ## [1.0.0-alpha.87] - 2026-07-25
 
