@@ -145,6 +145,11 @@
 
 ### Fixed
 
+- The Visual Workspace no longer reports a connected block editor on a page
+  that has none. Adapter detection treated the presence of `wp.blocks` and
+  `wp.data` as proof of an editor, and both load on plain admin screens
+  including the workspace host page itself. Detection now requires the store
+  members the Gutenberg runtime calls.
 - Saving a design direction from the Design Studio editor no longer drops the
   contract sections the editor does not expose. `components`, `provenance`,
   `waivers`, and `readiness` are carried over from the stored contract, so
