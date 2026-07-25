@@ -273,7 +273,7 @@ final class VisualWorkspacePage {
 	 */
 	private static function render_workspace( int $post_id ): void {
 		$post    = get_post( $post_id );
-		$title   = is_object( $post ) && isset( $post->post_title ) ? (string) $post->post_title : '';
+		$title   = is_object( $post ) && property_exists( $post, 'post_title' ) ? (string) $post->post_title : '';
 		$context = self::editor_context( $post_id );
 		$edit    = (string) get_edit_post_link( $post_id, 'url' );
 		$ready   = self::bundle_ready( self::bundle_path() );
