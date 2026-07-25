@@ -583,9 +583,45 @@
 		return errors;
 	}
 
+	/**
+	 * The contract sections the editor does not expose.
+	 *
+	 * A save rebuilt from an empty contract drops every one of these. That is
+	 * how a one-word edit to a summary erases provenance and resets readiness
+	 * to false, leaving a direction that was activated a moment ago refusing
+	 * to activate again.
+	 *
+	 * @var string[]
+	 */
+	var PRESERVED_SECTIONS = [ 'components', 'provenance', 'waivers', 'readiness' ];
+
+	/**
+	 * The stored contract behind a draft, or an empty map for a new record.
+	 */
+	function baseContract( draft ) {
+		var direction = state.direction;
+
+		if ( ! draft.id || ! direction || Number( direction.id ) !== Number( draft.id ) ) {
+			return {};
+		}
+
+		try {
+			return JSON.parse( JSON.stringify( contractOf( direction ) ) );
+		} catch ( error ) {
+			return {};
+		}
+	}
+
 	function contractFromDraft( draft ) {
 		var contract = emptyContract();
+		var base = baseContract( draft );
 		var tokens = {};
+
+		PRESERVED_SECTIONS.forEach( function ( key ) {
+			if ( Object.prototype.hasOwnProperty.call( base, key ) ) {
+				contract[ key ] = base[ key ];
+			}
+		} );
 
 		try {
 			tokens = JSON.parse( draft.tokens || '{}' );
