@@ -10,6 +10,7 @@ use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Context\ContextBuilder;
 use Stonewright\WpMcp\Context\ContextToken;
 use Stonewright\WpMcp\Context\SpecializationCatalog;
+use Stonewright\WpMcp\Design\Workflow\DesignCheckpoint;
 use Stonewright\WpMcp\Elementor\ArchitectureRouter;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -192,6 +193,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			'call_sequence'         => self::call_sequence( $task, $task_profile, $compact_playbooks, $specializations ),
 			'specializations'       => $specializations,
 			'visual_build_gate'     => $context['visual_build_gate'] ?? [],
+			'visual_checkpoint'     => self::visual_checkpoint( $task, $intent ),
 			'visual_setup'          => self::visual_setup( $task_profile ),
 			'batching_rules'        => self::batching_rules( $task_profile ),
 			'quality_gates'         => self::quality_gates( $task_profile ),
@@ -371,6 +373,14 @@ final class WorkflowPreflight extends AbilityKernel {
 		}
 		if ( isset( $fast_path['visual_build_gate'] ) ) {
 			$compact_fast_path['visual_build_gate'] = self::compact_object_ref( 'visual_build_gate', $fast_path['visual_build_gate'] );
+		}
+		// The checkpoint decides whether a build stops after one section, so the
+		// compact profile keeps the verdict and the exact continuation call.
+		if ( is_array( $fast_path['visual_checkpoint'] ?? null ) ) {
+			$compact_fast_path['visual_checkpoint'] = array_intersect_key(
+				$fast_path['visual_checkpoint'],
+				array_flip( [ 'required', 'design_scope', 'first_section_limit', 'continuation_action' ] )
+			);
 		}
 		if ( is_array( $fast_path['design_contract_ref'] ?? null ) ) {
 			$compact_fast_path['design_contract_ref'] = array_intersect_key(
@@ -704,6 +714,37 @@ final class WorkflowPreflight extends AbilityKernel {
 			'production_safe_token_required'  => 'production-safe' === $mode && $is_destructive,
 			'context_token_required_for_write' => $is_write,
 		];
+	}
+
+	/**
+	 * Tells the agent up front whether this task will be stopped after its first
+	 * rendered section, and exactly how to continue past it.
+	 *
+	 * The scope is inferred from the task text so the agent gets a concrete answer
+	 * instead of a rule to apply. The scope it declares to the builder is still its
+	 * own call; naming it here is what makes that call an informed one.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private static function visual_checkpoint( string $task, string $intent ): array {
+		$scope = DesignCheckpoint::scope_for_task( $task, $intent );
+
+		$checkpoint = [
+			'required'            => DesignCheckpoint::required( $scope ),
+			'design_scope'        => $scope,
+			'reason'              => DesignCheckpoint::reason( $scope ),
+			'first_section_limit' => DesignCheckpoint::FIRST_SECTION_LIMIT,
+			'gated_scopes'        => DesignCheckpoint::GATED_SCOPES,
+		];
+
+		if ( ! $checkpoint['required'] ) {
+			return $checkpoint;
+		}
+
+		$checkpoint['continuation_action'] = DesignCheckpoint::continuation_action();
+		$checkpoint['loop']                = DesignCheckpoint::loop();
+
+		return $checkpoint;
 	}
 
 	/**

@@ -144,6 +144,7 @@ abstract class AbilityKernel implements Ability {
 	protected function audit_redacted_keys(): array {
 		return [
 			'confirmation_token',
+			'checkpoint_token',
 			'token',
 			'password',
 			'user_pass',

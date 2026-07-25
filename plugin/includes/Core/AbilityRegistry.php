@@ -37,6 +37,7 @@ use Stonewright\WpMcp\Abilities\BrandKits\ListBrandKits;
 use Stonewright\WpMcp\Abilities\Design\ApplyToPost;
 use Stonewright\WpMcp\Abilities\Design\BuildSpec;
 use Stonewright\WpMcp\Abilities\Design\ChooseRenderer;
+use Stonewright\WpMcp\Abilities\Design\CheckpointRecord;
 use Stonewright\WpMcp\Abilities\Design\DirectionActivate;
 use Stonewright\WpMcp\Abilities\Design\DirectionCapture;
 use Stonewright\WpMcp\Abilities\Design\DirectionGet;
@@ -51,6 +52,7 @@ use Stonewright\WpMcp\Abilities\Design\ImportImage;
 use Stonewright\WpMcp\Abilities\Design\NativePlan;
 use Stonewright\WpMcp\Abilities\Design\NormalizeAssets;
 use Stonewright\WpMcp\Abilities\Design\PreviewRender;
+use Stonewright\WpMcp\Abilities\Design\QualityCheck;
 use Stonewright\WpMcp\Abilities\Design\SpecToElementorV3;
 use Stonewright\WpMcp\Abilities\Design\SpecToElementorV4;
 use Stonewright\WpMcp\Abilities\Design\SpecToGutenberg;
@@ -414,6 +416,11 @@ final class AbilityRegistry {
 			DirectionRestore::class,
 			DirectionSyncPlan::class,
 			DirectionSyncApply::class,
+
+			// Design — evidence-based verification of a rendered page, and the
+			// approval that lets a new visual direction continue past section one.
+			QualityCheck::class,
+			CheckpointRecord::class,
 
 			// Blueprints + brand kits.
 			ListBlueprints::class,

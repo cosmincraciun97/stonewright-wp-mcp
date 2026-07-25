@@ -169,5 +169,17 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringNotContainsString( 'reference token table', $instructions );
 		$this->assertStringNotContainsString( 'document.documentElement.scrollWidth', $instructions );
 		$this->assertStringNotContainsString( 'external Playwright MCP', $instructions );
+		$this->assertStringNotContainsString( 'stonewright/design-checkpoint-record', $instructions );
+	}
+
+	public function test_default_instructions_gate_new_visual_directions_after_the_first_section(): void {
+		$instructions = AgentInstructions::default();
+
+		$this->assertStringContainsString( 'design_scope new_identity, replacement, or rebrand', $instructions );
+		$this->assertStringContainsString( 'stop after the first section', $instructions );
+		$this->assertStringContainsString( 'stonewright/design-quality-check', $instructions );
+		$this->assertStringContainsString( 'stonewright/design-checkpoint-record', $instructions );
+		$this->assertStringContainsString( 'checkpoint_token to every later section write', $instructions );
+		$this->assertStringContainsString( 'preserve, repair, content_only, responsive_fix', $instructions );
 	}
 }

@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "target": {
+    "post_id": 4213,
+    "url": "https://example.test/?p=4213",
+    "render_hash": "4f2d425115260cad7e4182b6c9d23e5f708192a3b4c5d6e7f8091a2b3c4d5e6f"
+  },
+  "viewports": [
+    {
+      "id": "mobile",
+      "width": 390,
+      "height": 844,
+      "elements": [
+        {
+          "ref": "hero-title",
+          "kind": "text"
+        },
+        {
+          "ref": "hero-cta",
+          "kind": "interactive",
+          "text_color": "#ffffff",
+          "background_color": "#0b1f3a"
+        }
+      ]
+    }
+  ]
+}

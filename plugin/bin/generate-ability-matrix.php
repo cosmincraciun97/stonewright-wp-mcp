@@ -185,6 +185,8 @@ const WRITE_PATTERNS = [
 	'ElementorWriter::write',
 	// Design Direction service write delegates.
 	'service->save(', 'service->activate(', 'service->restore(',
+	// Design quality report ledger write delegate.
+	'QualityReportStore::save(',
 	// Batch/orchestrator delegates.
 	'new UploadMedia()', 'new BuildPageFromSpec()',
 	// Confirmation-guarded abilities can mutate or destroy state.
@@ -451,6 +453,8 @@ function find_test_file( string $class ): string {
 		'DirectionRestore'  => 'tests/Unit/Design/DirectionAbilitiesTest.php',
 		'DirectionSyncPlan'  => 'tests/Unit/Design/DirectionSyncAbilitiesTest.php',
 		'DirectionSyncApply' => 'tests/Unit/Design/DirectionSyncAbilitiesTest.php',
+		'QualityCheck'       => 'tests/Unit/Design/QualityCheckAbilityTest.php',
+		'CheckpointRecord'   => 'tests/Unit/Design/DesignCheckpointTest.php',
 	];
 	if ( isset( $class_tests[ $short ] ) ) {
 		return $class_tests[ $short ];

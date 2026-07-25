@@ -5,7 +5,9 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Design\Direction\DesignDirectionService;
 use Stonewright\WpMcp\Design\Evidence\Validator as DesignEvidenceValidator;
+use Stonewright\WpMcp\Design\Workflow\DesignCheckpoint;
 use Stonewright\WpMcp\DesignSpec\Validator;
 use Stonewright\WpMcp\Elementor\Renderer;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
@@ -23,6 +25,12 @@ use Stonewright\WpMcp\Support\ElementorData;
  */
 final class BuildPageFromSpec extends AbilityKernel {
 	use ConfirmationGuard;
+
+	private DesignDirectionService $directions;
+
+	public function __construct( ?DesignDirectionService $directions = null ) {
+		$this->directions = $directions ?? new DesignDirectionService();
+	}
 
 	public function name(): string {
 		return 'stonewright/elementor-v3-build-page-from-spec';
@@ -53,6 +61,15 @@ final class BuildPageFromSpec extends AbilityKernel {
 				'expected_tree_hash' => [ 'type' => 'string', 'pattern' => '^[a-f0-9]{64}$' ],
 				'dry_run'            => [ 'type' => 'boolean', 'default' => false ],
 				'confirmation_token' => [ 'type' => 'string' ],
+				'design_scope'       => [
+					'type'        => 'string',
+					'enum'        => DesignCheckpoint::scopes(),
+					'description' => 'What this build does to the design. Scopes that establish a new visual direction (new_identity, replacement, rebrand) may write one section, then need a checkpoint token. Maintenance scopes (preserve, repair, content_only, responsive_fix) are never gated. Defaults to preserve.',
+				],
+				'checkpoint_token'   => [
+					'type'        => 'string',
+					'description' => 'Token from stonewright/design-checkpoint-record proving the user approved the first rendered section. Required to write the remaining sections of a new visual direction.',
+				],
 			],
 			'required'             => [ 'post_id', 'spec' ],
 		];
@@ -175,6 +192,11 @@ final class BuildPageFromSpec extends AbilityKernel {
 					];
 				}
 
+				$checkpoint_error = $this->checkpoint_error( $args, $post_id, $tree, $existing );
+				if ( null !== $checkpoint_error ) {
+					return $checkpoint_error;
+				}
+
 				// Backup before any mutation (AGENTS.md hard rule #3).
 				$snapshot_id = Backup::snapshot_post( $post_id );
 
@@ -213,6 +235,72 @@ final class BuildPageFromSpec extends AbilityKernel {
 				];
 			}
 		);
+	}
+
+	/**
+	 * Stops a build that is inventing a look from writing a whole page before the
+	 * user has seen one section of it.
+	 *
+	 * The gate reads the caller's declared `design_scope`. Maintenance work is not
+	 * gated at all, so repairs, copy fixes, and responsive corrections keep working
+	 * exactly as before. A gated scope may write the document down to a single
+	 * top-level section; going beyond that needs a token proving the user approved
+	 * what the first section looked like.
+	 *
+	 * The approved section is re-hashed from the stored document, not from the tree
+	 * about to be written, because the question the token answers is whether what
+	 * the user approved is still what is on the page.
+	 *
+	 * @param array<string, mixed>             $args     Ability arguments.
+	 * @param array<int, array<string, mixed>> $tree     Tree about to be written.
+	 * @param array<int, array<string, mixed>> $existing Stored tree before the write.
+	 */
+	private function checkpoint_error( array $args, int $post_id, array $tree, array $existing ): ?\WP_Error {
+		$scope = isset( $args['design_scope'] ) && is_string( $args['design_scope'] )
+			? $args['design_scope']
+			: DesignCheckpoint::DEFAULT_SCOPE;
+
+		if ( ! DesignCheckpoint::required( $scope ) ) {
+			return null;
+		}
+
+		if ( count( $tree ) <= DesignCheckpoint::FIRST_SECTION_LIMIT ) {
+			return null;
+		}
+
+		$token = isset( $args['checkpoint_token'] ) && is_string( $args['checkpoint_token'] ) ? trim( $args['checkpoint_token'] ) : '';
+		if ( '' === $token ) {
+			return new \WP_Error(
+				DesignCheckpoint::ERROR_REQUIRED,
+				DesignCheckpoint::reason( $scope ),
+				[
+					'status'              => 409,
+					'design_scope'        => $scope,
+					'first_section_limit' => DesignCheckpoint::FIRST_SECTION_LIMIT,
+					'sections_requested'  => count( $tree ),
+					'next_action'         => DesignCheckpoint::continuation_action(),
+					'loop'                => DesignCheckpoint::loop(),
+				]
+			);
+		}
+
+		$section_id = DesignCheckpoint::bound_section_id( $token );
+
+		return $this->to_error(
+			DesignCheckpoint::verify(
+				$token,
+				[
+					'post_id'        => $post_id,
+					'section_id'     => $section_id,
+					'direction_hash' => DesignCheckpoint::active_direction_hash( $this->directions ),
+					'render_hash'    => DesignCheckpoint::section_render_hash( $existing, $section_id ),
+				]
+			)
+		);
+	}
+
+	private function to_error( bool|\WP_Error $verified ): ?\WP_Error {
+		return $verified instanceof \WP_Error ? $verified : null;
 	}
 
 	/**

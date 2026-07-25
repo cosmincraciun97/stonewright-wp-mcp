@@ -9,6 +9,7 @@ use Stonewright\WpMcp\Abilities\ElementorV3\ApplyBundle;
 use Stonewright\WpMcp\Abilities\ElementorV3\CapabilitiesSummary;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetWidgetSchema;
 use Stonewright\WpMcp\Abilities\Media\UploadMediaBatch;
+use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Abilities\System\WorkflowPreflight;
 use Stonewright\WpMcp\Abilities\System\TaskStart;
 use Stonewright\WpMcp\Core\AbilityRegistry;
@@ -185,7 +186,12 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/elementor-wire-loop', $result['recommended_tools'] );
 		self::assertContains( 'stonewright/media-upload-batch', $result['recommended_tools'] );
-		self::assertContains( 'stonewright/content-bulk-upsert-posts', $result['recommended_tools'] );
+		// Verification of what was rendered outranks bulk content writes, so at a
+		// 40-tool cap the bulk writer falls out of the returned set while staying
+		// in the full profile.
+		self::assertContains( 'stonewright/design-quality-check', $result['recommended_tools'] );
+		self::assertNotContains( 'stonewright/content-bulk-upsert-posts', $result['recommended_tools'] );
+		self::assertContains( 'stonewright/content-bulk-upsert-posts', ToolProfile::profile_tools( 'elementor-design' ) );
 		self::assertContains( 'stonewright/blueprint-apply', $result['recommended_tools'] );
 		// Full profile list may exceed max_tools; wp-cli is lower priority than blueprints/engine paths.
 		self::assertContains( 'Use profile tools before full ability discovery when the client has a strict tool cap.', $result['token_rules'] );
@@ -585,6 +591,45 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 			self::assertStringStartsWith( 'stonewright/', $call['ability'] );
 			self::assertStringNotContainsString( '/', $call['tool'] );
 		}
+	}
+
+	public function test_workflow_preflight_announces_the_first_section_checkpoint_for_a_new_direction(): void {
+		$result = ( new WorkflowPreflight() )->execute(
+			[
+				'task'    => 'Rebrand the site around the new brand identity and rebuild the homepage.',
+				'surface' => 'elementor',
+				'intent'  => 'write',
+			]
+		);
+
+		self::assertIsArray( $result );
+
+		$checkpoint = $result['fast_path']['visual_checkpoint'];
+		self::assertTrue( $checkpoint['required'] );
+		self::assertSame( 'rebrand', $checkpoint['design_scope'] );
+		self::assertSame( 1, $checkpoint['first_section_limit'] );
+		self::assertNotSame( '', $checkpoint['reason'] );
+		self::assertSame( 'stonewright/design-checkpoint-record', $checkpoint['continuation_action']['ability'] );
+		self::assertSame( 'stonewright-design-checkpoint-record', $checkpoint['continuation_action']['mcp_tool'] );
+		self::assertContains( 'approved', $checkpoint['continuation_action']['required_args'] );
+		self::assertNotEmpty( $checkpoint['loop'] );
+	}
+
+	public function test_workflow_preflight_leaves_maintenance_work_uninterrupted(): void {
+		$result = ( new WorkflowPreflight() )->execute(
+			[
+				'task'    => 'Fix a typo in the hero subtitle on the about page.',
+				'surface' => 'elementor',
+				'intent'  => 'update',
+			]
+		);
+
+		self::assertIsArray( $result );
+
+		$checkpoint = $result['fast_path']['visual_checkpoint'];
+		self::assertFalse( $checkpoint['required'] );
+		self::assertSame( 'content_only', $checkpoint['design_scope'] );
+		self::assertArrayNotHasKey( 'continuation_action', $checkpoint );
 	}
 
 	public function test_workflow_preflight_includes_confirmation_token_step_for_production_safe_destructive_tasks(): void {
