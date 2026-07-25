@@ -59,6 +59,11 @@ Unreleased); older history lives in git tags and GitHub releases.
   rebrand or a new palette, type scale, or spacing rhythm, and not for work that
   stays inside the direction already in place.
 
+### Fixed
+
+- Design Studio history now explicitly requests revision versions, so saved
+  revisions appear and can be reviewed or restored.
+
 ## [1.0.0-alpha.87] - 2026-07-25
 
 ### Added
