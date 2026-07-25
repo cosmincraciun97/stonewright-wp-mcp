@@ -183,6 +183,8 @@ const WRITE_PATTERNS = [
 	'ExpertiseEvaluator::evaluate(', 'ExpertisePromotion::promote(',
 	'ExpertisePromotion::set_terminal_status(',
 	'ElementorWriter::write',
+	// Design Direction service write delegates.
+	'service->save(', 'service->activate(', 'service->restore(',
 	// Batch/orchestrator delegates.
 	'new UploadMedia()', 'new BuildPageFromSpec()',
 	// Confirmation-guarded abilities can mutate or destroy state.
@@ -388,6 +390,8 @@ function detect_backup( string $source ): string {
 		|| strpos( $source, 'SpecToElementorV3()' ) !== false
 		|| strpos( $source, 'ApplyToPost()' ) !== false
 		|| strpos( $source, 'new BuildPageFromSpec()' ) !== false
+		// Typed writers that snapshot on their caller's behalf.
+		|| strpos( $source, 'ElementorKitWriter::apply' ) !== false
 	) ? 'Yes' : 'No';
 }
 
@@ -413,6 +417,10 @@ function detect_validator( string $source ): string {
 	) {
 		return 'Yes (DesignSpec)';
 	}
+	// DesignDirectionService::save() always runs DirectionContractValidator.
+	if ( strpos( $source, 'service->save(' ) !== false ) {
+		return 'Yes (Direction)';
+	}
 	return 'No';
 }
 
@@ -432,6 +440,22 @@ function detect_status( string $source ): string {
 function find_test_file( string $class ): string {
 	$short   = substr( $class, strrpos( $class, '\\' ) + 1 );
 	$domain  = '';
+
+	// Classes whose own suite is more specific than the domain default.
+	$class_tests = [
+		'DirectionList'     => 'tests/Unit/Design/DirectionAbilitiesTest.php',
+		'DirectionGet'      => 'tests/Unit/Design/DirectionAbilitiesTest.php',
+		'DirectionSave'     => 'tests/Unit/Design/DirectionAbilitiesTest.php',
+		'DirectionCapture'  => 'tests/Unit/Design/DirectionCaptureAbilityTest.php',
+		'DirectionActivate' => 'tests/Unit/Design/DirectionAbilitiesTest.php',
+		'DirectionRestore'  => 'tests/Unit/Design/DirectionAbilitiesTest.php',
+		'DirectionSyncPlan'  => 'tests/Unit/Design/DirectionSyncAbilitiesTest.php',
+		'DirectionSyncApply' => 'tests/Unit/Design/DirectionSyncAbilitiesTest.php',
+	];
+	if ( isset( $class_tests[ $short ] ) ) {
+		return $class_tests[ $short ];
+	}
+
 	if ( preg_match( '/Abilities\\\\([^\\\\]+)\\\\/', $class, $m ) ) {
 		$domain = $m[1];
 	}
@@ -560,7 +584,7 @@ $lines[] = '- **MCP Tool**: the callable MCP tool name. The WordPress MCP Adapte
 $lines[] = '- **Permission**: the `Permissions::` method called from `permission_callback()`.';
 $lines[] = '- **Token**: `ConfirmationGuard` trait or explicit `ConfirmationToken::verify_or_error()` call.';
 $lines[] = '- **Backup**: calls `Backup::snapshot_post()` before mutation.';
-$lines[] = '- **Validator**: calls an Elementor, DesignSpec, or ThemeJson validator.';
+$lines[] = '- **Validator**: calls an Elementor, DesignSpec, ThemeJson, or Design Direction validator.';
 $lines[] = '- **Status**: `stable` | `experimental` | `sandboxed` | `blocked` (from `@stonewright-status` docblock tag).';
 $lines[] = '- **Tests**: primary test file for this ability.';
 $lines[] = '';

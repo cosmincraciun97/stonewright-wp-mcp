@@ -93,6 +93,27 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 		self::assertLessThanOrEqual( 30, count( $names ) );
 	}
 
+	/**
+	 * Design Direction tools reach clients through the design profile, never
+	 * through the startup surfaces. The write trio in particular replaces live
+	 * design intent, so it must not be one tab-complete away at session start.
+	 */
+	public function test_design_direction_abilities_stay_out_of_startup_surfaces(): void {
+		$bootstrap = AbilityRegistry::bootstrap_ability_names();
+		$essential = AbilityRegistry::essential_ability_names_for_test();
+
+		foreach ( [ 'list', 'get', 'save', 'activate', 'restore' ] as $verb ) {
+			$name = 'stonewright/design-direction-' . $verb;
+			self::assertNotContains( $name, $bootstrap, $name . ' must not ship in the bootstrap surface' );
+			self::assertNotContains( $name, $essential, $name . ' must not ship in the essential surface' );
+		}
+
+		self::assertLessThanOrEqual(
+			\Stonewright\WpMcp\Support\TokenSurfaceBudgets::ESSENTIAL_MAX_TOOLS,
+			count( $essential )
+		);
+	}
+
 	public function test_essential_mode_keeps_explicit_extras_visible(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_essential_tools_mode'] = true;
 		$GLOBALS['stonewright_test_options']['stonewright_essential_extra_abilities'] = [ 'stonewright/sandbox-write' ];

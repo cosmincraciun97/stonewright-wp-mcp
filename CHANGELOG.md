@@ -10,6 +10,28 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 ## [Unreleased]
 
+### Added
+
+- Design Directions: a site's design language is now stored as a validated,
+  versioned contract instead of prose, with append-only revision history and one
+  active direction per site.
+- Eight MCP abilities to list, read, save, capture, activate, restore, and
+  synchronize design directions. Activation, restore, and synchronization
+  replace live design intent, so each is gated by permission, task context
+  token, and a confirmation token bound to the exact target in production-safe
+  mode.
+- Capture a starting direction from an existing Elementor kit: colors,
+  typography, spacing, breakpoints, and button styles become a reviewable draft
+  contract that records where each value came from. It shows the draft without
+  storing anything unless asked, and never guesses a value the kit did not
+  report.
+- Push a design direction back into the Elementor kit, in two steps. A dry run
+  shows exactly which kit globals would change, what the kit has no setting for,
+  and any value it cannot store. The write step needs that dry run, refuses to
+  proceed if the kit changed in the meantime, backs the kit up first, leaves every
+  setting it was not asked to change alone, and checks the result before
+  reporting success.
+
 ## [1.0.0-alpha.86] - 2026-07-24
 
 ### Fixed

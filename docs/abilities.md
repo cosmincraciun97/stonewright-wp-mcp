@@ -1,6 +1,6 @@
 # Abilities Reference
 
-> Category counts are generated from `docs/ability-truth-matrix.md` (**319** abilities). Categories include Comments, Users, Widgets, Settings, Themes, Plugins manage, Revisions, Search, WooCommerce, ACF, SEO, Content Model.
+> Category counts are generated from `docs/ability-truth-matrix.md` (**327** abilities). Categories include Comments, Users, Widgets, Settings, Themes, Plugins manage, Revisions, Search, WooCommerce, ACF, SEO, Content Model.
 Stonewright registers WordPress abilities under the `stonewright/` prefix. MCP
 clients call the same names with slashes converted to hyphens: ability
 `stonewright/task-start` is MCP tool `stonewright-task-start`.
@@ -25,7 +25,7 @@ matrix after changing the registry.
 | Elementor V3 | 22 | Elementor V3 structure editing, document health, page specs, kit globals, capability preflight, and batch mutation. |
 | Elementor V4 (Experimental) | 12 | Atomic nodes, variables, classes, and experimental V4 rendering. |
 | Elementor Widget Builder | 98 | Deprecated generated per-widget compatibility builders plus custom widget project helpers. |
-| Design | 13 | Validate Design Spec, build specs from manual input, choose renderers, normalize assets, intent routing, and apply to Gutenberg or Elementor. |
+| Design | 22 | Validate Design Spec, build specs from manual input, choose renderers, normalize assets, intent routing, apply to Gutenberg or Elementor, capture directions from Elementor kit evidence, read/write versioned Design Directions, and dry-run or apply a direction to the Elementor kit globals. |
 | Knowledge | 5 | Elementor knowledge search, widget descriptions, implementation guidance, and refresh. |
 | Memory | 5 | Persistent project memory, user corrections, and learning records. |
 | System | 8 | Context bootstrap, tool profiles, workflow preflight, instructions, ability list, and knowledge import/export. |
@@ -162,3 +162,37 @@ for debugging and operational tasks.
 - `stonewright/blocks-list-registered` and `stonewright/blocks-get-schema`
   include third-party block inserter metadata such as keywords, examples,
   supports, attributes, and variations when WordPress exposes them.
+- `stonewright/design-direction-list` and `stonewright/design-direction-get`
+  read stored design directions; `get` returns revision history only when
+  `include_versions` is true. Both are reads and need no token.
+- `stonewright/design-direction-save` validates the contract allowlist-only and
+  rejects unknown fields instead of stripping them. It creates a new revision
+  only when the contract hash changed, and returns the hash before and after.
+- `stonewright/design-direction-capture` turns compact Elementor kit evidence,
+  as returned by `stonewright/elementor-v3-get-kit-globals`, into a draft
+  contract with provenance for every mapped token. It previews by default and
+  stores only when `save` is true; a stored capture is always a draft, is never
+  marked ready, and never becomes the active direction. Values the kit did not
+  report stay absent instead of being guessed, contradictory values keep the
+  first and report a conflict, and unusable or unsupported evidence is reported
+  in `unmapped` rather than silently dropped.
+- `stonewright/design-direction-activate` and
+  `stonewright/design-direction-restore` change live design intent. Both
+  require the task context token, and in production-safe mode a confirmation
+  token issued for that exact direction id — and, for restore, that exact
+  revision. Both read their effect back and return
+  `stonewright_direction_verification_failed` when storage disagrees.
+- `stonewright/design-direction-sync-plan` is the dry run for Elementor kit
+  globals. It writes nothing and returns the exact operations a sync would
+  perform, plus `warnings` for what the kit has no global for and `blocked` for
+  values it cannot store. Its `base_hash` describes the live kit and is the
+  concurrency guard for the apply half.
+- `stonewright/design-direction-sync-apply` writes a sync-ready direction into
+  the kit. It requires the dry run's `base_hash` and refuses as
+  `stonewright_direction_sync_stale` when the kit moved since then, refuses any
+  plan with blocked values rather than coercing them, snapshots the kit before
+  mutating it, merges only the planned entry properties so unknown kit settings
+  survive, and re-reads the kit before the receipt claims success. Sync covers
+  kit colors and typography; spacing, radii, elevation, motion, and component
+  styles are reported as warnings instead of being forced into unrelated kit
+  fields.

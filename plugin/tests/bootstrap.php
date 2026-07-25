@@ -420,6 +420,12 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 		/** @var array<int, array<string, mixed>> */
 		public array $memory_rows = [];
 
+		/** @var array<int, array<string, mixed>> */
+		public array $direction_rows = [];
+
+		/** @var array<int, array<string, mixed>> */
+		public array $direction_version_rows = [];
+
 		/**
 		 * @param array<string, mixed> $data
 		 * @param array<int, string>   $format
@@ -430,6 +436,17 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 				'table' => $table,
 				'data'  => $data,
 			];
+			if ( str_contains( $table, 'stonewright_design_direction_versions' ) ) {
+				$this->direction_version_rows[ $this->insert_id ] = array_merge(
+					[ 'id' => $this->insert_id ],
+					$data
+				);
+			} elseif ( str_contains( $table, 'stonewright_design_directions' ) ) {
+				$this->direction_rows[ $this->insert_id ] = array_merge(
+					[ 'id' => $this->insert_id ],
+					$data
+				);
+			}
 			if ( str_contains( $table, 'stonewright_memory' ) ) {
 				$this->memory_rows[ $this->insert_id ] = array_merge(
 					[
@@ -454,6 +471,36 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 
 		/** @return array<int, array<string, mixed>> */
 		public function get_results( string $query, string $output = 'OBJECT' ): array {
+			if ( str_contains( $query, 'stonewright_design_direction_versions' ) ) {
+				$direction_id = self::matched_int( $query, '/direction_id\s*=\s*(\d+)/' );
+				$rows         = array_values(
+					array_filter(
+						$this->direction_version_rows,
+						static fn( array $row ): bool => (int) ( $row['direction_id'] ?? 0 ) === $direction_id
+					)
+				);
+				usort(
+					$rows,
+					static fn( array $a, array $b ): int => (int) ( $b['revision'] ?? 0 ) <=> (int) ( $a['revision'] ?? 0 )
+				);
+				return $rows;
+			}
+
+			if ( str_contains( $query, 'stonewright_design_directions' ) ) {
+				$status = self::matched_string( $query, "/status\s*=\s*'([^']*)'/" );
+				$rows   = array_values(
+					array_filter(
+						$this->direction_rows,
+						static fn( array $row ): bool => null === $status || (string) ( $row['status'] ?? '' ) === $status
+					)
+				);
+				usort(
+					$rows,
+					static fn( array $a, array $b ): int => (int) ( $b['id'] ?? 0 ) <=> (int) ( $a['id'] ?? 0 )
+				);
+				return $rows;
+			}
+
 			return [];
 		}
 
@@ -466,7 +513,42 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 				$row = end( $this->memory_rows );
 				return is_array( $row ) ? $row : null;
 			}
+
+			if ( str_contains( $query, 'stonewright_design_direction_versions' ) ) {
+				$direction_id = self::matched_int( $query, '/direction_id\s*=\s*(\d+)/' );
+				$revision     = self::matched_int( $query, '/revision\s*=\s*(\d+)/' );
+				foreach ( $this->direction_version_rows as $row ) {
+					if ( (int) ( $row['direction_id'] ?? 0 ) === $direction_id
+						&& (int) ( $row['revision'] ?? 0 ) === $revision ) {
+						return $row;
+					}
+				}
+				return null;
+			}
+
+			if ( str_contains( $query, 'stonewright_design_directions' ) ) {
+				$id   = self::matched_int( $query, '/\bid\s*=\s*(\d+)/' );
+				$slug = self::matched_string( $query, "/slug\s*=\s*'([^']*)'/" );
+				foreach ( $this->direction_rows as $row_id => $row ) {
+					if ( $id > 0 && (int) $row_id === $id ) {
+						return $row;
+					}
+					if ( null !== $slug && (string) ( $row['slug'] ?? '' ) === $slug ) {
+						return $row;
+					}
+				}
+				return null;
+			}
+
 			return null;
+		}
+
+		private static function matched_int( string $query, string $pattern ): int {
+			return preg_match( $pattern, $query, $m ) ? (int) $m[1] : 0;
+		}
+
+		private static function matched_string( string $query, string $pattern ): ?string {
+			return preg_match( $pattern, $query, $m ) ? (string) $m[1] : null;
 		}
 
 		public function get_var( string $query ): mixed {
@@ -487,6 +569,12 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 		 * @param array<string, mixed> $where
 		 */
 		public function update( string $table, array $data, array $where, array $format = [], array $where_format = [] ): int|false {
+			if ( str_contains( $table, 'stonewright_design_directions' ) && isset( $where['id'] ) ) {
+				$id = (int) $where['id'];
+				if ( isset( $this->direction_rows[ $id ] ) ) {
+					$this->direction_rows[ $id ] = array_merge( $this->direction_rows[ $id ], $data );
+				}
+			}
 			if ( str_contains( $table, 'stonewright_memory' ) && isset( $where['id'] ) ) {
 				$id = (int) $where['id'];
 				if ( isset( $this->memory_rows[ $id ] ) ) {
@@ -517,8 +605,42 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 			return 1;
 		}
 
+		/**
+		 * Substitutes placeholders the way real wpdb does.
+		 *
+		 * Stub readers filter on the interpolated WHERE clause, so a prepare that
+		 * dropped its arguments would make every id or slug lookup match the same
+		 * row and hide real filtering bugs.
+		 */
 		public function prepare( string $query, mixed ...$args ): string {
-			return $query;
+			if ( [] === $args ) {
+				return $query;
+			}
+
+			$out    = '';
+			$index  = 0;
+			$length = strlen( $query );
+
+			for ( $position = 0; $position < $length; $position++ ) {
+				$char = $query[ $position ];
+				$next = $position + 1 < $length ? $query[ $position + 1 ] : '';
+
+				if ( '%' !== $char || ! in_array( $next, [ 'd', 's', 'f' ], true ) || $index >= count( $args ) ) {
+					$out .= $char;
+					continue;
+				}
+
+				$arg    = $args[ $index++ ];
+				$scalar = is_scalar( $arg ) ? $arg : '';
+				$out   .= match ( $next ) {
+					'd'     => (string) (int) $scalar,
+					'f'     => (string) (float) $scalar,
+					default => "'" . str_replace( "'", "''", (string) $scalar ) . "'",
+				};
+				$position++;
+			}
+
+			return $out;
 		}
 	};
 }
@@ -1237,7 +1359,14 @@ if ( ! function_exists( 'wp_strip_all_tags' ) ) {
 
 if ( ! function_exists( 'sanitize_title' ) ) {
 	function sanitize_title( string $title, string $fallback_title = '', string $context = 'save' ): string {
-		return sanitize_key( $title );
+		// Mirrors the part of sanitize_title_with_dashes() the plugin relies on:
+		// whitespace becomes a single dash instead of disappearing.
+		$slug = strtolower( trim( $title ) );
+		$slug = (string) preg_replace( '/[^a-z0-9_\s-]/', '', $slug );
+		$slug = (string) preg_replace( '/[\s-]+/', '-', $slug );
+		$slug = trim( $slug, '-' );
+
+		return '' === $slug ? sanitize_key( $fallback_title ) : $slug;
 	}
 }
 

@@ -313,7 +313,7 @@ final class ToolProfile extends AbilityKernel {
 
 		// Read-only resolve: ordered MCP tool names for companion / clients. No option writes.
 		if ( 'resolve' === $action ) {
-			$ordered_abilities = self::profile_tools( $profile );
+			$ordered_abilities = self::profile_tools( $profile, $task, $surface, $intent );
 			$visible_rows      = array_values(
 				array_filter(
 					AbilityRegistry::all_abilities(),
@@ -394,7 +394,7 @@ final class ToolProfile extends AbilityKernel {
 		if ( 'full' !== AbilityRegistry::mcp_surface() && 'bootstrap' !== $profile ) {
 			$session_applied = AbilityRegistry::set_session_tool_profile(
 				$profile,
-				'full' === $profile ? [] : self::profile_tools( $profile )
+				'full' === $profile ? [] : self::profile_tools( $profile, $task, $surface, $intent )
 			);
 			$session_reason  = $session_applied
 				? 'session_transient_written'
@@ -411,7 +411,7 @@ final class ToolProfile extends AbilityKernel {
 			)
 		);
 		$all_visible   = array_fill_keys( array_column( $visible_rows, 'name' ), true );
-		$profile_names = 'full' === $profile ? array_keys( $all_visible ) : self::profile_tools( $profile );
+		$profile_names = 'full' === $profile ? array_keys( $all_visible ) : self::profile_tools( $profile, $task, $surface, $intent );
 		$profile_names = array_values( array_unique( $profile_names ) );
 		$missing_names = 'full' === $profile
 			? []
@@ -609,9 +609,18 @@ final class ToolProfile extends AbilityKernel {
 	 * 4) media / content batch
 	 * 5) remainder
 	 *
+	 * Design profiles always carry the two read-only Design Direction tools.
+	 * The direction write tools are added only when the task itself is
+	 * design-system management, so ordinary Elementor work never has to see
+	 * them.
+	 *
+	 * @param string $profile Named profile.
+	 * @param string $task    Optional task text, used for intent-aware extras.
+	 * @param string $surface Optional surface hint.
+	 * @param string $intent  Optional intent hint.
 	 * @return list<string>
 	 */
-	public static function profile_tools( string $profile ): array {
+	public static function profile_tools( string $profile, string $task = '', string $surface = 'unknown', string $intent = 'unknown' ): array {
 		if ( 'bootstrap' === $profile ) {
 			return AbilityRegistry::bootstrap_ability_names();
 		}
@@ -659,6 +668,9 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/security-issue-confirmation-token',
 				'stonewright/design-validate-spec',
 				'stonewright/design-native-plan',
+				// Design intent is read before any render, so the reads outrank builders.
+				'stonewright/design-direction-list',
+				'stonewright/design-direction-get',
 				'stonewright/elementor-v3-build-page-from-spec',
 				'stonewright/theme-builder-apply-template',
 				'stonewright/elementor-v3-batch-mutate',
@@ -682,10 +694,11 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/content-get-page',
 				'stonewright/media-list',
 				'stonewright/media-upload-batch',
-				'stonewright/stock-image-search',
-				'stonewright/stock-image-import',
+				// Content writes outrank stock-image discovery under a low cap.
 				'stonewright/content-bulk-upsert-posts',
 				'stonewright/content-model-loop-grid-flow',
+				'stonewright/stock-image-search',
+				'stonewright/stock-image-import',
 				'stonewright/design-implementation-contract',
 				'stonewright/widget-intent-resolve',
 				'stonewright/elementor-widget-implementation-guide',
@@ -821,14 +834,64 @@ final class ToolProfile extends AbilityKernel {
 			} )(),
 		};
 
+		// Direction writes are the point of a design-system task, so they sit right
+		// after startup rather than at the tail where a low max_tools cap trims.
+		$direction_writes = self::is_design_system_task( $task, $surface, $intent )
+			? self::direction_write_tools()
+			: [];
+
 		// low-tools stays tiny (strict client caps). wp-cli skips blueprints.
 		// All other profiles put blueprints right after startup so client caps keep them.
 		$with_blueprints = match ( $profile ) {
-			'low-tools', 'wp-cli' => array_merge( $startup, $rest ),
-			default               => array_merge( $startup, $blueprints, $rest ),
+			'low-tools', 'wp-cli' => array_merge( $startup, $direction_writes, $rest ),
+			default               => array_merge( $startup, $direction_writes, $blueprints, $rest ),
 		};
 
 		return array_values( array_unique( $with_blueprints ) );
+	}
+
+	/**
+	 * Design Direction write tools.
+	 *
+	 * These replace live design intent for every later render, so they are
+	 * gated by task intent rather than shipped with every design profile.
+	 *
+	 * @return list<string>
+	 */
+	private static function direction_write_tools(): array {
+		return [
+			'stonewright/design-direction-save',
+			'stonewright/design-direction-capture',
+			'stonewright/design-direction-activate',
+			'stonewright/design-direction-restore',
+			'stonewright/design-direction-sync-plan',
+			'stonewright/design-direction-sync-apply',
+		];
+	}
+
+	/**
+	 * True when the task is about managing the design system itself rather than
+	 * building a page with it.
+	 */
+	private static function is_design_system_task( string $task, string $surface, string $intent ): bool {
+		return self::has_any_term(
+			self::normalise( $task . ' ' . $surface . ' ' . $intent ),
+			[
+				'design system',
+				'design direction',
+				'design directions',
+				'design language',
+				'design token',
+				'design tokens',
+				'brand kit',
+				'brand guidelines',
+				'style guide',
+				'styleguide',
+				'global colors',
+				'global typography',
+				'kit globals',
+			]
+		);
 	}
 
 	private static function why( string $name ): string {
@@ -842,6 +905,14 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/security-create-one-time-link' => 'Create a short-lived wp-admin login URL for external browser MCP verification when needed.',
 			'stonewright/design-implementation-contract' => 'Load global-style, native-widget, section-batch, and verification rules.',
 			'stonewright/design-native-plan' => 'Validate compact DesignEvidence and map semantic nodes to live native schemas without writing.',
+			'stonewright/design-direction-list' => 'List stored design directions and see which one is active before designing anything.',
+			'stonewright/design-direction-get' => 'Read the active design direction contract and its revision history before rendering or verifying.',
+			'stonewright/design-direction-save' => 'Store a validated design direction contract as a new revision without activating it.',
+			'stonewright/design-direction-capture' => 'Turn Elementor kit globals into a draft direction contract with provenance; previews unless save is true.',
+			'stonewright/design-direction-activate' => 'Point the site at a ready design direction; confirmation token required in production-safe.',
+			'stonewright/design-direction-restore' => 'Bring an older direction revision back as a new revision; confirmation token required in production-safe.',
+			'stonewright/design-direction-sync-plan' => 'Dry run: see exactly which Elementor kit globals a direction would change before writing anything.',
+			'stonewright/design-direction-sync-apply' => 'Write a sync-ready direction into the Elementor kit globals; needs the dry-run base_hash and snapshots the kit.',
 			'stonewright/widget-intent-resolve' => 'Map visual intent to native Elementor widgets before writing controls.',
 			'stonewright/elementor-widget-implementation-guide' => 'Get Content, Style, and Advanced controls before Elementor writes.',
 			'stonewright/elementor-v3-get-kit-globals' => 'Read active Elementor kit colors and typography before global-style writes.',
