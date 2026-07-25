@@ -674,10 +674,19 @@
 	background: var(--sw-bg);
 }
 
-.sw-ds-finding__repair {
+.sw-ds-finding__repair,
+.sw-ds-finding__element,
+.sw-ds-finding__waiver {
 	margin: 0;
 	font-size: var(--sw-text-sm);
 	color: var(--sw-text-secondary);
+}
+
+.sw-ds-finding__element {
+	font-family: var(--sw-font-mono);
+	font-size: var(--sw-text-xs);
+	color: var(--sw-text-muted);
+	overflow-wrap: anywhere;
 }
 
 .sw-ds-coverage {

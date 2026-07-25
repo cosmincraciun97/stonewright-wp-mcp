@@ -229,8 +229,27 @@
 		return error;
 	}
 
-	function get( path ) {
-		return window.fetch( boot.restRoot + path, {
+	/**
+	 * Appends query arguments. `restRoot` already carries a query string when
+	 * the site runs plain permalinks, so the separator cannot be assumed.
+	 */
+	function query( path, params ) {
+		var url = boot.restRoot + path;
+		var pairs = [];
+
+		Object.keys( params || {} ).forEach( function ( key ) {
+			pairs.push( encodeURIComponent( key ) + '=' + encodeURIComponent( String( params[ key ] ) ) );
+		} );
+
+		if ( ! pairs.length ) {
+			return url;
+		}
+
+		return url + ( url.indexOf( '?' ) === -1 ? '?' : '&' ) + pairs.join( '&' );
+	}
+
+	function get( path, params ) {
+		return window.fetch( query( path, params ), {
 			credentials: 'same-origin',
 			headers: { Accept: 'application/json', 'X-WP-Nonce': boot.nonce || '' }
 		} ).then( function ( response ) {
@@ -604,7 +623,7 @@
 	}
 
 	function loadReports( postId ) {
-		return get( QUALITY_ROUTE + '?post_id=' + encodeURIComponent( String( postId ) ) ).then( function ( payload ) {
+		return get( QUALITY_ROUTE, { post_id: postId } ).then( function ( payload ) {
 			state.reports = Array.isArray( payload.reports ) ? payload.reports : [];
 			state.reportIndex = 0;
 
@@ -1507,7 +1526,7 @@
 							finding.waived ? badge( 'waived', 'warn' ) : null
 						] ),
 						finding.element_ref
-							? el( 'p', { className: 'sw-ds-finding__repair', text: 'Element: ' + finding.element_ref } )
+							? el( 'p', { className: 'sw-ds-finding__element', text: finding.element_ref } )
 							: null,
 						el( 'pre', {
 							className: 'sw-ds-finding__evidence',
@@ -1517,7 +1536,7 @@
 							? el( 'p', { className: 'sw-ds-finding__repair', text: finding.repair_hint } )
 							: null,
 						finding.waiver_reason
-							? el( 'p', { className: 'sw-ds-finding__repair', text: 'Waiver: ' + finding.waiver_reason } )
+							? el( 'p', { className: 'sw-ds-finding__waiver', text: 'Waiver: ' + finding.waiver_reason } )
 							: null
 					] );
 
