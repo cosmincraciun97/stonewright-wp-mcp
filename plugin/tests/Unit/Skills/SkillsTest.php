@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Unit\Skills;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Skills\Skills;
 use Stonewright\WpMcp\Skills\SkillsTable;
 
@@ -381,8 +382,319 @@ final class SkillsTest extends TestCase {
 	}
 
 	// ------------------------------------------------------------------
+	// Trash, restore, and hard delete
+	// ------------------------------------------------------------------
+
+	public function test_schema_carries_a_nullable_trashed_at_column(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb();
+
+		$this->assertStringContainsString( 'trashed_at datetime DEFAULT NULL', SkillsTable::schema_sql() );
+	}
+
+	public function test_trash_disables_an_active_skill_and_stamps_the_time(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_lifecycle(
+			[
+				[
+					'id'             => '21',
+					'slug'           => 'spacing-rules',
+					'title'          => 'Spacing rules',
+					'enabled'        => '1',
+					'enable_agentic' => '1',
+					'enable_prompt'  => '1',
+					'source'         => 'user',
+					'status'         => 'active',
+					'trashed_at'     => null,
+				],
+			]
+		);
+
+		$this->assertTrue( Skills::trash( 21 ) );
+
+		$updated = $GLOBALS['wpdb']->updated;
+		$this->assertSame( 'trashed', $updated['status'] );
+		$this->assertSame( 0, $updated['enabled'] );
+		$this->assertSame( 0, $updated['enable_agentic'] );
+		$this->assertSame( 0, $updated['enable_prompt'] );
+		$this->assertMatchesRegularExpression( '/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', (string) $updated['trashed_at'] );
+	}
+
+	/**
+	 * @dataProvider protected_sources
+	 */
+	public function test_trash_refuses_skills_stonewright_ships( string $source ): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_lifecycle(
+			[
+				[
+					'id'     => '30',
+					'slug'   => 'shipped-skill',
+					'source' => $source,
+					'status' => 'active',
+				],
+			]
+		);
+
+		$error = Skills::trash( 30 );
+
+		$this->assertInstanceOf( \WP_Error::class, $error );
+		$this->assertSame( 'stonewright_skill_protected', $error->get_error_code() );
+		$this->assertSame( [], $GLOBALS['wpdb']->updated );
+	}
+
+	/** @return array<string, array{string}> */
+	public static function protected_sources(): array {
+		return [
+			'builtin'  => [ 'builtin' ],
+			'playbook' => [ 'playbook' ],
+		];
+	}
+
+	public function test_trash_refuses_a_skill_that_is_already_trashed(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_lifecycle(
+			[
+				[
+					'id'         => '31',
+					'slug'       => 'already-gone',
+					'source'     => 'user',
+					'status'     => 'trashed',
+					'enabled'    => '0',
+					'trashed_at' => '2026-07-01 09:00:00',
+				],
+			]
+		);
+
+		$error = Skills::trash( 31 );
+
+		$this->assertInstanceOf( \WP_Error::class, $error );
+		$this->assertSame( 'stonewright_skill_already_trashed', $error->get_error_code() );
+	}
+
+	public function test_trash_refuses_a_skill_that_does_not_exist(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_lifecycle( [] );
+
+		$error = Skills::trash( 999 );
+
+		$this->assertInstanceOf( \WP_Error::class, $error );
+		$this->assertSame( 'stonewright_skill_not_found', $error->get_error_code() );
+	}
+
+	public function test_trashed_skills_never_reach_an_agent(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_lifecycle(
+			[
+				[
+					'id'             => '40',
+					'slug'           => 'live-skill',
+					'title'          => 'Live skill',
+					'description'    => 'Use when the site is live.',
+					'enabled'        => '1',
+					'enable_agentic' => '1',
+					'enable_prompt'  => '1',
+					'source'         => 'user',
+					'status'         => 'active',
+				],
+				[
+					'id'             => '41',
+					'slug'           => 'binned-skill',
+					'title'          => 'Binned skill',
+					'description'    => 'Use when nothing at all.',
+					'enabled'        => '0',
+					'enable_agentic' => '0',
+					'enable_prompt'  => '0',
+					'source'         => 'user',
+					'status'         => 'trashed',
+					'trashed_at'     => '2026-07-20 12:00:00',
+				],
+			]
+		);
+
+		$this->assertSame( [ 'live-skill' ], array_column( Skills::list(), 'slug' ) );
+		$this->assertSame( [ 'live-skill' ], array_column( Skills::list_agentic(), 'slug' ) );
+		$this->assertStringNotContainsString( 'binned-skill', Skills::instructions_block() );
+	}
+
+	public function test_list_trashed_returns_only_the_trashed_rows(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_lifecycle(
+			[
+				[
+					'id'     => '50',
+					'slug'   => 'live-skill',
+					'source' => 'user',
+					'status' => 'active',
+				],
+				[
+					'id'         => '51',
+					'slug'       => 'binned-skill',
+					'source'     => 'user',
+					'status'     => 'trashed',
+					'trashed_at' => '2026-07-20 12:00:00',
+				],
+			]
+		);
+
+		$this->assertSame( [ 'binned-skill' ], array_column( Skills::list_trashed(), 'slug' ) );
+	}
+
+	public function test_restore_returns_a_skill_to_a_disabled_draft(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_lifecycle(
+			[
+				[
+					'id'         => '60',
+					'slug'       => 'binned-skill',
+					'source'     => 'user',
+					'status'     => 'trashed',
+					'enabled'    => '0',
+					'trashed_at' => '2026-07-20 12:00:00',
+				],
+			]
+		);
+
+		$this->assertTrue( Skills::restore( 60 ) );
+
+		$updated = $GLOBALS['wpdb']->updated;
+		$this->assertSame( 'draft', $updated['status'] );
+		$this->assertSame( 0, $updated['enabled'] );
+		$this->assertNull( $updated['trashed_at'] );
+	}
+
+	public function test_restore_refuses_a_skill_that_is_not_trashed(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_lifecycle(
+			[
+				[
+					'id'     => '61',
+					'slug'   => 'live-skill',
+					'source' => 'user',
+					'status' => 'active',
+				],
+			]
+		);
+
+		$error = Skills::restore( 61 );
+
+		$this->assertInstanceOf( \WP_Error::class, $error );
+		$this->assertSame( 'stonewright_skill_not_trashed', $error->get_error_code() );
+	}
+
+	public function test_hard_delete_refuses_an_unconfirmed_call_in_production_safe_mode(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_lifecycle( [ $this->trashed_row() ] );
+		update_option( 'stonewright_mode', 'production-safe' );
+
+		try {
+			$error = Skills::destroy( 70 );
+
+			$this->assertInstanceOf( \WP_Error::class, $error );
+			$this->assertStringStartsWith( 'stonewright_confirmation_', $error->get_error_code() );
+			$this->assertSame( [], $GLOBALS['wpdb']->deleted );
+		} finally {
+			delete_option( 'stonewright_mode' );
+		}
+	}
+
+	public function test_hard_delete_accepts_a_matching_confirmation_token(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_lifecycle( [ $this->trashed_row() ] );
+		update_option( 'stonewright_mode', 'production-safe' );
+
+		try {
+			$token = ConfirmationToken::issue( Skills::DESTROY_ABILITY, [ 'id' => 70 ] );
+
+			$this->assertTrue( Skills::destroy( 70, $token ) );
+			$this->assertSame( [ [ 'id' => 70 ] ], $GLOBALS['wpdb']->deleted );
+		} finally {
+			delete_option( 'stonewright_mode' );
+		}
+	}
+
+	public function test_hard_delete_needs_no_token_outside_production_safe_mode(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_lifecycle( [ $this->trashed_row() ] );
+
+		$this->assertTrue( Skills::destroy( 70 ) );
+		$this->assertTrue( Skills::delete( 70 ) );
+	}
+
+	/** @return array<string, mixed> */
+	private function trashed_row(): array {
+		return [
+			'id'         => '70',
+			'slug'       => 'binned-skill',
+			'source'     => 'user',
+			'status'     => 'trashed',
+			'enabled'    => '0',
+			'trashed_at' => '2026-07-20 12:00:00',
+		];
+	}
+
+	// ------------------------------------------------------------------
 	// Helpers
 	// ------------------------------------------------------------------
+
+	/**
+	 * wpdb stub that remembers rows and answers id lookups from prepare() args.
+	 *
+	 * @param array<int, array<string, mixed>> $rows
+	 */
+	private function make_wpdb_lifecycle( array $rows ): object {
+		return new class( $rows ) {
+			public string $prefix    = 'wp_';
+			public int    $insert_id = 90;
+
+			/** @var array<string, mixed> */
+			public array $updated = [];
+
+			/** @var list<array<string, mixed>> */
+			public array $deleted = [];
+
+			/** @var list<mixed> */
+			private array $last_args = [];
+
+			/** @param array<int, array<string, mixed>> $rows */
+			public function __construct( private array $rows ) {}
+
+			public function get_var( string $q ): string {
+				return 'wp_stonewright_skills';
+			}
+
+			public function prepare( string $q, mixed ...$args ): string {
+				$this->last_args = $args;
+				return $q;
+			}
+
+			/** @return array<int, array<string, mixed>> */
+			public function get_results( string $q, string $output = 'OBJECT' ): array {
+				return $this->rows;
+			}
+
+			/** @return array<string, mixed>|null */
+			public function get_row( string $q, string $output = 'OBJECT' ): ?array {
+				$needle = (string) ( $this->last_args[0] ?? '' );
+
+				foreach ( $this->rows as $row ) {
+					if ( (string) ( $row['id'] ?? '' ) === $needle || (string) ( $row['slug'] ?? '' ) === $needle ) {
+						return $row;
+					}
+				}
+
+				return null;
+			}
+
+			/** @param array<string, mixed> $data */
+			public function insert( string $table, array $data, array $format = [] ): int {
+				return 1;
+			}
+
+			/**
+			 * @param array<string, mixed> $data
+			 * @param array<string, mixed> $where
+			 */
+			public function update( string $table, array $data, array $where, array $format = [], array $where_format = [] ): int {
+				$this->updated = $data;
+				return 1;
+			}
+
+			/** @param array<string, mixed> $where */
+			public function delete( string $table, array $where ): int {
+				$this->deleted[] = $where;
+				return 1;
+			}
+		};
+	}
 
 	/**
 	 * Creates a minimal wpdb mock where the table IS found and rows returned.

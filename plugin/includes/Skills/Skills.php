@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Skills;
 
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Support\Json;
 
 /**
@@ -13,8 +14,19 @@ use Stonewright\WpMcp\Support\Json;
  */
 final class Skills {
 
+	/** Status a trashed skill carries. Trashed skills never reach an agent. */
+	public const STATUS_TRASHED = 'trashed';
+
+	/** Ability name a hard delete is confirmed against in production-safe mode. */
+	public const DESTROY_ABILITY = 'stonewright/skills-delete';
+
+	/** Sources Stonewright ships. The site may disable these, never remove them. */
+	private const PROTECTED_SOURCES = [ 'builtin', 'playbook' ];
+
 	/**
 	 * List all skills, optionally filtering to enabled only.
+	 *
+	 * Trashed skills are excluded here. Use list_trashed() to see them.
 	 *
 	 * @return array<int, array<string, mixed>>
 	 */
@@ -29,17 +41,51 @@ final class Skills {
 
 		if ( $enabled_only ) {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$rows = $wpdb->get_results( "SELECT * FROM {$table} WHERE enabled = 1 ORDER BY source ASC, title ASC", ARRAY_A );
+			$rows = $wpdb->get_results( "SELECT * FROM {$table} WHERE enabled = 1 AND status <> 'trashed' ORDER BY source ASC, title ASC", ARRAY_A );
 		} else {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$rows = $wpdb->get_results( "SELECT * FROM {$table} ORDER BY source ASC, title ASC", ARRAY_A );
+			$rows = $wpdb->get_results( "SELECT * FROM {$table} WHERE status <> 'trashed' ORDER BY source ASC, title ASC", ARRAY_A );
 		}
 
 		if ( ! is_array( $rows ) ) {
 			return [];
 		}
 
-		return array_map( [ self::class, 'normalize_row' ], $rows );
+		// The WHERE clause is the fast path; this is the one that decides.
+		return array_values(
+			array_filter(
+				array_map( [ self::class, 'normalize_row' ], $rows ),
+				static fn( array $row ): bool => self::STATUS_TRASHED !== (string) ( $row['status'] ?? '' )
+			)
+		);
+	}
+
+	/**
+	 * List trashed skills, newest first.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function list_trashed(): array {
+		global $wpdb;
+
+		if ( ! self::table_exists() ) {
+			return [];
+		}
+
+		$table = SkillsTable::table_name();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_results( "SELECT * FROM {$table} WHERE status = 'trashed' ORDER BY trashed_at DESC, title ASC", ARRAY_A );
+
+		if ( ! is_array( $rows ) ) {
+			return [];
+		}
+
+		return array_values(
+			array_filter(
+				array_map( [ self::class, 'normalize_row' ], $rows ),
+				static fn( array $row ): bool => self::STATUS_TRASHED === (string) ( $row['status'] ?? '' )
+			)
+		);
 	}
 
 	/**
@@ -342,25 +388,177 @@ final class Skills {
 	}
 
 	/**
-	 * Delete a skill by ID.
+	 * Move a skill to the trash.
+	 *
+	 * Trash is the reversible half of deletion: the row stays, its history
+	 * stays, and every switch that could make an agent read it goes off.
+	 *
+	 * @return bool|\WP_Error True when trashed, error explaining the refusal.
 	 */
-	public static function delete( int $id ): bool {
+	public static function trash( int $id ): bool|\WP_Error {
 		global $wpdb;
 
-		if ( ! self::table_exists() ) {
-			return false;
+		$skill = self::writable_skill( $id );
+		if ( $skill instanceof \WP_Error ) {
+			return $skill;
 		}
-		$skill = self::get_by_id( $id );
-		$source = (string) ( $skill['source'] ?? '' );
-		if ( ! $skill || in_array( $source, [ 'builtin', 'playbook' ], true ) ) {
-			return false;
+
+		if ( self::STATUS_TRASHED === (string) ( $skill['status'] ?? '' ) ) {
+			return new \WP_Error(
+				'stonewright_skill_already_trashed',
+				__( 'That skill is already in the trash.', 'stonewright' )
+			);
+		}
+
+		$table = SkillsTable::table_name();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$result = $wpdb->update(
+			$table,
+			[
+				'status'         => self::STATUS_TRASHED,
+				'enabled'        => 0,
+				'enable_agentic' => 0,
+				'enable_prompt'  => 0,
+				'trashed_at'     => current_time( 'mysql', true ),
+				'updated_at'     => current_time( 'mysql', true ),
+			],
+			[ 'id' => $id ]
+		);
+
+		if ( false === $result ) {
+			return new \WP_Error(
+				'stonewright_skill_trash_failed',
+				__( 'The skill could not be moved to the trash.', 'stonewright' )
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Take a skill back out of the trash as a disabled draft.
+	 *
+	 * Restore never re-enables anything. Somebody trashed this skill on
+	 * purpose, so it comes back where a human has to look at it again.
+	 *
+	 * @return bool|\WP_Error True when restored, error explaining the refusal.
+	 */
+	public static function restore( int $id ): bool|\WP_Error {
+		global $wpdb;
+
+		$skill = self::writable_skill( $id );
+		if ( $skill instanceof \WP_Error ) {
+			return $skill;
+		}
+
+		if ( self::STATUS_TRASHED !== (string) ( $skill['status'] ?? '' ) ) {
+			return new \WP_Error(
+				'stonewright_skill_not_trashed',
+				__( 'That skill is not in the trash.', 'stonewright' )
+			);
+		}
+
+		$table = SkillsTable::table_name();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$result = $wpdb->update(
+			$table,
+			[
+				'status'         => 'draft',
+				'enabled'        => 0,
+				'enable_agentic' => 0,
+				'enable_prompt'  => 0,
+				'trashed_at'     => null,
+				'updated_at'     => current_time( 'mysql', true ),
+			],
+			[ 'id' => $id ]
+		);
+
+		if ( false === $result ) {
+			return new \WP_Error(
+				'stonewright_skill_restore_failed',
+				__( 'The skill could not be restored.', 'stonewright' )
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Delete a skill and its row for good.
+	 *
+	 * In production-safe mode this needs a confirmation token issued for this
+	 * exact skill id, because there is nothing to undo afterwards.
+	 *
+	 * @param string $token Confirmation token, required in production-safe mode.
+	 * @return bool|\WP_Error True when deleted, error explaining the refusal.
+	 */
+	public static function destroy( int $id, string $token = '' ): bool|\WP_Error {
+		global $wpdb;
+
+		$skill = self::writable_skill( $id );
+		if ( $skill instanceof \WP_Error ) {
+			return $skill;
+		}
+
+		if ( 'production-safe' === (string) get_option( 'stonewright_mode', 'development' ) ) {
+			$confirmed = ConfirmationToken::verify_or_error( $token, self::DESTROY_ABILITY, [ 'id' => $id ] );
+			if ( is_wp_error( $confirmed ) ) {
+				return $confirmed;
+			}
 		}
 
 		$table = SkillsTable::table_name();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$result = $wpdb->delete( $table, [ 'id' => $id ] );
 
-		return false !== $result && $result > 0;
+		if ( false === $result || $result < 1 ) {
+			return new \WP_Error(
+				'stonewright_skill_delete_failed',
+				__( 'The skill could not be deleted.', 'stonewright' )
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Delete a skill by ID.
+	 *
+	 * Thin bool wrapper over destroy() for callers that only need yes or no.
+	 */
+	public static function delete( int $id ): bool {
+		return true === self::destroy( $id );
+	}
+
+	/**
+	 * Load a skill the site is allowed to change, or explain why it cannot.
+	 *
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private static function writable_skill( int $id ): array|\WP_Error {
+		if ( ! self::table_exists() ) {
+			return new \WP_Error(
+				'stonewright_skills_unavailable',
+				__( 'The skills table is not installed on this site.', 'stonewright' )
+			);
+		}
+
+		$skill = self::get_by_id( $id );
+		if ( null === $skill ) {
+			return new \WP_Error(
+				'stonewright_skill_not_found',
+				__( 'That skill does not exist.', 'stonewright' )
+			);
+		}
+
+		if ( in_array( (string) ( $skill['source'] ?? '' ), self::PROTECTED_SOURCES, true ) ) {
+			return new \WP_Error(
+				'stonewright_skill_protected',
+				__( 'Skills that ship with Stonewright can be disabled but not removed.', 'stonewright' )
+			);
+		}
+
+		return $skill;
 	}
 
 	/**
@@ -463,7 +661,7 @@ final class Skills {
 	}
 
 	private static function sanitize_status( string $status ): string {
-		return in_array( $status, [ 'draft', 'active', 'stale', 'rejected' ], true ) ? $status : 'draft';
+		return in_array( $status, [ 'draft', 'active', 'stale', 'rejected', self::STATUS_TRASHED ], true ) ? $status : 'draft';
 	}
 
 	private static function status_for_enabled_change( string $status, bool $enabled, bool $enabled_was_supplied ): string {

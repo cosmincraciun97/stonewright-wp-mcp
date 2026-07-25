@@ -14,6 +14,17 @@ final class AdminShell {
 	public const THEME_NONCE    = 'stonewright_admin_theme';
 
 	/**
+	 * Theme toggle icons, drawn rather than typed.
+	 *
+	 * Dingbat characters render differently on every platform and are read out
+	 * by some screen readers, so the toggle ships a path the stylesheet can
+	 * size and colour instead.
+	 */
+	public const ICON_SUN = 'M8 2.4v1.5M8 12.1v1.5M2.4 8h1.5M12.1 8h1.5M4.05 4.05l1.06 1.06M10.89 10.89l1.06 1.06M11.95 4.05l-1.06 1.06M5.11 10.89l-1.06 1.06M8 5.3a2.7 2.7 0 100 5.4 2.7 2.7 0 000-5.4';
+
+	public const ICON_MOON = 'M13.2 9.7A5.7 5.7 0 016.3 2.8a5.7 5.7 0 106.9 6.9z';
+
+	/**
 	 * Premium IA: ≤6 menu groups. Page slugs stay stable; only labels/order change.
 	 *
 	 * @return list<array{id:string,label:string,pages:array<string,string>}>
@@ -199,7 +210,11 @@ final class AdminShell {
 						aria-pressed="<?php echo 'dark' === $theme ? 'true' : 'false'; ?>"
 						aria-label="<?php esc_attr_e( 'Toggle dark mode', 'stonewright' ); ?>"
 					>
-						<span class="sw-theme-toggle__icon" aria-hidden="true"><?php echo 'dark' === $theme ? '☀' : '☾'; ?></span>
+						<span class="sw-theme-toggle__icon" aria-hidden="true">
+							<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+								<path data-sw-theme-icon d="<?php echo esc_attr( 'dark' === $theme ? self::ICON_SUN : self::ICON_MOON ); ?>" />
+							</svg>
+						</span>
 					</button>
 					<?php if ( '' !== $version ) : ?>
 						<span class="sw-shell__version" aria-hidden="true"><?php echo esc_html( $version ); ?></span>

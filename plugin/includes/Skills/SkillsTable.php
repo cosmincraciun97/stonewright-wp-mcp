@@ -17,7 +17,7 @@ final class SkillsTable {
 	private const VERSION_OPTION = 'stonewright_skills_db_version';
 
 	/** @var string Current schema version */
-	private const SCHEMA_VERSION = '1.2';
+	private const SCHEMA_VERSION = '1.3';
 
 	public static function table_name(): string {
 		global $wpdb;
@@ -76,11 +76,13 @@ final class SkillsTable {
 			verification_count int(10) unsigned NOT NULL DEFAULT 0,
 			revision int(10) unsigned NOT NULL DEFAULT 1,
 			conflict_json text NOT NULL,
+			trashed_at datetime DEFAULT NULL,
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY (id),
 			UNIQUE KEY slug (slug),
 			KEY topic_status (topic, status),
+			KEY trashed_at (trashed_at),
 			KEY semantic_fingerprint (semantic_fingerprint)
 		) {$charset};";
 	}
