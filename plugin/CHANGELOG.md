@@ -133,6 +133,8 @@
 - The Design Studio live region keeps the result of a write on screen. A
   restore or an activation re-renders its view, and the render's "loaded"
   message used to replace the outcome before a screen reader could reach it.
+- Design Studio history explicitly opts into revision versions when reading a
+  direction, so real saved revisions are listed and remain restorable.
 
 ## [1.0.0-alpha.86] - 2026-07-24
 

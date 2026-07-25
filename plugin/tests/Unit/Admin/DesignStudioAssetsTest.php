@@ -174,6 +174,14 @@ final class DesignStudioAssetsTest extends TestCase {
 		self::assertStringContainsString( "'/quality'", $js );
 	}
 
+	public function test_direction_reads_explicitly_request_revision_history(): void {
+		self::assertMatchesRegularExpression(
+			'/get\(\s*DIRECTIONS_ROUTE\s*\+\s*\'\/\'\s*\+\s*encodeURIComponent\( String\( id \) \),\s*\{\s*include_versions:\s*true\s*\}\s*\)/s',
+			self::js(),
+			'History must opt in to versions because design-direction-get omits them by default.'
+		);
+	}
+
 	public function test_the_assets_are_page_scoped_to_the_design_studio(): void {
 		$bootstrap = self::bootstrap();
 
