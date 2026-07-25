@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.89] - 2026-07-26
+
 ### Fixed
 
 - OAuth consent now autoloads its user entity through the normal PSR-4 path, so
@@ -183,18 +185,3 @@
   consent, Connected Apps, and 17-client onboarding.
 - Independent `/mcp/stonewright-oauth` server while retaining Application
   Password authentication on `/mcp/stonewright`.
-
-## [1.0.0-alpha.84] - 2026-07-24
-
-### Added
-
-- Add `stonewright/elementor-wire-loop` for transactional native Loop
-  Grid/Carousel planning and writes with live schemas, staged templates,
-  idempotency, readback, and rollback.
-- Add controlled schema-repair learning that activates only after two distinct
-  verified tasks or explicit approval.
-
-### Changed
-
-- Serialize Elementor page writes and bound learned repairs by runtime,
-  retention, and task-start limits.

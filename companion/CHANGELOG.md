@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.89] - 2026-07-26
+
+### Changed
+
+- Align the companion package with the plugin release that restores OAuth
+  consent completion for ChatGPT and other standards-compliant clients.
+
 ## [1.0.0-alpha.88] - 2026-07-25
 
 ### Changed
