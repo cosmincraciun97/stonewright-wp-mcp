@@ -186,7 +186,19 @@
 	/* Live region                                                         */
 	/* ------------------------------------------------------------------ */
 
+	/**
+	 * True while the live region is holding the result of a write.
+	 *
+	 * A write re-renders its view, and the render then wants to say what it
+	 * loaded. Without this the outcome the reader is waiting for — "Restored
+	 * revision 2 as revision 5." — is replaced by "Loaded 3 revisions." before
+	 * anyone, screen reader included, has read it.
+	 */
+	var outcomeShown = false;
+
 	function announce( message, tone ) {
+		outcomeShown = !! tone;
+
 		if ( ! statusNode ) {
 			return;
 		}
@@ -196,6 +208,17 @@
 		} else {
 			statusNode.removeAttribute( 'data-tone' );
 		}
+	}
+
+	/**
+	 * Says what a view loaded, unless an outcome is still on screen.
+	 */
+	function announceLoad( message ) {
+		if ( outcomeShown ) {
+			return;
+		}
+
+		announce( message );
 	}
 
 	function emit( name, detail ) {
@@ -746,7 +769,7 @@
 								: el( 'p', { className: 'sw-ds-field__hint', text: 'Your account cannot create design directions.' } )
 						] )
 					);
-					announce( 'No design direction is stored yet.' );
+					announceLoad( 'No design direction is stored yet.' );
 
 					return;
 				}
@@ -781,7 +804,7 @@
 				);
 
 				panel.appendChild( directionPicker() );
-				announce( 'Loaded ' + state.directions.length + ' design directions.' );
+				announceLoad( 'Loaded ' + state.directions.length + ' design directions.' );
 			} )
 			.catch( function ( error ) {
 				renderError( panel, error );
@@ -1651,7 +1674,7 @@
 						el( 'table', { className: 'sw-ds-table' }, [ el( 'thead', null, [ head ] ), body ] )
 					] )
 				);
-				announce( 'Loaded ' + state.versions.length + ' revisions.' );
+				announceLoad( 'Loaded ' + state.versions.length + ' revisions.' );
 			} )
 			.catch( function ( error ) {
 				renderError( panel, error );
@@ -1756,6 +1779,10 @@
 	function showView( view ) {
 		state.view = view;
 		root.setAttribute( 'data-sw-current-view', view );
+
+		// Leaving the view retires the outcome it was holding, so the view
+		// being opened is free to say what it loaded.
+		outcomeShown = false;
 
 		tabNodes.forEach( function ( tab ) {
 			var isCurrent = tab.getAttribute( 'data-sw-view' ) === view;
