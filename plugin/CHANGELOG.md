@@ -4,6 +4,26 @@
 
 ### Added
 
+- Admin page `stonewright-visual-workspace` (`Admin\Pages\VisualWorkspacePage`),
+  gated on `edit_posts` and, for a targeted post, on
+  `Permissions::can_edit_post()`. PHP renders the chrome and hands the browser
+  bundle three slots: adapter chip, canvas body, inspector body. The boot payload
+  carries only the REST base, a `wp_rest` nonce, the post id, the requested
+  editor, and the active direction row (identity, revision, contract hash) — the
+  contract itself stays on the server. A missing bundle is stated on the page
+  with the command that builds it. No abilities were added, changed, or removed.
+- Visual Workspace front end (`assets/admin/visual-workspace.js`,
+  `assets/admin/visual-workspace.css`) plus the `visual/` workspace UI it boots:
+  adapter detection that stops on an undrivable editor instead of falling
+  through, a controller-enforced read → preview → confirm → apply → verify
+  ladder with a single private write dispatch, a confirmation panel carrying both
+  the human diff and the exact adapter arguments, and an evidence panel that
+  keeps failed and unchecked rules visible as unverified.
+- `plugin/assets/visual/` is staged at packaging time and is not committed.
+  `scripts/package-verify.mjs` warns on a missing bundle in a source checkout and
+  fails under `--require-visual-bundle`; CI and the release workflow pass that
+  flag after staging, and the release job asserts the built zip contains the
+  bundle.
 - Admin page `stonewright-design-studio` with four views (overview, editor,
   quality, history) and REST routes under `stonewright/v1/design-studio`. Every
   route delegates to the typed design-direction and quality abilities, so

@@ -297,7 +297,9 @@ Stonewright speaks standard MCP (stdio via the companion, and HTTP MCP when the 
 
 ## Admin interface
 
-Plugin mode admin pages include Setup, Dashboard (Site Pulse), Abilities, Blueprints, Design Studio, Skills, Memory, Sandbox, and Audit Log. Theme toggle lives in the admin shell header.
+Plugin mode admin pages include Setup, Dashboard (Site Pulse), Abilities, Blueprints, Design Studio, Visual Workspace, Skills, Memory, Sandbox, and Audit Log. Theme toggle lives in the admin shell header.
+
+Design Studio holds design directions: the validated design intent a site works to, versioned, with provenance and revisions. Visual Workspace opens a post in the browser workspace, resolves the live editor adapter, and walks read → preview → confirm → apply → verify with the active direction on screen. Neither page certifies that a page looks right; a change applied without evidence behind it is reported as unverified rather than as a success. See [docs/visual.md](docs/visual.md).
 
 <!-- Maintainer: add the Dashboard or Site Pulse screenshot here. Do not remove this comment until the asset is available. -->
 <!-- Maintainer: add the Blueprints or brand-kit screenshot here. Do not remove this comment until the asset is available. -->

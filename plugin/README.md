@@ -156,6 +156,28 @@ OAuth or generate a WordPress Application Password, then copy client-specific
 instructions. It also includes copyable real-world prompt
 examples for Elementor, content modeling, WooCommerce, and Gutenberg/FSE work.
 
+### Design Studio And Visual Workspace
+
+Design Studio stores design directions — validated design intent, versioned,
+with provenance — and lets you create, capture, or import one, mark it ready,
+activate it, dry-run a sync against the Elementor Kit, apply that sync with a
+backup and readback, inspect the recorded quality evidence, and restore an
+earlier revision. Every activation, sync, and restore goes through a review
+drawer that states what will change before anything is written.
+
+Visual Workspace opens a post in the browser workspace under
+`admin.php?page=stonewright-visual-workspace&post_id=<id>`. It requires
+`edit_posts`, plus edit rights on the target post. The workspace resolves the
+live editor adapter — Elementor V4 atomic, then Elementor V3, then Gutenberg —
+and enforces read → preview → confirm → apply → verify for every write.
+
+Neither page claims that a page looks correct. Design directions supply intent,
+quality reports supply measurements with their own coverage, and a change
+applied with no evidence behind it is reported as unverified. The browser bundle
+is generated into `assets/visual/` at packaging time; when it is absent the page
+says so and prints the build command. See
+[docs/visual.md](../docs/visual.md).
+
 ## Adding An Ability
 
 1. Create a class extending `AbilityKernel` in `includes/Abilities/<Category>/`.
