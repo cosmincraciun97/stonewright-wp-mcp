@@ -31,8 +31,11 @@ see and drive the ladder an MCP client would otherwise walk alone. It requires
 `edit_posts`, and pointing it at a post additionally requires
 `Permissions::can_edit_post()` for that post.
 
-Open it with `&post_id=<id>`, or use the picker on the page when no post id is
-supplied. The requested editor can be pinned with `&editor=elementor-v3`,
+Open it with `&post_id=<id>`, or use the styled picker when no post id is
+supplied. Select **Connect editor**: a user gesture opens the real editor in a
+same-origin companion window, and the workspace waits for its runtime before
+resolving an adapter. Keep that editor window open. The requested editor can be
+pinned with `&editor=elementor-v3`,
 `&editor=elementor-v4`, or `&editor=gutenberg`; the default `auto` leaves it to
 detection, which is the honest default because only the browser can see which
 editor actually loaded.
@@ -44,13 +47,13 @@ so and prints the command that builds it, rather than showing an empty frame.
 
 ### Adapter detection
 
-Detection walks Elementor V4 atomic, then Elementor V3, then Gutenberg. An
+Detection runs against the connected editor window, not the separate admin
+host. It walks Elementor V4 atomic, then Elementor V3, then Gutenberg. An
 editor that is present but cannot be driven stops the walk instead of falling
 through to the next candidate — treating an Elementor page as Gutenberg is the
-outcome this ordering exists to prevent. The admin screen is not an editor
-screen, so "no supported editor was found on this page" is a normal reported
-state; the stored quality report is still fetched and shown so the page can say
-what was last observed.
+outcome this ordering exists to prevent. A blocked popup, closed editor window,
+60-second runtime timeout, or unsupported adapter is a visible connection
+error, never a false connected state.
 
 ### Write ladder
 
@@ -82,6 +85,9 @@ instead of being folded into a pass.
 
 ### Accessibility
 
+Both the picker and workspace include a four-step onboarding guide. Contextual
+help opens on pointer hover or keyboard focus, uses `role=tooltip`, closes with
+Escape, and never replaces a visible control label.
 The viewport group is a keyboard-operable toolbar with `aria-pressed` state.
 At 1024 px and below the inspector collapses into a drawer with an `aria-expanded`
 toggle, `aria-modal` content, Escape to close, and focus returned to the toggle.

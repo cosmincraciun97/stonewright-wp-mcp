@@ -91,6 +91,8 @@ final class DesignStudioPageTest extends TestCase {
 
 		self::assertStringContainsString( 'data-sw-design-studio', $html );
 		self::assertStringContainsString( 'aria-live="polite"', $html );
+		self::assertStringContainsString( 'New here? Follow the four-step design loop', $html );
+		self::assertStringContainsString( 'data-sw-tooltip=', $html );
 
 		foreach ( DesignStudioPage::VIEWS as $view ) {
 			self::assertStringContainsString( 'data-sw-view="' . $view . '"', $html );

@@ -118,12 +118,36 @@ final class VisualWorkspacePage {
 			'nonce'      => wp_create_nonce( DesignStudioRestApi::NONCE_ACTION ),
 			'postId'     => $post_id,
 			'editorKind' => in_array( $editor, self::EDITOR_KINDS, true ) ? $editor : 'auto',
+			'editorUrl'  => self::editor_url( $post_id, $editor ),
 			'direction'  => self::direction_summary( is_array( $active ) ? $active : null ),
 			'can'        => [
 				'editPost'     => Permissions::can_edit_post( $post_id ),
 				'manageDesign' => Permissions::can_manage_design(),
 			],
 		];
+	}
+
+	/**
+	 * URL of the real editor window the workspace attaches to.
+	 *
+	 * The workspace host is deliberately separate from Elementor/Gutenberg.
+	 * A user gesture opens this same-origin URL, then the browser bundle reads
+	 * the actual editor globals from that window instead of pretending the
+	 * host page is an editor.
+	 */
+	public static function editor_url( int $post_id, string $editor = 'auto' ): string {
+		if ( $post_id <= 0 || ! Permissions::can_edit_post( $post_id ) ) {
+			return '';
+		}
+
+		$kind = in_array( $editor, self::EDITOR_KINDS, true ) ? $editor : 'auto';
+		if ( 'auto' === $kind ) {
+			$kind = 'elementor' === self::editor_context( $post_id )['builder'] ? 'elementor-v3' : 'gutenberg';
+		}
+
+		$action = str_starts_with( $kind, 'elementor-' ) ? 'elementor' : 'edit';
+
+		return admin_url( 'post.php?post=' . rawurlencode( (string) $post_id ) . '&action=' . $action );
 	}
 
 	/**
@@ -241,6 +265,8 @@ final class VisualWorkspacePage {
 				</div>
 			</div>
 
+			<?php self::render_guide(); ?>
+
 			<form class="sw-visual-picker" method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>">
 				<input type="hidden" name="page" value="<?php echo esc_attr( self::SLUG ); ?>" />
 				<label for="sw-visual-post-id"><?php esc_html_e( 'Post id', 'stonewright' ); ?></label>
@@ -275,7 +301,6 @@ final class VisualWorkspacePage {
 		$post    = get_post( $post_id );
 		$title   = is_object( $post ) && property_exists( $post, 'post_title' ) ? (string) $post->post_title : '';
 		$context = self::editor_context( $post_id );
-		$edit    = (string) get_edit_post_link( $post_id, 'url' );
 		$ready   = self::bundle_ready( self::bundle_path() );
 		?>
 		<div
@@ -306,8 +331,14 @@ final class VisualWorkspacePage {
 
 				<div class="sw-visual-page__header-actions">
 					<div class="sw-visual-page__adapter" data-sw-visual-adapter></div>
-					<?php if ( '' !== $edit ) : ?>
-						<a class="sw-button" href="<?php echo esc_url( $edit ); ?>"><?php esc_html_e( 'Open editor', 'stonewright' ); ?></a>
+					<?php if ( '' !== self::editor_url( $post_id, self::requested_editor() ) ) : ?>
+						<button
+							type="button"
+							class="sw-button sw-button--primary"
+							data-sw-visual-connect
+							data-editor-url="<?php echo esc_url( self::editor_url( $post_id, self::requested_editor() ) ); ?>"
+							data-sw-tooltip="<?php esc_attr_e( 'Opens the real editor in a companion window and connects this workspace to its live runtime. Nothing is written until you confirm a proposed change.', 'stonewright' ); ?>"
+						><?php esc_html_e( 'Connect editor', 'stonewright' ); ?></button>
 					<?php endif; ?>
 					<button
 						type="button"
@@ -319,12 +350,18 @@ final class VisualWorkspacePage {
 				</div>
 			</header>
 
+			<?php self::render_guide(); ?>
+
 			<p class="sw-visual-page__status" data-sw-visual-status role="status" aria-live="polite"></p>
 
 			<div class="sw-visual-page__body">
 				<section class="sw-visual-page__canvas" data-sw-visual-canvas aria-label="<?php esc_attr_e( 'Evidence canvas', 'stonewright' ); ?>">
 					<div data-sw-visual-workspace-canvas>
-						<p class="sw-visual-page__placeholder"><?php esc_html_e( 'Connecting to the editor…', 'stonewright' ); ?></p>
+						<div class="sw-visual-connect-card">
+							<p class="sw-visual-connect-card__eyebrow"><?php esc_html_e( 'Step 1 of 4', 'stonewright' ); ?></p>
+							<h2><?php esc_html_e( 'Connect the real editor', 'stonewright' ); ?></h2>
+							<p><?php esc_html_e( 'Use Connect editor above. Keep the editor window open while this workspace reads structure, previews a proposed diff, asks for confirmation, and verifies the result.', 'stonewright' ); ?></p>
+						</div>
 					</div>
 				</section>
 
@@ -354,6 +391,20 @@ final class VisualWorkspacePage {
 				</div>
 			</noscript>
 		</div>
+		<?php
+	}
+
+	private static function render_guide(): void {
+		?>
+		<details class="sw-visual-guide">
+			<summary><?php esc_html_e( 'How this workspace works', 'stonewright' ); ?></summary>
+			<ol>
+				<li><strong><?php esc_html_e( 'Connect', 'stonewright' ); ?></strong> — <?php esc_html_e( 'opens the real Elementor or block editor and detects its live adapter.', 'stonewright' ); ?></li>
+				<li><strong><?php esc_html_e( 'Read', 'stonewright' ); ?></strong> — <?php esc_html_e( 'loads structure without changing the page.', 'stonewright' ); ?></li>
+				<li><strong><?php esc_html_e( 'Preview and confirm', 'stonewright' ); ?></strong> — <?php esc_html_e( 'shows the exact proposed operations; writes remain blocked until approval.', 'stonewright' ); ?></li>
+				<li><strong><?php esc_html_e( 'Verify', 'stonewright' ); ?></strong> — <?php esc_html_e( 'reads the latest quality evidence and labels unchecked work honestly.', 'stonewright' ); ?></li>
+			</ol>
+		</details>
 		<?php
 	}
 }

@@ -40,7 +40,8 @@ final class ToolProfileOrderingTest extends TestCase {
 	public function test_elementor_design_set_is_unchanged_by_reorder(): void {
 		$names = ToolProfile::profile_tools( 'elementor-design' );
 
-		self::assertCount( 66, $names );
+		self::assertCount( 67, $names );
 		self::assertSame( $names, array_values( array_unique( $names ) ) );
+		self::assertContains( 'stonewright/design-direction-brief', $names );
 	}
 }

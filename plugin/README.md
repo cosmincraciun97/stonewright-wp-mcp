@@ -159,24 +159,31 @@ examples for Elementor, content modeling, WooCommerce, and Gutenberg/FSE work.
 ### Design Studio And Visual Workspace
 
 Design Studio stores design directions — validated design intent, versioned,
-with provenance — and lets you create, capture, or import one, mark it ready,
-activate it, dry-run a sync against the Elementor Kit, apply that sync with a
-backup and readback, inspect the recorded quality evidence, and restore an
-earlier revision. Every activation, sync, and restore goes through a review
-drawer that states what will change before anything is written.
+with provenance — and lets you create or edit one, mark it ready, activate it,
+dry-run a sync against the Elementor Kit, apply that sync with a backup and
+readback, inspect recorded quality evidence, and restore an earlier revision.
+Capture and sanitized import remain typed ability workflows; this admin screen
+does not pretend to expose controls it does not have.
 
-Visual Workspace opens a post in the browser workspace under
+Visual Workspace opens a post under
 `admin.php?page=stonewright-visual-workspace&post_id=<id>`. It requires
-`edit_posts`, plus edit rights on the target post. The workspace resolves the
-live editor adapter — Elementor V4 atomic, then Elementor V3, then Gutenberg —
-and enforces read → preview → confirm → apply → verify for every write.
+`edit_posts`, plus edit rights on the target post. **Connect editor** opens the
+real same-origin Elementor or block editor window. The workspace resolves the
+adapter against that runtime — Elementor V4 atomic, then Elementor V3, then
+Gutenberg — and enforces read → preview → confirm → apply → verify.
+
+For Figma-derived work, call `stonewright-design-direction-brief` once and
+reuse its compact tokens and translated density/variance/motion guidance across
+section batches. Normalize official Figma MCP or Figma Console MCP output into
+vendor-neutral DesignEvidence; Stonewright embeds neither client.
 
 Neither page claims that a page looks correct. Design directions supply intent,
 quality reports supply measurements with their own coverage, and a change
 applied with no evidence behind it is reported as unverified. The browser bundle
 is generated into `assets/visual/` at packaging time; when it is absent the page
 says so and prints the build command. See
-[docs/visual.md](../docs/visual.md).
+[docs/visual.md](../docs/visual.md) and
+[docs/figma-to-elementor-workflow.md](../docs/figma-to-elementor-workflow.md).
 
 ## Adding An Ability
 

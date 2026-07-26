@@ -755,6 +755,7 @@ final class WorkflowPreflight extends AbilityKernel {
 		$tools = [ 'stonewright/task-start', 'stonewright/tool-profile' ];
 
 		if ( 'elementor' === $profile['surface'] ) {
+			$tools[] = 'stonewright/design-direction-brief';
 			$tools[] = 'stonewright/design-native-plan';
 			$tools[] = 'stonewright/knowledge-candidate-record';
 			$tools[] = 'stonewright/elementor-schema';
@@ -922,6 +923,11 @@ final class WorkflowPreflight extends AbilityKernel {
 		if ( 'elementor' === $profile['surface'] ) {
 			$target  = (string) ( $profile['elementor_write_target'] ?? 'v3' );
 			$blocked = ! empty( $profile['elementor_write_blocked'] );
+			$out[] = self::call_step(
+				'stonewright/design-direction-brief',
+				'Read compact active tokens and translated Elementor density, variance, and motion rules once; reuse this brief across section batches.',
+				[]
+			);
 			$out[] = self::call_step(
 				'stonewright/design-native-plan',
 				'Normalize DesignEvidence, block unresolved actions/styles, and map semantic nodes to live native schemas before any write.',

@@ -98,10 +98,16 @@ invalidate or rebuild the native result.
 
 ## Minimal flow
 
-1. Read the current page, kit, media, menus, and live widget schemas.
-2. Normalize design inputs into DesignEvidence; omit raw source trees.
-3. Call `stonewright-design-native-plan`.
-4. Resolve every blocker and repeat until ready.
-5. Compile the returned intent through schema-validated native dry-runs.
-6. Write through guarded batch operations and verify readback.
-7. Offer phase two only for a measured remaining delta.
+1. Read `stonewright-design-direction-brief` once, then the current page, kit,
+   media, menus, and live widget schemas.
+2. With official Figma MCP or Figma Console MCP, read shallow page metadata and
+   reusable tokens once; deep-read only the current top-level section.
+3. Normalize that section into DesignEvidence and omit raw source trees.
+4. Call `stonewright-design-native-plan`.
+5. Resolve every blocker and repeat until ready.
+6. Compile the returned intent through schema-validated native dry-runs.
+7. Write through guarded batch operations and verify readback.
+8. Offer phase two only for a measured remaining delta.
+
+See [figma-to-elementor-workflow.md](figma-to-elementor-workflow.md) for the
+complete low-token extraction, implementation, and onboarding guide.

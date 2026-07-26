@@ -35,6 +35,7 @@ export interface WorkspaceBootConfig {
   nonce: string;
   postId: number;
   editorKind?: AdapterKind | "auto";
+  editorUrl?: string;
   /**
    * The WordPress direction row, or an already-normalised summary. The row
    * carries the contract hash and never the contract itself.
@@ -50,6 +51,7 @@ interface EditorWindow {
   stonewrightVisualWorkspace?: WorkspaceBootConfig;
   /** The mounted controller, so a host script can drive the workspace. */
   stonewrightVisual?: WorkspaceController;
+  stonewrightVisualConnect?: (editorWindow: EditorWindow) => Promise<WorkspaceController | null>;
 }
 
 const MOUNT_SELECTOR = "[data-sw-visual-workspace]";
@@ -196,20 +198,19 @@ export function mountFromConfig(
 }
 
 /**
- * Mounts, connects, and shows what is already known about the post.
+ * Mounts against a supplied real editor window, connects, and shows what is
+ * already known about the post.
  *
- * Connecting can legitimately fail: the workspace host page is not an editor,
- * so there is often no editor runtime to attach to. That is reported in the
- * status line rather than hidden. Either way the stored quality report is read
- * and shown, so the page still says what the last verification observed.
+ * The wp-admin host does not call this against itself. Its explicit Connect
+ * editor action supplies a same-origin Elementor/Gutenberg window after that
+ * runtime is ready. Unsupported runtimes are reported rather than guessed.
  */
-async function start(config: WorkspaceBootConfig, target: EditorWindow): Promise<void> {
+async function start(config: WorkspaceBootConfig, target: EditorWindow): Promise<WorkspaceController | null> {
   const controller = mountFromConfig(config, target);
   if (controller === null) {
-    return;
+    return null;
   }
 
-  target.stonewrightVisual = controller;
   await controller.connect();
 
   try {
@@ -223,6 +224,8 @@ async function start(config: WorkspaceBootConfig, target: EditorWindow): Promise
     // No readable report is not an error state of its own: the evidence panel
     // stays empty, which is exactly what "nothing was verified" looks like.
   }
+
+  return controller;
 }
 
 function boot(): void {
@@ -231,7 +234,39 @@ function boot(): void {
   if (!config) {
     return;
   }
-  void start(config, target);
+
+  let connectionGeneration = 0;
+
+  // Paint the host workspace immediately. On a normal wp-admin host the
+  // strict runtime checks resolve no adapter, so the UI truthfully starts
+  // disconnected; browser tests and legitimate embedded-editor hosts may
+  // still resolve a runtime already present on this window.
+  void start(config, target).then((controller) => {
+    if (controller) {
+      if (connectionGeneration === 0) {
+        target.stonewrightVisual = controller;
+      } else {
+        controller.destroy();
+      }
+    }
+  });
+
+  target.stonewrightVisualConnect = async (editorWindow: EditorWindow): Promise<WorkspaceController | null> => {
+    const generation = ++connectionGeneration;
+    if (target.stonewrightVisual) {
+      target.stonewrightVisual.destroy();
+    }
+    const controller = await start(config, editorWindow);
+    if (controller) {
+      if (generation === connectionGeneration) {
+        target.stonewrightVisual = controller;
+      } else {
+        controller.destroy();
+        return null;
+      }
+    }
+    return controller;
+  };
 }
 
 if (typeof window !== "undefined" && typeof document !== "undefined") {

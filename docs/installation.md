@@ -322,11 +322,13 @@ ask the user to connect Playwright instead of building blind.
 
 ```text
 Use Stonewright to implement the attached Figma design in Elementor V3. Start
-with stonewright-task-start, extract
-layout, spacing, colors, typography, and responsive behavior, render with
+with stonewright-task-start, read stonewright-design-direction-brief once,
+extract one shallow page/section manifest and one reusable token table, then
+normalize each section's layout, spacing, colors, typography, assets, and
+responsive measurements into DesignEvidence. Render with
 stonewright-elementor-v3-build-page-from-spec, then use
 stonewright-elementor-v3-batch-mutate for polish. Verify desktop, tablet, and
-mobile screenshots against the design.
+mobile screenshots against the same measured Figma frames.
 ```
 
 ```text

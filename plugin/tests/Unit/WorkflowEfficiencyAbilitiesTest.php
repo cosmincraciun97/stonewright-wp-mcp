@@ -366,6 +366,12 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'stonewright/tool-profile', $result['fast_path']['recommended_tools'] );
 		self::assertContains( 'stonewright-tool-profile', $result['fast_path']['recommended_mcp_tools'] );
 		self::assertContains( 'stonewright/media-upload-batch', $result['fast_path']['recommended_tools'] );
+		self::assertContains( 'stonewright/design-direction-brief', $result['fast_path']['recommended_tools'] );
+		self::assertContains( 'stonewright-design-direction-brief', $result['fast_path']['recommended_mcp_tools'] );
+		self::assertContains(
+			'stonewright-design-direction-brief',
+			array_column( $result['fast_path']['call_sequence'], 'tool' )
+		);
 		self::assertContains( 'Implement visual pages in write-and-verify batches of one section, or two sections only when they are simple and tightly coupled.', $result['fast_path']['batching_rules'] );
 		self::assertContains( 'After each batch, verify desktop, tablet, and mobile screenshots plus overflow before starting the next batch.', $result['fast_path']['batching_rules'] );
 		self::assertContains( 'Auto-continue to the next section batch when screenshots, diagnostics, and overflow checks pass; do not wait for user approval between passing batches.', $result['fast_path']['batching_rules'] );

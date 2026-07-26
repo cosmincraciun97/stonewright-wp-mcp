@@ -1,6 +1,6 @@
 # Abilities Reference
 
-> Category counts are generated from `docs/ability-truth-matrix.md` (**329** abilities). Categories include Comments, Users, Widgets, Settings, Themes, Plugins manage, Revisions, Search, WooCommerce, ACF, SEO, Content Model.
+> Category counts are generated from `docs/ability-truth-matrix.md` (**330** abilities). Categories include Comments, Users, Widgets, Settings, Themes, Plugins manage, Revisions, Search, WooCommerce, ACF, SEO, Content Model.
 Stonewright registers WordPress abilities under the `stonewright/` prefix. MCP
 clients call the same names with slashes converted to hyphens: ability
 `stonewright/task-start` is MCP tool `stonewright-task-start`.
@@ -165,6 +165,13 @@ for debugging and operational tasks.
 - `stonewright/design-direction-list` and `stonewright/design-direction-get`
   read stored design directions; `get` returns revision history only when
   `include_versions` is true. Both are reads and need no token.
+- `stonewright/design-direction-brief` returns the active direction's ready
+  state, tokens, guidance, waivers, hash, and compact translated Elementor
+  rules. Density maps to responsive section padding and a default container
+  gap; variance maps to layout rhythm; motion blocks, limits, or allows
+  entrance/motion effects. Declared spacing tokens override dial defaults.
+  Reuse this response across section batches instead of transferring the full
+  contract repeatedly.
 - `stonewright/design-direction-save` validates the contract allowlist-only and
   rejects unknown fields instead of stripping them. It creates a new revision
   only when the contract hash changed, and returns the hash before and after.
