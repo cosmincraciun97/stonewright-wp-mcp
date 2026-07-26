@@ -297,7 +297,10 @@ final class AbilitiesPage {
 				</thead>
 				<tbody>
 					<?php foreach ( $props as $param => $def ) : ?>
-						<?php $type = is_array( $def['type'] ?? null ) ? implode( '|', $def['type'] ) : (string) ( $def['type'] ?? '?' ); ?>
+						<?php
+						$def  = is_object( $def ) ? get_object_vars( $def ) : ( is_array( $def ) ? $def : [] );
+						$type = is_array( $def['type'] ?? null ) ? implode( '|', $def['type'] ) : (string) ( $def['type'] ?? '?' );
+						?>
 						<tr>
 							<td><code><?php echo esc_html( (string) $param ); ?></code></td>
 							<td><?php echo esc_html( $type ); ?></td>

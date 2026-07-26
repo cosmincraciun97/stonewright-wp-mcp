@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.90] - 2026-07-26
+
+### Fixed
+
+- Normalize every nested MCP input and output schema fragment as a JSON object
+  or boolean, so strict clients such as ChatGPT can discover all abilities.
+
 ## [1.0.0-alpha.89] - 2026-07-26
 
 ### Fixed
@@ -176,12 +183,3 @@
 
 - OAuth dynamic client registration no longer fails when the optional internal
   self-test header is absent.
-
-## [1.0.0-alpha.85] - 2026-07-24
-
-### Added
-
-- OAuth 2.0 MCP authentication with PKCE, discovery, rotating refresh tokens,
-  consent, Connected Apps, and 17-client onboarding.
-- Independent `/mcp/stonewright-oauth` server while retaining Application
-  Password authentication on `/mcp/stonewright`.

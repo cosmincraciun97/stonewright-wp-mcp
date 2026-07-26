@@ -10,6 +10,13 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 ## [Unreleased]
 
+## [1.0.0-alpha.90] - 2026-07-26
+
+### Fixed
+
+- ChatGPT can scan and refresh every MCP action without rejecting empty JSON
+  Schema fragments encoded as arrays.
+
 ## [1.0.0-alpha.89] - 2026-07-26
 
 ### Fixed
@@ -121,19 +128,3 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 - OAuth client registration now accepts requests without the internal self-test
   header, restoring sign-in from Codex and other standards-compliant clients.
-
-## [1.0.0-alpha.85] - 2026-07-24
-
-### Added
-
-- Browser-based OAuth for a dedicated `stonewright-oauth` MCP resource with
-  PKCE, discovery, rotating refresh tokens, consent, revocation, and Connected
-  Apps.
-- OAuth-first onboarding for 17 AI clients while preserving the independent
-  Application Password route.
-
-### Security
-
-- OAuth tokens are audience-bound to the dedicated MCP resource; redirect URIs,
-  scopes, transport, registration rates, replay, and refresh rotation fail
-  closed.

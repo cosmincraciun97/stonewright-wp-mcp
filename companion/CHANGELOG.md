@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.90] - 2026-07-26
+
+### Changed
+
+- Align the companion package with the plugin release that restores strict MCP
+  schema discovery in ChatGPT.
+
 ## [1.0.0-alpha.89] - 2026-07-26
 
 ### Changed
