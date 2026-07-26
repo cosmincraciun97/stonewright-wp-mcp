@@ -946,28 +946,63 @@ final class AbilityRegistry {
 	 * @return array<int|string, mixed>
 	 */
 	private static function normalise_schema_object_maps( array $schema ): array {
+		$normalised = self::normalise_schema_fragment( $schema );
+
+		return is_array( $normalised ) ? $normalised : [];
+	}
+
+	/**
+	 * PHP represents both JSON objects and arrays with arrays. Empty schema
+	 * fragments therefore need an explicit stdClass so they encode as `{}`.
+	 *
+	 * @param array<int|string, mixed> $schema JSON Schema fragment.
+	 * @return array<int|string, mixed>|\stdClass
+	 */
+	private static function normalise_schema_fragment( array $schema ): array|\stdClass {
+		if ( [] === $schema ) {
+			return new \stdClass();
+		}
+
 		if ( 'array' === ( $schema['type'] ?? null ) && ! array_key_exists( 'items', $schema ) ) {
 			$schema['items'] = new \stdClass();
 		}
 
-		foreach ( $schema as $key => $value ) {
-			if ( ! is_array( $value ) ) {
+		foreach ( [ '$defs', 'definitions', 'dependentSchemas', 'patternProperties', 'properties' ] as $key ) {
+			if ( ! isset( $schema[ $key ] ) || ! is_array( $schema[ $key ] ) ) {
 				continue;
 			}
 
-			if ( [] === $value && self::is_schema_object_map_key( (string) $key ) ) {
+			if ( [] === $schema[ $key ] ) {
 				$schema[ $key ] = new \stdClass();
 				continue;
 			}
 
-			$schema[ $key ] = self::normalise_schema_object_maps( $value );
+			foreach ( $schema[ $key ] as $name => $fragment ) {
+				if ( is_array( $fragment ) ) {
+					$schema[ $key ][ $name ] = self::normalise_schema_fragment( $fragment );
+				}
+			}
+		}
+
+		foreach ( [ 'additionalProperties', 'contains', 'contentSchema', 'else', 'if', 'items', 'not', 'propertyNames', 'then', 'unevaluatedItems', 'unevaluatedProperties' ] as $key ) {
+			if ( isset( $schema[ $key ] ) && is_array( $schema[ $key ] ) ) {
+				$schema[ $key ] = self::normalise_schema_fragment( $schema[ $key ] );
+			}
+		}
+
+		foreach ( [ 'allOf', 'anyOf', 'oneOf', 'prefixItems' ] as $key ) {
+			if ( ! isset( $schema[ $key ] ) || ! is_array( $schema[ $key ] ) ) {
+				continue;
+			}
+
+			foreach ( $schema[ $key ] as $index => $fragment ) {
+				if ( is_array( $fragment ) ) {
+					$schema[ $key ][ $index ] = self::normalise_schema_fragment( $fragment );
+				}
+			}
 		}
 
 		return $schema;
-	}
-
-	private static function is_schema_object_map_key( string $key ): bool {
-		return in_array( $key, [ '$defs', 'definitions', 'dependentSchemas', 'patternProperties', 'properties' ], true );
 	}
 
 	/**

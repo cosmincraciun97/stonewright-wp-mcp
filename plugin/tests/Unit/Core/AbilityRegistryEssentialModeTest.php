@@ -167,6 +167,34 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 		self::assertSame( [], $errors );
 	}
 
+	public function test_every_public_schema_fragment_encodes_as_an_object_for_strict_clients(): void {
+		$errors = [];
+		foreach ( AbilityRegistry::list() as $class ) {
+			if ( ! class_exists( $class ) ) {
+				continue;
+			}
+
+			/** @var Ability $ability */
+			$ability = new $class();
+			foreach (
+				[
+					'input_schema'  => self::registry_input_schema_for_ability( $ability ),
+					'output_schema' => self::registry_output_schema_for_ability( $ability ),
+				] as $kind => $schema
+			) {
+				$encoded = json_encode( $schema, JSON_THROW_ON_ERROR );
+				$decoded = json_decode( $encoded, false, 512, JSON_THROW_ON_ERROR );
+				self::collect_invalid_schema_fragments(
+					$decoded,
+					$ability->name() . '.' . $kind,
+					$errors
+				);
+			}
+		}
+
+		self::assertSame( [], $errors );
+	}
+
 	/**
 	 * @param mixed             $schema
 	 * @param array<int,string> $errors
@@ -183,6 +211,57 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 		foreach ( $schema as $key => $value ) {
 			self::collect_missing_array_items( $value, $path . '.' . (string) $key, $errors );
 		}
+	}
+
+	/**
+	 * @param array<int,string> $errors
+	 */
+	private static function collect_invalid_schema_fragments( mixed $schema, string $path, array &$errors ): void {
+		if ( is_bool( $schema ) ) {
+			return;
+		}
+
+		if ( ! $schema instanceof \stdClass ) {
+			$errors[] = $path . ' must encode as a JSON Schema object or boolean';
+			return;
+		}
+
+		foreach ( [ '$defs', 'definitions', 'dependentSchemas', 'patternProperties', 'properties' ] as $key ) {
+			if ( ! property_exists( $schema, $key ) || ! $schema->{$key} instanceof \stdClass ) {
+				continue;
+			}
+
+			foreach ( get_object_vars( $schema->{$key} ) as $name => $fragment ) {
+				self::collect_invalid_schema_fragments( $fragment, $path . '.' . $key . '.' . $name, $errors );
+			}
+		}
+
+		foreach ( [ 'additionalProperties', 'contains', 'contentSchema', 'else', 'if', 'items', 'not', 'propertyNames', 'then', 'unevaluatedItems', 'unevaluatedProperties' ] as $key ) {
+			if ( property_exists( $schema, $key ) ) {
+				self::collect_invalid_schema_fragments( $schema->{$key}, $path . '.' . $key, $errors );
+			}
+		}
+
+		foreach ( [ 'allOf', 'anyOf', 'oneOf', 'prefixItems' ] as $key ) {
+			if ( ! property_exists( $schema, $key ) || ! is_array( $schema->{$key} ) ) {
+				continue;
+			}
+
+			foreach ( $schema->{$key} as $index => $fragment ) {
+				self::collect_invalid_schema_fragments( $fragment, $path . '.' . $key . '.' . $index, $errors );
+			}
+		}
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	private static function registry_input_schema_for_ability( Ability $ability ): array {
+		$method = new \ReflectionMethod( AbilityRegistry::class, 'input_schema_for_ability' );
+
+		/** @var array<string, mixed> $schema */
+		$schema = $method->invoke( null, $ability );
+		return $schema;
 	}
 
 	/**
