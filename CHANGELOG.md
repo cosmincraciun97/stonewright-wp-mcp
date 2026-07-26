@@ -10,6 +10,29 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 ## [Unreleased]
 
+### Added
+
+- `stonewright/design-direction-brief`, a compact read-only ability that turns
+  the active direction's variance, density, and motion dials into reusable
+  Elementor guidance without returning the full stored contract for every
+  section.
+- Guided onboarding, contextual keyboard-accessible tooltips, and explicit
+  readiness controls in Design Studio.
+
+### Changed
+
+- The Figma-to-Elementor skills now use one shallow document read, one
+  token/style read, then per-section normalized DesignEvidence. They reuse the
+  compact direction brief, enforce measured responsive targets, and avoid
+  repetitive generic compositions and undeclared visual defaults.
+- Visual Workspace now opens the real Elementor or block editor in a
+  same-origin companion window and resolves adapters against that live runtime.
+
+### Fixed
+
+- Style the Visual Workspace post picker and editor connection controls with
+  the Stonewright admin design system.
+
 ## [1.0.0-alpha.90] - 2026-07-26
 
 ### Fixed

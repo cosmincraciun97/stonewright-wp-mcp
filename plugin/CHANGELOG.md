@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+### Added
+
+- Read-only ability `stonewright/design-direction-brief` and
+  `Design\Direction\DialTranslator`, returning compact active direction tokens
+  plus deterministic Elementor layout, density, and motion guidance.
+- Design Studio onboarding, contextual accessible tooltips, and editable
+  `ready` / `sync_ready` state with unresolved issue tracking.
+
+### Changed
+
+- Visual Workspace connects to the actual same-origin Elementor/Gutenberg
+  editor window before resolving an adapter.
+
+### Fixed
+
+- Visual Workspace picker and connection buttons now use complete Stonewright
+  button states instead of unstyled browser controls.
+
 ## [1.0.0-alpha.90] - 2026-07-26
 
 ### Fixed

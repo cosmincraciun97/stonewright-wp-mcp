@@ -670,6 +670,7 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/design-native-plan',
 				// Design intent is read before any render, so the reads outrank builders.
 				'stonewright/design-direction-list',
+				'stonewright/design-direction-brief',
 				'stonewright/design-direction-get',
 				// Verification of what was rendered belongs next to the builders,
 				// and the checkpoint that unblocks the rest of the page sits with it.
@@ -913,6 +914,7 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/design-native-plan' => 'Validate compact DesignEvidence and map semantic nodes to live native schemas without writing.',
 			'stonewright/design-direction-list' => 'List stored design directions and see which one is active before designing anything.',
 			'stonewright/design-direction-get' => 'Read the active design direction contract and its revision history before rendering or verifying.',
+			'stonewright/design-direction-brief' => 'Read the compact active Elementor guidance and tokens once, then reuse it across section batches.',
 			'stonewright/design-direction-save' => 'Store a validated design direction contract as a new revision without activating it.',
 			'stonewright/design-direction-capture' => 'Turn Elementor kit globals into a draft direction contract with provenance; previews unless save is true.',
 			'stonewright/design-direction-activate' => 'Point the site at a ready design direction; confirmation token required in production-safe.',

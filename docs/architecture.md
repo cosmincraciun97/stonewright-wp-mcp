@@ -130,13 +130,14 @@ depend on content alone rather than on the order a caller supplied.
 
 ### Ability surface
 
-Nine abilities expose the store and its verification loop to MCP clients, all in
+Eleven abilities expose the store and its verification loop to MCP clients, all in
 the `design` category:
 
 | Ability | R/W | Gates |
 |---|---|---|
 | `stonewright/design-direction-list` | Read | `Permissions::read()` |
 | `stonewright/design-direction-get` | Read | `Permissions::read()` |
+| `stonewright/design-direction-brief` | Read | `Permissions::read()` |
 | `stonewright/design-direction-save` | Write | `can_manage_design()`, context token, `DirectionContractValidator` |
 | `stonewright/design-direction-capture` | Write | `can_manage_design()`, context token, `DirectionContractValidator` |
 | `stonewright/design-direction-activate` | Write | `can_manage_design()`, context token, confirmation token |
@@ -200,8 +201,9 @@ Receipts report `before_sha256`, `after_sha256`, `operation_class`,
 `resource_type`, and `verification_status`, which the ability kernel forwards
 into the audit record.
 
-The two reads ship in the `elementor-design` tool profile ahead of the
-builders, because design intent is read before anything renders. The writes are
+The compact brief and the general direction reads ship in the
+`elementor-design` tool profile ahead of the builders, because design intent is
+read before anything renders. The writes are
 intent-gated: they appear only when the task text names design-system work,
 and then immediately after the startup tools rather than at the tail, so a low
 `max_tools` cap cannot trim the tools the task exists for.
@@ -321,13 +323,13 @@ stays on the server: the workspace states which direction is in force, it does
 not re-derive its rules in JavaScript. The page is gated on `edit_posts` and, for
 the post it targets, on `Permissions::can_edit_post()`.
 
-Adapter resolution is honest about failure. Detection walks Elementor V4 atomic,
-then Elementor V3, then Gutenberg, and an editor that is present but cannot be
-driven stops the walk instead of falling through — editing an Elementor page as
-if it were Gutenberg is precisely the outcome that must not happen. The admin
-page is not an editor screen, so "no supported editor was found on this page" is
-a normal, reported state, and the stored quality report is still read and shown
-so the screen says what was last observed.
+The admin host is not an editor. **Connect editor** opens the real same-origin
+Elementor or block editor window after an explicit user gesture, waits for its
+runtime, and supplies those globals to the resolver. Detection then walks
+Elementor V4 atomic, Elementor V3, and Gutenberg. An editor that is present but
+cannot be driven stops the walk instead of falling through. Blocked popups,
+closed windows, 60-second runtime timeouts, and unsupported adapters are
+reported as connection failures rather than false success.
 
 The write ladder is enforced by the controller, not by the markup: read, then
 preview, then an explicit confirmation, then apply, then verify. Every editor

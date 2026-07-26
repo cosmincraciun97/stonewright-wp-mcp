@@ -153,7 +153,7 @@
 			node.disabled = true;
 		}
 		if ( config.hint ) {
-			node.setAttribute( 'title', config.hint );
+			node.setAttribute( 'data-sw-tooltip', config.hint );
 		}
 
 		return node;
@@ -527,6 +527,7 @@
 		var identity = contract.identity || {};
 		var dials = contract.dials || {};
 		var guidance = contract.guidance || {};
+		var readiness = contract.readiness || {};
 
 		return {
 			id: direction ? Number( direction.id ) || 0 : 0,
@@ -539,7 +540,10 @@
 			motion: Number( dials.motion || 0 ),
 			tokens: JSON.stringify( contract.tokens || {}, null, 2 ),
 			guidanceDo: ( guidance.do || [] ).join( '\n' ),
-			guidanceAvoid: ( guidance.avoid || [] ).join( '\n' )
+			guidanceAvoid: ( guidance.avoid || [] ).join( '\n' ),
+			ready: true === readiness.ready,
+			syncReady: true === readiness.sync_ready,
+			readinessIssues: ( readiness.issues || [] ).join( '\n' )
 		};
 	}
 
@@ -579,6 +583,12 @@
 		} catch ( error ) {
 			errors.push( { field: 'tokens', message: 'Tokens are not valid JSON: ' + error.message } );
 		}
+		if ( draft.ready && linesOf( draft.readinessIssues ).length ) {
+			errors.push( { field: 'readinessIssues', message: 'Resolve the listed readiness issues before marking this direction ready.' } );
+		}
+		if ( draft.syncReady && ! draft.ready ) {
+			errors.push( { field: 'readinessIssues', message: 'A direction must be ready for use before it can be ready to sync.' } );
+		}
 
 		return errors;
 	}
@@ -593,7 +603,7 @@
 	 *
 	 * @var string[]
 	 */
-	var PRESERVED_SECTIONS = [ 'components', 'provenance', 'waivers', 'readiness' ];
+	var PRESERVED_SECTIONS = [ 'components', 'provenance', 'waivers' ];
 
 	/**
 	 * The stored contract behind a draft, or an empty map for a new record.
@@ -637,6 +647,11 @@
 			motion: Number( draft.motion ) || 0
 		};
 		contract.guidance = { do: linesOf( draft.guidanceDo ), avoid: linesOf( draft.guidanceAvoid ) };
+		contract.readiness = {
+			ready: !! draft.ready,
+			sync_ready: !! draft.syncReady,
+			issues: linesOf( draft.readinessIssues )
+		};
 
 		return contract;
 	}
@@ -933,7 +948,7 @@
 		}
 
 		var error = el( 'span', { className: 'sw-ds-field__error', attrs: { id: id + '-error' } } );
-		var wrapper = el( 'div', { className: 'sw-ds-field', attrs: { 'data-sw-field': config.name } }, [
+		var wrapper = el( 'div', { className: 'sw-ds-field', attrs: { 'data-sw-field': config.name, 'data-sw-tooltip': config.hint || null } }, [
 			el( 'label', { className: 'sw-ds-field__label', text: config.label, attrs: { for: id } } ),
 			config.hint ? el( 'span', { className: 'sw-ds-field__hint', text: config.hint } ) : null,
 			control,
@@ -947,6 +962,25 @@
 		} );
 
 		return wrapper;
+	}
+
+	function toggleField( config ) {
+		var id = 'sw-ds-field-' + config.name;
+		var control = el( 'input', { attrs: { id: id, type: 'checkbox' } } );
+		control.checked = !! config.value;
+		control.addEventListener( 'change', function () {
+			config.onInput( control.checked );
+			markDirty( true );
+		} );
+
+		return el( 'label', { className: 'sw-ds-toggle', attrs: { for: id, 'data-sw-tooltip': config.hint } }, [
+			control,
+			el( 'span', { className: 'sw-ds-toggle__track', attrs: { 'aria-hidden': 'true' } } ),
+			el( 'span', { className: 'sw-ds-toggle__copy' }, [
+				el( 'strong', { text: config.label } ),
+				el( 'span', { text: config.hint } )
+			] )
+		] );
 	}
 
 	function refreshValidation() {
@@ -1162,6 +1196,34 @@
 			} )
 		] );
 
+		var readiness = el( 'fieldset', { className: 'sw-ds-fieldset sw-ds-readiness' }, [
+			el( 'legend', { text: 'Readiness' } ),
+			el( 'p', { className: 'sw-ds-field__hint', text: 'Ready allows activation. Sync ready separately allows approved global tokens to be planned for the Elementor kit.' } ),
+			toggleField( {
+				name: 'ready',
+				label: 'Ready for use',
+				hint: 'Mark only after tokens, guidance, responsive intent, and source references have been reviewed.',
+				value: draft.ready,
+				onInput: function ( value ) { draft.ready = value; }
+			} ),
+			toggleField( {
+				name: 'syncReady',
+				label: 'Ready to sync globals',
+				hint: 'Allows Design Studio to plan supported color and typography changes against the live Elementor kit.',
+				value: draft.syncReady,
+				onInput: function ( value ) { draft.syncReady = value; }
+			} ),
+			field( {
+				name: 'readinessIssues',
+				label: 'Open readiness issues',
+				type: 'textarea',
+				rows: 3,
+				hint: 'One unresolved issue per line. Keep this honest; issues travel with the revision.',
+				value: draft.readinessIssues,
+				onInput: function ( value ) { draft.readinessIssues = value; }
+			} )
+		] );
+
 		var save = button( 'Review and save', {
 			variant: 'primary',
 			icon: 'check',
@@ -1177,6 +1239,7 @@
 			dials,
 			tokens,
 			guidance,
+			readiness,
 			el( 'div', { className: 'sw-ds-actions' }, [
 				save,
 				button( 'Revert to stored', {
@@ -1267,7 +1330,7 @@
 			],
 			confirmLabel: 'Save direction',
 			onConfirm: function () {
-				var body = { contract: contract };
+				var body = { contract: contract, status: draft.ready ? 'ready' : 'draft' };
 
 				if ( draft.slug ) {
 					body.slug = draft.slug;
@@ -1926,5 +1989,56 @@
 		return '';
 	} );
 
+	function initTooltips() {
+		var tip = null;
+		var active = null;
+
+		function close() {
+			if ( tip && tip.parentNode ) {
+				tip.parentNode.removeChild( tip );
+			}
+			if ( active ) {
+				active.removeAttribute( 'aria-describedby' );
+			}
+			tip = null;
+			active = null;
+		}
+
+		function open( node ) {
+			var text = node.getAttribute( 'data-sw-tooltip' );
+			if ( ! text ) {
+				return;
+			}
+			if ( active === node ) {
+				return;
+			}
+			close();
+			active = node;
+			tip = el( 'div', { className: 'sw-ds-tooltip', text: text, attrs: { id: 'sw-ds-tooltip', role: 'tooltip' } } );
+			document.body.appendChild( tip );
+			node.setAttribute( 'aria-describedby', tip.id );
+			var rect = node.getBoundingClientRect();
+			tip.style.left = Math.max( 12, Math.min( window.innerWidth - tip.offsetWidth - 12, rect.left ) ) + 'px';
+			tip.style.top = Math.max( 12, rect.bottom + 8 ) + 'px';
+		}
+
+		root.addEventListener( 'mouseover', function ( event ) {
+			var node = event.target.closest && event.target.closest( '[data-sw-tooltip]' );
+			if ( node ) { open( node ); }
+		} );
+		root.addEventListener( 'mouseout', function ( event ) {
+			if ( active && ! active.contains( event.relatedTarget ) ) { close(); }
+		} );
+		root.addEventListener( 'focusin', function ( event ) {
+			var node = event.target.closest && event.target.closest( '[data-sw-tooltip]' );
+			if ( node ) { open( node ); }
+		} );
+		root.addEventListener( 'focusout', close );
+		document.addEventListener( 'keydown', function ( event ) {
+			if ( 'Escape' === event.key ) { close(); }
+		} );
+	}
+
+	initTooltips();
 	showView( VIEWS.indexOf( state.view ) === -1 ? VIEWS[ 0 ] : state.view );
 }() );

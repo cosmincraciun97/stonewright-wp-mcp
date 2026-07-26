@@ -44,7 +44,7 @@ Stonewright is a WordPress MCP stack for AI coding agents. **Elementor** is a fi
 
 Counts are derived from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
 
-### Plugin mode — **329** abilities
+### Plugin mode — **330** abilities
 
 | Category | Count | Highlights |
 |---|---:|---|
@@ -280,7 +280,7 @@ flowchart LR
 
 Tool visibility is filtered twice before a client sees it: the plugin’s **surface gate** (`bootstrap` / `essential` / `full`) and optional **per-session tool profile** decide which abilities the MCP endpoint exposes, then the **companion profile filter** narrows that set again for the client. A monotonic `surface_revision` on every gateway response drives `tools/list_changed` so clients re-list when the surface changes.
 
-Direct mode has a **smaller** capability surface: core REST, local Elementor data, and skills/memory across **99 tools**. Plugin mode exposes **329 abilities**. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps.
+Direct mode has a **smaller** capability surface: core REST, local Elementor data, and skills/memory across **99 tools**. Plugin mode exposes **330 abilities**. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps.
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 
@@ -299,7 +299,13 @@ Stonewright speaks standard MCP (stdio via the companion, and HTTP MCP when the 
 
 Plugin mode admin pages include Setup, Dashboard (Site Pulse), Abilities, Blueprints, Design Studio, Visual Workspace, Skills, Memory, Sandbox, and Audit Log. Theme toggle lives in the admin shell header.
 
-Design Studio holds design directions: the validated design intent a site works to, versioned, with provenance and revisions. Visual Workspace opens a post in the browser workspace, resolves the live editor adapter, and walks read → preview → confirm → apply → verify with the active direction on screen. Neither page certifies that a page looks right; a change applied without evidence behind it is reported as unverified rather than as a success. See [docs/visual.md](docs/visual.md).
+Design Studio holds design directions: validated site-wide design intent with
+provenance and revisions. Visual Workspace opens the real Elementor or block
+editor in a same-origin companion window, resolves the live adapter there, and
+walks read → preview → confirm → apply → verify with the active direction on
+screen. Neither page certifies that a page looks right; a change applied without
+evidence is reported as unverified. See [docs/visual.md](docs/visual.md) and
+[docs/figma-to-elementor-workflow.md](docs/figma-to-elementor-workflow.md).
 
 <!-- Maintainer: add the Dashboard or Site Pulse screenshot here. Do not remove this comment until the asset is available. -->
 <!-- Maintainer: add the Blueprints or brand-kit screenshot here. Do not remove this comment until the asset is available. -->

@@ -43,6 +43,45 @@
 	color: var(--sw-text-secondary);
 }
 
+.sw-ds-guide {
+	margin: 0 0 var(--sw-space-5);
+	padding: var(--sw-space-3) var(--sw-space-4);
+	border: var(--sw-ds-rule);
+	border-radius: var(--sw-ds-radius);
+	background: var(--sw-surface-raised);
+}
+
+.sw-ds-guide summary {
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.sw-ds-guide__grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+	gap: var(--sw-space-3);
+	margin-top: var(--sw-space-3);
+}
+
+.sw-ds-guide__grid p {
+	margin: 0;
+	padding: var(--sw-space-3);
+	border: var(--sw-ds-rule);
+	border-radius: var(--sw-ds-radius-sm);
+	background: var(--sw-surface);
+}
+
+.sw-ds-guide__grid strong,
+.sw-ds-guide__grid span {
+	display: block;
+}
+
+.sw-ds-guide__grid span {
+	margin-top: var(--sw-space-1);
+	color: var(--sw-text-secondary);
+	font-size: var(--sw-text-xs);
+}
+
 /* ============ Tabs ============ */
 
 .sw-ds-tabs {
@@ -522,6 +561,81 @@
 .sw-ds-field__error {
 	font-size: var(--sw-text-xs);
 	color: var(--sw-danger-text);
+}
+
+.sw-ds-toggle {
+	display: grid;
+	grid-template-columns: 40px 1fr;
+	gap: var(--sw-space-3);
+	align-items: center;
+	margin: var(--sw-space-3) 0;
+	cursor: pointer;
+}
+
+.sw-ds-toggle input {
+	position: absolute;
+	opacity: 0;
+	pointer-events: none;
+}
+
+.sw-ds-toggle__track {
+	position: relative;
+	width: 38px;
+	height: 22px;
+	border: var(--sw-ds-rule);
+	border-radius: var(--sw-radius-pill);
+	background: var(--sw-border);
+	transition: background var(--sw-dur) var(--sw-ease);
+}
+
+.sw-ds-toggle__track::after {
+	position: absolute;
+	top: 3px;
+	left: 3px;
+	width: 14px;
+	height: 14px;
+	border-radius: 50%;
+	background: var(--sw-surface);
+	box-shadow: var(--sw-shadow-1);
+	content: '';
+	transition: transform var(--sw-dur) var(--sw-ease);
+}
+
+.sw-ds-toggle input:checked + .sw-ds-toggle__track {
+	background: var(--sw-brand-fill);
+}
+
+.sw-ds-toggle input:checked + .sw-ds-toggle__track::after {
+	transform: translateX(16px);
+}
+
+.sw-ds-toggle input:focus-visible + .sw-ds-toggle__track {
+	outline: 2px solid var(--sw-focus-ring);
+	outline-offset: 2px;
+}
+
+.sw-ds-toggle__copy strong,
+.sw-ds-toggle__copy span {
+	display: block;
+}
+
+.sw-ds-toggle__copy span {
+	color: var(--sw-text-muted);
+	font-size: var(--sw-text-xs);
+}
+
+.sw-ds-tooltip {
+	position: fixed;
+	z-index: 100000;
+	max-width: 23rem;
+	padding: 9px 11px;
+	border: 1px solid var(--sw-border-strong);
+	border-radius: 8px;
+	background: var(--sw-text);
+	box-shadow: var(--sw-shadow-3);
+	color: var(--sw-bg);
+	font: 500 12px/1.45 var(--sw-ds-sans);
+	pointer-events: none;
 }
 
 .sw-ds-error-summary {

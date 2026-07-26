@@ -40,6 +40,7 @@ use Stonewright\WpMcp\Abilities\Design\ChooseRenderer;
 use Stonewright\WpMcp\Abilities\Design\CheckpointRecord;
 use Stonewright\WpMcp\Abilities\Design\DirectionActivate;
 use Stonewright\WpMcp\Abilities\Design\DirectionCapture;
+use Stonewright\WpMcp\Abilities\Design\DirectionBrief;
 use Stonewright\WpMcp\Abilities\Design\DirectionGet;
 use Stonewright\WpMcp\Abilities\Design\DirectionList;
 use Stonewright\WpMcp\Abilities\Design\DirectionRestore;
@@ -410,6 +411,7 @@ final class AbilityRegistry {
 			// Design Direction — persistent, versioned design intent.
 			DirectionList::class,
 			DirectionGet::class,
+			DirectionBrief::class,
 			DirectionSave::class,
 			DirectionCapture::class,
 			DirectionActivate::class,

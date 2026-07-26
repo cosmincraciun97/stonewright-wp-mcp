@@ -107,6 +107,16 @@ final class DesignStudioPage {
 				</div>
 			</div>
 
+			<details class="sw-ds-guide">
+				<summary><?php esc_html_e( 'New here? Follow the four-step design loop', 'stonewright' ); ?></summary>
+				<div class="sw-ds-guide__grid">
+					<p><strong><?php esc_html_e( '1. Overview', 'stonewright' ); ?></strong><span><?php esc_html_e( 'Choose the direction that defines the site’s visual intent and see whether it is ready.', 'stonewright' ); ?></span></p>
+					<p><strong><?php esc_html_e( '2. Editor', 'stonewright' ); ?></strong><span><?php esc_html_e( 'Set tokens, layout dials, guidance, and readiness. Saving creates a restorable revision.', 'stonewright' ); ?></span></p>
+					<p><strong><?php esc_html_e( '3. Quality', 'stonewright' ); ?></strong><span><?php esc_html_e( 'Read measured browser evidence for one post. Unchecked rules never masquerade as passes.', 'stonewright' ); ?></span></p>
+					<p><strong><?php esc_html_e( '4. History', 'stonewright' ); ?></strong><span><?php esc_html_e( 'Compare revisions and restore an older contract without erasing the audit trail.', 'stonewright' ); ?></span></p>
+				</div>
+			</details>
+
 			<div class="sw-ds-tabs" role="tablist" aria-label="<?php esc_attr_e( 'Design Studio views', 'stonewright' ); ?>">
 				<?php foreach ( self::VIEWS as $view ) : ?>
 					<?php $is_current = ( $view === $current ); ?>
@@ -116,6 +126,7 @@ final class DesignStudioPage {
 						id="sw-ds-tab-<?php echo esc_attr( $view ); ?>"
 						href="<?php echo esc_url( self::view_url( $view ) ); ?>"
 						data-sw-view="<?php echo esc_attr( $view ); ?>"
+						data-sw-tooltip="<?php echo esc_attr( self::view_help()[ $view ] ); ?>"
 						aria-selected="<?php echo $is_current ? 'true' : 'false'; ?>"
 						aria-controls="sw-ds-panel-<?php echo esc_attr( $view ); ?>"
 						tabindex="<?php echo $is_current ? '0' : '-1'; ?>"
@@ -159,6 +170,18 @@ final class DesignStudioPage {
 			'editor'   => __( 'Editor', 'stonewright' ),
 			'quality'  => __( 'Quality', 'stonewright' ),
 			'history'  => __( 'History', 'stonewright' ),
+		];
+	}
+
+	/**
+	 * @return array<string, string>
+	 */
+	private static function view_help(): array {
+		return [
+			'overview' => __( 'Select and activate the site-wide visual contract. This screen does not change Elementor by itself.', 'stonewright' ),
+			'editor'   => __( 'Edit validated tokens, dials, guidance, and readiness. Every save creates a revision.', 'stonewright' ),
+			'quality'  => __( 'Load stored browser evidence for a post and continue a finding in Visual Workspace.', 'stonewright' ),
+			'history'  => __( 'Inspect immutable revisions and restore one as a new revision.', 'stonewright' ),
 		];
 	}
 

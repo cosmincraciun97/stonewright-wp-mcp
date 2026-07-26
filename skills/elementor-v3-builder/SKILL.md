@@ -205,6 +205,9 @@ headings inside loop templates; do not rely on many manual meta updates.
 
 ## Frontend layout contract
 
+- Read `stonewright-design-direction-brief` once before the first design-derived
+  section and reuse its translated density, variance, and motion rules. Declared
+  direction tokens override dial defaults.
 - Use Elementor V3 containers and native widgets. Do not add HTML widgets unless
   the user explicitly requests HTML.
 - Start visual tasks by measuring the reference screenshot: viewport/canvas size,
@@ -227,6 +230,24 @@ headings inside loop templates; do not rely on many manual meta updates.
 - For long reference pages, capture and compare section screenshots before
   judging the full page. Never implement more than two visual page sections in
   a single write-and-verify batch.
+- A hero must fit its intended first viewport unless the reference explicitly
+  shows a scroll-led composition. Measure the header + hero, do not guess.
+- Do not turn every section into the same centered heading plus three equal
+  cards. When the direction allows variance, prefer one dominant item, an
+  editorial split, or an intentionally uneven grid that still matches evidence.
+- Stop alternating image/text zigzags after two consecutive sections. Change
+  rhythm with a full-width visual, proof strip, quote, or another evidenced
+  native composition.
+- Eyebrows are hierarchy, not decoration. Default to at most one small-uppercase
+  eyebrow per three top-level sections unless the reference proves otherwise.
+- Keep display line-height between 1.0 and 1.15 and body measure around 60–70ch
+  unless the direction or measured evidence specifies a different value.
+- Use one primary accent family per page. Avoid pure `#000` when the direction
+  supplies an ink token. Do not introduce a generic purple gradient, Inter, or
+  another fashionable default unless the source/direction declares it.
+- When the compact brief blocks entrance animation or motion effects, omit the
+  corresponding Elementor settings entirely. Low motion is a finished result,
+  not an implementation gap.
 - Put every page section in a full-width outer container, then a centered inner
   container with the design max-width. Do not leave content floating at page
   edges or stacked as a single accidental column.

@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-07-24T23:49:21+00:00",
+    "generated_at": "2026-07-26T14:34:46+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -615,6 +615,20 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            }
+        },
+        {
+            "ability_name": "stonewright/design-direction-brief",
+            "mcp_name": "stonewright-design-direction-brief",
+            "kind": "Read",
+            "input_schema_hash": "598937c840322346511f6235ce1ca4721a33db99336f1232bb3b8c6ba2e22901",
+            "output_schema_hash": "36c5c2e7c37f43ab690b430fa1d1c70e1ed1bc35d7a0b3812da7afb0df57015d",
+            "permission_class": "Permissions::read()",
+            "gates": {
+                "backup": false,
+                "token": false,
+                "validator": false,
+                "audit": false
             }
         },
         {

@@ -107,6 +107,19 @@ final class DesignStudioAssetsTest extends TestCase {
 		self::assertDoesNotMatchRegularExpression( '/(?<![\w.])prompt\s*\(/', $js );
 	}
 
+	public function test_onboarding_tooltips_and_readiness_controls_ship_in_the_app(): void {
+		$js  = self::js();
+		$css = self::css();
+
+		self::assertStringContainsString( 'data-sw-tooltip', $js );
+		self::assertStringContainsString( "role: 'tooltip'", $js );
+		self::assertStringContainsString( 'Ready for use', $js );
+		self::assertStringContainsString( 'Ready to sync globals', $js );
+		self::assertStringContainsString( 'readinessIssues', $js );
+		self::assertStringContainsString( '.sw-ds-toggle', $css );
+		self::assertStringContainsString( '.sw-ds-tooltip', $css );
+	}
+
 	public function test_confirmation_happens_in_an_accessible_review_drawer(): void {
 		$js = self::js();
 

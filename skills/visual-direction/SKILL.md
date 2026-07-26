@@ -21,9 +21,10 @@ changing.
 
 1. Call MCP tool `stonewright-task-start` and honour what it returns: mode,
    tool profile, matched memory, and required follow-ups.
-2. Call `stonewright-design-direction-get` for the active direction. If one
-   exists, treat it as the default and name every deviation you intend to make.
-   If none exists, capture one before building.
+2. Call `stonewright-design-direction-brief` once. Reuse that compact response
+   across every section batch; call `stonewright-design-direction-get` only
+   when you need the full contract or revision history. If no active direction
+   exists, capture one before building.
 3. Normalize the source — Figma, screenshot, image, or brief — into
    `DesignEvidence`. Keep viewports, semantic nodes, style provenance, and
    unresolved items. Discard the raw vendor tree after normalization.
@@ -36,6 +37,27 @@ changing.
    the report flags, then re-run it.
 
 Details: `references/direction-contract.md`.
+
+## Figma extraction without token waste
+
+The Figma client stays external. Use either the official Figma MCP or Figma
+Console MCP; Stonewright consumes the same vendor-neutral evidence from both.
+
+1. Read shallow page/frame metadata once and identify the top-level sections.
+2. Read variables, local styles, and reusable components once. Do not request
+   the full raw tree again for every section.
+3. Extract one top-level section at a time: semantic nodes, exact bounds,
+   text, asset references, layout intent, and only the styles that section
+   actually uses.
+4. Normalize immediately into `DesignEvidence 1.0`, including desktop and
+   mobile frames and `measured_targets`. Drop the raw Figma response after the
+   evidence hash is recorded.
+5. Call `stonewright-design-native-plan`, compile against live Elementor
+   schemas, dry-run, then write at most two sections before browser comparison.
+
+Never serialize the entire Figma document into chat, never ask both Figma MCPs
+for the same subtree, and never let a plugin name become part of the evidence
+contract. Switching MCP providers must not change the Elementor plan.
 
 ## Site-wide styles are a separate, reviewed decision
 

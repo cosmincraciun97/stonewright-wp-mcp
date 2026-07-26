@@ -168,6 +168,21 @@ final class VisualWorkspacePageTest extends TestCase {
 		self::assertStringNotContainsString( 'post_id=', $url );
 	}
 
+	public function test_editor_url_opens_the_real_elementor_or_block_editor(): void {
+		$this->fake_post( 412, [ '_elementor_edit_mode' => 'builder' ] );
+		$this->fake_post( 413 );
+
+		self::assertStringContainsString(
+			'post.php?post=412&action=elementor',
+			VisualWorkspacePage::editor_url( 412, 'auto' )
+		);
+		self::assertStringContainsString(
+			'post.php?post=413&action=edit',
+			VisualWorkspacePage::editor_url( 413, 'auto' )
+		);
+		self::assertSame( '', VisualWorkspacePage::editor_url( 0, 'auto' ) );
+	}
+
 	// -----------------------------------------------------------------
 	// Capability
 	// -----------------------------------------------------------------
@@ -310,6 +325,9 @@ final class VisualWorkspacePageTest extends TestCase {
 
 		self::assertStringContainsString( 'Landing page', $html );
 		self::assertStringContainsString( 'data-sw-visual-editor="elementor"', $html );
+		self::assertStringContainsString( 'data-sw-visual-connect', $html );
+		self::assertStringContainsString( 'action=elementor', $html );
+		self::assertStringContainsString( 'How this workspace works', $html );
 	}
 
 	public function test_the_inspector_is_a_labelled_drawer_with_a_toggle(): void {
@@ -427,6 +445,7 @@ final class VisualWorkspacePageTest extends TestCase {
 
 		self::assertStringContainsString( ':focus-visible', $css );
 		self::assertStringContainsString( '@media (prefers-reduced-motion: reduce)', $css );
+		self::assertStringContainsString( '.sw-button--primary', $css );
 	}
 
 	public function test_the_inspector_becomes_a_drawer_at_1024px_and_below(): void {
@@ -469,6 +488,9 @@ final class VisualWorkspacePageTest extends TestCase {
 		self::assertStringContainsString( 'aria-expanded', $js );
 		self::assertStringContainsString( "'Escape'", $js );
 		self::assertStringContainsString( 'focus()', $js );
+		self::assertStringContainsString( 'stonewrightVisualConnect', $js );
+		self::assertStringContainsString( 'window.open', $js );
+		self::assertStringContainsString( 'tooltip', $js );
 	}
 
 	public function test_the_page_script_never_uses_native_dialogs_or_markup_injection(): void {
