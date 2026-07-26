@@ -234,13 +234,36 @@ function boot(): void {
   if (!config) {
     return;
   }
+
+  let connectionGeneration = 0;
+
+  // Paint the host workspace immediately. On a normal wp-admin host the
+  // strict runtime checks resolve no adapter, so the UI truthfully starts
+  // disconnected; browser tests and legitimate embedded-editor hosts may
+  // still resolve a runtime already present on this window.
+  void start(config, target).then((controller) => {
+    if (controller) {
+      if (connectionGeneration === 0) {
+        target.stonewrightVisual = controller;
+      } else {
+        controller.destroy();
+      }
+    }
+  });
+
   target.stonewrightVisualConnect = async (editorWindow: EditorWindow): Promise<WorkspaceController | null> => {
+    const generation = ++connectionGeneration;
     if (target.stonewrightVisual) {
       target.stonewrightVisual.destroy();
     }
     const controller = await start(config, editorWindow);
     if (controller) {
-      target.stonewrightVisual = controller;
+      if (generation === connectionGeneration) {
+        target.stonewrightVisual = controller;
+      } else {
+        controller.destroy();
+        return null;
+      }
     }
     return controller;
   };
