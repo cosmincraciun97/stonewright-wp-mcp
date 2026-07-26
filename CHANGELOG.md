@@ -10,6 +10,8 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 ## [Unreleased]
 
+## [1.0.0-alpha.91] - 2026-07-26
+
 ### Added
 
 - `stonewright/design-direction-brief`, a compact read-only ability that turns
@@ -32,6 +34,8 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 - Style the Visual Workspace post picker and editor connection controls with
   the Stonewright admin design system.
+- Mount the workspace immediately in a truthful disconnected state, then replace
+  that controller without races when the real editor runtime attaches.
 
 ## [1.0.0-alpha.90] - 2026-07-26
 
@@ -144,10 +148,3 @@ Unreleased); older history lives in git tags and GitHub releases.
   any approval it cannot tie to live state, and the token binds the post, the
   section, the direction, and the render that was approved — so editing the
   approved section or switching direction stops it working.
-
-## [1.0.0-alpha.86] - 2026-07-24
-
-### Fixed
-
-- OAuth client registration now accepts requests without the internal self-test
-  header, restoring sign-in from Codex and other standards-compliant clients.

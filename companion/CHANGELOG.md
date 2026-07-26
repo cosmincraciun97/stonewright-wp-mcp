@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.91] - 2026-07-26
+
+### Changed
+
+- Align the companion package with the plugin release that adds compact
+  design-direction guidance and the guided live-editor Visual Workspace.
+
 ## [1.0.0-alpha.90] - 2026-07-26
 
 ### Changed

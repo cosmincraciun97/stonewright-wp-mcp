@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-alpha.91] - 2026-07-26
+
 ### Added
 
 - Read-only ability `stonewright/design-direction-brief` and
@@ -19,6 +21,8 @@
 
 - Visual Workspace picker and connection buttons now use complete Stonewright
   button states instead of unstyled browser controls.
+- Visual Workspace now paints before an editor is attached and safely replaces
+  its disconnected controller when a live editor runtime becomes available.
 
 ## [1.0.0-alpha.90] - 2026-07-26
 
@@ -194,10 +198,3 @@
   message used to replace the outcome before a screen reader could reach it.
 - Design Studio history explicitly opts into revision versions when reading a
   direction, so real saved revisions are listed and remain restorable.
-
-## [1.0.0-alpha.86] - 2026-07-24
-
-### Fixed
-
-- OAuth dynamic client registration no longer fails when the optional internal
-  self-test header is absent.
