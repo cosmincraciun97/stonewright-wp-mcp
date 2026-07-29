@@ -11,6 +11,7 @@ use Stonewright\WpMcp\Gutenberg\EditorSnapshot;
 use Stonewright\WpMcp\Gutenberg\FseTransactionQueue;
 use Stonewright\WpMcp\Renderers\GutenbergSpecRenderer;
 use Stonewright\WpMcp\Security\Backup;
+use Stonewright\WpMcp\Security\RuleEnforcer;
 use Stonewright\WpMcp\Support\BlockSerializer;
 
 /**
@@ -147,9 +148,12 @@ final class BlueprintApplier {
 			if ( 'fse' !== $engine ) {
 				$snapshot_id = Backup::snapshot_post( $post_id );
 				if ( '' === $snapshot_id ) {
-					return new \WP_Error(
-						'stonewright_backup_failed',
-						sprintf( 'Backup::snapshot_post failed for post %d. Write aborted.', $post_id )
+					return RuleEnforcer::attribute(
+						new \WP_Error(
+							'stonewright_backup_failed',
+							sprintf( 'Backup::snapshot_post failed for post %d. Write aborted.', $post_id )
+						),
+						'backup-before-write'
 					);
 				}
 			}

@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Elementor;
 
 use Stonewright\WpMcp\DesignSpec\Validator;
 use Stonewright\WpMcp\Security\AuditLog;
+use Stonewright\WpMcp\Security\RuleEnforcer;
 use Stonewright\WpMcp\Support\ElementorData;
 
 /**
@@ -53,9 +54,12 @@ final class ElementorWriter {
 	public static function write_transactional( int $post_id, array $spec, array &$diagnostics = [], bool $rollback_on_error = true ) {
 		// Preserve historical error code for missing posts (tests + clients).
 		if ( $post_id < 1 || ! get_post( $post_id ) ) {
-			return new \WP_Error(
-				'stonewright_backup_failed',
-				sprintf( 'Backup::snapshot_post failed for post %d. Write aborted.', $post_id )
+			return RuleEnforcer::attribute(
+				new \WP_Error(
+					'stonewright_backup_failed',
+					sprintf( 'Backup::snapshot_post failed for post %d. Write aborted.', $post_id )
+				),
+				'backup-before-write'
 			);
 		}
 

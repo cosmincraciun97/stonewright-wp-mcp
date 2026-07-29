@@ -33,6 +33,8 @@ final class ErrorPatterns {
 		'stonewright_confirmation_required',
 		'stonewright_confirmation_invalid',
 		'stonewright_permission_denied',
+		'stonewright_rule_violation',
+		'rule_violation',
 	];
 
 	public static function observe( string $ability, string $status, array $sanitized_args = [] ): void {

@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\DesignSpec;
 
 use Stonewright\WpMcp\Design\Semantics\ActionValidator;
+use Stonewright\WpMcp\Security\RuleEnforcer;
 
 /**
  * Validates Stonewright Design Specs against the bundled JSON Schema.
@@ -71,23 +72,31 @@ final class Validator {
 		$errors = self::enrich_errors( $errors, $normalized );
 
 		if ( ! empty( $errors ) ) {
-			return new \WP_Error(
-				'stonewright_spec_invalid',
-				'Design spec failed validation.',
-				[ 'errors' => $errors ]
-			);
+			return self::invalid( $errors );
 		}
 
 		$style_errors = StyleFidelityGuard::validate( $normalized );
 		if ( ! empty( $style_errors ) ) {
-			return new \WP_Error(
-				'stonewright_spec_invalid',
-				'Design spec failed validation.',
-				[ 'errors' => $style_errors ]
-			);
+			return self::invalid( $style_errors );
 		}
 
 		return $normalized;
+	}
+
+	/**
+	 * Rejection carrying the native rule that requires validation before render.
+	 *
+	 * @param array<int|string, mixed> $errors Collected validation errors.
+	 */
+	private static function invalid( array $errors ): \WP_Error {
+		return RuleEnforcer::attribute(
+			new \WP_Error(
+				'stonewright_spec_invalid',
+				'Design spec failed validation.',
+				[ 'errors' => $errors ]
+			),
+			'validate-spec-before-render'
+		);
 	}
 
 	/**

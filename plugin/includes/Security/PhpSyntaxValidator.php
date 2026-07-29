@@ -16,6 +16,20 @@ final class PhpSyntaxValidator {
 	 * @return true|\WP_Error
 	 */
 	public static function validate_complete_file( string $source, string $php_runtime = PHP_VERSION ) {
+		$result = self::run_validation( $source, $php_runtime );
+
+		// A candidate that cannot parse is a rule block, not a soft failure.
+		if ( $result instanceof \WP_Error && 'stonewright_php_candidate_invalid' === $result->get_error_code() ) {
+			return RuleEnforcer::attribute( $result, 'php-writes-must-parse' );
+		}
+
+		return $result;
+	}
+
+	/**
+	 * @return true|\WP_Error
+	 */
+	private static function run_validation( string $source, string $php_runtime ) {
 		$source = self::ensure_php_open_tag( $source );
 
 		if ( ! defined( 'TOKEN_PARSE' ) ) {

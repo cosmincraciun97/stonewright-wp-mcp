@@ -76,10 +76,13 @@ final class ConfirmationToken {
 					'nonce_sha8' => '',
 				]
 			);
-			return new \WP_Error(
-				'stonewright_confirmation_invalid',
-				__( 'Confirmation token is malformed.', 'stonewright' ),
-				[ 'status' => 403 ]
+			return RuleEnforcer::attribute(
+				new \WP_Error(
+					'stonewright_confirmation_invalid',
+					__( 'Confirmation token is malformed.', 'stonewright' ),
+					[ 'status' => 403 ]
+				),
+				'confirm-destructive-in-production-safe'
 			);
 		}
 
@@ -98,10 +101,13 @@ final class ConfirmationToken {
 					'nonce_sha8' => $nonce_sha,
 				]
 			);
-			return new \WP_Error(
-				'stonewright_confirmation_invalid',
-				__( 'Confirmation token signature is invalid.', 'stonewright' ),
-				[ 'status' => 403 ]
+			return RuleEnforcer::attribute(
+				new \WP_Error(
+					'stonewright_confirmation_invalid',
+					__( 'Confirmation token signature is invalid.', 'stonewright' ),
+					[ 'status' => 403 ]
+				),
+				'confirm-destructive-in-production-safe'
 			);
 		}
 
@@ -116,10 +122,13 @@ final class ConfirmationToken {
 					'nonce_sha8' => $nonce_sha,
 				]
 			);
-			return new \WP_Error(
-				'stonewright_confirmation_expired',
-				__( 'Confirmation token has expired.', 'stonewright' ),
-				[ 'status' => 403 ]
+			return RuleEnforcer::attribute(
+				new \WP_Error(
+					'stonewright_confirmation_expired',
+					__( 'Confirmation token has expired.', 'stonewright' ),
+					[ 'status' => 403 ]
+				),
+				'confirm-destructive-in-production-safe'
 			);
 		}
 
@@ -134,10 +143,13 @@ final class ConfirmationToken {
 					'nonce_sha8' => $nonce_sha,
 				]
 			);
-			return new \WP_Error(
-				'stonewright_confirmation_replayed',
-				__( 'Confirmation token has already been used.', 'stonewright' ),
-				[ 'status' => 403 ]
+			return RuleEnforcer::attribute(
+				new \WP_Error(
+					'stonewright_confirmation_replayed',
+					__( 'Confirmation token has already been used.', 'stonewright' ),
+					[ 'status' => 403 ]
+				),
+				'confirm-destructive-in-production-safe'
 			);
 		}
 
@@ -153,10 +165,13 @@ final class ConfirmationToken {
 					'nonce_sha8' => $nonce_sha,
 				]
 			);
-			return new \WP_Error(
-				'stonewright_confirmation_args_mismatch',
-				__( 'Confirmation token was issued for different arguments.', 'stonewright' ),
-				[ 'status' => 403 ]
+			return RuleEnforcer::attribute(
+				new \WP_Error(
+					'stonewright_confirmation_args_mismatch',
+					__( 'Confirmation token was issued for different arguments.', 'stonewright' ),
+					[ 'status' => 403 ]
+				),
+				'confirm-destructive-in-production-safe'
 			);
 		}
 
@@ -170,10 +185,13 @@ final class ConfirmationToken {
 					'nonce_sha8' => $nonce_sha,
 				]
 			);
-			return new \WP_Error(
-				'stonewright_confirmation_ability_mismatch',
-				__( 'Confirmation token was issued for a different ability.', 'stonewright' ),
-				[ 'status' => 403 ]
+			return RuleEnforcer::attribute(
+				new \WP_Error(
+					'stonewright_confirmation_ability_mismatch',
+					__( 'Confirmation token was issued for a different ability.', 'stonewright' ),
+					[ 'status' => 403 ]
+				),
+				'confirm-destructive-in-production-safe'
 			);
 		}
 
@@ -187,10 +205,13 @@ final class ConfirmationToken {
 					'nonce_sha8' => $nonce_sha,
 				]
 			);
-			return new \WP_Error(
-				'stonewright_confirmation_user_mismatch',
-				__( 'Confirmation token was issued for a different user.', 'stonewright' ),
-				[ 'status' => 403 ]
+			return RuleEnforcer::attribute(
+				new \WP_Error(
+					'stonewright_confirmation_user_mismatch',
+					__( 'Confirmation token was issued for a different user.', 'stonewright' ),
+					[ 'status' => 403 ]
+				),
+				'confirm-destructive-in-production-safe'
 			);
 		}
 
