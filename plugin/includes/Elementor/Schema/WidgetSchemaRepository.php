@@ -226,7 +226,7 @@ final class WidgetSchemaRepository {
 			'label'      => self::scalar_string( $control['label'] ?? '' ),
 			'tab'        => self::scalar_string( $control['tab'] ?? '' ),
 			'section'    => self::scalar_string( $control['section'] ?? '' ),
-			'responsive' => (bool) ( $control['responsive'] ?? $control['is_responsive'] ?? false ),
+			'responsive' => ResponsiveScope::control_is_responsive( $control, $name ),
 			'dynamic'    => (array) ( $control['dynamic'] ?? [] ),
 			'condition'  => (array) ( $control['condition'] ?? $control['conditions'] ?? [] ),
 			'provenance' => 'live_elementor_runtime',
