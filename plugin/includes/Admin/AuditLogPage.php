@@ -161,7 +161,7 @@ final class AuditLogPage {
 		}
 		if ( ! empty( $_GET['status'] ) ) {
 			$status = sanitize_key( wp_unslash( (string) $_GET['status'] ) );
-			if ( in_array( $status, [ 'ok', 'error', 'blocked' ], true ) ) {
+			if ( in_array( $status, AuditLog::STATUSES, true ) ) {
 				$filters['status'] = $status;
 			}
 		}
@@ -232,6 +232,7 @@ final class AuditLogPage {
 					<option value="ok" <?php selected( ( $filters['status'] ?? '' ), 'ok' ); ?>><?php esc_html_e( 'OK', 'stonewright' ); ?></option>
 					<option value="error" <?php selected( ( $filters['status'] ?? '' ), 'error' ); ?>><?php esc_html_e( 'Error', 'stonewright' ); ?></option>
 					<option value="blocked" <?php selected( ( $filters['status'] ?? '' ), 'blocked' ); ?>><?php esc_html_e( 'Blocked', 'stonewright' ); ?></option>
+					<option value="auth" <?php selected( ( $filters['status'] ?? '' ), 'auth' ); ?>><?php esc_html_e( 'Auth', 'stonewright' ); ?></option>
 				</select>
 			</label>
 			<label>
@@ -307,6 +308,7 @@ final class AuditLogPage {
 			$badge     = match ( $status ) {
 				'ok'      => 'sw-badge--ok',
 				'blocked' => 'sw-badge--warn',
+				'auth'    => 'sw-badge--auth',
 				default   => 'sw-badge--error',
 			};
 			$payload   = (string) ( $row['sanitized_args'] ?? '' );
@@ -337,7 +339,7 @@ final class AuditLogPage {
 			echo '</td>';
 			echo '<td>' . esc_html( (string) $row['created_at'] ) . '</td>';
 			echo '<td>';
-			if ( in_array( $status, [ 'error', 'blocked' ], true ) && '' !== $error_ui ) {
+			if ( in_array( $status, [ 'error', 'blocked', 'auth' ], true ) && '' !== $error_ui ) {
 				echo '<div class="sw-audit-error-cause">' . esc_html( $error_ui ) . '</div>';
 			}
 			if ( '' !== $pretty ) {

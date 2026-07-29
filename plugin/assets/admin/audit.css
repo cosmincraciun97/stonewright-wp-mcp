@@ -164,6 +164,17 @@
 	border: 1px solid color-mix(in srgb, var(--sw-danger-text) 28%, transparent);
 }
 
+/* Expected refusals: a safety block and a protocol auth failure both mean the
+   system said no on purpose, so neither should read as an incident. */
+.sw-badge--warn,
+.sw-badge--auth,
+.sw-audit-page .sw-badge--warn,
+.sw-audit-page .sw-badge--auth {
+	background: var(--sw-warn-soft) !important;
+	color: var(--sw-warn-text) !important;
+	border: 1px solid color-mix(in srgb, var(--sw-warn-text) 28%, transparent);
+}
+
 .sw-empty-state {
 	padding: var(--sw-space-6);
 	text-align: center;

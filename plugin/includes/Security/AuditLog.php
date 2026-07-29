@@ -14,7 +14,26 @@ final class AuditLog {
 	public const TABLE = 'stonewright_audit_log';
 
 	/** @var list<string> */
-	public const STATUSES = [ 'ok', 'error', 'blocked' ];
+	public const STATUSES = [ 'ok', 'error', 'blocked', 'auth' ];
+
+	/** Longest persisted OAuth diagnostic string. */
+	public const AUTH_DIAGNOSTIC_MAX_LENGTH = 200;
+
+	/**
+	 * The only OAuth fields that may be persisted, mapped to their audit key.
+	 *
+	 * Everything else on an OAuth request or response is either a credential or
+	 * derived from one, so the recorder builds the row from this map alone rather
+	 * than redacting a copy of the payload.
+	 *
+	 * @var array<string, string>
+	 */
+	private const AUTH_DIAGNOSTIC_KEYS = [
+		'error'             => 'oauth_error',
+		'error_description' => 'oauth_error_description',
+		'error_uri'         => 'oauth_error_uri',
+		'hint'              => 'oauth_hint',
+	];
 
 	/**
 	 * When true, AbilityKernel (or another recorder) already wrote a row for
@@ -131,13 +150,15 @@ final class AuditLog {
 			$event_type = 'incident';
 		} elseif ( 'blocked' === $status ) {
 			$event_type = 'safety_block';
+		} elseif ( 'auth' === $status ) {
+			$event_type = 'auth';
 		}
 		$severity = 'info';
 		if ( 'failed' === $rollback ) {
 			$severity = 'p0';
 		} elseif ( 'error' === $status || 'failed' === $verification ) {
 			$severity = 'high';
-		} elseif ( 'blocked' === $status ) {
+		} elseif ( 'blocked' === $status || 'auth' === $status ) {
 			$severity = 'warning';
 		}
 
@@ -204,8 +225,12 @@ final class AuditLog {
 		delete_option( 'stonewright_audit_degraded' );
 
 		// Learn from recurring errors without blocking the audit write path.
+		// Auth events are the protocol refusing a client, not an agent mistake:
+		// there is nothing for an agent to repair, so they never become patterns.
 		try {
-			ErrorPatterns::observe( $ability, $status, $sanitized_args );
+			if ( 'auth' !== $status ) {
+				ErrorPatterns::observe( $ability, $status, $sanitized_args );
+			}
 		} catch ( \Throwable $t ) {
 			Logger::error(
 				'error_patterns_observe_threw',
@@ -230,6 +255,67 @@ final class AuditLog {
 		}
 		$label = 'rest:' . strtoupper( $method ) . ' ' . $route;
 		return self::record( $label, $sanitized_args, $status );
+	}
+
+	/**
+	 * Record one OAuth endpoint outcome.
+	 *
+	 * A 4xx is the protocol working: the endpoint refused a client that presented
+	 * the wrong thing. It is worth seeing in the log, but it is not an incident and
+	 * not something an agent can repair, so it lands as `auth`/`warning` and skips
+	 * the error-pattern learner. A 5xx is a real server fault and keeps the full
+	 * error treatment.
+	 *
+	 * The row is assembled from the diagnostic allowlist only. The request body and
+	 * the success payload both carry live credentials, so neither is copied in —
+	 * not even as a digest, since a digest of a live secret is still a secret
+	 * artifact.
+	 *
+	 * @param string                            $endpoint OAuth endpoint label, e.g. `oauth/token`.
+	 * @param \WP_HTTP_Response|\WP_REST_Response $response Response about to be returned.
+	 * @param array<string, mixed>              $context  Request context; only `client_id` is read.
+	 */
+	public static function record_auth_event( string $endpoint, object $response, array $context = [] ): bool {
+		$http = method_exists( $response, 'get_status' ) ? (int) $response->get_status() : 0;
+		if ( $http >= 500 ) {
+			$status = 'error';
+		} elseif ( $http >= 400 ) {
+			$status = 'auth';
+		} else {
+			$status = 'ok';
+		}
+
+		$body = method_exists( $response, 'get_data' ) ? $response->get_data() : null;
+		$body = is_array( $body ) ? $body : [];
+		$args = [];
+		foreach ( self::AUTH_DIAGNOSTIC_KEYS as $source => $target ) {
+			if ( ! isset( $body[ $source ] ) || ! is_scalar( $body[ $source ] ) ) {
+				continue;
+			}
+			$value = sanitize_text_field( (string) $body[ $source ] );
+			if ( '' === $value ) {
+				continue;
+			}
+			$args[ $target ] = mb_substr( $value, 0, self::AUTH_DIAGNOSTIC_MAX_LENGTH );
+		}
+
+		$client_id = isset( $context['client_id'] ) && is_scalar( $context['client_id'] )
+			? sanitize_text_field( (string) $context['client_id'] )
+			: '';
+		if ( '' !== $client_id ) {
+			$args['client_id'] = mb_substr( $client_id, 0, self::AUTH_DIAGNOSTIC_MAX_LENGTH );
+		}
+
+		$args['http_status'] = $http;
+		$args['_meta']       = [
+			'error_code'      => (string) ( $args['oauth_error'] ?? '' ),
+			'operation_class' => 'oauth',
+			'resource_type'   => 'oauth_endpoint',
+			'resource_ref'    => $endpoint,
+			'http_status'     => $http,
+		];
+
+		return self::record( $endpoint, $args, $status );
 	}
 
 	/**
