@@ -10,6 +10,7 @@ use Stonewright\WpMcp\Abilities\System\ContextBootstrap;
 use Stonewright\WpMcp\Context\ContextToken;
 use Stonewright\WpMcp\Context\ExecutionContext;
 use Stonewright\WpMcp\Security\ErrorPatterns;
+use Stonewright\WpMcp\Support\ResponseProjection;
 use Stonewright\WpMcp\Support\Utf8;
 use Stonewright\WpMcp\Abilities\Content\CreatePage;
 use Stonewright\WpMcp\Abilities\Content\CreatePost;
@@ -747,9 +748,18 @@ final class AbilityRegistry {
 	 */
 	public static function execute_with_context_guard( Ability $ability, array $input ): mixed {
 		$name = $ability->name();
+
+		// Read the projection out of this call's arguments and drop it before the
+		// ability runs. Nothing is stored: registry ability instances are reused
+		// across requests, so a remembered projection would leak one caller's
+		// request into the next caller's response.
+		$fields = $input[ ResponseProjection::PARAM ] ?? null;
+		unset( $input[ ResponseProjection::PARAM ] );
+
 		if ( ! self::requires_context_token( $ability ) ) {
 			unset( $input['stonewright_context_token'] );
 			$result = self::finalize_ability_result( $name, $ability->execute( $input ) );
+			$result = self::maybe_project( $result, $fields );
 			return self::maybe_attach_task_start_hint( $ability, $result );
 		}
 
@@ -772,10 +782,32 @@ final class AbilityRegistry {
 		ExecutionContext::set_task_hash( $task_hash );
 		try {
 			$result = self::finalize_ability_result( $name, $ability->execute( $input ) );
+			$result = self::maybe_project( $result, $fields );
 			return self::maybe_attach_task_start_hint( $ability, $result );
 		} finally {
 			ExecutionContext::clear();
 		}
+	}
+
+	/**
+	 * Apply a caller's field projection to a successful array response.
+	 *
+	 * Errors pass through untouched — a projection describes the shape of a
+	 * payload, and trimming a WP_Error would hide why the call failed. Declared
+	 * output schemas describe the full response; a projected response is a
+	 * caller-requested subset of it, so the projection runs after the ability has
+	 * produced (and validated) its own output, never before.
+	 *
+	 * @param mixed $result Ability result.
+	 * @param mixed $fields Raw projection parameter from the current call.
+	 * @return mixed
+	 */
+	private static function maybe_project( mixed $result, mixed $fields ): mixed {
+		if ( null === $fields || ! is_array( $result ) ) {
+			return $result;
+		}
+
+		return ResponseProjection::apply( $result, $fields );
 	}
 
 	/**
@@ -921,17 +953,28 @@ final class AbilityRegistry {
 
 	/**
 	 * Adds the mandatory Stonewright task context token to public schemas for
-	 * abilities that the execution gate will reject without it.
+	 * abilities that the execution gate will reject without it, and advertises the
+	 * optional response projection on every ability.
+	 *
+	 * Projection is advertised here rather than per ability because strict schemas
+	 * set `additionalProperties: false` — an unadvertised parameter would be
+	 * rejected by the client before it ever reached the execution seam.
 	 *
 	 * @return array<string, mixed>
 	 */
 	private static function input_schema_for_ability( Ability $ability ): array {
 		$schema = $ability->input_schema();
-		if ( self::requires_context_token( $ability ) ) {
-			if ( ! isset( $schema['properties'] ) || ! is_array( $schema['properties'] ) ) {
-				$schema['properties'] = [];
-			}
 
+		if ( ! isset( $schema['properties'] ) || ! is_array( $schema['properties'] ) ) {
+			$schema['properties'] = [];
+		}
+
+		/** @var array<string, mixed> $properties */
+		$properties                              = $schema['properties'];
+		$properties[ ResponseProjection::PARAM ] = ResponseProjection::schema_property();
+		$schema['properties']                    = $properties;
+
+		if ( self::requires_context_token( $ability ) ) {
 			/** @var array<string, mixed> $properties */
 			$properties                              = $schema['properties'];
 			$properties['stonewright_context_token'] = [
