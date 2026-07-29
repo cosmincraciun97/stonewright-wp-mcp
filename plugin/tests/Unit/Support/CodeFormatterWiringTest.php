@@ -183,6 +183,107 @@ final class CodeFormatterWiringTest extends TestCase {
 		];
 	}
 
+	public function test_issued_true_token_executes_php_target(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$args = [
+			'code'                  => '<?php\nreturn 42;',
+			'decode_escaped_layout' => true,
+		];
+		$issued = ( new IssueConfirmationToken() )->execute(
+			[
+				'ability' => 'stonewright/php-execute',
+				'args'    => $args,
+			]
+		);
+		self::assertIsArray( $issued );
+
+		$result = ( new PhpExecute() )->execute(
+			array_merge( $args, [ 'confirmation_token' => $issued['token'] ] )
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( 42, $result['result'] );
+	}
+
+	public function test_issued_true_token_executes_sandbox_write_target(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$args = [
+			'name'                  => 'task5-canonical.php',
+			'contents'              => '<?php\nreturn 7;',
+			'decode_escaped_layout' => true,
+		];
+		$issued = ( new IssueConfirmationToken() )->execute(
+			[
+				'ability' => 'stonewright/sandbox-write',
+				'args'    => $args,
+			]
+		);
+		self::assertIsArray( $issued );
+
+		$result = ( new SandboxWrite() )->execute(
+			array_merge( $args, [ 'confirmation_token' => $issued['token'] ] )
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame( "<?php\nreturn 7;\n", SandboxFiles::read( 'task5-canonical.php' ) );
+	}
+
+	public function test_issued_true_token_executes_theme_patch_target(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$args = [
+			'path'                  => '/style.css',
+			'mode'                  => 'append',
+			'content'               => '.issued { color: red; }\n.issued strong { color: blue; }',
+			'decode_escaped_layout' => true,
+			'dry_run'               => true,
+			'native_gap'            => [
+				'reason'        => 'The fixture exercises the typed custom-code transaction.',
+				'methods_tried' => [ 'typed_api' ],
+			],
+		];
+		$issued = ( new IssueConfirmationToken() )->execute(
+			[
+				'ability' => 'stonewright/theme-file-patch',
+				'args'    => $args,
+			]
+		);
+		self::assertIsArray( $issued );
+
+		$result = ( new ThemeFilePatch() )->execute(
+			array_merge( $args, [ 'confirmation_token' => $issued['token'] ] )
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['dry_run'] );
+		self::assertSame( 'css', $result['language'] );
+	}
+
+	public function test_issued_true_token_executes_theme_custom_css_target(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$args = [
+			'action'                => 'update',
+			'css'                   => '.issued { color: red; }\n.issued strong { color: blue; }',
+			'decode_escaped_layout' => true,
+		];
+		$issued = ( new IssueConfirmationToken() )->execute(
+			[
+				'ability' => 'stonewright/theme-custom-css',
+				'args'    => $args,
+			]
+		);
+		self::assertIsArray( $issued );
+
+		$result = ( new ThemeCustomCss() )->execute(
+			array_merge( $args, [ 'confirmation_token' => $issued['token'] ] )
+		);
+
+		self::assertIsArray( $result );
+		self::assertSame(
+			".issued { color: red; }\n.issued strong { color: blue; }\n",
+			$result['css']
+		);
+	}
+
 	public function test_absent_and_explicit_false_decode_flag_share_one_token_binding(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
 		$raw = [
@@ -248,6 +349,35 @@ final class CodeFormatterWiringTest extends TestCase {
 
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( 'stonewright_confirmation_args_mismatch', $result->get_error_code() );
+	}
+
+	public function test_false_token_cannot_authorize_true_sandbox_request_with_same_output_bytes(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$args = [
+			'name'     => 'task5-flag-mismatch.php',
+			'contents' => "<?php\nreturn 7;\n",
+		];
+		$issued = ( new IssueConfirmationToken() )->execute(
+			[
+				'ability' => 'stonewright/sandbox-write',
+				'args'    => $args,
+			]
+		);
+		self::assertIsArray( $issued );
+
+		$result = ( new SandboxWrite() )->execute(
+			array_merge(
+				$args,
+				[
+					'decode_escaped_layout' => true,
+					'confirmation_token'    => $issued['token'],
+				]
+			)
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_confirmation_args_mismatch', $result->get_error_code() );
+		self::assertInstanceOf( \WP_Error::class, SandboxFiles::read( 'task5-flag-mismatch.php' ) );
 	}
 
 	public function test_php_execute_guards_and_audit_receive_canonical_body(): void {

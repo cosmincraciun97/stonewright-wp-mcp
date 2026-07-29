@@ -91,9 +91,11 @@ final class SandboxWrite extends AbilityKernel {
 					return $file_mods_error;
 				}
 
+				$verify = $a;
+				unset( $verify['confirmation_token'] );
 				$token_error = $this->production_safe_token_error(
 					$a,
-					[ 'name' => $a['name'], 'contents' => $a['contents'] ]
+					$verify
 				);
 				if ( null !== $token_error ) {
 					return $token_error;
