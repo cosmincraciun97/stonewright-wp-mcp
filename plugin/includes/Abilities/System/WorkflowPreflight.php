@@ -21,6 +21,14 @@ use Stonewright\WpMcp\Security\Permissions;
  */
 final class WorkflowPreflight extends AbilityKernel {
 
+	/**
+	 * Registry id of the batching rule this payload restates.
+	 *
+	 * Compact mode carries the id alone: a client that has already cached the rule
+	 * registry needs a pointer, not the prose. Full mode carries the body too.
+	 */
+	private const BATCHING_RULE_ID = 'batch-related-mutations';
+
 	public function name(): string {
 		return 'stonewright/workflow-preflight';
 	}
@@ -205,6 +213,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			'visual_build_gate'     => $context['visual_build_gate'] ?? [],
 			'visual_checkpoint'     => self::visual_checkpoint( $task, $intent ),
 			'visual_setup'          => self::visual_setup( $task_profile ),
+			'batching_rule_id'      => self::BATCHING_RULE_ID,
 			'batching_rules'        => self::batching_rules( $task_profile ),
 			'quality_gates'         => self::quality_gates( $task_profile ),
 			'external_mcps'         => [
@@ -378,6 +387,9 @@ final class WorkflowPreflight extends AbilityKernel {
 			],
 			'tool_profile'  => $profile_name,
 			'suggested_profile' => $suggested_profile,
+			// Pointer only. The bodies are in full mode and in rules-get; repeating
+			// them on every compact task start is what the pointer replaces.
+			'batching_rule_id' => self::BATCHING_RULE_ID,
 			// Canonical exact next-tool path (capped for token budget).
 			'ordered_tools' => $next,
 		];
@@ -883,6 +895,10 @@ final class WorkflowPreflight extends AbilityKernel {
 	 */
 	private static function batching_rules( array $profile ): array {
 		$rules = [
+			// The general principle comes from the shipped rule registry so the
+			// payload cannot drift from what rules-get reports. Everything below it
+			// is the Stonewright-specific way to satisfy that principle.
+			self::batching_rule_body(),
 			'Use stonewright/media-upload-batch for multiple assets instead of one upload call per image.',
 			'Use stonewright/content-bulk-upsert-posts for repeated post/CPT/custom-field rows instead of many post/meta commands.',
 			'Use stonewright-wp-cli-batch-run with responseMode=summary for repeated CPT UI, ACF, post, meta, term, option, and plugin command work.',
@@ -911,6 +927,22 @@ final class WorkflowPreflight extends AbilityKernel {
 		}
 
 		return $rules;
+	}
+
+	/**
+	 * The batching principle as the shipped registry states it.
+	 *
+	 * Read through the registry rather than duplicated here, so editing
+	 * `data/global-rules.json` is enough to change what task start says. The
+	 * fallback covers a registry that a site has damaged: batching advice is worth
+	 * giving even then, and failing a whole preflight over it would be worse.
+	 */
+	private static function batching_rule_body(): string {
+		$rule = \Stonewright\WpMcp\Security\GlobalRules::get( self::BATCHING_RULE_ID );
+
+		return is_array( $rule ) && '' !== $rule['rule']
+			? $rule['rule']
+			: 'Group related element mutations into one batch call instead of issuing one call per control.';
 	}
 
 	/**
