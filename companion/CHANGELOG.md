@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### Added
+
+- Direct mode serves the same native rule registry as the plugin, through the new
+  `stonewright-rules-get` tool. The registry ships with the companion, so a
+  pluginless site gets identical rules, severities, and enforcement
+  classifications. `stonewright-task-start` returns the registry digest and names
+  the tool that resolves it; cache by digest and refetch only when it changes.
+
+### Changed
+
+- `stonewright-rules-get` is available on the Direct bootstrap surface, because
+  task start hands out a rule digest and the tool that resolves it has to be
+  reachable before profile expansion. `stonewright-skill-list` left that cold
+  surface to make room: task start already returns the matched skill slugs, and
+  the tool returns as soon as the profile expands.
+
 ## [1.0.0-alpha.91] - 2026-07-26
 
 ### Changed

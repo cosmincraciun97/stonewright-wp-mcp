@@ -44,25 +44,29 @@ Stonewright is a WordPress MCP stack for AI coding agents. **Elementor** is a fi
 
 Counts are derived from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
 
-### Plugin mode — **330** abilities
+### Plugin mode — **332** abilities
+
+Counts below are grouped by the `includes/Abilities/` subdirectory each ability
+lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 
 | Category | Count | Highlights |
 |---|---:|---|
-| Elementor widgets (compat) | 94 | Generated per-widget builders |
-| Elementor V3 | 25+ | Structure edit, batch-mutate, kit globals, build-from-spec, transactions |
-| Design | 23 | DesignSpec validate/render, native plan, intent, versioned Design Directions, Elementor kit capture, guarded kit sync, rendered quality checks |
-| Elementor V4 | 13 | Atomic nodes, variables, classes (experimental) |
+| Elementor widgets (compat) | 98 | Generated per-widget builders |
+| Elementor V3 | 29 | Structure edit, batch-mutate, kit globals, build-from-spec, transactions |
+| Elementor V4 | 14 | Atomic nodes, variables, classes (experimental) |
+| Design | 25 | DesignSpec validate/render, native plan, intent, versioned Design Directions, Elementor kit capture, guarded kit sync, rendered quality checks |
 | Site | 17 | Snapshot, inventory, health, pulse, plugins, theme, shortcodes |
-| Gutenberg + FSE | 20 | Blocks, theme.json, templates, global styles |
-| Content + media | 16 | Pages/posts, bulk upsert, upload, stock |
-| ACF / SEO / CPT | 13 | Field groups/values, multi-plugin SEO, CPT/tax register |
-| Comments / users / widgets / settings / themes / plugins / revisions | 28 | REST-parity admin ops |
+| Gutenberg + FSE + patterns | 23 | Blocks, theme.json, templates, global styles |
+| Content + media | 20 | Pages/posts, bulk upsert, content model, upload, stock |
+| ACF + SEO | 8 | Field groups/values, multi-plugin SEO |
+| Comments / users / widgets / settings / themes / theme builder / plugins / revisions | 35 | REST-parity admin ops |
 | WP-CLI | 6 | Status, discover, run, batch, jobs |
-| Memory + skills + expertise | 16 | Learning, skills, expertise packs |
-| Security + audit + sandbox | 12 | Tokens, one-time links, sandbox lifecycle |
-| Other (menus, blueprints, brand kits, runtime, search, WC, theme builder, …) | rest | See full [matrix](docs/ability-truth-matrix.md) |
+| Memory + skills + expertise + knowledge | 20 | Learning, memory generalization, skills, expertise packs |
+| Security + sandbox | 10 | Tokens, one-time links, sandbox lifecycle |
+| System | 11 | Task start, native rules, tool profiles, ability list |
+| Menus, blueprints, brand kits, runtime, search, WooCommerce | 16 | See full [matrix](docs/ability-truth-matrix.md) |
 
-### Direct mode — **99** tools (pluginless)
+### Direct mode — **100** tools (pluginless)
 
 | Area | Tools (group) | Notes |
 |---|---|---|
@@ -74,6 +78,7 @@ Counts are derived from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL
 | WooCommerce | products/orders/sales | Read-only |
 | ACF / SEO | fields get/update, seo-head | REST when plugins expose them |
 | Self-improvement | skill-*, memory, learning, **task-start**, **agents-md-sync** | `~/.stonewright/` storage |
+| Native rules | **rules-get** | Same shipped registry as Plugin mode; cache by digest |
 | WP-CLI | status/discover/run/batch/jobs | Tokenized `execFile` argv |
 | Safety | write gating, confirm, audit JSONL, backups | Task-start required before writes (default) |
 
@@ -233,6 +238,50 @@ Typed mutation paths may use combinations of:
 
 Not every surface uses every gate. Prefer typed abilities over unrestricted PHP when a typed path exists. Read [SECURITY.md](SECURITY.md) and [docs/security.md](docs/security.md).
 
+### Native rules
+
+Stonewright ships a registry of operating rules that apply to **every** site
+rather than to one project's memory. Each record states the rule, why it exists,
+its severity, its scope, and how it is enforced:
+
+| Severity | Meaning |
+|---|---|
+| `hard` | A runtime guard makes the violation fail. `enforcement.guard` names that guard. |
+| `strong` | Surfaced in every task payload. Deviation must be justified. Not mechanically checkable, so these never claim a runtime guard. |
+| `advisory` | Surfaced on matching tasks only. |
+
+The distinction is deliberate: advertising enforcement that does not exist is
+worse than advertising none. Rules that PHP cannot mechanically verify say so.
+
+`stonewright-task-start` returns only the registry **digest** and the name of the
+tool that resolves it, because rule bodies would consume most of a compact task
+payload. Fetch the bodies once with `stonewright-rules-get`, cache them by digest,
+and refetch only when task start reports a different digest. Filter by `severity`
+or `scope`; a scoped request still includes the globally scoped rules, since those
+apply everywhere. Pass `knownDigest` to get `unchanged: true` with the bodies
+omitted.
+
+Both modes serve the same registry: Plugin mode from `plugin/data/global-rules.json`,
+Direct mode from the copy shipped with the companion. `stonewright-rules-get`
+exists in both, and in Direct mode it is on the bootstrap surface so a cold client
+can resolve the digest task start just handed it.
+
+### Cheaper reads
+
+Two optional inputs cut payload without losing precision:
+
+- **`stonewright_fields`** — available on every ability. Give it dot-separated
+  response paths, as a list or a comma-separated string
+  (`"meta.title, outline.id"`), and the response carries only those branches.
+  Unknown paths are ignored rather than raising an error, the `ok` envelope is
+  never removed, and errors come back unprojected so you can still see why a call
+  failed.
+- **`knownHash`** on `stonewright-elementor-v3-get-page-structure` — pass the
+  `hash` a previous read returned. If the document has not moved, the answer is
+  `{ post_id, active, hash, unchanged: true }` and no outline or tree is built.
+  The hash is taken from the decoded tree, so a re-save that only reorders JSON
+  keys does not read as a change, and both response modes report the same value.
+
 ## Architecture
 
 ```mermaid
@@ -280,7 +329,7 @@ flowchart LR
 
 Tool visibility is filtered twice before a client sees it: the plugin’s **surface gate** (`bootstrap` / `essential` / `full`) and optional **per-session tool profile** decide which abilities the MCP endpoint exposes, then the **companion profile filter** narrows that set again for the client. A monotonic `surface_revision` on every gateway response drives `tools/list_changed` so clients re-list when the surface changes.
 
-Direct mode has a **smaller** capability surface: core REST, local Elementor data, and skills/memory across **99 tools**. Plugin mode exposes **330 abilities**. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps.
+Direct mode has a **smaller** capability surface: core REST, local Elementor data, and skills/memory across **100 tools**. Plugin mode exposes **332 abilities**. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps.
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 

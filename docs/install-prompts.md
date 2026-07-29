@@ -43,6 +43,14 @@ After reload:
 - Verify stonewright-task-start is in the tool list; if missing, stop and tell me.
 - Start every WordPress task with stonewright-task-start.
 - Follow the returned skills, memory, expertise, and fast_path.tool_profile.
+- Task start returns a native rule digest, not the rule bodies. Read them once
+  with stonewright-rules-get, cache them, and pass knownDigest on later calls so
+  an unchanged registry costs one short response.
+- Treat hard rules as blocking, strong rules as required practice that the
+  runtime cannot check for you, and advisory rules as guidance.
+- To keep reads cheap, pass stonewright_fields with the paths you need, and pass
+  knownHash to stonewright-elementor-v3-get-page-structure to skip an unchanged
+  page tree.
 - For visual work, verify browser/Playwright tools before the first write.
 - Do not inspect private AI-client config files, hand-roll JSON-RPC, or run wp in a normal shell as an MCP workaround.
 - Use stonewright-php-execute for short runtime PHP; keep WP-CLI tokenized via stonewright-wp-cli-*.
@@ -86,6 +94,11 @@ After reload:
 - Verify stonewright-task-start is in the tool list; if missing, stop and tell me.
 - Start every WordPress task with stonewright-task-start — in Direct mode it
   returns this site's locally stored skills and memory (or _global).
+- Task start returns a native rule digest. Read the rules once with
+  stonewright-rules-get (on the Direct bootstrap surface), cache them, and pass
+  knownDigest afterwards. Direct mode ships the same registry as the plugin, so
+  the rules match; runtime enforcement of hard rules only exists where the
+  plugin runs, so on Direct read hard as "enforceable where the plugin runs".
 - Call stonewright-site-discover before choosing WordPress REST operations.
 - Load a matched skill body with stonewright-skill-get only when needed.
 - When I correct a repeatable mistake, call stonewright-learning-record so it

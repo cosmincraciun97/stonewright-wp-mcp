@@ -71,7 +71,7 @@ read, pluginless self-improvement (`skill-*`, `memory-list`, `learning-record`,
 task-start, and a **task-start write gate** (opt-out `STONEWRIGHT_DIRECT_REQUIRE_TASK_START=off`).
 
 Protocol e2e for self-improvement runs with zero WordPress credentials
-(`tests/direct-selfimprove-e2e.test.ts`). Direct surface: **99** tools.
+(`tests/direct-selfimprove-e2e.test.ts`). Direct surface: **100** tools.
 
 `task-start` binds learning to an alias, normalized URL, target fingerprint,
 backend, and expiry. A configured target change requires a new task-start.
