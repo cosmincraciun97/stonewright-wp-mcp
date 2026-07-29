@@ -34,8 +34,91 @@ final class ErrorPatterns {
 		'stonewright_confirmation_invalid',
 		'stonewright_permission_denied',
 		'stonewright_rule_violation',
+		'stonewright_feature_disabled',
 		'rule_violation',
 	];
+
+	/**
+	 * RFC 6749 / RFC 8628 protocol error codes.
+	 *
+	 * These belong to the OAuth wire format, not to Stonewright, so they keep
+	 * their exact spelling when the failure originates in the auth surface. The
+	 * same bare strings coming out of a Stonewright ability are Stonewright's own
+	 * and do get namespaced.
+	 *
+	 * @var list<string>
+	 */
+	private const OAUTH_PROTOCOL_CODES = [
+		'invalid_request',
+		'invalid_client',
+		'invalid_grant',
+		'unauthorized_client',
+		'unsupported_grant_type',
+		'unsupported_response_type',
+		'invalid_scope',
+		'access_denied',
+		'server_error',
+		'temporarily_unavailable',
+		'authorization_pending',
+		'slow_down',
+		'expired_token',
+	];
+
+	/**
+	 * Prefixes owned by other code. Rewriting them would misattribute the failure.
+	 *
+	 * @var list<string>
+	 */
+	private const FOREIGN_PREFIXES = [ 'stonewright_', 'rest_', 'oauth_', 'http_' ];
+
+	/**
+	 * Placeholder used when the audit row carries no code at all. It names the
+	 * absence of a code, so it must not be dressed up as a Stonewright one.
+	 */
+	private const UNKNOWN_CODE = 'error';
+
+	/**
+	 * Namespace an error code according to who actually emitted it.
+	 *
+	 * Ownership cannot be read off the code alone: `invalid_request` is both an
+	 * OAuth protocol constant and a code Stonewright abilities emit. Namespacing
+	 * it globally would rewrite a constant the client is entitled to read back;
+	 * preserving it globally would leave Stonewright's own failures indistinguishable
+	 * from every other plugin's.
+	 *
+	 * @param string $code    Raw code from the audit row.
+	 * @param string $ability Ability name (slash form) that produced the failure.
+	 * @param string $status  Audit status: error, blocked, or auth.
+	 */
+	public static function normalize_code( string $code, string $ability, string $status ): string {
+		$code = sanitize_key( strtolower( trim( $code ) ) );
+		if ( '' === $code || self::UNKNOWN_CODE === $code ) {
+			return $code;
+		}
+		foreach ( self::FOREIGN_PREFIXES as $prefix ) {
+			if ( str_starts_with( $code, $prefix ) ) {
+				return $code;
+			}
+		}
+		if ( self::is_auth_origin( $ability, $status ) && in_array( $code, self::OAUTH_PROTOCOL_CODES, true ) ) {
+			return $code;
+		}
+		return 'stonewright_' . $code;
+	}
+
+	/**
+	 * Whether the failure came from the auth surface rather than an ability.
+	 *
+	 * The status is authoritative when present; the ability name covers rows
+	 * recorded before the auth status existed.
+	 */
+	private static function is_auth_origin( string $ability, string $status ): bool {
+		if ( 'auth' === strtolower( trim( $status ) ) ) {
+			return true;
+		}
+		$ability = strtolower( trim( $ability ) );
+		return '' !== $ability && ( str_starts_with( $ability, 'oauth/' ) || str_contains( $ability, '/oauth-' ) );
+	}
 
 	public static function observe( string $ability, string $status, array $sanitized_args = [] ): void {
 		$status = strtolower( $status );
@@ -43,14 +126,14 @@ final class ErrorPatterns {
 			return;
 		}
 
-		$code = self::error_code( $sanitized_args );
+		$code = self::error_code( $sanitized_args, $ability, $status );
 		// Expected safety blocks: track count for hard-stop, never promote active learning.
 		$expected_block = 'blocked' === $status || self::is_expected_safety_code( $code );
 
-		$signature = self::signature( $ability, $sanitized_args );
+		$signature = self::signature( $ability, $sanitized_args, $status );
 		$store     = self::load();
 		$now       = gmdate( 'c' );
-		$cause_key = self::cause_key( $ability, $sanitized_args );
+		$cause_key = self::cause_key( $ability, $sanitized_args, $status );
 
 		if ( ! isset( $store[ $signature ] ) ) {
 			$store[ $signature ] = [
@@ -299,9 +382,9 @@ final class ErrorPatterns {
 	/**
 	 * @param array<string, mixed> $sanitized_args
 	 */
-	public static function signature( string $ability, array $sanitized_args ): string {
+	public static function signature( string $ability, array $sanitized_args, string $status = '' ): string {
 		// Prefer structured cause_key so equivalent failures do not fragment.
-		$raw = self::cause_key( $ability, $sanitized_args );
+		$raw = self::cause_key( $ability, $sanitized_args, $status );
 		return hash( 'sha256', $raw );
 	}
 
@@ -310,8 +393,8 @@ final class ErrorPatterns {
 	 *
 	 * @param array<string, mixed> $sanitized_args
 	 */
-	public static function cause_key( string $ability, array $sanitized_args ): string {
-		$code = self::error_code( $sanitized_args );
+	public static function cause_key( string $ability, array $sanitized_args, string $status = '' ): string {
+		$code = self::error_code( $sanitized_args, $ability, $status );
 		$meta = is_array( $sanitized_args['_meta'] ?? null ) ? $sanitized_args['_meta'] : [];
 		$op   = '';
 		foreach ( [ 'operation_class', 'resource_type', 'cause_key' ] as $key ) {
@@ -328,19 +411,21 @@ final class ErrorPatterns {
 	}
 
 	/**
-	 * @param array<string, mixed> $args
+	 * @param array<string, mixed> $args    Sanitized audit args.
+	 * @param string               $ability Ability name, for ownership context.
+	 * @param string               $status  Audit status, for ownership context.
 	 */
-	private static function error_code( array $args ): string {
+	private static function error_code( array $args, string $ability = '', string $status = '' ): string {
 		$meta = is_array( $args['_meta'] ?? null ) ? $args['_meta'] : [];
 		foreach ( [ 'error_code', 'code', 'wp_error_code' ] as $key ) {
 			if ( ! empty( $meta[ $key ] ) && is_scalar( $meta[ $key ] ) ) {
-				return sanitize_key( (string) $meta[ $key ] );
+				return self::normalize_code( (string) $meta[ $key ], $ability, $status );
 			}
 			if ( ! empty( $args[ $key ] ) && is_scalar( $args[ $key ] ) ) {
-				return sanitize_key( (string) $args[ $key ] );
+				return self::normalize_code( (string) $args[ $key ], $ability, $status );
 			}
 		}
-		return 'error';
+		return self::UNKNOWN_CODE;
 	}
 
 	/**

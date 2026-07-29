@@ -155,4 +155,140 @@ final class ErrorPatternsTest extends TestCase {
 		self::assertStringContainsString( 'error_patterns_observe_threw', $log );
 		self::assertStringContainsString( 'simulated observe failure', $log );
 	}
+
+	/**
+	 * Ownership decides the prefix, so normalization needs the origin context.
+	 *
+	 * `invalid_request` is both an RFC 6749 protocol code and a code Stonewright
+	 * abilities emit themselves. Preserving it globally would leave Stonewright's
+	 * own failures colliding with every other plugin's; namespacing it globally
+	 * would rewrite a protocol constant the client is entitled to read back.
+	 *
+	 * @dataProvider code_ownership_cases
+	 */
+	public function test_normalize_code_follows_ownership( string $code, string $ability, string $status, string $expected ): void {
+		self::assertSame( $expected, ErrorPatterns::normalize_code( $code, $ability, $status ) );
+	}
+
+	/**
+	 * @return array<string, array{0: string, 1: string, 2: string, 3: string}>
+	 */
+	public static function code_ownership_cases(): array {
+		return [
+			'stonewright ability owns its bare code' => [
+				'invalid_request',
+				'stonewright/design-apply-to-post',
+				'error',
+				'stonewright_invalid_request',
+			],
+			'already namespaced stays unchanged'     => [
+				'stonewright_spec_invalid',
+				'stonewright/design-validate-spec',
+				'error',
+				'stonewright_spec_invalid',
+			],
+			'auth status keeps protocol invalid_request' => [
+				'invalid_request',
+				'oauth/token',
+				'auth',
+				'invalid_request',
+			],
+			'auth status keeps protocol invalid_grant'   => [
+				'invalid_grant',
+				'oauth/token',
+				'auth',
+				'invalid_grant',
+			],
+			'oauth origin keeps protocol code on error status' => [
+				'invalid_client',
+				'oauth/token',
+				'error',
+				'invalid_client',
+			],
+			'auth origin still owns non-protocol codes' => [
+				'widget_missing',
+				'oauth/token',
+				'auth',
+				'stonewright_widget_missing',
+			],
+			'foreign rest_ prefix untouched'         => [
+				'rest_no_route',
+				'stonewright/content-get-page',
+				'error',
+				'rest_no_route',
+			],
+			'foreign oauth_ prefix untouched'        => [
+				'oauth_invalid_client',
+				'stonewright/ping',
+				'error',
+				'oauth_invalid_client',
+			],
+			'foreign http_ prefix untouched'         => [
+				'http_request_failed',
+				'stonewright/media-upload',
+				'error',
+				'http_request_failed',
+			],
+			'empty input stays empty'                => [ '', 'stonewright/ping', 'error', '' ],
+			'whitespace-only input stays empty'      => [ "  \t ", 'stonewright/ping', 'error', '' ],
+			'unknown-code sentinel is not a code'    => [ 'error', 'stonewright/ping', 'error', 'error' ],
+			'mixed case is folded before prefixing'  => [
+				'Validation_Failed',
+				'stonewright/design-apply-to-post',
+				'error',
+				'stonewright_validation_failed',
+			],
+		];
+	}
+
+	public function test_observed_patterns_store_the_normalized_code(): void {
+		$args = [
+			'_meta' => [
+				'error_code'    => 'invalid_request',
+				'error_message' => 'Missing target id.',
+			],
+		];
+
+		ErrorPatterns::observe( 'stonewright/design-apply-to-post', 'error', $args );
+		ErrorPatterns::observe( 'stonewright/design-apply-to-post', 'error', $args );
+
+		$recurring = ErrorPatterns::recurring();
+		self::assertNotEmpty( $recurring );
+		self::assertSame( 'stonewright_invalid_request', $recurring[0]['error_code'] );
+	}
+
+	public function test_cause_key_uses_the_normalized_code(): void {
+		$args = [ '_meta' => [ 'error_code' => 'invalid_request' ] ];
+
+		self::assertSame(
+			'stonewright/design-apply-to-post|stonewright_invalid_request|',
+			ErrorPatterns::cause_key( 'stonewright/design-apply-to-post', $args )
+		);
+		// Auth origin keeps the protocol spelling, so the two never share a bucket.
+		self::assertSame(
+			'oauth/token|invalid_request|',
+			ErrorPatterns::cause_key( 'oauth/token', $args, 'auth' )
+		);
+	}
+
+	public function test_feature_disabled_is_an_expected_safety_block(): void {
+		// The guards emit the bare code; the pattern layer normalizes it, and the
+		// expected-safety list must be spelled for the normalized form.
+		$normalized = ErrorPatterns::normalize_code( 'feature_disabled', 'stonewright/design-spec-to-elementor-v4', 'error' );
+		self::assertSame( 'stonewright_feature_disabled', $normalized );
+		self::assertTrue( ErrorPatterns::is_expected_safety_code( $normalized ) );
+
+		$args = [ '_meta' => [ 'error_code' => 'feature_disabled', 'error_message' => 'V4 is off.' ] ];
+		ErrorPatterns::observe( 'stonewright/design-spec-to-elementor-v4', 'error', $args );
+		ErrorPatterns::observe( 'stonewright/design-spec-to-elementor-v4', 'error', $args );
+
+		// Expected blocks are counted for the hard stop but never promoted to learning.
+		$store = (array) get_option( ErrorPatterns::OPTION_KEY, [] );
+		self::assertCount( 1, $store );
+		$row = (array) array_values( $store )[0];
+		self::assertSame( 'stonewright_feature_disabled', $row['error_code'] ?? '' );
+		self::assertTrue( (bool) ( $row['expected'] ?? false ) );
+		self::assertSame( 'blocked_pending_repair', $row['state'] ?? '' );
+		self::assertSame( '', (string) ( $row['learning_key'] ?? '' ) );
+	}
 }
