@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-07-26T15:16:07.315Z",
+  "generated_at": "2026-07-29T20:02:51.322Z",
   "allowlist": {
     "removed": [],
     "renamed": {},
@@ -195,6 +195,9 @@
     },
     {
       "name": "stonewright-rest-request"
+    },
+    {
+      "name": "stonewright-rules-get"
     },
     {
       "name": "stonewright-search"

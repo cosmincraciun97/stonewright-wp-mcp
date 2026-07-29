@@ -1,11 +1,12 @@
 {
     "version": 1,
-    "generated_at": "2026-07-29T12:36:44+00:00",
+    "generated_at": "2026-07-29T20:02:51+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
         "schema_changes": [
             "stonewright/context-bootstrap",
+            "stonewright/elementor-v3-get-page-structure",
             "stonewright/php-execute",
             "stonewright/sandbox-write",
             "stonewright/task-start",
@@ -2485,7 +2486,7 @@
             "ability_name": "stonewright/elementor-v3-get-page-structure",
             "mcp_name": "stonewright-elementor-v3-get-page-structure",
             "kind": "Read",
-            "input_schema_hash": "f79e610247101d032f43a9f9c221965b2817438865fe5d00a82940ffc5975bcd",
+            "input_schema_hash": "f0a58f27b8ef1d547e21f2e37fbda872d87daefbf995eac5098f1f0c451d1fcf",
             "output_schema_hash": "a2c799262a3ce3c19ef5cdd983bf3d12b43ab3c426227091b909dcb7054738c0",
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
@@ -3350,6 +3351,20 @@
             }
         },
         {
+            "ability_name": "stonewright/memory-generalize",
+            "mcp_name": "stonewright-memory-generalize",
+            "kind": "Write",
+            "input_schema_hash": "dc6b1a40d897e4010fefea9731f331612bb08dc963c063a239d58fc24d9672b8",
+            "output_schema_hash": "db4774a134e9fbbb65cbba5c3f619e02e60bb459bf7a0c3ea26c644b2ff21f11",
+            "permission_class": "Permissions::manage_options()",
+            "gates": {
+                "backup": false,
+                "token": true,
+                "validator": false,
+                "audit": true
+            }
+        },
+        {
             "ability_name": "stonewright/memory-get",
             "mcp_name": "stonewright-memory-get",
             "kind": "Read",
@@ -3613,6 +3628,20 @@
                 "token": true,
                 "validator": false,
                 "audit": true
+            }
+        },
+        {
+            "ability_name": "stonewright/rules-get",
+            "mcp_name": "stonewright-rules-get",
+            "kind": "Read",
+            "input_schema_hash": "647b32884ef269e45777cafcaa5ee07a9ab08ba888e1011c63ff3b0b658ceab0",
+            "output_schema_hash": "9581d5ef9b9aea9703b619b106cb7614124f1194d0fcb7cecd10b4919b3bba4b",
+            "permission_class": "Permissions::read()",
+            "gates": {
+                "backup": false,
+                "token": false,
+                "validator": false,
+                "audit": false
             }
         },
         {
@@ -4138,7 +4167,7 @@
             "mcp_name": "stonewright-task-start",
             "kind": "Read",
             "input_schema_hash": "15f6fd543c01390a1e0b28feee3fca80b655e1ca4537b789cb8ce6be9bea755e",
-            "output_schema_hash": "c1d62891d06162fee4fb13c188e2c95c4b7cea0a763a5ccc07e6b0f8b57781a7",
+            "output_schema_hash": "106476f815208a6292c77655fb1de4583730a38531811874b6a09a56e716ede2",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
@@ -4544,7 +4573,7 @@
             "mcp_name": "stonewright-workflow-preflight",
             "kind": "Read",
             "input_schema_hash": "15f6fd543c01390a1e0b28feee3fca80b655e1ca4537b789cb8ce6be9bea755e",
-            "output_schema_hash": "c1d62891d06162fee4fb13c188e2c95c4b7cea0a763a5ccc07e6b0f8b57781a7",
+            "output_schema_hash": "106476f815208a6292c77655fb1de4583730a38531811874b6a09a56e716ede2",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
