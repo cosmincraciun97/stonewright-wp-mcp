@@ -84,21 +84,10 @@ final class PhpSyntaxValidator {
 			);
 		}
 
-		// Reject bare assignment statements that are common toxic appends:
-		// identifiers used without $ in statement position after a semicolon.
-		if ( self::looks_like_bare_assignment_corruption( $source ) ) {
-			return new \WP_Error(
-				'stonewright_php_candidate_invalid',
-				__( 'Complete PHP candidate contains bare assignment statements without variable prefixes (invalid PHP).', 'stonewright' ),
-				[
-					'status'     => 400,
-					'retryable'  => false,
-					'error_code' => 'php_candidate_bare_assignment',
-					'cause_key'  => 'php_bare_assignment',
-				]
-			);
-		}
-
+		// No secondary heuristic runs here. TOKEN_PARSE is the only authority on
+		// PHP grammar: a bare assignment is already a parse error, and a regex
+		// that guesses at one also rejects class constants, enum cases, heredoc
+		// bodies, and inline HTML attributes.
 		return true;
 	}
 
@@ -111,46 +100,5 @@ final class PhpSyntaxValidator {
 			return $source;
 		}
 		return "<?php\n" . $source;
-	}
-
-	/**
-	 * Heuristic for the incident class: `obfuscated = ...` without `$`.
-	 */
-	private static function looks_like_bare_assignment_corruption( string $source ): bool {
-		// Strip strings and comments roughly via tokens when possible.
-		$tokens = @token_get_all( $source );
-		if ( ! is_array( $tokens ) ) {
-			return (bool) preg_match( '/(?:^|[\n;{}])\s*[A-Za-z_][A-Za-z0-9_]*\s*=\s*[^=]/m', $source );
-		}
-
-		$prev_significant = null;
-		foreach ( $tokens as $token ) {
-			if ( is_array( $token ) ) {
-				[ $id, $text ] = $token;
-				if ( in_array( $id, [ T_WHITESPACE, T_COMMENT, T_DOC_COMMENT ], true ) ) {
-					continue;
-				}
-				if ( T_STRING === $id ) {
-					// T_STRING followed by '=' after statement boundary is invalid bare assign
-					// only when previous was ; { } or start — token_get_all with TOKEN_PARSE
-					// would already reject true parse errors; this catches edge encodings.
-					$prev_significant = [ 'string', $text ];
-					continue;
-				}
-				$prev_significant = [ 'id', $id, $text ];
-				continue;
-			}
-			if ( '=' === $token && is_array( $prev_significant ) && 'string' === $prev_significant[0] ) {
-				// Could be class const / enum; only flag if previous boundary was terminator.
-				// Rely primarily on TOKEN_PARSE; keep this as soft secondary check via regex.
-			}
-			$prev_significant = [ 'char', $token ];
-		}
-
-		// Direct pattern for the known incident shape outside strings.
-		$stripped = preg_replace( '/[\'"][^\'"]*[\'"]/', '""', $source ) ?? $source;
-		$stripped = preg_replace( '#//.*$#m', '', $stripped ) ?? $stripped;
-		$stripped = preg_replace( '#/\*.*?\*/#s', '', $stripped ) ?? $stripped;
-		return (bool) preg_match( '/(?:^|[\n;{}])\s*[A-Za-z_][A-Za-z0-9_]*\s*=\s*(?![=])/', $stripped );
 	}
 }
