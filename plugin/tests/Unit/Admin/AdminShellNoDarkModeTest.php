@@ -67,10 +67,15 @@ final class AdminShellNoDarkModeTest extends TestCase {
 	}
 
 	public function test_rendered_shell_has_no_theme_attributes_or_classes(): void {
+		// If open() or close() throws, the buffer has to come down anyway: an
+		// abandoned buffer swallows the output of every later test in the process.
 		ob_start();
-		AdminShell::open( 'stonewright' );
-		AdminShell::close();
-		$html = (string) ob_get_clean();
+		try {
+			AdminShell::open( 'stonewright' );
+			AdminShell::close();
+		} finally {
+			$html = (string) ob_get_clean();
+		}
 
 		self::assertStringNotContainsString( 'data-sw-theme', $html );
 		self::assertStringNotContainsString( 'sw-theme-light', $html );

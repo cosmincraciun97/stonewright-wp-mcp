@@ -35,14 +35,42 @@ final class AdminAssetContractTest extends TestCase {
 		self::assertStringNotContainsString( 'sw-visual-tooltip', self::asset( 'visual-workspace.js' ) );
 	}
 
-	public function test_primary_button_has_its_own_hover_rule(): void {
-		$css = self::asset( 'visual-workspace.css' );
-		self::assertStringContainsString( '.sw-button--primary:hover:not([disabled])', $css );
-		self::assertStringContainsString( '--sw-brand-fill-hover', $css );
+	/**
+	 * The declarations of one CSS rule, selected by its exact selector text.
+	 *
+	 * Asserting that a token appears somewhere in the file would pass even if the
+	 * token were declared in an unrelated rule, which is the bug this suite exists
+	 * to catch: the hover state has to change the button that is being hovered.
+	 */
+	private static function rule_body( string $file, string $selector ): string {
+		$css   = self::asset( $file );
+		$start = strpos( $css, $selector . ' {' );
+		self::assertIsInt( $start, $file . ' must declare a rule for ' . $selector );
+
+		$open  = (int) strpos( $css, '{', $start );
+		$close = strpos( $css, '}', $open );
+		self::assertIsInt( $close, $selector . ' must be a closed rule block' );
+
+		return substr( $css, $open + 1, $close - $open - 1 );
 	}
 
-	public function test_generic_hover_does_not_apply_to_primary_buttons(): void {
+	public function test_primary_button_hover_repaints_the_primary_button(): void {
+		$body = self::rule_body( 'visual-workspace.css', '.sw-button--primary:hover:not([disabled])' );
+
+		// The unreadable-hover bug was a hover that changed the background without
+		// keeping the label legible against it, so both are part of the contract.
+		self::assertStringContainsString( 'background: var(--sw-brand-fill-hover)', $body );
+		self::assertStringContainsString( 'color: var(--sw-on-brand)', $body );
+	}
+
+	public function test_generic_hover_excludes_primary_and_disabled_buttons(): void {
 		$css = self::asset( 'visual-workspace.css' );
-		self::assertStringContainsString( '.sw-button:not(.sw-button--primary):hover', $css );
+
+		// Both hover rules must opt disabled buttons out explicitly. A disabled
+		// button that still lights up on hover advertises an action that no click
+		// will perform.
+		self::assertStringContainsString( '.sw-button:not(.sw-button--primary):hover:not([disabled]) {', $css );
+		self::assertStringContainsString( '.sw-button--primary:hover:not([disabled]) {', $css );
+		self::assertStringNotContainsString( '.sw-button:hover {', $css );
 	}
 }
