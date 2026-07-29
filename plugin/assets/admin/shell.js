@@ -1,28 +1,14 @@
 /**
- * Stonewright admin shell: theme on <html>, notice drawer, shell offset, copy prompts.
+ * Stonewright admin shell: notice drawer, shell offset, copy prompts, tooltips.
  */
 (function () {
 	'use strict';
-
-	// Keep these in sync with AdminShell::ICON_SUN and AdminShell::ICON_MOON.
-	var THEME_ICON_SUN = 'M8 2.4v1.5M8 12.1v1.5M2.4 8h1.5M12.1 8h1.5M4.05 4.05l1.06 1.06M10.89 10.89l1.06 1.06M11.95 4.05l-1.06 1.06M5.11 10.89l-1.06 1.06M8 5.3a2.7 2.7 0 100 5.4 2.7 2.7 0 000-5.4';
-	var THEME_ICON_MOON = 'M13.2 9.7A5.7 5.7 0 016.3 2.8a5.7 5.7 0 106.9 6.9z';
 
 	function ready(fn) {
 		if (document.readyState === 'loading') {
 			document.addEventListener('DOMContentLoaded', fn);
 		} else {
 			fn();
-		}
-	}
-
-	function applyThemeClass(theme) {
-		var root = document.documentElement;
-		root.classList.remove('sw-theme-light', 'sw-theme-dark');
-		if (theme === 'dark') {
-			root.classList.add('sw-theme-dark');
-		} else if (theme === 'light') {
-			root.classList.add('sw-theme-light');
 		}
 	}
 
@@ -134,50 +120,6 @@
 		window.setTimeout(function () {
 			observer.disconnect();
 		}, 15000);
-	}
-
-	function initThemeToggle(shell) {
-		var btn = shell.querySelector('[data-sw-theme-toggle]');
-		var current = shell.getAttribute('data-sw-theme') || 'light';
-		applyThemeClass(current);
-
-		if (!btn) {
-			return;
-		}
-
-		btn.addEventListener('click', function () {
-			var isDark = shell.classList.contains('sw-theme-dark') ||
-				document.documentElement.classList.contains('sw-theme-dark');
-			var next = isDark ? 'light' : 'dark';
-			shell.classList.toggle('sw-theme-dark', next === 'dark');
-			shell.classList.toggle('sw-theme-light', next === 'light');
-			shell.setAttribute('data-sw-theme', next);
-			applyThemeClass(next);
-			btn.setAttribute('aria-pressed', next === 'dark' ? 'true' : 'false');
-			var icon = btn.querySelector('[data-sw-theme-icon]');
-			if (icon) {
-				icon.setAttribute('d', next === 'dark' ? THEME_ICON_SUN : THEME_ICON_MOON);
-			}
-
-			var cfg = window.stonewrightShell || {};
-			if (!cfg.ajaxUrl || !cfg.nonce) {
-				return;
-			}
-
-			var body = new window.URLSearchParams();
-			body.set('action', 'stonewright_set_admin_theme');
-			body.set('nonce', cfg.nonce);
-			body.set('theme', next);
-
-			window.fetch(cfg.ajaxUrl, {
-				method: 'POST',
-				credentials: 'same-origin',
-				headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-				body: body.toString(),
-			}).catch(function () {
-				// Preference still applied for the session; persistence is best-effort.
-			});
-		});
 	}
 
 	function copyTextSilent(value) {
@@ -324,18 +266,12 @@
 			return;
 		}
 		document.documentElement.classList.add('sw-has-shell');
-		// Ensure light class is explicit for media-query exclusion.
-		if (!shell.classList.contains('sw-theme-dark')) {
-			shell.classList.add('sw-theme-light');
-		}
-		applyThemeClass(shell.getAttribute('data-sw-theme') || 'light');
 		updateShellOffset(shell);
 		window.addEventListener('resize', function () {
 			updateShellOffset(shell);
 		});
 		collectForeignNotices(shell);
 		watchNotices(shell);
-		initThemeToggle(shell);
 		initCopyPrompts(shell);
 		initTooltips();
 	});

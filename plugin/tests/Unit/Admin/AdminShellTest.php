@@ -86,8 +86,6 @@ final class AdminShellTest extends TestCase {
 		self::assertStringContainsString( 'admin.php?page=stonewright-abilities', $html );
 		self::assertStringContainsString( 'sw-mode-pill', $html );
 		self::assertStringContainsString( 'staging', $html );
-		self::assertStringContainsString( 'sw-theme-toggle', $html );
-		self::assertStringContainsString( 'aria-pressed=', $html );
 		self::assertStringContainsString( 'Stonewright notice', $html );
 		self::assertStringContainsString( '</div><!-- .sw-shell -->', $html );
 	}
@@ -109,19 +107,4 @@ final class AdminShellTest extends TestCase {
 		self::assertStringNotContainsString( '<script>', $html );
 	}
 
-	public function test_open_applies_dark_theme_class_from_user_meta(): void {
-		$GLOBALS['stonewright_test_user_meta'][7]['stonewright_admin_theme'] = 'dark';
-
-		ob_start();
-		AdminShell::open( 'stonewright' );
-		AdminShell::close();
-		$html = (string) ob_get_clean();
-
-		self::assertStringContainsString( 'sw-theme-dark', $html );
-		self::assertStringContainsString( 'aria-pressed="true"', $html );
-	}
-
-	public function test_resolve_theme_defaults_to_light(): void {
-		self::assertSame( 'light', AdminShell::resolve_theme() );
-	}
 }
