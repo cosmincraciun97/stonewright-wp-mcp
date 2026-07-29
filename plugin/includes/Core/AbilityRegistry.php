@@ -176,6 +176,7 @@ use Stonewright\WpMcp\Abilities\WpCli\Status as WpCliStatus;
 use Stonewright\WpMcp\Abilities\System\InstructionsGet;
 use Stonewright\WpMcp\Abilities\System\RulesGet;
 use Stonewright\WpMcp\Abilities\System\InstructionsSet;
+use Stonewright\WpMcp\Abilities\System\MemoryGeneralize;
 use Stonewright\WpMcp\Abilities\Media\GetMedia;
 use Stonewright\WpMcp\Abilities\Media\ListMedia;
 use Stonewright\WpMcp\Abilities\Media\OptimizeMedia;
@@ -439,6 +440,7 @@ final class AbilityRegistry {
 			LearningRecord::class,
 			FeedbackCapture::class,
 			MemoryDelete::class,
+			MemoryGeneralize::class,
 
 			// System (Wave 3b).
 			InstructionsGet::class,
@@ -879,8 +881,30 @@ final class AbilityRegistry {
 		return self::SESSION_TASK_STARTED_PREFIX . hash_hmac( 'sha256', $session_id, wp_salt( 'auth' ) );
 	}
 
+	/**
+	 * Abilities that mutate state but whose names the keyword heuristic below
+	 * cannot recognise.
+	 *
+	 * The category rules exempt whole read-mostly categories, and the keyword
+	 * list only catches verbs that were foreseen. An allowlist keeps a mutation
+	 * gated when neither rule happens to fire on its name.
+	 *
+	 * @return list<string>
+	 */
+	private static function context_required_abilities(): array {
+		return [
+			// A bulk rewrite of stored memory. Category "memory" is exempt and
+			// "generalize" is in no keyword list, so it must be named here.
+			'stonewright/memory-generalize',
+		];
+	}
+
 	private static function requires_context_token( Ability $ability ): bool {
 		$name = $ability->name();
+		if ( in_array( $name, self::context_required_abilities(), true ) ) {
+			return true;
+		}
+
 		if ( in_array( $name, self::context_exempt_abilities(), true ) ) {
 			return false;
 		}
