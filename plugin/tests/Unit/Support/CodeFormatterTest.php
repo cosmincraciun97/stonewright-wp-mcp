@@ -174,6 +174,15 @@ final class CodeFormatterTest extends TestCase {
 		);
 	}
 
+	public function test_preserves_escape_inside_unquoted_html_attribute_and_decodes_outer_layout(): void {
+		$in = '<div data-label=keep\nvalue>After</div>\n<p>Next</p>';
+
+		self::assertSame(
+			"<div data-label=keep\\nvalue>After</div>\n<p>Next</p>\n",
+			CodeFormatter::normalize( $in, 'html', true )
+		);
+	}
+
 	/**
 	 * @dataProvider protected_trailing_whitespace_fixtures
 	 */

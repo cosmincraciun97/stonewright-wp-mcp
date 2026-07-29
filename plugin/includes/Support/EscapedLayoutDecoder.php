@@ -228,6 +228,32 @@ final class EscapedLayoutDecoder {
 				continue;
 			}
 
+			if ( 'unquoted_attribute' === $state ) {
+				$output .= $character;
+				if ( '>' === $character ) {
+					$state = 'text';
+				} elseif ( ctype_space( $character ) ) {
+					$state = 'tag';
+				}
+				continue;
+			}
+
+			if ( 'before_attribute_value' === $state ) {
+				$output .= $character;
+				if ( ctype_space( $character ) ) {
+					continue;
+				}
+				if ( in_array( $character, [ "'", '"' ], true ) ) {
+					$quote = $character;
+					$state = 'attribute';
+				} elseif ( '>' === $character ) {
+					$state = 'text';
+				} else {
+					$state = 'unquoted_attribute';
+				}
+				continue;
+			}
+
 			if ( 'text' === $state && '<!--' === substr( $code, $index, 4 ) ) {
 				$output .= '<!--';
 				$index  += 3;
@@ -251,6 +277,12 @@ final class EscapedLayoutDecoder {
 				$output .= $character;
 				$quote   = $character;
 				$state   = 'attribute';
+				continue;
+			}
+
+			if ( 'tag' === $state && '=' === $character ) {
+				$output .= '=';
+				$state   = 'before_attribute_value';
 				continue;
 			}
 
