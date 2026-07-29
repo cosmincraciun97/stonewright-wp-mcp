@@ -74,7 +74,7 @@ final class RuleEnforcer {
 			self::ERROR_CODE,
 			$message,
 			array_merge(
-				$diagnostics,
+				array_diff_key( $diagnostics, array_flip( self::CANONICAL_KEYS ) ),
 				[
 					'status'              => 409,
 					'execution_status'    => 'blocked',
