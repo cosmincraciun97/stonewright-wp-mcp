@@ -174,6 +174,7 @@ use Stonewright\WpMcp\Abilities\WpCli\JobStatus as WpCliJobStatus;
 use Stonewright\WpMcp\Abilities\WpCli\Run as WpCliRun;
 use Stonewright\WpMcp\Abilities\WpCli\Status as WpCliStatus;
 use Stonewright\WpMcp\Abilities\System\InstructionsGet;
+use Stonewright\WpMcp\Abilities\System\RulesGet;
 use Stonewright\WpMcp\Abilities\System\InstructionsSet;
 use Stonewright\WpMcp\Abilities\Media\GetMedia;
 use Stonewright\WpMcp\Abilities\Media\ListMedia;
@@ -441,6 +442,7 @@ final class AbilityRegistry {
 
 			// System (Wave 3b).
 			InstructionsGet::class,
+			RulesGet::class,
 			InstructionsSet::class,
 			KnowledgeExport::class,
 			KnowledgeImport::class,
@@ -1025,6 +1027,7 @@ final class AbilityRegistry {
 			'stonewright/system-abilities-list',
 			'stonewright/tool-profile',
 			'stonewright/system-instructions-get',
+			'stonewright/rules-get',
 			'stonewright/knowledge-export',
 			'stonewright/skills-list',
 			'stonewright/skills-get',
@@ -1356,8 +1359,10 @@ final class AbilityRegistry {
 					// Minimal content + Elementor read tools for design tasks.
 					$pick( [ 'stonewright/content-get-page' ] ),
 					$pick( [ 'stonewright/elementor-v3-get-page-structure', 'stonewright/elementor-v3-status' ] ),
-					$pick( [ 'stonewright/elementor-schema', 'stonewright/elementor-v3-list-widgets' ] ),
-					// Theme CSS patch path (common Transavia-style work without full PHP).
+					// Native rules must be reachable before the first write, so the
+					// widget schema waits for the profile expansion that follows.
+					$pick( [ 'stonewright/rules-get' ] ),
+					// Theme CSS read/patch path, for styling work that needs no full PHP.
 					$pick( [ 'stonewright/theme-file-read', 'stonewright/theme-custom-css' ] ),
 				]
 			)
@@ -1379,6 +1384,7 @@ final class AbilityRegistry {
 			'stonewright/task-start',
 			'stonewright/tool-profile',
 			'stonewright/skills-get',
+			'stonewright/rules-get',
 			'stonewright/php-execute',
 			'stonewright/security-issue-confirmation-token',
 			'stonewright/site-info',
@@ -1388,7 +1394,6 @@ final class AbilityRegistry {
 			'stonewright/content-model-loop-grid-flow',
 			'stonewright/media-upload-batch',
 			'stonewright/design-native-plan',
-			'stonewright/knowledge-candidate-record',
 			'stonewright/elementor-schema',
 			'stonewright/elementor-v3-get-page-structure',
 			'stonewright/elementor-v3-build-page-from-spec',

@@ -264,6 +264,7 @@
 | `stonewright/context-bootstrap` | `stonewright-context-bootstrap` | `System\ContextBootstrap` | Compatibility full-context bootstrap. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/task-start` | `stonewright-task-start` | `System\TaskStart` | Canonical one-call task start: issues the context token and returns compact skills, memory, expertise, capability gates, and the exact next tool path. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/system-instructions-get` | `stonewright-system-instructions-get` | `System\InstructionsGet` | Returns the current Stonewright custom instructions (system prompt prefix). | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/rules-get` | `stonewright-rules-get` | `System\RulesGet` | Returns the rules Stonewright enforces for every site: what the rule is, why it exists, and whether a runtime guard blocks violations or the rule is instruction-only. | Read | `Permissions::read()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/system-instructions-set` | `stonewright-system-instructions-set` | `System\InstructionsSet` | Replaces the Stonewright custom instructions. | Write | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/knowledge-export` | `stonewright-knowledge-export` | `System\KnowledgeExport` | Exports custom instructions, memory entries, and site skills in the Stonewright knowledge bundle format. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 | `stonewright/knowledge-import` | `stonewright-knowledge-import` | `System\KnowledgeImport` | Imports custom instructions, memory entries, and site skills from a Stonewright knowledge bundle. | Read | `Permissions::manage_options()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
@@ -600,7 +601,7 @@
 
 ## Summary
 
-Total abilities registered: **330**
+Total abilities registered: **331**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

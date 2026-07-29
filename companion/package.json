@@ -11,6 +11,7 @@
 	"files": [
 		"dist",
 		"blueprints",
+		"data",
 		"skills-builtin",
 		"scripts/postinstall.mjs",
 		"README.md",
@@ -46,8 +47,9 @@
 		"tokens:measure": "node scripts/measure-tool-surface.mjs",
 		"contracts:generate": "node scripts/generate-direct-tools-contract.mjs",
 		"contracts:compat": "vitest run tests/direct-tools-contract.test.ts",
+		"sync:rules": "node -e \"const fs=require('fs');const p=require('path');fs.mkdirSync('data',{recursive:true});fs.copyFileSync(p.join('..','plugin','data','global-rules.json'),p.join('data','global-rules.json'));\"",
 		"sync:blueprints": "node -e \"const fs=require('fs');const p=require('path');const s=p.join('..','plugin','blueprints');const d='blueprints';fs.mkdirSync(d,{recursive:true});for(const f of fs.readdirSync(s).filter(x=>x.endsWith('.json')))fs.copyFileSync(p.join(s,f),p.join(d,f));\"",
-		"prepack": "npm run sync:blueprints && npm run build",
+		"prepack": "npm run sync:blueprints && npm run sync:rules && npm run build",
 		"postinstall": "node scripts/postinstall.mjs"
 	},
 	"dependencies": {

@@ -116,6 +116,16 @@ final class WorkflowPreflight extends AbilityKernel {
 					'properties' => $elementor_properties,
 				],
 				'site'          => [ 'type' => 'object' ],
+				'hard_rules'    => [
+					'type'        => 'object',
+					'description' => __( 'Digest of the native rule registry plus the tool that returns the rule bodies.', 'stonewright' ),
+					'properties'  => [
+						'digest' => [ 'type' => 'string' ],
+						'tool'   => [ 'type' => 'string' ],
+						'count'  => [ 'type' => 'integer' ],
+						'hard'   => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+					],
+				],
 				'context'       => [ 'type' => 'object' ],
 				'response_mode' => [ 'type' => 'string' ],
 				'payload_hashes' => [ 'type' => 'object' ],
@@ -304,6 +314,12 @@ final class WorkflowPreflight extends AbilityKernel {
 				'mcp_server_id'        => 'stonewright',
 				'ability_prefix'       => 'stonewright/',
 			],
+			'hard_rules'    => [
+				'digest' => \Stonewright\WpMcp\Security\GlobalRules::digest(),
+				'tool'   => 'stonewright-rules-get',
+				'count'  => count( \Stonewright\WpMcp\Security\GlobalRules::all() ),
+				'hard'   => \Stonewright\WpMcp\Security\GlobalRules::ids_for_severity( 'hard' ),
+			],
 			'context'       => [
 				'matched_skills'          => $context['matched_skills'] ?? [],
 				'matched_skill_playbooks' => $compact_playbooks,
@@ -416,7 +432,7 @@ final class WorkflowPreflight extends AbilityKernel {
 		$compact_context = [
 			'matched_skills'   => array_values( array_slice( $skills, 0, 3 ) ),
 			'memory_refs'      => self::compact_memory_entries( $context['memory_entries'] ?? [] ),
-			'expertise_refs'   => array_values( array_slice( (array) ( $context['expertise_packs'] ?? [] ), 0, 2 ) ),
+			'expertise_refs'   => self::compact_expertise_refs( $context['expertise_packs'] ?? [] ),
 			'required_actions' => array_values( array_filter( [
 				[] !== $errors ? 'fix_recurring_errors_first' : null,
 				[] !== $skills ? 'load_matched_skills' : null,
@@ -426,6 +442,11 @@ final class WorkflowPreflight extends AbilityKernel {
 			] ) ),
 			'followups_ref'    => self::compact_object_ref( 'required_followups', $context['required_followups'] ?? [] ),
 		];
+		if ( [] !== $compact_context['expertise_refs'] ) {
+			// The body tool is the same for every ref, so it is named once here
+			// instead of repeated inside each entry.
+			$compact_context['expertise_body_tool'] = 'stonewright/expertise-get';
+		}
 		if ( ! empty( $custom['enabled'] ) && '' !== trim( (string) ( $custom['text'] ?? '' ) ) ) {
 			// Presence flag only — full instructions live in admin/memory.
 			$compact_context['custom_instructions'] = [ 'enabled' => true ];
@@ -454,10 +475,11 @@ final class WorkflowPreflight extends AbilityKernel {
 			? $fast_path['tool_profile']
 			: [];
 		$tools_changed      = (bool) ( $tool_profile_block['tools_changed'] ?? false );
-		$re_list            = (string) ( $tool_profile_block['re_list_instruction'] ?? '' );
-		if ( $tools_changed && '' === $re_list ) {
-			$re_list = 'Re-list tools now (tools/list). New tools are available. If your client ignores tools/list_changed, call tools/list again before continuing.';
-		}
+		// Compact mode restates the instruction in short form rather than carrying
+		// the full-mode prose; the remediation detail lives in the docs.
+		$re_list            = $tools_changed
+			? 'Re-list tools now (tools/list). More tools are available. If a tool is still missing, restart the MCP client.'
+			: '';
 
 		$site = is_array( $response['site'] ?? null ) ? $response['site'] : [];
 		$target_context = is_array( $response['target_context'] ?? null )
@@ -473,10 +495,14 @@ final class WorkflowPreflight extends AbilityKernel {
 			'fast_path'           => $compact_fast_path,
 			'elementor'           => $compact_elementor,
 			'context'             => $compact_context,
+			// Both the write target and the surface are already top-level keys, so
+			// the site block only carries what is not repeated elsewhere.
 			'site'                => [
-				'write_target_url'       => (string) ( $site['write_target_url'] ?? $response['write_target_url'] ?? '' ),
 				'active_write_target'    => (string) ( $site['active_write_target'] ?? '' ),
-				'configured_mcp_surface' => (string) ( $site['configured_mcp_surface'] ?? $response['configured_mcp_surface'] ?? $profile_name ),
+			],
+			'hard_rules'          => [
+				'digest' => \Stonewright\WpMcp\Security\GlobalRules::digest(),
+				'tool'   => 'stonewright-rules-get',
 			],
 			'response_mode'       => 'compact',
 			'payload_hashes'      => $payload_hashes,
@@ -498,6 +524,30 @@ final class WorkflowPreflight extends AbilityKernel {
 				'memory_backend'    => (string) ( $target_context['memory_backend'] ?? 'plugin-site' ),
 			],
 		];
+	}
+
+	/**
+	 * Compact expertise references.
+	 *
+	 * Drops the fields a client cannot act on (`status`, `activation`) and the
+	 * per-entry `body_tool`, which is constant and named once on the context.
+	 *
+	 * @param mixed $packs Full-mode expertise packs.
+	 * @return list<array<string, mixed>>
+	 */
+	private static function compact_expertise_refs( $packs ): array {
+		$refs = [];
+		foreach ( array_slice( (array) $packs, 0, 2 ) as $pack ) {
+			if ( ! is_array( $pack ) ) {
+				continue;
+			}
+			$refs[] = array_intersect_key(
+				$pack,
+				array_flip( [ 'id', 'version', 'hash', 'cached', 'trigger' ] )
+			);
+		}
+
+		return $refs;
 	}
 
 	/**

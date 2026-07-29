@@ -20,6 +20,7 @@ import {
 import { PLUGIN_ONLY_CAPABILITIES } from "./site-discover.js";
 import { markTaskStartSeen, resolveDirectWriteMode } from "../writes.js";
 import { ensureStonewrightAgentsMd, pointerInstalled } from "../agents-md.js";
+import { globalRulesDigest } from "../global-rules.js";
 import { permanentRulesGuidance } from "../permanent-rules.js";
 import { createHash, randomBytes } from "node:crypto";
 import type { SitesConfig, ResolvedSite } from "../sites-config.js";
@@ -496,6 +497,12 @@ export function taskStart(
     mode: "direct" as const,
     site: siteAlias,
     write_mode: writeMode,
+    // Digest only: the bodies come from stonewright-rules-get, so a client that
+    // already cached this digest spends nothing on rules.
+    hard_rules: {
+      digest: globalRulesDigest(),
+      tool: "stonewright-rules-get",
+    },
     target_context: {
       backend: "direct",
       site_alias: siteAlias,
