@@ -1,13 +1,15 @@
 {
     "version": 1,
-    "generated_at": "2026-07-26T15:16:07+00:00",
+    "generated_at": "2026-07-29T12:36:44+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
         "schema_changes": [
             "stonewright/context-bootstrap",
             "stonewright/php-execute",
+            "stonewright/sandbox-write",
             "stonewright/task-start",
+            "stonewright/theme-custom-css",
             "stonewright/theme-file-patch",
             "stonewright/theme-file-read",
             "stonewright/tool-profile",
@@ -3505,7 +3507,7 @@
             "ability_name": "stonewright/php-execute",
             "mcp_name": "stonewright-php-execute",
             "kind": "Write",
-            "input_schema_hash": "edb62e49d228075f44c32ec13f48f906e5aef9d2e89869e49cd183199738f468",
+            "input_schema_hash": "ed04a84140135ea58b5617df77db7d7d76ef243f7f96c657ad5f66e8cab42aa3",
             "output_schema_hash": "d5643004b7cb0e98893db8b47f0351ab14e3dfed0c01af4438be2ac56691168f",
             "permission_class": "Permissions::manage_options()",
             "gates": {
@@ -3715,7 +3717,7 @@
             "ability_name": "stonewright/sandbox-write",
             "mcp_name": "stonewright-sandbox-write",
             "kind": "Write",
-            "input_schema_hash": "16d3ec5f7b26a046851974ffa6d3895c02b94b9c84c514a10c6f432086c4eb4e",
+            "input_schema_hash": "797e31ae6fc19314aa5ed1f2ac27264df40cf1d9231d31d5ecfa0e8f630fa424",
             "output_schema_hash": "db01909200f09c4b63aa3378b50713dfb50cdb2e17fe68da2cf05c7bfb5634c0",
             "permission_class": "Permissions::can_manage_sandbox()",
             "gates": {
@@ -4275,7 +4277,7 @@
             "ability_name": "stonewright/theme-custom-css",
             "mcp_name": "stonewright-theme-custom-css",
             "kind": "Write",
-            "input_schema_hash": "fe9458aa4cf05c6452994d1c92fc974a4247fd6de5fbf90c3a2a6252efcf51be",
+            "input_schema_hash": "39c2c100d84c2b264c8d13ff129b09553f74c8e0f87167fdfdad537e58dbc721",
             "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
             "permission_class": "Permissions::edit_css()",
             "gates": {
@@ -4289,7 +4291,7 @@
             "ability_name": "stonewright/theme-file-patch",
             "mcp_name": "stonewright-theme-file-patch",
             "kind": "Write",
-            "input_schema_hash": "2598d0763ef986712a008c53803e28fa3e67ddb9a911aa340ee99a62cf1c0df4",
+            "input_schema_hash": "cc1ce6e086eac39497cdbb60742ec3b1e2b9cf3af27511062c03022414e290de",
             "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
             "permission_class": "Permissions::manage_options()",
             "gates": {

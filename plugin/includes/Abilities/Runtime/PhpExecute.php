@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Runtime;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Abilities\Common\CodePayloadCanonicalizer;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\ProtectedElementorWriteGuard;
@@ -77,6 +78,11 @@ final class PhpExecute extends AbilityKernel {
 					'default'     => false,
 					'description' => 'Advisory read-oriented mode: static inspection rejects common mutation APIs and runtime filters block post-meta/option writes. It is not a full sandbox — prefer typed abilities for production mutations. Useful for Elementor document reads.',
 				],
+				'decode_escaped_layout' => [
+					'type'        => 'boolean',
+					'default'     => false,
+					'description' => 'Opt in to conservative decoding of escaped layout outside PHP strings and comments.',
+				],
 			],
 		];
 	}
@@ -109,6 +115,11 @@ final class PhpExecute extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
+		$args = CodePayloadCanonicalizer::canonicalize( $this->name(), $args );
+		if ( $args instanceof \WP_Error ) {
+			return $args;
+		}
+
 		if ( ! isset( $args['code'] ) || ! is_string( $args['code'] ) || '' === trim( $args['code'] ) ) {
 			return $this->error( 'php_execute_missing_code', __( 'A non-empty PHP code string is required.', 'stonewright' ), [ 'status' => 400 ] );
 		}
@@ -141,7 +152,7 @@ final class PhpExecute extends AbilityKernel {
 				}
 
 				return $this->execute_code(
-					self::normalise_code( (string) $runtime_args['code'] ),
+					$code_body,
 					self::normalise_timeout( $runtime_args['timeout_seconds'] ?? 30 ),
 					self::normalise_return_mode( $runtime_args['return_mode'] ?? 'auto' ),
 					self::normalise_max_output_bytes( $runtime_args['max_output_bytes'] ?? self::DEFAULT_MAX_OUTPUT_BYTES ),
@@ -284,16 +295,6 @@ final class PhpExecute extends AbilityKernel {
 			'result_truncated'   => $result_payload['truncated'],
 			'max_output_bytes'   => $max_output_bytes,
 		];
-	}
-
-	private static function normalise_code( string $code ): string {
-		$code = trim( $code );
-		if ( str_starts_with( $code, '<?php' ) ) {
-			$code = substr( $code, 5 );
-		} elseif ( str_starts_with( $code, '<?' ) ) {
-			$code = substr( $code, 2 );
-		}
-		return trim( $code );
 	}
 
 	private static function normalise_timeout( mixed $value ): int {
