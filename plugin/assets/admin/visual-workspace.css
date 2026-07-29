@@ -54,7 +54,7 @@
 	transition: transform var(--sw-dur) var(--sw-ease), background var(--sw-dur) var(--sw-ease), border-color var(--sw-dur) var(--sw-ease);
 }
 
-.sw-button:hover {
+.sw-button:not(.sw-button--primary):hover:not([disabled]) {
 	border-color: var(--sw-text-secondary);
 	background: var(--sw-surface);
 	transform: translateY(-1px);
@@ -64,6 +64,13 @@
 	border-color: var(--sw-brand-fill);
 	background: var(--sw-brand-fill);
 	color: var(--sw-on-brand);
+}
+
+.sw-button--primary:hover:not([disabled]) {
+	border-color: var(--sw-brand-fill-hover);
+	background: var(--sw-brand-fill-hover);
+	color: var(--sw-on-brand);
+	transform: translateY(-1px);
 }
 
 .sw-button[disabled] {

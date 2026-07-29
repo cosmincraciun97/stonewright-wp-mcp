@@ -34,4 +34,15 @@ final class AdminAssetContractTest extends TestCase {
 		self::assertStringNotContainsString( 'sw-ds-tooltip', self::asset( 'design-studio.js' ) );
 		self::assertStringNotContainsString( 'sw-visual-tooltip', self::asset( 'visual-workspace.js' ) );
 	}
+
+	public function test_primary_button_has_its_own_hover_rule(): void {
+		$css = self::asset( 'visual-workspace.css' );
+		self::assertStringContainsString( '.sw-button--primary:hover:not([disabled])', $css );
+		self::assertStringContainsString( '--sw-brand-fill-hover', $css );
+	}
+
+	public function test_generic_hover_does_not_apply_to_primary_buttons(): void {
+		$css = self::asset( 'visual-workspace.css' );
+		self::assertStringContainsString( '.sw-button:not(.sw-button--primary):hover', $css );
+	}
 }
