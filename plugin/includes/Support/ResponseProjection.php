@@ -83,11 +83,12 @@ final class ResponseProjection {
 			}
 		}
 
+		$list_nodes = [];
 		foreach ( $paths as $path ) {
-			$projected = self::merge( $projected, self::pick( $result, $path ) );
+			$projected = self::merge( $projected, self::pick( $result, $path, [], $list_nodes ) );
 		}
 
-		return self::reindex_lists( $projected );
+		return self::close_gaps( $projected, [], $list_nodes );
 	}
 
 	/**
@@ -141,9 +142,11 @@ final class ResponseProjection {
 	 *
 	 * @param array<array-key, mixed> $node
 	 * @param list<string>            $segments
+	 * @param list<string>            $trail      Keys already walked, for node identity.
+	 * @param array<string, true>     $list_nodes Nodes picked member-wise from a list, by trail.
 	 * @return array<array-key, mixed> Empty when the path does not resolve.
 	 */
-	private static function pick( array $node, array $segments ): array {
+	private static function pick( array $node, array $segments, array $trail, array &$list_nodes ): array {
 		$key = array_shift( $segments );
 		if ( null === $key || ! array_key_exists( $key, $node ) ) {
 			return [];
@@ -159,6 +162,8 @@ final class ResponseProjection {
 			return [];
 		}
 
+		$trail[] = $key;
+
 		if ( self::is_list_of_arrays( $value ) ) {
 			$items = [];
 			foreach ( $value as $index => $item ) {
@@ -166,23 +171,44 @@ final class ResponseProjection {
 					continue;
 				}
 
-				$picked = self::pick( $item, $segments );
+				$picked = self::pick( $item, $segments, [], $list_nodes );
 				if ( [] === $picked ) {
 					continue;
 				}
 
 				// Source indexes are kept so two paths through the same list
 				// merge member-for-member instead of appending. Gaps are closed
-				// by reindex_lists() once every path has been merged in.
+				// by close_gaps() once every path has been merged in.
 				$items[ $index ] = $picked;
 			}
 
-			return [] === $items ? [] : [ $key => $items ];
+			if ( [] === $items ) {
+				return [];
+			}
+
+			// Only nodes recorded here are re-indexed later. An integer-keyed map
+			// that the caller asked for wholesale keeps its keys, because losing
+			// them would change what the response means.
+			$list_nodes[ self::node_id( $trail ) ] = true;
+
+			return [ $key => $items ];
 		}
 
-		$picked = self::pick( $value, $segments );
+		$picked = self::pick( $value, $segments, $trail, $list_nodes );
 
 		return [] === $picked ? [] : [ $key => $picked ];
+	}
+
+	/**
+	 * Identity of a node inside the projected response.
+	 *
+	 * Members of a picked list are re-indexed as a group, so the trail records the
+	 * key path down to the list itself and stops there.
+	 *
+	 * @param list<string> $trail
+	 */
+	private static function node_id( array $trail ): string {
+		return implode( "\0", $trail );
 	}
 
 	/**
@@ -226,21 +252,47 @@ final class ResponseProjection {
 	}
 
 	/**
-	 * Close the index gaps left by members that did not match a path.
+	 * Close the index gaps left by list members that did not match a path.
+	 *
+	 * Only the nodes that pick() built from a list are touched, and they are sorted
+	 * by source index first: two paths can match different members, and the order
+	 * they were merged in is not the order the caller read them in.
 	 *
 	 * @param array<array-key, mixed> $value
+	 * @param list<string>            $trail
+	 * @param array<string, true>     $list_nodes
 	 * @return array<array-key, mixed>
 	 */
-	private static function reindex_lists( array $value ): array {
-		$out         = [];
-		$integer_key = true;
+	private static function close_gaps( array $value, array $trail, array $list_nodes ): array {
+		$out = [];
 		foreach ( $value as $key => $child ) {
-			$out[ $key ] = is_array( $child ) ? self::reindex_lists( $child ) : $child;
-			if ( ! is_int( $key ) ) {
-				$integer_key = false;
+			if ( ! is_array( $child ) ) {
+				$out[ $key ] = $child;
+				continue;
 			}
+
+			$child_trail = $trail;
+			if ( is_string( $key ) ) {
+				$child_trail[] = $key;
+			}
+
+			if ( isset( $list_nodes[ self::node_id( $child_trail ) ] ) ) {
+				ksort( $child, SORT_NUMERIC );
+
+				$members = [];
+				foreach ( $child as $member ) {
+					// Members were picked with a fresh trail, so their own nested
+					// lists are recorded relative to the member.
+					$members[] = is_array( $member ) ? self::close_gaps( $member, [], $list_nodes ) : $member;
+				}
+
+				$out[ $key ] = $members;
+				continue;
+			}
+
+			$out[ $key ] = self::close_gaps( $child, $child_trail, $list_nodes );
 		}
 
-		return $integer_key && [] !== $out ? array_values( $out ) : $out;
+		return $out;
 	}
 }

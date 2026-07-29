@@ -178,6 +178,50 @@ final class ResponseProjectionTest extends TestCase {
 		self::assertSame( [ 0, 1 ], array_keys( $projected['items'] ) );
 	}
 
+	public function test_an_integer_keyed_map_keeps_its_keys(): void {
+		// Numeric keys are not automatically list indexes. A map keyed by HTTP
+		// status, post id, or breakpoint width loses its meaning entirely if the
+		// keys are replaced with 0..n, and the caller cannot tell that happened.
+		$payload = [
+			'ok'       => true,
+			'by_status' => [
+				404 => 3,
+				500 => 1,
+			],
+		];
+
+		$projected = ResponseProjection::apply( $payload, [ 'by_status' ] );
+
+		self::assertSame( [ 404, 500 ], array_keys( $projected['by_status'] ) );
+		self::assertSame( 3, $projected['by_status'][404] );
+	}
+
+	public function test_list_members_keep_source_order_across_paths(): void {
+		// Two paths can match different members. Closing the index gaps must
+		// restore source order, not the order the paths happened to be merged in.
+		$payload = [
+			'ok'    => true,
+			'items' => [
+				[ 'late' => 'zero' ],
+				[ 'early' => 'one' ],
+				[ 'late' => 'two' ],
+				[ 'early' => 'three' ],
+			],
+		];
+
+		$projected = ResponseProjection::apply( $payload, [ 'items.late', 'items.early' ] );
+
+		self::assertSame(
+			[
+				[ 'late' => 'zero' ],
+				[ 'early' => 'one' ],
+				[ 'late' => 'two' ],
+				[ 'early' => 'three' ],
+			],
+			$projected['items']
+		);
+	}
+
 	public function test_schema_property_declares_an_optional_string_or_list(): void {
 		$property = ResponseProjection::schema_property();
 
