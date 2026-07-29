@@ -282,10 +282,14 @@
 			document.body.appendChild(tipEl);
 			trigger.setAttribute('aria-describedby', tipEl.id);
 			var r = trigger.getBoundingClientRect();
+			var h = tipEl.offsetHeight;
 			var left = r.left + r.width / 2 - tipEl.offsetWidth / 2;
 			left = Math.max(8, Math.min(window.innerWidth - tipEl.offsetWidth - 8, left));
+			// Flip below when the trigger sits too close to the viewport top.
+			var above = r.top - h - 8 >= 0;
+			var top = above ? r.top - h - 8 : r.bottom + 8;
 			tipEl.style.left = left + 'px';
-			tipEl.style.top = r.top + window.scrollY - tipEl.offsetHeight - 8 + 'px';
+			tipEl.style.top = top + window.scrollY + 'px';
 			tipEl.classList.add('is-visible');
 		}
 

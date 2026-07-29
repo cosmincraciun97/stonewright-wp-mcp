@@ -624,20 +624,6 @@
 	font-size: var(--sw-text-xs);
 }
 
-.sw-ds-tooltip {
-	position: fixed;
-	z-index: 100000;
-	max-width: 23rem;
-	padding: 9px 11px;
-	border: 1px solid var(--sw-border-strong);
-	border-radius: 8px;
-	background: var(--sw-text);
-	box-shadow: var(--sw-shadow-3);
-	color: var(--sw-bg);
-	font: 500 12px/1.45 var(--sw-ds-sans);
-	pointer-events: none;
-}
-
 .sw-ds-error-summary {
 	margin: 0 0 var(--sw-space-4);
 	padding: var(--sw-space-4);

@@ -107,17 +107,20 @@ final class DesignStudioAssetsTest extends TestCase {
 		self::assertDoesNotMatchRegularExpression( '/(?<![\w.])prompt\s*\(/', $js );
 	}
 
-	public function test_onboarding_tooltips_and_readiness_controls_ship_in_the_app(): void {
-		$js  = self::js();
-		$css = self::css();
+	public function test_onboarding_uses_the_shared_tooltip_engine_and_ships_readiness_controls(): void {
+		$js    = self::js();
+		$css   = self::css();
+		$shell = (string) file_get_contents( self::plugin_dir() . '/assets/admin/shell.js' );
 
 		self::assertStringContainsString( 'data-sw-tooltip', $js );
-		self::assertStringContainsString( "role: 'tooltip'", $js );
+		self::assertStringNotContainsString( 'function initTooltips()', $js );
+		self::assertStringNotContainsString( 'sw-ds-tooltip', $js );
 		self::assertStringContainsString( 'Ready for use', $js );
 		self::assertStringContainsString( 'Ready to sync globals', $js );
 		self::assertStringContainsString( 'readinessIssues', $js );
 		self::assertStringContainsString( '.sw-ds-toggle', $css );
-		self::assertStringContainsString( '.sw-ds-tooltip', $css );
+		self::assertStringNotContainsString( '.sw-ds-tooltip', $css );
+		self::assertStringContainsString( 'function initTooltips()', $shell );
 	}
 
 	public function test_confirmation_happens_in_an_accessible_review_drawer(): void {

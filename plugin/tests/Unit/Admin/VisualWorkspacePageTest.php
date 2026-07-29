@@ -490,7 +490,12 @@ final class VisualWorkspacePageTest extends TestCase {
 		self::assertStringContainsString( 'focus()', $js );
 		self::assertStringContainsString( 'stonewrightVisualConnect', $js );
 		self::assertStringContainsString( 'window.open', $js );
-		self::assertStringContainsString( 'tooltip', $js );
+		self::assertStringNotContainsString( 'function initTooltips()', $js );
+		self::assertStringNotContainsString( 'sw-visual-tooltip', $js );
+		self::assertStringContainsString(
+			'function initTooltips()',
+			(string) file_get_contents( self::plugin_dir() . '/assets/admin/shell.js' )
+		);
 	}
 
 	public function test_the_page_script_never_uses_native_dialogs_or_markup_injection(): void {
