@@ -30,7 +30,7 @@ beforeAll(async () => {
 		const url = req.url ?? '/';
 		if (url === '/health') {
 			res.writeHead(200, { 'Content-Type': 'application/json' });
-			res.end(JSON.stringify({ status: 'ok', version: '1.0.0-beta.1' }));
+			res.end(JSON.stringify({ status: 'ok', version: '1.0.0-beta.2' }));
 			return;
 		}
 		res.writeHead(404, { 'Content-Type': 'application/json' });

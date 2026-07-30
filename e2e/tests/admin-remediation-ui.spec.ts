@@ -113,23 +113,25 @@ test('companion update handoff is explicit and never claims browser-side install
 }, testInfo) => {
 	test.skip(testInfo.project.name !== 'desktop-1440-light', 'Connect handoff runs once.');
 	await login(page);
+	let statusRequestUrl = '';
 	await page.route('**/stonewright/v1/admin/companion-update-status*', async (route) => {
+		statusRequestUrl = route.request().url();
 		await route.fulfill({
 			status: 200,
 			contentType: 'application/json',
 			body: JSON.stringify({
 				ok: true,
-				plugin_version: '1.0.0-beta.1',
-				latest_release_version: '1.0.0-beta.1',
+				plugin_version: '1.0.0-beta.2',
+				latest_release_version: '1.0.0-beta.2',
 				plugin_update_available: false,
 				companion_status: 'unverified',
 				companion_package:
-					'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.1/stonewright-companion-1.0.0-beta.1.tgz',
+					'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.2/stonewright-companion-1.0.0-beta.2.tgz',
 				checksums:
-					'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.1/SHA256SUMS.txt',
+					'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.2/SHA256SUMS.txt',
 				bridge: { reachable: false, version: '' },
 				update_prompt:
-					'Update the Stonewright companion used by this AI client to 1.0.0-beta.1. Do not print, reveal, move, or commit credentials.',
+					'Update the Stonewright companion used by this AI client to 1.0.0-beta.2. Do not print, reveal, move, or commit credentials.',
 				boundary:
 					'WordPress cannot replace a local stdio companion process. Update it in the AI client.',
 			}),
@@ -145,6 +147,7 @@ test('companion update handoff is explicit and never claims browser-side install
 		'The browser cannot replace an stdio process on your computer.',
 	);
 	await check.click();
+	await expect.poll(() => statusRequestUrl).toContain('force=1');
 	const prompt = page.locator('#stonewright-companion-update-prompt');
 	await expect(prompt).toBeVisible();
 	await expect(prompt).toHaveValue(/Do not print, reveal, move, or commit credentials/);

@@ -49,7 +49,8 @@ matrix after changing the registry.
 | SEO | 3 | Multi-plugin SEO status and metadata reads/writes. |
 | Menu | 5 | Menu creation, item management, locations, and deletion. |
 
-All ability responses support optional `stonewright_fields` projection. The
+All ability responses support optional `stonewright_fields` projection while
+retaining top-level fields required by their declared output schema. The
 `stonewright/rules-get` ability serves the native registry with digest/filter
 semantics, `stonewright/memory-generalize` de-identifies memory in bounded
 batches, and `stonewright/elementor-v3-get-page-structure` accepts `knownHash`

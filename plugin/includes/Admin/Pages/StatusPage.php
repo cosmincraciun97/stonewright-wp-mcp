@@ -77,7 +77,7 @@ final class StatusPage {
 			<div class="sw-stat-grid stonewright-status-grid">
 				<?php if ( null !== $pulse_score ) : ?>
 					<article class="sw-stat-card sw-stat-card--pulse">
-						<span class="sw-stat-card__icon" aria-hidden="true">◎</span>
+						<span class="sw-stat-card__icon dashicons dashicons-chart-area" aria-hidden="true"></span>
 						<div class="sw-stat-card__value">
 							<span class="sw-pulse-score"><?php echo esc_html( (string) $pulse_score ); ?></span>
 							<?php if ( '' !== $pulse_grade ) : ?>
@@ -96,7 +96,7 @@ final class StatusPage {
 				<?php endif; ?>
 
 				<article class="sw-stat-card">
-					<span class="sw-stat-card__icon" aria-hidden="true">⬡</span>
+					<span class="sw-stat-card__icon dashicons dashicons-shield" aria-hidden="true"></span>
 					<div class="sw-stat-card__value"><code><?php echo esc_html( $mode ); ?></code></div>
 					<div class="sw-stat-card__label"><?php esc_html_e( 'Mode', 'stonewright' ); ?></div>
 					<a class="sw-stat-card__link" href="<?php echo esc_url( admin_url( 'admin.php?page=stonewright' ) ); ?>">
@@ -105,7 +105,7 @@ final class StatusPage {
 				</article>
 
 				<article class="sw-stat-card">
-					<span class="sw-stat-card__icon" aria-hidden="true">▣</span>
+					<span class="sw-stat-card__icon dashicons dashicons-admin-plugins" aria-hidden="true"></span>
 					<div class="sw-stat-card__value">
 						<?php if ( '' !== $elementor_ver ) : ?>
 							<code><?php echo esc_html( $elementor_ver ); ?></code>
@@ -130,7 +130,7 @@ final class StatusPage {
 				</article>
 
 				<article class="sw-stat-card">
-					<span class="sw-stat-card__icon" aria-hidden="true">⟷</span>
+					<span class="sw-stat-card__icon dashicons dashicons-admin-links" aria-hidden="true"></span>
 					<div class="sw-stat-card__value"><code><?php echo esc_html( $companion_url ); ?></code></div>
 					<div class="sw-stat-card__label"><?php esc_html_e( 'Companion', 'stonewright' ); ?></div>
 					<a class="sw-stat-card__link" href="<?php echo esc_url( admin_url( 'admin.php?page=stonewright' ) ); ?>">
@@ -139,7 +139,7 @@ final class StatusPage {
 				</article>
 
 				<article class="sw-stat-card">
-					<span class="sw-stat-card__icon" aria-hidden="true">⚙</span>
+					<span class="sw-stat-card__icon dashicons dashicons-admin-generic" aria-hidden="true"></span>
 					<div class="sw-stat-card__value"><?php echo esc_html( (string) $tool_count ); ?></div>
 					<div class="sw-stat-card__label"><?php esc_html_e( 'Tool surface', 'stonewright' ); ?></div>
 					<a class="sw-stat-card__link" href="<?php echo esc_url( admin_url( 'admin.php?page=stonewright-abilities' ) ); ?>">
@@ -148,7 +148,7 @@ final class StatusPage {
 				</article>
 
 				<article class="sw-stat-card">
-					<span class="sw-stat-card__icon" aria-hidden="true">◷</span>
+					<span class="sw-stat-card__icon dashicons dashicons-clock" aria-hidden="true"></span>
 					<div class="sw-stat-card__value">
 						<?php
 						echo '' !== $last_activity
@@ -163,7 +163,7 @@ final class StatusPage {
 				</article>
 
 				<article class="sw-stat-card">
-					<span class="sw-stat-card__icon" aria-hidden="true">☰</span>
+					<span class="sw-stat-card__icon dashicons dashicons-database" aria-hidden="true"></span>
 					<div class="sw-stat-card__value">
 						<?php
 						printf(

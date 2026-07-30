@@ -787,7 +787,7 @@ final class AbilityRegistry {
 		if ( ! self::requires_context_token( $ability ) ) {
 			unset( $input['stonewright_context_token'] );
 			$result = self::finalize_ability_result( $name, $ability->execute( $input ) );
-			$result = self::maybe_project( $result, $fields );
+			$result = self::maybe_project( $ability, $result, $fields );
 			return self::maybe_attach_task_start_hint( $ability, $result );
 		}
 
@@ -810,7 +810,7 @@ final class AbilityRegistry {
 		ExecutionContext::set_task_hash( $task_hash );
 		try {
 			$result = self::finalize_ability_result( $name, $ability->execute( $input ) );
-			$result = self::maybe_project( $result, $fields );
+			$result = self::maybe_project( $ability, $result, $fields );
 			return self::maybe_attach_task_start_hint( $ability, $result );
 		} finally {
 			ExecutionContext::clear();
@@ -826,16 +826,22 @@ final class AbilityRegistry {
 	 * caller-requested subset of it, so the projection runs after the ability has
 	 * produced (and validated) its own output, never before.
 	 *
-	 * @param mixed $result Ability result.
-	 * @param mixed $fields Raw projection parameter from the current call.
+	 * @param Ability $ability Current ability, including its declared output contract.
+	 * @param mixed   $result Ability result.
+	 * @param mixed   $fields Raw projection parameter from the current call.
 	 * @return mixed
 	 */
-	private static function maybe_project( mixed $result, mixed $fields ): mixed {
+	private static function maybe_project( Ability $ability, mixed $result, mixed $fields ): mixed {
 		if ( null === $fields || ! is_array( $result ) ) {
 			return $result;
 		}
 
-		return ResponseProjection::apply( $result, $fields );
+		$output_schema = $ability->output_schema();
+		$required      = is_array( $output_schema['required'] ?? null )
+			? array_values( array_filter( $output_schema['required'], 'is_string' ) )
+			: [];
+
+		return ResponseProjection::apply( $result, $fields, $required );
 	}
 
 	/**

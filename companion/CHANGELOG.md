@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.2] - 2026-07-30
+
+### Changed
+
+- Align the companion package version with the beta.2 plugin release. Direct
+  mode behavior, private state, rules, and update-preservation guarantees remain
+  unchanged.
+
 ## [1.0.0-beta.1] - 2026-07-30
 
 ### Changed

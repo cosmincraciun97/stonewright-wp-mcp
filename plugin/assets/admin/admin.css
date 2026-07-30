@@ -7,10 +7,12 @@
 /* Status badges                                                        */
 /* ------------------------------------------------------------------ */
 .stonewright-badge {
-	display: inline-block;
-	padding: 1px 8px;
-	border-radius: 3px;
-	font-size: 11px;
+	display: inline-flex;
+	align-items: center;
+	min-height: 22px;
+	padding: 2px 8px;
+	border-radius: var(--sw-radius-pill);
+	font-size: var(--sw-text-xs);
 	font-weight: 600;
 	line-height: 1.6;
 }
@@ -73,11 +75,15 @@
 	align-items: flex-start;
 	justify-content: space-between;
 	gap: 16px;
-	margin: 18px 0;
+	margin: 0 0 var(--sw-space-5);
 }
 
 .stonewright-page-header h1 {
 	margin: 0 0 4px;
+	font-size: var(--sw-text-2xl);
+	font-weight: 650;
+	line-height: 1.2;
+	letter-spacing: -.015em;
 }
 
 .stonewright-page-header p {
@@ -110,7 +116,7 @@
 .stonewright-panel {
 	background: var(--sw-surface);
 	border: 1px solid var(--sw-border);
-	border-radius: 6px;
+	border-radius: var(--sw-radius);
 	margin: 0 0 14px;
 	padding: 16px;
 }
@@ -125,7 +131,7 @@
 .stonewright-guidance-card {
 	background: var(--sw-surface);
 	border: 1px solid var(--sw-border);
-	border-radius: 6px;
+	border-radius: var(--sw-radius);
 	padding: 14px;
 }
 
@@ -331,9 +337,11 @@
 }
 
 .sw-badge {
-	border-radius: 3px;
-	display: inline-block;
-	font-size: 11px;
+	border-radius: var(--sw-radius-pill);
+	display: inline-flex;
+	align-items: center;
+	min-height: 22px;
+	font-size: var(--sw-text-xs);
 	font-weight: 700;
 	line-height: 1.7;
 	padding: 1px 8px;
@@ -357,7 +365,7 @@
 	border-radius: 999px;
 	display: inline-flex;
 	align-items: center;
-	font-size: 11px;
+	font-size: var(--sw-text-xs);
 	font-weight: 600;
 	line-height: 1;
 	height: 22px;
@@ -463,22 +471,22 @@
 }
 
 .stonewright-risk-notice {
-	border-left: 4px solid var(--sw-warn-text);
+	border: 1px solid var(--sw-warn-text);
 	background: var(--sw-warn-soft);
 	color: var(--sw-warn-text);
 	margin: 10px 0 12px;
 	padding: 9px 12px;
-	border-radius: 4px;
+	border-radius: var(--sw-radius-sm);
 }
 
 .stonewright-risk-notice--ok {
-	border-left-color: var(--sw-ok-text);
+	border-color: var(--sw-ok-text);
 	background: var(--sw-ok-soft);
 	color: var(--sw-ok-text);
 }
 
 .stonewright-risk-notice--info {
-	border-left-color: var(--sw-brand);
+	border-color: var(--sw-brand);
 	background: var(--sw-bg);
 	color: var(--sw-text);
 }
@@ -527,7 +535,8 @@
 
 .stonewright-app-password-success {
 	background: var(--sw-ok-soft);
-	border-left: 4px solid var(--sw-ok-text);
+	border: 1px solid var(--sw-ok-text);
+	border-radius: var(--sw-radius-sm);
 	display: grid;
 	gap: 8px;
 	margin: 12px 0;
@@ -555,7 +564,8 @@
 
 .stonewright-share-warning {
 	background: var(--sw-bg);
-	border-left: 4px solid var(--sw-brand);
+	border: 1px solid var(--sw-border-strong);
+	border-radius: var(--sw-radius-sm);
 	margin: 12px 0;
 	padding: 10px 12px;
 }
@@ -773,7 +783,7 @@
 
 .stonewright-provider-name {
 	color: var(--sw-text-muted);
-	font-size: 11px;
+	font-size: var(--sw-text-xs);
 	font-weight: 700;
 	letter-spacing: 0;
 	text-transform: uppercase;
@@ -790,7 +800,7 @@
 .stonewright-ability-table__head {
 	border-bottom: 1px solid var(--sw-border);
 	color: var(--sw-text-muted);
-	font-size: 11px;
+	font-size: var(--sw-text-xs);
 	font-weight: 700;
 	text-transform: uppercase;
 }
@@ -831,9 +841,11 @@
 }
 
 .stonewright-kind-badge {
-	border-radius: 3px;
-	display: inline-block;
-	font-size: 11px;
+	border-radius: var(--sw-radius-pill);
+	display: inline-flex;
+	align-items: center;
+	min-height: 22px;
+	font-size: var(--sw-text-xs);
 	font-weight: 700;
 	line-height: 1.7;
 	padding: 1px 8px;

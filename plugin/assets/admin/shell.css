@@ -8,16 +8,16 @@
 /* ============ Semantic tokens — LIGHT (default) ============ */
 :root {
 	/* surfaces */
-	--sw-bg: #f6f7f9;
-	--sw-surface: #ffffff;
-	--sw-surface-raised: #ffffff;
-	--sw-border: #e4e6eb;
-	--sw-border-strong: #cfd3da;
+	--sw-bg: #f7f8fb;
+	--sw-surface: #fcfcfe;
+	--sw-surface-raised: #f1f3f8;
+	--sw-border: #dfe2ea;
+	--sw-border-strong: #c8ceda;
 
 	/* text hierarchy: primary / secondary / muted on surface */
-	--sw-text: #16181d;
-	--sw-text-secondary: #4b5058;
-	--sw-text-muted: #6b7076;
+	--sw-text: #171921;
+	--sw-text-secondary: #474c57;
+	--sw-text-muted: #68707d;
 	--sw-text-invert: #ffffff;
 
 	/* brand indigo family */
@@ -25,14 +25,14 @@
 	--sw-brand-strong: #4338ca;
 	--sw-brand-fill: #4f46e5;
 	--sw-brand-fill-hover: #4338ca;
-	--sw-brand-soft: #eef0fe;
+	--sw-brand-soft: #eeefff;
 	--sw-on-brand: #ffffff;
 
 	/* status */
 	--sw-ok-text: #157347;
 	--sw-ok-soft: #e7f6ee;
-	--sw-warn-text: #9a6700;
-	--sw-warn-soft: #fdf3d9;
+	--sw-warn-text: #8a5a00;
+	--sw-warn-soft: #fff3d6;
 	--sw-danger-text: #b42318;
 	--sw-danger-soft: #fdebe9;
 	--sw-info-text: #0369a1;
@@ -41,9 +41,9 @@
 	--sw-focus-ring: #4f46e5;
 
 	/* shadows (light) */
-	--sw-shadow-1: 0 1px 2px rgba(22, 24, 29, .06), 0 1px 3px rgba(22, 24, 29, .08);
-	--sw-shadow-2: 0 4px 12px rgba(22, 24, 29, .10);
-	--sw-shadow-3: 0 12px 32px rgba(22, 24, 29, .16);
+	--sw-shadow-1: 0 1px 2px rgba(23, 25, 33, .05);
+	--sw-shadow-2: 0 6px 18px rgba(23, 25, 33, .10);
+	--sw-shadow-3: 0 16px 40px rgba(23, 25, 33, .16);
 
 	/* header (always dark chrome) */
 	--sw-shell-header-bg: #16181d;
@@ -70,12 +70,14 @@
 	--sw-text-md: 14px;
 	--sw-text-lg: 16px;
 	--sw-text-xl: 20px;
-	--sw-text-2xl: 28px;
+	--sw-text-2xl: 24px;
+	--sw-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 	--sw-font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
 
 	/* Elevation + motion */
-	--sw-radius: 12px;
-	--sw-radius-sm: 8px;
+	--sw-radius: 10px;
+	--sw-radius-sm: 6px;
+	--sw-radius-lg: 14px;
 	--sw-radius-pill: 999px;
 	--sw-ease: cubic-bezier(.25, .46, .45, .94);
 	--sw-dur: 150ms;
@@ -93,6 +95,7 @@
 	--sw-color-muted: var(--sw-text-muted);
 	--sw-color-bg: var(--sw-bg);
 	--sw-color-pre: var(--sw-bg);
+	--sw-surface-subtle: var(--sw-surface-raised);
 	--sw-ink: var(--sw-text);
 	--sw-ink-soft: var(--sw-text-secondary);
 	--sw-gray-50: var(--sw-bg);
@@ -145,6 +148,9 @@
 	min-height: calc(100vh - 32px);
 	box-sizing: border-box;
 	color: var(--sw-text);
+	font-family: var(--sw-font-sans);
+	font-size: var(--sw-text-md);
+	line-height: 1.55;
 	overflow-x: hidden;
 }
 
@@ -213,7 +219,7 @@
 
 .sw-shell__nav-group-label {
 	display: none;
-	font-size: 10px;
+	font-size: var(--sw-text-xs);
 	font-weight: 600;
 	letter-spacing: 0.06em;
 	text-transform: uppercase;
@@ -393,7 +399,7 @@
 	background: var(--sw-surface-raised) !important;
 	color: var(--sw-text-muted) !important;
 	border-bottom: 1px solid var(--sw-border) !important;
-	font-size: 11px;
+	font-size: var(--sw-text-xs);
 	font-weight: 600;
 	letter-spacing: 0.04em;
 	text-transform: uppercase;
@@ -436,7 +442,7 @@
 	border: 1px solid var(--sw-border);
 	border-radius: 4px;
 	padding: 1px 6px;
-	font-size: 11px;
+	font-size: var(--sw-text-xs);
 }
 
 .sw-shell .subsubsub {
@@ -605,7 +611,7 @@ html.sw-has-shell {
 .sw-shell .sw-notice.notice {
 	margin: 0 0 var(--sw-space-4);
 	border-radius: var(--sw-radius-sm);
-	border-left-width: 4px;
+	border-left-width: 1px;
 	background: var(--sw-surface);
 	color: var(--sw-text);
 }
@@ -620,7 +626,7 @@ html.sw-has-shell {
 	height: 36px;
 	padding: 0 var(--sw-space-4);
 	border-radius: var(--sw-radius-sm);
-	font-size: var(--sw-text-md);
+	font-size: var(--sw-text-xs);
 	font-weight: 600;
 	line-height: 1;
 	cursor: pointer;
@@ -693,9 +699,9 @@ html.sw-has-shell {
 }
 
 .sw-btn--sm {
-	height: 28px;
+	height: 32px;
 	padding: 0 var(--sw-space-3);
-	font-size: var(--sw-text-sm);
+	font-size: var(--sw-text-xs);
 }
 
 .sw-btn[disabled] {
@@ -860,7 +866,12 @@ html.sw-has-shell {
 /* ------------------------------------------------------------------ */
 .sw-shell .stonewright-domain-lock-status {
 	margin: var(--sw-space-6) auto 0;
-	max-width: 560px;
+	width: min(100%, 560px);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-wrap: wrap;
+	gap: var(--sw-space-2);
 	text-align: center;
 	padding: var(--sw-space-4);
 	background: var(--sw-surface-raised);
@@ -868,6 +879,12 @@ html.sw-has-shell {
 	border-radius: var(--sw-radius-sm);
 	color: var(--sw-text-secondary);
 	font-size: var(--sw-text-sm);
+}
+
+.sw-shell .stonewright-domain-lock-status .stonewright-inline-form {
+	display: inline-flex;
+	align-items: center;
+	margin: 0;
 }
 
 /* ------------------------------------------------------------------ */

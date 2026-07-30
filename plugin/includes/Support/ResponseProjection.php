@@ -68,16 +68,17 @@ final class ResponseProjection {
 	 *
 	 * @param array<string, mixed> $result Ability response.
 	 * @param mixed                $fields Raw parameter value as it came off the wire.
+	 * @param list<string>         $required_keys Top-level keys required by the declared output schema.
 	 * @return array<string, mixed>
 	 */
-	public static function apply( array $result, mixed $fields ): array {
+	public static function apply( array $result, mixed $fields, array $required_keys = [] ): array {
 		$paths = self::normalize( $fields );
 		if ( [] === $paths ) {
 			return $result;
 		}
 
 		$projected = [];
-		foreach ( self::ALWAYS_KEPT as $key ) {
+		foreach ( array_values( array_unique( [ ...self::ALWAYS_KEPT, ...$required_keys ] ) ) as $key ) {
 			if ( array_key_exists( $key, $result ) ) {
 				$projected[ $key ] = $result[ $key ];
 			}

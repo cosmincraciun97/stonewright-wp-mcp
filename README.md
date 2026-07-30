@@ -37,6 +37,8 @@ Stonewright is a WordPress MCP stack for AI coding agents. **Elementor** is a fi
   ·
   <a href="docs/woocommerce.md">WooCommerce</a>
   ·
+  <a href="DESIGN.md">Design system</a>
+  ·
   <a href="CONTRIBUTING.md">Contributing</a>
 </p>
 
@@ -286,9 +288,9 @@ Two optional inputs cut payload without losing precision:
 - **`stonewright_fields`** — available on every ability. Give it dot-separated
   response paths, as a list or a comma-separated string
   (`"meta.title, outline.id"`), and the response carries only those branches.
-  Unknown paths are ignored rather than raising an error, the `ok` envelope is
-  never removed, and errors come back unprojected so you can still see why a call
-  failed.
+  Unknown paths are ignored rather than raising an error, top-level fields
+  required by the ability output schema remain present, and errors come back
+  unprojected so you can still see why a call failed.
 - **`knownHash`** on `stonewright-elementor-v3-get-page-structure` — pass the
   `hash` a previous read returned. If the document has not moved, the answer is
   `{ post_id, active, hash, unchanged: true }` and no outline or tree is built.
@@ -366,7 +368,8 @@ Plugin mode admin pages include Setup, Dashboard (Site Pulse), Abilities,
 Blueprints, Design Studio, Visual Workspace, Skills, Memory, Sandbox, and Audit
 Log. The Audit Log is the single responsive incident view; Sandbox does not
 duplicate it. The admin ships one supported light theme; there is no theme
-toggle.
+toggle. Its maintained tokens, component contracts, responsive rules, and
+page-by-page release checklist live in [DESIGN.md](DESIGN.md).
 
 Design Studio holds design directions: validated site-wide design intent with
 provenance and revisions. Visual Workspace opens the real Elementor or block

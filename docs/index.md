@@ -14,6 +14,7 @@ workflows with operator controls.
 - [Installation for Windows and macOS](installation.md)
 - [AI client install prompts (plugin + Direct)](install-prompts.md)
 - [Updating the plugin and companion](updates.md)
+- [Admin design system and page audit](../DESIGN.md)
 - [Documentation maintenance and release freshness](documentation-maintenance.md)
 - [All abilities by category](abilities.md)
 - [Design Spec reference](design-spec.md)
@@ -43,6 +44,7 @@ workflows with operator controls.
 | `ability-truth-matrix.md` | Generated ability gate matrix for permissions, backups, tokens, validators, and tests |
 | `companion.md` | Node companion, stdio MCP, optional HTTP bridge, and tokenized WP-CLI |
 | `updates.md` | Plugin/companion update matrix, steps, and persistence guarantees |
+| `../DESIGN.md` | Canonical light admin tokens, components, accessibility, responsive rules, and page audit |
 | `security.md` and `security-guarantees.md` | Threat model and hardening guarantees |
 | `upstream-code-reuse.md` | Third-party source, licensing, attribution, and import ledger |
 

@@ -55,6 +55,7 @@ final class AbilitiesPageTest extends TestCase {
 		self::assertStringContainsString( '<details', $html );
 		self::assertStringContainsString( 'stonewright-schema-table-wrap', $html );
 		self::assertStringContainsString( 'stonewright/ping', $html );
+		self::assertStringNotContainsString( 'onclick=', $html );
 	}
 
 	public function test_render_includes_sticky_filters_stats_and_switches(): void {

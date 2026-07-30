@@ -225,6 +225,7 @@ final class AdminPagesPolishTest extends TestCase {
 		self::assertStringContainsString( 'sw-dashboard-page', $html );
 		self::assertStringContainsString( 'sw-stat-grid', $html );
 		self::assertStringContainsString( 'sw-stat-card', $html );
+		self::assertStringContainsString( 'dashicons-chart-area', $html );
 		self::assertStringContainsString( 'sw-audit-feed', $html );
 		self::assertStringContainsString( 'sw-sparkline', $html );
 		self::assertStringContainsString( 'Dashboard', $html );

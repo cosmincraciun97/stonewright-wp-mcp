@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.2] - 2026-07-30
+
+### Added
+
+- A maintained light-mode design system and page-by-page admin release
+  checklist.
+
+### Changed
+
+- Replace oversized Dashboard metric cards with a compact grouped overview.
+- Align all wp-admin surfaces on the same typography, spacing, border, focus,
+  badge, and status language.
+
+### Fixed
+
+- Force explicit companion release checks past stale WordPress and browser
+  caches without disabling background caching.
+- Keep required output-schema fields in projected responses, including the
+  compact task-start handshake.
+- Center Domain Lock controls, restore Sandbox file-type contrast, remove an
+  inline category-action click handler, and correct setup code contrast and
+  Visual Workspace focus outlines.
+
 ## [1.0.0-beta.1] - 2026-07-30
 
 ### Added

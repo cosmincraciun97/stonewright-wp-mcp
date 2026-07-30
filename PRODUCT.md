@@ -6,46 +6,32 @@ product
 
 ## Users
 
-WordPress site owners, developers, agencies, and AI coding agents configuring
-or operating Stonewright. They need a trustworthy path from installation to a
-verified connection, then compact guidance for safe WordPress work.
+WordPress site owners, developers, agencies, and AI-assisted operators managing live sites. They work inside wp-admin, often during setup, diagnosis, implementation, or recovery, and need dense technical information without visual noise.
 
 ## Product Purpose
 
-Stonewright gives AI agents guarded, inspectable WordPress capabilities through
-Plugin mode or the pluginless Direct mode. Success means users can install,
-connect, understand the active capability surface, perform recoverable changes,
-and update both components without exposing credentials or needing to reverse
-engineer the setup.
+Stonewright connects AI clients to WordPress through guarded, inspectable workflows. Success means operators can understand current state, choose the correct action quickly, verify every write, and recover safely without exposing credentials or learning project-specific quirks from scratch.
 
 ## Brand Personality
 
-Precise, capable, and candid. Stonewright should feel like a dependable
-developer tool: calm under pressure, explicit about limits, and economical with
-the user's attention.
+Precise, calm, capable. Premium through restraint and craft, never decoration.
 
 ## Anti-references
 
-- Generic AI-product decoration, gradients, glow, or novelty that obscures the
-  task.
-- Dense walls of setup copy with no visible next action.
-- Custom controls that fight familiar WordPress administration patterns.
-- Security theatre, hidden capability differences, or success states that lack
-  verification.
-- Customer, project, site, credential, audit, or memory data in public product
-  artifacts.
+- Generic AI SaaS dashboards built from identical oversized metric cards.
+- Giant type that reduces useful information density.
+- Dark-first, neon, gradient, glassmorphism, or ornamental interfaces.
+- Low-contrast pills, hidden overflow, cramped controls, and unexplained status color.
+- Inconsistent components or project-specific data shipped as product defaults.
 
 ## Design Principles
 
-1. Make the next safe action obvious.
-2. Keep Plugin and Direct mode differences explicit and current.
-3. Show verification receipts, not optimistic claims.
-4. Keep credentials local, short-lived, and out of agent prompts.
-5. Preserve familiar WordPress interaction patterns and progressive disclosure.
+1. Task first. Every screen makes current state and next safe action obvious.
+2. Evidence over decoration. Status, history, verification, and recovery earn visual emphasis.
+3. White-space with purpose. Use a light workspace, compact typography, and deliberate grouping.
+4. One component language. Navigation, buttons, fields, badges, tables, and feedback behave consistently.
+5. Safety stays visible. Permissions, backups, confirmation, audit, and update boundaries remain clear.
 
 ## Accessibility & Inclusion
 
-Target WCAG 2.2 AA for admin surfaces. Every control must be keyboard operable,
-have a visible focus state, expose state to assistive technology, avoid
-color-only meaning, and remain usable at narrow WordPress admin widths and
-browser zoom.
+Target WCAG 2.2 AA. Full keyboard operation, visible focus, semantic controls, non-color status labels, readable contrast, reduced-motion support, zoom-safe layouts, and responsive operation from 320px through wide desktop.

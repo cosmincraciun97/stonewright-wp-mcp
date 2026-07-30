@@ -80,6 +80,32 @@ final class AdminAssetContractTest extends TestCase {
 		self::assertStringContainsString( 'color: var(--sw-on-brand)', $body );
 	}
 
+	public function test_sandbox_category_badge_has_explicit_readable_colors(): void {
+		$body = self::rule_body( 'sandbox.css', '.stonewright-sandbox-page .sw-badge--category' );
+
+		self::assertStringContainsString( 'background: var(--sw-info-soft)', $body );
+		self::assertStringContainsString( 'color: var(--sw-info-text)', $body );
+		self::assertStringContainsString( 'min-height: 22px', $body );
+	}
+
+	public function test_dashboard_metrics_are_grouped_in_one_summary_band(): void {
+		$grid = self::rule_body( 'dashboard.css', '.sw-stat-grid' );
+		$cell = self::rule_body( 'dashboard.css', '.sw-stat-card' );
+
+		self::assertStringContainsString( 'gap: 1px', $grid );
+		self::assertStringContainsString( 'border-radius: var(--sw-radius-lg)', $grid );
+		self::assertStringNotContainsString( 'box-shadow', $cell );
+		self::assertStringNotContainsString( 'border:', $cell );
+	}
+
+	public function test_domain_lock_status_centers_its_complete_control_group(): void {
+		$body = self::rule_body( 'shell.css', '.sw-shell .stonewright-domain-lock-status' );
+
+		self::assertStringContainsString( 'display: flex', $body );
+		self::assertStringContainsString( 'justify-content: center', $body );
+		self::assertStringContainsString( 'flex-wrap: wrap', $body );
+	}
+
 	public function test_audit_payload_becomes_full_width_in_responsive_rows(): void {
 		$css = self::asset( 'audit.css' );
 

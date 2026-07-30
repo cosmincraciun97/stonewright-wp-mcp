@@ -53,9 +53,9 @@ After reload:
   an unchanged registry costs one short response.
 - Treat hard rules as blocking, strong rules as required practice that the
   runtime cannot check for you, and advisory rules as guidance.
-- To keep reads cheap, pass stonewright_fields with the paths you need, and pass
-  knownHash to stonewright-elementor-v3-get-page-structure to skip an unchanged
-  page tree.
+- To keep reads cheap, pass stonewright_fields with the paths you need. Required
+  response-envelope fields remain present. Pass knownHash to
+  stonewright-elementor-v3-get-page-structure to skip an unchanged page tree.
 - For visual work, verify browser/Playwright tools before the first write.
 - Do not inspect private AI-client config files, hand-roll JSON-RPC, or run wp in a normal shell as an MCP workaround.
 - Use stonewright-php-execute for short runtime PHP; keep WP-CLI tokenized via stonewright-wp-cli-*.

@@ -1,6 +1,6 @@
 # Stonewright Plugin
 
-Version: 1.0.0-beta.1
+Version: 1.0.0-beta.2
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
 License: AGPL-3.0-or-later
@@ -51,8 +51,8 @@ See [Updating Stonewright](../docs/updates.md) for plugin/companion version
 matching, upgrade steps, and persistence guarantees.
 The Connect update panel can read the latest trusted release, compare an
 optional configured HTTP bridge, and copy a credential-free companion update
-prompt. A local stdio process still has to be replaced and restarted inside its
-AI client.
+prompt. An explicit check bypasses the background release cache. A local stdio
+process still has to be replaced and restarted inside its AI client.
 
 Normal MCP clients launch the versioned companion release tarball with `npx`.
 Use the admin **Local WP-CLI bridge (advanced)** controls only when you
@@ -257,6 +257,8 @@ says so and prints the build command. See
 The admin UI ships a single light theme. There is no dark mode and no theme
 toggle: maintaining two token sets meant every contrast fix had to be made twice,
 and one of the two was always the stale one.
+The canonical tokens, component rules, responsive requirements, and complete
+surface audit are maintained in [`../DESIGN.md`](../DESIGN.md).
 
 ## Code Payload Handling
 

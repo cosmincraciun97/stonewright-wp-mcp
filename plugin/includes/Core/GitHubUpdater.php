@@ -119,20 +119,23 @@ final class GitHubUpdater {
 	}
 
 	/**
+	 * @param bool $force_refresh Ignore the cached release for an explicit user check.
 	 * @return array{version: string, package: string, companion_package: string, checksums: string, url: string, body?: string, tested?: string, requires?: string, requires_php?: string}|null
 	 */
-	public static function fetch_latest_release(): ?array {
+	public static function fetch_latest_release( bool $force_refresh = false ): ?array {
 		if ( (bool) apply_filters( 'stonewright_disable_update_check', false ) ) {
 			return null;
 		}
 
-		$cached = get_transient( self::CACHE_KEY );
-		if ( is_array( $cached ) && isset( $cached['version'], $cached['package'], $cached['url'] ) ) {
-			/** @var array{version: string, package: string, companion_package: string, checksums: string, url: string, body?: string, tested?: string, requires?: string, requires_php?: string} $cached */
-			return $cached;
-		}
-		if ( 'error' === $cached ) {
-			return null;
+		if ( ! $force_refresh ) {
+			$cached = get_transient( self::CACHE_KEY );
+			if ( is_array( $cached ) && isset( $cached['version'], $cached['package'], $cached['url'] ) ) {
+				/** @var array{version: string, package: string, companion_package: string, checksums: string, url: string, body?: string, tested?: string, requires?: string, requires_php?: string} $cached */
+				return $cached;
+			}
+			if ( 'error' === $cached ) {
+				return null;
+			}
 		}
 
 		$response = wp_remote_get(
