@@ -138,7 +138,7 @@ final class ContainerSchema extends AbilityKernel {
 				'z_index',
 				'css_id',
 				'css_classes',
-				'position',
+				'_position',
 			],
 			'responsive' => [
 				'width_tablet',

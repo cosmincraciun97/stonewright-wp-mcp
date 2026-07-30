@@ -651,6 +651,7 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/elementor-v3-build-page-from-spec',
 				'stonewright/theme-builder-apply-template',
 				'stonewright/elementor-v3-batch-mutate',
+				'stonewright/elementor-post-write-verify',
 				'stonewright/elementor-wire-loop',
 				'stonewright/gutenberg-apply-to-post',
 				'stonewright/elementor-page-digest',
@@ -682,6 +683,7 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/elementor-v3-build-page-from-spec',
 				'stonewright/theme-builder-apply-template',
 				'stonewright/elementor-v3-batch-mutate',
+				'stonewright/elementor-post-write-verify',
 				'stonewright/elementor-wire-loop',
 				'stonewright/elementor-v3-apply-bundle',
 				'stonewright/elementor-page-digest',
@@ -694,11 +696,11 @@ final class ToolProfile extends AbilityKernel {
 				'stonewright/elementor-v3-update-kit-typography',
 				'stonewright/elementor-v3-get-kit-globals',
 				'stonewright/gutenberg-apply-to-post',
+				'stonewright/media-list',
+				'stonewright/media-upload-batch',
 				'stonewright/content-create-page',
 				'stonewright/content-update-page',
 				'stonewright/content-get-page',
-				'stonewright/media-list',
-				'stonewright/media-upload-batch',
 				// Theme-file edits are a fallback on an Elementor design task, so
 				// page and media writes keep the earlier slots under a client cap.
 				'stonewright/theme-file-read',
@@ -950,6 +952,7 @@ final class ToolProfile extends AbilityKernel {
 			'stonewright/theme-builder-apply-template' => 'Create or update a real Elementor Theme Builder template, render the spec, apply conditions, and return verification hints in one request.',
 			'stonewright/elementor-v3-container-schema' => 'Get container layout, style, Advanced, alias, and blocked-key guidance before section writes.',
 			'stonewright/elementor-v3-batch-mutate' => 'Apply grouped surgical Elementor mutations after screenshot review.',
+			'stonewright/elementor-post-write-verify' => 'Invalidate one post cache, regenerate its CSS, warm Elementor frontend HTML, and assert touched element ids before browser QA.',
 			'stonewright/elementor-wire-loop' => 'Plan or transactionally add a native Elementor Pro Loop Carousel or Loop Grid using an existing loop-item template or a validated template spec.',
 			'stonewright/content-bulk-upsert-posts' => 'Create or update repeated posts, CPT rows, and meta values in one call.',
 			'stonewright/content-model-loop-grid-flow' => 'Create CPT UI-style config, ACF field contract, repeated CPT rows, optional loop item, and Loop Grid settings in one call.',
@@ -1076,6 +1079,7 @@ final class ToolProfile extends AbilityKernel {
 		$preferred_abilities = match ( $profile ) {
 			'elementor-design', 'low-tools' => array_merge( $elementor_preferences, [
 				'stonewright/elementor-v3-batch-mutate',
+				'stonewright/elementor-post-write-verify',
 				'stonewright/elementor-wire-loop',
 				'stonewright/elementor-v3-get-kit-globals',
 				'stonewright/content-model-loop-grid-flow',

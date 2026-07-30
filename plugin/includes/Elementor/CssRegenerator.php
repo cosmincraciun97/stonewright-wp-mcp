@@ -35,34 +35,24 @@ final class CssRegenerator {
 			$plugin = \Elementor\Plugin::$instance;
 			if ( isset( $plugin->files_manager ) && is_object( $plugin->files_manager ) ) {
 				$fm = $plugin->files_manager;
-				if ( method_exists( $fm, 'clear_cache' ) ) {
-					// Prefer post-scoped clear when available (Elementor 3.x+).
-					if ( method_exists( $fm, 'on_delete_post' ) ) {
-						$fm->on_delete_post( $post_id );
+				// Post-scoped invalidation only. A single document write must never
+				// clear every Elementor CSS file on the site.
+				if ( method_exists( $fm, 'on_delete_post' ) ) {
+					$fm->on_delete_post( $post_id );
+				}
+				delete_post_meta( $post_id, '_elementor_css' );
+				if ( method_exists( $fm, 'get_css_file' ) ) {
+					// @phpstan-ignore-next-line Elementor dynamic API
+					$css_file = $fm->get_css_file( $post_id );
+					if ( is_object( $css_file ) && method_exists( $css_file, 'update' ) ) {
+						$css_file->update();
+						return [
+							'ok'      => true,
+							'post_id' => $post_id,
+							'method'  => 'css_file_update',
+							'detail'  => 'regenerated',
+						];
 					}
-					// Force rebuild by deleting the post CSS meta marker if present.
-					delete_post_meta( $post_id, '_elementor_css' );
-					if ( method_exists( $fm, 'get_css_file' ) ) {
-						// @phpstan-ignore-next-line Elementor dynamic API
-						$css_file = $fm->get_css_file( $post_id );
-						if ( is_object( $css_file ) && method_exists( $css_file, 'update' ) ) {
-							$css_file->update();
-							return [
-								'ok'      => true,
-								'post_id' => $post_id,
-								'method'  => 'css_file_update',
-								'detail'  => 'regenerated',
-							];
-						}
-					}
-					// Fallback: global clear is worse but better than stale CSS.
-					$fm->clear_cache();
-					return [
-						'ok'      => true,
-						'post_id' => $post_id,
-						'method'  => 'files_manager_clear_cache',
-						'detail'  => 'fallback_global',
-					];
 				}
 			}
 		} catch ( \Throwable $e ) {

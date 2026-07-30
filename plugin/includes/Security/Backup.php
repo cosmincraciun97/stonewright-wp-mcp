@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Security;
 
+use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
 use Stonewright\WpMcp\Support\Json;
 
 /**
@@ -178,6 +179,10 @@ final class Backup {
 			if ( is_string( $key ) && in_array( $key, self::tracked_meta_keys(), true ) ) {
 				self::delete_meta( $post_id, $key );
 			}
+		}
+
+		if ( array_key_exists( '_elementor_data', (array) $snapshot['meta'] ) ) {
+			PostCacheInvalidator::invalidate( $post_id );
 		}
 
 		return true;

@@ -10,6 +10,18 @@ were never stable releases and are not part of the supported public history.
 
 ## [Unreleased]
 
+## [1.0.0-beta.3] - 2026-07-31
+
+### Added
+
+- Add `stonewright/elementor-post-write-verify`, a bounded post-write closure
+  ability that regenerates one post's CSS, warms Elementor's public frontend
+  renderer, asserts requested element IDs or hashed content markers, and keeps
+  browser verification explicitly required.
+- Return maximal V3-only safe roots for mixed Elementor V3/V4 documents and
+  publish a complete schema-evidence, cache, readback, measurement, and
+  screenshot verification guide.
+
 ### Changed
 
 - Define local stdio consistently in Setup and public docs: the AI client starts
@@ -22,6 +34,23 @@ were never stable releases and are not part of the supported public history.
   wp-admin approval boundary.
 - Tell agents never to open or submit the code-approval page unless the user
   explicitly asks them to perform that approval step.
+- Serialize Elementor writes per post, make the native write-closure rule
+  immutable in Plugin and Direct modes, and require one reviewed dry-run/apply
+  batch followed by frontend and browser verification.
+- Keep Direct mode first-class: local Elementor writes invalidate target-post
+  element/CSS metadata and report browser verification as required; remote
+  Direct reports unavailable PHP cache/render checks as `not_checked`.
+
+### Fixed
+
+- Invalidate Elementor's official document cache, post-scoped CSS state,
+  WordPress post cache, and atomic styles only after verified readback, and
+  repeat invalidation after a successful snapshot restore.
+- Remove the site-wide CSS-clear fallback from single-document writes.
+- Accept documented batch-operation aliases while returning exact repair
+  guidance instead of encouraging guessed Elementor controls.
+- Clarify escaped-layout PHP parsing and refuse ambiguous heredoc, nowdoc,
+  script, style, and interpolation candidates instead of corrupting snippets.
 
 ## [1.0.0-beta.2] - 2026-07-30
 

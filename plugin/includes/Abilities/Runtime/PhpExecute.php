@@ -81,7 +81,7 @@ final class PhpExecute extends AbilityKernel {
 				'decode_escaped_layout' => [
 					'type'        => 'boolean',
 					'default'     => false,
-					'description' => 'Opt in to conservative decoding of escaped layout outside PHP strings and comments.',
+					'description' => 'Use only when transport left visible literal \\\\n/\\\\t layout outside PHP strings/comments. Conservatively decodes that layout and refuses heredoc/nowdoc, ${...}, script, or style bodies. Do not use for normal multiline PHP.',
 				],
 			],
 		];
@@ -223,7 +223,7 @@ final class PhpExecute extends AbilityKernel {
 				'php_parse_error',
 				sprintf(
 					/* translators: %s: PHP parse error message. */
-					__( 'PHP snippet failed to parse: %s. This is usually a transport/quoting problem — resend the code as a plain multi-line JSON string without shell heredoc markers.', 'stonewright' ),
+					__( 'PHP snippet failed to parse: %s. Resend as a normal multi-line JSON string without shell heredoc/base64 wrapping. If the received code visibly contains literal \\\\n or \\\\t layout outside PHP strings, retry once with decode_escaped_layout:true.', 'stonewright' ),
 					$parse_error->getMessage()
 				),
 				[
@@ -238,6 +238,11 @@ final class PhpExecute extends AbilityKernel {
 					'elapsed_ms'       => self::elapsed_ms( $started_ns ),
 					'timeout_seconds'  => $timeout_seconds,
 					'read_only'        => $read_only,
+					'retry'            => [
+						'normal_multiline_json_first' => true,
+						'decode_escaped_layout_only_for_visible_literal_layout' => true,
+						'heredoc_nowdoc_supported_by_decoder' => false,
+					],
 				]
 			);
 		} catch ( \Throwable $throwable ) {

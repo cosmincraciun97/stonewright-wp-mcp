@@ -70,6 +70,8 @@ final class UpdateElementTest extends TestCase {
 		self::assertSame( 'custom', $settings['_flex_size'] );
 		self::assertSame( '1', $settings['_flex_grow'] );
 		self::assertSame( '0', $settings['_flex_shrink'] );
+		self::assertSame( 'stonewright/elementor-post-write-verify', $result['next_step']['tool'] );
+		self::assertTrue( (bool) ( $result['post_write']['element_cache']['deleted'] ?? false ) );
 	}
 
 	public function test_merge_patch_preserves_preexisting_unknown_pro_key(): void {
@@ -89,5 +91,22 @@ final class UpdateElementTest extends TestCase {
 		$tree = json_decode( stripslashes( (string) $post->meta['_elementor_data'] ), true );
 		self::assertSame( 'column', $tree[0]['settings']['flex_direction'] );
 		self::assertSame( 'sale', $tree[0]['settings']['pro_ribbon'] );
+	}
+
+	public function test_dry_run_returns_hashes_without_backup_or_write(): void {
+		$result = ( new UpdateElement() )->execute(
+			[
+				'post_id'    => 601,
+				'element_id' => 'root',
+				'dry_run'    => true,
+				'settings'   => [ 'flex_direction' => 'column' ],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['dry_run'] );
+		self::assertNotSame( $result['before_hash'], $result['after_hash'] );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
+		self::assertSame( 'stonewright/elementor-v3-update-element', $result['next_step']['tool'] );
 	}
 }

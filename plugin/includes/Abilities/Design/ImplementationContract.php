@@ -69,6 +69,8 @@ final class ImplementationContract extends AbilityKernel {
 				'token_efficiency'    => [ 'type' => 'object', 'additionalProperties' => true ],
 				'hard_failures'       => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
 				'verification'        => [ 'type' => 'object', 'additionalProperties' => true ],
+				'elementor_write_plan'=> [ 'type' => 'object', 'additionalProperties' => true ],
+				'responsive_patterns'=> [ 'type' => 'object', 'additionalProperties' => true ],
 			],
 			'required'   => [
 				'version',
@@ -81,6 +83,7 @@ final class ImplementationContract extends AbilityKernel {
 				'custom_code_phase',
 				'token_efficiency',
 				'hard_failures',
+				'elementor_write_plan',
 			],
 			'additionalProperties' => true,
 		];
@@ -180,14 +183,17 @@ final class ImplementationContract extends AbilityKernel {
 	 */
 	public static function contract(): array {
 		return [
-			'version'             => '2.0.0',
+			'version'             => '2.1.0',
 			'sequence'            => [
 				'design_evidence',
 				'semantic_validation',
 				'global_styles_first',
 				'native_plan',
-				'native_dry_run',
+				'live_schema_and_settings_evidence',
+				'one_consolidated_native_dry_run_per_post',
 				'native_write_and_readback',
+				'elementor_post_cache_and_builder_render_verification',
+				'separate_frontend_browser_verification',
 				'customization_proposal_if_needed',
 			],
 			'design_evidence'     => [
@@ -201,7 +207,29 @@ final class ImplementationContract extends AbilityKernel {
 					'figma_token_table_or_spacing_typography_color_tokens',
 					'measured_targets_per_breakpoint',
 					'layout_intent_flex_grid_alignment',
+					'element_id_to_live_control_write_plan',
+					'explicit_section_manifest_and_asset_refs',
 				],
+			],
+			'elementor_write_plan' => [
+				'required_for' => [ 'figma', 'screenshot', 'visual_reference' ],
+				'fields'       => [
+					'post_id',
+					'expected_tree_hash',
+					'element_id',
+					'live_schema_hash',
+					'settings',
+					'settings_evidence',
+					'responsive_scope',
+				],
+				'batch_rules'  => [
+					'one_post_one_consolidated_dry_run',
+					'one_post_one_apply',
+					'never_parallel_elementor_writes',
+					'require_evidence_true',
+					'do_not_guess_control_keys_options_or_activators',
+				],
+				'closure_tool' => 'stonewright/elementor-post-write-verify',
 			],
 			'native_first'        => [
 				'order' => [ 'builder_controls', 'global_classes_variables', 'native_widget_composition', 'wordpress_content_model' ],
@@ -219,6 +247,16 @@ final class ImplementationContract extends AbilityKernel {
 			],
 			'verification'        => [
 				'owner' => 'agent_playwright_or_browser_mcp',
+				'builder_closure' => [
+					'tool'       => 'stonewright/elementor-post-write-verify',
+					'required'   => true,
+					'assertions' => [ 'post_html_cache_invalidated', 'post_css_regenerated', 'builder_render_non_empty', 'touched_element_ids_present' ],
+				],
+				'measurement' => [
+					'breakpoints'      => [ 'desktop', 'tablet', 'mobile' ],
+					'boxed_container'  => [ 'outer_element', 'direct_child_e_con_inner' ],
+					'outer_only_boxed_measurement' => 'invalid',
+				],
 				'tolerances' => [
 					'spacing_px'   => 2,
 					'color_hex'    => 'exact_after_token_resolution',
@@ -226,6 +264,7 @@ final class ImplementationContract extends AbilityKernel {
 					'line_height'  => 0.05,
 				],
 				'loop' => 'render → screenshot each breakpoint frame → compare measured values to DesignEvidence measured_targets → iterate',
+				'completion_rule' => 'meta_readback_and_builder_render_do_not_replace_browser_acceptance',
 			],
 			'global_styles_first' => [
 				'status' => 'required_before_first_elementor_write',
@@ -251,6 +290,7 @@ final class ImplementationContract extends AbilityKernel {
 					'desktop_tablet_mobile_token_table',
 					'asset_crop_and_media_reuse_audit',
 					'native_widget_mapping',
+					'live_schema_hashes_and_settings_evidence',
 				],
 				'required_evidence_before_next_batch'   => [
 					'desktop_screenshot_same_viewport',
@@ -260,7 +300,15 @@ final class ImplementationContract extends AbilityKernel {
 					'visible_delta_list',
 				],
 				'dry_run_first'                         => true,
+				'consolidated_batch_per_post'           => true,
+				'parallel_writes'                       => false,
 				'style_policy'                          => 'strict',
+			],
+			'responsive_patterns' => [
+				'boxed_container' => 'Measure both the outer element and its direct .e-con-inner child; content width and padding may belong to the inner wrapper.',
+				'carousel_peek'   => 'Only when design evidence requires a peek: confirm the live carousel schema, keep one complete mobile card, derive the native offset from the measured next-card reveal, and account for parent padding/full-bleed geometry. Never invent control keys.',
+				'visibility'      => 'Use the exact live switcher option value; never infer hidden/yes/no from a different Elementor version.',
+				'typography'      => 'Read and satisfy the live group-control activator before sending typography subcontrols.',
 			],
 			'native_widget_map'   => [
 				'layout'        => 'container',
@@ -304,6 +352,11 @@ final class ImplementationContract extends AbilityKernel {
 				'fixed_canvas_width_causing_horizontal_scroll',
 				'no_full_page_screenshot_backgrounds',
 				'raw_figma_tree_after_normalization',
+				'parallel_elementor_writes',
+				'guessed_elementor_control_or_option',
+				'elementor_meta_readback_without_cache_render_closure',
+				'frontend_not_verified',
+				'outer_only_boxed_measurement',
 			],
 		];
 	}

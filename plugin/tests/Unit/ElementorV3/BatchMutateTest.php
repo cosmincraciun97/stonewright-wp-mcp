@@ -118,6 +118,8 @@ final class BatchMutateTest extends TestCase {
 		self::assertSame( 0, $result['failed'] );
 		self::assertSame( $result['refs']['headline'], $result['items'][1]['element_id'] );
 		self::assertGreaterThanOrEqual( 0.0, $result['metrics']['elapsed_ms'] );
+		self::assertSame( 'stonewright/elementor-post-write-verify', $result['next_step']['tool'] );
+		self::assertTrue( (bool) ( $result['post_write']['element_cache']['deleted'] ?? false ) );
 
 		$data_writes = array_values(
 			array_filter(

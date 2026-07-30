@@ -28,7 +28,7 @@ requires `WP_ENVIRONMENT_TYPE=local` (or the Application Passwords availability 
 | Taxonomy terms | Yes | Yes |
 | Settings read | Yes | Yes |
 | Global styles / FSE | Yes when endpoints exist | Yes |
-| Elementor write / DesignSpec | **Limited** — `elementor-data-get/update` without editor (WP-CLI local or REST meta when registered). No DesignSpec / batch-mutate schema engines | Yes |
+| Elementor write / DesignSpec | **Limited** — `elementor-data-get/update` without editor (WP-CLI local or REST meta when registered). Local writes invalidate post element/CSS metadata but still require browser verification. Remote cache closure is `not_checked`. No DesignSpec / batch-mutate schema engines | Yes — typed writes plus post-write frontend verification |
 | PHP execute | **No** | Yes (`stonewright/php-execute`) |
 | Skills / memory / learning | **Yes** — local `~/.stonewright/` without plugin; authoritative site memory through the typed bridge when installed | Yes (site-hosted Admin UI) |
 | ACF field values | When ACF Show in REST | Yes (typed abilities) |
@@ -49,6 +49,10 @@ requires `WP_ENVIRONMENT_TYPE=local` (or the Application Passwords availability 
 ## Degradation expectations
 
 - Elementor / DesignSpec tools must not crash: they return a clear install-plugin message.
+- Local Elementor writes must delete only the target post's element/CSS cache
+  metadata and report visual verification as required.
+- Remote Elementor writes must not claim PHP-renderer or cache-manager checks
+  they could not perform.
 - With the plugin re-activated, auto mode selects the plugin MCP proxy and existing proxy tests remain green.
 
 ## Blueprints (Direct)

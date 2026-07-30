@@ -15,8 +15,8 @@ const PLUGIN_POLICY = resolve(
 );
 
 describe('permanent rules parity', () => {
-	it('exports eight canonical rules', () => {
-		expect(Object.keys(CANONICAL_OPERATING_RULES)).toHaveLength(8);
+	it('exports nine canonical rules', () => {
+		expect(Object.keys(CANONICAL_OPERATING_RULES)).toHaveLength(9);
 		expect(CANONICAL_OPERATING_RULES.verified_learning).toMatch(/verified:true/);
 		expect(CANONICAL_OPERATING_RULES.elementor_responsive_preview).toMatch(
 			/Never resize the whole editor browser window/,
@@ -39,6 +39,12 @@ describe('permanent rules parity', () => {
 		);
 		expect(CANONICAL_OPERATING_RULES.custom_code_operator_grant).toMatch(
 			/Never open the approval page/,
+		);
+		expect(CANONICAL_OPERATING_RULES.elementor_write_closure).toMatch(
+			/never run parallel Elementor writes/,
+		);
+		expect(CANONICAL_OPERATING_RULES.elementor_write_closure).toMatch(
+			/\.e-con-inner/,
 		);
 	});
 

@@ -94,6 +94,71 @@ final class AtomicTreeInspector {
 	}
 
 	/**
+	 * Return maximal V3-only subtrees. In a mixed document these are the
+	 * surgical boundaries that V3 abilities may target without touching an
+	 * Atomic ancestor or descendant.
+	 *
+	 * @param array<int, mixed> $tree
+	 * @return array{items:list<array<string,mixed>>,truncated:bool}
+	 */
+	public static function v3_safe_roots( array $tree, int $limit = 100 ): array {
+		$items     = [];
+		$truncated = false;
+		self::collect_v3_safe_roots( $tree, [], $items, $truncated, max( 1, min( 500, $limit ) ) );
+		return [
+			'items'     => $items,
+			'truncated' => $truncated,
+		];
+	}
+
+	/**
+	 * @param array<int, mixed>              $nodes
+	 * @param list<int|string>               $path
+	 * @param list<array<string,mixed>>      $items
+	 */
+	private static function collect_v3_safe_roots(
+		array $nodes,
+		array $path,
+		array &$items,
+		bool &$truncated,
+		int $limit
+	): void {
+		foreach ( $nodes as $index => $node ) {
+			if ( ! is_array( $node ) ) {
+				continue;
+			}
+			if ( count( $items ) >= $limit ) {
+				$truncated = true;
+				return;
+			}
+
+			$current_path = array_merge( $path, [ (int) $index ] );
+			$architecture = (string) ( self::inspect( [ $node ] )['architecture'] ?? 'empty' );
+			if ( 'v3' === $architecture ) {
+				$items[] = [
+					'element_id'  => (string) ( $node['id'] ?? '' ),
+					'el_type'     => (string) ( $node['elType'] ?? '' ),
+					'widget_type' => (string) ( $node['widgetType'] ?? '' ),
+					'path'        => $current_path,
+				];
+				continue;
+			}
+
+			$children = isset( $node['elements'] ) && is_array( $node['elements'] ) ? $node['elements'] : [];
+			self::collect_v3_safe_roots(
+				$children,
+				array_merge( $current_path, [ 'elements' ] ),
+				$items,
+				$truncated,
+				$limit
+			);
+			if ( $truncated ) {
+				return;
+			}
+		}
+	}
+
+	/**
 	 * @param array<int, mixed> $tree
 	 * @return array<string, mixed>|null
 	 */

@@ -188,6 +188,18 @@ generated IDs inside the same request:
 }
 ```
 
+Never split one planned post change into parallel `update-element` or
+`batch-mutate` calls. For Figma/screenshot work, set `require_evidence:true` and
+include per-setting `settings_evidence` from the live schema. Apply only after
+the consolidated dry run passes against `expected_tree_hash`.
+
+Every successful apply returns a cache-closure receipt and a required next step.
+Call `stonewright/elementor-post-write-verify` with all touched element IDs. It
+deletes Elementor's post HTML cache, invalidates/regenerates post-scoped CSS,
+warms the official frontend builder renderer, and asserts the IDs without
+returning page HTML. Only then perform visual acceptance in a separate frontend
+tab at desktop, tablet, and mobile.
+
 For Theme Builder templates with display conditions, use
 `stonewright/theme-builder-apply-template`; do not edit Elementor condition
 meta directly.
@@ -279,7 +291,9 @@ headings inside loop templates; do not rely on many manual meta updates.
   specs before falling back to many single-element updates.
 - When debugging Elementor V3 boxed containers, inspect the rendered DOM before
   writing CSS. Boxed containers usually render children under `.e-con-inner`, so
-  direct-child selectors can miss the actual flex container.
+  direct-child selectors can miss the actual flex container. Measure both the
+  outer `.elementor-element-<id>` and its direct `.e-con-inner`; an outer-only
+  measurement is not visual proof.
 - Use flex row containers for desktop two-column designs and responsive
   direction/visibility settings for tablet and mobile.
 - Sticky headers must be sticky on desktop and mobile when requested. Mobile

@@ -708,6 +708,52 @@ export async function elementorDataUpdate(
       );
     }
 
+    const elementCache = asFull(
+      await cli(
+        {
+          command: [
+            "post",
+            "meta",
+            "delete",
+            String(input.post_id),
+            "_elementor_element_cache",
+          ],
+          ...base,
+        },
+        undefined,
+        env,
+      ),
+    );
+    // WP-CLI reports a non-zero result when the key was already absent. That is
+    // still a closed cache state, so only an unexpected failure is surfaced.
+    const elementCacheAbsent =
+      elementCache.ok ||
+      /could not delete|no metadata|does not exist|not found/i.test(
+        `${elementCache.stdout}\n${elementCache.stderr}`,
+      );
+
+    const cssMeta = asFull(
+      await cli(
+        {
+          command: [
+            "post",
+            "meta",
+            "delete",
+            String(input.post_id),
+            "_elementor_css",
+          ],
+          ...base,
+        },
+        undefined,
+        env,
+      ),
+    );
+    const cssMetaAbsent =
+      cssMeta.ok ||
+      /could not delete|no metadata|does not exist|not found/i.test(
+        `${cssMeta.stdout}\n${cssMeta.stderr}`,
+      );
+
     let cssFlushed = false;
     const help = asFull(
       await cli({ command: ["help", "elementor"], ...base }, undefined, env),
@@ -737,13 +783,25 @@ export async function elementorDataUpdate(
       post_id: input.post_id,
       transport: "wp-cli" as const,
       backup_path: backupPath,
+      element_cache_invalidated: elementCacheAbsent,
+      css_meta_invalidated: cssMetaAbsent,
       css_flushed: cssFlushed,
-      verify: "reload the page URL and confirm the change rendered",
-      guidance: cssFlushed
-        ? []
-        : [
-            "CSS not regenerated — open the page in the Elementor editor once, or clear the site cache.",
-          ],
+      verification_status: "browser_required" as const,
+      verify:
+        "reload the frontend URL in a separate browser tab and verify desktop, tablet, and mobile; for boxed containers measure both the outer element and .e-con-inner",
+      guidance: [
+        "Direct mode has no live Elementor control schema. Prefer plugin batch-mutate for complex widgets and production work.",
+        ...(elementCacheAbsent
+          ? []
+          : [
+              "Element HTML cache invalidation failed. Do not report the write complete; use Plugin mode post-write verification.",
+            ]),
+        ...(cssFlushed || cssMetaAbsent
+          ? []
+          : [
+              "CSS was not invalidated. Open the page in Elementor once or use Plugin mode post-write verification.",
+            ]),
+      ],
     };
   }
 
@@ -798,10 +856,14 @@ export async function elementorDataUpdate(
     transport: "rest" as const,
     collection,
     backup_path: backupPath,
+    element_cache_invalidated: false,
+    css_meta_invalidated: false,
     css_flushed: false,
-    verify: "reload the frontend URL and confirm the change rendered",
+    verification_status: "not_checked" as const,
+    verify:
+      "remote Direct REST cannot invalidate Elementor HTML/CSS caches; use Plugin mode elementor-post-write-verify before accepting the change",
     guidance: [
-      "Updated via core REST meta (no WP-CLI). CSS flush is unavailable remotely — clear cache / open editor once if styles lag.",
+      "Updated via core REST meta (no WP-CLI). Elementor HTML and CSS cache closure is unavailable remotely, so this response is not frontend verification.",
       "This path has no Elementor schema validation. For production Loop Grid / complex widgets, use plugin stonewright-elementor-v3-batch-mutate.",
     ],
   };

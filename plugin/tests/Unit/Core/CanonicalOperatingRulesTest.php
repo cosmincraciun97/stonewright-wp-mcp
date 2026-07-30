@@ -15,7 +15,7 @@ final class CanonicalOperatingRulesTest extends TestCase {
 
 	public function test_canonical_rules_have_stable_ids(): void {
 		$rules = McpUsePolicy::canonical_operating_rules();
-		self::assertCount( 8, $rules );
+		self::assertCount( 9, $rules );
 		self::assertArrayHasKey( 'elementor_responsive_preview', $rules );
 		self::assertArrayHasKey( 'separate_verification_tab', $rules );
 		self::assertArrayHasKey( 'design_section_isolation', $rules );
@@ -24,9 +24,11 @@ final class CanonicalOperatingRulesTest extends TestCase {
 		self::assertArrayHasKey( 'fastest_safe_interface', $rules );
 		self::assertArrayHasKey( 'verified_learning', $rules );
 		self::assertArrayHasKey( 'custom_code_operator_grant', $rules );
+		self::assertArrayHasKey( 'elementor_write_closure', $rules );
 		self::assertStringContainsString( 'php-execute', $rules['custom_code_operator_grant'] );
 		self::assertStringContainsString( 'then stop', $rules['custom_code_operator_grant'] );
 		self::assertStringContainsString( 'Never open the approval page', $rules['custom_code_operator_grant'] );
+		self::assertStringContainsString( 'never run parallel Elementor writes', $rules['elementor_write_closure'] );
 	}
 
 	public function test_fingerprint_is_stable_sha256(): void {

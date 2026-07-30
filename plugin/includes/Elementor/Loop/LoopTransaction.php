@@ -93,7 +93,7 @@ final class LoopTransaction {
 			if ( '' === $page_snapshot ) {
 				return self::rollback_error( self::phase_error( 'page_snapshot' ), $post_id, '', $template_id, $owner, $created_template, 'page_snapshot' );
 			}
-			if ( ! ElementorData::write( $post_id, $plan['tree'], [ 'touched_ids' => [ (string) $plan['parent_id'] ] ] ) ) {
+			if ( ! ElementorData::write( $post_id, $plan['tree'], [ 'touched_ids' => [ (string) $plan['parent_id'] ], 'lock_owner' => $owner ] ) ) {
 				$error = ElementorData::write_error_for_ability();
 				return self::rollback_error( $error, $post_id, $page_snapshot, $template_id, $owner, $created_template, 'page_write' );
 			}

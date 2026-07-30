@@ -90,6 +90,29 @@ ability name for rows recorded before the `auth` status existed. OAuth dispatch 
 `/stonewright/v1/oauth/*` is audited at the REST layer, so a protocol failure is
 recorded even when no ability ran.
 
+### Elementor write closure
+
+All typed Elementor V3 writers converge on `ElementorData::write()`. The write
+path acquires a per-post lease, validates the document, persists it, and proves
+serialized readback before generated state is touched. Only then does
+`PostCacheInvalidator` delete the official document cache key, clear that
+post's CSS state, clean the WordPress post cache, and notify Elementor's atomic
+style layer. A failed readback restores the previous document and invalidates
+the restored state.
+
+`stonewright/elementor-post-write-verify` is the explicit frontend-closure
+ability. It regenerates post-scoped CSS, warms Elementor through
+`get_builder_content_for_display()`, and returns bounded element/content
+assertions plus a render hash. It never returns page HTML. Browser measurement
+remains a separate required gate because a successful renderer call cannot
+prove responsive geometry, visibility, carousel peeks, or asset fidelity.
+
+Mixed V3/V4 health responses expose maximal `v3_safe_roots`; V3 mutation stays
+inside those subtrees. Local Direct writes invalidate the target post's cache
+metadata and keep browser verification open. Remote Direct cannot run
+Elementor's PHP cache or renderer APIs and reports that layer as `not_checked`.
+See [Elementor write verification](elementor-write-verification.md).
+
 ## Agent Context
 
 Agents must call MCP tool `stonewright-task-start` at the beginning of every

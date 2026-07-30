@@ -146,6 +146,8 @@ final class BatchMutate extends AbilityKernel {
 				'readback_hash' => [ 'type' => 'string' ],
 				'idempotent_replay' => [ 'type' => 'boolean' ],
 				'learning'      => [ 'type' => 'array', 'items' => [ 'type' => 'object' ] ],
+				'post_write'    => [ 'type' => 'object' ],
+				'next_step'     => [ 'type' => 'object' ],
 			],
 		];
 	}
@@ -226,8 +228,9 @@ final class BatchMutate extends AbilityKernel {
 							'status'          => 409,
 							'architecture'    => $architecture,
 							'blocked_targets' => $blocking,
+							'v3_safe_roots'   => AtomicTreeInspector::v3_safe_roots( $tree, 100 ),
 							'before_hash'     => $before_hash,
-							'repair'          => RemediationHints::for_code( 'stonewright_v3_architecture_mismatch', $this->name() ),
+							'repair'          => 'Target one returned v3_safe_root with a surgical batch, or use a typed V4 ability. Never rewrite the mixed document root.',
 						]
 					);
 				}
@@ -323,6 +326,14 @@ final class BatchMutate extends AbilityKernel {
 					);
 				}
 
+				$touched_ids = $targeted_ids;
+				foreach ( $items as $item ) {
+					if ( isset( $item['element_id'] ) && is_scalar( $item['element_id'] ) ) {
+						$touched_ids[] = (string) $item['element_id'];
+					}
+				}
+				$touched_ids = array_values( array_unique( array_filter( $touched_ids ) ) );
+
 				$snapshot_id = '';
 				$write_ms    = 0.0;
 				$after_hash  = TreeHasher::hash( $tree );
@@ -351,7 +362,7 @@ final class BatchMutate extends AbilityKernel {
 						$write_start = microtime( true );
 						// Surgical batch may remove large subtrees; force_destructive is bound to this
 						// intentional, snapshotted write (not an accidental silent collapse).
-						if ( ! ElementorData::write( $post_id, $tree, [ 'force_destructive' => true, 'touched_ids' => $targeted_ids ] ) ) {
+						if ( ! ElementorData::write( $post_id, $tree, [ 'force_destructive' => true, 'touched_ids' => $touched_ids, 'lock_owner' => $lock_owner ] ) ) {
 							$restored = Backup::restore( $post_id, $snapshot_id );
 							$err      = ElementorData::write_error_for_ability();
 							// Preserve restore info for the agent without losing gate codes/fix hints.
@@ -398,6 +409,19 @@ final class BatchMutate extends AbilityKernel {
 					'readback_hash' => $readback_hash,
 					'idempotent_replay' => false,
 					'learning'      => [],
+					'post_write'    => $dry_run ? [] : ElementorData::last_write_receipt(),
+					'next_step'     => $dry_run
+						? [
+							'tool'               => 'stonewright/elementor-v3-batch-mutate',
+							'expected_tree_hash' => $before_hash,
+							'then'               => 'stonewright/elementor-post-write-verify',
+						]
+						: [
+							'tool'        => 'stonewright/elementor-post-write-verify',
+							'post_id'     => $post_id,
+							'element_ids' => $touched_ids,
+							'required_before_browser_acceptance' => true,
+						],
 				];
 
 				if ( $dry_run ) {
@@ -488,7 +512,7 @@ final class BatchMutate extends AbilityKernel {
 	 */
 	private static function normalize_operation( array $operation ): array {
 		$normalized = $operation;
-		$action     = (string) ( $normalized['action'] ?? $normalized['type'] ?? $normalized['op'] ?? '' );
+		$action     = (string) ( $normalized['action'] ?? $normalized['operation'] ?? $normalized['type'] ?? $normalized['op'] ?? '' );
 		if ( '' !== $action ) {
 			$normalized['action'] = self::normalize_action( $action );
 		}
@@ -517,6 +541,9 @@ final class BatchMutate extends AbilityKernel {
 			'update'    => 'update_element',
 			'move'      => 'move_element',
 			'remove', 'delete' => 'remove_element',
+			'update-element' => 'update_element',
+			'move-element'   => 'move_element',
+			'remove-element' => 'remove_element',
 			default     => $action,
 		};
 	}
@@ -1096,7 +1123,9 @@ final class BatchMutate extends AbilityKernel {
 	private static function repair_hint( string $code, string $action ): string {
 		return match ( $code ) {
 			'stonewright_parent_not_found', 'stonewright_unknown_ref' => 'Read the current page structure. For an empty page, add the root container with no parent; reference later nodes by @op_id.',
-			'stonewright_elementor_settings_invalid' => 'Fetch the live widget/container schema and resend only supported settings.',
+			'stonewright_invalid_action' => 'Use exactly one supported action: add_container, add_widget, update_element, move_element, or remove_element.',
+			'stonewright_missing_widget_type', 'stonewright_unknown_widget' => 'List the live Elementor widget registry, then send its exact widget_type with action=add_widget.',
+			'stonewright_elementor_settings_invalid' => 'Execute every schema_request in the response once. Keep unknown existing settings, replace only rejected values, include settings_evidence, and rerun one consolidated dry-run.',
 			'stonewright_no_effective_changes' => 'Remove the no-op update or resend settings from the live schema; Stonewright will not report discarded settings as applied.',
 			'stonewright_atomic_widget_in_v3_batch' => 'Use the Elementor V4 editor pipeline; never mix e-* widgets into a V3 tree.',
 			default => 'Fix the reported operation and rerun dry_run=true. No page data was written.',

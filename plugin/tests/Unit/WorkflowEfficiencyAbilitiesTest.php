@@ -742,15 +742,18 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		$result = ( new ImplementationContract() )->execute( [] );
 
 		self::assertIsArray( $result );
-		self::assertSame( '2.0.0', $result['version'] );
+		self::assertSame( '2.1.0', $result['version'] );
 		self::assertSame(
 			[
 				'design_evidence',
 				'semantic_validation',
 				'global_styles_first',
 				'native_plan',
-				'native_dry_run',
+				'live_schema_and_settings_evidence',
+				'one_consolidated_native_dry_run_per_post',
 				'native_write_and_readback',
+				'elementor_post_cache_and_builder_render_verification',
+				'separate_frontend_browser_verification',
 				'customization_proposal_if_needed',
 			],
 			$result['sequence']
@@ -769,6 +772,10 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertSame( 'loop-grid', $result['native_widget_map']['dynamic_cards'] );
 		self::assertContains( 'invented_border_radius_shadow_filter', $result['hard_failures'] );
 		self::assertContains( 'html_widget_without_explicit_allow_html_widget', $result['hard_failures'] );
+		self::assertContains( 'parallel_elementor_writes', $result['hard_failures'] );
+		self::assertSame( 'stonewright/elementor-post-write-verify', $result['elementor_write_plan']['closure_tool'] );
+		self::assertTrue( $result['section_batch']['consolidated_batch_per_post'] );
+		self::assertFalse( $result['section_batch']['parallel_writes'] );
 		self::assertSame( 'summary', $result['token_efficiency']['wp_cli_response_mode'] );
 		self::assertContains( 'stonewright/wp-cli-batch-run', $result['token_efficiency']['batch_tools'] );
 	}

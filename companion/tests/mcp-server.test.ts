@@ -300,6 +300,7 @@ describe('createMcpServer', () => {
 				{ name: 'stonewright-design-native-plan' },
 				{ name: 'stonewright-media-upload' },
 				{ name: 'stonewright-elementor-v3-batch-mutate' },
+				{ name: 'stonewright-elementor-post-write-verify' },
 				{ name: 'stonewright-content-bulk-upsert-posts' },
 				{ name: 'stonewright-experimental-heavy-tool' },
 			]),
@@ -311,6 +312,7 @@ describe('createMcpServer', () => {
 			'stonewright-context-bootstrap',
 			'stonewright-design-native-plan',
 			'stonewright-elementor-v3-batch-mutate',
+			'stonewright-elementor-post-write-verify',
 			'stonewright-content-bulk-upsert-posts',
 		]));
 		expect(names).not.toContain('stonewright-media-upload');
