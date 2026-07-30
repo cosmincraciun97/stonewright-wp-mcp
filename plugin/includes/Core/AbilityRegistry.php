@@ -219,9 +219,23 @@ use Stonewright\WpMcp\Abilities\Revisions\PostRevisionRestore;
 use Stonewright\WpMcp\Abilities\Site\SiteHealthTest;
 use Stonewright\WpMcp\Abilities\Search\OembedResolve;
 use Stonewright\WpMcp\Abilities\Search\SearchQuery;
+use Stonewright\WpMcp\Abilities\WooCommerce\WcAttributeDelete;
+use Stonewright\WpMcp\Abilities\WooCommerce\WcAttributeList;
+use Stonewright\WpMcp\Abilities\WooCommerce\WcAttributeSave;
+use Stonewright\WpMcp\Abilities\WooCommerce\WcCatalogAudit;
 use Stonewright\WpMcp\Abilities\WooCommerce\WcOrderList;
+use Stonewright\WpMcp\Abilities\WooCommerce\WcProductDelete;
+use Stonewright\WpMcp\Abilities\WooCommerce\WcProductGet;
 use Stonewright\WpMcp\Abilities\WooCommerce\WcProductList;
+use Stonewright\WpMcp\Abilities\WooCommerce\WcProductSave;
 use Stonewright\WpMcp\Abilities\WooCommerce\WcSalesReport;
+use Stonewright\WpMcp\Abilities\WooCommerce\WcStatus;
+use Stonewright\WpMcp\Abilities\WooCommerce\WcTermDelete;
+use Stonewright\WpMcp\Abilities\WooCommerce\WcTermList;
+use Stonewright\WpMcp\Abilities\WooCommerce\WcTermSave;
+use Stonewright\WpMcp\Abilities\WooCommerce\WcVariationDelete;
+use Stonewright\WpMcp\Abilities\WooCommerce\WcVariationList;
+use Stonewright\WpMcp\Abilities\WooCommerce\WcVariationSave;
 use Stonewright\WpMcp\Abilities\Menu\MenuAssignLocation;
 use Stonewright\WpMcp\Abilities\Menu\MenuCreate;
 use Stonewright\WpMcp\Abilities\Menu\MenuDelete;
@@ -555,8 +569,22 @@ final class AbilityRegistry {
 			SearchQuery::class,
 			OembedResolve::class,
 
-			// WooCommerce read.
+			// WooCommerce native catalog, variation, taxonomy, attribute, and reporting surfaces.
+			WcStatus::class,
 			WcProductList::class,
+			WcProductGet::class,
+			WcProductSave::class,
+			WcProductDelete::class,
+			WcVariationList::class,
+			WcVariationSave::class,
+			WcVariationDelete::class,
+			WcTermList::class,
+			WcTermSave::class,
+			WcTermDelete::class,
+			WcAttributeList::class,
+			WcAttributeSave::class,
+			WcAttributeDelete::class,
+			WcCatalogAudit::class,
 			WcOrderList::class,
 			WcSalesReport::class,
 

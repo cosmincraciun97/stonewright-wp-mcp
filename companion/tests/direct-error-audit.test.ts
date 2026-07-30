@@ -36,7 +36,7 @@ describe('direct error audit', () => {
 		appendDirectAudit(
 			{
 				tool: 'stonewright-content-update',
-				site: 'transavia-local',
+				site: 'site-a',
 				resource: 'post:8104',
 				resourceType: 'post',
 				status: 'error',

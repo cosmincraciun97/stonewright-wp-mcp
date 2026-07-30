@@ -24,7 +24,7 @@
   "spec": {
     "version": "2.0.0",
     "page": {
-      "title": "Transavia Construct",
+      "title": "Example Construction",
       "template": "elementor_canvas"
     },
     "tokens": {

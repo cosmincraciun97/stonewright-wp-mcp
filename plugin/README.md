@@ -1,6 +1,6 @@
 # Stonewright Plugin
 
-Version: 1.0.0-alpha.92
+Version: 1.0.0-beta.1
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
 License: AGPL-3.0-or-later
@@ -9,7 +9,8 @@ Stonewright registers WordPress Abilities as MCP tools through the official
 `wordpress/mcp-adapter`. It supports Gutenberg, Full Site Editing, Elementor V3,
 Elementor V4 atomic experiments, Design Spec rendering, Elementor widget
 building, persistent skills/memory, direct PHP runtime execution, and
-companion-backed WP-CLI.
+companion-backed WP-CLI. WooCommerce catalog work uses native product objects
+and taxonomies through dry-run-first, permission-gated, audited abilities.
 
 For native repeated content, `stonewright/elementor-wire-loop` plans or adds a
 Loop Grid/Carousel with live Pro schemas, a validated existing or newly staged
@@ -36,6 +37,14 @@ cd ../companion
 npm install
 npm run build
 ```
+
+Release archives use a clean production Composer install. The bundled Jetpack
+Autoloader manifests are verified against every referenced file before
+publication, preventing stale development-only paths from breaking activation
+beside WooCommerce or another Jetpack-Autoloader consumer.
+
+See [WooCommerce support](../docs/woocommerce.md) for the catalog and storefront
+support matrix.
 
 Normal MCP clients launch the versioned companion release tarball with `npx`.
 Use the admin **Local WP-CLI bridge (advanced)** controls only when you

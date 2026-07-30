@@ -11,6 +11,10 @@ This checklist tracks the public-release surface for Stonewright.
 - Issue templates present.
 - Pull request template present.
 - CI runs PHP and companion checks.
+- Public source and staged release archives are scanned against a private
+  project-term list without echoing matched terms.
+- Customer/project names, domains, local aliases, record ids, screenshots,
+  audit logs, and memory exports are forbidden in public artifacts.
 
 ## Security Envelope
 
@@ -35,6 +39,7 @@ composer phpstan
 composer phpcs
 composer security:audit
 composer dependencies:audit
+composer package:verify-manifests
 composer docs:matrix
 Pop-Location
 
@@ -43,10 +48,16 @@ npm run typecheck
 npm test
 npm run build
 Pop-Location
+
+node scripts/check-docs-freshness.mjs
+node scripts/check-public-hygiene.mjs --require-private-terms
+node scripts/package-verify.mjs --strict-vendor
 ```
 
 Also run a public trace scan for private notes, generated-authorship claims,
 co-author trailers, secrets, tokens, and local artifacts before publishing.
+Build Composer dependencies from an empty `vendor/`, verify every Jetpack
+manifest target, and test Stonewright/WooCommerce co-activation.
 
 ## Current Hardening Plan
 
@@ -88,5 +99,5 @@ co-author trailers, secrets, tokens, and local artifacts before publishing.
   tracked or staged.
 - Audit local and remote branch names plus commit subjects for private
   provenance terms before publishing.
-- Do not rewrite history, delete branches, or rename public refs without
-  maintainer approval.
+- Rewriting history, deleting branches, or deleting public releases/tags needs
+  a separately reviewed exact target list and maintainer approval.

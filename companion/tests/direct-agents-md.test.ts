@@ -88,7 +88,6 @@ describe('builtin skills seed', () => {
 		for (const name of expected) {
 			expect(result.seeded).toContain(name);
 			const body = readFileSync(join(dir, 'skills', '_builtin', name), 'utf8');
-			expect(body.toLowerCase()).not.toContain('transavia');
 			expect(body).toMatch(/enabled": true|"enabled": true/);
 		}
 	});

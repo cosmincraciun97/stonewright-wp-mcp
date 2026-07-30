@@ -15,11 +15,16 @@ Call MCP tool `stonewright-task-start` with surface `woocommerce` and the task
 intent. Read the returned `woocommerce` specialization.
 
 Then call:
-- `stonewright-site-plugins-list`
-- `stonewright-wp-cli-status`
-- `stonewright-wp-cli-discover`
+- `stonewright-wc-status`
+- `stonewright-wc-catalog-audit` for audit or cleanup tasks
+- `stonewright-site-plugins-list` when another builder, block library, field
+  plugin, or SEO plugin participates in the store
 
-Prefer WooCommerce official REST v3 or `wp wc` commands when present.
+Use typed `stonewright-wc-*` abilities first. They use native WooCommerce
+objects, strict field allowlists, dry-run previews, context/permission gates,
+audit logging, and readback. Use tokenized `stonewright-wp-cli-*` only for a
+missing typed operation or long batch. Direct mode intentionally keeps
+WooCommerce read-only.
 
 Useful docs:
 - https://developer.woocommerce.com/docs/apis/rest-api/v3/
@@ -31,7 +36,6 @@ Useful docs:
 
 Before writing:
 - Confirm WooCommerce is active.
-- Discover `wp wc` command availability.
 - Check product type: simple, variable, grouped, external, or downloadable.
 - Check SKU uniqueness before create/update.
 - Read existing categories, tags, attributes, terms, and shipping classes.
@@ -41,18 +45,20 @@ Before writing:
 
 1. Keep the `stonewright_context_token` returned by `stonewright-task-start`
    and pass it to write tools.
-2. Create or update global attributes and terms first.
-3. Create or update product categories/tags/shipping classes next.
-4. Create variable parent product with variation attributes.
-5. Generate product variations from the confirmed attribute matrix.
-6. Set default variation only after variations exist.
-7. Read back parent product, attributes, variations, prices, stock, and default
+2. Preview every `wc-*-save` call; then repeat with `dry_run:false`.
+3. Create or update global attributes and terms first.
+4. Create or update product categories/tags/shipping classes next.
+5. Create variable parent product with variation attributes.
+6. Generate product variations from the confirmed attribute matrix.
+7. Set default variation only after variations exist.
+8. Read back parent product, attributes, variations, prices, stock, and default
    attributes.
 
-Use `stonewright/php-execute` for short WooCommerce API snippets when direct
-runtime access is faster than many reads. Use `stonewright-wp-cli-run` with
-argv tokens only. Do not run `wp ...` in a normal shell as Stonewright
-recovery, and do not use another PHP adapter to replace Stonewright tools.
+Use `stonewright-php-execute` only when the typed catalog surface does not cover
+an official WooCommerce API operation and a short runtime snippet is clearer
+than WP-CLI. Use `stonewright-wp-cli-run` with argv tokens only. Do not run
+`wp ...` in a normal shell as Stonewright recovery, and do not use another PHP
+adapter to replace Stonewright tools.
 Never use `wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, or
 `--require`.
 For long imports, cache rebuilds, or bulk catalog maintenance, use
@@ -64,6 +70,23 @@ Soft-delete by default. Move products, variations, terms, or classes to trash
 or equivalent reversible state when available. Permanent deletion requires an
 explicit user request and the production-safe confirmation token when that mode
 is active.
+
+## Storefront Layout Routing
+
+Catalog data and storefront layout are separate writes.
+
+- Elementor: confirm Elementor Pro/Woo widgets in `stonewright-wc-status`, read
+  each live widget schema, then use `stonewright-elementor-v3-batch-mutate`.
+  Never guess product, cart, checkout, or account widget settings.
+- Gutenberg: list registered `woocommerce/*` block types, read the exact block
+  schema, then use native Gutenberg abilities. Do not reproduce a Woo block
+  with `core/html`.
+- FSE/block themes: read the active template and template-part structure before
+  changing shop, product, cart, checkout, or account templates. Keep Woo blocks
+  native and preserve unknown block attributes.
+- Other builders: `stonewright-wc-status` reports detected integrations and
+  whether support is typed or discovery-only. Discovery-only means read the
+  builder's official live schema/API and stop before blind writes.
 
 ## Audit Pattern
 

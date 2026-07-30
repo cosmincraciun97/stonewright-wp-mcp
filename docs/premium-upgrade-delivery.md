@@ -17,7 +17,7 @@
 
 | | |
 |---|---|
-| **ZIP** | `/Users/cosminiviteb/Personal/stonewright-wp-mcp/dist/stonewright-wp-mcp-premium-upgrade.zip` |
+| **ZIP** | `dist/stonewright-wp-mcp-premium-upgrade.zip` in the repository checkout |
 | **Size** | ~1.9 MB (includes production `vendor/`) |
 | **Folder inside ZIP** | `stonewright/` |
 
@@ -34,17 +34,13 @@ If an older Stonewright is already active: deactivate + delete the old plugin fi
 
 Full plugin source with all new code (includes tests; for Local/dev only):
 
-```text
-/Users/cosminiviteb/Personal/stonewright-wp-mcp/.worktrees/u1-admin-shell/plugin
-```
+Use the `plugin/` directory from the matching source checkout.
 
 Tip: symlink into your Local site `wp-content/plugins/stonewright` and run `composer install --no-dev` inside that folder if `vendor/` is missing.
 
 ### Companion (Direct mode)
 
-```text
-/Users/cosminiviteb/Personal/stonewright-wp-mcp/.worktrees/u4-direct-mode/companion
-```
+Use the `companion/` directory from the matching source checkout.
 
 Build: `npm install && npm run build`. Point MCP at `node dist/index.js` (or package path).
 

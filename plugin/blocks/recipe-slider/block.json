@@ -7,7 +7,7 @@
 	"category": "media",
 	"icon": "images-alt2",
 	"description": "Carousel-style recipe slider with arrows, dots, auto-rotate, swipe and fully editable slides.",
-	"keywords": ["slider", "carousel", "recipes", "transavia"],
+	"keywords": ["slider", "carousel", "recipes", "food"],
 	"textdomain": "stonewright",
 	"supports": {
 		"html": false,
@@ -22,15 +22,15 @@
 	"attributes": {
 		"heading": {
 			"type": "string",
-			"default": "Rețete similare"
+			"default": "Related recipes"
 		},
 		"subheading": {
 			"type": "string",
-			"default": "Bune și ușor de făcut. Inspiră-te pentru următoarea ta masă."
+			"default": "Simple seasonal ideas for your next meal."
 		},
 		"ctaText": {
 			"type": "string",
-			"default": "Vezi toate rețetele"
+			"default": "View all recipes"
 		},
 		"ctaUrl": {
 			"type": "string",
@@ -38,7 +38,7 @@
 		},
 		"backgroundColor": {
 			"type": "string",
-			"default": "#00583f"
+			"default": "#1f2937"
 		},
 		"textColor": {
 			"type": "string",
@@ -46,7 +46,7 @@
 		},
 		"accentColor": {
 			"type": "string",
-			"default": "#e2001a"
+			"default": "#d97706"
 		},
 		"cardColor": {
 			"type": "string",
@@ -84,35 +84,35 @@
 			"type": "array",
 			"default": [
 				{
-					"title": "Pulpe de pui la cuptor cu cartofi noi",
+					"title": "Roasted vegetables with herbs",
 					"image": "",
-					"imageAlt": "Pulpe de pui la cuptor",
-					"difficulty": "Ușoară",
-					"time": "45 min.",
+					"imageAlt": "Roasted vegetables with herbs",
+					"difficulty": "Easy",
+					"time": "45 min",
 					"url": "#"
 				},
 				{
-					"title": "Piept de pui à la milaneză cu rucola",
+					"title": "Lemon pasta with greens",
 					"image": "",
-					"imageAlt": "Piept de pui milaneză",
-					"difficulty": "Medie",
-					"time": "30 min.",
+					"imageAlt": "Lemon pasta with greens",
+					"difficulty": "Medium",
+					"time": "30 min",
 					"url": "#"
 				},
 				{
-					"title": "Curry de pui cu lapte de cocos",
+					"title": "Coconut chickpea curry",
 					"image": "",
-					"imageAlt": "Curry de pui",
-					"difficulty": "Medie",
-					"time": "55 min.",
+					"imageAlt": "Coconut chickpea curry",
+					"difficulty": "Medium",
+					"time": "55 min",
 					"url": "#"
 				},
 				{
-					"title": "Aripioare glazurate cu miere și soia",
+					"title": "Honey soy roasted cauliflower",
 					"image": "",
-					"imageAlt": "Aripioare glazurate",
-					"difficulty": "Ușoară",
-					"time": "40 min.",
+					"imageAlt": "Honey soy roasted cauliflower",
+					"difficulty": "Easy",
+					"time": "40 min",
 					"url": "#"
 				}
 			]

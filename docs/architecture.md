@@ -424,6 +424,14 @@ missing bundle in a source checkout and fails on it under
 The same check rejects Node build inputs from the archive, and the release job
 asserts the built zip actually contains the bundle.
 
+Plugin dependencies are also rebuilt from an empty `vendor/` with
+`composer install --no-dev --classmap-authoritative`. Jetpack Autoloader is a
+production dependency; the plugin loads `vendor/autoload_packages.php` first,
+with normal Composer autoload as a compatibility fallback. Packaging fails when
+any generated Jetpack manifest references a missing or out-of-root file. This
+matters when WooCommerce or another plugin participates in the same package
+autoload graph: one stale manifest must not break the entire WordPress runtime.
+
 ### Where each part's authority ends
 
 | Part | Supplies | Does not supply |
@@ -441,7 +449,7 @@ unverified parts visible as unverified.
 
 ## Direct + plugin REST parity surfaces
 
-Plugin abilities and Direct tools cover comments, users (including application passwords), widgets, allowlisted settings, themes, plugin lifecycle, revisions (with restore on the plugin), site health tests, search/oEmbed, and WooCommerce product/order/sales reads.
+Plugin abilities and Direct tools cover comments, users (including application passwords), widgets, allowlisted settings, themes, plugin lifecycle, revisions (with restore on the plugin), site health tests, search/oEmbed, and WooCommerce product/order/sales reads. Plugin mode additionally exposes native WooCommerce product, variation, catalog-term, global-attribute, and catalog-audit abilities. Direct mode remains read-only for WooCommerce.
 
 The native rule registry is at parity too. The companion ships a copy of
 `plugin/data/global-rules.json` (synced by `npm run sync:rules` at pack time) and

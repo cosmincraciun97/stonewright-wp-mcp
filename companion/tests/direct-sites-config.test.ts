@@ -27,30 +27,30 @@ describe('direct sites-config', () => {
 
 	it('parses a valid multi-site file and resolves aliases', () => {
 		const file = writeSites({
-			default: 'transavia',
+			default: 'site-a',
 			sites: {
-				transavia: {
-					url: 'http://transavia-local.local',
-					username: 'cosmin',
+				'site-a': {
+					url: 'https://site-a.example',
+					username: 'editor',
 					appPassword: 'xxxx xxxx xxxx xxxx xxxx xxxx',
 				},
-				'client-b': {
-					url: 'https://client-b.example',
-					username: 'admin',
+				'site-b': {
+					url: 'https://site-b.example',
+					username: 'editor',
 					appPassword: 'yyyy yyyy yyyy yyyy yyyy yyyy',
 				},
 			},
 		});
 
 		const config = loadSitesConfig({ sitesFile: file });
-		expect(config.default).toBe('transavia');
-		expect(Object.keys(config.sites)).toEqual(['transavia', 'client-b']);
+		expect(config.default).toBe('site-a');
+		expect(Object.keys(config.sites)).toEqual(['site-a', 'site-b']);
 
-		const site = resolveSite(config, 'client-b');
-		expect(site.alias).toBe('client-b');
-		expect(site.url).toBe('https://client-b.example');
-		expect(site.restBase).toBe('https://client-b.example/wp-json');
-		expect(site.username).toBe('admin');
+		const site = resolveSite(config, 'site-b');
+		expect(site.alias).toBe('site-b');
+		expect(site.url).toBe('https://site-b.example');
+		expect(site.restBase).toBe('https://site-b.example/wp-json');
+		expect(site.username).toBe('editor');
 	});
 
 	it('rejects invalid JSON with a path-aware error', () => {

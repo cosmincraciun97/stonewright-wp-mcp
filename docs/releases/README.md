@@ -7,7 +7,7 @@ plus an optional unreleased draft.
 
 On every release:
 
-1. Add `docs/releases/1.0.0-alpha.N.md` for the new version.
+1. Add `docs/releases/<version>.md` for the new version.
 2. Update root and plugin `CHANGELOG.md` entries.
 3. Remove the oldest note so at most five versioned notes remain.
 4. Rebuild distributable archives under `dist/` for the retained versions only.

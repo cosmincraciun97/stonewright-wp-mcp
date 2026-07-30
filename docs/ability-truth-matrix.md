@@ -459,9 +459,23 @@
 
 | Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `stonewright/wc-product-list` | `stonewright-wc-product-list` | `WooCommerce\WcProductList` | Lists WooCommerce products when WooCommerce is active. | Read | `Permissions::manage_woocommerce()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
-| `stonewright/wc-order-list` | `stonewright-wc-order-list` | `WooCommerce\WcOrderList` | Lists WooCommerce orders when WooCommerce is active. | Read | `Permissions::manage_woocommerce()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
-| `stonewright/wc-sales-report` | `stonewright-wc-sales-report` | `WooCommerce\WcSalesReport` | Returns a compact sales summary when WooCommerce is active. | Read | `Permissions::manage_woocommerce()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/wc-status` | `stonewright-wc-status` | `WooCommerce\WcStatus` | Reports WooCommerce availability, versions, storage mode, registered product types, Woo blocks, and integration support levels. | Read | `Permissions::manage_woocommerce()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/wc-product-list` | `stonewright-wc-product-list` | `WooCommerce\WcProductList` | Lists and filters WooCommerce products with native pagination and compact catalog fields. | Read | `Permissions::manage_woocommerce()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/wc-product-get` | `stonewright-wc-product-get` | `WooCommerce\WcProductGet` | Reads one WooCommerce product or variation through the native product object API. | Read | `Permissions::manage_woocommerce()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/wc-product-save` | `stonewright-wc-product-save` | `WooCommerce\WcProductSave` | Dry-runs by default, then creates or updates an allowlisted WooCommerce product through native product objects and verifies readback. | Write | `Permissions::manage_woocommerce()` | Yes | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/wc-product-delete` | `stonewright-wc-product-delete` | `WooCommerce\WcProductDelete` | Previews by default and moves a product to trash unless force=true explicitly requests permanent deletion. | Write | `Permissions::manage_woocommerce()` | Yes | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/wc-variation-list` | `stonewright-wc-variation-list` | `WooCommerce\WcVariationList` | Lists a variable product parent and its variation objects with prices, stock, and attributes. | Read | `Permissions::manage_woocommerce()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/wc-variation-save` | `stonewright-wc-variation-save` | `WooCommerce\WcVariationSave` | Dry-runs by default, then creates or updates a variation under a verified variable parent and reads it back. | Write | `Permissions::manage_woocommerce()` | Yes | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/wc-variation-delete` | `stonewright-wc-variation-delete` | `WooCommerce\WcVariationDelete` | Previews by default and deletes a variation only after parent ownership and confirmation gates pass. | Write | `Permissions::manage_woocommerce()` | Yes | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/wc-term-list` | `stonewright-wc-term-list` | `WooCommerce\WcTermList` | Lists product categories, tags, shipping classes, or global attribute terms through native taxonomy APIs. | Read | `Permissions::manage_woocommerce()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/wc-term-save` | `stonewright-wc-term-save` | `WooCommerce\WcTermSave` | Dry-runs by default, then creates or updates a WooCommerce catalog or global attribute term and verifies readback. | Write | `Permissions::manage_woocommerce()` | Yes | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/wc-term-delete` | `stonewright-wc-term-delete` | `WooCommerce\WcTermDelete` | Previews by default, then permanently deletes one allowlisted WooCommerce catalog or global attribute term. | Write | `Permissions::manage_woocommerce()` | Yes | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/wc-attribute-list` | `stonewright-wc-attribute-list` | `WooCommerce\WcAttributeList` | Lists WooCommerce global product attributes and optionally their terms. | Read | `Permissions::manage_woocommerce()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/wc-attribute-save` | `stonewright-wc-attribute-save` | `WooCommerce\WcAttributeSave` | Dry-runs by default, then creates or updates a WooCommerce global product attribute and verifies readback. | Write | `Permissions::manage_woocommerce()` | Yes | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/wc-attribute-delete` | `stonewright-wc-attribute-delete` | `WooCommerce\WcAttributeDelete` | Previews by default, then permanently deletes a WooCommerce global product attribute after confirmation. | Write | `Permissions::manage_woocommerce()` | Yes | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/wc-catalog-audit` | `stonewright-wc-catalog-audit` | `WooCommerce\WcCatalogAudit` | Runs a bounded, read-only catalog quality audit for SKU, price, image, category, stock, and variation gaps. | Read | `Permissions::manage_woocommerce()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/wc-order-list` | `stonewright-wc-order-list` | `WooCommerce\WcOrderList` | Lists WooCommerce orders read-only with HPOS-compatible native queries and no customer contact details. | Read | `Permissions::manage_woocommerce()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+| `stonewright/wc-sales-report` | `stonewright-wc-sales-report` | `WooCommerce\WcSalesReport` | Returns a bounded, HPOS-compatible gross sales summary without customer data. | Read | `Permissions::manage_woocommerce()` | No | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
 
 ---
 
@@ -602,7 +616,7 @@
 
 ## Summary
 
-Total abilities registered: **332**
+Total abilities registered: **346**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

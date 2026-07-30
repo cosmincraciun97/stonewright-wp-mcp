@@ -41,10 +41,12 @@ guidance for ACF, ACPT, Meta Box, ASE, Pods, and WooCommerce catalog work.
 
 ## WooCommerce Catalog
 
-For WooCommerce, prefer official REST v3 or `wp wc` commands when available.
-Before writing, confirm WooCommerce is active, discover command support, check
-SKU uniqueness, create attributes before variations, and read back parent
-products plus generated variations.
+For WooCommerce, call `stonewright/wc-status` first and use native
+`stonewright/wc-product-*`, `wc-variation-*`, `wc-term-*`,
+`wc-attribute-*`, and `wc-catalog-audit` abilities. Writes preview by default,
+use allowlisted WooCommerce object setters, require normal context and
+permission gates, and read back applied state. Use tokenized `wp wc` only for a
+missing typed operation or long batch. Direct mode stays read-only.
 
 Covered catalog scope:
 
@@ -54,6 +56,12 @@ Covered catalog scope:
 - global attributes and attribute terms
 - shipping classes
 - SKU, price, stock, sale, and image audits
+
+Storefront layout is separate from catalog data. Elementor work must read live
+Woo widget schemas before a surgical V3 mutation. Gutenberg/FSE work must use
+registered `woocommerce/*` block schemas and native template abilities.
+Discovery-only builders are detected, not advertised as typed write support.
+See [WooCommerce support](woocommerce.md).
 
 Official docs:
 

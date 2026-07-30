@@ -44,13 +44,14 @@ final class BuiltInSkillFilesTest extends TestCase {
 		self::assertStringContainsString( 'name: agent-operating-rules', $operating_body );
 		self::assertStringContainsString( 'site Safety Memory', $operating_body );
 		self::assertStringContainsString( 'additive only', $operating_body );
-		self::assertStringNotContainsString( 'transavia', strtolower( $operating_body ) );
 		self::assertStringContainsString( 'ACF', $content_model_body );
 		self::assertStringContainsString( 'Pods', $content_model_body );
 		self::assertStringContainsString( 'stonewright-wp-cli-discover', $content_model_body );
 		self::assertStringContainsString( 'name: woocommerce-catalog', $woocommerce_body );
 		self::assertStringContainsString( 'product variations', $woocommerce_body );
-		self::assertStringContainsString( 'wp wc', $woocommerce_body );
+		self::assertStringContainsString( 'stonewright-wc-status', $woocommerce_body );
+		self::assertStringContainsString( 'dry_run:false', $woocommerce_body );
+		self::assertStringContainsString( 'registered `woocommerce/*` block types', $woocommerce_body );
 		self::assertStringContainsString( 'stonewright/elementor-schema', $elementor_body );
 		self::assertStringContainsString( 'Name only major parent containers semantically', $elementor_body );
 		self::assertStringContainsString( 'position absolute', $elementor_body );

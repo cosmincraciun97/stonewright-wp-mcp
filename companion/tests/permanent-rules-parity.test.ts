@@ -62,8 +62,4 @@ describe('permanent rules parity', () => {
 		expect(canonicalRulesFingerprint()).toBe(expectedFp);
 	});
 
-	it('never brands a specific site', () => {
-		const blob = DIRECT_PERMANENT_RULES.join('\n').toLowerCase();
-		expect(blob).not.toContain('transavia');
-	});
 });

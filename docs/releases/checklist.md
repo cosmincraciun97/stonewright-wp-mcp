@@ -11,8 +11,12 @@ Run from `plugin/` unless noted.
 - [ ] `composer phpcs` - zero style violations.
 - [ ] `composer security:audit` - exits 0.
 - [ ] `composer dependencies:audit` - exits 0 and reports any abandoned compatibility packages.
+- [ ] Clean `vendor/`, run `composer install --no-dev --classmap-authoritative`,
+      then `composer package:verify-manifests`.
 - [ ] `composer docs:matrix` - regenerates the ability matrix cleanly.
 - [ ] `cd .. && node scripts/check-docs-freshness.mjs` - versions, release notes, install prompts, and Markdown links are current.
+- [ ] `cd .. && node scripts/check-public-hygiene.mjs --require-private-terms` - source tree is free of configured private project terms.
+- [ ] `cd .. && node scripts/package-verify.mjs --strict-vendor` - production package inputs and Jetpack manifests are complete.
 - [ ] `cd ../companion && npm run typecheck` - zero TypeScript errors.
 - [ ] `cd ../companion && npm test` - all Vitest tests pass.
 - [ ] `cd ../companion && npm run build` - build succeeds.
@@ -26,6 +30,8 @@ Run from `plugin/` unless noted.
    - `stonewright-companion-<version>.tgz`
    - `SHA256SUMS.txt`
 4. Confirm the GitHub release links to the expected assets and checksums.
+5. Confirm the staged ZIP passes the private-term scan and Jetpack manifest
+   verification before upload.
 
 ## Manual Verification
 
@@ -42,6 +48,15 @@ Run from `plugin/` unless noted.
 - [ ] Call `stonewright-ping`.
 - [ ] Call `stonewright-task-start` with a real task summary.
 - [ ] Confirm the response includes active instructions, enabled skills, memory entries, and `stonewright_context_token`.
+
+### 2a. WooCommerce Co-activation
+
+- [ ] Install the currently supported WooCommerce fixture.
+- [ ] Activate WooCommerce and Stonewright together on a clean WordPress site.
+- [ ] Confirm no missing Composer/Jetpack manifest file or activation fatal.
+- [ ] Call `stonewright-wc-status` and confirm version, HPOS state, product
+      types, registered Woo blocks, and integration support levels.
+- [ ] Dry-run one product save and verify no store state changed.
 
 ### 3. Ability List
 

@@ -19,7 +19,7 @@ Visual is distributed as a separate AGPL-3.0-or-later package.
 ## Inspected upstream snapshot
 
 - Source: `use-novamira/novamira`
-- Local snapshot: `/Users/cosminiviteb/Downloads/novamira-main`
+- Local snapshot used for this audit: an untracked maintainer checkout
 - Reported version: `1.10.1`
 - Top-level license: `AGPL-3.0-or-later`
 - Snapshot date: `2026-07-24`
@@ -53,6 +53,7 @@ Add one row before importing each component.
 
 | Upstream source | Source hash/version | Stonewright destination | Reuse type | License | Modifications | Tests/security review |
 |---|---|---|---|---|---|---|
+| `includes/pro-upsell.php` integration inventory | `8d32af1cd186f4b1bfd3b7cd06591386559165d65a74f21ab228287a2b889264` / 1.10.1 | `plugin/includes/Expertise/IntegrationCatalog.php` | Behavioral reference; public integration symbols only, no implementation copied | AGPL-3.0-or-later | Rebuilt as a typed Stonewright inventory with explicit `supported`, `discovery-only`, and `unavailable` states; expanded theme, block, forms, fields, data, code, and SEO detection; no paid-feature claims or upstream UI copied | `plugin/tests/Unit/Expertise/ExpertiseEngineTest.php`; discovery cannot authorize writes; official live schema/API still required |
 | `novamira-visual/src/expose-tools.ts` | `b4423c9f610af5faf7898dd36ed42e8f81b04e6a0b23c5c7121d168bc58d6f1a` | `visual/src/page-tool-registry.ts` | Adapted port | AGPL-3.0-or-later | Renamed globals and product identifiers; extracted a headless registry; kept aliases, refs, compact summaries, and batch rollback; added 50-call cap, transactions, and mandatory readback | `visual/tests/visual-foundation.test.ts`; typecheck/build; rollback/readback/ref tests |
 | `novamira-visual/src/workspace-tool-schema-summary.ts` | `e879f2f80db51a59af3c288334cabcb6c74feb2c08873b209704c3432b10c549` | `visual/src/tool-schema-summary.ts` | Adapted port | AGPL-3.0-or-later | Preserved depth-limited schema summaries; removed undefined fields and kept defaults out of compact output | Compact-schema and token-size test |
 | `novamira-visual/src/workspace-dispatcher.ts` | `0d7818ef8d76347b32770be6aba2ce9fce1dee0528b309d9f9bf1fd749af4253` | `visual/src/workspace-dispatcher.ts` | Adapted port | AGPL-3.0-or-later | Replaced browser-specific page operations with an injected host; removed JavaScript eval; allowlisted one workspace gateway and nested page/backend calls | Dispatcher allowlist, nested-call, and unknown-method tests |
@@ -141,7 +142,7 @@ changed and requires a new review.
 ### MIT WordPress MCP server (behavioral reference only)
 
 - Source repository: https://github.com/deus-h/claudeus-wp-mcp
-- Local snapshot: /Users/cosminiviteb/Downloads/claudeus-wp-mcp-master
+- Local snapshot used for this audit: an untracked maintainer checkout
 - Version: 3.0.2
 - License: MIT (LICENSE additionally grants unrestricted rename/reuse)
 - Reuse type: Behavioral evidence only — endpoint inventory and tool-surface

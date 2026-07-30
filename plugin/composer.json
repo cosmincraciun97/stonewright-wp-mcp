@@ -5,6 +5,7 @@
     "license": "AGPL-3.0-or-later",
     "require": {
         "php": ">=8.1",
+        "automattic/jetpack-autoloader": "^4.0",
         "league/oauth2-server": "^8.5",
         "nyholm/psr7": "^1.8",
         "wordpress/mcp-adapter": "^0.3.0 || ^1.0",
@@ -25,7 +26,6 @@
         "szepeviktor/phpstan-wordpress": "^1.3",
         "yoast/phpunit-polyfills": "^2.0",
         "wp-phpunit/wp-phpunit": "^6.7",
-        "automattic/jetpack-autoloader": "^4.0",
         "dealerdirect/phpcodesniffer-composer-installer": "^1.0"
     },
     "autoload": {
@@ -65,6 +65,7 @@
         "contracts:generate": "php bin/generate-contracts.php",
         "contracts:compat": "phpunit --filter PublicApiContractTest",
         "provenance:lint": "php bin/lint-upstream-provenance.php",
+        "package:verify-manifests": "php bin/verify-jetpack-manifests.php .",
         "dependencies:audit": "composer audit --abandoned=report",
         "security:audit": "php bin/security-audit.php"
     },

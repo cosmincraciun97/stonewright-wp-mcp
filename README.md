@@ -18,7 +18,7 @@
   <img alt="wordpress" src="https://img.shields.io/badge/WordPress-%3E%3D6.7-21759b" />
 </p>
 
-Stonewright is a WordPress MCP stack for AI coding agents. **Elementor** is a first-class surface in Plugin mode (typed engines, DesignSpec, kit globals). **Direct mode** works against core REST with an Application Password without installing the plugin: companion-local skills/memory, and Elementor document edits **without opening the editor** via WP-CLI (local) or REST meta when registered (remote). Full batch-mutate engines remain plugin-only.
+Stonewright is a WordPress MCP stack for AI coding agents. **Elementor** is a first-class surface in Plugin mode (typed engines, DesignSpec, kit globals), and **WooCommerce** has a native, guarded catalog surface. **Direct mode** works against core REST with an Application Password without installing the plugin: companion-local skills/memory, read-only WooCommerce access, and Elementor document edits **without opening the editor** via WP-CLI (local) or REST meta when registered (remote). Full batch-mutate and WooCommerce catalog-write engines remain plugin-only.
 
 > “Safe” here is a **design goal**: operating modes, permissions, confirmations, backups, validation, readback, and audit logging make agent-driven changes more recoverable. It is not an absolute security guarantee. Use staging, review changes, and keep normal WordPress backups.
 
@@ -35,6 +35,8 @@ Stonewright is a WordPress MCP stack for AI coding agents. **Elementor** is a fi
   ·
   <a href="docs/direct-mode-e2e.md">Direct mode</a>
   ·
+  <a href="docs/woocommerce.md">WooCommerce</a>
+  ·
   <a href="CONTRIBUTING.md">Contributing</a>
 </p>
 
@@ -44,7 +46,7 @@ Stonewright is a WordPress MCP stack for AI coding agents. **Elementor** is a fi
 
 Counts are derived from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
 
-### Plugin mode — **332** abilities
+### Plugin mode — **346** abilities
 
 Counts below are grouped by the `includes/Abilities/` subdirectory each ability
 lives in, and sum to the total. Regenerate with `composer docs:matrix`.
@@ -64,7 +66,7 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 | Memory + skills + expertise + knowledge | 20 | Learning, memory generalization, skills, expertise packs |
 | Security + sandbox | 10 | Tokens, one-time links, sandbox lifecycle |
 | System | 11 | Task start, native rules, tool profiles, ability list |
-| Menus, blueprints, brand kits, runtime, search, WooCommerce | 16 | See full [matrix](docs/ability-truth-matrix.md) |
+| Menus, blueprints, brand kits, runtime, search, WooCommerce | 30 | Native Woo catalog CRUD/audit; see full [matrix](docs/ability-truth-matrix.md) |
 
 ### Direct mode — **100** tools (pluginless)
 
@@ -75,7 +77,7 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 | Media, menus, taxonomy, templates, global styles | REST | Core endpoints |
 | Comments, users, app passwords, widgets | REST | Write-gated |
 | Plugins, themes, settings, health | REST | Destructive confirms |
-| WooCommerce | products/orders/sales | Read-only |
+| WooCommerce | products/orders/sales | Read-only; catalog writes require Plugin mode |
 | ACF / SEO | fields get/update, seo-head | REST when plugins expose them |
 | Self-improvement | skill-*, memory, learning, **task-start**, **agents-md-sync** | `~/.stonewright/` storage |
 | Native rules | **rules-get** | Same shipped registry as Plugin mode; cache by digest |
@@ -90,6 +92,8 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 - Wire native Elementor Pro Loop Grid/Carousel widgets transactionally from an
   existing loop-item template or a validated template spec (**Plugin mode**)
 - Manage content, media, navigation, and selected site settings
+- Manage WooCommerce products, variations, catalog terms, global attributes,
+  and shipping classes through dry-run-first native abilities
 - Create snapshots or revisions before supported mutations
 - Validate DesignSpec payloads and read back important changes
 - Restore supported changes when something goes wrong (**Plugin mode** audit/restore paths)
@@ -108,7 +112,9 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 - **Audit logging and change history** (Plugin mode)
 - **Backups and restore workflows** for supported post mutations
 - **Tool-surface and token-budget management** (profiles, priorities, client caps)
-- **Plugin-less Direct mode** for core REST
+- **Native WooCommerce catalog workflows** with dry-run, permission,
+  production confirmation, audit, and readback gates
+- **Plugin-less Direct mode** for core REST and read-only WooCommerce
 - **Explicit operating modes** (`development`, `staging`, `production-safe`) and confirmation tokens for destructive work
 
 ## Choose your setup
@@ -142,7 +148,7 @@ MCP surface modes (`bootstrap` / `essential` / `full`) control how many plugin a
 <details>
 <summary>MCP client config (Plugin mode companion)</summary>
 
-Use the latest release companion package URL from [Releases](https://github.com/cosmincraciun97/stonewright-wp-mcp/releases) (do not hardcode a stale alpha):
+Use the latest companion package URL from [Releases](https://github.com/cosmincraciun97/stonewright-wp-mcp/releases) (do not hardcode a stale version):
 
 ```json
 {
@@ -302,7 +308,7 @@ flowchart LR
   Content[Content / media / menus]
   Mem[Memory / skills]
   Users[Users / comments / widgets]
-  WC[WooCommerce read]
+  WC[WooCommerce native catalog]
   Gates[Backup / validation / readback / audit]
 
   Client --> Companion
@@ -332,7 +338,7 @@ flowchart LR
 
 Tool visibility is filtered twice before a client sees it: the plugin’s **surface gate** (`bootstrap` / `essential` / `full`) and optional **per-session tool profile** decide which abilities the MCP endpoint exposes, then the **companion profile filter** narrows that set again for the client. A monotonic `surface_revision` on every gateway response drives `tools/list_changed` so clients re-list when the surface changes.
 
-Direct mode has a **smaller** capability surface: core REST, local Elementor data, and skills/memory across **100 tools**. Plugin mode exposes **332 abilities**. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps.
+Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **100 tools**. Plugin mode exposes **346 abilities**. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 
@@ -384,6 +390,7 @@ This project is **not** marketed as production-ready in the sense of a frozen st
 
 - [Installation](docs/installation.md)
 - [Direct mode capability matrix](docs/direct-mode-e2e.md)
+- [WooCommerce support and safety](docs/woocommerce.md)
 - [Companion](docs/companion.md)
 - [Security](docs/security.md) · [SECURITY.md](SECURITY.md)
 - [Ability truth matrix](docs/ability-truth-matrix.md)

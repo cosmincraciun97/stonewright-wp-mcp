@@ -145,7 +145,6 @@ describe('direct self-improve tools', () => {
 		expect(start.guidance.some((g) => /HARD RULE:.*Elementor responsive preview/i.test(g))).toBe(true);
 		expect(start.guidance.some((g) => /HARD RULE:.*Verified learning/i.test(g))).toBe(true);
 		expect(start.guidance.some((g) => /HARD RULE:.*Design section isolation/i.test(g))).toBe(true);
-		expect(start.guidance.join('\n').toLowerCase()).not.toContain('transavia');
 	});
 
 	it('unknown site alias fails without writing _global', () => {

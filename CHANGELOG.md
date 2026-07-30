@@ -10,6 +10,39 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 ## [Unreleased]
 
+## [1.0.0-beta.1] - 2026-07-30
+
+### Added
+
+- Native WooCommerce catalog abilities for status, product and variation
+  reads/writes, catalog terms, global attributes, safe deletes, and bounded
+  catalog audits. Plugin mode now exposes 346 abilities; Direct mode remains
+  read-only for WooCommerce.
+- Runtime discovery for common builders, themes, block libraries, forms, field
+  plugins, add-ons, dynamic-data plugins, code tools, and SEO suites. Detected
+  integrations without typed adapters are reported as discovery-only.
+- Public-repository hygiene checks for private project identifiers in source,
+  staged release archives, and optionally commit history.
+
+### Changed
+
+- WordPress release archives now come from a clean production Composer install.
+  The Jetpack Autoloader is a production dependency, its package loader is the
+  primary bootstrap, and every manifest path is verified before publication.
+- WooCommerce catalog writes use native WooCommerce objects and allowlisted
+  setters, preview by default, enforce permissions and production
+  confirmations, record audit entries, and verify readback.
+- Storefront guidance routes Elementor through live Woo widget schemas and
+  Gutenberg/FSE through registered `woocommerce/*` block schemas.
+
+### Fixed
+
+- Prevent activation fatals when WooCommerce and Stonewright share Jetpack
+  Autoloader by eliminating stale development-only manifest paths from release
+  archives.
+- Release checks now test WooCommerce co-activation and reject archives with
+  missing Composer-manifest targets.
+
 ## [1.0.0-alpha.92] - 2026-07-30
 
 ### Added
@@ -89,59 +122,3 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 - ChatGPT and other OAuth clients can now complete administrator consent instead
   of stopping on a generic authorization error.
-
-## [1.0.0-alpha.88] - 2026-07-25
-
-### Added
-
-- A Visual Workspace page in wp-admin. Stonewright Visual could previously be
-  driven by an AI client and by nothing else; now a person can open a post in it
-  and watch the same steps. It names the editor it found, refuses to guess when
-  an editor is present but cannot be driven, and walks read, preview, explicit
-  confirmation, apply, and verify in that order. The confirmation panel states
-  the target, the breakpoint, and the before and after text for every change,
-  with the active design direction named beside it. Applying without evidence
-  behind it is reported as unverified rather than as a success. The inspector
-  collapses into a keyboard-operable drawer on narrow screens, and there are no
-  browser confirm dialogs anywhere in the flow.
-- A Design Studio page in wp-admin. It shows which direction is active, whether
-  it is ready and whether it matches the Elementor kit, and where each token
-  came from. Directions are edited in a structured form with a live specimen
-  beside it, and unsaved work survives a reload. Saving, activating, restoring a
-  revision, and pushing to Elementor each open a review drawer that lists what is
-  about to change before anything runs. Quality reports are read on the same
-  page, filtered by severity, viewport, or rule, and evidence that was never
-  captured stays visible as unverified instead of being rounded up to a pass.
-- A rebuilt Skills page in wp-admin with four views: catalog, editor, import,
-  and trash. Every skill states where it came from — shipped with Stonewright,
-  created on this site, or registered by another plugin — along with its state,
-  revision, and how many times it has been verified. Search filters the list in
-  place, and inspecting a skill opens a drawer with its body, lint findings,
-  trust findings, and history.
-- Skill import and export. Export produces normalized Markdown carrying
-  provenance and a content hash. Import is two steps: the file is inspected
-  first and the review lists lint errors and trust findings before anything is
-  stored, the confirmation is bound to the content hash so the file cannot
-  change between review and persistence, and an imported skill lands disabled as
-  a draft. An import never overwrites an existing skill.
-- Trash and restore for skills. Trashing disables a skill everywhere an agent
-  could read it and offers an undo; trashed skills never match
-  `stonewright-task-start`. Restore returns the skill as a disabled draft.
-  Built-in skills can be disabled but not removed. Permanent deletion is a
-  separate, irreversible action that lists exactly what will be destroyed and,
-  in production-safe mode, needs a confirmation token.
-- Skills published by other plugins. A plugin can register a read-only skill
-  source; Stonewright never executes source code and never fetches URLs.
-  Built-in ids are reserved and external ids must be source-qualified, so a
-  source cannot silently shadow a built-in or a local skill — an attempt is
-  reported as a visible conflict in the catalog instead.
-- A `visual-direction` skill pack for work that decides how a site should look:
-  direction capture, reviewed kit sync, the checkpoint after the first section,
-  and rendered evidence before a build is called done. It is loaded for a
-  rebrand or a new palette, type scale, or spacing rhythm, and not for work that
-  stays inside the direction already in place.
-
-### Fixed
-
-- Design Studio history now explicitly requests revision versions, so saved
-  revisions appear and can be reviewed or restored.

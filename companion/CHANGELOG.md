@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.1] - 2026-07-30
+
+### Changed
+
+- Add plugin-mode profile routing for all native WooCommerce catalog abilities.
+- Keep Direct mode WooCommerce read-only and state that boundary in the
+  capability matrix.
+- Align package version and public-hygiene release gates with the first beta.
+
 ## [1.0.0-alpha.92] - 2026-07-30
 
 ### Added
@@ -42,10 +51,3 @@
 
 - Align the companion package with the plugin release that restores OAuth
   consent completion for ChatGPT and other standards-compliant clients.
-
-## [1.0.0-alpha.88] - 2026-07-25
-
-### Changed
-
-- Align the companion package with the plugin release that adds Design Studio,
-  reviewed skill lifecycle, and the Visual Workspace.

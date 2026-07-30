@@ -17,7 +17,8 @@ final class VendorGuard {
 
 	public static function autoload_path(): string {
 		$dir = defined( 'STONEWRIGHT_DIR' ) ? (string) constant( 'STONEWRIGHT_DIR' ) : '';
-		return $dir . 'vendor/autoload.php';
+		$package_autoload = $dir . 'vendor/autoload_packages.php';
+		return is_readable( $package_autoload ) ? $package_autoload : $dir . 'vendor/autoload.php';
 	}
 
 	public static function is_vendor_present(): bool {

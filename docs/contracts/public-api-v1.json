@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-07-30T08:15:55+00:00",
+    "generated_at": "2026-07-30T11:03:02+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -4457,10 +4457,94 @@
             }
         },
         {
+            "ability_name": "stonewright/wc-attribute-delete",
+            "mcp_name": "stonewright-wc-attribute-delete",
+            "kind": "Write",
+            "input_schema_hash": "c68bf8c75209a49a85c32633eae38581e299f55c38abf7439ceab0091e8ace31",
+            "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
+            "permission_class": "Permissions::manage_woocommerce()",
+            "gates": {
+                "backup": false,
+                "token": true,
+                "validator": false,
+                "audit": true
+            }
+        },
+        {
+            "ability_name": "stonewright/wc-attribute-list",
+            "mcp_name": "stonewright-wc-attribute-list",
+            "kind": "Read",
+            "input_schema_hash": "77d8b2e7c08ba1c2f40947d250dda7cf8e57064df84b5e5800665abc7351a030",
+            "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
+            "permission_class": "Permissions::manage_woocommerce()",
+            "gates": {
+                "backup": false,
+                "token": false,
+                "validator": false,
+                "audit": true
+            }
+        },
+        {
+            "ability_name": "stonewright/wc-attribute-save",
+            "mcp_name": "stonewright-wc-attribute-save",
+            "kind": "Write",
+            "input_schema_hash": "3392c3213abf824d32bc7047b8ffed1d3449bf2aa2a158a3731c8c19dec43631",
+            "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
+            "permission_class": "Permissions::manage_woocommerce()",
+            "gates": {
+                "backup": false,
+                "token": true,
+                "validator": false,
+                "audit": true
+            }
+        },
+        {
+            "ability_name": "stonewright/wc-catalog-audit",
+            "mcp_name": "stonewright-wc-catalog-audit",
+            "kind": "Read",
+            "input_schema_hash": "e98f9b23d49478de8a31dccc76c210124aaad535fba94c2006fa2b1c50a076b0",
+            "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
+            "permission_class": "Permissions::manage_woocommerce()",
+            "gates": {
+                "backup": false,
+                "token": false,
+                "validator": false,
+                "audit": true
+            }
+        },
+        {
             "ability_name": "stonewright/wc-order-list",
             "mcp_name": "stonewright-wc-order-list",
             "kind": "Read",
-            "input_schema_hash": "052ac7f65214db39b897c16b38fb6e886d05bcbe6f6df946b3d344699f43fdc8",
+            "input_schema_hash": "523795e17cd360d31089d2480c58989a5e636e8a59a00305aa5c3fc0b3a67f36",
+            "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
+            "permission_class": "Permissions::manage_woocommerce()",
+            "gates": {
+                "backup": false,
+                "token": false,
+                "validator": false,
+                "audit": true
+            }
+        },
+        {
+            "ability_name": "stonewright/wc-product-delete",
+            "mcp_name": "stonewright-wc-product-delete",
+            "kind": "Write",
+            "input_schema_hash": "1d89e584db0f4355b6d5ee3e6469d1ffce23c155583c6cd89974be95cd233d08",
+            "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
+            "permission_class": "Permissions::manage_woocommerce()",
+            "gates": {
+                "backup": false,
+                "token": true,
+                "validator": false,
+                "audit": true
+            }
+        },
+        {
+            "ability_name": "stonewright/wc-product-get",
+            "mcp_name": "stonewright-wc-product-get",
+            "kind": "Read",
+            "input_schema_hash": "3df2a0bb6e1f22f70958c255cc83d22d5502335e5bbbd790956bf8a17a3fb48d",
             "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
             "permission_class": "Permissions::manage_woocommerce()",
             "gates": {
@@ -4474,7 +4558,7 @@
             "ability_name": "stonewright/wc-product-list",
             "mcp_name": "stonewright-wc-product-list",
             "kind": "Read",
-            "input_schema_hash": "53df3fcd238d2c60a03244ac29e118ac7be23cb738963ad51d4bcf3a011aa22e",
+            "input_schema_hash": "6704153be934e6e05c585dcd13fea81f80778695e920c5863fe94062fef7646e",
             "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
             "permission_class": "Permissions::manage_woocommerce()",
             "gates": {
@@ -4485,15 +4569,127 @@
             }
         },
         {
+            "ability_name": "stonewright/wc-product-save",
+            "mcp_name": "stonewright-wc-product-save",
+            "kind": "Write",
+            "input_schema_hash": "5bb0a2b87f0c1c6989a3a4f0b92ed0e94d92a8c90cc622be6d14d4f9783d21e3",
+            "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
+            "permission_class": "Permissions::manage_woocommerce()",
+            "gates": {
+                "backup": false,
+                "token": true,
+                "validator": false,
+                "audit": true
+            }
+        },
+        {
             "ability_name": "stonewright/wc-sales-report",
             "mcp_name": "stonewright-wc-sales-report",
             "kind": "Read",
-            "input_schema_hash": "e7be6c39574609e0b1fd6060dff1c8541084bad426852b6091671059cae02c44",
+            "input_schema_hash": "dc5f043cdd5eb18c95967c32f6b48b8d9f930ca63ca43172bea1e1666502971c",
             "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
             "permission_class": "Permissions::manage_woocommerce()",
             "gates": {
                 "backup": false,
                 "token": false,
+                "validator": false,
+                "audit": true
+            }
+        },
+        {
+            "ability_name": "stonewright/wc-status",
+            "mcp_name": "stonewright-wc-status",
+            "kind": "Read",
+            "input_schema_hash": "598937c840322346511f6235ce1ca4721a33db99336f1232bb3b8c6ba2e22901",
+            "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
+            "permission_class": "Permissions::manage_woocommerce()",
+            "gates": {
+                "backup": false,
+                "token": false,
+                "validator": false,
+                "audit": true
+            }
+        },
+        {
+            "ability_name": "stonewright/wc-term-delete",
+            "mcp_name": "stonewright-wc-term-delete",
+            "kind": "Write",
+            "input_schema_hash": "adb73c210d0867534b8af4bf341274a85c0b1e3fb6b44cef86a44c463906bcbc",
+            "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
+            "permission_class": "Permissions::manage_woocommerce()",
+            "gates": {
+                "backup": false,
+                "token": true,
+                "validator": false,
+                "audit": true
+            }
+        },
+        {
+            "ability_name": "stonewright/wc-term-list",
+            "mcp_name": "stonewright-wc-term-list",
+            "kind": "Read",
+            "input_schema_hash": "15b66c253b5ca4e496b7f323d0c4a1f9589a69e36b6b760d6443f0bf33293825",
+            "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
+            "permission_class": "Permissions::manage_woocommerce()",
+            "gates": {
+                "backup": false,
+                "token": false,
+                "validator": false,
+                "audit": true
+            }
+        },
+        {
+            "ability_name": "stonewright/wc-term-save",
+            "mcp_name": "stonewright-wc-term-save",
+            "kind": "Write",
+            "input_schema_hash": "79bd55f5942b531d41bb6b3c15b2d930007f966ae09d68fd97e8eadb80a815c7",
+            "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
+            "permission_class": "Permissions::manage_woocommerce()",
+            "gates": {
+                "backup": false,
+                "token": true,
+                "validator": false,
+                "audit": true
+            }
+        },
+        {
+            "ability_name": "stonewright/wc-variation-delete",
+            "mcp_name": "stonewright-wc-variation-delete",
+            "kind": "Write",
+            "input_schema_hash": "626e52a381773f96e9f356d52a32bafc53481538303267a13d3d75feef93717f",
+            "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
+            "permission_class": "Permissions::manage_woocommerce()",
+            "gates": {
+                "backup": false,
+                "token": true,
+                "validator": false,
+                "audit": true
+            }
+        },
+        {
+            "ability_name": "stonewright/wc-variation-list",
+            "mcp_name": "stonewright-wc-variation-list",
+            "kind": "Read",
+            "input_schema_hash": "acef619c3cc22711b2c3c3ba97b0a8e96847c5c9fb14eba82a4f9767ac7185d6",
+            "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
+            "permission_class": "Permissions::manage_woocommerce()",
+            "gates": {
+                "backup": false,
+                "token": false,
+                "validator": false,
+                "audit": true
+            }
+        },
+        {
+            "ability_name": "stonewright/wc-variation-save",
+            "mcp_name": "stonewright-wc-variation-save",
+            "kind": "Write",
+            "input_schema_hash": "e9597cd9098ea772fa122a498873bb68e674022d464a3c531bb0e475178a4156",
+            "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
+            "permission_class": "Permissions::manage_woocommerce()",
+            "gates": {
+                "backup": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }

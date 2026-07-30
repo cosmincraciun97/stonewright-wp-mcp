@@ -49,7 +49,7 @@ npx wp-env stop
 cd e2e
 npm install
 npx playwright install chromium
-WP_BASE_URL=http://transavia-local.local \
+WP_BASE_URL=http://site-under-test.local \
 WP_USERNAME=admin \
 WP_PASSWORD=your-password \
 npm test

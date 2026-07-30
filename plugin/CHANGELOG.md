@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.1] - 2026-07-30
+
+### Added
+
+- Seventeen native WooCommerce abilities covering runtime status, products,
+  variations, catalog terms, global attributes, orders, sales, and bounded
+  catalog audits.
+- Explicit runtime integration discovery for supported and discovery-only
+  builders, themes, blocks, forms, field plugins, add-ons, dynamic-data
+  plugins, code tools, and SEO suites.
+
+### Changed
+
+- WooCommerce catalog mutations now preview by default, use allowlisted native
+  object APIs, enforce task context and permissions, require production
+  confirmations where applicable, record audit entries, and verify readback.
+- Production packages bootstrap through Jetpack's package-aware Composer
+  loader and verify every generated manifest path.
+
+### Fixed
+
+- Clean production dependency builds remove stale Composer development
+  manifests that could make activation fail beside WooCommerce.
+
 ## [1.0.0-alpha.92] - 2026-07-30
 
 ### Added
@@ -105,86 +129,3 @@
 
 - OAuth consent now autoloads its user entity through the normal PSR-4 path, so
   approved authorization-code requests reach the client callback.
-
-## [1.0.0-alpha.88] - 2026-07-25
-
-### Added
-
-- Admin page `stonewright-visual-workspace` (`Admin\Pages\VisualWorkspacePage`),
-  gated on `edit_posts` and, for a targeted post, on
-  `Permissions::can_edit_post()`. PHP renders the chrome and hands the browser
-  bundle three slots: adapter chip, canvas body, inspector body. The boot payload
-  carries only the REST base, a `wp_rest` nonce, the post id, the requested
-  editor, and the active direction row (identity, revision, contract hash) — the
-  contract itself stays on the server. A missing bundle is stated on the page
-  with the command that builds it. No abilities were added, changed, or removed.
-- Visual Workspace front end (`assets/admin/visual-workspace.js`,
-  `assets/admin/visual-workspace.css`) plus the `visual/` workspace UI it boots:
-  adapter detection that stops on an undrivable editor instead of falling
-  through, a controller-enforced read → preview → confirm → apply → verify
-  ladder with a single private write dispatch, a confirmation panel carrying both
-  the human diff and the exact adapter arguments, and an evidence panel that
-  keeps failed and unchecked rules visible as unverified.
-- `plugin/assets/visual/` is staged at packaging time and is not committed.
-  `scripts/package-verify.mjs` warns on a missing bundle in a source checkout and
-  fails under `--require-visual-bundle`; CI and the release workflow pass that
-  flag after staging, and the release job asserts the built zip contains the
-  bundle.
-- Admin page `stonewright-design-studio` with four views (overview, editor,
-  quality, history) and REST routes under `stonewright/v1/design-studio`. Every
-  route delegates to the typed design-direction and quality abilities, so
-  permission checks, task context tokens, confirmation tokens, backups,
-  validation, audit records, and effect readback are inherited rather than
-  reimplemented. Reads require `can_read_design()`; writes require
-  `can_manage_design()` and a `wp_rest` nonce.
-- Design Studio front end (`assets/admin/design-studio.js`,
-  `assets/admin/design-studio.css`): no framework, no jQuery, no native browser
-  dialogs, and no markup built from stored content — every value reaches the DOM
-  through `textContent`. Keyboard-operable tablist with URL-restored views,
-  session-scoped draft recovery, a focus-trapping review drawer that returns
-  focus on close, a polite live region, token-only theming for light and dark,
-  and a reduced-motion path.
-- `SkillSource` and `SkillSourceRegistry`: a read-only registry for skills
-  published by other plugins through the `stonewright_skill_sources` filter.
-  Resolution order is built-in, then this site's database, then registered
-  sources. Built-in ids are reserved and external ids must be source-qualified;
-  a source that tries to claim a taken id is surfaced as a conflict rather than
-  applied. The registry never executes source callables for their side effects
-  and never performs HTTP requests.
-- `SkillImportSanitizer`, `SkillImporter`, and `SkillExporter`. Import is split
-  into inspect and confirm: inspection enforces a 1 MiB ceiling, valid UTF-8,
-  and required `name`/`description` front matter, then returns lint and trust
-  findings plus a SHA-256 content hash that the confirm step must echo back.
-  Imported skills are stored as `uploaded`, disabled, `draft`, with server-side
-  values only — nothing the file claims about its own source, status, or enabled
-  flags is honoured. An import never overwrites an existing slug. Export emits
-  normalized Markdown with provenance front matter and the content hash.
-- Skill trash lifecycle: `SkillsTable` schema `1.3` adds `trashed_at`, and
-  `Skills::trash()`, `Skills::restore()`, and `Skills::destroy()` implement it.
-  Trashed rows are excluded from every agent-facing read, so they cannot match
-  context bootstrap. Restore returns the row as a disabled draft.
-  `Skills::destroy()` refuses built-ins and, in production-safe mode, verifies a
-  confirmation token bound to the skill id. `Skills::delete()` remains as a bool
-  wrapper for existing callers.
-- Admin page `stonewright-skills` rebuilt on the shared admin shell, with REST
-  routes under `stonewright/v1/skills-studio`: `/catalog`, `/import/inspect`,
-  `/import`, and `/skills/(?P<id>\d+)` plus its `/export`, `/trash`, and
-  `/restore` sub-routes. Every route requires `Permissions::manage_options()`;
-  anything that is not a plain read additionally requires a `wp_rest` nonce and
-  records an audit entry.
-- Skills front end (`assets/admin/skills.js`): keyboard-operable tablist,
-  in-place search, a focus-trapping review drawer that returns focus on close,
-  an undo affordance after trashing, and no native browser dialogs. Titles,
-  descriptions, and imported Markdown reach the DOM through `textContent`.
-  The editor remains a nonce-checked form that works without JavaScript.
-- `SkillsSeeder` now forwards `topic` and `version_constraints` from a skill
-  pack's front matter, the latter written as a single-line JSON object. Only
-  declared keys are forwarded, so a reseed of a pack that declares neither
-  leaves whatever the site recorded for that slug untouched.
-- Skill pack `skills/visual-direction/` with three references
-  (direction contract, composition checklist, rendered quality loop), declaring
-  `topic: elementor-visual-direction` and `{"elementor": ">=3.16"}`.
-  `skills/elementor-v3-builder/` cross-references it instead of duplicating its
-  rules and keeps sole ownership of Elementor writes.
-- `AdminShell` theme toggle now uses inline SVG icons instead of text
-  dingbats, so the control renders identically across platform fonts.

@@ -30,6 +30,11 @@ jobs:
       - name: Verify documentation freshness
         run: node scripts/check-docs-freshness.mjs
 
+      - name: Verify public repository hygiene
+        env:
+          STONEWRIGHT_PRIVATE_TERMS: ${{ secrets.STONEWRIGHT_PRIVATE_TERMS }}
+        run: node scripts/check-public-hygiene.mjs --require-private-terms --history
+
       - name: Verify plugin
         working-directory: plugin
         run: |
@@ -44,7 +49,10 @@ jobs:
 
       - name: Prepare production plugin dependencies
         working-directory: plugin
-        run: composer install --no-dev --no-interaction --prefer-dist --classmap-authoritative
+        run: |
+          rm -rf vendor
+          composer install --no-dev --no-interaction --prefer-dist --classmap-authoritative
+          composer package:verify-manifests
 
       - name: Build companion
         working-directory: companion
@@ -88,6 +96,11 @@ jobs:
             --exclude phpcs.xml \
             --exclude phpunit.xml \
             --exclude phpunit.xml.dist
+          STONEWRIGHT_PRIVATE_TERMS="${{ secrets.STONEWRIGHT_PRIVATE_TERMS }}" \
+            node scripts/check-public-hygiene.mjs \
+              --root dist/stonewright \
+              --require-private-terms
+          php plugin/bin/verify-jetpack-manifests.php dist/stonewright
           (cd dist && zip -qr "stonewright-${version}.zip" stonewright)
           (cd companion && npm pack --pack-destination ../dist)
           (cd visual && npm pack --pack-destination ../dist)
@@ -112,14 +125,11 @@ jobs:
           if [ ! -f "$notes" ]; then
             notes="docs/releases/checklist.md"
           fi
-          # GitHub hides prereleases from the repo "Latest release" sidebar and
-          # shows "N tags" instead. Alpha builds are still versioned as alpha.*,
-          # but published as the Latest release so install links and the Releases
-          # panel stay usable. beta/rc stay prerelease.
+          # Beta and RC builds stay prereleases until a stable tag is ready.
           release_flags=(--latest)
           case "$version" in
             *-beta*|*-rc*) release_flags=(--prerelease) ;;
-            *-alpha*) release_flags=(--latest) ;;
+            *-alpha*) release_flags=(--prerelease) ;;
           esac
           gh release create "$GITHUB_REF_NAME" \
             "dist/stonewright-${version}.zip" \

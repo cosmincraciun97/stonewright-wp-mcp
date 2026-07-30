@@ -4,7 +4,7 @@ import { defineConfig, devices, type Project } from '@playwright/test';
  * Admin-ui e2e gate.
  *
  * baseURL defaults to wp-env (http://localhost:8888). Override with WP_BASE_URL
- * for Local sites (e.g. http://transavia-local.local).
+ * for Local sites (e.g. http://site-under-test.local).
  */
 const baseURL = process.env.WP_BASE_URL ?? 'http://localhost:8888';
 

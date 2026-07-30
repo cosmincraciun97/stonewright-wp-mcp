@@ -131,7 +131,6 @@ final class ThemeFilePaths {
 		$exact = [
 			'style.css',
 			'functions.php',
-			'iviteb_scripts.js',
 			'scripts.js',
 			'custom.js',
 			'theme.js',

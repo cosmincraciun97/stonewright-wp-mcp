@@ -64,8 +64,9 @@ old indexed backups before moving them.
 - For content-model skills: the target plugin active and discoverable through
   `stonewright/site-plugins-list`, official REST routes, or WP-CLI command
   discovery.
-- For WooCommerce catalog skills: WooCommerce active and official REST v3 or
-  `wp wc` commands available for the requested operation.
+- For WooCommerce catalog skills: WooCommerce active. Plugin mode uses native
+  typed catalog abilities first; tokenized `wp wc` is fallback for a missing
+  operation or long batch. Direct mode is read-only.
 - For WP-CLI acceleration: companion running with `wp` available on `PATH` or
   LocalWP-style PHP + `wp-cli.phar` discoverable from the WordPress root. If no
   WP-CLI is available, the direct companion tool `stonewright-wp-cli-install`

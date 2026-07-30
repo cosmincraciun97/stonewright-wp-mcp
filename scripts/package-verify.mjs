@@ -57,9 +57,13 @@ if (!exists('composer.json')) {
 	if (!composer.require || !composer.require['wordpress/mcp-adapter']) {
 		fail('plugin/composer.json must require wordpress/mcp-adapter for production installs.');
 	}
+	if (!composer.require || !composer.require['automattic/jetpack-autoloader']) {
+		fail('plugin/composer.json must require automattic/jetpack-autoloader in production.');
+	}
 }
 
 const vendorAutoload = path.join(pluginRoot, 'vendor', 'autoload.php');
+const packageAutoload = path.join(pluginRoot, 'vendor', 'autoload_packages.php');
 if (!fs.existsSync(vendorAutoload)) {
 	const msg =
 		'plugin/vendor/autoload.php missing — run `cd plugin && composer install --no-dev` before packaging.';
@@ -70,6 +74,12 @@ if (!fs.existsSync(vendorAutoload)) {
 	const mcp = path.join(pluginRoot, 'vendor', 'wordpress');
 	if (!fs.existsSync(mcp)) {
 		warn('plugin/vendor/wordpress not found; confirm production Composer packages are installed.');
+	}
+	if (!fs.existsSync(packageAutoload)) {
+		const msg =
+			'plugin/vendor/autoload_packages.php missing — regenerate clean production dependencies.';
+		if (strictVendor) fail(msg);
+		else warn(msg);
 	}
 }
 
@@ -136,6 +146,8 @@ if (fs.existsSync(vendorAutoload)) {
 		fail('vendor/ present on disk but excluded from simulated package — packaging bug.');
 	} else if (!included.includes('vendor/autoload.php')) {
 		fail('Simulated package missing vendor/autoload.php');
+	} else if (!included.includes('vendor/autoload_packages.php')) {
+		fail('Simulated package missing vendor/autoload_packages.php');
 	}
 }
 

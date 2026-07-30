@@ -115,6 +115,23 @@ npm run build
   compatibility, provenance, or migration. Copied and derived code must keep
   attribution in `docs/upstream-code-reuse.md` and SPDX file headers.
 
+## Public repository hygiene
+
+- Never commit customer or private-project names, domains, local site aliases,
+  page/post IDs, usernames, screenshots, logs, memory rows, audit payloads, or
+  copied site content.
+- Use RFC-reserved examples such as `example.com`, `example.test`, generic
+  aliases such as `site-a`, and synthetic IDs in tests, docs, plans, fixtures,
+  commit messages, pull requests, changelogs, and release notes.
+- Convert lessons from private work into product-level rules, generic
+  regression tests, and reusable abilities. Preserve the fix; discard customer
+  identity and customer content.
+- Public commits and pull requests describe the bug class and product behavior,
+  never the private site where the issue was discovered.
+- Before packaging or release, run the public-hygiene gate against source,
+  built assets, plugin ZIP contents, companion package contents, and commit
+  messages. A release is blocked when the gate reports private material.
+
 ## Documentation freshness
 
 - Documentation changes ship in the same PR as the behavior they describe.

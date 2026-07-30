@@ -73,6 +73,9 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'ACF, ACPT, Meta Box, ASE, Pods, WooCommerce', $instructions );
 		$this->assertStringContainsString( 'stonewright-content-model-integrations', $instructions );
 		$this->assertStringContainsString( 'stonewright-woocommerce-catalog', $instructions );
+		$this->assertStringContainsString( 'call stonewright/wc-status first', $instructions );
+		$this->assertStringContainsString( 'registered woocommerce/* blocks', $instructions );
+		$this->assertStringContainsString( 'Deletes preview first and trash by default', $instructions );
 		$this->assertStringContainsString( 'Use plugin-specific official REST or WP-CLI surfaces when present', $instructions );
 		$this->assertStringContainsString( 'WP-CLI remains tokenized; use stonewright/php-execute for PHP runtime snippets', $instructions );
 		$this->assertStringContainsString( 'real Elementor widgets', $instructions );
@@ -129,7 +132,6 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'Content-model changes are additive', $instructions );
 		$this->assertStringContainsString( 'Never duplicate Elementor widgets with hide_desktop/hide_mobile', $instructions );
 		$this->assertStringContainsString( 'Nested Carousel', $instructions );
-		$this->assertStringNotContainsString( 'transavia', strtolower( $instructions ) );
 		// Canonical permanent rules (invisible product defaults).
 		$this->assertStringContainsString( 'Elementor responsive preview', $instructions );
 		$this->assertStringContainsString( 'Never resize the whole editor browser window', $instructions );

@@ -7,7 +7,7 @@
 	"category": "media",
 	"icon": "format-image",
 	"description": "Full-bleed recipe hero with breadcrumb, category, title, info card and nutrition stats. Fully editable.",
-	"keywords": ["hero", "recipe", "transavia"],
+	"keywords": ["hero", "recipe", "food"],
 	"textdomain": "stonewright",
 	"supports": {
 		"html": false,
@@ -21,27 +21,27 @@
 	"attributes": {
 		"breadcrumb": {
 			"type": "string",
-			"default": "Acasă / Rețete / Pulpe de pui"
+			"default": "Home / Recipes / Roasted vegetables"
 		},
 		"category": {
 			"type": "string",
-			"default": "Fragedo și partenerii"
+			"default": "Seasonal recipes"
 		},
 		"title": {
 			"type": "string",
-			"default": "Pulpe de pui la cuptor cu cartofi noi și usturoi"
+			"default": "Roasted vegetables with herbs"
 		},
 		"difficulty": {
 			"type": "string",
-			"default": "Ușoară"
+			"default": "Easy"
 		},
 		"time": {
 			"type": "string",
-			"default": "45 min."
+			"default": "45 min"
 		},
 		"servings": {
 			"type": "string",
-			"default": "4 porții"
+			"default": "4 servings"
 		},
 		"image": {
 			"type": "string",
@@ -53,7 +53,7 @@
 		},
 		"backgroundColor": {
 			"type": "string",
-			"default": "#1a171c"
+			"default": "#1f2937"
 		},
 		"textColor": {
 			"type": "string",
@@ -61,7 +61,7 @@
 		},
 		"accentColor": {
 			"type": "string",
-			"default": "#e2001a"
+			"default": "#d97706"
 		},
 		"showPlayButton": {
 			"type": "boolean",
@@ -74,11 +74,11 @@
 		"stats": {
 			"type": "array",
 			"default": [
-				{ "label": "Calorii",  "value": "320", "unit": "kcal" },
-				{ "label": "Proteine", "value": "28",  "unit": "g" },
-				{ "label": "Sodiu",    "value": "180", "unit": "mg" },
-				{ "label": "Sare",     "value": "0.9", "unit": "g" },
-				{ "label": "Zahăr",    "value": "2",   "unit": "g" }
+				{ "label": "Calories", "value": "320", "unit": "kcal" },
+				{ "label": "Protein",  "value": "12",  "unit": "g" },
+				{ "label": "Sodium",   "value": "180", "unit": "mg" },
+				{ "label": "Fiber",    "value": "8",   "unit": "g" },
+				{ "label": "Sugar",    "value": "6",   "unit": "g" }
 			]
 		}
 	},
