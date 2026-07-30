@@ -12,6 +12,7 @@ safety, and release claims must match the code shipped in the same commit.
 | Plugin abilities | generated `docs/ability-truth-matrix.md` |
 | Direct tools | `DIRECT_TOOL_NAMES` in `companion/src/direct/registry.ts` |
 | Current release notes | `docs/releases/<version>.md` |
+| Admin design system | `DESIGN.md` |
 | Public workflow rules | `AGENTS.md` and runtime agent instructions |
 | Installation prompts | `docs/install-prompts.md` and generated wp-admin client snippets |
 
@@ -44,6 +45,8 @@ Review every affected item in the same PR:
 - `docs/install-prompts.md`, `docs/installation.md`, `docs/onboarding.md`;
 - `docs/admin/` and `docs/getting-started/` client instructions;
 - architecture, security, capability counts, examples, and relevant skills;
+- `DESIGN.md` whenever admin tokens, components, layout, accessibility, or
+  responsive behavior changes;
 - active plans when scope, ordering, gates, or known baselines changed.
 
 If a document does not need a change, the PR description must say why its

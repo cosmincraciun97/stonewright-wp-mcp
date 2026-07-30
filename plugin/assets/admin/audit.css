@@ -124,7 +124,8 @@
 .sw-audit-error-cause {
 	margin: 0 0 var(--sw-space-2);
 	padding: var(--sw-space-2) var(--sw-space-3);
-	border-left: 3px solid var(--sw-danger-text);
+	border: 1px solid var(--sw-danger-text);
+	border-radius: var(--sw-radius-sm);
 	background: var(--sw-danger-soft);
 	color: var(--sw-danger-text);
 	font-size: var(--sw-text-sm);
@@ -172,7 +173,7 @@
 	box-sizing: border-box;
 	overflow: auto;
 	font-family: var(--sw-font-mono);
-	font-size: 11px;
+	font-size: var(--sw-text-xs);
 	line-height: 1.45;
 	background: var(--sw-bg);
 	color: var(--sw-text);

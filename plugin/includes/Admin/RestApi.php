@@ -85,7 +85,7 @@ final class RestApi {
 	public static function handle_companion_update_status( \WP_REST_Request $request ): \WP_REST_Response {
 		unset( $request );
 
-		return rest_ensure_response( CompanionUpdateStatus::report() );
+		return rest_ensure_response( CompanionUpdateStatus::report( null, true ) );
 	}
 
 	/**

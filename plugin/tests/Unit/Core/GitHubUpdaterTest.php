@@ -96,6 +96,30 @@ final class GitHubUpdaterTest extends TestCase {
 		self::assertSame( $calls_before, $calls_after );
 	}
 
+	public function test_force_refresh_replaces_a_stale_cached_release(): void {
+		$cached = [
+			'version' => '1.0.0-beta.1',
+			'package' => 'https://example.test/stonewright-1.0.0-beta.1.zip',
+			'url'     => 'https://example.test/release',
+		];
+		set_transient( GitHubUpdater::CACHE_KEY, $cached, 12 * HOUR_IN_SECONDS );
+
+		$raw = $this->fixture_json();
+		$GLOBALS['stonewright_test_wp_remote_get'] = static function ( string $url ) use ( $raw ): array {
+			return [
+				'response' => [ 'code' => 200 ],
+				'body'     => (string) wp_json_encode( $raw ),
+			];
+		};
+
+		$parsed = GitHubUpdater::fetch_latest_release( true );
+
+		self::assertIsArray( $parsed );
+		self::assertSame( '1.0.0-beta.99', $parsed['version'] );
+		self::assertSame( $parsed, get_transient( GitHubUpdater::CACHE_KEY ) );
+		self::assertCount( 1, $GLOBALS['stonewright_test_wp_remote_get_calls'] );
+	}
+
 	public function test_inject_update_adds_response_when_remote_is_newer(): void {
 		set_transient(
 			GitHubUpdater::CACHE_KEY,

@@ -167,12 +167,14 @@ Two mechanisms trim read cost without weakening any gate:
   result. `ResponseProjection` is pure and stateless because registry ability
   instances are reused across requests — a projection remembered on an instance
   would leak one caller's request into the next caller's response. Projection
-  runs *after* the ability has produced and validated its output, so declared
-  output schemas keep describing the full response, and *before* the task-start
-  nudge is attached, so the nudge cannot be projected away. Errors pass through
-  unprojected: trimming a `WP_Error` would hide why the call failed. The parameter
-  is advertised on every strict schema because `additionalProperties: false`
-  would otherwise have the client reject it before it reached the seam.
+  runs *after* the ability has produced its output and always retains top-level
+  fields declared required by that ability's output schema. Declared contracts
+  therefore remain valid even when the caller requests a smaller payload.
+  Projection runs *before* the task-start nudge is attached, so the nudge cannot
+  be projected away. Errors pass through unprojected: trimming a `WP_Error`
+  would hide why the call failed. The parameter is advertised on every strict
+  schema because `additionalProperties: false` would otherwise have the client
+  reject it before it reached the seam.
 - **Read short-circuit.** `stonewright/elementor-v3-get-page-structure` accepts
   the `hash` it previously returned as `knownHash`. On a match it answers before
   flattening the tree or building the outline. The hash is taken from the decoded

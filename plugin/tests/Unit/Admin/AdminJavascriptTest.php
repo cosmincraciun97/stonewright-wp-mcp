@@ -63,6 +63,24 @@ final class AdminJavascriptTest extends TestCase {
 		self::assertStringContainsString( 'normalizeChecklistStatus', $script );
 	}
 
+	public function test_explicit_companion_check_bypasses_browser_caches(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
+		$start  = strpos( $script, 'function initCompanionUpdateStatus()' );
+		$end    = strpos( $script, 'function escapeRegExp', false === $start ? 0 : $start );
+
+		self::assertNotFalse( $start );
+		self::assertNotFalse( $end );
+		$companion_update_script = substr( $script, (int) $start, (int) $end - (int) $start );
+
+		self::assertStringContainsString( "refreshUrl.searchParams.set( 'force', '1' )", $companion_update_script );
+		self::assertStringContainsString( "cache: 'no-store'", $companion_update_script );
+
+		$connection_test_end = strpos( $script, 'function initCompanionUpdateStatus()' );
+		self::assertNotFalse( $connection_test_end );
+		$connection_test_script = substr( $script, 0, (int) $connection_test_end );
+		self::assertStringNotContainsString( "refreshUrl.searchParams.set( 'force', '1' )", $connection_test_script );
+	}
+
 	public function test_setup_client_and_method_pickers_are_wired(): void {
 		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
 

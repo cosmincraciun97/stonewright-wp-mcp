@@ -414,7 +414,7 @@
 	max-width: 100%;
 	max-height: 280px;
 	background: var(--sw-ink);
-	color: var(--sw-text-muted);
+	color: var(--sw-on-brand);
 	border-radius: var(--sw-radius-sm);
 	font-family: var(--sw-font-mono);
 	font-size: var(--sw-text-xs);
@@ -514,7 +514,8 @@
 .sw-update-security {
 	margin: var(--sw-space-4) 0 0;
 	padding: var(--sw-space-3);
-	border-left: 3px solid var(--sw-warning);
+	border: 1px solid var(--sw-warning);
+	border-radius: var(--sw-radius-sm);
 	background: var(--sw-warning-bg);
 	color: var(--sw-text);
 }
@@ -529,13 +530,16 @@
 
 .sw-companion-update-result__summary {
 	margin: 0 0 var(--sw-space-3);
-	padding-left: var(--sw-space-3);
-	border-left: 3px solid var(--sw-info-text);
+	padding: var(--sw-space-3);
+	border: 1px solid var(--sw-info-text);
+	border-radius: var(--sw-radius-sm);
+	background: var(--sw-info-soft);
 	color: var(--sw-text-secondary);
 }
 
 .sw-companion-update-result__summary--warn {
-	border-left-color: var(--sw-warn-text);
+	border-color: var(--sw-warn-text);
+	background: var(--sw-warn-soft);
 	color: var(--sw-warn-text);
 }
 
@@ -620,7 +624,7 @@
 .sw-oauth-tab.is-active {
 	background: var(--sw-brand);
 	border-color: var(--sw-brand);
-	color: var(--sw-brand-contrast);
+	color: var(--sw-on-brand);
 }
 
 .sw-oauth-client-panel {
@@ -638,7 +642,7 @@
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
 	background: var(--sw-ink);
-	color: var(--sw-text-muted);
+	color: var(--sw-on-brand);
 	border-radius: var(--sw-radius-sm);
 	font: var(--sw-text-xs)/1.5 var(--sw-font-mono);
 }

@@ -164,7 +164,7 @@ final class AbilitiesPage {
 								);
 								?>
 							</span>
-							<span class="sw-ability-category__actions sw-actions" onclick="event.preventDefault();">
+							<span class="sw-ability-category__actions sw-actions">
 								<button
 									type="submit"
 									form="stonewright-bulk-form"

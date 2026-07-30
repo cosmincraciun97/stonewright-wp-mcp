@@ -67,6 +67,17 @@ final class ResponseProjectionTest extends TestCase {
 		);
 	}
 
+	public function test_declared_required_keys_survive_projection(): void {
+		self::assertSame(
+			[
+				'ok'      => true,
+				'post_id' => 41,
+				'hash'    => 'abc123',
+			],
+			ResponseProjection::apply( self::payload(), [ 'hash' ], [ 'post_id' ] )
+		);
+	}
+
 	public function test_nested_projection_prunes_siblings(): void {
 		self::assertSame(
 			[

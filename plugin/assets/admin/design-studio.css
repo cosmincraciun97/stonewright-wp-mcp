@@ -12,8 +12,8 @@
 	--sw-ds-radius-sm: 10px;
 	--sw-ds-radius-lg: 14px;
 	--sw-ds-rule: 1px solid var(--sw-border);
-	--sw-ds-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
-	--sw-ds-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+	--sw-ds-serif: var(--sw-font-sans);
+	--sw-ds-sans: var(--sw-font-sans);
 
 	max-width: var(--sw-shell-content-max, 1200px);
 	color: var(--sw-text);

@@ -38,6 +38,9 @@ companion**. The result compares:
 - the latest trusted GitHub release;
 - the optional configured HTTP bridge, when WordPress can reach it.
 
+This explicit check refreshes the official release immediately. Automatic
+background checks remain cached to avoid unnecessary GitHub requests.
+
 Local stdio runs inside the AI client, so WordPress cannot inspect or replace
 that process directly. Use **Copy update prompt** to hand a credential-free
 update request to the agent, or use **Download official companion** and verify

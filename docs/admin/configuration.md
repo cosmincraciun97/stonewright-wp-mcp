@@ -238,6 +238,8 @@ The update card makes the two-component boundary explicit:
 **Check latest companion** reads GitHub's latest public release, accepts
 packages only from this repository's versioned release path, and shows the
 installed plugin, latest release, and optional configured HTTP bridge version.
+An explicit click bypasses the background 12-hour release cache and browser
+caches; automatic update checks stay cached.
 The panel links the exact companion package and SHA-256 manifest and creates a
 credential-free **Copy update prompt** handoff.
 

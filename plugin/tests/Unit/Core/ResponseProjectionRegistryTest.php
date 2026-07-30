@@ -7,6 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\Ability;
 use Stonewright\WpMcp\Abilities\ContentModel\CptAcfLoopGridFlow;
 use Stonewright\WpMcp\Abilities\Site\Info;
+use Stonewright\WpMcp\Abilities\System\WorkflowPreflight;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Support\ResponseProjection;
 
@@ -79,7 +80,7 @@ final class ResponseProjectionRegistryTest extends TestCase {
 		);
 
 		self::assertIsArray( $result );
-		self::assertSame( [ 'name', 'url' ], array_keys( $result ) );
+		self::assertSame( [ 'name', 'url', 'wp_version' ], array_keys( $result ) );
 	}
 
 	public function test_the_projection_parameter_never_reaches_execute(): void {
@@ -159,6 +160,22 @@ final class ResponseProjectionRegistryTest extends TestCase {
 			],
 			$full
 		);
+	}
+
+	public function test_task_start_projection_keeps_its_required_output_envelope(): void {
+		$result = AbilityRegistry::execute_with_context_guard(
+			new WorkflowPreflight(),
+			[
+				'task'                    => 'Inspect the current site.',
+				'responseMode'            => 'compact',
+				ResponseProjection::PARAM => [ 'context_token' ],
+			]
+		);
+
+		self::assertIsArray( $result );
+		foreach ( [ 'ok', 'context_token', 'mode', 'auth_guidance', 'fast_path' ] as $required ) {
+			self::assertArrayHasKey( $required, $result );
+		}
 	}
 
 	public function test_error_responses_are_not_projected(): void {

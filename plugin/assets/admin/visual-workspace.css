@@ -13,8 +13,8 @@
 	--sw-vw-radius: 12px;
 	--sw-vw-radius-sm: 10px;
 	--sw-vw-rule: 1px solid var(--sw-border);
-	--sw-vw-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
-	--sw-vw-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+	--sw-vw-serif: var(--sw-font-sans);
+	--sw-vw-sans: var(--sw-font-sans);
 
 	max-width: var(--sw-shell-content-max, 1200px);
 	color: var(--sw-text);
@@ -34,7 +34,7 @@
 }
 
 .sw-visual-page :focus-visible {
-	outline: var(--sw-focus-ring);
+	outline: 2px solid var(--sw-focus-ring);
 	outline-offset: 2px;
 }
 

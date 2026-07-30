@@ -16,11 +16,12 @@ final class CompanionUpdateStatus {
 
 	/**
 	 * @param callable|null $bridge_transport Test seam matching wp_safe_remote_get.
+	 * @param bool          $force_refresh    Ignore the cached release for an explicit user check.
 	 * @return array<string, mixed>
 	 */
-	public static function report( ?callable $bridge_transport = null ): array {
+	public static function report( ?callable $bridge_transport = null, bool $force_refresh = false ): array {
 		$plugin_version = defined( 'STONEWRIGHT_VERSION' ) ? (string) constant( 'STONEWRIGHT_VERSION' ) : '0.0.0';
-		$release        = GitHubUpdater::fetch_latest_release();
+		$release        = GitHubUpdater::fetch_latest_release( $force_refresh );
 		$latest_version = is_array( $release ) ? (string) ( $release['version'] ?? '' ) : '';
 		$target_version = '' !== $latest_version ? $latest_version : $plugin_version;
 		$bridge         = self::bridge_health( $bridge_transport );

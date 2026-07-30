@@ -10,6 +10,33 @@ were never stable releases and are not part of the supported public history.
 
 ## [Unreleased]
 
+## [1.0.0-beta.2] - 2026-07-30
+
+### Added
+
+- A maintained `DESIGN.md` system and page-by-page admin surface checklist for
+  the supported light interface.
+
+### Changed
+
+- The Dashboard uses one compact summary band and balanced evidence panels
+  instead of a wall of oversized metric cards.
+- Setup, Sandbox, Audit, Abilities, Design Studio, Visual Workspace, Blueprints,
+  Memory, and Skills now share tighter typography, spacing, focus, status,
+  border, and contrast contracts.
+
+### Fixed
+
+- Make an explicit **Check latest companion** action bypass the 12-hour release
+  cache and browser caches, while retaining the cache for automatic background
+  checks.
+- Preserve every top-level field required by an ability output schema when
+  `stonewright_fields` projects a smaller response. Compact `task-start`
+  responses can no longer lose required handshake fields.
+- Center the complete Domain Lock control group, keep Sandbox file-type badges
+  readable, remove inline click handling from category actions, and correct
+  low-contrast setup code blocks and focus rings.
+
 ## [1.0.0-beta.1] - 2026-07-30
 
 ### Added

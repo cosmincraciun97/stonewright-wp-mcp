@@ -483,9 +483,13 @@
 
 				button.disabled = true;
 				setButtonFeedback( button, 'Checking release…' );
-				window.fetch( url, {
+				var refreshUrl = new window.URL( url, window.location.href );
+				refreshUrl.searchParams.set( 'force', '1' );
+				refreshUrl.searchParams.set( '_', String( Date.now() ) );
+				window.fetch( refreshUrl.toString(), {
 					method: 'GET',
 					credentials: 'same-origin',
+					cache: 'no-store',
 					headers: {
 						'X-WP-Nonce': nonce || '',
 						'Accept': 'application/json',
@@ -662,7 +666,8 @@
 		} );
 
 		document.querySelectorAll( '[data-sw-bulk-action]' ).forEach( function ( button ) {
-			button.addEventListener( 'click', function () {
+			button.addEventListener( 'click', function ( event ) {
+				event.stopPropagation();
 				var action = button.getAttribute( 'data-sw-bulk-action' ) || '';
 				var category = button.getAttribute( 'data-sw-bulk-category' ) || '';
 				var actionSelect = document.querySelector( 'select[name="stonewright_bulk_action"]' );

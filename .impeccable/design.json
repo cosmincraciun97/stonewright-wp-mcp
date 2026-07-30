@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-30T20:00:00Z",
+  "title": "Design System: Stonewright",
+  "extensions": {
+    "colorMeta": {
+      "workspace": {
+        "role": "neutral",
+        "displayName": "Workbench",
+        "canonical": "#f7f8fb",
+        "tonalRamp": ["#1a1b22", "#30323c", "#505462", "#737988", "#9ba1ae", "#c3c7d0", "#e3e5ea", "#f7f8fb"]
+      },
+      "brand": {
+        "role": "primary",
+        "displayName": "Tool Indigo",
+        "canonical": "#4f46e5",
+        "tonalRamp": ["#171443", "#25206b", "#332d96", "#433ac3", "#5e56e9", "#8b85f0", "#bbb8f7", "#eeefff"]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page titles only."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Instructions and supporting copy."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "Versions, identifiers, hashes, counts, and times."
+      }
+    },
+    "shadows": [
+      {
+        "name": "resting-surface",
+        "value": "0 1px 2px rgba(23, 25, 33, 0.05)",
+        "purpose": "Optional separation for primary panels."
+      },
+      {
+        "name": "raised-control",
+        "value": "0 6px 18px rgba(23, 25, 33, 0.10)",
+        "purpose": "Sticky filters and menus."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state",
+        "value": "150ms cubic-bezier(.25,.46,.45,.94)",
+        "purpose": "Hover, focus, and state transitions."
+      }
+    ],
+    "breakpoints": [
+      {"name": "phone", "value": "375px"},
+      {"name": "admin-collapse", "value": "782px"},
+      {"name": "tablet", "value": "960px"},
+      {"name": "desktop", "value": "1200px"},
+      {"name": "wide", "value": "1440px"}
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main safe action on a screen.",
+      "html": "<button class=\"ds-btn-primary\">Save Changes</button>",
+      "css": ".ds-btn-primary{min-height:36px;padding:9px 14px;border:1px solid #4f46e5;border-radius:6px;background:#4f46e5;color:#fcfcfe;font:600 12px/1.35 system-ui;transition:background 150ms cubic-bezier(.25,.46,.45,.94),border-color 150ms cubic-bezier(.25,.46,.45,.94)}.ds-btn-primary:hover{background:#4338ca;border-color:#4338ca}.ds-btn-primary:focus-visible{outline:2px solid #4f46e5;outline-offset:2px}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Secondary or reversible action.",
+      "html": "<button class=\"ds-btn-secondary\">Check Status</button>",
+      "css": ".ds-btn-secondary{min-height:36px;padding:9px 14px;border:1px solid #c8ceda;border-radius:6px;background:#fcfcfe;color:#171921;font:600 12px/1.35 system-ui;transition:background 150ms cubic-bezier(.25,.46,.45,.94),border-color 150ms cubic-bezier(.25,.46,.45,.94)}.ds-btn-secondary:hover{background:#f1f3f8;border-color:#4f46e5}.ds-btn-secondary:focus-visible{outline:2px solid #4f46e5;outline-offset:2px}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Standard settings and filter field.",
+      "html": "<label class=\"ds-field-label\">Site URL<input class=\"ds-field\" value=\"https://example.com\"></label>",
+      "css": ".ds-field-label{display:grid;gap:6px;color:#474c57;font:600 12px/1.35 system-ui}.ds-field{min-height:36px;padding:8px 10px;border:1px solid #dfe2ea;border-radius:6px;background:#fcfcfe;color:#171921;font:400 14px/1.55 system-ui}.ds-field:focus-visible{border-color:#4f46e5;outline:2px solid #4f46e5;outline-offset:1px}"
+    },
+    {
+      "name": "Status Pill",
+      "kind": "chip",
+      "refersTo": "status-pill",
+      "description": "Explicit operational status with semantic contrast.",
+      "html": "<span class=\"ds-status\">Current</span>",
+      "css": ".ds-status{display:inline-flex;align-items:center;min-height:22px;padding:4px 9px;border:1px solid #a8dac0;border-radius:999px;background:#e7f6ee;color:#157347;font:700 12px/1.2 system-ui}"
+    },
+    {
+      "name": "Summary Band",
+      "kind": "custom",
+      "refersTo": "dashboard-summary",
+      "description": "Compact grouped metrics without a wall of cards.",
+      "html": "<section class=\"ds-summary\"><div><strong>346</strong><span>Tools</span></div><div><strong>6 min</strong><span>Last Activity</span></div></section>",
+      "css": ".ds-summary{display:flex;flex-wrap:wrap;border:1px solid #dfe2ea;border-radius:14px;background:#fcfcfe}.ds-summary>div{display:grid;gap:4px;min-width:140px;padding:16px 20px;border-right:1px solid #dfe2ea}.ds-summary>div:last-child{border-right:0}.ds-summary strong{color:#171921;font:650 18px/1.2 system-ui}.ds-summary span{color:#68707d;font:600 12px/1.35 system-ui}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Operator's Workbench",
+    "overview": "Stonewright is a clean, well-made technical instrument. Premium quality comes from exact spacing, predictable controls, honest status, and polished edge cases.",
+    "keyCharacteristics": [
+      "Restrained light palette with one indigo action color.",
+      "Compact system typography built for technical scanning.",
+      "Flat-by-default surfaces separated by borders and tonal shifts.",
+      "Responsive structure without horizontal overflow.",
+      "Clear operational states with text, shape, and color."
+    ],
+    "rules": [
+      {"name": "One Tool Color", "body": "Indigo means action, focus, or current state. Never use it as decoration.", "section": "colors"},
+      {"name": "Compact Evidence", "body": "Metrics never exceed 20px. Technical values wrap or truncate with a reachable full-value affordance.", "section": "typography"},
+      {"name": "Flat by Default", "body": "No shadow on every card. Elevation must explain layer or interaction.", "section": "elevation"}
+    ],
+    "dos": [
+      "Do keep the default workspace light.",
+      "Do use semantic HTML and visible focus.",
+      "Do test narrow and wide breakpoints."
+    ],
+    "donts": [
+      "Don't build identical oversized metric card walls.",
+      "Don't use low-contrast status pills.",
+      "Don't use colored side stripes.",
+      "Don't ship project-specific state as defaults."
+    ]
+  }
+}

@@ -121,6 +121,20 @@
 	color: var(--sw-on-brand) !important;
 }
 
+.stonewright-sandbox-page .sw-badge--category {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 22px;
+	padding: 2px var(--sw-space-2);
+	background: var(--sw-info-soft) !important;
+	color: var(--sw-info-text) !important;
+	border: 1px solid var(--sw-border-strong);
+	border-radius: var(--sw-radius-pill);
+	font-size: var(--sw-text-xs);
+	line-height: 1.2;
+}
+
 .stonewright-sandbox-page .button.button-link-delete {
 	color: var(--sw-danger-text) !important;
 }

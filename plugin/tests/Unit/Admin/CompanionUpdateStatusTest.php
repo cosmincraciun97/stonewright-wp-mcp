@@ -37,7 +37,7 @@ final class CompanionUpdateStatusTest extends TestCase {
 				[
 					'status'           => 'ok',
 					'contract_version' => '1.0.0',
-					'version'          => '1.0.0-beta.1',
+					'version'          => '1.0.0-beta.2',
 				]
 			),
 		];
@@ -47,7 +47,7 @@ final class CompanionUpdateStatusTest extends TestCase {
 		self::assertTrue( $report['ok'] );
 		self::assertTrue( $report['plugin_update_available'] );
 		self::assertSame( 'outdated', $report['companion_status'] );
-		self::assertSame( '1.0.0-beta.1', $report['bridge']['version'] );
+		self::assertSame( '1.0.0-beta.2', $report['bridge']['version'] );
 		self::assertStringContainsString( 'stonewright-companion-1.0.0-beta.99.tgz', $report['companion_package'] );
 		self::assertStringContainsString( 'refresh_required_tool_names', $report['update_prompt'] );
 		self::assertStringNotContainsString( 'Application Password:', $report['update_prompt'] );

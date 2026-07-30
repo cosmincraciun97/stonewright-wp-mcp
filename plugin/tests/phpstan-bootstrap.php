@@ -51,7 +51,7 @@ if ( ! defined( 'STONEWRIGHT_URL' ) ) {
 }
 
 if ( ! defined( 'STONEWRIGHT_VERSION' ) ) {
-	define( 'STONEWRIGHT_VERSION', '1.0.0-beta.1' );
+	define( 'STONEWRIGHT_VERSION', '1.0.0-beta.2' );
 }
 
 if ( ! defined( 'STONEWRIGHT_MIN_PHP' ) ) {
@@ -70,4 +70,3 @@ $phpstan_autoload = dirname( __DIR__ ) . '/vendor/autoload.php';
 if ( file_exists( $phpstan_autoload ) ) {
 	require_once $phpstan_autoload;
 }
-
