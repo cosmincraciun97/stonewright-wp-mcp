@@ -7,6 +7,7 @@ import './helpers/task-start.js';
 import {
 	globalRules,
 	globalRulesDigest,
+	parseGlobalRules,
 	rulesGet,
 } from '../src/direct/global-rules.js';
 import { DIRECT_TOOL_NAMES } from '../src/direct/registry.js';
@@ -46,13 +47,30 @@ describe('direct global rules', () => {
 	});
 
 	it('computes the same digest the plugin computes', () => {
-		const records = JSON.parse(readFileSync(PLUGIN_REGISTRY, 'utf8'));
+		const records: unknown = JSON.parse(readFileSync(PLUGIN_REGISTRY, 'utf8'));
 		// Mirror of GlobalRules::digest_of(): sha1 over the canonical encoding.
 		const expected = createHash('sha1')
 			.update(JSON.stringify(records))
 			.digest('hex');
 
 		expect(globalRulesDigest()).toBe(expected);
+	});
+
+	it('rejects malformed or contradictory registry records', () => {
+		const valid = globalRules()[0];
+
+		expect(() => parseGlobalRules({ rules: [] })).toThrow(/list/i);
+		expect(() => parseGlobalRules([{ ...valid, why: '' }])).toThrow(/why/i);
+		expect(() =>
+			parseGlobalRules([
+				{
+					...valid,
+					severity: 'hard',
+					enforcement: { kind: 'instruction', guard: '' },
+				},
+			]),
+		).toThrow(/runtime guard/i);
+		expect(() => parseGlobalRules([valid, valid])).toThrow(/duplicate/i);
 	});
 
 	it('returns every rule with its enforcement claim intact', () => {

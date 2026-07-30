@@ -271,7 +271,7 @@
 	max-width: 100%;
 }
 
-/* Mode pill sits on the always-dark header — keep light labels in BOTH themes. */
+/* Mode pill sits on the always-dark header, so its labels stay light. */
 .sw-mode-pill {
 	display: inline-flex;
 	align-items: center;

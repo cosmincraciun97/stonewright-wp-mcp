@@ -36,6 +36,24 @@ final class AuditLog {
 	];
 
 	/**
+	 * Request-context keys whose values must be removed if an OAuth server echoes
+	 * them inside an otherwise allowlisted diagnostic.
+	 *
+	 * @var list<string>
+	 */
+	private const AUTH_SENSITIVE_CONTEXT_KEYS = [
+		'client_secret',
+		'code',
+		'refresh_token',
+		'access_token',
+		'id_token',
+		'device_code',
+		'user_code',
+		'assertion',
+		'authorization',
+	];
+
+	/**
 	 * When true, AbilityKernel (or another recorder) already wrote a row for
 	 * this request — REST mutation middleware must not create a duplicate.
 	 *
@@ -273,7 +291,8 @@ final class AuditLog {
 	 *
 	 * @param string                            $endpoint OAuth endpoint label, e.g. `oauth/token`.
 	 * @param \WP_HTTP_Response|\WP_REST_Response $response Response about to be returned.
-	 * @param array<string, mixed>              $context  Request context; only `client_id` is read.
+	 * @param array<string, mixed>              $context  Request context. `client_id` may be persisted;
+	 *                                                    credential values are used only for redaction.
 	 */
 	public static function record_auth_event( string $endpoint, object $response, array $context = [] ): bool {
 		$http = method_exists( $response, 'get_status' ) ? (int) $response->get_status() : 0;
@@ -287,12 +306,16 @@ final class AuditLog {
 
 		$body = method_exists( $response, 'get_data' ) ? $response->get_data() : null;
 		$body = is_array( $body ) ? $body : [];
-		$args = [];
+		$args             = [];
+		$sensitive_values = self::auth_sensitive_values( $context, $body );
 		foreach ( self::AUTH_DIAGNOSTIC_KEYS as $source => $target ) {
 			if ( ! isset( $body[ $source ] ) || ! is_scalar( $body[ $source ] ) ) {
 				continue;
 			}
-			$value = sanitize_text_field( (string) $body[ $source ] );
+			$value = self::redact_auth_diagnostic(
+				sanitize_text_field( (string) $body[ $source ] ),
+				$sensitive_values
+			);
 			if ( '' === $value ) {
 				continue;
 			}
@@ -316,6 +339,64 @@ final class AuditLog {
 		];
 
 		return self::record( $endpoint, $args, $status );
+	}
+
+	/**
+	 * @param array<string, mixed> $context
+	 * @param array<string, mixed> $body
+	 * @return list<string>
+	 */
+	private static function auth_sensitive_values( array $context, array $body ): array {
+		$values = [];
+
+		foreach ( self::AUTH_SENSITIVE_CONTEXT_KEYS as $key ) {
+			if ( isset( $context[ $key ] ) && is_scalar( $context[ $key ] ) ) {
+				$values[] = trim( (string) $context[ $key ] );
+			}
+			if ( isset( $body[ $key ] ) && is_scalar( $body[ $key ] ) ) {
+				$values[] = trim( (string) $body[ $key ] );
+			}
+		}
+
+		if ( isset( $context['sensitive_values'] ) && is_array( $context['sensitive_values'] ) ) {
+			foreach ( $context['sensitive_values'] as $value ) {
+				if ( is_scalar( $value ) ) {
+					$values[] = trim( (string) $value );
+				}
+			}
+		}
+
+		// Short values cause destructive substring replacements in normal prose.
+		// Real OAuth credentials are longer; syntax-level masking below still
+		// catches short values written as `code=...` or `secret: ...`.
+		$values = array_filter( $values, static fn( string $value ): bool => strlen( $value ) >= 8 );
+
+		return array_values( array_unique( $values ) );
+	}
+
+	/**
+	 * Remove known credentials and common credential assignment forms from one
+	 * allowlisted OAuth diagnostic.
+	 *
+	 * @param list<string> $sensitive_values Values taken from the current request.
+	 */
+	private static function redact_auth_diagnostic( string $value, array $sensitive_values ): string {
+		if ( [] !== $sensitive_values ) {
+			$value = str_replace( $sensitive_values, '[redacted]', $value );
+		}
+
+		$value = (string) preg_replace(
+			'#\b(Bearer|Basic)\s+[A-Za-z0-9._~+/\-=]+#i',
+			'$1 [redacted]',
+			$value
+		);
+		$value = (string) preg_replace(
+			'~\b(client_secret|access_token|refresh_token|id_token|assertion|authorization|code|device_code|user_code)\b(\s*[:=]\s*)(?:"[^"]*"|\'[^\']*\'|[^\s&,;]+)~i',
+			'$1$2[redacted]',
+			$value
+		);
+
+		return $value;
 	}
 
 	/**

@@ -121,7 +121,7 @@ Install the Stonewright plugin for advanced Elementor workflows, blueprints and 
 
 ### Direct mode — plugin-less core REST + local Elementor data
 
-The companion authenticates with a WordPress Application Password and exposes **99** tools without installing Stonewright. Elementor documents can be edited **without the Elementor editor** via `stonewright-elementor-data-get` / `data-update` (local WP-CLI preferred; remote Direct falls back to core REST meta when `_elementor_data` is registered, with a file backup under `~/.stonewright/backups/`). This path has no Elementor schema validation — use Plugin mode `elementor-v3-batch-mutate` for production engines. DesignSpec, php-execute, and site-hosted skills remain plugin-only. See [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md) and [docs/install-prompts.md](docs/install-prompts.md).
+The companion authenticates with a WordPress Application Password and exposes **100** tools without installing Stonewright. Elementor documents can be edited **without the Elementor editor** via `stonewright-elementor-data-get` / `data-update` (local WP-CLI preferred; remote Direct falls back to core REST meta when `_elementor_data` is registered, with a file backup under `~/.stonewright/backups/`). This path has no Elementor schema validation — use Plugin mode `elementor-v3-batch-mutate` for production engines. DesignSpec, php-execute, and site-hosted skills remain plugin-only. See [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md) and [docs/install-prompts.md](docs/install-prompts.md).
 
 ## Quick Start
 
@@ -294,6 +294,7 @@ flowchart LR
   Session[Per-session tool profile]
   Rev[surface_revision -> tools/list_changed]
   REST[WordPress REST API]
+  Rules[Native rules + digest cache]
   WP[WordPress core]
   Guten[Gutenberg / FSE]
   Elem[Elementor]
@@ -306,6 +307,7 @@ flowchart LR
 
   Client --> Companion
   Companion --> CompFilter
+  Companion --> Rules
   CompFilter -->|Plugin mode| Plugin
   CompFilter -->|Direct mode| REST
   Companion --> Skills[Local skills / memory]
@@ -314,6 +316,7 @@ flowchart LR
   Session --> Rev
   Rev -. re-list .-> Client
   Plugin --> Gates
+  Plugin --> Rules
   Plugin --> Guten
   Plugin --> Elem
   Elem --> Integrity
@@ -346,7 +349,9 @@ Stonewright speaks standard MCP (stdio via the companion, and HTTP MCP when the 
 
 ## Admin interface
 
-Plugin mode admin pages include Setup, Dashboard (Site Pulse), Abilities, Blueprints, Design Studio, Visual Workspace, Skills, Memory, Sandbox, and Audit Log. Theme toggle lives in the admin shell header.
+Plugin mode admin pages include Setup, Dashboard (Site Pulse), Abilities,
+Blueprints, Design Studio, Visual Workspace, Skills, Memory, Sandbox, and Audit
+Log. The admin ships one supported light theme; there is no theme toggle.
 
 Design Studio holds design directions: validated site-wide design intent with
 provenance and revisions. Visual Workspace opens the real Elementor or block

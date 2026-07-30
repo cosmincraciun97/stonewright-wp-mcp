@@ -58,6 +58,8 @@
   error. Protocol codes defined by RFC 6749 / RFC 8628 keep their exact spelling
   when the failure originates in the auth surface; Stonewright's own error codes
   are namespaced so the two can no longer be confused.
+- Memory generalization reports partial database failures explicitly instead of
+  returning an apparently successful apply result.
 - Elementor responsive control detection recognises responsive suffixes and
   standalone visibility switchers, so per-breakpoint edits target the control the
   caller meant.

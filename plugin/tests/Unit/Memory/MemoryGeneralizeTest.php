@@ -103,6 +103,25 @@ final class MemoryGeneralizeTest extends TestCase {
 		}
 	}
 
+	public function test_apply_reports_partial_database_failures(): void {
+		$GLOBALS['wpdb']->fail_update_ids = [ 32 ];
+
+		$result = ( new MemoryGeneralize() )->execute( [ 'apply' => true ] );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_memory_generalize_partial_failure', $result->get_error_code() );
+		self::assertSame(
+			[
+				'status'      => 500,
+				'changed'     => 1,
+				'failed_ids'  => [ 32 ],
+				'next_cursor' => null,
+				'done'        => true,
+			],
+			$result->get_error_data()
+		);
+	}
+
 	public function test_cursor_walks_the_table_in_bounded_batches(): void {
 		$first = ( new MemoryGeneralize() )->execute( [ 'limit' => 2 ] );
 
@@ -274,6 +293,9 @@ final class MemoryGeneralizeTest extends TestCase {
 			/** @var array<int, array<string, mixed>> */
 			public array $deletes = [];
 
+			/** @var list<int> */
+			public array $fail_update_ids = [];
+
 			/** @var array<int, array<string, mixed>> */
 			private array $rows;
 
@@ -337,12 +359,15 @@ final class MemoryGeneralizeTest extends TestCase {
 			 * @param array<string, mixed> $data
 			 * @param array<string, mixed> $where
 			 */
-			public function update( string $table, array $data, array $where, array $format = [], array $where_format = [] ): int {
+			public function update( string $table, array $data, array $where, array $format = [], array $where_format = [] ): int|false {
 				if ( str_ends_with( $table, 'stonewright_memory' ) ) {
 					$this->updates[] = [
 						'data'  => $data,
 						'where' => $where,
 					];
+					if ( in_array( (int) ( $where['id'] ?? 0 ), $this->fail_update_ids, true ) ) {
+						return false;
+					}
 				}
 				return 1;
 			}

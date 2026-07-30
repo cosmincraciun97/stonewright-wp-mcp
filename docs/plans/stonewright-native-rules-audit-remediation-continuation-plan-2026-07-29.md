@@ -1,6 +1,10 @@
 # Stonewright Native Rules and Audit Remediation Continuation Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status update — 2026-07-30:** Tasks 1–17 are implemented. Task 18 code,
+> security, documentation, package, and static gates are green after an
+> independent audit; live wp-env/browser acceptance and PR CI remain. The
+> original task checkboxes below are retained as the implementation record, not
+> as an instruction to redo completed work.
 
 **Goal:** Continue from completed Tasks 1–5 and finish native rules, audit/OAuth remediation, memory generalization, response-efficiency work, documentation, and live acceptance without weakening any security gate.
 
@@ -13,7 +17,8 @@
 - Repository: `/Users/cosminiviteb/Personal/stonewright-wp-mcp`
 - Continue only in linked worktree: `/Users/cosminiviteb/Personal/stonewright-wp-mcp/.worktrees/native-rules-audit-remediation`
 - Branch: `codex/native-rules-audit-remediation`
-- Required starting commit: `21d4cb01cf578ba688fb2e0a386b65dc5c5eea6a`
+- Audited implementation tip before final remediation:
+  `35ae2eac1a49dc7247f32951f7a0f6924575a995`
 - Do not work in the dirty `main` checkout.
 - SDD ledger: `.superpowers/sdd/stonewright-native-rules-audit-remediation-ui-and-efficiency-plan-2026-07-29/progress.md`
 - Original plan remains useful for problem statements, but this continuation plan is authoritative when instructions conflict.
@@ -39,6 +44,33 @@ Security audit: clean
 Public contracts: 5/5, 6,946 assertions
 Docs freshness and git diff --check: clean
 ```
+
+## Verified Completion Status — 2026-07-30
+
+| Task | Status | Decisive evidence |
+| --- | --- | --- |
+| 1–5 | Complete | Canonical write-path tests cover all four code payload abilities and token binding. |
+| 6–8 | Complete | Shared 332-ability / 100-tool registry surface; Plugin and Direct digest parity; Direct loader now validates exact records. |
+| 9–12 | Complete | Parser authority, responsive controls, contextual error ownership, and secret-safe OAuth audit behavior pass focused/full suites. |
+| 13–16 | Complete | Cursor-based memory generalization, stateless projection, canonical knownHash, and registry-backed batching are implemented. |
+| 17 | Complete | Maintained docs, READMEs, changelogs, architecture diagram, contracts, and 332/100 counts are current. |
+| 18 — local gates | Complete | 6,208 PHPUnit tests / 32,179 assertions; PHPStan, PHPCS, security, dependency, provenance, contract, token, companion, Visual, and docs gates green. |
+| 18 — live/CI | Blocked pending environment | Docker is unavailable and `transavia-local.local` refuses connections. GitHub E2E and all PR jobs must be green before release. |
+
+Independent audit fixes added after `35ae2ea`:
+
+- canonical Elementor tree hashes now ignore associative key order but preserve
+  element-list order;
+- OAuth diagnostics redact echoed request/response credentials and
+  Authorization values;
+- partial memory update failures return an explicit error with failed ids;
+- Direct mode validates packaged rule records instead of trusting a type cast;
+- the removed dark theme is also removed from the Playwright project/test
+  matrix;
+- WordPressCS and E2E dependencies were moved to patched versions with zero
+  known vulnerability advisories;
+- docs freshness no longer rewrites immutable historical release counts while
+  still requiring current counts during release preparation.
 
 ## Global Constraints
 
@@ -528,13 +560,54 @@ git status --short
 - [ ] Use `superpowers:finishing-a-development-branch`.
 - [ ] Do not push, open PR, release, or mutate production beyond approved acceptance until user explicitly authorizes that external action.
 
+## Task 19: Pull Request and CI
+
+- [ ] Commit the independent remediation without squashing the auditable task
+  history.
+- [ ] Push `codex/native-rules-audit-remediation` and open a PR against `main`.
+- [ ] In the PR description, list changed abilities, permission/backup/token/
+  validation/audit effects, public docs changed, and the unavailable local-live
+  acceptance.
+- [ ] Wait for every required PR job, including all PHP versions and the real
+  wp-env Playwright job.
+- [ ] Fix root causes on this branch and rerun local proportional gates after
+  every CI correction.
+- [ ] Do not merge or tag while any required check is pending, skipped
+  unexpectedly, cancelled, or red.
+
+## Task 20: Release
+
+- [ ] Read the repository release-hygiene instructions before changing
+  versions.
+- [ ] Determine the next alpha from tags; do not guess or reuse a version.
+- [ ] Update plugin, companion, public metadata, all three changelogs, and a new
+  `docs/releases/<version>.md`; retain at most five dated release sections.
+- [ ] Rebuild generated contracts/matrix and rerun the complete CI-equivalent
+  local gates.
+- [ ] Merge only the green PR, tag the verified merge commit, push the tag, and
+  wait for the release workflow to publish all assets.
+- [ ] Verify ZIP/TGZ contents, `SHA256SUMS.txt`, GitHub release status, and the
+  released companion version before touching client installations.
+
+## Task 21: Local Companion Alignment
+
+- [ ] Use only the verified release TGZ and checksum.
+- [ ] Update Grok CLI, Codex, and Claude through their supported MCP CLI
+  commands, preserving each existing target and environment.
+- [ ] Update Antigravity through its supported UI/configuration surface without
+  printing or copying private configuration.
+- [ ] Restart/reload each client; a changed file alone is not acceptance.
+- [ ] Query the running Stonewright tool surface in each client and confirm the
+  released `companion_version`.
+- [ ] Record client-by-client evidence and any auth blocker without exposing
+  credentials.
+
 ## Handoff Instructions for Next Agent
 
-1. Read this file completely.
-2. Read repository `AGENTS.md`.
-3. Activate `caveman` only for user-facing commentary; code/docs/commits remain normal.
-4. Use `superpowers:subagent-driven-development`.
-5. Verify exact starting branch/head:
+1. Read this file and repository `AGENTS.md` completely.
+2. Use `caveman` only for user-facing commentary; code, docs, commits, and PR
+   text remain normal.
+3. Verify the exact worktree and branch:
 
 ```bash
 cd /Users/cosminiviteb/Personal/stonewright-wp-mcp/.worktrees/native-rules-audit-remediation
@@ -543,19 +616,21 @@ git rev-parse HEAD
 git status --short
 ```
 
-Expected branch `codex/native-rules-audit-remediation`, head containing `21d4cb0`, clean tree.
+Expected branch: `codex/native-rules-audit-remediation`. The worktree must be
+clean and HEAD must equal the PR head before continuing.
 
-6. Run a focused baseline before Task 6:
-
-```bash
-cd plugin
-./vendor/bin/phpunit --testsuite Unit
-composer phpstan
-```
-
-7. Resume at Task 6. Never redo Tasks 1–5.
-8. Keep the existing SDD ledger; append task commits, fix rounds, deferred minors, and completion lines.
-9. Stop only for a genuine blocker, a plan conflict requiring user authority, or completion.
+4. Resume at the first unchecked item in Task 19. Do not redo Tasks 1–18.
+5. Treat GitHub E2E as mandatory live acceptance for the branch. Local
+   Transavia acceptance remains separate because the site is offline and its
+   installed plugin is older; never substitute the production site.
+6. Never create a release before the PR is fully green. Never update clients
+   from a branch build.
+7. After release, verify the downloaded checksums before client updates, then
+   verify the running version in all four clients.
+8. Keep credentials and private client configuration out of terminal output,
+   logs, commits, PR text, and handoff notes.
+9. If CI is red, fix the cause on the branch and update this status section with
+   the exact failing job and final receipt.
 
 ## Self-Review
 

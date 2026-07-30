@@ -131,9 +131,12 @@ final class AuditAuthClassificationTest extends TestCase {
 			'oauth/token',
 			new \WP_REST_Response(
 				[
-					'error'         => 'invalid_client',
-					'access_token'  => 'SENTINEL-BEARER',
-					'refresh_token' => 'SENTINEL-REFRESH',
+					'error'             => 'invalid_client',
+					'error_description' => 'Rejected client_secret=SENTINEL-SECRET with Bearer SENTINEL-HEADER.',
+					'error_uri'         => 'https://example.test/oauth?code=SENTINEL-AUTH-CODE',
+					'hint'              => 'Refresh token SENTINEL-REFRESH is expired.',
+					'access_token'      => 'SENTINEL-BEARER',
+					'refresh_token'     => 'SENTINEL-REFRESH',
 				],
 				401
 			),
@@ -214,7 +217,14 @@ final class AuditAuthClassificationTest extends TestCase {
 				'code'          => 'SENTINEL-AUTH-CODE',
 			]
 		);
-		$response = new \WP_REST_Response( [ 'error' => 'invalid_grant' ], 400 );
+		$request->set_header( 'Authorization', 'Bearer SENTINEL-HEADER' );
+		$response = new \WP_REST_Response(
+			[
+				'error'             => 'invalid_grant',
+				'error_description' => 'Authorization code SENTINEL-AUTH-CODE with Bearer SENTINEL-HEADER was refused.',
+			],
+			400
+		);
 
 		$returned = RestRoutes::audit_post_dispatch( $response, null, $request );
 		self::assertSame( $response, $returned );
@@ -226,6 +236,7 @@ final class AuditAuthClassificationTest extends TestCase {
 		$encoded = (string) $row['sanitized_args'];
 		self::assertStringNotContainsString( 'SENTINEL-SECRET', $encoded );
 		self::assertStringNotContainsString( 'SENTINEL-AUTH-CODE', $encoded );
+		self::assertStringNotContainsString( 'SENTINEL-HEADER', $encoded );
 		self::assertStringNotContainsString( hash( 'sha256', 'SENTINEL-AUTH-CODE' ), $encoded );
 	}
 

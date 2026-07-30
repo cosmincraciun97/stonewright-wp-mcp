@@ -1,9 +1,9 @@
 /**
  * Visual Workspace — stone & precision.
  *
- * Same palette, spacing, and elevation tokens as the Design Studio, so the two
- * pages read as one product and follow the light/dark toggle without owning a
- * palette. The layout is mobile-first: header, canvas, and inspector stack in a
+ * Same light-theme palette, spacing, and elevation tokens as the Design Studio,
+ * so the two pages read as one product without owning duplicate palettes. The
+ * layout is mobile-first: header, canvas, and inspector stack in a
  * single column, and the inspector only becomes a side column once there is
  * room for it. Below that width it is a drawer, which is why the drawer rules
  * live in a max-width query rather than the default cascade.

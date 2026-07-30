@@ -10,6 +10,43 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 ## [Unreleased]
 
+### Added
+
+- A shared native-rule registry for Plugin and Direct mode, with explicit
+  severity and runtime-enforcement classifications, digest caching, and the
+  read-only `rules-get` surface.
+- Bounded, cursor-based memory generalization with dry-run preview and guarded
+  apply mode.
+- Response field projection through `stonewright_fields`, plus `knownHash`
+  short-circuit reads for Elementor page structures.
+- Conservative, opt-in escaped-layout decoding for supported code payloads.
+
+### Changed
+
+- Native batching guidance is sourced from the shared rule registry.
+- Direct mode validates and canonicalizes every packaged native-rule record
+  before exposing it, matching the plugin loader's fail-closed behavior.
+- The WordPress admin now ships one supported light theme.
+
+### Fixed
+
+- OAuth audit classification preserves protocol failures without storing
+  request or response credentials echoed inside diagnostic fields.
+- Memory generalization now returns an explicit partial-failure error when any
+  planned database update fails, including the failed ids and continuation
+  state.
+- Elementor responsive control detection covers suffixed controls and
+  standalone visibility switchers.
+- Elementor structure hashes ignore associative JSON key order while preserving
+  semantic element-list order.
+- Projected integer-keyed maps retain their keys, projected list members retain
+  source order, and the light-only browser matrix matches the shipped admin.
+
+### Removed
+
+- The obsolete admin theme toggle, stored dark preference, and duplicate dark
+  token set.
+
 ## [1.0.0-alpha.91] - 2026-07-26
 
 ### Added

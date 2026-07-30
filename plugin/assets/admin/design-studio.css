@@ -1,8 +1,8 @@
 /**
  * Design Studio — stone & precision.
  *
- * Colour, elevation, spacing, and radius come from the shared shell tokens, so
- * the page follows the light/dark toggle without owning a palette of its own.
+ * Colour, elevation, spacing, and radius come from the shared light-theme shell
+ * tokens, so the page does not own a duplicate palette.
  * The layout is written mobile-first: one column is the default and the
  * two-column editor is an enhancement above 960px.
  */

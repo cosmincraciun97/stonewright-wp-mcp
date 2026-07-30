@@ -1,5 +1,10 @@
 # Stonewright Premium Upgrade — delivery report
 
+> Historical delivery snapshot from 2026-07-15. Paths, branch tips, ability
+> counts, and the dark-theme checklist describe that delivery only. For current
+> setup and behavior, use the root README, `docs/installation.md`, and
+> `docs/ability-truth-matrix.md`; the current admin supports one light theme.
+
 **Date:** 2026-07-15  
 **Status:** Feature work complete on topic branches (not merged to `main`).  
 **Install package for manual QA:** see [Install paths](#install-paths) below.
@@ -144,7 +149,7 @@ Gates: real `Permissions` callbacks, backup before tree/blueprint writes, `Valid
 
 ## Suggested manual checklist (you)
 
-1. Install ZIP → activate → **Setup** page looks premium (shell, stepper, dark mode).  
+1. Historical alpha checklist: install ZIP → activate → **Setup** page shows the shell, stepper, and then-current dark mode.
 2. Run **preflight** on Setup (local readiness only — confirm MCP from your client).  
 3. Open Blueprints / Abilities / Dashboard / Audit.  
 4. Toggle kill switch in admin bar.  

@@ -126,7 +126,7 @@ final class MemoryGeneralize extends AbilityKernel {
 
 		return $this->audit(
 			$args,
-			function ( array $a ) use ( $apply ): array {
+			function ( array $a ) use ( $apply ): array|\WP_Error {
 				$limit  = isset( $a['limit'] ) ? max( 1, min( self::MAX_LIMIT, (int) $a['limit'] ) ) : self::DEFAULT_LIMIT;
 				$offset = self::decode_cursor( $a['cursor'] ?? null );
 
@@ -134,6 +134,7 @@ final class MemoryGeneralize extends AbilityKernel {
 				$scanned   = count( $rows );
 				$proposals = [];
 				$changed   = 0;
+				$failed    = [];
 
 				foreach ( $rows as $row ) {
 					$plan = Scrubber::plan( $row );
@@ -149,19 +150,36 @@ final class MemoryGeneralize extends AbilityKernel {
 
 					if ( Memory::update_by_id( (int) $plan['id'], $plan['changes'] ) ) {
 						++$changed;
+					} else {
+						$failed[] = (int) $plan['id'];
 					}
 				}
 
 				// A full page proves nothing about what follows it, so the cursor
 				// stays open until a short page shows the table is exhausted.
-				$done = $scanned < $limit;
+				$done        = $scanned < $limit;
+				$next_cursor = $done ? null : (string) ( $offset + $scanned );
+
+				if ( [] !== $failed ) {
+					return new \WP_Error(
+						'stonewright_memory_generalize_partial_failure',
+						__( 'Some memory entries could not be generalized. Review the failed ids before continuing.', 'stonewright' ),
+						[
+							'status'      => 500,
+							'changed'     => $changed,
+							'failed_ids'  => $failed,
+							'next_cursor' => $next_cursor,
+							'done'        => $done,
+						]
+					);
+				}
 
 				return [
 					'applied'     => $apply,
 					'scanned'     => $scanned,
 					'changed'     => $changed,
 					'proposals'   => $proposals,
-					'next_cursor' => $done ? null : (string) ( $offset + $scanned ),
+					'next_cursor' => $next_cursor,
 					'done'        => $done,
 				];
 			}

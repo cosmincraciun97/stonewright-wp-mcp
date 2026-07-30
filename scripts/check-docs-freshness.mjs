@@ -86,12 +86,30 @@ try {
 	fail(error instanceof Error ? error.message : String(error));
 }
 
-for (const [relativePath, expected] of [
-	['README.md', [`**${abilityCount}** abilities`, `**${directToolCount}** tools`]],
+const rootChangelog = read('CHANGELOG.md');
+const unreleasedBody = rootChangelog.match(
+	/^## \[Unreleased\]([\s\S]*?)(?=^## \[[^\]]+\] - \d{4}-\d{2}-\d{2}$)/m,
+)?.[1] ?? '';
+const hasUnreleasedChanges = /^### (?:Added|Changed|Deprecated|Removed|Fixed|Security)$/m.test(unreleasedBody);
+
+const truthMarkers = [
+	['README.md', [`**${abilityCount}** abilities`, `**${directToolCount}** tools`, `exposes **${directToolCount}** tools`]],
 	['companion/README.md', [`**${directToolCount}** Direct tools`]],
 	['docs/direct-mode-e2e.md', [`**${directToolCount}** tools`]],
-	[`docs/releases/${canonicalVersion}.md`, [`**${abilityCount}**`, `**${directToolCount}**`]],
-]) {
+	['docs/abilities.md', [`(**${abilityCount}** abilities)`]],
+];
+
+// A feature branch may legitimately move capability counts ahead of the last
+// immutable release note. Once Unreleased is empty (release preparation), the
+// canonical version's note must match the generated surface.
+if (!hasUnreleasedChanges) {
+	truthMarkers.push([
+		`docs/releases/${canonicalVersion}.md`,
+		[`**${abilityCount}**`, `**${directToolCount}**`],
+	]);
+}
+
+for (const [relativePath, expected] of truthMarkers) {
 	const content = read(relativePath);
 	for (const marker of expected) {
 		if (!content.includes(marker)) fail(`${relativePath} is missing current count marker: ${marker}`);

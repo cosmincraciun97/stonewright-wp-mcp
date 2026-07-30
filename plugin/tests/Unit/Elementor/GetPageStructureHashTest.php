@@ -117,6 +117,38 @@ final class GetPageStructureHashTest extends TestCase {
 		self::assertSame( $first['hash'], $second['hash'] );
 	}
 
+	public function test_the_hash_ignores_associative_key_serialization_order(): void {
+		$ability = new GetPageStructure();
+		$before  = $ability->execute( [ 'post_id' => 811 ] );
+
+		$reordered = self::tree();
+		$reordered[0] = [
+			'elements' => [
+				[
+					'elements'   => [],
+					'settings'   => [ 'title' => 'Fast native Elementor' ],
+					'widgetType' => 'heading',
+					'elType'     => 'widget',
+					'id'         => 'headline',
+				],
+			],
+			'settings' => [ '_title' => 'Hero section' ],
+			'elType'   => 'container',
+			'id'       => 'root',
+		];
+		self::seed( $reordered );
+
+		$after = $ability->execute( [ 'post_id' => 811 ] );
+
+		self::assertIsArray( $before );
+		self::assertIsArray( $after );
+		self::assertSame(
+			$before['hash'],
+			$after['hash'],
+			'Reordering object keys must not look like an Elementor document change.'
+		);
+	}
+
 	public function test_the_hash_moves_when_the_document_changes(): void {
 		$ability = new GetPageStructure();
 		$before  = $ability->execute( [ 'post_id' => 811 ] );

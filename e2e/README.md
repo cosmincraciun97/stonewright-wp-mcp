@@ -13,7 +13,7 @@ Sandbox, Skills, Memory, Audit Log):
 - No product console errors
 - Screenshot archived under `artifacts/` (gitignored)
 
-Projects cover five viewports × light/dark color schemes:
+Projects cover the supported light theme at five viewports:
 
 | Viewport | Size |
 |---|---|

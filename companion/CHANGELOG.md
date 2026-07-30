@@ -17,6 +17,8 @@
   reachable before profile expansion. `stonewright-skill-list` left that cold
   surface to make room: task start already returns the matched skill slugs, and
   the tool returns as soon as the profile expands.
+- The Direct registry loader validates exact fields, severities, scopes,
+  enforcement claims, and duplicate ids before exposing packaged rules.
 
 ## [1.0.0-alpha.91] - 2026-07-26
 

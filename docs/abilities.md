@@ -1,6 +1,6 @@
 # Abilities Reference
 
-> Category counts are generated from `docs/ability-truth-matrix.md` (**330** abilities). Categories include Comments, Users, Widgets, Settings, Themes, Plugins manage, Revisions, Search, WooCommerce, ACF, SEO, Content Model.
+> Category counts are generated from `docs/ability-truth-matrix.md` (**332** abilities).
 Stonewright registers WordPress abilities under the `stonewright/` prefix. MCP
 clients call the same names with slashes converted to hyphens: ability
 `stonewright/task-start` is MCP tool `stonewright-task-start`.
@@ -13,28 +13,47 @@ matrix after changing the registry.
 | Category | Count | Scope |
 |---|---:|---|
 | Security | 2 | Confirmation tokens and one-time links. |
-| Site | 11 | WordPress diagnostics, active theme, plugin list, shortcodes, revisions, front page settings. |
+| Site | 17 | WordPress diagnostics, snapshots, health, plugins, theme, shortcodes, and front-page settings. |
 | Content | 8 | Create, update, duplicate, bulk upsert, and read posts/pages. |
-| Content Model | 4 | CPT/ACF Loop Grid flow, CPT register/list, taxonomy register. |
-| ACF | 5 | Field groups list/get/save and post field values get/update. |
-| SEO | 3 | Multi-plugin SEO status and meta get/update (Yoast, Rank Math, AIOSEO, SEOPress). |
-| Media | 6 | Upload, batch upload, inspect, optimize, list, and annotate media. |
-| Gutenberg | 10 | Parse, render, serialize, insert, update, remove, and apply blocks. |
+| Media | 8 | Upload, batch upload, inspect, optimize, list, annotate, and import stock media. |
+| Gutenberg | 11 | Parse, render, serialize, insert, update, remove, and apply blocks. |
 | Patterns | 2 | List and create block patterns. |
 | Full Site Editing | 10 | Read/write theme.json, templates, template parts, and global styles. |
-| Elementor V3 | 22 | Elementor V3 structure editing, document health, page specs, kit globals, capability preflight, and batch mutation. |
-| Elementor V4 (Experimental) | 12 | Atomic nodes, variables, classes, and experimental V4 rendering. |
-| Elementor Widget Builder | 98 | Deprecated generated per-widget compatibility builders plus custom widget project helpers. |
-| Design | 23 | Validate Design Spec, build specs from manual input, choose renderers, normalize assets, intent routing, apply to Gutenberg or Elementor, capture directions from Elementor kit evidence, read/write versioned Design Directions, and dry-run or apply a direction to the Elementor kit globals, and evaluate measured browser evidence for a rendered page. |
-| Knowledge | 5 | Elementor knowledge search, widget descriptions, implementation guidance, and refresh. |
-| Memory | 5 | Persistent project memory, user corrections, and learning records. |
-| System | 8 | Context bootstrap, tool profiles, workflow preflight, instructions, ability list, and knowledge import/export. |
-| Skills | 3 | Agent skill listing, reads, and saves. |
+| Elementor V3 | 29 | Structure editing, transactions, document health, specs, kit globals, preflight, and batch mutation. |
+| Elementor V4 (Experimental) | 14 | Atomic nodes, variables, classes, and experimental V4 rendering. |
+| Elementor Widget Builder | 4 | Custom Elementor widget project helpers. |
+| Elementor Widgets | 94 | Deprecated generated per-widget compatibility builders. |
+| Design | 25 | DesignSpec, native planning, directions, kit sync, intent routing, and rendered quality evidence. |
 | Runtime | 1 | Direct PHP snippets inside the loaded WordPress runtime. |
 | WP-CLI | 6 | Companion-backed status, command discovery, tokenized command execution, batch execution, and background jobs. |
+| Memory | 6 | Persistent memory, generalization, corrections, and learned records. |
+| System | 11 | Task start, native rules, profiles, preflight, instructions, ability list, and knowledge transfer. |
 | Sandbox | 8 | Admin-only generated code/artifact lifecycle. |
+| Content Model | 4 | CPT/ACF Loop Grid flow, CPT register/list, and taxonomy registration. |
+| Blueprints | 3 | Blueprint listing, inspection, and guarded application. |
+| Brand Kits | 2 | Reusable brand-kit reads and writes. |
+| Skills | 3 | Agent skill listing, reads, and saves. |
+| Knowledge | 7 | Elementor knowledge search, guidance, inspection, import, and refresh. |
+| Expertise | 4 | Expertise pack discovery and reads. |
 | Theme Builder | 6 | Elementor Theme Builder templates, conditions, and apply-template orchestration. |
+| Comments | 5 | Comment list, update, moderation, and deletion. |
+| Users | 6 | User and application-password administration. |
+| Widgets | 4 | WordPress widget-area reads and writes. |
+| Settings | 2 | Site settings reads and guarded updates. |
+| Themes | 6 | Theme discovery, install, activation, file reads, and scoped writes. |
+| Plugins Manage | 3 | Plugin install, activate, and deactivate operations. |
+| Revisions | 3 | Revision listing, inspection, and restore. |
+| Search | 2 | WordPress search and OpenSearch discovery. |
+| WooCommerce | 3 | Read-only product, order, and sales summaries. |
+| ACF | 5 | Field groups and post field-value reads/writes. |
+| SEO | 3 | Multi-plugin SEO status and metadata reads/writes. |
 | Menu | 5 | Menu creation, item management, locations, and deletion. |
+
+All ability responses support optional `stonewright_fields` projection. The
+`stonewright/rules-get` ability serves the native registry with digest/filter
+semantics, `stonewright/memory-generalize` de-identifies memory in bounded
+batches, and `stonewright/elementor-v3-get-page-structure` accepts `knownHash`
+for unchanged short-circuit reads.
 
 ## Context Requirement
 

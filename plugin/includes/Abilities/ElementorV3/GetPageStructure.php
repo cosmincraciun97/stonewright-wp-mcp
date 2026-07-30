@@ -135,6 +135,34 @@ final class GetPageStructure extends AbilityKernel {
 	 * @param array<int, mixed> $tree
 	 */
 	private static function tree_hash( array $tree ): string {
-		return hash( 'sha256', (string) wp_json_encode( $tree ) );
+		return hash(
+			'sha256',
+			(string) wp_json_encode(
+				self::canonicalize_tree( $tree ),
+				JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+			)
+		);
+	}
+
+	/**
+	 * Sort object keys recursively while preserving list order.
+	 *
+	 * Elementor element order is semantic, so lists must stay untouched. Object
+	 * key order is serialization noise and must not invalidate a known hash.
+	 */
+	private static function canonicalize_tree( mixed $value ): mixed {
+		if ( ! is_array( $value ) ) {
+			return $value;
+		}
+
+		if ( ! array_is_list( $value ) ) {
+			ksort( $value );
+		}
+
+		foreach ( $value as $key => $item ) {
+			$value[ $key ] = self::canonicalize_tree( $item );
+		}
+
+		return $value;
 	}
 }

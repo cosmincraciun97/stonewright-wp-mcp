@@ -1,5 +1,9 @@
 # Stonewright premium corrections — handoff report for next AI agent
 
+> Historical alpha.68 engineering snapshot. It preserves the behavior and
+> decisions of that release; it is not current setup guidance. The current
+> admin supports one light theme.
+
 **Date:** 2026-07-15  
 **Branch:** `main`  
 **Release:** `1.0.0-alpha.68` (builds on alpha.67)  

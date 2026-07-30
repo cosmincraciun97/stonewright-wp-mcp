@@ -1086,11 +1086,27 @@ final class RestRoutes {
 		$endpoint = 'oauth/' . ltrim( substr( $route, strlen( '/stonewright/v1/oauth/' ) ), '/' );
 		$body     = $request->get_body_params();
 		$body     = is_array( $body ) ? $body : [];
+		$sensitive_values = [];
+		foreach ( [ 'client_secret', 'code', 'refresh_token', 'access_token', 'id_token', 'device_code', 'user_code', 'assertion' ] as $key ) {
+			if ( isset( $body[ $key ] ) && is_scalar( $body[ $key ] ) ) {
+				$sensitive_values[] = (string) $body[ $key ];
+			}
+		}
+		$authorization = $request->get_header( 'authorization' );
+		if ( is_string( $authorization ) && '' !== trim( $authorization ) ) {
+			$sensitive_values[] = $authorization;
+			if ( preg_match( '/^\S+\s+(.+)$/', trim( $authorization ), $authorization_parts ) ) {
+				$sensitive_values[] = $authorization_parts[1];
+			}
+		}
 
 		AuditLog::record_auth_event(
 			$endpoint,
 			$carrier,
-			[ 'client_id' => $body['client_id'] ?? $request->get_param( 'client_id' ) ?? '' ]
+			[
+				'client_id'        => $body['client_id'] ?? $request->get_param( 'client_id' ) ?? '',
+				'sensitive_values' => $sensitive_values,
+			]
 		);
 
 		return $response;
