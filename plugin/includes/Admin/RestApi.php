@@ -64,6 +64,28 @@ final class RestApi {
 				'args'                => [],
 			]
 		);
+
+		register_rest_route(
+			'stonewright/v1',
+			'/admin/companion-update-status',
+			[
+				'methods'             => \WP_REST_Server::READABLE,
+				'permission_callback' => [ Permissions::class, 'manage_options' ],
+				'callback'            => [ self::class, 'handle_companion_update_status' ],
+				'args'                => [],
+			]
+		);
+	}
+
+	/**
+	 * Checks the latest release and the optional configured HTTP bridge.
+	 *
+	 * @param \WP_REST_Request $request REST request (unused).
+	 */
+	public static function handle_companion_update_status( \WP_REST_Request $request ): \WP_REST_Response {
+		unset( $request );
+
+		return rest_ensure_response( CompanionUpdateStatus::report() );
 	}
 
 	/**

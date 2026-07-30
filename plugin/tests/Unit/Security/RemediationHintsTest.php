@@ -50,6 +50,30 @@ final class RemediationHintsTest extends TestCase {
 		self::assertStringContainsString( 'elementor-v3-batch-mutate', $hint );
 	}
 
+	/**
+	 * @dataProvider recurring_live_codes
+	 */
+	public function test_recurring_failures_have_specific_non_bypass_repairs( string $code, string $needle ): void {
+		$hint = RemediationHints::for_code( $code );
+
+		self::assertStringContainsString( $needle, $hint );
+		self::assertStringNotContainsString( 'learning-record', $hint );
+	}
+
+	/**
+	 * @return array<string, array{string, string}>
+	 */
+	public static function recurring_live_codes(): array {
+		return [
+			'elementor settings' => [ 'stonewright_elementor_settings_invalid', 'exact live control schema' ],
+			'readback restored'  => [ 'stonewright_elementor_readback_failed_restored', 'previous document was restored' ],
+			'size collapse'      => [ 'stonewright_elementor_size_collapse', 'surgical element mutation' ],
+			'grant invalid'      => [ 'stonewright_custom_code_grant_invalid', 'fresh one-time grant' ],
+			'native gap'         => [ 'stonewright_native_gap_required', 'Native implementation has not been disproved' ],
+			'read only'          => [ 'stonewright_php_read_only_violation', 'appropriate typed ability' ],
+		];
+	}
+
 	public function test_error_patterns_persist_error_code_and_repair(): void {
 		ErrorPatterns::observe(
 			'stonewright/elementor-v3-batch-mutate',

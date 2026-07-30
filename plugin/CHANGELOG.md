@@ -16,6 +16,8 @@
   Elementor unchanged-hash reads, and guarded escaped-layout decoding.
 - Credential-free agent setup, mode-aware Prompt Library entries, and a
   step-by-step plugin/companion update guide in wp-admin.
+- A trusted latest-release companion check with version status, direct package
+  and checksum links, and a credential-free agent update prompt.
 - Fresh-install and upgrade lifecycle tests for memory, skills, and audit data.
 
 ### Changed
@@ -27,6 +29,11 @@
   loader and verify every generated manifest path.
 - Persistent memory and skill writes reject high-confidence credential
   material. Existing user state and audit history remain intact on upgrade.
+- Site-independent Elementor, content-model, asset, query, custom-code, dynamic
+  architecture, and visual-proof rules apply from the immutable native
+  registry instead of customer memory.
+- Audit incidents render on one responsive page with readable error causes,
+  contained payloads, and copy actions.
 
 ### Fixed
 
@@ -38,3 +45,6 @@
   provenance.
 - CI stages the plugin with the real release exclusions and rejects any
   resulting Jetpack manifest path that is absent from that staged package.
+- The WooCommerce runtime gate boots the extracted release archive, Sandbox
+  primary buttons keep readable text, and custom-code approval tokens have a
+  functional copy control.

@@ -1,0 +1,14 @@
+{
+  "core": "WordPress/WordPress#6.9",
+  "phpVersion": "8.2",
+  "plugins": [
+    "https://downloads.wordpress.org/plugin/woocommerce.10.9.4.zip",
+    "../dist/e2e-unpacked/stonewright"
+  ],
+  "config": {
+    "WP_DEBUG": true,
+    "WP_DEBUG_LOG": true,
+    "WP_DEBUG_DISPLAY": false,
+    "SCRIPT_DEBUG": true
+  }
+}

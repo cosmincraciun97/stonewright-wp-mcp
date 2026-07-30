@@ -111,6 +111,14 @@ npm run build
   permission, validation, or audit gates changed.
 - Public commits, changelog entries, docs, skills, and PR text must not claim
   automated authorship or disclose internal development tooling.
+- Never put customer/project names, production hostnames, usernames, site-local
+  IDs, private screenshots, memory rows, audit rows, or client configuration in
+  tracked files, Git history, fixtures, changelogs, release notes, or release
+  assets. Generalize a verified fix into product behavior and synthetic tests.
+- Never print, store, or commit Application Passwords, OAuth tokens, bearer
+  tokens, API keys, private keys, cookies, or secrets. Release packaging must
+  scan both source and archives and fail closed when private terms or runtime
+  state are present.
 - Public docs and UI may name upstream projects when that helps users understand
   compatibility, provenance, or migration. Copied and derived code must keep
   attribution in `docs/upstream-code-reuse.md` and SPDX file headers.

@@ -4,13 +4,13 @@
 
 .sw-audit-page {
 	max-width: 100%;
-	overflow-x: hidden;
+	min-width: 0;
 	box-sizing: border-box;
 }
 
 .sw-audit-filters {
-	display: flex;
-	flex-wrap: wrap;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 	align-items: flex-end;
 	gap: var(--sw-space-3);
 	padding: var(--sw-space-4);
@@ -32,20 +32,34 @@
 
 .sw-audit-filters input,
 .sw-audit-filters select {
+	width: 100%;
 	min-height: 32px;
 	font-weight: 400;
 	max-width: 100%;
 }
 
-/* Fixed layout keeps open payload inside the page */
+.sw-audit-filters .sw-actions {
+	align-self: end;
+	min-height: 32px;
+}
+
+.sw-audit-table-scroll {
+	width: 100%;
+	max-width: 100%;
+	overflow-x: auto;
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius);
+	background: var(--sw-surface);
+}
+
 .sw-audit-table {
 	background: var(--sw-surface);
-	border-radius: var(--sw-radius);
 	width: 100%;
 	max-width: 100%;
 	table-layout: fixed;
 	border-collapse: separate;
 	border-spacing: 0;
+	border: 0 !important;
 }
 
 .sw-audit-table th,
@@ -63,27 +77,32 @@
 
 .sw-audit-table th:nth-child(2),
 .sw-audit-table td:nth-child(2) {
-	width: 22%;
+	width: 18%;
 }
 
 .sw-audit-table th:nth-child(3),
 .sw-audit-table td:nth-child(3) {
-	width: 12%;
+	width: 9%;
 }
 
 .sw-audit-table th:nth-child(4),
 .sw-audit-table td:nth-child(4) {
-	width: 90px;
+	width: 84px;
 }
 
 .sw-audit-table th:nth-child(5),
 .sw-audit-table td:nth-child(5) {
-	width: 140px;
+	width: 17%;
 }
 
 .sw-audit-table th:nth-child(6),
 .sw-audit-table td:nth-child(6) {
-	width: 34%;
+	width: 156px;
+}
+
+.sw-audit-table th:nth-child(7),
+.sw-audit-table td:nth-child(7) {
+	width: 30%;
 }
 
 .sw-audit-table code {
@@ -100,6 +119,21 @@
 	width: 100%;
 	max-width: 100%;
 	min-width: 0;
+}
+
+.sw-audit-error-cause {
+	margin: 0 0 var(--sw-space-2);
+	padding: var(--sw-space-2) var(--sw-space-3);
+	border-left: 3px solid var(--sw-danger-text);
+	background: var(--sw-danger-soft);
+	color: var(--sw-danger-text);
+	font-size: var(--sw-text-sm);
+	line-height: 1.5;
+	overflow-wrap: anywhere;
+}
+
+.sw-audit-copy {
+	margin-top: var(--sw-space-2);
 }
 
 .sw-audit-details summary {
@@ -251,9 +285,103 @@
 	font-variant-numeric: tabular-nums;
 }
 
-@media screen and (max-width: 960px) {
+@media screen and (max-width: 1200px) {
+	.sw-audit-table-scroll {
+		overflow: visible;
+		border: 0;
+		background: transparent;
+	}
+
 	.sw-audit-table {
 		display: block;
-		overflow-x: auto;
+		background: transparent;
+	}
+
+	.sw-audit-table thead {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+
+	.sw-audit-table tbody {
+		display: grid;
+		gap: var(--sw-space-3);
+	}
+
+	.sw-audit-table .sw-audit-row {
+		display: grid;
+		grid-template-columns: 64px minmax(200px, 1.5fr) minmax(100px, .65fr) 96px;
+		gap: var(--sw-space-3);
+		padding: var(--sw-space-4);
+		border: 1px solid var(--sw-border);
+		border-radius: var(--sw-radius);
+		background: var(--sw-surface);
+		box-shadow: var(--sw-shadow-1);
+	}
+
+	.sw-audit-table .sw-audit-row > td {
+		display: block;
+		width: auto !important;
+		padding: 0;
+		border: 0;
+		overflow: visible;
+		min-width: 0;
+	}
+
+	.sw-audit-table .sw-audit-row > td::before {
+		content: attr(data-label);
+		display: block;
+		margin-bottom: var(--sw-space-1);
+		color: var(--sw-text-muted);
+		font-size: var(--sw-text-xs);
+		font-weight: 700;
+		letter-spacing: .04em;
+		text-transform: uppercase;
+	}
+
+	.sw-audit-table .sw-audit-row > td:nth-child(5) {
+		grid-column: 1 / 3;
+	}
+
+	.sw-audit-table .sw-audit-row > td:nth-child(6) {
+		grid-column: 3 / 5;
+	}
+
+	.sw-audit-table .sw-audit-row > td:nth-child(7) {
+		grid-column: 1 / -1;
+		padding-top: var(--sw-space-3);
+		border-top: 1px solid var(--sw-border);
+	}
+
+	.sw-audit-table code {
+		white-space: normal;
+		overflow-wrap: anywhere;
+	}
+}
+
+@media screen and (max-width: 782px) {
+	.sw-audit-filters {
+		grid-template-columns: 1fr;
+	}
+
+	.sw-audit-table .sw-audit-row {
+		grid-template-columns: 1fr;
+	}
+
+	.sw-audit-table .sw-audit-row > td,
+	.sw-audit-table .sw-audit-row > td:nth-child(5),
+	.sw-audit-table .sw-audit-row > td:nth-child(6),
+	.sw-audit-table .sw-audit-row > td:nth-child(7) {
+		grid-column: 1;
+	}
+
+	.sw-recurring-errors__item > .sw-actions {
+		width: 100%;
 	}
 }

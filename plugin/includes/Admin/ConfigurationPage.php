@@ -760,6 +760,7 @@ final class ConfigurationPage {
 
 							<article class="sw-update-card">
 								<h3><?php esc_html_e( 'Update the local companion', 'stonewright' ); ?></h3>
+								<p><?php esc_html_e( 'The browser cannot replace an stdio process on your computer. Stonewright can check the official release, inspect an optional configured HTTP bridge, and prepare a safe update handoff.', 'stonewright' ); ?></p>
 								<ol>
 									<li><?php esc_html_e( 'Replace the old stonewright-companion tarball URL in private MCP config with the current release URL below.', 'stonewright' ); ?></li>
 									<li><?php esc_html_e( 'Fully restart the AI client so the old process and cached tool list are gone.', 'stonewright' ); ?></li>
@@ -770,6 +771,35 @@ final class ConfigurationPage {
 									<button type="button" class="button" data-stonewright-copy="stonewright-current-companion-package">
 										<?php esc_html_e( 'Copy current companion URL', 'stonewright' ); ?>
 									</button>
+									<button
+										type="button"
+										class="button button-primary"
+										data-stonewright-companion-status
+										data-rest-url="<?php echo esc_url( rest_url( 'stonewright/v1/admin/companion-update-status' ) ); ?>"
+										data-rest-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>"
+									>
+										<?php esc_html_e( 'Check latest companion', 'stonewright' ); ?>
+									</button>
+								</div>
+								<div class="sw-companion-update-result" data-stonewright-companion-result hidden aria-live="polite">
+									<p class="sw-companion-update-result__summary" data-stonewright-companion-summary></p>
+									<dl class="sw-companion-update-result__versions">
+										<div><dt><?php esc_html_e( 'Installed plugin', 'stonewright' ); ?></dt><dd><code data-stonewright-plugin-version></code></dd></div>
+										<div><dt><?php esc_html_e( 'Latest release', 'stonewright' ); ?></dt><dd><code data-stonewright-release-version></code></dd></div>
+										<div><dt><?php esc_html_e( 'Configured bridge', 'stonewright' ); ?></dt><dd><code data-stonewright-bridge-version></code></dd></div>
+									</dl>
+									<textarea id="stonewright-companion-update-prompt" class="large-text code" rows="10" readonly data-stonewright-companion-prompt></textarea>
+									<div class="sw-actions">
+										<button type="button" class="button button-primary" data-stonewright-copy="stonewright-companion-update-prompt">
+											<?php esc_html_e( 'Copy update prompt', 'stonewright' ); ?>
+										</button>
+										<a class="button" href="#" target="_blank" rel="noopener noreferrer" data-stonewright-companion-download hidden>
+											<?php esc_html_e( 'Download official companion', 'stonewright' ); ?>
+										</a>
+										<a href="#" target="_blank" rel="noopener noreferrer" data-stonewright-companion-checksums hidden>
+											<?php esc_html_e( 'Verify SHA-256 checksums', 'stonewright' ); ?>
+										</a>
+									</div>
 								</div>
 							</article>
 						</div>

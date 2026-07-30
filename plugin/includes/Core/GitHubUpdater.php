@@ -119,7 +119,7 @@ final class GitHubUpdater {
 	}
 
 	/**
-	 * @return array{version: string, package: string, url: string, body?: string, tested?: string, requires?: string, requires_php?: string}|null
+	 * @return array{version: string, package: string, companion_package: string, checksums: string, url: string, body?: string, tested?: string, requires?: string, requires_php?: string}|null
 	 */
 	public static function fetch_latest_release(): ?array {
 		if ( (bool) apply_filters( 'stonewright_disable_update_check', false ) ) {
@@ -128,7 +128,7 @@ final class GitHubUpdater {
 
 		$cached = get_transient( self::CACHE_KEY );
 		if ( is_array( $cached ) && isset( $cached['version'], $cached['package'], $cached['url'] ) ) {
-			/** @var array{version: string, package: string, url: string, body?: string, tested?: string, requires?: string, requires_php?: string} $cached */
+			/** @var array{version: string, package: string, companion_package: string, checksums: string, url: string, body?: string, tested?: string, requires?: string, requires_php?: string} $cached */
 			return $cached;
 		}
 		if ( 'error' === $cached ) {
@@ -170,7 +170,7 @@ final class GitHubUpdater {
 
 	/**
 	 * @param array<string, mixed> $release Decoded GitHub release JSON.
-	 * @return array{version: string, package: string, url: string, body?: string, tested?: string, requires?: string, requires_php?: string}|null
+	 * @return array{version: string, package: string, companion_package: string, checksums: string, url: string, body?: string, tested?: string, requires?: string, requires_php?: string}|null
 	 */
 	public static function parse_release( array $release ): ?array {
 		$tag = isset( $release['tag_name'] ) ? (string) $release['tag_name'] : '';
@@ -179,42 +179,53 @@ final class GitHubUpdater {
 		}
 
 		$version = ltrim( $tag, "vV" );
-		if ( '' === $version ) {
+		if ( 1 !== preg_match( '/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/', $version ) ) {
 			return null;
 		}
 
-		$package = '';
-		$assets  = $release['assets'] ?? [];
+		$package           = '';
+		$companion_package = '';
+		$checksums         = '';
+		$assets            = $release['assets'] ?? [];
 		if ( is_array( $assets ) ) {
-			$expected = 'stonewright-' . $version . '.zip';
+			$expected           = 'stonewright-' . $version . '.zip';
+			$expected_companion = 'stonewright-companion-' . $version . '.tgz';
+			$download_prefix    = 'https://github.com/' . self::REPO . '/releases/download/' . rawurlencode( $tag ) . '/';
 			foreach ( $assets as $asset ) {
 				if ( ! is_array( $asset ) ) {
 					continue;
 				}
 				$name = (string) ( $asset['name'] ?? '' );
 				$url  = (string) ( $asset['browser_download_url'] ?? '' );
-				if ( '' === $url ) {
+				if ( '' === $url || ! str_starts_with( $url, $download_prefix ) ) {
 					continue;
 				}
-				if ( $name === $expected || ( str_starts_with( $name, 'stonewright-' ) && str_ends_with( $name, '.zip' ) && ! str_contains( $name, 'companion' ) ) ) {
+				if ( $name === $expected ) {
 					$package = $url;
-					if ( $name === $expected ) {
-						break;
-					}
+				} elseif ( $name === $expected_companion ) {
+					$companion_package = $url;
+				} elseif ( 'SHA256SUMS.txt' === $name ) {
+					$checksums = $url;
 				}
 			}
 		}
 
-		if ( '' === $package ) {
+		if ( '' === $package || '' === $companion_package ) {
 			return null;
 		}
 
-		$url = isset( $release['html_url'] ) ? (string) $release['html_url'] : ( 'https://github.com/' . self::REPO . '/releases/tag/' . rawurlencode( $tag ) );
+		$expected_release_url = 'https://github.com/' . self::REPO . '/releases/tag/';
+		$url                  = isset( $release['html_url'] ) ? (string) $release['html_url'] : '';
+		if ( ! str_starts_with( $url, $expected_release_url ) ) {
+			$url = $expected_release_url . rawurlencode( $tag );
+		}
 
 		$parsed = [
-			'version' => $version,
-			'package' => $package,
-			'url'     => $url,
+			'version'           => $version,
+			'package'           => $package,
+			'companion_package' => $companion_package,
+			'checksums'         => $checksums,
+			'url'               => $url,
 		];
 
 		if ( isset( $release['body'] ) && is_string( $release['body'] ) && '' !== $release['body'] ) {

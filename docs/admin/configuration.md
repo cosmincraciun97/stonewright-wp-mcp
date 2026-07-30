@@ -235,9 +235,16 @@ The update card makes the two-component boundary explicit:
 - remote Streamable HTTP: update the plugin only;
 - pluginless Direct mode: update the companion only.
 
-It links the current companion package, explains when to update, and states
-that updates preserve plugin memory, user skills, audit history, settings, and
-Direct state. Full procedures are in [Updating Stonewright](../updates.md).
+**Check latest companion** reads GitHub's latest public release, accepts
+packages only from this repository's versioned release path, and shows the
+installed plugin, latest release, and optional configured HTTP bridge version.
+The panel links the exact companion package and SHA-256 manifest and creates a
+credential-free **Copy update prompt** handoff.
+
+The page never claims that WordPress can replace a local stdio process: that
+process belongs to the AI client and requires a client restart. Updates preserve
+plugin memory, user skills, audit history, settings, and Direct state. Full
+procedures are in [Updating Stonewright](../updates.md).
 
 ### Setup preflight vs Verify connection
 

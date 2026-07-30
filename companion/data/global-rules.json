@@ -229,5 +229,93 @@
 			"kind": "instruction",
 			"guard": ""
 		}
+	},
+	{
+		"id": "elementor-transaction-discipline",
+		"severity": "strong",
+		"scope": "elementor",
+		"rule": "Read the live schema first, group related control changes into one dry-run batch, and serialize writes to the same Elementor document. Resolve each exact schema request once, replace only rejected values, then rerun one consolidated dry-run. Never fall back to raw metadata or an unsanctioned transport.",
+		"why": "Parallel writes and fragmented retries turn one document into a race and repeatedly resend the same context.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "responsive-semantic-widget",
+		"severity": "strong",
+		"scope": "elementor",
+		"rule": "Keep one semantic widget for each image, title, button, or field and use native breakpoint controls on that widget. Visibility controls are not styling controls. Reconcile a stale schema instead of duplicating widgets.",
+		"why": "Breakpoint-only duplicates create contradictory content, accessibility noise, and fragile maintenance.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "verified-content-model",
+		"severity": "strong",
+		"scope": "all",
+		"rule": "After saving a field group or registration, reset cached runtime state, read it back, and confirm one canonical record with the expected ordered fields. Remove an incomplete duplicate only after the canonical record is proven complete.",
+		"why": "A successful write response does not prove that the runtime loaded the intended model or that duplicates are absent.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "asset-source-integrity",
+		"severity": "strong",
+		"scope": "design",
+		"rule": "Inspect an SVG or design export before upload, including its viewBox, dimensions, paths, fill, stroke, and background layers. Preserve source colors and geometry; never invent a tint, background, crop, fill, or stroke.",
+		"why": "Blind asset handling silently changes brand geometry and color while still returning a valid media item.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "query-hook-non-reentrant",
+		"severity": "strong",
+		"scope": "code",
+		"rule": "Inside a builder query callback, mutate the provided query and use a non-reentrant lookup for required identifiers. Never start a nested query that triggers the same callback; memoize stable lookups and verify rendered output.",
+		"why": "Re-entering the same query hook can recurse, exhaust resources, or produce inconsistent filters.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "temporary-code-lifecycle",
+		"severity": "strong",
+		"scope": "code",
+		"rule": "Treat Sandbox code as temporary review and recovery material. After approval, place durable code in the appropriate operator-owned location through the supported typed workflow, deactivate the temporary copy, and verify behavior and rollback.",
+		"why": "Leaving durable behavior in a review sandbox creates duplicate execution paths and unclear ownership.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "dynamic-architecture-preservation",
+		"severity": "strong",
+		"scope": "all",
+		"rule": "Inspect and preserve existing query, loop-template, and dynamic-data relationships. A schema or renderer failure is a tool defect to repair, never permission to replace a dynamic loop with static content or raw document writes.",
+		"why": "Static replacement hides the original failure and destroys the content architecture users depend on.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "native-controls-rendered-proof",
+		"severity": "strong",
+		"scope": "design",
+		"rule": "Use exact live-schema enum values and native carousel, form, icon, and responsive controls, then measure the rendered result. Account for runtime margins, opacity, and currentColor behavior instead of trusting control labels alone.",
+		"why": "A valid saved control can still render different pixels because runtime styles and inherited color alter the result.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
 	}
 ]

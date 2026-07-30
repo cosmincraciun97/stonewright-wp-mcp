@@ -5,9 +5,9 @@
 Headless workspace foundation for WordPress editors, plus the browser bundle
 that the Stonewright plugin hosts under **Stonewright → Visual Workspace**.
 
-This package is AGPL-3.0-or-later. It adapts code from Novamira Visual; see
-[NOTICE](NOTICE) and [../docs/upstream-code-reuse.md](../docs/upstream-code-reuse.md)
-for exact source paths and fingerprints.
+This package is AGPL-3.0-or-later. See
+[the upstream code reuse ledger](../docs/upstream-code-reuse.md) and file-level
+SPDX headers for exact source paths, licenses, and fingerprints.
 
 ## What it is
 

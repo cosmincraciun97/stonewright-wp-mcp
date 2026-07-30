@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/cosmincraciun97/stonewright-wp-mcp?include_prereleases&label=release" /></a>
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/cosmincraciun97/stonewright-wp-mcp?label=release" /></a>
   <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/cosmincraciun97/stonewright-wp-mcp/ci.yml?branch=main&label=CI" /></a>
   <img alt="plugin license" src="https://img.shields.io/badge/plugin-AGPL--3.0--or--later-green" />
   <img alt="companion license" src="https://img.shields.io/badge/companion-MIT-blue" />
@@ -133,7 +133,7 @@ The companion authenticates with a WordPress Application Password and exposes **
 
 **Plugin mode (about five steps):**
 
-1. Download the latest `stonewright-*.zip` from [GitHub Releases](https://github.com/cosmincraciun97/stonewright-wp-mcp/releases) (includes prereleases).
+1. Download the latest `stonewright-*.zip` from the [current GitHub release](https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/latest).
 2. In WordPress: **Plugins → Add New → Upload Plugin** → activate **Stonewright**.
 3. Open **Stonewright → Setup**, enable abilities, and choose OAuth
    (recommended) or create an Application Password.
@@ -364,7 +364,9 @@ Stonewright speaks standard MCP (stdio via the companion, and HTTP MCP when the 
 
 Plugin mode admin pages include Setup, Dashboard (Site Pulse), Abilities,
 Blueprints, Design Studio, Visual Workspace, Skills, Memory, Sandbox, and Audit
-Log. The admin ships one supported light theme; there is no theme toggle.
+Log. The Audit Log is the single responsive incident view; Sandbox does not
+duplicate it. The admin ships one supported light theme; there is no theme
+toggle.
 
 Design Studio holds design directions: validated site-wide design intent with
 provenance and revisions. Visual Workspace opens the real Elementor or block

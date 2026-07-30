@@ -149,6 +149,14 @@ duplicating it. `fast_path.batching_rule_id` is the pattern: compact mode carrie
 the rule id alone, full mode carries the registry's own sentence, and editing the
 JSON changes both.
 
+The registry also carries site-independent repairs learned during real
+operations: sequential writes to one Elementor document, one semantic widget
+per responsive field, content-model write/readback verification, source-faithful
+asset import, non-reentrant query callbacks, temporary-code promotion,
+preservation of dynamic templates, and rendered proof for native controls.
+Customer names, domains, record IDs, and audit rows never belong in this
+registry.
+
 ### Response size controls
 
 Two mechanisms trim read cost without weakening any gate:
@@ -459,6 +467,9 @@ with normal Composer autoload as a compatibility fallback. Packaging fails when
 any generated Jetpack manifest references a missing or out-of-root file. This
 matters when WooCommerce or another plugin participates in the same package
 autoload graph: one stale manifest must not break the entire WordPress runtime.
+The CI compatibility job goes one step further: it creates the release ZIP,
+extracts it, mounts that extracted plugin beside WooCommerce, and runs the
+activation and native catalog gates against the packaged bytes.
 
 ### Where each part's authority ends
 

@@ -165,7 +165,7 @@ jobs:
           tools: composer
       - name: Install plugin production dependencies
         working-directory: plugin
-        run: composer install --no-interaction --prefer-dist --no-dev
+        run: composer install --no-interaction --prefer-dist --no-dev --classmap-authoritative
       - uses: actions/setup-node@v6
         with:
           node-version: "22"
@@ -183,8 +183,28 @@ jobs:
         run: |
           mkdir -p plugin/assets/visual
           cp visual/dist/workspace-browser.js plugin/assets/visual/workspace-browser.js
+      - name: Build the exact plugin archive used by wp-env
+        working-directory: .
+        run: |
+          set -euo pipefail
+          mkdir -p dist/e2e/stonewright dist/e2e-unpacked
+          rsync -a plugin/ dist/e2e/stonewright/ \
+            --exclude tests \
+            --exclude bin \
+            --exclude composer.json \
+            --exclude composer.lock \
+            --exclude .phpunit.cache \
+            --exclude .phpunit.result.cache \
+            --exclude phpstan.neon \
+            --exclude phpcs.xml \
+            --exclude phpunit.xml \
+            --exclude phpunit.xml.dist
+          php plugin/bin/verify-jetpack-manifests.php dist/e2e/stonewright
+          (cd dist/e2e && zip -qr stonewright.zip stonewright)
+          unzip -q dist/e2e/stonewright.zip -d dist/e2e-unpacked
+          php plugin/bin/verify-jetpack-manifests.php dist/e2e-unpacked/stonewright
       - name: Start wp-env
-        run: npx wp-env start
+        run: npx wp-env start --config .wp-env.package.json
       - name: Run admin-ui Playwright suite
         env:
           WP_BASE_URL: http://localhost:8888
@@ -194,7 +214,7 @@ jobs:
         run: npx playwright test
       - name: Stop wp-env
         if: always()
-        run: npx wp-env stop
+        run: npx wp-env stop --config .wp-env.package.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:

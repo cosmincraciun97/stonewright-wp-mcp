@@ -31,6 +31,18 @@ or Stonewright settings.
 
 ## Update the local companion
 
+In **Stonewright → Connect → Keep Stonewright current**, click **Check latest
+companion**. The result compares:
+
+- the installed WordPress plugin;
+- the latest trusted GitHub release;
+- the optional configured HTTP bridge, when WordPress can reach it.
+
+Local stdio runs inside the AI client, so WordPress cannot inspect or replace
+that process directly. Use **Copy update prompt** to hand a credential-free
+update request to the agent, or use **Download official companion** and verify
+the linked SHA-256 manifest.
+
 1. Open the private MCP configuration for the AI client.
 2. Replace the old `stonewright-companion-VERSION.tgz` release URL with the URL
    from the current release. Keep credentials private; never paste them into an
@@ -38,9 +50,10 @@ or Stonewright settings.
 3. Fully restart the AI client so the old companion process and cached tool
    list are gone.
 4. Call `stonewright-task-start`, then
-   `stonewright-wordpress-mcp-status`. Confirm `companion_version` matches the
-   installed plugin when using stdio, `expected_companion_package` is current,
-   and `refresh_required_tool_names` is empty.
+   `stonewright-setup-profile` and `stonewright-wordpress-mcp-status`. Confirm
+   `companion_version` matches the installed plugin when using stdio,
+   `expected_companion_package` is current, and
+   `refresh_required_tool_names` is empty.
 
 Direct mode keeps its private state under `~/.stonewright/`. Replacing the
 companion package does not reset its memory, user-created skills, site

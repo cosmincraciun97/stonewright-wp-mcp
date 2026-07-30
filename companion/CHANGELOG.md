@@ -23,3 +23,6 @@
   locally persisted memory and user-created skills.
 - Preserve Direct memory, user skills, and audit state across restarts and
   companion updates; fresh state starts without user records.
+- Mirror the expanded immutable Plugin rule registry in Direct mode so
+  site-independent Elementor, content-model, asset, query, custom-code,
+  architecture, and rendered-proof guidance never depends on site memory.

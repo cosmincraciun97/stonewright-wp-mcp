@@ -104,11 +104,12 @@ every integration.
 
 ## Compatibility and packaging
 
-The beta CI fixture installs WooCommerce 10.9.4 on WordPress 6.9, activates
-WooCommerce and Stonewright together, and checks the MCP endpoint. Release
-archives are built from a clean `composer install --no-dev`; the Jetpack
-Autoloader is a production dependency and every generated manifest path must
-exist inside the packaged plugin.
+The beta CI fixture builds the exact release ZIP, extracts it, then installs
+that packaged plugin with WooCommerce 10.9.4 on WordPress 6.9. It checks clean
+co-activation, the MCP endpoint, and a native product preview/create/readback/
+delete lifecycle. Release archives come from a clean
+`composer install --no-dev`; the Jetpack Autoloader is a production dependency
+and every generated manifest path must exist inside the packaged plugin.
 
 This prevents the activation failure reported in
 [issue #20](https://github.com/cosmincraciun97/stonewright-wp-mcp/issues/20),

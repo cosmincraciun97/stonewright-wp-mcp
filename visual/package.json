@@ -6,8 +6,7 @@
   "license": "AGPL-3.0-or-later",
   "files": [
     "dist",
-    "LICENSE",
-    "NOTICE"
+    "LICENSE"
   ],
   "exports": {
     ".": "./dist/index.js",

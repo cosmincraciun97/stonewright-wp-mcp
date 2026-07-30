@@ -53,4 +53,24 @@ final class CustomCodeApprovalPageTest extends TestCase {
 		self::assertStringContainsString( 'Issue one-time grant', $html );
 		self::assertStringNotContainsString( 'candidate</textarea>', $html );
 	}
+
+	public function test_grant_result_has_a_functional_copy_control_and_consumes_the_secret(): void {
+		$_GET['result_id'] = 'grant-result';
+		$GLOBALS['stonewright_test_transients']['sw_cc_result_grant-result'] = [
+			'ok'           => true,
+			'token'        => 'one-time-secret-token',
+			'path'         => 'style.css',
+			'after_sha256' => hash( 'sha256', 'candidate' ),
+		];
+
+		ob_start();
+		CustomCodeApprovalPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( 'id="stonewright-custom-code-grant"', $html );
+		self::assertStringContainsString( 'data-stonewright-copy="stonewright-custom-code-grant"', $html );
+		self::assertStringContainsString( 'Copy approval token', $html );
+		self::assertStringContainsString( 'one-time-secret-token', $html );
+		self::assertArrayNotHasKey( 'sw_cc_result_grant-result', $GLOBALS['stonewright_test_transients'] );
+	}
 }

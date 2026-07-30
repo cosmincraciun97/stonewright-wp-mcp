@@ -9,5 +9,5 @@ The full license text is available at:
 https://www.gnu.org/licenses/agpl-3.0.txt
 
 The Node companion remains separately licensed under the MIT License in
-companion/LICENSE. See NOTICE and docs/upstream-code-reuse.md for third-party
-attribution and source provenance.
+companion/LICENSE. See docs/upstream-code-reuse.md and the SPDX headers on
+derived files for third-party attribution and source provenance.

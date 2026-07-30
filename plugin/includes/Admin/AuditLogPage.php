@@ -129,28 +129,6 @@ final class AuditLogPage {
 	}
 
 	/**
-	 * Renders the audit log table without the outer wrap/h1.
-	 * Used when embedding inside another page (e.g. SandboxPage Audit tab).
-	 */
-	public static function render_inline(): void {
-		if ( ! current_user_can( self::CAPABILITY ) ) {
-			return;
-		}
-
-		// phpcs:disable WordPress.Security.NonceVerification.Recommended
-		$page    = isset( $_GET['paged'] ) ? max( 1, (int) $_GET['paged'] ) : 1;
-		$filters = self::filters_from_request();
-		// phpcs:enable
-		$per_page = 50;
-		$rows     = AuditLog::recent( $per_page, $page, $filters );
-		$total    = AuditLog::count( $filters );
-
-		echo '<p>' . esc_html__( 'Every Stonewright mutation (abilities and stonewright/v1 write routes) records one redacted row here. The log is append-only.', 'stonewright' ) . '</p>';
-		self::render_filters( $filters );
-		self::render_log_table( $rows, $page, $per_page, $filters, $total );
-	}
-
-	/**
 	 * @return array<string, mixed>
 	 */
 	private static function filters_from_request(): array {
@@ -264,7 +242,7 @@ final class AuditLogPage {
 	}
 
 	/**
-	 * Renders the log table and pagination. Used by both render() and render_inline().
+	 * Renders the log table and pagination.
 	 *
 	 * @param array<int, array<string, mixed>> $rows
 	 * @param array<string, mixed> $filters
@@ -290,6 +268,7 @@ final class AuditLogPage {
 			)
 		) . '</p>';
 
+		echo '<div class="sw-audit-table-scroll">';
 		echo '<table class="wp-list-table widefat fixed striped sw-audit-table">';
 		echo '<thead><tr>';
 		echo '<th>' . esc_html__( 'ID', 'stonewright' ) . '</th>';
@@ -316,11 +295,11 @@ final class AuditLogPage {
 			$error_ui  = self::error_cause_from_payload( $payload );
 
 			echo '<tr class="sw-audit-row">';
-			echo '<td>' . (int) $row['id'] . '</td>';
-			echo '<td><code>' . esc_html( (string) $row['ability_name'] ) . '</code></td>';
-			echo '<td>' . wp_kses_post( $user_html ) . '</td>';
-			echo '<td><span class="sw-badge ' . esc_attr( $badge ) . '">' . esc_html( strtoupper( $status ) ) . '</span></td>';
-			echo '<td>';
+			echo '<td data-label="' . esc_attr( __( 'ID', 'stonewright' ) ) . '">' . (int) $row['id'] . '</td>';
+			echo '<td data-label="' . esc_attr( __( 'Ability / route', 'stonewright' ) ) . '"><code title="' . esc_attr( (string) $row['ability_name'] ) . '">' . esc_html( (string) $row['ability_name'] ) . '</code></td>';
+			echo '<td data-label="' . esc_attr( __( 'User', 'stonewright' ) ) . '">' . wp_kses_post( $user_html ) . '</td>';
+			echo '<td data-label="' . esc_attr( __( 'Status', 'stonewright' ) ) . '"><span class="sw-badge ' . esc_attr( $badge ) . '">' . esc_html( strtoupper( $status ) ) . '</span></td>';
+			echo '<td data-label="' . esc_attr( __( 'Effect', 'stonewright' ) ) . '">';
 			$resource = trim( (string) ( $row['resource_type'] ?? '' ) . ' ' . (string) ( $row['resource_ref'] ?? '' ) );
 			$verify   = (string) ( $row['verification_status'] ?? '' );
 			$rollback = (string) ( $row['rollback_status'] ?? '' );
@@ -337,16 +316,18 @@ final class AuditLogPage {
 				echo '<span class="sw-muted">—</span>';
 			}
 			echo '</td>';
-			echo '<td>' . esc_html( (string) $row['created_at'] ) . '</td>';
-			echo '<td>';
+			echo '<td data-label="' . esc_attr( __( 'Time (UTC)', 'stonewright' ) ) . '">' . esc_html( (string) $row['created_at'] ) . '</td>';
+			echo '<td data-label="' . esc_attr( __( 'Details', 'stonewright' ) ) . '">';
 			if ( in_array( $status, [ 'error', 'blocked', 'auth' ], true ) && '' !== $error_ui ) {
 				echo '<div class="sw-audit-error-cause">' . esc_html( $error_ui ) . '</div>';
 			}
 			if ( '' !== $pretty ) {
+				$payload_id = 'sw-audit-payload-' . (int) $row['id'];
 				echo '<details class="sw-audit-details">';
-				echo '<summary>' . esc_html__( 'Payload', 'stonewright' ) . '</summary>';
-				echo '<pre class="sw-audit-payload">' . esc_html( $pretty ) . '</pre>';
+				echo '<summary>' . esc_html__( 'View payload', 'stonewright' ) . '</summary>';
+				echo '<pre id="' . esc_attr( $payload_id ) . '" class="sw-audit-payload">' . esc_html( $pretty ) . '</pre>';
 				echo '</details>';
+				echo '<button type="button" class="sw-btn sw-btn--ghost sw-btn--sm sw-audit-copy" data-stonewright-copy="' . esc_attr( $payload_id ) . '">' . esc_html__( 'Copy payload', 'stonewright' ) . '</button>';
 			} elseif ( '' === $error_ui ) {
 				echo '<span class="sw-muted">' . esc_html__( '—', 'stonewright' ) . '</span>';
 			}
@@ -355,6 +336,7 @@ final class AuditLogPage {
 		}
 
 		echo '</tbody></table>';
+		echo '</div>';
 
 		$query = array_merge( [ 'page' => self::SLUG ], $filters );
 		echo '<p class="tablenav sw-actions">';

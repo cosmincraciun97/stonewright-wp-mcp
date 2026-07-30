@@ -73,4 +73,19 @@ final class AdminAssetContractTest extends TestCase {
 		self::assertStringContainsString( '.sw-button--primary:hover:not([disabled]) {', $css );
 		self::assertStringNotContainsString( '.sw-button:hover {', $css );
 	}
+
+	public function test_sandbox_primary_actions_keep_white_text_on_brand_background(): void {
+		$body = self::rule_body( 'sandbox.css', '.stonewright-sandbox-page .button.button-primary' );
+
+		self::assertStringContainsString( 'color: var(--sw-on-brand)', $body );
+	}
+
+	public function test_audit_payload_becomes_full_width_in_responsive_rows(): void {
+		$css = self::asset( 'audit.css' );
+
+		self::assertStringContainsString( '.sw-audit-table-scroll {', $css );
+		self::assertStringContainsString( 'grid-column: 1 / -1', $css );
+		self::assertStringContainsString( 'content: attr(data-label)', $css );
+		self::assertStringContainsString( 'overflow-wrap: anywhere', $css );
+	}
 }

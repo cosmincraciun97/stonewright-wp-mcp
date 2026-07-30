@@ -131,6 +131,19 @@ final class AdminPagesPolishTest extends TestCase {
 		self::assertStringContainsString( 'sw-tabs__link is-active', $html );
 		self::assertStringContainsString( 'stonewright-empty-state', $html );
 		self::assertStringContainsString( 'data-stonewright-toggle-target="stonewright-new-file-form"', $html );
+		self::assertStringNotContainsString( 'tab=audit', $html );
+	}
+
+	public function test_legacy_sandbox_audit_link_points_to_the_dedicated_readable_page(): void {
+		$_GET['tab'] = 'audit';
+
+		ob_start();
+		SandboxPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( 'Audit Log moved', $html );
+		self::assertStringContainsString( 'page=stonewright-audit-log', $html );
+		self::assertStringNotContainsString( 'sw-audit-table', $html );
 	}
 
 	public function test_memory_page_uses_callout_cards_and_actions_layout(): void {

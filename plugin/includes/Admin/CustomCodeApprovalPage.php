@@ -127,9 +127,16 @@ final class CustomCodeApprovalPage {
 			echo '<div class="notice notice-error"><p>' . esc_html( (string) ( $result['message'] ?? 'Approval failed.' ) ) . '</p></div>';
 			return;
 		}
-		echo '<div class="notice notice-success"><p><strong>' . esc_html__( 'Grant issued.', 'stonewright' ) . '</strong> ' . esc_html__( 'Copy it now; this screen will not show it again.', 'stonewright' ) . '</p></div>';
-		echo '<textarea class="large-text code" rows="5" readonly>' . esc_textarea( (string) $result['token'] ) . '</textarea>';
-		echo '<p><code>' . esc_html( (string) $result['path'] ) . '</code> · <code>' . esc_html( (string) $result['after_sha256'] ) . '</code></p>';
+		echo '<section class="sw-card stonewright-panel sw-grant-result" aria-labelledby="sw-grant-result-title">';
+		echo '<div class="notice notice-success inline"><p><strong id="sw-grant-result-title">' . esc_html__( 'Grant issued.', 'stonewright' ) . '</strong> ' . esc_html__( 'Copy it now; this screen will not show it again.', 'stonewright' ) . '</p></div>';
+		echo '<label for="stonewright-custom-code-grant"><strong>' . esc_html__( 'One-time approval token', 'stonewright' ) . '</strong></label>';
+		echo '<textarea id="stonewright-custom-code-grant" class="large-text code sw-grant-result__token" rows="5" readonly>' . esc_textarea( (string) $result['token'] ) . '</textarea>';
+		echo '<div class="sw-actions sw-grant-result__actions">';
+		echo '<button type="button" class="button button-primary" data-stonewright-copy="stonewright-custom-code-grant">' . esc_html__( 'Copy approval token', 'stonewright' ) . '</button>';
+		echo '<span class="description">' . esc_html__( 'Expires quickly and works once for this exact path and hash.', 'stonewright' ) . '</span>';
+		echo '</div>';
+		echo '<p class="sw-grant-result__binding"><code>' . esc_html( (string) $result['path'] ) . '</code><span aria-hidden="true"> · </span><code>' . esc_html( (string) $result['after_sha256'] ) . '</code></p>';
+		echo '</section>';
 	}
 
 	private static function row( string $label, string $value ): void {

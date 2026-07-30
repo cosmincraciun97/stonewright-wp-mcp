@@ -11,6 +11,7 @@ const STONEWRIGHT_PAGES = [
 	{ slug: 'stonewright-blueprints', label: 'Blueprints' },
 	{ slug: 'stonewright-design-studio', label: 'Design Studio' },
 	{ slug: 'stonewright-prompts', label: 'Prompts' },
+	{ slug: 'stonewright-custom-code-approval', label: 'Code Approval' },
 	{ slug: 'stonewright-sandbox', label: 'Sandbox' },
 	{ slug: 'stonewright-skills', label: 'Skills' },
 	{ slug: 'stonewright-memory', label: 'Memory' },

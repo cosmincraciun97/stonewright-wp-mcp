@@ -59,7 +59,6 @@ final class SandboxPage {
 			'library'        => __( 'Library', 'stonewright' ),
 			'mu-plugins'     => __( 'Active MU Plugins', 'stonewright' ),
 			'crash-recovery' => __( 'Crash Recovery', 'stonewright' ),
-			'audit'          => __( 'Audit Log', 'stonewright' ),
 		];
 		?>
 		<?php AdminShell::open( self::SLUG ); ?>
@@ -394,10 +393,14 @@ final class SandboxPage {
 	}
 
 	/**
-	 * Renders Audit Log tab — delegates to AuditLogPage::render_inline().
+	 * Preserves old ?tab=audit links while sending users to the dedicated page.
 	 */
 	private static function render_audit_tab(): void {
-		AuditLogPage::render_inline();
+		echo '<div class="sw-callout sw-callout--info">';
+		echo '<h2>' . esc_html__( 'Audit Log moved', 'stonewright' ) . '</h2>';
+		echo '<p>' . esc_html__( 'The duplicate Sandbox view was removed. Use the full Audit Log for readable incidents, filters, payloads, and pagination.', 'stonewright' ) . '</p>';
+		echo '<p><a class="sw-btn sw-btn--primary" href="' . esc_url( admin_url( 'admin.php?page=' . AuditLogPage::SLUG ) ) . '">' . esc_html__( 'Open Audit Log', 'stonewright' ) . '</a></p>';
+		echo '</div>';
 	}
 
 	// -------------------------------------------------------------------------

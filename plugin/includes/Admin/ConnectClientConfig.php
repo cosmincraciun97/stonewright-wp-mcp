@@ -47,8 +47,10 @@ final class ConnectClientConfig {
 		return rest_url( 'wp-abilities/v1/abilities' );
 	}
 
-	public static function companion_package_spec(): string {
-		$version = defined( 'STONEWRIGHT_VERSION' ) ? (string) constant( 'STONEWRIGHT_VERSION' ) : '0.0.0';
+	public static function companion_package_spec( string $version = '' ): string {
+		if ( '' === $version ) {
+			$version = defined( 'STONEWRIGHT_VERSION' ) ? (string) constant( 'STONEWRIGHT_VERSION' ) : '0.0.0';
+		}
 
 		return self::RELEASE_BASE_URL . '/v' . rawurlencode( $version ) . '/stonewright-companion-' . rawurlencode( $version ) . '.tgz';
 	}

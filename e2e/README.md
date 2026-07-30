@@ -59,15 +59,18 @@ npm test
 
 The `e2e-admin-ui` job in `.github/workflows/ci.yml`:
 
-1. Installs plugin Composer deps
-2. Starts `wp-env` from `e2e/.wp-env.json`
-3. Runs `npx playwright test`
+1. Installs clean production plugin dependencies
+2. Builds and extracts the exact release ZIP layout
+3. Verifies every Jetpack Autoloader manifest path in that extracted archive
+4. Starts `wp-env` from `e2e/.wp-env.package.json` with WooCommerce active
+5. Runs `npx playwright test`
 
 ## WordPress matrix (Phase 12)
 
 | Config | Core | PHP | Use |
 |---|---|---|---|
 | `.wp-env.json` | **6.9** | 8.2 | Default CI / local |
+| `.wp-env.package.json` | **6.9** | 8.2 | CI release-archive + WooCommerce gate |
 | `.wp-env.6.7.json` | **6.7** | 8.1 | Optional compatibility pin |
 
 ```bash

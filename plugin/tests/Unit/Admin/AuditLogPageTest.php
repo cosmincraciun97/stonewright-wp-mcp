@@ -88,6 +88,10 @@ final class AuditLogPageTest extends TestCase {
 		self::assertStringContainsString( 'sw-badge--ok', $html );
 		self::assertStringContainsString( 'sw-badge--error', $html );
 		self::assertStringContainsString( 'sw-audit-row', $html );
+		self::assertStringContainsString( 'sw-audit-table-scroll', $html );
+		self::assertStringContainsString( 'data-label="Details"', $html );
+		self::assertStringContainsString( 'View payload', $html );
+		self::assertStringContainsString( 'data-stonewright-copy="sw-audit-payload-12"', $html );
 		self::assertStringContainsString( '<details', $html );
 		self::assertStringContainsString( 'post_id', $html );
 		self::assertStringContainsString( 'method="get"', $html );

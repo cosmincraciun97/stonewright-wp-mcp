@@ -11,7 +11,11 @@ description: >
 # Agent operating rules (product defaults)
 
 These rules ship with the plugin and companion. They are **not** site Safety Memory
-entries and are **not** controlled by Custom Instructions.
+entries and are **not** controlled by Custom Instructions. The first
+canonical block is injected as permanent client guidance. The generalized
+operational repairs below live in the native digest registry, so
+`stonewright-rules-get` loads them once and `knownDigest` avoids resending their
+bodies on every task.
 
 ## Canonical permanent rules
 
@@ -78,6 +82,64 @@ gates for speed. Never implement via DOM mutation through browser `evaluate()`.
 - Never write theme/plugin/core code files through `php-execute`.
 - Use `stonewright/theme-file-patch` with `dry_run`, full-file validation, atomic
   write, smoke, and rollback.
+
+## Native digest-registry rules
+
+### Elementor transaction discipline
+
+- Read live schema first; group related controls into one dry-run batch.
+- Serialize writes to the same document.
+- Resolve each `schema_requests` item once, replace only rejected settings, then
+  rerun one consolidated dry-run.
+- Never fall back to raw metadata, REST runners, `php-execute`, or shell WP-CLI.
+
+### Responsive semantic integrity
+
+- Keep one semantic widget for each image, title, button, or field.
+- Style it with native breakpoint controls; Advanced responsive controls are
+  visibility, not styling.
+- When valid live editor behavior contradicts a cached schema, stop and repair
+  schema truth. Do not duplicate widgets.
+
+### Verified content models
+
+- After saving a field group or registration, reset cached runtime state and
+  read it back.
+- Prove one canonical record and the expected ordered fields.
+- Snapshot before removing an incomplete duplicate.
+
+### Asset source integrity
+
+- Inspect SVG/design exports before upload: viewBox, dimensions, paths, fill,
+  stroke, and backgrounds.
+- Preserve source geometry and colors. Never invent tints, fills, backgrounds,
+  or crops.
+
+### Query-hook safety
+
+- Mutate the provided builder query.
+- Never start a nested query that triggers the same callback again.
+- Use a non-reentrant, memoized lookup for required IDs and verify rendering.
+
+### Temporary code lifecycle
+
+- Sandbox is for review and recovery, not permanent ownership.
+- Move approved durable code through the supported typed workflow to the
+  appropriate operator-owned theme/plugin/MU location.
+- Deactivate the temporary copy and verify behavior plus rollback.
+
+### Dynamic architecture preservation
+
+- Preserve existing query, loop-template, and dynamic-data relationships.
+- A schema/renderer defect never permits static replacement cards or raw
+  document writes.
+
+### Native controls need rendered proof
+
+- Use exact live-schema enum values for carousel, form, icon, and responsive
+  controls.
+- Measure rendered output and account for runtime margins, opacity, and
+  `currentColor`.
 
 ## Environment scope
 

@@ -25,6 +25,8 @@ were never stable releases and are not part of the supported public history.
   staged release archives, and optionally commit history.
 - A credential-free paste-to-agent prompt, Plugin/Direct badges in the Prompt
   Library, and an in-product update guide for the plugin and companion.
+- A release-aware companion check in Setup with trusted package/checksum links
+  and a credential-free update prompt for the AI client.
 - Persistent-data lifecycle contracts proving that fresh installs start with
   no user memory, user-created skills, or audit events.
 
@@ -52,6 +54,13 @@ were never stable releases and are not part of the supported public history.
 - The native rule registry, bounded memory generalization, response field
   projection, Elementor `knownHash` reads, and conservative escaped-layout
   decoding are part of the first supported beta baseline.
+- Eight site-independent operating rules now cover Elementor transaction
+  discipline, responsive semantic widgets, verified content models, source
+  asset integrity, non-reentrant queries, temporary-code lifecycle, dynamic
+  architecture preservation, and rendered proof in both Plugin and Direct
+  modes.
+- Audit incidents use a single responsive page with readable causes, contained
+  payloads, and copy controls. Legacy Sandbox audit links point to that page.
 
 ### Fixed
 
@@ -61,5 +70,11 @@ were never stable releases and are not part of the supported public history.
 - Release checks now test WooCommerce co-activation and reject archives with
   missing Composer-manifest targets, including after release-only exclusions
   are applied.
+- The WooCommerce compatibility gate now installs the extracted release archive
+  rather than the source tree.
 - Preserve every packaged generic skill during fresh-install seeding without
   weakening the credential guard for user-created skills.
+- Keep Sandbox primary-action labels readable and expose a working copy action
+  for one-time custom-code approval tokens.
+- Publish the supported public beta as GitHub's latest release so repository
+  release links and the native update checker can discover it.

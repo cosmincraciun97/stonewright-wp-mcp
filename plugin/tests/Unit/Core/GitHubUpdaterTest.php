@@ -39,6 +39,28 @@ final class GitHubUpdaterTest extends TestCase {
 			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-beta.99',
 			$parsed['url']
 		);
+		self::assertSame(
+			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.99/stonewright-companion-1.0.0-beta.99.tgz',
+			$parsed['companion_package']
+		);
+		self::assertSame(
+			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.99/SHA256SUMS.txt',
+			$parsed['checksums']
+		);
+	}
+
+	public function test_parse_release_rejects_untrusted_asset_hosts(): void {
+		$raw = $this->fixture_json();
+		$raw['assets'][0]['browser_download_url'] = 'https://attacker.example/stonewright.zip';
+
+		self::assertNull( GitHubUpdater::parse_release( $raw ) );
+	}
+
+	public function test_parse_release_requires_semantic_version_tag(): void {
+		$raw             = $this->fixture_json();
+		$raw['tag_name'] = 'latest';
+
+		self::assertNull( GitHubUpdater::parse_release( $raw ) );
 	}
 
 	public function test_fetch_latest_release_populates_transient_from_http_fixture(): void {

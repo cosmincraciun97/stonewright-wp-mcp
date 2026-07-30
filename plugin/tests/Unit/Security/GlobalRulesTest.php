@@ -32,7 +32,21 @@ final class GlobalRulesTest extends TestCase {
 		'missing-tool-means-stop',
 		'record-corrections',
 		'never-trade-gates-for-tokens',
+		'elementor-transaction-discipline',
+		'responsive-semantic-widget',
+		'verified-content-model',
+		'asset-source-integrity',
+		'query-hook-non-reentrant',
+		'temporary-code-lifecycle',
+		'dynamic-architecture-preservation',
+		'native-controls-rendered-proof',
 	];
+
+	public function test_generalized_operating_repairs_live_in_the_digest_registry(): void {
+		foreach ( array_slice( self::INSTRUCTION_ONLY_IDS, -8 ) as $id ) {
+			self::assertIsArray( GlobalRules::get( $id ), $id . ' must ship in Plugin and Direct mode.' );
+		}
+	}
 
 	protected function setUp(): void {
 		parent::setUp();

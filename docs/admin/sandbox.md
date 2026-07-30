@@ -10,6 +10,10 @@ Sources:
 - `plugin/includes/Sandbox/SandboxFiles.php`
 - `plugin/includes/Sandbox/StaticGuard.php`
 
+Audit events are not duplicated inside Sandbox. Use the dedicated
+**Stonewright → Safety: Audit** page; old `?tab=audit` links show a short move
+notice and a direct link there.
+
 ---
 
 ## File lifecycle

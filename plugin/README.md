@@ -42,11 +42,17 @@ Release archives use a clean production Composer install. The bundled Jetpack
 Autoloader manifests are verified against every referenced file before
 publication, preventing stale development-only paths from breaking activation
 beside WooCommerce or another Jetpack-Autoloader consumer.
+CI installs the extracted release archive beside WooCommerce rather than
+testing only the source checkout.
 
 See [WooCommerce support](../docs/woocommerce.md) for the catalog and storefront
 support matrix.
 See [Updating Stonewright](../docs/updates.md) for plugin/companion version
 matching, upgrade steps, and persistence guarantees.
+The Connect update panel can read the latest trusted release, compare an
+optional configured HTTP bridge, and copy a credential-free companion update
+prompt. A local stdio process still has to be replaced and restarted inside its
+AI client.
 
 Normal MCP clients launch the versioned companion release tarball with `npx`.
 Use the admin **Local WP-CLI bridge (advanced)** controls only when you

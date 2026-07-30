@@ -470,6 +470,96 @@
 		} );
 	}
 
+	function initCompanionUpdateStatus() {
+		document.querySelectorAll( '[data-stonewright-companion-status]' ).forEach( function ( button ) {
+			button.addEventListener( 'click', function ( event ) {
+				event.preventDefault();
+				var url = button.getAttribute( 'data-rest-url' );
+				var nonce = button.getAttribute( 'data-rest-nonce' );
+				var panel = document.querySelector( '[data-stonewright-companion-result]' );
+				if ( ! url || ! panel ) {
+					return;
+				}
+
+				button.disabled = true;
+				setButtonFeedback( button, 'Checking release…' );
+				window.fetch( url, {
+					method: 'GET',
+					credentials: 'same-origin',
+					headers: {
+						'X-WP-Nonce': nonce || '',
+						'Accept': 'application/json',
+					},
+				} ).then( function ( response ) {
+					return response.json().then( function ( data ) {
+						return { ok: response.ok, data: data };
+					} );
+				} ).then( function ( result ) {
+					var data = result.data || {};
+					if ( ! result.ok ) {
+						throw new Error( 'status request failed' );
+					}
+
+					panel.hidden = false;
+					var summary = panel.querySelector( '[data-stonewright-companion-summary]' );
+					var plugin = panel.querySelector( '[data-stonewright-plugin-version]' );
+					var release = panel.querySelector( '[data-stonewright-release-version]' );
+					var bridge = panel.querySelector( '[data-stonewright-bridge-version]' );
+					var prompt = panel.querySelector( '[data-stonewright-companion-prompt]' );
+					var download = panel.querySelector( '[data-stonewright-companion-download]' );
+					var checksums = panel.querySelector( '[data-stonewright-companion-checksums]' );
+					var bridgeVersion = data.bridge && data.bridge.version ? data.bridge.version : 'Not visible from WordPress';
+
+					if ( summary ) {
+						summary.textContent = data.plugin_update_available
+							? 'A newer release exists. Update the plugin and companion together.'
+							: ( data.companion_status === 'outdated'
+								? 'The configured HTTP bridge is outdated.'
+								: ( data.companion_status === 'current'
+									? 'The configured HTTP bridge matches the latest release.'
+									: ( data.companion_status === 'mismatch'
+										? 'The configured HTTP bridge does not match the target release.'
+										: data.boundary || 'Local stdio version must be verified in the AI client.' ) ) );
+						summary.className = 'sw-companion-update-result__summary sw-companion-update-result__summary--' + (
+							data.plugin_update_available || [ 'outdated', 'mismatch' ].indexOf( data.companion_status ) !== -1 ? 'warn' : 'info'
+						);
+					}
+					if ( plugin ) {
+						plugin.textContent = data.plugin_version || 'Unknown';
+					}
+					if ( release ) {
+						release.textContent = data.latest_release_version || 'Unavailable';
+					}
+					if ( bridge ) {
+						bridge.textContent = bridgeVersion;
+					}
+					if ( prompt ) {
+						prompt.value = data.update_prompt || '';
+					}
+					if ( download ) {
+						download.hidden = ! data.companion_package;
+						download.href = data.companion_package || '#';
+					}
+					if ( checksums ) {
+						checksums.hidden = ! data.checksums;
+						checksums.href = data.checksums || '#';
+					}
+					setButtonFeedback( button, data.ok ? 'Release checked' : 'Release unavailable' );
+				} ).catch( function () {
+					panel.hidden = false;
+					var summary = panel.querySelector( '[data-stonewright-companion-summary]' );
+					if ( summary ) {
+						summary.textContent = 'Could not read the official release. Check network access and try again.';
+						summary.className = 'sw-companion-update-result__summary sw-companion-update-result__summary--warn';
+					}
+					setButtonFeedback( button, 'Check failed' );
+				} ).finally( function () {
+					button.disabled = false;
+				} );
+			} );
+		} );
+	}
+
 	function escapeRegExp( value ) {
 		return String( value ).replace( /[.*+?^${}()|[\]\\]/g, '\\$&' );
 	}
@@ -777,6 +867,7 @@
 		initMethodPicker();
 		initConnectionTest();
 		initConnectionVerify();
+		initCompanionUpdateStatus();
 		initAbilitySearch();
 		initAbilityBulkControls();
 		initDeclarativeToggles();

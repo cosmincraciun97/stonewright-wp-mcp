@@ -141,6 +141,11 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringContainsString( 'data-stonewright-connection-verify', $html );
 		self::assertStringContainsString( 'Verify connection', $html );
 		self::assertStringContainsString( 'stonewright/v1/admin/connection-verify', $html );
+		self::assertStringContainsString( 'data-stonewright-companion-status', $html );
+		self::assertStringContainsString( 'stonewright/v1/admin/companion-update-status', $html );
+		self::assertStringContainsString( 'Copy update prompt', $html );
+		self::assertStringContainsString( 'Download official companion', $html );
+		self::assertStringContainsString( 'browser cannot replace an stdio process', $html );
 		self::assertStringContainsString( 'live authenticated MCP loopback', $html );
 		self::assertStringNotContainsString( 'Run connection test', $html );
 		self::assertStringNotContainsString( 'stonewright-badge--ok', $html );

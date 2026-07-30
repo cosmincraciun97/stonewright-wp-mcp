@@ -113,8 +113,16 @@
 }
 
 .stonewright-sandbox-page select,
-.stonewright-sandbox-page .button {
+.stonewright-sandbox-page .button:not(.button-primary):not(.button-link-delete) {
 	color: var(--sw-text) !important;
+}
+
+.stonewright-sandbox-page .button.button-primary {
+	color: var(--sw-on-brand) !important;
+}
+
+.stonewright-sandbox-page .button.button-link-delete {
+	color: var(--sw-danger-text) !important;
 }
 
 .stonewright-sandbox-page .stonewright-empty-state,

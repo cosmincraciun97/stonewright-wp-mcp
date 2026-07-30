@@ -142,11 +142,10 @@ jobs:
           if [ ! -f "$notes" ]; then
             notes="docs/releases/checklist.md"
           fi
-          # Beta and RC builds stay prereleases until a stable tag is ready.
+          # The public beta is the current supported release. GitHub's
+          # /releases/latest API and repository sidebar ignore prereleases,
+          # which would also disable Stonewright's native update checker.
           release_flags=(--latest)
-          case "$version" in
-            *-beta*|*-rc*) release_flags=(--prerelease) ;;
-          esac
           gh release create "$GITHUB_REF_NAME" \
             "dist/stonewright-${version}.zip" \
             dist/stonewright-companion-*.tgz \
