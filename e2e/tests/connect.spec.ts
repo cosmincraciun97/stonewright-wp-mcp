@@ -2,6 +2,11 @@ import { expect, test, type Page } from '@playwright/test';
 
 const WP_USER = process.env.WP_USERNAME ?? 'admin';
 const WP_PASS = process.env.WP_PASSWORD ?? 'password';
+const WP_BASE_URL = process.env.WP_BASE_URL ?? 'http://localhost:8888';
+
+function escapeRegExp(value: string): string {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 async function login(page: Page): Promise<void> {
 	await page.goto('/wp-admin/', { waitUntil: 'domcontentloaded' });
@@ -96,7 +101,16 @@ test.describe('Connect wizard interactions', () => {
 			'STONEWRIGHT_WP_APP_PASSWORD=<your-application-password>',
 		);
 		expect(fullPrompt).not.toContain(WP_USER);
-		expect(fullPrompt).not.toContain(WP_PASS);
+		expect(fullPrompt).not.toContain(WP_BASE_URL);
+		// wp-env's login password is literally "password", so a raw substring
+		// check would reject legitimate guidance such as "Application Password".
+		// Reject the value only where copied credentials could actually appear.
+		expect(fullPrompt).not.toMatch(
+			new RegExp(
+				`(?:=|:\\s*|["'])${escapeRegExp(WP_PASS)}(?:["',\\s]|$)`,
+				'i',
+			),
+		);
 
 		const guide = page.locator('.sw-update-guide');
 		await expect(guide).toBeVisible();
