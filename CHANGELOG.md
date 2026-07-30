@@ -10,6 +10,8 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 ## [Unreleased]
 
+## [1.0.0-alpha.92] - 2026-07-30
+
 ### Added
 
 - A shared native-rule registry for Plugin and Direct mode, with explicit
@@ -143,45 +145,3 @@ Unreleased); older history lives in git tags and GitHub releases.
 
 - Design Studio history now explicitly requests revision versions, so saved
   revisions appear and can be reviewed or restored.
-
-## [1.0.0-alpha.87] - 2026-07-25
-
-### Added
-
-- Design Directions: a site's design language is now stored as a validated,
-  versioned contract instead of prose, with append-only revision history and one
-  active direction per site.
-- Eight MCP abilities to list, read, save, capture, activate, restore, and
-  synchronize design directions. Activation, restore, and synchronization
-  replace live design intent, so each is gated by permission, task context
-  token, and a confirmation token bound to the exact target in production-safe
-  mode.
-- Capture a starting direction from an existing Elementor kit: colors,
-  typography, spacing, breakpoints, and button styles become a reviewable draft
-  contract that records where each value came from. It shows the draft without
-  storing anything unless asked, and never guesses a value the kit did not
-  report.
-- Push a design direction back into the Elementor kit, in two steps. A dry run
-  shows exactly which kit globals would change, what the kit has no setting for,
-  and any value it cannot store. The write step needs that dry run, refuses to
-  proceed if the kit changed in the meantime, backs the kit up first, leaves every
-  setting it was not asked to change alone, and checks the result before
-  reporting success.
-
-- Evidence-based visual verification: `stonewright/design-quality-check` turns
-  measured browser evidence for a rendered page into coverage, findings, and
-  repair hints. There is no invented score. Every finding carries the numbers
-  that produced it, evidence that was never captured is reported as
-  `not_checked` and counted separately, and a report with nothing checked can
-  never come back clean.
-- A first-section checkpoint for builds that establish a new visual direction.
-  The build stops once, after the first section, so the user can approve the
-  rendered result before the rest of the page is written. Maintenance work is
-  never interrupted: only `new_identity`, `replacement`, and `rebrand` are
-  gated, while `preserve`, `repair`, `content_only`, and `responsive_fix` pass
-  straight through.
-- Ability `stonewright/design-checkpoint-record`, which records that approval
-  and returns the token later section writes are checked against. It refuses
-  any approval it cannot tie to live state, and the token binds the post, the
-  section, the direction, and the render that was approved — so editing the
-  approved section or switching direction stops it working.

@@ -1,10 +1,11 @@
 # Stonewright Native Rules and Audit Remediation Continuation Implementation Plan
 
-> **Status update — 2026-07-30:** Tasks 1–17 are implemented. Task 18 code,
-> security, documentation, package, and static gates are green after an
-> independent audit; live wp-env/browser acceptance and PR CI remain. The
-> original task checkboxes below are retained as the implementation record, not
-> as an instruction to redo completed work.
+> **Status update — 2026-07-30:** Tasks 1–19 are complete. The audited feature
+> PR passed the full GitHub matrix, including real wp-env Playwright acceptance,
+> and was merged into `main`. Task 20 release preparation is active on
+> `codex/release-1.0.0-alpha.92`; Task 21 must use only the published,
+> checksum-verified alpha.92 companion. Local Transavia acceptance remains
+> unavailable because the local site is offline and runs an older plugin.
 
 **Goal:** Continue from completed Tasks 1–5 and finish native rules, audit/OAuth remediation, memory generalization, response-efficiency work, documentation, and live acceptance without weakening any security gate.
 
@@ -16,9 +17,14 @@
 
 - Repository: `/Users/cosminiviteb/Personal/stonewright-wp-mcp`
 - Continue only in linked worktree: `/Users/cosminiviteb/Personal/stonewright-wp-mcp/.worktrees/native-rules-audit-remediation`
-- Branch: `codex/native-rules-audit-remediation`
+- Feature branch: `codex/native-rules-audit-remediation`
+- Release branch: `codex/release-1.0.0-alpha.92`
 - Audited implementation tip before final remediation:
   `35ae2eac1a49dc7247f32951f7a0f6924575a995`
+- Final feature tip: `f964954c6817d3ffeffdb20924e947be522d289d`
+- Feature PR: `#33`
+- Verified merge commit:
+  `e92a09bb4d396648162e388b95a7158a3814c710`
 - Do not work in the dirty `main` checkout.
 - SDD ledger: `.superpowers/sdd/stonewright-native-rules-audit-remediation-ui-and-efficiency-plan-2026-07-29/progress.md`
 - Original plan remains useful for problem statements, but this continuation plan is authoritative when instructions conflict.
@@ -55,7 +61,10 @@ Docs freshness and git diff --check: clean
 | 13–16 | Complete | Cursor-based memory generalization, stateless projection, canonical knownHash, and registry-backed batching are implemented. |
 | 17 | Complete | Maintained docs, READMEs, changelogs, architecture diagram, contracts, and 332/100 counts are current. |
 | 18 — local gates | Complete | 6,208 PHPUnit tests / 32,179 assertions; PHPStan, PHPCS, security, dependency, provenance, contract, token, companion, Visual, and docs gates green. |
-| 18 — live/CI | Blocked pending environment | Docker is unavailable and `transavia-local.local` refuses connections. GitHub E2E and all PR jobs must be green before release. |
+| 18 — live/CI | Complete for merge | PR runs `30525077522` and `30525248233` passed, including real wp-env Playwright. Local Transavia acceptance remains unavailable and was not replaced with production testing. |
+| 19 | Complete | PR `#33` merged only after every required job was green; merge commit `e92a09b`. |
+| 20 | In progress | Alpha.92 metadata, release notes, generated contracts, dependency remediations, and local verification are being prepared on `codex/release-1.0.0-alpha.92`. |
+| 21 | Pending release | No client may be updated until the alpha.92 release assets and checksums are published and verified. |
 
 Independent audit fixes added after `35ae2ea`:
 
@@ -562,17 +571,17 @@ git status --short
 
 ## Task 19: Pull Request and CI
 
-- [ ] Commit the independent remediation without squashing the auditable task
+- [x] Commit the independent remediation without squashing the auditable task
   history.
-- [ ] Push `codex/native-rules-audit-remediation` and open a PR against `main`.
-- [ ] In the PR description, list changed abilities, permission/backup/token/
+- [x] Push `codex/native-rules-audit-remediation` and open a PR against `main`.
+- [x] In the PR description, list changed abilities, permission/backup/token/
   validation/audit effects, public docs changed, and the unavailable local-live
   acceptance.
-- [ ] Wait for every required PR job, including all PHP versions and the real
+- [x] Wait for every required PR job, including all PHP versions and the real
   wp-env Playwright job.
-- [ ] Fix root causes on this branch and rerun local proportional gates after
+- [x] Fix root causes on this branch and rerun local proportional gates after
   every CI correction.
-- [ ] Do not merge or tag while any required check is pending, skipped
+- [x] Do not merge or tag while any required check is pending, skipped
   unexpectedly, cancelled, or red.
 
 ## Task 20: Release
@@ -616,11 +625,12 @@ git rev-parse HEAD
 git status --short
 ```
 
-Expected branch: `codex/native-rules-audit-remediation`. The worktree must be
-clean and HEAD must equal the PR head before continuing.
+Expected branch while Task 20 is active:
+`codex/release-1.0.0-alpha.92`. Its base must be the verified feature merge
+`e92a09bb4d396648162e388b95a7158a3814c710`.
 
-4. Resume at the first unchecked item in Task 19. Do not redo Tasks 1–18.
-5. Treat GitHub E2E as mandatory live acceptance for the branch. Local
+4. Resume at the first unchecked item in Task 20. Do not redo Tasks 1–19.
+5. Treat GitHub E2E as mandatory live acceptance for the release PR. Local
    Transavia acceptance remains separate because the site is offline and its
    installed plugin is older; never substitute the production site.
 6. Never create a release before the PR is fully green. Never update clients
