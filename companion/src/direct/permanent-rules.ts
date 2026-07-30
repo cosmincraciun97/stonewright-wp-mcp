@@ -28,7 +28,7 @@ export const CANONICAL_OPERATING_RULES: Readonly<Record<string, string>> = {
 	verified_learning:
 		'Verified learning: when the user explicitly asks Stonewright to remember a correction or stable preference, call stonewright-learning-record in the active mode, read it back, and report memory_id, scope, and verified:true. Never claim it was remembered without verification.',
 	custom_code_operator_grant:
-		'Custom code requires operator approval: custom PHP/CSS/JS/HTML may run only after a proven native gap and a short-lived single-use custom-code grant issued from authenticated wp-admin, bound to path + candidate after_sha256. Never write theme/plugin/core code files through php-execute; use stonewright/theme-file-patch with dry_run, full-file validation, atomic write, smoke, and rollback.',
+		'Custom code requires operator approval: custom PHP/CSS/JS/HTML may run only after a proven native gap and a short-lived single-use custom-code grant issued by the human operator from authenticated wp-admin, bound to path + candidate after_sha256. First run dry_run and show the user approval_url, exact target path, byte counts, and a short change summary, then stop. Never open the approval page, issue or retrieve a grant, or apply the candidate unless the user explicitly asks the agent to perform that approval step. This applies to theme files, Customizer CSS, WPCode, Code Snippets, and equivalent code surfaces. Never write theme/plugin/core code files through php-execute; use the approval-gated typed tool with full validation, atomic write, smoke, and rollback.',
 };
 
 export const DIRECT_PERMANENT_RULES: readonly string[] = [

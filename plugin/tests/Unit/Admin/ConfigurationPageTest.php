@@ -96,6 +96,9 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringContainsString( 'Setup diagnostics', $html );
 		self::assertStringContainsString( 'Remote Streamable HTTP', $html );
 		self::assertStringContainsString( 'Local companion (stdio)', $html );
+		self::assertStringContainsString( 'communicates with it through standard input/output', $html );
+		self::assertStringContainsString( 'required for Direct mode and local WP-CLI', $html );
+		self::assertStringContainsString( 'does not run a local companion', $html );
 		self::assertStringContainsString( 'No Node or companion required', $html );
 		self::assertStringContainsString( 'data-stonewright-method="stdio"', $html );
 		self::assertStringContainsString( 'data-stonewright-method="http"', $html );

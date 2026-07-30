@@ -8,7 +8,9 @@ namespace Stonewright\WpMcp\Security;
  *
  * Grants are minted only from authenticated wp-admin (or a manage_options REST
  * action). MCP clients may request the approval requirement and URL, but must
- * not mint grants themselves.
+ * show the human the exact handoff and stop. They must not open the approval
+ * page, mint, retrieve, or consume grants unless the user explicitly asks them
+ * to perform that approval step.
  */
 final class CustomCodeGrant {
 
@@ -288,8 +290,10 @@ final class CustomCodeGrant {
 				'operation_class'      => 'custom_code',
 				'approval_url'         => $admin,
 				'error_code'           => 'custom_code_grant_required',
-				'message'              => __( 'Custom PHP/CSS/JS/HTML writes require an operator custom-code grant after a proven native gap. Complete dry_run, open the approval URL in wp-admin, then retry with custom_code_grant.', 'stonewright' ),
-				'recommended_next'     => 'dry_run then operator grant',
+				'message'              => __( 'Custom PHP/CSS/JS/HTML writes require a human-issued one-time grant after dry_run. Show the user the approval URL, exact path, byte counts, and change summary, then stop. Do not open the approval page or issue, retrieve, or use a grant unless the user explicitly asks.', 'stonewright' ),
+				'recommended_next'     => 'show dry-run handoff and stop for human approval',
+				'agent_must_stop'      => true,
+				'operator_action'      => 'Human reviews the exact proposal in authenticated wp-admin, issues the one-time grant, and sends the token back.',
 			],
 			$extra
 		);

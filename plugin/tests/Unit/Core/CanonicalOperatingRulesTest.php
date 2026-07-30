@@ -25,6 +25,8 @@ final class CanonicalOperatingRulesTest extends TestCase {
 		self::assertArrayHasKey( 'verified_learning', $rules );
 		self::assertArrayHasKey( 'custom_code_operator_grant', $rules );
 		self::assertStringContainsString( 'php-execute', $rules['custom_code_operator_grant'] );
+		self::assertStringContainsString( 'then stop', $rules['custom_code_operator_grant'] );
+		self::assertStringContainsString( 'Never open the approval page', $rules['custom_code_operator_grant'] );
 	}
 
 	public function test_fingerprint_is_stable_sha256(): void {

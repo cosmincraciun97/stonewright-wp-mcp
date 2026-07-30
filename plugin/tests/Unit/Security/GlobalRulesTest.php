@@ -40,6 +40,7 @@ final class GlobalRulesTest extends TestCase {
 		'temporary-code-lifecycle',
 		'dynamic-architecture-preservation',
 		'native-controls-rendered-proof',
+		'custom-code-human-handoff',
 	];
 
 	public function test_generalized_operating_repairs_live_in_the_digest_registry(): void {

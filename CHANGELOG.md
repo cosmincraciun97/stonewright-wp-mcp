@@ -10,6 +10,19 @@ were never stable releases and are not part of the supported public history.
 
 ## [Unreleased]
 
+### Changed
+
+- Define local stdio consistently in Setup and public docs: the AI client starts
+  the companion locally; Direct mode and local WP-CLI require it, while Remote
+  Streamable HTTP connects directly to the plugin.
+- Require a human-issued, exact-candidate one-time grant for Customizer CSS as
+  well as theme-file code writes. Dry-runs now return the approval URL, path,
+  byte counts, summary, and an explicit stop signal.
+- Block custom-code writes in pluginless Direct mode, which has no authenticated
+  wp-admin approval boundary.
+- Tell agents never to open or submit the code-approval page unless the user
+  explicitly asks them to perform that approval step.
+
 ## [1.0.0-beta.2] - 2026-07-30
 
 ### Added

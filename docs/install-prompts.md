@@ -15,6 +15,24 @@ not paste a real site URL, username, Application Password, token, memory entry,
 or audit payload into an agent chat. See [Updating Stonewright](updates.md)
 when changing versions.
 
+## What “local stdio” means
+
+With local stdio, the AI client starts the Stonewright companion on your
+computer and communicates with that process through standard input/output. The
+companion is required for local stdio, Direct mode, and local WP-CLI. Remote
+Streamable HTTP connects the client directly to the WordPress plugin over HTTPS
+and does not run a local companion.
+
+## Custom-code approval rule
+
+For theme files, Customizer CSS, WPCode, Code Snippets, or equivalent
+PHP/CSS/JS/HTML surfaces, the agent must run the approval-gated typed tool with
+`dry_run` first, return `approval_url`, the exact path, byte counts, and a short
+summary, then stop. The agent must not open the approval page, issue or retrieve
+the grant, or apply `custom_code_grant` unless the user explicitly asks it to
+perform that approval step. Direct mode does not write custom code because it
+has no authenticated wp-admin grant boundary.
+
 ## OAuth connection (recommended in Plugin mode)
 
 ```text
@@ -53,6 +71,9 @@ After reload:
   an unchanged registry costs one short response.
 - Treat hard rules as blocking, strong rules as required practice that the
   runtime cannot check for you, and advisory rules as guidance.
+- For custom code, dry-run and show approval_url, exact path, byte counts, and
+  summary, then stop for the human-issued one-time grant. Never open or submit
+  the approval page unless I explicitly ask.
 - To keep reads cheap, pass stonewright_fields with the paths you need. Required
   response-envelope fields remain present. Pass knownHash to
   stonewright-elementor-v3-get-page-structure to skip an unchanged page tree.
@@ -120,6 +141,8 @@ After reload:
 - When I correct a repeatable mistake, call stonewright-learning-record so it
   persists for future sessions.
 - Destructive tools require confirm:true. Do not work around write gating.
+- Do not write custom PHP/CSS/JS/HTML in Direct mode. It has no authenticated
+  wp-admin one-time-grant boundary; report the Plugin-mode approval-gated path.
 - One-time setup: call stonewright-agents-md-sync and offer to add the pointer to your global agent config.
 - Fix recurring_errors from task-start before new work; never invent Elementor/Gutenberg schemas.
 - For visual work, verify browser/Playwright tools before the first write.

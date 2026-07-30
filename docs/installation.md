@@ -6,6 +6,12 @@ Stonewright has two parts:
 - Node companion: exposes local stdio MCP through `npx`, proxies the WordPress
   MCP endpoint, exposes php-execute, and runs tokenized WP-CLI.
 
+**Local stdio** means the AI client starts the companion on the user's computer
+and exchanges MCP messages with that local process through standard
+input/output. It is required for Direct mode and local WP-CLI. **Remote
+Streamable HTTP** connects the AI client straight to the WordPress plugin over
+HTTPS and does not run or require a local companion.
+
 ## Requirements
 
 - WordPress 6.7+

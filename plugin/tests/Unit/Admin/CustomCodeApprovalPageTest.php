@@ -51,6 +51,8 @@ final class CustomCodeApprovalPageTest extends TestCase {
 		self::assertStringContainsString( hash( 'sha256', 'candidate' ), $html );
 		self::assertStringContainsString( 'stonewright_custom_code_approve', $html );
 		self::assertStringContainsString( 'Issue one-time grant', $html );
+		self::assertStringContainsString( 'Human approval only.', $html );
+		self::assertStringContainsString( 'Agents must show you the proposal and stop.', $html );
 		self::assertStringNotContainsString( 'candidate</textarea>', $html );
 	}
 

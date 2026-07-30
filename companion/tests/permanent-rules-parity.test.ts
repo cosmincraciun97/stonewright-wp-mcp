@@ -34,6 +34,12 @@ describe('permanent rules parity', () => {
 		expect(CANONICAL_OPERATING_RULES.custom_code_operator_grant).toMatch(
 			/custom-code grant/,
 		);
+		expect(CANONICAL_OPERATING_RULES.custom_code_operator_grant).toMatch(
+			/then stop/,
+		);
+		expect(CANONICAL_OPERATING_RULES.custom_code_operator_grant).toMatch(
+			/Never open the approval page/,
+		);
 	});
 
 	it('includes canonical rules in Direct permanent list and guidance', () => {

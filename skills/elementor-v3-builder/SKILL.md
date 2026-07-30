@@ -292,10 +292,13 @@ headings inside loop templates; do not rely on many manual meta updates.
 - For section labels, copy typography, letter spacing, alignment, and underline
   or border decorations from the design instead of approximating them with plain
   text.
-- Custom CSS requires explicit user approval after widget/settings options are
-  exhausted. Approved CSS belongs in the active theme `style.css`, and should
-  target semantic classes or named containers instead of unstable generated
-  element IDs whenever possible.
+- Custom CSS requires a proven native gap and the approval-gated typed tool.
+  Run `dry_run`, show the user `approval_url`, exact path, byte counts, and a
+  short summary, then stop. Never open or submit the approval page unless the
+  user explicitly asks. After the human returns `custom_code_grant`, apply only
+  the exact approved candidate to the intended theme-file or Customizer CSS
+  surface. Target semantic classes or named containers instead of unstable
+  generated element IDs whenever possible.
 - Before signoff, capture desktop, tablet, and mobile screenshots on the
   logged-out public page and report the visible deltas. Admin/editor chrome does
   not count as viewport evidence.

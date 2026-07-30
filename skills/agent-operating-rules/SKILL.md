@@ -77,11 +77,19 @@ gates for speed. Never implement via DOM mutation through browser `evaluate()`.
 ### Custom code operator grant
 
 - Custom PHP/CSS/JS/HTML may run only after a proven native gap and a short-lived
-  single-use custom-code grant issued from authenticated wp-admin.
+  single-use custom-code grant issued by the human operator from authenticated
+  wp-admin.
 - Grant is bound to path + candidate `after_sha256`.
+- First run `dry_run`. Show the user `approval_url`, exact target path, byte
+  counts, and a short change summary. Then stop.
+- Never open the approval page, issue or retrieve a grant, or apply the candidate
+  unless the user explicitly asks the agent to perform that approval step.
+- This applies to theme files, Customizer CSS, WPCode, Code Snippets, and
+  equivalent code surfaces.
 - Never write theme/plugin/core code files through `php-execute`.
-- Use `stonewright/theme-file-patch` with `dry_run`, full-file validation, atomic
-  write, smoke, and rollback.
+- Use the approval-gated typed tool with full validation, atomic write, smoke,
+  and rollback. Direct mode may inspect custom CSS but must not write it because
+  pluginless mode has no authenticated wp-admin grant boundary.
 
 ## Native digest-registry rules
 

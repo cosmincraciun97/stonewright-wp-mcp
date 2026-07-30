@@ -973,7 +973,7 @@ final class ConfigurationPage {
 			aria-label="<?php esc_attr_e( 'Connection method', 'stonewright' ); ?>"
 		>
 			<p class="description sw-method-picker__note">
-				<?php esc_html_e( 'Transports only. The Application Password from step 2 authenticates both methods.', 'stonewright' ); ?>
+				<?php esc_html_e( 'Local stdio means your AI client starts the Stonewright companion on this computer and talks to that local process through standard input/output. It is required for Direct mode and local WP-CLI. Remote HTTP connects straight to the WordPress plugin over HTTPS and does not run a local companion.', 'stonewright' ); ?>
 			</p>
 			<div class="sw-method-picker__options">
 				<button
@@ -982,10 +982,10 @@ final class ConfigurationPage {
 					class="sw-method-option<?php echo 'stdio' === $selected_method ? ' is-active' : ''; ?>"
 					data-stonewright-method="stdio"
 					aria-checked="<?php echo 'stdio' === $selected_method ? 'true' : 'false'; ?>"
-					data-sw-tooltip="<?php echo esc_attr( __( 'Runs the Stonewright companion on the same machine as your AI client. Best for local development: fastest, no public endpoint needed. Requires Node.js on your machine.', 'stonewright' ) ); ?>"
+					data-sw-tooltip="<?php echo esc_attr( __( 'Your AI client starts the Stonewright companion on this computer and communicates with it through standard input/output. Required for Direct mode and local WP-CLI.', 'stonewright' ) ); ?>"
 				>
 					<span class="sw-method-option__label"><?php esc_html_e( 'Local companion (stdio)', 'stonewright' ); ?></span>
-					<span class="sw-method-option__blurb"><?php esc_html_e( 'npx runs the Stonewright companion on your machine.', 'stonewright' ); ?></span>
+					<span class="sw-method-option__blurb"><?php esc_html_e( 'AI client starts the companion locally. Required for Direct mode.', 'stonewright' ); ?></span>
 				</button>
 				<button
 					type="button"

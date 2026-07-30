@@ -12,6 +12,11 @@ building, persistent skills/memory, direct PHP runtime execution, and
 companion-backed WP-CLI. WooCommerce catalog work uses native product objects
 and taxonomies through dry-run-first, permission-gated, audited abilities.
 
+Local stdio means the AI client starts the Stonewright companion on the user's
+computer and communicates with it through standard input/output. It is required
+for Direct mode and local WP-CLI. Remote Streamable HTTP connects straight to
+this plugin over HTTPS and needs no local companion.
+
 For native repeated content, `stonewright/elementor-wire-loop` plans or adds a
 Loop Grid/Carousel with live Pro schemas, a validated existing or newly staged
 loop-item template, one page write, readback verification, and rollback.
@@ -53,6 +58,13 @@ The Connect update panel can read the latest trusted release, compare an
 optional configured HTTP bridge, and copy a credential-free companion update
 prompt. An explicit check bypasses the background release cache. A local stdio
 process still has to be replaced and restarted inside its AI client.
+
+Custom PHP/CSS/JS/HTML follows a human approval boundary. The agent runs the
+typed dry-run, returns `approval_url`, exact target path, byte counts, and a
+short summary, then stops. It must not open the approval page, issue or retrieve
+the one-time grant, or apply `custom_code_grant` unless the user explicitly asks
+the agent to perform that approval step. This applies to theme files,
+Customizer CSS, WPCode, Code Snippets, and equivalent code surfaces.
 
 Normal MCP clients launch the versioned companion release tarball with `npx`.
 Use the admin **Local WP-CLI bridge (advanced)** controls only when you

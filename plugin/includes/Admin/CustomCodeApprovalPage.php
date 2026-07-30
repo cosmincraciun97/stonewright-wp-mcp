@@ -43,13 +43,14 @@ final class CustomCodeApprovalPage {
 		echo '<div class="stonewright-custom-code-approval-page">';
 		echo '<header class="stonewright-page-header"><div><h1>' . esc_html__( 'Custom Code Approval', 'stonewright' ) . '</h1>';
 		echo '<p>' . esc_html__( 'Approve only the exact dry-run candidate shown here. Grants expire quickly, work once, and cannot be broadened to another path or hash.', 'stonewright' ) . '</p></div></header>';
+		echo '<div class="notice notice-warning inline"><p><strong>' . esc_html__( 'Human approval only.', 'stonewright' ) . '</strong> ' . esc_html__( 'Agents must show you the proposal and stop. They may open or submit this page only when you explicitly ask them to perform the approval step.', 'stonewright' ) . '</p></div>';
 
 		if ( '' !== $result_id ) {
 			self::render_grant_result( $result_id );
 		} elseif ( '' !== $proposal_id ) {
 			self::render_proposal( $proposal_id );
 		} else {
-			echo '<div class="notice notice-info"><p>' . esc_html__( 'No proposal selected. Run theme-file-patch with dry_run:true and open the returned approval URL.', 'stonewright' ) . '</p></div>';
+			echo '<div class="notice notice-info"><p>' . esc_html__( 'No proposal selected. Run the approval-gated custom-code tool with dry_run:true, review its exact path and byte summary, then open the returned URL yourself.', 'stonewright' ) . '</p></div>';
 		}
 
 		echo '</div>';

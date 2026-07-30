@@ -120,6 +120,10 @@ final class ThemeFileAbilitiesTest extends TestCase {
 		self::assertTrue( $result['approval_required'] );
 		self::assertNotSame( '', $result['proposal_id'] );
 		self::assertStringContainsString( 'proposal_id=', $result['approval_url'] );
+		self::assertTrue( $result['agent_must_stop'] );
+		self::assertSame( 'functions.php', $result['change_summary']['path'] );
+		self::assertArrayHasKey( 'before_bytes', $result['change_summary'] );
+		self::assertArrayHasKey( 'after_bytes', $result['change_summary'] );
 	}
 
 	private function rmTree( string $dir ): void {

@@ -351,9 +351,25 @@ Direct mode has a **smaller** capability surface: core REST, read-only WooCommer
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 
+## Connection methods, in plain language
+
+- **Local stdio:** Codex, Claude Code, Grok, or another AI client starts the
+  Stonewright companion on your computer and exchanges MCP messages with that
+  local process through standard input/output. The companion is required for
+  local stdio, pluginless Direct mode, and local WP-CLI.
+- **Remote Streamable HTTP:** the AI client connects straight to the
+  Stonewright WordPress plugin over HTTPS. No companion process runs on the
+  user's computer.
+
+Direct mode is a capability mode inside the companion, not a third transport.
+If the plugin is absent and you use Direct mode, you are using local stdio and
+therefore need the companion.
+
 ## Supported workflows and clients
 
-Stonewright speaks standard MCP (stdio via the companion, and HTTP MCP when the WordPress MCP adapter is active). Configuration samples in this repository follow the common MCP server JSON shape used by several clients.
+Stonewright speaks standard MCP (local stdio via the companion, and remote HTTP
+MCP when the WordPress MCP adapter is active). Configuration samples in this
+repository follow the common MCP server JSON shape used by several clients.
 
 | Area | Status | Notes |
 |---|---|---|

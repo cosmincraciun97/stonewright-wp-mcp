@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Clarify local stdio versus Remote Streamable HTTP throughout Setup and public
+  installation guidance.
+- Approval-gate Customizer CSS with the same native-gap dry-run, human-issued
+  one-time grant, backup, exact-hash binding, readback, and audit contract used
+  by theme-file code writes.
+- Return an explicit human handoff (`approval_url`, target path, byte counts,
+  summary, and `agent_must_stop`) and forbid agents from opening or submitting
+  the approval page without an explicit user request.
+
 ## [1.0.0-beta.2] - 2026-07-30
 
 ### Added
