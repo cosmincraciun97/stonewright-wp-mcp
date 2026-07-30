@@ -836,11 +836,13 @@ final class WorkflowPreflight extends AbilityKernel {
 				$tools[] = 'stonewright/content-bulk-upsert-posts';
 				$tools[] = 'stonewright/elementor-v3-build-page-from-spec';
 				$tools[] = 'stonewright/elementor-v3-batch-mutate';
+				$tools[] = 'stonewright/elementor-post-write-verify';
 				$tools[] = 'stonewright/elementor-v3-apply-bundle';
 			} elseif ( $profile['is_write'] && ! $blocked && 'v3-surgical' === $target ) {
 				$tools[] = 'stonewright/elementor-document-health';
 				$tools[] = 'stonewright/elementor-v3-get-page-structure';
 				$tools[] = 'stonewright/elementor-v3-batch-mutate';
+				$tools[] = 'stonewright/elementor-post-write-verify';
 			}
 		}
 
@@ -904,6 +906,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			'Use stonewright-wp-cli-batch-run with responseMode=summary for repeated CPT UI, ACF, post, meta, term, option, and plugin command work.',
 			'Use stonewright-wp-cli-job-start plus stonewright-wp-cli-job-status for long WP-CLI work so MCP requests do not block.',
 			'Use stonewright/elementor-v3-batch-mutate for surgical Elementor add/update/move/remove edits instead of many single calls.',
+			'After each Elementor apply, use stonewright/elementor-post-write-verify with touched ids before browser acceptance.',
 			'Use individual add/update/move calls only for one-off debugging when batch diagnostics are not enough.',
 		];
 

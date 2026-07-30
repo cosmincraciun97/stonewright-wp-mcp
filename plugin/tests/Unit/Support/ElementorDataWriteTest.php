@@ -43,6 +43,7 @@ final class ElementorDataWriteTest extends TestCase {
 				// edit_mode already 'builder', empty data, no version yet.
 				'_elementor_data'      => '[]',
 				'_elementor_edit_mode' => 'builder',
+				'_elementor_element_cache' => '<div>stale builder html</div>',
 			],
 		];
 	}
@@ -151,5 +152,7 @@ final class ElementorDataWriteTest extends TestCase {
 		$this->assertTrue( $result );
 		$this->assertSame( [ 8800 ], $posts_css_manager->post_ids );
 		$this->assertSame( 0, $files_manager->calls, 'Normal writes must never clear every Elementor CSS file.' );
+		$this->assertArrayNotHasKey( '_elementor_element_cache', $GLOBALS['stonewright_test_posts'][8800]->meta );
+		$this->assertTrue( (bool) ( ElementorData::last_write_receipt()['element_cache']['deleted'] ?? false ) );
 	}
 }

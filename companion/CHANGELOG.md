@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.3] - 2026-07-31
+
 ### Changed
 
 - Clarify that local stdio starts the companion on the user's computer, while
@@ -10,6 +12,16 @@
   because pluginless mode has no authenticated wp-admin one-time-grant
   boundary.
 - Mirror the human custom-code handoff rule from Plugin mode.
+- Mirror the immutable Elementor write-closure rule and align the companion
+  package with the beta.3 plugin release.
+
+### Fixed
+
+- Local WP-CLI Elementor writes now remove the target post's element and CSS
+  cache metadata after verified readback and report browser verification as
+  still required.
+- Remote Direct writes report Elementor PHP cache/frontend checks as
+  `not_checked` instead of claiming closure they cannot perform.
 
 ## [1.0.0-beta.2] - 2026-07-30
 

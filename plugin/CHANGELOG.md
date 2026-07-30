@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.3] - 2026-07-31
+
+### Added
+
+- Add `stonewright/elementor-post-write-verify` for post-scoped CSS
+  regeneration, official frontend warming, bounded HTML assertions, and an
+  explicit desktop/tablet/mobile browser recipe.
+- Expose V3-safe subtree roots in mixed V3/V4 document health responses.
+
 ### Changed
 
 - Clarify local stdio versus Remote Streamable HTTP throughout Setup and public
@@ -12,6 +21,17 @@
 - Return an explicit human handoff (`approval_url`, target path, byte counts,
   summary, and `agent_must_stop`) and forbid agents from opening or submitting
   the approval page without an explicit user request.
+- Enforce one per-post Elementor write lease across typed writers and require
+  live schema evidence, consolidated mutation, post-write closure, and browser
+  proof through the native rule registry.
+
+### Fixed
+
+- Invalidate the official Elementor document-cache key, post CSS, WordPress
+  object cache, and atomic styles after verified writes and restored snapshots.
+- Remove a global Elementor CSS-clear fallback from post-scoped regeneration.
+- Return exact batch-mutation repair hints, guarded escaped-layout decoding,
+  and stable receipts for the new post-write closure.
 
 ## [1.0.0-beta.2] - 2026-07-30
 

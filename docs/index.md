@@ -27,6 +27,7 @@ workflows with operator controls.
 - [Expertise Engine](expertise-engine.md)
 - [Expertise and public capability parity](expertise-parity.md)
 - [Release notes](releases/README.md)
+- [Elementor write verification](elementor-write-verification.md)
 - [MCP token benchmarks](benchmarks/README.md)
 - [Stonewright Visual](visual.md)
 - [Upstream code reuse and attribution](upstream-code-reuse.md)

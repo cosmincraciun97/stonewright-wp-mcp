@@ -48,7 +48,7 @@ Stonewright is a WordPress MCP stack for AI coding agents. **Elementor** is a fi
 
 Counts are derived from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
 
-### Plugin mode — **346** abilities
+### Plugin mode — **347** abilities
 
 Counts below are grouped by the `includes/Abilities/` subdirectory each ability
 lives in, and sum to the total. Regenerate with `composer docs:matrix`.
@@ -56,7 +56,7 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 | Category | Count | Highlights |
 |---|---:|---|
 | Elementor widgets (compat) | 98 | Generated per-widget builders |
-| Elementor V3 | 29 | Structure edit, batch-mutate, kit globals, build-from-spec, transactions |
+| Elementor V3 | 30 | Structure edit, batch-mutate, post-write verification, kit globals, build-from-spec, transactions |
 | Elementor V4 | 14 | Atomic nodes, variables, classes (experimental) |
 | Design | 25 | DesignSpec validate/render, native plan, intent, versioned Design Directions, Elementor kit capture, guarded kit sync, rendered quality checks |
 | Site | 17 | Snapshot, inventory, health, pulse, plugins, theme, shortcodes |
@@ -91,6 +91,8 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 - Inspect an existing WordPress site before changing it
 - Create or update Gutenberg content and block-theme structures (Plugin mode; partial Direct mode for core posts/pages)
 - Build and modify Elementor documents through validated DesignSpec workflows (**Plugin mode**)
+- Close Elementor writes with post-scoped cache invalidation, CSS regeneration,
+  bounded frontend assertions, and an explicit browser verification recipe
 - Wire native Elementor Pro Loop Grid/Carousel widgets transactionally from an
   existing loop-item template or a validated template spec (**Plugin mode**)
 - Manage content, media, navigation, and selected site settings
@@ -347,7 +349,7 @@ flowchart LR
 
 Tool visibility is filtered twice before a client sees it: the plugin’s **surface gate** (`bootstrap` / `essential` / `full`) and optional **per-session tool profile** decide which abilities the MCP endpoint exposes, then the **companion profile filter** narrows that set again for the client. A monotonic `surface_revision` on every gateway response drives `tools/list_changed` so clients re-list when the surface changes.
 
-Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **100 tools**. Plugin mode exposes **346 abilities**. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
+Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **100 tools**. Plugin mode exposes **347 abilities**. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post element/CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 

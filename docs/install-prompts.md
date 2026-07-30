@@ -78,6 +78,10 @@ After reload:
   response-envelope fields remain present. Pass knownHash to
   stonewright-elementor-v3-get-page-structure to skip an unchanged page tree.
 - For visual work, verify browser/Playwright tools before the first write.
+- After any Elementor write, call
+  stonewright-elementor-post-write-verify with the touched element IDs. Do not
+  call the task complete until its frontend assertions pass and desktop,
+  tablet, and mobile browser measurements/screenshots are accepted.
 - Do not inspect private AI-client config files, hand-roll JSON-RPC, or run wp in a normal shell as an MCP workaround.
 - Use stonewright-php-execute for short runtime PHP; keep WP-CLI tokenized via stonewright-wp-cli-*.
 ```
@@ -146,6 +150,10 @@ After reload:
 - One-time setup: call stonewright-agents-md-sync and offer to add the pointer to your global agent config.
 - Fix recurring_errors from task-start before new work; never invent Elementor/Gutenberg schemas.
 - For visual work, verify browser/Playwright tools before the first write.
+- After a local Direct Elementor write, require the returned cache receipt and
+  complete browser verification. Remote Direct cannot verify Elementor's PHP
+  renderer or post cache; use Plugin mode when closed-loop verification is
+  required.
 - Do not inspect private AI-client config files, hand-roll JSON-RPC, or run wp in a normal shell as an MCP workaround.
 ```
 

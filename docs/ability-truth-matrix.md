@@ -137,6 +137,7 @@
 | `stonewright/elementor-v3-get-page-structure` | `stonewright-elementor-v3-get-page-structure` | `ElementorV3\GetPageStructure` | Returns a compact Elementor V3 page outline by default, or the full element tree when responseMode=full. | Read | `Permissions::edit_post( $id )` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-page-digest` | `stonewright-elementor-page-digest` | `ElementorV3\PageDigest` | One-call compact Elementor page outline: tree of elType/widgetType/id/index-path/heading text, counts, and kit flags. | Read | `Permissions::edit_post( (int)` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-document-health` | `stonewright-elementor-document-health` | `ElementorV3\DocumentHealth` | Reports bounded Elementor document size, architecture, node counts, atomic paragraphs, and invalid settings without returning content. | Read | `Permissions::edit_post( (int)` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
+| `stonewright/elementor-post-write-verify` | `stonewright-elementor-post-write-verify` | `ElementorV3\PostWriteVerify` | Invalidates one post cache, regenerates its CSS, warms Elementor frontend HTML, and verifies requested element ids or content markers without returning page HTML. | Write | `Permissions::edit_post( (int)` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-build-tree` | `stonewright-elementor-build-tree` | `ElementorV3\BuildTree` | Validates a full Elementor element tree (sections/containers/widgets), snapshots, writes atomically, regenerates CSS for the post, and returns a compact digest. | Write | `Permissions::edit_post( (int)` | Yes | Yes | Yes (Elementor) | stable | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/design-mirror-export` | `stonewright-design-mirror-export` | `ElementorV3\DesignMirrorExport` | Exports Elementor tree JSON for selected posts into wp-content/uploads/stonewright-mirror/ with sorted keys for stable diffs. | Write | `Permissions::edit_post( (int) (compound)` | No | No | No | experimental | `tests/Integration/ElementorWriterTest.php` |
 | `stonewright/elementor-v3-get-element` | `stonewright-elementor-v3-get-element` | `ElementorV3\GetElement` | Returns a single element from an Elementor page by element id. | Read | `Permissions::edit_post( $id )` | No | No | No | stable | `tests/Integration/ElementorWriterTest.php` |
@@ -616,7 +617,7 @@
 
 ## Summary
 
-Total abilities registered: **346**
+Total abilities registered: **347**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

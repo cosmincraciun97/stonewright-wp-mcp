@@ -80,6 +80,11 @@ final class Plugin {
 }
 
 Plugin::$instance = (object) [
+	'frontend' => new class() {
+		public function get_builder_content_for_display( int $post_id, bool $with_css = false ): string {
+			return '<div class="elementor-element-contract">Contract render</div>';
+		}
+	},
 	'widgets_manager' => new class() {
 		/**
 		 * @return array<string, object>|object|null

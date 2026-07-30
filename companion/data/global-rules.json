@@ -88,6 +88,50 @@
 		}
 	},
 	{
+		"id": "elementor-consolidated-write",
+		"severity": "hard",
+		"scope": "elementor",
+		"rule": "Consolidate all planned changes for one Elementor post into one dry-run batch and one apply. Never run parallel Elementor writes against the same post.",
+		"why": "Parallel read-modify-write requests race on the same document and can trigger readback restoration over a valid sibling write.",
+		"enforcement": {
+			"kind": "runtime",
+			"guard": "elementor_post_write_lock"
+		}
+	},
+	{
+		"id": "elementor-live-schema-evidence",
+		"severity": "hard",
+		"scope": "elementor",
+		"rule": "For design or screenshot-driven Elementor work, read the live widget/container schema and send settings_evidence with require_evidence=true. Never guess control keys, option values, or typography activators.",
+		"why": "Elementor controls vary by version, widget, add-on, and active conditions; plausible guessed settings are dead data or validation failures.",
+		"enforcement": {
+			"kind": "runtime",
+			"guard": "elementor_settings_evidence"
+		}
+	},
+	{
+		"id": "elementor-frontend-write-closure",
+		"severity": "hard",
+		"scope": "elementor",
+		"rule": "After an Elementor write, invalidate the post HTML and CSS caches, warm the official builder render, assert touched element ids, then verify desktop, tablet, and mobile in a separate frontend tab. Meta readback alone is not completion.",
+		"why": "Elementor can persist correct JSON while serving stale cached HTML or CSS.",
+		"enforcement": {
+			"kind": "runtime",
+			"guard": "elementor_post_write_verify"
+		}
+	},
+	{
+		"id": "elementor-boxed-measurement",
+		"severity": "strong",
+		"scope": "elementor",
+		"rule": "For boxed Elementor containers, measure both the outer element and its .e-con-inner at every requested breakpoint.",
+		"why": "The outer container may span the viewport while .e-con-inner owns the visible content width, padding, and alignment.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
 		"id": "elementor-responsive-suffix-only",
 		"severity": "strong",
 		"scope": "elementor",

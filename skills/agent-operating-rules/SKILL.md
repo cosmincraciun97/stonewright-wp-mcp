@@ -91,12 +91,27 @@ gates for speed. Never implement via DOM mutation through browser `evaluate()`.
   and rollback. Direct mode may inspect custom CSS but must not write it because
   pluginless mode has no authenticated wp-admin grant boundary.
 
+### Elementor write closure
+
+- Plan from the live widget/container schema. For Figma, screenshots, or other
+  visual evidence, send `settings_evidence` and `require_evidence:true`.
+- Consolidate one post into one dry-run batch and one apply. Never run parallel
+  Elementor writes.
+- After apply, call `stonewright-elementor-post-write-verify` with every touched
+  element id. It invalidates post HTML/CSS caches, regenerates targeted CSS,
+  warms Elementor frontend HTML, and checks those ids without returning content.
+- Then verify desktop, tablet, and mobile in the separate frontend tab. For a
+  boxed container, measure the outer element and its direct `.e-con-inner`.
+- A successful meta readback is not completion.
+
 ## Native digest-registry rules
 
 ### Elementor transaction discipline
 
-- Read live schema first; group related controls into one dry-run batch.
-- Serialize writes to the same document.
+- Read live schema first; group all planned controls for one post into one
+  dry-run batch and one apply.
+- Serialize writes to the same document; never launch sibling write calls in
+  parallel.
 - Resolve each `schema_requests` item once, replace only rejected settings, then
   rerun one consolidated dry-run.
 - Never fall back to raw metadata, REST runners, `php-execute`, or shell WP-CLI.
@@ -148,6 +163,11 @@ gates for speed. Never implement via DOM mutation through browser `evaluate()`.
   controls.
 - Measure rendered output and account for runtime margins, opacity, and
   `currentColor`.
+- Never guess visibility values, position keys, or group-control activators.
+  Resolve the exact live control and conditions first.
+- A carousel peek is evidence-driven: after live schema resolution, keep one
+  complete mobile card, derive the native offset from the measured reveal, and
+  include parent padding/full-bleed geometry.
 
 ## Environment scope
 

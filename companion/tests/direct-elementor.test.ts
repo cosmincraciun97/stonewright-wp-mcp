@@ -338,6 +338,21 @@ describe('direct elementor tools', () => {
 		// Backup must store the full tree, never a summary outline.
 		expect(backup.data).toEqual(tree);
 		expect(calls.some((c) => c.command.includes('meta') && c.command.includes('update') && c.stdin)).toBe(true);
+		expect(
+			calls.some(
+				(c) =>
+					c.command.join(' ') ===
+					'post meta delete 9 _elementor_element_cache',
+			),
+		).toBe(true);
+		expect(
+			calls.some(
+				(c) => c.command.join(' ') === 'post meta delete 9 _elementor_css',
+			),
+		).toBe(true);
+		expect(result.element_cache_invalidated).toBe(true);
+		expect(result.css_meta_invalidated).toBe(true);
+		expect(result.verification_status).toBe('browser_required');
 	});
 
 	it('data-update rejects invalid json string', async () => {
@@ -392,7 +407,8 @@ describe('direct elementor tools', () => {
 		expect(result.ok).toBe(true);
 		expect(result.transport).toBe('rest');
 		expect(result.backup_path).toContain('post-7-');
+		expect(result.element_cache_invalidated).toBe(false);
+		expect(result.verification_status).toBe('not_checked');
 		expect(rest.post).toHaveBeenCalled();
 	});
 });
-

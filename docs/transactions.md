@@ -31,7 +31,10 @@ Runtime behavior (plugin):
 2. **Snapshot** — `Backup::snapshot_post` before mutating Elementor data.
 3. **Apply operations** — via the Elementor transaction runner.
 4. **Readback** — structural hash / element count after write.
-5. **Rollback** — restore snapshot when the run fails mid-flight (when rollback is enabled for the failure class).
+5. **Post cache** — invalidate the target document's Elementor element cache,
+   CSS state, WordPress object cache, and atomic style notification only after
+   verified readback.
+6. **Rollback** — restore snapshot when the run fails mid-flight (when rollback is enabled for the failure class), then invalidate the restored document's generated state.
 
 Do not claim absolute transactional ACID guarantees across WP-CLI, object cache, and Elementor CSS regeneration. The envelope makes agent edits **more recoverable**, not a database transaction.
 
@@ -44,7 +47,13 @@ Do not claim absolute transactional ACID guarantees across WP-CLI, object cache,
 3. `stonewright-elementor-page-digest` (or structure get) on the target post
 4. Prefer `stonewright-design-native-plan` + DesignSpec when building from evidence
 5. `stonewright-elementor-v3-transaction-run` (or batch-mutate for smaller edits)
-6. Re-read health + digest / frontend; restore from audit/snapshot if needed
+6. Call `stonewright-elementor-post-write-verify` with the touched element IDs
+   or bounded content markers. It regenerates post CSS, warms Elementor's
+   frontend renderer, and returns assertion results without returning page
+   HTML.
+7. Measure and capture the logged-out frontend at desktop, tablet, and mobile.
+   For boxed containers inspect both the outer container and `.e-con-inner`.
+8. Re-read health + digest; restore from audit/snapshot if verification fails.
 
 ## Native policy note
 

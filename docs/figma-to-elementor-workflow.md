@@ -33,10 +33,15 @@ which is the wrong abstraction.
    values used by the target page.
 5. Deep-read one top-level section: semantic nodes, exact bounds, text, asset
    references/crops, auto-layout intent, and used styles.
-6. Normalize immediately into DesignEvidence 1.0. Include stable source
+6. Build a compact section contract before any write: source viewport,
+   `element_id`, exact setting/control, desktop/tablet/mobile value, tolerance,
+   and expected rendered effect. Record outer and content-frame bounds
+   separately; a boxed Elementor container renders content through
+   `.e-con-inner`.
+7. Normalize immediately into DesignEvidence 1.0. Include stable source
    references and SHA-256, desktop and mobile viewports, provenance for
    concrete styles, and `measured_targets` with tolerances.
-7. Discard the raw Figma response. Do not send the full document tree to a
+8. Discard the raw Figma response. Do not send the full document tree to a
    second Figma MCP and do not carry vendor nodes into Elementor.
 
 Variables and page structure are read once; deep data stays bounded to the
@@ -57,9 +62,18 @@ evidence hash, section manifest, and live schema summaries.
    `stonewright-elementor-v3-build-page-from-spec` with `dry_run=true` for a
    new section/page, or `stonewright-elementor-v3-batch-mutate` for surgical
    edits to an existing tree.
-6. Review diagnostics and hashes, then perform the typed write. The ability
+6. Review diagnostics, `schema_requests`, safe V3 roots, and hashes, then
+   perform one consolidated typed write for the post. Writes to one Elementor
+   document are sequential; never race them in parallel. The ability
    snapshots first, preserves unknown settings, reads the effect back, and
    refuses V3 writes into V4/mixed documents.
+7. Call `stonewright-elementor-post-write-verify` with the touched IDs. It
+   invalidates post-scoped generated state, regenerates post CSS, warms the
+   public Elementor frontend renderer, and asserts the bounded targets.
+8. Measure and capture the logged-out frontend at desktop, tablet, and mobile.
+   For boxed containers measure outer, `.e-con-inner`, and the first semantic
+   child. For carousels record card width, gap, visible count, and peek pixels.
+   The write is not complete until these checks pass.
 
 For a new identity, replacement, or rebrand, build only the first section.
 Render it, collect desktop/tablet/mobile evidence, obtain explicit approval,
@@ -84,8 +98,9 @@ testimonial, CTA, and footer.
   or V4 atomic paragraph, Button, and Image. Decorative Figma groups do not
   become empty Elementor containers.
 - The dry run exposes the exact tree and diagnostics. After the guarded write,
-  browser evidence compares the same 1440 and 390 viewports. A mismatch is
-  repaired with a surgical batch mutation, not a full-tree rewrite.
+  the post-write verifier closes cache/CSS/frontend assertions and browser
+  evidence compares the same 1440 and 390 viewports. A mismatch is repaired
+  with a surgical batch mutation, not a full-tree rewrite.
 - Visual Workspace connects to the actual Elementor editor window so the user
   sees adapter state, proposed diff, confirmation, and quality evidence while
   keeping the editor open.
@@ -109,3 +124,5 @@ and no unchecked critical rule.
 
 Neither admin page replaces the AI client or browser measurement tool. They
 make the design contract, confirmation, and evidence visible and reviewable.
+The complete cache/readback/browser closure is documented in
+[Elementor write verification](elementor-write-verification.md).

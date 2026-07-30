@@ -63,6 +63,15 @@ final class PostWriteLock {
 		return delete_option( $key );
 	}
 
+	public static function owned_by( int $post_id, string $owner ): bool {
+		$current = get_option( self::key( $post_id ), [] );
+		$owner   = sanitize_key( $owner );
+		return is_array( $current )
+			&& '' !== $owner
+			&& (int) ( $current['expires_at'] ?? 0 ) > time()
+			&& hash_equals( (string) ( $current['owner'] ?? '' ), $owner );
+	}
+
 	private static function key( int $post_id ): string {
 		return self::PREFIX . $post_id;
 	}

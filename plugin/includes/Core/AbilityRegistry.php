@@ -78,6 +78,7 @@ use Stonewright\WpMcp\Abilities\ElementorV3\DesignMirrorExport;
 use Stonewright\WpMcp\Abilities\ElementorV3\DocumentHealth;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetPageStructure;
 use Stonewright\WpMcp\Abilities\ElementorV3\PageDigest;
+use Stonewright\WpMcp\Abilities\ElementorV3\PostWriteVerify;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetWidgetSchema;
 use Stonewright\WpMcp\Abilities\ElementorV3\ListWidgets;
 use Stonewright\WpMcp\Abilities\ElementorV3\MoveElement;
@@ -367,6 +368,7 @@ final class AbilityRegistry {
 			GetPageStructure::class,
 			PageDigest::class,
 			DocumentHealth::class,
+			PostWriteVerify::class,
 			BuildTree::class,
 			DesignMirrorExport::class,
 			GetElement::class,
@@ -1499,6 +1501,7 @@ final class AbilityRegistry {
 			'stonewright/elementor-v3-get-page-structure',
 			'stonewright/elementor-v3-build-page-from-spec',
 			'stonewright/elementor-v3-batch-mutate',
+			'stonewright/elementor-post-write-verify',
 			'stonewright/elementor-wire-loop',
 			'stonewright/theme-builder-apply-template',
 			'stonewright/gutenberg-apply-to-post',
@@ -1513,7 +1516,6 @@ final class AbilityRegistry {
 			'stonewright/brand-kit-list',
 			'stonewright/brand-kit-apply',
 			'stonewright/elementor-page-digest',
-			'stonewright/elementor-build-tree',
 			'stonewright/site-pulse',
 			'stonewright/learning-record',
 		];

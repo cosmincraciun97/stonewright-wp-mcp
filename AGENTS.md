@@ -217,6 +217,13 @@ npm run build
   `e-paragraph` → `text-editor`) without explicit user intent; never full-tree
   rewrite to fix one control — use surgical `elementor-v3-batch-mutate`. Prefer
   typed Elementor abilities over php-execute / raw REST / WP-CLI meta.
+- **Elementor write closure (hard):** read the live schema; for visual work send
+  `settings_evidence` with `require_evidence:true`; consolidate one post into one
+  dry-run batch and one apply; never run parallel Elementor writes. After apply,
+  call `stonewright-elementor-post-write-verify` with touched IDs, then verify
+  desktop/tablet/mobile in a separate frontend tab. For boxed containers measure
+  both the outer element and its direct `.e-con-inner`. Meta readback alone is
+  not completion.
 - Validate via `Validator::validate( $spec )` before rendering.
 - Use `stonewright/wp-cli-status`, `stonewright/wp-cli-discover`, and
   `stonewright/wp-cli-run` for WordPress, Elementor, Gutenberg, ACF, CPT UI,

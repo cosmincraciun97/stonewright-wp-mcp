@@ -80,6 +80,8 @@ final class DocumentHealthTest extends TestCase {
 		self::assertContains( 'mixed_architecture', $result['warnings'] );
 		self::assertContains( 'excessive_e_paragraph_nodes', $result['warnings'] );
 		self::assertContains( 'invalid_settings', $result['warnings'] );
+		self::assertSame( 'invalid-0', $result['v3_safe_roots']['items'][0]['element_id'] );
+		self::assertFalse( $result['v3_safe_roots']['truncated'] );
 		self::assertArrayNotHasKey( 'tree', $result );
 		self::assertStringNotContainsString( 'Private paragraph', (string) wp_json_encode( $result ) );
 	}

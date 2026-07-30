@@ -60,6 +60,7 @@ final class DocumentHealth extends AbilityKernel {
 				'issues'            => [ 'type' => 'array' ],
 				'issues_truncated'  => [ 'type' => 'boolean' ],
 				'warnings'          => [ 'type' => 'array' ],
+				'v3_safe_roots'     => [ 'type' => 'object' ],
 			],
 		];
 	}
@@ -131,6 +132,7 @@ final class DocumentHealth extends AbilityKernel {
 			'issues'             => $issues,
 			'issues_truncated'   => $issues_truncated,
 			'warnings'           => $warnings,
+			'v3_safe_roots'      => AtomicTreeInspector::v3_safe_roots( $tree, 100 ),
 		];
 	}
 

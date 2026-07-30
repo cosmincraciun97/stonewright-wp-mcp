@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Support;
 use Stonewright\WpMcp\Elementor\Integrity\DocumentIntegrityGate;
 use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 
 /**
  * Read/write helpers for Elementor V3 page data, which lives in the
@@ -16,9 +17,20 @@ use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
 final class ElementorData {
 
 	private static ?\WP_Error $last_write_error = null;
+	/** @var array<string, mixed> */
+	private static array $last_write_receipt = [];
 
 	public static function last_write_error(): ?\WP_Error {
 		return self::$last_write_error;
+	}
+
+	/**
+	 * Cache-closure receipt for the last verified write in this request.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function last_write_receipt(): array {
+		return self::$last_write_receipt;
 	}
 
 	/**
@@ -73,10 +85,44 @@ final class ElementorData {
 	 * remap). On readback failure the previous document is restored.
 	 *
 	 * @param array<int, array<string, mixed>> $tree    Document tree.
-	 * @param array<string, mixed>             $options force_destructive?, allow_widget_type_remap?, min_size_ratio?, skip_integrity?, touched_ids?.
+	 * @param array<string, mixed>             $options force_destructive?, allow_widget_type_remap?, min_size_ratio?, skip_integrity?, touched_ids?, lock_owner?.
 	 */
 	public static function write( int $post_id, array $tree, array $options = [] ): bool {
 		self::$last_write_error = null;
+		self::$last_write_receipt = [];
+
+		$provided_owner = isset( $options['lock_owner'] ) ? sanitize_key( (string) $options['lock_owner'] ) : '';
+		if ( '' !== $provided_owner ) {
+			if ( ! PostWriteLock::owned_by( $post_id, $provided_owner ) ) {
+				self::$last_write_error = new \WP_Error(
+					'stonewright_elementor_lock_invalid',
+					__( 'The supplied Elementor write-lock owner does not own this post lease.', 'stonewright' ),
+					[ 'status' => 409, 'post_id' => $post_id ]
+				);
+				return false;
+			}
+			return self::write_locked( $post_id, $tree, $options );
+		}
+
+		$owner = 'data-' . substr( hash( 'sha256', $post_id . '|' . hrtime( true ) ), 0, 24 );
+		$lease = PostWriteLock::acquire( $post_id, $owner );
+		if ( $lease instanceof \WP_Error ) {
+			self::$last_write_error = $lease;
+			return false;
+		}
+
+		try {
+			return self::write_locked( $post_id, $tree, $options );
+		} finally {
+			PostWriteLock::release( $post_id, $owner );
+		}
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $tree
+	 * @param array<string, mixed>             $options
+	 */
+	private static function write_locked( int $post_id, array $tree, array $options ): bool {
 		$previous               = self::read( $post_id );
 
 		if ( empty( $options['skip_integrity'] ) ) {
@@ -119,6 +165,7 @@ final class ElementorData {
 
 		$ok = self::persist_encoded( $post_id, $json, $tree );
 		if ( $ok ) {
+			self::$last_write_receipt = PostCacheInvalidator::invalidate( $post_id );
 			return true;
 		}
 
@@ -130,6 +177,7 @@ final class ElementorData {
 				$restored = self::persist_encoded( $post_id, $prev_json, $previous );
 			}
 			if ( $restored ) {
+				PostCacheInvalidator::invalidate( $post_id );
 				self::$last_write_error = new \WP_Error(
 					'stonewright_elementor_readback_failed_restored',
 					__( 'Elementor write readback failed; previous document was restored.', 'stonewright' ),
@@ -170,7 +218,6 @@ final class ElementorData {
 		update_post_meta( $post_id, '_elementor_data', wp_slash( $json ) );
 		update_post_meta( $post_id, '_elementor_edit_mode', 'builder' );
 		update_post_meta( $post_id, '_elementor_version', $elementor_version );
-		PostCacheInvalidator::invalidate( $post_id );
 
 		$stored_data = (string) get_post_meta( $post_id, '_elementor_data', true );
 		$stored_mode = (string) get_post_meta( $post_id, '_elementor_edit_mode', true );
