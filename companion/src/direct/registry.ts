@@ -1417,7 +1417,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 	w3('stonewright-theme-activate', 'Activate a theme via core REST (confirm:true always required).', {
 		site: siteArg, stylesheet: z.string().min(1), confirm: confirmArg,
 	}, (input, runtime) => themes.themeActivate(runtime, input as never));
-	w3('stonewright-custom-css', 'Probe or attempt custom CSS via settings REST (may require plugin).', {
+	w3('stonewright-custom-css', 'Read Customizer CSS when core exposes it. Direct mode blocks updates; use the plugin approval-gated tool for writes.', {
 		site: siteArg, action: z.enum(['get', 'update']), css: z.string().optional(), confirm: confirmArg,
 	}, (input, runtime) => themes.customCss(runtime, input as never));
 

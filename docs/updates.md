@@ -4,6 +4,11 @@ The WordPress plugin and Node companion are separate release artifacts. Use
 the same Stonewright version for both whenever local stdio connects to a site
 with the plugin.
 
+Local stdio means the AI client starts the companion on the user's computer and
+communicates with that process through standard input/output. Remote HTTP
+connects directly to the WordPress plugin over HTTPS, so there is no local
+companion to update. Direct mode always uses the companion.
+
 ## Which component needs an update?
 
 | Connection | Update the plugin | Update the companion |

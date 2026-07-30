@@ -1,4 +1,4 @@
-import { assertToolEnabled, assertWriteAllowed } from "../writes.js";
+import { assertToolEnabled } from "../writes.js";
 import { appendDirectAudit } from "../audit.js";
 import type { DirectToolContext } from "./types.js";
 
@@ -99,32 +99,11 @@ export async function customCss(
       settings: { [found]: settings[found] },
     };
   }
-  assertWriteAllowed({
-    site: ctx.site.alias,
-    mode: ctx.writeMode,
-    destructive: true,
-    ...(input.confirm !== undefined ? { confirm: input.confirm } : {}),
-    tool: "stonewright-custom-css",
-  });
-  // Best-effort: many installs reject unknown settings keys.
-  try {
-    const updated = await ctx.client.post<Record<string, unknown>>(
-      "/wp/v2/settings",
-      {
-        body: { custom_css: input.css ?? "" },
-      },
-    );
-    appendDirectAudit({
-      tool: "stonewright-custom-css",
-      site: ctx.site.alias,
-      resource: "settings/custom_css",
-      status: "ok",
-    });
-    return { supported: true, action: "update", settings: updated };
-  } catch {
-    return {
-      supported: false,
-      hint: "Custom CSS requires the Stonewright plugin on this site.",
-    };
-  }
+  return {
+    supported: false,
+    action: "update",
+    approval_required: true,
+    agent_must_stop: true,
+    hint: "Direct mode cannot write custom code because it has no authenticated wp-admin one-time-grant boundary. Use the Stonewright plugin tool stonewright-theme-custom-css: run dry_run, show the human approval URL, exact path, byte counts, and summary, then stop.",
+  };
 }

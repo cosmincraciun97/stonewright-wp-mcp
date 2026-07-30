@@ -30,7 +30,7 @@ final class ThemeFilePatch extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Safely patch child-theme CSS/JS/PHP within an allowlist. Requires dry_run first for code assets, full-file validation, operator custom-code grant for apply, atomic write, readback, and bootstrap smoke with automatic rollback. Prefer marker-bounded replacements over unrestricted append.', 'stonewright' );
+		return __( 'Safely patch child-theme CSS/JS/PHP within an allowlist. Requires dry_run first for code assets, full-file validation, a human-issued custom-code grant for apply, atomic write, readback, and bootstrap smoke with automatic rollback. Prefer marker-bounded replacements over unrestricted append.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -84,7 +84,7 @@ final class ThemeFilePatch extends AbilityKernel {
 				],
 				'custom_code_grant'  => [
 					'type'        => 'string',
-					'description' => 'Single-use operator grant bound to candidate after_sha256. Required to apply PHP/CSS/JS writes.',
+					'description' => 'Single-use human-issued grant bound to candidate after_sha256. Required to apply PHP/CSS/JS writes.',
 				],
 				'native_gap'         => [
 					'type'                 => 'object',
@@ -276,12 +276,17 @@ final class ThemeFilePatch extends AbilityKernel {
 						'backup_path'         => null,
 						'preview'             => self::preview_tail( $after ),
 						'diff_preview'        => $diff_preview,
+						'change_summary'      => self::change_summary( $resolved['relative'], $mode, $before, $after, $changed_bytes ),
 						'validator_summary'   => $validator_summary,
 						'risk_class'          => $risk,
 						'approval_required'   => $is_code && $changed,
 						'approval_url'        => is_array( $proposal ) ? (string) $proposal['approval_url'] : '',
 						'proposal_id'         => is_array( $proposal ) ? (string) $proposal['proposal_id'] : '',
 						'proposal_expires_at' => is_array( $proposal ) ? (string) $proposal['expires_at'] : '',
+						'agent_must_stop'     => $is_code && $changed,
+						'operator_action'     => $is_code && $changed
+							? 'Human reviews the proposal in wp-admin, issues the one-time grant, and sends the token back.'
+							: 'No approval needed because the candidate is unchanged or is not executable code.',
 						'native_gap'          => $native_gap,
 						'execution_status'    => 'ok',
 						'verification_status' => 'dry_run',
@@ -306,10 +311,11 @@ final class ThemeFilePatch extends AbilityKernel {
 								'before_sha256' => $before_hash,
 								'changed_bytes' => $changed_bytes,
 								'diff_preview'  => $diff_preview,
+								'change_summary'=> self::change_summary( $resolved['relative'], $mode, $before, $after, $changed_bytes ),
 								'risk_class'    => $risk,
 								'test_plan'     => [
 									'Validate complete candidate (already done in dry_run).',
-									'Issue custom-code grant for after_sha256.',
+									'Human issues a one-time custom-code grant for after_sha256.',
 									'Apply with same content + grant.',
 									'Confirm smoke and Memory/Audit effect fields.',
 								],
@@ -508,6 +514,25 @@ final class ThemeFilePatch extends AbilityKernel {
 			return 'elevated';
 		}
 		return 'standard_custom_code';
+	}
+
+	/** @return array{path:string,mode:string,before_bytes:int,after_bytes:int,changed_bytes:int,summary:string} */
+	private static function change_summary( string $path, string $mode, string $before, string $after, int $changed_bytes ): array {
+		return [
+			'path'          => $path,
+			'mode'          => $mode,
+			'before_bytes'  => strlen( $before ),
+			'after_bytes'   => strlen( $after ),
+			'changed_bytes' => $changed_bytes,
+			'summary'       => sprintf(
+				/* translators: 1: target path, 2: patch mode, 3: bytes before, 4: bytes after. */
+				__( 'Patch %1$s with %2$s (%3$d bytes to %4$d bytes).', 'stonewright' ),
+				$path,
+				$mode,
+				strlen( $before ),
+				strlen( $after )
+			),
+		];
 	}
 
 	/** @return array<int, string> */

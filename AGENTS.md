@@ -44,6 +44,14 @@ override default behavior.
    REST write endpoints, must run WP-CLI with `execFile` argv tokens only, and
    PHP snippets must go through `stonewright/php-execute` rather than WP-CLI
    eval, shell, package, `--exec`, or `--require` entry points.
+8. **Custom code stops at human approval.** For theme files, Customizer CSS,
+   WPCode, Code Snippets, or any equivalent PHP/CSS/JS/HTML surface, run the
+   typed dry-run first. Return `approval_url`, exact target path, byte counts,
+   and a short change summary, then stop. Never open the approval page, issue
+   or retrieve a grant, or apply with `custom_code_grant` unless the user
+   explicitly asks the agent to perform that approval step. Pluginless Direct
+   mode may inspect custom CSS but must not write it because it has no
+   authenticated wp-admin grant boundary.
 
 ## Third-party source reuse
 

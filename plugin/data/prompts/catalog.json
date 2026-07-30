@@ -398,6 +398,25 @@
       ],
       "prompt": "Use Stonewright. Call stonewright-task-start. Digest the page, then stonewright-elementor-v3-transaction-run with stop_on_error and rollback_on_error. Prefer native widgets. If readback fails, confirm automatic rollback and report snapshot id.",
       "verification": "Transaction result ok or rolled_back with snapshot; no partial silent failure."
+    },
+    {
+      "id": "custom-code-human-approval",
+      "title": "Custom code with human approval",
+      "outcome": "safety",
+      "modes": ["plugin"],
+      "summary": "Prepare an exact theme-file or Customizer CSS proposal and stop for a human-issued one-time grant.",
+      "prerequisites": [
+        "Plugin mode",
+        "Authenticated administrator",
+        "Proven native gap"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-theme-file-patch",
+        "stonewright-theme-custom-css"
+      ],
+      "prompt": "Use Stonewright and call stonewright-task-start first. Prove the native gap, then run the matching approval-gated custom-code tool with dry_run:true. Return approval_url, exact path, before_bytes, after_bytes, changed_bytes, and a short change summary, then stop. Do not open the approval page, issue or retrieve the grant, or apply the candidate unless I explicitly ask you to perform that approval step. After I send the one-time custom_code_grant, apply only the exact approved hash and report backup, readback, smoke, and rollback status.",
+      "verification": "No write occurs before the human-issued grant; candidate path and hash remain unchanged; apply reports verified readback and audit fields."
     }
   ]
 }

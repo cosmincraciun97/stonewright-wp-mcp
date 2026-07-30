@@ -18,6 +18,18 @@ https://example.com/wp-json/mcp/stonewright-oauth
 
 Use **Manage connected apps** to inspect or revoke active grants.
 
+## Choose the connection method
+
+- **Local stdio** means the AI client starts the Stonewright companion on your
+  computer and talks to it through standard input/output. Use it for Direct
+  mode, local WP-CLI, or clients that expect a local command-based MCP server.
+- **Remote Streamable HTTP** connects the AI client straight to the Stonewright
+  WordPress plugin over HTTPS. It does not install, start, or require a local
+  companion.
+
+Direct mode requires local stdio because Direct is implemented by the
+companion. A plugin-only remote HTTP connection does not use the companion.
+
 ## Application Password fallback
 
 This guide covers wiring supported AI clients to Stonewright. The shortest path

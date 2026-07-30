@@ -12,11 +12,20 @@ The companion provides:
 - tokenized WP-CLI execution for WordPress implementation and debugging
 - optional MCP HTTP proxy
 
+In plain language, **local stdio** means the AI client starts this companion on
+the user's computer and communicates with it through standard input/output. The
+companion is therefore required for local stdio, Direct mode, and local WP-CLI.
+A **Remote Streamable HTTP** connection goes straight to the WordPress plugin
+over HTTPS and does not run this companion.
+
 In **plugin mode**, WordPress mutations go through the Stonewright plugin MCP
 endpoint (or tokenized WP-CLI). In **Direct mode**, the companion talks to core
 WordPress REST with Application Passwords. WP-CLI always uses `execFile` argv
 tokens, never shell strings. WP-CLI PHP/shell entry points remain blocked:
 `wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, and `--require`.
+Direct mode may inspect Customizer CSS when core exposes it, but it never writes
+custom PHP/CSS/JS/HTML because pluginless mode has no authenticated wp-admin
+one-time-grant boundary.
 
 MIT License.
 

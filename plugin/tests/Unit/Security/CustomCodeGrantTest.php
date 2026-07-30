@@ -109,6 +109,8 @@ final class CustomCodeGrantTest extends TestCase {
 		$proposal = CustomCodeGrant::missing_grant_proposal( [ 'path' => 'functions.php' ] );
 		self::assertFalse( $proposal['applied'] );
 		self::assertTrue( $proposal['approval_required'] );
+		self::assertTrue( $proposal['agent_must_stop'] );
+		self::assertStringContainsString( 'Do not open the approval page', $proposal['message'] );
 	}
 
 	public function test_standard_grant_cannot_authorize_high_risk_php(): void {

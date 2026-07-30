@@ -4,6 +4,14 @@ The Configuration page is the first sub-page under the **Stonewright** menu
 (`dashicons-hammer`, position 76). It owns guided cards for master enable,
 authentication, MCP client connection, updates, and live verification.
 
+The connection picker defines both choices in plain language:
+
+- **Local stdio:** the AI client starts the companion on the user's computer
+  and communicates with it through standard input/output. Required for Direct
+  mode and local WP-CLI.
+- **Remote Streamable HTTP:** the AI client connects directly to the WordPress
+  plugin over HTTPS. No companion runs locally.
+
 ## Authentication chooser
 
 Card 2 recommends OAuth on HTTPS and explicit local WordPress environments.

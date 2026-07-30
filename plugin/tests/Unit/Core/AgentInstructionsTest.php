@@ -116,8 +116,8 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'Candidate expertise is advisory only', $instructions );
 		$this->assertStringContainsString( 'Do not use a full-page screenshot as a section background', $instructions );
 		$this->assertStringContainsString( 'asset selection plan', $instructions );
-		$this->assertStringContainsString( 'Custom CSS requires explicit user approval', $instructions );
-		$this->assertStringContainsString( 'active theme style.css', $instructions );
+		$this->assertStringContainsString( 'Custom PHP/CSS/JS/HTML requires the approval-gated typed tool', $instructions );
+		$this->assertStringContainsString( 'intended theme-file or Customizer CSS surface', $instructions );
 		$this->assertStringContainsString( 'responsive desktop, tablet, and mobile layouts', $instructions );
 		$this->assertStringContainsString( 'sticky', $instructions );
 		$this->assertStringContainsString( 'hamburger', $instructions );
@@ -145,6 +145,9 @@ final class AgentInstructionsTest extends TestCase {
 		$this->assertStringContainsString( 'typed_api', $instructions );
 		$this->assertStringContainsString( 'Verified learning', $instructions );
 		$this->assertStringContainsString( 'verified:true', $instructions );
+		$this->assertStringContainsString( 'First run dry_run and show the user approval_url', $instructions );
+		$this->assertStringContainsString( 'Never open the approval page', $instructions );
+		$this->assertStringContainsString( 'Customizer CSS, WPCode, Code Snippets', $instructions );
 	}
 
 	public function test_permanent_rules_present_when_custom_instructions_disabled(): void {

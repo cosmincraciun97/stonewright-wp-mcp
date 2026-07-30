@@ -12,6 +12,7 @@ use Stonewright\WpMcp\Abilities\Themes\ThemeFilePatch;
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Security\ConfirmationToken;
+use Stonewright\WpMcp\Security\CustomCodeGrant;
 
 /**
  * Behavioral coverage for canonical payload bytes at every code-write boundary.
@@ -260,24 +261,56 @@ final class CodeFormatterWiringTest extends TestCase {
 
 	public function test_issued_true_token_executes_theme_custom_css_target(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
-		$args = [
+		$base = [
 			'action'                => 'update',
 			'css'                   => '.issued { color: red; }\n.issued strong { color: blue; }',
 			'decode_escaped_layout' => true,
+			'native_gap'            => [
+				'reason'        => 'The fixture exercises the approval-gated Customizer CSS transaction.',
+				'methods_tried' => [ 'typed_api', 'admin_form' ],
+			],
 		];
+
+		$dry_args = array_merge( $base, [ 'dry_run' => true ] );
 		$issued = ( new IssueConfirmationToken() )->execute(
 			[
 				'ability' => 'stonewright/theme-custom-css',
-				'args'    => $args,
+				'args'    => $dry_args,
 			]
 		);
 		self::assertIsArray( $issued );
 
+		$dry_run = ( new ThemeCustomCss() )->execute(
+			array_merge( $dry_args, [ 'confirmation_token' => $issued['token'] ] )
+		);
+		self::assertIsArray( $dry_run );
+		self::assertTrue( $dry_run['agent_must_stop'] );
+
+		$grant = CustomCodeGrant::approve_proposal( (string) $dry_run['proposal_id'] );
+		self::assertIsArray( $grant );
+
+		$apply_args = $base;
+		$apply_token = ( new IssueConfirmationToken() )->execute(
+			[
+				'ability' => 'stonewright/theme-custom-css',
+				'args'    => $apply_args,
+			]
+		);
+		self::assertIsArray( $apply_token );
+
 		$result = ( new ThemeCustomCss() )->execute(
-			array_merge( $args, [ 'confirmation_token' => $issued['token'] ] )
+			array_merge(
+				$apply_args,
+				[
+					'confirmation_token' => $apply_token['token'],
+					'custom_code_grant'  => $grant['token'],
+				]
+			)
 		);
 
 		self::assertIsArray( $result );
+		self::assertTrue( $result['applied'] );
+		self::assertSame( 'verified', $result['verification_status'] );
 		self::assertSame(
 			".issued { color: red; }\n.issued strong { color: blue; }\n",
 			$result['css']
@@ -496,15 +529,47 @@ final class CodeFormatterWiringTest extends TestCase {
 	public function test_theme_custom_css_persists_and_audits_canonical_css_without_source_leak(): void {
 		$raw       = '.task5 { color: red; }\n.task5 strong { color: blue; }';
 		$canonical = ".task5 { color: red; }\n.task5 strong { color: blue; }\n";
-		$result    = ( new ThemeCustomCss() )->execute(
+		$base      = [
+			'action'                => 'update',
+			'css'                   => $raw,
+			'decode_escaped_layout' => true,
+			'native_gap'            => [
+				'reason'        => 'No native control owns this fixture CSS.',
+				'methods_tried' => [ 'typed_api', 'admin_form' ],
+			],
+		];
+
+		$blocked = ( new ThemeCustomCss() )->execute( $base );
+		self::assertInstanceOf( \WP_Error::class, $blocked );
+		self::assertSame( 'stonewright_custom_code_grant_required', $blocked->get_error_code() );
+		self::assertSame( '', $GLOBALS['stonewright_test_custom_css'] );
+		$blocked_data = (array) $blocked->get_error_data();
+		self::assertTrue( $blocked_data['agent_must_stop'] );
+		self::assertSame( 'customizer/custom-css/sw-code-wiring.css', $blocked_data['path'] );
+		self::assertSame( $blocked_data['path'], $blocked_data['change_summary']['path'] );
+
+		$dry_run   = ( new ThemeCustomCss() )->execute(
+			array_merge( $base, [ 'dry_run' => true ] )
+		);
+		self::assertIsArray( $dry_run );
+		self::assertTrue( $dry_run['approval_required'] );
+		self::assertTrue( $dry_run['agent_must_stop'] );
+		self::assertSame( 'customizer/custom-css/sw-code-wiring.css', $dry_run['path'] );
+		self::assertSame( strlen( $canonical ), $dry_run['after_bytes'] );
+		self::assertSame( $dry_run['path'], $dry_run['change_summary']['path'] );
+
+		$grant = CustomCodeGrant::approve_proposal( (string) $dry_run['proposal_id'] );
+		self::assertIsArray( $grant );
+
+		$result = ( new ThemeCustomCss() )->execute(
 			[
-				'action'                => 'update',
-				'css'                   => $raw,
-				'decode_escaped_layout' => true,
+				...$base,
+				'custom_code_grant' => $grant['token'],
 			]
 		);
 
 		self::assertIsArray( $result );
+		self::assertTrue( $result['applied'] );
 		self::assertSame( $canonical, $GLOBALS['stonewright_test_custom_css'] );
 		self::assertSame( $canonical, $result['css'] );
 
@@ -515,6 +580,7 @@ final class CodeFormatterWiringTest extends TestCase {
 			$audit['css'] ?? null
 		);
 		self::assertStringNotContainsString( '.task5', (string) wp_json_encode( $audit ) );
+		self::assertStringContainsString( '[redacted', (string) ( $audit['custom_code_grant'] ?? '' ) );
 	}
 
 	/**

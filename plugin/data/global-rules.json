@@ -165,6 +165,17 @@
 		}
 	},
 	{
+		"id": "custom-code-human-handoff",
+		"severity": "strong",
+		"scope": "code",
+		"rule": "After any custom-code dry-run, return the approval URL, exact target path, byte counts, and a short change summary, then stop. Do not open the approval page, issue or retrieve a grant, or apply the candidate unless the user explicitly asks the agent to perform that approval step. This applies to theme files, Customizer CSS, snippet managers, and equivalent code surfaces.",
+		"why": "Opening the approval UI or issuing a grant automatically collapses the human review boundary into the same agent action that proposed the code.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
 		"id": "confirm-destructive-in-production-safe",
 		"severity": "hard",
 		"scope": "all",

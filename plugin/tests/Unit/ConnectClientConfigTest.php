@@ -214,6 +214,11 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'STONEWRIGHT_WP_APP_PASSWORD', $prompt );
 		$this->assertStringContainsString( 'STONEWRIGHT_MCP_TOOL_PROFILE', $prompt );
 		$this->assertStringContainsString( 'Prefer OAuth', $prompt );
+		$this->assertStringContainsString( 'communicates with it through standard input/output', $prompt );
+		$this->assertStringContainsString( 'required for local stdio, Direct mode, and local WP-CLI', $prompt );
+		$this->assertStringContainsString( 'It does not run or require a local companion', $prompt );
+		$this->assertStringContainsString( 'Show me approval_url, exact path, byte counts, and a short summary, then stop', $prompt );
+		$this->assertStringContainsString( 'Never open the approval page', $prompt );
 		$this->assertStringContainsString( 'Keep credentials only in the private client config or ~/.stonewright/sites.json', $prompt );
 		$this->assertStringContainsString( 'fully restart or reload the MCP session', $prompt );
 		$this->assertStringContainsString( 'stonewright-task-start', $prompt );

@@ -8,6 +8,11 @@ Stonewright has two parts and two supported operating modes:
   health checks, optional MCP proxying, tokenized WP-CLI, and first-class
   pluginless Direct mode.
 
+Local stdio means the MCP client starts the companion on the user's computer
+and communicates through the process's standard input/output streams. Direct
+mode lives inside that companion. Remote Streamable HTTP bypasses the companion
+and connects straight to the WordPress plugin over HTTPS.
+
 ```mermaid
 flowchart TD
     Client["MCP client"]

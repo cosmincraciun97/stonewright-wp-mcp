@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Clarify that local stdio starts the companion on the user's computer, while
+  Remote Streamable HTTP connects directly to the plugin.
+- Keep Direct mode custom CSS readable where core exposes it, but block writes
+  because pluginless mode has no authenticated wp-admin one-time-grant
+  boundary.
+- Mirror the human custom-code handoff rule from Plugin mode.
+
 ## [1.0.0-beta.2] - 2026-07-30
 
 ### Changed
