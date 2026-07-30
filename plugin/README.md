@@ -45,6 +45,8 @@ beside WooCommerce or another Jetpack-Autoloader consumer.
 
 See [WooCommerce support](../docs/woocommerce.md) for the catalog and storefront
 support matrix.
+See [Updating Stonewright](../docs/updates.md) for plugin/companion version
+matching, upgrade steps, and persistence guarantees.
 
 Normal MCP clients launch the versioned companion release tarball with `npx`.
 Use the admin **Local WP-CLI bridge (advanced)** controls only when you
@@ -158,6 +160,12 @@ They are site-local and are not included in release ZIPs or the npm companion.
 Do not publish credentials, private memory, or client-specific instructions in
 public docs, commits, issues, or release notes.
 
+A fresh activation creates the schema with no memory rows, no user-created
+skills, and no audit events. Generic built-in skills and native rules are
+versioned product assets. Upgrades run schema migrations in place and never
+reset existing memory, user skills, audit history, or admin settings. Memory
+and skill writes reject high-confidence credential material.
+
 Site memory is for what is true about **this** site. Rules that hold everywhere
 belong in the shipped native rule registry instead — see [Native Rules](#native-rules).
 
@@ -205,10 +213,11 @@ the registry rather than restating rule text in PHP.
 
 ### Client Setup In Admin
 
-The Configuration page has a three-step setup flow: enable abilities, choose
-OAuth or generate a WordPress Application Password, then copy client-specific
-instructions. It also includes copyable real-world prompt
-examples for Elementor, content modeling, WooCommerce, and Gutenberg/FSE work.
+The Configuration page guides enablement, authentication, client connection,
+component updates, and live verification. Private client snippets may contain a
+newly generated one-time Application Password; the paste-to-agent prompt always
+uses placeholders. The dedicated Prompt Library labels Plugin/Direct support
+and includes requirements plus verification.
 
 ### Design Studio And Visual Workspace
 

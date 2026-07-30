@@ -5,8 +5,8 @@ All notable changes to Stonewright are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-This file keeps a **5-release retention policy** for versioned sections (plus
-Unreleased); older history lives in git tags and GitHub releases.
+The public changelog starts with the first beta. Pre-beta development builds
+were never stable releases and are not part of the supported public history.
 
 ## [Unreleased]
 
@@ -23,6 +23,10 @@ Unreleased); older history lives in git tags and GitHub releases.
   integrations without typed adapters are reported as discovery-only.
 - Public-repository hygiene checks for private project identifiers in source,
   staged release archives, and optionally commit history.
+- A credential-free paste-to-agent prompt, Plugin/Direct badges in the Prompt
+  Library, and an in-product update guide for the plugin and companion.
+- Persistent-data lifecycle contracts proving that fresh installs start with
+  no user memory, user-created skills, or audit events.
 
 ### Changed
 
@@ -34,6 +38,20 @@ Unreleased); older history lives in git tags and GitHub releases.
   confirmations, record audit entries, and verify readback.
 - Storefront guidance routes Elementor through live Woo widget schemas and
   Gutenberg/FSE through registered `woocommerce/*` block schemas.
+- Direct mode remains first-class: it accepts the canonical `appPassword`
+  sites key plus the legacy key, writes private state with restrictive file
+  permissions, prints a secret-free client configuration, starts with
+  `stonewright-task-start`, and no longer labels local memory as plugin-only.
+- Setup diagnostics never return a supplied password or authorization value;
+  copyable environment blocks use private placeholders.
+- Plugin and Direct memory/skill writes reject high-confidence credential
+  material. Direct audit errors redact authorization headers, tokens, and
+  Application Passwords before persistence.
+- Updates preserve existing plugin memory, user skills, audit history, admin
+  settings, and Direct state under `~/.stonewright/`.
+- The native rule registry, bounded memory generalization, response field
+  projection, Elementor `knownHash` reads, and conservative escaped-layout
+  decoding are part of the first supported beta baseline.
 
 ### Fixed
 
@@ -42,83 +60,5 @@ Unreleased); older history lives in git tags and GitHub releases.
   archives.
 - Release checks now test WooCommerce co-activation and reject archives with
   missing Composer-manifest targets.
-
-## [1.0.0-alpha.92] - 2026-07-30
-
-### Added
-
-- A shared native-rule registry for Plugin and Direct mode, with explicit
-  severity and runtime-enforcement classifications, digest caching, and the
-  read-only `rules-get` surface.
-- Bounded, cursor-based memory generalization with dry-run preview and guarded
-  apply mode.
-- Response field projection through `stonewright_fields`, plus `knownHash`
-  short-circuit reads for Elementor page structures.
-- Conservative, opt-in escaped-layout decoding for supported code payloads.
-
-### Changed
-
-- Native batching guidance is sourced from the shared rule registry.
-- Direct mode validates and canonicalizes every packaged native-rule record
-  before exposing it, matching the plugin loader's fail-closed behavior.
-- The WordPress admin now ships one supported light theme.
-
-### Fixed
-
-- OAuth audit classification preserves protocol failures without storing
-  request or response credentials echoed inside diagnostic fields.
-- Memory generalization now returns an explicit partial-failure error when any
-  planned database update fails, including the failed ids and continuation
-  state.
-- Elementor responsive control detection covers suffixed controls and
-  standalone visibility switchers.
-- Elementor structure hashes ignore associative JSON key order while preserving
-  semantic element-list order.
-- Projected integer-keyed maps retain their keys, projected list members retain
-  source order, and the light-only browser matrix matches the shipped admin.
-
-### Removed
-
-- The obsolete admin theme toggle, stored dark preference, and duplicate dark
-  token set.
-
-## [1.0.0-alpha.91] - 2026-07-26
-
-### Added
-
-- `stonewright/design-direction-brief`, a compact read-only ability that turns
-  the active direction's variance, density, and motion dials into reusable
-  Elementor guidance without returning the full stored contract for every
-  section.
-- Guided onboarding, contextual keyboard-accessible tooltips, and explicit
-  readiness controls in Design Studio.
-
-### Changed
-
-- The Figma-to-Elementor skills now use one shallow document read, one
-  token/style read, then per-section normalized DesignEvidence. They reuse the
-  compact direction brief, enforce measured responsive targets, and avoid
-  repetitive generic compositions and undeclared visual defaults.
-- Visual Workspace now opens the real Elementor or block editor in a
-  same-origin companion window and resolves adapters against that live runtime.
-
-### Fixed
-
-- Style the Visual Workspace post picker and editor connection controls with
-  the Stonewright admin design system.
-- Mount the workspace immediately in a truthful disconnected state, then replace
-  that controller without races when the real editor runtime attaches.
-
-## [1.0.0-alpha.90] - 2026-07-26
-
-### Fixed
-
-- ChatGPT can scan and refresh every MCP action without rejecting empty JSON
-  Schema fragments encoded as arrays.
-
-## [1.0.0-alpha.89] - 2026-07-26
-
-### Fixed
-
-- ChatGPT and other OAuth clients can now complete administrator consent instead
-  of stopping on a generic authorization error.
+- Preserve every packaged generic skill during fresh-install seeding without
+  weakening the credential guard for user-created skills.

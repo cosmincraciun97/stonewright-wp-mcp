@@ -103,7 +103,7 @@ describe('direct wave 3 tools', () => {
 		const client = new WpRestClient(site, { fetchImpl });
 		await userCreate(
 			{ client, site, writeMode: 'on' },
-			{ username: 'n', email: 'n@example.com', password: 'longpassword12', confirm: true },
+			{ username: 'n', email: 'n@example.com', password: 'test-long-password-12', confirm: true },
 		);
 		expect(String(fetchImpl.mock.calls[0]?.[0])).toContain('/wp/v2/users');
 	});

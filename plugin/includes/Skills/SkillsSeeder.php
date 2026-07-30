@@ -81,7 +81,7 @@ final class SkillsSeeder {
 			}
 		}
 
-		Skills::save( [
+		Skills::save_packaged( [
 			'slug'           => 'playbook-' . sanitize_title( $base ),
 			'title'          => $title,
 			'description'    => $description,
@@ -142,11 +142,11 @@ final class SkillsSeeder {
 			$fields['version_constraints'] = $constraints;
 		}
 
-		Skills::save( $fields );
+		Skills::save_packaged( $fields );
 	}
 
 	private static function seed_meta_skill(): void {
-		Skills::save( [
+		Skills::save_packaged( [
 			'slug'           => 'stonewright-how-to-write-skills',
 			'title'          => 'How to write Stonewright skills',
 			'description'    => 'Teaches agents how to create new site-specific skills and playbooks.',

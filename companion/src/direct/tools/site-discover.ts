@@ -215,9 +215,9 @@ export async function siteDiscover(ctx: DirectToolContext) {
       "WP-CLI tools (local companion)",
     ],
     unavailable_without_plugin: unavailable,
-    first_tool: "stonewright-site-discover",
+    first_tool: "stonewright-task-start",
     upgrade_hint: detected.stonewright_plugin
       ? "Stonewright plugin namespaces detected. Prefer STONEWRIGHT_MODE=plugin or auto for full ability proxy."
-      : "Install the Stonewright plugin (Setup page → about 1 minute) for Elementor engine, php-execute, memory, and production-safe confirmation tokens.",
+      : "Direct local memory and user skills are active. Install the Stonewright plugin only for its native mutation engine, php-execute, and production-safe confirmation tokens.",
   };
 }

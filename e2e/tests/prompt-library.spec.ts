@@ -27,6 +27,13 @@ test.describe('Prompt Library tab', () => {
 		const cards = page.locator('[data-sw-prompt-card]');
 		await expect(cards.first()).toBeVisible();
 		expect(await cards.count()).toBeGreaterThanOrEqual(20);
+		await expect(page.locator('.sw-prompt-safety')).toContainText(
+			'Prompts contain no site URL, username, Application Password, token',
+		);
+		await expect(page.locator('.sw-prompt-modes').filter({ hasText: 'Plugin' }).first()).toBeVisible();
+		await expect(page.locator('.sw-prompt-modes').filter({ hasText: 'Direct' }).first()).toBeVisible();
+		await expect(page.getByText('Update and verify Stonewright', { exact: true })).toBeVisible();
+		await expect(page.getByText('Direct mode safe site inspection', { exact: true })).toBeVisible();
 		const copy = page.locator('.sw-copy-prompt').first();
 		await copy.click();
 		await expect(copy).toContainText(/Copied|Copy/i, { timeout: 3_000 });

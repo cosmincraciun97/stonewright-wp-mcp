@@ -61,7 +61,7 @@ Set Application Password credentials and point at the site URL. With
 `/wp-json/mcp/stonewright`:
 
 - endpoint present → plugin proxy (full Stonewright abilities)
-- HTTP 404 → Direct mode (98 tools in the current full surface)
+- HTTP 404 → Direct mode (100 tools in the current full surface)
 
 Force either path with `STONEWRIGHT_MODE=direct` or `STONEWRIGHT_MODE=plugin`.
 
@@ -84,6 +84,15 @@ Force either path with `STONEWRIGHT_MODE=direct` or `STONEWRIGHT_MODE=plugin`.
 
 Replace `VERSION` in every package URL with the exact release version without a
 leading `v`.
+
+For a guided Direct setup, run:
+
+```bash
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-companion init
+```
+
+It writes credentials only to permission-restricted
+`~/.stonewright/sites.json` and prints a secret-free MCP client block.
 
 First call in Direct mode: `stonewright-task-start`. Then use
 `stonewright-site-discover`; it lists REST namespaces,
@@ -181,6 +190,9 @@ MCP client and rerun `stonewright-setup-profile` plus
 `expected_companion_package`, and `refresh_required_tool_names` with the visible
 tool list. Missing refresh-required tools mean the client is still using a stale
 companion process or cached tool surface.
+
+For component-by-component upgrade steps and state-preservation guarantees,
+see [Updating Stonewright](updates.md).
 
 Do not recover from a missing tool by running `wp cli info`, `wp plugin
 activate`, `wp option update`, or other `wp` commands in a normal shell, and do

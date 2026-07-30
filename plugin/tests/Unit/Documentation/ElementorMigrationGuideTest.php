@@ -18,6 +18,6 @@ final class ElementorMigrationGuideTest extends TestCase {
 			self::assertStringContainsString( '`' . $ability->name() . '`', $guide );
 		}
 		self::assertSame( 94, substr_count( $guide, '| `stonewright/elementor-add-' ) );
-		self::assertStringContainsString( 'earliest removal release is alpha.67', $guide );
+		self::assertStringContainsString( 'earliest eligible removal is beta.3', $guide );
 	}
 }

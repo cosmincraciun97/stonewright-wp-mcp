@@ -38,7 +38,8 @@ against core WordPress REST.
 - Network errors → keep plugin proxy path (existing recovery)
 
 Call `stonewright-site-discover` first in Direct mode. It reports available REST
-surface and plugin-only gaps (Elementor engine, php-execute, memory, etc.).
+surface and plugin-only gaps such as typed Elementor engines, php-execute, and
+site-hosted state.
 
 ### Capability matrix
 
@@ -63,9 +64,9 @@ surface and plugin-only gaps (Elementor engine, php-execute, memory, etc.).
 | Elementor edit **without editor** | yes — `elementor-data-get/update` (WP-CLI local; REST meta on remote when registered; file backup) | yes — typed `elementor-v3-batch-mutate` etc. |
 | Elementor V3/V4 engines + schema | no | yes |
 | DesignSpec validate/render | no | yes |
-| Site memory / skills store | no | yes |
+| Memory / skills store | yes — private local state | yes — site-hosted |
 | Production-safe confirmation tokens | no | yes |
-| Server-side audit log UI | no | yes |
+| Audit | local redacted JSONL; no server UI | server-side UI |
 
 Destructive Direct writes on remote sites require `confirm: true` when
 `STONEWRIGHT_DIRECT_WRITES=confirm` (default for non-local hosts).
@@ -92,6 +93,17 @@ Fast path for MCP clients:
 ```
 
 Replace `VERSION` with the exact release version without a leading `v`.
+
+For guided Direct setup:
+
+```bash
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-companion init
+```
+
+It validates the WordPress credential, stores `appPassword` in
+permission-restricted `~/.stonewright/sites.json`, and prints a secret-free MCP
+configuration. Existing files with the legacy `applicationPassword` key remain
+compatible.
 
 ### Doctor (connection health)
 
@@ -234,6 +246,9 @@ and reuse it in future agent sessions.
 Env credentials still win. Set `STONEWRIGHT_WP_APP_PASSWORD_AUTO=never` to
 disable generation, or `always` to allow generation for non-local sites.
 
+Never store credentials in Stonewright memory, user skills, public docs,
+commits, issue reports, or admin instructions.
+
 Most users do not need the HTTP bridge. Standard MCP clients should launch the
 companion with the versioned GitHub release tarball shown by the WordPress admin.
 Use the WordPress admin
@@ -371,5 +386,11 @@ npm run build
 |---|---|
 | `~/.stonewright/skills/<scope>/<slug>.md` | Local skill playbooks (markdown + frontmatter) |
 | `~/.stonewright/memory/<scope>.jsonl` | Local memory entries |
+| `~/.stonewright/audit-direct.jsonl` | Local Direct audit events with credential redaction |
 
 Set `STONEWRIGHT_STATE_DIR` in tests to override the base directory. Skills load on demand via `skill-get`; `task-start` only returns matched refs.
+
+A new state directory contains no user memory, user-created skills, or audit
+events. Packaged generic built-ins remain available. Companion replacement and
+restart preserve existing state. Memory and skill writes reject
+high-confidence credential material.

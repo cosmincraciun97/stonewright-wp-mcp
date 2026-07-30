@@ -201,6 +201,7 @@
       "id": "wp-cli-cache-rewrite",
       "title": "WP-CLI cache and rewrite health",
       "outcome": "ops",
+      "modes": ["plugin", "direct"],
       "summary": "Tokenized WP-CLI status, rewrite flush when safe.",
       "prerequisites": [
         "Companion with WP-CLI path",
@@ -307,6 +308,7 @@
       "id": "profile-self-upgrade",
       "title": "Upgrade tool profile mid-session",
       "outcome": "ops",
+      "modes": ["plugin", "direct"],
       "summary": "When a needed tool is missing, activate a broader profile and re-list.",
       "prerequisites": [
         "MCP session with stonewright-tool-profile"
@@ -320,21 +322,65 @@
     },
     {
       "id": "woocommerce-catalog-setup",
-      "title": "WooCommerce catalog bootstrap",
+      "title": "WooCommerce catalog inspection or guarded update",
       "outcome": "woocommerce",
-      "summary": "Products, categories, and stock-safe content ops.",
+      "modes": ["plugin", "direct"],
+      "summary": "Use native catalog abilities in Plugin mode or read-only store tools in Direct mode.",
       "prerequisites": [
         "WooCommerce active",
-        "plugin or Direct with REST"
+        "manage_woocommerce for Plugin writes",
+        "authenticated REST for Direct reads"
       ],
       "tools": [
         "stonewright-task-start",
-        "stonewright-content-inventory",
-        "stonewright-content-bulk-upsert-posts",
-        "stonewright-media-upload"
+        "stonewright-wc-status",
+        "stonewright-wc-catalog-audit",
+        "stonewright-wc-product-list",
+        "stonewright-wc-product-save",
+        "stonewright-wc-products",
+        "stonewright-wc-orders",
+        "stonewright-wc-sales-report"
       ],
-      "prompt": "Use Stonewright. Call stonewright-task-start. Inventory products/categories. Seed a small catalog (\u226412 products) with bulk upsert, attach images, and keep drafts until review. No payment gateway or live checkout changes without explicit operator approval.",
-      "verification": "Inventory counts increase; products remain draft unless approved; no payment settings mutated."
+      "prompt": "Use Stonewright and call stonewright-task-start first. Inspect the returned mode. In Plugin mode, call stonewright-wc-status and stonewright-wc-catalog-audit, then use native wc product, variation, attribute, and term abilities with dry_run:true before any approved write; read back exact fields after apply. In Direct mode, use only stonewright-wc-products, stonewright-wc-orders, and stonewright-wc-sales-report; do not attempt catalog writes. Never change payments, checkout, taxes, or live order state unless the user explicitly expands scope.",
+      "verification": "Mode reported; Plugin writes have dry-run, permission, audit, confirmation when required, and readback receipts; Direct remains read-only."
+    },
+    {
+      "id": "direct-safe-inspection",
+      "title": "Direct mode safe site inspection",
+      "outcome": "inspect",
+      "modes": ["direct"],
+      "summary": "Use the pluginless companion without degrading to ad-hoc REST or shell workarounds.",
+      "prerequisites": [
+        "Stonewright companion configured",
+        "private Application Password or ~/.stonewright/sites.json"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-site-discover",
+        "stonewright-content-list",
+        "stonewright-wc-products"
+      ],
+      "prompt": "Use Stonewright Direct mode. Call stonewright-task-start first, then stonewright-site-discover. Report active Direct capabilities, write mode, matched local skills, memory references, and recurring errors. Inspect content and WooCommerce only with typed read tools. Do not install the plugin, use shell WP-CLI, or create REST runner scripts unless I explicitly request a mode change.",
+      "verification": "task-start reports Direct mode; no write occurs; no credential, absolute state path, or private sites.json content appears in output."
+    },
+    {
+      "id": "update-and-verify-stonewright",
+      "title": "Update and verify Stonewright",
+      "outcome": "ops",
+      "modes": ["plugin", "direct"],
+      "summary": "Match the plugin and companion versions, reload the client, and prove the live tool surface.",
+      "prerequisites": [
+        "latest Stonewright release selected",
+        "site backup before plugin update"
+      ],
+      "tools": [
+        "stonewright-task-start",
+        "stonewright-setup-profile",
+        "stonewright-wordpress-mcp-status",
+        "stonewright-client-surface-check"
+      ],
+      "prompt": "Help me update Stonewright without exposing credentials. Determine whether this setup uses Plugin mode, Direct mode, local stdio, or remote HTTP. Plugin mode: update the WordPress ZIP through the native updater. Local stdio or Direct: update the pinned companion release tarball separately. Remote HTTP: no local companion update is required. After the user restarts the MCP client, call stonewright-task-start, stonewright-setup-profile, stonewright-wordpress-mcp-status, and client-surface-check. Confirm plugin version where applicable, companion_version where applicable, expected_companion_package, startup_ready, and an empty refresh_required_tool_names list. Never inspect or print private client config.",
+      "verification": "Live mode and versions match the selected release; startup_ready is true; required tool list is complete; persistent memory, skills, and audit were not reset."
     },
     {
       "id": "elementor-transaction-repair",

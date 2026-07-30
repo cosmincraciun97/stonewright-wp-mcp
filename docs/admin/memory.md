@@ -8,6 +8,11 @@ Sources:
 - `plugin/includes/Admin/MemoryInstructionsPage.php`
 - `plugin/includes/Memory/Memory.php`
 
+A fresh installation has zero memory rows. Updates preserve existing rows.
+Memory writes reject high-confidence credential material; use private client
+configuration for site URLs, usernames, Application Passwords, tokens, and
+other authentication values.
+
 ---
 
 ## Custom Instructions

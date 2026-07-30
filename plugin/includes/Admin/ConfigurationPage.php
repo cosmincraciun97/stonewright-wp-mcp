@@ -245,7 +245,7 @@ final class ConfigurationPage {
 			? (string) ( $generated_password['password'] ?? '' )
 			: '';
 		$prompt_password     = '' !== $app_password_value ? $app_password_value : '<application-password-from-step-2>';
-		$connect_prompt      = ConnectClientConfig::paste_to_agent_prompt( $username, $prompt_password );
+		$connect_prompt      = ConnectClientConfig::paste_to_agent_prompt( '', '' );
 		$prompt_preview      = self::prompt_preview( $connect_prompt );
 		$app_passwords       = self::application_passwords_for_current_user();
 		$risk_class          = 'production-safe' === $mode
@@ -566,7 +566,7 @@ final class ConfigurationPage {
 
 						<div data-stonewright-auth-panel="application-password" <?php echo $oauth_available ? 'hidden' : ''; ?>>
 						<h3><?php esc_html_e( 'Application Password', 'stonewright' ); ?></h3>
-						<p class="description"><?php esc_html_e( 'Generate one WordPress Application Password for your AI client. It is embedded into the fallback connection prompt in step 3 and shown only once.', 'stonewright' ); ?></p>
+						<p class="description"><?php esc_html_e( 'Generate one WordPress Application Password for your AI client. It can appear in the private client snippet in step 3 and is shown only once. The paste-to-agent prompt stays credential-free.', 'stonewright' ); ?></p>
 
 						<?php if ( '' !== $app_password_error ) : ?>
 							<div class="notice notice-error inline sw-notice">
@@ -577,7 +577,7 @@ final class ConfigurationPage {
 						<?php if ( is_array( $generated_password ) ) : ?>
 							<div class="stonewright-app-password-success">
 								<strong><?php esc_html_e( 'Application password generated.', 'stonewright' ); ?></strong>
-								<span><?php esc_html_e( 'It is now embedded in the connection prompt in step 3. Save it somewhere safe; it will not be shown in full again.', 'stonewright' ); ?></span>
+								<span><?php esc_html_e( 'It is available in the private client snippet in step 3 for this request only. Save it somewhere safe; it will not be shown in full again and is never added to the paste-to-agent prompt.', 'stonewright' ); ?></span>
 								<div class="stonewright-inline-controls sw-actions">
 									<input
 										type="text"
@@ -657,12 +657,8 @@ final class ConfigurationPage {
 
 						<div data-stonewright-auth-panel="application-password" <?php echo $oauth_available ? 'hidden' : ''; ?>>
 						<div class="stonewright-share-warning">
-							<strong><?php esc_html_e( 'Heads up:', 'stonewright' ); ?></strong>
-							<?php if ( '' !== $app_password_value ) : ?>
-								<?php esc_html_e( 'This prompt includes the generated Application Password. Prefer manual configuration if you do not want to paste credentials into chat.', 'stonewright' ); ?>
-							<?php else : ?>
-								<?php esc_html_e( 'Generate an Application Password in step 2 to embed it automatically, or use the paste-to-agent prompt below with a placeholder password.', 'stonewright' ); ?>
-							<?php endif; ?>
+							<strong><?php esc_html_e( 'Credentials stay local.', 'stonewright' ); ?></strong>
+							<?php esc_html_e( 'Client snippets may contain the one-time Application Password so you can save it directly in private config. The paste-to-agent prompt always uses placeholders and must never carry a real credential.', 'stonewright' ); ?>
 						</div>
 
 						<?php self::render_client_method_picker( $username, $prompt_password, $selected_client, $selected_method ); ?>
@@ -725,6 +721,79 @@ final class ConfigurationPage {
 					});
 				}());
 				</script>
+
+				<section class="sw-setup-card sw-update-guide" aria-label="<?php esc_attr_e( 'Update Stonewright', 'stonewright' ); ?>">
+					<div class="stonewright-step-index" aria-hidden="true">↻</div>
+					<div class="stonewright-step-body">
+						<h2><?php esc_html_e( 'Keep Stonewright current', 'stonewright' ); ?></h2>
+						<p class="description"><?php esc_html_e( 'Plugin and companion are separate components. Match their release versions when using local stdio. Remote HTTP needs only the plugin; pluginless Direct mode needs only the companion.', 'stonewright' ); ?></p>
+
+						<div class="sw-update-status" role="list" aria-label="<?php esc_attr_e( 'Expected versions', 'stonewright' ); ?>">
+							<span role="listitem">
+								<strong><?php esc_html_e( 'Plugin', 'stonewright' ); ?></strong>
+								<code><?php echo esc_html( STONEWRIGHT_VERSION ); ?></code>
+							</span>
+							<span role="listitem">
+								<strong><?php esc_html_e( 'Expected companion', 'stonewright' ); ?></strong>
+								<code><?php echo esc_html( STONEWRIGHT_VERSION ); ?></code>
+							</span>
+							<span role="listitem" class="sw-update-status__safe"><?php esc_html_e( 'Updates preserve memory, user skills, audit, and Direct state.', 'stonewright' ); ?></span>
+						</div>
+
+						<div class="sw-update-grid">
+							<article class="sw-update-card">
+								<h3><?php esc_html_e( 'Update the WordPress plugin', 'stonewright' ); ?></h3>
+								<ol>
+									<li><?php esc_html_e( 'Take a normal site backup.', 'stonewright' ); ?></li>
+									<li>
+										<?php
+										printf(
+											/* translators: %s: WordPress Updates URL. */
+											wp_kses_post( __( 'Open <a href="%s">Dashboard → Updates</a> and update Stonewright. If no update appears, upload the new release ZIP and choose Replace current with uploaded.', 'stonewright' ) ),
+											esc_url( admin_url( 'update-core.php' ) )
+										);
+										?>
+									</li>
+									<li><?php esc_html_e( 'Return here and run Verify connection.', 'stonewright' ); ?></li>
+								</ol>
+							</article>
+
+							<article class="sw-update-card">
+								<h3><?php esc_html_e( 'Update the local companion', 'stonewright' ); ?></h3>
+								<ol>
+									<li><?php esc_html_e( 'Replace the old stonewright-companion tarball URL in private MCP config with the current release URL below.', 'stonewright' ); ?></li>
+									<li><?php esc_html_e( 'Fully restart the AI client so the old process and cached tool list are gone.', 'stonewright' ); ?></li>
+									<li><?php esc_html_e( 'Call stonewright-task-start, then verify companion_version, expected_companion_package, and refresh_required_tool_names.', 'stonewright' ); ?></li>
+								</ol>
+								<pre id="stonewright-current-companion-package"><code><?php echo esc_html( ConnectClientConfig::companion_package_spec() ); ?></code></pre>
+								<div class="sw-actions">
+									<button type="button" class="button" data-stonewright-copy="stonewright-current-companion-package">
+										<?php esc_html_e( 'Copy current companion URL', 'stonewright' ); ?>
+									</button>
+								</div>
+							</article>
+						</div>
+
+						<details class="sw-setup-details">
+							<summary><?php esc_html_e( 'When should I update?', 'stonewright' ); ?></summary>
+							<ul>
+								<li><?php esc_html_e( 'When WordPress or GitHub Releases shows a newer Stonewright version.', 'stonewright' ); ?></li>
+								<li><?php esc_html_e( 'When Setup reports a version mismatch, missing required tools, or a stale companion process.', 'stonewright' ); ?></li>
+								<li><?php esc_html_e( 'When a release note fixes an activation, security, compatibility, or packaging problem that affects your site.', 'stonewright' ); ?></li>
+							</ul>
+							<p>
+								<a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases" target="_blank" rel="noopener noreferrer">
+									<?php esc_html_e( 'Open Stonewright Releases', 'stonewright' ); ?>
+								</a>
+							</p>
+						</details>
+
+						<p class="sw-update-security">
+							<strong><?php esc_html_e( 'Never commit credentials.', 'stonewright' ); ?></strong>
+							<?php esc_html_e( 'Keep site URLs, usernames, Application Passwords, tokens, and private client configuration out of repositories, prompts, memory, skills, screenshots, and issue reports.', 'stonewright' ); ?>
+						</p>
+					</div>
+				</section>
 
 				<section class="sw-setup-card sw-setup-verify" aria-label="<?php esc_attr_e( 'Verify connection', 'stonewright' ); ?>">
 					<div class="stonewright-step-index" aria-hidden="true">✓</div>

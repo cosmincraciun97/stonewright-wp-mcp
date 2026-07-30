@@ -20,7 +20,7 @@ body:
     attributes:
       label: Stonewright version
       description: Plugin and companion versions when known.
-      placeholder: 1.0.0-alpha.x
+      placeholder: 1.0.0-beta.x
     validations:
       required: true
   - type: dropdown

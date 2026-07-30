@@ -127,7 +127,7 @@ Install the Stonewright plugin for advanced Elementor workflows, blueprints and 
 
 ### Direct mode — plugin-less core REST + local Elementor data
 
-The companion authenticates with a WordPress Application Password and exposes **100** tools without installing Stonewright. Elementor documents can be edited **without the Elementor editor** via `stonewright-elementor-data-get` / `data-update` (local WP-CLI preferred; remote Direct falls back to core REST meta when `_elementor_data` is registered, with a file backup under `~/.stonewright/backups/`). This path has no Elementor schema validation — use Plugin mode `elementor-v3-batch-mutate` for production engines. DesignSpec, php-execute, and site-hosted skills remain plugin-only. See [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md) and [docs/install-prompts.md](docs/install-prompts.md).
+The companion authenticates with a WordPress Application Password and exposes **100** tools without installing Stonewright. Elementor documents can be edited **without the Elementor editor** via `stonewright-elementor-data-get` / `data-update` (local WP-CLI preferred; remote Direct falls back to core REST meta when `_elementor_data` is registered, with a file backup under `~/.stonewright/backups/`). This path has no Elementor schema validation — use Plugin mode `elementor-v3-batch-mutate` for production engines. DesignSpec, php-execute, and site-hosted skills remain plugin-only; Direct keeps private local memory and user skills under `~/.stonewright/`. See [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md) and [docs/install-prompts.md](docs/install-prompts.md).
 
 ## Quick Start
 
@@ -193,7 +193,9 @@ HTTP local sites are supported; Setup treats plain HTTP as informational, not a 
    ```bash
    npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-companion init
    ```
-3. First calls: `stonewright-site-discover`, `stonewright-setup-profile`.
+3. First call: `stonewright-task-start`. Use `stonewright-site-discover` for
+   endpoint and capability details, and `stonewright-setup-profile` for setup
+   diagnostics.
 4. Read [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md) for the capability matrix and smoke script.
 
 Example env for Direct mode:
@@ -224,6 +226,11 @@ Example env for Direct mode:
 Replace `VERSION` with the latest release version (the companion is distributed through GitHub Releases, not the npm registry).
 
 </details>
+
+Fresh installs start with no user memory, user-created skills, or audit events.
+Generic built-in skills and native rules are product assets. Updates preserve
+existing plugin and Direct state. See [Updating Stonewright](docs/updates.md)
+for the plugin/companion matrix and exact steps.
 
 ## How Stonewright makes agent changes safer
 
@@ -382,13 +389,17 @@ evidence is reported as unverified. See [docs/visual.md](docs/visual.md) and
 
 ## Current project status and limitations
 
-Stonewright ships **alpha** prereleases. APIs, tools, configuration, and behavior may still change. Test on staging or local environments first. Keep site backups independent of Stonewright. Report security issues privately per [SECURITY.md](SECURITY.md).
+Stonewright ships a **public beta**. APIs, tools, configuration, and behavior
+may still change before 1.0 stable. Test on staging or local environments first.
+Keep site backups independent of Stonewright. Report security issues privately
+per [SECURITY.md](SECURITY.md).
 
 This project is **not** marketed as production-ready in the sense of a frozen stable API. Use production-safe mode and review when operating on live sites.
 
 ## Documentation
 
 - [Installation](docs/installation.md)
+- [Updating Stonewright](docs/updates.md)
 - [Direct mode capability matrix](docs/direct-mode-e2e.md)
 - [WooCommerce support and safety](docs/woocommerce.md)
 - [Companion](docs/companion.md)
@@ -396,7 +407,7 @@ This project is **not** marketed as production-ready in the sense of a frozen st
 - [Ability truth matrix](docs/ability-truth-matrix.md)
 - [Licensing](docs/licensing.md)
 - [Upstream code reuse ledger](docs/upstream-code-reuse.md)
-- [Release notes](docs/releases/) (five-release retention)
+- [Release notes](docs/releases/)
 
 ## Development and testing
 

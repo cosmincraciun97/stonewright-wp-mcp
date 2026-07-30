@@ -80,4 +80,29 @@ test.describe('Connect wizard interactions', () => {
 		await expect(stdioSnippets.first()).toBeAttached();
 		await expect(httpSnippets.first()).toBeAttached();
 	});
+
+	test('agent prompt is credential-free and update guidance is explicit', async ({ page }) => {
+		await login(page);
+		await page.goto('/wp-admin/admin.php?page=stonewright', {
+			waitUntil: 'domcontentloaded',
+		});
+		await selectApplicationPassword(page);
+
+		const prompt = page.locator('#stonewright-connect-prompt-full');
+		await expect(prompt).toBeAttached();
+		const fullPrompt = await prompt.getAttribute('data-stonewright-text-full');
+		expect(fullPrompt).toContain('STONEWRIGHT_WP_URL=<your-wordpress-url>');
+		expect(fullPrompt).toContain(
+			'STONEWRIGHT_WP_APP_PASSWORD=<your-application-password>',
+		);
+		expect(fullPrompt).not.toContain(WP_USER);
+		expect(fullPrompt).not.toContain(WP_PASS);
+
+		const guide = page.locator('.sw-update-guide');
+		await expect(guide).toBeVisible();
+		await expect(guide).toContainText('Keep Stonewright current');
+		await expect(guide).toContainText('Update the WordPress plugin');
+		await expect(guide).toContainText('Update the local companion');
+		await expect(guide).toContainText('Updates preserve memory, user skills, audit');
+	});
 });

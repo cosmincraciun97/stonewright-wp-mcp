@@ -40,6 +40,16 @@
 	box-sizing: border-box;
 }
 
+.sw-prompt-safety {
+	margin: 0 0 16px;
+	padding: 12px 14px;
+	border-left: 3px solid var(--sw-brand);
+	background: var(--sw-surface);
+	color: var(--sw-text-secondary);
+	font-size: var(--sw-text-sm);
+	line-height: 1.5;
+}
+
 .sw-prompt-search:focus {
 	border-color: var(--sw-brand);
 	outline: 2px solid var(--sw-focus-ring);
@@ -115,6 +125,22 @@
 	padding: 2px 8px;
 }
 
+.sw-prompt-modes {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-top: -4px;
+}
+
+.sw-prompt-modes span {
+	padding: 2px 7px;
+	border-radius: var(--sw-radius-pill);
+	background: var(--sw-brand-soft);
+	color: var(--sw-brand-strong);
+	font-size: 10px;
+	font-weight: 600;
+}
+
 .sw-blueprint-card__name {
 	margin: 0;
 	font-size: 15px;
@@ -163,6 +189,32 @@
 .sw-blueprint-card__sha {
 	font-variant-numeric: tabular-nums;
 	opacity: 0.85;
+}
+
+.sw-prompt-details {
+	font-size: 11px;
+	color: var(--sw-text-muted);
+}
+
+.sw-prompt-details summary {
+	cursor: pointer;
+	color: var(--sw-brand);
+	font-weight: 600;
+}
+
+.sw-prompt-details strong {
+	display: block;
+	margin-top: 8px;
+	color: var(--sw-text-secondary);
+}
+
+.sw-prompt-details ul,
+.sw-prompt-details p {
+	margin: 4px 0 0;
+}
+
+.sw-prompt-details ul {
+	padding-left: 18px;
 }
 
 /* Action row: primary + ghost must not stack flush or share ghost-only colors. */

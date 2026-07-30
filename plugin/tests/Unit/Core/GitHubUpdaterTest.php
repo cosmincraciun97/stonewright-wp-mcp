@@ -30,13 +30,13 @@ final class GitHubUpdaterTest extends TestCase {
 		$parsed = GitHubUpdater::parse_release( $raw );
 
 		self::assertIsArray( $parsed );
-		self::assertSame( '1.0.0-alpha.99', $parsed['version'] );
+		self::assertSame( '1.0.0-beta.99', $parsed['version'] );
 		self::assertSame(
-			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-alpha.99/stonewright-1.0.0-alpha.99.zip',
+			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.99/stonewright-1.0.0-beta.99.zip',
 			$parsed['package']
 		);
 		self::assertSame(
-			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.99',
+			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-beta.99',
 			$parsed['url']
 		);
 	}
@@ -53,15 +53,15 @@ final class GitHubUpdaterTest extends TestCase {
 		$parsed = GitHubUpdater::fetch_latest_release();
 
 		self::assertIsArray( $parsed );
-		self::assertSame( '1.0.0-alpha.99', $parsed['version'] );
+		self::assertSame( '1.0.0-beta.99', $parsed['version'] );
 		self::assertSame( $parsed, get_transient( GitHubUpdater::CACHE_KEY ) );
 		self::assertNotEmpty( $GLOBALS['stonewright_test_wp_remote_get_calls'] );
 	}
 
 	public function test_fetch_latest_release_uses_cached_transient(): void {
 		$cached = [
-			'version' => '1.0.0-alpha.50',
-			'package' => 'https://example.test/stonewright-1.0.0-alpha.50.zip',
+			'version' => '1.0.0-beta.50',
+			'package' => 'https://example.test/stonewright-1.0.0-beta.50.zip',
 			'url'     => 'https://example.test/release',
 		];
 		set_transient( GitHubUpdater::CACHE_KEY, $cached, 12 * HOUR_IN_SECONDS );
@@ -78,8 +78,8 @@ final class GitHubUpdaterTest extends TestCase {
 		set_transient(
 			GitHubUpdater::CACHE_KEY,
 			[
-				'version' => '1.0.0-alpha.99',
-				'package' => 'https://example.test/stonewright-1.0.0-alpha.99.zip',
+				'version' => '1.0.0-beta.99',
+				'package' => 'https://example.test/stonewright-1.0.0-beta.99.zip',
 				'url'     => 'https://example.test/release',
 			],
 			12 * HOUR_IN_SECONDS
@@ -96,8 +96,8 @@ final class GitHubUpdaterTest extends TestCase {
 
 		self::assertObjectHasProperty( 'response', $result );
 		self::assertArrayHasKey( $plugin, $result->response );
-		self::assertSame( '1.0.0-alpha.99', $result->response[ $plugin ]->new_version );
-		self::assertSame( 'https://example.test/stonewright-1.0.0-alpha.99.zip', $result->response[ $plugin ]->package );
+		self::assertSame( '1.0.0-beta.99', $result->response[ $plugin ]->new_version );
+		self::assertSame( 'https://example.test/stonewright-1.0.0-beta.99.zip', $result->response[ $plugin ]->package );
 	}
 
 	public function test_inject_update_skips_when_disable_filter_is_true(): void {
@@ -106,8 +106,8 @@ final class GitHubUpdaterTest extends TestCase {
 		set_transient(
 			GitHubUpdater::CACHE_KEY,
 			[
-				'version' => '1.0.0-alpha.99',
-				'package' => 'https://example.test/stonewright-1.0.0-alpha.99.zip',
+				'version' => '1.0.0-beta.99',
+				'package' => 'https://example.test/stonewright-1.0.0-beta.99.zip',
 				'url'     => 'https://example.test/release',
 			],
 			12 * HOUR_IN_SECONDS

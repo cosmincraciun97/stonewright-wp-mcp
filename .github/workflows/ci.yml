@@ -96,6 +96,20 @@ jobs:
       - run: npm test
       - run: npm run tokens:measure
       - run: npm run build
+      - name: Verify companion archive hygiene
+        working-directory: .
+        env:
+          STONEWRIGHT_PRIVATE_TERMS: ${{ secrets.STONEWRIGHT_PRIVATE_TERMS }}
+        run: |
+          mkdir -p package-scan/unpacked
+          (cd companion && npm pack --pack-destination ../package-scan)
+          companion_archive="$(find package-scan -maxdepth 1 -name 'stonewright-companion-*.tgz' -print -quit)"
+          tar -xzf "$companion_archive" -C package-scan/unpacked
+          node scripts/check-public-hygiene.mjs --root package-scan/unpacked
+          if tar -tzf "$companion_archive" | grep -Eq '(^|/)(sites\.json|audit-direct\.jsonl)$|(^|/)memory/'; then
+            echo "Companion archive contains private persistent runtime state" >&2
+            exit 1
+          fi
 
   visual:
     runs-on: ubuntu-latest
@@ -165,7 +179,7 @@ jobs:
         if: always()
         run: npx wp-env stop
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: always()
         with:
           name: e2e-admin-ui-artifacts
           path: |
@@ -173,3 +187,4 @@ jobs:
             e2e/test-results/
             e2e/playwright-report/
           if-no-files-found: ignore
+          retention-days: 3

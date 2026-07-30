@@ -11,6 +11,7 @@ import {
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertNoSensitiveMaterial } from './sensitive-content.js';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const SCOPE_RE = /^[a-z0-9_][a-z0-9_.-]{0,63}$/;
@@ -127,6 +128,15 @@ export function saveSkill(input: {
 	if (input.body.length > MAX_BODY) {
 		throw new Error(`Skill body exceeds ${MAX_BODY} bytes`);
 	}
+	assertNoSensitiveMaterial(
+		[
+			input.name,
+			input.description,
+			input.body,
+			...input.triggers,
+		].join('\n'),
+		'Skill',
+	);
 	const dir = skillsDir(input.baseDir, input.scope, input.env);
 	mkdirSync(dir, { recursive: true, mode: 0o700 });
 	const meta: SkillMeta = {

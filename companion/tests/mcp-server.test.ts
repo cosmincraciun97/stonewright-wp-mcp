@@ -44,7 +44,7 @@ describe('createMcpServer', () => {
 		expect(instructions).toContain('stonewright-wordpress-mcp-status');
 		expect(instructions).toContain('stonewright-wp-cli-batch-run');
 		expect(instructions).toContain('STONEWRIGHT_MCP_TOOL_PROFILE=low-tools');
-		expect(instructions).toContain('If stonewright-context-bootstrap is not visible, stop');
+		expect(instructions).toContain('If neither stonewright-task-start nor compatibility stonewright-context-bootstrap is visible, stop');
 		expect(instructions).toContain('Do not inspect private AI-client config files');
 		expect(instructions).toContain('Do not create scratch scripts such as query-mcp.js or run-ability.js');
 		expect(instructions).toContain('Do not create helper JSON argument files such as bootstrap-args.json, cli_command.json, or get_structure.json');

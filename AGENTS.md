@@ -120,6 +120,10 @@ npm run build
 - Never commit customer or private-project names, domains, local site aliases,
   page/post IDs, usernames, screenshots, logs, memory rows, audit payloads, or
   copied site content.
+- Never commit or publish Application Passwords, authorization headers, access
+  or refresh tokens, API keys, private keys, credential stores, private MCP
+  config, Direct audit files, or runtime memory/skill exports. Agent-facing
+  setup prompts use placeholders; real credentials stay in private config.
 - Use RFC-reserved examples such as `example.com`, `example.test`, generic
   aliases such as `site-a`, and synthetic IDs in tests, docs, plans, fixtures,
   commit messages, pull requests, changelogs, and release notes.
@@ -131,6 +135,10 @@ npm run build
 - Before packaging or release, run the public-hygiene gate against source,
   built assets, plugin ZIP contents, companion package contents, and commit
   messages. A release is blocked when the gate reports private material.
+- Fresh installs may seed only generic built-in product assets. They must start
+  with no user memory, user-created skills, or audit events. Schema migrations,
+  plugin updates, companion updates, and restarts must preserve existing
+  memory, user skills, audit history, and Direct state.
 
 ## Documentation freshness
 

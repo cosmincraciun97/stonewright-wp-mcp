@@ -141,6 +141,21 @@ final class MemorySchemaTest extends TestCase {
 		self::assertStringContainsString( 'Table does not exist', $log );
 	}
 
+	public function test_put_typed_blocks_credential_material_before_database_write(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb( self::V4_COLUMNS );
+		$credential      = implode( '-', [ 'real', 'private', 'value' ] );
+
+		$id = Memory::put_typed(
+			'user',
+			'project',
+			'unsafe-secret',
+			'Unsafe secret',
+			[ 'application_password' => $credential ]
+		);
+
+		self::assertSame( 0, $id );
+	}
+
 	public function test_maybe_install_skips_dbdelta_when_version_and_schema_ok(): void {
 		update_option( 'stonewright_memory_schema_version', 4 );
 		$GLOBALS['wpdb'] = new class( self::V4_COLUMNS ) {

@@ -41,6 +41,75 @@ function lineForOffset(body, offset) {
 	return body.slice(0, offset).split('\n').length;
 }
 
+function safeCredentialFixture(value) {
+	const normalized = value.trim().replace(/^["']|["']$/g, '');
+	if (normalized.length < 12) return true;
+	if (normalized.includes('${')) return true;
+	if (/^(?:<[^>]+>|\$\{[^}]+\}|\$[A-Z_][A-Z0-9_]*|\[?redacted\]?)$/i.test(normalized)) {
+		return true;
+	}
+	return /^(?:(?:Basic|Bearer)\s+(?:test|fixture|sentinel|example)[-_A-Z0-9]+|(?:x{4}|test)(?:\s+(?:x{4}|test))*|a{12,}|(?:your|example|fixture|dummy|test|fake|placeholder|sentinel|do-not-log|not-a-real|token-value|loopback)(?:[-_ ].*)?)$/i.test(normalized);
+}
+
+function inspectSecrets(body, relativePath) {
+	const privateKey = /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i.exec(body);
+	if (privateKey) {
+		fail(`${relativePath}:${lineForOffset(body, privateKey.index)} contains private-key material`);
+	}
+
+	const appPasswordPattern = /\b(?:[A-Za-z0-9]{4}\s+){5}[A-Za-z0-9]{4}\b/g;
+	for (const match of body.matchAll(appPasswordPattern)) {
+		if (!safeCredentialFixture(match[0])) {
+			fail(
+				`${relativePath}:${lineForOffset(body, match.index ?? 0)} contains possible WordPress Application Password material`,
+			);
+			break;
+		}
+	}
+
+	const credentialName =
+		'(?:password|user_pass|pass|app_?password|application_password|wp_app_password|api[_ -]?key|client_secret|access_token|refresh_token|confirmation_token|bearer_token|authorization|secret|cookie|STONEWRIGHT_WP_APP_PASSWORD|WP_API_PASSWORD|STONEWRIGHT_MCP_AUTHORIZATION)';
+	const literalPatterns = [
+		new RegExp(
+			`["']?\\b${credentialName}\\b["']?\\s*[:=]\\s*(?:"([^"\\r\\n]+)"|'([^'\\r\\n]+)'|\`([^\`\\r\\n]+)\`)`,
+			'gi',
+		),
+		new RegExp(
+			`["']\\b${credentialName}\\b["']\\s*=>\\s*(?:"([^"\\r\\n]+)"|'([^'\\r\\n]+)')`,
+			'gi',
+		),
+	];
+	for (const pattern of literalPatterns) {
+		for (const match of body.matchAll(pattern)) {
+			const value = String(match[1] || match[2] || match[3] || '');
+			if (!safeCredentialFixture(value)) {
+				fail(
+					`${relativePath}:${lineForOffset(body, match.index ?? 0)} contains possible committed credential material`,
+				);
+				return;
+			}
+		}
+	}
+
+	const configLike = /(?:^|\/)(?:\.env(?:\.[^/]+)?|[^/]+\.(?:ya?ml|toml|ini|conf|properties))$/i.test(
+		relativePath,
+	);
+	if (configLike) {
+		const unquotedConfigPattern = new RegExp(
+			`^\\s*${credentialName}\\s*[:=]\\s*([^\\s#"'\\[{][^\\s#]*)`,
+			'gim',
+		);
+		for (const match of body.matchAll(unquotedConfigPattern)) {
+			if (!safeCredentialFixture(String(match[1] || ''))) {
+				fail(
+					`${relativePath}:${lineForOffset(body, match.index ?? 0)} contains possible committed credential material`,
+				);
+				return;
+			}
+		}
+	}
+}
+
 function inspectFile(absolutePath) {
 	const relativePath = path.relative(scanRoot, absolutePath) || path.basename(absolutePath);
 	if (relativePath === '.git') return;
@@ -56,6 +125,7 @@ function inspectFile(absolutePath) {
 	if (!isProbablyText(buffer)) return;
 	const body = buffer.toString('utf8');
 	const lowerBody = body.toLocaleLowerCase('en-US');
+	inspectSecrets(body, relativePath);
 	const absolutePathPatterns = [
 		/\/Users\/(?!me\/|example\/)[A-Za-z0-9._-]+\/[^ \t\r\n"'`]+/g,
 		/\/home\/(?!user\/|example\/)[A-Za-z0-9._-]+\/[^ \t\r\n"'`]+/g,
@@ -80,7 +150,11 @@ function inspectFile(absolutePath) {
 
 function walk(directory) {
 	for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-		if (entry.isDirectory() && excludedDirectories.has(entry.name)) continue;
+		if (
+			entry.isDirectory() &&
+			excludedDirectories.has(entry.name) &&
+			(entry.name !== 'dist' || scanRoot === repoRoot)
+		) continue;
 		const absolutePath = path.join(directory, entry.name);
 		if (entry.isDirectory()) walk(absolutePath);
 		else if (entry.isFile()) inspectFile(absolutePath);

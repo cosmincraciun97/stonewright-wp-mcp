@@ -241,6 +241,35 @@ final class SkillsTest extends TestCase {
 		$this->assertGreaterThan( 0, $id );
 	}
 
+	public function test_save_blocks_credential_material_before_database_write(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_with_rows( [] );
+
+		$id = Skills::save(
+			[
+				'slug'    => 'unsafe-secret',
+				'title'   => 'Unsafe secret',
+				'content' => 'Authorization: Bearer abcdefghijklmnop',
+			]
+		);
+
+		self::assertSame( 0, $id );
+	}
+
+	public function test_user_save_cannot_bypass_credential_guard_by_claiming_builtin_source(): void {
+		$GLOBALS['wpdb'] = $this->make_wpdb_with_rows( [] );
+
+		$id = Skills::save(
+			[
+				'slug'    => 'unsafe-builtin-claim',
+				'title'   => 'Unsafe built-in claim',
+				'content' => 'Authorization: Bearer test-sensitive-token',
+				'source'  => 'builtin',
+			]
+		);
+
+		self::assertSame( 0, $id );
+	}
+
 	public function test_save_defaults_skill_mode_flags_from_enabled(): void {
 		$GLOBALS['wpdb'] = new class() {
 			public string $prefix = 'wp_';

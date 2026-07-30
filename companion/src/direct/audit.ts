@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -43,6 +43,17 @@ export function defaultAuditPath(env: NodeJS.ProcessEnv = process.env): string {
 	return join(defaultStateDir(env), 'audit-direct.jsonl');
 }
 
+export function redactDirectAuditText(value: string): string {
+	return value
+		.replace(/\b(Basic|Bearer)\s+[A-Za-z0-9+/=_-]+/gi, '$1 [redacted]')
+		.replace(
+			/\b(password|user_pass|pass|app_?password|application_password|wp_app_password|api[_ -]?key|client_secret|access_token|refresh_token|authorization|token|secret|cookie)\b(\s*(?::|=|\bis\b|\bwas\b)\s*)(?:"[^"]*"|'[^']*'|[^\s,;&}]+)/gi,
+			'$1$2[redacted]',
+		)
+		.replace(/(https?:\/\/[^/\s:@]+:)[^/\s@]+@/gi, '$1[redacted]@')
+		.replace(/\b(?:[A-Za-z0-9]{4}\s+){5}[A-Za-z0-9]{4}\b/g, '[redacted-app-password]');
+}
+
 export function appendDirectAudit(
 	entry: DirectAuditEntry,
 	path = defaultAuditPath(),
@@ -51,24 +62,33 @@ export function appendDirectAudit(
 	if (!existsSync(dir)) {
 		mkdirSync(dir, { recursive: true, mode: 0o700 });
 	}
+	if (process.platform !== 'win32') {
+		chmodSync(dir, 0o700);
+	}
 	const executionStatus =
 		entry.executionStatus ??
 		(entry.status === 'ok' ? 'executed' : entry.status);
 	const verificationStatus =
 		entry.verificationStatus ??
 		(entry.status === 'ok' ? 'response_returned' : 'not_verified');
+	const resource = entry.resource
+		? redactDirectAuditText(entry.resource).slice(0, 500)
+		: null;
+	const code = entry.code
+		? redactDirectAuditText(entry.code).slice(0, 190)
+		: null;
 	const row = {
 		tool: entry.tool,
 		site: entry.site,
-		resource: entry.resource ?? null,
+		resource,
 		status: entry.status,
-		code: entry.code ?? null,
-		error: entry.error ? entry.error.slice(0, 200) : null,
+		code,
+		error: entry.error ? redactDirectAuditText(entry.error).slice(0, 200) : null,
 		timestamp: entry.timestamp ?? new Date().toISOString(),
 		event_type: entry.eventType ?? 'direct_tool',
 		operation_class: entry.operationClass ?? 'direct',
 		resource_type: entry.resourceType ?? null,
-		resource_ref: entry.resource ?? null,
+		resource_ref: resource,
 		change_set_id: entry.changeSetId ?? null,
 		request_id: entry.requestId ?? randomUUID(),
 		parent_request_id: entry.parentRequestId ?? null,
@@ -78,10 +98,16 @@ export function appendDirectAudit(
 		before_sha256: entry.beforeSha256 ?? null,
 		after_sha256: entry.afterSha256 ?? null,
 		changed_bytes: entry.changedBytes ?? null,
-		validator_summary: entry.validatorSummary?.slice(0, 500) ?? null,
-		smoke_summary: entry.smokeSummary?.slice(0, 500) ?? null,
-		error_code: entry.code ?? null,
-		cause_key: entry.causeKey ?? null,
+		validator_summary: entry.validatorSummary
+			? redactDirectAuditText(entry.validatorSummary).slice(0, 500)
+			: null,
+		smoke_summary: entry.smokeSummary
+			? redactDirectAuditText(entry.smokeSummary).slice(0, 500)
+			: null,
+		error_code: code,
+		cause_key: entry.causeKey
+			? redactDirectAuditText(entry.causeKey).slice(0, 255)
+			: null,
 		duration_ms: entry.durationMs ?? null,
 		backend: 'direct',
 		site_fingerprint: createHash('sha256').update(entry.site).digest('hex'),
@@ -95,6 +121,9 @@ export function appendDirectAudit(
 					: 'info'),
 	};
 	appendFileSync(path, `${JSON.stringify(row)}\n`, { encoding: 'utf8', mode: 0o600 });
+	if (process.platform !== 'win32') {
+		chmodSync(path, 0o600);
+	}
 }
 
 export type DirectRecurringError = {

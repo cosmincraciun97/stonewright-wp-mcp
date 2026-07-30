@@ -29,8 +29,8 @@ describe('buildSetupProfile', () => {
 			STONEWRIGHT_MCP_TOOL_PROFILE: 'bootstrap',
 		});
 		expect(profile.first_calls).toEqual([
-			'stonewright-context-bootstrap',
 			'stonewright-task-start',
+			'stonewright-context-bootstrap',
 		]);
 		expect(profile.tool_visibility_checks).toEqual(expect.arrayContaining([
 			'stonewright-context-bootstrap',
@@ -48,8 +48,8 @@ describe('buildSetupProfile', () => {
 		// Expanded essential (blueprints + brand kits) exceeds the old 20-tool low-tools cap check.
 		expect(typeof profile.tool_inventory.startup_budget.under_low_tools_cap).toBe('boolean');
 		expect(profile.tool_inventory.first_call_tool_names).toEqual([
-			'stonewright-context-bootstrap',
 			'stonewright-task-start',
+			'stonewright-context-bootstrap',
 		]);
 		expect(profile.tool_inventory.direct_wp_cli_tool_names).toEqual(expect.arrayContaining([
 			'stonewright-wp-cli-status',
@@ -62,8 +62,8 @@ describe('buildSetupProfile', () => {
 		]));
 		expect(profile.tool_inventory.proxied_profile_tool_groups.startup).toContain('stonewright-task-start');
 		expect(profile.tool_inventory.refresh_required_tool_names).toEqual([
-			'stonewright-context-bootstrap',
 			'stonewright-task-start',
+			'stonewright-context-bootstrap',
 			'stonewright-php-execute',
 		]);
 		expect(profile.tool_inventory.companion_version).toBe(APP_VERSION);
@@ -72,7 +72,7 @@ describe('buildSetupProfile', () => {
 		);
 		expect(profile.notes.join('\n')).toContain('Use stonewright-wordpress-mcp-status if proxied WordPress tools are missing');
 		expect(profile.notes.join('\n')).toContain('After every Stonewright release or skill sync, restart the MCP client and re-run stonewright-setup-profile plus stonewright-wordpress-mcp-status');
-		expect(profile.notes.join('\n')).toContain('Verify the MCP tool list includes stonewright-context-bootstrap before starting WordPress work');
+		expect(profile.notes.join('\n')).toContain('Verify the MCP tool list includes stonewright-task-start before starting WordPress work');
 		expect(profile.notes.join('\n')).toContain('Use fast_path.tool_profile from stonewright-task-start before making a separate stonewright-tool-profile call');
 		expect(profile.notes.join('\n')).toContain('STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap is the default progressive surface');
 		expect(profile.notes.join('\n')).toContain('Profile aliases such as elementor, design, acf, cpt-ui, fse, and wp cli normalize to compact canonical profiles.');
@@ -118,6 +118,26 @@ describe('buildSetupProfile', () => {
 		);
 	});
 
+	it('never returns live credentials in the copy-paste profile', () => {
+		const password = 'test-live-private-value';
+		const authorization = 'Bearer test-live-private-token';
+		const profile = buildSetupProfile(
+			{
+				STONEWRIGHT_WP_URL: 'https://example.com',
+				STONEWRIGHT_WP_USERNAME: 'admin',
+				STONEWRIGHT_WP_APP_PASSWORD: password,
+				STONEWRIGHT_MCP_AUTHORIZATION: authorization,
+			},
+			'linux',
+		);
+		const serialized = JSON.stringify(profile);
+
+		expect(serialized).not.toContain(password);
+		expect(serialized).not.toContain(authorization);
+		expect(profile.mcp_server.env.STONEWRIGHT_WP_APP_PASSWORD).toBe('<set-privately>');
+		expect(profile.mcp_server.env.STONEWRIGHT_MCP_AUTHORIZATION).toBe('<set-privately>');
+	});
+
 	it('preserves Windows paths and recommends cmd-safe env-only config', () => {
 		const profile = buildSetupProfile(
 			{
@@ -145,8 +165,8 @@ describe('buildSetupProfile', () => {
 		);
 
 		expect(profile.mcp_server.env.STONEWRIGHT_MCP_TOOL_PROFILE).toBe('low-tools');
-		expect(profile.notes.join('\n')).toContain('Use STONEWRIGHT_MCP_TOOL_PROFILE=low-tools for Antigravity, Gemini API, or other strict tool-cap clients');
-		expect(profile.notes.join('\n')).toContain('php-execute plus direct WP-CLI batch and background-job tools stay visible');
+		expect(profile.notes.join('\n')).toContain('Use STONEWRIGHT_MCP_TOOL_PROFILE=low-tools for strict tool-cap clients');
+		expect(profile.notes.join('\n')).toContain('php-execute plus companion WP-CLI batch and background-job tools stay visible');
 		expect(profile.tool_visibility_checks).not.toContain('stonewright-wp-cli-install');
 		expect(profile.agent_use_instead).not.toContain('stonewright-wp-cli-install');
 		expect(profile.tool_visibility_checks).toContain('stonewright-wp-cli-batch-run');

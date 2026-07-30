@@ -8,7 +8,7 @@
 
 **Tech Stack:** PHP 8.1+ (plugin), Node/TypeScript (companion), PHPUnit, Vitest, Playwright (`e2e/`), existing REST under `stonewright/v1/admin/*`.
 
-**Branch:** `feat/connection-center-e2e` (stacked on Phase 0 `fix/alpha72-baseline-lint-doc-truth`)
+**Branch:** historical feature branch for the connection-center work
 
 **Parent plan:** `docs/plans/stonewright-premium-enhancement-plan-2026-07-16-optimized.md` §Phase 1
 

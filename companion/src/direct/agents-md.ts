@@ -27,6 +27,13 @@ export function agentsMdTemplate(): string {
 		'8. Never scaffold/install ad-hoc plugins as a workaround; registration of new models needs server PHP or existing admin tools.',
 		'9. Automate HTTP-first (REST → APIs → form POST); browser admin clicks are last resort.',
 		'10. Content-model changes are additive — never CPT UI full import that replaces all types.',
+		'11. Direct mode is first-class. Use its typed tools, confirmations, backups, audit, readback,',
+		'    local memory, and local skills; never abandon it just because Plugin mode has a broader surface.',
+		'12. Never store credentials, Application Passwords, API keys, tokens, private customer names,',
+		'    project domains, usernames, raw logs, screenshots, or site IDs in memory, skills, or AGENTS.md.',
+		'    Generalize reusable lessons and keep private runtime state outside public repositories.',
+		'13. Companion updates must preserve ~/.stonewright memory, user skills, audit, and sites.json.',
+		'    Never reset or seed user data during an update; packaged _builtin skills are product assets.',
 		MARK_END,
 		'',
 	].join('\n');

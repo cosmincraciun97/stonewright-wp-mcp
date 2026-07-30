@@ -2,7 +2,7 @@
   "args": {
     "user_login": "newuser",
     "user_email": "n@example.com",
-    "user_pass": "longpassword12"
+    "user_pass": "test-long-password-12"
   },
   "expect_permission_error": true
 }

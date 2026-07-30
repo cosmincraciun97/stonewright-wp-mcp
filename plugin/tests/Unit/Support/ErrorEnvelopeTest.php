@@ -26,8 +26,8 @@ final class ErrorEnvelopeTest extends TestCase {
 						'got'      => null,
 					],
 				],
-				'token'     => 'secret-token',
-				'password'  => 'secret-password',
+				'token'     => 'test-secret-token',
+				'password'  => 'test-secret-password',
 				'spec'      => [ 'should' => 'stay-private' ],
 			]
 		);

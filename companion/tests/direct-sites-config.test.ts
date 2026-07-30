@@ -37,7 +37,7 @@ describe('direct sites-config', () => {
 				'site-b': {
 					url: 'https://site-b.example',
 					username: 'editor',
-					appPassword: 'yyyy yyyy yyyy yyyy yyyy yyyy',
+					appPassword: 'test test test test test test',
 				},
 			},
 		});
@@ -63,6 +63,22 @@ describe('direct sites-config', () => {
 		expect(() => loadSitesConfig({ sitesFile: file })).toThrow(/sites\.json|JSON|parse/i);
 	});
 
+	it('accepts the legacy applicationPassword key written by older init versions', () => {
+		const file = writeSites({
+			default: 'legacy',
+			sites: {
+				legacy: {
+					url: 'https://legacy.example',
+					username: 'editor',
+					applicationPassword: 'legacy local credential',
+				},
+			},
+		});
+
+		const site = resolveSite(loadSitesConfig({ sitesFile: file }));
+		expect(site.appPassword).toBe('legacy local credential');
+	});
+
 	it('rejects non-http(s) URLs', () => {
 		const file = writeSites({
 			default: 'bad',
@@ -84,7 +100,7 @@ describe('direct sites-config', () => {
 			env: {
 				STONEWRIGHT_WP_URL: 'https://example.test/',
 				STONEWRIGHT_WP_USERNAME: 'editor',
-				STONEWRIGHT_WP_APP_PASSWORD: 'aa bb cc dd ee ff',
+				STONEWRIGHT_WP_APP_PASSWORD: 'test-direct-app-password',
 			},
 		});
 		const site = resolveSite(config);
@@ -92,7 +108,7 @@ describe('direct sites-config', () => {
 		expect(site.url).toBe('https://example.test');
 		expect(site.restBase).toBe('https://example.test/wp-json');
 		expect(site.username).toBe('editor');
-		expect(site.appPassword).toBe('aa bb cc dd ee ff');
+		expect(site.appPassword).toBe('test-direct-app-password');
 	});
 
 	it('throws when neither file nor env credentials exist', () => {

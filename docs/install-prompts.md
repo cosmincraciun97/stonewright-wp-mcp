@@ -10,6 +10,11 @@ Companion package URL pattern:
 
 `https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz`
 
+Keep the values behind the placeholders in private client configuration. Do
+not paste a real site URL, username, Application Password, token, memory entry,
+or audit payload into an agent chat. See [Updating Stonewright](updates.md)
+when changing versions.
+
 ## OAuth connection (recommended in Plugin mode)
 
 ```text
@@ -75,6 +80,17 @@ Plugin-only: php-execute, Elementor engines, DesignSpec render pipelines,
 production-safe confirmation tokens, CPT/field-group registration, and the
 wp-admin skills/memory/audit UI.
 
+Optional interactive setup:
+
+```bash
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-companion init
+```
+
+It validates the credential, stores the canonical `appPassword` key in
+permission-restricted `~/.stonewright/sites.json`, and prints a secret-free MCP
+block. Existing files using the legacy `applicationPassword` key remain
+readable.
+
 ```text
 Configure the Stonewright MCP server in Direct mode (no WordPress plugin) in this AI client.
 
@@ -117,3 +133,15 @@ After reload:
 - `STONEWRIGHT_MCP_TOOL_PROFILE` selects the startup profile. Use `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK=1` only when you intentionally want the environment value to override WordPress Setup throughout the session.
 
 For stale, disabled, or truncated tools, follow the [tool surface recovery runbook](runbooks/tool-surface-recovery.md).
+
+## Updating an existing setup
+
+- stdio + plugin: update both release artifacts to the same version;
+- remote HTTP: update the plugin;
+- Direct mode: update the companion.
+
+Restart the client, call `stonewright-task-start`, then verify
+`companion_version`, `expected_companion_package`, and
+`refresh_required_tool_names`. Updates preserve existing plugin and Direct
+memory, user skills, and audit history. Full steps:
+[Updating Stonewright](updates.md).

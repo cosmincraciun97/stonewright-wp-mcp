@@ -25,7 +25,8 @@ is the **Stonewright > Configuration** page:
 
 1. Enable Stonewright abilities.
 2. Choose **Application Password** and generate one in the page.
-3. Copy the setup note, or expand the JSON snippets for your client.
+3. Save the private client snippet directly. The separate paste-to-agent prompt
+   contains placeholders only and never includes the real credential.
 
 ---
 
@@ -153,6 +154,9 @@ and `stonewright-wordpress-mcp-status`. Check `companion_version`,
 `expected_companion_package`, and `refresh_required_tool_names`; if the expected
 package or required tools are stale, Codex is still running an old companion
 process or cached tool list.
+
+See [Updating Stonewright](../updates.md) for the plugin/companion version
+matrix, replacement steps, and persistence guarantees.
 
 ---
 

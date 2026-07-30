@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { appendDirectAudit, recentRecurringErrors, defaultAuditPath } from '../src/direct/audit.js';
@@ -72,6 +72,33 @@ describe('direct error audit', () => {
 		});
 		expect(String(row['request_id'])).toHaveLength(36);
 		expect(String(row['site_fingerprint'])).toHaveLength(64);
+		expect(statSync(path).mode & 0o777).toBe(0o600);
+	});
+
+	it('redacts credentials from all free-text audit fields', () => {
+		const path = join(stateDir, 'audit-direct.jsonl');
+		const basic = 'YWRtaW46c2VjcmV0';
+		const privateValue = 'test-private-value';
+		const appPassword = ['test', 'test', 'test', 'test', 'test', 'test'].join(' ');
+		appendDirectAudit(
+			{
+				tool: 'stonewright-direct',
+				site: 'site-a',
+				status: 'error',
+				error: `Authorization: Basic ${basic} password=${privateValue}`,
+				validatorSummary: `application_password: "${appPassword}"`,
+				smokeSummary: 'access_token=test-token-value',
+				resource: 'https://user:test-private-value@example.com/wp-json/?token=test-token-value',
+			},
+			path,
+		);
+
+		const body = readFileSync(path, 'utf8');
+		expect(body).not.toContain(basic);
+		expect(body).not.toContain(privateValue);
+		expect(body).not.toContain(appPassword);
+		expect(body).not.toContain('test-token-value');
+		expect(body).toContain('[redacted');
 	});
 
 	it('task-start returns recurring_errors after audited failures', async () => {

@@ -131,8 +131,9 @@ The generated `stonewright/elementor-add-*` abilities remain available only in
 the explicit full/compatibility surface during the two-release warning window.
 Their metadata points to `stonewright/elementor-v3-batch-mutate`; the generated
 [migration table](migration-elementor-v3-tools.md) lists every exact mapping.
-The earliest removal release is alpha.67. New skills and recommendations use
-the live schema plus batch compiler.
+The first public beta starts the warning window; the earliest eligible removal
+is beta.3. New skills and recommendations use the live schema plus batch
+compiler.
 
 ## Verification coverage
 

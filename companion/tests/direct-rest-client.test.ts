@@ -7,7 +7,7 @@ const site: ResolvedSite = {
 	url: 'http://example.test',
 	restBase: 'http://example.test/wp-json',
 	username: 'admin',
-	appPassword: 'abcd efgh ijkl mnop',
+	appPassword: 'test test test test',
 };
 
 describe('WpRestClient', () => {
@@ -17,7 +17,7 @@ describe('WpRestClient', () => {
 			expect(url).toBe('http://example.test/wp-json/wp/v2/pages?per_page=10&search=home');
 			expect(init?.method).toBe('GET');
 			const headers = new Headers(init?.headers);
-			const expected = `Basic ${Buffer.from('admin:abcd efgh ijkl mnop').toString('base64')}`;
+			const expected = `Basic ${Buffer.from('admin:test test test test').toString('base64')}`;
 			expect(headers.get('authorization')).toBe(expected);
 			return Promise.resolve(
 				new Response(JSON.stringify([{ id: 1, title: { rendered: 'Home' } }]), {

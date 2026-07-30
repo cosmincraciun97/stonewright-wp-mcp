@@ -55,8 +55,13 @@ final class PromptLibraryPage {
 			<div class="stonewright-page-header">
 				<div>
 					<h1><?php esc_html_e( 'Prompt Library', 'stonewright' ); ?></h1>
-					<p><?php esc_html_e( 'Outcome-grouped starters for MCP clients. Copy a prompt, paste it into your AI client after Stonewright is connected.', 'stonewright' ); ?></p>
+					<p><?php esc_html_e( 'Outcome-grouped starters for Plugin and Direct mode. Connect Stonewright first, copy only the prompt you need, and keep credentials out of chat.', 'stonewright' ); ?></p>
 				</div>
+			</div>
+
+			<div class="sw-prompt-safety" role="note">
+				<strong><?php esc_html_e( 'Every prompt starts with stonewright-task-start.', 'stonewright' ); ?></strong>
+				<?php esc_html_e( 'Mode badges show where it works. Prompts contain no site URL, username, Application Password, token, memory entry, or audit payload.', 'stonewright' ); ?>
 			</div>
 
 			<label class="screen-reader-text" for="sw-prompt-search"><?php esc_html_e( 'Search prompts', 'stonewright' ); ?></label>
@@ -87,6 +92,9 @@ final class PromptLibraryPage {
 								$summary = (string) ( $prompt['summary'] ?? '' );
 								$body    = (string) ( $prompt['prompt'] ?? '' );
 								$tools   = is_array( $prompt['tools'] ?? null ) ? $prompt['tools'] : [];
+								$modes   = is_array( $prompt['modes'] ?? null ) ? $prompt['modes'] : [ 'plugin' ];
+								$prerequisites = is_array( $prompt['prerequisites'] ?? null ) ? $prompt['prerequisites'] : [];
+								$verification  = (string) ( $prompt['verification'] ?? '' );
 								$search  = strtolower(
 									trim(
 										$title . ' ' . $outcome . ' ' . $summary . ' ' . $id . ' ' . implode( ' ', array_map( 'strval', $tools ) )
@@ -102,10 +110,30 @@ final class PromptLibraryPage {
 									data-search="<?php echo esc_attr( $search ); ?>"
 								>
 									<span class="sw-blueprint-card__industry"><?php echo esc_html( $outcome ); ?></span>
+									<div class="sw-prompt-modes" aria-label="<?php esc_attr_e( 'Available modes', 'stonewright' ); ?>">
+										<?php foreach ( $modes as $mode ) : ?>
+											<span><?php echo esc_html( 'direct' === $mode ? __( 'Direct', 'stonewright' ) : __( 'Plugin', 'stonewright' ) ); ?></span>
+										<?php endforeach; ?>
+									</div>
 									<h3 class="sw-blueprint-card__name"><?php echo esc_html( $title ); ?></h3>
 									<?php if ( '' !== $summary ) : ?>
 										<p class="sw-blueprint-card__desc"><?php echo esc_html( $summary ); ?></p>
 									<?php endif; ?>
+									<details class="sw-prompt-details">
+										<summary><?php esc_html_e( 'Requirements and verification', 'stonewright' ); ?></summary>
+										<?php if ( [] !== $prerequisites ) : ?>
+											<strong><?php esc_html_e( 'Requires', 'stonewright' ); ?></strong>
+											<ul>
+												<?php foreach ( $prerequisites as $prerequisite ) : ?>
+													<li><?php echo esc_html( (string) $prerequisite ); ?></li>
+												<?php endforeach; ?>
+											</ul>
+										<?php endif; ?>
+										<?php if ( '' !== $verification ) : ?>
+											<strong><?php esc_html_e( 'Done when', 'stonewright' ); ?></strong>
+											<p><?php echo esc_html( $verification ); ?></p>
+										<?php endif; ?>
+									</details>
 									<?php if ( [] !== $tools ) : ?>
 										<p class="sw-blueprint-card__meta">
 											<?php foreach ( array_slice( $tools, 0, 4 ) as $tool ) : ?>

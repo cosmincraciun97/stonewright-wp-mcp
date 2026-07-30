@@ -104,6 +104,23 @@ jobs:
           (cd dist && zip -qr "stonewright-${version}.zip" stonewright)
           (cd companion && npm pack --pack-destination ../dist)
           (cd visual && npm pack --pack-destination ../dist)
+          companion_archive="$(find dist -maxdepth 1 -name 'stonewright-companion-*.tgz' -print -quit)"
+          visual_archive="$(find dist -maxdepth 1 -name 'stonewright-visual-*.tgz' -print -quit)"
+          mkdir -p dist/package-scan/companion dist/package-scan/visual
+          tar -xzf "$companion_archive" -C dist/package-scan/companion
+          tar -xzf "$visual_archive" -C dist/package-scan/visual
+          STONEWRIGHT_PRIVATE_TERMS="${{ secrets.STONEWRIGHT_PRIVATE_TERMS }}" \
+            node scripts/check-public-hygiene.mjs \
+              --root dist/package-scan/companion \
+              --require-private-terms
+          STONEWRIGHT_PRIVATE_TERMS="${{ secrets.STONEWRIGHT_PRIVATE_TERMS }}" \
+            node scripts/check-public-hygiene.mjs \
+              --root dist/package-scan/visual \
+              --require-private-terms
+          if tar -tzf "$companion_archive" | grep -Eq '(^|/)(sites\.json|audit-direct\.jsonl)$|(^|/)memory/'; then
+            echo "Companion archive contains private persistent runtime state" >&2
+            exit 1
+          fi
           if unzip -Z1 "dist/stonewright-${version}.zip" | grep -Eq '^stonewright/(tests|bin)/|^stonewright/(phpunit|phpstan|phpcs)|^stonewright/composer\.lock$'; then
             echo "Plugin archive contains development-only files" >&2
             exit 1
@@ -129,7 +146,6 @@ jobs:
           release_flags=(--latest)
           case "$version" in
             *-beta*|*-rc*) release_flags=(--prerelease) ;;
-            *-alpha*) release_flags=(--prerelease) ;;
           esac
           gh release create "$GITHUB_REF_NAME" \
             "dist/stonewright-${version}.zip" \

@@ -205,7 +205,7 @@ final class SandboxPermissionTest extends TestCase {
 		$ability = new SandboxActivate();
 		$result  = $ability->execute( [
 			'name'               => 'a.php',
-			'confirmation_token' => 'swc_invalid_token',
+			'confirmation_token' => 'test-invalid-token',
 		] );
 
 		$this->assertInstanceOf( \WP_Error::class, $result );

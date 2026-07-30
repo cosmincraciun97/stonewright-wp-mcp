@@ -14,7 +14,7 @@
 
 ## Context: the failure this fixes
 
-A live session (one AI client, plugin-proxy mode, Elementor task) failed to reach Elementor/theme write tools for the whole session. **The observed "~50 tool" ceiling was Stonewright's own default, not a client limit:** `ToolProfile::activate` defaults `max_tools` to `50` ([ToolProfile.php:303](../../plugin/includes/Abilities/System/ToolProfile.php)) and front-slices the profile there, so `elementor-design` (59 tools) lost its tail before any client cap applied. Do not attribute any of the below to a specific client, LLM, or IDE — every root cause is Stonewright-side and reproduces on any MCP client. Verified in source at commit `06ffa86` (1.0.0-alpha.78):
+A live session (one AI client, plugin-proxy mode, Elementor task) failed to reach Elementor/theme write tools for the whole session. **The observed "~50 tool" ceiling was Stonewright's own default, not a client limit:** `ToolProfile::activate` defaults `max_tools` to `50` ([ToolProfile.php:303](../../plugin/includes/Abilities/System/ToolProfile.php)) and front-slices the profile there, so `elementor-design` (59 tools) lost its tail before any client cap applied. Do not attribute any of the below to a specific client, LLM, or IDE — every root cause is Stonewright-side and reproduces on any MCP client. Verified in the pre-beta source snapshot:
 
 1. **Session profile never applies on non-bootstrap surfaces.** `WorkflowPreflight::execute()` ([plugin/includes/Abilities/System/WorkflowPreflight.php:207-216](../../plugin/includes/Abilities/System/WorkflowPreflight.php)) only writes the session transient when `mcp_surface() === 'bootstrap'`. On an `essential` surface, the suggested task profile (`elementor-design`, 59 tools) is computed and then discarded; `session_profile_applied` is always `false` and tools like `stonewright/theme-file-patch` (absent from the 29-name essential list) never become visible.
 2. **`tool-profile activate` never writes the session transient at all.** Only `WorkflowPreflight` calls `AbilityRegistry::set_session_tool_profile()`. The activate path only calls `ToolProfile::expand_mcp_surface_for_profile()` ([ToolProfile.php:468-481](../../plugin/includes/Abilities/System/ToolProfile.php)), which early-returns unless the surface is `bootstrap` — so `activate full` on an essential surface is a silent no-op.
@@ -52,7 +52,7 @@ A live session (one AI client, plugin-proxy mode, Elementor task) failed to reac
 
 ### Executor ground rules
 
-- Repo state when this plan was written: `main` at `06ffa86` (1.0.0-alpha.78). **Re-verify line numbers before editing** — use the quoted anchor code, not the line number, as truth.
+- Repo state when this plan was written: a pre-beta development snapshot. **Re-verify line numbers before editing** — use the quoted anchor code, not the line number, as truth.
 - Never weaken permission, backup, validation, confirmation-token, or audit gates.
 - Plugin checks: `cd plugin && composer test && composer phpstan && composer phpcs`. Companion checks: `cd companion && npm test && npm run typecheck && npm run build`.
 - Upstream project names may appear where needed for provenance, compatibility,

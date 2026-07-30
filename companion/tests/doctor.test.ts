@@ -1,3 +1,6 @@
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
 	checkCredentialsPresent,
@@ -18,7 +21,7 @@ describe('companion doctor', () => {
 		const creds = resolveCredentials({
 			STONEWRIGHT_WP_URL: 'https://example.test/',
 			STONEWRIGHT_WP_USERNAME: 'admin',
-			STONEWRIGHT_WP_APP_PASSWORD: 'secret-value',
+			STONEWRIGHT_WP_APP_PASSWORD: 'test-secret-value',
 		});
 		expect(creds).toEqual({
 			url: 'https://example.test',
@@ -26,7 +29,32 @@ describe('companion doctor', () => {
 			hasPassword: true,
 			source: 'environment',
 		});
-		expect(JSON.stringify(creds)).not.toContain('secret-value');
+		expect(JSON.stringify(creds)).not.toContain('test-secret-value');
+	});
+
+	it('resolves canonical and legacy sites files without returning secret material', () => {
+		for (const passwordKey of ['appPassword', 'applicationPassword']) {
+			const home = mkdtempSync(join(tmpdir(), 'sw-doctor-home-'));
+			const state = join(home, '.stonewright');
+			mkdirSync(state, { recursive: true });
+			writeFileSync(
+				join(state, 'sites.json'),
+				JSON.stringify({
+					sites: {
+						default: {
+							url: 'https://example.test',
+							username: 'admin',
+							[passwordKey]: 'private local credential',
+						},
+					},
+				}),
+			);
+
+			const creds = resolveCredentials({}, home);
+			expect(creds?.source).toBe('~/.stonewright/sites.json');
+			expect(creds?.hasPassword).toBe(true);
+			expect(JSON.stringify(creds)).not.toContain('private local credential');
+		}
 	});
 
 	it('fails credentials check when missing', () => {
@@ -92,14 +120,14 @@ describe('companion doctor', () => {
 				PATH: '/usr/bin',
 				STONEWRIGHT_WP_URL: 'https://example.test',
 				STONEWRIGHT_WP_USERNAME: 'admin',
-				STONEWRIGHT_WP_APP_PASSWORD: 'aaaa bbbb cccc dddd',
+				STONEWRIGHT_WP_APP_PASSWORD: 'test-doctor-app-password',
 			},
 			fetchImpl,
 		});
 
 		expect(report.ok).toBe(true);
 		expect(report.checks.find((c) => c.id === 'mcp_initialize')?.status).toBe('passed');
-		expect(JSON.stringify(report)).not.toContain('aaaa bbbb');
+		expect(JSON.stringify(report)).not.toContain('test-doctor-app-password');
 	});
 
 	it('runDoctorChecks fails on 401 rest auth', async () => {

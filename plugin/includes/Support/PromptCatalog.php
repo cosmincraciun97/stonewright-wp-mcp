@@ -18,6 +18,7 @@ final class PromptCatalog {
 	 *     outcome: string,
 	 *     summary: string,
 	 *     prerequisites: list<string>,
+	 *     modes: list<string>,
 	 *     tools: list<string>,
 	 *     prompt: string,
 	 *     verification: string
@@ -67,6 +68,7 @@ final class PromptCatalog {
 				'outcome'        => sanitize_key( (string) ( $row['outcome'] ?? 'general' ) ),
 				'summary'        => (string) ( $row['summary'] ?? '' ),
 				'prerequisites'  => self::string_list( $row['prerequisites'] ?? [] ),
+				'modes'          => self::normalise_modes( $row['modes'] ?? [ 'plugin' ] ),
 				'tools'          => self::string_list( $row['tools'] ?? [] ),
 				'prompt'         => (string) ( $row['prompt'] ?? '' ),
 				'verification'   => (string) ( $row['verification'] ?? '' ),
@@ -168,5 +170,18 @@ final class PromptCatalog {
 			}
 		}
 		return $out;
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	private static function normalise_modes( mixed $value ): array {
+		$modes = array_values(
+			array_intersect(
+				self::string_list( $value ),
+				[ 'plugin', 'direct' ]
+			)
+		);
+		return [] === $modes ? [ 'plugin' ] : array_values( array_unique( $modes ) );
 	}
 }

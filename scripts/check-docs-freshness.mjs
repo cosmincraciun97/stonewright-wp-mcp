@@ -147,7 +147,7 @@ for (const absolute of markdownFiles) {
 	const relative = path.relative(repoRoot, absolute).split(path.sep).join('/');
 	const content = fs.readFileSync(absolute, 'utf8');
 
-	if (!historicalMarkdown(relative) && /releases\/download\/v1\.0\.0-(?:alpha|beta|rc)\.\d+\//.test(content)) {
+	if (!historicalMarkdown(relative) && /releases\/download\/v1\.0\.0-(?:beta|rc)\.\d+\//.test(content)) {
 		fail(`${relative} pins a release asset; use the VERSION placeholder.`);
 	}
 

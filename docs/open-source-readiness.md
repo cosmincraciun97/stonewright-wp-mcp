@@ -15,6 +15,9 @@ This checklist tracks the public-release surface for Stonewright.
   project-term list without echoing matched terms.
 - Customer/project names, domains, local aliases, record ids, screenshots,
   audit logs, and memory exports are forbidden in public artifacts.
+- High-confidence credential patterns are blocked in maintained source and
+  staged archives. The companion archive must not contain sites config, Direct
+  audit, or runtime memory state.
 
 ## Security Envelope
 
@@ -100,4 +103,5 @@ manifest target, and test Stonewright/WooCommerce co-activation.
 - Audit local and remote branch names plus commit subjects for private
   provenance terms before publishing.
 - Rewriting history, deleting branches, or deleting public releases/tags needs
-  a separately reviewed exact target list and maintainer approval.
+  a separately reviewed exact target list and maintainer approval, followed by
+  fresh CI and artifact verification.

@@ -13,9 +13,10 @@ live Elementor runtime, including third-party add-ons. Then write through
 supports references and rollback, and verifies readback. For complete initial
 pages, use `stonewright/elementor-v3-build-page-from-spec` before batch polish.
 
-Removal cannot happen before two released warnings. With alpha.65 as release N,
-the earliest removal release is alpha.67. Internal adapters and live schema
-discovery remain after public aliases are removed.
+The first public beta is warning release N. Removal cannot happen before two
+additional published warnings, so the earliest eligible removal is beta.3.
+Internal adapters and live schema discovery remain after public aliases are
+removed.
 
 | Deprecated ability | Exact replacement | Preserved behavior |
 |---|---|---|

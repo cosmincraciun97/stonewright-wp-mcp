@@ -35,6 +35,11 @@ final class PromptLibraryPageTest extends TestCase {
 		self::assertStringContainsString( 'sw-blueprint-grid', $html );
 		self::assertStringContainsString( 'sw-blueprint-card__actions', $html );
 		self::assertStringContainsString( 'Copy prompt', $html );
+		self::assertStringContainsString( 'Every prompt starts with stonewright-task-start', $html );
+		self::assertStringContainsString( 'Available modes', $html );
+		self::assertStringContainsString( 'Direct', $html );
+		self::assertStringContainsString( 'Requirements and verification', $html );
+		self::assertStringContainsString( 'Update and verify Stonewright', $html );
 	}
 
 	public function test_admin_bootstrap_maps_prompts_to_blueprints_stylesheet(): void {

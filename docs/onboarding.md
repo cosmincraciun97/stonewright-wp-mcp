@@ -50,6 +50,11 @@ generated [ability-truth-matrix.md](ability-truth-matrix.md) (do not hand-edit).
    locally stored skills and memory for this site (or `_global`).
 5. Call `stonewright-site-discover` before choosing WordPress REST operations.
 
+On a fresh installation there is no user memory, no user-created skill, and no
+audit event. Generic built-in skills and native rules are product assets and
+remain available. Updating either mode preserves existing state; see
+[Updating Stonewright](updates.md).
+
 Every real task should start with `stonewright-task-start`. The response
 contains active instructions, relevant skills, persistent memory (site-hosted
 in plugin mode; `~/.stonewright/` in Direct mode), workflow followups, and the
@@ -181,6 +186,10 @@ Stonewright has three related but distinct surfaces:
   mode stores memory as private JSONL under `~/.stonewright/memory/<scope>.jsonl`
   (directory mode `0700`, files `0600`). Report only logical refs such as
   `direct:memory/<scope>.jsonl#<id>` — never expand home paths with secrets.
+
+Plugin and Direct writes reject high-confidence credential material. Do not put
+site URLs, usernames, Application Passwords, tokens, private project names, or
+client configuration into memory or skills.
 
 If the user explicitly asks Stonewright to remember a correction, call
 `stonewright-learning-record` (canonical: `topic` + `correction` + `scope`, or

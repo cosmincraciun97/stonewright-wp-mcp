@@ -172,7 +172,7 @@ final class ConfirmationTokenTest extends TestCase {
 	public function test_confirmation_token_key_stripped_during_normalization(): void {
 		// A token signed with args containing confirmation_token should verify
 		// when confirmation_token is present in verify args too (it's stripped).
-		$args_with_token    = [ 'name' => 'a.php', 'confirmation_token' => 'some-old-token' ];
+		$args_with_token    = [ 'name' => 'a.php', 'confirmation_token' => 'test-old-token' ];
 		$args_without_token = [ 'name' => 'a.php' ];
 
 		$token = ConfirmationToken::issue( 'stonewright/sandbox-delete', $args_with_token );

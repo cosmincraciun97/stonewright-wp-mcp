@@ -106,6 +106,12 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringNotContainsString( 'Need the JSON config for a specific client?', $html );
 		self::assertStringNotContainsString( 'stonewright-remote-http-snippet', $html );
 		self::assertStringContainsString( 'stonewright-connect-prompt-full', $html );
+		self::assertStringContainsString( 'Keep Stonewright current', $html );
+		self::assertStringContainsString( 'Update the WordPress plugin', $html );
+		self::assertStringContainsString( 'Update the local companion', $html );
+		self::assertStringContainsString( 'Copy current companion URL', $html );
+		self::assertStringContainsString( 'Updates preserve memory, user skills, audit, and Direct state.', $html );
+		self::assertStringContainsString( 'Never commit credentials.', $html );
 		self::assertSame( 1, substr_count( $html, 'class="stonewright-connect-prompt' ) );
 		self::assertStringContainsString( 'data-stonewright-text-preview', $html );
 		self::assertStringContainsString( 'data-stonewright-text-full', $html );
@@ -255,7 +261,7 @@ final class ConfigurationPageTest extends TestCase {
 	public function test_render_embeds_generated_application_password_once(): void {
 		$GLOBALS['stonewright_test_transients']['stonewright_app_password_flash_42'] = [
 			'generated' => [
-				'password' => 'fresh app password',
+				'password' => 'test-fresh-app-password',
 				'name'     => 'Stonewright',
 				'uuid'     => 'uuid',
 				'created'  => 1710000000,
@@ -266,9 +272,13 @@ final class ConfigurationPageTest extends TestCase {
 		ConfigurationPage::render();
 		$html = (string) ob_get_clean();
 
-		self::assertStringContainsString( 'fresh app password', $html );
+		self::assertStringContainsString( 'test-fresh-app-password', $html );
 		self::assertStringContainsString( 'Copy password only', $html );
 		self::assertStringContainsString( 'Application password generated.', $html );
+		self::assertMatchesRegularExpression(
+			'/data-stonewright-text-full="(?![^"]*test-fresh-app-password)[^"]*"/',
+			$html
+		);
 		self::assertArrayNotHasKey(
 			'stonewright_app_password_flash_42',
 			$GLOBALS['stonewright_test_transients']

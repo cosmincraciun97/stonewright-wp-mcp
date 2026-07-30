@@ -6,21 +6,20 @@ namespace Stonewright\WpMcp\Tests\Unit\Support;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Enforces the 5-release retention policy on docs/releases and changelog shape.
+ * Enforces the supported public-release baseline.
  */
 final class ReleaseRetentionTest extends TestCase {
 
-	public function test_docs_releases_keeps_at_most_five_versioned_notes(): void {
+	public function test_docs_releases_starts_with_public_beta(): void {
 		$root = dirname( __DIR__, 4 ) . '/docs/releases';
 		self::assertDirectoryExists( $root );
 		$versioned = [];
 		foreach ( scandir( $root ) ?: [] as $name ) {
-			if ( preg_match( '/^1\\.0\\.0-alpha\\.\\d+.*\\.md$/', $name ) ) {
+			if ( preg_match( '/^1\\.0\\.0-(?:beta|rc)\\.\\d+.*\\.md$/', $name ) ) {
 				$versioned[] = $name;
 			}
 		}
-		self::assertLessThanOrEqual( 5, count( $versioned ), 'Too many release notes: ' . implode( ', ', $versioned ) );
-		self::assertNotEmpty( $versioned );
+		self::assertSame( [ '1.0.0-beta.1.md' ], $versioned );
 	}
 
 	public function test_root_changelog_has_at_most_five_versions_plus_unreleased(): void {
@@ -35,7 +34,7 @@ final class ReleaseRetentionTest extends TestCase {
 			)
 		);
 		self::assertContains( 'Unreleased', $headers );
-		self::assertLessThanOrEqual( 5, count( $versions ), 'Versions: ' . implode( ', ', $versions ) );
-		self::assertStringContainsString( '5-release retention policy', $raw );
+		self::assertSame( [ '1.0.0-beta.1' ], $versions );
+		self::assertStringContainsString( 'public changelog starts with the first beta', $raw );
 	}
 }

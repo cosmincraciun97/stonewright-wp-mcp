@@ -106,11 +106,16 @@ export function resolveCredentials(env: NodeJS.ProcessEnv, home = homedir()): Cr
 	}
 	try {
 		const raw = JSON.parse(readFileSync(sitesPath, 'utf8')) as {
-			sites?: Record<string, { url?: string; username?: string; applicationPassword?: string }>;
+			sites?: Record<string, {
+				url?: string;
+				username?: string;
+				appPassword?: string;
+				applicationPassword?: string;
+			}>;
 		};
 		const sites = raw.sites ?? {};
 		const first = Object.values(sites)[0];
-		if (first?.url && first.username && first.applicationPassword) {
+		if (first?.url && first.username && (first.appPassword || first.applicationPassword)) {
 			return {
 				url: first.url.replace(/\/+$/, ''),
 				username: first.username,
@@ -329,10 +334,10 @@ function passwordFromEnvOrFile(env: NodeJS.ProcessEnv, home: string): string {
 	}
 	try {
 		const raw = JSON.parse(readFileSync(sitesPath, 'utf8')) as {
-			sites?: Record<string, { applicationPassword?: string }>;
+			sites?: Record<string, { appPassword?: string; applicationPassword?: string }>;
 		};
 		const first = Object.values(raw.sites ?? {})[0];
-		return (first?.applicationPassword ?? '').trim();
+		return (first?.appPassword ?? first?.applicationPassword ?? '').trim();
 	} catch {
 		return '';
 	}

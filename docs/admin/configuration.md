@@ -1,8 +1,8 @@
 # Configuration
 
 The Configuration page is the first sub-page under the **Stonewright** menu
-(`dashicons-hammer`, position 76). It owns three numbered cards: master enable,
-OAuth approval, Application Password fallback, and MCP client connection.
+(`dashicons-hammer`, position 76). It owns guided cards for master enable,
+authentication, MCP client connection, updates, and live verification.
 
 ## Authentication chooser
 
@@ -137,8 +137,8 @@ To generate one from the Configuration page:
    `Cursor`.
 2. Click **Generate application password**.
 3. Copy the displayed password immediately. WordPress only shows it once.
-4. The generated password is embedded into the setup note in Card 3 for the
-   current page load.
+4. The generated password is available only in the private client snippet for
+   the current page load. The paste-to-agent prompt always uses placeholders.
 
 The page also lists existing Application Password names for the current user so
 site owners can see whether a client credential already exists. Each row can be
@@ -195,11 +195,11 @@ different top-level key or format, such as Codex `config.toml`, VS Code's
 
 ### Copyable setup note
 
-The setup note is a short prompt for the current AI client. It includes the
-site URL, MCP endpoint, username, generated Application Password when present,
-the `npx` transport, and the canonical first Stonewright call:
-`stonewright-task-start`. Replace `VERSION` with the exact release version
-without a leading `v`.
+The paste-to-agent note is credential-free. It provides placeholder
+environment variables, the versioned `npx` transport, the remote endpoint
+shape, OAuth preference, private-storage rules, and the canonical first call:
+`stonewright-task-start`. It never interpolates the real site URL, username,
+Application Password, token, or private client configuration.
 
 The note also tells agents that `npx` downloads and runs the versioned GitHub
 release tarball, and that Playwright MCP should be added for browser testing,
@@ -220,12 +220,24 @@ source to reverse-engineer tool schemas, hand-rolling JSON-RPC, calling the REST
 runner from shell, or running shell `wp ...` commands as a Stonewright MCP
 workaround.
 
-### Examples
+### Prompt Library
 
-The **Examples** expander contains copyable real-world Stonewright prompts for
-Elementor page builds, ACF field groups, CPT UI content models, Figma to
-Elementor V3 implementation, WooCommerce catalog cleanup, and Gutenberg/FSE
-updates.
+The dedicated **Prompts** tab contains searchable, outcome-grouped starters.
+Each card states whether it supports Plugin mode, Direct mode, or both, lists
+requirements and verification, and contains no credentials or private site
+data.
+
+## Keep Stonewright current
+
+The update card makes the two-component boundary explicit:
+
+- local stdio with the plugin: update plugin and companion to the same version;
+- remote Streamable HTTP: update the plugin only;
+- pluginless Direct mode: update the companion only.
+
+It links the current companion package, explains when to update, and states
+that updates preserve plugin memory, user skills, audit history, settings, and
+Direct state. Full procedures are in [Updating Stonewright](../updates.md).
 
 ### Setup preflight vs Verify connection
 

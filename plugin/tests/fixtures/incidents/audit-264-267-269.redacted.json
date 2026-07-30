@@ -1,14 +1,14 @@
 {
   "note": "Redacted incident regression fixtures. No raw PHP, credentials, cookies, or absolute host paths.",
   "captured_at": "2026-07-23",
-  "plugin_version_at_incident": "1.0.0-alpha.80",
+  "plugin_version_at_incident": "1.0.0-beta.1",
   "rows": [
     {
       "id": 264,
       "result": "error",
       "ability": "stonewright/php-execute",
       "error_code": "stonewright_php_parse_error",
-      "evidence": "Snippet parse failure (transport/backslash). No effect verification fields present at alpha.80."
+      "evidence": "Snippet parse failure (transport/backslash). No effect verification fields present in the legacy audit row."
     },
     {
       "id": 267,

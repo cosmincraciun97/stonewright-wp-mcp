@@ -6,7 +6,7 @@ import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { chmodSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { APP_VERSION } from '../version.js';
 
 async function ask(rl: ReturnType<typeof createInterface>, q: string): Promise<string> {
@@ -51,14 +51,18 @@ export async function runInit(): Promise<number> {
 		writeOut(`Authenticated as ${me.name ?? me.slug ?? username}.\n`);
 
 		const dir = join(homedir(), '.stonewright');
-		mkdirSync(dir, { recursive: true });
+		mkdirSync(dir, { recursive: true, mode: 0o700 });
+		if (process.platform !== 'win32') {
+			chmodSync(dir, 0o700);
+		}
 		const sitesPath = join(dir, 'sites.json');
 		let sites: { sites: Record<string, unknown> } = { sites: {} };
 		if (existsSync(sitesPath)) {
 			try {
 				sites = JSON.parse(readFileSync(sitesPath, 'utf8')) as typeof sites;
 			} catch {
-				sites = { sites: {} };
+				writeErr(`Existing ${sitesPath} is invalid JSON. It was not changed.`);
+				return 1;
 			}
 		}
 		const key = 'default';
@@ -66,9 +70,12 @@ export async function runInit(): Promise<number> {
 		sites.sites[key] = {
 			url: base,
 			username,
-			applicationPassword: password,
+			appPassword: password,
 		};
 		writeFileSync(sitesPath, JSON.stringify(sites, null, 2) + '\n', { mode: 0o600 });
+		if (process.platform !== 'win32') {
+			chmodSync(sitesPath, 0o600);
+		}
 		writeOut(`Wrote ${sitesPath}\n`);
 
 		const pkg = `https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v${APP_VERSION}/stonewright-companion-${APP_VERSION}.tgz`;
@@ -79,18 +86,17 @@ export async function runInit(): Promise<number> {
 					args: ['-y', '--package', pkg, 'stonewright-mcp'],
 					env: {
 						STONEWRIGHT_MODE: 'direct',
-						STONEWRIGHT_WP_URL: base,
-						STONEWRIGHT_WP_USERNAME: username,
-						STONEWRIGHT_WP_APP_PASSWORD: password,
 						STONEWRIGHT_MCP_TOOL_PROFILE: 'bootstrap',
 					},
 				},
 			},
 		};
 
-		writeOut('Paste this into your MCP client config:\n');
+		writeOut('Paste this secret-free block into your MCP client config:\n');
 		writeOut(JSON.stringify(config, null, 2));
-		writeOut('\nThen restart the client and try: list my pages / stonewright-site-discover');
+		writeOut(
+			'\nCredentials stay only in ~/.stonewright/sites.json. Restart the client, call stonewright-task-start, then stonewright-site-discover.',
+		);
 		return 0;
 	} finally {
 		rl.close();

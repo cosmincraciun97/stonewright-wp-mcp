@@ -14,13 +14,13 @@ describe('loadWordPressMcpConfig', () => {
 		const config = loadWordPressMcpConfig({
 			STONEWRIGHT_WP_URL: 'http://mcp-test.local/',
 			STONEWRIGHT_WP_USERNAME: 'admin',
-			STONEWRIGHT_WP_APP_PASSWORD: 'app password',
+			STONEWRIGHT_WP_APP_PASSWORD: 'test-app-password',
 		});
 
 		expect(config).toEqual({
 			url: 'http://mcp-test.local/wp-json/mcp/stonewright',
 			username: 'admin',
-			password: 'app password',
+			password: 'test-app-password',
 			timeoutMs: 30_000,
 		});
 	});
@@ -46,7 +46,7 @@ describe('loadWordPressMcpConfig', () => {
 			writeFileSync(storePath, JSON.stringify({
 				url: 'http://mcp-test.local/wp-json/mcp/stonewright',
 				username: 'admin',
-				password: 'stored app password',
+				password: 'test-stored-app-password',
 			}));
 
 			const config = loadWordPressMcpConfig({
@@ -57,7 +57,7 @@ describe('loadWordPressMcpConfig', () => {
 			expect(config).toEqual({
 				url: 'http://mcp-test.local/wp-json/mcp/stonewright',
 				username: 'admin',
-				password: 'stored app password',
+				password: 'test-stored-app-password',
 				timeoutMs: 30_000,
 				credentialStorePath: storePath,
 				credentialSource: 'store',
@@ -80,7 +80,7 @@ describe('loadWordPressMcpConfig', () => {
 					return Promise.resolve({ stdout: 'admin\n', stderr: '', exitCode: 0 });
 				}
 				if (args.includes('application-password')) {
-					return Promise.resolve({ stdout: 'abcd efgh ijkl mnop qrst uvwx\n', stderr: '', exitCode: 0 });
+					return Promise.resolve({ stdout: 'test test test test test test\n', stderr: '', exitCode: 0 });
 				}
 				return Promise.resolve({ stdout: '', stderr: 'unexpected command', exitCode: 1 });
 			};
@@ -93,14 +93,14 @@ describe('loadWordPressMcpConfig', () => {
 			}, runner);
 
 			expect(config?.username).toBe('admin');
-			expect(config?.password).toBe('abcd efgh ijkl mnop qrst uvwx');
+			expect(config?.password).toBe('test test test test test test');
 			expect(config?.credentialSource).toBe('generated');
 			expect(commands).toHaveLength(2);
 			expect(commands[1]).toEqual(expect.arrayContaining(['user', 'application-password', 'create', 'admin']));
 			expect(JSON.parse(readFileSync(storePath, 'utf8'))).toMatchObject({
 				url: 'http://mcp-test.local/wp-json/mcp/stonewright',
 				username: 'admin',
-				password: 'abcd efgh ijkl mnop qrst uvwx',
+				password: 'test test test test test test',
 			});
 		} finally {
 			rmSync(temp, { recursive: true, force: true });

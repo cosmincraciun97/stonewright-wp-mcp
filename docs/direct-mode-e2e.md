@@ -73,6 +73,12 @@ task-start, and a **task-start write gate** (opt-out `STONEWRIGHT_DIRECT_REQUIRE
 Protocol e2e for self-improvement runs with zero WordPress credentials
 (`tests/direct-selfimprove-e2e.test.ts`). Direct surface: **100** tools.
 
+Lifecycle tests also prove that a new state directory has no user memory,
+user-created skills, or audit file; packaged generic built-ins are still
+available. Restarting or updating the companion preserves the state already
+stored under `~/.stonewright/`. Credential-like memory and skill payloads are
+rejected, and Direct audit diagnostic text is redacted before persistence.
+
 `task-start` binds learning to an alias, normalized URL, target fingerprint,
 backend, and expiry. A configured target change requires a new task-start.
 Authentication, transport, or server failure never silently redirects learning
@@ -82,3 +88,4 @@ confirmed absent.
 ## Install prompts
 
 See [install-prompts.md](install-prompts.md) for copy-paste AI client setup for both plugin and Direct modes.
+See [updates.md](updates.md) for companion update and state-preservation steps.

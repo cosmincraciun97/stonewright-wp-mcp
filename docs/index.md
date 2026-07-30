@@ -13,6 +13,7 @@ workflows with operator controls.
 - [Stonewright onboarding](onboarding.md)
 - [Installation for Windows and macOS](installation.md)
 - [AI client install prompts (plugin + Direct)](install-prompts.md)
+- [Updating the plugin and companion](updates.md)
 - [Documentation maintenance and release freshness](documentation-maintenance.md)
 - [All abilities by category](abilities.md)
 - [Design Spec reference](design-spec.md)
@@ -41,6 +42,7 @@ workflows with operator controls.
 | `abilities.md` | Public ability surface by category |
 | `ability-truth-matrix.md` | Generated ability gate matrix for permissions, backups, tokens, validators, and tests |
 | `companion.md` | Node companion, stdio MCP, optional HTTP bridge, and tokenized WP-CLI |
+| `updates.md` | Plugin/companion update matrix, steps, and persistence guarantees |
 | `security.md` and `security-guarantees.md` | Threat model and hardening guarantees |
 | `upstream-code-reuse.md` | Third-party source, licensing, attribution, and import ledger |
 

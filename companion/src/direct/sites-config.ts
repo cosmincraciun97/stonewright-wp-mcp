@@ -74,13 +74,15 @@ function parseSiteEntry(alias: string, value: unknown): SiteEntry {
 	const appPassword =
 		typeof row.appPassword === 'string'
 			? row.appPassword
-			: typeof row.PASS === 'string'
-				? row.PASS
-				: typeof row.password === 'string'
-					? row.password
-					: typeof row.app_password === 'string'
-						? row.app_password
-						: '';
+			: typeof row.applicationPassword === 'string'
+				? row.applicationPassword
+				: typeof row.PASS === 'string'
+					? row.PASS
+					: typeof row.password === 'string'
+						? row.password
+						: typeof row.app_password === 'string'
+							? row.app_password
+							: '';
 	if (!url) {
 		throw new Error(`sites.${alias}.url is required`);
 	}

@@ -1,32 +1,60 @@
 # Architecture
 
-Stonewright has two parts:
+Stonewright has two parts and two supported operating modes:
 
 - `plugin/`: the WordPress source of truth for abilities, permissions, memory,
   skills, Design Spec validation, rendering, backups, and audit logs.
 - `companion/`: a Node sidecar for stdio MCP, optional HTTP MCP transport,
-  health checks, optional MCP proxying, and tokenized WP-CLI.
+  health checks, optional MCP proxying, tokenized WP-CLI, and first-class
+  pluginless Direct mode.
 
+```mermaid
+flowchart TD
+    Client["MCP client"]
+    Companion["Local stdio companion"]
+    Http["Remote Streamable HTTP"]
+    Plugin["Stonewright WordPress plugin"]
+    Direct["Direct mode adapters"]
+    WordPress["WordPress runtime"]
+    PluginState["WordPress database<br/>memory, user skills, audit"]
+    DirectState["Private ~/.stonewright state<br/>sites, memory, user skills, redacted audit"]
+    Builtins["Packaged generic skills<br/>and native rules"]
+
+    Client --> Companion
+    Client --> Http
+    Companion --> Plugin
+    Companion --> Direct
+    Http --> Plugin
+    Plugin --> WordPress
+    Direct --> WordPress
+    Plugin --> PluginState
+    Direct --> DirectState
+    Builtins --> Plugin
+    Builtins --> Direct
 ```
-MCP client
-  |
-WordPress MCP adapter
-  |
-Stonewright plugin
-  |-- Abilities
-  |-- Context bootstrap
-  |-- Persistent skills and memory
-  |-- Design Direction contract, versions, active pointer
-  |-- Design Spec validators/renderers
-  |-- Direct PHP runtime, operator gates, backups, Stonewright mutation audit
-  |
-Companion
-  |-- /health
-  |-- /mcp
-  |-- /wp-cli/status
-  |-- /wp-cli/discover
-  |-- /wp-cli/run
-```
+
+Plugin mode owns the broad guarded write surface. Direct mode is not a fallback:
+it owns a documented pluginless surface, local task-start profiles, persistent
+private state, and read-only WooCommerce access. Capability differences are
+explicit rather than silently emulated.
+
+### Persistent state lifecycle
+
+A fresh plugin installation creates schemas but no user memory, user-created
+skills, or audit events. A fresh Direct state directory follows the same rule.
+Packaged generic skills and native rules are immutable product assets, so they
+are available on first use without becoming site or customer data.
+
+Plugin upgrades run migrations in place. Companion upgrades and Direct restarts
+reuse the existing private state directory. Neither path resets memory,
+user-created skills, audit history, site configuration, backups, or settings.
+Only an explicit user action may remove that state.
+
+Memory, user-created skills, and audit payloads reject or redact credential
+material before persistence. Plugin mode stores site state in WordPress. Direct
+mode stores private state under `~/.stonewright/` with restrictive permissions
+on supported POSIX systems. Release packages never include a runtime
+`sites.json`, audit ledger, memory store, or generated customer state.
 
 ## WordPress Writes
 

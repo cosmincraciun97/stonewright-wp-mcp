@@ -21,6 +21,9 @@ describe('agents-md', () => {
 		expect(b.created).toBe(false);
 		expect(b.updated).toBe(false);
 		expect(readFileSync(a.path, 'utf8')).toContain(MARK_START);
+		expect(readFileSync(a.path, 'utf8')).toContain('Direct mode is first-class');
+		expect(readFileSync(a.path, 'utf8')).toContain('Never store credentials');
+		expect(readFileSync(a.path, 'utf8')).toContain('updates must preserve ~/.stonewright');
 	});
 
 	it('preserves user lines outside managed markers on update', () => {

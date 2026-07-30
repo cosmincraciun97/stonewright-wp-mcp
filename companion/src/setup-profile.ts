@@ -1,7 +1,7 @@
 import { APP_VERSION, companionPackageSpec } from './version.js';
 import { proxyToolNamesForProfile, proxyToolProfileFromEnv, type ProxyToolProfile } from './wordpress-mcp.js';
 import { PLUGIN_ONLY_CAPABILITIES } from './direct/tools/site-discover.js';
-import { DIRECT_TOOL_NAMES } from './direct/registry.js';
+import { DIRECT_BOOTSTRAP_TOOL_NAMES, DIRECT_TOOL_NAMES } from './direct/registry.js';
 
 export type SetupPlatform = NodeJS.Platform | 'linux' | 'darwin' | 'win32';
 
@@ -41,6 +41,7 @@ export interface SetupModeOptions {
 
 export interface ToolInventory {
 	profile: ProxyToolProfile;
+	runtime_mode: 'plugin' | 'direct';
 	startup_budget: {
 		strict_client_tool_cap: number;
 		client_visible_expected_tool_count: number;
@@ -74,7 +75,7 @@ export const AGENT_DO_NOT_USE = [
 ];
 
 export const MCP_MISSING_BOOTSTRAP_STOP =
-	'If stonewright-context-bootstrap is not visible, stop WordPress work, report that Stonewright MCP is not loaded, and ask the user to reload or fix the MCP client config.';
+	'If neither stonewright-task-start nor compatibility stonewright-context-bootstrap is visible, stop WordPress work, report that Stonewright MCP is not loaded, and ask the user to reload or fix the MCP client config.';
 
 export const AGENT_USE_INSTEAD = [
 	'stonewright-wordpress-mcp-status',
@@ -130,10 +131,10 @@ export function buildSetupProfile(
 		mcpEnv.STONEWRIGHT_WP_USERNAME = username;
 	}
 	if (typeof password === 'string' && password.trim() !== '') {
-		mcpEnv.STONEWRIGHT_WP_APP_PASSWORD = password;
+		mcpEnv.STONEWRIGHT_WP_APP_PASSWORD = '<set-privately>';
 	}
 	if (authorization !== '') {
-		mcpEnv.STONEWRIGHT_MCP_AUTHORIZATION = authorization;
+		mcpEnv.STONEWRIGHT_MCP_AUTHORIZATION = '<set-privately>';
 	}
 	const requestedMode = (env['STONEWRIGHT_MODE'] ?? '').trim();
 	if (requestedMode) {
@@ -142,10 +143,9 @@ export function buildSetupProfile(
 
 	const visibilityChecks = mode === 'direct'
 		? [
-			'stonewright-site-discover',
+			...DIRECT_BOOTSTRAP_TOOL_NAMES,
 			'stonewright-setup-profile',
 			'stonewright-wordpress-mcp-status',
-			'stonewright-content-list',
 			'stonewright-wp-cli-status',
 			'stonewright-wp-cli-run',
 			'stonewright-wp-cli-batch-run',
@@ -196,16 +196,17 @@ export function buildSetupProfile(
 		},
 		checks,
 		first_calls: mode === 'direct'
-			? ['stonewright-site-discover', 'stonewright-setup-profile']
+			? ['stonewright-task-start', 'stonewright-site-discover']
 			: [
-				'stonewright-context-bootstrap',
 				'stonewright-task-start',
+				'stonewright-context-bootstrap',
 			],
 		tool_visibility_checks: visibilityChecks,
-		tool_inventory: buildToolInventory(proxyToolProfileFromEnv(env), visibilityChecks),
+		tool_inventory: buildToolInventory(proxyToolProfileFromEnv(env), visibilityChecks, mode),
 		agent_do_not_use: AGENT_DO_NOT_USE,
 		agent_use_instead: mode === 'direct'
 			? [
+				'stonewright-task-start',
 				'stonewright-site-discover',
 				'stonewright-setup-profile',
 				'stonewright-content-list',
@@ -220,11 +221,13 @@ export function buildSetupProfile(
 			'Do not point IDE MCP configs at companion/dist/index.js; dist is a build artifact and is intentionally not committed.',
 			'For source development, use npm --prefix <repo>/companion run mcp:source so the companion rebuilds before the MCP server starts.',
 			'Do not configure generic WordPress MCP adapters such as @automattic/mcp-wordpress-remote as the stonewright server; use the Stonewright companion so setup, status, compact profiles, php-execute, and WP-CLI tools stay visible during endpoint recovery.',
-			'Verify the MCP tool list includes stonewright-context-bootstrap before starting WordPress work.',
+			'Verify the MCP tool list includes stonewright-task-start before starting WordPress work; stonewright-context-bootstrap is a plugin compatibility path.',
 			'Use stonewright-wordpress-mcp-status if proxied WordPress tools are missing; setup and WP-CLI tools remain available while fixing the connection.',
 			'After every Stonewright release or skill sync, restart the MCP client and re-run stonewright-setup-profile plus stonewright-wordpress-mcp-status; if refresh_required_tool_names are missing, the client is still using an old tool list.',
 			'STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap is the default progressive surface; stonewright-task-start unlocks the task profile for the current session.',
-			'Use STONEWRIGHT_MCP_TOOL_PROFILE=low-tools for Antigravity, Gemini API, or other strict tool-cap clients; php-execute plus direct WP-CLI batch and background-job tools stay visible.',
+			mode === 'direct'
+				? 'Use STONEWRIGHT_MCP_TOOL_PROFILE=low-tools for strict tool-cap clients; task-start plus Direct batch and background-job tools stay visible without php-execute.'
+				: 'Use STONEWRIGHT_MCP_TOOL_PROFILE=low-tools for strict tool-cap clients; php-execute plus companion WP-CLI batch and background-job tools stay visible.',
 			'Profile aliases such as elementor, design, acf, cpt-ui, fse, and wp cli normalize to compact canonical profiles.',
 			'Leave PORT unset for stdio-only MCP clients. To run the optional HTTP bridge, set STONEWRIGHT_HTTP_ENABLE=1 plus PORT.',
 			'Use fast_path.tool_profile from stonewright-task-start before making a separate stonewright-tool-profile call; call tool-profile only to switch or verify a compact profile.',
@@ -238,12 +241,14 @@ export function buildSetupProfile(
 			'Do not inspect plugin or companion source code to reverse-engineer tool schemas during WordPress implementation tasks.',
 			'Do not hand-roll JSON-RPC calls to /mcp or /wp-json/mcp/stonewright as an MCP workaround.',
 			'Do not call /wp-json/stonewright/v1/abilities/run from shell as an MCP workaround.',
-			'Use stonewright-php-execute for direct full WordPress runtime snippets; keep WP-CLI for tokenized command workflows.',
+			mode === 'direct'
+				? 'Direct mode has no php-execute. Use typed Direct tools and tokenized companion WP-CLI; never substitute shell PHP or an ad hoc REST runner.'
+				: 'Use stonewright-php-execute for direct full WordPress runtime snippets; keep WP-CLI for tokenized command workflows.',
 			'For local .local/.test sites, Application Passwords can be generated through Stonewright WP-CLI.',
 			'For production sites, provide STONEWRIGHT_WP_USERNAME plus STONEWRIGHT_WP_APP_PASSWORD or STONEWRIGHT_MCP_AUTHORIZATION.',
 			'STONEWRIGHT_MODE=auto|direct|plugin (default auto): auto probes /wp-json/mcp/stonewright and uses Direct REST tools when the plugin is absent.',
 			mode === 'direct'
-				? 'Direct mode first call: stonewright-site-discover. Plugin-only capabilities are listed under unavailable.'
+				? 'Direct mode first call: stonewright-task-start. Local memory and user skills stay available; genuinely plugin-only capabilities are listed under unavailable.'
 				: 'Plugin mode exposes proxied Stonewright abilities; keep using stonewright-task-start for WordPress work.',
 		],
 	};
@@ -272,21 +277,26 @@ export function agentUseInstead(env: NodeJS.ProcessEnv = process.env): string[] 
 export function buildToolInventory(
 	profile: ProxyToolProfile,
 	localToolNames: readonly string[],
+	runtimeMode: 'plugin' | 'direct' = 'plugin',
 ): ToolInventory {
-	const proxiedProfileToolNames = proxyToolNamesForProfile(profile);
+	const proxiedProfileToolNames = runtimeMode === 'plugin' ? proxyToolNamesForProfile(profile) : [];
 	const clientVisibleExpectedToolCount = new Set([...proxiedProfileToolNames, ...localToolNames]).size;
+	const firstCallToolNames = runtimeMode === 'direct'
+		? ['stonewright-task-start']
+		: ['stonewright-task-start', 'stonewright-context-bootstrap'];
+	const refreshRequiredToolNames = runtimeMode === 'direct'
+		? ['stonewright-task-start', 'stonewright-rules-get', 'stonewright-site-discover']
+		: ['stonewright-task-start', 'stonewright-context-bootstrap', 'stonewright-php-execute'];
 
 	return {
 		profile,
+		runtime_mode: runtimeMode,
 		startup_budget: {
 			strict_client_tool_cap: profile === 'low-tools' ? 12 : 20,
 			client_visible_expected_tool_count: clientVisibleExpectedToolCount,
 			under_low_tools_cap: clientVisibleExpectedToolCount <= (profile === 'low-tools' ? 12 : 20),
 		},
-		first_call_tool_names: [
-			'stonewright-context-bootstrap',
-			'stonewright-task-start',
-		],
+		first_call_tool_names: firstCallToolNames,
 		diagnostic_tool_names: localToolNames.filter((name) => [
 			'stonewright-setup-profile',
 			'stonewright-wordpress-mcp-status',
@@ -302,16 +312,18 @@ export function buildToolInventory(
 		proxied_profile_tool_groups: groupProxiedToolNames(proxiedProfileToolNames),
 		companion_version: APP_VERSION,
 		expected_companion_package: companionPackageSpec(),
-		refresh_required_tool_names: [
-			'stonewright-context-bootstrap',
-			'stonewright-task-start',
-			'stonewright-php-execute',
-		],
-		token_notes: [
-			'Use this inventory before broad tools/list discovery.',
-			'Use stonewright-php-execute for direct runtime snippets and direct_wp_cli_tool_names for local WP-CLI; never run wp commands in a normal shell.',
-			'Use proxied_profile_tool_groups to pick the next Stonewright WordPress tool without loading the full ability matrix.',
-		],
+		refresh_required_tool_names: refreshRequiredToolNames,
+		token_notes: runtimeMode === 'direct'
+			? [
+				'Use this inventory before broad tools/list discovery.',
+				'Call stonewright-task-start first, then use typed Direct tools and direct_wp_cli_tool_names; Direct has no php-execute.',
+				'Never run wp commands, PHP, or ad hoc REST runners outside Stonewright.',
+			]
+			: [
+				'Use this inventory before broad tools/list discovery.',
+				'Use stonewright-php-execute for direct runtime snippets and direct_wp_cli_tool_names for local WP-CLI; never run wp commands in a normal shell.',
+				'Use proxied_profile_tool_groups to pick the next Stonewright WordPress tool without loading the full ability matrix.',
+			],
 	};
 }
 

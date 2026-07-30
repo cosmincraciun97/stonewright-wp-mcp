@@ -54,6 +54,23 @@ folder or site URL.
 | `STONEWRIGHT_WP_ALLOWED_ROOTS` | Comma- or semicolon-separated allowed roots |
 | `MCP_PROXY_TARGET` | Optional upstream MCP server |
 
+## Direct mode private state
+
+Run the versioned `stonewright-companion init` command for guided setup. It
+validates the WordPress Application Password, stores the canonical
+`appPassword` field in permission-restricted
+`~/.stonewright/sites.json`, and prints a secret-free MCP block. The legacy
+`applicationPassword` field remains readable for existing installations.
+
+Direct user memory, user-created skills, backups, and redacted audit history
+live under `~/.stonewright/`. A new state directory starts without user memory,
+user-created skills, or audit events; packaged generic built-ins remain
+available. Companion updates and restarts preserve existing state.
+
+Credential-like memory and skill writes are rejected. Authorization headers,
+tokens, and Application Passwords are redacted from Direct audit diagnostics
+before persistence.
+
 ## Plugin Integration
 
 The normal `npx` setup uses the versioned GitHub release tarball and does not
@@ -115,17 +132,19 @@ optional compatibility bootstrap/profile verification, skill playbook retrieval,
 MCP proxy status, and direct WP-CLI aliases. Use `fast_path.tool_profile` from
 `stonewright-workflow-preflight` before making a separate
 `stonewright-tool-profile` call.
-The companion also sets compact MCP server instructions at handshake time. They
-tell clients to call setup/profile/bootstrap tools first, use
-`stonewright-php-execute` for runtime snippets, use direct
-`stonewright-wp-cli-*` recovery tools, keep low-tools sessions compact, and
-avoid shell WP-CLI or generic PHP-adapter workarounds before the first tool
-call. When the WordPress plugin MCP is reachable, the companion appends the
+The companion also sets mode-aware MCP server instructions at handshake time.
+Both modes call `stonewright-task-start` first and keep low-tools sessions
+compact. Plugin mode may use `stonewright-php-execute`; Direct mode explicitly
+has no PHP escape hatch and uses only typed Direct tools or tokenized companion
+`stonewright-wp-cli-*` tools. Both reject shell WP-CLI, generic PHP adapters,
+and ad hoc REST runners. When the WordPress plugin MCP is reachable, the companion appends the
 plugin's `initialize.instructions` after a `--- WordPress plugin instructions ---`
 separator so clients see site rules and the task-start contract without an
 extra tool call.
 
-If `stonewright-context-bootstrap` or other proxied WordPress tools are missing,
+If both `stonewright-task-start` and compatibility
+`stonewright-context-bootstrap` are missing, or other expected WordPress tools
+are absent,
 call `stonewright-wordpress-mcp-status`. The companion keeps this diagnostic,
 `stonewright-setup-profile`, and direct `stonewright-wp-cli-*` tools available
 even when the WordPress MCP endpoint cannot be reached.
@@ -179,5 +198,6 @@ the password once through `stonewright-wp-cli-run`-equivalent tokenized WP-CLI
 execution, save it outside the repo by default, and reuse it in future agent
 sessions.
 
-Do not store these credentials in Stonewright site memory, public docs, commits,
-or admin instructions.
+Do not store these credentials in Stonewright memory, user skills, public docs,
+commits, issues, or admin instructions. See [Updating Stonewright](updates.md)
+for the component matrix and state-preserving upgrade procedure.

@@ -328,7 +328,7 @@ final class DesignApplyTest extends TestCase {
 		$result = self::$ability->execute( [
 			'spec'               => self::$valid_spec,
 			'post_id'            => self::POST_ID,
-			'confirmation_token' => 'swc_badtokenvalue',
+			'confirmation_token' => 'test-invalid-confirmation-token',
 		] );
 
 		$this->assertInstanceOf( \WP_Error::class, $result );

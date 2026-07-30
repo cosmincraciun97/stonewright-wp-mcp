@@ -5,7 +5,9 @@ namespace Stonewright\WpMcp\Skills;
 
 use Stonewright\WpMcp\Core\AbilityRegistry;
 use Stonewright\WpMcp\Security\ConfirmationToken;
+use Stonewright\WpMcp\Security\SensitiveContent;
 use Stonewright\WpMcp\Support\Json;
+use Stonewright\WpMcp\Support\Logger;
 
 /**
  * Static CRUD helpers for the stonewright_skills table.
@@ -163,7 +165,42 @@ final class Skills {
 	 * @return int The id of the inserted or updated row. 0 on failure.
 	 */
 	public static function save( array $data ): int {
+		return self::save_internal( $data, false );
+	}
+
+	/**
+	 * Insert a packaged built-in skill or playbook.
+	 *
+	 * Packaged files pass the public-hygiene release gate. Keeping this path
+	 * separate prevents generic security prose from being mistaken for a live
+	 * credential while user-supplied writes remain guarded.
+	 *
+	 * @param array<string, mixed> $data Packaged skill fields.
+	 * @return int The id of the inserted or updated row. 0 on failure.
+	 */
+	public static function save_packaged( array $data ): int {
+		$source = (string) ( $data['source'] ?? '' );
+		if ( ! in_array( $source, [ 'builtin', 'playbook' ], true ) ) {
+			return 0;
+		}
+		return self::save_internal( $data, true );
+	}
+
+	/**
+	 * @param array<string, mixed> $data Skill fields and lifecycle metadata.
+	 */
+	private static function save_internal( array $data, bool $packaged ): int {
 		global $wpdb;
+
+		if ( ! $packaged && SensitiveContent::contains( Json::encode( $data ) ) ) {
+			Logger::error(
+				'skill_sensitive_content_blocked',
+				[
+					'slug' => sanitize_title( (string) ( $data['slug'] ?? '' ) ),
+				]
+			);
+			return 0;
+		}
 
 		$slug = sanitize_title( (string) ( $data['slug'] ?? '' ) );
 		if ( '' === $slug ) {

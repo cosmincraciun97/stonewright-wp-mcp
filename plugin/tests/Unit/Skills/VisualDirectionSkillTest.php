@@ -175,6 +175,11 @@ final class VisualDirectionSkillTest extends TestCase {
 		self::assertArrayHasKey( 'elementor', $constraints );
 	}
 
+	public function test_security_guidance_does_not_drop_packaged_builtin_skills(): void {
+		self::assertIsArray( $this->seeded_row( 'stonewright-elementor-v4-atomic' ) );
+		self::assertIsArray( $this->seeded_row( 'stonewright-stonewright-review' ) );
+	}
+
 	public function test_a_rebrand_task_matches_the_pack_while_a_copy_edit_does_not(): void {
 		$row = $this->seeded_row( self::SLUG );
 		self::assertIsArray( $row );

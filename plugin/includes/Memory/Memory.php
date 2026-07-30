@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Memory;
 
+use Stonewright\WpMcp\Security\SensitiveContent;
 use Stonewright\WpMcp\Support\Json;
 use Stonewright\WpMcp\Support\Logger;
 
@@ -288,6 +289,26 @@ final class Memory {
 	public static function put_typed( string $type, string $scope, string $key, string $name, mixed $value, float $confidence = 1.0, array $metadata = [] ): int {
 		global $wpdb;
 		$table = self::table_name();
+
+		$persistent_payload = Json::encode(
+			[
+				'scope'    => $scope,
+				'key'      => $key,
+				'name'     => $name,
+				'value'    => $value,
+				'metadata' => $metadata,
+			]
+		);
+		if ( SensitiveContent::contains( $persistent_payload ) ) {
+			Logger::error(
+				'memory_sensitive_content_blocked',
+				[
+					'scope'      => $scope,
+					'memory_key' => $key,
+				]
+			);
+			return 0;
+		}
 
 		$type = self::sanitize_type( $type );
 		$name = self::sanitize_name( $name );

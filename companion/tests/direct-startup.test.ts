@@ -95,6 +95,12 @@ describe('direct startup auto-detect', () => {
 		expect(names).not.toContain('stonewright-context-bootstrap');
 		expect(names.filter((n) => DIRECT_TOOL_NAMES.includes(n as typeof DIRECT_TOOL_NAMES[number])).length)
 			.toBe(DIRECT_TOOL_NAMES.length);
+		// _instructions lives on the inner Server instance (SDK internal).
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SDK internals
+		const instructions = (server as any).server._instructions as string | undefined;
+		expect(instructions).toContain('Direct mode is first-class');
+		expect(instructions).toContain('Direct has no stonewright-php-execute');
+		expect(instructions).not.toContain('Use stonewright-php-execute for direct full WordPress runtime access');
 
 		const tools = (server as { _registeredTools?: Record<string, { handler?: (input: unknown) => Promise<unknown> }> })._registeredTools ?? {};
 		const status = await tools['stonewright-wordpress-mcp-status']?.handler?.({}) as {
@@ -175,7 +181,11 @@ describe('direct startup auto-detect', () => {
 			{ mode: 'direct', mode_reason: 'forced' },
 		);
 		expect(profile.mode).toBe('direct');
-		expect(profile.first_calls[0]).toBe('stonewright-site-discover');
+		expect(profile.first_calls[0]).toBe('stonewright-task-start');
+		expect(profile.tool_inventory.runtime_mode).toBe('direct');
+		expect(profile.tool_inventory.first_call_tool_names).toEqual(['stonewright-task-start']);
+		expect(profile.tool_inventory.refresh_required_tool_names).not.toContain('stonewright-php-execute');
+		expect(profile.notes.join('\n')).toContain('Local memory and user skills stay available');
 		expect(profile.unavailable?.some((c) => c.id === 'elementor-engine')).toBe(true);
 		expect(profile.direct_tool_count).toBeGreaterThanOrEqual(35);
 		expect(profile.notes.some((n) => n.includes('STONEWRIGHT_MODE'))).toBe(true);

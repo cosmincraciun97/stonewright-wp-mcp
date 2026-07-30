@@ -2,6 +2,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } fr
 import { join, resolve, basename } from 'node:path';
 import { createHash } from 'node:crypto';
 import { defaultStonewrightDir } from './skills-store.js';
+import { assertNoSensitiveMaterial } from './sensitive-content.js';
 
 const SCOPE_RE = /^[a-z0-9_][a-z0-9_.-]{0,63}$/;
 const KINDS = new Set(['correction', 'lesson', 'preference', 'fact'] as const);
@@ -122,6 +123,15 @@ export function recordMemory(input: {
 	if (!text) {
 		throw new Error('Memory text is required');
 	}
+	assertNoSensitiveMaterial(
+		[
+			text,
+			input.topic ?? '',
+			input.source ?? '',
+			...(input.tags ?? []),
+		].join('\n'),
+		'Memory entry',
+	);
 	if (text.length > MAX_TEXT) {
 		throw new Error(`Memory text exceeds ${MAX_TEXT} bytes`);
 	}
