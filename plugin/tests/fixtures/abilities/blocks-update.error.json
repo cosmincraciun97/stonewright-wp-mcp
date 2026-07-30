@@ -1,0 +1,9 @@
+{
+    "args": {
+        "post_id": 999999,
+        "path": [
+            0
+        ]
+    },
+    "expect": "wp_error"
+}

@@ -1,0 +1,31 @@
+{
+    "args": {
+        "title": "Denied Template",
+        "template_type": "single",
+        "conditions": [
+            {
+                "type": "include",
+                "name": "singular",
+                "sub_name": "post"
+            }
+        ],
+        "spec": {
+            "page": {
+                "title": "Denied Template"
+            },
+            "sections": [
+                {
+                    "id": "content",
+                    "blocks": [
+                        {
+                            "type": "heading",
+                            "text": "Denied"
+                        }
+                    ]
+                }
+            ]
+        },
+        "dry_run": true
+    },
+    "expect_permission_error": true
+}

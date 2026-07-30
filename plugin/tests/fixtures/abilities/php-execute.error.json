@@ -1,0 +1,6 @@
+{
+    "args": {
+        "code": "throw new RuntimeException(\"contract failure\");"
+    },
+    "expect": "wp_error"
+}

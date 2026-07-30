@@ -1,0 +1,17 @@
+# These are supported funding model platforms
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+
+github: # Optional: GitHub Sponsors username(s)
+patreon: # Optional
+open_collective: # Optional
+ko_fi: # Optional
+tidelift: # Optional
+community_bridge: # Optional
+liberapay: # Optional
+issuehunt: # Optional
+lfx_crowdfunding: # Optional
+polar: # Optional
+buy_me_a_coffee: # Optional
+thanks_dev: # Optional
+custom:
+  - https://cossmin4.gumroad.com/coffee

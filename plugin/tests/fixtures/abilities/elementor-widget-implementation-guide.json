@@ -1,0 +1,8 @@
+{
+    "args": {
+        "task": "Implement a responsive header navigation",
+        "candidate_widgets": ["html", "nav-menu", "button"],
+        "design_context": "Desktop menu with mobile hamburger."
+    },
+    "expect": "ok"
+}

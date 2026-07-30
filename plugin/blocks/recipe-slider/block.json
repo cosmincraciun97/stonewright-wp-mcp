@@ -1,0 +1,126 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "stonewright/recipe-slider",
+	"version": "1.0.0",
+	"title": "Recipe Slider",
+	"category": "media",
+	"icon": "images-alt2",
+	"description": "Carousel-style recipe slider with arrows, dots, auto-rotate, swipe and fully editable slides.",
+	"keywords": ["slider", "carousel", "recipes", "food"],
+	"textdomain": "stonewright",
+	"supports": {
+		"html": false,
+		"align": ["wide", "full"],
+		"anchor": true,
+		"spacing": {
+			"margin": true,
+			"padding": true
+		},
+		"interactivity": false
+	},
+	"attributes": {
+		"heading": {
+			"type": "string",
+			"default": "Related recipes"
+		},
+		"subheading": {
+			"type": "string",
+			"default": "Simple seasonal ideas for your next meal."
+		},
+		"ctaText": {
+			"type": "string",
+			"default": "View all recipes"
+		},
+		"ctaUrl": {
+			"type": "string",
+			"default": "#"
+		},
+		"backgroundColor": {
+			"type": "string",
+			"default": "#1f2937"
+		},
+		"textColor": {
+			"type": "string",
+			"default": "#ffffff"
+		},
+		"accentColor": {
+			"type": "string",
+			"default": "#d97706"
+		},
+		"cardColor": {
+			"type": "string",
+			"default": "#ffffff"
+		},
+		"autoRotate": {
+			"type": "boolean",
+			"default": true
+		},
+		"interval": {
+			"type": "number",
+			"default": 5000
+		},
+		"perViewDesktop": {
+			"type": "number",
+			"default": 4
+		},
+		"perViewTablet": {
+			"type": "number",
+			"default": 2
+		},
+		"perViewMobile": {
+			"type": "number",
+			"default": 1
+		},
+		"showDots": {
+			"type": "boolean",
+			"default": true
+		},
+		"showArrows": {
+			"type": "boolean",
+			"default": true
+		},
+		"slides": {
+			"type": "array",
+			"default": [
+				{
+					"title": "Roasted vegetables with herbs",
+					"image": "",
+					"imageAlt": "Roasted vegetables with herbs",
+					"difficulty": "Easy",
+					"time": "45 min",
+					"url": "#"
+				},
+				{
+					"title": "Lemon pasta with greens",
+					"image": "",
+					"imageAlt": "Lemon pasta with greens",
+					"difficulty": "Medium",
+					"time": "30 min",
+					"url": "#"
+				},
+				{
+					"title": "Coconut chickpea curry",
+					"image": "",
+					"imageAlt": "Coconut chickpea curry",
+					"difficulty": "Medium",
+					"time": "55 min",
+					"url": "#"
+				},
+				{
+					"title": "Honey soy roasted cauliflower",
+					"image": "",
+					"imageAlt": "Honey soy roasted cauliflower",
+					"difficulty": "Easy",
+					"time": "40 min",
+					"url": "#"
+				}
+			]
+		}
+	},
+	"editorScript": "file:./edit.js",
+	"viewScript": "file:./view.js",
+	"style": "file:./style.css",
+	"editorStyle": "file:./editor.css",
+	"render": "file:./render.php"
+}

@@ -1,0 +1,6 @@
+{
+  "args": {
+    "plugin": "akismet/akismet.php"
+  },
+  "expect_permission_error": true
+}

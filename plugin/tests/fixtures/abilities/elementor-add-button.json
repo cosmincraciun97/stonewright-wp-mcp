@@ -1,0 +1,10 @@
+{
+    "args": {
+        "post_id": 1,
+        "parent_id": "parent1",
+        "settings": {
+            "text": "Click me"
+        }
+    },
+    "expect": "ok"
+}

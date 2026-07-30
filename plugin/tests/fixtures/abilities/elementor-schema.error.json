@@ -1,0 +1,8 @@
+{
+    "args": {
+        "mode": "control",
+        "widget_type": "Contract",
+        "control": "does_not_exist"
+    },
+    "expect": "wp_error"
+}

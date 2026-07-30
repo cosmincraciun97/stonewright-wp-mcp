@@ -1,0 +1,8 @@
+{
+    "args": {
+        "post_id": 999999,
+        "settings": [],
+        "mode": "contract"
+    },
+    "expect_permission_error": true
+}

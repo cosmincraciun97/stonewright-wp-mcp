@@ -1,0 +1,12 @@
+{
+    "id": "2070b1a",
+    "elType": "widget",
+    "widgetType": "icon",
+    "settings": {
+        "icon": {
+            "value": "fas fa-check",
+            "library": "fa-solid"
+        }
+    },
+    "elements": []
+}

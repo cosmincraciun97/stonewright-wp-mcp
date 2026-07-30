@@ -1,0 +1,14 @@
+{
+    "args": {
+        "post_id": 1,
+        "parent_id": "parent1",
+        "settings": {
+            "icon_list": [
+                {
+                    "text": "Item 1"
+                }
+            ]
+        }
+    },
+    "expect": "ok"
+}

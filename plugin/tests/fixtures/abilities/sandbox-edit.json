@@ -1,0 +1,8 @@
+{
+    "args": {
+        "name": "contract.php",
+        "old_string": "contract",
+        "new_string": "contract"
+    },
+    "expect": "ok"
+}

@@ -1,0 +1,8 @@
+{
+    "args": {
+        "menu_id": 5001,
+        "title": "Contract Home",
+        "url": "https://example.test/"
+    },
+    "expect": "ok"
+}

@@ -1,0 +1,10 @@
+{
+  "blockName": "core/group",
+  "attrs": {},
+  "innerHTML": "<div class=\"wp-block-group\"></div>",
+  "innerContent": [
+    "<div class=\"wp-block-group\">",
+    "</div>"
+  ],
+  "innerBlocks": []
+}

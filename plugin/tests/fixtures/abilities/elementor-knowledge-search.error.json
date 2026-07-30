@@ -1,0 +1,6 @@
+{
+    "args": {
+        "query": ""
+    },
+    "expect": "wp_error"
+}

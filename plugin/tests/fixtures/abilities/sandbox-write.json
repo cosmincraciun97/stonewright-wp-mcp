@@ -1,0 +1,7 @@
+{
+    "args": {
+        "name": "contract.php",
+        "contents": "contract"
+    },
+    "expect": "ok"
+}

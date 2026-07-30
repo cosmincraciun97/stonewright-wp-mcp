@@ -1,0 +1,6 @@
+{
+  "args": {
+    "url": "https://example.com"
+  },
+  "expect": "ok"
+}

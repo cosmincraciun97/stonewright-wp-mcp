@@ -1,0 +1,6 @@
+{
+    "args": {
+        "jobId": "wpcli_fixture"
+    },
+    "expect": "ok"
+}

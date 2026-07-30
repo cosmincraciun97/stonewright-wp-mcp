@@ -1,0 +1,18 @@
+{
+  "slug": "windsurf",
+  "label": "Windsurf",
+  "kind": "editor",
+  "snippet_kind": "json",
+  "preferred_method": "stdio",
+  "official_cli_add": "",
+  "config_paths": {
+    "macos": "~/.codeium/windsurf/mcp_config.json",
+    "linux": "~/.codeium/windsurf/mcp_config.json",
+    "windows": "%USERPROFILE%\\.codeium\\windsurf\\mcp_config.json",
+    "wsl": "~/.codeium/windsurf/mcp_config.json"
+  },
+  "notes": "Merge the snippet into the existing file if one already exists. Prefer user-level or private client config; never commit Application Passwords to project-tracked files.",
+  "verified_against_docs_on": "2026-07-16",
+  "secret_storage": "user-level",
+  "config_path": "~/.codeium/windsurf/mcp_config.json"
+}

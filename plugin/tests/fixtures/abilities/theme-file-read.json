@@ -1,0 +1,6 @@
+{
+  "args": {
+    "path": "style.css"
+  },
+  "expect": "ok"
+}

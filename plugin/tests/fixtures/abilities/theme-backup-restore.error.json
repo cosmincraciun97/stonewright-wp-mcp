@@ -1,0 +1,7 @@
+{
+  "args": {
+    "backup_ref": "invalid-backup-ref",
+    "theme": "stylesheet"
+  },
+  "expect": "wp_error"
+}

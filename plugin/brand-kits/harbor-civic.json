@@ -1,0 +1,28 @@
+{
+    "id": "harbor-civic",
+    "name": "Harbor Civic",
+    "description": "Civic navy for public-facing orgs.",
+    "colors": {
+        "primary": "#1E3A5F",
+        "secondary": "#274C77",
+        "accent": "#EFB11D",
+        "background": "#F7F9FC",
+        "surface": "#E8EEF6",
+        "text": "#0B1B2B"
+    },
+    "fonts": {
+        "heading": "IBM Plex Serif, Georgia, serif",
+        "body": "IBM Plex Sans, system-ui, sans-serif"
+    },
+    "radius": {
+        "sm": "4px",
+        "md": "8px",
+        "lg": "16px"
+    },
+    "spacing": {
+        "xs": "8px",
+        "sm": "16px",
+        "md": "24px",
+        "lg": "48px"
+    }
+}

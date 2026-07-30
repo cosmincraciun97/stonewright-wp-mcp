@@ -1,0 +1,19 @@
+{
+  "args": {
+    "bundle": {
+      "format": "stonewright-knowledge-bundle",
+      "version": 1,
+      "instructions": {
+        "enabled": true,
+        "text": "Use native Elementor widgets first."
+      },
+      "memory": {
+        "enabled": true,
+        "entries": []
+      },
+      "skills": {
+        "entries": []
+      }
+    }
+  }
+}

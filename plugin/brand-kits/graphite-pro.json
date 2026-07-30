@@ -1,0 +1,28 @@
+{
+    "id": "graphite-pro",
+    "name": "Graphite Pro",
+    "description": "Neutral enterprise kit.",
+    "colors": {
+        "primary": "#111827",
+        "secondary": "#374151",
+        "accent": "#60A5FA",
+        "background": "#FFFFFF",
+        "surface": "#F3F4F6",
+        "text": "#111827"
+    },
+    "fonts": {
+        "heading": "Inter, system-ui, sans-serif",
+        "body": "Inter, system-ui, sans-serif"
+    },
+    "radius": {
+        "sm": "4px",
+        "md": "8px",
+        "lg": "16px"
+    },
+    "spacing": {
+        "xs": "8px",
+        "sm": "16px",
+        "md": "24px",
+        "lg": "48px"
+    }
+}

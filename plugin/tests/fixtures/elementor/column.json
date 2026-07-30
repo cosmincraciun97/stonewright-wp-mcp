@@ -1,0 +1,10 @@
+{
+    "id": "2d6c8a6",
+    "elType": "container",
+    "isInner": true,
+    "settings": {
+        "container_type": "flex",
+        "flex_direction": "column"
+    },
+    "elements": []
+}

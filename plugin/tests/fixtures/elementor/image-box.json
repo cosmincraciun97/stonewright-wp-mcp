@@ -1,0 +1,15 @@
+{
+    "id": "2070b1a",
+    "elType": "widget",
+    "widgetType": "image-box",
+    "settings": {
+        "image": {
+            "url": "https://example.com/card.jpg",
+            "id": "",
+            "alt": "Card image"
+        },
+        "title_text": "Card Title",
+        "description_text": "Card description."
+    },
+    "elements": []
+}

@@ -1,0 +1,8 @@
+{
+    "args": {
+        "name": "Denied",
+        "type": "color",
+        "value": "#111111"
+    },
+    "expect_permission_error": true
+}

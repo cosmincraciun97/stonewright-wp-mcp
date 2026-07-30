@@ -1,0 +1,305 @@
+# Configuration
+
+The Configuration page is the first sub-page under the **Stonewright** menu
+(`dashicons-hammer`, position 76). It owns guided cards for master enable,
+authentication, MCP client connection, updates, and live verification.
+
+## Authentication chooser
+
+Card 2 recommends OAuth on HTTPS and explicit local WordPress environments.
+OAuth uses browser sign-in, mandatory PKCE S256, dynamic client registration,
+resource-bound access tokens, rotating refresh tokens, and Connected Apps
+revocation. Public plain HTTP sites do not expose OAuth.
+
+Application Password remains an independent fallback on the existing
+`/wp-json/mcp/stonewright` route.
+
+Source: `plugin/includes/Admin/ConfigurationPage.php`
+
+---
+
+## Card 1 - Enable AI Abilities
+
+### Master toggle
+
+The `stonewright_enabled` option (boolean, default `false`) is a site-wide kill
+switch. When it is `false`, the MCP server rejects inbound tool calls except for
+the built-in `ping` ability, which always responds so clients can test
+connectivity.
+
+Flip the toggle, click **Save Settings**, and registered abilities become
+available on the next tool-call attempt.
+
+### Mode selector
+
+Three modes are stored in the `stonewright_mode` option:
+
+| Value | Behaviour |
+|---|---|
+| `development` | All abilities available; no confirmation required. |
+| `staging` | Same as development; useful for labelling deployments. |
+| `production-safe` | Destructive operations require a `confirmation_token` obtained from `stonewright/security-issue-confirmation-token`. Without the token, those calls are rejected before execution. |
+
+### MCP tool surface
+
+`stonewright_mcp_surface` controls how many abilities appear on the public MCP
+`tools/list` surface:
+
+| Value | Behaviour |
+|---|---|
+| `bootstrap` | Progressive-discovery entry surface (≤ 12 tools, ≤ ~3,500 est. tokens). Includes `php-execute`, confirmation token, site/content reads, and theme-file-read so cold clients are not stuck. New installs default here. Call `stonewright-tool-profile` / `stonewright-task-start` to expand. |
+| `essential` | Compact fast path (≤ 30 tools) with batch-first Elementor/Gutenberg/content/WP-CLI tools. |
+| `full` | Entire registered ability catalog. **Slow and high-context** — only for specialist sessions that truly need every ability. |
+
+The legacy `stonewright_essential_tools_mode` flag stays in sync: bootstrap and
+essential map to enabled; full maps to disabled. Existing installs without
+`stonewright_mcp_surface` keep their current essential/full behaviour via that
+legacy flag until an admin saves the Configuration page.
+
+On **Setup → Connect**, the MCP tool surface select includes an **Apply now**
+button that saves the surface without a full form submit. Transport truth:
+
+- **HTTP clients** pick up the new surface on their next `tools/list`.
+- **Stdio companion** startup reads the saved WordPress surface and uses it as
+  the normal-client source of truth. Existing sessions sync on the next
+  `task-start` or `tool-profile` response and emit `tools/list_changed`; older
+  companions need a client restart.
+
+Generated stdio snippets use the saved surface instead of hard-coding
+`essential`. Strict-cap clients keep the explicit `low-tools` override. Set
+`STONEWRIGHT_MCP_TOOL_PROFILE_LOCK=1` only when a client-specific profile must
+override the site preference.
+
+`task-start` returns `configured_mcp_surface` and `session_tool_profile`. When
+Bootstrap is selected it activates the compact task profile for the current
+`Mcp-Session-Id`, asks the client to re-list tools, and leaves the saved Setup
+preference unchanged. Direct/pluginless mode performs the same session-local
+expansion inside the companion.
+
+Agents should call `stonewright-tool-profile` only for an explicit manual
+override or recovery; normal Bootstrap tasks expand from `task-start`.
+The profile response keeps Elementor, Gutenberg, content-model, and WP-CLI
+tasks on a compact set of batch-first tools. If a profile expects a disabled or
+gated tool, the response includes `missing_profile_tools`, `missing_mcp_tools`,
+and `recovery_hints` so the agent can recover without broad discovery loops.
+For Antigravity, Gemini API, or another strict tool-cap client, set the
+companion env `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools`. This is stricter than
+`essential`, keeps the client-visible startup surface under 30 tools, and still
+keeps direct WP-CLI batch/background-job tools visible.
+
+### Local WP-CLI bridge (advanced)
+
+The companion is a Node.js sidecar that handles WP-CLI, health checks, and the
+optional MCP proxy. It writes to WordPress through tokenized WP-CLI commands;
+direct PHP runtime snippets go through `stonewright/php-execute`.
+
+Most users can skip this section. The setup note in Card 3 already runs
+Stonewright through `npx` with the versioned GitHub release tarball, and direct companion
+tools such as `stonewright-wp-cli-status`, `stonewright-wp-cli-discover`,
+`stonewright-wp-cli-run`, `stonewright-wp-cli-batch-run`,
+`stonewright-wp-cli-job-start`, and `stonewright-wp-cli-job-status` do not need
+port `8765`.
+
+Use **Local WP-CLI bridge (advanced)** only when you deliberately run a local
+HTTP bridge for WordPress-side abilities such as `stonewright/wp-cli-run`.
+Click **Generate token**, save settings, then copy **Developer launch values**
+into the bridge process. The bridge token must match the saved token.
+
+For stdio MCP clients, leave `PORT` unset. A stale `.env` `PORT` is ignored by
+stdio startup unless `STONEWRIGHT_HTTP_ENABLE=1` or
+`STONEWRIGHT_HTTP_REQUIRED=1` is also set. Set `STONEWRIGHT_HTTP_REQUIRED=1`
+only when the optional HTTP bridge must start or startup should fail. Runtime
+agents should use the direct `stonewright-wp-cli-*` tools instead
+of shelling out to `wp ...` themselves.
+
+### Elementor V4 atomic
+
+Checking `stonewright_elementor_v4_atomic` enables the experimental V4 renderer
+and related abilities. It is off by default and only relevant on sites running
+Elementor 3.18+.
+
+---
+
+## Card 2 - Authentication
+
+OAuth is the default on HTTPS and explicit local environments. Select OAuth,
+pick the AI client, and follow the generated instructions. WordPress opens a
+consent screen and records the grant under **Connected Apps**; no WordPress
+password is copied into the client.
+
+Application Password remains the independent fallback. It is sent as HTTP
+Basic Auth with every request (`username:app-password`) to the existing
+`/wp-json/mcp/stonewright` resource.
+
+To generate one from the Configuration page:
+
+1. Enter a required label for the client, such as `Claude Code laptop` or
+   `Cursor`.
+2. Click **Generate application password**.
+3. Copy the displayed password immediately. WordPress only shows it once.
+4. The generated password is available only in the private client snippet for
+   the current page load. The paste-to-agent prompt always uses placeholders.
+
+The page also lists existing Application Password names for the current user so
+site owners can see whether a client credential already exists. Each row can be
+revoked from this table. Passwords are created only for the currently logged-in
+WordPress user.
+
+---
+
+## Card 3 - Connect Your AI Client
+
+The OAuth panel provides instructions for Claude Code, Claude Desktop,
+Claude.ai, ChatGPT, Codex, Antigravity, Cursor, VS Code, GitHub Copilot,
+Windsurf, Cline, Gemini CLI, Roo Code, Amazon Q, Zed, Kilo Code, and OpenCode.
+
+### MCP endpoint URL
+
+```text
+{site_url}/wp-json/mcp/stonewright
+```
+
+For example: `https://example.com/wp-json/mcp/stonewright`.
+
+### Recommended config block
+
+Most local MCP clients can launch the companion through `npx` without a global
+install:
+
+```json
+{
+  "mcpServers": {
+    "stonewright": {
+      "command": "npx",
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"],
+      "env": {
+        "STONEWRIGHT_WP_URL": "https://example.com",
+        "STONEWRIGHT_WP_USERNAME": "your-wp-username",
+        "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
+      }
+    }
+  }
+}
+```
+
+Use the WordPress URL, username, and Application Password from Cards 2 and 3.
+The `STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap` env value keeps new MCP sessions
+compact while preserving Stonewright fast-path tools.
+Use `low-tools` for strict tool-cap clients. Aliases such as `antigravity`,
+`gemini`, `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli` normalize
+to compact canonical profiles before tool filtering.
+The admin page also exposes per-client snippets for clients that use a slightly
+different top-level key or format, such as Codex `config.toml`, VS Code's
+`servers`, and Zed's `context_servers`.
+
+### Copyable setup note
+
+The paste-to-agent note is credential-free. It provides placeholder
+environment variables, the versioned `npx` transport, the remote endpoint
+shape, OAuth preference, private-storage rules, and the canonical first call:
+`stonewright-task-start`. It never interpolates the real site URL, username,
+Application Password, token, or private client configuration.
+
+The note also tells agents that `npx` downloads and runs the versioned GitHub
+release tarball, and that Playwright MCP should be added for browser testing,
+screenshots, and visual QA when the client does not already have browser tools.
+It tells Codex users to configure `~/.codex/config.toml` or a trusted
+`.codex/config.toml`, restart/reload the MCP session, and use `/mcp` to verify
+that Stonewright is active.
+After releases or skill syncs, it tells agents to rerun
+`stonewright-setup-profile` and `stonewright-wordpress-mcp-status`, then compare
+`companion_version`, `expected_companion_package`, and
+`refresh_required_tool_names` against the visible tool list.
+It also tells agents to stop if both `stonewright-task-start` and compatibility
+`stonewright-context-bootstrap` are missing,
+rather than inspecting private client config files, creating scratch helper
+scripts, creating helper JSON argument files, launching the companion through
+ad hoc shell scripts, creating action scripts, inspecting plugin/companion
+source to reverse-engineer tool schemas, hand-rolling JSON-RPC, calling the REST
+runner from shell, or running shell `wp ...` commands as a Stonewright MCP
+workaround.
+
+### Prompt Library
+
+The dedicated **Prompts** tab contains searchable, outcome-grouped starters.
+Each card states whether it supports Plugin mode, Direct mode, or both, lists
+requirements and verification, and contains no credentials or private site
+data.
+
+## Keep Stonewright current
+
+The update card makes the two-component boundary explicit:
+
+- local stdio with the plugin: update plugin and companion to the same version;
+- remote Streamable HTTP: update the plugin only;
+- pluginless Direct mode: update the companion only.
+
+**Check latest companion** reads GitHub's latest public release, accepts
+packages only from this repository's versioned release path, and shows the
+installed plugin, latest release, and optional configured HTTP bridge version.
+The panel links the exact companion package and SHA-256 manifest and creates a
+credential-free **Copy update prompt** handoff.
+
+The page never claims that WordPress can replace a local stdio process: that
+process belongs to the AI client and requires a client restart. Updates preserve
+plugin memory, user skills, audit history, settings, and Direct state. Full
+procedures are in [Updating Stonewright](../updates.md).
+
+### Setup preflight vs Verify connection
+
+The Setup page exposes two distinct checks:
+
+1. **Run preflight** — local readiness only: abilities enabled, MCP endpoint,
+   Application Passwords, tool surface, Elementor detection. Passing means the
+   site *looks* ready. It does **not** prove live MCP auth or tool calls.
+2. **Verify connection** — plugin-side MCP **loopback self-test**. Mints a
+   short-lived Application Password, then runs `initialize` → `tools/list`
+   (asserts `stonewright-task-start`) → a read-only `stonewright-task-start`
+   call → revokes the test password. Returns structured step results with
+   exact fixes on failure. Never turns green solely because Application
+   Passwords exist.
+
+For the companion stdio path, also run:
+
+```bash
+npx @stonewright/companion doctor
+```
+
+Doctor checks Node version, credentials (env or `~/.stonewright/sites.json`),
+WordPress REST auth, MCP initialize, and prints client-specific tool-cache
+refresh hints. It never prints secrets.
+
+Client definitions live in `plugin/data/clients/*.json` (see
+`docs/verified-client-versions.md`). Prefer user-level private config for
+credentials; never commit Application Passwords to project-tracked files.
+
+### Browser MCP
+
+Configure Playwright MCP separately when the agent needs browser testing,
+screenshots, or visual inspection:
+
+```bash
+npx -y @playwright/mcp@latest --caps=testing,vision,devtools
+```
+
+Restart the AI client after adding Playwright. If no Playwright/browser tool is
+visible, the agent should stop before the first visual write.
+
+See [connect-clients.md](./connect-clients.md) for per-client details.
+
+## Site-Local Memory And Skills
+
+Built-in skills shipped in `skills/` are public Stonewright assets. Skills,
+memory, and custom instructions created in the admin UI are stored in the
+current WordPress database and are not bundled into release ZIPs or the npm
+companion. Keep credentials, private memory, and client-specific instructions
+out of public examples, commits, issues, and release notes.
+
+### HTTPS requirement
+
+On a production site (or any site with `wp_get_environment_type()` returning
+anything other than `'local'`) the endpoint should be served over HTTPS. Basic
+Auth credentials sent over plain HTTP are trivially intercepted. Set
+`WP_ENVIRONMENT_TYPE=local` in `wp-config.php` only on local-only dev
+environments where HTTPS is unavailable.

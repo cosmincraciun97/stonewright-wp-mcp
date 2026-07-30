@@ -1,0 +1,18 @@
+{
+  "slug": "roo-code",
+  "label": "Roo Code",
+  "kind": "editor",
+  "snippet_kind": "json",
+  "preferred_method": "stdio",
+  "official_cli_add": "",
+  "config_paths": {
+    "macos": "VS Code extension settings > Roo Code > MCP Servers",
+    "linux": "VS Code extension settings > Roo Code > MCP Servers",
+    "windows": "VS Code extension settings > Roo Code > MCP Servers",
+    "wsl": "VS Code extension settings > Roo Code > MCP Servers"
+  },
+  "notes": "Uses the same MCP server shape as other VS Code agent extensions. Prefer user-level or private client config; never commit Application Passwords to project-tracked files.",
+  "verified_against_docs_on": "2026-07-16",
+  "secret_storage": "user-level",
+  "config_path": "VS Code extension settings > Roo Code > MCP Servers"
+}

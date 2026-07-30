@@ -1,0 +1,7 @@
+{
+    "args": {
+        "page": [],
+        "sections": []
+    },
+    "expect": "wp_error"
+}

@@ -1,0 +1,100 @@
+name: Bug report
+description: Report a reproducible Stonewright defect.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Stonewright.
+
+        **Do not include** Application Passwords, bearer tokens, private site
+        URLs with credentials, secrets, or sensitive logs.
+
+        **Security vulnerabilities** must be reported privately — see
+        [SECURITY.md](https://github.com/cosmincraciun97/stonewright-wp-mcp/blob/main/SECURITY.md).
+        Do not file them as public issues.
+  - type: input
+    id: version
+    attributes:
+      label: Stonewright version
+      description: Plugin and companion versions when known.
+      placeholder: 1.0.0-beta.x
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Installation mode
+      options:
+        - Plugin mode
+        - Direct mode (plugin-less)
+        - Unknown / mixed
+    validations:
+      required: true
+  - type: input
+    id: wordpress
+    attributes:
+      label: WordPress version
+    validations:
+      required: true
+  - type: input
+    id: php
+    attributes:
+      label: PHP version
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version
+      description: Required when the companion is involved.
+  - type: input
+    id: elementor
+    attributes:
+      label: Elementor version
+      description: Leave blank if Elementor is not used.
+  - type: input
+    id: mcp_client
+    attributes:
+      label: MCP client
+      description: e.g. Claude Code, Claude Desktop, Cursor, other (name + version if known).
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Enable Stonewright
+        2. Call stonewright-task-start ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs
+      description: Paste logs with secrets redacted.
+  - type: checkboxes
+    id: no_secrets
+    attributes:
+      label: Confirmation
+      options:
+        - label: I have not included passwords, tokens, or private credentials.
+          required: true

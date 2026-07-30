@@ -1,0 +1,6 @@
+{
+    "args": {
+        "code": "echo get_bloginfo(\"name\"); return [\"value\" => 42];"
+    },
+    "expect": "ok"
+}

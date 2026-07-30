@@ -1,0 +1,19 @@
+{
+  "blockName": "core/quote",
+  "attrs": {},
+  "innerHTML": "<blockquote class=\"wp-block-quote\"><p>Great words.</p></blockquote>",
+  "innerContent": [
+    "<blockquote class=\"wp-block-quote\">",
+    null,
+    "</blockquote>"
+  ],
+  "innerBlocks": [
+    {
+      "blockName": "core/paragraph",
+      "attrs": {},
+      "innerHTML": "<p>Great words.</p>",
+      "innerContent": [ "<p>Great words.</p>" ],
+      "innerBlocks": []
+    }
+  ]
+}

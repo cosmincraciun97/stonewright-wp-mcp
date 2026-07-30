@@ -1,0 +1,11 @@
+{
+    "args": {
+        "spec": {
+            "page": [],
+            "sections": []
+        },
+        "post_id": 999999,
+        "dry_run": true
+    },
+    "expect": "wp_error"
+}

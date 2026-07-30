@@ -1,0 +1,6 @@
+{
+  "args": {
+    "action": "get"
+  },
+  "expect_permission_error": true
+}

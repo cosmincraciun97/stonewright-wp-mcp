@@ -1,0 +1,7 @@
+{
+  "args": {
+    "id": 2,
+    "reassign": 1
+  },
+  "expect_permission_error": true
+}

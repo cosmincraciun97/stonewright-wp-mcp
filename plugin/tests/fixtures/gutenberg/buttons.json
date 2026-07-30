@@ -1,0 +1,19 @@
+{
+  "blockName": "core/buttons",
+  "attrs": {},
+  "innerHTML": "<div class=\"wp-block-buttons\"></div>",
+  "innerContent": [
+    "<div class=\"wp-block-buttons\">",
+    null,
+    "</div>"
+  ],
+  "innerBlocks": [
+    {
+      "blockName": "core/button",
+      "attrs": {},
+      "innerHTML": "<div class=\"wp-block-button\"><a class=\"wp-block-button__link wp-element-button\" href=\"https://example.com\">Click Me</a></div>",
+      "innerContent": [ "<div class=\"wp-block-button\"><a class=\"wp-block-button__link wp-element-button\" href=\"https://example.com\">Click Me</a></div>" ],
+      "innerBlocks": []
+    }
+  ]
+}

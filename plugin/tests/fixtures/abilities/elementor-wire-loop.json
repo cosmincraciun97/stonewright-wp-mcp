@@ -1,0 +1,27 @@
+{
+    "args": {
+        "post_id": 1,
+        "parent_id": "parent1",
+        "display": "grid",
+        "post_type": "post",
+        "template_spec": {
+            "page": {
+                "title": "Contract loop item"
+            },
+            "sections": [
+                {
+                    "id": "card",
+                    "blocks": [
+                        {
+                            "type": "heading",
+                            "text": "Contract item"
+                        }
+                    ]
+                }
+            ]
+        },
+        "idempotency_key": "contract-wire-loop",
+        "dry_run": true
+    },
+    "expect": "ok"
+}

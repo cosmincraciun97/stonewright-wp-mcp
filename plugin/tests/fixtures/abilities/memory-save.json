@@ -1,0 +1,9 @@
+{
+    "args": {
+        "type": "generic",
+        "scope": "contract",
+        "key": "contract",
+        "name": "Contract"
+    },
+    "expect": "ok"
+}

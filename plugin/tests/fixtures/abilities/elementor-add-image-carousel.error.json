@@ -1,0 +1,10 @@
+{
+    "args": {
+        "post_id": 999999,
+        "parent_id": "parent1",
+        "settings": {
+            "carousel": []
+        }
+    },
+    "expect": "wp_error"
+}

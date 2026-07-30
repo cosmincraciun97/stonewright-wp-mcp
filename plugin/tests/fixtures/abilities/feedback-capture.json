@@ -1,0 +1,9 @@
+{
+    "args": {
+        "correction": "Never force HTTPS on local WordPress sites.",
+        "topic": "local HTTP is valid",
+        "scope": "project",
+        "severity": "high"
+    },
+    "expect": "ok"
+}

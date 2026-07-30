@@ -1,0 +1,10 @@
+{
+  "blockName": "core/video",
+  "attrs": {
+    "src": "https://example.com/video.mp4",
+    "caption": "My video"
+  },
+  "innerHTML": "<figure class=\"wp-block-video\"><video class=\"wp-block-video__video\" src=\"https://example.com/video.mp4\" controls></video><figcaption class=\"wp-element-caption\">My video</figcaption></figure>",
+  "innerContent": [ "<figure class=\"wp-block-video\"><video class=\"wp-block-video__video\" src=\"https://example.com/video.mp4\" controls></video><figcaption class=\"wp-element-caption\">My video</figcaption></figure>" ],
+  "innerBlocks": []
+}

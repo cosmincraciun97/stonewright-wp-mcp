@@ -1,0 +1,7 @@
+{
+  "args": {
+    "id": 1,
+    "status": "approve"
+  },
+  "expect": "ok"
+}

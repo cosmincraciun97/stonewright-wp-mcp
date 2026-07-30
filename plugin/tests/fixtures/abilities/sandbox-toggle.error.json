@@ -1,0 +1,7 @@
+{
+    "args": {
+        "name": "../bad.php",
+        "action": "disable"
+    },
+    "expect": "wp_error"
+}

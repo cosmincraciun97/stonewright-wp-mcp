@@ -1,0 +1,28 @@
+{
+    "id": "ember-night",
+    "name": "Ember Night",
+    "description": "Warm dark kit for evening brands.",
+    "colors": {
+        "primary": "#7C2D12",
+        "secondary": "#9A3412",
+        "accent": "#FB923C",
+        "background": "#1C1917",
+        "surface": "#292524",
+        "text": "#FAFAF9"
+    },
+    "fonts": {
+        "heading": "Playfair Display, Georgia, serif",
+        "body": "Inter, system-ui, sans-serif"
+    },
+    "radius": {
+        "sm": "4px",
+        "md": "8px",
+        "lg": "16px"
+    },
+    "spacing": {
+        "xs": "8px",
+        "sm": "16px",
+        "md": "24px",
+        "lg": "48px"
+    }
+}

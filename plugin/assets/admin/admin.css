@@ -1,0 +1,930 @@
+/**
+ * Stonewright admin styles.
+ * Enqueued only on stonewright_* admin pages.
+ */
+
+/* ------------------------------------------------------------------ */
+/* Status badges                                                        */
+/* ------------------------------------------------------------------ */
+.stonewright-badge {
+	display: inline-block;
+	padding: 1px 8px;
+	border-radius: 3px;
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1.6;
+}
+
+.stonewright-badge--ok      { background: var(--sw-ok-soft); color: var(--sw-ok-text); }
+.stonewright-badge--warning { background: var(--sw-warn-soft); color: var(--sw-warn-text); }
+.stonewright-badge--info    { background: var(--sw-info-soft); color: var(--sw-info-text); }
+.stonewright-badge--dev     { background: var(--sw-brand-soft); color: var(--sw-brand); }
+.stonewright-badge--neutral { background: var(--sw-bg); color: var(--sw-text-secondary); }
+
+/* ------------------------------------------------------------------ */
+/* Status page table                                                    */
+/* ------------------------------------------------------------------ */
+.stonewright-status-table th {
+	width: 220px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Sandbox library table                                                */
+/* ------------------------------------------------------------------ */
+.stonewright-sandbox-library-table .column-actions {
+	width: 240px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Form layout tweaks                                                   */
+/* ------------------------------------------------------------------ */
+.stonewright-settings-form .form-table th {
+	width: 240px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Nonce-form inline layout                                             */
+/* ------------------------------------------------------------------ */
+.stonewright-inline-form {
+	display: inline;
+}
+
+.stonewright-action-cell {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	min-width: 150px;
+}
+
+.stonewright-action-cell .stonewright-inline-form {
+	display: inline-flex;
+}
+
+/* ------------------------------------------------------------------ */
+/* Shared admin shell                                                   */
+/* ------------------------------------------------------------------ */
+.stonewright-admin-shell {
+	max-width: 1120px;
+}
+
+.stonewright-page-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
+	margin: 18px 0;
+}
+
+.stonewright-page-header h1 {
+	margin: 0 0 4px;
+}
+
+.stonewright-page-header p {
+	margin: 0;
+	color: var(--sw-text-secondary);
+	max-width: 760px;
+}
+
+/* Deprecated: brand banner removed from Setup markup (U2). Kept one release for third-party CSS hooks. */
+.stonewright-brand-banner {
+	align-items: center;
+	background: var(--sw-text);
+	box-sizing: border-box;
+	color: var(--sw-surface);
+	display: flex;
+	min-height: 64px;
+	padding: 16px 22px;
+	width: 100%;
+}
+
+.stonewright-brand-banner span {
+	color: var(--sw-surface);
+	font-family: "Arial Black", Impact, system-ui, sans-serif;
+	font-size: 30px;
+	font-weight: 900;
+	letter-spacing: 0;
+	line-height: 1;
+}
+
+.stonewright-panel {
+	background: var(--sw-surface);
+	border: 1px solid var(--sw-border);
+	border-radius: 6px;
+	margin: 0 0 14px;
+	padding: 16px;
+}
+
+.stonewright-guidance-grid {
+	display: grid;
+	gap: 12px;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	margin: 0 0 14px;
+}
+
+.stonewright-guidance-card {
+	background: var(--sw-surface);
+	border: 1px solid var(--sw-border);
+	border-radius: 6px;
+	padding: 14px;
+}
+
+.stonewright-guidance-card h2 {
+	font-size: 14px;
+	line-height: 1.35;
+	margin: 0 0 6px;
+}
+
+.stonewright-guidance-card p {
+	color: var(--sw-text-secondary);
+	line-height: 1.45;
+	margin: 0;
+}
+
+.stonewright-panel h2 {
+	font-size: 16px;
+	line-height: 1.35;
+	margin: 0 0 12px;
+}
+
+.stonewright-subpanel {
+	background: var(--sw-bg);
+	border: 1px solid var(--sw-border);
+	border-radius: 6px;
+	margin: 14px 0 0;
+	padding: 12px;
+}
+
+.stonewright-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 12px 0;
+}
+
+.stonewright-tab-content {
+	margin-top: 16px;
+}
+
+.stonewright-empty-state {
+	background: var(--sw-surface);
+	border: 1px dashed var(--sw-border-strong);
+	border-radius: 6px;
+	color: var(--sw-text-muted);
+	padding: 22px;
+	text-align: center;
+}
+
+.stonewright-empty-state p {
+	margin: 0;
+}
+
+.stonewright-compact-form {
+	margin-bottom: 12px;
+}
+
+.stonewright-memory-note {
+	margin: -4px 0 12px;
+}
+
+.stonewright-inline-form--spaced {
+	margin-right: 12px;
+}
+
+.sw-grant-result {
+	max-width: 820px;
+}
+
+.sw-grant-result > label {
+	display: block;
+	margin: 0 0 var(--sw-space-2);
+}
+
+.sw-grant-result__token {
+	width: 100%;
+	margin: 0;
+	padding: var(--sw-space-3);
+	resize: vertical;
+}
+
+.sw-grant-result__actions {
+	align-items: center;
+	margin: var(--sw-space-3) 0;
+}
+
+.sw-grant-result__binding {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--sw-space-1);
+	margin: 0;
+	color: var(--sw-text-muted);
+	overflow-wrap: anywhere;
+}
+
+.sw-grant-result__binding code {
+	overflow-wrap: anywhere;
+}
+
+.stonewright-muted {
+	color: var(--sw-text-muted);
+	font-size: 12px;
+	margin-left: 6px;
+	margin-right: 6px;
+}
+
+.stonewright-status-grid {
+	display: grid;
+	gap: 14px;
+	grid-template-columns: minmax(0, 1fr);
+}
+
+.stonewright-card-grid {
+	display: grid;
+	gap: 14px;
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+	margin-top: 14px;
+}
+
+.stonewright-card {
+	background: var(--sw-surface);
+	border: 1px solid var(--sw-border);
+	border-radius: 6px;
+	overflow: hidden;
+}
+
+.stonewright-card--disabled {
+	opacity: .72;
+}
+
+.stonewright-card__header {
+	border-bottom: 1px solid var(--sw-border);
+	padding: 12px 14px 10px;
+	color: var(--sw-text);
+}
+
+.stonewright-card__title-row {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.stonewright-card__title {
+	flex: 1 1 auto;
+	line-height: 1.35;
+	min-width: 160px;
+	color: var(--sw-text);
+	font-weight: 600;
+}
+
+.stonewright-card__slug {
+	background: var(--sw-bg);
+	border-radius: 4px;
+	color: var(--sw-text-secondary);
+	display: inline-block;
+	font-size: 12px;
+	margin-top: 6px;
+	padding: 2px 6px;
+	word-break: break-word;
+}
+
+.stonewright-card__body {
+	padding: 12px 14px;
+}
+
+.stonewright-card__description {
+	color: var(--sw-text-secondary);
+	font-size: 13px;
+	line-height: 1.45;
+	margin: 0;
+}
+
+.stonewright-card__preview {
+	background: var(--sw-bg);
+	border-radius: 4px;
+	color: var(--sw-text-secondary);
+	font-family: Consolas, Monaco, monospace;
+	font-size: 12px;
+	line-height: 1.45;
+	margin: 0;
+	max-height: 92px;
+	overflow: hidden;
+	padding: 8px;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.stonewright-card__footer {
+	align-items: center;
+	border-top: 1px solid var(--sw-border);
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	padding: 10px 14px;
+	background: var(--sw-surface);
+}
+
+.stonewright-card__edit-panel {
+	background: var(--sw-bg);
+	border-top: 1px solid var(--sw-border);
+	padding: 14px;
+}
+
+.sw-badge {
+	border-radius: 3px;
+	display: inline-block;
+	font-size: 11px;
+	font-weight: 700;
+	line-height: 1.7;
+	padding: 1px 8px;
+	white-space: nowrap;
+}
+
+.sw-badge--builtin,
+.sw-badge--category,
+.sw-badge--draft { background: var(--sw-info-soft); color: var(--sw-info-text); }
+.sw-badge--user,
+.sw-badge--active { background: var(--sw-ok-soft); color: var(--sw-ok-text); }
+.sw-badge--agentic { background: var(--sw-info-soft); color: var(--sw-info-text); }
+.sw-badge--prompt { background: var(--sw-warn-soft); color: var(--sw-warn-text); }
+.sw-badge--playbook { background: var(--sw-brand-soft); color: var(--sw-brand); letter-spacing: 0.04em; }
+.sw-badge--uploaded { background: var(--sw-warn-soft); color: var(--sw-warn-text); }
+.sw-badge--disabled { background: var(--sw-bg); color: var(--sw-text-secondary); }
+.sw-badge--crashed { background: var(--sw-danger-soft); color: var(--sw-danger-text); }
+.sw-btn--danger { border-color: var(--sw-danger-text) !important; color: var(--sw-danger-text) !important; }
+
+.stonewright-type-badge {
+	border-radius: 999px;
+	display: inline-flex;
+	align-items: center;
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1;
+	height: 22px;
+	padding: 0 10px;
+	border: 1px solid transparent;
+}
+
+.stonewright-type-user { background: var(--sw-info-soft); color: var(--sw-info-text); }
+.stonewright-type-feedback { background: var(--sw-warn-soft); color: var(--sw-warn-text); }
+.stonewright-type-project { background: var(--sw-brand-soft); color: var(--sw-brand); }
+.stonewright-type-reference { background: var(--sw-ok-soft); color: var(--sw-ok-text); }
+.stonewright-type-generic { background: var(--sw-bg); color: var(--sw-text-secondary); }
+
+.stonewright-memory-edit-grid {
+	display: grid;
+	gap: 12px;
+	grid-template-columns: repeat(4, minmax(140px, 1fr));
+	margin: 8px 0;
+}
+
+.stonewright-memory-edit-grid label {
+	display: grid;
+	font-weight: 600;
+	gap: 4px;
+}
+
+.stonewright-setup-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 14px;
+}
+
+.stonewright-setup-step {
+	display: grid;
+	grid-template-columns: 34px minmax(0, 1fr);
+	gap: 12px;
+	background: var(--sw-surface);
+	border: 1px solid var(--sw-border);
+	border-radius: 6px;
+	padding: 16px;
+}
+
+.stonewright-setup-step--wide {
+	grid-column: 1 / -1;
+}
+
+.stonewright-step-index {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border-radius: 999px;
+	background: var(--sw-text);
+	color: var(--sw-surface);
+	font-weight: 700;
+}
+
+.stonewright-step-body {
+	min-width: 0;
+}
+
+.stonewright-step-body h2 {
+	margin: 0 0 12px;
+	font-size: 16px;
+	line-height: 1.35;
+}
+
+.stonewright-field-row {
+	display: grid;
+	gap: 6px;
+	margin: 0 0 12px;
+}
+
+.stonewright-switch,
+.stonewright-inline-controls,
+.stonewright-endpoint-row,
+.stonewright-abilities-toolbar,
+.stonewright-select-all {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.stonewright-inline-controls {
+	flex-wrap: wrap;
+}
+
+.stonewright-inline-controls .regular-text,
+.stonewright-field-row .regular-text {
+	box-sizing: border-box;
+	max-width: 100%;
+}
+
+.stonewright-inline-controls .regular-text {
+	flex: 1 1 180px;
+	min-width: 0;
+	width: 100%;
+}
+
+.stonewright-field-row .regular-text {
+	width: min(100%, 25em);
+}
+
+.stonewright-risk-notice {
+	border-left: 4px solid var(--sw-warn-text);
+	background: var(--sw-warn-soft);
+	color: var(--sw-warn-text);
+	margin: 10px 0 12px;
+	padding: 9px 12px;
+	border-radius: 4px;
+}
+
+.stonewright-risk-notice--ok {
+	border-left-color: var(--sw-ok-text);
+	background: var(--sw-ok-soft);
+	color: var(--sw-ok-text);
+}
+
+.stonewright-risk-notice--info {
+	border-left-color: var(--sw-brand);
+	background: var(--sw-bg);
+	color: var(--sw-text);
+}
+
+.stonewright-advanced-bridge {
+	border-top: 1px solid var(--sw-bg);
+	margin-top: 12px;
+	padding-top: 10px;
+}
+
+.stonewright-bridge-steps {
+	background: var(--sw-surface);
+	border: 1px solid var(--sw-border);
+	border-radius: 4px;
+	margin: 10px 0 12px;
+	padding: 10px 12px 10px 28px;
+}
+
+.stonewright-bridge-steps li {
+	margin: 2px 0;
+}
+
+.stonewright-bridge-env-panel {
+	background: var(--sw-bg);
+	border: 1px solid var(--sw-border);
+	border-radius: 4px;
+	margin: 12px 0 0;
+	padding: 10px 12px;
+}
+
+.stonewright-bridge-env-panel summary {
+	cursor: pointer;
+	font-weight: 600;
+}
+
+.stonewright-advanced-bridge [hidden],
+.stonewright-example-prompts[hidden],
+#stonewright-client-configs[hidden],
+.stonewright-connect-prompt[hidden] {
+	display: none;
+}
+
+.stonewright-app-password-form {
+	margin-top: 12px;
+}
+
+.stonewright-app-password-success {
+	background: var(--sw-ok-soft);
+	border-left: 4px solid var(--sw-ok-text);
+	display: grid;
+	gap: 8px;
+	margin: 12px 0;
+	padding: 10px 12px;
+}
+
+.stonewright-app-password-success strong {
+	color: var(--sw-ok-text);
+}
+
+.stonewright-app-passwords-list {
+	border-top: 1px solid var(--sw-bg);
+	margin-top: 14px;
+	padding-top: 10px;
+}
+
+.stonewright-app-passwords-list summary {
+	cursor: pointer;
+	font-weight: 600;
+}
+
+.stonewright-app-password-table {
+	margin-top: 10px;
+}
+
+.stonewright-share-warning {
+	background: var(--sw-bg);
+	border-left: 4px solid var(--sw-brand);
+	margin: 12px 0;
+	padding: 10px 12px;
+}
+
+.stonewright-connect-prompt {
+	background: var(--sw-bg);
+	border: 1px solid var(--sw-border);
+	border-radius: 4px;
+	font-family: Consolas, Monaco, monospace;
+	font-size: 12px;
+	line-height: 1.55;
+	margin: 8px 0;
+	max-height: 360px;
+	overflow: auto;
+	padding: 12px;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+#stonewright-connect-prompt-preview {
+	max-height: 180px;
+}
+
+.stonewright-bridge-env {
+	background: var(--sw-bg);
+	border: 1px solid var(--sw-border);
+	border-radius: 4px;
+	font-family: Consolas, Monaco, monospace;
+	font-size: 12px;
+	line-height: 1.55;
+	margin: 8px 0;
+	max-height: 140px;
+	overflow: auto;
+	padding: 10px;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.stonewright-connect-actions {
+	margin: 8px 0 10px;
+}
+
+.stonewright-link-stack {
+	display: grid;
+	gap: 8px;
+	justify-items: start;
+	margin-top: 12px;
+}
+
+.stonewright-link-stack .button-link {
+	color: var(--sw-info-text);
+}
+
+.stonewright-example-prompts,
+#stonewright-client-configs {
+	margin-top: 12px;
+}
+
+.stonewright-prompt-library__controls {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--sw-space-2, 8px);
+	margin-bottom: var(--sw-space-3, 12px);
+}
+
+.stonewright-prompt-library__controls input[type="search"],
+.stonewright-prompt-library__controls select {
+	max-width: 100%;
+}
+
+.stonewright-prompt-library__outcome {
+	margin: 0 0 6px;
+}
+
+.stonewright-prompt-library__tools {
+	margin: 0 0 8px;
+	font-size: 12px;
+	word-break: break-word;
+}
+
+.stonewright-example-grid {
+	display: grid;
+	gap: 12px;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.stonewright-example-card {
+	background: var(--sw-bg);
+	border: 1px solid var(--sw-border);
+	border-radius: 6px;
+	padding: 12px;
+}
+
+.stonewright-example-card h3 {
+	font-size: 13px;
+	line-height: 1.35;
+	margin: 0 0 8px;
+}
+
+.stonewright-example-card pre {
+	background: var(--sw-surface);
+	border: 1px solid var(--sw-border);
+	border-radius: 4px;
+	font-size: 12px;
+	line-height: 1.5;
+	margin: 0 0 8px;
+	max-height: 180px;
+	overflow: auto;
+	padding: 10px;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.stonewright-client-tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-top: 12px;
+	border-bottom: 1px solid var(--sw-border-strong);
+}
+
+.stonewright-client-tab {
+	background: var(--sw-bg);
+	border: 1px solid var(--sw-border-strong);
+	border-bottom: none;
+	border-radius: 4px 4px 0 0;
+	color: var(--sw-text);
+	cursor: pointer;
+	font-size: 13px;
+	margin-bottom: -1px;
+	padding: 7px 11px;
+}
+
+.stonewright-client-tab.is-active {
+	background: var(--sw-surface);
+	border-bottom: 1px solid var(--sw-surface);
+	font-weight: 600;
+}
+
+.stonewright-client-panel {
+	background: var(--sw-surface);
+	border: 1px solid var(--sw-border-strong);
+	border-top: none;
+	padding: 12px;
+}
+
+.stonewright-client-panel[hidden] {
+	display: none;
+}
+
+.stonewright-client-panel pre,
+.stonewright-bootstrap-prompt {
+	background: var(--sw-bg);
+	border: 1px solid var(--sw-border);
+	border-radius: 4px;
+	margin: 8px 0;
+	max-height: 320px;
+	overflow: auto;
+	padding: 12px;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.stonewright-endpoint-row {
+	flex-wrap: wrap;
+}
+
+.stonewright-endpoint-row code {
+	white-space: normal;
+	word-break: break-all;
+}
+
+.stonewright-submit-row {
+	margin-top: 16px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Abilities hub                                                       */
+/* ------------------------------------------------------------------ */
+.stonewright-abilities-toolbar {
+	background: var(--sw-surface);
+	border: 1px solid var(--sw-border);
+	border-radius: 6px;
+	flex-wrap: wrap;
+	margin: 14px 0;
+	padding: 12px;
+}
+
+.stonewright-provider-group {
+	background: var(--sw-surface);
+	border: 1px solid var(--sw-border);
+	border-radius: 6px;
+	margin: 0 0 14px;
+	overflow: hidden;
+}
+
+.stonewright-provider-group.is-filtered-empty {
+	display: none;
+}
+
+.stonewright-provider-group__header {
+	align-items: center;
+	background: var(--sw-bg);
+	border-bottom: 1px solid var(--sw-border);
+	display: flex;
+	justify-content: space-between;
+	padding: 10px 12px;
+}
+
+.stonewright-provider-group__header h2 {
+	font-size: 15px;
+	line-height: 1.3;
+	margin: 2px 0 0;
+}
+
+.stonewright-provider-name {
+	color: var(--sw-text-muted);
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0;
+	text-transform: uppercase;
+}
+
+.stonewright-ability-table__head,
+.stonewright-ability-row {
+	display: grid;
+	grid-template-columns: 32px minmax(220px, 1.6fr) minmax(180px, 1fr) 110px 86px minmax(120px, .8fr);
+	gap: 10px;
+	padding: 10px 12px;
+}
+
+.stonewright-ability-table__head {
+	border-bottom: 1px solid var(--sw-border);
+	color: var(--sw-text-muted);
+	font-size: 11px;
+	font-weight: 700;
+	text-transform: uppercase;
+}
+
+.stonewright-ability-row {
+	align-items: start;
+	border-bottom: 1px solid var(--sw-bg);
+}
+
+.stonewright-ability-row:last-child {
+	border-bottom: none;
+}
+
+.stonewright-ability-row.is-disabled {
+	background: var(--sw-bg);
+}
+
+.stonewright-ability-main {
+	min-width: 0;
+}
+
+.stonewright-ability-main strong {
+	display: block;
+	line-height: 1.35;
+}
+
+.stonewright-ability-main p {
+	color: var(--sw-text-muted);
+	font-size: 12px;
+	line-height: 1.45;
+	margin: 2px 0 0;
+	max-width: 720px;
+}
+
+.stonewright-mcp-tool {
+	white-space: normal;
+	word-break: break-word;
+}
+
+.stonewright-kind-badge {
+	border-radius: 3px;
+	display: inline-block;
+	font-size: 11px;
+	font-weight: 700;
+	line-height: 1.7;
+	padding: 1px 8px;
+	text-align: center;
+	width: fit-content;
+}
+
+.stonewright-kind-badge--read {
+	background: var(--sw-info-soft);
+	color: var(--sw-info-text);
+}
+
+.stonewright-kind-badge--write {
+	background: var(--sw-warn-soft);
+	color: var(--sw-warn-text);
+}
+
+.stonewright-kind-badge--destructive {
+	background: var(--sw-danger-soft);
+	color: var(--sw-danger-text);
+}
+
+.stonewright-ability-details {
+	min-width: 0;
+}
+
+.stonewright-ability-details summary {
+	cursor: pointer;
+}
+
+.stonewright-ability-details[open] {
+	grid-column: 2 / -1;
+}
+
+.stonewright-ability-details:not([open]) .stonewright-schema-table-wrap {
+	display: none;
+}
+
+.stonewright-schema-table-wrap {
+	max-width: 100%;
+	overflow-x: auto;
+}
+
+.stonewright-schema-table {
+	margin-top: 8px;
+	/* Prefer wrapping the scroll container, not the whole admin shell. */
+	min-width: min(640px, 100%);
+	width: 100%;
+}
+
+.stonewright-schema-table code {
+	word-break: break-word;
+}
+
+@media screen and (max-width: 960px) {
+	.stonewright-setup-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.stonewright-page-header,
+	.stonewright-abilities-toolbar {
+		align-items: stretch;
+		flex-direction: column;
+	}
+
+	.stonewright-card-grid,
+	.stonewright-example-grid,
+	.stonewright-guidance-grid,
+	.stonewright-memory-edit-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.stonewright-brand-banner span {
+		font-size: 24px;
+	}
+
+	.stonewright-ability-table__head {
+		display: none;
+	}
+
+	.stonewright-ability-row {
+		grid-template-columns: 28px minmax(0, 1fr);
+	}
+
+	.stonewright-mcp-tool,
+	.stonewright-kind-badge,
+	.stonewright-ability-details {
+		grid-column: 2;
+	}
+
+	.sw-toggle {
+		grid-column: 2;
+	}
+}

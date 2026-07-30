@@ -1,0 +1,35 @@
+{
+    "args": {
+        "slug": "contract-capture-direction",
+        "save": false,
+        "evidence": {
+            "kit_id": 4211,
+            "kit_title": "Contract Quarry Kit",
+            "colors": [
+                {
+                    "id": "primary",
+                    "title": "Primary",
+                    "color": "#1f2933"
+                }
+            ],
+            "typography": [
+                {
+                    "id": "heading",
+                    "title": "Heading",
+                    "font_family": "Fraunces",
+                    "font_size": "48px",
+                    "line_height": "1.1"
+                }
+            ],
+            "layout": {
+                "container_width": "1200px"
+            },
+            "breakpoints": {
+                "mobile": 767
+            },
+            "buttons": {
+                "border_radius": "4px"
+            }
+        }
+    }
+}

@@ -1,0 +1,12 @@
+{
+    "args": {
+        "items": [
+            {
+                "title": "Contract",
+                "content": "<p>Hello</p>",
+                "post_type": "page"
+            }
+        ]
+    },
+    "expect": "ok"
+}

@@ -1,0 +1,18 @@
+{
+  "slug": "generic-mcp",
+  "label": "Generic MCP",
+  "kind": "generic",
+  "snippet_kind": "json",
+  "preferred_method": "http",
+  "official_cli_add": "",
+  "config_paths": {
+    "macos": "Client-specific MCP config",
+    "linux": "Client-specific MCP config",
+    "windows": "Client-specific MCP config",
+    "wsl": "Client-specific MCP config"
+  },
+  "notes": "Use the Streamable HTTP or stdio JSON shape with your client's MCP settings. Prefer user-level or private client config; never commit Application Passwords to project-tracked files.",
+  "verified_against_docs_on": "2026-07-16",
+  "secret_storage": "user-level",
+  "config_path": "Client-specific MCP config"
+}

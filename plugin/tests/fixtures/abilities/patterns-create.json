@@ -1,0 +1,7 @@
+{
+    "args": {
+        "title": "Contract",
+        "content": "<p>Hello</p>"
+    },
+    "expect": "ok"
+}

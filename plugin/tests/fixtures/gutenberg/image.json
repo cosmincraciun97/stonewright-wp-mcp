@@ -1,0 +1,7 @@
+{
+  "blockName": "core/image",
+  "attrs": { "sizeSlug": "large" },
+  "innerHTML": "<figure class=\"wp-block-image size-large\"><img src=\"https://example.com/photo.jpg\" alt=\"A photo\" class=\"wp-block-image__img\"/></figure>",
+  "innerContent": [ "<figure class=\"wp-block-image size-large\"><img src=\"https://example.com/photo.jpg\" alt=\"A photo\" class=\"wp-block-image__img\"/></figure>" ],
+  "innerBlocks": []
+}

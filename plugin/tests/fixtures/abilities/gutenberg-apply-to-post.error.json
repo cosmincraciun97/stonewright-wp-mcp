@@ -1,0 +1,7 @@
+{
+  "expect_permission_error": true,
+  "permission_args": {
+    "spec": {},
+    "post_id": 1
+  }
+}

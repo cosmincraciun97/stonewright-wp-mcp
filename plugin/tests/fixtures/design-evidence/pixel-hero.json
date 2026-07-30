@@ -1,0 +1,118 @@
+{
+  "sources": [
+    {
+      "id": "figma:hero",
+      "type": "figma",
+      "ref": "node:12:34",
+      "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "captured_at": "2026-07-16T12:00:00Z"
+    }
+  ],
+  "viewports": [
+    { "id": "desktop", "width": 1440, "height": 900 },
+    { "id": "tablet", "width": 782, "height": 1024 },
+    { "id": "mobile", "width": 390, "height": 844 }
+  ],
+  "global": {
+    "colors": {
+      "primary": "#0B1F3A"
+    },
+    "color_tokens": {
+      "accent": "#E8A838"
+    },
+    "spacing_scale": {
+      "xs": 4,
+      "sm": 8,
+      "md": 16,
+      "lg": 24,
+      "xl": 48
+    },
+    "typography_ramp": {
+      "h1": { "size_px": 56, "line_height": 1.1 },
+      "body": { "size_px": 18, "line_height": 1.55 }
+    },
+    "figma_token_table": {
+      "spacing": { "section_y": 96, "content_gap": 24 },
+      "type": { "hero_title": 56 }
+    },
+    "provenance": {
+      "colors.primary": {
+        "source": "design",
+        "source_id": "figma:hero",
+        "confidence": 0.99,
+        "requires_confirmation": false
+      },
+      "colors.accent": {
+        "source": "design",
+        "source_id": "figma:hero",
+        "confidence": 0.99,
+        "requires_confirmation": false
+      }
+    }
+  },
+  "measured_targets": [
+    { "viewport_id": "desktop", "node_id": "hero", "property": "padding_top", "value_px": 96, "tolerance_px": 2 },
+    { "viewport_id": "mobile", "node_id": "hero", "property": "padding_top", "value_px": 48, "tolerance_px": 2 },
+    { "viewport_id": "desktop", "node_id": "hero-title", "property": "font_size", "value_px": 56, "tolerance_px": 0 }
+  ],
+  "nodes": [
+    {
+      "id": "hero",
+      "role": "container",
+      "bounds": { "x": 0, "y": 0, "width": 1440, "height": 640 },
+      "layout": {
+        "type": "flex",
+        "direction": "column",
+        "align_items": "center",
+        "justify_content": "center",
+        "gap": 24,
+        "content_width": 720
+      },
+      "style": { "gap": 24 },
+      "provenance": {
+        "gap": {
+          "source": "design",
+          "source_id": "figma:hero",
+          "confidence": 0.99,
+          "requires_confirmation": false
+        }
+      },
+      "measured_targets": [
+        { "viewport_id": "desktop", "property": "max_width", "value_px": 720 }
+      ],
+      "children": [
+        {
+          "id": "hero-title",
+          "role": "heading",
+          "bounds": { "x": 360, "y": 180, "width": 720, "height": 70 },
+          "content": { "text": "Precision dental care" },
+          "style": { "font_size": 56 },
+          "provenance": {
+            "font_size": {
+              "source": "design",
+              "source_id": "figma:hero",
+              "confidence": 0.99,
+              "requires_confirmation": false
+            }
+          }
+        },
+        {
+          "id": "hero-cta",
+          "role": "button",
+          "bounds": { "x": 630, "y": 320, "width": 180, "height": 48 },
+          "content": { "label": "Book visit" },
+          "action": { "url": "https://example.test/book" },
+          "style": { "background_color": "#E8A838" },
+          "provenance": {
+            "background_color": {
+              "source": "design",
+              "source_id": "figma:hero",
+              "confidence": 0.99,
+              "requires_confirmation": false
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

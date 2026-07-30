@@ -1,0 +1,7 @@
+{
+    "args": {
+        "post_id": 999999,
+        "title": "Contract"
+    },
+    "expect": "wp_error"
+}
