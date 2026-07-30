@@ -45,10 +45,19 @@ test('audit incidents remain readable and payloads stay inside the page', async 
 		responseMode: 'compact',
 	});
 	expect(taskStart.ok, JSON.stringify(taskStart.body)).toBeTruthy();
+	const taskBody = taskStart.body as {
+		result?: { context_token?: string };
+		context_token?: string;
+	};
+	const contextToken = String(
+		taskBody.result?.context_token ?? taskBody.context_token ?? '',
+	);
+	expect(contextToken).toMatch(/^swctx_/);
 
 	const execution = await runAbility(page, nonce, 'stonewright/php-execute', {
 		code: 'return ["audit_fixture" => str_repeat("contained-", 80)];',
 		read_only: true,
+		stonewright_context_token: contextToken,
 	});
 	expect(execution.ok, JSON.stringify(execution.body)).toBeTruthy();
 
@@ -104,14 +113,40 @@ test('companion update handoff is explicit and never claims browser-side install
 }, testInfo) => {
 	test.skip(testInfo.project.name !== 'desktop-1440-light', 'Connect handoff runs once.');
 	await login(page);
+	await page.route('**/stonewright/v1/admin/companion-update-status*', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({
+				ok: true,
+				plugin_version: '1.0.0-beta.1',
+				latest_release_version: '1.0.0-beta.1',
+				plugin_update_available: false,
+				companion_status: 'unverified',
+				companion_package:
+					'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.1/stonewright-companion-1.0.0-beta.1.tgz',
+				checksums:
+					'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.1/SHA256SUMS.txt',
+				bridge: { reachable: false, version: '' },
+				update_prompt:
+					'Update the Stonewright companion used by this AI client to 1.0.0-beta.1. Do not print, reveal, move, or commit credentials.',
+				boundary:
+					'WordPress cannot replace a local stdio companion process. Update it in the AI client.',
+			}),
+		});
+	});
 	await page.goto('/wp-admin/admin.php?page=stonewright', {
 		waitUntil: 'domcontentloaded',
 	});
 
-	await expect(page.getByRole('button', { name: 'Check latest companion' })).toBeVisible();
+	const check = page.getByRole('button', { name: 'Check latest companion' });
+	await expect(check).toBeVisible();
 	await expect(page.locator('.sw-update-guide')).toContainText(
 		'The browser cannot replace an stdio process on your computer.',
 	);
-	await expect(page.locator('#stonewright-companion-update-prompt')).toBeAttached();
-	await expect(page.getByRole('button', { name: 'Copy update prompt' })).toBeAttached();
+	await check.click();
+	const prompt = page.locator('#stonewright-companion-update-prompt');
+	await expect(prompt).toBeVisible();
+	await expect(prompt).toHaveValue(/Do not print, reveal, move, or commit credentials/);
+	await expect(page.getByRole('button', { name: 'Copy update prompt' })).toBeVisible();
 });
