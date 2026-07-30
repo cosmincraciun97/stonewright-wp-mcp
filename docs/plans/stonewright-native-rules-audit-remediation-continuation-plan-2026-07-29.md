@@ -1,11 +1,14 @@
 # Stonewright Native Rules and Audit Remediation Continuation Implementation Plan
 
-> **Status update — 2026-07-30:** Tasks 1–19 are complete. The audited feature
-> PR passed the full GitHub matrix, including real wp-env Playwright acceptance,
-> and was merged into `main`. Task 20 release preparation is active on
-> `codex/release-1.0.0-alpha.92`; Task 21 must use only the published,
-> checksum-verified alpha.92 companion. Local Transavia acceptance remains
-> unavailable because the local site is offline and runs an older plugin.
+> **Final implementation status — 2026-07-30:** Tasks 1–20 are complete.
+> Feature PR `#33` and release PR `#34` passed their complete GitHub matrices,
+> including real wp-env Playwright acceptance, before merge. Release
+> `v1.0.0-alpha.92` is published and its ZIP/TGZ assets pass the published
+> checksums. Task 21 configuration alignment is complete for Codex, Grok CLI,
+> Claude Code, Antigravity, and Antigravity IDE. Codex has live alpha.92 proof;
+> the user elected to perform the final Grok, Claude, and Antigravity live
+> checks. Local Transavia acceptance remains unavailable because the local site
+> is offline and its installed plugin is older.
 
 **Goal:** Continue from completed Tasks 1–5 and finish native rules, audit/OAuth remediation, memory generalization, response-efficiency work, documentation, and live acceptance without weakening any security gate.
 
@@ -19,12 +22,18 @@
 - Continue only in linked worktree: `/Users/cosminiviteb/Personal/stonewright-wp-mcp/.worktrees/native-rules-audit-remediation`
 - Feature branch: `codex/native-rules-audit-remediation`
 - Release branch: `codex/release-1.0.0-alpha.92`
+- Final handoff branch: `codex/native-rules-final-handoff`
 - Audited implementation tip before final remediation:
   `35ae2eac1a49dc7247f32951f7a0f6924575a995`
 - Final feature tip: `f964954c6817d3ffeffdb20924e947be522d289d`
 - Feature PR: `#33`
 - Verified merge commit:
   `e92a09bb4d396648162e388b95a7158a3814c710`
+- Release PR: `#34`
+- Verified release merge commit:
+  `2adb805991cdb11f3a205dee8c30412e3d9f125b`
+- Published release:
+  `https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.92`
 - Do not work in the dirty `main` checkout.
 - SDD ledger: `.superpowers/sdd/stonewright-native-rules-audit-remediation-ui-and-efficiency-plan-2026-07-29/progress.md`
 - Original plan remains useful for problem statements, but this continuation plan is authoritative when instructions conflict.
@@ -39,17 +48,24 @@ Completed, reviewed commits:
 | 4 — CodeFormatter | `b303ac6`, `7ae8905`, `19ac99b` | explicit opt-in, conservative fallback |
 | 5 — Write-path wiring | `9a11a2c`, `21d4cb0` | canonical bytes bound before all gates |
 
-Fresh Task 5 verification at handoff:
+Final Task 5 and release verification:
 
 ```text
 Focused: 18 tests / 93 assertions
-Full plugin: 5,978 tests / 30,673 assertions
+Full plugin: 6,208 tests / 32,180 assertions
 PHPStan: clean
-PHPCS: 702/702 clean
-Security audit: clean
-Public contracts: 5/5, 6,946 assertions
-Docs freshness and git diff --check: clean
+PHPCS: 708/708 clean
+Security audit: 6/6 clean
+Dependency audit: zero known vulnerability advisories
+Companion: lint, typecheck, 345 tests, build, and audit clean
+Visual: 80 tests, build, and audit clean
+E2E: 305 tests discovered; release CI Playwright job green
+Public contracts, tokens, docs freshness, and git diff --check: clean
 ```
+
+The detailed Task 6–18 checklists below are retained as the implementation
+record. The verified completion table and release receipts are authoritative;
+do not redo completed checklist items.
 
 ## Verified Completion Status — 2026-07-30
 
@@ -60,11 +76,12 @@ Docs freshness and git diff --check: clean
 | 9–12 | Complete | Parser authority, responsive controls, contextual error ownership, and secret-safe OAuth audit behavior pass focused/full suites. |
 | 13–16 | Complete | Cursor-based memory generalization, stateless projection, canonical knownHash, and registry-backed batching are implemented. |
 | 17 | Complete | Maintained docs, READMEs, changelogs, architecture diagram, contracts, and 332/100 counts are current. |
-| 18 — local gates | Complete | 6,208 PHPUnit tests / 32,179 assertions; PHPStan, PHPCS, security, dependency, provenance, contract, token, companion, Visual, and docs gates green. |
+| 18 — local gates | Complete | 6,208 PHPUnit tests / 32,180 assertions; PHPStan, PHPCS, security, dependency, provenance, contract, token, companion, Visual, and docs gates green. |
 | 18 — live/CI | Complete for merge | PR runs `30525077522` and `30525248233` passed, including real wp-env Playwright. Local Transavia acceptance remains unavailable and was not replaced with production testing. |
 | 19 | Complete | PR `#33` merged only after every required job was green; merge commit `e92a09b`. |
-| 20 | In progress | Alpha.92 metadata, release notes, generated contracts, dependency remediations, and local verification are being prepared on `codex/release-1.0.0-alpha.92`. |
-| 21 | Pending release | No client may be updated until the alpha.92 release assets and checksums are published and verified. |
+| 20 | Complete | PR `#34`, main push, and release workflow passed; tag `v1.0.0-alpha.92` resolves to merge `2adb805`; all downloaded assets match `SHA256SUMS.txt`. |
+| 21 — configuration | Complete | Global companion, Codex, Grok CLI, Claude Code, Antigravity, and Antigravity IDE point to the verified alpha.92 TGZ with existing targets preserved. |
+| 21 — live proof | Partial by user choice | Codex reports `companion_version: 1.0.0-alpha.92`. User will verify Grok, Claude, and Antigravity. Antigravity last reported its configured alpha.92 package while its pre-restart process still reported alpha.91. |
 
 Independent audit fixes added after `35ae2ea`:
 
@@ -98,11 +115,14 @@ Independent audit fixes added after `35ae2ea`:
 - Public docs, commits, changelogs, and PR text must not mention automated authorship or internal tooling.
 - Every task uses RED → GREEN TDD, a scoped commit, independent spec/quality review, and a fix loop for Important/Critical findings.
 
-## Known Deferred Minors
+## Closed Deferred Minors
 
-- Strengthen Task 2 asset test so hover tokens are asserted inside the primary selector and disabled exclusion is explicit.
-- Wrap Task 3 rendered-shell output buffering in cleanup-safe `try/finally`.
-- Reassess `EscapedLayoutDecoder` maintainability in final review; do not sacrifice conservative fallback to shorten it.
+- Task 2 hover coverage now asserts tokens inside the primary selector and
+  explicitly excludes disabled controls.
+- Task 3 rendered-shell buffering now uses cleanup-safe `try/finally`.
+- `EscapedLayoutDecoder` was reviewed and intentionally kept conservative:
+  heredoc/nowdoc, `${...}`, and script/style ambiguity still bail out instead of
+  risking code corruption.
 
 ---
 
@@ -586,30 +606,52 @@ git status --short
 
 ## Task 20: Release
 
-- [ ] Read the repository release-hygiene instructions before changing
+- [x] Read the repository release-hygiene instructions before changing
   versions.
-- [ ] Determine the next alpha from tags; do not guess or reuse a version.
-- [ ] Update plugin, companion, public metadata, all three changelogs, and a new
+- [x] Determine the next alpha from tags; do not guess or reuse a version.
+- [x] Update plugin, companion, public metadata, all three changelogs, and a new
   `docs/releases/<version>.md`; retain at most five dated release sections.
-- [ ] Rebuild generated contracts/matrix and rerun the complete CI-equivalent
+- [x] Rebuild generated contracts/matrix and rerun the complete CI-equivalent
   local gates.
-- [ ] Merge only the green PR, tag the verified merge commit, push the tag, and
+- [x] Merge only the green PR, tag the verified merge commit, push the tag, and
   wait for the release workflow to publish all assets.
-- [ ] Verify ZIP/TGZ contents, `SHA256SUMS.txt`, GitHub release status, and the
+- [x] Verify ZIP/TGZ contents, `SHA256SUMS.txt`, GitHub release status, and the
   released companion version before touching client installations.
+
+Receipts:
+
+- release PR `#34`, CI run `30526383410`: green;
+- post-merge main run `30526825936`: green;
+- release workflow `30527278528`: green;
+- annotated tag `v1.0.0-alpha.92` dereferences to
+  `2adb805991cdb11f3a205dee8c30412e3d9f125b`;
+- downloaded plugin, companion, and Visual assets match
+  `SHA256SUMS.txt`;
+- archive inspection confirms alpha.92 metadata, packaged rules/Visual runtime,
+  and absence of forbidden development paths.
 
 ## Task 21: Local Companion Alignment
 
-- [ ] Use only the verified release TGZ and checksum.
-- [ ] Update Grok CLI, Codex, and Claude through their supported MCP CLI
+- [x] Use only the verified release TGZ and checksum.
+- [x] Update Grok CLI, Codex, and Claude through their supported MCP CLI
   commands, preserving each existing target and environment.
-- [ ] Update Antigravity through its supported UI/configuration surface without
+- [x] Update Antigravity through its supported UI/configuration surface without
   printing or copying private configuration.
-- [ ] Restart/reload each client; a changed file alone is not acceptance.
-- [ ] Query the running Stonewright tool surface in each client and confirm the
-  released `companion_version`.
-- [ ] Record client-by-client evidence and any auth blocker without exposing
+- [x] Restart/reload Codex and confirm the running released version.
+- [ ] User acceptance: restart/reload Grok, Claude, and Antigravity and confirm
+  the released `companion_version`. The user explicitly retained these checks.
+- [x] Record client-by-client evidence and any auth blocker without exposing
   credentials.
+
+Client evidence:
+
+| Client | Configuration | Live acceptance |
+| --- | --- | --- |
+| Codex | alpha.92 verified release TGZ | Complete: `companion_version: 1.0.0-alpha.92` |
+| Grok CLI | alpha.92 verified release TGZ; existing environment preserved | User retained final check |
+| Claude Code | alpha.92 verified release TGZ; `claude mcp get` reports connected | User retained final check; prior headless OAuth session was expired |
+| Antigravity | alpha.92 verified release TGZ; JSON valid; 12 servers preserved | User retained final check |
+| Antigravity IDE | alpha.92 verified release TGZ; JSON valid; 19 servers preserved | User retained final check |
 
 ## Handoff Instructions for Next Agent
 
@@ -625,22 +667,30 @@ git rev-parse HEAD
 git status --short
 ```
 
-Expected branch while Task 20 is active:
-`codex/release-1.0.0-alpha.92`. Its base must be the verified feature merge
-`e92a09bb4d396648162e388b95a7158a3814c710`.
+Expected implementation/release state:
 
-4. Resume at the first unchecked item in Task 20. Do not redo Tasks 1–19.
-5. Treat GitHub E2E as mandatory live acceptance for the release PR. Local
-   Transavia acceptance remains separate because the site is offline and its
-   installed plugin is older; never substitute the production site.
-6. Never create a release before the PR is fully green. Never update clients
-   from a branch build.
-7. After release, verify the downloaded checksums before client updates, then
-   verify the running version in all four clients.
+```text
+main: 2adb805991cdb11f3a205dee8c30412e3d9f125b
+release: v1.0.0-alpha.92
+feature PR: #33 merged
+release PR: #34 merged
+```
+
+4. Do not redo Tasks 1–20. No implementation or release work remains.
+5. If the user requests the retained client checks, verify only Grok, Claude,
+   and Antigravity against the already published alpha.92 TGZ. Do not rewrite
+   their configuration unless readback proves it drifted.
+6. If the user starts the local Transavia site, first prove the installed
+   plugin is alpha.92, then execute the deferred Task 18 admin/MCP acceptance.
+   Never substitute the production site and never run the write acceptance
+   against production.
+7. For local Transavia write acceptance, keep every Task 18 gate: task-start,
+   read-before-write, dry-run, context token, snapshot, confirmation token when
+   required, surgical write, readback, and sanctioned restore.
 8. Keep credentials and private client configuration out of terminal output,
    logs, commits, PR text, and handoff notes.
-9. If CI is red, fix the cause on the branch and update this status section with
-   the exact failing job and final receipt.
+9. Do not create a new release merely to finish client or local-site
+   acceptance. Alpha.92 is already published and verified.
 
 ## Self-Review
 
