@@ -34,6 +34,10 @@
   `2adb805991cdb11f3a205dee8c30412e3d9f125b`
 - Published release:
   `https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-alpha.92`
+- Final documentation PR: `#35`
+- Verified documentation merge commit:
+  `4422d9abf74bd2d964f6522582d5f213f58b62e4`
+- Final main CI run: `30530096288` (green, including wp-env Playwright)
 - Do not work in the dirty `main` checkout.
 - SDD ledger: `.superpowers/sdd/stonewright-native-rules-audit-remediation-ui-and-efficiency-plan-2026-07-29/progress.md`
 - Original plan remains useful for problem statements, but this continuation plan is authoritative when instructions conflict.
@@ -667,14 +671,19 @@ git rev-parse HEAD
 git status --short
 ```
 
-Expected implementation/release state:
+Expected implementation/release ancestry:
 
 ```text
-main: 2adb805991cdb11f3a205dee8c30412e3d9f125b
+release merge: 2adb805991cdb11f3a205dee8c30412e3d9f125b
+final documentation merge: 4422d9abf74bd2d964f6522582d5f213f58b62e4
 release: v1.0.0-alpha.92
 feature PR: #33 merged
 release PR: #34 merged
+final documentation PR: #35 merged
 ```
+
+`main` may advance after this handoff. Verify that it contains both listed
+merge commits; do not require its current HEAD to equal either one.
 
 4. Do not redo Tasks 1–20. No implementation or release work remains.
 5. If the user requests the retained client checks, verify only Grok, Claude,
