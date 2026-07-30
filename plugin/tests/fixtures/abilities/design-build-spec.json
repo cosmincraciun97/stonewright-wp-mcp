@@ -1,0 +1,18 @@
+{
+    "args": {
+        "page": {
+            "title": "Contract Page"
+        },
+        "sections": [
+            {
+                "blocks": [
+                    {
+                        "type": "heading",
+                        "text": "Hello"
+                    }
+                ]
+            }
+        ]
+    },
+    "expect": "ok"
+}

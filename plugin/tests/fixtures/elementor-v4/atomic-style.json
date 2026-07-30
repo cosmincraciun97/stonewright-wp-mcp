@@ -1,0 +1,12 @@
+{
+  "sw-primary-button": {
+    "id": "sw-primary-button",
+    "label": "Primary button",
+    "type": "class",
+    "variants": [
+      {"meta": {"breakpoint": "desktop", "state": null}, "props": {"color": {"$$type": "color", "value": "#111111"}}},
+      {"meta": {"breakpoint": "desktop", "state": "hover"}, "props": {"color": {"$$type": "color", "value": "#ffffff"}}},
+      {"meta": {"breakpoint": "mobile", "state": null}, "props": {"font-size": {"$$type": "size", "value": {"unit": "px", "size": 16}}}}
+    ]
+  }
+}

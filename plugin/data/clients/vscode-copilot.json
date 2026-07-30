@@ -1,0 +1,18 @@
+{
+  "slug": "vscode-copilot",
+  "label": "VS Code (Copilot)",
+  "kind": "editor",
+  "snippet_kind": "json",
+  "preferred_method": "stdio",
+  "official_cli_add": "",
+  "config_paths": {
+    "macos": "VS Code user MCP settings (preferred) or .vscode/mcp.json",
+    "linux": "VS Code user MCP settings (preferred) or .vscode/mcp.json",
+    "windows": "VS Code user MCP settings (preferred) or .vscode\\mcp.json",
+    "wsl": "VS Code user MCP settings (preferred) or .vscode/mcp.json"
+  },
+  "notes": "Prefer user-level MCP settings for credentials; workspace mcp.json should not embed secrets. Prefer user-level or private client config; never commit Application Passwords to project-tracked files.",
+  "verified_against_docs_on": "2026-07-16",
+  "secret_storage": "user-level",
+  "config_path": "VS Code user MCP settings (preferred) or .vscode/mcp.json"
+}

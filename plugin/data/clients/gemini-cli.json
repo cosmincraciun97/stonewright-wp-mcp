@@ -1,0 +1,18 @@
+{
+  "slug": "gemini-cli",
+  "label": "Gemini CLI",
+  "kind": "cli",
+  "snippet_kind": "json",
+  "preferred_method": "stdio",
+  "official_cli_add": "gemini mcp add",
+  "config_paths": {
+    "macos": "~/.gemini/settings.json",
+    "linux": "~/.gemini/settings.json",
+    "windows": "%USERPROFILE%\\.gemini\\settings.json",
+    "wsl": "~/.gemini/settings.json"
+  },
+  "notes": "Prefer official CLI add when available; otherwise paste under mcpServers in settings.json. Prefer user-level or private client config; never commit Application Passwords to project-tracked files.",
+  "verified_against_docs_on": "2026-07-16",
+  "secret_storage": "user-level",
+  "config_path": "~/.gemini/settings.json"
+}

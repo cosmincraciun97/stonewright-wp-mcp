@@ -1,0 +1,10 @@
+{
+    "args": {
+        "commands": [
+            ["option", "get", "home"],
+            ["post", "list", "--post_type=page", "--format=json"]
+        ],
+        "responseMode": "summary"
+    },
+    "expect": "ok"
+}

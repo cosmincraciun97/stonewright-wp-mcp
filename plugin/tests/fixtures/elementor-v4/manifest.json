@@ -1,0 +1,24 @@
+{
+  "fixture_schema": 1,
+  "captured_at": "2026-07-14T00:00:00Z",
+  "source": "Stonewright-authored structural fixtures",
+  "upstream_runtime": {
+    "repository": "https://github.com/elementor/elementor",
+    "commit": "07628d6754fa2fae7c8400191f018c9cd23a36bb",
+    "element_schema_version": "0.0",
+    "page_schema_version": "0.4"
+  },
+  "official_docs": [
+    "https://developers.elementor.com/docs/data-structure/atomic-elements/index.html",
+    "https://developers.elementor.com/docs/data-structure/atomic-widgets/index.html",
+    "https://developers.elementor.com/docs/data-structure/atomic-styles/index.html",
+    "https://developers.elementor.com/docs/data-structure/atomic-global-classes/index.html"
+  ],
+  "matrix": [
+    {"name": "elementor-3.29-atomic-opt-in", "verification": "pending-controlled-site"},
+    {"name": "elementor-4-latest-core", "verification": "structural-source-verified"},
+    {"name": "elementor-4-pro-compatible", "verification": "pending-licensed-ci"},
+    {"name": "mixed-v3-v4", "verification": "structural-source-verified"}
+  ],
+  "claim": "Fixtures prove compiler shape and rejection behavior; they do not claim editor/frontend parity until controlled-site E2E passes."
+}

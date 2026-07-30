@@ -1,0 +1,11 @@
+{
+    "args": {
+        "items": [
+            {
+                "filename": "contract-batch.txt",
+                "base64": "aGVsbG8="
+            }
+        ]
+    },
+    "expect": "ok"
+}

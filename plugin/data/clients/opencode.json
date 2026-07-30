@@ -1,0 +1,18 @@
+{
+  "slug": "opencode",
+  "label": "OpenCode",
+  "kind": "cli",
+  "snippet_kind": "json",
+  "preferred_method": "stdio",
+  "official_cli_add": "",
+  "config_paths": {
+    "macos": "~/.config/opencode/config.json",
+    "linux": "~/.config/opencode/config.json",
+    "windows": "%APPDATA%\\opencode\\config.json",
+    "wsl": "~/.config/opencode/config.json"
+  },
+  "notes": "Add the snippet under the mcp key. Prefer global config for credentials. Prefer user-level or private client config; never commit Application Passwords to project-tracked files.",
+  "verified_against_docs_on": "2026-07-16",
+  "secret_storage": "user-level",
+  "config_path": "~/.config/opencode/config.json"
+}

@@ -1,0 +1,80 @@
+<?php
+/**
+ * Plugin Name: Stonewright
+ * Plugin URI: https://github.com/cosmincraciun97/stonewright-wp-mcp
+ * Description: Guarded WordPress MCP tools for Elementor, Gutenberg/FSE, WooCommerce catalogs, content models, PHP runtime execution, and tokenized WP-CLI.
+ * Version: 1.0.0-beta.1
+ * Requires at least: 6.7
+ * Requires PHP: 8.1
+ * Author: Stonewright
+ * License: AGPL-3.0-or-later
+ * License URI: https://www.gnu.org/licenses/agpl-3.0.html
+ * Text Domain: stonewright
+ * Domain Path: /languages
+ *
+ * @package Stonewright\WpMcp
+ */
+
+declare( strict_types=1 );
+
+defined( 'ABSPATH' ) || exit;
+
+// Ensure mb_* string functions operate in UTF-8.
+// Critical for Windows PowerShell callers: ConvertTo-Json emits \uXXXX escapes
+// which PHP json_decode handles correctly only when internal encoding is UTF-8.
+if ( function_exists( 'mb_internal_encoding' ) ) {
+	mb_internal_encoding( 'UTF-8' );
+}
+
+if ( defined( 'STONEWRIGHT_FILE' ) ) {
+	return;
+}
+
+define( 'STONEWRIGHT_FILE', __FILE__ );
+define( 'STONEWRIGHT_DIR', plugin_dir_path( __FILE__ ) );
+define( 'STONEWRIGHT_URL', plugin_dir_url( __FILE__ ) );
+define( 'STONEWRIGHT_VERSION', '1.0.0-beta.1' );
+define( 'STONEWRIGHT_MIN_PHP', '8.1' );
+define( 'STONEWRIGHT_MIN_WP', '6.7' );
+
+require_once STONEWRIGHT_DIR . 'includes/Support/Requirements.php';
+
+if ( ! Stonewright\WpMcp\Support\Requirements::met() ) {
+	add_action( 'admin_notices', [ Stonewright\WpMcp\Support\Requirements::class, 'render_notice' ] );
+	return;
+}
+
+$stonewright_package_autoload  = STONEWRIGHT_DIR . 'vendor/autoload_packages.php';
+$stonewright_composer_autoload = STONEWRIGHT_DIR . 'vendor/autoload.php';
+if ( is_readable( $stonewright_package_autoload ) ) {
+	require_once $stonewright_package_autoload;
+} elseif ( is_readable( $stonewright_composer_autoload ) ) {
+	// Source checkouts can use Composer's regular loader. Release packages
+	// always ship Jetpack Autoloader so shared WordPress dependencies coexist.
+	require_once $stonewright_composer_autoload;
+}
+
+/**
+ * Lightweight PSR-4 autoloader for the Stonewright\WpMcp namespace.
+ *
+ * Used when Composer's autoloader is unavailable (e.g. running from a
+ * source checkout without `composer install`). Composer autoload still
+ * wins if it loaded first because of `spl_autoload_register` ordering.
+ */
+spl_autoload_register(
+	static function ( string $class_name ): void {
+		$prefix = 'Stonewright\\WpMcp\\';
+		if ( 0 !== strpos( $class_name, $prefix ) ) {
+			return;
+		}
+		$relative = substr( $class_name, strlen( $prefix ) );
+		$path     = STONEWRIGHT_DIR . 'includes/' . str_replace( '\\', '/', $relative ) . '.php';
+		if ( is_readable( $path ) ) {
+			require_once $path;
+		}
+	}
+);
+
+require_once STONEWRIGHT_DIR . 'includes/Core/PluginRegistration.php';
+
+\Stonewright\WpMcp\Core\PluginRegistration::boot( STONEWRIGHT_FILE );

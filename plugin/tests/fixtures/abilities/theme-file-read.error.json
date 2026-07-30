@@ -1,0 +1,6 @@
+{
+  "args": {
+    "path": "../../wp-config.php"
+  },
+  "expect": "error"
+}

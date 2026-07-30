@@ -1,0 +1,73 @@
+{
+    "name": "stonewright/wp-mcp",
+    "description": "Stonewright exposes WordPress building primitives to MCP clients.",
+    "type": "wordpress-plugin",
+    "license": "AGPL-3.0-or-later",
+    "require": {
+        "php": ">=8.1",
+        "automattic/jetpack-autoloader": "^4.0",
+        "league/oauth2-server": "^8.5",
+        "nyholm/psr7": "^1.8",
+        "wordpress/mcp-adapter": "^0.3.0 || ^1.0",
+        "wordpress/abilities-api": "^0.1.0 || ^1.0",
+        "opis/json-schema": "^2.3"
+    },
+    "conflict": {
+        "lcobucci/jwt": ">=5.0",
+        "lcobucci/clock": ">=3.0",
+        "league/uri": ">=6.8"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.6",
+        "squizlabs/php_codesniffer": "^3.10",
+        "wp-coding-standards/wpcs": "^3.1",
+        "phpcompatibility/phpcompatibility-wp": "^2.1",
+        "phpstan/phpstan": "^1.11",
+        "szepeviktor/phpstan-wordpress": "^1.3",
+        "yoast/phpunit-polyfills": "^2.0",
+        "wp-phpunit/wp-phpunit": "^6.7",
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Stonewright\\WpMcp\\": "includes/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true,
+            "automattic/jetpack-autoloader": true
+        },
+        "audit": {
+            "abandoned": "report"
+        },
+        "sort-packages": true,
+        "platform": {
+            "php": "8.1.0"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "phpstan": "phpstan analyse --memory-limit=2G",
+        "phpcs": "phpcs",
+        "phpcbf": "phpcbf",
+        "docs:matrix": "php bin/generate-ability-matrix.php",
+		"docs:migration": "php bin/generate-elementor-migration-guide.php",
+		"expertise:evaluate": "php bin/evaluate-expertise.php",
+		"elementor:schema-diff": "php bin/elementor-schema-diff.php",
+        "tokens:measure": "php bin/measure-token-surface.php",
+        "tokens:measure:fixture-over-budget": "php bin/measure-token-surface.php --fixture=over-budget",
+        "contracts:generate": "php bin/generate-contracts.php",
+        "contracts:compat": "phpunit --filter PublicApiContractTest",
+        "provenance:lint": "php bin/lint-upstream-provenance.php",
+        "package:verify-manifests": "php bin/verify-jetpack-manifests.php .",
+        "dependencies:audit": "composer audit --abandoned=report",
+        "security:audit": "php bin/security-audit.php"
+    },
+    "extra": {
+        "wordpress-install-dir": "../wordpress",
+        "branch-alias": {
+            "dev-main": "1.x-dev"
+        }
+    }
+}

@@ -1,0 +1,371 @@
+---
+name: elementor-v3-builder
+description: >
+  Stonewright Elementor V3 builder for native-first implementation from Figma,
+  screenshots, images, or briefs, plus pages, widgets, Loop Grid, templates,
+  kit styles, responsive edits, and safe batch mutations. Use whenever a task
+  reads, plans, builds, or repairs an Elementor V3 page or template.
+---
+
+# Elementor V3 Builder
+
+Operates on the Elementor V3 widget tree using the container model. All write
+operations take a backup snapshot before executing. Use
+`stonewright/elementor-v3-build-page-from-spec` for spec-driven builds and
+`stonewright/elementor-v3-batch-mutate` for surgical edits to an existing tree.
+For a new native Loop Grid or Loop Carousel, prefer
+`stonewright/elementor-wire-loop`: dry-run first, then apply the same
+idempotent request after reviewing the resolved live controls and query probe.
+
+## Pre-flight
+
+Always call MCP tool `stonewright-elementor-v3-status` first. If Elementor is not active
+or the post is not an Elementor page, stop and inform the user.
+
+```json
+{ "ability": "stonewright/elementor-v3-status", "args": {} }
+```
+
+Returns: `{ "active": true, "version": "3.x.x" }`.
+
+## Design evidence before visual writes
+
+For Figma, screenshot, image, or brief work, convert the source into compact,
+vendor-neutral `DesignEvidence` before choosing widgets. Keep source references,
+measured viewports, semantic nodes, style provenance, actions, and unresolved
+items; discard the raw Figma tree after normalization. Then call
+`stonewright-design-native-plan` with `target: "elementor-v3"`.
+
+Do not turn vision output directly into Elementor settings. Vision classifies
+the layout; the deterministic planner chooses native primitives; the live
+schema compiles control keys later. A button, CTA, navigation item, form, or
+linked image with no real action is a blocker, not a decorative placeholder.
+Any `inference` evidence must remain confirmation-gated.
+
+Read [references/design-evidence.md](references/design-evidence.md) when the
+task starts from a design source or needs custom CSS/JS/PHP.
+
+## When to load the visual-direction pack
+
+Load the `visual-direction` skill for new or changed visual direction — a
+rebrand, a new palette or type scale, a different spacing rhythm, or any work
+that alters how the site is meant to look. It owns direction capture, reviewed
+kit sync, the first-section checkpoint, and the rendered quality loop.
+
+Do not load it for work that stays inside an existing direction: copy edits,
+adding a widget in the established style, or repairing a broken control. This
+skill still owns every write. The pack decides what the page should look like;
+`stonewright/elementor-v3-batch-mutate` remains the only way to change an
+existing tree, and the responsive rules below still apply unchanged.
+
+Use the plan in two phases:
+
+1. Finish the native, editable page: global kit, content model, containers,
+   widgets, responsive controls, dry-run, write, and readback.
+2. If a verified delta remains, present the separate customization proposal.
+   Do not write CSS, JS, or PHP until the user approves its exact diff, files,
+   risk, rollback, and tests.
+
+## Live research and learning
+
+The runtime schema is authoritative for available controls. When it proves that
+a control exists but its semantics remain unclear, research only official
+Elementor documentation and record the result through
+`stonewright-knowledge-candidate-record`; never write research directly into an
+active skill.
+
+Every candidate must include its topic/widget/control, a concise fact or recipe,
+official source URL and SHA-256, fetch/expiry dates, Core/Pro/add-on version
+constraints, evidence type, and confidence. Then dry-run the recipe and verify
+the editor plus logged-out frontend against the exact runtime fingerprint.
+
+One successful use is not training. Promotion requires either two distinct
+verified task successes or explicit user approval with a note. Same-topic
+conflicts require an explicit replace decision. Elementor upgrades mark only
+incompatible verified candidates and their linked skills stale; stale knowledge
+must be researched again. Load candidate or memory bodies only when their compact
+refs match the current task.
+
+## Backup before write
+
+Every write ability that touches post meta calls
+`Backup::snapshot_post( $post_id )` internally and returns a `snapshot_id`.
+If the ability does NOT call it internally (e.g. `update-kit-colors`), call
+`stonewright/elementor-v3-backup-page` explicitly first.
+
+Never write raw `_elementor_data` with `update_post_meta()` or create revision
+meta manually. Every container, section, column, and widget node must have a
+non-empty ID unique across the tree. Prefer typed Elementor abilities. For an
+explicit runtime repair through `stonewright/php-execute`, call
+`Backup::snapshot_post( $post_id )`, generate missing IDs with
+`ElementorData::generate_id()`, and persist only through
+`ElementorData::write()`. Stop when its tree validator rejects the payload.
+
+## Container model
+
+Elementor V3 uses containers (flexbox) as the primary layout primitive. When
+building from scratch: create container -> add child containers for columns ->
+add widgets inside child containers.
+
+Name only major parent containers semantically: `hero`, `header`, `team grid`,
+`pricing section`, `product gallery`, `footer`, or similarly useful labels.
+Do not name every small inner utility container; inner wrappers should stay
+quiet unless their role matters during later edits.
+
+For visual pages from Figma, images, prompts, or design systems, build in
+section batches: one section per pass by default, or two sections only when
+they are simple and tightly coupled. After each batch, verify desktop, tablet,
+and mobile screenshots plus overflow, then auto-continue to the next batch
+when checks pass. Do not wait for user approval between passing batches.
+
+For the current section batch and repeated structures inside it, prefer the
+spec renderer first. Use `dry_run: true` to validate, inspect diagnostics, and
+count generated elements without writing; then repeat the call with
+`dry_run: false` and `mode` set to `replace`, `append`, or `replace_section`.
+
+```json
+{
+  "post_id": 42,
+  "mode": "replace_section",
+  "dry_run": true,
+  "spec": {
+    "version": "1.0.0",
+    "page": { "title": "Team", "template": "elementor_canvas" },
+    "sections": [
+      {
+        "id": "team",
+        "width": "full",
+        "layout": "grid",
+        "gap": "24px",
+        "blocks": [
+          {
+            "type": "card",
+            "blocks": [
+              { "type": "image", "id": 123, "alt": "Member name" },
+              { "type": "heading", "level": 3, "text": "Member name" },
+              { "type": "paragraph", "text": "Role" }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+If the spec validator rejects the payload, fix the spec shape first. Do not fall
+back to dozens of single-widget calls until the first-pass renderer path has
+been tried with a valid spec.
+
+For an existing page where the task is to add, update, move, or remove several
+elements, read the page with
+`stonewright/elementor-v3-get-page-structure` in summary mode first. It returns
+IDs, paths, widget types, labels, child counts, and setting keys without loading
+the raw Elementor tree. Request `responseMode: "full"` only when raw settings
+are required for the next edit. Then use one
+`stonewright/elementor-v3-batch-mutate` call. Use `op_id` refs to chain
+generated IDs inside the same request:
+
+```json
+{
+  "post_id": 42,
+  "dry_run": true,
+  "operations": [
+    { "action": "add_container", "op_id": "row", "settings": { "layout": "row" } },
+    {
+      "action": "add_widget",
+      "parent_ref": "row",
+      "op_id": "headline",
+      "widget_type": "heading",
+      "settings": { "title": "Fast native Elementor" }
+    },
+    {
+      "action": "update_element",
+      "element_ref": "headline",
+      "settings": { "header_size": "h2" }
+    }
+  ]
+}
+```
+
+For Theme Builder templates with display conditions, use
+`stonewright/theme-builder-apply-template`; do not edit Elementor condition
+meta directly.
+
+For Loop Grid sections backed by CPT/custom fields, keep the data path compact:
+use `stonewright/content-model-loop-grid-flow` when available. It handles the
+CPT/field contract, rows, loop item template, and returns the Loop Grid widget
+settings. If unavailable, confirm/register the CPT, write rows and meta with
+`stonewright/content-bulk-upsert-posts`, create the loop item template, then add
+or update the Loop Grid with one `stonewright/elementor-v3-batch-mutate` call.
+Bulk rows require `slug` and `title`; use `status` or `post_status` for the
+WordPress post state.
+Use Elementor dynamic tags (`__dynamic__`) for post title or custom-field
+headings inside loop templates; do not rely on many manual meta updates.
+
+## Frontend layout contract
+
+- Read `stonewright-design-direction-brief` once before the first design-derived
+  section and reuse its translated density, variance, and motion rules. Declared
+  direction tokens override dial defaults.
+- Use Elementor V3 containers and native widgets. Do not add HTML widgets unless
+  the user explicitly requests HTML.
+- Start visual tasks by measuring the reference screenshot: viewport/canvas size,
+  section bounds, centered max-widths, typography, colors, spacing, and asset
+  crop bounds. Record those facts as `DesignEvidence`, call
+  `stonewright-design-native-plan`, then build, screenshot the live page with
+  external Playwright MCP at the same viewport, compare deltas, and iterate.
+- If no Playwright/browser MCP tool is visible, install/connect it with
+  `npx -y @playwright/mcp@latest --caps=testing,vision,devtools`, restart the AI
+  client, and stop before the first visual write until the tool appears.
+- Before capturing full-page screenshots, scroll through the page or otherwise
+  preload lazy-loaded media so missing assets are not mistaken for layout
+  failures.
+- Before the first write, satisfy the returned `visual_build_gate`: token table,
+  existing media audit, and section-by-section implementation plan.
+- Treat the captured visual reference as the layout authority. Use design-tool
+  layers for tokens, styles, text, and assets, but do not mirror broken layer
+  nesting as Elementor containers when a cleaner native structure matches the
+  screenshot better.
+- For long reference pages, capture and compare section screenshots before
+  judging the full page. Never implement more than two visual page sections in
+  a single write-and-verify batch.
+- A hero must fit its intended first viewport unless the reference explicitly
+  shows a scroll-led composition. Measure the header + hero, do not guess.
+- Do not turn every section into the same centered heading plus three equal
+  cards. When the direction allows variance, prefer one dominant item, an
+  editorial split, or an intentionally uneven grid that still matches evidence.
+- Stop alternating image/text zigzags after two consecutive sections. Change
+  rhythm with a full-width visual, proof strip, quote, or another evidenced
+  native composition.
+- Eyebrows are hierarchy, not decoration. Default to at most one small-uppercase
+  eyebrow per three top-level sections unless the reference proves otherwise.
+- Keep display line-height between 1.0 and 1.15 and body measure around 60–70ch
+  unless the direction or measured evidence specifies a different value.
+- Use one primary accent family per page. Avoid pure `#000` when the direction
+  supplies an ink token. Do not introduce a generic purple gradient, Inter, or
+  another fashionable default unless the source/direction declares it.
+- When the compact brief blocks entrance animation or motion effects, omit the
+  corresponding Elementor settings entirely. Low motion is a finished result,
+  not an implementation gap.
+- Put every page section in a full-width outer container, then a centered inner
+  container with the design max-width. Do not leave content floating at page
+  edges or stacked as a single accidental column.
+- Use `stonewright/elementor-schema` followed by
+  `stonewright/elementor-v3-batch-mutate` for every known or third-party
+  widget. `stonewright/elementor-add-*` abilities are deprecated compatibility
+  tools and must not be chosen for new plans.
+- For every widget you intend to write, call
+  `stonewright/elementor-schema` with `mode: "summary"` and inspect
+  Content, Style, and Advanced controls before choosing settings. Request
+  `mode: "control"` for one complete control or paginated `mode: "full"` only
+  when needed. If the schema, local harvested docs, or implementation guide are
+  incomplete, research official Elementor documentation online before writing
+  that widget.
+- Use exact control keys from widget schemas. For example, Icon Box uses
+  `selected_icon`, `primary_color`, and `secondary_color`; do not invent
+  aliases like `icon`, `icon_primary_color`, or `icon_background_color`.
+- Configure all relevant tabs. Content holds source data, items, media, links,
+  and semantic choices. Style holds typography, colors, spacing, states,
+  borders, shadows, and widget-specific presentation. Advanced can use
+  position absolute/fixed, z-index, motion effects, transform, background,
+  background overlay, border, mask, responsive visibility, custom attributes,
+  order, align self, width, padding, margin, CSS ID, and CSS classes.
+- For repeated cards, logos, sponsor grids, galleries, or pricing blocks, build
+  the current section batch with `stonewright/elementor-v3-build-page-from-spec`
+  dry-run/write. Use `stonewright/elementor-v3-batch-mutate` for focused fixes
+  after screenshot comparison.
+- If a full-page spec is too complex, split the work into one- or two-section
+  specs before falling back to many single-element updates.
+- When debugging Elementor V3 boxed containers, inspect the rendered DOM before
+  writing CSS. Boxed containers usually render children under `.e-con-inner`, so
+  direct-child selectors can miss the actual flex container.
+- Use flex row containers for desktop two-column designs and responsive
+  direction/visibility settings for tablet and mobile.
+- Sticky headers must be sticky on desktop and mobile when requested. Mobile
+  navigation must use the native nav-menu hamburger/dropdown controls.
+- Use nav-menu for header menus, form for newsletter/contact forms,
+  image-gallery/gallery for photo galleries, social-icons for social rows, and
+  icon-list or linked text widgets for footer columns.
+- Preserve exported artwork. If a speaker/card image already contains the visual
+  border, do not add an Elementor border.
+- For section labels, copy typography, letter spacing, alignment, and underline
+  or border decorations from the design instead of approximating them with plain
+  text.
+- Custom CSS requires explicit user approval after widget/settings options are
+  exhausted. Approved CSS belongs in the active theme `style.css`, and should
+  target semantic classes or named containers instead of unstable generated
+  element IDs whenever possible.
+- Before signoff, capture desktop, tablet, and mobile screenshots on the
+  logged-out public page and report the visible deltas. Admin/editor chrome does
+  not count as viewport evidence.
+
+## Kit changes
+
+For design-derived builds, prepare the kit plan before the first page element
+write: call `stonewright/elementor-v3-get-kit-globals`, compare reusable colors
+and typography against the design, then decide page-local exceptions. If the
+user has approved site-wide design changes, call `update-kit-colors` and
+`update-kit-typography` before building the page so later element payloads can
+reuse global tokens instead of repeating raw values. If approval is missing or
+the design is one-off, keep those values local in widget/container controls.
+Mutation abilities do not take a post_id; they write to the active kit post.
+
+## Save as template
+
+After building a page, optionally save it as a reusable template:
+
+```json
+{
+  "ability": "stonewright/elementor-v3-save-template",
+  "args": {
+    "post_id": 42,
+    "title": "Home Hero",
+    "template_type": "section"
+  }
+}
+```
+
+Returns `{ "template_id": 150 }`.
+
+## Ability summary
+
+| Ability | Purpose |
+|---|---|
+| `stonewright/elementor-v3-status` | Check Elementor active + version |
+| `stonewright/elementor-v3-get-page-structure` | Read compact page outline by default; use `responseMode: "full"` for raw tree |
+| `stonewright/elementor-v3-get-element` | Read single element by ID |
+| `stonewright/elementor-v3-add-container` | Add flex container |
+| `stonewright/elementor-add-*` | Deprecated compatibility abilities; do not use for new plans |
+| `stonewright/elementor-v3-add-widget` | Deprecated single-write escape hatch |
+| `stonewright/elementor-v3-update-element` | Update element settings |
+| `stonewright/elementor-v3-move-element` | Reorder/reparent element |
+| `stonewright/elementor-v3-remove-element` | Delete element |
+| `stonewright/elementor-v3-backup-page` | Explicit snapshot |
+| `stonewright/elementor-v3-save-template` | Save to Elementor library |
+| `stonewright/elementor-v3-list-widgets` | List all registered widgets |
+| `stonewright/design-native-plan` | Validate DesignEvidence and return the deterministic native-first plan without writing |
+| `stonewright/elementor-schema` | List/search live widgets; use `mode: "summary"`, `control`, or paginated `full` without guessing keys |
+| `stonewright/elementor-v3-get-kit-globals` | Read active kit colors and typography |
+| `stonewright/elementor-v3-update-kit-colors` | Mutate kit color palette |
+| `stonewright/elementor-v3-update-kit-typography` | Mutate kit typography |
+| `stonewright/elementor-v3-update-page-settings` | Page-level settings |
+| `stonewright/elementor-v3-build-page-from-spec` | Spec-driven build with dry_run, metrics, append/replace modes |
+| `stonewright/elementor-v3-batch-mutate` | Primary V3 write compiler: evidence, idempotency, expected hash, one snapshot, readback |
+| `stonewright/elementor-v3-apply-bundle` | Multi-post spec bundle |
+
+## Confirmation token for destructive writes
+
+Before calling `build-page-from-spec` with `mode: "replace"` or
+`mode: "replace_section"`, or before `batch-mutate` with `remove_element`, emit:
+
+```
+"Confirm:
+  post_id: 42
+  snapshot_id: <id>
+  action: <action description>
+Reply YES to proceed."
+```
+
+See `references/widget-examples.md` for concrete widget payloads.
+See `references/kit-examples.md` for kit mutation examples.

@@ -1,0 +1,7 @@
+{
+  "args": {
+    "backup_ref": "sw-theme-backup-00000000-0000-4000-8000-000000000001",
+    "theme": "stylesheet"
+  },
+  "expect": "ok"
+}

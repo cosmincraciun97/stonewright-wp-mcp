@@ -1,0 +1,61 @@
+# PHP
+plugin/vendor/
+plugin/.phpunit.cache/
+plugin/.phpunit.result.cache
+plugin/coverage/
+
+# Node
+companion/node_modules/
+companion/dist/
+companion/coverage/
+companion/playwright-report/
+companion/test-results/
+visual/node_modules/
+visual/dist/
+visual/coverage/
+dist/
+
+# Built Stonewright Visual bundle, staged into the plugin during packaging
+plugin/assets/visual/
+
+# Local
+*.log
+.DS_Store
+.idea/
+.vscode/
+*.swp
+.superpowers/
+.playwright-cli/
+.playwright-mcp/
+.tmp-playwright-mcp-install-test-*/
+output/
+docs/local-dev-notes.md
+docs/superpowers/
+scripts/install-playwright-mcp.ps1
+companion/.env
+companion/wp-cli-wrapper.bat
+companion/credentials/
+.stonewright-credentials/
+stonewright-credential*.json
+
+# Research vault must never enter the repo
+research/
+
+# WordPress
+plugin/wp-content/
+plugin/wordpress/
+
+# Git worktrees
+.worktrees/
+
+# Session screenshots and temp scratch at repo root
+/*.png
+/.tmp-*
+
+# Playwright e2e local artifacts (baseline evidence lives under docs/plans/evidence/)
+e2e/node_modules/
+e2e/artifacts/
+e2e/test-results/
+e2e/playwright-report/
+e2e/blob-report/
+e2e/playwright/.cache/

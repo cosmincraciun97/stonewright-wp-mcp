@@ -1,0 +1,7 @@
+{
+  "blockName": "core/separator",
+  "attrs": {},
+  "innerHTML": "<hr class=\"wp-block-separator has-alpha-channel-opacity\"/>",
+  "innerContent": [ "<hr class=\"wp-block-separator has-alpha-channel-opacity\"/>" ],
+  "innerBlocks": []
+}

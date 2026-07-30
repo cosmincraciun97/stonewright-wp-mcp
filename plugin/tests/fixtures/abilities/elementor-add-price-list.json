@@ -1,0 +1,15 @@
+{
+    "args": {
+        "post_id": 1,
+        "parent_id": "parent1",
+        "settings": {
+            "price_list": [
+                {
+                    "title": "Item 1",
+                    "price": "10"
+                }
+            ]
+        }
+    },
+    "expect": "ok"
+}

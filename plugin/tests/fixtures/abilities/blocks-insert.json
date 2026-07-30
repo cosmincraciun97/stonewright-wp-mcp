@@ -1,0 +1,15 @@
+{
+    "args": {
+        "post_id": 1,
+        "block": {
+            "blockName": "core/paragraph",
+            "attrs": [],
+            "innerHTML": "<p>Hello</p>",
+            "innerContent": [
+                "<p>Hello</p>"
+            ],
+            "innerBlocks": []
+        }
+    },
+    "expect": "ok"
+}

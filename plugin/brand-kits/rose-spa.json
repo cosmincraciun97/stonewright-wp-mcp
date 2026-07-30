@@ -1,0 +1,28 @@
+{
+    "id": "rose-spa",
+    "name": "Rose Spa",
+    "description": "Soft rose for salons and wellness.",
+    "colors": {
+        "primary": "#9D174D",
+        "secondary": "#BE185D",
+        "accent": "#F9A8D4",
+        "background": "#FFF1F2",
+        "surface": "#FCE7F3",
+        "text": "#1F0A14"
+    },
+    "fonts": {
+        "heading": "Cormorant Garamond, Georgia, serif",
+        "body": "Nunito Sans, system-ui, sans-serif"
+    },
+    "radius": {
+        "sm": "4px",
+        "md": "8px",
+        "lg": "16px"
+    },
+    "spacing": {
+        "xs": "8px",
+        "sm": "16px",
+        "md": "24px",
+        "lg": "48px"
+    }
+}

@@ -1,0 +1,28 @@
+{
+    "id": "ocean-trust",
+    "name": "Ocean Trust",
+    "description": "Steady blues for finance and healthcare.",
+    "colors": {
+        "primary": "#0B3D5C",
+        "secondary": "#1A6B9A",
+        "accent": "#F4A261",
+        "background": "#FFFFFF",
+        "surface": "#F5F7FA",
+        "text": "#1A1A1A"
+    },
+    "fonts": {
+        "heading": "IBM Plex Serif, Georgia, serif",
+        "body": "IBM Plex Sans, system-ui, sans-serif"
+    },
+    "radius": {
+        "sm": "4px",
+        "md": "8px",
+        "lg": "16px"
+    },
+    "spacing": {
+        "xs": "8px",
+        "sm": "16px",
+        "md": "24px",
+        "lg": "48px"
+    }
+}

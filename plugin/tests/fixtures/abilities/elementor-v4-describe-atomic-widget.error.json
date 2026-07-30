@@ -1,0 +1,6 @@
+{
+    "args": {
+        "node_type": "NotARealType"
+    },
+    "expect": "wp_error"
+}

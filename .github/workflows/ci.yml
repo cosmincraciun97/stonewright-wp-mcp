@@ -1,0 +1,207 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+      - run: node scripts/check-docs-freshness.mjs
+      - name: Verify public repository hygiene
+        env:
+          STONEWRIGHT_PRIVATE_TERMS: ${{ secrets.STONEWRIGHT_PRIVATE_TERMS }}
+        run: node scripts/check-public-hygiene.mjs
+
+  php-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["8.1", "8.2", "8.3", "8.4", "8.5"]
+    defaults:
+      run:
+        working-directory: plugin
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer
+      - run: composer install --no-interaction --prefer-dist
+      - run: composer test
+      - run: composer contracts:compat
+
+  php-quality:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: plugin
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.1"
+          tools: composer
+      - run: composer install --no-interaction --prefer-dist
+      - run: composer phpstan
+      - run: composer phpcs
+      - run: composer security:audit
+      - run: composer dependencies:audit
+      - run: composer provenance:lint
+      - run: composer tokens:measure
+
+  plugin-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.1"
+          tools: composer
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+      - name: Build clean production dependencies
+        working-directory: plugin
+        run: composer install --no-dev --no-interaction --prefer-dist --classmap-authoritative
+      - name: Verify production package integrity
+        run: |
+          php plugin/bin/verify-jetpack-manifests.php plugin
+          node scripts/package-verify.mjs --strict-vendor
+      - name: Verify release exclusions preserve manifest integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p package-scan/stonewright
+          rsync -a plugin/ package-scan/stonewright/ \
+            --exclude tests \
+            --exclude bin \
+            --exclude composer.json \
+            --exclude composer.lock \
+            --exclude .phpunit.cache \
+            --exclude .phpunit.result.cache \
+            --exclude phpstan.neon \
+            --exclude phpcs.xml \
+            --exclude phpunit.xml \
+            --exclude phpunit.xml.dist
+          php plugin/bin/verify-jetpack-manifests.php package-scan/stonewright
+
+  companion:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: companion
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: companion/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run contracts:compat
+      - run: npm test
+      - run: npm run tokens:measure
+      - run: npm run build
+      - name: Verify companion archive hygiene
+        working-directory: .
+        env:
+          STONEWRIGHT_PRIVATE_TERMS: ${{ secrets.STONEWRIGHT_PRIVATE_TERMS }}
+        run: |
+          mkdir -p package-scan/unpacked
+          (cd companion && npm pack --pack-destination ../package-scan)
+          companion_archive="$(find package-scan -maxdepth 1 -name 'stonewright-companion-*.tgz' -print -quit)"
+          tar -xzf "$companion_archive" -C package-scan/unpacked
+          node scripts/check-public-hygiene.mjs --root package-scan/unpacked
+          if tar -tzf "$companion_archive" | grep -Eq '(^|/)(sites\.json|audit-direct\.jsonl)$|(^|/)memory/'; then
+            echo "Companion archive contains private persistent runtime state" >&2
+            exit 1
+          fi
+
+  visual:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: visual
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: visual/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Verify the packaged plugin can carry the built bundle
+        working-directory: .
+        run: |
+          mkdir -p plugin/assets/visual
+          cp visual/dist/workspace-browser.js plugin/assets/visual/workspace-browser.js
+          node scripts/package-verify.mjs --require-visual-bundle
+
+  e2e-admin-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: e2e
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          tools: composer
+      - name: Install plugin production dependencies
+        working-directory: plugin
+        run: composer install --no-interaction --prefer-dist --no-dev
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Build the Stonewright Visual bundle
+        working-directory: visual
+        run: |
+          npm ci
+          npm run build
+      - name: Stage the bundle into the plugin
+        working-directory: .
+        run: |
+          mkdir -p plugin/assets/visual
+          cp visual/dist/workspace-browser.js plugin/assets/visual/workspace-browser.js
+      - name: Start wp-env
+        run: npx wp-env start
+      - name: Run admin-ui Playwright suite
+        env:
+          WP_BASE_URL: http://localhost:8888
+          WP_USERNAME: admin
+          WP_PASSWORD: password
+          CI: "true"
+        run: npx playwright test
+      - name: Stop wp-env
+        if: always()
+        run: npx wp-env stop
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-admin-ui-artifacts
+          path: |
+            e2e/artifacts/
+            e2e/test-results/
+            e2e/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 3

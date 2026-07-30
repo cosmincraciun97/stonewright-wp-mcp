@@ -1,0 +1,9 @@
+{
+  "args": {
+    "search": "missing"
+  },
+  "expect_permission_error": true,
+  "permission_args": {
+    "search": "missing"
+  }
+}

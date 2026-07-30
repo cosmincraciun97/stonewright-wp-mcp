@@ -1,0 +1,28 @@
+{
+    "id": "skyline-edu",
+    "name": "Skyline Edu",
+    "description": "Clear blues for education brands.",
+    "colors": {
+        "primary": "#1E40AF",
+        "secondary": "#1D4ED8",
+        "accent": "#FBBF24",
+        "background": "#EFF6FF",
+        "surface": "#DBEAFE",
+        "text": "#0F172A"
+    },
+    "fonts": {
+        "heading": "Lexend, system-ui, sans-serif",
+        "body": "Source Sans 3, system-ui, sans-serif"
+    },
+    "radius": {
+        "sm": "4px",
+        "md": "8px",
+        "lg": "16px"
+    },
+    "spacing": {
+        "xs": "8px",
+        "sm": "16px",
+        "md": "24px",
+        "lg": "48px"
+    }
+}

@@ -1,0 +1,6 @@
+{
+    "args": {
+        "writes": []
+    },
+    "expect": "wp_error"
+}

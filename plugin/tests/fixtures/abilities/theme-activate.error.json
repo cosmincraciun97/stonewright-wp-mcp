@@ -1,0 +1,6 @@
+{
+  "args": {
+    "stylesheet": "twentytwentyfour"
+  },
+  "expect_permission_error": true
+}

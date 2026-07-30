@@ -1,0 +1,13 @@
+{
+    "args": {
+        "colors": [
+            {
+                "id": "primary",
+                "title": "Primary",
+                "color": "#000000"
+            }
+        ],
+        "mode": "contract"
+    },
+    "expect": "ok"
+}

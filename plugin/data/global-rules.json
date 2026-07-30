@@ -1,0 +1,233 @@
+[
+	{
+		"id": "read-before-write",
+		"severity": "strong",
+		"scope": "all",
+		"rule": "Read the current state of a record with a typed read ability before mutating it.",
+		"why": "Blind writes overwrite settings the caller never saw and cannot roll back accurately.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "backup-before-write",
+		"severity": "hard",
+		"scope": "all",
+		"rule": "Snapshot the target before mutating an Elementor document, a template, a global-styles record, or theme.json-backed content.",
+		"why": "A snapshot is the only reliable rollback boundary for builder payloads.",
+		"enforcement": {
+			"kind": "runtime",
+			"guard": "backup_snapshot"
+		}
+	},
+	{
+		"id": "verify-after-write",
+		"severity": "strong",
+		"scope": "all",
+		"rule": "Re-read the mutated record after every write and confirm the intended values are present before reporting success.",
+		"why": "Builder and cache layers can silently drop or coerce values.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "validate-spec-before-render",
+		"severity": "hard",
+		"scope": "design",
+		"rule": "Validate a design spec with the design-spec validator before handing it to any renderer.",
+		"why": "Invalid specs produce broken markup that then needs a destructive repair.",
+		"enforcement": {
+			"kind": "runtime",
+			"guard": "design_spec_validator"
+		}
+	},
+	{
+		"id": "elementor-no-double-encode",
+		"severity": "hard",
+		"scope": "elementor",
+		"rule": "Never JSON-encode an already-encoded Elementor data payload.",
+		"why": "Double encoding makes the document unreadable to the editor and unrecoverable without a snapshot.",
+		"enforcement": {
+			"kind": "runtime",
+			"guard": "elementor_document_integrity"
+		}
+	},
+	{
+		"id": "elementor-no-setting-stripping",
+		"severity": "hard",
+		"scope": "elementor",
+		"rule": "Never drop settings the local schema does not recognise in order to pass validation.",
+		"why": "Unknown keys usually belong to a newer builder version or a third-party widget and are load-bearing.",
+		"enforcement": {
+			"kind": "runtime",
+			"guard": "elementor_document_integrity"
+		}
+	},
+	{
+		"id": "elementor-no-widget-type-conversion",
+		"severity": "hard",
+		"scope": "elementor",
+		"rule": "Never change an element widget type to make a control writable. Ask for explicit intent first.",
+		"why": "Type conversion silently discards every setting the old type owned.",
+		"enforcement": {
+			"kind": "runtime",
+			"guard": "elementor_document_integrity"
+		}
+	},
+	{
+		"id": "elementor-surgical-mutation-only",
+		"severity": "strong",
+		"scope": "elementor",
+		"rule": "Fix one control with a targeted batch mutation on that element. Never rewrite the whole element tree.",
+		"why": "Full-tree rewrites reintroduce every defect the tree already had and lose unmodelled state.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "elementor-responsive-suffix-only",
+		"severity": "strong",
+		"scope": "elementor",
+		"rule": "Target a breakpoint on a style control with the builder breakpoint suffix on the base control key; do not invent per-breakpoint control names.",
+		"why": "Only suffixed variants of responsive base controls are read by the builder.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "elementor-visibility-controls-are-standalone",
+		"severity": "strong",
+		"scope": "elementor",
+		"rule": "Treat visibility controls whose names end in a breakpoint word as standalone booleans, not breakpoint variants of a style control.",
+		"why": "They exist at every breakpoint scope and are rejected wrongly when parsed as suffixed style keys.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "no-schema-guessing",
+		"severity": "strong",
+		"scope": "all",
+		"rule": "Read the live schema for a widget, block, field group, or post type before writing to it. Consult official documentation when the schema is unknown.",
+		"why": "Guessed control keys write dead data that looks like a successful mutation.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "no-transport-workarounds",
+		"severity": "strong",
+		"scope": "all",
+		"rule": "Use the typed tool surface. Do not hand-roll protocol calls, scratch runner scripts, helper argument files, shell CLI invocations, or direct ability-run endpoints to work around a missing tool.",
+		"why": "Workarounds bypass permission, backup, validation, confirmation, and audit gates.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "missing-tool-means-stop",
+		"severity": "strong",
+		"scope": "all",
+		"rule": "If a required tool is absent from the client tool list, run the surface check and reactivate the profile, then ask the user to reload the client. Do not substitute another transport.",
+		"why": "A missing tool is a configuration fault, not a reason to leave the sanctioned path.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "code-payloads-must-be-formatted",
+		"severity": "strong",
+		"scope": "code",
+		"rule": "Send code with real newlines and real indentation. Never send a multi-statement file as one line with escape sequences.",
+		"why": "Escaped one-liners land in editors unreadable and defeat diff review.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "php-writes-must-parse",
+		"severity": "hard",
+		"scope": "code",
+		"rule": "A complete PHP file candidate must pass in-process syntax validation before it is written.",
+		"why": "An unparseable theme file takes the whole site down.",
+		"enforcement": {
+			"kind": "runtime",
+			"guard": "php_syntax_validator"
+		}
+	},
+	{
+		"id": "confirm-destructive-in-production-safe",
+		"severity": "hard",
+		"scope": "all",
+		"rule": "In production-safe mode obtain and pass a confirmation token for every destructive operation.",
+		"why": "It is the only interlock between an agent and irreversible production damage.",
+		"enforcement": {
+			"kind": "runtime",
+			"guard": "confirmation_token"
+		}
+	},
+	{
+		"id": "evidence-before-visual-claims",
+		"severity": "strong",
+		"scope": "design",
+		"rule": "Capture fresh evidence for the current revision before reporting a visual result. Evidence from a previous revision does not count.",
+		"why": "Stale evidence is how a broken layout gets reported as done.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "batch-related-mutations",
+		"severity": "strong",
+		"scope": "all",
+		"rule": "Group related element mutations into one batch call instead of issuing one call per control.",
+		"why": "Each round trip re-sends context and multiplies the chance of a partially applied change.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "gated-features-stay-gated",
+		"severity": "strong",
+		"scope": "all",
+		"rule": "When a feature flag disables a renderer or ability, report the flag and stop. Do not route around it.",
+		"why": "The flag encodes an operator decision about experimental surface.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "record-corrections",
+		"severity": "strong",
+		"scope": "all",
+		"rule": "When the user corrects a repeatable mistake, record it as a learning entry in the same session.",
+		"why": "Uncaptured corrections recur and cost the user the same explanation twice.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
+		"id": "never-trade-gates-for-tokens",
+		"severity": "strong",
+		"scope": "all",
+		"rule": "Never remove a permission, backup, validation, confirmation, audit, test, or source-verification step to reduce token cost or latency.",
+		"why": "Every one of those steps exists because its absence already caused damage once.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	}
+]

@@ -1,0 +1,8 @@
+{
+    "args": {
+        "query": "countdown due date",
+        "area": "widgets",
+        "limit": 3
+    },
+    "expect": "ok"
+}

@@ -1,0 +1,7 @@
+{
+    "args": {
+        "title": "Bad",
+        "template_type": "header"
+    },
+    "expect_permission_error": true
+}

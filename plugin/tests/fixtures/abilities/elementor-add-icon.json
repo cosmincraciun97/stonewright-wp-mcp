@@ -1,0 +1,13 @@
+{
+    "args": {
+        "post_id": 1,
+        "parent_id": "parent1",
+        "settings": {
+            "selected_icon": {
+                "value": "fas fa-star",
+                "library": "fa-solid"
+            }
+        }
+    },
+    "expect": "ok"
+}

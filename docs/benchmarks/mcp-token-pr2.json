@@ -1,0 +1,12 @@
+{
+  "method": "compact JSON UTF-8 bytes / 4; rounded up",
+  "component": "@stonewright/visual",
+  "before_pr2": { "visual_top_level_tool_count": 0 },
+  "after_pr2": {
+    "visual_top_level_tool_count": 1,
+    "tool_name": "stonewright-workspace-request",
+    "definition_bytes": 722,
+    "estimated_tokens": 181,
+    "nested_editor_tools_in_top_level_surface": 0
+  }
+}

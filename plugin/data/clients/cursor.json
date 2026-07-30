@@ -1,0 +1,18 @@
+{
+  "slug": "cursor",
+  "label": "Cursor",
+  "kind": "editor",
+  "snippet_kind": "json",
+  "preferred_method": "stdio",
+  "official_cli_add": "",
+  "config_paths": {
+    "macos": "~/.cursor/mcp.json (global) or .cursor/mcp.json (project)",
+    "linux": "~/.cursor/mcp.json (global) or .cursor/mcp.json (project)",
+    "windows": "%USERPROFILE%\\.cursor\\mcp.json",
+    "wsl": "~/.cursor/mcp.json"
+  },
+  "notes": "Prefer user-level ~/.cursor/mcp.json for credentials; project .cursor/mcp.json should not embed secrets. Prefer user-level or private client config; never commit Application Passwords to project-tracked files.",
+  "verified_against_docs_on": "2026-07-16",
+  "secret_storage": "user-level",
+  "config_path": "~/.cursor/mcp.json (global) or .cursor/mcp.json (project)"
+}

@@ -1,0 +1,41 @@
+{
+  "method": "compact JSON UTF-8 bytes / 4; rounded up",
+  "generated_with_php": "8.5.4",
+  "all_registered_abilities": 245,
+  "surfaces": {
+    "full": {
+      "tool_count": 245,
+      "tools_list": { "bytes": 773979, "estimated_tokens": 193495 }
+    },
+    "essential": {
+      "tool_count": 20,
+      "tools_list": { "bytes": 21484, "estimated_tokens": 5371 }
+    },
+    "default_20": {
+      "profile": "elementor-design",
+      "max_tools": 20,
+      "tool_count": 20,
+      "profile_tool_count": 36,
+      "under_limit": false,
+      "tools_list": { "bytes": 12337, "estimated_tokens": 3085 }
+    },
+    "strict_12": {
+      "profile": "low-tools",
+      "max_tools": 12,
+      "tool_count": 12,
+      "profile_tool_count": 22,
+      "under_limit": false,
+      "tools_list": { "bytes": 12125, "estimated_tokens": 3032 }
+    }
+  },
+  "task_start": {
+    "non_visual_compact": { "bytes": 1494, "estimated_tokens": 374 },
+    "visual_compact": { "bytes": 1689, "estimated_tokens": 423 }
+  },
+  "budgets": {
+    "default_max_20_tools": true,
+    "strict_max_12_tools": true,
+    "non_visual_task_start_lt_700": true,
+    "visual_task_start_lt_1200": true
+  }
+}

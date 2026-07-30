@@ -1,0 +1,6 @@
+{
+    "args": {
+        "topic": ""
+    },
+    "expect": "wp_error"
+}

@@ -1,0 +1,230 @@
+# Stonewright Onboarding
+
+This guide is for site owners, maintainers, and agents using Stonewright to
+edit WordPress sites through MCP.
+
+## Choose your mode
+
+- **Plugin mode** (full capability): install the Stonewright WordPress
+  plugin. Elementor engines, DesignSpec rendering, php-execute, shared
+  site memory/skills, audit UI.
+- **Direct mode** (no plugin): the companion serves typed tools over
+  core REST/WP-CLI with an Application Password. Content, media, menus,
+  templates, taxonomy, users, raw Elementor document edits with integrity
+  gates. Not available without the plugin: Elementor batch engines,
+  DesignSpec rendering, php-execute, confirmation tokens, content-model
+  registration, shared site memory.
+- The companion auto-detects the mode (`STONEWRIGHT_MODE=direct|plugin`
+  overrides; otherwise it probes the plugin MCP endpoint).
+
+Copy-paste client setup for both modes lives in
+[install-prompts.md](install-prompts.md). Capability detail for Direct mode is
+in [direct-mode-e2e.md](direct-mode-e2e.md). Plugin ability inventory is the
+generated [ability-truth-matrix.md](ability-truth-matrix.md) (do not hand-edit).
+
+## First Run
+
+### Plugin mode
+
+1. Install and activate the WordPress plugin.
+2. Start the companion when you need WP-CLI-assisted work or a stdio MCP server.
+3. Create a WordPress Application Password for the MCP client user.
+4. Add the Stonewright MCP server to your AI client (see
+   [install-prompts.md](install-prompts.md) Option A).
+5. In wp-admin, open **Stonewright > Configuration**, enable Stonewright, and
+   choose the operating mode (`development`, `staging`, or `production-safe`).
+6. Reload or restart the AI client and confirm the tool list includes
+   `stonewright-task-start`.
+7. Smoke test with `stonewright-task-start` (canonical first call). Use
+   `stonewright-context-bootstrap` only as a compatibility path when a client
+   still exposes that older entry.
+
+### Direct mode (no plugin)
+
+1. Create a WordPress Application Password for a capable user.
+2. Add the companion as the Stonewright MCP server with URL + username + app
+   password (see [install-prompts.md](install-prompts.md) Option B). Optional:
+   `STONEWRIGHT_MODE=direct` to force Direct mode.
+3. Reload the client and confirm `stonewright-task-start` is visible.
+4. Smoke test with `stonewright-task-start`. In Direct mode it returns
+   locally stored skills and memory for this site (or `_global`).
+5. Call `stonewright-site-discover` before choosing WordPress REST operations.
+
+On a fresh installation there is no user memory, no user-created skill, and no
+audit event. Generic built-in skills and native rules are product assets and
+remain available. Updating either mode preserves existing state; see
+[Updating Stonewright](updates.md).
+
+Every real task should start with `stonewright-task-start`. The response
+contains active instructions, relevant skills, persistent memory (site-hosted
+in plugin mode; `~/.stonewright/` in Direct mode), workflow followups, and the
+short-lived write token / confirmation guidance needed by write tools.
+
+If neither `stonewright-task-start` nor compatibility
+`stonewright-context-bootstrap` is visible in the tool list, the MCP server
+is not loaded yet. Stop and fix the MCP config or reload the client before
+WordPress work. Local agent skills, prompt snippets, repository files, private
+client config files, scratch scripts such as `query-mcp.js` or `run-ability.js`,
+hand-rolled JSON-RPC, helper JSON argument files such as `bootstrap-args.json`,
+`cli_command.json`, or `get_structure.json`, direct companion shell launch
+scripts such as `query-local-stonewright.js`, action scripts such as
+`run-loop-mutate.js` or `run-bootstrap-and-mutate.js`, plugin/companion
+source-code spelunking to reverse-engineer tool schemas, and
+`/wp-json/stonewright/v1/abilities/run` shell calls do not replace live
+Stonewright MCP tools.
+Do not recover by running `wp ...` in a normal shell or by switching to another
+PHP adapter; use `stonewright-php-execute` (plugin mode) and Stonewright's
+tokenized WP-CLI MCP tools when available.
+
+## Prompt Template
+
+Use this shape when asking an AI client to work with Stonewright:
+
+```text
+Use Stonewright for this WordPress task.
+
+Task:
+- What should be created, edited, or audited.
+
+Target:
+- Site URL, post/page/template name or ID, and whether Gutenberg, Elementor,
+  Full Site Editing, menus, media, or WP-CLI are allowed.
+
+Design or content reference:
+- Link to design, screenshot, brief, copy, assets, and any exact spacing,
+  color, typography, or responsive requirements.
+
+Workflow:
+- Start with stonewright-task-start.
+- If stonewright-task-start is not visible in the MCP tool list, stop and
+  ask me to reload or fix the Stonewright MCP config.
+- Do not inspect private client config files, create scratch helper scripts,
+  create helper JSON argument files, launch the companion through ad hoc shell
+  scripts, create action scripts, inspect plugin/companion source to
+  reverse-engineer tool schemas, hand-roll JSON-RPC, call the REST runner from
+  shell, or run shell `wp ...` commands as a Stonewright MCP workaround.
+- Use native WordPress or Elementor abilities first.
+- Use stonewright-php-execute for short full WordPress runtime snippets when a
+  direct plugin API call is faster than many typed calls (plugin mode only).
+- Validate design specs before rendering.
+- Snapshot before Elementor, template, global style, or theme-backed writes.
+- Use production-safe confirmation tokens for destructive work (plugin mode).
+
+Acceptance checks:
+- Run desktop, tablet, and mobile checks.
+- Verify there is no horizontal overflow.
+- Verify no Elementor HTML widgets were used unless explicitly requested.
+- Report changed abilities, tests, screenshots, and remaining risk.
+```
+
+## Visual Work
+
+For visual builds, treat screenshots as part of the workflow:
+
+- Measure the reference before writing: canvas size, section bounds, max
+  widths, colors, type scale, spacing, and asset crop bounds.
+- For pixel-matching work, treat `visual_build_gate` as blocking. Before the
+  first write, prepare a token table, existing media audit, and section plan.
+- Treat reference screenshots as the layout source of truth. Use design-tool
+  structure for tokens, text, styles, assets, and hints, but do not copy broken
+  grouping into WordPress when the visible design needs a cleaner native
+  structure.
+- Create a global-style plan before the first Elementor write. Decide which
+  colors and type styles belong in the Elementor kit and which should stay
+  local to the page.
+- Audit existing WordPress media before uploading assets. Reuse matching
+  filename, alt text, dimensions, and crop when the asset is already present.
+- Use full-width outer sections, centered max-width inner containers, native
+  rows/columns, and native widgets.
+- Before full-page screenshots, scroll through the page or otherwise preload
+  lazy-loaded media so missing assets are not mistaken for layout failures.
+- Check every active Elementor or WordPress breakpoint used by the site on the
+  logged-out public page. Admin bars and editor chrome do not count as
+  responsive proof.
+- Before signoff, list screenshot deltas for desktop, tablet, and mobile. Each
+  delta must be fixed, accepted as a limitation, or blocked by missing approval.
+- For long designs, capture multiple section reference screenshots and compare
+  section-by-section before final full-page review.
+- Use a separate browser MCP for screenshots and visual inspection. Stonewright
+  does not include browser or Figma tools.
+
+Native Elementor/DesignSpec rendering pipelines require **plugin mode**. Direct
+mode can still edit Elementor document data with integrity gates when local
+WP-CLI is available; full batch engines and DesignSpec render remain plugin-only.
+
+## Gutenberg And Block Themes
+
+For Gutenberg-only or block-theme work, keep the client editing experience
+native:
+
+- Read the active theme, registered blocks, `theme.json`, templates, template
+  parts, and patterns before writing.
+- Plan reusable color, typography, spacing, layout, and block style tokens in
+  `theme.json` before editing templates.
+- Prefer core blocks, block supports, synced/unsynced patterns, and template
+  parts before custom blocks or custom CSS.
+- Use Stonewright Gutenberg/FSE abilities for writes and verify both the editor
+  structure and the front end at desktop, tablet, and mobile sizes.
+- Treat AI block/theme generators as prototype inspiration only; production
+  output still needs valid block markup, readable theme files, and browser
+  verification.
+
+## Skills, Memory, And Permanent Rules
+
+Stonewright has three related but distinct surfaces:
+
+- **Permanent product rules** ship in code (`McpUsePolicy` / Direct
+  `permanent-rules`). They are always injected at task-start, are **not** Memory
+  rows, and are **not** controlled by Custom Instructions.
+- **Skills** are reusable playbooks. In plugin mode they live in the site DB /
+  admin UI. Enable **Auto-match** for skills that should be selected from task
+  descriptions. Enable **Prompt/command** for skills that should be exposed as
+  explicit user entries. In Direct mode, skills live under
+  `~/.stonewright/skills/` on the machine running the companion.
+- **Memory** stores learned site facts, project rules, and user corrections.
+  Use it for repeatable constraints such as "do not use HTML widgets." Direct
+  mode stores memory as private JSONL under `~/.stonewright/memory/<scope>.jsonl`
+  (directory mode `0700`, files `0600`). Report only logical refs such as
+  `direct:memory/<scope>.jsonl#<id>` — never expand home paths with secrets.
+
+Plugin and Direct writes reject high-confidence credential material. Do not put
+site URLs, usernames, Application Passwords, tokens, private project names, or
+client configuration into memory or skills.
+
+If the user explicitly asks Stonewright to remember a correction, call
+`stonewright-learning-record` (canonical: `topic` + `correction` + `scope`, or
+legacy Direct `text`). Success requires `verified:true` after readback; report
+`memory_id`, `scope`, and `storage_ref`. Never claim memory was stored without
+that receipt.
+
+## Useful Ability Flow
+
+For most tasks:
+
+1. `stonewright-task-start`
+2. Discovery abilities such as `stonewright-system-abilities-list`,
+   `stonewright-site-info`, `stonewright-elementor-v3-status`, or
+   `stonewright-blocks-list-registered` (plugin mode); or
+   `stonewright-site-discover` (Direct mode)
+3. Read the current target, such as page structure, blocks, menus, media, or
+   theme settings
+4. Plan the edit and choose native abilities
+5. Write with the context token (and Direct-mode `confirm:true` when required)
+6. Verify through readback, tests, browser screenshots, and audit logs
+
+When using REST directly instead of a full MCP client in **plugin mode**,
+authenticated admins can call `POST /wp-json/stonewright/v1/abilities/run` with:
+
+```json
+{
+  "name": "stonewright/task-start",
+  "input": {
+    "request": "Smoke-test connection and load session context"
+  }
+}
+```
+
+Write abilities still require the `stonewright_context_token` returned by
+`stonewright/task-start` (or a compatibility bootstrap). This runner is for
+deliberate REST clients and tests, not a workaround when an MCP client failed
+to load the Stonewright tool list.

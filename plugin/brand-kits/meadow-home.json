@@ -1,0 +1,28 @@
+{
+    "id": "meadow-home",
+    "name": "Meadow Home",
+    "description": "Soft green for home and lifestyle.",
+    "colors": {
+        "primary": "#3F6212",
+        "secondary": "#4D7C0F",
+        "accent": "#A3E635",
+        "background": "#F7FEE7",
+        "surface": "#ECFCCB",
+        "text": "#1A2E05"
+    },
+    "fonts": {
+        "heading": "Source Serif 4, Georgia, serif",
+        "body": "Source Sans 3, system-ui, sans-serif"
+    },
+    "radius": {
+        "sm": "4px",
+        "md": "8px",
+        "lg": "16px"
+    },
+    "spacing": {
+        "xs": "8px",
+        "sm": "16px",
+        "md": "24px",
+        "lg": "48px"
+    }
+}

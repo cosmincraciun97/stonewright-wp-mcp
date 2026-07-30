@@ -1,0 +1,334 @@
+<?php
+declare( strict_types=1 );
+
+namespace Stonewright\WpMcp\Admin\Pages;
+
+use Stonewright\WpMcp\Admin\AdminShell;
+use Stonewright\WpMcp\Blueprints\BlueprintStore;
+use Stonewright\WpMcp\DesignTokens\BrandKit;
+
+/**
+ * Read-only admin catalog of bundled blueprints and brand kits.
+ * Apply happens via MCP abilities; this page surfaces inventory + full AI prompts.
+ */
+final class BlueprintsPage {
+
+	public const SLUG       = 'stonewright-blueprints';
+	public const CAPABILITY = 'manage_options';
+
+	public static function register(): void {
+		add_action( 'admin_menu', [ self::class, 'add_submenu' ] );
+	}
+
+	public static function add_submenu(): void {
+		// IA group: Design Library — slug stonewright-blueprints unchanged.
+		add_submenu_page(
+			'stonewright',
+			__( 'Blueprints', 'stonewright' ),
+			__( 'Design Library', 'stonewright' ),
+			self::CAPABILITY,
+			self::SLUG,
+			[ self::class, 'render' ]
+		);
+	}
+
+	public static function render(): void {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die(
+				esc_html__( 'You do not have permission to view this page.', 'stonewright' ),
+				esc_html__( 'Forbidden', 'stonewright' ),
+				[ 'response' => 403 ]
+			);
+		}
+
+		$blueprints = BlueprintStore::list();
+		$brand_kits = BrandKit::list();
+
+		AdminShell::open( self::SLUG );
+		?>
+		<div class="stonewright-blueprints-page">
+			<div class="stonewright-page-header">
+				<div>
+					<h1><?php esc_html_e( 'Blueprints & Brand Kits', 'stonewright' ); ?></h1>
+					<p><?php esc_html_e( 'Complete landing structures and brand kits. Apply via stonewright/blueprint-apply and stonewright/brand-kit-apply.', 'stonewright' ); ?></p>
+				</div>
+			</div>
+
+			<section class="sw-section">
+				<div class="sw-section__head">
+					<h2><?php esc_html_e( 'Blueprints', 'stonewright' ); ?></h2>
+					<p class="sw-section__sub"><?php esc_html_e( 'Complete landing structures. Copy the full AI prompt, then replace {business} with the client name.', 'stonewright' ); ?></p>
+					<p class="sw-text-muted">
+						<?php esc_html_e( 'These buttons copy AI prompts for a connected MCP agent. Nothing is written to this site until the agent runs stonewright-blueprint-apply (or related tools).', 'stonewright' ); ?>
+					</p>
+				</div>
+				<?php if ( [] === $blueprints ) : ?>
+					<div class="sw-empty-state">
+						<p><?php esc_html_e( 'No blueprints bundled yet.', 'stonewright' ); ?></p>
+					</div>
+				<?php else : ?>
+					<div class="sw-blueprint-grid">
+						<?php foreach ( $blueprints as $bp ) : ?>
+							<?php
+							$id       = (string) ( $bp['id'] ?? '' );
+							$industry = (string) ( $bp['industry'] ?? '' );
+							$prompt   = self::blueprint_prompt( $bp );
+							?>
+							<article class="sw-blueprint-card">
+								<?php if ( '' !== $industry ) : ?>
+									<span class="sw-blueprint-card__industry"><?php echo esc_html( $industry ); ?></span>
+								<?php endif; ?>
+								<h3 class="sw-blueprint-card__name"><?php echo esc_html( (string) ( $bp['name'] ?? '' ) ); ?></h3>
+								<?php if ( ! empty( $bp['description'] ) ) : ?>
+									<p class="sw-blueprint-card__desc"><?php echo esc_html( (string) $bp['description'] ); ?></p>
+								<?php endif; ?>
+								<p class="sw-blueprint-card__meta">
+									<code><?php echo esc_html( $id ); ?></code>
+									<span class="sw-blueprint-card__sha">sha <?php echo esc_html( (string) ( $bp['spec_sha8'] ?? '' ) ); ?></span>
+								</p>
+								<div class="sw-blueprint-card__actions">
+									<button
+										type="button"
+										class="sw-btn sw-btn--primary sw-btn--sm sw-copy-prompt"
+										data-prompt="<?php echo esc_attr( self::apply_to_draft_prompt( $bp ) ); ?>"
+										data-sw-tooltip="<?php echo esc_attr( __( 'Copies a ready-made AI prompt that tells your connected agent to apply this blueprint to a new draft. Paste it into your MCP client to run it.', 'stonewright' ) ); ?>"
+									>
+										<?php esc_html_e( 'Apply to draft', 'stonewright' ); ?>
+									</button>
+									<button
+										type="button"
+										class="sw-btn sw-btn--ghost sw-btn--sm sw-copy-prompt"
+										data-prompt="<?php echo esc_attr( $prompt ); ?>"
+										data-sw-tooltip="<?php echo esc_attr( __( 'Copies a customization prompt for this blueprint to your clipboard.', 'stonewright' ) ); ?>"
+									>
+										<?php esc_html_e( 'Copy AI Prompt', 'stonewright' ); ?>
+									</button>
+								</div>
+							</article>
+						<?php endforeach; ?>
+					</div>
+				<?php endif; ?>
+			</section>
+
+			<section class="sw-section">
+				<div class="sw-section__head">
+					<h2><?php esc_html_e( 'Brand Kits', 'stonewright' ); ?></h2>
+					<p class="sw-section__sub"><?php esc_html_e( 'Color and type kits ready for AI application.', 'stonewright' ); ?></p>
+				</div>
+				<?php if ( [] === $brand_kits ) : ?>
+					<div class="sw-empty-state">
+						<p><?php esc_html_e( 'No brand kits bundled yet.', 'stonewright' ); ?></p>
+					</div>
+				<?php else : ?>
+					<div class="sw-blueprint-grid">
+						<?php foreach ( $brand_kits as $kit ) : ?>
+							<?php
+							$kit_id = (string) ( $kit['id'] ?? '' );
+							$prompt = self::brand_kit_prompt( $kit );
+							$colors = ! empty( $kit['colors'] ) && is_array( $kit['colors'] ) ? array_slice( $kit['colors'], 0, 4, true ) : [];
+							?>
+							<article class="sw-blueprint-card">
+								<h3 class="sw-blueprint-card__name"><?php echo esc_html( (string) ( $kit['name'] ?? '' ) ); ?></h3>
+								<?php if ( ! empty( $kit['description'] ) ) : ?>
+									<p class="sw-blueprint-card__desc"><?php echo esc_html( (string) $kit['description'] ); ?></p>
+								<?php endif; ?>
+								<p class="sw-blueprint-card__meta">
+									<code><?php echo esc_html( $kit_id ); ?></code>
+								</p>
+								<?php if ( [] !== $colors ) : ?>
+									<div class="sw-kit-swatches" aria-hidden="true">
+										<?php foreach ( $colors as $hex ) : ?>
+											<span style="background:<?php echo esc_attr( (string) $hex ); ?>" title="<?php echo esc_attr( (string) $hex ); ?>"></span>
+										<?php endforeach; ?>
+									</div>
+								<?php endif; ?>
+								<button
+									type="button"
+									class="sw-btn sw-btn--ghost sw-btn--sm sw-copy-prompt"
+									data-prompt="<?php echo esc_attr( $prompt ); ?>"
+								>
+									<?php esc_html_e( 'Copy AI Prompt', 'stonewright' ); ?>
+								</button>
+							</article>
+						<?php endforeach; ?>
+					</div>
+				<?php endif; ?>
+			</section>
+		</div>
+		<?php
+		AdminShell::close();
+	}
+
+	/**
+	 * Full multi-line prompt an agent can execute with Stonewright tools.
+	 *
+	 * @param array<string, mixed> $bp
+	 */
+	public static function blueprint_prompt( array $bp ): string {
+		$id          = (string) ( $bp['id'] ?? '' );
+		$name        = (string) ( $bp['name'] ?? $id );
+		$industry    = (string) ( $bp['industry'] ?? '' );
+		$description = (string) ( $bp['description'] ?? '' );
+		$sections    = array_values( array_filter( array_map( 'strval', (array) ( $bp['section_ids'] ?? [] ) ) ) );
+		$palette     = is_array( $bp['palette'] ?? null ) ? $bp['palette'] : [];
+		$fonts       = is_array( $bp['fonts'] ?? null ) ? $bp['fonts'] : [];
+		$sha8        = (string) ( $bp['spec_sha8'] ?? '' );
+
+		$palette_line = [];
+		foreach ( [ 'primary', 'secondary', 'accent', 'background', 'text' ] as $key ) {
+			if ( ! empty( $palette[ $key ] ) && is_scalar( $palette[ $key ] ) ) {
+				$palette_line[] = $key . '=' . (string) $palette[ $key ];
+			}
+		}
+		$font_line = [];
+		foreach ( [ 'heading', 'body' ] as $key ) {
+			if ( ! empty( $fonts[ $key ] ) && is_scalar( $fonts[ $key ] ) ) {
+				$font_line[] = $key . '=' . (string) $fonts[ $key ];
+			}
+		}
+
+		$lines = [
+			'Use Stonewright MCP on this WordPress site to apply a landing blueprint and adapt it for the client.',
+			'',
+			'## Blueprint',
+			'- id: ' . $id,
+			'- name: ' . $name,
+			'- industry: ' . ( '' !== $industry ? $industry : 'general' ),
+		];
+		if ( '' !== $sha8 ) {
+			$lines[] = '- spec_sha8: ' . $sha8;
+		}
+		if ( '' !== $description ) {
+			$lines[] = '- description: ' . $description;
+		}
+		if ( [] !== $sections ) {
+			$lines[] = '- sections: ' . implode( ', ', $sections );
+		}
+		if ( [] !== $palette_line ) {
+			$lines[] = '- palette: ' . implode( '; ', $palette_line );
+		}
+		if ( [] !== $font_line ) {
+			$lines[] = '- fonts: ' . implode( '; ', $font_line );
+		}
+
+		$lines = array_merge(
+			$lines,
+			[
+				'',
+				'## Client',
+				'- business: {business}',
+				'- replace all placeholder brand names, phone numbers, cities, and CTAs with real client copy for {business}.',
+				'',
+				'## Engine',
+				'- Ask which builder the user wants if not stated.',
+				'- User said Elementor → pass engine=elementor (the call fails loudly if Elementor is missing — report it, do not switch engines silently).',
+				'- User said Gutenberg, blocks, or FSE → pass engine=gutenberg.',
+				'- User did not specify → engine=auto and say which engine was used in your report.',
+				'',
+				'## Required tool path',
+				'1. Call stonewright-task-start with task="Apply blueprint ' . $id . ' for {business}", surface="elementor" (or gutenberg if the site is block-first), intent="write".',
+				'2. If stonewright-blueprint-apply (or blueprint-get/list) is missing from your tool list, call stonewright-tool-profile with extras=["stonewright/blueprint-list","stonewright/blueprint-get","stonewright/blueprint-apply"] (or profile=full), then re-list tools (tools/list). Never work around a missing tool with php-execute writes.',
+				'3. Call stonewright/blueprint-get with id="' . $id . '" and read the returned DesignSpec before writing.',
+				'4. Call stonewright/blueprint-apply with id="' . $id . '" and the chosen engine, targeting a draft page unless the user named an existing post_id. Do not hand-build with php-execute.',
+				'5. After apply, adapt section copy, headings, buttons, and contact details for {business}; keep the layout structure from the blueprint.',
+				'6. Snapshot/backup gates must remain on; pass the context token on every write.',
+				'7. After apply, read the qa block from the response and fix every reported issue before you report done (target score >= 90).',
+				'8. Finish with a visual QA pass (desktop + mobile) and report the page URL + post_id + qa score + engine_used.',
+				'',
+				'## Constraints',
+				'- Prefer native Elementor/Gutenberg widgets from the blueprint; do not invent unsupported widgets.',
+				'- Never use Elementor HTML widgets or raw HTML embeds.',
+				'- Keep the palette and type roles from the blueprint unless the user supplies a brand kit.',
+				'- Do not skip stonewright-task-start or stonewright/blueprint-get.',
+				'- Do not hand-build pages with php-execute when blueprint-apply exists or can be exposed via tool-profile.',
+			]
+		);
+
+		return implode( "\n", $lines );
+	}
+
+	/**
+	 * Primary safe CTA: apply the blueprint to a new draft page.
+	 *
+	 * @param array<string, mixed> $bp
+	 */
+	public static function apply_to_draft_prompt( array $bp ): string {
+		$id   = (string) ( $bp['id'] ?? '' );
+		$name = (string) ( $bp['name'] ?? $id );
+		return implode(
+			"\n",
+			[
+				'Apply the Stonewright blueprint "' . $name . '" (id=' . $id . ') to a NEW draft page only.',
+				'',
+				'## Required tool path',
+				'1. Call stonewright-task-start with task="Apply blueprint ' . $id . ' to draft for {business}", intent="write".',
+				'2. If stonewright-blueprint-apply is missing, call stonewright-tool-profile with extras=["stonewright/blueprint-list","stonewright/blueprint-get","stonewright/blueprint-apply"], then tools/list.',
+				'3. Call stonewright/blueprint-get with id="' . $id . '".',
+				'4. Call stonewright/blueprint-apply with id="' . $id . '", engine=auto (or the user-chosen engine), creating a draft page (do not publish).',
+				'5. Report post_id, edit URL, engine_used, and QA score. Keep the page as draft until the user reviews.',
+				'',
+				'## Safety',
+				'- Never publish without an explicit user request.',
+				'- Never use HTML widgets or php-execute for the page body when blueprint-apply is available.',
+				'- Snapshot/backup gates stay on; pass the context token on every write.',
+			]
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $kit
+	 */
+	public static function brand_kit_prompt( array $kit ): string {
+		$id          = (string) ( $kit['id'] ?? '' );
+		$name        = (string) ( $kit['name'] ?? $id );
+		$description = (string) ( $kit['description'] ?? '' );
+		$colors      = is_array( $kit['colors'] ?? null ) ? $kit['colors'] : [];
+
+		$color_bits = [];
+		$i          = 0;
+		foreach ( $colors as $key => $hex ) {
+			if ( $i >= 8 ) {
+				break;
+			}
+			if ( is_scalar( $hex ) ) {
+				$label        = is_string( $key ) ? $key : 'c' . (string) $i;
+				$color_bits[] = $label . '=' . (string) $hex;
+				++$i;
+			}
+		}
+
+		$lines = [
+			'Use Stonewright MCP to apply a brand kit to the current design system.',
+			'',
+			'## Brand kit',
+			'- id: ' . $id,
+			'- name: ' . $name,
+		];
+		if ( '' !== $description ) {
+			$lines[] = '- description: ' . $description;
+		}
+		if ( [] !== $color_bits ) {
+			$lines[] = '- colors: ' . implode( '; ', $color_bits );
+		}
+
+		$lines = array_merge(
+			$lines,
+			[
+				'',
+				'## Required tool path',
+				'1. Call stonewright-task-start with task="Apply brand kit ' . $id . '", surface="design", intent="write".',
+				'2. If stonewright-brand-kit-apply is missing, call stonewright-tool-profile with extras=["stonewright/brand-kit-list","stonewright/brand-kit-apply"], then re-list tools. Never work around with php-execute.',
+				'3. Call stonewright/brand-kit-apply with id="' . $id . '".',
+				'4. Confirm global styles / design tokens updated; report what changed.',
+				'5. After apply, read any qa/diagnostics block and fix issues before reporting done.',
+				'',
+				'## Constraints',
+				'- Do not invent colors outside the kit unless the user overrides them.',
+				'- Never use Elementor HTML widgets or raw HTML embeds.',
+				'- Pass the context token on writes; keep backup gates enabled.',
+			]
+		);
+
+		return implode( "\n", $lines );
+	}
+}

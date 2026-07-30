@@ -1,0 +1,10 @@
+{
+    "id": "2070b1a",
+    "elType": "widget",
+    "widgetType": "video",
+    "settings": {
+        "video_type": "youtube",
+        "youtube_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    },
+    "elements": []
+}

@@ -1,0 +1,438 @@
+# Stonewright Installation
+
+Stonewright has two parts:
+
+- WordPress plugin: registers the `stonewright/*` abilities.
+- Node companion: exposes local stdio MCP through `npx`, proxies the WordPress
+  MCP endpoint, exposes php-execute, and runs tokenized WP-CLI.
+
+## Requirements
+
+- WordPress 6.7+
+- PHP 8.1+
+- Composer 2 for source installs
+- Node.js 20+ for the optional companion
+- WP-CLI for fast local WordPress work. The companion can use `wp` from `PATH`
+  or auto-detect LocalWP's `wp-cli.phar` plus PHP on Windows/macOS.
+- OAuth browser access (recommended) or a WordPress Application Password
+
+## Install The WordPress Plugin From Release
+
+1. Download `stonewright-<version>.zip` from
+   <https://github.com/cosmincraciun97/stonewright-wp-mcp/releases>.
+2. In WordPress Admin, open **Plugins > Add New > Upload Plugin**.
+3. Upload the ZIP and activate **Stonewright**.
+4. Open **Stonewright → Setup** and enable AI Abilities.
+5. Choose OAuth in Setup and approve the browser sign-in. Alternatively,
+   generate an Application Password from Setup (or Users → Profile).
+
+The release ZIP includes production Composer dependencies.
+
+Endpoint:
+
+```text
+https://your-site.example.com/wp-json/mcp/stonewright
+```
+
+## Install The WordPress Plugin From Source
+
+```bash
+cd /path/to/wp-content/plugins
+git clone https://github.com/cosmincraciun97/stonewright-wp-mcp.git stonewright
+cd stonewright/plugin
+composer install --no-dev
+wp plugin activate stonewright
+```
+
+The `wp plugin activate stonewright` command is for a human source install on a
+machine with WP-CLI already configured. Runtime agents should use Stonewright
+MCP tools for WordPress work instead of shelling out to `wp ...`.
+
+## Companion
+
+The companion is optional. Use it when your MCP client needs a local stdio
+server, WordPress MCP proxying, **Direct mode** (core REST without the plugin),
+LocalWP/WP-CLI discovery, or the tokenized `stonewright-wp-cli-*` tools.
+
+### Direct mode (without the WordPress plugin)
+
+Set Application Password credentials and point at the site URL. With
+`STONEWRIGHT_MODE=auto` (default), the companion probes
+`/wp-json/mcp/stonewright`:
+
+- endpoint present → plugin proxy (full Stonewright abilities)
+- HTTP 404 → Direct mode (100 tools in the current full surface)
+
+Force either path with `STONEWRIGHT_MODE=direct` or `STONEWRIGHT_MODE=plugin`.
+
+```json
+{
+  "mcpServers": {
+    "stonewright": {
+      "command": "npx",
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"],
+      "env": {
+        "STONEWRIGHT_WP_URL": "https://your-site.example.com",
+        "STONEWRIGHT_WP_USERNAME": "admin",
+        "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
+        "STONEWRIGHT_MODE": "auto"
+      }
+    }
+  }
+}
+```
+
+Replace `VERSION` in every package URL with the exact release version without a
+leading `v`.
+
+For a guided Direct setup, run:
+
+```bash
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-companion init
+```
+
+It writes credentials only to permission-restricted
+`~/.stonewright/sites.json` and prints a secret-free MCP client block.
+
+First call in Direct mode: `stonewright-task-start`. Then use
+`stonewright-site-discover`; it lists REST namespaces,
+post types, taxonomies, detected plugins (Elementor/Woo/ACF signals), and
+plugin-only capabilities that remain unavailable until you install Stonewright.
+
+| Capability | Direct | With plugin |
+|---|---|---|
+| Content / media / taxonomies | yes | yes |
+| Menus, FSE templates, global styles | yes | yes |
+| Settings, plugins, themes, users, search | yes | yes |
+| WP-CLI (local companion) | yes | yes |
+| PHP execute, Elementor engines, DesignSpec | no | yes |
+| Memory and skills store | yes (local `~/.stonewright/`) | yes (site-hosted) |
+| Production-safe confirmation tokens | no | yes |
+
+Remote destructive Direct tools require `confirm: true` by default
+(`STONEWRIGHT_DIRECT_WRITES=confirm`). Local `.local`/`.test` hosts default to
+`on`. Optional per-site `disabledTools` in `~/.stonewright/sites.json` can block
+writes on production aliases.
+
+Remote sites do not need Node when the AI client supports Streamable HTTP.
+Copy the **Remote HTTP** snippet from **Stonewright > Configuration**; it points
+directly at `/wp-json/mcp/stonewright` and authenticates with the dedicated
+WordPress Application Password. The setup diagnostics panel blocks a green
+status when HTTPS, Application Passwords, the endpoint, or the 20-tool budget
+is missing.
+
+Fastest MCP-client setup uses `npx`, so Windows, macOS, and Linux do not need a
+shell wrapper, global install, or manual bridge:
+
+```json
+{
+  "mcpServers": {
+    "stonewright": {
+      "command": "npx",
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"],
+      "env": {
+        "STONEWRIGHT_WP_URL": "http://mcp-test.local",
+        "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
+        "STONEWRIGHT_WP_APP_PASSWORD_AUTO": "local-only",
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
+      }
+    }
+  }
+}
+```
+
+After adding the server, call `stonewright-setup-profile`. It returns
+copy-paste MCP config, platform checks, credential status, and notes for the
+current machine. For local `.local` or `.test` sites, the companion can create
+one Application Password through tokenized WP-CLI and save it in the user profile.
+Do not point IDE MCP configs at `node companion/dist/index.js`; `dist` is a
+source build artifact and is intentionally not committed. Use the `npx` release
+tarball above, or for source development use
+`npm --prefix <repo>/companion run mcp:source`.
+Do not configure generic WordPress MCP adapters such as
+`@automattic/mcp-wordpress-remote` as the `stonewright` server. Use the
+Stonewright companion so setup, status, compact profiles, php-execute, and
+WP-CLI tools stay visible even while the WordPress endpoint is being fixed.
+`STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap` is the default. It exposes the startup
+gateway first; `stonewright-task-start` then enables the compact task profile
+for the current session in plugin or Direct/pluginless mode.
+Use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` for Antigravity, Gemini API, or
+other strict tool-cap clients. It keeps the client-visible startup surface under
+30 tools. Aliases such as `antigravity`, `gemini`,
+`elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli` normalize to the
+closest compact profile, so agents do not need exact canonical profile names to
+avoid broad discovery.
+
+For Antigravity 2.0, Antigravity IDE, and Antigravity CLI, use
+`~/.gemini/config/mcp_config.json` and the dedicated
+[Antigravity setup guide](getting-started/antigravity.md).
+For Codex CLI or the Codex IDE extension, use
+[`~/.codex/config.toml`](getting-started/codex.md) or a trusted project
+`.codex/config.toml`; Codex MCP entries use TOML tables named
+`[mcp_servers.stonewright]`, not JSON.
+
+Before the first WordPress task, verify the client tool list includes
+`stonewright-task-start` or compatibility `stonewright-context-bootstrap`. If
+both tools are missing, reload or fix the MCP client config before continuing.
+Local agent skills, repository files, private
+client config files, scratch scripts such as `query-mcp.js` or
+`run-ability.js`, helper JSON argument files such as `bootstrap-args.json`,
+`cli_command.json`, or `get_structure.json`, direct companion shell launch
+scripts such as `query-local-stonewright.js`, action scripts such as
+`run-loop-mutate.js` or `run-bootstrap-and-mutate.js`, plugin/companion
+source-code spelunking to reverse-engineer tool schemas, hand-rolled JSON-RPC
+calls, and
+`/wp-json/stonewright/v1/abilities/run` shell calls are not substitutes for a
+loaded Stonewright MCP server.
+After installing a new Stonewright release or syncing local skills, restart the
+MCP client and rerun `stonewright-setup-profile` plus
+`stonewright-wordpress-mcp-status`. Compare `companion_version`,
+`expected_companion_package`, and `refresh_required_tool_names` with the visible
+tool list. Missing refresh-required tools mean the client is still using a stale
+companion process or cached tool surface.
+
+For component-by-component upgrade steps and state-preservation guarantees,
+see [Updating Stonewright](updates.md).
+
+Do not recover from a missing tool by running `wp cli info`, `wp plugin
+activate`, `wp option update`, or other `wp` commands in a normal shell, and do
+not switch to another PHP adapter. Use the live Stonewright MCP tools:
+`stonewright-wordpress-mcp-status`, `stonewright-php-execute`,
+`stonewright-wp-cli-status`, `stonewright-wp-cli-discover`,
+`stonewright-wp-cli-run`, `stonewright-wp-cli-batch-run`,
+`stonewright-wp-cli-job-start`, `stonewright-wp-cli-job-status`, or
+`stonewright-wp-cli-install`.
+
+## Fast Build Workflow
+
+For design-to-WordPress and Elementor work, start with one preflight call, then
+use composite writes before small corrective edits:
+
+1. `stonewright-task-start`
+2. `stonewright-theme-builder-apply-template` for Elementor Theme Builder
+   templates and display conditions.
+3. `stonewright-content-model-loop-grid-flow` for admin-editable repeated
+   sections backed by CPT/ACF and Elementor Loop Grid.
+4. `stonewright-content-bulk-upsert-posts` for repeated posts, CPT rows, and
+   custom fields.
+5. `stonewright-elementor-v3-build-page-from-spec` for first-pass page or
+   section rendering. Use `dry_run` before writing when the spec is generated.
+6. `stonewright-elementor-v3-batch-mutate` for grouped Elementor add, update,
+   move, and remove operations.
+
+This keeps MCP sessions fast and token-efficient because Stonewright validates,
+backs up, audits, measures timing, and writes related changes in a few compact
+calls.
+
+From source:
+
+```bash
+cd /path/to/wp-content/plugins/stonewright/companion
+npm install
+npm run build
+```
+
+For MCP clients that use a local stdio server, configure:
+
+```json
+{
+  "mcpServers": {
+    "stonewright": {
+      "command": "npx",
+      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"],
+      "env": {
+        "STONEWRIGHT_WP_URL": "https://your-site.example.com",
+        "STONEWRIGHT_WP_USERNAME": "your-wp-username",
+        "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
+      }
+    }
+  }
+}
+```
+
+`STONEWRIGHT_WP_ROOT` is optional. Add it only when the companion should run
+WP-CLI helper tools or discover LocalWP automatically. Use the absolute
+WordPress install folder containing `wp-config.php`, not the Stonewright plugin
+folder and not a URL.
+
+Windows example: `D:\\Sites\\example\\app\\public`.
+
+macOS example: `/Users/me/Sites/example/app/public`.
+
+When Stonewright is installed through the Node companion MCP, the companion also
+registers direct aliases named `stonewright-wp-cli-status`,
+`stonewright-wp-cli-discover`, `stonewright-wp-cli-run`,
+`stonewright-wp-cli-batch-run`, `stonewright-wp-cli-job-start`, and
+`stonewright-wp-cli-job-status`. Those aliases run WP-CLI inside the companion
+and do not require the WordPress-side HTTP bridge on port `8765`.
+
+For stdio MCP clients, leave `PORT` unset. A stale `.env` `PORT` is ignored by
+stdio startup unless `STONEWRIGHT_HTTP_ENABLE=1` or
+`STONEWRIGHT_HTTP_REQUIRED=1` is also set. Set `STONEWRIGHT_HTTP_REQUIRED=1`
+only when an HTTP bridge bind failure should fail startup.
+
+Most users can ignore the optional HTTP bridge. Use **Stonewright >
+Configuration > Local WP-CLI bridge (advanced)** only when you deliberately run
+a local bridge for WordPress-side `stonewright/wp-cli-*` abilities. The page
+can generate a bridge token and copy matching launch env values.
+
+The companion also registers `stonewright-wp-cli-install` and
+`companion_wp_cli_install`. The installer downloads the official `wp-cli.phar`
+into the Stonewright companion cache and does not modify system `PATH`.
+
+### WP-CLI Discovery
+
+Discovery order:
+
+1. `STONEWRIGHT_WP_CLI_PHP_BIN` + `STONEWRIGHT_WP_CLI_PHAR_PATH`.
+2. `STONEWRIGHT_WP_CLI_BIN`.
+3. LocalWP-style `wp-cli.phar` near the WordPress root or common LocalWP install
+   locations, paired with LocalWP PHP from `lightning-services`.
+4. Stonewright companion cache from `stonewright-wp-cli-install`.
+5. Fallback to `wp` from `PATH`.
+
+Optional env vars:
+
+| Variable | Purpose |
+|---|---|
+| `STONEWRIGHT_WP_ROOT` | Optional absolute WordPress install folder containing `wp-config.php`; used for `cwd`, `--path`, and LocalWP discovery. |
+| `STONEWRIGHT_WP_ALLOWED_ROOTS` | Comma/semicolon list of roots allowed for `cwd` and `--path`. |
+| `STONEWRIGHT_WP_CLI_BIN` | Explicit `wp` executable when it is not on `PATH`. |
+| `STONEWRIGHT_WP_CLI_PHP_BIN` | Explicit PHP executable for `wp-cli.phar`. |
+| `STONEWRIGHT_WP_CLI_PHAR_PATH` | Explicit `wp-cli.phar` path. |
+| `STONEWRIGHT_WP_CLI_PHP_INI` | Optional PHP ini path for LocalWP/site PHP extensions. |
+| `STONEWRIGHT_WP_CLI_INSTALL_DIR` | Optional cache directory for `stonewright-wp-cli-install`. |
+
+If `STONEWRIGHT_WP_ROOT` is omitted, callers can pass an absolute `path` in
+`stonewright-wp-cli-*` input; the companion uses that path as the working
+directory and allowed root for that command.
+
+## Browser MCP
+
+Stonewright does not include browser, screenshot, or visual-review tools. Add a
+separate Playwright MCP server next to Stonewright:
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest", "--caps=testing,vision,devtools"]
+    }
+  }
+}
+```
+
+Agents should connect this before implementation when a task needs browser
+testing, screenshots, or visual inspection. Restart the AI client after adding
+Playwright so the tool list refreshes. If the MCP client cannot see a
+browser/screenshot tool, the agent should stop before visual implementation and
+ask the user to connect Playwright instead of building blind.
+
+## Example Prompts
+
+```text
+Use Stonewright to implement the attached Figma design in Elementor V3. Start
+with stonewright-task-start, read stonewright-design-direction-brief once,
+extract one shallow page/section manifest and one reusable token table, then
+normalize each section's layout, spacing, colors, typography, assets, and
+responsive measurements into DesignEvidence. Render with
+stonewright-elementor-v3-build-page-from-spec, then use
+stonewright-elementor-v3-batch-mutate for polish. Verify desktop, tablet, and
+mobile screenshots against the same measured Figma frames.
+```
+
+```text
+Use Stonewright to create an ACF field group for Case Studies with client logo,
+industry, challenge, solution, results metrics, testimonial, gallery, and CTA
+fields. Attach it to the case-study post type, add three sample entries, and
+verify fields are available for dynamic Elementor templates.
+```
+
+```text
+Use Stonewright with CPT UI to create a Projects post type and Project Type
+taxonomy. Add labels, archive support, featured images, REST visibility, and
+sensible rewrite slugs. Then seed sample projects and build a responsive
+archive layout that can be filtered by taxonomy.
+```
+
+## Privacy Boundary
+
+Release ZIPs and the npm companion contain public Stonewright code, docs, and
+built-in skills only. Site-specific memory, site skills, and custom
+instructions live in that WordPress install and are returned only to authorized
+MCP clients. Keep credentials and private site memory out of public issues,
+commits, docs, release notes, and examples.
+
+## Tool Names
+
+WordPress ability names use slashes. MCP tool names use hyphens.
+
+| WordPress ability | MCP tool |
+|---|---|
+| `stonewright/task-start` | `stonewright-task-start` |
+| `stonewright/context-bootstrap` | `stonewright-context-bootstrap` |
+| `stonewright/workflow-preflight` | `stonewright-workflow-preflight` |
+| `stonewright/system-abilities-list` | `stonewright-system-abilities-list` |
+| `stonewright/content-bulk-upsert-posts` | `stonewright-content-bulk-upsert-posts` |
+| `stonewright/media-upload-batch` | `stonewright-media-upload-batch` |
+| `stonewright/elementor-v3-capabilities-summary` | `stonewright-elementor-v3-capabilities-summary` |
+| `stonewright/elementor-v3-get-kit-globals` | `stonewright-elementor-v3-get-kit-globals` |
+| `stonewright/elementor-v3-build-page-from-spec` | `stonewright-elementor-v3-build-page-from-spec` |
+| `stonewright/elementor-v3-batch-mutate` | `stonewright-elementor-v3-batch-mutate` |
+| `stonewright/elementor-v3-apply-bundle` | `stonewright-elementor-v3-apply-bundle` |
+| `stonewright/wp-cli-status` | `stonewright-wp-cli-status` |
+| `stonewright/wp-cli-discover` | `stonewright-wp-cli-discover` |
+| `stonewright/wp-cli-run` | `stonewright-wp-cli-run` |
+| `stonewright/wp-cli-batch-run` | `stonewright-wp-cli-batch-run` |
+| `stonewright/wp-cli-job-start` | `stonewright-wp-cli-job-start` |
+| `stonewright/wp-cli-job-status` | `stonewright-wp-cli-job-status` |
+| Companion setup profile | `stonewright-setup-profile` |
+
+The complete command list is generated in
+[`ability-truth-matrix.md`](ability-truth-matrix.md).
+
+## First Smoke Test
+
+1. Call `stonewright-ping`.
+2. Confirm the MCP tool list includes `stonewright-context-bootstrap`. If it is
+   missing, restart or reload the AI client and fix the Stonewright MCP config
+   before WordPress work. Do not inspect private client config files, create
+   scratch scripts, create helper JSON argument files, launch the companion
+   through ad hoc shell scripts, create action scripts, inspect
+   plugin/companion source to reverse-engineer tool schemas, hand-roll JSON-RPC,
+   or call the REST ability runner from shell as recovery.
+3. Call `stonewright-task-start` with:
+
+```json
+{
+  "task": "Test Stonewright connection",
+  "surface": "wordpress",
+  "intent": "read"
+}
+```
+
+4. Confirm the compact response includes `context_token`, `mode`,
+   `fast_path.task_profile`, `fast_path.next_tools`, context refs, and the
+   hashed `fast_path.visual_build_gate` for visual tasks.
+5. For tool-cap or token-sensitive clients, call `stonewright-tool-profile`
+   with the same task, surface, and intent, then keep to the returned
+   `recommended_mcp_tools` before broad ability discovery.
+6. Call `stonewright-context-bootstrap` only when diagnosing the compatibility
+   bootstrap or inspecting its full instruction contract:
+
+```json
+{
+  "task": "Test Stonewright connection",
+  "surface": "wordpress",
+  "intent": "read"
+}
+```
+
+7. Confirm the response includes `mcp_tool_naming`, `tool_profile_hint`,
+   instructions, skills,
+   memory, recommended external MCPs, `visual_quality_contract`,
+   `visual_build_gate`, and required followups.
+8. Call `stonewright-system-abilities-list` and confirm every row includes
+   `name` and `mcp_tool_name`.

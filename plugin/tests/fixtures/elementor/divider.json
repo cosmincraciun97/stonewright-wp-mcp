@@ -1,0 +1,13 @@
+{
+    "id": "2070b1a",
+    "elType": "widget",
+    "widgetType": "divider",
+    "settings": {
+        "style": "solid",
+        "weight": {
+            "unit": "px",
+            "size": 2
+        }
+    },
+    "elements": []
+}

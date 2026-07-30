@@ -1,0 +1,10 @@
+{
+    "args": {
+        "slug": "contract-card",
+        "title": "Contract Card",
+        "template": "<h1>{{ heading }}</h1>",
+        "props": [
+            { "name": "heading", "type": "string", "default": "Hello" }
+        ]
+    }
+}

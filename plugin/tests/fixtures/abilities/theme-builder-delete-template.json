@@ -1,0 +1,7 @@
+{
+    "args": {
+        "template_id": 4,
+        "force": false
+    },
+    "expect": "ok"
+}

@@ -1,0 +1,8 @@
+{
+  "args": {
+    "settings": {
+      "blogname": "Test"
+    }
+  },
+  "expect_permission_error": true
+}

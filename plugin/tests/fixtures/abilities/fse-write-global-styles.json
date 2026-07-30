@@ -1,0 +1,14 @@
+{
+  "args": {
+    "theme_json": {
+      "version": 3,
+      "settings": {
+        "color": {
+          "palette": [
+            { "slug": "primary", "color": "#0073aa", "name": "Primary" }
+          ]
+        }
+      }
+    }
+  }
+}

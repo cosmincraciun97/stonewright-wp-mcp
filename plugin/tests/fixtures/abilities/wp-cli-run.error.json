@@ -1,0 +1,6 @@
+{
+    "args": {
+        "command": []
+    },
+    "expect": "wp_error"
+}

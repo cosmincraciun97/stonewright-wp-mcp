@@ -1,0 +1,14 @@
+{
+    "args": {
+        "post_id": 999999,
+        "parent_id": "parent1",
+        "settings": {
+            "features_list": [
+                {
+                    "item_text": "Feature 1"
+                }
+            ]
+        }
+    },
+    "expect": "wp_error"
+}

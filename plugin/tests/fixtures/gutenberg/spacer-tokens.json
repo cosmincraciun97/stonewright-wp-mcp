@@ -1,0 +1,19 @@
+{
+  "blockName": "core/spacer",
+  "attrs": {
+    "height": "24px",
+    "style": {
+      "spacing": {
+        "padding": {
+          "top": "16px",
+          "right": "16px",
+          "bottom": "16px",
+          "left": "16px"
+        }
+      }
+    }
+  },
+  "innerHTML": "<div style=\"height:24px\" aria-hidden=\"true\" class=\"wp-block-spacer\"></div>",
+  "innerContent": [ "<div style=\"height:24px\" aria-hidden=\"true\" class=\"wp-block-spacer\"></div>" ],
+  "innerBlocks": []
+}

@@ -1,0 +1,8 @@
+{
+    "args": {
+        "name": "Denied",
+        "selectors": [],
+        "properties": {}
+    },
+    "expect_permission_error": true
+}

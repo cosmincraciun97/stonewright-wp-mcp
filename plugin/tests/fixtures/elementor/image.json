@@ -1,0 +1,13 @@
+{
+    "id": "2070b1a",
+    "elType": "widget",
+    "widgetType": "image",
+    "settings": {
+        "image": {
+            "url": "https://example.com/photo.jpg",
+            "id": "",
+            "alt": "A photo"
+        }
+    },
+    "elements": []
+}

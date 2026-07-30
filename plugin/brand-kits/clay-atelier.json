@@ -1,0 +1,28 @@
+{
+    "id": "clay-atelier",
+    "name": "Clay Atelier",
+    "description": "Warm neutrals for design studios.",
+    "colors": {
+        "primary": "#7C2D12",
+        "secondary": "#9A3412",
+        "accent": "#FDBA74",
+        "background": "#FFF7ED",
+        "surface": "#FFEDD5",
+        "text": "#1C1917"
+    },
+    "fonts": {
+        "heading": "Cormorant Garamond, Georgia, serif",
+        "body": "Nunito Sans, system-ui, sans-serif"
+    },
+    "radius": {
+        "sm": "4px",
+        "md": "8px",
+        "lg": "16px"
+    },
+    "spacing": {
+        "xs": "8px",
+        "sm": "16px",
+        "md": "24px",
+        "lg": "48px"
+    }
+}

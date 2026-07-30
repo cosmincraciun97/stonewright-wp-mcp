@@ -1,0 +1,50 @@
+{
+  "method": "compact JSON UTF-8 bytes / 4; rounded up",
+  "generated_with_php": "8.5.4",
+  "all_registered_abilities": 249,
+  "surfaces": {
+    "full": {
+      "tool_count": 249,
+      "tools_list": { "bytes": 776093, "estimated_tokens": 194024 }
+    },
+    "essential": {
+      "tool_count": 20,
+      "tools_list": { "bytes": 21729, "estimated_tokens": 5433 }
+    },
+    "default_20": {
+      "profile": "elementor-design",
+      "max_tools": 20,
+      "tool_count": 20,
+      "profile_tool_count": 37,
+      "under_limit": false,
+      "tools_list": { "bytes": 11990, "estimated_tokens": 2998 }
+    },
+    "strict_12": {
+      "profile": "low-tools",
+      "max_tools": 12,
+      "tool_count": 12,
+      "profile_tool_count": 23,
+      "under_limit": false,
+      "tools_list": { "bytes": 10950, "estimated_tokens": 2738 }
+    }
+  },
+  "task_start": {
+    "non_visual_compact": { "bytes": 2388, "estimated_tokens": 597 },
+    "visual_compact": { "bytes": 2583, "estimated_tokens": 646 }
+  },
+  "expertise": {
+    "max_active_packs": 3,
+    "compact_index_budget_tokens": 450,
+    "active_body_budget_tokens": 1200,
+    "p0_pack_count": 10,
+    "eval_case_count": 120,
+    "verified_pack_score_min": 100,
+    "critical_failures": 0
+  },
+  "budgets": {
+    "default_max_20_tools": true,
+    "strict_max_12_tools": true,
+    "non_visual_task_start_lt_700": true,
+    "visual_task_start_lt_1200": true
+  }
+}

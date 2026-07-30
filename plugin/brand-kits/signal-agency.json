@@ -1,0 +1,28 @@
+{
+    "id": "signal-agency",
+    "name": "Signal Agency",
+    "description": "Bold indigo for agencies.",
+    "colors": {
+        "primary": "#312E81",
+        "secondary": "#4338CA",
+        "accent": "#F59E0B",
+        "background": "#FFFFFF",
+        "surface": "#EEF2FF",
+        "text": "#111827"
+    },
+    "fonts": {
+        "heading": "Space Grotesk, system-ui, sans-serif",
+        "body": "Inter, system-ui, sans-serif"
+    },
+    "radius": {
+        "sm": "4px",
+        "md": "8px",
+        "lg": "16px"
+    },
+    "spacing": {
+        "xs": "8px",
+        "sm": "16px",
+        "md": "24px",
+        "lg": "48px"
+    }
+}

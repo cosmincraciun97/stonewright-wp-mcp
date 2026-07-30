@@ -1,0 +1,13 @@
+{
+  "blockName": "core/paragraph",
+  "attrs": {
+    "style": {
+      "color": {
+        "text": "#0073aa"
+      }
+    }
+  },
+  "innerHTML": "<p class=\"wp-block-paragraph\">Token test.</p>",
+  "innerContent": [ "<p class=\"wp-block-paragraph\">Token test.</p>" ],
+  "innerBlocks": []
+}

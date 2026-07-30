@@ -1,0 +1,18 @@
+{
+    "args": {
+        "slug": "pricing-card",
+        "title": "Pricing Card",
+        "icon": "eicon-price-list",
+        "category": "stonewright",
+        "keywords": ["pricing", "card"],
+        "props": [
+            { "name": "plan_name", "label": "Plan Name", "type": "text", "default": "Pro" },
+            { "name": "price",     "label": "Price",     "type": "text", "default": "29" },
+            { "name": "cta_text",  "label": "CTA Text",  "type": "text", "default": "Buy" }
+        ],
+        "template": "<div class=\"sw-card\"><h3>{{ plan_name }}</h3><p>{{ price }}</p><a>{{ cta_text }}</a></div>",
+        "render_strategy": "twig",
+        "activate": false
+    },
+    "expect": "ok"
+}

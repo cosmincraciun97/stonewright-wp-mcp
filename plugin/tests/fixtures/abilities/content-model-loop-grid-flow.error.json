@@ -1,0 +1,24 @@
+{
+    "args": {
+        "post_type": {
+            "slug": "contract_solution",
+            "singular": "Contract Solution",
+            "plural": "Contract Solutions"
+        },
+        "fields": [
+            {
+                "name": "subtitle",
+                "label": "Subtitle",
+                "type": "text"
+            }
+        ],
+        "items": [
+            {
+                "slug": "contract-solution",
+                "title": "Contract Solution"
+            }
+        ],
+        "dry_run": true
+    },
+    "expect_permission_error": true
+}

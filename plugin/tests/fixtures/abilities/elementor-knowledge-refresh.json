@@ -1,0 +1,9 @@
+{
+    "args": {
+        "url": "https://developers.elementor.com/docs/widgets/widgets-controls/",
+        "hub": "developer",
+        "body": "## Purpose\nElementor widget controls reference for developers.\n\n## Use this when\n- Building a custom widget that needs typography controls\n- Integrating Group_Control_Typography\n\n## Settings highlights\n- Type constants (TEXT, NUMBER, SELECT, REPEATER)\n- Responsive controls accept tablet/mobile siblings\n\n## Limits / gotchas\n- Setting names must be lowercase a-z0-9_ only.",
+        "title": "Widget controls reference"
+    },
+    "expect": "ok"
+}

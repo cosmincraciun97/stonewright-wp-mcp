@@ -1,0 +1,10 @@
+{
+    "args": {
+        "commands": [
+            ["post", "list"],
+            ["cache", "flush"]
+        ],
+        "responseMode": "summary"
+    },
+    "expect": "ok"
+}

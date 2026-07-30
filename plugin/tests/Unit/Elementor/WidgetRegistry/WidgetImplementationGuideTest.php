@@ -1,0 +1,54 @@
+<?php
+declare( strict_types=1 );
+
+namespace Stonewright\WpMcp\Tests\Unit\Elementor\WidgetRegistry;
+
+use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetImplementationGuide;
+
+/**
+ * @covers \Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetImplementationGuide
+ */
+final class WidgetImplementationGuideTest extends TestCase {
+
+	public function test_guide_recommends_native_widget_controls_and_research_signal(): void {
+		$result = WidgetImplementationGuide::build(
+			'Build a sticky header with menu and hamburger behavior',
+			[ 'nav-menu', 'html' ],
+			'Desktop row, mobile hamburger, sticky on scroll.'
+		);
+
+		self::assertTrue( $result['ok'] );
+		self::assertNotEmpty( $result['recommendations'] );
+
+		$first = $result['recommendations'][0];
+		self::assertSame( 'nav-menu', $first['widget'] );
+		self::assertSame( 'stonewright/elementor-v3-batch-mutate', $first['ability'] );
+		self::assertSame( 'stonewright/elementor-add-nav-menu', $first['legacy_ability'] );
+		self::assertTrue( $first['legacy_deprecated'] );
+		self::assertArrayHasKey( 'Content', $first['required_controls'] );
+		self::assertArrayHasKey( 'Style', $first['required_controls'] );
+		self::assertArrayHasKey( 'Advanced', $first['required_controls'] );
+		self::assertContains( 'position absolute/fixed when design requires it', $first['required_controls']['Advanced'] );
+		self::assertContains( 'z-index and order', $first['required_controls']['Advanced'] );
+		self::assertContains( 'motion effects and transform', $first['required_controls']['Advanced'] );
+		self::assertContains( 'background, background overlay, border, mask, and shadow', $first['required_controls']['Advanced'] );
+		self::assertContains( 'responsive visibility', $first['required_controls']['Advanced'] );
+		self::assertContains( 'attributes, CSS ID, and CSS classes', $first['required_controls']['Advanced'] );
+		self::assertContains( 'width, align self, margin, and padding', $first['required_controls']['Advanced'] );
+		self::assertContains( 'Call stonewright/elementor-schema with mode=summary for every widget you intend to write; request mode=control for one exact control or paginated mode=full only when needed.', $result['global_required_steps'] );
+		self::assertContains( 'When any recommendation has needs_online_research=true, research official Elementor documentation before writing.', $result['global_required_steps'] );
+		self::assertContains( 'Name only major parent containers semantically; avoid naming every small inner utility container.', $result['global_required_steps'] );
+		self::assertContains( 'Before uploading or selecting media, audit existing WordPress media by filename, alt text, dimensions, and visible crop so matching assets are reused.', $result['global_required_steps'] );
+		self::assertContains( 'Treat design-tool layer hierarchy as a source for tokens and assets, not as the required Elementor container hierarchy; match the visible reference screenshot.', $result['global_required_steps'] );
+		self::assertContains( 'When a reference page is long, capture and compare section reference screenshots before full-page signoff.', $result['global_required_steps'] );
+		self::assertContains( 'Implement visual pages in batches of one section at a time, or two sections only when they are simple and tightly coupled.', $result['global_required_steps'] );
+		self::assertContains( 'Auto-continue to the next section batch after desktop, tablet, and mobile checks pass; do not wait for user approval between passing batches.', $result['global_required_steps'] );
+		self::assertContains( 'Before using background assets, write an asset selection plan: target section, source layer/node, crop bounds, WordPress media URL, and why it is not a full-page screenshot.', $result['global_required_steps'] );
+		self::assertContains( 'Do not use a full-page screenshot as a section background; export the exact layer/section asset or recreate simple colors/gradients with Elementor controls.', $result['global_required_steps'] );
+		self::assertContains( 'Before signoff, provide visual_build_gate evidence: token table, media audit, section plan, screenshot deltas, and logged-out viewport checks.', $result['global_required_steps'] );
+
+		$widgets = array_column( $result['recommendations'], 'widget' );
+		self::assertNotContains( 'html', $widgets, 'HTML must not be recommended unless explicitly approved.' );
+	}
+}

@@ -1,0 +1,8 @@
+{
+    "args": {
+        "task": "Build an Elementor page with native widgets",
+        "surface": "elementor",
+        "intent": "write"
+    },
+    "expect": "ok"
+}

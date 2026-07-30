@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0",
+  "target": {
+    "post_id": 4211,
+    "url": "https://example.test/?p=4211",
+    "render_hash": "2d0b2039f3c1a8b5c2f6d9e4a7b01c3d5e6f7081a2b3c4d5e6f708192a3b4c5d"
+  },
+  "viewports": [
+    {
+      "id": "desktop",
+      "width": 1440,
+      "height": 900,
+      "scroll_width": 1560,
+      "scroll_height": 3200,
+      "elements": [
+        {
+          "ref": "legal-note",
+          "kind": "text",
+          "box": { "width": 640, "height": 40 },
+          "text_color": "#9a9a9a",
+          "background_color": "#ffffff",
+          "font": { "family": "Inter", "size_px": 16, "weight": 400, "line_height_px": 24 },
+          "content_box": { "scroll_width": 640, "client_width": 640, "scroll_height": 40, "client_height": 40 },
+          "spacing": { "padding_top_px": 96 }
+        },
+        {
+          "ref": "clipped-heading",
+          "kind": "text",
+          "box": { "width": 600, "height": 64 },
+          "text_color": "rgb(11, 31, 58)",
+          "background_color": "#ffffff",
+          "font": { "family": "Inter", "size_px": 56, "weight": 700, "line_height_px": 62 },
+          "content_box": { "scroll_width": 900, "client_width": 600, "scroll_height": 64, "client_height": 64 },
+          "spacing": { "padding_top_px": 96 }
+        },
+        {
+          "ref": "tiny-cta",
+          "kind": "interactive",
+          "box": { "width": 20, "height": 20 },
+          "text_color": "#ffffff",
+          "background_color": "#0b1f3a",
+          "font": { "family": "Inter", "size_px": 18, "weight": 600, "line_height_px": 20 },
+          "content_box": { "scroll_width": 20, "client_width": 20, "scroll_height": 20, "client_height": 20 },
+          "spacing": { "gap_px": 16 },
+          "states": {
+            "hover": { "background_color": "#08182d" }
+          }
+        }
+      ]
+    }
+  ]
+}

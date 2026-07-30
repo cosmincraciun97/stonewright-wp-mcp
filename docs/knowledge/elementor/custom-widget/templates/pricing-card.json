@@ -1,0 +1,22 @@
+{
+    "_meta": {
+        "title": "Pricing card",
+        "description": "Three-prop pricing tier card: plan name + price + CTA. Drop-in input for stonewright/elementor-create-custom-widget when the design needs a card layout Elementor doesn't ship natively.",
+        "intended_for": [ "pricing-page", "homepage-pricing-section", "subscription-card" ]
+    },
+    "slug": "pricing-card",
+    "title": "Pricing Card",
+    "icon": "eicon-price-list",
+    "category": "stonewright",
+    "keywords": [ "pricing", "card", "plan", "subscription" ],
+    "props": [
+        { "name": "plan_name",  "label": "Plan name",  "type": "text", "default": "Pro" },
+        { "name": "price",      "label": "Price",      "type": "text", "default": "$29" },
+        { "name": "period",     "label": "Period",     "type": "text", "default": "/month" },
+        { "name": "cta_text",   "label": "CTA text",   "type": "text", "default": "Buy now" },
+        { "name": "cta_url",    "label": "CTA URL",    "type": "url",  "default": "" }
+    ],
+    "template": "<div class=\"sw-pricing-card\"><h3 class=\"sw-pricing-card__title\">{{ plan_name }}</h3><div class=\"sw-pricing-card__price\"><span class=\"sw-pricing-card__amount\">{{ price }}</span><span class=\"sw-pricing-card__period\">{{ period }}</span></div><a class=\"sw-pricing-card__cta\" href=\"{{ cta_url }}\">{{ cta_text }}</a></div>",
+    "render_strategy": "twig",
+    "activate": false
+}

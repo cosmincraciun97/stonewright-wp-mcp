@@ -1,0 +1,6 @@
+{
+    "args": {
+        "slug": "any-slug"
+    },
+    "expect": "ok"
+}

@@ -1,0 +1,16 @@
+{
+  "args": {
+    "spec": {
+      "version": "1.0.0",
+      "page": { "title": "Contract Test" },
+      "sections": [
+        {
+          "id": "s0",
+          "blocks": [
+            { "type": "heading", "text": "Hello", "level": 2 }
+          ]
+        }
+      ]
+    }
+  }
+}

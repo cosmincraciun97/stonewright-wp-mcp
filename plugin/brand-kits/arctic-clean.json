@@ -1,0 +1,28 @@
+{
+    "id": "arctic-clean",
+    "name": "Arctic Clean",
+    "description": "Cool white kit for clean product UIs.",
+    "colors": {
+        "primary": "#0369A1",
+        "secondary": "#0284C7",
+        "accent": "#38BDF8",
+        "background": "#FFFFFF",
+        "surface": "#F0F9FF",
+        "text": "#0C4A6E"
+    },
+    "fonts": {
+        "heading": "Sora, system-ui, sans-serif",
+        "body": "Inter, system-ui, sans-serif"
+    },
+    "radius": {
+        "sm": "4px",
+        "md": "8px",
+        "lg": "16px"
+    },
+    "spacing": {
+        "xs": "8px",
+        "sm": "16px",
+        "md": "24px",
+        "lg": "48px"
+    }
+}

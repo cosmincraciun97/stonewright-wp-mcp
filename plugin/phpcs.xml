@@ -1,0 +1,137 @@
+<?xml version="1.0"?>
+<ruleset name="Stonewright">
+    <description>Coding standards for the Stonewright plugin (PHP 8.1+, short-array style).</description>
+
+    <file>includes/</file>
+    <file>stonewright.php</file>
+
+    <arg value="ps"/>
+    <arg name="extensions" value="php"/>
+    <arg name="colors"/>
+
+    <rule ref="WordPress-Extra">
+        <!-- File/class naming: PSR-4 layout differs from WP convention. -->
+        <exclude name="WordPress.Files.FileName.InvalidClassFileName"/>
+        <exclude name="WordPress.Files.FileName.NotHyphenatedLowercase"/>
+
+        <!-- Short array syntax [] is required on PHP 8.1+. -->
+        <exclude name="Universal.Arrays.DisallowShortArraySyntax"/>
+
+        <!-- Short ternary ?: is used intentionally. -->
+        <exclude name="Universal.Operators.DisallowShortTernary"/>
+
+        <!-- Reserved-keyword param names ($class, $object, $default) are
+             unavoidable in some abstract/interface contexts. -->
+        <exclude name="Universal.NamingConventions.NoReservedKeywordParameterNames"/>
+
+        <!-- Doc-comment sniffs: the codebase uses typed properties and typed
+             signatures; prose docs are added where they add value, not
+             mechanically on every method. -->
+        <exclude name="Squiz.Commenting.FunctionComment.Missing"/>
+        <exclude name="Squiz.Commenting.FunctionComment.MissingParamComment"/>
+        <exclude name="Squiz.Commenting.FunctionComment.MissingParamTag"/>
+        <exclude name="Squiz.Commenting.FunctionComment.ParamCommentFullStop"/>
+        <exclude name="Squiz.Commenting.FunctionComment.ParamNameNoMatch"/>
+        <exclude name="Squiz.Commenting.FunctionComment.SpacingAfterParamType"/>
+        <exclude name="Squiz.Commenting.FunctionComment.WrongStyle"/>
+        <exclude name="Squiz.Commenting.FunctionComment.IncorrectTypeHint"/>
+        <exclude name="Squiz.Commenting.VariableComment.Missing"/>
+        <exclude name="Squiz.Commenting.InlineComment.InvalidEndChar"/>
+        <exclude name="Generic.Commenting.DocComment.MissingShort"/>
+
+        <!-- Alignment sniffs: the codebase intentionally aligns => and =
+             operators for readability; these produce style-only warnings. -->
+        <exclude name="WordPress.Arrays.MultipleStatementAlignment"/>
+        <exclude name="Generic.Formatting.MultipleStatementAlignment"/>
+
+        <!-- Associative-array spacing: multi-line arrays are formatted
+             consistently but not padded to a single-statement-per-line layout. -->
+        <exclude name="WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound"/>
+
+        <!-- Unused-parameter warning: some interface implementations leave
+             parameters unused by design. -->
+        <exclude name="Generic.CodeAnalysis.UnusedFunctionParameter"/>
+
+        <!-- Empty statement (catch/if/foreach) are used intentionally in some
+             places where the absence of an action is correct and documented. -->
+        <exclude name="Generic.CodeAnalysis.EmptyStatement"/>
+
+        <!-- Argument spacing: aligned multi-argument calls for readability. -->
+        <exclude name="Generic.Functions.FunctionCallArgumentSpacing.TooMuchSpaceAfterComma"/>
+
+        <!-- Missing "translators:" comment before __() with placeholders:
+             the plugin strings are internal/developer-facing, not translated. -->
+        <exclude name="WordPress.WP.I18n.MissingTranslatorsComment"/>
+
+        <!-- Discouraged alternatives (file_get_contents, unlink, rename, etc.) are
+             used deliberately for local-file operations where the WP Filesystem
+             API would not add value (e.g., schema loading, sandbox file ops). -->
+        <exclude name="WordPress.WP.AlternativeFunctions"/>
+
+        <!-- error_log() is used for structured debug output; excluded from
+             production-safety sniffs here since the plugin wraps it via Logger. -->
+        <exclude name="WordPress.PHP.DevelopmentFunctions"/>
+
+        <!-- base64_decode() is used for legitimate media processing, not obfuscation. -->
+        <exclude name="WordPress.PHP.DiscouragedPHPFunctions"/>
+
+        <!-- Yoda conditions: the codebase uses standard (non-Yoda) comparisons. -->
+        <exclude name="WordPress.PHP.YodaConditions"/>
+
+        <!-- Silenced errors: used sparingly and intentionally in helper utilities. -->
+        <exclude name="WordPress.PHP.NoSilencedErrors"/>
+
+        <!-- camelCase property access from external/SDK objects. -->
+        <exclude name="WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase"/>
+
+        <!-- Whitespace precision alignment: used for readable multi-line formatting. -->
+        <exclude name="Universal.WhiteSpace.PrecisionAlignment"/>
+
+        <!-- Space-indent vs tab-indent: TSDoc/Zend-formatted blocks inside PHP. -->
+        <exclude name="Generic.WhiteSpace.DisallowSpaceIndent"/>
+        <exclude name="Generic.WhiteSpace.ScopeIndent"/>
+
+        <!-- PEAR call-signature formatting: differs from WP style but consistent
+             throughout the codebase. -->
+        <exclude name="PEAR.Functions.FunctionCallSignature"/>
+
+        <!-- Double-quote preference: string interpolation is used intentionally. -->
+        <exclude name="Squiz.Strings.DoubleQuoteUsage.NotRequired"/>
+
+        <!-- Operator spacing: the codebase aligns ??, ?: in chains for readability;
+             stacked-ternary spacing warnings are style-only. -->
+        <exclude name="WordPress.WhiteSpace.OperatorSpacing"/>
+
+        <!-- EscapeOutput.ExceptionNotEscaped: WP_Error messages from external sources
+             are rethrown; escaping at the throw site is not applicable. -->
+        <exclude name="WordPress.Security.EscapeOutput.ExceptionNotEscaped"/>
+    </rule>
+
+    <!-- Enforce short array syntax [] throughout the codebase. -->
+    <rule ref="Generic.Arrays.DisallowLongArraySyntax"/>
+
+    <rule ref="WordPress-Docs">
+        <exclude name="Squiz.Commenting.FileComment.Missing"/>
+        <exclude name="Squiz.Commenting.ClassComment.Missing"/>
+        <!-- Doc-comment verbosity is optional (see above). -->
+        <exclude name="Squiz.Commenting.FunctionComment.Missing"/>
+        <exclude name="Squiz.Commenting.FunctionComment.MissingParamComment"/>
+        <exclude name="Squiz.Commenting.FunctionComment.MissingParamTag"/>
+        <exclude name="Squiz.Commenting.FunctionComment.ParamCommentFullStop"/>
+        <exclude name="Squiz.Commenting.FunctionComment.ParamNameNoMatch"/>
+        <exclude name="Squiz.Commenting.FunctionComment.SpacingAfterParamType"/>
+        <exclude name="Squiz.Commenting.FunctionComment.WrongStyle"/>
+        <exclude name="Squiz.Commenting.FunctionComment.IncorrectTypeHint"/>
+        <exclude name="Squiz.Commenting.VariableComment.Missing"/>
+        <exclude name="Squiz.Commenting.InlineComment.InvalidEndChar"/>
+        <exclude name="Generic.Commenting.DocComment.MissingShort"/>
+    </rule>
+
+    <config name="testVersion" value="8.1-"/>
+    <config name="minimum_wp_version" value="6.7"/>
+
+    <rule ref="PHPCompatibilityWP"/>
+
+    <exclude-pattern>vendor/*</exclude-pattern>
+    <exclude-pattern>tests/*</exclude-pattern>
+</ruleset>

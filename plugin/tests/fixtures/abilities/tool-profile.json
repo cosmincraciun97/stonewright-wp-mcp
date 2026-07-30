@@ -1,0 +1,10 @@
+{
+    "args": {
+        "profile": "elementor-design",
+        "task": "Build an Elementor page from a visual design",
+        "surface": "elementor",
+        "intent": "write",
+        "max_tools": 40
+    },
+    "expect": "ok"
+}

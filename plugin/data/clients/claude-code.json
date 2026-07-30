@@ -1,0 +1,18 @@
+{
+  "slug": "claude-code",
+  "label": "Claude Code",
+  "kind": "cli",
+  "snippet_kind": "cli",
+  "preferred_method": "stdio",
+  "official_cli_add": "claude mcp add",
+  "config_paths": {
+    "macos": "Terminal: claude mcp add",
+    "linux": "Terminal: claude mcp add",
+    "windows": "cmd /c claude mcp add",
+    "wsl": "Terminal: claude mcp add"
+  },
+  "notes": "Uses the Claude CLI; run the generated command in any terminal. Prefer user-level or private client config; never commit Application Passwords to project-tracked files.",
+  "verified_against_docs_on": "2026-07-16",
+  "secret_storage": "user-level",
+  "config_path": "Terminal: claude mcp add"
+}

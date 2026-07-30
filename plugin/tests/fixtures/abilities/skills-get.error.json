@@ -1,0 +1,6 @@
+{
+    "args": {
+        "slug": "nonexistent-slug"
+    },
+    "expect_permission_error": true
+}

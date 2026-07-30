@@ -1,0 +1,18 @@
+{
+    "args": {
+        "post_id": 1,
+        "spec": {
+            "version": "1.0.0",
+            "page": { "title": "Apply Contract Page" },
+            "sections": [
+                {
+                    "id": "hero",
+                    "blocks": [
+                        { "type": "heading", "text": "Applied", "level": 1 }
+                    ]
+                }
+            ]
+        }
+    },
+    "expect": "ok"
+}

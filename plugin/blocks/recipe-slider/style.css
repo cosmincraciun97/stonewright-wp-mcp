@@ -1,0 +1,307 @@
+/**
+ * Stonewright Recipe Slider — shared front-end + editor styles.
+ */
+
+.sw-recipe-slider {
+	--sw-rs-bg: #00583f;
+	--sw-rs-text: #ffffff;
+	--sw-rs-accent: #e2001a;
+	--sw-rs-card: #ffffff;
+	--sw-rs-card-text: #1a171c;
+	--sw-rs-card-muted: #394a64;
+	--sw-rs-pv-d: 4;
+	--sw-rs-pv-t: 2;
+	--sw-rs-pv-m: 1;
+	--sw-rs-gap: 24px;
+	--sw-rs-radius: 16px;
+	--sw-rs-easing: cubic-bezier(0.22, 1, 0.36, 1);
+
+	position: relative;
+	background: var(--sw-rs-bg);
+	color: var(--sw-rs-text);
+	padding: clamp(48px, 6vw, 96px) clamp(20px, 4vw, 96px);
+	overflow: hidden;
+	border-radius: 0;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif;
+}
+
+.sw-rs__bg-decoration {
+	position: absolute;
+	left: -40px;
+	bottom: -40px;
+	width: 220px;
+	height: 220px;
+	pointer-events: none;
+	opacity: 0.18;
+	background-image: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.6), transparent 60%);
+	mix-blend-mode: screen;
+}
+
+.sw-rs__inner {
+	position: relative;
+	max-width: 1280px;
+	margin: 0 auto;
+}
+
+.sw-rs__header {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	margin-bottom: 40px;
+	max-width: 720px;
+}
+
+.sw-rs__heading {
+	font-family: "Tisa Pro", "Lora", "Source Serif 4", Georgia, serif;
+	font-weight: 500;
+	font-size: clamp(28px, 3.2vw, 48px);
+	line-height: 1.1;
+	letter-spacing: -0.5px;
+	margin: 0;
+	color: inherit;
+}
+
+.sw-rs__subheading {
+	font-size: clamp(15px, 1.4vw, 18px);
+	line-height: 1.5;
+	margin: 0;
+	opacity: 0.85;
+}
+
+.sw-rs__viewport {
+	position: relative;
+	display: grid;
+	grid-template-columns: auto 1fr auto;
+	align-items: center;
+	gap: 16px;
+}
+
+.sw-rs__nav {
+	flex: 0 0 auto;
+	width: 56px;
+	height: 56px;
+	border-radius: 999px;
+	background: var(--sw-rs-card);
+	color: var(--sw-rs-card-text);
+	border: 1px solid rgba(0, 0, 0, 0.08);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	transition: transform 0.2s var(--sw-rs-easing), box-shadow 0.2s var(--sw-rs-easing);
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+	padding: 0;
+}
+
+.sw-rs__nav:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.sw-rs__nav:focus-visible {
+	outline: 2px solid var(--sw-rs-accent);
+	outline-offset: 3px;
+}
+
+.sw-rs__nav[disabled] {
+	opacity: 0.4;
+	cursor: not-allowed;
+	transform: none;
+	box-shadow: none;
+}
+
+.sw-rs__track {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	gap: var(--sw-rs-gap);
+	overflow-x: auto;
+	scroll-snap-type: x mandatory;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+	scroll-behavior: smooth;
+	padding-bottom: 4px;
+}
+
+.sw-rs__track::-webkit-scrollbar { display: none; }
+
+.sw-rs__slide {
+	flex: 0 0 calc((100% - (var(--sw-rs-gap) * (var(--sw-rs-pv-d) - 1))) / var(--sw-rs-pv-d));
+	scroll-snap-align: start;
+	min-width: 0;
+}
+
+@media (max-width: 1024px) {
+	.sw-rs__slide {
+		flex-basis: calc((100% - (var(--sw-rs-gap) * (var(--sw-rs-pv-t) - 1))) / var(--sw-rs-pv-t));
+	}
+}
+
+@media (max-width: 640px) {
+	.sw-rs__slide {
+		flex-basis: calc((100% - (var(--sw-rs-gap) * (var(--sw-rs-pv-m) - 1))) / var(--sw-rs-pv-m));
+	}
+	.sw-rs__viewport {
+		grid-template-columns: 1fr;
+	}
+	.sw-rs__nav {
+		display: none;
+	}
+}
+
+.sw-rs__card {
+	background: var(--sw-rs-card);
+	color: var(--sw-rs-card-text);
+	border-radius: var(--sw-rs-radius);
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+	transition: transform 0.25s var(--sw-rs-easing), box-shadow 0.25s var(--sw-rs-easing);
+}
+
+.sw-rs__card:hover {
+	transform: translateY(-4px);
+	box-shadow: 0 14px 28px rgba(0, 0, 0, 0.16);
+}
+
+.sw-rs__card-link {
+	color: inherit;
+	text-decoration: none;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
+.sw-rs__card-media {
+	position: relative;
+	aspect-ratio: 4 / 3;
+	overflow: hidden;
+	background: linear-gradient(135deg, #f6f9fd, #d6e0eb);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.sw-rs__card-media img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	transition: transform 0.4s var(--sw-rs-easing);
+}
+
+.sw-rs__card:hover .sw-rs__card-media img {
+	transform: scale(1.04);
+}
+
+.sw-rs__card-media-fallback {
+	color: rgba(41, 56, 84, 0.4);
+}
+
+.sw-rs__card-body {
+	padding: 20px 22px 24px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	flex: 1;
+}
+
+.sw-rs__card-title {
+	font-family: "Tisa Sans Pro", "Inter", -apple-system, system-ui, sans-serif;
+	font-weight: 600;
+	font-size: 17px;
+	line-height: 1.35;
+	margin: 0;
+	color: var(--sw-rs-card-text);
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.sw-rs__card-meta {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	font-size: 14px;
+	color: var(--sw-rs-card-muted);
+	margin-top: auto;
+}
+
+.sw-rs__card-difficulty,
+.sw-rs__card-time {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.sw-rs__chefs {
+	display: inline-flex;
+	gap: 2px;
+	color: #085741;
+}
+
+.sw-rs__chef.is-off {
+	color: rgba(8, 87, 65, 0.22);
+}
+
+.sw-rs__dots {
+	display: flex;
+	justify-content: center;
+	gap: 10px;
+	margin-top: 28px;
+}
+
+.sw-rs__dot {
+	width: 10px;
+	height: 10px;
+	border-radius: 999px;
+	border: 0;
+	padding: 0;
+	background: rgba(255, 255, 255, 0.35);
+	cursor: pointer;
+	transition: background 0.2s var(--sw-rs-easing), transform 0.2s var(--sw-rs-easing);
+}
+
+.sw-rs__dot.is-active {
+	background: var(--sw-rs-text);
+	transform: scale(1.25);
+}
+
+.sw-rs__dot:focus-visible {
+	outline: 2px solid var(--sw-rs-accent);
+	outline-offset: 3px;
+}
+
+.sw-rs__cta {
+	display: inline-flex;
+	align-items: center;
+	gap: 12px;
+	margin-top: 32px;
+	background: var(--sw-rs-accent);
+	color: #fff;
+	border-radius: 12px;
+	padding: 14px 22px;
+	font-weight: 600;
+	font-size: 16px;
+	line-height: 1;
+	text-decoration: none;
+	transition: filter 0.2s var(--sw-rs-easing), transform 0.2s var(--sw-rs-easing);
+}
+
+.sw-rs__cta:hover {
+	filter: brightness(0.95);
+	transform: translateY(-2px);
+}
+
+.sw-rs__cta:focus-visible {
+	outline: 2px solid #fff;
+	outline-offset: 3px;
+}
+
+/* Editor parity tweaks */
+.editor-styles-wrapper .sw-recipe-slider {
+	margin: 0;
+}

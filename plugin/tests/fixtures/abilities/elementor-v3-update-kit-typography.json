@@ -1,0 +1,13 @@
+{
+    "args": {
+        "fonts": [
+            {
+                "id": "body",
+                "title": "Body",
+                "font_family": "Arial"
+            }
+        ],
+        "mode": "contract"
+    },
+    "expect": "ok"
+}

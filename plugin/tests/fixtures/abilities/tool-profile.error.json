@@ -1,0 +1,7 @@
+{
+    "args": {
+        "profile": "not-a-profile",
+        "task": "Use a missing tool profile"
+    },
+    "expect": "wp_error"
+}

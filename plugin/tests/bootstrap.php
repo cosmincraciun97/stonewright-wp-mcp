@@ -1,0 +1,3056 @@
+<?php
+declare( strict_types=1 );
+
+/**
+ * PHPUnit bootstrap — no WordPress core required.
+ * Registers autoloaders, stubs WP globals, and defines constants.
+ */
+
+define( 'STONEWRIGHT_DIR', dirname( __DIR__ ) . '/' );
+
+$stonewright_test_root = sys_get_temp_dir() . '/stonewright-test-' . getmypid();
+
+register_shutdown_function(
+	static function () use ( $stonewright_test_root ): void {
+		if ( ! is_dir( $stonewright_test_root ) ) {
+			return;
+		}
+
+		$iterator = new RecursiveIteratorIterator(
+			new RecursiveDirectoryIterator( $stonewright_test_root, FilesystemIterator::SKIP_DOTS ),
+			RecursiveIteratorIterator::CHILD_FIRST
+		);
+		foreach ( $iterator as $item ) {
+			if ( $item->isDir() ) {
+				@rmdir( $item->getPathname() );
+			} else {
+				@unlink( $item->getPathname() );
+			}
+		}
+		@rmdir( $stonewright_test_root );
+	}
+);
+
+if ( ! defined( 'WP_CONTENT_DIR' ) ) {
+	$test_content_dir = $stonewright_test_root . '/wp-content';
+	if ( ! is_dir( $test_content_dir ) ) {
+		mkdir( $test_content_dir, 0700, true );
+	}
+	define( 'WP_CONTENT_DIR', $test_content_dir );
+}
+
+if ( ! defined( 'ABSPATH' ) ) {
+	define( 'ABSPATH', WP_CONTENT_DIR . '/' );
+}
+
+$stonewright_test_admin_include_dir = ABSPATH . 'wp-admin/includes';
+if ( ! is_dir( $stonewright_test_admin_include_dir ) ) {
+	mkdir( $stonewright_test_admin_include_dir, 0700, true );
+}
+foreach ( [ 'file.php', 'media.php', 'image.php', 'plugin.php', 'upgrade.php', 'class-wp-site-health.php' ] as $stonewright_test_include_file ) {
+	$stonewright_test_include_path = $stonewright_test_admin_include_dir . '/' . $stonewright_test_include_file;
+	if ( ! file_exists( $stonewright_test_include_path ) ) {
+		file_put_contents( $stonewright_test_include_path, "<?php\n" );
+	}
+}
+
+// WordPress upgrade.php provides dbDelta(); the test harness has no real DB.
+if ( ! function_exists( 'dbDelta' ) ) {
+	/**
+	 * @param string|array<int, string> $queries
+	 * @return array<string, string>
+	 */
+	function dbDelta( $queries = '', $execute = true ): array {
+		return [];
+	}
+}
+
+if ( ! defined( 'STONEWRIGHT_VERSION' ) ) {
+	define( 'STONEWRIGHT_VERSION', '0.0.0-test' );
+}
+
+if ( ! defined( 'STONEWRIGHT_MIN_WP' ) ) {
+	define( 'STONEWRIGHT_MIN_WP', '6.7' );
+}
+
+if ( ! defined( 'ARRAY_A' ) ) {
+	define( 'ARRAY_A', 'ARRAY_A' );
+}
+
+if ( ! defined( 'MINUTE_IN_SECONDS' ) ) {
+	define( 'MINUTE_IN_SECONDS', 60 );
+}
+
+if ( ! defined( 'HOUR_IN_SECONDS' ) ) {
+	define( 'HOUR_IN_SECONDS', 3600 );
+}
+
+if ( ! defined( 'DAY_IN_SECONDS' ) ) {
+	define( 'DAY_IN_SECONDS', 86400 );
+}
+
+// ---------------------------------------------------------------------------
+// Autoloader — tests own their namespace because Jetpack Autoloader merges the
+// root package's dev autoload into optimized production manifests.
+// ---------------------------------------------------------------------------
+spl_autoload_register(
+	static function ( string $class ): void {
+		$prefix = 'Stonewright\\WpMcp\\Tests\\';
+		if ( 0 !== strpos( $class, $prefix ) ) {
+			return;
+		}
+		$relative = substr( $class, strlen( $prefix ) );
+		$file     = __DIR__ . '/' . str_replace( '\\', '/', $relative ) . '.php';
+		if ( file_exists( $file ) ) {
+			require_once $file;
+		}
+	}
+);
+
+$composer_autoload = dirname( __DIR__ ) . '/vendor/autoload.php';
+if ( file_exists( $composer_autoload ) ) {
+	require_once $composer_autoload;
+} else {
+	spl_autoload_register( function ( string $class ): void {
+		$map = [
+			'Stonewright\\WpMcp\\' => dirname( __DIR__ ) . '/includes/',
+		];
+		foreach ( $map as $prefix => $base ) {
+			if ( 0 !== strpos( $class, $prefix ) ) {
+				continue;
+			}
+			$relative = substr( $class, strlen( $prefix ) );
+			$file     = $base . str_replace( '\\', '/', $relative ) . '.php';
+			if ( file_exists( $file ) ) {
+				require_once $file;
+			}
+			return;
+		}
+	} );
+}
+
+require_once __DIR__ . '/ElementorStubs.php';
+
+// ---------------------------------------------------------------------------
+// WordPress function stubs — only what the code under test actually calls.
+// ---------------------------------------------------------------------------
+if ( ! function_exists( 'wp_json_encode' ) ) {
+	function wp_json_encode( mixed $value, int $flags = 0, int $depth = 512 ): string|false {
+		if ( isset( $GLOBALS['stonewright_test_wp_json_encode_return'] ) ) {
+			$result = $GLOBALS['stonewright_test_wp_json_encode_return'];
+			unset( $GLOBALS['stonewright_test_wp_json_encode_return'] );
+			if ( $result === false ) {
+				// Poison json_last_error so callers reading json_last_error_msg()
+				// observe a meaningful error message instead of the default
+				// "No error" sentinel. Encoding a malformed UTF-8 sequence is
+				// the cheapest reliable way to produce JSON_ERROR_UTF8.
+				@json_encode( "\xB1\x31" );
+			}
+			return $result;
+		}
+		return json_encode( $value, $flags, $depth );
+	}
+}
+
+if ( ! function_exists( '_n' ) ) {
+	function _n( string $single, string $plural, int $number, string $domain = 'default' ): string {
+		return 1 === $number ? $single : $plural;
+	}
+}
+
+if ( ! function_exists( '__' ) ) {
+	function __( string $text, string $domain = 'default' ): string {
+		return $text;
+	}
+}
+
+$GLOBALS['stonewright_test_user_caps']     ??= [];
+$GLOBALS['stonewright_test_user_logged_in'] ??= false;
+
+if ( ! function_exists( 'is_user_logged_in' ) ) {
+	function is_user_logged_in(): bool {
+		return (bool) ( $GLOBALS['stonewright_test_user_logged_in'] ?? false );
+	}
+}
+
+if ( ! function_exists( 'current_user_can' ) ) {
+	function current_user_can( string $cap, mixed ...$args ): bool {
+		// Allow tests to inject a callable that receives ($cap, ...$args) for
+		// fine-grained checks (e.g. edit_post_meta with post_id + meta_key).
+		if ( isset( $GLOBALS['stonewright_test_user_can_callback'] ) && is_callable( $GLOBALS['stonewright_test_user_can_callback'] ) ) {
+			return (bool) ( $GLOBALS['stonewright_test_user_can_callback'] )( $cap, ...$args );
+		}
+		$caps = $GLOBALS['stonewright_test_user_caps'] ?? [];
+		return ! empty( $caps[ $cap ] );
+	}
+}
+
+$GLOBALS['stonewright_test_current_user_id'] ??= 0;
+
+if ( ! function_exists( 'get_current_user_id' ) ) {
+	function get_current_user_id(): int {
+		return (int) ( $GLOBALS['stonewright_test_current_user_id'] ?? 0 );
+	}
+}
+
+if ( ! function_exists( 'wp_get_current_user' ) ) {
+	function wp_get_current_user(): object {
+		return (object) [
+			'ID'         => (int) ( $GLOBALS['stonewright_test_current_user_id'] ?? 0 ),
+			'user_login' => (string) ( $GLOBALS['stonewright_test_current_user_login'] ?? 'admin' ),
+		];
+	}
+}
+
+if ( ! function_exists( 'get_user_by' ) ) {
+	/**
+	 * @return object|false
+	 */
+	function get_user_by( string $field, mixed $value ): object|false {
+	$users = $GLOBALS['stonewright_test_users'] ?? [];
+	foreach ( $users as $user ) {
+		$row = is_object( $user ) ? $user : (object) (array) $user;
+		if ( 'id' === $field && (int) ( $row->ID ?? 0 ) === (int) $value ) {
+			return $row;
+		}
+		if ( 'login' === $field && (string) ( $row->user_login ?? '' ) === (string) $value ) {
+			return $row;
+		}
+	}
+	if ( 'id' === $field && (int) $value > 0 ) {
+		return (object) [
+			'ID'           => (int) $value,
+			'user_login'   => 'user-' . (int) $value,
+			'user_email'   => 'user-' . (int) $value . '@example.com',
+			'display_name' => 'User ' . (int) $value,
+			'roles'        => [ 'subscriber' ],
+		];
+	}
+	return false;
+}
+}
+
+if ( ! function_exists( 'wp_set_current_user' ) ) {
+	function wp_set_current_user( int $id, string $name = '' ): object {
+		$GLOBALS['stonewright_test_set_current_user'] = $id;
+		$GLOBALS['stonewright_test_current_user_id']  = $id;
+		return (object) [ 'ID' => $id ];
+	}
+}
+
+if ( ! function_exists( 'wp_set_auth_cookie' ) ) {
+	function wp_set_auth_cookie( int $user_id, bool $remember = false, mixed $secure = '', string $token = '' ): void {
+		$GLOBALS['stonewright_test_auth_cookie'] = [
+			'user_id'  => $user_id,
+			'remember' => $remember,
+			'secure'   => $secure,
+			'token'    => $token,
+		];
+	}
+}
+
+
+$GLOBALS['stonewright_test_user_meta'] ??= [];
+
+if ( ! function_exists( 'get_user_meta' ) ) {
+	function get_user_meta( int $user_id, string $key = '', bool $single = false ): mixed {
+		$store = $GLOBALS['stonewright_test_user_meta'][$user_id] ?? [];
+		if ( '' === $key ) {
+			return $store;
+		}
+		if ( ! array_key_exists( $key, $store ) ) {
+			return $single ? '' : [];
+		}
+		return $single ? $store[ $key ] : [ $store[ $key ] ];
+	}
+}
+
+if ( ! function_exists( 'update_user_meta' ) ) {
+	function update_user_meta( int $user_id, string $meta_key, mixed $meta_value, mixed $prev_value = '' ): bool {
+		$GLOBALS['stonewright_test_user_meta'][$user_id][$meta_key] = $meta_value;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_send_json_success' ) ) {
+	function wp_send_json_success( mixed $data = null, ?int $status_code = null ): void {
+		$GLOBALS['stonewright_test_json_response'] = [ 'success' => true, 'data' => $data, 'status' => $status_code ];
+	}
+}
+
+if ( ! function_exists( 'wp_send_json_error' ) ) {
+	function wp_send_json_error( mixed $data = null, ?int $status_code = null ): void {
+		$GLOBALS['stonewright_test_json_response'] = [ 'success' => false, 'data' => $data, 'status' => $status_code ];
+	}
+}
+
+if ( ! function_exists( 'check_ajax_referer' ) ) {
+	/**
+	 * @param string|int  $action
+	 * @param false|string $query_arg
+	 * @return false|int
+	 */
+	function check_ajax_referer( $action = -1, $query_arg = false, bool $stop = true ) {
+		return 1;
+	}
+}
+$GLOBALS['stonewright_test_transients'] ??= [];
+
+if ( ! function_exists( 'set_transient' ) ) {
+	function set_transient( string $transient, mixed $value, int $expiration = 0 ): bool {
+		$GLOBALS['stonewright_test_transients'][ $transient ] = $value;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'get_transient' ) ) {
+	function get_transient( string $transient ): mixed {
+		return $GLOBALS['stonewright_test_transients'][ $transient ] ?? false;
+	}
+}
+
+if ( ! function_exists( 'delete_transient' ) ) {
+	function delete_transient( string $transient ): bool {
+		unset( $GLOBALS['stonewright_test_transients'][ $transient ] );
+		return true;
+	}
+}
+
+$GLOBALS['stonewright_test_options'] ??= [];
+
+if ( ! function_exists( 'get_option' ) ) {
+	function get_option( string $option, mixed $default = false ): mixed {
+		if ( array_key_exists( $option, $GLOBALS['stonewright_test_options'] ?? [] ) ) {
+			return $GLOBALS['stonewright_test_options'][ $option ];
+		}
+		return $default;
+	}
+}
+
+if ( ! function_exists( 'update_option' ) ) {
+	function update_option( string $option, mixed $value, bool|string $autoload = true ): bool {
+		$GLOBALS['stonewright_test_options'][ $option ] = $value;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'delete_option' ) ) {
+	function delete_option( string $option ): bool {
+		if ( ! array_key_exists( $option, $GLOBALS['stonewright_test_options'] ?? [] ) ) {
+			return false;
+		}
+		if ( is_callable( $GLOBALS['stonewright_test_before_option_delete'] ?? null ) ) {
+			$callback = $GLOBALS['stonewright_test_before_option_delete'];
+			unset( $GLOBALS['stonewright_test_before_option_delete'] );
+			$callback( $option );
+		}
+		unset( $GLOBALS['stonewright_test_options'][ $option ] );
+		return true;
+	}
+}
+
+if ( ! function_exists( 'add_option' ) ) {
+	function add_option( string $option, mixed $value = '', string $deprecated = '', bool $autoload = true ): bool {
+		if ( array_key_exists( $option, $GLOBALS['stonewright_test_options'] ?? [] ) ) {
+			return false;
+		}
+		$GLOBALS['stonewright_test_options'][ $option ] = $value;
+		if ( is_callable( $GLOBALS['stonewright_test_after_add_option'] ?? null ) ) {
+			$callback = $GLOBALS['stonewright_test_after_add_option'];
+			unset( $GLOBALS['stonewright_test_after_add_option'] );
+			$callback( $option, $value );
+		}
+		return true;
+	}
+}
+
+if ( ! function_exists( 'maybe_serialize' ) ) {
+	function maybe_serialize( mixed $value ): mixed {
+		return is_array( $value ) || is_object( $value ) ? serialize( $value ) : $value;
+	}
+}
+
+if ( ! function_exists( 'wp_cache_delete' ) ) {
+	function wp_cache_delete( string $key, string $group = '' ): bool {
+		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_salt' ) ) {
+	function wp_salt( string $scheme = 'auth' ): string {
+		return 'test-salt-' . $scheme;
+	}
+}
+
+if ( ! function_exists( 'wp_mkdir_p' ) ) {
+	function wp_mkdir_p( string $target ): bool {
+		if ( is_dir( $target ) ) {
+			return true;
+		}
+		return mkdir( $target, 0755, true ) || is_dir( $target );
+	}
+}
+
+if ( ! function_exists( 'wp_generate_uuid4' ) ) {
+	function wp_generate_uuid4(): string {
+		return sprintf(
+			'%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+			random_int( 0, 0xffff ),
+			random_int( 0, 0xffff ),
+			random_int( 0, 0xffff ),
+			random_int( 0, 0x0fff ) | 0x4000,
+			random_int( 0, 0x3fff ) | 0x8000,
+			random_int( 0, 0xffff ),
+			random_int( 0, 0xffff ),
+			random_int( 0, 0xffff )
+		);
+	}
+}
+
+if ( ! function_exists( 'current_time' ) ) {
+	function current_time( string $type, mixed $gmt = 0 ): string {
+		return gmdate( 'Y-m-d H:i:s' );
+	}
+}
+
+if ( ! function_exists( 'is_wp_error' ) ) {
+	function is_wp_error( mixed $thing ): bool {
+		return $thing instanceof \WP_Error;
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Minimal $wpdb stub: collects inserts in $GLOBALS['stonewright_test_wpdb_inserts']
+// without requiring a real database. Tests can inspect or reset that array.
+// ---------------------------------------------------------------------------
+$GLOBALS['stonewright_test_wpdb_inserts'] ??= [];
+
+if ( ! isset( $GLOBALS['wpdb'] ) ) {
+	$GLOBALS['wpdb'] = new class() {
+		public string $prefix = 'wptests_';
+		public string $options = 'wptests_options';
+		public int $insert_id = 1;
+
+		/** @var array<int, array<string, mixed>> */
+		public array $memory_rows = [];
+
+		/** @var array<int, array<string, mixed>> */
+		public array $direction_rows = [];
+
+		/** @var array<int, array<string, mixed>> */
+		public array $direction_version_rows = [];
+
+		/**
+		 * @param array<string, mixed> $data
+		 * @param array<int, string>   $format
+		 */
+		public function insert( string $table, array $data, array $format = [] ): int {
+			$this->insert_id++;
+			$GLOBALS['stonewright_test_wpdb_inserts'][] = [
+				'table' => $table,
+				'data'  => $data,
+			];
+			if ( str_contains( $table, 'stonewright_design_direction_versions' ) ) {
+				$this->direction_version_rows[ $this->insert_id ] = array_merge(
+					[ 'id' => $this->insert_id ],
+					$data
+				);
+			} elseif ( str_contains( $table, 'stonewright_design_directions' ) ) {
+				$this->direction_rows[ $this->insert_id ] = array_merge(
+					[ 'id' => $this->insert_id ],
+					$data
+				);
+			}
+			if ( str_contains( $table, 'stonewright_memory' ) ) {
+				$this->memory_rows[ $this->insert_id ] = array_merge(
+					[
+						'id'                  => $this->insert_id,
+						'created_at'          => '2026-07-22 00:00:00',
+						'updated_at'          => '2026-07-22 00:00:00',
+						'version_fingerprint' => '',
+						'expires_at'          => null,
+						'status'              => 'active',
+						'precedence'          => 0,
+						'topic'               => '',
+					],
+					$data
+				);
+			}
+			return 1;
+		}
+
+		public function get_charset_collate(): string {
+			return '';
+		}
+
+		/** @return array<int, array<string, mixed>> */
+		public function get_results( string $query, string $output = 'OBJECT' ): array {
+			if ( str_contains( $query, 'stonewright_design_direction_versions' ) ) {
+				$direction_id = self::matched_int( $query, '/direction_id\s*=\s*(\d+)/' );
+				$rows         = array_values(
+					array_filter(
+						$this->direction_version_rows,
+						static fn( array $row ): bool => (int) ( $row['direction_id'] ?? 0 ) === $direction_id
+					)
+				);
+				usort(
+					$rows,
+					static fn( array $a, array $b ): int => (int) ( $b['revision'] ?? 0 ) <=> (int) ( $a['revision'] ?? 0 )
+				);
+				return $rows;
+			}
+
+			if ( str_contains( $query, 'stonewright_design_directions' ) ) {
+				$status = self::matched_string( $query, "/status\s*=\s*'([^']*)'/" );
+				$rows   = array_values(
+					array_filter(
+						$this->direction_rows,
+						static fn( array $row ): bool => null === $status || (string) ( $row['status'] ?? '' ) === $status
+					)
+				);
+				usort(
+					$rows,
+					static fn( array $a, array $b ): int => (int) ( $b['id'] ?? 0 ) <=> (int) ( $a['id'] ?? 0 )
+				);
+				return $rows;
+			}
+
+			return [];
+		}
+
+		public function get_row( string $query, string $output = 'OBJECT' ): array|object|null {
+			// Support Memory::get_by_id readback after put_typed in contract tests.
+			if ( str_contains( $query, 'stonewright_memory' ) && str_contains( $query, 'WHERE id' ) ) {
+				if ( [] === $this->memory_rows ) {
+					return null;
+				}
+				$row = end( $this->memory_rows );
+				return is_array( $row ) ? $row : null;
+			}
+
+			if ( str_contains( $query, 'stonewright_design_direction_versions' ) ) {
+				$direction_id = self::matched_int( $query, '/direction_id\s*=\s*(\d+)/' );
+				$revision     = self::matched_int( $query, '/revision\s*=\s*(\d+)/' );
+				foreach ( $this->direction_version_rows as $row ) {
+					if ( (int) ( $row['direction_id'] ?? 0 ) === $direction_id
+						&& (int) ( $row['revision'] ?? 0 ) === $revision ) {
+						return $row;
+					}
+				}
+				return null;
+			}
+
+			if ( str_contains( $query, 'stonewright_design_directions' ) ) {
+				$id   = self::matched_int( $query, '/\bid\s*=\s*(\d+)/' );
+				$slug = self::matched_string( $query, "/slug\s*=\s*'([^']*)'/" );
+				foreach ( $this->direction_rows as $row_id => $row ) {
+					if ( $id > 0 && (int) $row_id === $id ) {
+						return $row;
+					}
+					if ( null !== $slug && (string) ( $row['slug'] ?? '' ) === $slug ) {
+						return $row;
+					}
+				}
+				return null;
+			}
+
+			return null;
+		}
+
+		private static function matched_int( string $query, string $pattern ): int {
+			return preg_match( $pattern, $query, $m ) ? (int) $m[1] : 0;
+		}
+
+		private static function matched_string( string $query, string $pattern ): ?string {
+			return preg_match( $pattern, $query, $m ) ? (string) $m[1] : null;
+		}
+
+		public function get_var( string $query ): mixed {
+			// Existing-key probe for put_typed returns null (insert path).
+			if ( str_contains( $query, 'SELECT id FROM' ) && str_contains( $query, 'stonewright_memory' ) ) {
+				return null;
+			}
+			return null;
+		}
+
+		public function query( string $query ): int|false {
+			unset( $query );
+			return 0;
+		}
+
+		/**
+		 * @param array<string, mixed> $data
+		 * @param array<string, mixed> $where
+		 */
+		public function update( string $table, array $data, array $where, array $format = [], array $where_format = [] ): int|false {
+			if ( str_contains( $table, 'stonewright_design_directions' ) && isset( $where['id'] ) ) {
+				$id = (int) $where['id'];
+				if ( isset( $this->direction_rows[ $id ] ) ) {
+					$this->direction_rows[ $id ] = array_merge( $this->direction_rows[ $id ], $data );
+				}
+			}
+			if ( str_contains( $table, 'stonewright_memory' ) && isset( $where['id'] ) ) {
+				$id = (int) $where['id'];
+				if ( isset( $this->memory_rows[ $id ] ) ) {
+					$this->memory_rows[ $id ] = array_merge( $this->memory_rows[ $id ], $data );
+				}
+			}
+			return 1;
+		}
+
+		/**
+		 * @param array<string, mixed> $where
+		 */
+		public function delete( string $table, array $where, array $where_format = [] ): int|false {
+			if ( $this->options === $table && isset( $where['option_name'], $where['option_value'] ) ) {
+				$option = (string) $where['option_name'];
+				if ( is_callable( $GLOBALS['stonewright_test_before_option_delete'] ?? null ) ) {
+					$callback = $GLOBALS['stonewright_test_before_option_delete'];
+					unset( $GLOBALS['stonewright_test_before_option_delete'] );
+					$callback( $option );
+				}
+				if ( ! array_key_exists( $option, $GLOBALS['stonewright_test_options'] ?? [] )
+					|| maybe_serialize( $GLOBALS['stonewright_test_options'][ $option ] ) !== $where['option_value'] ) {
+					return 0;
+				}
+				unset( $GLOBALS['stonewright_test_options'][ $option ] );
+				return 1;
+			}
+			return 1;
+		}
+
+		/**
+		 * Substitutes placeholders the way real wpdb does.
+		 *
+		 * Stub readers filter on the interpolated WHERE clause, so a prepare that
+		 * dropped its arguments would make every id or slug lookup match the same
+		 * row and hide real filtering bugs.
+		 */
+		public function prepare( string $query, mixed ...$args ): string {
+			if ( [] === $args ) {
+				return $query;
+			}
+
+			$out    = '';
+			$index  = 0;
+			$length = strlen( $query );
+
+			for ( $position = 0; $position < $length; $position++ ) {
+				$char = $query[ $position ];
+				$next = $position + 1 < $length ? $query[ $position + 1 ] : '';
+
+				if ( '%' !== $char || ! in_array( $next, [ 'd', 's', 'f' ], true ) || $index >= count( $args ) ) {
+					$out .= $char;
+					continue;
+				}
+
+				$arg    = $args[ $index++ ];
+				$scalar = is_scalar( $arg ) ? $arg : '';
+				$out   .= match ( $next ) {
+					'd'     => (string) (int) $scalar,
+					'f'     => (string) (float) $scalar,
+					default => "'" . str_replace( "'", "''", (string) $scalar ) . "'",
+				};
+				$position++;
+			}
+
+			return $out;
+		}
+	};
+}
+
+if ( ! function_exists( 'rest_url' ) ) {
+	function rest_url( string $path = '' ): string {
+		return 'https://example.test/wp-json/' . ltrim( $path, '/' );
+	}
+}
+
+if ( ! function_exists( 'home_url' ) ) {
+	function home_url( string $path = '' ): string {
+		$base = $GLOBALS['stonewright_test_home_url'] ?? 'https://example.test/';
+		return rtrim( $base, '/' ) . '/' . ltrim( $path, '/' );
+	}
+}
+
+if ( ! function_exists( 'admin_url' ) ) {
+	function admin_url( string $path = '' ): string {
+		return 'https://example.test/wp-admin/' . ltrim( $path, '/' );
+	}
+}
+
+if ( ! function_exists( 'get_bloginfo' ) ) {
+	function get_bloginfo( string $show = '', string $filter = 'raw' ): string {
+		return match ( $show ) {
+			'name' => 'Stonewright Test',
+			'description' => 'Test site',
+			'version' => '6.9',
+			default => '',
+		};
+	}
+}
+
+if ( ! function_exists( 'determine_locale' ) ) {
+	function determine_locale(): string {
+		return 'en_US';
+	}
+}
+
+if ( ! function_exists( 'wp_timezone_string' ) ) {
+	function wp_timezone_string(): string {
+		return 'UTC';
+	}
+}
+
+if ( ! function_exists( 'is_multisite' ) ) {
+	function is_multisite(): bool {
+		return false;
+	}
+}
+
+if ( ! function_exists( 'is_ssl' ) ) {
+	function is_ssl(): bool {
+		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_get_theme' ) ) {
+	function wp_get_theme(): object {
+		return new class() {
+			public function get( string $field ): string {
+				return 'Version' === $field ? '1.0.0' : 'Stonewright Theme';
+			}
+
+			public function get_template(): string {
+				return 'stonewright-theme';
+			}
+
+			public function get_stylesheet(): string {
+				return 'stonewright-theme';
+			}
+
+			public function parent(): object|false {
+				return false;
+			}
+		};
+	}
+}
+
+if ( ! function_exists( 'get_stylesheet' ) ) {
+	function get_stylesheet(): string {
+		return (string) ( $GLOBALS['stonewright_test_stylesheet'] ?? 'stonewright-theme' );
+	}
+}
+
+if ( ! function_exists( 'get_template' ) ) {
+	function get_template(): string {
+		return (string) ( $GLOBALS['stonewright_test_template'] ?? get_stylesheet() );
+	}
+}
+
+if ( ! function_exists( 'get_stylesheet_directory' ) ) {
+	function get_stylesheet_directory(): string {
+		if ( ! empty( $GLOBALS['stonewright_test_stylesheet_directory'] ) ) {
+			return (string) $GLOBALS['stonewright_test_stylesheet_directory'];
+		}
+		$dir = sys_get_temp_dir() . '/stonewright-test-theme';
+		if ( ! is_dir( $dir ) ) {
+			@mkdir( $dir, 0777, true );
+		}
+		if ( ! is_file( $dir . '/style.css' ) ) {
+			@file_put_contents( $dir . '/style.css', "/* stonewright test theme */\n" );
+		}
+		if ( ! is_file( $dir . '/functions.php' ) ) {
+			@file_put_contents( $dir . '/functions.php', "<?php\n// stonewright test theme\n" );
+		}
+		return $dir;
+	}
+}
+
+if ( ! function_exists( 'get_template_directory' ) ) {
+	function get_template_directory(): string {
+		if ( ! empty( $GLOBALS['stonewright_test_template_directory'] ) ) {
+			return (string) $GLOBALS['stonewright_test_template_directory'];
+		}
+		return get_stylesheet_directory();
+	}
+}
+
+if ( ! function_exists( 'wp_normalize_path' ) ) {
+	function wp_normalize_path( string $path ): string {
+		$path = str_replace( '\\', '/', $path );
+		$path = preg_replace( '#/+#', '/', $path ) ?? $path;
+		return $path;
+	}
+}
+
+if ( ! function_exists( 'wp_get_environment_type' ) ) {
+	function wp_get_environment_type(): string {
+		return (string) ( $GLOBALS['stonewright_test_environment_type'] ?? 'local' );
+	}
+}
+
+if ( ! function_exists( 'is_admin' ) ) {
+	function is_admin(): bool {
+		return (bool) ( $GLOBALS['stonewright_test_is_admin'] ?? true );
+	}
+}
+
+if ( ! function_exists( 'current_theme_supports' ) ) {
+	function current_theme_supports( string $feature, mixed ...$args ): bool {
+		return false;
+	}
+}
+
+if ( ! function_exists( 'wp_is_block_theme' ) ) {
+	function wp_is_block_theme(): bool {
+		return true;
+	}
+}
+
+if ( ! function_exists( 'get_plugins' ) ) {
+	function get_plugins( string $plugin_folder = '' ): array {
+		return [
+			'stonewright/stonewright.php' => [
+				'Name'    => 'Stonewright',
+				'Version' => '0.0.0-test',
+				'Author'  => 'Stonewright',
+			],
+		];
+	}
+}
+
+if ( ! function_exists( 'is_plugin_active' ) ) {
+	function is_plugin_active( string $plugin ): bool {
+		return 'stonewright/stonewright.php' === $plugin;
+	}
+}
+
+if ( ! function_exists( 'wp_max_upload_size' ) ) {
+	function wp_max_upload_size(): int {
+		return 10485760;
+	}
+}
+
+if ( ! function_exists( 'rest_get_url_prefix' ) ) {
+	function rest_get_url_prefix(): string {
+		return 'wp-json';
+	}
+}
+
+if ( ! function_exists( 'esc_html' ) ) {
+	function esc_html( string $text ): string {
+		return htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' );
+	}
+}
+
+if ( ! function_exists( 'esc_attr' ) ) {
+	function esc_attr( string $text ): string {
+		return htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' );
+	}
+}
+
+if ( ! function_exists( 'esc_textarea' ) ) {
+	function esc_textarea( string $text ): string {
+		return htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' );
+	}
+}
+
+if ( ! function_exists( 'esc_url' ) ) {
+	function esc_url( string $url ): string {
+		return filter_var( $url, FILTER_SANITIZE_URL ) ?: '';
+	}
+}
+
+if ( ! function_exists( 'esc_url_raw' ) ) {
+	function esc_url_raw( string $url, array $protocols = [] ): string {
+		return filter_var( $url, FILTER_SANITIZE_URL ) ?: '';
+	}
+}
+
+if ( ! function_exists( 'apply_filters' ) ) {
+	function apply_filters( string $hook_name, mixed $value, mixed ...$args ): mixed {
+		// Allow per-hook overrides for tests: $GLOBALS['stonewright_test_filters'][$hook_name] = callable.
+		$filter_override = $GLOBALS['stonewright_test_filters'][ $hook_name ] ?? null;
+		if ( null !== $filter_override && is_callable( $filter_override ) ) {
+			return $filter_override( $value, ...$args );
+		}
+		return $value;
+	}
+}
+
+if ( ! function_exists( 'add_filter' ) ) {
+	function add_filter( string $hook_name, callable $callback, int $priority = 10, int $accepted_args = 1 ): bool {
+		$GLOBALS['stonewright_test_filters'][ $hook_name ] = $callback;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'remove_filter' ) ) {
+	function remove_filter( string $hook_name, callable $callback, int $priority = 10 ): bool {
+		unset( $GLOBALS['stonewright_test_filters'][ $hook_name ] );
+		return true;
+	}
+}
+
+$GLOBALS['stonewright_test_filters'] ??= [];
+
+if ( ! function_exists( 'sanitize_text_field' ) ) {
+	function sanitize_text_field( string $text ): string {
+		return trim( strip_tags( $text ) );
+	}
+}
+
+if ( ! function_exists( 'sanitize_html_class' ) ) {
+	function sanitize_html_class( string $classname, string $fallback = '' ): string {
+		$sanitized = preg_replace( '/[^A-Za-z0-9_-]/', '-', $classname ) ?? '';
+		$sanitized = trim( $sanitized, '-' );
+		return '' !== $sanitized ? $sanitized : $fallback;
+	}
+}
+
+if ( ! function_exists( 'sanitize_file_name' ) ) {
+	function sanitize_file_name( string $filename ): string {
+		return preg_replace( '/[^A-Za-z0-9._-]/', '-', $filename ) ?? '';
+	}
+}
+
+if ( ! function_exists( 'sanitize_textarea_field' ) ) {
+	function sanitize_textarea_field( string $text ): string {
+		return trim( strip_tags( $text ) );
+	}
+}
+
+// ---------------------------------------------------------------------------
+// WP_Error stub.
+// ---------------------------------------------------------------------------
+if ( ! class_exists( 'WP_Error' ) ) {
+	class WP_Error {
+		/** @var array<int, array{code: string|int, message: string, data: mixed}> */
+		private array $errors = [];
+
+		public function __construct(
+			string|int $code = '',
+			string $message = '',
+			mixed $data = ''
+		) {
+			if ( '' !== $code ) {
+				$this->errors[] = [ 'code' => $code, 'message' => $message, 'data' => $data ];
+			}
+		}
+
+		public function get_error_code(): string|int {
+			return $this->errors[0]['code'] ?? '';
+		}
+
+		public function get_error_message( string|int $code = '' ): string {
+			foreach ( $this->errors as $e ) {
+				if ( '' === $code || $e['code'] === $code ) {
+					return $e['message'];
+				}
+			}
+			return '';
+		}
+
+		public function get_error_data( string|int $code = '' ): mixed {
+			foreach ( $this->errors as $e ) {
+				if ( '' === $code || $e['code'] === $code ) {
+					return $e['data'];
+				}
+			}
+			return null;
+		}
+
+		/** @return array<int, array{code: string|int, message: string, data: mixed}> */
+		public function get_all_error_data(): array {
+			return $this->errors;
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Post type object stubs — backed by $GLOBALS['stonewright_test_post_types'].
+// Tests set: $GLOBALS['stonewright_test_post_types']['page'] = (object)['cap' => (object)['create_posts' => 'edit_pages', 'publish_posts' => 'publish_pages']];
+// ---------------------------------------------------------------------------
+if ( ! class_exists( 'WP_Application_Passwords' ) ) {
+	class WP_Application_Passwords {
+		/**
+		 * @param array<string, mixed> $args
+		 * @return array{0: string, 1: array<string, mixed>}|\WP_Error
+		 */
+		public static function create_new_application_password( int $user_id, array $args = [] ): array|\WP_Error {
+			if ( isset( $GLOBALS['stonewright_test_app_password_error'] ) ) {
+				return $GLOBALS['stonewright_test_app_password_error'];
+			}
+
+			$password = (string) ( $GLOBALS['stonewright_test_next_app_password'] ?? 'test app password 1234' );
+			$item     = [
+				'uuid'    => 'test-app-password-uuid',
+				'name'    => (string) ( $args['name'] ?? 'Stonewright' ),
+				'created' => 1710000000,
+			];
+			$GLOBALS['stonewright_test_app_passwords'][ $user_id ][] = $item;
+
+			return [ $password, $item ];
+		}
+
+		/**
+		 * @return array<int, array<string, mixed>>
+		 */
+		public static function get_user_application_passwords( int $user_id ): array {
+			return array_values( $GLOBALS['stonewright_test_app_passwords'][ $user_id ] ?? [] );
+		}
+
+		public static function delete_application_password( int $user_id, string $uuid ): bool|\WP_Error {
+			if ( isset( $GLOBALS['stonewright_test_app_password_delete_error'] ) ) {
+				return $GLOBALS['stonewright_test_app_password_delete_error'];
+			}
+
+			$passwords = $GLOBALS['stonewright_test_app_passwords'][ $user_id ] ?? [];
+			foreach ( $passwords as $index => $item ) {
+				if ( (string) ( $item['uuid'] ?? '' ) === $uuid ) {
+					unset( $GLOBALS['stonewright_test_app_passwords'][ $user_id ][ $index ] );
+					$GLOBALS['stonewright_test_app_passwords'][ $user_id ] = array_values( $GLOBALS['stonewright_test_app_passwords'][ $user_id ] );
+					return true;
+				}
+			}
+
+			return false;
+		}
+	}
+}
+
+$GLOBALS['stonewright_test_post_types'] ??= [];
+
+if ( ! function_exists( 'get_post_type_object' ) ) {
+	function get_post_type_object( string $post_type ): ?object {
+		return $GLOBALS['stonewright_test_post_types'][ $post_type ] ?? null;
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Post stubs — backed by $GLOBALS['stonewright_test_posts'].
+// Tests set: $GLOBALS['stonewright_test_posts'][1] = (object)['ID' => 1, 'post_type' => 'page', ...];
+// ---------------------------------------------------------------------------
+$GLOBALS['stonewright_test_posts'] ??= [];
+
+if ( ! function_exists( 'get_post' ) ) {
+	function get_post( int|null $post = null, string $output = 'OBJECT', string $filter = 'raw' ): object|null {
+		if ( null === $post ) {
+			return null;
+		}
+		return $GLOBALS['stonewright_test_posts'][ (int) $post ] ?? null;
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Post meta stubs — backed by $GLOBALS['stonewright_test_post_meta_calls'].
+// Records calls; tests inspect the array to assert which keys were written.
+// ---------------------------------------------------------------------------
+$GLOBALS['stonewright_test_post_meta_calls'] ??= [];
+
+if ( ! function_exists( 'update_post_meta' ) ) {
+	function update_post_meta( int $post_id, string $meta_key, mixed $meta_value, mixed $prev_value = '' ): int|bool {
+		if ( isset( $GLOBALS['stonewright_test_update_post_meta_return'] ) ) {
+			return $GLOBALS['stonewright_test_update_post_meta_return'];
+		}
+		$GLOBALS['stonewright_test_post_meta_calls'][] = [
+			'action'   => 'update',
+			'post_id'  => $post_id,
+			'meta_key' => $meta_key,
+			'value'    => $meta_value,
+		];
+		// Also persist into the fake post's meta array so get_post_meta() can
+		// read it back. This mirrors how real WordPress behaves and lets
+		// round-trip read-after-write code paths (ElementorData::write
+		// post-verification, GetTemplate->get_post_meta, etc.) work under tests.
+		if ( isset( $GLOBALS['stonewright_test_posts'][ $post_id ] ) ) {
+			$post                              = $GLOBALS['stonewright_test_posts'][ $post_id ];
+			$meta                              = (array) ( $post->meta ?? [] );
+			$meta[ $meta_key ]                 = $meta_value;
+			$post->meta                        = $meta;
+			$GLOBALS['stonewright_test_posts'][ $post_id ] = $post;
+		}
+		return true;
+	}
+}
+
+if ( ! function_exists( 'update_metadata' ) ) {
+	function update_metadata( string $meta_type, int $object_id, string $meta_key, mixed $meta_value, mixed $prev_value = '' ): int|bool {
+		$GLOBALS['stonewright_test_post_meta_calls'][] = [
+			'action'    => 'update_metadata',
+			'meta_type' => $meta_type,
+			'post_id'   => $object_id,
+			'meta_key'  => $meta_key,
+			'value'     => $meta_value,
+		];
+		if ( 'post' === $meta_type && isset( $GLOBALS['stonewright_test_posts'][ $object_id ] ) ) {
+			$post                              = $GLOBALS['stonewright_test_posts'][ $object_id ];
+			$meta                              = (array) ( $post->meta ?? [] );
+			$meta[ $meta_key ]                 = $meta_value;
+			$post->meta                        = $meta;
+			$GLOBALS['stonewright_test_posts'][ $object_id ] = $post;
+		}
+		return true;
+	}
+}
+
+if ( ! function_exists( 'add_post_meta' ) ) {
+	function add_post_meta( int $post_id, string $meta_key, mixed $meta_value, bool $unique = false ): int|bool {
+		$GLOBALS['stonewright_test_post_meta_calls'][] = [
+			'action'   => 'add',
+			'post_id'  => $post_id,
+			'meta_key' => $meta_key,
+			'value'    => $meta_value,
+		];
+		return true;
+	}
+}
+
+if ( ! function_exists( 'delete_post_meta' ) ) {
+	function delete_post_meta( int $post_id, string $meta_key, mixed $meta_value = '' ): bool {
+		$GLOBALS['stonewright_test_post_meta_calls'][] = [
+			'action'   => 'delete',
+			'post_id'  => $post_id,
+			'meta_key' => $meta_key,
+			'value'    => $meta_value,
+		];
+		if ( isset( $GLOBALS['stonewright_test_posts'][ $post_id ] ) ) {
+			$post = $GLOBALS['stonewright_test_posts'][ $post_id ];
+			$meta = (array) ( $post->meta ?? [] );
+			unset( $meta[ $meta_key ] );
+			$post->meta = $meta;
+			$GLOBALS['stonewright_test_posts'][ $post_id ] = $post;
+		}
+		return true;
+	}
+}
+
+if ( ! function_exists( 'delete_metadata' ) ) {
+	function delete_metadata( string $meta_type, int $object_id, string $meta_key, mixed $meta_value = '', bool $delete_all = false ): bool {
+		$GLOBALS['stonewright_test_post_meta_calls'][] = [
+			'action'    => 'delete_metadata',
+			'meta_type' => $meta_type,
+			'post_id'   => $object_id,
+			'meta_key'  => $meta_key,
+			'value'     => $meta_value,
+		];
+		if ( 'post' === $meta_type && isset( $GLOBALS['stonewright_test_posts'][ $object_id ] ) ) {
+			$post = $GLOBALS['stonewright_test_posts'][ $object_id ];
+			$meta = (array) ( $post->meta ?? [] );
+			unset( $meta[ $meta_key ] );
+			$post->meta = $meta;
+			$GLOBALS['stonewright_test_posts'][ $object_id ] = $post;
+		}
+		return true;
+	}
+}
+
+if ( ! function_exists( 'get_post_meta' ) ) {
+	/**
+	 * @return array<string, array<int, mixed>>|mixed
+	 */
+	function get_post_meta( int $post_id, string $key = '', bool $single = false ): mixed {
+		$post = $GLOBALS['stonewright_test_posts'][ $post_id ] ?? null;
+		if ( null === $post ) {
+			return $key !== '' ? ( $single ? '' : [] ) : [];
+		}
+		$all_meta = (array) ( $post->meta ?? [] );
+		if ( '' === $key ) {
+			return array_map( fn( $v ) => [ $v ], $all_meta );
+		}
+		$val = $all_meta[ $key ] ?? null;
+		if ( null === $val ) {
+			return $single ? '' : [];
+		}
+		return $single ? $val : [ $val ];
+	}
+}
+
+// ---------------------------------------------------------------------------
+// wp_insert_post / wp_update_post stubs.
+// Tests may override $GLOBALS['stonewright_test_wp_insert_post_return'] or
+// $GLOBALS['stonewright_test_wp_update_post_return'] to control the return.
+// Default: auto-increment from $GLOBALS['stonewright_test_next_post_id'].
+// ---------------------------------------------------------------------------
+$GLOBALS['stonewright_test_next_post_id']          ??= 1001;
+$GLOBALS['stonewright_test_inserted_posts']        ??= [];
+$GLOBALS['stonewright_test_wp_insert_post_return'] ??= null;
+$GLOBALS['stonewright_test_wp_update_post_return'] ??= null;
+
+if ( ! function_exists( 'wp_insert_post' ) ) {
+	/**
+	 * @param array<string, mixed> $postarr
+	 * @return int|\WP_Error
+	 */
+	function wp_insert_post( array $postarr, bool $wp_error = false ): int|\WP_Error {
+		if ( null !== $GLOBALS['stonewright_test_wp_insert_post_return'] ) {
+			$ret = $GLOBALS['stonewright_test_wp_insert_post_return'];
+			$GLOBALS['stonewright_test_wp_insert_post_return'] = null;
+			return $ret;
+		}
+		$id = (int) $GLOBALS['stonewright_test_next_post_id']++;
+		$GLOBALS['stonewright_test_inserted_posts'][] = array_merge( [ 'ID' => $id ], $postarr );
+		// Also register in test posts so get_post() can find it.
+		$GLOBALS['stonewright_test_posts'][ $id ] = (object) array_merge(
+			[
+				'ID'           => $id,
+				'post_type'    => $postarr['post_type'] ?? 'post',
+				'post_status'  => $postarr['post_status'] ?? 'draft',
+				'post_title'   => $postarr['post_title'] ?? '',
+				'post_content' => $postarr['post_content'] ?? '',
+				'post_excerpt' => $postarr['post_excerpt'] ?? '',
+				'post_parent'  => $postarr['post_parent'] ?? 0,
+				'post_name'    => $postarr['post_name'] ?? '',
+			],
+			$postarr
+		);
+		return $id;
+	}
+}
+
+if ( ! function_exists( 'wp_update_post' ) ) {
+	/**
+	 * @param array<string, mixed> $postarr
+	 * @return int|\WP_Error
+	 */
+	function wp_update_post( array $postarr, bool $wp_error = false ): int|\WP_Error {
+		if ( null !== $GLOBALS['stonewright_test_wp_update_post_return'] ) {
+			$ret = $GLOBALS['stonewright_test_wp_update_post_return'];
+			$GLOBALS['stonewright_test_wp_update_post_return'] = null;
+			return $ret;
+		}
+		$id = (int) ( $postarr['ID'] ?? 0 );
+		if ( isset( $GLOBALS['stonewright_test_posts'][ $id ] ) ) {
+			foreach ( $postarr as $k => $v ) {
+				$GLOBALS['stonewright_test_posts'][ $id ]->{ $k } = $v;
+			}
+		}
+		return $id;
+	}
+}
+
+if ( ! function_exists( 'post_type_supports' ) ) {
+	function post_type_supports( string $post_type, string $feature ): bool {
+		return false;
+	}
+}
+
+if ( ! function_exists( 'wp_delete_post' ) ) {
+	/**
+	 * @return \WP_Post|false|null
+	 */
+	function wp_delete_post( int $post_id, bool $force_delete = false ): mixed {
+		$post = $GLOBALS['stonewright_test_posts'][ $post_id ] ?? null;
+		if ( null === $post ) {
+			return false;
+		}
+		$GLOBALS['stonewright_test_deleted_posts'][] = [
+			'post_id' => $post_id,
+			'force'   => $force_delete,
+		];
+		if ( $force_delete ) {
+			unset( $GLOBALS['stonewright_test_posts'][ $post_id ] );
+		} else {
+			$GLOBALS['stonewright_test_posts'][ $post_id ]->post_status = 'trash';
+		}
+		return $post;
+	}
+}
+
+if ( ! function_exists( 'get_the_title' ) ) {
+	function get_the_title( int|object $post = 0 ): string {
+		if ( is_object( $post ) ) {
+			return (string) ( $post->post_title ?? '' );
+		}
+		$record = $GLOBALS['stonewright_test_posts'][ (int) $post ] ?? null;
+		return null === $record ? '' : (string) ( $record->post_title ?? '' );
+	}
+}
+
+if ( ! function_exists( 'wp_save_post_revision' ) ) {
+	function wp_save_post_revision( int $post_id ): int|\WP_Error|null {
+		return 9001;
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Minimal sanitize_key / wp_kses_post / wp_set_post_categories / etc.
+// ---------------------------------------------------------------------------
+if ( ! function_exists( 'sanitize_key' ) ) {
+	function sanitize_key( string $key ): string {
+		return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( $key ) ) ?? '';
+	}
+}
+
+if ( ! function_exists( 'wp_kses_post' ) ) {
+	function wp_kses_post( string $content ): string {
+		return $content;
+	}
+}
+
+if ( ! function_exists( 'wp_slash' ) ) {
+	function wp_slash( mixed $value ): mixed {
+		return is_string( $value ) ? addslashes( $value ) : $value;
+	}
+}
+
+if ( ! function_exists( 'clean_post_cache' ) ) {
+	function clean_post_cache( int|object $post ): void {
+	}
+}
+
+if ( ! function_exists( 'did_action' ) ) {
+	function did_action( string $hook_name ): int {
+		if ( 'elementor/loaded' === $hook_name ) {
+			return 1;
+		}
+		return 0;
+	}
+}
+
+if ( ! function_exists( 'wp_set_post_categories' ) ) {
+	function wp_set_post_categories( int $post_id, array $post_categories = [], bool $append = false ): array|bool {
+		return $post_categories;
+	}
+}
+
+if ( ! function_exists( 'wp_set_post_tags' ) ) {
+	function wp_set_post_tags( int $post_id, array|string $tags = [], bool $append = false ): array|bool|null {
+		return [];
+	}
+}
+
+if ( ! function_exists( 'wp_set_object_terms' ) ) {
+	function wp_set_object_terms( int $object_id, string|int|array $terms, string $taxonomy, bool $append = false ): array|\WP_Error {
+		return (array) $terms;
+	}
+}
+
+if ( ! function_exists( 'get_edit_post_link' ) ) {
+	function get_edit_post_link( int $id = 0, string $context = 'display' ): ?string {
+		return 'https://example.test/wp-admin/post.php?post=' . $id . '&action=edit';
+	}
+}
+
+if ( ! function_exists( 'get_preview_post_link' ) ) {
+	function get_preview_post_link( int|object|null $post = null, array $query_args = [], string $preview_link = '' ): string {
+		$id = is_object( $post ) ? (int) $post->ID : (int) $post;
+		return 'https://example.test/?p=' . $id . '&preview=true';
+	}
+}
+
+if ( ! function_exists( 'get_post_status' ) ) {
+	function get_post_status( int|object $post ): string|false {
+		$id = is_object( $post ) ? (int) $post->ID : (int) $post;
+		return $GLOBALS['stonewright_test_posts'][ $id ]->post_status ?? 'draft';
+	}
+}
+
+if ( ! function_exists( 'get_post_type' ) ) {
+	function get_post_type( int|object|null $post = null ): string|false {
+		$id = is_object( $post ) ? (int) $post->ID : (int) $post;
+		return $GLOBALS['stonewright_test_posts'][ $id ]->post_type ?? false;
+	}
+}
+
+if ( ! function_exists( 'get_permalink' ) ) {
+	function get_permalink( int|object $post = 0, bool $leavename = false ): string|false {
+		$id = is_object( $post ) ? (int) $post->ID : (int) $post;
+		return 'https://example.test/?p=' . $id;
+	}
+}
+
+if ( ! function_exists( 'wp_strip_all_tags' ) ) {
+	function wp_strip_all_tags( string $text, bool $remove_breaks = false ): string {
+		$text = preg_replace( '@<(script|style)[^>]*?>.*?</\\1>@si', '', $text ) ?? $text;
+		$text = strip_tags( $text );
+		if ( $remove_breaks ) {
+			$text = preg_replace( '/[\\r\\n\\t ]+/', ' ', $text ) ?? $text;
+		}
+		return trim( $text );
+	}
+}
+
+if ( ! function_exists( 'sanitize_title' ) ) {
+	function sanitize_title( string $title, string $fallback_title = '', string $context = 'save' ): string {
+		// Mirrors the part of sanitize_title_with_dashes() the plugin relies on:
+		// whitespace becomes a single dash instead of disappearing.
+		$slug = strtolower( trim( $title ) );
+		$slug = (string) preg_replace( '/[^a-z0-9_\s-]/', '', $slug );
+		$slug = (string) preg_replace( '/[\s-]+/', '-', $slug );
+		$slug = trim( $slug, '-' );
+
+		return '' === $slug ? sanitize_key( $fallback_title ) : $slug;
+	}
+}
+
+if ( ! function_exists( 'maybe_unserialize' ) ) {
+	function maybe_unserialize( mixed $data ): mixed {
+		if ( is_string( $data ) && str_starts_with( $data, 'a:' ) ) {
+			return @unserialize( $data );
+		}
+		return $data;
+	}
+}
+
+if ( ! function_exists( 'wp_parse_url' ) ) {
+	function wp_parse_url( string $url, int $component = -1 ): mixed {
+		return parse_url( $url, $component );
+	}
+}
+
+if ( ! function_exists( 'wp_upload_dir' ) ) {
+	function wp_upload_dir(): array {
+		$base = WP_CONTENT_DIR . '/uploads';
+		wp_mkdir_p( $base );
+		return [
+			'basedir' => $base,
+			'baseurl' => 'https://example.test/wp-content/uploads',
+		];
+	}
+}
+
+if ( ! function_exists( 'trailingslashit' ) ) {
+	function trailingslashit( string $path ): string {
+		return rtrim( $path, '/\\' ) . '/';
+	}
+}
+
+if ( ! function_exists( 'download_url' ) ) {
+	function download_url( string $url, int $timeout = 300, bool $signature_verification = false ): string|\WP_Error {
+		if ( isset( $GLOBALS['stonewright_test_download_url'] ) && is_callable( $GLOBALS['stonewright_test_download_url'] ) ) {
+			return ( $GLOBALS['stonewright_test_download_url'] )( $url, $timeout, $signature_verification );
+		}
+
+		$path = tempnam( sys_get_temp_dir(), 'stonewright-download-' );
+		if ( false === $path ) {
+			return new \WP_Error( 'download_failed', 'Could not create temp file.' );
+		}
+		file_put_contents( $path, 'test' );
+		return $path;
+	}
+}
+
+if ( ! function_exists( 'media_handle_sideload' ) ) {
+	function media_handle_sideload( array $file_array, int $post_id = 0, string $desc = '', array $post_data = [] ): int|\WP_Error {
+		if ( isset( $GLOBALS['stonewright_test_media_handle_sideload'] ) && is_callable( $GLOBALS['stonewright_test_media_handle_sideload'] ) ) {
+			return ( $GLOBALS['stonewright_test_media_handle_sideload'] )( $file_array, $post_id, $desc, $post_data );
+		}
+
+		$id = (int) $GLOBALS['stonewright_test_next_post_id']++;
+		$GLOBALS['stonewright_test_posts'][ $id ] = (object) [
+			'ID'             => $id,
+			'post_type'      => 'attachment',
+			'post_status'    => 'inherit',
+			'post_title'     => $file_array['name'] ?? 'attachment',
+			'post_content'   => '',
+			'post_excerpt'   => '',
+			'post_parent'    => $post_id,
+			'post_name'      => sanitize_title( (string) ( $file_array['name'] ?? 'attachment' ) ),
+			'post_mime_type' => 'text/plain',
+			'meta'           => [],
+		];
+		return $id;
+	}
+}
+
+
+if ( ! function_exists( 'media_sideload_image' ) ) {
+	/**
+	 * @return int|string|\WP_Error
+	 */
+	function media_sideload_image( string $file, int $post_id = 0, string $desc = '', string $return_type = 'html' ) {
+		if ( isset( $GLOBALS['stonewright_test_media_sideload_image'] ) && is_callable( $GLOBALS['stonewright_test_media_sideload_image'] ) ) {
+			return ( $GLOBALS['stonewright_test_media_sideload_image'] )( $file, $post_id, $desc, $return_type );
+		}
+		$id = media_handle_sideload(
+			[
+				'name'     => basename( (string) ( wp_parse_url( $file, PHP_URL_PATH ) ?: 'image.jpg' ) ),
+				'tmp_name' => $file,
+			],
+			$post_id,
+			$desc
+		);
+		if ( is_wp_error( $id ) ) {
+			return $id;
+		}
+		if ( 'id' === $return_type ) {
+			return (int) $id;
+		}
+		if ( 'src' === $return_type ) {
+			return (string) wp_get_attachment_url( (int) $id );
+		}
+		return '<img src="' . esc_url( (string) wp_get_attachment_url( (int) $id ) ) . '" alt="" />';
+	}
+}
+
+if ( ! function_exists( 'wp_get_attachment_url' ) ) {
+	function wp_get_attachment_url( int $attachment_id ): string|false {
+		return 'https://example.test/wp-content/uploads/attachment-' . $attachment_id . '.txt';
+	}
+}
+
+if ( ! function_exists( 'get_post_mime_type' ) ) {
+	function get_post_mime_type( int|object $post ): string|false {
+		$id = is_object( $post ) ? (int) $post->ID : (int) $post;
+		return $GLOBALS['stonewright_test_posts'][ $id ]->post_mime_type ?? 'text/plain';
+	}
+}
+
+if ( ! function_exists( 'wp_get_attachment_metadata' ) ) {
+	function wp_get_attachment_metadata( int $attachment_id, bool $unfiltered = false ): array|false {
+		return [];
+	}
+}
+
+if ( ! function_exists( 'get_attached_file' ) ) {
+	function get_attached_file( int $attachment_id, bool $unfiltered = false ): string|false {
+		$path = WP_CONTENT_DIR . '/uploads/attachment-' . $attachment_id . '.txt';
+		wp_mkdir_p( dirname( $path ) );
+		file_put_contents( $path, 'test' );
+		return $path;
+	}
+}
+
+if ( ! function_exists( 'wp_generate_attachment_metadata' ) ) {
+	function wp_generate_attachment_metadata( int $attachment_id, string $file ): array {
+		return [ 'file' => basename( $file ) ];
+	}
+}
+
+if ( ! function_exists( 'wp_update_attachment_metadata' ) ) {
+	function wp_update_attachment_metadata( int $attachment_id, array $data ): bool {
+		return true;
+	}
+}
+
+if ( ! function_exists( 'parse_blocks' ) ) {
+	function parse_blocks( string $content ): array {
+		return [
+			[
+				'blockName'    => 'core/paragraph',
+				'attrs'        => [],
+				'innerHTML'    => $content,
+				'innerContent' => [ $content ],
+				'innerBlocks'  => [],
+			],
+		];
+	}
+}
+
+if ( ! function_exists( 'serialize_blocks' ) ) {
+	function serialize_blocks( array $blocks ): string {
+		return implode( '', array_map( 'serialize_block', $blocks ) );
+	}
+}
+
+if ( ! function_exists( 'serialize_block' ) ) {
+	/**
+	 * Minimal serialize_block stub: produces WordPress block comment delimiters.
+	 *
+	 * @param array<string, mixed> $block
+	 */
+	function serialize_block( array $block ): string {
+		$name        = (string) ( $block['blockName'] ?? '' );
+		$attrs       = $block['attrs'] ?? [];
+		$inner_blocks = $block['innerBlocks'] ?? [];
+		$inner_html   = (string) ( $block['innerHTML'] ?? '' );
+
+		if ( '' === $name ) {
+			return $inner_html;
+		}
+
+		$attrs_json = ! empty( $attrs ) ? ' ' . (string) json_encode( $attrs ) : '';
+
+		if ( empty( $inner_blocks ) ) {
+			return '<!-- wp:' . $name . $attrs_json . ' -->' . $inner_html . '<!-- /wp:' . $name . ' -->';
+		}
+
+		// Build from innerContent: null entries are replaced by serialized inner blocks.
+		$inner_content = $block['innerContent'] ?? [ $inner_html ];
+		$block_idx     = 0;
+		$out           = '';
+		foreach ( $inner_content as $piece ) {
+			if ( null === $piece ) {
+				if ( isset( $inner_blocks[ $block_idx ] ) ) {
+					$out .= serialize_block( $inner_blocks[ $block_idx ] );
+					$block_idx++;
+				}
+			} else {
+				$out .= (string) $piece;
+			}
+		}
+
+		return '<!-- wp:' . $name . $attrs_json . ' -->' . $out . '<!-- /wp:' . $name . ' -->';
+	}
+}
+
+if ( ! function_exists( 'get_posts' ) ) {
+	function get_posts( array $args = [] ): array {
+		$posts = array_values( $GLOBALS['stonewright_test_posts'] ?? [] );
+
+		if ( isset( $args['post_type'] ) ) {
+			$post_types = (array) $args['post_type'];
+			$posts      = array_values(
+				array_filter(
+					$posts,
+					static fn( object $post ): bool => in_array( (string) ( $post->post_type ?? '' ), $post_types, true )
+				)
+			);
+		}
+
+		if ( isset( $args['post_status'] ) ) {
+			$statuses = (array) $args['post_status'];
+			$posts    = array_values(
+				array_filter(
+					$posts,
+					static fn( object $post ): bool => in_array( (string) ( $post->post_status ?? '' ), $statuses, true )
+				)
+			);
+		}
+
+		if ( isset( $args['post_mime_type'] ) && null !== $args['post_mime_type'] && '' !== $args['post_mime_type'] ) {
+			$mime_filter = (string) $args['post_mime_type'];
+			$posts       = array_values(
+				array_filter(
+					$posts,
+					static function ( object $post ) use ( $mime_filter ): bool {
+						$mime = (string) ( $post->post_mime_type ?? '' );
+						if ( str_ends_with( $mime_filter, '/*' ) ) {
+							return str_starts_with( $mime, rtrim( $mime_filter, '*' ) );
+						}
+						if ( ! str_contains( $mime_filter, '/' ) ) {
+							return str_starts_with( $mime, $mime_filter . '/' );
+						}
+						return $mime === $mime_filter;
+					}
+				)
+			);
+		}
+
+		usort(
+			$posts,
+			static fn( object $a, object $b ): int => ( (int) ( $b->ID ?? 0 ) <=> (int) ( $a->ID ?? 0 ) )
+		);
+
+		$offset = isset( $args['offset'] ) ? max( 0, (int) $args['offset'] ) : 0;
+		$limit  = isset( $args['posts_per_page'] ) ? (int) $args['posts_per_page'] : -1;
+		if ( $limit >= 0 ) {
+			$posts = array_slice( $posts, $offset, $limit );
+		} elseif ( $offset > 0 ) {
+			$posts = array_slice( $posts, $offset );
+		}
+
+		return $posts;
+	}
+}
+
+if ( ! function_exists( 'get_block_template' ) ) {
+	function get_block_template( string $id, string $template_type = 'wp_template' ): object|null {
+		return (object) [
+			'id'      => $id,
+			'wp_id'   => 1,
+			'type'    => $template_type,
+			'slug'    => 'contract',
+			'theme'   => 'stonewright-theme',
+			'content' => '<!-- wp:paragraph --><p>Template</p><!-- /wp:paragraph -->',
+		];
+	}
+}
+
+if ( ! function_exists( 'get_block_templates' ) ) {
+	function get_block_templates( array $query = [], string $template_type = 'wp_template' ): array {
+		return [];
+	}
+}
+
+if ( ! function_exists( 'wp_safe_remote_post' ) ) {
+	function wp_safe_remote_post( string $url, array $args = [] ): array|\WP_Error {
+		$path = (string) parse_url( $url, PHP_URL_PATH );
+		$GLOBALS['stonewright_test_companion_requests'] ??= [];
+		$GLOBALS['stonewright_test_companion_requests'][] = [
+			'path'    => $path,
+			'url'     => $url,
+			'body'    => isset( $args['body'] ) && is_string( $args['body'] )
+				? ( json_decode( $args['body'], true ) ?: [] )
+				: [],
+			'headers' => (array) ( $args['headers'] ?? [] ),
+		];
+
+		// Per-test overrides: $GLOBALS['stonewright_test_companion_responses'][ $path ]
+		// A null value falls through to defaults; a WP_Error is returned directly so
+		// callers can exercise the is_wp_error($response) propagation path.
+		$overrides = $GLOBALS['stonewright_test_companion_responses'] ?? [];
+		if ( array_key_exists( $path, $overrides ) && $overrides[ $path ] !== null ) {
+			$override = $overrides[ $path ];
+			if ( $override instanceof \WP_Error ) {
+				return $override;
+			}
+			return [
+				'response' => [ 'code' => 200 ],
+				'body'     => wp_json_encode( $override ),
+			];
+		}
+
+		$body = match ( $path ) {
+			'/health' => [
+				'status'           => 'ok',
+				'contract_version' => '1.0.0',
+			],
+			'/wp-cli/status' => [
+				'ok'          => true,
+				'available'   => true,
+				'command'     => [ 'wp', 'cli', 'info', '--format=json' ],
+				'cwd'         => 'D:/Sites/site',
+				'stdout'      => '{"wp_cli_version":"2.12.0"}',
+				'stderr'      => '',
+				'exit_code'   => 0,
+				'duration_ms' => 1,
+			],
+			'/wp-cli/discover' => [
+				'ok'          => true,
+				'available'   => true,
+				'command'     => [ 'wp', 'cli', 'cmd-dump' ],
+				'cwd'         => 'D:/Sites/site',
+				'stdout'      => '{"name":"wp"}',
+				'stderr'      => '',
+				'exit_code'   => 0,
+				'duration_ms' => 1,
+				'parsed_json' => [ 'name' => 'wp' ],
+			],
+			'/wp-cli/run' => [
+				'ok'          => true,
+				'available'   => true,
+				'command'     => [ 'wp', 'post', 'list' ],
+				'cwd'         => 'D:/Sites/site',
+				'stdout'      => '[]',
+				'stderr'      => '',
+				'exit_code'   => 0,
+				'duration_ms' => 1,
+			],
+			'/wp-cli/batch' => [
+				'ok'        => true,
+				'count'     => 2,
+				'succeeded' => 2,
+				'failed'    => 0,
+				'stopped'   => false,
+				'results'   => [
+					[
+						'ok'           => true,
+						'available'    => true,
+						'exit_code'    => 0,
+						'duration_ms'  => 1,
+						'stdout_bytes' => 0,
+						'stderr_bytes' => 0,
+					],
+				],
+			],
+			'/wp-cli/job-start' => [
+				'ok'            => true,
+				'job_id'        => 'wpcli_fixture',
+				'status'        => 'running',
+				'kind'          => 'batch',
+				'command_count' => 2,
+				'started_at'    => '2026-06-16T20:00:00.000Z',
+				'completed_at'  => null,
+				'duration_ms'   => 1,
+				'result'        => null,
+			],
+			'/wp-cli/job-status' => [
+				'ok'            => true,
+				'job_id'        => 'wpcli_fixture',
+				'status'        => 'succeeded',
+				'kind'          => 'batch',
+				'command_count' => 2,
+				'started_at'    => '2026-06-16T20:00:00.000Z',
+				'completed_at'  => '2026-06-16T20:00:01.000Z',
+				'duration_ms'   => 1000,
+				'result'        => [ 'ok' => true ],
+			],
+			default => [
+				'ok'     => true,
+				'issues' => [],
+			],
+		};
+		// Use json_encode (not wp_json_encode) so the test's global stub override
+		// for wp_json_encode is not consumed here when tests inject false.
+		return [
+			'response' => [ 'code' => 200 ],
+			'body'     => (string) json_encode( $body ),
+		];
+	}
+}
+
+if ( ! function_exists( 'wp_remote_get' ) ) {
+	function wp_remote_get( string $url, array $args = [] ): array|\WP_Error {
+		$GLOBALS['stonewright_test_wp_remote_get_calls'][] = [ 'url' => $url, 'args' => $args ];
+
+		$override = $GLOBALS['stonewright_test_wp_remote_get'] ?? null;
+		if ( is_callable( $override ) ) {
+			return $override( $url, $args );
+		}
+		if ( is_array( $override ) || $override instanceof \WP_Error ) {
+			return $override;
+		}
+
+		return [
+			'response' => [ 'code' => 200 ],
+			'body'     => wp_json_encode(
+				[
+					'nodes' => [
+						'1:2' => [
+							'document' => [
+								'id'       => '1:2',
+								'name'     => 'Contract Frame',
+								'type'     => 'FRAME',
+								'children' => [
+									[
+										'id'         => '1:3',
+										'name'       => 'Heading',
+										'type'       => 'TEXT',
+										'characters' => 'Hello',
+									],
+								],
+							],
+						],
+					],
+				]
+			),
+		];
+	}
+}
+
+if ( ! function_exists( 'plugin_basename' ) ) {
+	function plugin_basename( string $file ): string {
+		$file = str_replace( '\\', '/', $file );
+		if ( defined( 'STONEWRIGHT_DIR' ) ) {
+			$base = rtrim( str_replace( '\\', '/', (string) STONEWRIGHT_DIR ), '/' );
+			if ( str_starts_with( $file, $base . '/' ) ) {
+				return 'stonewright/' . ltrim( substr( $file, strlen( $base ) ), '/' );
+			}
+		}
+		return basename( dirname( $file ) ) . '/' . basename( $file );
+	}
+}
+
+if ( ! function_exists( 'wp_nonce_url' ) ) {
+	function wp_nonce_url( string $actionurl, int|string $action = -1, string $name = '_wpnonce' ): string {
+		$nonce = wp_create_nonce( (string) $action );
+		$sep   = str_contains( $actionurl, '?' ) ? '&' : '?';
+		return $actionurl . $sep . rawurlencode( $name ) . '=' . rawurlencode( $nonce );
+	}
+}
+
+if ( ! function_exists( 'nocache_headers' ) ) {
+	function nocache_headers(): void {
+		$GLOBALS['stonewright_test_nocache_headers'] = true;
+	}
+}
+
+if ( ! function_exists( 'wp_delete_file' ) ) {
+	function wp_delete_file( string $file ): void {
+		if ( is_file( $file ) ) {
+			@unlink( $file );
+		}
+	}
+}
+
+if ( ! function_exists( 'is_admin_bar_showing' ) ) {
+	function is_admin_bar_showing(): bool {
+		return (bool) ( $GLOBALS['stonewright_test_admin_bar_showing'] ?? true );
+	}
+}
+
+if ( ! function_exists( 'get_site_url' ) ) {
+	function get_site_url( ?int $blog_id = null, string $path = '', ?string $scheme = null ): string {
+		$base = $GLOBALS['stonewright_test_site_url'] ?? 'https://example.test';
+		return rtrim( $base, '/' ) . '/' . ltrim( $path, '/' );
+	}
+}
+
+if ( ! class_exists( 'WP_Admin_Bar' ) ) {
+	class WP_Admin_Bar {
+		/** @var array<string, array<string, mixed>> */
+		public array $nodes = [];
+
+		/**
+		 * @param array<string, mixed> $node
+		 */
+		public function add_node( array $node ): void {
+			$id = (string) ( $node['id'] ?? '' );
+			if ( '' !== $id ) {
+				$this->nodes[ $id ] = $node;
+			}
+		}
+	}
+}
+
+if ( ! function_exists( 'wp_remote_retrieve_response_code' ) ) {
+	function wp_remote_retrieve_response_code( array|\WP_Error $response ): int {
+		return is_array( $response ) ? (int) ( $response['response']['code'] ?? 0 ) : 0;
+	}
+}
+
+if ( ! function_exists( 'wp_remote_retrieve_body' ) ) {
+	function wp_remote_retrieve_body( array|\WP_Error $response ): string {
+		return is_array( $response ) ? (string) ( $response['body'] ?? '' ) : '';
+	}
+}
+
+if ( ! function_exists( 'wp_remote_retrieve_header' ) ) {
+	function wp_remote_retrieve_header( array|\WP_Error $response, string $header ): string|array {
+		if ( ! is_array( $response ) ) {
+			return '';
+		}
+		$headers = $response['headers'] ?? [];
+		if ( is_array( $headers ) ) {
+			return $headers[ strtolower( $header ) ] ?? '';
+		}
+		return '';
+	}
+}
+
+if ( ! function_exists( 'wp_tempnam' ) ) {
+	function wp_tempnam( string $filename = '' ): string {
+		$tmp = sys_get_temp_dir() . '/stonewright-test-tmp-' . md5( $filename . uniqid() );
+		return $tmp;
+	}
+}
+
+if ( ! function_exists( 'gethostbyname' ) ) {
+	// gethostbyname is a PHP built-in; don't redeclare, but we stub it in test
+	// using $GLOBALS['stonewright_test_gethostbyname'] override via test-helper closures.
+}
+
+// Allow tests to override wp_safe_remote_get (distinct from wp_safe_remote_post).
+if ( ! function_exists( 'wp_safe_remote_get' ) ) {
+	function wp_safe_remote_get( string $url, array $args = [] ): array|\WP_Error {
+		$path = (string) parse_url( $url, PHP_URL_PATH );
+
+		$overrides = $GLOBALS['stonewright_test_companion_responses'] ?? [];
+		if ( array_key_exists( $path, $overrides ) && $overrides[ $path ] !== null ) {
+			return $overrides[ $path ];
+		}
+
+		// Per-URL override for asset sideloading tests.
+		$asset_overrides = $GLOBALS['stonewright_test_asset_responses'] ?? [];
+		if ( array_key_exists( $url, $asset_overrides ) ) {
+			return $asset_overrides[ $url ];
+		}
+
+		// Default: return a successful image response.
+		return [
+			'response' => [ 'code' => 200 ],
+			'headers'  => [ 'content-type' => 'image/png' ],
+			'body'     => str_repeat( 'x', 100 ),
+		];
+	}
+}
+
+if ( ! class_exists( 'WP_Site_Health' ) ) {
+	class WP_Site_Health {
+		public static function get_instance(): self {
+			return new self();
+		}
+
+		public function get_tests(): array {
+			return [
+				'direct' => [
+					'test' => [
+						'test' => static fn(): array => [
+							'status' => 'good',
+							'label'  => 'Test health',
+						],
+					],
+				],
+			];
+		}
+	}
+}
+
+if ( ! class_exists( 'WP_Block_Type_Registry' ) ) {
+	class WP_Block_Type_Registry {
+		public static function get_instance(): self {
+			return new self();
+		}
+
+		public function get_all_registered(): array {
+			if ( isset( $GLOBALS['stonewright_test_registered_blocks'] ) && is_array( $GLOBALS['stonewright_test_registered_blocks'] ) ) {
+				return $GLOBALS['stonewright_test_registered_blocks'];
+			}
+
+			return [
+				'core/paragraph' => (object) [
+					'title'       => 'Paragraph',
+					'category'    => 'text',
+					'description' => '',
+					'icon'        => 'editor-paragraph',
+					'supports'    => [],
+				],
+			];
+		}
+
+		public function get_registered( string $name ): ?object {
+			return $this->get_all_registered()[ $name ] ?? null;
+		}
+	}
+}
+
+if ( ! class_exists( 'WP_Block_Patterns_Registry' ) ) {
+	class WP_Block_Patterns_Registry {
+		public static function get_instance(): self {
+			return new self();
+		}
+
+		public function get_all_registered(): array {
+			return [];
+		}
+	}
+}
+
+if ( ! function_exists( 'add_action' ) ) {
+	/**
+	 * WordPress add_action stub — records hooks so tests can inspect them.
+	 * In WP core, add_action is an alias for add_filter.
+	 */
+	function add_action( string $hook_name, callable|array|string $callback, int $priority = 10, int $accepted_args = 1 ): bool {
+		$GLOBALS['stonewright_test_actions'][ $hook_name ][] = [
+			'callback' => $callback,
+			'priority' => $priority,
+			'args'     => $accepted_args,
+		];
+		return true;
+	}
+}
+
+if ( ! function_exists( 'do_action' ) ) {
+	function do_action( string $hook_name, mixed ...$args ): void {
+		$callbacks = $GLOBALS['stonewright_test_actions'][ $hook_name ] ?? [];
+		usort( $callbacks, static fn( array $a, array $b ): int => (int) $a['priority'] <=> (int) $b['priority'] );
+		foreach ( $callbacks as $registered ) {
+			$accepted = max( 0, (int) ( $registered['args'] ?? 1 ) );
+			call_user_func_array( $registered['callback'], array_slice( $args, 0, $accepted ) );
+		}
+	}
+}
+
+if ( ! function_exists( 'remove_all_actions' ) ) {
+	function remove_all_actions( string $hook_name ): bool {
+		unset( $GLOBALS['stonewright_test_actions'][ $hook_name ] );
+		return true;
+	}
+}
+
+$GLOBALS['stonewright_test_actions'] ??= [];
+
+if ( ! function_exists( 'add_menu_page' ) ) {
+	function add_menu_page(
+		string $page_title,
+		string $menu_title,
+		string $capability,
+		string $menu_slug,
+		callable|string $callback = '',
+		string $icon_url = '',
+		?int $position = null
+	): string {
+		$GLOBALS['stonewright_test_menu_pages'][ $menu_slug ] = [
+			'page_title' => $page_title,
+			'menu_title' => $menu_title,
+			'capability' => $capability,
+			'callback'   => $callback,
+		];
+		return 'toplevel_page_' . $menu_slug;
+	}
+}
+
+$GLOBALS['stonewright_test_menu_pages']    ??= [];
+$GLOBALS['stonewright_test_submenu_pages'] ??= [];
+
+if ( ! function_exists( 'add_submenu_page' ) ) {
+	function add_submenu_page(
+		string $parent_slug,
+		string $page_title,
+		string $menu_title,
+		string $capability,
+		string $menu_slug,
+		callable|string $callback = '',
+		int $position = 0
+	): string|false {
+		$GLOBALS['stonewright_test_submenu_pages'][ $menu_slug ] = [
+			'parent'     => $parent_slug,
+			'page_title' => $page_title,
+			'capability' => $capability,
+			'callback'   => $callback,
+		];
+		return 'stonewright_page_' . $menu_slug;
+	}
+}
+
+if ( ! function_exists( 'register_rest_route' ) ) {
+	function register_rest_route( string $namespace, string $route, array $args = [], bool $override = false ): bool {
+		$GLOBALS['stonewright_test_rest_routes'][] = [
+			'namespace' => $namespace,
+			'route'     => $route,
+			'args'      => $args,
+		];
+		return true;
+	}
+}
+
+$GLOBALS['stonewright_test_rest_routes'] ??= [];
+
+if ( ! function_exists( 'rest_ensure_response' ) ) {
+	function rest_ensure_response( mixed $data ): \WP_REST_Response|\WP_Error {
+		if ( $data instanceof \WP_Error ) {
+			return $data;
+		}
+		if ( $data instanceof \WP_REST_Response ) {
+			return $data;
+		}
+		return new \WP_REST_Response( $data );
+	}
+}
+
+if ( ! function_exists( 'rest_validate_value_from_schema' ) ) {
+	function rest_validate_value_from_schema( mixed $value, mixed $args, string $param = '' ): bool|\WP_Error {
+		if ( $args instanceof \stdClass ) {
+			throw new \Error( 'Cannot use object of type stdClass as array' );
+		}
+
+		if ( ! is_array( $args ) || [] === $args ) {
+			return true;
+		}
+
+		$type = $args['type'] ?? null;
+		if ( 'array' === $type && is_array( $value ) && array_key_exists( 'items', $args ) ) {
+			foreach ( $value as $item ) {
+				$valid = rest_validate_value_from_schema( $item, $args['items'], $param . '[]' );
+				if ( $valid instanceof \WP_Error ) {
+					return $valid;
+				}
+			}
+		}
+
+		if ( 'object' === $type && ( is_array( $value ) || is_object( $value ) ) && isset( $args['properties'] ) && is_array( $args['properties'] ) ) {
+			foreach ( (array) $value as $property => $item ) {
+				if ( ! array_key_exists( (string) $property, $args['properties'] ) ) {
+					continue;
+				}
+				$valid = rest_validate_value_from_schema( $item, $args['properties'][ (string) $property ], $param . '[' . (string) $property . ']' );
+				if ( $valid instanceof \WP_Error ) {
+					return $valid;
+				}
+			}
+		}
+
+		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_die' ) ) {
+	function wp_die( string $message = '', string $title = '', array|int $args = [] ): never {
+		throw new \RuntimeException( "wp_die: {$message}" );
+	}
+}
+
+if ( ! function_exists( 'wp_nonce_field' ) ) {
+	function wp_nonce_field( string $action = '', string $name = '_wpnonce', bool $referer = true, bool $echo = true ): string {
+		$html = '<input type="hidden" name="' . esc_attr( $name ) . '" value="test-nonce-' . esc_attr( $action ) . '" />';
+		if ( $echo ) {
+			echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		}
+		return $html;
+	}
+}
+
+if ( ! function_exists( 'wp_verify_nonce' ) ) {
+	function wp_verify_nonce( string $nonce, string|int $action = -1 ): int|false {
+		// In tests, treat any non-empty nonce as valid for happy-path tests.
+		// Tests that need to test nonce failure should override this.
+		if ( isset( $GLOBALS['stonewright_test_nonce_invalid'] ) && $GLOBALS['stonewright_test_nonce_invalid'] ) {
+			return false;
+		}
+		return '' !== $nonce ? 1 : false;
+	}
+}
+
+if ( ! function_exists( 'wp_create_nonce' ) ) {
+	function wp_create_nonce( string $action = '' ): string {
+		return 'test-nonce-' . md5( $action );
+	}
+}
+
+if ( ! function_exists( 'check_admin_referer' ) ) {
+	function check_admin_referer( string $action = '', string $query_arg = '' ): int|false {
+		return 1;
+	}
+}
+
+if ( ! function_exists( 'wp_safe_redirect' ) ) {
+	function wp_safe_redirect( string $location, int $status = 302, string $x_redirect_by = 'WordPress' ): bool {
+		$GLOBALS['stonewright_test_last_redirect'] = $location;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_unslash' ) ) {
+	function wp_unslash( mixed $value ): mixed {
+		if ( is_string( $value ) ) {
+			return stripslashes( $value );
+		}
+		if ( is_array( $value ) ) {
+			return array_map( 'wp_unslash', $value );
+		}
+		return $value;
+	}
+}
+
+if ( ! function_exists( 'wp_date' ) ) {
+	function wp_date( string $format, ?int $timestamp = null ): string|false {
+		$ts = $timestamp ?? time();
+		return gmdate( $format, $ts );
+	}
+}
+
+$GLOBALS['stonewright_test_scheduled_hooks'] ??= [];
+
+if ( ! function_exists( 'wp_next_scheduled' ) ) {
+	function wp_next_scheduled( string $hook, array $args = [] ): int|false {
+		unset( $args );
+		return $GLOBALS['stonewright_test_scheduled_hooks'][ $hook ] ?? false;
+	}
+}
+
+if ( ! function_exists( 'wp_schedule_event' ) ) {
+	function wp_schedule_event( int $timestamp, string $recurrence, string $hook, array $args = [], bool $wp_error = false ): bool|\WP_Error {
+		unset( $recurrence, $args, $wp_error );
+		$GLOBALS['stonewright_test_scheduled_hooks'][ $hook ] = $timestamp;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_clear_scheduled_hook' ) ) {
+	function wp_clear_scheduled_hook( string $hook, array $args = [], bool $wp_error = false ): int|false|\WP_Error {
+		unset( $args, $wp_error );
+		$found = isset( $GLOBALS['stonewright_test_scheduled_hooks'][ $hook ] );
+		unset( $GLOBALS['stonewright_test_scheduled_hooks'][ $hook ] );
+		return $found ? 1 : 0;
+	}
+}
+
+if ( ! function_exists( 'size_format' ) ) {
+	function size_format( int $bytes, int $decimals = 0 ): string {
+		if ( $bytes >= 1048576 ) {
+			return round( $bytes / 1048576, $decimals ) . ' MB';
+		}
+		if ( $bytes >= 1024 ) {
+			return round( $bytes / 1024, $decimals ) . ' KB';
+		}
+		return $bytes . ' B';
+	}
+}
+
+if ( ! function_exists( 'add_query_arg' ) ) {
+	function add_query_arg( mixed $key, mixed $value = '', string $url = '' ): string {
+		if ( is_array( $key ) ) {
+			// Real WP: add_query_arg( array $args, string $url = '' )
+			// When called as add_query_arg( $arr, $url_string ), $url_string
+			// ends up in $value (2nd param). Detect and handle this.
+			$base = ( '' !== $url ) ? $url : ( is_string( $value ) ? $value : '' );
+			return $base . ( str_contains( $base, '?' ) ? '&' : '?' ) . http_build_query( $key );
+		}
+		return $url . ( str_contains( $url, '?' ) ? '&' : '?' ) . urlencode( (string) $key ) . '=' . urlencode( (string) $value );
+	}
+}
+
+if ( ! function_exists( 'wp_generate_password' ) ) {
+	function wp_generate_password( int $length = 12, bool $special_chars = true, bool $extra_special_chars = false ): string {
+		return bin2hex( random_bytes( (int) ceil( $length / 2 ) ) );
+	}
+}
+
+if ( ! function_exists( 'settings_fields' ) ) {
+	function settings_fields( string $option_group ): void {
+	}
+}
+
+if ( ! function_exists( 'do_settings_sections' ) ) {
+	function do_settings_sections( string $page ): void {
+	}
+}
+
+if ( ! function_exists( 'register_setting' ) ) {
+	function register_setting( string $option_group, string $option_name, array $args = [] ): void {
+		$GLOBALS['stonewright_test_registered_settings'][] = [
+			'group'  => $option_group,
+			'option' => $option_name,
+			'args'   => $args,
+		];
+	}
+}
+
+$GLOBALS['stonewright_test_registered_settings'] ??= [];
+
+if ( ! function_exists( 'esc_html__' ) ) {
+	function esc_html__( string $text, string $domain = 'default' ): string {
+		return htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' );
+	}
+}
+
+if ( ! function_exists( 'esc_attr_e' ) ) {
+	function esc_attr_e( string $text, string $domain = 'default' ): void {
+		echo htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+	}
+}
+
+if ( ! function_exists( 'esc_html_e' ) ) {
+	function esc_html_e( string $text, string $domain = 'default' ): void {
+		echo htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+	}
+}
+
+if ( ! class_exists( 'WP_REST_Server' ) ) {
+	class WP_REST_Server {
+		public const READABLE   = 'GET';
+		public const CREATABLE  = 'POST';
+		public const EDITABLE   = 'POST, PUT, PATCH';
+		public const DELETABLE  = 'DELETE';
+		public const ALLMETHODS = 'GET, POST, PUT, PATCH, DELETE';
+	}
+}
+
+if ( ! class_exists( 'WP_REST_Request' ) ) {
+	class WP_REST_Request {
+		private string $method = 'GET';
+
+		private string $route = '';
+
+		/** @var array<string, mixed> */
+		private array $params = [];
+
+		/** @var array<string, mixed> */
+		private array $json_params = [];
+
+		/** @var array<string, mixed> */
+		private array $body_params = [];
+
+		/** @var array<string, string> */
+		private array $headers = [];
+
+		/** @param array<string, mixed> $params */
+		public function __construct( string $method = 'GET', string $route = '', array $params = [] ) {
+			$this->method = $method;
+			$this->route  = $route;
+			$this->params = $params;
+		}
+
+		public function get_method(): string {
+			return $this->method;
+		}
+
+		public function get_route(): string {
+			return $this->route;
+		}
+
+		public function get_param( string $key ): mixed {
+			return $this->params[ $key ] ?? null;
+		}
+
+		/** @param array<string, mixed> $params */
+		public function set_params( array $params ): void {
+			$this->params = $params;
+		}
+
+		/** @return array<string, mixed> */
+		public function get_json_params(): array {
+			return $this->json_params;
+		}
+
+		/** @param array<string, mixed> $params */
+		public function set_json_params( array $params ): void {
+			$this->json_params = $params;
+		}
+
+		/** @return array<string, mixed> */
+		public function get_body_params(): array {
+			return $this->body_params;
+		}
+
+		/** @param array<string, mixed> $params */
+		public function set_body_params( array $params ): void {
+			$this->body_params = $params;
+			$this->params      = array_merge( $this->params, $params );
+		}
+
+		public function get_header( string $key ): ?string {
+			return $this->headers[ strtolower( $key ) ] ?? null;
+		}
+
+		public function set_header( string $key, string $value ): void {
+			$this->headers[ strtolower( $key ) ] = $value;
+		}
+
+		/** @return array<string, list<string>> */
+		public function get_headers(): array {
+			$headers = [];
+			foreach ( $this->headers as $name => $value ) {
+				$headers[ $name ] = [ $value ];
+			}
+			return $headers;
+		}
+
+		/** @return array<string, mixed> */
+		public function get_query_params(): array {
+			return $this->params;
+		}
+
+		public function get_body(): string {
+			return '';
+		}
+	}
+}
+
+if ( ! class_exists( 'WP_REST_Response' ) ) {
+	class WP_REST_Response {
+		/** @var array<string, string> */
+		private array $headers = [];
+
+		/** @param mixed $data */
+		public function __construct( private mixed $data = null, private int $status = 200 ) {}
+
+		public function get_data(): mixed {
+			return $this->data;
+		}
+
+		public function get_status(): int {
+			return $this->status;
+		}
+
+		public function header( string $key, string $value, bool $replace = true ): void {
+			unset( $replace );
+			$this->headers[ $key ] = $value;
+		}
+
+		/** @return array<string, string> */
+		public function get_headers(): array {
+			return $this->headers;
+		}
+	}
+}
+
+if ( ! function_exists( 'wp_enqueue_style' ) ) {
+	function wp_enqueue_style( string $handle, string $src = '', array $deps = [], mixed $ver = false, string $media = 'all' ): void {
+		$GLOBALS['stonewright_test_enqueued_styles'][] = $handle;
+	}
+}
+
+if ( ! function_exists( 'wp_enqueue_script' ) ) {
+	function wp_enqueue_script( string $handle, string $src = '', array $deps = [], mixed $ver = false, bool $in_footer = false ): void {
+		$GLOBALS['stonewright_test_enqueued_scripts'][] = $handle;
+	}
+}
+
+$GLOBALS['stonewright_test_enqueued_styles']  ??= [];
+$GLOBALS['stonewright_test_enqueued_scripts'] ??= [];
+
+if ( ! function_exists( 'get_rest_url' ) ) {
+	function get_rest_url( ?int $blog_id = null, string $path = '/' ): string {
+		return 'https://example.test/wp-json/' . ltrim( $path, '/' );
+	}
+}
+
+if ( ! function_exists( 'esc_js' ) ) {
+	function esc_js( string $text ): string {
+		return addslashes( $text );
+	}
+}
+
+if ( ! function_exists( 'checked' ) ) {
+	function checked( mixed $checked, mixed $current = true, bool $echo = true ): string {
+		$result = $checked == $current ? ' checked="checked"' : ''; // phpcs:ignore WordPress.PHP.StrictComparisons.LooseComparison
+		if ( $echo ) {
+			echo $result; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		}
+		return $result;
+	}
+}
+
+if ( ! function_exists( 'selected' ) ) {
+	function selected( mixed $selected, mixed $current = true, bool $echo = true ): string {
+		$result = $selected == $current ? ' selected="selected"' : ''; // phpcs:ignore WordPress.PHP.StrictComparisons.LooseComparison
+		if ( $echo ) {
+			echo $result; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		}
+		return $result;
+	}
+}
+
+if ( ! function_exists( 'submit_button' ) ) {
+	function submit_button( string $text = '', string $type = 'primary', string $name = '', bool $wrap = true, mixed $other_attributes = null ): void {
+		echo '<input type="submit" value="' . esc_attr( $text ) . '" />'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Nav menu stubs — backed by $GLOBALS['stonewright_test_nav_menus'] (a map of
+// term_id => stdClass{ term_id, name, slug, items: array }) and the theme-mod
+// store $GLOBALS['stonewright_test_theme_mods'] (map of mod_key => mixed).
+//
+// The shape mirrors what real WordPress returns: wp_get_nav_menus yields
+// term-like objects, wp_update_nav_menu_item returns the new item's post_id,
+// is_nav_menu checks the term_id exists, etc. The registered-locations side
+// is backed by $GLOBALS['stonewright_test_registered_nav_menus'] (slug =>
+// label) which tests can override before calling the assign-location ability.
+// ---------------------------------------------------------------------------
+$GLOBALS['stonewright_test_nav_menus']             ??= [];
+$GLOBALS['stonewright_test_theme_mods']            ??= [];
+$GLOBALS['stonewright_test_registered_nav_menus']  ??= [];
+$GLOBALS['stonewright_test_next_nav_menu_id']      ??= 9001;
+$GLOBALS['stonewright_test_next_nav_menu_item_id'] ??= 9101;
+
+if ( ! function_exists( 'wp_create_nav_menu' ) ) {
+	function wp_create_nav_menu( string $menu_name ): int|\WP_Error {
+		// Honour explicit overrides so tests can force the WP_Error path
+		// without crafting a duplicate menu first.
+		if ( isset( $GLOBALS['stonewright_test_wp_create_nav_menu_return'] ) ) {
+			$ret = $GLOBALS['stonewright_test_wp_create_nav_menu_return'];
+			$GLOBALS['stonewright_test_wp_create_nav_menu_return'] = null;
+			return $ret;
+		}
+		$trimmed = trim( $menu_name );
+		if ( '' === $trimmed ) {
+			return new \WP_Error( 'menu_name_empty', 'Empty menu name.' );
+		}
+		// Reject duplicate names — mirrors real wp_create_nav_menu behaviour.
+		foreach ( (array) $GLOBALS['stonewright_test_nav_menus'] as $existing ) {
+			if ( isset( $existing->name ) && (string) $existing->name === $trimmed ) {
+				return new \WP_Error( 'menu_exists', 'Menu already exists.' );
+			}
+		}
+		$id   = (int) $GLOBALS['stonewright_test_next_nav_menu_id']++;
+		$slug = preg_replace( '/[^a-z0-9_\-]/', '-', strtolower( $trimmed ) ) ?? 'menu';
+		$GLOBALS['stonewright_test_nav_menus'][ $id ] = (object) [
+			'term_id' => $id,
+			'name'    => $trimmed,
+			'slug'    => $slug,
+			'items'   => [],
+		];
+		return $id;
+	}
+}
+
+if ( ! function_exists( 'wp_update_nav_menu_item' ) ) {
+	/**
+	 * @param array<string, mixed> $menu_item_data
+	 */
+	function wp_update_nav_menu_item( int $menu_id, int $menu_item_db_id = 0, array $menu_item_data = [], bool $wp_error = false ): int|\WP_Error {
+		if ( isset( $GLOBALS['stonewright_test_wp_update_nav_menu_item_return'] ) ) {
+			$ret = $GLOBALS['stonewright_test_wp_update_nav_menu_item_return'];
+			$GLOBALS['stonewright_test_wp_update_nav_menu_item_return'] = null;
+			return $ret;
+		}
+		if ( ! isset( $GLOBALS['stonewright_test_nav_menus'][ $menu_id ] ) ) {
+			return new \WP_Error( 'invalid_menu_id', 'Invalid menu id.' );
+		}
+		$item_id = 0 === $menu_item_db_id
+			? (int) $GLOBALS['stonewright_test_next_nav_menu_item_id']++
+			: $menu_item_db_id;
+
+		$GLOBALS['stonewright_test_nav_menus'][ $menu_id ]->items[ $item_id ] = [
+			'item_id' => $item_id,
+			'data'    => $menu_item_data,
+		];
+		return $item_id;
+	}
+}
+
+if ( ! function_exists( 'wp_get_nav_menus' ) ) {
+	/**
+	 * @param array<string, mixed> $args
+	 * @return array<int, object>
+	 */
+	function wp_get_nav_menus( array $args = [] ): array {
+		return array_values( (array) ( $GLOBALS['stonewright_test_nav_menus'] ?? [] ) );
+	}
+}
+
+if ( ! function_exists( 'wp_delete_nav_menu' ) ) {
+	function wp_delete_nav_menu( int|string $menu ): bool|\WP_Error {
+		if ( isset( $GLOBALS['stonewright_test_wp_delete_nav_menu_return'] ) ) {
+			$ret = $GLOBALS['stonewright_test_wp_delete_nav_menu_return'];
+			$GLOBALS['stonewright_test_wp_delete_nav_menu_return'] = null;
+			return $ret;
+		}
+		$id = (int) $menu;
+		if ( ! isset( $GLOBALS['stonewright_test_nav_menus'][ $id ] ) ) {
+			return false;
+		}
+		unset( $GLOBALS['stonewright_test_nav_menus'][ $id ] );
+		// Cascade: drop the menu from any theme-location assignment so tests
+		// can observe the cleanup that real WP performs.
+		$mods = $GLOBALS['stonewright_test_theme_mods']['nav_menu_locations'] ?? [];
+		if ( is_array( $mods ) ) {
+			foreach ( $mods as $loc => $menu_id ) {
+				if ( (int) $menu_id === $id ) {
+					unset( $mods[ $loc ] );
+				}
+			}
+			$GLOBALS['stonewright_test_theme_mods']['nav_menu_locations'] = $mods;
+		}
+		return true;
+	}
+}
+
+if ( ! function_exists( 'is_nav_menu' ) ) {
+	function is_nav_menu( int|string|object $menu ): bool {
+		if ( is_object( $menu ) ) {
+			$menu = $menu->term_id ?? 0;
+		}
+		return isset( $GLOBALS['stonewright_test_nav_menus'][ (int) $menu ] );
+	}
+}
+
+if ( ! function_exists( 'wp_get_nav_menu_object' ) ) {
+	function wp_get_nav_menu_object( int|string|object $menu ): object|false {
+		if ( is_object( $menu ) ) {
+			return $menu;
+		}
+		$id = (int) $menu;
+		return $GLOBALS['stonewright_test_nav_menus'][ $id ] ?? false;
+	}
+}
+
+if ( ! function_exists( 'get_nav_menu_locations' ) ) {
+	/** @return array<string, int> */
+	function get_nav_menu_locations(): array {
+		$locations = $GLOBALS['stonewright_test_theme_mods']['nav_menu_locations'] ?? [];
+		return is_array( $locations ) ? $locations : [];
+	}
+}
+
+if ( ! function_exists( 'get_registered_nav_menus' ) ) {
+	/** @return array<string, string> */
+	function get_registered_nav_menus(): array {
+		return (array) ( $GLOBALS['stonewright_test_registered_nav_menus'] ?? [] );
+	}
+}
+
+if ( ! function_exists( 'set_theme_mod' ) ) {
+	function set_theme_mod( string $name, mixed $value ): void {
+		$GLOBALS['stonewright_test_theme_mods'][ $name ] = $value;
+	}
+}
+
+if ( ! function_exists( 'get_theme_mod' ) ) {
+	function get_theme_mod( string $name, mixed $default = false ): mixed {
+		if ( array_key_exists( $name, (array) ( $GLOBALS['stonewright_test_theme_mods'] ?? [] ) ) ) {
+			return $GLOBALS['stonewright_test_theme_mods'][ $name ];
+		}
+		return $default;
+	}
+}
+
+if ( ! function_exists( 'remove_theme_mod' ) ) {
+	function remove_theme_mod( string $name ): void {
+		unset( $GLOBALS['stonewright_test_theme_mods'][ $name ] );
+	}
+}
+
+if ( ! class_exists( 'WP_Theme_JSON_Resolver' ) ) {
+	class WP_Theme_JSON_Resolver {
+		public static function get_merged_data(): object {
+			return self::theme_json_data();
+		}
+
+		public static function get_theme_data(): object {
+			return self::theme_json_data();
+		}
+
+		public static function get_user_data(): object {
+			return self::theme_json_data();
+		}
+
+		public static function get_user_global_styles_post_id(): int {
+			$GLOBALS['stonewright_test_posts'][2] ??= (object) [
+				'ID'           => 2,
+				'post_type'    => 'wp_global_styles',
+				'post_status'  => 'publish',
+				'post_title'   => 'Global Styles',
+				'post_content' => '{"version":3}',
+				'post_excerpt' => '',
+				'post_parent'  => 0,
+				'post_name'    => 'global-styles',
+				'meta'         => [],
+			];
+			return 2;
+		}
+
+		private static function theme_json_data(): object {
+			return new class() {
+				public function get_raw_data(): array {
+					return [ 'version' => 3 ];
+				}
+			};
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// REST parity wave-3 stubs (comments, users, widgets, themes, plugins, etc.)
+// ---------------------------------------------------------------------------
+
+if ( ! function_exists( 'get_comment' ) ) {
+	function get_comment( $comment = null, $output = 'OBJECT', $filter = 'raw' ) {
+		$id = is_object( $comment ) ? (int) ( $comment->comment_ID ?? 0 ) : (int) $comment;
+		$row = $GLOBALS['stonewright_test_comments'][ $id ] ?? null;
+		if ( null === $row ) {
+			return null;
+		}
+		return (object) $row;
+	}
+}
+
+if ( ! function_exists( 'get_comments' ) ) {
+	function get_comments( $args = [] ) {
+		$rows = array_values( $GLOBALS['stonewright_test_comments'] ?? [] );
+		$out  = [];
+		foreach ( $rows as $row ) {
+			$out[] = (object) $row;
+		}
+		return $out;
+	}
+}
+
+if ( ! function_exists( 'wp_insert_comment' ) ) {
+	function wp_insert_comment( $data ) {
+		$id = (int) ( $GLOBALS['stonewright_test_next_comment_id'] ?? 5001 );
+		$GLOBALS['stonewright_test_next_comment_id'] = $id + 1;
+		$row = array_merge(
+			[
+				'comment_ID'       => $id,
+				'comment_post_ID'  => 0,
+				'comment_content'  => '',
+				'comment_approved' => '1',
+				'comment_author'   => 'tester',
+				'comment_date'     => '2026-01-01 00:00:00',
+			],
+			(array) $data,
+			[ 'comment_ID' => $id ]
+		);
+		$GLOBALS['stonewright_test_comments'][ $id ] = $row;
+		return $id;
+	}
+}
+
+if ( ! function_exists( 'wp_update_comment' ) ) {
+	function wp_update_comment( $data ) {
+		$id = (int) ( $data['comment_ID'] ?? 0 );
+		if ( ! isset( $GLOBALS['stonewright_test_comments'][ $id ] ) ) {
+			return false;
+		}
+		$GLOBALS['stonewright_test_comments'][ $id ] = array_merge( $GLOBALS['stonewright_test_comments'][ $id ], (array) $data );
+		return 1;
+	}
+}
+
+if ( ! function_exists( 'wp_set_comment_status' ) ) {
+	function wp_set_comment_status( $comment_id, $comment_status ) {
+		$id = (int) $comment_id;
+		if ( ! isset( $GLOBALS['stonewright_test_comments'][ $id ] ) ) {
+			return false;
+		}
+		$GLOBALS['stonewright_test_comments'][ $id ]['comment_approved'] = (string) $comment_status;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_delete_comment' ) ) {
+	function wp_delete_comment( $comment_id, $force_delete = false ) {
+		$id = (int) $comment_id;
+		if ( ! isset( $GLOBALS['stonewright_test_comments'][ $id ] ) ) {
+			return false;
+		}
+		unset( $GLOBALS['stonewright_test_comments'][ $id ] );
+		return true;
+	}
+}
+
+if ( ! function_exists( 'get_users' ) ) {
+	function get_users( $args = [] ) {
+		$users = $GLOBALS['stonewright_test_users'] ?? [];
+		$out   = [];
+		foreach ( $users as $u ) {
+			$row = is_array( $u ) ? $u : (array) $u;
+			$out[] = (object) [
+				'ID'           => (int) ( $row['ID'] ?? 0 ),
+				'user_login'   => (string) ( $row['user_login'] ?? '' ),
+				'user_email'   => (string) ( $row['user_email'] ?? '' ),
+				'display_name' => (string) ( $row['display_name'] ?? '' ),
+				'roles'        => (array) ( $row['roles'] ?? [] ),
+			];
+		}
+		return $out;
+	}
+}
+
+if ( ! function_exists( 'wp_insert_user' ) ) {
+	function wp_insert_user( $userdata ) {
+		$id = (int) ( $GLOBALS['stonewright_test_next_user_id'] ?? 20 );
+		$GLOBALS['stonewright_test_next_user_id'] = $id + 1;
+		$row = [
+			'ID'           => $id,
+			'user_login'   => (string) ( $userdata['user_login'] ?? '' ),
+			'user_email'   => (string) ( $userdata['user_email'] ?? '' ),
+			'display_name' => (string) ( $userdata['display_name'] ?? $userdata['user_login'] ?? '' ),
+			'roles'        => [ (string) ( $userdata['role'] ?? 'subscriber' ) ],
+		];
+		$GLOBALS['stonewright_test_users'][ $id ] = $row;
+		return $id;
+	}
+}
+
+if ( ! function_exists( 'wp_update_user' ) ) {
+	function wp_update_user( $userdata ) {
+	$id = (int) ( $userdata['ID'] ?? 0 );
+	$users = $GLOBALS['stonewright_test_users'] ?? [];
+	if ( ! isset( $users[ $id ] ) ) {
+		// Create minimal row so contract tests can update synthetic users.
+		$users[ $id ] = [ 'ID' => $id, 'user_login' => 'user-' . $id, 'user_email' => 'u@example.com', 'display_name' => 'User', 'roles' => [ 'subscriber' ] ];
+	}
+		$row = is_array( $users[ $id ] ) ? $users[ $id ] : (array) $users[ $id ];
+		$GLOBALS['stonewright_test_users'][ $id ] = array_merge( $row, (array) $userdata, [ 'ID' => $id ] );
+		return $id;
+	}
+}
+
+if ( ! function_exists( 'wp_delete_user' ) ) {
+	function wp_delete_user( $id, $reassign = null ) {
+		$id = (int) $id;
+		if ( ! isset( $GLOBALS['stonewright_test_users'][ $id ] ) ) {
+			return false;
+		}
+		unset( $GLOBALS['stonewright_test_users'][ $id ] );
+		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_get_sidebars_widgets' ) ) {
+	function wp_get_sidebars_widgets() {
+		return $GLOBALS['stonewright_test_sidebars'] ?? [ 'sidebar-1' => [ 'text-1' ] ];
+	}
+}
+
+if ( ! function_exists( 'wp_set_sidebars_widgets' ) ) {
+	function wp_set_sidebars_widgets( $sidebars_widgets ) {
+		$GLOBALS['stonewright_test_sidebars'] = $sidebars_widgets;
+	}
+}
+
+if ( ! function_exists( 'switch_theme' ) ) {
+	function switch_theme( $stylesheet ) {
+		$GLOBALS['stonewright_test_stylesheet'] = (string) $stylesheet;
+	}
+}
+
+if ( ! function_exists( 'wp_get_themes' ) ) {
+	function wp_get_themes( $args = [] ) {
+		$themes = $GLOBALS['stonewright_test_themes'] ?? [
+			'twentytwentyfour' => (object) [ 'exists' => true ],
+		];
+		// Normalize to objects with get() method.
+		$out = [];
+		foreach ( $themes as $slug => $theme ) {
+			$out[ $slug ] = new class( $slug ) {
+				private string $slug;
+				public function __construct( string $slug ) { $this->slug = $slug; }
+				public function get( string $key ): string {
+					return match ( $key ) {
+						'Name' => $this->slug,
+						'Version' => '1.0.0',
+						default => '',
+					};
+				}
+				public function exists(): bool { return true; }
+			};
+		}
+		return $out;
+	}
+}
+
+if ( ! function_exists( 'wp_get_theme' ) ) {
+	function wp_get_theme( $stylesheet = null ) {
+		$slug = (string) ( $stylesheet ?? get_stylesheet() );
+		return new class( $slug ) {
+			private string $slug;
+			public function __construct( string $slug ) { $this->slug = $slug; }
+			public function exists(): bool { return true; }
+			public function get( string $key ): string { return $this->slug; }
+		};
+	}
+}
+
+if ( ! function_exists( 'wp_get_custom_css' ) ) {
+	function wp_get_custom_css( $stylesheet = '' ) {
+		return (string) ( $GLOBALS['stonewright_test_custom_css'] ?? '' );
+	}
+}
+
+if ( ! function_exists( 'wp_get_custom_css_post' ) ) {
+	function wp_get_custom_css_post( $stylesheet = '' ) {
+		return (object) [ 'ID' => 9001, 'post_content' => wp_get_custom_css() ];
+	}
+}
+
+if ( ! function_exists( 'wp_update_custom_css_post' ) ) {
+	function wp_update_custom_css_post( $css, $args = [] ) {
+		$GLOBALS['stonewright_test_custom_css'] = (string) $css;
+		return (object) [ 'ID' => 9001, 'post_content' => $css ];
+	}
+}
+
+if ( ! function_exists( 'activate_plugin' ) ) {
+	function activate_plugin( $plugin, $redirect = '', $network_wide = false, $silent = false ) {
+		$GLOBALS['stonewright_test_active_plugins'][ (string) $plugin ] = true;
+		return null;
+	}
+}
+
+if ( ! function_exists( 'deactivate_plugins' ) ) {
+	function deactivate_plugins( $plugins, $silent = false, $network_wide = null ) {
+		foreach ( (array) $plugins as $plugin ) {
+			unset( $GLOBALS['stonewright_test_active_plugins'][ (string) $plugin ] );
+		}
+	}
+}
+
+if ( ! function_exists( 'delete_plugins' ) ) {
+	function delete_plugins( $plugins ) {
+		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_get_post_revisions' ) ) {
+	function wp_get_post_revisions( $post_id, $args = null ) {
+		$rows = $GLOBALS['stonewright_test_revisions'][ (int) $post_id ] ?? [];
+		$out  = [];
+		foreach ( $rows as $row ) {
+			$out[ (int) $row['ID'] ] = (object) $row;
+		}
+		return $out;
+	}
+}
+
+if ( ! function_exists( 'wp_restore_post_revision' ) ) {
+	function wp_restore_post_revision( $revision_id, $fields = null ) {
+		return (int) $revision_id;
+	}
+}
+
+if ( ! function_exists( 'wp_oembed_get' ) ) {
+	function wp_oembed_get( $url, $args = '' ) {
+		return '<iframe src="' . esc_url( (string) $url ) . '"></iframe>';
+	}
+}
+
+if ( ! class_exists( 'WP_Query', false ) ) {
+	class WP_Query {
+		/** @var array<int, int|\WP_Post> */
+		public array $posts = [];
+		public int $found_posts = 0;
+		public function __construct( $args = [] ) {
+			$this->posts       = array_values( $GLOBALS['stonewright_test_search_posts'] ?? [] );
+			$this->found_posts = count( $this->posts );
+		}
+	}
+}
+
+// --- Wave 4: ACF / CPT registration stubs ---
+if ( ! function_exists( 'acf_get_field_groups' ) ) {
+	function acf_get_field_groups( $filter = false ) {
+		if ( empty( $GLOBALS['stonewright_test_acf_active'] ) ) {
+			// When inactive tests call abilities that check function_exists first;
+			// keep functions defined but return empty unless flag is set.
+		}
+		return $GLOBALS['stonewright_test_acf_groups'] ?? [];
+	}
+}
+if ( ! function_exists( 'acf_get_field_group' ) ) {
+	function acf_get_field_group( $key ) {
+		foreach ( (array) ( $GLOBALS['stonewright_test_acf_groups'] ?? [] ) as $g ) {
+			if ( is_array( $g ) && (string) ( $g['key'] ?? '' ) === (string) $key ) {
+				return $g;
+			}
+		}
+		return false;
+	}
+}
+if ( ! function_exists( 'acf_get_fields' ) ) {
+	function acf_get_fields( $parent ) {
+		return $GLOBALS['stonewright_test_acf_field_defs'][ (string) $parent ] ?? [];
+	}
+}
+if ( ! function_exists( 'get_fields' ) ) {
+	function get_fields( $post_id = false, $format_value = true ) {
+		if ( empty( $GLOBALS['stonewright_test_acf_active'] ) ) {
+			// Ability checks function_exists — always defined in tests; abilities
+			// should still work when flag true.
+		}
+		if ( empty( $GLOBALS['stonewright_test_acf_active'] ) ) {
+			return false;
+		}
+		return $GLOBALS['stonewright_test_acf_fields'] ?? [];
+	}
+}
+if ( ! function_exists( 'get_field' ) ) {
+	function get_field( $selector, $post_id = false, $format_value = true ) {
+		$fields = $GLOBALS['stonewright_test_acf_fields'] ?? [];
+		return $fields[ (string) $selector ] ?? null;
+	}
+}
+if ( ! function_exists( 'update_field' ) ) {
+	function update_field( $selector, $value, $post_id = false ) {
+		if ( empty( $GLOBALS['stonewright_test_acf_active'] ) ) {
+			return false;
+		}
+		$GLOBALS['stonewright_test_acf_fields'][ (string) $selector ] = $value;
+		return true;
+	}
+}
+if ( ! function_exists( 'acf_import_field_group' ) ) {
+	function acf_import_field_group( $group ) {
+		$GLOBALS['stonewright_test_acf_groups'][] = $group;
+		return $group;
+	}
+}
+if ( ! function_exists( 'acf_update_field_group' ) ) {
+	function acf_update_field_group( $group ) {
+		return acf_import_field_group( $group );
+	}
+}
+if ( ! function_exists( 'register_post_type' ) ) {
+	function register_post_type( $post_type, $args = [] ) {
+		$GLOBALS['stonewright_test_registered_post_types'][ (string) $post_type ] = $args;
+		return true;
+	}
+}
+if ( ! function_exists( 'get_post_types' ) ) {
+	function get_post_types( $args = [], $output = 'names', $operator = 'and' ) {
+		$types = $GLOBALS['stonewright_test_post_types'] ?? [
+			'post' => (object) [ 'name' => 'post', 'label' => 'Posts', 'public' => true ],
+			'page' => (object) [ 'name' => 'page', 'label' => 'Pages', 'public' => true ],
+		];
+		if ( 'names' === $output ) {
+			return array_keys( $types );
+		}
+		return $types;
+	}
+}
+if ( ! function_exists( 'register_taxonomy' ) ) {
+	function register_taxonomy( $taxonomy, $object_type, $args = [] ) {
+		$GLOBALS['stonewright_test_registered_taxonomies'][ (string) $taxonomy ] = [
+			'object_type' => $object_type,
+			'args'        => $args,
+		];
+		return true;
+	}
+}

@@ -1,0 +1,14 @@
+{
+    "args": {
+        "post_type": "page",
+        "items": [
+            {
+                "slug": "bulk-upsert-contract",
+                "title": "Bulk Upsert Contract",
+                "status": "draft",
+                "excerpt": "Created through the contract fixture."
+            }
+        ]
+    },
+    "expect": "ok"
+}
