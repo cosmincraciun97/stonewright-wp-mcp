@@ -65,7 +65,7 @@
       "refersTo": "button-primary",
       "description": "Main safe action on a screen.",
       "html": "<button class=\"ds-btn-primary\">Save Changes</button>",
-      "css": ".ds-btn-primary{min-height:36px;padding:9px 14px;border:1px solid #4f46e5;border-radius:6px;background:#4f46e5;color:#fcfcfe;font:600 12px/1.35 system-ui;transition:background 150ms cubic-bezier(.25,.46,.45,.94),border-color 150ms cubic-bezier(.25,.46,.45,.94)}.ds-btn-primary:hover{background:#4338ca;border-color:#4338ca}.ds-btn-primary:focus-visible{outline:2px solid #4f46e5;outline-offset:2px}"
+      "css": ".ds-btn-primary{min-height:36px;padding:9px 14px;border:1px solid #4f46e5;border-radius:6px;background:#4f46e5;color:#ffffff;font:600 12px/1.35 system-ui;transition:background 150ms cubic-bezier(.25,.46,.45,.94),border-color 150ms cubic-bezier(.25,.46,.45,.94)}.ds-btn-primary:hover{background:#4338ca;border-color:#4338ca}.ds-btn-primary:focus-visible{outline:2px solid #4f46e5;outline-offset:2px}"
     },
     {
       "name": "Secondary Button",

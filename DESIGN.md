@@ -13,6 +13,7 @@ colors:
   brand: "#4f46e5"
   brand-strong: "#4338ca"
   brand-soft: "#eeefff"
+  on-brand: "#ffffff"
   success: "#157347"
   success-soft: "#e7f6ee"
   warning: "#8a5a00"
@@ -64,7 +65,7 @@ spacing:
 components:
   button-primary:
     backgroundColor: "{colors.brand}"
-    textColor: "{colors.surface}"
+    textColor: "{colors.on-brand}"
     typography: "{typography.label}"
     rounded: "{rounded.sm}"
     padding: "9px 14px"
@@ -174,7 +175,7 @@ Surfaces are flat by default. Borders and tonal shifts establish structure; shad
 ### Buttons
 
 - **Shape:** compact rounded rectangle, 6px radius, minimum 36px desktop height and 44px touch height on narrow screens.
-- **Primary:** Tool Indigo fill, Paper text, 9px by 14px padding.
+- **Primary:** Tool Indigo fill, pure white text, 9px by 14px padding.
 - **Hover / Focus:** deeper fill on hover; 2px visible Tool Indigo focus ring.
 - **Secondary / Ghost:** Paper or transparent background with Hairline border and Graphite text.
 
