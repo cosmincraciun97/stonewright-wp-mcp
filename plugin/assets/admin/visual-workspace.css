@@ -1,9 +1,9 @@
 /**
  * Visual Workspace — stone & precision.
  *
- * Same palette, spacing, and elevation tokens as the Design Studio, so the two
- * pages read as one product and follow the light/dark toggle without owning a
- * palette. The layout is mobile-first: header, canvas, and inspector stack in a
+ * Same light-theme palette, spacing, and elevation tokens as the Design Studio,
+ * so the two pages read as one product without owning duplicate palettes. The
+ * layout is mobile-first: header, canvas, and inspector stack in a
  * single column, and the inspector only becomes a side column once there is
  * room for it. Below that width it is a drawer, which is why the drawer rules
  * live in a max-width query rather than the default cascade.
@@ -54,7 +54,7 @@
 	transition: transform var(--sw-dur) var(--sw-ease), background var(--sw-dur) var(--sw-ease), border-color var(--sw-dur) var(--sw-ease);
 }
 
-.sw-button:hover {
+.sw-button:not(.sw-button--primary):hover:not([disabled]) {
 	border-color: var(--sw-text-secondary);
 	background: var(--sw-surface);
 	transform: translateY(-1px);
@@ -64,6 +64,13 @@
 	border-color: var(--sw-brand-fill);
 	background: var(--sw-brand-fill);
 	color: var(--sw-on-brand);
+}
+
+.sw-button--primary:hover:not([disabled]) {
+	border-color: var(--sw-brand-fill-hover);
+	background: var(--sw-brand-fill-hover);
+	color: var(--sw-on-brand);
+	transform: translateY(-1px);
 }
 
 .sw-button[disabled] {
@@ -175,20 +182,6 @@
 	font-weight: 700;
 	letter-spacing: .08em;
 	text-transform: uppercase;
-}
-
-.sw-tooltip {
-	position: fixed;
-	z-index: 100000;
-	max-width: 22rem;
-	padding: 9px 11px;
-	border: 1px solid var(--sw-border-strong);
-	border-radius: 8px;
-	background: var(--sw-text);
-	box-shadow: var(--sw-shadow-3);
-	color: var(--sw-bg);
-	font: 500 12px/1.45 var(--sw-vw-sans);
-	pointer-events: none;
 }
 
 /* ============ Body ============ */

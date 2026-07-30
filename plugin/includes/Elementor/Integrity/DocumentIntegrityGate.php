@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Elementor\Integrity;
 
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
+use Stonewright\WpMcp\Security\RuleEnforcer;
 
 /**
  * P0 integrity checks before any `_elementor_data` persistence.
@@ -309,10 +310,24 @@ final class DocumentIntegrityGate {
 	}
 
 	/**
+	 * Guard codes that map onto a runtime-enforced native rule.
+	 *
+	 * The codes stay as they are — clients branch on them — and the rule id is
+	 * added alongside so the audit trail names the rule that fired.
+	 *
+	 * @var array<string, string>
+	 */
+	private const RULE_IDS = [
+		'stonewright_elementor_double_encoded'             => 'elementor-no-double-encode',
+		'stonewright_elementor_size_collapse'              => 'elementor-no-setting-stripping',
+		'stonewright_elementor_widget_type_remap_blocked'  => 'elementor-no-widget-type-conversion',
+	];
+
+	/**
 	 * @param array<string, mixed> $data
 	 */
 	private static function error( string $code, string $message, array $data ): \WP_Error {
-		return new \WP_Error(
+		$error = new \WP_Error(
 			$code,
 			$message,
 			array_merge(
@@ -330,5 +345,11 @@ final class DocumentIntegrityGate {
 				$data
 			)
 		);
+
+		if ( isset( self::RULE_IDS[ $code ] ) ) {
+			return RuleEnforcer::attribute( $error, self::RULE_IDS[ $code ] );
+		}
+
+		return $error;
 	}
 }

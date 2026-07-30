@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Themes;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Abilities\Common\CodePayloadCanonicalizer;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Core\MethodRouter;
 use Stonewright\WpMcp\Security\CustomCodeGrant;
@@ -117,6 +118,11 @@ final class ThemeFilePatch extends AbilityKernel {
 					'type'        => 'string',
 					'description' => 'Required in production-safe mode.',
 				],
+				'decode_escaped_layout' => [
+					'type'        => 'boolean',
+					'default'     => false,
+					'description' => 'Opt in to conservative decoding of escaped layout for the target file language.',
+				],
 			],
 		];
 	}
@@ -138,6 +144,11 @@ final class ThemeFilePatch extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
+		$args = CodePayloadCanonicalizer::canonicalize( $this->name(), $args );
+		if ( $args instanceof \WP_Error ) {
+			return $args;
+		}
+
 		return $this->audit(
 			$args,
 			function ( array $runtime_args ): array|\WP_Error {

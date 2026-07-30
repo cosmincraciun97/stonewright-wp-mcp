@@ -1,13 +1,16 @@
 {
     "version": 1,
-    "generated_at": "2026-07-26T15:16:07+00:00",
+    "generated_at": "2026-07-30T07:50:59+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
         "schema_changes": [
             "stonewright/context-bootstrap",
+            "stonewright/elementor-v3-get-page-structure",
             "stonewright/php-execute",
+            "stonewright/sandbox-write",
             "stonewright/task-start",
+            "stonewright/theme-custom-css",
             "stonewright/theme-file-patch",
             "stonewright/theme-file-read",
             "stonewright/tool-profile",
@@ -2483,7 +2486,7 @@
             "ability_name": "stonewright/elementor-v3-get-page-structure",
             "mcp_name": "stonewright-elementor-v3-get-page-structure",
             "kind": "Read",
-            "input_schema_hash": "f79e610247101d032f43a9f9c221965b2817438865fe5d00a82940ffc5975bcd",
+            "input_schema_hash": "f0a58f27b8ef1d547e21f2e37fbda872d87daefbf995eac5098f1f0c451d1fcf",
             "output_schema_hash": "a2c799262a3ce3c19ef5cdd983bf3d12b43ab3c426227091b909dcb7054738c0",
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
@@ -3348,6 +3351,20 @@
             }
         },
         {
+            "ability_name": "stonewright/memory-generalize",
+            "mcp_name": "stonewright-memory-generalize",
+            "kind": "Write",
+            "input_schema_hash": "dc6b1a40d897e4010fefea9731f331612bb08dc963c063a239d58fc24d9672b8",
+            "output_schema_hash": "db4774a134e9fbbb65cbba5c3f619e02e60bb459bf7a0c3ea26c644b2ff21f11",
+            "permission_class": "Permissions::manage_options()",
+            "gates": {
+                "backup": false,
+                "token": true,
+                "validator": false,
+                "audit": true
+            }
+        },
+        {
             "ability_name": "stonewright/memory-get",
             "mcp_name": "stonewright-memory-get",
             "kind": "Read",
@@ -3505,7 +3522,7 @@
             "ability_name": "stonewright/php-execute",
             "mcp_name": "stonewright-php-execute",
             "kind": "Write",
-            "input_schema_hash": "edb62e49d228075f44c32ec13f48f906e5aef9d2e89869e49cd183199738f468",
+            "input_schema_hash": "ed04a84140135ea58b5617df77db7d7d76ef243f7f96c657ad5f66e8cab42aa3",
             "output_schema_hash": "d5643004b7cb0e98893db8b47f0351ab14e3dfed0c01af4438be2ac56691168f",
             "permission_class": "Permissions::manage_options()",
             "gates": {
@@ -3614,6 +3631,20 @@
             }
         },
         {
+            "ability_name": "stonewright/rules-get",
+            "mcp_name": "stonewright-rules-get",
+            "kind": "Read",
+            "input_schema_hash": "647b32884ef269e45777cafcaa5ee07a9ab08ba888e1011c63ff3b0b658ceab0",
+            "output_schema_hash": "9581d5ef9b9aea9703b619b106cb7614124f1194d0fcb7cecd10b4919b3bba4b",
+            "permission_class": "Permissions::read()",
+            "gates": {
+                "backup": false,
+                "token": false,
+                "validator": false,
+                "audit": false
+            }
+        },
+        {
             "ability_name": "stonewright/sandbox-activate",
             "mcp_name": "stonewright-sandbox-activate",
             "kind": "Write",
@@ -3715,7 +3746,7 @@
             "ability_name": "stonewright/sandbox-write",
             "mcp_name": "stonewright-sandbox-write",
             "kind": "Write",
-            "input_schema_hash": "16d3ec5f7b26a046851974ffa6d3895c02b94b9c84c514a10c6f432086c4eb4e",
+            "input_schema_hash": "797e31ae6fc19314aa5ed1f2ac27264df40cf1d9231d31d5ecfa0e8f630fa424",
             "output_schema_hash": "db01909200f09c4b63aa3378b50713dfb50cdb2e17fe68da2cf05c7bfb5634c0",
             "permission_class": "Permissions::can_manage_sandbox()",
             "gates": {
@@ -4136,7 +4167,7 @@
             "mcp_name": "stonewright-task-start",
             "kind": "Read",
             "input_schema_hash": "15f6fd543c01390a1e0b28feee3fca80b655e1ca4537b789cb8ce6be9bea755e",
-            "output_schema_hash": "c1d62891d06162fee4fb13c188e2c95c4b7cea0a763a5ccc07e6b0f8b57781a7",
+            "output_schema_hash": "106476f815208a6292c77655fb1de4583730a38531811874b6a09a56e716ede2",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,
@@ -4275,7 +4306,7 @@
             "ability_name": "stonewright/theme-custom-css",
             "mcp_name": "stonewright-theme-custom-css",
             "kind": "Write",
-            "input_schema_hash": "fe9458aa4cf05c6452994d1c92fc974a4247fd6de5fbf90c3a2a6252efcf51be",
+            "input_schema_hash": "39c2c100d84c2b264c8d13ff129b09553f74c8e0f87167fdfdad537e58dbc721",
             "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
             "permission_class": "Permissions::edit_css()",
             "gates": {
@@ -4289,7 +4320,7 @@
             "ability_name": "stonewright/theme-file-patch",
             "mcp_name": "stonewright-theme-file-patch",
             "kind": "Write",
-            "input_schema_hash": "2598d0763ef986712a008c53803e28fa3e67ddb9a911aa340ee99a62cf1c0df4",
+            "input_schema_hash": "cc1ce6e086eac39497cdbb60742ec3b1e2b9cf3af27511062c03022414e290de",
             "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
             "permission_class": "Permissions::manage_options()",
             "gates": {
@@ -4542,7 +4573,7 @@
             "mcp_name": "stonewright-workflow-preflight",
             "kind": "Read",
             "input_schema_hash": "15f6fd543c01390a1e0b28feee3fca80b655e1ca4537b789cb8ce6be9bea755e",
-            "output_schema_hash": "c1d62891d06162fee4fb13c188e2c95c4b7cea0a763a5ccc07e6b0f8b57781a7",
+            "output_schema_hash": "106476f815208a6292c77655fb1de4583730a38531811874b6a09a56e716ede2",
             "permission_class": "Permissions::read()",
             "gates": {
                 "backup": false,

@@ -16,24 +16,16 @@ const viewports = [
 	{ name: 'mobile-320', width: 320, height: 568 },
 ] as const;
 
-const colorSchemes = ['light', 'dark'] as const;
-
 function projects(): Project[] {
-	const list: Project[] = [];
-	for (const viewport of viewports) {
-		for (const colorScheme of colorSchemes) {
-			list.push({
-				name: `${viewport.name}-${colorScheme}`,
-				use: {
-					...devices['Desktop Chrome'],
-					viewport: { width: viewport.width, height: viewport.height },
-					colorScheme,
-					baseURL,
-				},
-			});
-		}
-	}
-	return list;
+	return viewports.map((viewport): Project => ({
+		name: `${viewport.name}-light`,
+		use: {
+			...devices['Desktop Chrome'],
+			viewport: { width: viewport.width, height: viewport.height },
+			colorScheme: 'light',
+			baseURL,
+		},
+	}));
 }
 
 export default defineConfig({

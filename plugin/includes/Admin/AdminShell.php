@@ -4,25 +4,11 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Admin;
 
 /**
- * Shared premium admin shell: sticky header, tab nav, mode pill, dark toggle.
+ * Shared premium admin shell: sticky header, tab nav, and mode pill.
  *
  * Presentation only — form handlers and ability gates stay on their pages.
  */
 final class AdminShell {
-
-	public const THEME_META_KEY = 'stonewright_admin_theme';
-	public const THEME_NONCE    = 'stonewright_admin_theme';
-
-	/**
-	 * Theme toggle icons, drawn rather than typed.
-	 *
-	 * Dingbat characters render differently on every platform and are read out
-	 * by some screen readers, so the toggle ships a path the stylesheet can
-	 * size and colour instead.
-	 */
-	public const ICON_SUN = 'M8 2.4v1.5M8 12.1v1.5M2.4 8h1.5M12.1 8h1.5M4.05 4.05l1.06 1.06M10.89 10.89l1.06 1.06M11.95 4.05l-1.06 1.06M5.11 10.89l-1.06 1.06M8 5.3a2.7 2.7 0 100 5.4 2.7 2.7 0 000-5.4';
-
-	public const ICON_MOON = 'M13.2 9.7A5.7 5.7 0 016.3 2.8a5.7 5.7 0 106.9 6.9z';
 
 	/**
 	 * Premium IA: ≤6 menu groups. Page slugs stay stable; only labels/order change.
@@ -99,26 +85,6 @@ final class AdminShell {
 	}
 
 	/**
-	 * Register AJAX handler for theme persistence.
-	 */
-	public static function register(): void {
-		add_action( 'wp_ajax_stonewright_set_admin_theme', [ self::class, 'handle_set_theme' ] );
-	}
-
-	/**
-	 * @return 'light'|'dark'
-	 */
-	public static function resolve_theme(): string {
-		$user_id = get_current_user_id();
-		if ( $user_id <= 0 ) {
-			return 'light';
-		}
-
-		$theme = get_user_meta( $user_id, self::THEME_META_KEY, true );
-		return 'dark' === $theme ? 'dark' : 'light';
-	}
-
-	/**
 	 * Open the shared shell (header + nav + content wrapper).
 	 *
 	 * @param array<string, mixed> $args Optional. Supports `title` string for page H1 in content.
@@ -129,14 +95,8 @@ final class AdminShell {
 		if ( ! in_array( $mode, [ 'development', 'staging', 'production-safe' ], true ) ) {
 			$mode = 'development';
 		}
-		$theme   = self::resolve_theme();
 		$version = defined( 'STONEWRIGHT_VERSION' ) ? (string) constant( 'STONEWRIGHT_VERSION' ) : '';
 		$classes = [ 'sw-shell', 'wrap', 'stonewright-admin-shell' ];
-		if ( 'dark' === $theme ) {
-			$classes[] = 'sw-theme-dark';
-		} else {
-			$classes[] = 'sw-theme-light';
-		}
 
 		$mode_class = 'sw-mode-pill--' . $mode;
 		$mode_label = match ( $mode ) {
@@ -146,7 +106,7 @@ final class AdminShell {
 		};
 
 		?>
-		<div class="<?php echo esc_attr( implode( ' ', $classes ) ); ?>" data-sw-shell data-sw-theme="<?php echo esc_attr( $theme ); ?>">
+		<div class="<?php echo esc_attr( implode( ' ', $classes ) ); ?>" data-sw-shell>
 			<header class="sw-shell__header" role="banner">
 				<div class="sw-shell__brand">
 					<?php
@@ -204,19 +164,6 @@ final class AdminShell {
 					<span class="sw-mode-pill <?php echo esc_attr( $mode_class ); ?>" title="<?php esc_attr_e( 'Operating mode', 'stonewright' ); ?>">
 						<?php echo esc_html( $mode_label ); ?>
 					</span>
-					<button
-						type="button"
-						class="sw-theme-toggle"
-						data-sw-theme-toggle
-						aria-pressed="<?php echo 'dark' === $theme ? 'true' : 'false'; ?>"
-						aria-label="<?php esc_attr_e( 'Toggle dark mode', 'stonewright' ); ?>"
-					>
-						<span class="sw-theme-toggle__icon" aria-hidden="true">
-							<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-								<path data-sw-theme-icon d="<?php echo esc_attr( 'dark' === $theme ? self::ICON_SUN : self::ICON_MOON ); ?>" />
-							</svg>
-						</span>
-					</button>
 					<?php if ( '' !== $version ) : ?>
 						<span class="sw-shell__version" aria-hidden="true"><?php echo esc_html( $version ); ?></span>
 					<?php endif; ?>
@@ -244,29 +191,5 @@ final class AdminShell {
 			</div><!-- .sw-shell__content -->
 		</div><!-- .sw-shell -->
 		<?php
-	}
-
-	/**
-	 * Persist dark/light preference for the current user.
-	 */
-	public static function handle_set_theme(): void {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( [ 'message' => 'forbidden' ], 403 );
-		}
-
-		check_ajax_referer( self::THEME_NONCE, 'nonce' );
-
-		$theme = isset( $_POST['theme'] ) ? sanitize_key( (string) wp_unslash( $_POST['theme'] ) ) : '';
-		if ( ! in_array( $theme, [ 'light', 'dark' ], true ) ) {
-			wp_send_json_error( [ 'message' => 'invalid_theme' ], 400 );
-		}
-
-		$user_id = get_current_user_id();
-		if ( $user_id <= 0 ) {
-			wp_send_json_error( [ 'message' => 'no_user' ], 400 );
-		}
-
-		update_user_meta( $user_id, self::THEME_META_KEY, $theme );
-		wp_send_json_success( [ 'theme' => $theme ] );
 	}
 }

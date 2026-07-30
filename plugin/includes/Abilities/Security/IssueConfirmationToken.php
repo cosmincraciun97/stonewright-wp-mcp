@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Security;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Abilities\Common\CodePayloadCanonicalizer;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -64,6 +65,11 @@ final class IssueConfirmationToken extends AbilityKernel {
 		$ability    = (string) $args['ability'];
 		$inner_args = is_array( $args['args'] ?? null ) ? $args['args'] : [];
 		$ttl        = isset( $args['ttl_seconds'] ) ? (int) $args['ttl_seconds'] : 300;
+
+		$inner_args = CodePayloadCanonicalizer::canonicalize( $ability, $inner_args );
+		if ( $inner_args instanceof \WP_Error ) {
+			return $inner_args;
+		}
 
 		$token      = ConfirmationToken::issue( $ability, $inner_args, $ttl );
 		$expires_at = gmdate( 'c', time() + max( 60, min( 3600, $ttl ) ) );

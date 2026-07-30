@@ -213,56 +213,8 @@
 		} );
 	}
 
-	function initTooltips() {
-		var tip = null;
-		var active = null;
-
-		function close() {
-			if ( tip && tip.parentNode ) {
-				tip.parentNode.removeChild( tip );
-			}
-			if ( active ) {
-				active.removeAttribute( 'aria-describedby' );
-			}
-			tip = null;
-			active = null;
-		}
-
-		function open( node ) {
-			close();
-			var text = node.getAttribute( 'data-sw-tooltip' );
-			if ( ! text ) {
-				return;
-			}
-			active = node;
-			tip = document.createElement( 'div' );
-			tip.id = 'sw-visual-tooltip';
-			tip.className = 'sw-tooltip';
-			tip.setAttribute( 'role', 'tooltip' );
-			tip.textContent = text;
-			document.body.appendChild( tip );
-			node.setAttribute( 'aria-describedby', tip.id );
-			var rect = node.getBoundingClientRect();
-			tip.style.left = Math.max( 12, Math.min( window.innerWidth - tip.offsetWidth - 12, rect.left ) ) + 'px';
-			tip.style.top = Math.max( 12, rect.bottom + 8 ) + 'px';
-		}
-
-		[].slice.call( document.querySelectorAll( '[data-sw-tooltip]' ) ).forEach( function ( node ) {
-			node.addEventListener( 'mouseenter', function () { open( node ); } );
-			node.addEventListener( 'mouseleave', close );
-			node.addEventListener( 'focus', function () { open( node ); } );
-			node.addEventListener( 'blur', close );
-		} );
-		document.addEventListener( 'keydown', function ( event ) {
-			if ( 'Escape' === event.key ) {
-				close();
-			}
-		} );
-	}
-
 	ready( function () {
 		initInspectorDrawer();
 		initEditorConnection();
-		initTooltips();
 	} );
 }() );

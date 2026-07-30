@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities\Revisions;
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Security\Backup;
+use Stonewright\WpMcp\Security\RuleEnforcer;
 use Stonewright\WpMcp\Security\Permissions;
 
 /**
@@ -81,7 +82,10 @@ final class PostRevisionRestore extends AbilityKernel {
 				$post_id  = (int) $rev->post_parent;
 				$snapshot = Backup::snapshot_post( $post_id );
 				if ( '' === $snapshot ) {
-					return new \WP_Error( 'stonewright_backup_failed', 'Snapshot failed; restore aborted.' );
+					return RuleEnforcer::attribute(
+						new \WP_Error( 'stonewright_backup_failed', 'Snapshot failed; restore aborted.' ),
+						'backup-before-write'
+					);
 				}
 				$restored = wp_restore_post_revision( (int) $args['revision_id'] );
 				if ( ! $restored ) {

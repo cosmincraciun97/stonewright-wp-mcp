@@ -149,6 +149,51 @@ They are site-local and are not included in release ZIPs or the npm companion.
 Do not publish credentials, private memory, or client-specific instructions in
 public docs, commits, issues, or release notes.
 
+Site memory is for what is true about **this** site. Rules that hold everywhere
+belong in the shipped native rule registry instead — see [Native Rules](#native-rules).
+
+### Generalizing Stored Memory
+
+Memory written before the native rule registry existed can name a host, a URL, or
+a site-local record id. `stonewright/memory-generalize` reports and — on request —
+rewrites those references in bounded batches.
+
+The workflow is deliberately incremental, because a bulk rewrite of memory is not
+something to run blind:
+
+1. Call it with a `limit` and no `apply`. It defaults to a **dry run** and returns
+   the proposed change for each row it scanned.
+2. Review the proposals. Nothing has been written yet.
+3. Call again with `apply: true` and the same `limit` to write that batch.
+4. Continue with the returned `next_cursor` until `done` is `true`. It reports a
+   cursor rather than claiming one page covered everything.
+
+In `production-safe` mode an apply requires a confirmation token issued for the
+same `apply`, `limit`, and `cursor` values, so a token cannot be replayed against
+a different batch.
+
+### Native Rules
+
+`plugin/data/global-rules.json` holds the rules Stonewright applies to every site.
+Each record carries an id, a severity (`hard` / `strong` / `advisory`), a scope
+(`all` / `elementor` / `design` / `code`), the rule text, why it exists, and an
+`enforcement` block naming either the runtime guard that blocks violations or that
+the rule is instruction-only.
+
+`hard` rules are backed by a real runtime guard. `strong` rules are surfaced in
+every task payload but cannot be mechanically checked in PHP, so they never claim
+a guard — advertising enforcement that does not exist would be worse than
+advertising none. Rule text must never name a host, a URL, or a site-local record
+id; `GlobalRulesTest` enforces that.
+
+Task start returns the registry digest and the tool that resolves it, not the
+bodies. Read the bodies with `stonewright/rules-get`, filtered by `severity` or
+`scope`, and pass `knownDigest` to skip them when nothing changed. The same
+registry ships with the companion, so Direct mode reports identical rules.
+
+Editing the JSON file is enough to change what task start says: the payload reads
+the registry rather than restating rule text in PHP.
+
 ### Client Setup In Admin
 
 The Configuration page has a three-step setup flow: enable abilities, choose
@@ -184,6 +229,27 @@ is generated into `assets/visual/` at packaging time; when it is absent the page
 says so and prints the build command. See
 [docs/visual.md](../docs/visual.md) and
 [docs/figma-to-elementor-workflow.md](../docs/figma-to-elementor-workflow.md).
+
+The admin UI ships a single light theme. There is no dark mode and no theme
+toggle: maintaining two token sets meant every contrast fix had to be made twice,
+and one of the two was always the stale one.
+
+## Code Payload Handling
+
+Abilities that accept code — `stonewright/php-execute`,
+`stonewright/sandbox-write`, `stonewright/theme-custom-css`,
+`stonewright/theme-file-patch` — pass payloads through **unchanged** by default.
+
+Some MCP clients deliver code with layout escaped into literal `\n` sequences. To
+recover from that, pass `decode_escaped_layout: true`. It is opt-in and
+deliberately conservative: decoding happens only outside PHP strings and comments,
+so a `"\n"` that is part of the program's own data is left alone. When the decoder
+cannot establish that a sequence is layout rather than content, it does nothing.
+
+PHP payloads are validated with the PHP parser, not a regex heuristic, so valid
+code is not rejected for looking unusual. Confirmation tokens bind to the
+canonical form of the arguments, so a reformatted payload cannot reuse a token
+issued for different content.
 
 ## Adding An Ability
 

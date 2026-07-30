@@ -1,8 +1,8 @@
 /**
  * Design Studio — stone & precision.
  *
- * Colour, elevation, spacing, and radius come from the shared shell tokens, so
- * the page follows the light/dark toggle without owning a palette of its own.
+ * Colour, elevation, spacing, and radius come from the shared light-theme shell
+ * tokens, so the page does not own a duplicate palette.
  * The layout is written mobile-first: one column is the default and the
  * two-column editor is an enhancement above 960px.
  */
@@ -622,20 +622,6 @@
 .sw-ds-toggle__copy span {
 	color: var(--sw-text-muted);
 	font-size: var(--sw-text-xs);
-}
-
-.sw-ds-tooltip {
-	position: fixed;
-	z-index: 100000;
-	max-width: 23rem;
-	padding: 9px 11px;
-	border: 1px solid var(--sw-border-strong);
-	border-radius: 8px;
-	background: var(--sw-text);
-	box-shadow: var(--sw-shadow-3);
-	color: var(--sw-bg);
-	font: 500 12px/1.45 var(--sw-ds-sans);
-	pointer-events: none;
 }
 
 .sw-ds-error-summary {

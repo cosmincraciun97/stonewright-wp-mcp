@@ -39,8 +39,6 @@ final class AdminBootstrap {
 		BlueprintsPage::register();
 		PromptLibraryPage::register();
 		SandboxLibraryPage::register();
-		AdminShell::register();
-
 		add_action( 'rest_api_init', [ RestApi::class, 'register' ] );
 		add_action( 'rest_api_init', [ DesignStudioRestApi::class, 'register' ] );
 		add_action( 'rest_api_init', [ SkillsRestApi::class, 'register' ] );
@@ -137,15 +135,6 @@ final class AdminBootstrap {
 			[],
 			$version,
 			true
-		);
-
-		wp_localize_script(
-			'stonewright-admin-shell',
-			'stonewrightShell',
-			[
-				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-				'nonce'   => wp_create_nonce( AdminShell::THEME_NONCE ),
-			]
 		);
 
 		wp_enqueue_script(

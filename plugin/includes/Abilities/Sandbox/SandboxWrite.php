@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Sandbox;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Abilities\Common\CodePayloadCanonicalizer;
 use Stonewright\WpMcp\Sandbox\SandboxFiles;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -47,6 +48,11 @@ final class SandboxWrite extends AbilityKernel {
 				'confirmation_token' => [
 					'type' => 'string',
 				],
+				'decode_escaped_layout' => [
+					'type'        => 'boolean',
+					'default'     => false,
+					'description' => 'Opt in to conservative decoding of escaped layout outside PHP strings and comments.',
+				],
 			],
 			'required'             => [ 'name', 'contents' ],
 		];
@@ -68,10 +74,15 @@ final class SandboxWrite extends AbilityKernel {
 	}
 
 	protected function audit_redacted_keys(): array {
-		return [ 'contents' ];
+		return array_merge( parent::audit_redacted_keys(), [ 'contents' ] );
 	}
 
 	public function execute( array $args ): array|\WP_Error {
+		$args = CodePayloadCanonicalizer::canonicalize( $this->name(), $args );
+		if ( $args instanceof \WP_Error ) {
+			return $args;
+		}
+
 		return $this->audit(
 			$args,
 			function ( array $a ): array|\WP_Error {
@@ -80,9 +91,11 @@ final class SandboxWrite extends AbilityKernel {
 					return $file_mods_error;
 				}
 
+				$verify = $a;
+				unset( $verify['confirmation_token'] );
 				$token_error = $this->production_safe_token_error(
 					$a,
-					[ 'name' => $a['name'], 'contents' => $a['contents'] ]
+					$verify
 				);
 				if ( null !== $token_error ) {
 					return $token_error;

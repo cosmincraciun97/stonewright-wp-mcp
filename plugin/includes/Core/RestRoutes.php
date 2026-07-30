@@ -985,6 +985,12 @@ final class RestRoutes {
 	 * @return mixed
 	 */
 	public static function audit_post_dispatch( $response, $server, $request ) {
+		// OAuth endpoints get their own recorder: their failures are protocol
+		// refusals rather than agent mistakes, and their payloads are credentials
+		// that must never be summarized into the generic mutation row.
+		if ( self::is_oauth_endpoint( $request ) ) {
+			return self::audit_oauth_dispatch( $response, $request );
+		}
 		if ( ! self::is_stonewright_mutation( $request ) ) {
 			return $response;
 		}
@@ -1027,6 +1033,80 @@ final class RestRoutes {
 				'params'   => $audit_params,
 			],
 			$status
+		);
+
+		return $response;
+	}
+
+	private static function is_oauth_endpoint( \WP_REST_Request $request ): bool {
+		return str_starts_with( (string) $request->get_route(), '/stonewright/v1/oauth/' );
+	}
+
+	/**
+	 * Persist one auth row for an OAuth endpoint outcome.
+	 *
+	 * Successful GETs on the auth surface (the authorize redirect, discovery) are
+	 * not recorded: they would bury the failures this row exists to surface. Every
+	 * 4xx/5xx is recorded regardless of method.
+	 *
+	 * @param \WP_REST_Response|\WP_HTTP_Response|\WP_Error|mixed $response Response.
+	 * @return mixed
+	 */
+	private static function audit_oauth_dispatch( $response, \WP_REST_Request $request ) {
+		if ( AuditLog::was_audited() ) {
+			return $response;
+		}
+
+		if ( $response instanceof \WP_Error ) {
+			$data      = $response->get_error_data();
+			$http      = is_array( $data ) ? (int) ( $data['status'] ?? 0 ) : 0;
+			$http      = $http > 0 ? $http : 500;
+			$carrier   = new \WP_REST_Response(
+				[
+					'error'             => (string) $response->get_error_code(),
+					'error_description' => (string) $response->get_error_message(),
+				],
+				$http
+			);
+		} elseif ( is_object( $response ) && method_exists( $response, 'get_status' ) ) {
+			// Duck-typed rather than instanceof: the OAuth bridge hands back
+			// whatever response object the transport produced.
+			$carrier = $response;
+			$http    = (int) $response->get_status();
+		} else {
+			return $response;
+		}
+
+		$method = strtoupper( (string) $request->get_method() );
+		if ( $http < 400 && 'POST' !== $method ) {
+			return $response;
+		}
+
+		$route    = (string) $request->get_route();
+		$endpoint = 'oauth/' . ltrim( substr( $route, strlen( '/stonewright/v1/oauth/' ) ), '/' );
+		$body     = $request->get_body_params();
+		$body     = is_array( $body ) ? $body : [];
+		$sensitive_values = [];
+		foreach ( [ 'client_secret', 'code', 'refresh_token', 'access_token', 'id_token', 'device_code', 'user_code', 'assertion' ] as $key ) {
+			if ( isset( $body[ $key ] ) && is_scalar( $body[ $key ] ) ) {
+				$sensitive_values[] = (string) $body[ $key ];
+			}
+		}
+		$authorization = $request->get_header( 'authorization' );
+		if ( is_string( $authorization ) && '' !== trim( $authorization ) ) {
+			$sensitive_values[] = $authorization;
+			if ( preg_match( '/^\S+\s+(.+)$/', trim( $authorization ), $authorization_parts ) ) {
+				$sensitive_values[] = $authorization_parts[1];
+			}
+		}
+
+		AuditLog::record_auth_event(
+			$endpoint,
+			$carrier,
+			[
+				'client_id'        => $body['client_id'] ?? $request->get_param( 'client_id' ) ?? '',
+				'sensitive_values' => $sensitive_values,
+			]
 		);
 
 		return $response;

@@ -10,6 +10,7 @@ use Stonewright\WpMcp\Abilities\System\ContextBootstrap;
 use Stonewright\WpMcp\Context\ContextToken;
 use Stonewright\WpMcp\Context\ExecutionContext;
 use Stonewright\WpMcp\Security\ErrorPatterns;
+use Stonewright\WpMcp\Support\ResponseProjection;
 use Stonewright\WpMcp\Support\Utf8;
 use Stonewright\WpMcp\Abilities\Content\CreatePage;
 use Stonewright\WpMcp\Abilities\Content\CreatePost;
@@ -174,7 +175,9 @@ use Stonewright\WpMcp\Abilities\WpCli\JobStatus as WpCliJobStatus;
 use Stonewright\WpMcp\Abilities\WpCli\Run as WpCliRun;
 use Stonewright\WpMcp\Abilities\WpCli\Status as WpCliStatus;
 use Stonewright\WpMcp\Abilities\System\InstructionsGet;
+use Stonewright\WpMcp\Abilities\System\RulesGet;
 use Stonewright\WpMcp\Abilities\System\InstructionsSet;
+use Stonewright\WpMcp\Abilities\System\MemoryGeneralize;
 use Stonewright\WpMcp\Abilities\Media\GetMedia;
 use Stonewright\WpMcp\Abilities\Media\ListMedia;
 use Stonewright\WpMcp\Abilities\Media\OptimizeMedia;
@@ -438,9 +441,11 @@ final class AbilityRegistry {
 			LearningRecord::class,
 			FeedbackCapture::class,
 			MemoryDelete::class,
+			MemoryGeneralize::class,
 
 			// System (Wave 3b).
 			InstructionsGet::class,
+			RulesGet::class,
 			InstructionsSet::class,
 			KnowledgeExport::class,
 			KnowledgeImport::class,
@@ -743,9 +748,18 @@ final class AbilityRegistry {
 	 */
 	public static function execute_with_context_guard( Ability $ability, array $input ): mixed {
 		$name = $ability->name();
+
+		// Read the projection out of this call's arguments and drop it before the
+		// ability runs. Nothing is stored: registry ability instances are reused
+		// across requests, so a remembered projection would leak one caller's
+		// request into the next caller's response.
+		$fields = $input[ ResponseProjection::PARAM ] ?? null;
+		unset( $input[ ResponseProjection::PARAM ] );
+
 		if ( ! self::requires_context_token( $ability ) ) {
 			unset( $input['stonewright_context_token'] );
 			$result = self::finalize_ability_result( $name, $ability->execute( $input ) );
+			$result = self::maybe_project( $result, $fields );
 			return self::maybe_attach_task_start_hint( $ability, $result );
 		}
 
@@ -768,10 +782,32 @@ final class AbilityRegistry {
 		ExecutionContext::set_task_hash( $task_hash );
 		try {
 			$result = self::finalize_ability_result( $name, $ability->execute( $input ) );
+			$result = self::maybe_project( $result, $fields );
 			return self::maybe_attach_task_start_hint( $ability, $result );
 		} finally {
 			ExecutionContext::clear();
 		}
+	}
+
+	/**
+	 * Apply a caller's field projection to a successful array response.
+	 *
+	 * Errors pass through untouched — a projection describes the shape of a
+	 * payload, and trimming a WP_Error would hide why the call failed. Declared
+	 * output schemas describe the full response; a projected response is a
+	 * caller-requested subset of it, so the projection runs after the ability has
+	 * produced (and validated) its own output, never before.
+	 *
+	 * @param mixed $result Ability result.
+	 * @param mixed $fields Raw projection parameter from the current call.
+	 * @return mixed
+	 */
+	private static function maybe_project( mixed $result, mixed $fields ): mixed {
+		if ( null === $fields || ! is_array( $result ) ) {
+			return $result;
+		}
+
+		return ResponseProjection::apply( $result, $fields );
 	}
 
 	/**
@@ -877,8 +913,30 @@ final class AbilityRegistry {
 		return self::SESSION_TASK_STARTED_PREFIX . hash_hmac( 'sha256', $session_id, wp_salt( 'auth' ) );
 	}
 
+	/**
+	 * Abilities that mutate state but whose names the keyword heuristic below
+	 * cannot recognise.
+	 *
+	 * The category rules exempt whole read-mostly categories, and the keyword
+	 * list only catches verbs that were foreseen. An allowlist keeps a mutation
+	 * gated when neither rule happens to fire on its name.
+	 *
+	 * @return list<string>
+	 */
+	private static function context_required_abilities(): array {
+		return [
+			// A bulk rewrite of stored memory. Category "memory" is exempt and
+			// "generalize" is in no keyword list, so it must be named here.
+			'stonewright/memory-generalize',
+		];
+	}
+
 	private static function requires_context_token( Ability $ability ): bool {
 		$name = $ability->name();
+		if ( in_array( $name, self::context_required_abilities(), true ) ) {
+			return true;
+		}
+
 		if ( in_array( $name, self::context_exempt_abilities(), true ) ) {
 			return false;
 		}
@@ -895,17 +953,28 @@ final class AbilityRegistry {
 
 	/**
 	 * Adds the mandatory Stonewright task context token to public schemas for
-	 * abilities that the execution gate will reject without it.
+	 * abilities that the execution gate will reject without it, and advertises the
+	 * optional response projection on every ability.
+	 *
+	 * Projection is advertised here rather than per ability because strict schemas
+	 * set `additionalProperties: false` — an unadvertised parameter would be
+	 * rejected by the client before it ever reached the execution seam.
 	 *
 	 * @return array<string, mixed>
 	 */
 	private static function input_schema_for_ability( Ability $ability ): array {
 		$schema = $ability->input_schema();
-		if ( self::requires_context_token( $ability ) ) {
-			if ( ! isset( $schema['properties'] ) || ! is_array( $schema['properties'] ) ) {
-				$schema['properties'] = [];
-			}
 
+		if ( ! isset( $schema['properties'] ) || ! is_array( $schema['properties'] ) ) {
+			$schema['properties'] = [];
+		}
+
+		/** @var array<string, mixed> $properties */
+		$properties                              = $schema['properties'];
+		$properties[ ResponseProjection::PARAM ] = ResponseProjection::schema_property();
+		$schema['properties']                    = $properties;
+
+		if ( self::requires_context_token( $ability ) ) {
 			/** @var array<string, mixed> $properties */
 			$properties                              = $schema['properties'];
 			$properties['stonewright_context_token'] = [
@@ -1025,6 +1094,7 @@ final class AbilityRegistry {
 			'stonewright/system-abilities-list',
 			'stonewright/tool-profile',
 			'stonewright/system-instructions-get',
+			'stonewright/rules-get',
 			'stonewright/knowledge-export',
 			'stonewright/skills-list',
 			'stonewright/skills-get',
@@ -1356,8 +1426,10 @@ final class AbilityRegistry {
 					// Minimal content + Elementor read tools for design tasks.
 					$pick( [ 'stonewright/content-get-page' ] ),
 					$pick( [ 'stonewright/elementor-v3-get-page-structure', 'stonewright/elementor-v3-status' ] ),
-					$pick( [ 'stonewright/elementor-schema', 'stonewright/elementor-v3-list-widgets' ] ),
-					// Theme CSS patch path (common Transavia-style work without full PHP).
+					// Native rules must be reachable before the first write, so the
+					// widget schema waits for the profile expansion that follows.
+					$pick( [ 'stonewright/rules-get' ] ),
+					// Theme CSS read/patch path, for styling work that needs no full PHP.
 					$pick( [ 'stonewright/theme-file-read', 'stonewright/theme-custom-css' ] ),
 				]
 			)
@@ -1379,6 +1451,7 @@ final class AbilityRegistry {
 			'stonewright/task-start',
 			'stonewright/tool-profile',
 			'stonewright/skills-get',
+			'stonewright/rules-get',
 			'stonewright/php-execute',
 			'stonewright/security-issue-confirmation-token',
 			'stonewright/site-info',
@@ -1388,7 +1461,6 @@ final class AbilityRegistry {
 			'stonewright/content-model-loop-grid-flow',
 			'stonewright/media-upload-batch',
 			'stonewright/design-native-plan',
-			'stonewright/knowledge-candidate-record',
 			'stonewright/elementor-schema',
 			'stonewright/elementor-v3-get-page-structure',
 			'stonewright/elementor-v3-build-page-from-spec',

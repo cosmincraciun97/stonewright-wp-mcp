@@ -90,6 +90,18 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 		self::assertSame( 'titel', $data['schema_request']['input']['query'] );
 	}
 
+	public function test_widget_schema_reports_responsive_controls_like_the_container_schema(): void {
+		$schema = WidgetSchemaRepository::get( 'third-party-card' );
+		self::assertIsArray( $schema );
+
+		// Array-valued responsive metadata is responsive, not falsy.
+		self::assertTrue( $schema['controls']['spacing']['responsive'] );
+		// Allowlist parity with ContainerSchemaRepository.
+		self::assertTrue( $schema['controls']['flex_gap']['responsive'] );
+		// A plain text control stays fixed.
+		self::assertFalse( $schema['controls']['title']['responsive'] );
+	}
+
 	public function test_live_container_schema_accepts_injected_controls_and_rejects_unknown_keys(): void {
 		$schema = ContainerSchemaRepository::get();
 		self::assertIsArray( $schema );
@@ -420,8 +432,12 @@ final class LiveThirdPartyWidget {
 			'show_subtitle' => [ 'type' => 'switcher', 'label' => 'Show subtitle', 'tab' => 'content', 'section' => 'content', 'return_value' => 'yes' ],
 			'subtitle' => [ 'type' => 'text', 'label' => 'Subtitle', 'tab' => 'content', 'section' => 'content', 'condition' => [ 'show_subtitle' => 'yes' ] ],
 			'link'    => [ 'type' => 'url', 'label' => 'Link', 'tab' => 'content', 'section' => 'content' ],
-			'spacing' => [ 'type' => 'dimensions', 'label' => 'Spacing', 'tab' => 'advanced', 'section' => 'layout', 'responsive' => true ],
-			'flex_gap' => [ 'type' => 'slider', 'label' => 'Gap', 'tab' => 'content', 'section' => 'content', 'responsive' => true ],
+			// Elementor's add_responsive_control() stores bounds as an array; the
+			// empty array means every breakpoint.
+			'spacing' => [ 'type' => 'dimensions', 'label' => 'Spacing', 'tab' => 'advanced', 'section' => 'layout', 'responsive' => [] ],
+			// Core layout control the live runtime reports without any responsive
+			// metadata even though the suffixed keys are native.
+			'flex_gap' => [ 'type' => 'slider', 'label' => 'Gap', 'tab' => 'content', 'section' => 'content' ],
 			'items'   => [
 				'type'    => 'repeater',
 				'label'   => 'Items',

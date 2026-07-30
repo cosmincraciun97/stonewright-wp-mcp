@@ -265,7 +265,7 @@ const MATRIX_VIEWPORTS = [
 ] as const;
 
 test.describe('Design Studio screenshot matrix', () => {
-	test('ten screenshots across five widths in light and dark', async ({ page }, testInfo) => {
+	test('five screenshots across the supported light-theme widths', async ({ page }, testInfo) => {
 		test.skip(testInfo.project.name !== 'desktop-1440-light', 'The matrix drives its own sizes.');
 		test.setTimeout(180_000);
 		fs.mkdirSync(artifactDir, { recursive: true });
@@ -279,52 +279,35 @@ test.describe('Design Studio screenshot matrix', () => {
 			page.locator('.sw-shell__version'),
 		];
 
-		let dark = false;
-		for (const theme of ['light', 'dark'] as const) {
-			await page.goto(STUDIO_URL, { waitUntil: 'domcontentloaded' });
+		await page.goto(STUDIO_URL, { waitUntil: 'domcontentloaded' });
+		await page.locator('.sw-ds-hero').waitFor({ state: 'visible' });
+		await expect(page.locator('.sw-shell')).not.toHaveClass(/sw-theme-(?:light|dark)/);
+
+		for (const viewport of MATRIX_VIEWPORTS) {
+			await page.setViewportSize({ width: viewport.width, height: viewport.height });
 			await page.locator('.sw-ds-hero').waitFor({ state: 'visible' });
+			await page.waitForTimeout(120);
 
-			if ((theme === 'dark') !== dark) {
-				await page.locator('[data-sw-theme-toggle]').click();
-				await expect(page.locator('.sw-shell')).toHaveClass(
-					theme === 'dark' ? /sw-theme-dark/ : /sw-theme-light/,
-				);
-				dark = theme === 'dark';
-			}
+			const overflow = await page.evaluate(() => {
+				const shell = document.querySelector('.sw-shell') as HTMLElement | null;
+				if (!shell) {
+					return -1;
+				}
+				const delta = shell.scrollWidth - shell.clientWidth;
+				return delta > 2 ? delta : 0;
+			});
+			expect(overflow, `${viewport.name} light: horizontal overflow`).toBe(0);
 
-			for (const viewport of MATRIX_VIEWPORTS) {
-				await page.setViewportSize({ width: viewport.width, height: viewport.height });
-				await page.locator('.sw-ds-hero').waitFor({ state: 'visible' });
-				await page.waitForTimeout(120);
-
-				const overflow = await page.evaluate(() => {
-					const shell = document.querySelector('.sw-shell') as HTMLElement | null;
-					if (!shell) {
-						return -1;
-					}
-					const delta = shell.scrollWidth - shell.clientWidth;
-					return delta > 2 ? delta : 0;
-				});
-				expect(overflow, `${viewport.name} ${theme}: horizontal overflow`).toBe(0);
-
-				await page.screenshot({
-					path: path.join(artifactDir, `design-studio-${viewport.name}-${theme}.png`),
-					fullPage: true,
-					mask: volatile,
-				});
-			}
-		}
-
-		// Leave the shared admin user on the default theme for later specs.
-		if (dark) {
-			await page.setViewportSize({ width: 1440, height: 900 });
-			await page.locator('[data-sw-theme-toggle]').click();
-			await expect(page.locator('.sw-shell')).toHaveClass(/sw-theme-light/);
+			await page.screenshot({
+				path: path.join(artifactDir, `design-studio-${viewport.name}-light.png`),
+				fullPage: true,
+				mask: volatile,
+			});
 		}
 
 		const written = fs
 			.readdirSync(artifactDir)
-			.filter((name) => name.startsWith('design-studio-') && name.endsWith('.png'));
-		expect(written, `screenshot matrix wrote ${written.length} files`).toHaveLength(10);
+			.filter((name) => name.startsWith('design-studio-') && name.endsWith('-light.png'));
+		expect(written, `screenshot matrix wrote ${written.length} files`).toHaveLength(5);
 	});
 });

@@ -39,8 +39,13 @@ function warn(msg) {
 	warnings.push(msg);
 }
 
-// Required runtime entrypoints.
-for (const rel of ['stonewright.php', 'includes/Core/PluginRegistration.php', 'uninstall.php']) {
+// Required runtime entrypoints and packaged data the runtime cannot synthesise.
+for (const rel of [
+	'stonewright.php',
+	'includes/Core/PluginRegistration.php',
+	'uninstall.php',
+	'data/global-rules.json',
+]) {
 	if (!exists(rel)) fail(`Missing required plugin path: plugin/${rel}`);
 }
 

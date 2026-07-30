@@ -100,7 +100,7 @@ abstract class AbilityKernel implements Ability {
 			$metadata['error_message'] = mb_substr( $message, 0, 200 );
 			$data                      = $result->get_error_data();
 			if ( is_array( $data ) ) {
-				foreach ( [ 'execution_status', 'verification_status', 'rollback_status', 'before_sha256', 'after_sha256', 'cause_key', 'resource_type', 'operation_class' ] as $effect_key ) {
+				foreach ( [ 'execution_status', 'verification_status', 'rollback_status', 'before_sha256', 'after_sha256', 'cause_key', 'resource_type', 'operation_class', 'rule_id' ] as $effect_key ) {
 					if ( isset( $data[ $effect_key ] ) && is_scalar( $data[ $effect_key ] ) ) {
 						$metadata[ $effect_key ] = $data[ $effect_key ];
 					}

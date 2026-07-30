@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\Themes;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Abilities\Common\CodePayloadCanonicalizer;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
@@ -40,6 +41,11 @@ final class ThemeCustomCss extends AbilityKernel {
 				'action'             => [ 'type' => 'string', 'enum' => [ 'get', 'update' ] ],
 				'css'                => [ 'type' => 'string' ],
 				'confirmation_token' => [ 'type' => 'string' ],
+				'decode_escaped_layout' => [
+					'type'        => 'boolean',
+					'default'     => false,
+					'description' => 'Opt in to conservative decoding of escaped layout outside CSS strings and comments.',
+				],
 			],
 			'required'             => [ 'action' ],
 		];
@@ -57,6 +63,11 @@ final class ThemeCustomCss extends AbilityKernel {
 	}
 
 	public function execute( array $args ): array|\WP_Error {
+		$args = CodePayloadCanonicalizer::canonicalize( $this->name(), $args );
+		if ( $args instanceof \WP_Error ) {
+			return $args;
+		}
+
 		return $this->audit(
 			$args,
 			function ( array $args ) {
@@ -86,5 +97,10 @@ final class ThemeCustomCss extends AbilityKernel {
 				];
 			}
 		);
+	}
+
+	/** @return array<int, string> */
+	protected function audit_redacted_keys(): array {
+		return array_merge( parent::audit_redacted_keys(), [ 'css' ] );
 	}
 }

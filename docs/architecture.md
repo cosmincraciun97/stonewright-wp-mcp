@@ -39,6 +39,24 @@ Use `stonewright/php-execute` for PHP snippets inside WordPress. WP-CLI
 execution is tokenized and runs through `execFile`; WP-CLI PHP and shell entry
 points are blocked.
 
+### Audit error codes
+
+An audit row has to distinguish a client that authenticated badly from a server
+that broke, because the two lead to opposite remediations. Two rules keep those
+apart:
+
+- OAuth protocol codes defined by RFC 6749 and RFC 8628 keep their **exact**
+  spelling when the failure originates in the auth surface. Renaming them would
+  make audit rows unmatchable against the specs, and against what the client saw.
+- Every code Stonewright itself emits is namespaced (`stonewright_`, alongside the
+  inherited `rest_`, `oauth_`, `http_` prefixes), so a Stonewright failure can
+  never be read as a protocol error.
+
+Origin is decided by the row's `status` when present, and falls back to the
+ability name for rows recorded before the `auth` status existed. OAuth dispatch on
+`/stonewright/v1/oauth/*` is audited at the REST layer, so a protocol failure is
+recorded even when no ability ran.
+
 ## Agent Context
 
 Agents must call MCP tool `stonewright-task-start` at the beginning of every
@@ -52,6 +70,7 @@ compact, task-aware response that includes:
 - MCP tool naming hints
 - recommended external MCPs such as Playwright for browser work
 - a short-lived context token for write abilities
+- the native rule registry **digest** plus the tool that resolves it
 
 Manual edits to skills, memory, or custom instructions persist in WordPress and
 are included in future task-start responses. `stonewright-context-bootstrap`
@@ -66,6 +85,63 @@ the companion through ad hoc shell scripts, creating action scripts, inspecting
 plugin/companion source to reverse-engineer tool schemas, hand-rolling
 JSON-RPC, calling the REST ability runner from shell, or running shell `wp ...`
 commands.
+
+### Native rules
+
+Operating rules that hold for every site are packaged as data rather than stored
+per site. `plugin/data/global-rules.json` is the plugin's copy; the companion
+ships an identical registry so Direct mode reports the same rules. Storing them
+as data instead of per-site memory means they apply to every project, survive a
+memory reset, stay testable, and stay readable by both runtimes.
+
+Each record declares an id, a severity, a scope, the rule, why it exists, and an
+`enforcement` block. Severity and enforcement are two different claims, and the
+registry keeps them honest:
+
+| Severity | Enforcement | Behaviour |
+|---|---|---|
+| `hard` | `runtime`, with a named guard | A violation fails. `RuleEnforcer` wires the guard. |
+| `strong` | `instruction`, guard empty | Surfaced in every task payload; deviation must be justified. PHP cannot mechanically check these, so they never claim a guard. |
+| `advisory` | `instruction` | Surfaced on matching tasks only. |
+
+`GlobalRules` loads, validates, and caches the registry; a record with a missing
+or extra key, or a duplicate id, is treated as a registry defect rather than
+tolerated. Rule text may not name a host, a URL, or a site-local record id.
+
+Task payloads carry the digest, not the bodies, because rule bodies would consume
+most of a compact budget. `stonewright/rules-get` is the other half of that
+trade: filter by `severity` or `scope` (a scoped request still includes the
+globally scoped rules), cache by digest, and pass `knownDigest` to get
+`unchanged: true` with the bodies omitted. The digest covers the **filtered** set,
+so a client that cached only the hard rules is never told "unchanged" for a
+different slice.
+
+Payload text that restates a rule reads it from the registry rather than
+duplicating it. `fast_path.batching_rule_id` is the pattern: compact mode carries
+the rule id alone, full mode carries the registry's own sentence, and editing the
+JSON changes both.
+
+### Response size controls
+
+Two mechanisms trim read cost without weakening any gate:
+
+- **Field projection.** `AbilityRegistry::execute_with_context_guard()` is the
+  single seam where a caller's `stonewright_fields` paths are read out of the
+  current call's arguments, dropped before `execute()` runs, and applied to the
+  result. `ResponseProjection` is pure and stateless because registry ability
+  instances are reused across requests — a projection remembered on an instance
+  would leak one caller's request into the next caller's response. Projection
+  runs *after* the ability has produced and validated its output, so declared
+  output schemas keep describing the full response, and *before* the task-start
+  nudge is attached, so the nudge cannot be projected away. Errors pass through
+  unprojected: trimming a `WP_Error` would hide why the call failed. The parameter
+  is advertised on every strict schema because `additionalProperties: false`
+  would otherwise have the client reject it before it reached the seam.
+- **Read short-circuit.** `stonewright/elementor-v3-get-page-structure` accepts
+  the `hash` it previously returned as `knownHash`. On a match it answers before
+  flattening the tree or building the outline. The hash is taken from the decoded
+  tree, not the raw `_elementor_data` string, so a re-save that only reorders JSON
+  keys or changes escaping does not read as a content change.
 
 
 ## Design Direction
@@ -367,6 +443,19 @@ unverified parts visible as unverified.
 
 Plugin abilities and Direct tools cover comments, users (including application passwords), widgets, allowlisted settings, themes, plugin lifecycle, revisions (with restore on the plugin), site health tests, search/oEmbed, and WooCommerce product/order/sales reads.
 
+The native rule registry is at parity too. The companion ships a copy of
+`plugin/data/global-rules.json` (synced by `npm run sync:rules` at pack time) and
+implements the same digest algorithm as `GlobalRules::digest_of()`, so a Direct
+client and a plugin client can compare digests directly. Both expose
+`stonewright-rules-get` with the same `severity`, `scope`, and `knownDigest`
+inputs and return the same records.
+
+The **rules** are at parity; **runtime enforcement** is not. `RuleEnforcer` lives
+in the plugin, so a `hard` rule's `enforcement.guard` names a guard that only runs
+on the plugin surface. Direct returns the registry record verbatim, guard name
+included. On Direct, read `hard` as "this rule is enforceable where the plugin
+runs", not as a guarantee the Direct runtime makes.
+
 ## MCP tool surface switching (premium finalization)
 
 Profile and surface switching is transport-specific. Agents should treat
@@ -440,4 +529,9 @@ Profile and surface switching is transport-specific. Agents should treat
   site (30-minute TTL, re-arms after expiry). Opt out with
   `STONEWRIGHT_DIRECT_REQUIRE_TASK_START=off`.
 - Pre-session Direct reads attach the same non-blocking `task_start_hint`.
+- `stonewright-rules-get` is on the Direct bootstrap surface: Direct task start
+  hands out a rule digest, so the tool that resolves it has to be reachable before
+  profile expansion. `stonewright-skill-list` left the cold surface to keep it
+  small — Direct task start already returns the matched skill slugs, and the tool
+  returns as soon as the profile expands.
 - Full remains an explicit diagnostic/specialist choice, never the default.

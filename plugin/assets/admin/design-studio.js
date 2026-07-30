@@ -1989,56 +1989,5 @@
 		return '';
 	} );
 
-	function initTooltips() {
-		var tip = null;
-		var active = null;
-
-		function close() {
-			if ( tip && tip.parentNode ) {
-				tip.parentNode.removeChild( tip );
-			}
-			if ( active ) {
-				active.removeAttribute( 'aria-describedby' );
-			}
-			tip = null;
-			active = null;
-		}
-
-		function open( node ) {
-			var text = node.getAttribute( 'data-sw-tooltip' );
-			if ( ! text ) {
-				return;
-			}
-			if ( active === node ) {
-				return;
-			}
-			close();
-			active = node;
-			tip = el( 'div', { className: 'sw-ds-tooltip', text: text, attrs: { id: 'sw-ds-tooltip', role: 'tooltip' } } );
-			document.body.appendChild( tip );
-			node.setAttribute( 'aria-describedby', tip.id );
-			var rect = node.getBoundingClientRect();
-			tip.style.left = Math.max( 12, Math.min( window.innerWidth - tip.offsetWidth - 12, rect.left ) ) + 'px';
-			tip.style.top = Math.max( 12, rect.bottom + 8 ) + 'px';
-		}
-
-		root.addEventListener( 'mouseover', function ( event ) {
-			var node = event.target.closest && event.target.closest( '[data-sw-tooltip]' );
-			if ( node ) { open( node ); }
-		} );
-		root.addEventListener( 'mouseout', function ( event ) {
-			if ( active && ! active.contains( event.relatedTarget ) ) { close(); }
-		} );
-		root.addEventListener( 'focusin', function ( event ) {
-			var node = event.target.closest && event.target.closest( '[data-sw-tooltip]' );
-			if ( node ) { open( node ); }
-		} );
-		root.addEventListener( 'focusout', close );
-		document.addEventListener( 'keydown', function ( event ) {
-			if ( 'Escape' === event.key ) { close(); }
-		} );
-	}
-
-	initTooltips();
 	showView( VIEWS.indexOf( state.view ) === -1 ? VIEWS[ 0 ] : state.view );
 }() );

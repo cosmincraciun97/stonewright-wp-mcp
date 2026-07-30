@@ -18,6 +18,7 @@ import * as blockPatterns from './tools/block-patterns.js';
 import * as siteDiscover from './tools/site-discover.js';
 import * as gutenberg from './tools/gutenberg-compose.js';
 import * as blueprints from './tools/blueprints.js';
+import * as globalRulesModule from './global-rules.js';
 import * as comments from './tools/comments.js';
 import * as widgets from './tools/widgets.js';
 import * as health from './tools/health.js';
@@ -168,6 +169,7 @@ export const DIRECT_WAVE5_TOOL_NAMES = [
 	'stonewright-elementor-data-update',
 	'stonewright-gutenberg-validate',
 	'stonewright-agents-md-sync',
+	'stonewright-rules-get',
 ] as const;
 
 export const DIRECT_TOOL_NAMES = [
@@ -184,8 +186,11 @@ export const DIRECT_TOOL_NAMES = [
  */
 export const DIRECT_BOOTSTRAP_TOOL_NAMES = [
 	'stonewright-task-start',
+	// Task start hands out a rule digest, so the tool that resolves it has to be
+	// reachable on the cold surface. Skill listing waits for profile expansion:
+	// task-start already returns the matched skill slugs.
+	'stonewright-rules-get',
 	'stonewright-site-discover',
-	'stonewright-skill-list',
 	'stonewright-skill-get',
 	'stonewright-memory-list',
 	'stonewright-learning-record',
@@ -1514,6 +1519,17 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			}
 		});
 	};
+
+	w4(
+		'stonewright-rules-get',
+		'Return the rules Stonewright enforces for every site, with why each exists and whether a runtime guard blocks violations. Cache by digest; refetch only when task-start reports a different one.',
+		{
+			severity: z.enum(globalRulesModule.RULE_SEVERITIES).optional(),
+			scope: z.enum(globalRulesModule.RULE_SCOPES).optional(),
+			knownDigest: z.string().optional(),
+		},
+		(input) => globalRulesModule.rulesGet(input as never),
+	);
 
 	w4(
 		'stonewright-skill-list',
