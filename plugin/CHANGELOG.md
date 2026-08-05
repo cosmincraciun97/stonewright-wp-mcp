@@ -16,6 +16,9 @@
 
 ### Fixed
 
+- Bind OAuth tokens to the canonical MCP resource, publish the minimal `mcp`
+  resource scope, and revoke all descendant refresh and access tokens when a
+  rotated refresh token is replayed.
 - Neutralize spreadsheet formulas in redacted audit CSV exports and include
   both OAuth audit transient families in purge hashes and counts.
 

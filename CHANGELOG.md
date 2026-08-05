@@ -29,6 +29,11 @@ were never stable releases and are not part of the supported public history.
 
 - Require successful OAuth refreshes to rotate the refresh token; omitted or
   replayed refresh credentials now clear durable state and require reauthorization.
+- Bind OAuth authorization and refresh requests to the canonical MCP resource,
+  advertise only the minimal `mcp` resource scope, and revoke an entire refresh
+  family plus its access tokens when a rotated credential is replayed.
+- Update companion transitive dependencies to patched releases and restore a
+  zero-advisory production dependency audit.
 - Neutralize spreadsheet formulas in redacted audit CSV exports and include
   both value and timeout OAuth audit transients in purge state fingerprints.
 

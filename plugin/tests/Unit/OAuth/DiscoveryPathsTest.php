@@ -72,5 +72,6 @@ final class DiscoveryPathsTest extends TestCase {
 		self::assertStringContainsString( 'page=stonewright-oauth-authorize', $authorization['authorization_endpoint'] );
 		self::assertContains( 'offline_access', $authorization['scopes_supported'] );
 		self::assertSame( 'https://example.test/wp-json/mcp/stonewright-oauth', $resource['resource'] );
+		self::assertSame( [ 'mcp' ], $resource['scopes_supported'] );
 	}
 }

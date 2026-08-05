@@ -115,7 +115,7 @@ final class Discovery {
 			'resource'                 => Bootstrap::resource_identifier(),
 			'authorization_servers'    => [ home_url() ],
 			'bearer_methods_supported' => [ 'header' ],
-			'scopes_supported'         => Bootstrap::supported_scopes(),
+			'scopes_supported'         => Bootstrap::resource_scopes(),
 		];
 	}
 

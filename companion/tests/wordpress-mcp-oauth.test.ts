@@ -7,12 +7,13 @@ import { WordPressMcpClient, type WordPressMcpConfig } from '../src/wordpress-mc
 
 function fixtureConfig(tokenStorePath: string): WordPressMcpConfig {
 	return {
-		url: 'https://example.com/wp-json/mcp/stonewright',
+		url: 'https://example.com/wp-json/mcp/stonewright-oauth',
 		timeoutMs: 5_000,
 		oauth: {
 			tokenEndpoint: 'https://example.com/wp-json/stonewright/v1/oauth/token',
 			clientId: 'client-example',
 			tokenStorePath,
+			resource: 'https://example.com/wp-json/mcp/stonewright-oauth',
 		},
 	};
 }
@@ -40,11 +41,13 @@ describe('WordPress MCP OAuth runtime', () => {
 			const tokenStorePath = join(directory, 'tokens.json');
 			new OAuthTokenStore(tokenStorePath).save({ accessToken: 'expired-access', refreshToken: 'refresh-one', expiresAt: 0 });
 			let refreshCalls = 0;
+			const refreshBodies: string[] = [];
 			const protectedAuthorization: string[] = [];
 			const fetchImpl: typeof fetch = async (input, init) => {
 				await Promise.resolve();
 				if (String(input).endsWith('/oauth/token')) {
 					refreshCalls += 1;
+					refreshBodies.push(String(init?.body ?? ''));
 					return rpcResponse({ access_token: 'fixture-fresh-access', refresh_token: 'fixture-refresh-two', expires_in: 300, token_type: 'Bearer' });
 				}
 				protectedAuthorization.push(new Headers(init?.headers).get('authorization') ?? '');
@@ -55,6 +58,7 @@ describe('WordPress MCP OAuth runtime', () => {
 			await client.listTools();
 
 			expect(refreshCalls).toBe(1);
+			expect(new URLSearchParams(refreshBodies[0]).get('resource')).toBe('https://example.com/wp-json/mcp/stonewright-oauth');
 			expect(protectedAuthorization).toHaveLength(3);
 			expect(protectedAuthorization).toEqual(protectedAuthorization.map(() => 'Bearer fixture-fresh-access'));
 			expect(new OAuthTokenStore(tokenStorePath).load()?.refreshToken).toBe('fixture-refresh-two');

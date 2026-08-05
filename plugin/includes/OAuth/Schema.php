@@ -21,7 +21,7 @@ final class Schema {
 
 	public const SCHEMA_VERSION_OPTION = 'stonewright_oauth_schema_version';
 
-	public const CURRENT_SCHEMA_VERSION = '2';
+	public const CURRENT_SCHEMA_VERSION = '3';
 
 	public const GC_HOOK = 'stonewright_oauth_gc';
 
@@ -89,10 +89,12 @@ final class Schema {
 			"CREATE TABLE {$prefix}refresh_tokens (
 				identifier_hash CHAR(64) NOT NULL,
 				access_token_hash CHAR(64) NOT NULL,
+				grant_family_hash CHAR(64) NOT NULL,
 				expires_at DATETIME NOT NULL,
 				revoked TINYINT(1) NOT NULL DEFAULT 0,
 				PRIMARY KEY (identifier_hash),
-				KEY expires_at (expires_at)
+				KEY expires_at (expires_at),
+				KEY grant_family_hash (grant_family_hash)
 			) {$collation};"
 		);
 

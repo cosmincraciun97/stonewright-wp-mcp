@@ -84,10 +84,12 @@ describe('OAuth token manager', () => {
 					await Promise.resolve();
 					expect(init?.method).toBe('POST');
 					expect(String(init?.body)).toContain('grant_type=refresh_token');
+					expect(new URLSearchParams(String(init?.body)).get('resource')).toBe('https://example.test/mcp');
 					return makeResponse({ access_token: 'example-access', refresh_token: 'example-refresh', expires_in: 120, token_type: 'Bearer' });
 				},
 				'https://example.test/oauth/token',
 				'client-example',
+				'https://example.test/mcp',
 			);
 			expect(token).toBe('example-access');
 			expect(fixture.store.load()).toEqual({ accessToken: 'example-access', refreshToken: 'example-refresh', expiresAt: now + 120_000, tokenType: 'Bearer' });

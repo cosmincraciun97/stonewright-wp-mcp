@@ -351,6 +351,9 @@ Plugin mode also supports browser-based OAuth at:
 https://your-site.example.com/wp-json/mcp/stonewright-oauth
 ```
 
+OAuth uses mandatory PKCE S256, exact MCP resource/audience binding, rotating
+refresh tokens, and family-wide revocation when a rotated token is replayed.
+
 MCP tool names are hyphenated by the WordPress MCP Adapter. Example:
 `stonewright/context-bootstrap` is called as `stonewright-context-bootstrap`.
 For the canonical compact first pass, call `stonewright-task-start`; it returns

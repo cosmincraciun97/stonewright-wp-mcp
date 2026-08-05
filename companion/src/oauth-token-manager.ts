@@ -104,7 +104,7 @@ export class OAuthTokenManager {
 		this.random = options.random ?? Math.random;
 	}
 
-	async getAccessToken(fetchImpl: typeof fetch, tokenEndpoint: string, clientId: string): Promise<string> {
+	async getAccessToken(fetchImpl: typeof fetch, tokenEndpoint: string, clientId: string, resource = ''): Promise<string> {
 		if (this.reauthenticationRequired) throw new OAuthReauthRequiredError();
 		const current = this.store.load();
 		if (current && current.expiresAt > this.now() + 30_000) return current.accessToken;
@@ -112,7 +112,7 @@ export class OAuthTokenManager {
 			throw new OAuthTransientError('OAuth refresh circuit is open.', this.circuitOpenUntil - this.now());
 		}
 		if (this.refreshInFlight) return this.refreshInFlight;
-		this.refreshInFlight = this.refresh(fetchImpl, tokenEndpoint, clientId).finally(() => {
+		this.refreshInFlight = this.refresh(fetchImpl, tokenEndpoint, clientId, resource).finally(() => {
 			this.refreshInFlight = null;
 		});
 		return this.refreshInFlight;
@@ -128,6 +128,7 @@ export class OAuthTokenManager {
 		tokenEndpoint: string,
 		clientId: string,
 		rejectedAccessToken: string,
+		resource = '',
 	): Promise<string> {
 		if (this.reauthenticationRequired) throw new OAuthReauthRequiredError();
 		const current = this.store.load();
@@ -138,13 +139,13 @@ export class OAuthTokenManager {
 			throw new OAuthTransientError('OAuth refresh circuit is open.', this.circuitOpenUntil - this.now());
 		}
 		if (this.refreshInFlight) return this.refreshInFlight;
-		this.refreshInFlight = this.refresh(fetchImpl, tokenEndpoint, clientId).finally(() => {
+		this.refreshInFlight = this.refresh(fetchImpl, tokenEndpoint, clientId, resource).finally(() => {
 			this.refreshInFlight = null;
 		});
 		return this.refreshInFlight;
 	}
 
-	private async refresh(fetchImpl: typeof fetch, tokenEndpoint: string, clientId: string): Promise<string> {
+	private async refresh(fetchImpl: typeof fetch, tokenEndpoint: string, clientId: string, resource: string): Promise<string> {
 		const current = this.store.load();
 		if (!current?.refreshToken) {
 			throw this.requireReauthentication();
@@ -157,7 +158,12 @@ export class OAuthTokenManager {
 				response = await fetchImpl(tokenEndpoint, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json', 'Cache-Control': 'no-store' },
-					body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: current.refreshToken, client_id: clientId }).toString(),
+					body: new URLSearchParams({
+						grant_type: 'refresh_token',
+						refresh_token: current.refreshToken,
+						client_id: clientId,
+						...(resource ? { resource } : {}),
+					}).toString(),
 				});
 			} catch (error) {
 				const message = error instanceof Error ? error.message : 'OAuth refresh request failed.';

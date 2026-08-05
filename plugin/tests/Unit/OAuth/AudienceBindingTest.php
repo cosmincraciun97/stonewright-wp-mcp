@@ -42,6 +42,7 @@ final class AudienceBindingTest extends TestCase {
 
 	public function test_supported_scopes_match_upstream_and_refresh_compatibility(): void {
 		self::assertSame( [ 'mcp', 'read', 'write', 'offline_access' ], Bootstrap::supported_scopes() );
+		self::assertSame( [ 'mcp' ], Bootstrap::resource_scopes() );
 	}
 
 	public function test_access_token_audience_is_resource_not_client(): void {

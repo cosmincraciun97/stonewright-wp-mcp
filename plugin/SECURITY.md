@@ -62,7 +62,25 @@ All write ability executions are recorded in the `{prefix}stonewright_audit_log`
 - request UUID
 - timestamp
 
-The log is append-only. Rows are never updated or deleted by the plugin. Read via `GET /wp-json/stonewright/v1/audit-log` (requires `manage_options`).
+Normal writes are append-only. The dedicated runtime-history purge is the only
+plugin path that deletes rows: it requires `manage_options`, a count-only dry
+run, matching state and plan hashes, a production-safe confirmation token when
+applicable, and preserves one cleanup receipt. Read via
+`GET /wp-json/stonewright/v1/audit-log` (requires `manage_options`).
+
+### OAuth authorization
+
+Browser OAuth uses Authorization Code with mandatory PKCE S256. Authorization,
+token exchange, refresh, and bearer validation bind to the exact canonical MCP
+resource; a token issued for another audience is rejected. Protected Resource
+Metadata advertises only the `mcp` resource scope, while authorization-server
+metadata may advertise `offline_access` for refresh grants.
+
+Refresh tokens rotate after every successful use. Reuse of a revoked token
+revokes its complete refresh-token family and all access tokens associated with
+that grant. Authorization and token endpoints have atomic, trusted-proxy-aware
+rate limits. OAuth secrets and bearer values are never returned by diagnostics
+or written to the audit log.
 
 ### Runtime execution and environment assertion
 
@@ -81,7 +99,9 @@ Stonewright exposes direct PHP runtime execution through the dedicated `stonewri
 
 ### Transport security
 
-The MCP endpoint (`/wp-json/mcp/stonewright`) is a standard WordPress REST route. It inherits the same SSL, nonce, and Application Password infrastructure as the WordPress REST API. Use HTTPS in all environments.
+The Application Password MCP endpoint (`/wp-json/mcp/stonewright`) and the
+dedicated OAuth resource (`/wp-json/mcp/stonewright-oauth`) use WordPress REST
+routing. Use HTTPS in all non-local environments.
 
 The companion HTTP server enforces bearer token authentication (`COMPANION_BEARER_TOKEN`) and an origin allowlist (`COMPANION_ALLOWED_ORIGINS`). The companion writes to WordPress through tokenized WP-CLI execution. It uses `execFile` with argv tokens. Use `stonewright/php-execute` for PHP runtime snippets; WP-CLI PHP and shell entry points such as `wp eval`, `wp eval-file`, `wp shell`, `wp package`, `--exec`, and `--require` remain blocked.
 
@@ -93,6 +113,11 @@ The companion HTTP server enforces bearer token authentication (`COMPANION_BEARE
 
 **Replay attack against a destructive ability.** Blocked by confirmation tokens. Each token is single-use and expires in five minutes.
 
-**Log tampering to hide malicious writes.** The audit table is append-only. Deletion of audit rows requires direct database access beyond the WordPress application layer.
+**Replay of a rotated OAuth refresh token.** Revokes the full refresh family
+and all access tokens for the grant, forcing explicit reauthorization.
+
+**Log tampering to hide malicious writes.** Ordinary operations cannot edit or
+delete audit rows. The explicit runtime-history purge is hash-bound,
+confirmation-gated, preserves concurrent rows, and leaves a cleanup receipt.
 
 **WP-CLI entry point misuse.** The companion rejects WP-CLI PHP and interactive shell entry points before process spawn, runs without a shell, and can restrict working directories with `STONEWRIGHT_WP_ROOT` or `STONEWRIGHT_WP_ALLOWED_ROOTS`.

@@ -31,18 +31,25 @@ final class RefreshTokenEntity implements RefreshTokenEntityInterface {
 
 final class RefreshTokenRepository implements RefreshTokenRepositoryInterface {
 
+	private string $active_grant_family_hash = '';
+
 	public function getNewRefreshToken(): ?RefreshTokenEntityInterface {
 		return new RefreshTokenEntity();
 	}
 
 	public function persistNewRefreshToken( RefreshTokenEntityInterface $refreshTokenEntity ): void {
 		global $wpdb;
+		$family_hash = $this->active_grant_family_hash;
+		if ( '' === $family_hash ) {
+			$family_hash = hash( 'sha256', random_bytes( 32 ) );
+		}
 
 		$wpdb->insert(
 			$wpdb->prefix . 'stonewright_oauth_refresh_tokens',
 			[
 				'identifier_hash'  => hash( 'sha256', (string) $refreshTokenEntity->getIdentifier() ),
 				'access_token_hash' => hash( 'sha256', (string) $refreshTokenEntity->getAccessToken()->getIdentifier() ),
+				'grant_family_hash' => $family_hash,
 				'expires_at'       => $refreshTokenEntity->getExpiryDateTime()->format( 'Y-m-d H:i:s' ),
 				'revoked'          => 0,
 			]
@@ -70,20 +77,67 @@ final class RefreshTokenRepository implements RefreshTokenRepositoryInterface {
 
 	public function isRefreshTokenRevoked( mixed $tokenId ): bool {
 		global $wpdb;
+		$identifier_hash = hash( 'sha256', (string) $tokenId );
 
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT revoked, expires_at FROM {$wpdb->prefix}stonewright_oauth_refresh_tokens
+				"SELECT revoked, expires_at, grant_family_hash FROM {$wpdb->prefix}stonewright_oauth_refresh_tokens
 				WHERE identifier_hash = %s",
-				hash( 'sha256', (string) $tokenId )
+				$identifier_hash
 			),
 			ARRAY_A
 		);
-		if ( ! is_array( $row ) || 1 === (int) ( $row['revoked'] ?? 0 ) ) {
+		if ( ! is_array( $row ) ) {
 			return true;
 		}
 
+		$family_hash = (string) ( $row['grant_family_hash'] ?? '' );
+		if ( '' === $family_hash ) {
+			$family_hash = hash( 'sha256', random_bytes( 32 ) );
+			$wpdb->update(
+				$wpdb->prefix . 'stonewright_oauth_refresh_tokens',
+				[ 'grant_family_hash' => $family_hash ],
+				[ 'identifier_hash' => $identifier_hash ]
+			);
+		}
+
+		if ( 1 === (int) ( $row['revoked'] ?? 0 ) ) {
+			$this->revoke_grant_family( $family_hash );
+			return true;
+		}
+
+		$this->active_grant_family_hash = $family_hash;
+
 		return new DateTimeImmutable( (string) $row['expires_at'] . ' UTC' ) < new DateTimeImmutable( 'now' );
+	}
+
+	/**
+	 * Revoke every refresh and access token descended from a replayed grant.
+	 */
+	private function revoke_grant_family( string $family_hash ): void {
+		if ( '' === $family_hash ) {
+			return;
+		}
+
+		global $wpdb;
+		$refresh_table = $wpdb->prefix . 'stonewright_oauth_refresh_tokens';
+		$access_table  = $wpdb->prefix . 'stonewright_oauth_access_tokens';
+		$access_hashes = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT access_token_hash FROM {$refresh_table} WHERE grant_family_hash = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is an internal constant-derived name; the value is prepared.
+				$family_hash
+			)
+		);
+
+		$wpdb->update( $refresh_table, [ 'revoked' => 1 ], [ 'grant_family_hash' => $family_hash ] );
+		if ( ! is_array( $access_hashes ) ) {
+			return;
+		}
+		foreach ( $access_hashes as $access_hash ) {
+			if ( is_string( $access_hash ) && '' !== $access_hash ) {
+				$wpdb->update( $access_table, [ 'revoked' => 1 ], [ 'identifier_hash' => $access_hash ] );
+			}
+		}
 	}
 
 	public function accessTokenHashFor( string $refreshJti ): string {

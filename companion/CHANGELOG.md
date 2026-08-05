@@ -15,6 +15,9 @@
 - Treat a successful refresh response that omits a new token or replays the
   previous refresh token as terminal reauthorization instead of reusing a
   credential the server has already rotated.
+- Send the canonical MCP `resource` during token refreshes, route OAuth traffic
+  through the dedicated resource endpoint, and update vulnerable transitive
+  dependencies to patched releases.
 
 ## [1.0.0-beta.3] - 2026-07-31
 

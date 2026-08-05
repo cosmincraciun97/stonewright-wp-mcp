@@ -47,7 +47,9 @@ describe('loadWordPressMcpConfig', () => {
 				tokenEndpoint: 'https://example.com/wp-json/stonewright/v1/oauth/token',
 				clientId: 'client-example',
 				tokenStorePath: tokenStore,
+				resource: 'https://example.com/wp-json/mcp/stonewright-oauth',
 			});
+			expect(config?.url).toBe('https://example.com/wp-json/mcp/stonewright-oauth');
 			expect(config?.authorization).toBeUndefined();
 			expect(config?.username).toBeUndefined();
 		} finally {

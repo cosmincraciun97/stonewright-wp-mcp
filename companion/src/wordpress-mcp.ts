@@ -12,6 +12,7 @@ export interface WordPressMcpOAuthConfig {
 	tokenEndpoint: string;
 	clientId: string;
 	tokenStorePath: string;
+	resource: string;
 }
 
 export interface WordPressMcpConfig {
@@ -436,6 +437,7 @@ export function loadWordPressMcpConfig(env: NodeJS.ProcessEnv = process.env): Wo
 			throw new Error('OAuth token-store authentication cannot be combined with another WordPress authentication mode.');
 		}
 		config.oauth = oauth;
+		config.url = oauth.resource;
 	}
 
 	if (!config.oauth && !config.authorization && !(config.username && config.password)) {
@@ -501,7 +503,18 @@ function loadWordPressMcpOAuthConfig(env: NodeJS.ProcessEnv, mcpUrl: string): Wo
 		tokenEndpoint: endpointUrl.toString(),
 		clientId,
 		tokenStorePath: resolve(tokenStore),
+		resource: oauthResourceUrlFromMcpUrl(resourceUrl).toString(),
 	};
+}
+
+function oauthResourceUrlFromMcpUrl(url: URL): URL {
+	const resource = new URL(url.toString());
+	if (/\/stonewright\/?$/u.test(resource.pathname) && !/\/stonewright-oauth\/?$/u.test(resource.pathname)) {
+		resource.pathname = resource.pathname.replace(/\/stonewright\/?$/u, '/stonewright-oauth');
+	}
+	resource.search = '';
+	resource.hash = '';
+	return resource;
 }
 
 function isLocalDevelopmentHost(hostname: string): boolean {
@@ -1401,7 +1414,7 @@ export class WordPressMcpClient {
 		const oauth = this.config.oauth;
 		const manager = this.oauthTokenManager;
 		const accessToken = oauth && manager
-			? await manager.getAccessToken(this.fetchImpl, oauth.tokenEndpoint, oauth.clientId)
+			? await manager.getAccessToken(this.fetchImpl, oauth.tokenEndpoint, oauth.clientId, oauth.resource)
 			: '';
 		const response = await this.fetchImpl(input, { ...init, headers: this.headers(accessToken) });
 		if (response.status !== 401 || !oauth || !manager || !accessToken) return response;
@@ -1416,6 +1429,7 @@ export class WordPressMcpClient {
 			oauth.tokenEndpoint,
 			oauth.clientId,
 			accessToken,
+			oauth.resource,
 		);
 		return this.fetchImpl(input, { ...init, headers: this.headers(replacement) });
 	}
