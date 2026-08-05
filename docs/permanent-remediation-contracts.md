@@ -45,6 +45,12 @@ rotated token replaces the old value. `invalid_grant`, `invalid_client`, and
 `unauthorized_client` delete local token state and stop retrying; the caller
 receives a reauthorization-required result.
 
+Authorization, token exchange, refresh, and bearer validation carry or verify
+the exact canonical MCP resource. Protected Resource Metadata advertises only
+the minimal `mcp` resource scope. Refresh tokens share a one-way grant-family
+identifier: reuse of a revoked token revokes the complete family and every
+access token issued from it.
+
 Transient HTTP responses and network failures use bounded exponential backoff,
 `Retry-After` when present, jitter, and a circuit breaker. OAuth responses use
 `Cache-Control: no-store`, a bounded `Retry-After`, and a correlation ID.
