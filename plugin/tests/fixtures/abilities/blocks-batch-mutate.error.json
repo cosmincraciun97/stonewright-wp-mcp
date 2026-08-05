@@ -1,0 +1,18 @@
+{
+  "args": {
+    "post_id": 999999,
+    "operations": [
+      {
+        "action": "insert",
+        "path": [],
+        "block": {
+          "blockName": "core/paragraph",
+          "attrs": {},
+          "innerHTML": "<p>Missing post</p>",
+          "innerBlocks": []
+        }
+      }
+    ]
+  },
+  "expect": "wp_error"
+}

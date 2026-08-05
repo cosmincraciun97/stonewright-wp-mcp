@@ -74,7 +74,7 @@ test('audit incidents remain readable and payloads stay inside the page', async 
 
 	const payload = row.locator('.sw-audit-payload');
 	await expect(payload).toBeVisible();
-	await expect(row.getByRole('button', { name: 'Copy payload' })).toBeVisible();
+	await expect(row.getByRole('button', { name: 'Copy redacted details' })).toBeVisible();
 
 	const containment = await payload.evaluate((node) => {
 		const payloadRect = node.getBoundingClientRect();

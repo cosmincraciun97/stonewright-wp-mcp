@@ -1,6 +1,6 @@
 # Abilities Reference
 
-> Category counts are generated from `docs/ability-truth-matrix.md` (**347** abilities).
+> Category counts are generated from `docs/ability-truth-matrix.md` (**358** abilities).
 Stonewright registers WordPress abilities under the `stonewright/` prefix. MCP
 clients call the same names with slashes converted to hyphens: ability
 `stonewright/task-start` is MCP tool `stonewright-task-start`.
@@ -16,19 +16,20 @@ matrix after changing the registry.
 | Site | 17 | WordPress diagnostics, snapshots, health, plugins, theme, shortcodes, and front-page settings. |
 | Content | 8 | Create, update, duplicate, bulk upsert, and read posts/pages. |
 | Media | 8 | Upload, batch upload, inspect, optimize, list, annotate, and import stock media. |
-| Gutenberg | 11 | Parse, render, serialize, insert, update, remove, and apply blocks. |
+| Gutenberg | 12 | Parse, render, serialize, insert, update, remove, apply, and transact blocks. |
 | Patterns | 2 | List and create block patterns. |
 | Full Site Editing | 10 | Read/write theme.json, templates, template parts, and global styles. |
-| Elementor V3 | 30 | Structure editing, transactions, document health, post-write frontend verification, specs, kit globals, preflight, and batch mutation. |
+| Elementor V3 | 31 | Structure editing, transactions, document health, legacy-debt report, post-write frontend verification, specs, kit globals, preflight, and batch mutation. |
 | Elementor V4 (Experimental) | 14 | Atomic nodes, variables, classes, and experimental V4 rendering. |
 | Elementor Widget Builder | 4 | Custom Elementor widget project helpers. |
 | Elementor Widgets | 94 | Deprecated generated per-widget compatibility builders. |
-| Design | 25 | DesignSpec, native planning, directions, kit sync, intent routing, and rendered quality evidence. |
+| Design | 28 | DesignSpec, native planning, directions, manifests, comparison, kit sync, intent routing, and rendered quality evidence. |
 | Runtime | 1 | Direct PHP snippets inside the loaded WordPress runtime. |
 | WP-CLI | 6 | Companion-backed status, command discovery, tokenized command execution, batch execution, and background jobs. |
 | Memory | 6 | Persistent memory, generalization, corrections, and learned records. |
 | System | 11 | Task start, native rules, profiles, preflight, instructions, ability list, and knowledge transfer. |
 | Sandbox | 8 | Admin-only generated code/artifact lifecycle. |
+| Diagnostics | 3 | OAuth header, form delivery, and object capability diagnostics. |
 | Content Model | 4 | CPT/ACF Loop Grid flow, CPT register/list, and taxonomy registration. |
 | Blueprints | 3 | Blueprint listing, inspection, and guarded application. |
 | Brand Kits | 2 | Reusable brand-kit reads and writes. |
@@ -44,7 +45,7 @@ matrix after changing the registry.
 | Plugins Manage | 3 | Plugin install, activate, and deactivate operations. |
 | Revisions | 3 | Revision listing, inspection, and restore. |
 | Search | 2 | WordPress search and OpenSearch discovery. |
-| WooCommerce | 3 | Read-only product, order, and sales summaries. |
+| WooCommerce | 17 | Product, variation, term, catalog-audit, order, and sales operations. |
 | ACF | 5 | Field groups and post field-value reads/writes. |
 | SEO | 3 | Multi-plugin SEO status and metadata reads/writes. |
 | Menu | 5 | Menu creation, item management, locations, and deletion. |

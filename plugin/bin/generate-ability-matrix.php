@@ -188,6 +188,7 @@ const WRITE_PATTERNS = [
 	'service->save(', 'service->activate(', 'service->restore(',
 	// Design quality report ledger write delegate.
 	'QualityReportStore::save(',
+	'RuntimeDataPurger::purge(',
 	// Batch/orchestrator delegates.
 	'new UploadMedia()', 'new BuildPageFromSpec()',
 	// Confirmation-guarded abilities can mutate or destroy state.

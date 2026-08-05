@@ -49,6 +49,7 @@ final class DirectionSyncAbilitiesTest extends TestCase {
 		$GLOBALS['stonewright_test_current_user_id'] = 7;
 		$GLOBALS['stonewright_test_wpdb_inserts']    = [];
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
+		unset( $GLOBALS['stonewright_test_update_post_meta_returns'] );
 		$GLOBALS['stonewright_test_posts']           = [
 			self::KIT_ID => (object) [
 				'ID'           => self::KIT_ID,
@@ -73,6 +74,7 @@ final class DirectionSyncAbilitiesTest extends TestCase {
 		$GLOBALS['stonewright_test_wpdb_inserts']    = [];
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
 		$GLOBALS['stonewright_test_posts']           = [];
+		unset( $GLOBALS['stonewright_test_update_post_meta_returns'] );
 	}
 
 	// -------------------------------------------------------------------------
@@ -458,7 +460,7 @@ final class DirectionSyncAbilitiesTest extends TestCase {
 		$plan = ( new DirectionSyncPlan( $this->service ) )->execute( [ 'id' => $id ] );
 		self::assertIsArray( $plan );
 
-		$GLOBALS['stonewright_test_update_post_meta_return'] = false;
+		$GLOBALS['stonewright_test_update_post_meta_returns'] = [ ElementorKitWriter::META_KEY => false ];
 
 		$result = ( new DirectionSyncApply( $this->service ) )->execute(
 			[
@@ -467,7 +469,7 @@ final class DirectionSyncAbilitiesTest extends TestCase {
 			]
 		);
 
-		unset( $GLOBALS['stonewright_test_update_post_meta_return'] );
+		unset( $GLOBALS['stonewright_test_update_post_meta_returns'] );
 
 		self::assertInstanceOf( \WP_Error::class, $result );
 		self::assertSame( ElementorKitWriter::ERROR_CODE, $result->get_error_code() );

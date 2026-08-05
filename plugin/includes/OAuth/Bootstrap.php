@@ -79,4 +79,17 @@ final class Bootstrap {
 	public static function supported_scopes(): array {
 		return [ 'mcp', 'read', 'write', 'offline_access' ];
 	}
+
+	/**
+	 * Minimal scopes advertised by the protected MCP resource.
+	 *
+	 * Refresh-token policy belongs to authorization-server metadata, not the
+	 * resource challenge. Keeping this list minimal prevents clients from
+	 * requesting broad compatibility scopes before an operation needs them.
+	 *
+	 * @return list<string>
+	 */
+	public static function resource_scopes(): array {
+		return [ 'mcp' ];
+	}
 }

@@ -115,6 +115,50 @@ final class AuditLogCoverageTest extends TestCase {
 		self::assertSame( 140000, $row['changed_bytes'] );
 	}
 
+	public function test_kernel_materializes_nested_error_receipt_without_losing_the_wp_error(): void {
+		$ability = new class() extends \Stonewright\WpMcp\Abilities\AbilityKernel {
+			public function name(): string { return 'stonewright/test-receipt-error'; }
+			public function label(): string { return 'Test receipt'; }
+			public function description(): string { return 'Synthetic receipt audit test.'; }
+			public function category(): string { return 'test'; }
+			public function execute( array $args ): array|\WP_Error {
+				return $this->audit(
+					$args,
+					static fn (): \WP_Error => new \WP_Error(
+						'stonewright_readback_mismatch',
+						'Readback failed.',
+						[
+							'status' => 500,
+							'write_receipt' => [
+								'transaction_id' => 'transaction-a',
+								'change_set_id' => 'change-a',
+								'before_hash' => str_repeat( 'a', 64 ),
+								'after_hash' => str_repeat( 'b', 64 ),
+								'readback_hash' => str_repeat( 'c', 64 ),
+								'verification_status' => 'failed',
+								'rollback_status' => 'succeeded',
+								'root_error_code' => 'stonewright_readback_mismatch',
+								'root_error_path' => 'verify.readback',
+								'retryable' => false,
+							],
+						]
+					)
+				);
+			}
+		};
+
+		$result = $ability->execute( [ 'post_id' => 77 ] );
+		self::assertInstanceOf( \WP_Error::class, $result );
+		$row = $GLOBALS['wpdb']->inserts[0]['data'];
+		self::assertSame( 'transaction-a', $row['transaction_id'] );
+		self::assertSame( 'change-a', $row['change_set_id'] );
+		self::assertSame( str_repeat( 'a', 64 ), $row['before_sha256'] );
+		self::assertSame( str_repeat( 'b', 64 ), $row['after_sha256'] );
+		self::assertSame( 'failed', $row['verification_status'] );
+		self::assertSame( 'succeeded', $row['rollback_status'] );
+		self::assertSame( 'stonewright_readback_mismatch', $row['root_error_code'] );
+	}
+
 	private function make_wpdb( bool $insert_ok ): object {
 		return new class( $insert_ok ) {
 			public string $prefix = 'wp_';

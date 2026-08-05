@@ -51,6 +51,7 @@ final class PostWriteVerify extends AbilityKernel {
 					'items'    => [ 'type' => 'string', 'minLength' => 1, 'maxLength' => 200 ],
 					'default'  => [],
 				],
+				'write_receipt'  => [ 'type' => 'object', 'description' => 'Receipt returned by the originating batch transaction.' ],
 				'regenerate_css' => [ 'type' => 'boolean', 'default' => true ],
 			],
 		];
@@ -73,6 +74,7 @@ final class PostWriteVerify extends AbilityKernel {
 				'content_checks'      => [ 'type' => 'array' ],
 				'browser_required'    => [ 'type' => 'boolean' ],
 				'browser_recipe'      => [ 'type' => 'object' ],
+				'write_receipt'       => [ 'type' => 'object' ],
 			],
 			'required'             => [ 'ok', 'post_id', 'verification_status', 'effect_verified', 'rendered_bytes', 'render_sha256', 'cache', 'css', 'element_checks', 'content_checks', 'browser_required', 'browser_recipe' ],
 		];
@@ -158,6 +160,15 @@ final class PostWriteVerify extends AbilityKernel {
 					&& (bool) ( $css['ok'] ?? false )
 					&& ! in_array( false, array_column( $checks, 'present' ), true );
 
+				$write_receipt = isset( $args['write_receipt'] ) && is_array( $args['write_receipt'] ) ? self::sanitize_receipt( $args['write_receipt'] ) : [];
+				if ( [] !== $write_receipt ) {
+					$write_receipt['verification_status'] = $passed ? 'verified' : 'failed';
+					$write_receipt['root_error_code'] = $passed ? '' : 'stonewright_elementor_frontend_verification_failed';
+					$write_receipt['root_error_path'] = $passed ? '' : 'verify.frontend';
+					$write_receipt['rollback_status'] = $passed ? (string) ( $write_receipt['rollback_status'] ?? 'not_needed' ) : 'manual_required';
+					$write_receipt['recovery'] = $passed ? [] : [ 'action' => 'inspect_render_and_restore_snapshot_if_required', 'automatic_rollback' => false ];
+				}
+
 				return [
 					'ok'                  => $passed,
 					'post_id'             => $post_id,
@@ -176,6 +187,7 @@ final class PostWriteVerify extends AbilityKernel {
 						'boxed_inner_selector'  => '.elementor-element-<element_id> > .e-con-inner',
 						'rule'                  => 'For boxed containers measure both outer and .e-con-inner. A builder render pass is not visual acceptance.',
 					],
+					'write_receipt'       => $write_receipt,
 				];
 			}
 		);
@@ -200,5 +212,69 @@ final class PostWriteVerify extends AbilityKernel {
 			}
 		}
 		return array_values( array_unique( $out ) );
+	}
+
+	/**
+	 * Keep the verification receipt useful for correlation without echoing
+	 * arbitrary caller-controlled data back through the MCP response.
+	 *
+	 * @param array<string,mixed> $receipt
+	 * @return array<string,mixed>
+	 */
+	private static function sanitize_receipt( array $receipt ): array {
+		$allowed = [
+			'transaction_id',
+			'change_set_id',
+			'post_id',
+			'architecture',
+			'target_ids',
+			'dry_run',
+			'snapshot_id',
+			'before_hash',
+			'planned_hash',
+			'after_hash',
+			'readback_hash',
+			'verification_status',
+			'rollback_status',
+			'root_error_code',
+			'root_error_path',
+			'retryable',
+			'retry_after_seconds',
+			'audit_id',
+			'cause_fingerprint',
+			'strategy_fingerprint',
+		];
+		$out = [];
+		foreach ( $allowed as $key ) {
+			if ( ! array_key_exists( $key, $receipt ) ) {
+				continue;
+			}
+			$value = $receipt[ $key ];
+			if ( in_array( $key, [ 'before_hash', 'planned_hash', 'after_hash', 'readback_hash', 'cause_fingerprint', 'strategy_fingerprint' ], true ) ) {
+				$value = is_scalar( $value ) && 1 === preg_match( '/^[a-f0-9]{64}$/i', (string) $value ) ? strtolower( (string) $value ) : '';
+			} elseif ( 'target_ids' === $key ) {
+				$value = self::bounded_strings( $value, 100, 80 );
+			} elseif ( 'post_id' === $key ) {
+				$value = max( 0, (int) $value );
+			} elseif ( 'dry_run' === $key || 'retryable' === $key ) {
+				$value = (bool) $value;
+			} elseif ( 'retry_after_seconds' === $key ) {
+				$value = max( 0, min( 86400, (int) $value ) );
+			} elseif ( is_scalar( $value ) || null === $value ) {
+				$value = mb_substr( sanitize_text_field( (string) $value ), 0, 255 );
+			} else {
+				continue;
+			}
+			$out[ $key ] = $value;
+		}
+		if ( isset( $receipt['lock'] ) && is_array( $receipt['lock'] ) ) {
+			$out['lock'] = [
+				'status'      => sanitize_key( (string) ( $receipt['lock']['status'] ?? '' ) ),
+				'fingerprint' => is_scalar( $receipt['lock']['fingerprint'] ?? null ) && 1 === preg_match( '/^[a-f0-9]{64}$/i', (string) $receipt['lock']['fingerprint'] ) ? strtolower( (string) $receipt['lock']['fingerprint'] ) : '',
+				'age_seconds' => max( 0, (int) ( $receipt['lock']['age_seconds'] ?? 0 ) ),
+				'retry_after' => max( 0, (int) ( $receipt['lock']['retry_after'] ?? 0 ) ),
+			];
+		}
+		return $out;
 	}
 }

@@ -79,8 +79,8 @@ final class ReplacementWriteSafetyTest extends TestCase {
 		);
 
 		$this->assertInstanceOf( \WP_Error::class, $result );
-		// Surfaced from ElementorData::last_write_error(), not the generic write_failed wrapper.
-		$this->assertSame( 'stonewright_elementor_readback_failed', $result->get_error_code() );
+		// Surfaced from ElementorData::last_write_error(), including verified rollback.
+		$this->assertSame( 'stonewright_elementor_readback_failed_restored', $result->get_error_code() );
 	}
 
 	public function test_elementor_page_replacement_hides_theme_title_and_uses_header_footer_template(): void {

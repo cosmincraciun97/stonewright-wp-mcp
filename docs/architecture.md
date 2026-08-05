@@ -74,6 +74,9 @@ points are blocked.
 
 ### Audit error codes
 
+The permanent event, incident, OAuth, write-receipt, and design-evidence
+contracts are documented in [Permanent remediation contracts](permanent-remediation-contracts.md).
+
 An audit row has to distinguish a client that authenticated badly from a server
 that broke, because the two lead to opposite remediations. Two rules keep those
 apart:
@@ -548,7 +551,12 @@ Profile and surface switching is transport-specific. Agents should treat
 - The vendor initialize payload may not declare `tools.listChanged`. Clients
   must honor `re_list_instruction` in the ability response and call `tools/list`
   again even when no `notifications/tools/list_changed` arrives.
-- **OAuth 2.1** for the HTTP transport is planned, not scheduled.
+- **OAuth 2.1** is available on the dedicated
+  `/wp-json/mcp/stonewright-oauth` resource. Authorization Code requires PKCE
+  S256; authorization and refresh requests carry the canonical resource;
+  access tokens are rejected on audience mismatch. Resource metadata exposes
+  only the `mcp` scope. Refresh tokens rotate, and replay revokes the complete
+  refresh family plus its access tokens.
 
 ### stdio companion transport
 

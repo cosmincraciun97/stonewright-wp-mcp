@@ -89,7 +89,7 @@ final class MemoryGeneralizeTest extends TestCase {
 		self::assertSame( [ 32, 31 ], array_keys( $updated ) );
 		self::assertSame( '_global', $updated[31]['scope'] );
 		self::assertStringContainsString( Scrubber::HOST_PLACEHOLDER, (string) $updated[31]['name'] );
-		self::assertStringNotContainsString( 'acme-flights.ro', (string) $updated[31]['value_json'] );
+		self::assertStringNotContainsString( 'client-a.test', (string) $updated[31]['value_json'] );
 		// A project row keeps its scope: it documents this installation.
 		self::assertArrayNotHasKey( 'scope', $updated[32] );
 	}
@@ -224,9 +224,9 @@ final class MemoryGeneralizeTest extends TestCase {
 			[
 				'id'                  => 31,
 				'type'                => 'feedback',
-				'scope'               => 'acme-flights.ro',
-				'memory_key'          => 'hero-spacing-acme-flights.ro',
-				'name'                => 'Hero spacing on acme-flights.ro',
+				'scope'               => 'client-a.test',
+				'memory_key'          => 'hero-spacing-client-a.test',
+				'name'                => 'Hero spacing on client-a.test',
 				'value_json'          => '{"lesson":"Client rejects hero padding under 48px, see post 4821."}',
 				'confidence'          => 1.0,
 				'topic'               => 'elementor',
@@ -241,10 +241,10 @@ final class MemoryGeneralizeTest extends TestCase {
 			[
 				'id'                  => 32,
 				'type'                => 'project',
-				'scope'               => 'acme-flights.ro',
+				'scope'               => 'client-a.test',
 				'memory_key'          => 'homepage-kit',
 				'name'                => 'Homepage kit source',
-				'value_json'          => '{"note":"Homepage hero pulls its kit from https://acme-flights.ro/kit."}',
+				'value_json'          => '{"note":"Homepage hero pulls its kit from https://client-a.test/kit."}',
 				'confidence'          => 1.0,
 				'topic'               => '',
 				'version_fingerprint' => '',
@@ -258,10 +258,10 @@ final class MemoryGeneralizeTest extends TestCase {
 			[
 				'id'                  => 33,
 				'type'                => 'reference',
-				'scope'               => 'acme-flights.ro',
-				'memory_key'          => 'acme-flights.ro',
-				'name'                => 'acme-flights.ro',
-				'value_json'          => '{"url":"https://acme-flights.ro"}',
+				'scope'               => 'client-a.test',
+				'memory_key'          => 'client-a.test',
+				'name'                => 'client-a.test',
+				'value_json'          => '{"url":"https://client-a.test"}',
 				'confidence'          => 1.0,
 				'topic'               => '',
 				'version_fingerprint' => '',

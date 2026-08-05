@@ -1,0 +1,25 @@
+{
+  "args": {
+    "action": "validate",
+    "manifest": {
+      "source_type": "brief",
+      "page_id": "contract-page",
+      "frame_id": "desktop",
+      "section_id": "hero",
+      "bounding_box": {
+        "x": 0,
+        "y": 0,
+        "width": 1200,
+        "height": 640
+      },
+      "layout_mode": "flex",
+      "target_renderer": "elementor-v3",
+      "confidence": 0.95,
+      "semantic_roles": [ "hero" ],
+      "assets": [],
+      "interaction_intents": [],
+      "responsive_evidence": []
+    }
+  },
+  "expect": "ok"
+}

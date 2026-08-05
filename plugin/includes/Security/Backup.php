@@ -135,6 +135,10 @@ final class Backup {
 		$snapshots[ $snapshot_id ] = $payload;
 		$snapshots                 = self::trim( $snapshots );
 		self::update_meta( $post_id, self::META_KEY, $snapshots );
+		$readback = self::get_snapshot( $post_id, $snapshot_id );
+		if ( ! is_array( $readback ) || ! self::values_match( $readback, $payload ) || ! hash_equals( Json::hash( $payload ), Json::hash( $readback ) ) ) {
+			return '';
+		}
 
 		if ( post_type_supports( $post->post_type, 'revisions' ) ) {
 			wp_save_post_revision( $post_id );
@@ -161,31 +165,44 @@ final class Backup {
 		if ( ! $snapshot ) {
 			return false;
 		}
+		$expected = self::expected_restore_state( $snapshot );
+		if ( null === $expected ) {
+			return false;
+		}
 
-		wp_update_post(
+		$post_result = wp_update_post(
 			[
 				'ID'           => $post_id,
-				'post_title'   => $snapshot['post_title'],
-				'post_status'  => $snapshot['post_status'],
-				'post_content' => $snapshot['post_content'],
-				'post_excerpt' => $snapshot['post_excerpt'],
-			]
+				'post_title'   => $expected['post']['post_title'],
+				'post_status'  => $expected['post']['post_status'],
+				'post_content' => $expected['post']['post_content'],
+				'post_excerpt' => $expected['post']['post_excerpt'],
+			],
+			true
 		);
+		$operations_verified = ! $post_result instanceof \WP_Error && $post_id === (int) $post_result;
 
-		foreach ( $snapshot['meta'] as $key => $value ) {
-			self::update_meta( $post_id, $key, $value );
-		}
-		foreach ( (array) ( $snapshot['meta_absent'] ?? [] ) as $key ) {
-			if ( is_string( $key ) && in_array( $key, self::tracked_meta_keys(), true ) ) {
+		foreach ( $expected['meta'] as $key => $state ) {
+			if ( $state['exists'] ) {
+				self::update_meta( $post_id, $key, $state['value'] );
+			} else {
 				self::delete_meta( $post_id, $key );
 			}
+			$operations_verified = self::meta_matches_state( $post_id, $key, $state ) && $operations_verified;
 		}
 
-		if ( array_key_exists( '_elementor_data', (array) $snapshot['meta'] ) ) {
+		if ( array_key_exists( '_elementor_data', $expected['meta'] ) ) {
 			PostCacheInvalidator::invalidate( $post_id );
 		}
 
-		return true;
+		$readback = self::read_restore_state( $post_id, $expected['meta'] );
+		if ( null === $readback ) {
+			return false;
+		}
+
+		return $operations_verified
+			&& $expected === $readback
+			&& hash_equals( Json::hash( $expected ), Json::hash( $readback ) );
 	}
 
 	/**
@@ -311,12 +328,120 @@ final class Backup {
 	private static function collect_meta( int $post_id ): array {
 		$out  = [];
 		foreach ( self::tracked_meta_keys() as $key ) {
-			$value = get_post_meta( $post_id, $key, true );
-			if ( '' !== $value && null !== $value ) {
-				$out[ $key ] = $value;
+			if ( self::meta_exists( $post_id, $key ) ) {
+				$out[ $key ] = get_post_meta( $post_id, $key, true );
 			}
 		}
 		return $out;
+	}
+
+	/**
+	 * Build the exact post/meta state a restore must produce. Unknown keys in a
+	 * corrupted snapshot are deliberately ignored; Backup only owns its tracked
+	 * write surfaces.
+	 *
+	 * @param array<string, mixed> $snapshot
+	 * @return array{post:array{post_title:string,post_status:string,post_content:string,post_excerpt:string},meta:array<string,array{exists:bool,value:mixed}>}|null
+	 */
+	private static function expected_restore_state( array $snapshot ): ?array {
+		foreach ( [ 'post_title', 'post_status', 'post_content', 'post_excerpt' ] as $field ) {
+			if ( ! array_key_exists( $field, $snapshot ) ) {
+				return null;
+			}
+		}
+		$meta = $snapshot['meta'] ?? [];
+		if ( ! is_array( $meta ) ) {
+			return null;
+		}
+		$absent = array_values(
+			array_filter(
+				(array) ( $snapshot['meta_absent'] ?? [] ),
+				static fn( mixed $key ): bool => is_string( $key )
+			)
+		);
+		$meta_state = [];
+		foreach ( self::tracked_meta_keys() as $key ) {
+			if ( array_key_exists( $key, $meta ) ) {
+				$meta_state[ $key ] = [
+					'exists' => true,
+					'value'  => $meta[ $key ],
+				];
+			} elseif ( in_array( $key, $absent, true ) ) {
+				$meta_state[ $key ] = [
+					'exists' => false,
+					'value'  => null,
+				];
+			}
+		}
+
+		return [
+			'post' => [
+				'post_title'   => (string) $snapshot['post_title'],
+				'post_status'  => (string) $snapshot['post_status'],
+				'post_content' => (string) $snapshot['post_content'],
+				'post_excerpt' => (string) $snapshot['post_excerpt'],
+			],
+			'meta' => $meta_state,
+		];
+	}
+
+	/**
+	 * @param array<string, array{exists:bool,value:mixed}> $expected_meta
+	 * @return array{post:array{post_title:string,post_status:string,post_content:string,post_excerpt:string},meta:array<string,array{exists:bool,value:mixed}>}|null
+	 */
+	private static function read_restore_state( int $post_id, array $expected_meta ): ?array {
+		$post = get_post( $post_id );
+		if ( ! $post ) {
+			return null;
+		}
+		$meta_state = [];
+		foreach ( $expected_meta as $key => $expected ) {
+			$exists = self::meta_exists( $post_id, $key );
+			$value  = $exists ? get_post_meta( $post_id, $key, true ) : null;
+			if ( $exists && $expected['exists'] && self::values_match( $value, $expected['value'] ) ) {
+				// Normalize the unit-test stub's slashed readback to the same value
+				// real WordPress returns after update_metadata() unslashes writes.
+				$value = $expected['value'];
+			}
+			$meta_state[ $key ] = [
+				'exists' => $exists,
+				'value'  => $value,
+			];
+		}
+
+		return [
+			'post' => [
+				'post_title'   => (string) $post->post_title,
+				'post_status'  => (string) $post->post_status,
+				'post_content' => (string) $post->post_content,
+				'post_excerpt' => (string) $post->post_excerpt,
+			],
+			'meta' => $meta_state,
+		];
+	}
+
+	/** @param array{exists:bool,value:mixed} $expected */
+	private static function meta_matches_state( int $post_id, string $key, array $expected ): bool {
+		$exists = self::meta_exists( $post_id, $key );
+		if ( $exists !== $expected['exists'] ) {
+			return false;
+		}
+		return ! $exists || self::values_match( get_post_meta( $post_id, $key, true ), $expected['value'] );
+	}
+
+	private static function meta_exists( int $post_id, string $key ): bool {
+		if ( function_exists( 'metadata_exists' ) ) {
+			return metadata_exists( 'post', $post_id, $key );
+		}
+		$all_meta = get_post_meta( $post_id );
+		return is_array( $all_meta ) && array_key_exists( $key, $all_meta );
+	}
+
+	private static function values_match( mixed $actual, mixed $expected ): bool {
+		if ( $actual === $expected ) {
+			return true;
+		}
+		return ( is_string( $actual ) || is_array( $actual ) ) && wp_unslash( $actual ) === $expected;
 	}
 
 	/** @return list<string> */

@@ -231,7 +231,7 @@ final class WidgetSchemaRepository {
 			'condition'  => (array) ( $control['condition'] ?? $control['conditions'] ?? [] ),
 			'provenance' => 'live_elementor_runtime',
 		];
-		foreach ( [ 'default', 'options', 'selectors', 'group', 'group_prefix', 'description', 'min', 'max', 'step', 'multiple', 'return_value' ] as $field ) {
+		foreach ( [ 'default', 'options', 'selectors', 'selectors_dictionary', 'group', 'group_prefix', 'description', 'min', 'max', 'step', 'multiple', 'return_value' ] as $field ) {
 			if ( array_key_exists( $field, $control ) ) {
 				$normalized[ $field ] = $control[ $field ];
 			}

@@ -229,32 +229,46 @@ final class ClientValidation {
 	 * Increment the per-IP Dynamic Client Registration counter.
 	 */
 	public static function check_and_increment_rate_limit( string $client_ip ): bool {
-		$key     = 'stonewright_oauth_dcr_' . hash( 'sha256', $client_ip );
-		$current = (int) get_transient( $key );
-		if ( $current >= self::DCR_RATE_LIMIT_PER_HOUR ) {
-			return false;
-		}
+		return self::registration_rate_limit( $client_ip )['allowed'];
+	}
 
-		set_transient( $key, $current + 1, HOUR_IN_SECONDS );
-		return true;
+	/** @return array{allowed:bool,retry_after:int,remaining:int} */
+	public static function registration_rate_limit( string $client_ip ): array {
+		return OAuthRateLimiter::hit(
+			'dcr',
+			OAuthRateLimiter::identity_key( $client_ip ),
+			self::DCR_RATE_LIMIT_PER_HOUR,
+			HOUR_IN_SECONDS
+		);
 	}
 
 	/**
 	 * Apply a fixed-window endpoint rate limit.
 	 */
-	public static function within_endpoint_rate_limit( string $bucket, string $client_ip ): bool {
+	public static function within_endpoint_rate_limit( string $bucket, string $client_ip, string $client_id = '' ): bool {
+		return self::endpoint_rate_limit( $bucket, $client_ip, $client_id )['allowed'];
+	}
+
+	/** @return array{allowed:bool,retry_after:int,remaining:int} */
+	public static function endpoint_rate_limit( string $bucket, string $client_ip, string $client_id = '' ): array {
 		if ( '' === $client_ip ) {
-			return true;
+			return [ 'allowed' => true, 'retry_after' => 0, 'remaining' => self::ENDPOINT_RATE_LIMIT_PER_MINUTE ];
 		}
+		return OAuthRateLimiter::endpoint( $bucket, $client_ip, $client_id );
+	}
 
-		$key     = 'stonewright_oauth_rl_' . $bucket . '_' . hash( 'sha256', $client_ip );
-		$current = (int) get_transient( $key );
-		if ( $current >= self::ENDPOINT_RATE_LIMIT_PER_MINUTE ) {
-			return false;
-		}
+	/** @return array{allowed:bool,retry_after:int,remaining:int} */
+	public static function refresh_rate_limit( string $client_ip, string $client_id = '' ): array {
+		return OAuthRateLimiter::hit( 'refresh', OAuthRateLimiter::identity_key( $client_ip, $client_id ), OAuthRateLimiter::REFRESH_LIMIT, MINUTE_IN_SECONDS );
+	}
 
-		set_transient( $key, $current + 1, MINUTE_IN_SECONDS );
-		return true;
+	public static function release_refresh_rate_limit( string $client_ip, string $client_id = '' ): void {
+		OAuthRateLimiter::release( 'refresh', OAuthRateLimiter::identity_key( $client_ip, $client_id ), MINUTE_IN_SECONDS );
+	}
+
+	/** @return array{allowed:bool,retry_after:int,remaining:int} */
+	public static function auth_failure_rate_limit( string $client_ip, string $client_id = '' ): array {
+		return OAuthRateLimiter::hit( 'auth-failure', OAuthRateLimiter::identity_key( $client_ip, $client_id ), OAuthRateLimiter::AUTH_FAILURE_LIMIT, MINUTE_IN_SECONDS );
 	}
 
 	/**

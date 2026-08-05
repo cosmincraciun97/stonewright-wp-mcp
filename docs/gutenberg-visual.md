@@ -17,3 +17,8 @@ editor dirty flag before the operation is reported as successful.
 The adapter is intentionally separate from the PHP Gutenberg renderer. The PHP
 abilities remain the server-side path for content automation; Visual owns only
 the already-open editor session, so persistence is never performed twice.
+
+For server-side content batches, use `stonewright/blocks-batch-mutate`. It
+validates and applies insert, update, move, and remove operations in memory,
+then performs one snapshot/write/readback closure with one rollback owner.
+See [Permanent remediation contracts](permanent-remediation-contracts.md).

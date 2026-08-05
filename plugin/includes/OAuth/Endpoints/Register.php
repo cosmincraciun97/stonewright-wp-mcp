@@ -13,7 +13,9 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\OAuth\Endpoints;
 
 use Stonewright\WpMcp\OAuth\ClientValidation;
+use Stonewright\WpMcp\OAuth\OAuthRateLimiter;
 use Stonewright\WpMcp\OAuth\Repositories\ClientRepository;
+use Stonewright\WpMcp\Security\AuditLog;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -54,21 +56,24 @@ final class Register {
 	}
 
 	public static function handle( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-		$client_ip = (string) ( $_SERVER['REMOTE_ADDR'] ?? '' );
+		$client_ip = OAuthRateLimiter::client_ip();
 		ClientValidation::prune_dead_clients();
 		$self_test = self::is_self_test_request( $request );
-		if ( '' !== $client_ip && ! $self_test && ! ClientValidation::check_and_increment_rate_limit( $client_ip ) ) {
-			return new WP_Error( 'rate_limited', 'Too many registrations', [ 'status' => 429 ] );
+		if ( '' !== $client_ip && ! $self_test ) {
+			$registration = ClientValidation::registration_rate_limit( $client_ip );
+			if ( ! $registration['allowed'] ) {
+				return self::rate_limited( 'Too many registrations', $registration['retry_after'] );
+			}
 		}
 		if (
 			'' !== $client_ip
 			&& ! $self_test
 			&& ClientValidation::client_count_for_ip( $client_ip ) >= ClientValidation::MAX_CLIENTS_PER_IP
 		) {
-			return new WP_Error( 'rate_limited', 'Too many registered clients from this address', [ 'status' => 429 ] );
+			return self::rate_limited( 'Too many registered clients from this address', HOUR_IN_SECONDS );
 		}
 		if ( ClientValidation::active_client_count() >= ClientValidation::max_clients_per_site() ) {
-			return new WP_Error( 'cap_reached', 'Client cap reached', [ 'status' => 503 ] );
+			return self::rate_limited( 'Client cap reached', MINUTE_IN_SECONDS, 503, 'temporarily_unavailable' );
 		}
 
 		$body        = $request->get_json_params();
@@ -113,5 +118,20 @@ final class Register {
 			],
 			201
 		);
+	}
+
+	private static function rate_limited( string $message, int $retry_after, int $status = 429, string $code = 'rate_limited' ): WP_REST_Response {
+		$response = new WP_REST_Response(
+			[
+				'error'             => $code,
+				'error_description' => $message,
+			],
+			$status
+		);
+		$response->header( 'Retry-After', (string) max( 1, min( 86400, $retry_after ) ) );
+		$response->header( 'Cache-Control', 'no-store' );
+		$response->header( 'Pragma', 'no-cache' );
+		$response->header( 'X-Stonewright-Correlation-ID', AuditLog::request_id() );
+		return $response;
 	}
 }

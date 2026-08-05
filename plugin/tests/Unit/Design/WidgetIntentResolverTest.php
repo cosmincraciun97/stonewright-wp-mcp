@@ -119,7 +119,7 @@ final class WidgetIntentResolverTest extends TestCase {
 			'type'       => 'FRAME',
 			'name'       => 'Footer useful links',
 			'layoutMode' => 'VERTICAL',
-			'children'   => [ $text( 'Despre nZEB Expo' ), $text( 'Misiune' ), $text( 'Media Kit & Presa' ), $text( 'Editii' ) ],
+			'children'   => [ $text( 'About Example Conference' ), $text( 'Mission' ), $text( 'Media Kit' ), $text( 'Editions' ) ],
 		];
 		$this->assertSame( 'footer-link-column', WidgetIntentResolver::detect_from_design_tree( $node ) );
 	}

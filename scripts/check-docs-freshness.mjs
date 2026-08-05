@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -13,14 +14,108 @@ function fail(message) {
 	errors.push(message);
 }
 
-function walk(directory, output = []) {
-	for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-		if (['.git', '.worktrees', 'dist', 'node_modules', 'vendor'].includes(entry.name)) continue;
-		const absolute = path.join(directory, entry.name);
-		if (entry.isDirectory()) walk(absolute, output);
-		else if (entry.isFile() && entry.name.endsWith('.md')) output.push(absolute);
+function gitPaths(args) {
+	try {
+		return execFileSync('git', args, { cwd: repoRoot, encoding: 'utf8' })
+			.split('\0')
+			.filter(Boolean)
+			.map((entry) => entry.split(path.sep).join('/'));
+	} catch (error) {
+		fail(`Could not enumerate Markdown through git: ${error instanceof Error ? error.message : String(error)}`);
+		return [];
 	}
-	return output;
+}
+
+function gitMarkdownFiles() {
+	const relativePaths = gitPaths(['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', '*.md']);
+	const files = [];
+	for (const relative of [...new Set(relativePaths)].sort()) {
+		const absolute = path.resolve(repoRoot, relative);
+		if (absolute !== repoRoot && !absolute.startsWith(`${repoRoot}${path.sep}`)) {
+			fail(`${relative} resolves outside the repository.`);
+			continue;
+		}
+		try {
+			const stat = fs.lstatSync(absolute);
+			if (stat.isSymbolicLink()) {
+				const target = fs.realpathSync(absolute);
+				if (target !== repoRoot && !target.startsWith(`${repoRoot}${path.sep}`)) {
+					fail(`${relative} is a Markdown symlink whose target leaves the repository.`);
+					continue;
+				}
+				if (!fs.statSync(target).isFile()) {
+					fail(`${relative} is a Markdown symlink that does not target a file.`);
+					continue;
+				}
+			} else if (!stat.isFile()) {
+				fail(`${relative} is listed by git as Markdown but is not a file.`);
+				continue;
+			}
+			files.push(absolute);
+		} catch (error) {
+			fail(`${relative} cannot be read: ${error instanceof Error ? error.message : String(error)}`);
+		}
+	}
+	return files;
+}
+
+function globToRegExp(glob) {
+	let source = '^';
+	for (let index = 0; index < glob.length; index += 1) {
+		const character = glob[index];
+		if (character === '*' && glob[index + 1] === '*') {
+			if (glob[index + 2] === '/') {
+				source += '(?:.*/)?';
+				index += 2;
+			} else {
+				source += '.*';
+				index += 1;
+			}
+		} else if (character === '*') {
+			source += '[^/]*';
+		} else if (character === '?') {
+			source += '[^/]';
+		} else {
+			source += character.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+		}
+	}
+	return new RegExp(`${source}$`);
+}
+
+function matchesGlob(relativePath, glob) {
+	return globToRegExp(glob).test(relativePath);
+}
+
+function manifestRuleFor(relativePath, rules) {
+	return rules.filter((rule) => {
+		const included = Array.isArray(rule.paths) && rule.paths.some((glob) => typeof glob === 'string' && matchesGlob(relativePath, glob));
+		const excluded = Array.isArray(rule.exclude) && rule.exclude.some((glob) => typeof glob === 'string' && matchesGlob(relativePath, glob));
+		return included && !excluded;
+	});
+}
+
+function checkDiffWhitespace(untrackedMarkdown) {
+	try {
+		execFileSync('git', ['diff', '--check', 'HEAD', '--'], { cwd: repoRoot, encoding: 'utf8', stdio: 'pipe' });
+	} catch (error) {
+		const output = `${error?.stdout ?? ''}${error?.stderr ?? ''}`.trim();
+		fail(`git diff --check HEAD failed${output ? `: ${output}` : '.'}`);
+	}
+
+	for (const relative of untrackedMarkdown) {
+		const absolute = path.join(repoRoot, relative);
+		try {
+			execFileSync('git', ['diff', '--no-index', '--check', '--', '/dev/null', absolute], {
+				cwd: repoRoot,
+				encoding: 'utf8',
+				stdio: 'pipe',
+			});
+		} catch (error) {
+			const output = `${error?.stdout ?? ''}${error?.stderr ?? ''}`.trim();
+			if (output) fail(`${relative} fails the untracked Markdown whitespace check: ${output}`);
+			else if (typeof error?.status === 'number' && error.status > 1) fail(`${relative} could not be checked for whitespace errors.`);
+		}
+	}
 }
 
 const pluginBootstrap = read('plugin/stonewright.php');
@@ -36,6 +131,34 @@ const versionValues = {
 	'companion source': companionSourceVersion,
 };
 const canonicalVersion = pluginHeaderVersion;
+let docsManifest;
+try {
+	docsManifest = JSON.parse(read('scripts/docs-manifest.json'));
+} catch (error) {
+	fail(`Could not read scripts/docs-manifest.json: ${error instanceof Error ? error.message : String(error)}`);
+	docsManifest = { rules: [] };
+}
+const docsManifestRules = Array.isArray(docsManifest.rules) ? docsManifest.rules : [];
+if (docsManifestRules.length === 0) {
+	fail('scripts/docs-manifest.json must declare at least one classification rule.');
+}
+const manifestRuleIds = new Set();
+for (const [index, rule] of docsManifestRules.entries()) {
+	if (!rule || typeof rule !== 'object') {
+		fail(`docs-manifest rule ${index} must be an object.`);
+		continue;
+	}
+	if (typeof rule.id !== 'string' || !rule.id.trim()) fail(`docs-manifest rule ${index} requires a stable id.`);
+	else if (manifestRuleIds.has(rule.id)) fail(`docs-manifest rule id ${rule.id} is duplicated.`);
+	else manifestRuleIds.add(rule.id);
+	if (typeof rule.class !== 'string' || !rule.class.trim()) fail(`docs-manifest rule ${rule.id ?? index} requires a class.`);
+	if (!Array.isArray(rule.paths) || rule.paths.length === 0 || rule.paths.some((glob) => typeof glob !== 'string' || !glob)) {
+		fail(`docs-manifest rule ${rule.id ?? index} requires non-empty path globs.`);
+	}
+	if (rule.exclude !== undefined && (!Array.isArray(rule.exclude) || rule.exclude.some((glob) => typeof glob !== 'string' || !glob))) {
+		fail(`docs-manifest rule ${rule.id ?? index} has invalid exclude globs.`);
+	}
+}
 
 for (const [label, value] of Object.entries(versionValues)) {
 	if (!value) fail(`Could not read ${label} version.`);
@@ -138,9 +261,53 @@ const historicalMarkdown = (relativePath) =>
 		'docs/elementor-v3-editor-adapter.md',
 	].includes(relativePath);
 
-const markdownFiles = walk(repoRoot).filter((absolute) => {
+const allMarkdownFiles = gitMarkdownFiles();
+const allMarkdownRelative = allMarkdownFiles.map((absolute) => path.relative(repoRoot, absolute).split(path.sep).join('/'));
+for (const rule of docsManifestRules) {
+	if (!rule || typeof rule !== 'object' || !Array.isArray(rule.paths)) continue;
+	for (const glob of rule.paths) {
+		if (typeof glob !== 'string') continue;
+		const matches = allMarkdownRelative.filter((relative) =>
+			matchesGlob(relative, glob) && !(Array.isArray(rule.exclude) && rule.exclude.some((excluded) => typeof excluded === 'string' && matchesGlob(relative, excluded))),
+		);
+		if (matches.length === 0) fail(`docs-manifest rule ${rule.id ?? rule.class ?? 'unknown'} has stale or zero-match path glob: ${glob}`);
+	}
+	for (const glob of Array.isArray(rule.exclude) ? rule.exclude : []) {
+		if (typeof glob !== 'string') continue;
+		const matches = allMarkdownRelative.filter((relative) => matchesGlob(relative, glob));
+		if (matches.length === 0) fail(`docs-manifest rule ${rule.id ?? rule.class ?? 'unknown'} has stale or zero-match exclude glob: ${glob}`);
+	}
+}
+for (const absolute of allMarkdownFiles) {
 	const relative = path.relative(repoRoot, absolute).split(path.sep).join('/');
-	return !relative.startsWith('docs/knowledge/');
+	const matches = manifestRuleFor(relative, docsManifestRules);
+	if (matches.length !== 1) {
+		fail(`${relative} must match exactly one docs-manifest classification (matched ${matches.length}).`);
+	}
+	if (matches[0]?.class === 'generated' && relative === 'docs/ability-truth-matrix.md') {
+		const matrix = fs.readFileSync(absolute, 'utf8');
+		if (!matrix.includes('Total abilities registered:')) fail(`${relative} is missing its generated total.`);
+	}
+	if (matches[0]?.class === 'imported-knowledge') {
+		const sourceManifest = matches[0].source;
+		if (typeof sourceManifest === 'string' && !fs.existsSync(path.join(repoRoot, sourceManifest))) {
+			fail(`${relative} references missing imported source metadata ${sourceManifest}.`);
+		}
+		const basename = path.basename(relative);
+		const content = fs.readFileSync(absolute, 'utf8');
+		if (!['README.md', '_change_log.md'].includes(basename) && (!content.startsWith('---\n') || !content.includes('\nsource_url:') || !content.includes('\ncontent_hash:'))) {
+			fail(`${relative} is imported knowledge without required source frontmatter.`);
+		}
+	}
+}
+
+const untrackedMarkdown = gitPaths(['ls-files', '-z', '--others', '--exclude-standard', '--', '*.md']);
+checkDiffWhitespace(untrackedMarkdown);
+
+const markdownFiles = allMarkdownFiles.filter((absolute) => {
+	const relative = path.relative(repoRoot, absolute).split(path.sep).join('/');
+	const matches = manifestRuleFor(relative, docsManifestRules);
+	return matches.length !== 1 || matches[0].class !== 'imported-knowledge';
 });
 
 for (const absolute of markdownFiles) {
@@ -216,4 +383,4 @@ if (errors.length > 0) {
 	process.exit(1);
 }
 
-console.log(`Documentation freshness passed for ${markdownFiles.length} maintained Markdown files (${canonicalVersion}, ${abilityCount} plugin abilities, ${directToolCount} Direct tools).`);
+console.log(`Documentation freshness passed for ${allMarkdownFiles.length} classified Markdown files (${markdownFiles.length} maintained; ${canonicalVersion}, ${abilityCount} plugin abilities, ${directToolCount} Direct tools).`);

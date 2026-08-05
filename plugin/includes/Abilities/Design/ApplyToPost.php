@@ -67,6 +67,7 @@ final class ApplyToPost extends AbilityKernel {
 				'spec_sha8'         => [ 'type' => 'string' ],
 				'sideloaded_assets' => [ 'type' => 'array', 'items' => [ 'type' => 'integer' ], 'description' => 'Attachment IDs created by sideloading.' ],
 				'diagnostics'       => [ 'type' => 'array', 'items' => [ 'type' => 'object' ] ],
+				'write_receipt'      => [ 'type' => 'object' ],
 			],
 			'required' => [ 'post_id', 'spec_sha8', 'sideloaded_assets', 'diagnostics' ],
 		];

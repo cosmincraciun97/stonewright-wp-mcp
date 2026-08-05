@@ -1,6 +1,6 @@
 # Stonewright Plugin
 
-Version: 1.0.0-beta.3
+Version: 1.0.0-beta.4
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
 License: AGPL-3.0-or-later
@@ -280,6 +280,9 @@ and one of the two was always the stale one.
 The canonical tokens, component rules, responsive requirements, and complete
 surface audit are maintained in [`../DESIGN.md`](../DESIGN.md).
 
+The durable audit, OAuth, write-receipt, incident, and diagnostics contract is
+documented in [`../docs/permanent-remediation-contracts.md`](../docs/permanent-remediation-contracts.md).
+
 ## Code Payload Handling
 
 Abilities that accept code — `stonewright/php-execute`,
@@ -347,6 +350,9 @@ Plugin mode also supports browser-based OAuth at:
 ```text
 https://your-site.example.com/wp-json/mcp/stonewright-oauth
 ```
+
+OAuth uses mandatory PKCE S256, exact MCP resource/audience binding, rotating
+refresh tokens, and family-wide revocation when a rotated token is replayed.
 
 MCP tool names are hyphenated by the WordPress MCP Adapter. Example:
 `stonewright/context-bootstrap` is called as `stonewright-context-bootstrap`.

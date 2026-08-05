@@ -125,6 +125,12 @@ final class ErrorPatterns {
 		if ( ! in_array( $status, [ 'error', 'blocked' ], true ) ) {
 			return;
 		}
+		$meta = is_array( $sanitized_args['_meta'] ?? null ) ? $sanitized_args['_meta'] : [];
+		if ( ! empty( $meta['retryable'] ) || AuditEvent::OUTCOME_RETRYABLE === (string) ( $meta['outcome'] ?? '' ) ) {
+			// Transient failures have their own incident threshold and must not
+			// become durable repair instructions after a single burst.
+			return;
+		}
 
 		$code = self::error_code( $sanitized_args, $ability, $status );
 		// Expected safety blocks: track count for hard-stop, never promote active learning.
@@ -149,16 +155,31 @@ final class ErrorPatterns {
 				'learning_key' => '',
 				'state'        => $expected_block ? 'blocked_pending_repair' : 'observed',
 				'expected'     => $expected_block,
+				'outcome'      => (string) ( $meta['outcome'] ?? ( 'blocked' === $status ? AuditEvent::OUTCOME_BLOCKED : AuditEvent::OUTCOME_FAILED ) ),
+				'resource_key_hash' => self::safe_hash( $meta['resource_key_hash'] ?? '' ),
+				'normalized_path' => self::safe_text( $meta['normalized_path'] ?? '' ),
+				'change_set_id' => self::safe_text( $meta['change_set_id'] ?? '' ),
+				'strategy_fingerprint' => self::safe_hash( $meta['strategy_fingerprint'] ?? '' ),
 			];
 		}
 
-		$store[ $signature ]['count']      = (int) $store[ $signature ]['count'] + 1;
+		$delta = max( 1, min( 10000, (int) ( $meta['coalesced_count'] ?? 1 ) ) );
+		$store[ $signature ]['count']      = (int) $store[ $signature ]['count'] + $delta;
 		$store[ $signature ]['last_seen']  = $now;
 		$store[ $signature ]['message']    = self::message_excerpt( $sanitized_args );
 		$store[ $signature ]['error_code'] = $code;
 		$store[ $signature ]['ability']    = $ability;
 		$store[ $signature ]['cause_key']  = $cause_key;
 		$store[ $signature ]['expected']   = $expected_block;
+		$store[ $signature ]['outcome']   = (string) ( $meta['outcome'] ?? ( 'blocked' === $status ? AuditEvent::OUTCOME_BLOCKED : AuditEvent::OUTCOME_FAILED ) );
+		$store[ $signature ]['resource_key_hash'] = self::safe_hash( $meta['resource_key_hash'] ?? ( $store[ $signature ]['resource_key_hash'] ?? '' ) );
+		$store[ $signature ]['normalized_path'] = self::safe_text( $meta['normalized_path'] ?? ( $store[ $signature ]['normalized_path'] ?? '' ) );
+		$store[ $signature ]['change_set_id'] = self::safe_text( $meta['change_set_id'] ?? ( $store[ $signature ]['change_set_id'] ?? '' ) );
+		$store[ $signature ]['strategy_fingerprint'] = self::safe_hash( $meta['strategy_fingerprint'] ?? ( $store[ $signature ]['strategy_fingerprint'] ?? '' ) );
+		if ( 'verified_resolved' === (string) ( $store[ $signature ]['state'] ?? '' ) || 'promoted_learning' === (string) ( $store[ $signature ]['state'] ?? '' ) ) {
+			$store[ $signature ]['state'] = 'reopened';
+			$store[ $signature ]['reopened_count'] = (int) ( $store[ $signature ]['reopened_count'] ?? 0 ) + 1;
+		}
 		if ( (int) $store[ $signature ]['count'] >= 2 ) {
 			$store[ $signature ]['state'] = $expected_block ? 'blocked_pending_repair' : 'repeated';
 		}
@@ -198,12 +219,41 @@ final class ErrorPatterns {
 		$recipe = sanitize_textarea_field( (string) ( $result['repair_recipe'] ?? '' ) );
 		$now    = gmdate( 'c' );
 		$dirty  = false;
+		$correlation_keys = [ 'cause_fingerprint', 'resource_key_hash', 'normalized_path', 'change_set_id', 'strategy_fingerprint' ];
+		$has_correlation = false;
+		foreach ( $correlation_keys as $key ) {
+			if ( isset( $result[ $key ] ) && is_scalar( $result[ $key ] ) && '' !== (string) $result[ $key ] ) {
+				$has_correlation = true;
+				break;
+			}
+		}
 		foreach ( $store as $signature => $row ) {
 			if ( (string) ( $row['ability'] ?? '' ) !== $ability || ! empty( $row['expected'] ) ) {
 				continue;
 			}
-			if ( ! in_array( (string) ( $row['state'] ?? '' ), [ 'repeated', 'repair_attempted', 'blocked_pending_repair' ], true ) ) {
+			if ( ! in_array( (string) ( $row['state'] ?? '' ), [ 'repeated', 'repair_attempted', 'blocked_pending_repair', 'verified_resolved', 'promoted_learning', 'reopened' ], true ) ) {
 				continue;
+			}
+			$row_has_correlation = false;
+			foreach ( $correlation_keys as $key ) {
+				if ( '' !== (string) ( $row[ $key ] ?? '' ) ) {
+					$row_has_correlation = true;
+					break;
+				}
+			}
+			if ( $has_correlation || $row_has_correlation ) {
+				$matches = true;
+				foreach ( $correlation_keys as $key ) {
+					$left  = (string) ( $row[ $key ] ?? '' );
+					$right = (string) ( $result[ $key ] ?? '' );
+					if ( ( '' !== $left || '' !== $right ) && $left !== $right ) {
+						$matches = false;
+						break;
+					}
+				}
+				if ( ! $matches ) {
+					continue;
+				}
 			}
 			$store[ $signature ]['state']       = 'verified_resolved';
 			$store[ $signature ]['resolved_at'] = $now;
@@ -274,6 +324,9 @@ final class ErrorPatterns {
 			if ( ! empty( $row['dismissed'] ) ) {
 				continue;
 			}
+			if ( ! empty( $row['expected'] ) || in_array( (string) ( $row['outcome'] ?? '' ), [ AuditEvent::OUTCOME_BLOCKED, AuditEvent::OUTCOME_RETRYABLE ], true ) ) {
+				continue;
+			}
 			$code  = (string) ( $row['error_code'] ?? 'error' );
 			$ability = (string) ( $row['ability'] ?? '' );
 			$out[] = [
@@ -284,6 +337,10 @@ final class ErrorPatterns {
 				'count'      => (int) ( $row['count'] ?? 0 ),
 				'last_seen'  => (string) ( $row['last_seen'] ?? '' ),
 				'first_seen' => (string) ( $row['first_seen'] ?? '' ),
+				'cause_fingerprint' => (string) ( $row['cause_fingerprint'] ?? '' ),
+				'resource_key_hash' => (string) ( $row['resource_key_hash'] ?? '' ),
+				'normalized_path' => (string) ( $row['normalized_path'] ?? '' ),
+				'strategy_fingerprint' => (string) ( $row['strategy_fingerprint'] ?? '' ),
 				'repair'     => RemediationHints::for_code( $code, $ability ),
 			];
 		}
@@ -407,7 +464,14 @@ final class ErrorPatterns {
 				break;
 			}
 		}
-		return strtolower( $ability ) . '|' . strtolower( $code ) . '|' . strtolower( $op );
+		$structured = [];
+		foreach ( [ 'resource_key_hash', 'normalized_path', 'strategy_fingerprint' ] as $key ) {
+			if ( isset( $meta[ $key ] ) && is_scalar( $meta[ $key ] ) && '' !== (string) $meta[ $key ] ) {
+				$structured[ $key ] = strtolower( (string) $meta[ $key ] );
+			}
+		}
+		$base = strtolower( $ability ) . '|' . strtolower( $code ) . '|' . strtolower( $op );
+		return [] === $structured ? $base : $base . '|' . http_build_query( $structured, '', '|' );
 	}
 
 	/**
@@ -532,6 +596,15 @@ final class ErrorPatterns {
 				'precedence' => 650,
 			]
 		);
+	}
+
+	private static function safe_hash( mixed $value ): string {
+		$value = is_scalar( $value ) ? strtolower( trim( (string) $value ) ) : '';
+		return 1 === preg_match( '/^[a-f0-9]{64}$/', $value ) ? $value : '';
+	}
+
+	private static function safe_text( mixed $value ): string {
+		return is_scalar( $value ) ? mb_substr( sanitize_text_field( (string) $value ), 0, 255 ) : '';
 	}
 
 	/**

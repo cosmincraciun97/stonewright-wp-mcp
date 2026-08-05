@@ -54,7 +54,7 @@ final class ContentModelLoopGridFlowTest extends TestCase {
 						'title'  => 'Solar Roof',
 						'status' => 'publish',
 						'meta'   => [
-							'subtitle' => 'nZEB ready',
+							'subtitle' => 'Example ready',
 							'cta_url'  => '/solutions/solar-roof',
 						],
 					],

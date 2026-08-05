@@ -652,6 +652,22 @@ final class ContractTest extends TestCase {
 					'_elementor_edit_mode' => 'builder',
 				],
 			],
+			// V3 widget with one unknown legacy setting. The migration contract
+			// must report it as unavailable without changing or returning its value.
+			7 => (object) [
+				'ID'           => 7,
+				'post_type'    => 'page',
+				'post_status'  => 'draft',
+				'post_title'   => 'Contract Legacy Debt',
+				'post_content' => '',
+				'post_excerpt' => '',
+				'post_parent'  => 0,
+				'post_name'    => 'contract-legacy-debt',
+				'meta'         => [
+					'_elementor_data'      => '[{"id":"legacy-contract","elType":"widget","widgetType":"third-party-card","settings":{"legacy_unknown":"preserve"},"elements":[]}]',
+					'_elementor_edit_mode' => 'builder',
+				],
+			],
 		];
 	}
 }

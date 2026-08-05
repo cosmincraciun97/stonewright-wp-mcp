@@ -28,6 +28,16 @@ Normalization keeps only the contract fields. Raw Figma documents and unknown
 vendor payloads are discarded before hashing or planning. The canonical
 evidence hash makes repeated plans deterministic.
 
+For a large page, pass the shallow extraction through
+`stonewright/design-section-manifest` first. A page manifest contains an
+ordered `sections` array. Each section supplies its own stable `section_id`,
+positive bounding box, semantic roles, and source-node provenance; shared page,
+frame, source fingerprint, target renderer, confidence, and assets may be
+inherited from the page. Explicit `order` values are unique non-negative
+integers. When omitted, source order is preserved. `action: decompose` returns
+the validated section manifests in that order, including their independent
+digests, so an agent can deep-read and implement one section at a time.
+
 Every non-neutral style value needs a provenance row:
 
 ```json
@@ -68,6 +78,21 @@ to core blocks; FSE also records constrained template surfaces. The planner
 emits intent, not settings; settings compile against the live schema during
 dry-run/write.
 
+The section-manifest planning surface is deliberately stricter than a widget
+name suggestion. Its schema input contains registered candidates with a valid
+schema hash, native target, controls, semantic capabilities, and optional
+capability-to-control mappings. Stonewright selects only from those candidates.
+If none is verified or a required capability is absent, it returns a native
+gap with `custom_code_approved: false`; it does not guess `image-carousel`,
+`core/gallery`, or another renderer target.
+
+Carousel evidence must state slide count, gap, arrows, and dots for desktop,
+tablet, and mobile. Missing optional behavior remains unknown rather than being
+filled with defaults. Active arrows require explicit previous/next assets and
+labels. The asset union is WordPress media, a renderer icon-library identifier,
+a normalized manifest asset, or inline SVG sanitized by a fail-closed DOM
+allowlist. Remote or externally referencing SVG is not treated as sanitized.
+
 The native phase order is:
 
 1. global styles;
@@ -102,12 +127,14 @@ invalidate or rebuild the native result.
    media, menus, and live widget schemas.
 2. With official Figma MCP or Figma Console MCP, read shallow page metadata and
    reusable tokens once; deep-read only the current top-level section.
-3. Normalize that section into DesignEvidence and omit raw source trees.
+3. Validate/decompose the ordered page manifest, then normalize the current
+   section into DesignEvidence and omit raw source trees.
 4. Call `stonewright-design-native-plan`.
 5. Resolve every blocker and repeat until ready.
 6. Compile the returned intent through schema-validated native dry-runs.
 7. Write through guarded batch operations and verify readback.
-8. Offer phase two only for a measured remaining delta.
+8. Compare bounded rendered anchors, including line-height and spacing, then
+   offer phase two only for a measured remaining delta.
 
 See [figma-to-elementor-workflow.md](figma-to-elementor-workflow.md) for the
 complete low-token extraction, implementation, and onboarding guide.

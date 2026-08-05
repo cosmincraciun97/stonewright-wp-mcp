@@ -10,7 +10,7 @@ final class PostWriteLock {
 	private const PREFIX = 'stonewright_elementor_lock_';
 
 	/**
-	 * @return array{post_id:int,owner:string,expires_at:int}|\WP_Error
+	 * @return array{post_id:int,owner:string,expires_at:int,acquired_at:int}|\WP_Error
 	 */
 	public static function acquire( int $post_id, string $owner, int $ttl = 30 ): array|\WP_Error {
 		$owner = sanitize_key( $owner );
@@ -27,6 +27,7 @@ final class PostWriteLock {
 		$lease = [
 			'post_id'    => $post_id,
 			'owner'      => $owner,
+			'acquired_at'=> $now,
 			'expires_at' => $now + max( 5, min( 120, $ttl ) ),
 		];
 		if ( add_option( $key, $lease, '', false ) ) {
@@ -41,13 +42,21 @@ final class PostWriteLock {
 			$current = get_option( $key, [] );
 		}
 
+		$expires_at = is_array( $current ) ? (int) ( $current['expires_at'] ?? $now + 5 ) : $now + 5;
+		$acquired_at = is_array( $current ) ? (int) ( $current['acquired_at'] ?? max( 0, $expires_at - 30 ) ) : $now;
+		$retry_after = max( 1, min( 120, $expires_at - $now ) );
+		$fingerprint = hash( 'sha256', 'elementor-lock|' . $post_id . '|' . (string) ( is_array( $current ) ? ( $current['owner'] ?? '' ) : '' ) );
 		return new \WP_Error(
 			'stonewright_elementor_write_busy',
 			__( 'Another Elementor transaction is writing this post.', 'stonewright' ),
 			[
 				'status'          => 409,
 				'retryable'       => true,
-				'lock_expires_at' => is_array( $current ) ? (int) ( $current['expires_at'] ?? $now + 5 ) : $now + 5,
+				'lock_expires_at' => $expires_at,
+				'lock_age_seconds' => max( 0, $now - $acquired_at ),
+				'lock_fingerprint' => $fingerprint,
+				'retry_after'      => $retry_after,
+				'retry_after_seconds' => $retry_after,
 			]
 		);
 	}

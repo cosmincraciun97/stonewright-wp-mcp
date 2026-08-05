@@ -1,0 +1,8 @@
+{
+  "args": {
+    "post_id": 7,
+    "element_id": "legacy-contract",
+    "paths": ["legacy_unknown"],
+    "action": "dry_run"
+  }
+}

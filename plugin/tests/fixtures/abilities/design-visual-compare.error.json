@@ -1,0 +1,7 @@
+{
+  "args": {
+    "expected": {},
+    "observed": {}
+  },
+  "expect_permission_error": true
+}

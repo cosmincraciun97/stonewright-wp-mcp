@@ -28,7 +28,11 @@ which is the wrong abstraction.
 2. Call `stonewright-design-direction-brief` once. If there is no active ready
    direction, create/review one in Design Studio before treating it as policy.
 3. In the chosen Figma MCP, read page and top-level frame metadata once. Build
-   an ordered section manifest: node id, name, desktop frame, mobile frame.
+   one page manifest with an ordered `sections` array: stable section and node
+   IDs, exact source order (or a unique explicit integer `order`), desktop and
+   mobile frames, positive bounds, roles, and provenance. Validate it with
+   `stonewright-design-section-manifest`, then use `action: decompose`; do not
+   reconstruct section order from names.
 4. Read variables, local styles, and reusable components once. Record only the
    values used by the target page.
 5. Deep-read one top-level section: semantic nodes, exact bounds, text, asset
@@ -44,6 +48,15 @@ which is the wrong abstraction.
 8. Discard the raw Figma response. Do not send the full document tree to a
    second Figma MCP and do not carry vendor nodes into Elementor.
 
+For a carousel, the section contract records slide count, gap, arrows, and dots
+for all three target devices. Do not fill unknown loop, autoplay, pause, swipe,
+keyboard, RTL, size, or hit-area values with guessed defaults. Active arrows
+need previous and next accessibility labels plus exactly one asset source each:
+WordPress media, an installed renderer icon, a normalized manifest asset, or
+inline SVG. Inline SVG with scripts, events, CSS imports, external URLs,
+entities, or unsupported DOM nodes is rejected. When arrows are disabled at
+every viewport, no arrow asset is required.
+
 Variables and page structure are read once; deep data stays bounded to the
 section currently being built. Later calls reuse the compact direction brief,
 evidence hash, section manifest, and live schema summaries.
@@ -54,7 +67,10 @@ evidence hash, section manifest, and live schema summaries.
    renderer.
 2. Read the current Elementor page digest/structure and kit globals.
 3. For each widget, query `stonewright-elementor-schema` in summary mode.
-   Request one complete control only when the summary is insufficient.
+   Request one complete control only when the summary is insufficient. Feed
+   section-manifest planning registered candidates with their real schema hash,
+   controls, capabilities, and explicit capability mappings; a missing schema
+   is a native gap, not permission to guess a widget name.
 4. Map reusable approved colors and typography to kit globals. Use
    `stonewright-design-direction-sync-plan` and explicit review before a
    site-wide sync.
@@ -73,7 +89,9 @@ evidence hash, section manifest, and live schema summaries.
 8. Measure and capture the logged-out frontend at desktop, tablet, and mobile.
    For boxed containers measure outer, `.e-con-inner`, and the first semantic
    child. For carousels record card width, gap, visible count, and peek pixels.
-   The write is not complete until these checks pass.
+   Compare bounded anchors for geometry, typography, line-height, spacing, and
+   color. A missing observed measurement is a failure, not zero. The write is
+   not complete until these checks pass.
 
 For a new identity, replacement, or rebrand, build only the first section.
 Render it, collect desktop/tablet/mobile evidence, obtain explicit approval,

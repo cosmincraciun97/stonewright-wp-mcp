@@ -92,6 +92,7 @@ final class BuildPageFromSpec extends AbilityKernel {
 				'after_hash'    => [ 'type' => 'string' ],
 				'readback_hash' => [ 'type' => 'string' ],
 				'evidence_hash' => [ 'type' => 'string' ],
+				'write_receipt' => [ 'type' => 'object' ],
 			],
 		];
 	}

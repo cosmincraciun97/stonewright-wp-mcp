@@ -200,7 +200,7 @@ final class SkillsTest extends TestCase {
 			[
 				'id'          => '1',
 				'type'        => 'feedback',
-				'scope'       => 'nzeb-frontend',
+				'scope'       => 'site-a-frontend',
 				'memory_key'  => 'custom-css-approval',
 				'name'        => 'Custom CSS requires approval',
 				'value_json'  => wp_json_encode( 'Custom CSS must be approved by the user before writing.' ),

@@ -15,7 +15,7 @@ final class SchemaTest extends TestCase {
 
 	public function test_schema_uses_stonewright_names_and_non_autoload_version(): void {
 		self::assertSame( 'stonewright_oauth_schema_version', Schema::SCHEMA_VERSION_OPTION );
-		self::assertSame( '2', Schema::CURRENT_SCHEMA_VERSION );
+		self::assertSame( '3', Schema::CURRENT_SCHEMA_VERSION );
 
 		Schema::maybe_install();
 

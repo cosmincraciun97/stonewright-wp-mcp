@@ -63,6 +63,9 @@ After reload:
 - Call stonewright-setup-profile and stonewright-wordpress-mcp-status.
 - Confirm companion_version matches VERSION, the WordPress MCP endpoint is
   authenticated, and refresh_required_tool_names is empty.
+- If OAuth header delivery is in doubt, call the read-only
+  `stonewright-oauth-header-diagnostic`; it returns booleans only and never
+  returns a header or token fragment.
 - Verify stonewright-task-start is in the tool list; if missing, stop and tell me.
 - Start every WordPress task with stonewright-task-start.
 - Follow the returned skills, memory, expertise, and fast_path.tool_profile.

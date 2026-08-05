@@ -15,8 +15,32 @@ use Stonewright\WpMcp\Support\ElementorData;
  * @covers \Stonewright\WpMcp\Abilities\ElementorV3\BatchMutate
  */
 final class BatchMutateTest extends TestCase {
+	private object $original_elementor;
 
 	protected function setUp(): void {
+		$this->original_elementor = \Elementor\Plugin::$instance;
+		$base_manager = $this->original_elementor->widgets_manager;
+		\Elementor\Plugin::$instance = (object) array_merge(
+			(array) $this->original_elementor,
+			[
+				'widgets_manager' => new class( $base_manager ) {
+					public function __construct( private object $base ) {
+					}
+					public function get_widget_types( ?string $name = null ): array|object|null {
+						if ( 'form' === $name ) {
+							return new BatchFormWidgetForTest();
+						}
+						if ( null === $name ) {
+							$widgets = (array) $this->base->get_widget_types();
+							$widgets['form'] = new BatchFormWidgetForTest();
+							return $widgets;
+						}
+						return $this->base->get_widget_types( $name );
+					}
+				},
+			]
+		);
+		WidgetSchemaRepository::reset_request_cache();
 		$GLOBALS['stonewright_test_posts'] = [
 			501 => (object) [
 				'ID'           => 501,
@@ -66,6 +90,38 @@ final class BatchMutateTest extends TestCase {
 					'_elementor_edit_mode' => 'builder',
 				],
 			],
+			502 => (object) [
+				'ID'           => 502,
+				'post_type'    => 'page',
+				'post_status'  => 'draft',
+				'post_title'   => 'Form batch target',
+				'post_content' => '',
+				'post_excerpt' => '',
+				'meta'         => [
+					'_elementor_data' => wp_json_encode(
+						[
+							[
+								'id' => 'form-root', 'elType' => 'container', 'settings' => [ 'container_type' => 'flex' ],
+								'elements' => [
+									[
+										'id' => 'form-widget', 'elType' => 'widget', 'widgetType' => 'form', 'elements' => [],
+										'settings' => [
+											'form_fields' => [
+												[ 'custom_id' => 'email', '_id' => 'row-a', 'field_label' => 'Email', 'field_type' => 'email', 'newsman_mapping' => 'subscriber_email' ],
+												[ 'custom_id' => 'name', '_id' => 'row-b', 'field_label' => 'Name', 'field_type' => 'text' ],
+											],
+											'actions_after_submit' => [ 'email', 'newsman' ],
+											'email_to' => 'team@example.test',
+											'newsman_list' => 'list-1',
+										],
+									],
+								],
+							],
+						]
+					),
+					'_elementor_edit_mode' => 'builder',
+				],
+			],
 		];
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
 		$GLOBALS['stonewright_test_options'] = [ 'stonewright_mode' => 'development' ];
@@ -75,6 +131,8 @@ final class BatchMutateTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		\Elementor\Plugin::$instance = $this->original_elementor;
+		WidgetSchemaRepository::reset_request_cache();
 		$GLOBALS['stonewright_test_posts'] = [];
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
 		$GLOBALS['stonewright_test_options'] = [];
@@ -82,6 +140,104 @@ final class BatchMutateTest extends TestCase {
 		$GLOBALS['stonewright_test_user_logged_in'] = false;
 		$GLOBALS['stonewright_test_transients'] = [];
 		unset( $GLOBALS['stonewright_test_after_add_option'] );
+		unset( $GLOBALS['stonewright_test_update_post_meta_return'] );
+	}
+
+	public function test_surgical_repeater_patch_preserves_newsman_actions_and_unknown_row_fields(): void {
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id' => 502,
+				'dry_run' => true,
+				'operations' => [
+					[
+						'action' => 'patch_repeater_row',
+						'element_id' => 'form-widget',
+						'repeater_key' => 'form_fields',
+						'selector' => [ 'custom_id' => 'email' ],
+						'row_patch' => [ 'field_label' => 'Business email' ],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		$item = $result['items'][0];
+		self::assertSame( 'patch_repeater_row', $item['action'] );
+		self::assertSame( $item['preservation']['unknown_fields_hash_before'], $item['preservation']['unknown_fields_hash_after'] );
+		self::assertSame( $item['preservation']['actions_after_submit_hash_before'], $item['preservation']['actions_after_submit_hash_after'] );
+		$settings = $result['preview'][0]['elements'][0]['settings'];
+		self::assertSame( 'Business email', $settings['form_fields'][0]['field_label'] );
+		self::assertSame( 'subscriber_email', $settings['form_fields'][0]['newsman_mapping'] );
+		self::assertSame( [ 'email', 'newsman' ], $settings['actions_after_submit'] );
+	}
+
+	public function test_full_form_repeater_replace_requires_explicit_dry_run_and_bound_hash(): void {
+		$operation = [
+			'action' => 'update_element',
+			'element_id' => 'form-widget',
+			'settings' => [
+				'form_fields' => [ [ 'custom_id' => 'email', '_id' => 'row-a', 'field_label' => 'Only email', 'field_type' => 'email' ] ],
+			],
+		];
+		$blocked = ( new BatchMutate() )->execute( [ 'post_id' => 502, 'dry_run' => true, 'operations' => [ $operation ] ] );
+		self::assertInstanceOf( \WP_Error::class, $blocked );
+		self::assertSame( 'stonewright_third_party_replace_blocked', $blocked->get_error_data()['cause_code'] );
+
+		$operation['allow_high_risk_replace'] = true;
+		$planned = ( new BatchMutate() )->execute( [ 'post_id' => 502, 'dry_run' => true, 'operations' => [ $operation ] ] );
+		self::assertIsArray( $planned );
+		$hash = $planned['items'][0]['third_party_risk']['preservation_hash_before'];
+		self::assertMatchesRegularExpression( '/^[a-f0-9]{64}$/', $hash );
+
+		$operation['approved_preservation_hash'] = $hash;
+		$applied = ( new BatchMutate() )->execute( [ 'post_id' => 502, 'operations' => [ $operation ] ] );
+		self::assertIsArray( $applied );
+		self::assertSame( 'verified', $applied['verification_status'] );
+		self::assertTrue( $applied['items'][0]['unknown_setting_removal_approved'] );
+		$stored = ElementorData::read( 502 );
+		self::assertSame( 'Only email', $stored[0]['elements'][0]['settings']['form_fields'][0]['field_label'] );
+		self::assertArrayNotHasKey( 'newsman_mapping', $stored[0]['elements'][0]['settings']['form_fields'][0] );
+	}
+
+	public function test_high_risk_apply_rejects_mismatched_preservation_hash(): void {
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id' => 502,
+				'operations' => [
+					[
+						'action' => 'update_element',
+						'element_id' => 'form-widget',
+						'settings' => [ 'form_fields' => [ [ 'custom_id' => 'email', '_id' => 'row-a', 'field_label' => 'Only email', 'field_type' => 'email' ] ] ],
+						'allow_high_risk_replace' => true,
+						'approved_preservation_hash' => str_repeat( '0', 64 ),
+					],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_third_party_replace_blocked', $result->get_error_data()['cause_code'] );
+	}
+
+	public function test_merge_cannot_enable_unknown_setting_removal(): void {
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id' => 502,
+				'dry_run' => true,
+				'operations' => [
+					[
+						'action' => 'update_element',
+						'element_id' => 'form-widget',
+						'settings' => [ 'email_to' => 'ops@example.test' ],
+						'allow_high_risk_replace' => true,
+						'approved_preservation_hash' => str_repeat( '0', 64 ),
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertArrayNotHasKey( 'unknown_setting_removal_approved', $result['items'][0] );
 	}
 
 	public function test_batch_adds_updates_and_writes_elementor_data_once(): void {
@@ -787,6 +943,30 @@ final class BatchMutateTest extends TestCase {
 		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
 	}
 
+	public function test_snapshot_persistence_failure_blocks_the_elementor_write(): void {
+		$before = (string) $GLOBALS['stonewright_test_posts'][501]->meta['_elementor_data'];
+		$GLOBALS['stonewright_test_update_post_meta_return'] = false;
+
+		$result = ( new BatchMutate() )->execute(
+			[
+				'post_id'    => 501,
+				'operations' => [
+					[
+						'action'     => 'update_element',
+						'element_id' => 'root',
+						'settings'   => [ 'container_type' => 'grid' ],
+					],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_backup_failed', $result->get_error_code() );
+		self::assertSame( 'backup.snapshot', $result->get_error_data()['write_receipt']['root_error_path'] );
+		self::assertSame( $before, $GLOBALS['stonewright_test_posts'][501]->meta['_elementor_data'] );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'], 'No Elementor meta write may occur after an unpersisted snapshot.' );
+	}
+
 	/** @param array<int, array<string, mixed>> $tree */
 	private function seed_post( int $post_id, array $tree ): void {
 		$GLOBALS['stonewright_test_posts'][ $post_id ] = (object) [
@@ -801,6 +981,34 @@ final class BatchMutateTest extends TestCase {
 				'_elementor_edit_mode' => 'builder',
 				'_elementor_version'   => defined( 'ELEMENTOR_VERSION' ) ? ELEMENTOR_VERSION : '3.0.0',
 			],
+		];
+	}
+}
+
+final class BatchFormWidgetForTest {
+	public function get_title(): string {
+		return 'Form';
+	}
+
+	/** @return list<string> */
+	public function get_categories(): array {
+		return [ 'pro-elements' ];
+	}
+
+	/** @return array<string,array<string,mixed>> */
+	public function get_controls(): array {
+		return [
+			'form_fields' => [
+				'type'   => 'repeater',
+				'fields' => [
+					'custom_id'  => [ 'type' => 'text' ],
+					'field_label'=> [ 'type' => 'text' ],
+					'field_type' => [ 'type' => 'select', 'options' => [ 'email' => 'Email', 'text' => 'Text' ] ],
+				],
+			],
+			'actions_after_submit' => [ 'type' => 'select2', 'multiple' => true, 'options' => [ 'email' => 'Email', 'newsman' => 'Newsman' ] ],
+			'email_to'             => [ 'type' => 'text' ],
+			'newsman_list'         => [ 'type' => 'text' ],
 		];
 	}
 }

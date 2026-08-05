@@ -29,6 +29,12 @@ one-time-grant boundary.
 
 MIT License.
 
+The companion-side OAuth persistence, refresh, retry, and server contract is
+summarized in [`../docs/permanent-remediation-contracts.md`](../docs/permanent-remediation-contracts.md).
+The companion derives the dedicated OAuth resource from the configured MCP URL
+and sends that exact `resource` during refresh. Audience mismatch or refresh
+family replay fails closed and requires explicit reauthorization.
+
 ## Direct mode (no plugin)
 
 When the Stonewright plugin is not installed, the companion can still work

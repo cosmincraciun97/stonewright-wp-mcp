@@ -80,7 +80,7 @@ final class AuditLogPageTest extends TestCase {
 		self::assertStringContainsString( 'name="verification_status"', $html );
 		self::assertStringContainsString( 'name="rollback_status"', $html );
 		self::assertStringContainsString( 'name="operation_class"', $html );
-		self::assertStringContainsString( 'Incidents', $html );
+		self::assertStringContainsString( 'Incident lifecycle', $html );
 		self::assertStringContainsString( 'name="user"', $html );
 		self::assertStringContainsString( 'name="from"', $html );
 		self::assertStringContainsString( 'name="to"', $html );
@@ -90,11 +90,46 @@ final class AuditLogPageTest extends TestCase {
 		self::assertStringContainsString( 'sw-audit-row', $html );
 		self::assertStringContainsString( 'sw-audit-table-scroll', $html );
 		self::assertStringContainsString( 'data-label="Details"', $html );
-		self::assertStringContainsString( 'View payload', $html );
-		self::assertStringContainsString( 'data-stonewright-copy="sw-audit-payload-12"', $html );
+		self::assertStringContainsString( 'View redacted details', $html );
+		self::assertStringContainsString( 'data-stonewright-copy="sw-audit-details-12"', $html );
 		self::assertStringContainsString( '<details', $html );
 		self::assertStringContainsString( 'post_id', $html );
 		self::assertStringContainsString( 'method="get"', $html );
+	}
+
+	public function test_redacted_exports_allowlist_fields_and_fail_closed_on_secret_like_details(): void {
+		$row = [
+			'id'                  => 9,
+			'event_id'            => '00000000-0000-4000-8000-000000000009',
+			'created_at'          => '2026-07-15 10:00:00',
+			'ability_name'        => 'stonewright/content-update',
+			'result_status'       => 'error',
+			'category'            => 'WRITE',
+			'outcome'             => 'FAILED',
+			'root_error_code'     => 'stonewright_write_failed',
+			'redacted_details'    => '{"authorization":"Bearer sentinel-private-example-token"}',
+			'sanitized_args'      => '{"must_not_export":"private body"}',
+		];
+		$json = AuditLogPage::build_export( [ $row ], 'json' );
+		self::assertIsString( $json );
+		self::assertStringContainsString( '[redacted]', $json );
+		self::assertStringNotContainsString( 'sentinel-private-example-token', $json );
+		self::assertStringNotContainsString( 'must_not_export', $json );
+
+		$csv = AuditLogPage::build_export( [ $row ], 'csv' );
+		self::assertIsString( $csv );
+		self::assertStringContainsString( 'ability_name', $csv );
+		self::assertStringNotContainsString( 'sentinel-private-example-token', $csv );
+
+		$row['ability_name'] = '=HYPERLINK("https://client.example","open")';
+		$csv_formula = AuditLogPage::build_export( [ $row ], 'csv' );
+		self::assertIsString( $csv_formula );
+		self::assertStringContainsString( "'=HYPERLINK", $csv_formula );
+
+		$row['redacted_details'] = '{"note":"Bearer still-secret-value"}';
+		$blocked = AuditLogPage::build_export( [ $row ], 'json' );
+		self::assertInstanceOf( \WP_Error::class, $blocked );
+		self::assertSame( 'stonewright_audit_export_sensitive_content_blocked', $blocked->get_error_code() );
 	}
 
 	public function test_render_empty_state(): void {

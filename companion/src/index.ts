@@ -46,6 +46,7 @@ import {
 	type WpCliJobStartInput,
 	type WpCliRunInput,
 } from './wp-cli.js';
+export { OAuthReauthRequiredError, OAuthTokenManager, OAuthTokenStore, OAuthTransientError, type OAuthTokenSet } from './oauth-token-manager.js';
 
 // ---------------------------------------------------------------------------
 // Stdio transport (always on)

@@ -69,14 +69,29 @@ abstract class AbilityKernel implements Ability {
 	 */
 	protected function audit( array $args, callable $callback ) {
 		$started_ns = hrtime( true );
+		// A typed Elementor writer may use a narrow legacy response shape. Reset
+		// the request-local receipt here and attach the common transaction contract
+		// below so every write surface returns the same machine-readable evidence.
+		\Stonewright\WpMcp\Support\ElementorData::clear_write_context();
 		$result     = $callback( $args );
+		$elementor_receipt = \Stonewright\WpMcp\Support\ElementorData::last_elementor_write_receipt();
+		if ( $result instanceof \WP_Error && [] !== $elementor_receipt ) {
+			$data = $result->get_error_data();
+			$data = is_array( $data ) ? $data : [];
+			if ( ! isset( $data['write_receipt'] ) ) {
+				$data['write_receipt'] = $elementor_receipt;
+				$result->add_data( $data, $result->get_error_code() );
+			}
+		} elseif ( is_array( $result ) && [] !== $elementor_receipt && ! isset( $result['write_receipt'] ) ) {
+			$result['write_receipt'] = $elementor_receipt;
+		}
 		$status     = 'ok';
 		if ( $result instanceof \WP_Error ) {
 			$code   = (string) $result->get_error_code();
 			$data   = $result->get_error_data();
 			$http   = is_array( $data ) ? (int) ( $data['status'] ?? 0 ) : 0;
 			$execution = is_array( $data ) ? (string) ( $data['execution_status'] ?? '' ) : '';
-			$status = ( 403 === $http || 'blocked' === $execution || str_contains( $code, 'forbidden' ) || str_contains( $code, 'blocked' ) || str_contains( $code, 'permission' ) )
+			$status = ( 403 === $http || 'blocked' === $execution || self::is_blocked_error_code( $code ) )
 				? 'blocked'
 				: 'error';
 		} elseif ( is_array( $result ) ) {
@@ -86,8 +101,8 @@ abstract class AbilityKernel implements Ability {
 			}
 			if ( isset( $result['verification_status'] ) && in_array( (string) $result['verification_status'], [ 'failed', 'missing' ], true ) ) {
 				$status = 'error';
-			}
-		}
+					}
+				}
 		$sanitized  = $this->sanitize_for_audit( $args );
 		$metadata   = $this->audit_metadata(
 			$args,
@@ -100,18 +115,20 @@ abstract class AbilityKernel implements Ability {
 			$metadata['error_message'] = mb_substr( $message, 0, 200 );
 			$data                      = $result->get_error_data();
 			if ( is_array( $data ) ) {
-				foreach ( [ 'execution_status', 'verification_status', 'rollback_status', 'before_sha256', 'after_sha256', 'cause_key', 'resource_type', 'operation_class', 'rule_id' ] as $effect_key ) {
+				foreach ( [ 'execution_status', 'verification_status', 'rollback_status', 'before_sha256', 'after_sha256', 'cause_key', 'cause_fingerprint', 'strategy_fingerprint', 'resource_type', 'resource_ref', 'resource_key_hash', 'normalized_path', 'operation_class', 'change_set_id', 'transaction_id', 'retryable', 'retry_after_seconds', 'root_error_code', 'root_error_path', 'failed_action_index', 'element_id', 'setting_path', 'expected_type', 'actual_type', 'schema_version', 'remediation_code', 'rule_id', 'http_status' ] as $effect_key ) {
 					if ( isset( $data[ $effect_key ] ) && is_scalar( $data[ $effect_key ] ) ) {
 						$metadata[ $effect_key ] = $data[ $effect_key ];
 					}
 				}
+				$metadata = self::merge_receipt_metadata( $metadata, is_array( $data['write_receipt'] ?? null ) ? $data['write_receipt'] : [] );
 			}
 		} elseif ( is_array( $result ) ) {
-			foreach ( [ 'execution_status', 'verification_status', 'rollback_status', 'before_sha256', 'after_sha256', 'changed_bytes', 'effect_verified', 'operation_class', 'resource_type' ] as $effect_key ) {
+			foreach ( [ 'execution_status', 'verification_status', 'rollback_status', 'before_sha256', 'after_sha256', 'changed_bytes', 'effect_verified', 'operation_class', 'resource_type', 'resource_ref', 'resource_key_hash', 'normalized_path', 'cause_fingerprint', 'strategy_fingerprint', 'change_set_id', 'transaction_id', 'retryable', 'retry_after_seconds', 'root_error_code', 'root_error_path', 'failed_action_index', 'element_id', 'setting_path', 'expected_type', 'actual_type', 'schema_version', 'remediation_code', 'category', 'outcome' ] as $effect_key ) {
 				if ( array_key_exists( $effect_key, $result ) && ( is_scalar( $result[ $effect_key ] ) || null === $result[ $effect_key ] ) ) {
 					$metadata[ $effect_key ] = $result[ $effect_key ];
 				}
 			}
+			$metadata = self::merge_receipt_metadata( $metadata, is_array( $result['write_receipt'] ?? null ) ? $result['write_receipt'] : [] );
 		}
 		if ( [] !== $metadata ) {
 			$sanitized['_meta'] = $metadata;
@@ -121,6 +138,47 @@ abstract class AbilityKernel implements Ability {
 			\Stonewright\WpMcp\Security\ErrorPatterns::observe_verified_repair( $this->name(), $result );
 		}
 		return $result;
+	}
+
+	private static function is_blocked_error_code( string $code ): bool {
+		foreach ( [ 'forbidden', 'blocked', 'permission', 'confirmation_required', 'grant_required', 'approval_required', 'read_only', 'raw_elementor', 'architecture_mismatch', 'migration_has_loss', 'rule_violation' ] as $marker ) {
+			if ( str_contains( $code, $marker ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Flatten only the safe scalar receipt contract into audit metadata. Hash
+	 * names are mapped to the audit schema; nested raw payloads never enter it.
+	 *
+	 * @param array<string,mixed> $metadata
+	 * @param array<string,mixed> $receipt
+	 * @return array<string,mixed>
+	 */
+	private static function merge_receipt_metadata( array $metadata, array $receipt ): array {
+		$map = [
+			'transaction_id'      => 'transaction_id',
+			'change_set_id'       => 'change_set_id',
+			'architecture'        => 'architecture',
+			'before_hash'         => 'before_sha256',
+			'planned_hash'        => 'planned_sha256',
+			'after_hash'          => 'after_sha256',
+			'readback_hash'       => 'readback_sha256',
+			'verification_status' => 'verification_status',
+			'rollback_status'     => 'rollback_status',
+			'root_error_code'     => 'root_error_code',
+			'root_error_path'     => 'root_error_path',
+			'retryable'           => 'retryable',
+			'retry_after_seconds' => 'retry_after_seconds',
+		];
+		foreach ( $map as $receipt_key => $metadata_key ) {
+			if ( array_key_exists( $receipt_key, $receipt ) && ( is_scalar( $receipt[ $receipt_key ] ) || null === $receipt[ $receipt_key ] ) ) {
+				$metadata[ $metadata_key ] = $receipt[ $receipt_key ];
+			}
+		}
+		return $metadata;
 	}
 
 	/**

@@ -33,6 +33,51 @@ describe('loadWordPressMcpConfig', () => {
 		expect(config?.url).toBe('https://example.com/wp-json/mcp/stonewright');
 	});
 
+	it('loads replay-safe OAuth token-store authentication and derives the same-origin token endpoint', () => {
+		const temp = mkdtempSync(join(tmpdir(), 'stonewright-oauth-config-'));
+		try {
+			const tokenStore = join(temp, 'tokens.json');
+			const config = loadWordPressMcpConfig({
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				STONEWRIGHT_OAUTH_CLIENT_ID: 'client-example',
+				STONEWRIGHT_OAUTH_TOKEN_STORE: tokenStore,
+			});
+
+			expect(config?.oauth).toEqual({
+				tokenEndpoint: 'https://example.com/wp-json/stonewright/v1/oauth/token',
+				clientId: 'client-example',
+				tokenStorePath: tokenStore,
+				resource: 'https://example.com/wp-json/mcp/stonewright-oauth',
+			});
+			expect(config?.url).toBe('https://example.com/wp-json/mcp/stonewright-oauth');
+			expect(config?.authorization).toBeUndefined();
+			expect(config?.username).toBeUndefined();
+		} finally {
+			rmSync(temp, { recursive: true, force: true });
+		}
+	});
+
+	it('fails closed for partial, mixed, or cross-origin OAuth configuration', () => {
+		expect(() => loadWordPressMcpConfig({
+			STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+			STONEWRIGHT_OAUTH_CLIENT_ID: 'client-example',
+		})).toThrow(/OAUTH_TOKEN_STORE/u);
+
+		expect(() => loadWordPressMcpConfig({
+			STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+			STONEWRIGHT_OAUTH_CLIENT_ID: 'client-example',
+			STONEWRIGHT_OAUTH_TOKEN_STORE: '/tmp/example-tokens.json',
+			STONEWRIGHT_MCP_AUTHORIZATION: 'Bearer fixture-static',
+		})).toThrow(/cannot be combined/u);
+
+		expect(() => loadWordPressMcpConfig({
+			STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+			STONEWRIGHT_OAUTH_CLIENT_ID: 'client-example',
+			STONEWRIGHT_OAUTH_TOKEN_STORE: '/tmp/example-tokens.json',
+			STONEWRIGHT_OAUTH_TOKEN_ENDPOINT: 'https://other.example/oauth/token',
+		})).toThrow(/same origin/u);
+	});
+
 	it('derives the Stonewright REST endpoint used for prompt skill discovery', () => {
 		expect(wordpressRestUrlFromMcpUrl('https://example.com/wp-json/mcp/stonewright', 'stonewright/v1/skills?mode=prompt&enabled_only=1')).toBe(
 			'https://example.com/wp-json/stonewright/v1/skills?mode=prompt&enabled_only=1',

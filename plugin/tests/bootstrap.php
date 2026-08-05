@@ -570,6 +570,9 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 			if ( str_contains( $query, 'SELECT id FROM' ) && str_contains( $query, 'stonewright_memory' ) ) {
 				return null;
 			}
+			if ( str_contains( $query, 'stonewright_audit_log' ) && str_contains( $query, 'schema_version' ) ) {
+				return 0;
+			}
 			return null;
 		}
 
@@ -892,6 +895,19 @@ if ( ! function_exists( 'remove_filter' ) ) {
 	}
 }
 
+if ( ! function_exists( 'has_filter' ) ) {
+	function has_filter( string $hook_name, mixed $callback = false ): int|false {
+		unset( $callback );
+		return isset( $GLOBALS['stonewright_test_filters'][ $hook_name ] ) ? 10 : false;
+	}
+}
+
+if ( ! function_exists( 'has_action' ) ) {
+	function has_action( string $hook_name, mixed $callback = false ): int|false {
+		return has_filter( $hook_name, $callback );
+	}
+}
+
 $GLOBALS['stonewright_test_filters'] ??= [];
 
 if ( ! function_exists( 'sanitize_text_field' ) ) {
@@ -958,6 +974,16 @@ if ( ! class_exists( 'WP_Error' ) ) {
 				}
 			}
 			return null;
+		}
+
+		public function add_data( mixed $data, string|int $code = '' ): void {
+			$target = '' === $code ? $this->get_error_code() : $code;
+			foreach ( $this->errors as &$error ) {
+				if ( $error['code'] === $target ) {
+					$error['data'] = $data;
+					return;
+				}
+			}
 		}
 
 		/** @return array<int, array{code: string|int, message: string, data: mixed}> */
@@ -1050,6 +1076,10 @@ $GLOBALS['stonewright_test_post_meta_calls'] ??= [];
 
 if ( ! function_exists( 'update_post_meta' ) ) {
 	function update_post_meta( int $post_id, string $meta_key, mixed $meta_value, mixed $prev_value = '' ): int|bool {
+		$keyed_returns = $GLOBALS['stonewright_test_update_post_meta_returns'] ?? [];
+		if ( is_array( $keyed_returns ) && array_key_exists( $meta_key, $keyed_returns ) ) {
+			return $keyed_returns[ $meta_key ];
+		}
 		if ( isset( $GLOBALS['stonewright_test_update_post_meta_return'] ) ) {
 			return $GLOBALS['stonewright_test_update_post_meta_return'];
 		}

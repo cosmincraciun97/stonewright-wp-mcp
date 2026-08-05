@@ -56,6 +56,7 @@ final class AddContainer extends AbilityKernel {
 				'element_id'  => [ 'type' => 'string' ],
 				'snapshot_id' => [ 'type' => 'string' ],
 				'path'        => [ 'type' => 'array' ],
+				'write_receipt' => [ 'type' => 'object' ],
 			],
 		];
 	}

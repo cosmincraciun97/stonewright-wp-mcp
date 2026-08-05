@@ -1,0 +1,20 @@
+{
+  "args": {
+    "post_id": 1,
+    "dry_run": true,
+    "operations": [
+      {
+        "action": "insert",
+        "path": [],
+        "position": 0,
+        "block": {
+          "blockName": "core/paragraph",
+          "attrs": {},
+          "innerHTML": "<p>Added</p>",
+          "innerBlocks": []
+        }
+      }
+    ]
+  },
+  "expect": "ok"
+}
