@@ -36,7 +36,7 @@ final class KnowledgeBundleTest extends TestCase {
 				[
 					'id'          => '3',
 					'type'        => 'feedback',
-					'scope'       => 'nzeb-frontend',
+					'scope'       => 'site-a-frontend',
 					'memory_key'  => 'no-html-widgets',
 					'name'        => 'No Elementor HTML widgets by default',
 					'value_json'  => wp_json_encode( 'Use native Elementor widgets unless explicitly instructed.' ),
@@ -88,7 +88,7 @@ final class KnowledgeBundleTest extends TestCase {
 					'entries' => [
 						[
 							'type'        => 'feedback',
-							'scope'       => 'nzeb-frontend',
+							'scope'       => 'site-a-frontend',
 							'memory_key'  => 'custom-css-approval',
 							'name'        => 'Custom CSS requires approval',
 							'value'       => 'Ask before writing style.css.',

@@ -25,7 +25,7 @@ final class MediaListTest extends TestCase {
 				'post_name'      => 'hero-timber-frame',
 				'post_mime_type' => 'image/jpeg',
 				'meta'           => [
-					'_wp_attachment_image_alt' => 'nZEB hero timber house',
+					'_wp_attachment_image_alt' => 'Example hero timber house',
 				],
 			],
 			102 => (object) [
@@ -56,7 +56,7 @@ final class MediaListTest extends TestCase {
 	public function test_lists_existing_media_by_alt_title_and_caption(): void {
 		$result = ( new ListMedia() )->execute(
 			[
-				'search'    => 'nZEB',
+				'search'    => 'Example',
 				'mime_type' => 'image',
 				'per_page'  => 10,
 			]
@@ -66,7 +66,7 @@ final class MediaListTest extends TestCase {
 		self::assertSame( 1, $result['count'] );
 		self::assertSame( 101, $result['items'][0]['id'] );
 		self::assertSame( 'Hero timber frame', $result['items'][0]['title'] );
-		self::assertSame( 'nZEB hero timber house', $result['items'][0]['alt'] );
+		self::assertSame( 'Example hero timber house', $result['items'][0]['alt'] );
 		self::assertSame( 'image/jpeg', $result['items'][0]['mime'] );
 		self::assertSame( 'https://example.test/wp-content/uploads/attachment-101.txt', $result['items'][0]['url'] );
 	}

@@ -29,6 +29,7 @@ final class Schema {
 	 * Install or upgrade the OAuth tables.
 	 */
 	public static function maybe_install(): void {
+		OAuthRateLimiter::maybe_install();
 		if ( self::CURRENT_SCHEMA_VERSION === get_option( self::SCHEMA_VERSION_OPTION ) ) {
 			return;
 		}

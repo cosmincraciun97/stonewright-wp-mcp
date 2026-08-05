@@ -269,10 +269,19 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 
 	public function test_final_write_guard_preserves_unknown_settings_on_write(): void {
 		// P0 integrity: unknown Pro/runtime keys must not be stripped to "pass".
+		$before = [
+			[
+				'id'         => 'card1',
+				'elType'     => 'widget',
+				'widgetType' => 'third-party-card',
+				'settings'   => [ 'title' => 'Before', 'invented_color' => '#fff' ],
+				'elements'   => [],
+			],
+		];
 		$GLOBALS['stonewright_test_posts'][99] = (object) [
 			'ID'   => 99,
 			'meta' => [
-				'_elementor_data'      => '[]',
+				'_elementor_data'      => (string) wp_json_encode( $before ),
 				'_elementor_edit_mode' => 'builder',
 			],
 		];
@@ -281,7 +290,7 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 				'id'         => 'card1',
 				'elType'     => 'widget',
 				'widgetType' => 'third-party-card',
-				'settings'   => [ 'invented_color' => '#fff' ],
+				'settings'   => [ 'title' => 'After', 'invented_color' => '#fff' ],
 				'elements'   => [],
 			],
 		];
@@ -295,10 +304,18 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 	}
 
 	public function test_final_write_guard_preserves_unknown_container_settings_on_write(): void {
+		$before = [
+			[
+				'id'       => 'container1',
+				'elType'   => 'container',
+				'settings' => [ 'container_type' => 'flex', 'invented_layout_key' => 'bad' ],
+				'elements' => [],
+			],
+		];
 		$GLOBALS['stonewright_test_posts'][99] = (object) [
 			'ID'   => 99,
 			'meta' => [
-				'_elementor_data'      => '[]',
+				'_elementor_data'      => (string) wp_json_encode( $before ),
 				'_elementor_edit_mode' => 'builder',
 			],
 		];
@@ -306,7 +323,7 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 			[
 				'id'       => 'container1',
 				'elType'   => 'container',
-				'settings' => [ 'invented_layout_key' => 'bad' ],
+				'settings' => [ 'container_type' => 'grid', 'invented_layout_key' => 'bad' ],
 				'elements' => [],
 			],
 		];

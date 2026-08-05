@@ -292,7 +292,7 @@ final class ValidatorTest extends TestCase {
 								[
 									'type'       => 'heading',
 									'id'         => '97:8308',
-									'text'       => 'nZEB Expo Bucuresti 2025',
+									'text'       => 'Example Conference 2025',
 									'level'      => 1,
 									'typography' => [
 										'fontFamily' => 'Montserrat',

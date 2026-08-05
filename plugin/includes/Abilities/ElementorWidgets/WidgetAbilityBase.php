@@ -219,6 +219,7 @@ abstract class WidgetAbilityBase extends AbilityKernel {
 				'element_id'  => [ 'type' => 'string' ],
 				'widget_type' => [ 'type' => 'string' ],
 				'snapshot_id' => [ 'type' => 'string' ],
+				'write_receipt' => [ 'type' => 'object' ],
 				'activated_groups' => [
 					'type'  => 'array',
 					'items' => [ 'type' => 'string' ],

@@ -110,9 +110,35 @@ describe('tool profile resolve + client cap', () => {
 			'stonewright-post-revision-restore',
 			'stonewright-site-health-test',
 			'stonewright-search-query',
+			'stonewright-security-audit-reconcile',
+			'stonewright-security-runtime-data-purge',
+			'stonewright-oauth-header-diagnostic',
+			'stonewright-capability-preflight',
+			'stonewright-form-delivery-diagnostic',
 		]) {
 			expect(names).toContain(n);
 		}
+	});
+
+	it('fallback visual profiles expose the new batch and diagnostic contracts', () => {
+		const elementor = proxyToolNamesForProfile('elementor-design');
+		expect(elementor).toEqual(
+			expect.arrayContaining([
+				'stonewright-design-section-manifest',
+				'stonewright-design-visual-compare',
+				'stonewright-elementor-v3-legacy-debt-migrate',
+				'stonewright-form-delivery-diagnostic',
+				'stonewright-capability-preflight',
+			]),
+		);
+		const gutenberg = proxyToolNamesForProfile('gutenberg');
+		expect(gutenberg).toEqual(
+			expect.arrayContaining([
+				'stonewright-blocks-batch-mutate',
+				'stonewright-design-section-manifest',
+				'stonewright-design-visual-compare',
+			]),
+		);
 	});
 
 	it('fallback content-model includes wc reads', () => {

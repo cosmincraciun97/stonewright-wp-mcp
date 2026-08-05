@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Elementor;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Elementor\ArchitectureRouter;
+use Stonewright\WpMcp\Elementor\V4\ArchitectureRouter as TargetArchitectureRouter;
 
 /**
  * @covers \Stonewright\WpMcp\Elementor\ArchitectureRouter
@@ -78,5 +79,22 @@ final class ArchitectureRouterTest extends TestCase {
 		self::assertTrue( $out['high_level_write_blocked'] );
 		self::assertContains( 'stonewright/elementor-document-health', $out['repair_tools'] );
 		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $out['repair_tools'] );
+	}
+
+	public function test_target_digest_reports_real_schema_major_roots_and_typed_route(): void {
+		$v3 = TargetArchitectureRouter::digest(
+			[ [ 'id' => 'root-v3', 'elType' => 'container', 'settings' => [], 'elements' => [] ] ],
+			[ 'root-v3' ]
+		);
+		self::assertSame( '3', $v3['schema_major'] );
+		self::assertSame( 'stonewright/elementor-v3-batch-mutate', $v3['recommended_ability'] );
+		self::assertSame( 'v3', $v3['roots'][0]['architecture'] );
+
+		$v4 = TargetArchitectureRouter::digest(
+			[ [ 'id' => 'root-v4', 'elType' => 'widget', 'widgetType' => 'e-paragraph', 'settings' => [], 'elements' => [] ] ],
+			[ 'root-v4' ]
+		);
+		self::assertSame( '4', $v4['schema_major'] );
+		self::assertSame( 'stonewright/elementor-v4-update-node', $v4['recommended_ability'] );
 	}
 }

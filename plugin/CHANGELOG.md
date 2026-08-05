@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.4] - 2026-08-05
+
+### Added
+
+- Add the permanent audit/incident taxonomy, OAuth server rate-limit contract,
+  Elementor transaction receipts and evidence-preserving patch validation,
+  Gutenberg block batches, design manifests/comparison, and read-only form and
+  capability diagnostics.
+- Add a count-only, hash-bound runtime-history purge with production
+  confirmation, reviewed watermarks, concurrent-row preservation, and one
+  retained cleanup receipt.
+
+### Fixed
+
+- Neutralize spreadsheet formulas in redacted audit CSV exports and include
+  both OAuth audit transient families in purge hashes and counts.
+
 ## [1.0.0-beta.3] - 2026-07-31
 
 ### Added

@@ -16,8 +16,15 @@ final class AuditLog {
 	/** @var list<string> */
 	public const STATUSES = [ 'ok', 'error', 'blocked', 'auth' ];
 
+	/** @var list<string> */
+	public const ADMIN_VIEWS = [ 'all', 'errors', 'retryable', 'blocked', 'auth', 'resolved' ];
+
 	/** Longest persisted OAuth diagnostic string. */
 	public const AUTH_DIAGNOSTIC_MAX_LENGTH = 200;
+	private const AUTH_COALESCE_WINDOW_SECONDS = 60;
+
+	/** @var list<int> */
+	private const AUTH_COALESCE_RECORD_COUNTS = [ 1, 2, 3, 5, 10, 25, 50 ];
 
 	/**
 	 * The only OAuth fields that may be persisted, mapped to their audit key.
@@ -134,6 +141,24 @@ final class AuditLog {
 			site_fingerprint CHAR(64) NOT NULL DEFAULT '',
 			mode VARCHAR(32) NOT NULL DEFAULT '',
 			severity VARCHAR(16) NOT NULL DEFAULT 'info',
+			event_id CHAR(36) NOT NULL DEFAULT '',
+			schema_version VARCHAR(16) NOT NULL DEFAULT '1.0',
+			category VARCHAR(32) NOT NULL DEFAULT 'WRITE',
+			outcome VARCHAR(24) NOT NULL DEFAULT 'SUCCESS',
+			severity_level VARCHAR(16) NOT NULL DEFAULT 'info',
+			root_error_code VARCHAR(190) NOT NULL DEFAULT '',
+			resource_key_hash CHAR(64) NOT NULL DEFAULT '',
+			normalized_path VARCHAR(255) NOT NULL DEFAULT '',
+			cause_fingerprint CHAR(64) NOT NULL DEFAULT '',
+			strategy_fingerprint CHAR(64) NOT NULL DEFAULT '',
+			transaction_id VARCHAR(96) NOT NULL DEFAULT '',
+			context_token_id_hash CHAR(64) NOT NULL DEFAULT '',
+			expected_verifier VARCHAR(190) NOT NULL DEFAULT '',
+			remediation_code VARCHAR(190) NOT NULL DEFAULT '',
+			retryable TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,
+			retry_after_seconds INT UNSIGNED NOT NULL DEFAULT 0,
+			incident_id CHAR(64) NOT NULL DEFAULT '',
+			redacted_details LONGTEXT NULL,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id),
 			KEY ability_idx (ability_name),
@@ -143,11 +168,16 @@ final class AuditLog {
 			KEY verification_idx (verification_status),
 			KEY rollback_idx (rollback_status),
 			KEY change_set_idx (change_set_id),
+			KEY category_idx (category),
+			KEY outcome_idx (outcome),
+			KEY incident_idx (incident_id),
+			KEY root_error_idx (root_error_code),
 			KEY created_idx (created_at)
 		) {$charset};";
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql );
+		AuditReconciler::maybe_migrate();
 	}
 
 	/**
@@ -161,6 +191,7 @@ final class AuditLog {
 		$status = in_array( $status, self::STATUSES, true ) ? $status : 'error';
 		$sanitized_args = self::redact_sensitive( $sanitized_args );
 		$meta = is_array( $sanitized_args['_meta'] ?? null ) ? $sanitized_args['_meta'] : [];
+		$event = AuditEvent::normalize( $ability, $sanitized_args, $status );
 		$verification = self::meta_string( $meta, 'verification_status' );
 		$rollback     = self::meta_string( $meta, 'rollback_status', 'not_needed' );
 		$event_type   = 'mutation';
@@ -212,9 +243,27 @@ final class AuditLog {
 				'site_fingerprint'  => hash( 'sha256', home_url( '/' ) . '|' . (string) ( function_exists( 'get_current_blog_id' ) ? get_current_blog_id() : 1 ) ),
 				'mode'              => sanitize_key( (string) get_option( 'stonewright_mode', 'development' ) ),
 				'severity'          => $severity,
+				'event_id'          => $event['event_id'],
+				'schema_version'    => AuditEvent::SCHEMA_VERSION,
+				'category'          => $event['category'],
+				'outcome'           => $event['outcome'],
+				'severity_level'    => $event['severity_level'],
+				'root_error_code'   => $event['root_error_code'],
+				'resource_key_hash' => $event['resource_key_hash'],
+				'normalized_path'   => $event['normalized_path'],
+				'cause_fingerprint' => $event['cause_fingerprint'],
+				'strategy_fingerprint' => $event['strategy_fingerprint'],
+				'transaction_id'    => $event['transaction_id'],
+				'context_token_id_hash' => $event['context_token_id_hash'],
+				'expected_verifier' => $event['expected_verifier'],
+				'remediation_code'  => $event['remediation_code'],
+				'retryable'         => $event['retryable'] ? 1 : 0,
+				'retry_after_seconds' => $event['retry_after_seconds'],
+				'incident_id'       => $event['incident_id'],
+				'redacted_details'  => Json::encode( $event['redacted_details'] ),
 				'created_at'     => current_time( 'mysql', true ),
 			],
-			[ '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s' ]
+			[]
 		);
 
 		if ( false === $result ) {
@@ -241,6 +290,15 @@ final class AuditLog {
 
 		self::mark_audited();
 		delete_option( 'stonewright_audit_degraded' );
+		try {
+			if ( AuditEvent::OUTCOME_SUCCESS === $event['outcome'] ) {
+				IncidentStore::resolve( $event );
+			} else {
+				IncidentStore::observe( $event );
+			}
+		} catch ( \Throwable $t ) {
+			Logger::error( 'incident_store_observe_threw', [ 'ability' => $ability, 'error' => $t->getMessage() ] );
+		}
 
 		// Learn from recurring errors without blocking the audit write path.
 		// Auth events are the protocol refusing a client, not an agent mistake:
@@ -337,8 +395,92 @@ final class AuditLog {
 			'resource_ref'    => $endpoint,
 			'http_status'     => $http,
 		];
+		if ( in_array( $http, [ 429, 502, 503, 504 ], true ) ) {
+			$args['_meta']['retryable'] = true;
+			$args['_meta']['retry_after_seconds'] = self::retry_after_seconds( $response );
+		}
+		if ( isset( $args['oauth_error_description'] ) ) {
+			$args['_meta']['public_message'] = $args['oauth_error_description'];
+		}
+		$error  = sanitize_key( (string) ( $body['error'] ?? '' ) );
+		$reason = sanitize_key( (string) ( $body['reason'] ?? '' ) );
+		$coalesced = self::coalesce_auth_event( $endpoint, $client_id, $http, $error, $reason );
+		if ( ! $coalesced['record'] ) {
+			return true;
+		}
+		if ( $coalesced['count'] > 1 ) {
+			$args['_meta']['coalesced_count'] = $coalesced['count'];
+		}
 
 		return self::record( $endpoint, $args, $status );
+	}
+
+	/**
+	 * Keep repeated throttling/provider failures visible without writing one row
+	 * per retry. The first event, threshold crossings, and the first event after
+	 * a quiet period are retained; the skipped volume stays as a count only.
+	 *
+	 * @return array{record:bool,count:int}
+	 */
+	private static function coalesce_auth_event( string $endpoint, string $client_id, int $http, string $error, string $reason ): array {
+		if ( $http < 400 || $http > 599 ) {
+			return [ 'record' => true, 'count' => 1 ];
+		}
+		$salt  = function_exists( 'wp_salt' ) ? wp_salt( 'auth' ) : 'stonewright-oauth';
+		$fingerprint = sanitize_key( $error ) . '|' . sanitize_key( $reason );
+		$key   = 'stonewright_oauth_audit_' . hash_hmac( 'sha256', $endpoint . '|' . $client_id . '|' . $http . '|' . $fingerprint, $salt );
+		$now   = time();
+		$state = get_transient( $key );
+		$state = is_array( $state ) ? $state : [];
+		$last  = (int) ( $state['last_at'] ?? 0 );
+		$count = (int) ( $state['count'] ?? 0 );
+		$emitted = (int) ( $state['emitted_count'] ?? 0 );
+		if ( $count > 0 && $now - $last >= self::AUTH_COALESCE_WINDOW_SECONDS ) {
+			$delta = max( 1, ( $count - $emitted ) + 1 );
+			set_transient( $key, [ 'count' => 1, 'emitted_count' => 1, 'last_at' => $now ], self::AUTH_COALESCE_WINDOW_SECONDS * 2 );
+			return [ 'record' => true, 'count' => $delta ];
+		}
+
+		++$count;
+		$record = in_array( $count, self::AUTH_COALESCE_RECORD_COUNTS, true );
+		$delta  = $record ? max( 1, $count - $emitted ) : 0;
+		set_transient(
+			$key,
+			[
+				'count'         => $count,
+				'emitted_count' => $record ? $count : $emitted,
+				'last_at'       => $now,
+			],
+			self::AUTH_COALESCE_WINDOW_SECONDS * 2
+		);
+		return [
+			'record' => $record,
+			'count'  => $delta,
+		];
+	}
+
+	private static function retry_after_seconds( object $response ): int {
+		if ( ! method_exists( $response, 'get_headers' ) ) {
+			return 0;
+		}
+		$headers = $response->get_headers();
+		if ( ! is_array( $headers ) ) {
+			return 0;
+		}
+		foreach ( [ 'retry-after', 'Retry-After' ] as $key ) {
+			if ( ! isset( $headers[ $key ] ) || ! is_scalar( $headers[ $key ] ) ) {
+				continue;
+			}
+			$value = trim( (string) $headers[ $key ] );
+			if ( ctype_digit( $value ) ) {
+				return max( 0, min( 86400, (int) $value ) );
+			}
+			$timestamp = strtotime( $value );
+			if ( false !== $timestamp ) {
+				return max( 0, min( 86400, $timestamp - time() ) );
+			}
+		}
+		return 0;
 	}
 
 	/**
@@ -405,6 +547,8 @@ final class AuditLog {
 	 */
 	public static function recent( int $per_page = 20, int $page = 1, array $filters = [] ): array {
 		global $wpdb;
+		$per_page = max( 1, min( 5000, $per_page ) );
+		$page     = max( 1, $page );
 		$table  = self::table_name();
 		$offset = max( 0, ( $page - 1 ) * $per_page );
 
@@ -414,7 +558,11 @@ final class AuditLog {
 				event_type, operation_class, resource_type, resource_ref, change_set_id,
 				execution_status, verification_status, rollback_status, before_sha256,
 				after_sha256, changed_bytes, error_code, cause_key, duration_ms, backend,
-				site_fingerprint, mode, severity, created_at
+				site_fingerprint, mode, severity, event_id, schema_version, category,
+				outcome, severity_level, root_error_code, resource_key_hash, normalized_path,
+				cause_fingerprint, strategy_fingerprint, transaction_id, context_token_id_hash,
+				expected_verifier, remediation_code, retryable,
+				retry_after_seconds, incident_id, redacted_details, created_at
 			FROM {$table}
 			{$where_sql}
 			ORDER BY id DESC
@@ -505,6 +653,34 @@ final class AuditLog {
 	private static function build_filter_clause( array $filters ): array {
 		$clauses = [];
 		$params  = [];
+		$view    = isset( $filters['view'] ) ? sanitize_key( (string) $filters['view'] ) : 'all';
+		if ( ! in_array( $view, self::ADMIN_VIEWS, true ) ) {
+			$view = 'all';
+		}
+		switch ( $view ) {
+			case 'errors':
+				$clauses[] = 'outcome = %s';
+				$params[]  = AuditEvent::OUTCOME_FAILED;
+				break;
+			case 'retryable':
+				$clauses[] = '(retryable = 1 OR outcome = %s)';
+				$params[]  = AuditEvent::OUTCOME_RETRYABLE;
+				break;
+			case 'blocked':
+				$clauses[] = '(outcome = %s AND category <> %s)';
+				$params[]  = AuditEvent::OUTCOME_BLOCKED;
+				$params[]  = AuditEvent::CATEGORY_AUTH;
+				break;
+			case 'auth':
+				$clauses[] = 'category = %s';
+				$params[]  = AuditEvent::CATEGORY_AUTH;
+				break;
+			case 'resolved':
+				$incident_table = IncidentStore::table_name();
+				$clauses[]      = "event_id IN (SELECT resolution_event_id FROM {$incident_table} WHERE state = %s AND resolution_event_id <> '')"; // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Owned table name only.
+				$params[]       = 'resolved';
+				break;
+		}
 
 		$ability = isset( $filters['ability'] ) ? sanitize_text_field( (string) $filters['ability'] ) : '';
 		if ( '' !== $ability ) {
@@ -538,13 +714,13 @@ final class AuditLog {
 
 		foreach (
 			[
-				'backend'            => 'backend',
-				'operation_class'    => 'operation_class',
-				'verification_status'=> 'verification_status',
-				'rollback_status'    => 'rollback_status',
-				'severity'           => 'severity',
-				'change_set_id'      => 'change_set_id',
-				'event_type'         => 'event_type',
+				'backend'             => 'backend',
+				'operation_class'     => 'operation_class',
+				'verification_status' => 'verification_status',
+				'rollback_status'     => 'rollback_status',
+				'severity'            => 'severity',
+				'event_type'          => 'event_type',
+				'root_error_code'     => 'root_error_code',
 			] as $filter_key => $column
 		) {
 			$value = isset( $filters[ $filter_key ] ) ? sanitize_key( (string) $filters[ $filter_key ] ) : '';
@@ -554,11 +730,47 @@ final class AuditLog {
 			}
 		}
 
+		$category = isset( $filters['category'] ) ? strtoupper( sanitize_key( (string) $filters['category'] ) ) : '';
+		if ( in_array( $category, AuditEvent::CATEGORIES, true ) ) {
+			$clauses[] = 'category = %s';
+			$params[]  = $category;
+		}
+
+		$outcome = isset( $filters['outcome'] ) ? strtoupper( sanitize_key( (string) $filters['outcome'] ) ) : '';
+		if ( in_array( $outcome, AuditEvent::OUTCOMES, true ) ) {
+			$clauses[] = 'outcome = %s';
+			$params[]  = $outcome;
+		}
+
+		$change_set_id = isset( $filters['change_set_id'] ) ? mb_substr( sanitize_text_field( (string) $filters['change_set_id'] ), 0, 96 ) : '';
+		if ( '' !== $change_set_id ) {
+			$clauses[] = 'change_set_id = %s';
+			$params[]  = $change_set_id;
+		}
+
+		$normalized_path = isset( $filters['normalized_path'] ) ? self::normalized_filter_path( (string) $filters['normalized_path'] ) : '';
+		if ( '' !== $normalized_path ) {
+			$clauses[] = 'normalized_path = %s';
+			$params[]  = $normalized_path;
+		}
+
+		$incident_id = isset( $filters['incident_id'] ) ? strtolower( sanitize_text_field( (string) $filters['incident_id'] ) ) : '';
+		if ( 1 === preg_match( '/^[a-f0-9]{64}$/', $incident_id ) ) {
+			$clauses[] = 'incident_id = %s';
+			$params[]  = $incident_id;
+		}
+
 		if ( [] === $clauses ) {
 			return [ '', [] ];
 		}
 
 		return [ 'WHERE ' . implode( ' AND ', $clauses ), $params ];
+	}
+
+	private static function normalized_filter_path( string $value ): string {
+		$value = str_replace( '\\', '/', sanitize_text_field( $value ) );
+		$value = preg_replace( '#/{2,}#', '/', $value ) ?? $value;
+		return mb_substr( ltrim( $value, '/' ), 0, 255 );
 	}
 
 	/**
@@ -585,6 +797,10 @@ final class AuditLog {
 			// Preserve AbilityKernel digests already shaped as [redacted,...].
 			if ( is_string( $value ) && str_starts_with( $value, '[redacted' ) ) {
 				$out[ $key ] = $value;
+				continue;
+			}
+			if ( in_array( $lk, [ 'context_token_id_hash', 'resource_key_hash', 'cause_fingerprint', 'strategy_fingerprint' ], true ) && 1 === preg_match( '/^[a-f0-9]{64}$/i', (string) $value ) ) {
+				$out[ $key ] = strtolower( (string) $value );
 				continue;
 			}
 			if ( in_array( $lk, $keys, true ) || str_contains( $lk, 'password' ) || str_contains( $lk, 'token' ) || str_contains( $lk, 'secret' ) ) {

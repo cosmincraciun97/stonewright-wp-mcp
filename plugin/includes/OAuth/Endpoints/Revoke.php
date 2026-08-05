@@ -16,11 +16,13 @@ use Defuse\Crypto\Crypto;
 use Stonewright\WpMcp\OAuth\Bridge;
 use Stonewright\WpMcp\OAuth\ClientValidation;
 use Stonewright\WpMcp\OAuth\Keys;
+use Stonewright\WpMcp\OAuth\OAuthRateLimiter;
 use Stonewright\WpMcp\OAuth\Repositories\AccessTokenRepository;
 use Stonewright\WpMcp\OAuth\Repositories\RefreshTokenRepository;
 use Stonewright\WpMcp\OAuth\ServerFactory;
 use WP_REST_Request;
 use WP_REST_Response;
+use Stonewright\WpMcp\Security\AuditLog;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -46,9 +48,15 @@ final class Revoke {
 	}
 
 	public static function handle( WP_REST_Request $request ): WP_REST_Response {
-		$client_ip = (string) ( $_SERVER['REMOTE_ADDR'] ?? '' );
-		if ( '' !== $client_ip && ! ClientValidation::within_endpoint_rate_limit( 'revoke', $client_ip ) ) {
-			return new WP_REST_Response( null, 429 );
+		$client_ip = OAuthRateLimiter::client_ip();
+		$endpoint  = ClientValidation::endpoint_rate_limit( 'revoke', $client_ip );
+		if ( ! $endpoint['allowed'] ) {
+			$response = new WP_REST_Response( [ 'error' => 'temporarily_unavailable' ], 429 );
+			$response->header( 'Retry-After', (string) max( 1, min( 86400, $endpoint['retry_after'] ) ) );
+			$response->header( 'Cache-Control', 'no-store' );
+			$response->header( 'Pragma', 'no-cache' );
+			$response->header( 'X-Stonewright-Correlation-ID', AuditLog::request_id() );
+			return $response;
 		}
 
 		$body  = $request->get_body_params();

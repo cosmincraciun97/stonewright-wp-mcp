@@ -111,6 +111,10 @@ export function buildSetupProfile(
 	const username = (env['STONEWRIGHT_WP_USERNAME'] ?? env['WP_API_USERNAME'] ?? '').trim();
 	const password = env['STONEWRIGHT_WP_APP_PASSWORD'] ?? env['WP_API_PASSWORD'];
 	const authorization = (env['STONEWRIGHT_MCP_AUTHORIZATION'] ?? '').trim();
+	const oauthClientId = (env['STONEWRIGHT_OAUTH_CLIENT_ID'] ?? '').trim();
+	const oauthTokenStore = (env['STONEWRIGHT_OAUTH_TOKEN_STORE'] ?? '').trim();
+	const oauthTokenEndpoint = (env['STONEWRIGHT_OAUTH_TOKEN_ENDPOINT'] ?? '').trim();
+	const hasOAuth = oauthClientId !== '' && oauthTokenStore !== '';
 	const toolProfile = (env['STONEWRIGHT_MCP_TOOL_PROFILE'] ?? env['STONEWRIGHT_MCP_PROXY_PROFILE'] ?? 'bootstrap').trim() || 'bootstrap';
 	const local = siteUrl !== '' && isLocalUrl(siteUrl);
 	const canAutoCredentials = local && wpRoot !== '';
@@ -135,6 +139,15 @@ export function buildSetupProfile(
 	}
 	if (authorization !== '') {
 		mcpEnv.STONEWRIGHT_MCP_AUTHORIZATION = '<set-privately>';
+	}
+	if (oauthClientId !== '') {
+		mcpEnv.STONEWRIGHT_OAUTH_CLIENT_ID = oauthClientId;
+	}
+	if (oauthTokenStore !== '') {
+		mcpEnv.STONEWRIGHT_OAUTH_TOKEN_STORE = '<set-privately>';
+	}
+	if (oauthTokenEndpoint !== '') {
+		mcpEnv.STONEWRIGHT_OAUTH_TOKEN_ENDPOINT = oauthTokenEndpoint;
 	}
 	const requestedMode = (env['STONEWRIGHT_MODE'] ?? '').trim();
 	if (requestedMode) {
@@ -172,7 +185,7 @@ export function buildSetupProfile(
 					? 'Set STONEWRIGHT_WP_ROOT for WP-CLI auto credentials and faster local writes.'
 					: 'Optional for remote sites unless WP-CLI helper tools are needed.',
 		},
-		credentialsCheck(Boolean(authorization), username, typeof password === 'string' && password.trim() !== '', canAutoCredentials, local),
+		credentialsCheck(Boolean(authorization), username, typeof password === 'string' && password.trim() !== '', hasOAuth, canAutoCredentials, local),
 		{
 			id: 'runtime_mode',
 			label: 'Runtime mode',
@@ -395,17 +408,20 @@ function credentialsCheck(
 	hasAuthorization: boolean,
 	username: string,
 	hasPassword: boolean,
+	hasOAuth: boolean,
 	canAutoCredentials: boolean,
 	local: boolean,
 ): SetupCheck {
-	if (hasAuthorization || (username !== '' && hasPassword) || canAutoCredentials) {
+	if (hasOAuth || hasAuthorization || (username !== '' && hasPassword) || canAutoCredentials) {
 		return {
 			id: 'credentials',
 			label: 'Credentials',
 			status: 'ok',
-			message: canAutoCredentials && !hasAuthorization && !hasPassword
+			message: canAutoCredentials && !hasOAuth && !hasAuthorization && !hasPassword
 				? 'Local site can auto-create one Application Password through Stonewright WP-CLI.'
-				: 'Credentials configured.',
+				: hasOAuth
+					? 'OAuth token-store authentication configured.'
+					: 'Credentials configured.',
 		};
 	}
 
@@ -415,7 +431,7 @@ function credentialsCheck(
 		status: 'warning',
 		message: local
 			? 'Set STONEWRIGHT_WP_ROOT for local auto credentials, or provide STONEWRIGHT_WP_USERNAME and STONEWRIGHT_WP_APP_PASSWORD.'
-			: 'Remote sites need STONEWRIGHT_WP_USERNAME plus STONEWRIGHT_WP_APP_PASSWORD, or STONEWRIGHT_MCP_AUTHORIZATION.',
+			: 'Remote sites need OAuth token-store configuration, STONEWRIGHT_WP_USERNAME plus STONEWRIGHT_WP_APP_PASSWORD, or STONEWRIGHT_MCP_AUTHORIZATION.',
 	};
 }
 

@@ -63,6 +63,7 @@ final class UpdateElement extends AbilityKernel {
 				'after_hash'  => [ 'type' => 'string' ],
 				'post_write'  => [ 'type' => 'object' ],
 				'next_step'   => [ 'type' => 'object' ],
+				'write_receipt' => [ 'type' => 'object' ],
 			],
 		];
 	}

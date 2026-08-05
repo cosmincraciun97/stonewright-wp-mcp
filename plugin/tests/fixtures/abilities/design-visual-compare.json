@@ -1,0 +1,39 @@
+{
+  "args": {
+    "expected": {
+      "viewports": {
+        "desktop": {
+          "elements": [
+            {
+              "ref": "hero-title",
+              "x": 0,
+              "y": 0,
+              "width": 400,
+              "height": 80,
+              "font_size": 48,
+              "color": "#111111"
+            }
+          ]
+        }
+      }
+    },
+    "observed": {
+      "viewports": {
+        "desktop": {
+          "elements": [
+            {
+              "ref": "hero-title",
+              "x": 0,
+              "y": 0,
+              "width": 400,
+              "height": 80,
+              "font_size": 48,
+              "color": "#111111"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "expect": "ok"
+}

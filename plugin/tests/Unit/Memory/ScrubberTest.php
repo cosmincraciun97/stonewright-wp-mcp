@@ -30,19 +30,19 @@ final class ScrubberTest extends TestCase {
 	public static function text_cases(): array {
 		return [
 			'absolute url'        => [
-				'Hero lives at https://acme-flights.ro/despre-noi and loads slowly.',
-				'Hero lives at https://' . Scrubber::HOST_PLACEHOLDER . '/despre-noi and loads slowly.',
+				'Hero lives at https://client-a.test/about and loads slowly.',
+				'Hero lives at https://' . Scrubber::HOST_PLACEHOLDER . '/about and loads slowly.',
 			],
 			'url with port'       => [
-				'Staging is http://acme-flights.ro:8443/wp-admin',
+				'Staging is http://client-a.test:8443/wp-admin',
 				'Staging is http://' . Scrubber::HOST_PLACEHOLDER . '/wp-admin',
 			],
 			'bare host'          => [
-				'Client asked to keep acme-flights.ro branding.',
+				'Client asked to keep client-a.test branding.',
 				'Client asked to keep ' . Scrubber::HOST_PLACEHOLDER . ' branding.',
 			],
 			'email'              => [
-				'Escalate to andrei.pop@acme-flights.ro first.',
+				'Escalate to admin@client-a.test first.',
 				'Escalate to ' . Scrubber::EMAIL_PLACEHOLDER . ' first.',
 			],
 			'post id assignment' => [
@@ -80,10 +80,10 @@ final class ScrubberTest extends TestCase {
 
 	public function test_scrub_value_walks_nested_structures(): void {
 		$value = [
-			'lesson'  => 'Use https://acme-flights.ro/wp-json for probing.',
+			'lesson'  => 'Use https://client-a.test/wp-json for probing.',
 			'context' => [
 				'post_id'   => 4821,
-				'permalink' => 'https://acme-flights.ro/oferte',
+				'permalink' => 'https://client-a.test/offers',
 				'depth'     => 3,
 				'ids'       => [ 11, 12 ],
 			],
@@ -95,7 +95,7 @@ final class ScrubberTest extends TestCase {
 				'lesson'  => 'Use https://' . Scrubber::HOST_PLACEHOLDER . '/wp-json for probing.',
 				'context' => [
 					'post_id'   => 0,
-					'permalink' => 'https://' . Scrubber::HOST_PLACEHOLDER . '/oferte',
+					'permalink' => 'https://' . Scrubber::HOST_PLACEHOLDER . '/offers',
 					'depth'     => 3,
 					'ids'       => [ 0, 0 ],
 				],
@@ -117,9 +117,9 @@ final class ScrubberTest extends TestCase {
 			[
 				'id'         => 7,
 				'type'       => 'feedback',
-				'scope'      => 'acme-flights.ro',
-				'memory_key' => 'hero-spacing-acme-flights.ro',
-				'name'       => 'Hero spacing on acme-flights.ro',
+				'scope'      => 'client-a.test',
+				'memory_key' => 'hero-spacing-client-a.test',
+				'name'       => 'Hero spacing on client-a.test',
 				'topic'      => 'elementor',
 				'value'      => [ 'lesson' => 'Client hates hero padding under 48px, see post 4821.' ],
 			]
@@ -142,11 +142,11 @@ final class ScrubberTest extends TestCase {
 			[
 				'id'         => 8,
 				'type'       => 'project',
-				'scope'      => 'acme-flights.ro',
-				'memory_key' => 'homepage-uses-acme-flights.ro-kit',
+				'scope'      => 'client-a.test',
+				'memory_key' => 'homepage-uses-client-a.test-kit',
 				'name'       => 'Homepage kit',
 				'topic'      => '',
-				'value'      => [ 'note' => 'Homepage hero pulls the kit from https://acme-flights.ro/kit.' ],
+				'value'      => [ 'note' => 'Homepage hero pulls the kit from https://client-a.test/kit.' ],
 			]
 		);
 
@@ -162,11 +162,11 @@ final class ScrubberTest extends TestCase {
 			[
 				'id'         => 9,
 				'type'       => 'reference',
-				'scope'      => 'acme-flights.ro',
-				'memory_key' => 'acme-flights.ro',
-				'name'       => 'acme-flights.ro',
+				'scope'      => 'client-a.test',
+				'memory_key' => 'client-a.test',
+				'name'       => 'client-a.test',
 				'topic'      => '',
-				'value'      => [ 'url' => 'https://acme-flights.ro' ],
+				'value'      => [ 'url' => 'https://client-a.test' ],
 			]
 		);
 
@@ -197,11 +197,11 @@ final class ScrubberTest extends TestCase {
 		$entry = [
 			'id'         => 11,
 			'type'       => 'feedback',
-			'scope'      => 'acme-flights.ro',
-			'memory_key' => 'hero-spacing-acme-flights.ro',
+			'scope'      => 'client-a.test',
+			'memory_key' => 'hero-spacing-client-a.test',
 			'name'       => 'Hero spacing',
 			'topic'      => '',
-			'value'      => [ 'lesson' => 'Padding under 48px reads cramped on acme-flights.ro.' ],
+			'value'      => [ 'lesson' => 'Padding under 48px reads cramped on client-a.test.' ],
 		];
 
 		$first = Scrubber::plan( $entry );
@@ -218,11 +218,11 @@ final class ScrubberTest extends TestCase {
 			[
 				'id'         => 12,
 				'type'       => 'feedback',
-				'scope'      => 'acme-flights.ro',
+				'scope'      => 'client-a.test',
 				'memory_key' => 'long',
 				'name'       => 'Long',
 				'topic'      => '',
-				'value'      => [ 'lesson' => str_repeat( 'acme-flights.ro is loud. ', 400 ) ],
+				'value'      => [ 'lesson' => str_repeat( 'client-a.test is loud. ', 400 ) ],
 			]
 		);
 

@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "description": "Machine-readable classification and freshness contract for repository Markdown.",
+  "rules": [
+    {
+      "id": "agent-e2e-skill-docs",
+      "class": "authored-maintained",
+      "paths": [".github/**/*.md", "e2e/**/*.md", "skills/**/*.md"],
+      "owner": "project-maintainers",
+      "source": "human-maintained",
+      "expected_heading": "document-specific",
+      "version_policy": "evergreen-version-placeholders",
+      "freshness_checks": ["links", "public-hygiene"],
+      "public_hygiene_rules": ["no-private-terms", "no-secrets", "generic-examples"]
+    },
+    {
+      "id": "maintained-knowledge-notes",
+      "class": "authored-maintained",
+      "paths": ["docs/knowledge/notes/**/*.md"],
+      "owner": "project-maintainers",
+      "source": "human-maintained",
+      "expected_heading": "document-specific",
+      "version_policy": "evergreen-version-placeholders",
+      "freshness_checks": ["links", "public-hygiene"],
+      "public_hygiene_rules": ["no-private-terms", "no-secrets", "generic-examples"]
+    },
+    {
+      "id": "generated-ability-matrix",
+      "class": "generated",
+      "paths": ["docs/ability-truth-matrix.md"],
+      "owner": "plugin",
+      "source": "plugin/composer.json:docs:matrix",
+      "expected_heading": "# Ability truth matrix",
+      "version_policy": "current-capability-count",
+      "freshness_checks": ["generator-output", "capability-count"],
+      "public_hygiene_rules": ["no-private-terms", "no-secrets"]
+    },
+    {
+      "id": "imported-knowledge",
+      "class": "imported-knowledge",
+      "paths": ["docs/knowledge/**/*.md"],
+      "exclude": ["docs/knowledge/notes/**/*.md"],
+      "owner": "knowledge-importer",
+      "source": "docs/knowledge/elementor/meta/sources.json",
+      "expected_heading": "frontmatter-or-knowledge-overview",
+      "version_policy": "source-metadata",
+      "freshness_checks": ["imported-source-metadata", "no-unclassified-files"],
+      "public_hygiene_rules": ["no-private-terms", "no-secrets", "preserve-provenance"]
+    },
+    {
+      "id": "historical-release-plan-docs",
+      "class": "historical/versioned",
+      "paths": [
+        "CHANGELOG.md",
+        "plugin/CHANGELOG.md",
+        "companion/CHANGELOG.md",
+        "docs/releases/**/*.md",
+        "docs/plans/**/*.md"
+      ],
+      "owner": "release-maintainers",
+      "source": "release-or-plan-record",
+      "expected_heading": "version-or-plan-heading",
+      "version_policy": "preserve-historical-claims",
+      "freshness_checks": ["links", "public-hygiene"],
+      "public_hygiene_rules": ["no-private-terms", "no-secrets", "versioned-claims-allowed"]
+    },
+    {
+      "id": "repository-product-docs",
+      "class": "authored-maintained",
+      "paths": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "CODE_OF_CONDUCT.md",
+        "CONTRIBUTING.md",
+        "DESIGN.md",
+        "GEMINI.md",
+        "PRODUCT.md",
+        "README.md",
+        "SECURITY.md",
+        "SUPPORT.md",
+        "plugin/CONTRIBUTING.md",
+        "plugin/README.md",
+        "plugin/SECURITY.md",
+        "companion/README.md",
+        "visual/README.md",
+        "companion/skills-builtin/**/*.md",
+        "docs/**/*.md"
+      ],
+      "exclude": [
+        "docs/ability-truth-matrix.md",
+        "docs/knowledge/**/*.md",
+        "docs/releases/**/*.md",
+        "docs/plans/**/*.md"
+      ],
+      "owner": "project-maintainers",
+      "source": "human-maintained",
+      "expected_heading": "document-specific",
+      "version_policy": "evergreen-version-placeholders",
+      "freshness_checks": ["links", "headings", "version-consistency", "public-hygiene"],
+      "public_hygiene_rules": ["no-private-terms", "no-secrets", "generic-examples"]
+    }
+  ]
+}

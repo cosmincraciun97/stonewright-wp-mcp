@@ -7,6 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Core\RestRoutes;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\ErrorPatterns;
+use Stonewright\WpMcp\Security\IncidentStore;
 
 /**
  * OAuth protocol failures are the client's problem; OAuth server failures are ours.
@@ -28,7 +29,9 @@ final class AuditAuthClassificationTest extends TestCase {
 		$this->original_wpdb = $GLOBALS['wpdb'] ?? null;
 		$GLOBALS['wpdb'] = self::make_wpdb();
 		$GLOBALS['stonewright_test_options'] = [];
+		$GLOBALS['stonewright_test_transients'] = [];
 		$GLOBALS['stonewright_test_current_user_id'] = 0;
+		IncidentStore::reset_for_tests();
 		AuditLog::reset_request_state();
 	}
 
@@ -39,6 +42,8 @@ final class AuditAuthClassificationTest extends TestCase {
 			unset( $GLOBALS['wpdb'] );
 		}
 		$GLOBALS['stonewright_test_options'] = [];
+		$GLOBALS['stonewright_test_transients'] = [];
+		IncidentStore::reset_for_tests();
 		AuditLog::reset_request_state();
 	}
 
@@ -170,18 +175,36 @@ final class AuditAuthClassificationTest extends TestCase {
 
 	public function test_repeated_protocol_failures_never_become_patterns(): void {
 		$response = new \WP_REST_Response( [ 'error' => 'invalid_grant' ], 400 );
-		for ( $i = 0; $i < 3; $i++ ) {
+		for ( $i = 0; $i < 5; $i++ ) {
 			AuditLog::reset_request_state();
 			AuditLog::record_auth_event( 'oauth/token', $response, [ 'client_id' => 'client-abc' ] );
 		}
 
 		self::assertSame( [], (array) get_option( ErrorPatterns::OPTION_KEY, [] ) );
 		self::assertSame( [], ErrorPatterns::recurring() );
+		self::assertCount( 4, $GLOBALS['wpdb']->inserts );
+		self::assertSame( 2, self::last_audit_args()['_meta']['coalesced_count'] ?? null );
+	}
+
+	public function test_auth_coalescing_keeps_distinct_error_reason_fingerprints_separate(): void {
+		AuditLog::record_auth_event(
+			'oauth/token',
+			new \WP_REST_Response( [ 'error' => 'invalid_grant', 'reason' => 'refresh_token_revoked' ], 400 ),
+			[ 'client_id' => 'client-abc' ]
+		);
+		AuditLog::reset_request_state();
+		AuditLog::record_auth_event(
+			'oauth/token',
+			new \WP_REST_Response( [ 'error' => 'invalid_grant', 'reason' => 'refresh_token_expired' ], 400 ),
+			[ 'client_id' => 'client-abc' ]
+		);
+
+		self::assertCount( 2, $GLOBALS['wpdb']->inserts );
 	}
 
 	public function test_repeated_server_failures_still_reach_incident_logic(): void {
 		$response = new \WP_REST_Response( [ 'error' => 'server_error' ], 500 );
-		for ( $i = 0; $i < 2; $i++ ) {
+		for ( $i = 0; $i < 5; $i++ ) {
 			AuditLog::reset_request_state();
 			AuditLog::record_auth_event( 'oauth/token', $response, [ 'client_id' => 'client-abc' ] );
 		}
@@ -189,10 +212,13 @@ final class AuditAuthClassificationTest extends TestCase {
 		$store = (array) get_option( ErrorPatterns::OPTION_KEY, [] );
 		self::assertCount( 1, $store );
 		$row = (array) array_values( $store )[0];
-		self::assertSame( 2, (int) ( $row['count'] ?? 0 ) );
+		self::assertSame( 5, (int) ( $row['count'] ?? 0 ) );
 		self::assertFalse( (bool) ( $row['expected'] ?? true ) );
 		// server_error is an OAuth protocol constant, so it keeps its spelling.
 		self::assertSame( 'server_error', $row['error_code'] ?? '' );
+		$incidents = IncidentStore::recent();
+		self::assertCount( 1, $incidents );
+		self::assertSame( 5, (int) $incidents[0]['occurrence_count'] );
 	}
 
 	public function test_successful_token_exchange_is_not_an_auth_failure(): void {

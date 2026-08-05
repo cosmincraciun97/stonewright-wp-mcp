@@ -29,6 +29,7 @@ use Stonewright\WpMcp\OAuth\Keys as OAuthKeys;
 use Stonewright\WpMcp\OAuth\Schema as OAuthSchema;
 use Stonewright\WpMcp\Sandbox\CrashRecovery;
 use Stonewright\WpMcp\Security\AuditLog;
+use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Security\DomainLock;
 use Stonewright\WpMcp\Security\OneTimeLink;
 use Stonewright\WpMcp\Security\StaticAnalysis;
@@ -106,6 +107,7 @@ final class PluginRegistration {
 		}
 		add_action( 'init', [ Memory::class, 'maybe_install_table' ] );
 		add_action( 'init', [ AuditLog::class, 'maybe_install_table' ] );
+		add_action( 'init', [ IncidentStore::class, 'maybe_install_table' ] );
 		add_action( 'init', [ OneTimeLink::class, 'maybe_handle_request' ], 1 );
 		add_action( 'init', [ SkillsTable::class, 'create_table' ] );
 		add_action( 'init', [ SkillVersionsTable::class, 'create_table' ] );
@@ -149,6 +151,7 @@ final class PluginRegistration {
 	public function on_activate(): void {
 		Memory::maybe_install_table();
 		AuditLog::maybe_install_table();
+		IncidentStore::maybe_install_table();
 		OAuthSchema::maybe_install();
 		OAuthKeys::get();
 		OAuthSchema::schedule_gc();

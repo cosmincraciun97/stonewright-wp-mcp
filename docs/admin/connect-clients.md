@@ -18,6 +18,19 @@ https://example.com/wp-json/mcp/stonewright-oauth
 
 Use **Manage connected apps** to inspect or revoke active grants.
 
+When an OAuth request is not arriving correctly, use the read-only
+`stonewright-oauth-header-diagnostic` ability. It distinguishes the dedicated
+OAuth MCP route from an ordinary REST route and reports header visibility,
+Bearer parsing, authentication success, proxy stripping suspicion, and the
+Application Password path without returning the header value. It does not
+replace a live client restart or reauthentication.
+
+Terminal refresh failures (`refresh_token_expired`, `refresh_token_revoked`, or
+`refresh_token_invalid`) clear local token state and require one explicit
+reauthorization. Transient `429`/`temporarily_unavailable` responses retain
+`Retry-After` and are retried with bounded backoff; do not start a second manual
+refresh in parallel.
+
 ## Choose the connection method
 
 - **Local stdio** means the AI client starts the Stonewright companion on your

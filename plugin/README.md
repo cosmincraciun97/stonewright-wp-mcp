@@ -1,6 +1,6 @@
 # Stonewright Plugin
 
-Version: 1.0.0-beta.3
+Version: 1.0.0-beta.4
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
 License: AGPL-3.0-or-later
@@ -279,6 +279,9 @@ toggle: maintaining two token sets meant every contrast fix had to be made twice
 and one of the two was always the stale one.
 The canonical tokens, component rules, responsive requirements, and complete
 surface audit are maintained in [`../DESIGN.md`](../DESIGN.md).
+
+The durable audit, OAuth, write-receipt, incident, and diagnostics contract is
+documented in [`../docs/permanent-remediation-contracts.md`](../docs/permanent-remediation-contracts.md).
 
 ## Code Payload Handling
 

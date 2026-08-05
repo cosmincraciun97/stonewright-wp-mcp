@@ -1,0 +1,8 @@
+{
+  "args": {
+    "manifest": {
+      "source_type": "brief"
+    }
+  },
+  "expect_permission_error": true
+}

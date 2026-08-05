@@ -10,6 +10,28 @@ were never stable releases and are not part of the supported public history.
 
 ## [Unreleased]
 
+## [1.0.0-beta.4] - 2026-08-05
+
+### Added
+
+- Add versioned audit events and incident lifecycle storage with category-aware
+  thresholds, exact verified resolution, idempotent legacy reconciliation, and
+  redacted public diagnostics.
+- Add replay-safe OAuth refresh rotation, atomic token persistence, bounded
+  retry/circuit handling, trusted-proxy-aware rate limiting, transactional
+  Elementor/Gutenberg receipts, patch validation, design manifests, visual
+  comparison, and read-only delivery/capability diagnostics.
+- Add count-only, hash-bound runtime-history purge with production confirmation,
+  reviewed deletion watermarks, concurrent-row preservation, and one retained
+  cleanup receipt.
+
+### Fixed
+
+- Require successful OAuth refreshes to rotate the refresh token; omitted or
+  replayed refresh credentials now clear durable state and require reauthorization.
+- Neutralize spreadsheet formulas in redacted audit CSV exports and include
+  both value and timeout OAuth audit transients in purge state fingerprints.
+
 ## [1.0.0-beta.3] - 2026-07-31
 
 ### Added

@@ -166,4 +166,33 @@ final class AbilityKernelAuditTest extends TestCase {
 		$this->assertArrayNotHasKey( 'error_code', $meta );
 		$this->assertArrayNotHasKey( 'error_message', $meta );
 	}
+
+	/** @dataProvider safety_block_code_provider */
+	public function test_safety_and_architecture_stops_are_audited_as_blocked( string $code ): void {
+		$kernel = new class( $code ) extends AbilityKernel {
+			public function __construct( private string $code ) {}
+			public function name(): string { return 'stonewright/test-policy-stop'; }
+			public function label(): string { return 'Policy stop'; }
+			public function description(): string { return 'Synthetic policy stop.'; }
+			public function category(): string { return 'test'; }
+			public function execute( array $args ): array|\WP_Error {
+				return $this->audit( $args, fn (): \WP_Error => new \WP_Error( $this->code, 'Stopped by contract.' ) );
+			}
+		};
+
+		$GLOBALS['stonewright_test_wpdb_inserts'] = [];
+		self::assertInstanceOf( \WP_Error::class, $kernel->execute( [] ) );
+		self::assertSame( 'blocked', $GLOBALS['stonewright_test_wpdb_inserts'][0]['data']['result_status'] ?? null );
+	}
+
+	/** @return array<string,array{string}> */
+	public static function safety_block_code_provider(): array {
+		return [
+			'architecture mismatch' => [ 'stonewright_v3_architecture_mismatch' ],
+			'approval required'     => [ 'stonewright_custom_code_approval_required' ],
+			'php read only'         => [ 'stonewright_php_read_only_violation' ],
+			'raw Elementor'         => [ 'stonewright_raw_elementor_mutation' ],
+			'migration loss'        => [ 'stonewright_v4_migration_has_loss' ],
+		];
+	}
 }

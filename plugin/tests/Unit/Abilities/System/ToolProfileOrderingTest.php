@@ -41,8 +41,25 @@ final class ToolProfileOrderingTest extends TestCase {
 	public function test_elementor_design_set_is_unchanged_by_reorder(): void {
 		$names = ToolProfile::profile_tools( 'elementor-design' );
 
-		self::assertCount( 69, $names );
+		self::assertCount( 78, $names );
 		self::assertSame( $names, array_values( array_unique( $names ) ) );
 		self::assertContains( 'stonewright/design-direction-brief', $names );
+		self::assertContains( 'stonewright/form-delivery-diagnostic', $names );
+		self::assertContains( 'stonewright/capability-preflight', $names );
+		self::assertContains( 'stonewright/elementor-v3-legacy-debt-migrate', $names );
+	}
+
+	public function test_gutenberg_and_site_admin_profiles_expose_new_safe_workflows(): void {
+		$gutenberg = ToolProfile::profile_tools( 'gutenberg' );
+		self::assertContains( 'stonewright/blocks-batch-mutate', $gutenberg );
+		self::assertContains( 'stonewright/design-section-manifest', $gutenberg );
+		self::assertContains( 'stonewright/design-visual-compare', $gutenberg );
+
+		$admin = ToolProfile::profile_tools( 'site-admin' );
+		self::assertContains( 'stonewright/security-audit-reconcile', $admin );
+		self::assertContains( 'stonewright/security-runtime-data-purge', $admin );
+		self::assertContains( 'stonewright/oauth-header-diagnostic', $admin );
+		self::assertContains( 'stonewright/capability-preflight', $admin );
+		self::assertContains( 'stonewright/form-delivery-diagnostic', $admin );
 	}
 }

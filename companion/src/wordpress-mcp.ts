@@ -4,14 +4,22 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'n
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { z, type ZodTypeAny } from 'zod';
+import { OAuthTokenManager, OAuthTokenStore } from './oauth-token-manager.js';
 import { runWpCli, type ExecFileRunner } from './wp-cli.js';
 import { APP_VERSION } from './version.js';
+
+export interface WordPressMcpOAuthConfig {
+	tokenEndpoint: string;
+	clientId: string;
+	tokenStorePath: string;
+}
 
 export interface WordPressMcpConfig {
 	url: string;
 	username?: string;
 	password?: string;
 	authorization?: string;
+	oauth?: WordPressMcpOAuthConfig;
 	timeoutMs: number;
 	credentialStorePath?: string;
 	credentialSource?: 'store' | 'generated';
@@ -83,6 +91,17 @@ interface StoredWordPressCredential {
 }
 
 type FetchLike = typeof fetch;
+
+const oauthTokenManagers = new Map<string, OAuthTokenManager>();
+
+function oauthTokenManagerFor(config: WordPressMcpOAuthConfig): OAuthTokenManager {
+	const key = `${config.tokenEndpoint}\n${config.clientId}\n${config.tokenStorePath}`;
+	const existing = oauthTokenManagers.get(key);
+	if (existing) return existing;
+	const manager = new OAuthTokenManager(new OAuthTokenStore(config.tokenStorePath));
+	oauthTokenManagers.set(key, manager);
+	return manager;
+}
 
 const COMPANION_OWNED_TOOL_NAMES = new Set([
 	'stonewright-wp-cli-status',
@@ -158,10 +177,11 @@ const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, reado
 		'stonewright-elementor-schema',
 		'stonewright-content-bulk-upsert-posts',
 		'stonewright-design-native-plan',
+		'stonewright-design-section-manifest',
+		'stonewright-oauth-header-diagnostic',
 		'stonewright-elementor-v3-batch-mutate',
 		'stonewright-elementor-post-write-verify',
 		'stonewright-elementor-v3-build-page-from-spec',
-		'stonewright-gutenberg-apply-to-post',
 		'stonewright-media-upload-batch',
 		'stonewright-theme-builder-apply-template',
 	],
@@ -198,6 +218,12 @@ const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, reado
 		'stonewright-elementor-v3-update-kit-colors',
 		'stonewright-elementor-v3-update-kit-typography',
 		'stonewright-design-validate-spec',
+		'stonewright-design-section-manifest',
+		'stonewright-design-visual-compare',
+		'stonewright-design-third-party-risk-map',
+		'stonewright-form-delivery-diagnostic',
+		'stonewright-capability-preflight',
+		'stonewright-oauth-header-diagnostic',
 		'stonewright-elementor-v3-build-page-from-spec',
 		'stonewright-elementor-v3-batch-mutate',
 		'stonewright-elementor-post-write-verify',
@@ -205,6 +231,8 @@ const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, reado
 		'stonewright-theme-builder-apply-template',
 		'stonewright-elementor-page-digest',
 		'stonewright-elementor-document-health',
+		'stonewright-elementor-v3-legacy-debt-report',
+		'stonewright-elementor-v3-legacy-debt-migrate',
 	],
 	'content-model': [
 		...BASE_PROXY_TOOL_NAMES,
@@ -255,7 +283,10 @@ const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, reado
 		'stonewright-blocks-parse',
 		'stonewright-blocks-serialize',
 		'stonewright-gutenberg-render-blocks',
+		'stonewright-blocks-batch-mutate',
 		'stonewright-design-validate-spec',
+		'stonewright-design-section-manifest',
+		'stonewright-design-visual-compare',
 		'stonewright-design-spec-to-gutenberg',
 		'stonewright-gutenberg-apply-to-post',
 	],
@@ -268,6 +299,8 @@ const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, reado
 		...BASE_PROXY_TOOL_NAMES,
 		...BLUEPRINT_PROXY_TOOL_NAMES,
 		'stonewright-site-info',
+		'stonewright-security-audit-reconcile',
+		'stonewright-security-runtime-data-purge',
 		'stonewright-site-environment',
 		'stonewright-site-health',
 		'stonewright-site-plugins-list',
@@ -305,6 +338,9 @@ const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, reado
 		'stonewright-search-query',
 		'stonewright-oembed-resolve',
 		'stonewright-seo-status',
+		'stonewright-oauth-header-diagnostic',
+		'stonewright-capability-preflight',
+		'stonewright-form-delivery-diagnostic',
 	],
 };
 
@@ -394,8 +430,15 @@ export function loadWordPressMcpConfig(env: NodeJS.ProcessEnv = process.env): Wo
 		config.password = password;
 	}
 	if (authorization) config.authorization = authorization;
+	const oauth = loadWordPressMcpOAuthConfig(env, url);
+	if (oauth) {
+		if (config.authorization || config.username || config.password) {
+			throw new Error('OAuth token-store authentication cannot be combined with another WordPress authentication mode.');
+		}
+		config.oauth = oauth;
+	}
 
-	if (!config.authorization && !(config.username && config.password)) {
+	if (!config.oauth && !config.authorization && !(config.username && config.password)) {
 		const credentialStorePath = wordpressCredentialStorePath(env, url);
 		const stored = readStoredCredential(credentialStorePath, url);
 		if (stored) {
@@ -415,11 +458,60 @@ export async function resolveWordPressMcpConfig(
 ): Promise<WordPressMcpConfig | null> {
 	const config = loadWordPressMcpConfig(env);
 	if (!config) return null;
-	if (config.authorization || (config.username && config.password)) return config;
+	if (config.oauth || config.authorization || (config.username && config.password)) return config;
 	if (!shouldAutoCreateCredential(env, config.url)) return config;
 
 	const generated = await generateAndStoreCredential(config, env, runner);
 	return generated ?? config;
+}
+
+function loadWordPressMcpOAuthConfig(env: NodeJS.ProcessEnv, mcpUrl: string): WordPressMcpOAuthConfig | null {
+	const clientId = (env['STONEWRIGHT_OAUTH_CLIENT_ID'] ?? '').trim();
+	const tokenStore = (env['STONEWRIGHT_OAUTH_TOKEN_STORE'] ?? '').trim();
+	const configuredEndpoint = (env['STONEWRIGHT_OAUTH_TOKEN_ENDPOINT'] ?? '').trim();
+	if (!clientId && !tokenStore && !configuredEndpoint) return null;
+	if (!clientId || !tokenStore) {
+		throw new Error('OAuth authentication requires STONEWRIGHT_OAUTH_CLIENT_ID and STONEWRIGHT_OAUTH_TOKEN_STORE.');
+	}
+	const hasControlCharacter = Array.from(clientId).some(character => {
+		const codePoint = character.codePointAt(0) ?? 0;
+		return codePoint <= 0x1f || codePoint === 0x7f;
+	});
+	if (clientId.length > 191 || hasControlCharacter) {
+		throw new Error('STONEWRIGHT_OAUTH_CLIENT_ID is invalid.');
+	}
+
+	const endpoint = configuredEndpoint || wordpressRestUrlFromMcpUrl(mcpUrl, 'stonewright/v1/oauth/token');
+	let endpointUrl: URL;
+	let resourceUrl: URL;
+	try {
+		endpointUrl = new URL(endpoint);
+		resourceUrl = new URL(mcpUrl);
+	} catch {
+		throw new Error('STONEWRIGHT_OAUTH_TOKEN_ENDPOINT must be a valid absolute URL.');
+	}
+	if (endpointUrl.origin !== resourceUrl.origin) {
+		throw new Error('OAuth token endpoint must use the same origin as the WordPress MCP resource.');
+	}
+	if (endpointUrl.protocol !== 'https:' && !isLocalDevelopmentHost(endpointUrl.hostname)) {
+		throw new Error('OAuth token endpoint requires HTTPS outside local development.');
+	}
+
+	return {
+		tokenEndpoint: endpointUrl.toString(),
+		clientId,
+		tokenStorePath: resolve(tokenStore),
+	};
+}
+
+function isLocalDevelopmentHost(hostname: string): boolean {
+	const host = hostname.toLowerCase();
+	return host === 'localhost'
+		|| host === '127.0.0.1'
+		|| host === '[::1]'
+		|| host === '::1'
+		|| host.endsWith('.local')
+		|| host.endsWith('.test');
 }
 
 function normalizeWordPressMcpUrl(raw: string): string {
@@ -1178,11 +1270,16 @@ export class WordPressMcpClient {
 	private sessionId = '';
 	private initialized = false;
 	private remoteInstructionsValue = '';
+	private readonly oauthTokenManager: OAuthTokenManager | null;
 
 	public constructor(
 		private readonly config: WordPressMcpConfig,
 		private readonly fetchImpl: FetchLike,
-	) {}
+		oauthTokenManager?: OAuthTokenManager,
+	) {
+		this.oauthTokenManager = oauthTokenManager
+			?? (config.oauth ? oauthTokenManagerFor(config.oauth) : null);
+	}
 
 	/** Plugin MCP initialize.instructions (empty until ensureInitialized succeeds). */
 	public get remoteInstructions(): string {
@@ -1204,11 +1301,10 @@ export class WordPressMcpClient {
 	}
 
 	public async listPromptSkills(): Promise<PromptSkill[]> {
-		const response = await this.fetchImpl(
+		const response = await this.fetchAuthorized(
 			wordpressRestUrlFromMcpUrl(this.config.url, 'stonewright/v1/skills?mode=prompt&enabled_only=1'),
 			{
 				method: 'GET',
-				headers: this.headers(),
 			},
 		);
 
@@ -1275,9 +1371,8 @@ export class WordPressMcpClient {
 
 		let response: Response;
 		try {
-			response = await this.fetchImpl(this.config.url, {
+			response = await this.fetchAuthorized(this.config.url, {
 				method: 'POST',
-				headers: this.headers(),
 				body: JSON.stringify(payload),
 				signal: controller.signal,
 			});
@@ -1302,7 +1397,30 @@ export class WordPressMcpClient {
 		return parseJsonRpcResponse(text, response.headers.get('content-type') ?? '');
 	}
 
-	private headers(): Record<string, string> {
+	private async fetchAuthorized(input: string | URL | Request, init: RequestInit): Promise<Response> {
+		const oauth = this.config.oauth;
+		const manager = this.oauthTokenManager;
+		const accessToken = oauth && manager
+			? await manager.getAccessToken(this.fetchImpl, oauth.tokenEndpoint, oauth.clientId)
+			: '';
+		const response = await this.fetchImpl(input, { ...init, headers: this.headers(accessToken) });
+		if (response.status !== 401 || !oauth || !manager || !accessToken) return response;
+
+		try {
+			await response.body?.cancel();
+		} catch {
+			// The rejected response body carries no reusable state.
+		}
+		const replacement = await manager.refreshAfterUnauthorized(
+			this.fetchImpl,
+			oauth.tokenEndpoint,
+			oauth.clientId,
+			accessToken,
+		);
+		return this.fetchImpl(input, { ...init, headers: this.headers(replacement) });
+	}
+
+	private headers(oauthAccessToken = ''): Record<string, string> {
 		const headers: Record<string, string> = {
 			'Accept': 'application/json, text/event-stream',
 			'Content-Type': 'application/json',
@@ -1312,7 +1430,9 @@ export class WordPressMcpClient {
 			headers['Mcp-Session-Id'] = this.sessionId;
 		}
 
-		if (this.config.authorization) {
+		if (oauthAccessToken) {
+			headers['Authorization'] = `Bearer ${oauthAccessToken}`;
+		} else if (this.config.authorization) {
 			headers['Authorization'] = this.config.authorization;
 		} else if (this.config.username && this.config.password) {
 			const token = Buffer.from(`${this.config.username}:${this.config.password}`).toString('base64');

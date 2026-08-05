@@ -1,0 +1,12 @@
+{
+  "expect_permission_error": true,
+  "permission_args": {
+    "action": "dry_run",
+    "scopes": [
+      "audit",
+      "memory",
+      "incidents",
+      "error_patterns"
+    ]
+  }
+}

@@ -33,6 +33,13 @@ If any step fails, do not claim the page is live or verified. Repair the
 specific layer, rerun the closure once, and restore the snapshot when the
 document cannot be verified.
 
+Every typed Elementor batch returns one bounded write receipt containing the
+transaction/change-set IDs, architecture, target IDs, lock and snapshot
+status, before/planned/after hashes, verification and rollback status, root
+error path, retry guidance, recovery tool, warnings, and audit event ID. The
+orchestrator owns rollback; low-level data access returns partial state instead
+of restoring a second time.
+
 ## Cache receipt
 
 Post-scoped invalidation removes the document cache key exposed by Elementor's

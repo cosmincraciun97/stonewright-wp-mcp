@@ -36,6 +36,7 @@ final class FseWriteSafetyTest extends TestCase {
 		$GLOBALS['stonewright_test_post_meta_calls']    = [];
 		$GLOBALS['stonewright_test_wp_update_post_return'] = null;
 		$GLOBALS['stonewright_test_wp_insert_post_return'] = null;
+		unset( $GLOBALS['stonewright_test_update_post_meta_return'] );
 
 		// Full caps by default — individual tests restrict as needed.
 		$GLOBALS['stonewright_test_user_caps'] = [
@@ -43,6 +44,11 @@ final class FseWriteSafetyTest extends TestCase {
 			'edit_theme_options' => true,
 			'edit_pages'         => true,
 		];
+	}
+
+	protected function tearDown(): void {
+		unset( $GLOBALS['stonewright_test_update_post_meta_return'] );
+		$GLOBALS['stonewright_test_wp_update_post_return'] = null;
 	}
 
 	// =========================================================================
@@ -120,6 +126,79 @@ final class FseWriteSafetyTest extends TestCase {
 		$this->assertTrue( Backup::restore( $post_id, $snapshot_id ) );
 		$this->assertSame( '', get_post_meta( $post_id, '_elementor_data', true ) );
 		$this->assertSame( 'builder', get_post_meta( $post_id, '_elementor_edit_mode', true ) );
+	}
+
+	public function test_backup_snapshot_fails_closed_when_snapshot_meta_is_not_persisted(): void {
+		$post_id = 3053;
+		$GLOBALS['stonewright_test_posts'][ $post_id ] = (object) [
+			'ID'           => $post_id,
+			'post_type'    => 'page',
+			'post_content' => 'original',
+			'post_status'  => 'draft',
+			'post_title'   => 'snapshot failure',
+			'post_excerpt' => '',
+			'meta'         => [],
+		];
+		$GLOBALS['stonewright_test_update_post_meta_return'] = false;
+
+		self::assertSame( '', Backup::snapshot_post( $post_id ) );
+		self::assertSame( [], Backup::list_snapshots( $post_id ) );
+	}
+
+	public function test_restore_fails_when_post_update_returns_an_error(): void {
+		$post_id = 3054;
+		$GLOBALS['stonewright_test_posts'][ $post_id ] = (object) [
+			'ID'           => $post_id,
+			'post_type'    => 'page',
+			'post_content' => 'original',
+			'post_status'  => 'publish',
+			'post_title'   => 'restore error',
+			'post_excerpt' => '',
+			'meta'         => [ '_elementor_edit_mode' => 'builder' ],
+		];
+		$snapshot_id = Backup::snapshot_post( $post_id );
+		$GLOBALS['stonewright_test_posts'][ $post_id ]->post_content = 'mutated';
+		$GLOBALS['stonewright_test_wp_update_post_return'] = new \WP_Error( 'database_failure', 'Database write failed.' );
+
+		self::assertFalse( Backup::restore( $post_id, $snapshot_id ) );
+	}
+
+	public function test_restore_fails_when_post_update_claims_success_without_matching_readback_hash(): void {
+		$post_id = 3055;
+		$GLOBALS['stonewright_test_posts'][ $post_id ] = (object) [
+			'ID'           => $post_id,
+			'post_type'    => 'page',
+			'post_content' => 'original',
+			'post_status'  => 'publish',
+			'post_title'   => 'restore readback',
+			'post_excerpt' => '',
+			'meta'         => [],
+		];
+		$snapshot_id = Backup::snapshot_post( $post_id );
+		$GLOBALS['stonewright_test_posts'][ $post_id ]->post_content = 'mutated';
+		$GLOBALS['stonewright_test_wp_update_post_return'] = $post_id;
+
+		self::assertFalse( Backup::restore( $post_id, $snapshot_id ) );
+		self::assertSame( 'mutated', $GLOBALS['stonewright_test_posts'][ $post_id ]->post_content );
+	}
+
+	public function test_restore_fails_when_a_meta_update_does_not_match_the_snapshot(): void {
+		$post_id = 3056;
+		$GLOBALS['stonewright_test_posts'][ $post_id ] = (object) [
+			'ID'           => $post_id,
+			'post_type'    => 'page',
+			'post_content' => 'original',
+			'post_status'  => 'publish',
+			'post_title'   => 'restore meta',
+			'post_excerpt' => '',
+			'meta'         => [ '_elementor_edit_mode' => 'builder' ],
+		];
+		$snapshot_id = Backup::snapshot_post( $post_id );
+		$GLOBALS['stonewright_test_posts'][ $post_id ]->meta['_elementor_edit_mode'] = 'changed';
+		$GLOBALS['stonewright_test_update_post_meta_return'] = false;
+
+		self::assertFalse( Backup::restore( $post_id, $snapshot_id ) );
+		self::assertSame( 'changed', get_post_meta( $post_id, '_elementor_edit_mode', true ) );
 	}
 
 	public function test_write_global_styles_backups_before_write(): void {

@@ -8,11 +8,15 @@ use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\Context\ExecutionContext;
 use Stonewright\WpMcp\Elementor\ContainerSettings;
 use Stonewright\WpMcp\Elementor\Schema\ContainerSchemaRepository;
+use Stonewright\WpMcp\Elementor\Schema\PatchValidator;
+use Stonewright\WpMcp\Elementor\Schema\RepeaterPatcher;
 use Stonewright\WpMcp\Elementor\Schema\ResponsiveScope;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Elementor\V4\AtomicTreeInspector;
+use Stonewright\WpMcp\Elementor\V4\ArchitectureRouter;
 use Stonewright\WpMcp\Elementor\Write\EvidenceValidator;
+use Stonewright\WpMcp\Elementor\Write\ElementorWriteReceipt;
 use Stonewright\WpMcp\Elementor\Write\IdempotencyStore;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
@@ -20,6 +24,7 @@ use Stonewright\WpMcp\Elementor\Write\V3MutationCompiler;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 use Stonewright\WpMcp\Security\RemediationHints;
+use Stonewright\WpMcp\Design\Diagnostics\ThirdPartyControlRiskMap;
 use Stonewright\WpMcp\Knowledge\Lifecycle\SchemaRepairLearning;
 use Stonewright\WpMcp\Support\ElementorData;
 
@@ -56,6 +61,7 @@ final class BatchMutate extends AbilityKernel {
 				'dry_run'            => [ 'type' => 'boolean', 'default' => false ],
 				'idempotency_key'     => [ 'type' => 'string', 'minLength' => 8, 'maxLength' => 128 ],
 				'expected_tree_hash'  => [ 'type' => 'string', 'pattern' => '^[a-f0-9]{64}$' ],
+				'change_set_id'       => [ 'type' => 'string', 'maxLength' => 96 ],
 				'require_evidence'    => [ 'type' => 'boolean', 'default' => false ],
 				'stop_on_error'      => [
 					'type'        => 'boolean',
@@ -72,7 +78,7 @@ final class BatchMutate extends AbilityKernel {
 						'properties'           => [
 							'action'                 => [
 								'type' => 'string',
-								'enum' => [ 'add_container', 'add_widget', 'update_element', 'move_element', 'remove_element' ],
+								'enum' => [ 'add_container', 'add_widget', 'update_element', 'patch_repeater_row', 'move_element', 'remove_element' ],
 							],
 							'type'                   => [
 								'type'        => 'string',
@@ -107,6 +113,16 @@ final class BatchMutate extends AbilityKernel {
 							'widget_type'            => [ 'type' => 'string' ],
 							'widget'                 => [ 'type' => 'string' ],
 							'settings'               => [ 'type' => 'object' ],
+							'repeater_key'            => [ 'type' => 'string', 'maxLength' => 96 ],
+							'selector'                => [
+								'type'                 => 'object',
+								'additionalProperties' => false,
+								'properties'           => [ 'custom_id' => [ 'type' => 'string' ], '_id' => [ 'type' => 'string' ] ],
+							],
+							'row_patch'               => [ 'type' => 'object' ],
+							'expected_row_hash'       => [ 'type' => 'string', 'pattern' => '^[a-f0-9]{64}$' ],
+							'allow_high_risk_replace' => [ 'type' => 'boolean', 'default' => false ],
+							'approved_preservation_hash' => [ 'type' => 'string', 'pattern' => '^[a-f0-9]{64}$' ],
 							'settings_evidence'      => [ 'type' => 'object' ],
 							'allowed_breakpoints'    => [
 								'type'        => 'array',
@@ -148,6 +164,11 @@ final class BatchMutate extends AbilityKernel {
 				'learning'      => [ 'type' => 'array', 'items' => [ 'type' => 'object' ] ],
 				'post_write'    => [ 'type' => 'object' ],
 				'next_step'     => [ 'type' => 'object' ],
+				'write_receipt' => [ 'type' => 'object' ],
+				'transaction_id' => [ 'type' => 'string' ],
+				'change_set_id' => [ 'type' => 'string' ],
+				'verification_status' => [ 'type' => 'string' ],
+				'rollback_status' => [ 'type' => 'string' ],
 			],
 		];
 	}
@@ -167,6 +188,7 @@ final class BatchMutate extends AbilityKernel {
 				$dry_run    = ! empty( $args['dry_run'] );
 				$require_evidence = ! empty( $args['require_evidence'] );
 				$idempotency_key  = isset( $args['idempotency_key'] ) ? trim( (string) $args['idempotency_key'] ) : '';
+				$change_set_id    = isset( $args['change_set_id'] ) ? trim( (string) $args['change_set_id'] ) : '';
 				$request_hash     = self::request_hash( $post_id, $operations, $args );
 
 				if ( ! get_post( $post_id ) ) {
@@ -199,7 +221,12 @@ final class BatchMutate extends AbilityKernel {
 				$tree       = ElementorData::read( $post_id );
 				$read_ms    = self::elapsed_ms( $read_start );
 				$before_hash = TreeHasher::hash( $tree );
-				$architecture = (string) ( AtomicTreeInspector::inspect( $tree )['architecture'] ?? 'empty' );
+				$targeted_ids = self::operation_target_ids( $operations );
+				$architecture_digest = ArchitectureRouter::digest( $tree, $targeted_ids );
+				$architecture = (string) ( $architecture_digest['architecture'] ?? 'empty' );
+				$receipt      = new ElementorWriteReceipt( $post_id, $architecture, $targeted_ids, $dry_run, $change_set_id !== '' ? $change_set_id : 'cs-' . substr( $request_hash, 0, 24 ) );
+				$receipt->set( 'architecture_digest', $architecture_digest );
+				$receipt->set_hashes( $before_hash, '' );
 				if ( 'mixed' === $architecture && self::contains_unparented_add( $operations ) ) {
 					return $this->error(
 						'mixed_root_add_blocked',
@@ -209,10 +236,10 @@ final class BatchMutate extends AbilityKernel {
 							'architecture' => $architecture,
 							'before_hash'  => $before_hash,
 							'repair'       => 'Run elementor-document-health, read the current structure, then set parent_id or parent_ref to a V3-only container.',
+							'write_receipt' => $receipt->fail( $this->error( 'mixed_root_add_blocked', '', [] ) )->to_array(),
 						]
 					);
 				}
-				$targeted_ids = self::operation_target_ids( $operations );
 				$blocking     = [];
 				foreach ( $targeted_ids as $target_id ) {
 					$subtree = AtomicTreeInspector::subtree_architecture( $tree, $target_id );
@@ -231,6 +258,7 @@ final class BatchMutate extends AbilityKernel {
 							'v3_safe_roots'   => AtomicTreeInspector::v3_safe_roots( $tree, 100 ),
 							'before_hash'     => $before_hash,
 							'repair'          => 'Target one returned v3_safe_root with a surgical batch, or use a typed V4 ability. Never rewrite the mixed document root.',
+							'write_receipt'   => $receipt->fail( $this->error( 'v3_architecture_mismatch', '', [] ) )->to_array(),
 						]
 					);
 				}
@@ -239,19 +267,20 @@ final class BatchMutate extends AbilityKernel {
 					return $this->error(
 						'tree_conflict',
 						__( 'Elementor page changed after planning; refresh structure before writing.', 'stonewright' ),
-						[ 'status' => 409, 'expected_tree_hash' => $expected_tree_hash, 'current_tree_hash' => $before_hash ]
+							[ 'status' => 409, 'expected_tree_hash' => $expected_tree_hash, 'current_tree_hash' => $before_hash, 'write_receipt' => $receipt->fail( $this->error( 'tree_conflict', '', [] ) )->to_array() ]
 					);
 				}
 				$items      = [];
 				$refs       = [];
 				$applied    = 0;
 				$failed     = 0;
+				$allow_unknown_setting_removal = false;
 				$stop       = array_key_exists( 'stop_on_error', $args ) ? (bool) $args['stop_on_error'] : ! $dry_run;
 				$task_hash  = ExecutionContext::task_hash();
 
 				foreach ( $operations as $index => $operation ) {
 					$operation = is_array( $operation ) ? $operation : [];
-					$result    = $this->apply_operation( $tree, $operation, $refs, $require_evidence );
+					$result    = $this->apply_operation( $tree, $operation, $refs, $require_evidence, $dry_run );
 
 					if ( $result instanceof \WP_Error ) {
 						if ( 'add_widget' === (string) ( $operation['action'] ?? '' ) ) {
@@ -284,6 +313,7 @@ final class BatchMutate extends AbilityKernel {
 									'write_blocked'    => true,
 									'schema_requests'  => self::schema_requests( $items ),
 									'repair'           => self::repair_hint( $cause_code, $action ),
+									'write_receipt'    => $receipt->fail( $result, 'operations.' . $index )->to_array(),
 								]
 							);
 						}
@@ -291,6 +321,9 @@ final class BatchMutate extends AbilityKernel {
 					}
 
 					++$applied;
+					if ( ! empty( $result['unknown_setting_removal_approved'] ) ) {
+						$allow_unknown_setting_removal = true;
+					}
 					$items[] = array_merge(
 						[
 							'index' => $index,
@@ -322,6 +355,7 @@ final class BatchMutate extends AbilityKernel {
 							'write_blocked'   => true,
 							'schema_requests' => self::schema_requests( $items ),
 							'repair'          => self::repair_hint( $cause_code, $failed_action ) . ' Fix every reported operation before retrying; no partial batch is persisted.',
+							'write_receipt'   => $receipt->fail( new \WP_Error( $cause_code, 'Batch validation failed.' ), 'operations.' . $failed_index )->to_array(),
 						]
 					);
 				}
@@ -342,12 +376,24 @@ final class BatchMutate extends AbilityKernel {
 					$lock_owner = 'batch-' . substr( $request_hash, 0, 24 );
 					$lease      = PostWriteLock::acquire( $post_id, $lock_owner );
 					if ( $lease instanceof \WP_Error ) {
-						return $lease;
+						$lease_data = (array) $lease->get_error_data();
+						$receipt->set_lock(
+							[
+								'status'      => 'busy',
+								'fingerprint' => $lease_data['lock_fingerprint'] ?? '',
+								'age_seconds' => $lease_data['lock_age_seconds'] ?? 0,
+								'retry_after' => $lease_data['retry_after'] ?? 0,
+								'expires_at'  => $lease_data['lock_expires_at'] ?? 0,
+							]
+						);
+						$receipt->fail( $lease, 'lock.acquire' );
+						return new \WP_Error( $lease->get_error_code(), $lease->get_error_message(), array_merge( $lease_data, [ 'write_receipt' => $receipt->to_array() ] ) );
 					}
+					$receipt->set_lock( [ 'status' => 'acquired', 'owner' => $lock_owner, 'expires_at' => $lease['expires_at'], 'age_seconds' => 0 ] );
 					try {
 						$current_tree_hash = TreeHasher::hash( ElementorData::read( $post_id ) );
 						if ( ! hash_equals( $before_hash, $current_tree_hash ) ) {
-							return $this->error(
+							$conflict = $this->error(
 								'tree_conflict',
 								__( 'Elementor page changed before the batch acquired its write lock; refresh structure before retrying.', 'stonewright' ),
 								[
@@ -357,37 +403,68 @@ final class BatchMutate extends AbilityKernel {
 									'retryable'         => true,
 								]
 							);
+							$receipt->fail( $conflict, 'lock.recheck' );
+							return new \WP_Error( $conflict->get_error_code(), $conflict->get_error_message(), array_merge( (array) $conflict->get_error_data(), [ 'write_receipt' => $receipt->to_array() ] ) );
 						}
 						$snapshot_id = Backup::snapshot_post( $post_id );
+						if ( '' === $snapshot_id || null === Backup::get_snapshot( $post_id, $snapshot_id ) ) {
+							$snapshot_error = $this->error(
+								'backup_failed',
+								__( 'Elementor write blocked because the pre-write snapshot could not be persisted.', 'stonewright' ),
+								[ 'status' => 500, 'post_id' => $post_id, 'retryable' => false ]
+							);
+							$receipt->fail( $snapshot_error, 'backup.snapshot' );
+							return new \WP_Error(
+								$snapshot_error->get_error_code(),
+								$snapshot_error->get_error_message(),
+								array_merge( (array) $snapshot_error->get_error_data(), [ 'write_receipt' => $receipt->to_array() ] )
+							);
+						}
+						$receipt->set_snapshot( $snapshot_id );
 						$write_start = microtime( true );
 						// Surgical batch may remove large subtrees; force_destructive is bound to this
 						// intentional, snapshotted write (not an accidental silent collapse).
-						if ( ! ElementorData::write( $post_id, $tree, [ 'force_destructive' => true, 'touched_ids' => $touched_ids, 'lock_owner' => $lock_owner ] ) ) {
-							$restored = Backup::restore( $post_id, $snapshot_id );
+						if ( ! ElementorData::write( $post_id, $tree, [ 'force_destructive' => true, 'touched_ids' => $touched_ids, 'lock_owner' => $lock_owner, 'defer_rollback' => true, 'allow_unknown_setting_removal' => $allow_unknown_setting_removal ] ) ) {
 							$err      = ElementorData::write_error_for_ability();
+							$err_data = (array) $err->get_error_data();
+							$needs_rollback = 'pending' === (string) ( $err_data['rollback_status'] ?? '' );
+							$restored = null;
+							if ( $needs_rollback ) {
+								$restored = Backup::restore( $post_id, $snapshot_id );
+								$receipt->rollback( $restored ? 'succeeded' : 'failed', [ 'snapshot_id' => $snapshot_id, 'primary_error_code' => $err->get_error_code() ] );
+							} else {
+								$receipt->rollback( 'not_needed' );
+							}
+							$receipt->fail( $err, 'write.persist' );
 							// Preserve restore info for the agent without losing gate codes/fix hints.
 							return new \WP_Error(
 								$err->get_error_code(),
 								$err->get_error_message(),
-								array_merge( (array) $err->get_error_data(), [ 'restored' => $restored ] )
+								array_merge( $err_data, [ 'restored' => $restored, 'rollback_status' => $receipt->to_array()['rollback_status'], 'write_receipt' => $receipt->to_array() ] )
 							);
 						}
 						$write_ms      = self::elapsed_ms( $write_start );
 						$readback_hash = TreeHasher::hash( ElementorData::read( $post_id ) );
 						if ( ! hash_equals( $after_hash, $readback_hash ) ) {
 							$restored = Backup::restore( $post_id, $snapshot_id );
-							return $this->error(
+							$readback_error = $this->error(
 								'readback_mismatch',
 								__( 'Elementor write readback did not match the compiled tree; the snapshot was restored.', 'stonewright' ),
 								[ 'status' => 500, 'expected_hash' => $after_hash, 'readback_hash' => $readback_hash, 'restored' => $restored ]
 							);
+							$receipt->set_hashes( $before_hash, $after_hash, $after_hash, $readback_hash )->rollback( $restored ? 'succeeded' : 'failed', [ 'snapshot_id' => $snapshot_id ] )->fail( $readback_error, 'verify.readback' );
+							return new \WP_Error( $readback_error->get_error_code(), $readback_error->get_error_message(), array_merge( (array) $readback_error->get_error_data(), [ 'rollback_status' => $receipt->to_array()['rollback_status'], 'write_receipt' => $receipt->to_array() ] ) );
 						}
+						$receipt->set_hashes( $before_hash, $after_hash, $after_hash, $readback_hash )->verified();
 					} finally {
 						PostWriteLock::release( $post_id, $lock_owner );
 					}
 				}
 
 				$element_count = count( ElementorData::flatten( $tree ) );
+				if ( $dry_run ) {
+					$receipt->set_hashes( $before_hash, $after_hash, $after_hash, $after_hash )->verified( 'planned' );
+				}
 				$response      = [
 					'ok'            => 0 === $failed,
 					'post_id'       => $post_id,
@@ -422,7 +499,12 @@ final class BatchMutate extends AbilityKernel {
 							'element_ids' => $touched_ids,
 							'required_before_browser_acceptance' => true,
 						],
+					'write_receipt' => $receipt->to_array(),
+					'transaction_id' => $receipt->to_array()['transaction_id'],
+					'change_set_id'  => $receipt->to_array()['change_set_id'],
 				];
+				$response['verification_status'] = (string) ( $receipt->to_array()['verification_status'] ?? '' );
+				$response['rollback_status']     = (string) ( $receipt->to_array()['rollback_status'] ?? 'not_needed' );
 
 				if ( $dry_run ) {
 					$response['preview'] = $tree;
@@ -542,6 +624,7 @@ final class BatchMutate extends AbilityKernel {
 			'move'      => 'move_element',
 			'remove', 'delete' => 'remove_element',
 			'update-element' => 'update_element',
+			'patch-repeater-row' => 'patch_repeater_row',
 			'move-element'   => 'move_element',
 			'remove-element' => 'remove_element',
 			default     => $action,
@@ -570,13 +653,14 @@ final class BatchMutate extends AbilityKernel {
 	 * @param array<string, string>           $refs
 	 * @return array<string, mixed>|\WP_Error
 	 */
-	private function apply_operation( array &$tree, array $operation, array &$refs, bool $require_evidence ): array|\WP_Error {
+	private function apply_operation( array &$tree, array $operation, array &$refs, bool $require_evidence, bool $dry_run ): array|\WP_Error {
 		$action = isset( $operation['action'] ) ? (string) $operation['action'] : '';
 
 		return match ( $action ) {
 			'add_container'  => $this->add_container( $tree, $operation, $refs, $require_evidence ),
 			'add_widget'     => $this->add_widget( $tree, $operation, $refs, $require_evidence ),
-			'update_element' => $this->update_element( $tree, $operation, $refs, $require_evidence ),
+			'update_element' => $this->update_element( $tree, $operation, $refs, $require_evidence, $dry_run ),
+			'patch_repeater_row' => $this->patch_repeater_row( $tree, $operation, $refs, $require_evidence ),
 			'move_element'   => $this->move_element( $tree, $operation, $refs ),
 			'remove_element' => $this->remove_element( $tree, $operation, $refs ),
 			default          => $this->error( 'invalid_action', __( 'Unsupported Elementor batch action.', 'stonewright' ), [ 'action' => $action ] ),
@@ -697,7 +781,7 @@ final class BatchMutate extends AbilityKernel {
 	 * @param array<string, string>           $refs
 	 * @return array<string, mixed>|\WP_Error
 	 */
-	private function update_element( array &$tree, array $operation, array $refs, bool $require_evidence ): array|\WP_Error {
+	private function update_element( array &$tree, array $operation, array $refs, bool $require_evidence, bool $dry_run ): array|\WP_Error {
 		$element_id = $this->element_id( $operation, $refs );
 		if ( $element_id instanceof \WP_Error ) {
 			return $element_id;
@@ -720,6 +804,8 @@ final class BatchMutate extends AbilityKernel {
 		$element_type = (string) ( $element['elType'] ?? '' );
 		$effective_before = $existing;
 		$warnings = [];
+		$third_party_risk = null;
+		$unknown_setting_removal_approved = false;
 		$scope_widget_type = 'widget' === $element_type ? (string) ( $element['widgetType'] ?? '' ) : $element_type;
 		$scope = self::validate_responsive_scope( $operation, $incoming, $scope_widget_type );
 		if ( $scope instanceof \WP_Error ) {
@@ -740,25 +826,70 @@ final class BatchMutate extends AbilityKernel {
 			);
 		}
 		if ( in_array( $element_type, [ 'container', 'section', 'column' ], true ) ) {
+			$container_alias_warnings = self::container_alias_warnings( $incoming );
+			$incoming = 'container' === $element_type ? ContainerSettings::normalize( $incoming ) : $incoming;
 			$before    = 'container' === $element_type ? ContainerSettings::normalize( $existing ) : $existing;
 			$effective_before = $before;
 			$settings  = 'container' === $element_type ? ContainerSettings::normalize( $settings ) : $settings;
-			$validated = SettingsValidator::validate_container( $settings, $element_type );
+			$validated = PatchValidator::container( $before, $incoming, $element_type, $mode );
 			if ( $validated instanceof \WP_Error ) {
 				return $validated;
 			}
 			$settings = $validated['settings'];
-			$warnings = $validated['warnings'];
+			$warnings = array_merge( $container_alias_warnings, $validated['warnings'] );
 			$incoming = self::changed_settings( $before, $settings );
 			$evidence_widget_type = $element_type;
 		} elseif ( 'widget' === ( $element['elType'] ?? '' ) ) {
 			$widget_type = (string) ( $element['widgetType'] ?? '' );
-			$validated   = SettingsValidator::validate( $widget_type, $settings );
+			if ( 'replace' === $mode || array_key_exists( 'form_fields', $incoming ) ) {
+				$live_schema = WidgetSchemaRepository::get( $widget_type );
+				if ( $live_schema instanceof \WP_Error ) {
+					return $live_schema;
+				}
+				$known_controls = array_map( 'strval', array_keys( is_array( $live_schema['controls'] ?? null ) ? $live_schema['controls'] : [] ) );
+				$third_party_risk = ThirdPartyControlRiskMap::analyze(
+					$existing,
+					$incoming,
+					[
+						'known_controls' => $known_controls,
+						'operation_mode' => $mode,
+						'actions'        => $existing['actions_after_submit'] ?? $existing['submit_actions'] ?? [],
+					]
+				);
+				if ( array_key_exists( 'form_fields', $incoming ) && isset( $existing['form_fields'] ) && $incoming['form_fields'] !== $existing['form_fields'] ) {
+					$third_party_risk['destructive_replace_risk'] = true;
+				}
+				if ( ! empty( $third_party_risk['destructive_replace_risk'] ) ) {
+					$approved_hash = trim( (string) ( $operation['approved_preservation_hash'] ?? '' ) );
+					$required_hash = (string) ( $third_party_risk['preservation_hash_before'] ?? '' );
+					if ( empty( $operation['allow_high_risk_replace'] ) || ( ! $dry_run && ( '' === $approved_hash || ! hash_equals( $required_hash, $approved_hash ) ) ) ) {
+						return $this->error(
+							'third_party_replace_blocked',
+							__( 'A full Elementor settings/repeater replacement would risk third-party or form controls.', 'stonewright' ),
+							[
+								'status'                     => 409,
+								'element_id'                 => $element_id,
+								'risk'                       => $third_party_risk,
+								'required_preservation_hash' => $required_hash,
+								'repair'                     => 'Use patch_repeater_row for one form field. For an unavoidable full replace, run dry_run=true with allow_high_risk_replace=true, review the risk map, then send its preservation hash as approved_preservation_hash.',
+							]
+						);
+					}
+					$warnings[] = [
+						'code'              => $dry_run ? 'high_risk_replace_dry_run' : 'high_risk_replace_approved',
+						'preservation_hash' => $required_hash,
+					];
+					$unknown_setting_removal_approved = ! $dry_run
+						&& '' !== $approved_hash
+						&& hash_equals( $required_hash, $approved_hash );
+				}
+			}
+			$validated   = PatchValidator::widget( $widget_type, $effective_before, $incoming, $mode );
 			if ( $validated instanceof \WP_Error ) {
 				return $validated;
 			}
 			$settings = $validated['settings'];
-			$warnings = $validated['warnings'];
+			$warnings = array_merge( $warnings, $validated['warnings'] );
 			$incoming = self::changed_settings( $effective_before, $settings );
 			$evidence_widget_type = $widget_type;
 		} else {
@@ -803,7 +934,85 @@ final class BatchMutate extends AbilityKernel {
 			'allowed_breakpoints'    => $scope,
 			'non_target_before_hash' => $non_target_before,
 			'non_target_after_hash'  => $non_target_after,
-		], [] !== $warnings ? [ 'normalization_warnings' => $warnings ] : [] );
+		], [] !== $warnings ? [ 'normalization_warnings' => $warnings ] : [], is_array( $third_party_risk ) ? [ 'third_party_risk' => $third_party_risk ] : [], $unknown_setting_removal_approved ? [ 'unknown_setting_removal_approved' => true ] : [] );
+	}
+
+	/**
+	 * Patch one repeater row selected by stable identity. This path never
+	 * replaces the repeater list and returns preservation hashes for review.
+	 *
+	 * @param array<int,array<string,mixed>> $tree
+	 * @param array<string,mixed>            $operation
+	 * @param array<string,string>           $refs
+	 * @return array<string,mixed>|\WP_Error
+	 */
+	private function patch_repeater_row( array &$tree, array $operation, array $refs, bool $require_evidence ): array|\WP_Error {
+		$element_id = $this->element_id( $operation, $refs );
+		if ( $element_id instanceof \WP_Error ) {
+			return $element_id;
+		}
+		$path = ElementorData::find_path( $tree, $element_id );
+		$element = null === $path ? null : self::resolve( $tree, $path );
+		if ( null === $path || ! is_array( $element ) || 'widget' !== (string) ( $element['elType'] ?? '' ) ) {
+			return $this->error( 'element_not_found', __( 'Repeater patches require an existing Elementor widget.', 'stonewright' ), [ 'element_id' => $element_id ] );
+		}
+
+		$widget_type  = (string) ( $element['widgetType'] ?? '' );
+		$repeater_key = (string) ( $operation['repeater_key'] ?? '' );
+		$selector     = is_array( $operation['selector'] ?? null ) ? $operation['selector'] : [];
+		$row_patch    = is_array( $operation['row_patch'] ?? null ) ? $operation['row_patch'] : [];
+		$existing     = is_array( $element['settings'] ?? null ) ? $element['settings'] : [];
+		$schema       = WidgetSchemaRepository::get( $widget_type );
+		if ( $schema instanceof \WP_Error ) {
+			return $schema;
+		}
+		$control = is_array( $schema['controls'][ $repeater_key ] ?? null ) ? $schema['controls'][ $repeater_key ] : [];
+		if ( 'repeater' !== (string) ( $control['type'] ?? '' ) ) {
+			return $this->error( 'repeater_schema_missing', __( 'The requested setting is not a repeater in the live Elementor schema.', 'stonewright' ), [ 'repeater_key' => $repeater_key, 'widget_type' => $widget_type ] );
+		}
+		$known_fields = array_map( 'strval', array_keys( is_array( $control['fields'] ?? null ) ? $control['fields'] : [] ) );
+		foreach ( array_keys( $row_patch ) as $field ) {
+			if ( ! in_array( (string) $field, $known_fields, true ) ) {
+				return $this->error( 'repeater_field_unknown', __( 'The repeater row patch contains a field absent from the live schema.', 'stonewright' ), [ 'path' => $repeater_key . '.' . (string) $field, 'known_fields' => $known_fields ] );
+			}
+		}
+
+		$patched = RepeaterPatcher::patch( $existing, $repeater_key, $selector, $row_patch, (string) ( $operation['expected_row_hash'] ?? '' ) );
+		if ( $patched instanceof \WP_Error ) {
+			return $patched;
+		}
+		$settings_patch = [ $repeater_key => $patched['settings'][ $repeater_key ] ];
+		$validated = PatchValidator::widget( $widget_type, $existing, $settings_patch, 'merge' );
+		if ( $validated instanceof \WP_Error ) {
+			return $validated;
+		}
+		$evidence = EvidenceValidator::validate( $widget_type, $settings_patch, self::operation_evidence( $operation ), $require_evidence );
+		if ( $evidence instanceof \WP_Error ) {
+			return $evidence;
+		}
+		$element['settings'] = $validated['settings'];
+		$tree = ElementorData::set( $tree, $path, $element );
+
+		return array_merge(
+			[
+				'action'       => 'patch_repeater_row',
+				'element_id'   => $element_id,
+				'evidence'     => $evidence,
+				'repeater_key' => $patched['repeater_key'],
+				'row_index'    => $patched['row_index'],
+				'selector'     => $patched['selector'],
+				'changed_paths'=> $patched['changed_paths'],
+				'preservation' => [
+					'row_hash_before' => $patched['row_hash_before'],
+					'row_hash_after'  => $patched['row_hash_after'],
+					'unknown_fields_hash_before' => $patched['unknown_fields_hash_before'],
+					'unknown_fields_hash_after'  => $patched['unknown_fields_hash_after'],
+					'actions_after_submit_hash_before' => $patched['actions_after_submit_hash_before'],
+					'actions_after_submit_hash_after'  => $patched['actions_after_submit_hash_after'],
+				],
+			],
+			[] !== $validated['warnings'] ? [ 'normalization_warnings' => $validated['warnings'] ] : []
+		);
 	}
 
 	/**
@@ -941,7 +1150,7 @@ final class BatchMutate extends AbilityKernel {
 	 */
 	private static function contains_destructive_operation( array $operations ): bool {
 		foreach ( $operations as $operation ) {
-			if ( is_array( $operation ) && 'remove_element' === ( $operation['action'] ?? '' ) ) {
+			if ( is_array( $operation ) && ( 'remove_element' === ( $operation['action'] ?? '' ) || 'replace' === ( $operation['mode'] ?? '' ) ) ) {
 				return true;
 			}
 		}
@@ -965,6 +1174,27 @@ final class BatchMutate extends AbilityKernel {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Record legacy container aliases as warnings instead of silently losing
+	 * the caller's intent during canonicalization.
+	 *
+	 * @param array<string,mixed> $settings
+	 * @return list<array<string,string>>
+	 */
+	private static function container_alias_warnings( array $settings ): array {
+		$warnings = [];
+		foreach ( [ 'layout' => 'container_type', 'direction' => 'flex_direction' ] as $alias => $canonical ) {
+			if ( array_key_exists( $alias, $settings ) ) {
+				$warnings[] = [
+					'code'      => 'settings_alias_applied',
+					'alias'     => $alias,
+					'canonical' => $canonical,
+				];
+			}
+		}
+		return $warnings;
 	}
 
 	/**
@@ -1123,7 +1353,9 @@ final class BatchMutate extends AbilityKernel {
 	private static function repair_hint( string $code, string $action ): string {
 		return match ( $code ) {
 			'stonewright_parent_not_found', 'stonewright_unknown_ref' => 'Read the current page structure. For an empty page, add the root container with no parent; reference later nodes by @op_id.',
-			'stonewright_invalid_action' => 'Use exactly one supported action: add_container, add_widget, update_element, move_element, or remove_element.',
+			'stonewright_invalid_action' => 'Use exactly one supported action: add_container, add_widget, update_element, patch_repeater_row, move_element, or remove_element.',
+			'stonewright_ambiguous_repeater_row' => 'Refresh the widget and select exactly one stable custom_id, falling back to _id only when custom_id is unavailable.',
+			'stonewright_third_party_replace_blocked' => 'Use patch_repeater_row. If a full replace is unavoidable, review one explicit high-risk dry-run and bind the apply to its preservation hash.',
 			'stonewright_missing_widget_type', 'stonewright_unknown_widget' => 'List the live Elementor widget registry, then send its exact widget_type with action=add_widget.',
 			'stonewright_elementor_settings_invalid' => 'Execute every schema_request in the response once. Keep unknown existing settings, replace only rejected values, include settings_evidence, and rerun one consolidated dry-run.',
 			'stonewright_no_effective_changes' => 'Remove the no-op update or resend settings from the live schema; Stonewright will not report discarded settings as applied.',

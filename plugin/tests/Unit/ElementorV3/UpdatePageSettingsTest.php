@@ -31,16 +31,18 @@ final class UpdatePageSettingsTest extends TestCase {
 			],
 		];
 		unset( $GLOBALS['stonewright_test_update_post_meta_return'] );
+		unset( $GLOBALS['stonewright_test_update_post_meta_returns'] );
 	}
 
 	protected function tearDown(): void {
 		$GLOBALS['stonewright_test_options'] = [];
 		$GLOBALS['stonewright_test_posts']   = [];
 		unset( $GLOBALS['stonewright_test_update_post_meta_return'] );
+		unset( $GLOBALS['stonewright_test_update_post_meta_returns'] );
 	}
 
 	public function test_idempotent_same_settings_are_successful_when_update_post_meta_returns_false(): void {
-		$GLOBALS['stonewright_test_update_post_meta_return'] = false;
+		$GLOBALS['stonewright_test_update_post_meta_returns'] = [ '_elementor_page_settings' => false ];
 
 		$result = ( new UpdatePageSettings() )->execute(
 			[
@@ -58,7 +60,7 @@ final class UpdatePageSettingsTest extends TestCase {
 	}
 
 	public function test_changed_settings_still_report_write_failure_when_update_post_meta_returns_false(): void {
-		$GLOBALS['stonewright_test_update_post_meta_return'] = false;
+		$GLOBALS['stonewright_test_update_post_meta_returns'] = [ '_elementor_page_settings' => false ];
 
 		$result = ( new UpdatePageSettings() )->execute(
 			[

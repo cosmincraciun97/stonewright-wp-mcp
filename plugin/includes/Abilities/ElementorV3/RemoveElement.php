@@ -53,6 +53,7 @@ final class RemoveElement extends AbilityKernel {
 			'properties' => [
 				'post_id'     => [ 'type' => 'integer' ],
 				'snapshot_id' => [ 'type' => 'string' ],
+				'write_receipt' => [ 'type' => 'object' ],
 			],
 		];
 	}

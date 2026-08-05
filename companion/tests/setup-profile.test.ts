@@ -214,7 +214,7 @@ describe('buildSetupProfile', () => {
 			expect.objectContaining({
 				id: 'credentials',
 				status: 'warning',
-				message: 'Remote sites need STONEWRIGHT_WP_USERNAME plus STONEWRIGHT_WP_APP_PASSWORD, or STONEWRIGHT_MCP_AUTHORIZATION.',
+				message: 'Remote sites need OAuth token-store configuration, STONEWRIGHT_WP_USERNAME plus STONEWRIGHT_WP_APP_PASSWORD, or STONEWRIGHT_MCP_AUTHORIZATION.',
 			}),
 		);
 	});

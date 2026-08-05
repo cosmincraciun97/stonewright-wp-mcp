@@ -71,6 +71,12 @@ Credential-like memory and skill writes are rejected. Authorization headers,
 tokens, and Application Passwords are redacted from Direct audit diagnostics
 before persistence.
 
+Plugin-mode OAuth refresh is single-flight and persists rotated access/refresh
+token pairs atomically with mode `0600`. Terminal grant/client failures clear
+the local state and return a reauthorization-required result; transient HTTP or
+network failures honor bounded backoff, jitter, `Retry-After`, and a circuit
+breaker. See [Permanent remediation contracts](permanent-remediation-contracts.md).
+
 ## Plugin Integration
 
 The normal `npx` setup uses the versioned GitHub release tarball and does not

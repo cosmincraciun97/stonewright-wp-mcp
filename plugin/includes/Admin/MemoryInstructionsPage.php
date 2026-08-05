@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Admin;
 
 use Stonewright\WpMcp\Knowledge\KnowledgeBundle;
 use Stonewright\WpMcp\Memory\Memory;
+use Stonewright\WpMcp\Security\IncidentStore;
 
 /**
  * Admin page: Memory & Instructions (slug: stonewright-memory).
@@ -95,8 +96,13 @@ final class MemoryInstructionsPage {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$raw_type = isset( $_GET['type'] ) ? sanitize_key( wp_unslash( (string) $_GET['type'] ) ) : '';
 		$valid    = Memory::valid_types();
-		$tabs     = [ 'all', 'user', 'project', 'verified_repairs', 'unresolved_incidents', 'audit_feedback', 'reference' ];
+		$tabs     = [ 'all', 'user', 'project', 'verified_repairs', 'unresolved_incidents', 'incidents', 'audit_feedback', 'reference' ];
 		$active   = ( '' === $raw_type || 'all' === $raw_type ) ? 'all' : ( in_array( $raw_type, $tabs, true ) ? $raw_type : 'all' );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only incident filter.
+		$incident_state = isset( $_GET['incident_state'] ) ? sanitize_key( wp_unslash( (string) $_GET['incident_state'] ) ) : '';
+		if ( ! in_array( $incident_state, [ 'open', 'observing', 'resolved', 'suppressed' ], true ) ) {
+			$incident_state = '';
+		}
 		$all_entries = Memory::list_all( 10000 );
 		$counts      = array_fill_keys( $tabs, 0 );
 		$counts['all'] = count( $all_entries );
@@ -105,6 +111,14 @@ final class MemoryInstructionsPage {
 			if ( isset( $counts[ $bucket ] ) ) {
 				++$counts[ $bucket ];
 			}
+		}
+		$incident_counts = IncidentStore::counts();
+		$counts['incidents'] = array_sum( $incident_counts );
+		$counts['unresolved_incidents'] = (int) ( $incident_counts['open'] ?? 0 ) + (int) ( $incident_counts['observing'] ?? 0 );
+		$legacy_unresolved_count = count( array_filter( $all_entries, static fn( array $entry ): bool => 'unresolved_incidents' === self::entry_bucket( $entry ) ) );
+		$incident_rows = IncidentStore::recent( 200, '' === $incident_state ? [] : [ 'state' => $incident_state ] );
+		if ( 'unresolved_incidents' === $active ) {
+			$incident_rows = array_values( array_filter( IncidentStore::recent( 200 ), static fn( array $row ): bool => in_array( (string) ( $row['state'] ?? '' ), [ 'open', 'observing' ], true ) ) );
 		}
 		$entries = 'all' === $active
 			? array_slice( $all_entries, 0, 200 )
@@ -291,7 +305,12 @@ final class MemoryInstructionsPage {
 					</li>
 					<li>
 						<a href="?page=<?php echo esc_attr( self::SLUG ); ?>&amp;type=unresolved_incidents" class="<?php echo 'unresolved_incidents' === $active ? 'current' : ''; ?>">
-							Unresolved Incidents (<?php echo (int) ( $counts['unresolved_incidents'] ?? 0 ); ?>)
+							Unresolved Incidents (<?php echo (int) $counts['unresolved_incidents']; ?>)
+						</a> |
+					</li>
+					<li>
+						<a href="?page=<?php echo esc_attr( self::SLUG ); ?>&amp;type=incidents" class="<?php echo 'incidents' === $active ? 'current' : ''; ?>">
+							Incident Lifecycle (<?php echo (int) $counts['incidents']; ?>)
 						</a> |
 					</li>
 					<li>
@@ -351,6 +370,14 @@ final class MemoryInstructionsPage {
 					</form>
 				</div>
 
+				<?php if ( in_array( $active, [ 'incidents', 'unresolved_incidents' ], true ) ) : ?>
+					<?php if ( 'unresolved_incidents' === $active && $legacy_unresolved_count > 0 ) : ?>
+						<div class="notice notice-warning inline"><p><?php echo esc_html( sprintf( /* translators: %d: legacy memory incident count */ _n( '%d legacy incident memory remains pending reconciliation.', '%d legacy incident memories remain pending reconciliation.', $legacy_unresolved_count, 'stonewright' ), $legacy_unresolved_count ) ); ?></p></div>
+					<?php endif; ?>
+					<?php self::render_incident_table( $incident_rows, $incident_counts, 'unresolved_incidents' === $active ? 'unresolved' : $incident_state ); ?>
+				<?php endif; ?>
+
+				<?php if ( ! in_array( $active, [ 'incidents', 'unresolved_incidents' ], true ) ) : ?>
 				<!-- Memory table -->
 				<table class="widefat striped">
 					<thead>
@@ -449,9 +476,63 @@ final class MemoryInstructionsPage {
 						<?php endif; ?>
 					</tbody>
 				</table>
+				<?php endif; ?>
 			</div>
 		</div>
 		<?php AdminShell::close(); ?>
+		<?php
+	}
+
+	/** @param list<array<string, mixed>> $rows @param array<string, int> $counts */
+	private static function render_incident_table( array $rows, array $counts, string $active_state ): void {
+		?>
+		<div class="sw-card stonewright-panel">
+			<h2><?php esc_html_e( 'Incident lifecycle', 'stonewright' ); ?></h2>
+			<p class="description"><?php esc_html_e( 'Observing incidents are below threshold. Open incidents require a correlated verified repair before they can resolve.', 'stonewright' ); ?></p>
+			<ul class="subsubsub sw-incident-state-views">
+				<?php
+				$state_labels = [ 'open' => __( 'Open', 'stonewright' ), 'observing' => __( 'Observing', 'stonewright' ), 'resolved' => __( 'Resolved', 'stonewright' ), 'suppressed' => __( 'Suppressed', 'stonewright' ) ];
+				foreach ( $state_labels as $state => $label ) :
+					$url = add_query_arg( [ 'page' => self::SLUG, 'type' => 'incidents', 'incident_state' => $state ], admin_url( 'admin.php' ) );
+				?>
+				<li><a class="<?php echo esc_attr( $state === $active_state ? 'current' : '' ); ?>" href="<?php echo esc_url( $url ); ?>"><?php echo esc_html( $label . ' (' . (int) ( $counts[ $state ] ?? 0 ) . ')' ); ?></a> | </li>
+				<?php endforeach; ?>
+				<li><a class="<?php echo '' === $active_state ? 'current' : ''; ?>" href="<?php echo esc_url( add_query_arg( [ 'page' => self::SLUG, 'type' => 'incidents' ], admin_url( 'admin.php' ) ) ); ?>"><?php echo esc_html( __( 'All', 'stonewright' ) . ' (' . array_sum( $counts ) . ')' ); ?></a></li>
+			</ul>
+			<table class="widefat striped">
+				<thead><tr><th>State</th><th>Ability</th><th>Category</th><th>Root error / path</th><th>Occurrences</th><th>Timeline</th></tr></thead>
+				<tbody>
+				<?php foreach ( $rows as $row ) : ?>
+				<?php
+				$incident_id = (string) ( $row['incident_id'] ?? '' );
+				$audit_url = add_query_arg( [ 'page' => AuditLogPage::SLUG, 'incident_id' => $incident_id ], admin_url( 'admin.php' ) );
+				?>
+				<tr id="stonewright-incident-<?php echo esc_attr( $incident_id ); ?>">
+					<td><span class="stonewright-type-badge"><?php echo esc_html( (string) ( $row['state'] ?? '' ) ); ?></span></td>
+					<td><code><?php echo esc_html( (string) ( $row['ability_name'] ?? '' ) ); ?></code></td>
+					<td><?php echo esc_html( (string) ( $row['category'] ?? '' ) . ' · ' . (string) ( $row['severity'] ?? '' ) ); ?></td>
+					<td>
+						<code><?php echo esc_html( (string) ( $row['root_error_code'] ?? '' ) ); ?></code>
+						<?php if ( '' !== (string) ( $row['normalized_path'] ?? '' ) ) : ?>
+							<br><code><?php echo esc_html( (string) $row['normalized_path'] ); ?></code>
+						<?php endif; ?>
+					</td>
+					<td><?php echo (int) ( $row['occurrence_count'] ?? 0 ); ?></td>
+					<td>
+						<a href="<?php echo esc_url( $audit_url ); ?>"><?php esc_html_e( 'View audit events', 'stonewright' ); ?></a><br>
+						<?php echo esc_html( (string) ( $row['first_seen'] ?? '' ) . ' → ' . (string) ( $row['last_seen'] ?? '' ) ); ?>
+						<?php if ( '' !== (string) ( $row['resolved_at'] ?? '' ) ) : ?>
+							<br><?php echo esc_html( 'Resolved: ' . (string) $row['resolved_at'] ); ?>
+						<?php endif; ?>
+					</td>
+				</tr>
+				<?php endforeach; ?>
+				<?php if ( [] === $rows ) : ?>
+					<tr><td colspan="6"><?php echo esc_html( '' === $active_state ? __( 'No lifecycle incidents have been recorded.', 'stonewright' ) : ( 'unresolved' === $active_state ? __( 'No unresolved lifecycle incidents remain.', 'stonewright' ) : __( 'No incidents match this lifecycle state.', 'stonewright' ) ) ); ?></td></tr>
+				<?php endif; ?>
+				</tbody>
+			</table>
+		</div>
 		<?php
 	}
 

@@ -92,7 +92,7 @@ final class WidgetWriteGuardsTest extends TestCase {
 				'post_id'   => 321,
 				'parent_id' => 'root',
 				'settings'  => [
-					'title'                => 'Devino expozant la nZEB Expo',
+					'title'                => 'Become an exhibitor at Example Conference',
 					'typography_font_size' => [
 						'size' => 36,
 						'unit' => 'px',

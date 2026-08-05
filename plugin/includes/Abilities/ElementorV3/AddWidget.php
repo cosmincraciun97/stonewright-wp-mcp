@@ -71,6 +71,7 @@ final class AddWidget extends AbilityKernel {
 				'post_id'     => [ 'type' => 'integer' ],
 				'element_id'  => [ 'type' => 'string' ],
 				'snapshot_id' => [ 'type' => 'string' ],
+				'write_receipt' => [ 'type' => 'object' ],
 			],
 		];
 	}

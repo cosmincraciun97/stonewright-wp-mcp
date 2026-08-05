@@ -1,0 +1,6 @@
+{
+  "args": {
+    "route": "/mcp/stonewright-oauth/tools/list"
+  },
+  "expect_permission_error": true
+}

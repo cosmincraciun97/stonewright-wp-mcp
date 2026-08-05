@@ -1,0 +1,17 @@
+{
+  "args": {
+    "before": {
+      "id": "form-1",
+      "widgetType": "form",
+      "third_party_key": "preserve",
+      "submit_actions": [ "email" ]
+    },
+    "patch": {
+      "third_party_key": "preserve"
+    },
+    "context": {
+      "known_controls": [ "third_party_key" ]
+    }
+  },
+  "expect": "ok"
+}

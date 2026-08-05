@@ -63,7 +63,7 @@ final class Scrubber {
 	 * `_elementor_data.` also look like `label.tld`, and rewriting those would
 	 * destroy the lesson instead of de-identifying it.
 	 */
-	private const HOST_SUFFIXES = 'ro|com|net|org|io|co|dev|eu|uk|de|fr|it|es|nl|pl|hu|bg|info|biz|shop|store|site|online|app|cloud|tech|agency|studio|media|xyz|me|tv|ai';
+	private const HOST_SUFFIXES = 'ro|com|net|org|io|co|dev|eu|uk|de|fr|it|es|nl|pl|hu|bg|info|biz|shop|store|site|online|app|cloud|tech|agency|studio|media|xyz|me|tv|ai|example|test';
 
 	/**
 	 * Words that mark the number after them as a WordPress object id.
@@ -97,7 +97,7 @@ final class Scrubber {
 		// Bare hostnames written as prose or fused into a slug. The lookbehind
 		// keeps this off hosts the URL and mailbox passes already handled.
 		//
-		// Labels allow at most one hyphen. `hero-spacing-acme-flights.ro` is a
+		// Labels allow at most one hyphen. `hero-spacing-client-a.test` is a
 		// syntactically valid hostname in full, so a greedy pattern would eat
 		// the descriptive prefix too and collapse unrelated keys onto the same
 		// placeholder. Capping the label trades a possible leftover slug

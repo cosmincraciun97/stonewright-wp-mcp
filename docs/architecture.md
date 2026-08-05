@@ -74,6 +74,9 @@ points are blocked.
 
 ### Audit error codes
 
+The permanent event, incident, OAuth, write-receipt, and design-evidence
+contracts are documented in [Permanent remediation contracts](permanent-remediation-contracts.md).
+
 An audit row has to distinguish a client that authenticated badly from a server
 that broke, because the two lead to opposite remediations. Two rules keep those
 apart:

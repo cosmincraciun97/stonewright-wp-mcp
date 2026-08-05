@@ -28,6 +28,7 @@ workflows with operator controls.
 - [Expertise and public capability parity](expertise-parity.md)
 - [Release notes](releases/README.md)
 - [Elementor write verification](elementor-write-verification.md)
+- [Permanent remediation contracts](permanent-remediation-contracts.md)
 - [MCP token benchmarks](benchmarks/README.md)
 - [Stonewright Visual](visual.md)
 - [Upstream code reuse and attribution](upstream-code-reuse.md)

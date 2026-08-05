@@ -176,6 +176,67 @@ vendor/bin/phpunit tests/Unit/Memory
 vendor/bin/phpunit tests/Unit/Context
 ```
 
+## Rule 10 - Permanent audit and incident taxonomy
+
+Audit outcomes are normalized to a versioned category/outcome contract. Recurring
+incidents use category-specific thresholds and exact verified correlation for
+resolution; permission and safety blocks are not promoted into repair debt.
+
+Enforced by:
+
+- `plugin/includes/Security/AuditEvent.php`
+- `plugin/includes/Security/IncidentStore.php`
+- `plugin/includes/Security/AuditReconciler.php`
+
+Verify:
+
+```bash
+cd plugin
+vendor/bin/phpunit tests/Unit/Security/AuditEventIncidentTest.php
+```
+
+## Rule 11 - OAuth terminal failure and bounded retry
+
+OAuth refresh rotation is single-flight. Terminal grant/client failures clear
+local token state and stop retrying; transient failures honor bounded retry and
+`Retry-After` behavior. Server throttles do not trust spoofed forwarded headers.
+
+Enforced by:
+
+- `companion/src/oauth-token-manager.ts`
+- `plugin/includes/OAuth/OAuthRateLimiter.php`
+
+Verify:
+
+```bash
+cd companion
+npx vitest run tests/oauth-token-manager.test.ts
+cd ../plugin
+vendor/bin/phpunit tests/Unit/OAuth/OAuthRateLimiterTest.php
+```
+
+## Rule 12 - Transaction receipts and evidence-preserving patches
+
+Elementor and Gutenberg writes return one bounded receipt, snapshot before
+mutation, verify readback, and give rollback one owner. Elementor patches reject
+new unknown settings, preserve untouched runtime controls, and enforce repeater
+identity and responsive-scope rules.
+
+Enforced by:
+
+- `plugin/includes/Elementor/Write/ElementorWriteReceipt.php`
+- `plugin/includes/Elementor/Schema/PatchValidator.php`
+- `plugin/includes/Abilities/Gutenberg/BlocksBatchMutate.php`
+
+Verify:
+
+```bash
+cd plugin
+vendor/bin/phpunit tests/Unit/Elementor/Schema/PatchValidatorTest.php
+vendor/bin/phpunit tests/Unit/Elementor/Write/ElementorWriteReceiptTest.php
+vendor/bin/phpunit tests/Unit/Gutenberg/BlocksBatchMutateTest.php
+```
+
 ## Threat Model
 
 In scope:

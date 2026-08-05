@@ -1,0 +1,6 @@
+{
+  "args": {
+    "route": "/wp-json/wp/v2/pages"
+  },
+  "expect": "ok"
+}

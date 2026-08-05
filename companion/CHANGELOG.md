@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.4] - 2026-08-05
+
+### Added
+
+- Add atomic OAuth token storage, refresh-token rotation, single-flight
+  refreshes, terminal reauthorization handling, bounded transient retries,
+  `Retry-After`, jitter, and circuit breaking.
+
+### Fixed
+
+- Treat a successful refresh response that omits a new token or replays the
+  previous refresh token as terminal reauthorization instead of reusing a
+  credential the server has already rotated.
+
 ## [1.0.0-beta.3] - 2026-07-31
 
 ### Changed

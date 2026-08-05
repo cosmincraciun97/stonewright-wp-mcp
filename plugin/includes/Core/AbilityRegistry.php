@@ -58,8 +58,14 @@ use Stonewright\WpMcp\Abilities\Design\QualityCheck;
 use Stonewright\WpMcp\Abilities\Design\SpecToElementorV3;
 use Stonewright\WpMcp\Abilities\Design\SpecToElementorV4;
 use Stonewright\WpMcp\Abilities\Design\SpecToGutenberg;
+use Stonewright\WpMcp\Abilities\Design\SectionManifest;
+use Stonewright\WpMcp\Abilities\Design\ThirdPartyRiskMap;
 use Stonewright\WpMcp\Abilities\Design\ValidateSpec;
+use Stonewright\WpMcp\Abilities\Design\VisualCompare;
 use Stonewright\WpMcp\Abilities\Design\WidgetIntentResolve;
+use Stonewright\WpMcp\Abilities\Diagnostics\CapabilityPreflight;
+use Stonewright\WpMcp\Abilities\Diagnostics\FormDeliveryDiagnostic;
+use Stonewright\WpMcp\Abilities\Diagnostics\OAuthHeaderDiagnostic;
 use Stonewright\WpMcp\Abilities\ElementorV3\AddContainer;
 use Stonewright\WpMcp\Abilities\ElementorV3\AddWidget;
 use Stonewright\WpMcp\Abilities\ElementorV3\ApplyBundle as ElementorV3ApplyBundle;
@@ -77,6 +83,8 @@ use Stonewright\WpMcp\Abilities\ElementorV3\BuildTree;
 use Stonewright\WpMcp\Abilities\ElementorV3\DesignMirrorExport;
 use Stonewright\WpMcp\Abilities\ElementorV3\DocumentHealth;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetPageStructure;
+use Stonewright\WpMcp\Abilities\ElementorV3\LegacyDebtReport;
+use Stonewright\WpMcp\Abilities\ElementorV3\LegacyDebtMigrate;
 use Stonewright\WpMcp\Abilities\ElementorV3\PageDigest;
 use Stonewright\WpMcp\Abilities\ElementorV3\PostWriteVerify;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetWidgetSchema;
@@ -115,6 +123,7 @@ use Stonewright\WpMcp\Abilities\FSE\WriteGlobalStyles;
 use Stonewright\WpMcp\Abilities\FSE\WriteTemplate;
 use Stonewright\WpMcp\Abilities\FSE\WriteTemplatePart;
 use Stonewright\WpMcp\Abilities\Gutenberg\ApplyToPost as GutenbergApplyToPost;
+use Stonewright\WpMcp\Abilities\Gutenberg\BlocksBatchMutate;
 use Stonewright\WpMcp\Abilities\Gutenberg\EditorSnapshotAbility;
 use Stonewright\WpMcp\Abilities\Gutenberg\GetBlockSchema;
 use Stonewright\WpMcp\Abilities\Gutenberg\InsertBlock;
@@ -131,6 +140,7 @@ use Stonewright\WpMcp\Abilities\Memory\MemoryGet;
 use Stonewright\WpMcp\Abilities\Memory\MemoryList;
 use Stonewright\WpMcp\Abilities\Memory\MemorySave;
 use Stonewright\WpMcp\Abilities\Memory\LearningRecord;
+use Stonewright\WpMcp\Abilities\Security\RuntimeDataPurge;
 use Stonewright\WpMcp\Abilities\ElementorWidget\CreateCustomWidget;
 use Stonewright\WpMcp\Abilities\ElementorWidget\WidgetDefine;
 use Stonewright\WpMcp\Abilities\Knowledge\DescribeWidget;
@@ -244,6 +254,7 @@ use Stonewright\WpMcp\Abilities\Menu\MenuList;
 use Stonewright\WpMcp\Abilities\Patterns\CreatePattern;
 use Stonewright\WpMcp\Abilities\Patterns\ListPatterns;
 use Stonewright\WpMcp\Abilities\Runtime\PhpExecute;
+use Stonewright\WpMcp\Abilities\Security\AuditReconcile;
 use Stonewright\WpMcp\Abilities\Security\CreateOneTimeLink;
 use Stonewright\WpMcp\Abilities\Security\IssueConfirmationToken;
 use Stonewright\WpMcp\Abilities\Site\BackupPage as SiteBackupPage;
@@ -282,6 +293,8 @@ final class AbilityRegistry {
 			ContextBootstrap::class,
 			TaskStart::class,
 			IssueConfirmationToken::class,
+			AuditReconcile::class,
+			RuntimeDataPurge::class,
 			CreateOneTimeLink::class,
 
 			// Runtime.
@@ -338,6 +351,7 @@ final class AbilityRegistry {
 			InsertBlock::class,
 			UpdateBlock::class,
 			RemoveBlock::class,
+			BlocksBatchMutate::class,
 			RenderBlocks::class,
 			GutenbergApplyToPost::class,
 
@@ -368,6 +382,8 @@ final class AbilityRegistry {
 			GetPageStructure::class,
 			PageDigest::class,
 			DocumentHealth::class,
+			LegacyDebtReport::class,
+			LegacyDebtMigrate::class,
 			PostWriteVerify::class,
 			BuildTree::class,
 			DesignMirrorExport::class,
@@ -416,6 +432,9 @@ final class AbilityRegistry {
 			ExtractTokens::class,
 			BuildSpec::class,
 			NormalizeAssets::class,
+			SectionManifest::class,
+			VisualCompare::class,
+			ThirdPartyRiskMap::class,
 			ImportImage::class,
 			ChooseRenderer::class,
 			SpecToGutenberg::class,
@@ -442,6 +461,11 @@ final class AbilityRegistry {
 			// approval that lets a new visual direction continue past section one.
 			QualityCheck::class,
 			CheckpointRecord::class,
+
+			// Read-only operational diagnostics.
+				FormDeliveryDiagnostic::class,
+			CapabilityPreflight::class,
+			OAuthHeaderDiagnostic::class,
 
 			// Blueprints + brand kits.
 			ListBlueprints::class,

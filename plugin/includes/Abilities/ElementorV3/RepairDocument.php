@@ -125,7 +125,7 @@ final class RepairDocument extends AbilityKernel {
 
 				// Never bypass the integrity gate: the normalized tree must pass the same
 				// persistence path as every other typed Elementor write.
-				if ( ! ElementorData::write( $post_id, $tree ) ) {
+				if ( ! ElementorData::write( $post_id, $tree, [ 'id_only_repair' => true ] ) ) {
 					return ElementorData::write_error_for_ability();
 				}
 

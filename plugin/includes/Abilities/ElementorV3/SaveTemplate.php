@@ -48,6 +48,7 @@ final class SaveTemplate extends AbilityKernel {
 			'type'       => 'object',
 			'properties' => [
 				'template_id' => [ 'type' => 'integer' ],
+				'write_receipt' => [ 'type' => 'object' ],
 			],
 		];
 	}

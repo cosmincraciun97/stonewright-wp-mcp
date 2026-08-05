@@ -81,6 +81,19 @@ final class RepairDocumentTest extends TestCase {
 		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
 	}
 
+	public function test_id_repair_write_gate_rejects_any_non_id_change(): void {
+		$post_id = 905;
+		$tree    = [ [ 'id' => 'dup', 'elType' => 'container', 'settings' => [ 'third_party' => 'keep' ], 'elements' => [] ] ];
+		$this->add_post( $post_id, wp_json_encode( $tree ) );
+		$tree[0]['id'] = 'fixed-id';
+		unset( $tree[0]['settings']['third_party'] );
+
+		self::assertFalse( \Stonewright\WpMcp\Support\ElementorData::write( $post_id, $tree, [ 'id_only_repair' => true ] ) );
+		$error = \Stonewright\WpMcp\Support\ElementorData::last_write_error();
+		self::assertInstanceOf( \WP_Error::class, $error );
+		self::assertSame( 'id_only_repair_scope_violation', $error->get_error_data()['violations'][0]['code'] );
+	}
+
 	public function test_production_safe_mode_requires_matching_confirmation_token(): void {
 		$post_id = 903;
 		$tree    = [
