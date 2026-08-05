@@ -53,8 +53,8 @@ test('Stonewright and WooCommerce activate together without an autoloader fatal'
 	await expect(page.locator('body')).not.toContainText(
 		/critical error|autoload_filemap|deep-copy/i,
 	);
-	await expect(page.locator('tr[data-slug="woocommerce"]')).toHaveClass(/active/);
-	await expect(page.locator('tr[data-slug="stonewright"]')).toHaveClass(/active/);
+	await expect(page.locator('tr[data-plugin="woocommerce/woocommerce.php"]:not(.plugin-update-tr)')).toHaveClass(/active/);
+	await expect(page.locator('tr[data-plugin="stonewright/stonewright.php"]:not(.plugin-update-tr)')).toHaveClass(/active/);
 
 	const restIndex = await page.request.get('/wp-json/');
 	expect(restIndex.ok()).toBe(true);
