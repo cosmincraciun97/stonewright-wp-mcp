@@ -43,16 +43,7 @@ final class AdminShell {
 				'label' => __( 'Workflows', 'stonewright' ),
 				'pages' => [
 					'stonewright-sandbox' => __( 'Sandbox', 'stonewright' ),
-				],
-			],
-			[
-				'id'    => 'design-library',
-				'label' => __( 'Design Library', 'stonewright' ),
-				'pages' => [
-					'stonewright-design-studio'    => __( 'Design Studio', 'stonewright' ),
-					'stonewright-visual-workspace' => __( 'Visual Workspace', 'stonewright' ),
-					'stonewright-blueprints'       => __( 'Blueprints', 'stonewright' ),
-					'stonewright-prompts'          => __( 'Prompts', 'stonewright' ),
+					'stonewright-prompts' => __( 'Prompts', 'stonewright' ),
 				],
 			],
 			[

@@ -95,15 +95,11 @@ final class VisualWorkspacePageTest extends TestCase {
 		self::assertSame( 'edit_posts', $registered['capability'] );
 	}
 
-	public function test_the_workspace_sits_next_to_the_design_studio_in_the_shell(): void {
+	public function test_the_workspace_is_absent_from_the_shell_nav(): void {
 		$slugs = array_keys( AdminShell::pages() );
 
-		self::assertContains( VisualWorkspacePage::SLUG, $slugs );
-		self::assertSame(
-			array_search( 'stonewright-design-studio', $slugs, true ) + 1,
-			array_search( VisualWorkspacePage::SLUG, $slugs, true ),
-			'The workspace is the second entry of the design group, right after the Design Studio.'
-		);
+		self::assertNotContains( VisualWorkspacePage::SLUG, $slugs );
+		self::assertNotContains( 'stonewright-design-studio', $slugs );
 	}
 
 	// -----------------------------------------------------------------
@@ -402,23 +398,21 @@ final class VisualWorkspacePageTest extends TestCase {
 	// Enqueue scoping (source-read, see class docblock)
 	// -----------------------------------------------------------------
 
-	public function test_the_browser_bundle_is_scoped_to_this_page_only(): void {
-		self::assertMatchesRegularExpression(
-			'/if \( VisualWorkspacePage::SLUG === \$page \) \{.*?assets\/visual\/workspace-browser\.js.*?wp_localize_script\(.*?stonewrightVisualWorkspace.*?\}/s',
+	public function test_the_browser_bundle_is_not_enqueued_while_ui_hidden(): void {
+		self::assertDoesNotMatchRegularExpression(
+			'/if \( VisualWorkspacePage::SLUG === \$page \) \{.*?assets\/visual\/workspace-browser\.js/s',
 			self::bootstrap(),
-			'The workspace bundle and its payload load only on the workspace page.'
+			'Visual Workspace admin UI is disabled — bootstrap must not enqueue the browser bundle.'
 		);
 	}
 
-	public function test_the_workspace_stylesheet_is_page_scoped(): void {
-		self::assertStringContainsString(
-			"'stonewright-visual-workspace' => 'visual-workspace.css'",
-			self::bootstrap()
-		);
+	public function test_the_workspace_stylesheet_map_entry_is_harmless_without_registration(): void {
+		// CSS map keys may remain for legacy deep links; registration is what matters.
+		self::assertStringNotContainsString( 'VisualWorkspacePage::register()', self::bootstrap() );
 	}
 
-	public function test_the_page_is_registered_by_the_admin_bootstrap(): void {
-		self::assertStringContainsString( 'VisualWorkspacePage::register();', self::bootstrap() );
+	public function test_the_page_is_not_registered_by_the_admin_bootstrap(): void {
+		self::assertStringNotContainsString( 'VisualWorkspacePage::register();', self::bootstrap() );
 	}
 
 	// -----------------------------------------------------------------

@@ -137,7 +137,9 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'STONEWRIGHT_MCP_TOOL_PROFILE = "essential"', $result['toml'] );
 	}
 
-	public function test_stdio_snippets_use_the_saved_site_surface(): void {
+	public function test_stdio_snippets_prefer_recommended_compact_profile_over_full_surface(): void {
+		// Site surface may be full for the plugin registry, but client snippets /
+		// paste prompts prefer essential-class profiles (not full).
 		update_option( 'stonewright_mcp_surface', 'full', false );
 
 		$codex  = ConnectClientConfig::snippet_for( 'codex', 'admin', 'pw' );
@@ -147,9 +149,9 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertIsArray( $codex );
 		$this->assertIsArray( $cursor );
 		$this->assertIsArray( $claude );
-		$this->assertStringContainsString( 'STONEWRIGHT_MCP_TOOL_PROFILE = "full"', $codex['toml'] );
-		$this->assertSame( 'full', $cursor['mcpServers']['stonewright']['env']['STONEWRIGHT_MCP_TOOL_PROFILE'] );
-		$this->assertStringContainsString( '--env STONEWRIGHT_MCP_TOOL_PROFILE=full', $claude['command'] );
+		$this->assertStringContainsString( 'STONEWRIGHT_MCP_TOOL_PROFILE = "essential"', $codex['toml'] );
+		$this->assertSame( 'essential', $cursor['mcpServers']['stonewright']['env']['STONEWRIGHT_MCP_TOOL_PROFILE'] );
+		$this->assertStringContainsString( '--env STONEWRIGHT_MCP_TOOL_PROFILE=essential', $claude['command'] );
 	}
 
 	public function test_strict_cap_client_override_wins_over_saved_site_surface(): void {

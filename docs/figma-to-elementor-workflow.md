@@ -10,23 +10,22 @@ live Elementor schemas decide what can be written.
 | Part | Owns | Does not own |
 |---|---|---|
 | Figma MCP | Frames, variables, styles, text, assets, exact bounds | Elementor control names or permission to write |
-| Design Studio | Site direction, tokens, dials, guidance, readiness, revisions | The content of one Elementor page |
+| Design direction (MCP) | Site direction, tokens, dials, guidance, readiness, revisions via typed design abilities | The content of one Elementor page |
 | DesignEvidence | Measured source observations and provenance | Design preference or write authority |
 | Native planner | Semantic node to native widget/container plan | Raw Elementor settings |
 | Typed Elementor abilities | Schema-checked, backed-up writes and readback | Visual proof |
 | Visual Workspace/browser | Live editor connection, confirmation, rendered evidence | Automatic pixel-perfect certification |
 
-Design Library still has a separate job: reusable page/section blueprints and
-brand kits. Design Studio is the active site-wide visual contract; Visual
-Workspace is a per-post execution and evidence surface. Removing the library
-would force reusable structures into either site direction or page history,
-which is the wrong abstraction.
+Blueprints and brand kits remain available as typed MCP abilities (the Design
+Library admin UI is disabled). Design direction abilities are the site-wide
+visual contract; page-local QA uses Visual Workspace tooling when the visual
+package is present.
 
 ## Fast extraction protocol
 
 1. Call `stonewright-task-start` for an Elementor design task.
 2. Call `stonewright-design-direction-brief` once. If there is no active ready
-   direction, create/review one in Design Studio before treating it as policy.
+   direction, create/review one via design-direction MCP abilities before treating it as policy.
 3. In the chosen Figma MCP, read page and top-level frame metadata once. Build
    one page manifest with an ordered `sections` array: stable section and node
    IDs, exact source order (or a unique explicit integer `order`), desktop and

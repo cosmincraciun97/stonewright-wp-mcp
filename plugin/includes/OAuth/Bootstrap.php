@@ -30,7 +30,7 @@ final class Bootstrap {
 	 * Register the OAuth subsystem when Stonewright and secure transport are enabled.
 	 */
 	public static function boot(): void {
-		if ( ! (bool) get_option( 'stonewright_enabled', false ) || ! Transport::allowed() ) {
+		if ( ! \Stonewright\WpMcp\Security\PluginEffectiveState::is_effectively_enabled() || ! Transport::allowed() ) {
 			return;
 		}
 

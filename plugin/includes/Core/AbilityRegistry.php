@@ -681,7 +681,7 @@ final class AbilityRegistry {
 		}
 		self::$registered_once = true;
 
-		$master_enabled     = (bool) get_option( 'stonewright_enabled', false );
+		$master_enabled     = \Stonewright\WpMcp\Security\PluginEffectiveState::is_effectively_enabled();
 		$disabled_abilities = (array) get_option( 'stonewright_disabled_abilities', [] );
 
 		foreach ( self::public_classes() as $class ) {
@@ -693,7 +693,8 @@ final class AbilityRegistry {
 			$ability = new $class();
 			$name    = $ability->name();
 
-			// Master toggle: skip all abilities except ping when disabled.
+			// Master toggle: skip all abilities except ping when not effectively enabled
+			// (operator off, domain mismatch, dependency, or security policy block).
 			if ( ! $master_enabled && 'stonewright/ping' !== $name ) {
 				continue;
 			}
@@ -761,7 +762,7 @@ final class AbilityRegistry {
 	 * @return list<string>
 	 */
 	public static function mcp_server_ability_names(): array {
-		$master_enabled     = (bool) get_option( 'stonewright_enabled', false );
+		$master_enabled     = \Stonewright\WpMcp\Security\PluginEffectiveState::is_effectively_enabled();
 		$disabled_abilities = array_fill_keys(
 			array_map( 'strval', (array) get_option( 'stonewright_disabled_abilities', [] ) ),
 			true

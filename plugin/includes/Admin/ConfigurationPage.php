@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Admin;
 
 use Stonewright\WpMcp\OAuth\Transport;
 use Stonewright\WpMcp\Security\DomainLock;
+use Stonewright\WpMcp\Security\PluginEffectiveState;
 
 /**
  * Stonewright Configuration admin page.
@@ -19,6 +20,8 @@ final class ConfigurationPage {
 		add_action( 'admin_menu', [ self::class, 'add_menu' ] );
 		add_action( 'admin_init', [ self::class, 'register_settings' ] );
 		add_action( 'admin_post_stonewright_reset_domain_lock', [ self::class, 'handle_reset_domain_lock' ] );
+		add_action( 'admin_post_stonewright_rebind_domain_lock', [ self::class, 'handle_rebind_domain_lock' ] );
+		add_action( 'admin_post_stonewright_rollback_domain_lock', [ self::class, 'handle_rollback_domain_lock' ] );
 		add_action(
 			'admin_post_stonewright_generate_application_password',
 			[ self::class, 'handle_generate_application_password' ]
@@ -79,6 +82,7 @@ final class ConfigurationPage {
 
 		$slug   = isset( $_POST['client'] ) ? sanitize_key( (string) wp_unslash( $_POST['client'] ) ) : '';
 		$method = isset( $_POST['method'] ) ? sanitize_key( (string) wp_unslash( $_POST['method'] ) ) : '';
+		$auth   = isset( $_POST['auth_method'] ) ? sanitize_key( (string) wp_unslash( $_POST['auth_method'] ) ) : '';
 		$known  = ClientCatalog::slugs();
 
 		if ( '' !== $slug && ! in_array( $slug, $known, true ) ) {
@@ -87,7 +91,10 @@ final class ConfigurationPage {
 		if ( '' !== $method && ! in_array( $method, [ 'stdio', 'http' ], true ) ) {
 			wp_send_json_error( [ 'message' => 'invalid_method' ], 400 );
 		}
-		if ( '' === $slug && '' === $method ) {
+		if ( '' !== $auth && ! in_array( $auth, [ 'oauth', 'application-password' ], true ) ) {
+			wp_send_json_error( [ 'message' => 'invalid_auth_method' ], 400 );
+		}
+		if ( '' === $slug && '' === $method && '' === $auth ) {
 			wp_send_json_error( [ 'message' => 'missing_selection' ], 400 );
 		}
 
@@ -96,19 +103,24 @@ final class ConfigurationPage {
 			wp_send_json_error( [ 'message' => 'no_user' ], 400 );
 		}
 
+		$partial = [];
 		if ( '' !== $slug ) {
-			update_user_meta( $user_id, 'stonewright_setup_client', $slug );
+			$partial['selected_client'] = $slug;
 		}
 		if ( '' !== $method ) {
-			update_user_meta( $user_id, 'stonewright_setup_method', $method );
+			$partial['transport_method'] = $method;
 		}
+		if ( '' !== $auth ) {
+			$partial['auth_method'] = $auth;
+		}
+		$state = SetupState::persist_partial( $partial, $user_id );
 
-		$saved_client = self::selected_setup_client( $user_id );
-		$saved_method = self::selected_setup_method( $user_id );
 		wp_send_json_success(
 			[
-				'client' => $saved_client,
-				'method' => $saved_method,
+				'client'      => (string) $state['selected_client'],
+				'method'      => (string) $state['transport_method'],
+				'auth_method' => (string) $state['auth_method'],
+				'setup_state' => $state,
 			]
 		);
 	}
@@ -136,10 +148,41 @@ final class ConfigurationPage {
 	}
 
 	public static function register_settings(): void {
-		register_setting( self::OPTION_GROUP, 'stonewright_enabled', [
+		register_setting( self::OPTION_GROUP, PluginEffectiveState::OPTION_REQUESTED, [
 			'type'              => 'boolean',
 			'default'           => false,
-			'sanitize_callback' => static fn( mixed $value ): bool => (bool) $value,
+			'sanitize_callback' => static function ( mixed $value ): bool {
+				$enabled = (bool) $value;
+				// Operator intent only — domain lock is applied separately on enable.
+				if ( $enabled ) {
+					DomainLock::lock();
+				}
+				return $enabled;
+			},
+		] );
+
+		register_setting( self::OPTION_GROUP, 'stonewright_install_mode', [
+			'type'              => 'string',
+			'default'           => 'auto',
+			'sanitize_callback' => static function ( mixed $value ): string {
+				$value = is_string( $value ) ? strtolower( trim( $value ) ) : '';
+				return in_array( $value, [ 'direct-only', 'plugin-only', 'auto' ], true ) ? $value : 'auto';
+			},
+		] );
+
+		register_setting( self::OPTION_GROUP, 'stonewright_site_alias', [
+			'type'              => 'string',
+			'default'           => '',
+			'sanitize_callback' => static fn( mixed $value ): string => sanitize_text_field( is_string( $value ) ? $value : '' ),
+		] );
+
+		register_setting( self::OPTION_GROUP, 'stonewright_site_environment', [
+			'type'              => 'string',
+			'default'           => '',
+			'sanitize_callback' => static function ( mixed $value ): string {
+				$value = is_string( $value ) ? strtolower( trim( $value ) ) : '';
+				return in_array( $value, [ '', 'local', 'development', 'staging', 'production' ], true ) ? $value : '';
+			},
 		] );
 
 		register_setting( self::OPTION_GROUP, 'stonewright_custom_instructions_enabled', [
@@ -215,7 +258,8 @@ final class ConfigurationPage {
 			return;
 		}
 
-		$enabled             = (bool) get_option( 'stonewright_enabled', false );
+		$enabled             = PluginEffectiveState::enabled_requested();
+		$effective_state     = PluginEffectiveState::effective_state();
 		$mode                = (string) get_option( 'stonewright_mode', 'development' );
 		$companion_url       = (string) get_option( 'stonewright_companion_url', 'http://127.0.0.1:8765' );
 		$companion_token     = (string) get_option( 'stonewright_companion_token', '' );
@@ -245,7 +289,7 @@ final class ConfigurationPage {
 			? (string) ( $generated_password['password'] ?? '' )
 			: '';
 		$prompt_password     = '' !== $app_password_value ? $app_password_value : '<application-password-from-step-2>';
-		$connect_prompt      = ConnectClientConfig::paste_to_agent_prompt( '', '' );
+		$connect_prompt      = ConnectClientConfig::paste_to_agent_prompt( '', '', self::selected_setup_client( $current_user_id ) );
 		$prompt_preview      = self::prompt_preview( $connect_prompt );
 		$app_passwords       = self::application_passwords_for_current_user();
 		$risk_class          = 'production-safe' === $mode
@@ -363,7 +407,19 @@ final class ConfigurationPage {
 								/>
 								<span><?php esc_html_e( 'Turn on Stonewright abilities for this site', 'stonewright' ); ?></span>
 							</label>
+							<?php if ( $enabled && PluginEffectiveState::STATE_ENABLED !== $effective_state ) : ?>
+								<p class="description" role="status">
+									<?php
+									printf(
+										/* translators: %s: effective runtime state key */
+										esc_html__( 'Requested: on. Effective state: %s (abilities stay blocked until resolved).', 'stonewright' ),
+										esc_html( $effective_state )
+									);
+									?>
+								</p>
+							<?php endif; ?>
 						</div>
+						<?php self::render_domain_lock_status(); ?>
 						<div class="sw-field stonewright-field-row">
 							<label for="stonewright_mode"><?php esc_html_e( 'Mode', 'stonewright' ); ?></label>
 							<select name="stonewright_mode" id="stonewright_mode">
@@ -594,7 +650,14 @@ final class ConfigurationPage {
 						<?php endif; ?>
 
 						<?php if ( self::application_passwords_available() ) : ?>
-							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-app-password-form">
+							<form
+								method="post"
+								action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
+								class="stonewright-app-password-form"
+								data-stonewright-app-password-form
+								data-rest-url="<?php echo esc_url( rest_url( 'stonewright/v1/app-password' ) ); ?>"
+								data-rest-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>"
+							>
 								<input type="hidden" name="action" value="stonewright_generate_application_password"/>
 								<?php wp_nonce_field( 'stonewright_generate_application_password' ); ?>
 								<div class="sw-field stonewright-field-row">
@@ -611,6 +674,13 @@ final class ConfigurationPage {
 									/>
 									<p class="description"><?php esc_html_e( 'Required. Use a clear client label so you can revoke it later.', 'stonewright' ); ?></p>
 								</div>
+								<div
+									class="stonewright-app-password-live"
+									data-stonewright-app-password-live
+									role="status"
+									aria-live="polite"
+									hidden
+								></div>
 								<div class="sw-actions">
 									<?php
 									submit_button(
@@ -619,9 +689,15 @@ final class ConfigurationPage {
 											: __( 'Generate application password', 'stonewright' ),
 										'primary',
 										'submit',
-										false
+										false,
+										[
+											'data-stonewright-app-password-submit' => '1',
+										]
 									);
 									?>
+									<span class="description" data-stonewright-app-password-nojs-hint>
+										<?php esc_html_e( 'Without JavaScript this navigates and shows the password once — copy it immediately.', 'stonewright' ); ?>
+									</span>
 								</div>
 							</form>
 							<p>
@@ -1430,17 +1506,56 @@ final class ConfigurationPage {
 
 	private static function render_domain_lock_status(): void {
 		$locked_domain = DomainLock::locked_domain();
-		if ( '' === $locked_domain ) {
+		if ( '' === $locked_domain && DomainLock::check() ) {
 			return;
 		}
+
+		$status   = DomainLock::status();
+		$mismatch = ! DomainLock::check();
 		?>
-		<div class="stonewright-domain-lock-status">
+		<div class="stonewright-domain-lock-status" id="stonewright-domain-lock">
 			<span><?php esc_html_e( 'Domain lock:', 'stonewright' ); ?></span>
-			<code><?php echo esc_html( $locked_domain ); ?></code>
+			<?php if ( '' !== (string) $status['locked'] ) : ?>
+				<code><?php echo esc_html( (string) $status['locked'] ); ?></code>
+			<?php else : ?>
+				<em><?php esc_html_e( 'not set', 'stonewright' ); ?></em>
+			<?php endif; ?>
+			<?php if ( $mismatch ) : ?>
+				<span class="stonewright-risk-notice stonewright-risk-notice--warning">
+					<?php esc_html_e( 'Mismatch — abilities are BLOCKED. Operator enablement was not changed.', 'stonewright' ); ?>
+				</span>
+				<p>
+					<?php esc_html_e( 'Locked origin:', 'stonewright' ); ?>
+					<code><?php echo esc_html( (string) $status['locked'] ); ?></code>
+					→
+					<?php esc_html_e( 'Current origin:', 'stonewright' ); ?>
+					<code><?php echo esc_html( (string) $status['current'] ); ?></code>
+				</p>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form">
+					<input type="hidden" name="action" value="stonewright_rebind_domain_lock"/>
+					<?php wp_nonce_field( 'stonewright_rebind_domain_lock' ); ?>
+					<label>
+						<input type="checkbox" name="stonewright_rebind_confirm" value="1" required />
+						<?php esc_html_e( 'I confirm this is an intentional domain change for this WordPress site.', 'stonewright' ); ?>
+					</label>
+					<button type="submit" class="button button-primary button-small">
+						<?php esc_html_e( 'Review and rebind this site', 'stonewright' ); ?>
+					</button>
+				</form>
+			<?php endif; ?>
+			<?php if ( DomainLock::can_rollback() ) : ?>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form">
+					<input type="hidden" name="action" value="stonewright_rollback_domain_lock"/>
+					<?php wp_nonce_field( 'stonewright_rollback_domain_lock' ); ?>
+					<button type="submit" class="button button-small">
+						<?php esc_html_e( 'Restore prior domain binding', 'stonewright' ); ?>
+					</button>
+				</form>
+			<?php endif; ?>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form">
 				<input type="hidden" name="action" value="stonewright_reset_domain_lock"/>
 				<?php wp_nonce_field( 'stonewright_reset_domain_lock' ); ?>
-				<button type="submit" class="button button-small"><?php esc_html_e( 'Reset lock', 'stonewright' ); ?></button>
+				<button type="submit" class="button button-small"><?php esc_html_e( 'Clear domain lock', 'stonewright' ); ?></button>
 			</form>
 		</div>
 		<?php
@@ -1452,7 +1567,65 @@ final class ConfigurationPage {
 		}
 		check_admin_referer( 'stonewright_reset_domain_lock' );
 		DomainLock::reset();
-		wp_safe_redirect( add_query_arg( [ 'page' => self::SLUG, 'lock_reset' => '1' ], admin_url( 'admin.php' ) ) );
+		wp_safe_redirect( add_query_arg( [ 'page' => self::SLUG, 'lock_reset' => '1' ], admin_url( 'admin.php' ) ) . '#stonewright-domain-lock' );
+		exit;
+	}
+
+	/**
+	 * Explicit rebind: snapshot prior binding, write new lock, audit.
+	 * Never mutates operator enablement intent.
+	 */
+	public static function handle_rebind_domain_lock(): void {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
+		}
+		check_admin_referer( 'stonewright_rebind_domain_lock' );
+
+		$confirmed = isset( $_POST['stonewright_rebind_confirm'] ) && '1' === (string) wp_unslash( $_POST['stonewright_rebind_confirm'] );
+		if ( ! $confirmed ) {
+			wp_die( esc_html__( 'Rebind requires explicit confirmation.', 'stonewright' ) );
+		}
+
+		$result = DomainLock::rebind();
+		if ( is_wp_error( $result ) ) {
+			wp_die( esc_html( $result->get_error_message() ) );
+		}
+
+		wp_safe_redirect(
+			add_query_arg(
+				[
+					'page'        => self::SLUG,
+					'lock_rebind' => '1',
+				],
+				admin_url( 'admin.php' )
+			) . '#stonewright-domain-lock'
+		);
+		exit;
+	}
+
+	/**
+	 * Restore prior domain binding within the retention window.
+	 */
+	public static function handle_rollback_domain_lock(): void {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
+		}
+		check_admin_referer( 'stonewright_rollback_domain_lock' );
+
+		$result = DomainLock::rollback();
+		if ( is_wp_error( $result ) ) {
+			wp_die( esc_html( $result->get_error_message() ) );
+		}
+
+		wp_safe_redirect(
+			add_query_arg(
+				[
+					'page'          => self::SLUG,
+					'lock_rollback' => '1',
+				],
+				admin_url( 'admin.php' )
+			) . '#stonewright-domain-lock'
+		);
 		exit;
 	}
 }

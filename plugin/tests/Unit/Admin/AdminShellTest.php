@@ -33,8 +33,10 @@ final class AdminShellTest extends TestCase {
 
 		self::assertContains( 'stonewright', $slugs );
 		self::assertContains( 'stonewright-abilities', $slugs );
-		self::assertContains( 'stonewright-design-studio', $slugs );
-		self::assertContains( 'stonewright-blueprints', $slugs );
+		self::assertNotContains( 'stonewright-design-studio', $slugs );
+		self::assertNotContains( 'stonewright-blueprints', $slugs );
+		self::assertNotContains( 'stonewright-visual-workspace', $slugs );
+		self::assertContains( 'stonewright-prompts', $slugs );
 		self::assertContains( 'stonewright-sandbox', $slugs );
 		self::assertContains( 'stonewright-skills', $slugs );
 		self::assertContains( 'stonewright-memory', $slugs );
@@ -53,7 +55,7 @@ final class AdminShellTest extends TestCase {
 		self::assertContains( 'connect', $ids );
 		self::assertContains( 'capabilities', $ids );
 		self::assertContains( 'workflows', $ids );
-		self::assertContains( 'design-library', $ids );
+		self::assertNotContains( 'design-library', $ids );
 		self::assertContains( 'safety-diagnostics', $ids );
 
 		$from_groups = [];

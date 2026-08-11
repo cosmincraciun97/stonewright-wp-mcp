@@ -111,40 +111,6 @@
       "verification": "Footer part saves; no horizontal overflow at 390px width."
     },
     {
-      "id": "brand-kit-apply",
-      "title": "Apply a brand kit",
-      "outcome": "brand-kit",
-      "summary": "List and apply a built-in brand kit carefully.",
-      "prerequisites": [
-        "plugin mode"
-      ],
-      "tools": [
-        "stonewright-task-start",
-        "stonewright-brand-kit-list",
-        "stonewright-brand-kit-apply"
-      ],
-      "prompt": "Use Stonewright. Call stonewright-task-start, list brand kits, pick the kit that best matches the site brief, and apply it. Report which tokens changed and any follow-up Elementor kit steps.",
-      "verification": "Kit id applied; token diff summarized; destructive paths token-gated in production-safe."
-    },
-    {
-      "id": "blueprint-industry-site",
-      "title": "Apply industry blueprint",
-      "outcome": "blueprint",
-      "summary": "Scaffold pages from a Stonewright blueprint.",
-      "prerequisites": [
-        "plugin mode",
-        "writable content"
-      ],
-      "tools": [
-        "stonewright-task-start",
-        "stonewright-blueprint-list",
-        "stonewright-blueprint-get",
-        "stonewright-blueprint-apply"
-      ],
-      "prompt": "Use Stonewright. Start with stonewright-task-start. List blueprints, choose the best industry match for this site, get the blueprint details, then apply with a clear page map. Prefer dry-run or review mode when available; confirm titles before publish.",
-      "verification": "Blueprint apply result lists created/updated pages; no silent overwrites without snapshot."
-    },
-    {
       "id": "content-model-services",
       "title": "Services CPT + fields",
       "outcome": "content-model",
@@ -195,13 +161,16 @@
         "stonewright-seo-meta-update"
       ],
       "prompt": "Use Stonewright. Call stonewright-task-start and stonewright-seo-status. For the homepage and top three service pages, get meta, tighten titles/descriptions to intent, update, and report before/after strings.",
-      "verification": "Meta updated only on listed ids; titles \u2264 ~60 chars; no keyword stuffing."
+      "verification": "Meta updated only on listed ids; titles ≤ ~60 chars; no keyword stuffing."
     },
     {
       "id": "wp-cli-cache-rewrite",
       "title": "WP-CLI cache and rewrite health",
       "outcome": "ops",
-      "modes": ["plugin", "direct"],
+      "modes": [
+        "plugin",
+        "direct"
+      ],
       "summary": "Tokenized WP-CLI status, rewrite flush when safe.",
       "prerequisites": [
         "Companion with WP-CLI path",
@@ -215,74 +184,6 @@
       ],
       "prompt": "Use Stonewright companion WP-CLI tools only (never shell wp). Call stonewright-task-start, wp-cli-status, discover rewrite/cache commands, then run a safe status check. Flush rewrites only if the operator confirmed staging.",
       "verification": "All WP-CLI calls tokenized; no eval/shell; output includes command results without secrets."
-    },
-    {
-      "id": "blueprint-engine-elementor",
-      "title": "Apply blueprint on Elementor engine",
-      "outcome": "blueprint",
-      "summary": "Explicit Elementor engine for a blueprint apply.",
-      "prerequisites": [
-        "plugin mode",
-        "Elementor active"
-      ],
-      "tools": [
-        "stonewright-task-start",
-        "stonewright-blueprint-list",
-        "stonewright-blueprint-apply"
-      ],
-      "prompt": "Use Stonewright. Call stonewright-task-start first. List blueprints, pick the best industry match, then call stonewright-blueprint-apply with engine=elementor (never silently fall back). Prefer draft status. Snapshot before write; report created page ids and any unsupported nodes.",
-      "verification": "Apply uses engine=elementor; draft pages created; unsupported_nodes empty or listed honestly."
-    },
-    {
-      "id": "blueprint-engine-gutenberg",
-      "title": "Apply blueprint on Gutenberg engine",
-      "outcome": "blueprint",
-      "summary": "Explicit Gutenberg engine for a blueprint apply.",
-      "prerequisites": [
-        "plugin mode"
-      ],
-      "tools": [
-        "stonewright-task-start",
-        "stonewright-blueprint-list",
-        "stonewright-blueprint-apply",
-        "stonewright-gutenberg-parse-blocks"
-      ],
-      "prompt": "Use Stonewright. Call stonewright-task-start first. Apply the chosen blueprint with engine=gutenberg. Validate blocks with parse/apply helpers. Prefer draft.",
-      "verification": "engine=gutenberg; blocks parse cleanly; draft saved."
-    },
-    {
-      "id": "blueprint-engine-fse",
-      "title": "Apply blueprint toward FSE templates",
-      "outcome": "blueprint",
-      "summary": "FSE-oriented blueprint path with snapshot.",
-      "prerequisites": [
-        "block theme",
-        "plugin mode"
-      ],
-      "tools": [
-        "stonewright-task-start",
-        "stonewright-blueprint-apply",
-        "stonewright-gutenberg-editor-snapshot",
-        "stonewright-fse-list-templates"
-      ],
-      "prompt": "Use Stonewright. Call stonewright-task-start. Snapshot FSE state, then apply the blueprint with engine=fse when available (or report stonewright_engine_unavailable honestly). Never bypass backup/snapshot gates.",
-      "verification": "Snapshot taken; FSE engine success or structured unavailable error; no silent fallback."
-    },
-    {
-      "id": "brand-kit-preview-restore",
-      "title": "Brand kit preview and restore point",
-      "outcome": "brand-kit",
-      "summary": "Preview brand kit impact and keep a restore handle.",
-      "prerequisites": [
-        "plugin mode"
-      ],
-      "tools": [
-        "stonewright-task-start",
-        "stonewright-brand-kit-list",
-        "stonewright-brand-kit-apply"
-      ],
-      "prompt": "Use Stonewright. Call stonewright-task-start. List kits, then brand-kit-apply with preview=true when supported to get a before/after diff. Apply for real only after operator approval and capture restore_id.",
-      "verification": "Diff or change report present; restore_id when applied; production-safe tokens respected."
     },
     {
       "id": "figma-to-native-pixel",
@@ -301,14 +202,17 @@
         "stonewright-elementor-v3-build-page-from-spec",
         "stonewright-gutenberg-apply-to-post"
       ],
-      "prompt": "Use Stonewright. Call stonewright-task-start. List MCP tools and extract design with the client's external Figma MCP (console-bridge preferred when present: figma_export_tokens / figma_get_variables / deep component trees; official: get_variable_defs, get_design_context, get_metadata, get_screenshot). Map fields via skills/design-to-wordpress/references/figma-mcp-extraction.md. Normalize into DesignEvidence/figma_token_table (never embed Figma APIs inside Stonewright; no raw Figma tree after normalization). Call stonewright-design-native-plan. Render with the user-chosen engine (elementor|gutenberg|fse). CSS only when native_gap is recorded. Verify each breakpoint with the client's own browser tools against evidence targets (\u00b12px spacing).",
+      "prompt": "Use Stonewright. Call stonewright-task-start. List MCP tools and extract design with the client's external Figma MCP (console-bridge preferred when present: figma_export_tokens / figma_get_variables / deep component trees; official: get_variable_defs, get_design_context, get_metadata, get_screenshot). Map fields via skills/design-to-wordpress/references/figma-mcp-extraction.md. Normalize into DesignEvidence/figma_token_table (never embed Figma APIs inside Stonewright; no raw Figma tree after normalization). Call stonewright-design-native-plan. Render with the user-chosen engine (elementor|gutenberg|fse). CSS only when native_gap is recorded. Verify each breakpoint with the client's own browser tools against evidence targets (±2px spacing).",
       "verification": "Native plan present; native_gap for any CSS; no raw Figma tree after normalization; provenance set on measured values; verification notes per breakpoint."
     },
     {
       "id": "profile-self-upgrade",
       "title": "Upgrade tool profile mid-session",
       "outcome": "ops",
-      "modes": ["plugin", "direct"],
+      "modes": [
+        "plugin",
+        "direct"
+      ],
       "summary": "When a needed tool is missing, activate a broader profile and re-list.",
       "prerequisites": [
         "MCP session with stonewright-tool-profile"
@@ -324,7 +228,10 @@
       "id": "woocommerce-catalog-setup",
       "title": "WooCommerce catalog inspection or guarded update",
       "outcome": "woocommerce",
-      "modes": ["plugin", "direct"],
+      "modes": [
+        "plugin",
+        "direct"
+      ],
       "summary": "Use native catalog abilities in Plugin mode or read-only store tools in Direct mode.",
       "prerequisites": [
         "WooCommerce active",
@@ -348,7 +255,9 @@
       "id": "direct-safe-inspection",
       "title": "Direct mode safe site inspection",
       "outcome": "inspect",
-      "modes": ["direct"],
+      "modes": [
+        "direct"
+      ],
       "summary": "Use the pluginless companion without degrading to ad-hoc REST or shell workarounds.",
       "prerequisites": [
         "Stonewright companion configured",
@@ -367,7 +276,10 @@
       "id": "update-and-verify-stonewright",
       "title": "Update and verify Stonewright",
       "outcome": "ops",
-      "modes": ["plugin", "direct"],
+      "modes": [
+        "plugin",
+        "direct"
+      ],
       "summary": "Match the plugin and companion versions, reload the client, and prove the live tool surface.",
       "prerequisites": [
         "latest Stonewright release selected",
@@ -403,7 +315,9 @@
       "id": "custom-code-human-approval",
       "title": "Custom code with human approval",
       "outcome": "safety",
-      "modes": ["plugin"],
+      "modes": [
+        "plugin"
+      ],
       "summary": "Prepare an exact theme-file or Customizer CSS proposal and stop for a human-issued one-time grant.",
       "prerequisites": [
         "Plugin mode",

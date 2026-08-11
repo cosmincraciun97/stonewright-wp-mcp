@@ -209,6 +209,26 @@ final class ConnectClientConfig {
 	}
 
 	/**
+	 * Client-aware recommended companion startup profile.
+	 * Prefer essential-static / essential — never default to full.
+	 */
+	public static function recommended_startup_profile( string $client_slug = '' ): string {
+		$client_slug = sanitize_key( $client_slug );
+		if ( in_array( $client_slug, [ 'antigravity', 'gemini-cli' ], true ) ) {
+			return 'essential-static';
+		}
+		// Site surface may be bootstrap/essential/full; clamp full to essential for prompts.
+		$surface = AbilityRegistry::mcp_surface();
+		if ( 'full' === $surface ) {
+			return 'essential';
+		}
+		if ( in_array( $surface, [ 'bootstrap', 'essential' ], true ) ) {
+			return $surface;
+		}
+		return 'essential';
+	}
+
+	/**
 	 * Returns a credential-free prompt for the user to configure the agent.
 	 *
 	 * Username and Application Password remain parameters for backwards
@@ -216,10 +236,11 @@ final class ConnectClientConfig {
 	 *
 	 * @param string $username     WordPress username (never included).
 	 * @param string $app_password Application Password (never included).
+	 * @param string $client_slug  Optional client for recommended profile.
 	 */
-	public static function paste_to_agent_prompt( string $username, string $app_password ): string {
+	public static function paste_to_agent_prompt( string $username, string $app_password, string $client_slug = '' ): string {
 		unset( $username, $app_password );
-		$tool_profile = AbilityRegistry::mcp_surface();
+		$tool_profile = self::recommended_startup_profile( $client_slug );
 		return sprintf(
 			/* translators: 1: companion package URL, 2: selected MCP tool surface. */
 			__(
@@ -264,9 +285,11 @@ final class ConnectClientConfig {
 	}
 
 	private static function profile_for_client( string $client_slug ): string {
-		return in_array( $client_slug, [ 'antigravity', 'gemini-cli' ], true )
-			? 'low-tools'
-			: AbilityRegistry::mcp_surface();
+		if ( in_array( $client_slug, [ 'antigravity', 'gemini-cli' ], true ) ) {
+			return 'low-tools';
+		}
+		// Prefer recommended compact profile over full site surface for snippets.
+		return self::recommended_startup_profile( $client_slug );
 	}
 
 	/**
