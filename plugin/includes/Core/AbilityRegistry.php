@@ -221,6 +221,7 @@ use Stonewright\WpMcp\Abilities\Themes\ThemeFilePatch;
 use Stonewright\WpMcp\Abilities\Themes\ThemeFileRead;
 use Stonewright\WpMcp\Abilities\Themes\ThemeBackupRestore;
 use Stonewright\WpMcp\Abilities\Themes\ThemeList;
+use Stonewright\WpMcp\Abilities\CustomCode\ProviderOps as CustomCodeProviderOps;
 use Stonewright\WpMcp\Abilities\PluginsManage\PluginActivate;
 use Stonewright\WpMcp\Abilities\PluginsManage\PluginDeactivate;
 use Stonewright\WpMcp\Abilities\PluginsManage\PluginDelete;
@@ -577,6 +578,9 @@ final class AbilityRegistry {
 			ThemeFileRead::class,
 			ThemeFilePatch::class,
 			ThemeBackupRestore::class,
+
+			// Custom-code providers (WPCode, Code Snippets, Customizer CSS, theme file).
+			CustomCodeProviderOps::class,
 
 			// Plugins manage.
 			PluginActivate::class,

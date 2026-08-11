@@ -1,6 +1,6 @@
 # Abilities Reference
 
-> Category counts are generated from `docs/ability-truth-matrix.md` (**358** abilities).
+> Category counts are generated from `docs/ability-truth-matrix.md` (**359** abilities).
 Stonewright registers WordPress abilities under the `stonewright/` prefix. MCP
 clients call the same names with slashes converted to hyphens: ability
 `stonewright/task-start` is MCP tool `stonewright-task-start`.

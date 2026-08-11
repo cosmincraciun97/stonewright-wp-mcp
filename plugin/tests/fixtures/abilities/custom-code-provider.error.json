@@ -1,0 +1,9 @@
+{
+  "args": {
+    "action": "dry-run",
+    "provider": "wpcode",
+    "target_id": "1",
+    "code": "<?php echo 1;"
+  },
+  "expect_permission_error": true
+}

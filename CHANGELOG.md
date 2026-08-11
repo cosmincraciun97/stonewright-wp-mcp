@@ -12,6 +12,9 @@ were never stable releases and are not part of the supported public history.
 
 ### Added
 
+- Add typed custom-code provider adapters for WPCode, Code Snippets,
+  Customizer CSS, and allowlisted theme files with dry-run approval handoff,
+  concurrency checks, snapshots, readback verification, and rollback guidance.
 - Add a versioned multi-site/environment registry, collision-safe site aliases,
   per-client bindings, OS-backed credential references, transactional client
   configuration, and a `stonewright connect` installer/verification workflow.
@@ -20,6 +23,8 @@ were never stable releases and are not part of the supported public history.
 
 ### Changed
 
+- Keep unresolved audit incidents out of active learning memory and promote a
+  durable repair only after exact verified evidence or an explicit correction.
 - Require a one-time browser-provider choice per site/client, separate consent
   for tool/config scanning and installation, and keep every custom-code safety
   boundary intact for browser-assisted Plugin and Direct workflows.
@@ -35,6 +40,11 @@ were never stable releases and are not part of the supported public history.
 
 ### Fixed
 
+- Restrict snippet-plugin source reads to administrators, retain
+  `edit_theme_options` only for theme-owned providers, and confirmation-gate
+  custom-code apply and rollback in production-safe mode.
+- Paginate legacy audit-lesson reconciliation and leave it retryable whenever
+  an eligible memory update fails.
 - Keep the dependency audit fail-closed while documenting Composer 2.9.5's
   false-positive boundary match for the already patched PHP_CodeSniffer 3.13.6.
 - Align Audit, Memory, Skills, and Sandbox controls with consistent card

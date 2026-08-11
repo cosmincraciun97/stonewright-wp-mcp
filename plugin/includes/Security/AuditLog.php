@@ -327,13 +327,29 @@ final class AuditLog {
 	/**
 	 * Record a Stonewright REST mutation unless an ability already audited this request.
 	 *
+	 * When `$target_ability` is provided (e.g. `/abilities/run`), the audit row
+	 * is attributed to that ability so cause keys and incidents group by the
+	 * real operation rather than the generic REST route label.
+	 *
 	 * @param array<string, mixed> $sanitized_args
 	 */
-	public static function record_rest_mutation( string $route, string $method, array $sanitized_args, string $status = 'ok' ): bool {
+	public static function record_rest_mutation( string $route, string $method, array $sanitized_args, string $status = 'ok', string $target_ability = '' ): bool {
 		if ( self::was_audited() ) {
 			return true;
 		}
-		$label = 'rest:' . strtoupper( $method ) . ' ' . $route;
+		$target_ability = sanitize_text_field( $target_ability );
+		$label          = '' !== $target_ability
+			? $target_ability
+			: 'rest:' . strtoupper( $method ) . ' ' . $route;
+		// Always keep the route label in meta for REST-sourced rows.
+		if ( ! isset( $sanitized_args['_meta'] ) || ! is_array( $sanitized_args['_meta'] ) ) {
+			$sanitized_args['_meta'] = [];
+		}
+		$sanitized_args['_meta']['rest_route']  = $route;
+		$sanitized_args['_meta']['rest_method'] = strtoupper( $method );
+		if ( '' !== $target_ability ) {
+			$sanitized_args['_meta']['target_ability'] = $target_ability;
+		}
 		return self::record( $label, $sanitized_args, $status );
 	}
 
