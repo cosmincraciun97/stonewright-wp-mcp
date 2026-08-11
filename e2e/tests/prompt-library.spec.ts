@@ -26,7 +26,9 @@ test.describe('Prompt Library tab', () => {
 		await expect(page.locator('h1')).toContainText(/Prompt Library/i);
 		const cards = page.locator('[data-sw-prompt-card]');
 		await expect(cards.first()).toBeVisible();
-		expect(await cards.count()).toBeGreaterThanOrEqual(20);
+		await expect(cards).toHaveCount(17);
+		await expect(page.getByText('Apply a brand kit', { exact: true })).toHaveCount(0);
+		await expect(page.getByText('Build an industry site blueprint', { exact: true })).toHaveCount(0);
 		await expect(page.locator('.sw-prompt-safety')).toContainText(
 			'Prompts contain no site URL, username, Application Password, token',
 		);

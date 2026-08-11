@@ -8,8 +8,6 @@ const STONEWRIGHT_PAGES = [
 	{ slug: 'stonewright-status', label: 'Dashboard' },
 	{ slug: 'stonewright', label: 'Setup' },
 	{ slug: 'stonewright-abilities', label: 'AI Abilities' },
-	{ slug: 'stonewright-blueprints', label: 'Blueprints' },
-	{ slug: 'stonewright-design-studio', label: 'Design Studio' },
 	{ slug: 'stonewright-prompts', label: 'Prompts' },
 	{ slug: 'stonewright-custom-code-approval', label: 'Code Approval' },
 	{ slug: 'stonewright-sandbox', label: 'Sandbox' },
@@ -193,5 +191,78 @@ test.describe('Stonewright admin UI', () => {
 		await oauthButton.click();
 		await expect(oauthButton).toHaveAttribute('aria-checked', 'true');
 		await expect(page.getByRole('link', { name: 'Manage connected apps' }).first()).toBeVisible();
+	});
+
+	test('Application Password generation stays in-page, fills only private snippets, and revokes cleanly', async ({
+		page,
+	}, testInfo) => {
+		await page.goto('/wp-admin/admin.php?page=stonewright', {
+			waitUntil: 'domcontentloaded',
+		});
+		const passwordButton = page.locator(
+			'[data-stonewright-auth-method="application-password"]',
+		);
+		await passwordButton.click();
+		await expect(passwordButton).toHaveAttribute('aria-checked', 'true');
+
+		const form = page.locator('[data-stonewright-app-password-form]');
+		await form.scrollIntoViewIfNeeded();
+		const urlBefore = page.url();
+		const documentMarker = `same-document-${Date.now()}`;
+		await page.evaluate((marker) => {
+			(window as Window & { __stonewrightE2EMarker?: string }).__stonewrightE2EMarker = marker;
+		}, documentMarker);
+		const scrollBefore = await page.evaluate(() => window.scrollY);
+		const label = `Stonewright E2E ${testInfo.project.name} ${Date.now()}`;
+		await form.locator('#stonewright_app_password_name').fill(label);
+		await form.locator('[data-stonewright-app-password-submit]').click();
+
+		const passwordInput = form.locator('#stonewright-generated-app-password');
+		await expect(passwordInput).toBeVisible();
+		await expect(passwordInput).not.toHaveValue('');
+		expect(page.url()).toBe(urlBefore);
+		await expect.poll(() => page.evaluate(() =>
+			(window as Window & { __stonewrightE2EMarker?: string }).__stonewrightE2EMarker,
+		)).toBe(documentMarker);
+		await expect(passwordButton).toHaveAttribute('aria-checked', 'true');
+		const scrollAfter = await page.evaluate(() => window.scrollY);
+		expect(Math.abs(scrollAfter - scrollBefore)).toBeLessThanOrEqual(8);
+
+		const containment = await page.evaluate(() => {
+			const input = document.querySelector<HTMLInputElement>('#stonewright-generated-app-password');
+			const password = input?.value ?? '';
+			const privateText = Array.from(
+				document.querySelectorAll('[data-stonewright-method-snippet] pre'),
+			).map((node) => node.textContent ?? '').join('\n');
+			const prompt = document.querySelector<HTMLElement>('#stonewright-connect-prompt-full');
+			const promptText = [
+				prompt?.textContent ?? '',
+				prompt?.getAttribute('data-stonewright-text-full') ?? '',
+			].join('\n');
+			return {
+				hasPassword: password.length > 0,
+				privateSnippetFilled: password.length > 0 && privateText.includes(password),
+				promptCredentialFree: password.length > 0 && !promptText.includes(password),
+				placeholderReplaced: !privateText.includes('<your-application-password>'),
+			};
+		});
+		expect(containment).toEqual({
+			hasPassword: true,
+			privateSnippetFilled: true,
+			promptCredentialFree: true,
+			placeholderReplaced: true,
+		});
+
+		const row = page.locator('.stonewright-app-password-table tbody tr').filter({ hasText: label });
+		await expect(row).toBeVisible();
+		page.once('dialog', (dialog) => dialog.accept());
+		await row.getByRole('button', { name: 'Revoke' }).click();
+		await expect(row).toHaveCount(0);
+		await expect(passwordInput).toHaveCount(0);
+		const placeholdersRestored = await page.evaluate(() =>
+			Array.from(document.querySelectorAll('[data-stonewright-method-snippet] pre'))
+				.some((node) => (node.textContent ?? '').includes('<your-application-password>')),
+		);
+		expect(placeholdersRestored).toBe(true);
 	});
 });

@@ -10,11 +10,29 @@ were never stable releases and are not part of the supported public history.
 
 ## [Unreleased]
 
+### Changed
+
+- Start fresh plugin installs on the bounded `essential` surface, use
+  the operator-selected surface in generated client profiles, retain bounded
+  overrides only for strict-cap clients, and reserve bootstrap for explicit
+  diagnostics.
+- Disable the Design Library wp-admin group and its page-specific browser tests
+  while preserving typed design engines, stored user data, and the
+  `figma-to-native-pixel` workflow.
+
 ### Fixed
 
 - Refresh the callable companion tool registry after task-start profile changes,
   reuse tool and prompt handles during reconnect, and keep authentication and
   WordPress reachability status evidence-based.
+- Preserve requested ability enablement across domain-lock mismatches and expose
+  explicit blocked, rebind, rollback, and audit state instead of silently
+  switching the plugin off.
+- Generate Application Passwords without a page refresh, fill private snippets
+  with the canonical placeholder, clear credentials from the tab lifecycle, and
+  remove plaintext transient persistence from the no-JavaScript fallback.
+- Apply every runtime-affecting Step 1 control immediately, bump one shared
+  surface revision, and expose the exact refresh contract to connected clients.
 
 ## [1.0.0-beta.4] - 2026-08-05
 

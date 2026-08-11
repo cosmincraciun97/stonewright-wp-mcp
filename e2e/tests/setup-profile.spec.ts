@@ -24,10 +24,10 @@ async function login(page: Page): Promise<void> {
 	}
 }
 
-test.describe('Setup MCP surface Apply now', () => {
+test.describe('Setup Step 1 instant runtime apply', () => {
 	test.use({ viewport: { width: 1440, height: 900 }, colorScheme: 'light' });
 
-	test('surface select + Apply now saves and round-trips', async ({ page }, testInfo) => {
+	test('surface change saves without clicking Apply now and round-trips', async ({ page }, testInfo) => {
 		test.skip(
 			testInfo.project.name !== 'desktop-1440-light',
 			'Global MCP surface mutation runs once.',
@@ -49,9 +49,10 @@ test.describe('Setup MCP surface Apply now', () => {
 		const next = current === 'essential' ? 'full' : 'essential';
 		try {
 			await select.selectOption(next);
-			await apply.click();
-
-			await expect(apply).toContainText(/Applied|Apply now|Failed/i, { timeout: 8_000 });
+			await expect(page.locator('[data-sw-mcp-surface-status]')).toContainText(
+				/Step 1 settings applied and verified/i,
+				{ timeout: 8_000 },
+			);
 
 			// Round-trip: reload and assert saved value.
 			await page.reload({ waitUntil: 'domcontentloaded' });
@@ -69,7 +70,10 @@ test.describe('Setup MCP surface Apply now', () => {
 			const restoreSelect = page.locator('#stonewright_mcp_surface');
 			await expect(restoreSelect).toBeVisible({ timeout: 15_000 });
 			await restoreSelect.selectOption(current);
-			await page.locator('[data-sw-apply-mcp-surface]').click();
+			await expect(page.locator('[data-sw-mcp-surface-status]')).toContainText(
+				/Step 1 settings applied and verified/i,
+				{ timeout: 8_000 },
+			);
 			await page.reload({ waitUntil: 'domcontentloaded' });
 			await expect(page.locator('#stonewright_mcp_surface')).toHaveValue(current, {
 				timeout: 15_000,

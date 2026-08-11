@@ -103,7 +103,7 @@ claude mcp add stonewright \
   --env STONEWRIGHT_WP_URL='https://your-site.example.com' \
   --env STONEWRIGHT_WP_USERNAME='your-wp-username' \
   --env STONEWRIGHT_WP_APP_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx' \
-  --env STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap \
+  --env STONEWRIGHT_MCP_TOOL_PROFILE=essential \
   -- npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-mcp
 ```
 

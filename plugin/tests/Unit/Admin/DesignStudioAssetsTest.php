@@ -198,23 +198,23 @@ final class DesignStudioAssetsTest extends TestCase {
 		);
 	}
 
-	public function test_the_assets_are_page_scoped_to_the_design_studio(): void {
+	public function test_design_studio_admin_assets_are_not_registered(): void {
 		$bootstrap = self::bootstrap();
 
-		self::assertStringContainsString( "'stonewright-design-studio' => 'design-studio.css'", $bootstrap );
-		self::assertStringContainsString( 'stonewright-admin-design-studio', $bootstrap );
-		self::assertStringContainsString( 'assets/admin/design-studio.js', $bootstrap );
-		self::assertStringContainsString( "'stonewrightDesignStudio'", $bootstrap );
-		self::assertStringContainsString( 'DesignStudioPage::boot_payload()', $bootstrap );
+		// Design Library admin UI is disabled; assets must not be enqueued.
+		self::assertStringNotContainsString( 'assets/admin/design-studio.js', $bootstrap );
+		self::assertStringNotContainsString( 'stonewrightDesignStudio', $bootstrap );
+		self::assertStringNotContainsString( 'DesignStudioPage::boot_payload()', $bootstrap );
+		self::assertStringNotContainsString( 'DesignStudioPage::register()', $bootstrap );
 	}
 
-	public function test_the_script_is_only_localized_on_the_design_studio_page(): void {
+	public function test_design_studio_script_is_not_localized_in_bootstrap(): void {
 		$bootstrap = self::bootstrap();
 
-		self::assertMatchesRegularExpression(
-			'/if \( DesignStudioPage::SLUG === \$page \) \{.*?wp_enqueue_script\(.*?design-studio\.js.*?wp_localize_script\(.*?stonewrightDesignStudio.*?\}/s',
+		self::assertDoesNotMatchRegularExpression(
+			'/if \( DesignStudioPage::SLUG === \$page \) \{.*?wp_enqueue_script\(.*?design-studio\.js/s',
 			$bootstrap,
-			'The Design Studio script and its payload load only on the Design Studio page.'
+			'Design Studio admin UI is disabled — bootstrap must not enqueue or localize it.'
 		);
 	}
 }

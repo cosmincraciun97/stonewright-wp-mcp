@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Default fresh installs to the bounded `essential` MCP surface and make
+  generated client profiles follow the operator's explicit surface selection;
+  strict-cap clients retain their bounded override.
+- Disable the Design Library navigation, pages, page assets, and catalog
+  starters without deleting stored directions or removing typed MCP engines.
+
+### Fixed
+
+- Preserve operator enablement intent during domain mismatch and require an
+  audited, reversible explicit rebind before abilities become effective.
+- Keep Application Password creation in the current Setup tab, update private
+  snippets and inventory in place, restore placeholders on clear/revoke, and
+  eliminate plaintext password transients from the no-JavaScript path.
+- Save all runtime Step 1 controls immediately and bump a shared surface
+  revision so active transports can re-list without unrelated form writes.
+
 ## [1.0.0-beta.4] - 2026-08-05
 
 ### Added
