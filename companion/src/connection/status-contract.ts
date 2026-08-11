@@ -8,7 +8,8 @@
 import type { ConnectionStage } from './state-machine.js';
 import { permanentGatewayMembership } from './permanent-gateways.js';
 
-export const STATUS_SCHEMA_VERSION = 2 as const;
+/** Shared status contract schema version. */
+export const STATUS_SCHEMA_VERSION = 2;
 
 export type ConfiguredMode = 'direct-only' | 'plugin-only' | 'auto';
 export type ActiveMode = 'direct' | 'plugin' | 'local-only' | 'none';
@@ -38,7 +39,7 @@ export interface PluginStatus {
 }
 
 export interface ConnectionStatusV2 {
-	schema_version: typeof STATUS_SCHEMA_VERSION;
+	schema_version: 2;
 	site_alias: string | null;
 	configured_mode: ConfiguredMode;
 	active_mode: ActiveMode;

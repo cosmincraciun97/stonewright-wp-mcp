@@ -20,10 +20,10 @@ function toolHandler(server: unknown, name: string) {
 
 describe('permanent gateways integration', () => {
 	it('registers all permanent gateways with zero WordPress connectivity', async () => {
-		const { mkdtempSync } = await import('node:fs');
-		const { tmpdir } = await import('node:os');
-		const { join } = await import('node:path');
-		const stateDir = mkdtempSync(join(tmpdir(), 'sw-offline-'));
+		const fs = await import('node:fs');
+		const os = await import('node:os');
+		const path = await import('node:path');
+		const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sw-offline-'));
 		const server = await createMcpServer({
 			env: {
 				// No URL, no credentials — pure offline companion.
@@ -31,7 +31,7 @@ describe('permanent gateways integration', () => {
 				HOME: stateDir,
 				STONEWRIGHT_HOME: stateDir,
 				STONEWRIGHT_STATE_DIR: stateDir,
-				STONEWRIGHT_SITES_FILE: join(stateDir, 'missing-sites.json'),
+				STONEWRIGHT_SITES_FILE: path.join(stateDir, 'missing-sites.json'),
 				STONEWRIGHT_MODE: 'plugin',
 			},
 			fetchImpl: () => Promise.reject(new Error('network offline')),
@@ -165,7 +165,7 @@ describe('permanent gateways integration', () => {
 				STONEWRIGHT_WP_USERNAME: 'admin',
 				STONEWRIGHT_WP_APP_PASSWORD: 'pw',
 			},
-			fetchImpl: async () => new Response('not found', { status: 404 }),
+			fetchImpl: () => Promise.resolve(new Response('not found', { status: 404 })),
 		});
 		const reconnect = toolHandler(server, 'stonewright-reconnect');
 		expect(reconnect).toBeTypeOf('function');

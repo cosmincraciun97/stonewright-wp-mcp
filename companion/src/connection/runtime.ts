@@ -141,9 +141,7 @@ export function createConnectionRuntime(args: {
 		callRemoteTool: null,
 		directSession: null,
 		server: null,
-		performReconnect: async () => {
-			throw new Error('Reconnect executor not wired');
-		},
+		performReconnect: () => Promise.reject(new Error('Reconnect executor not wired')),
 		listRegisteredToolNames: () => {
 			if (!runtime.server) return [...PERMANENT_GATEWAY_TOOL_NAMES];
 			const tools = (runtime.server as unknown as { _registeredTools?: Record<string, { enabled?: boolean }> })._registeredTools ?? {};
@@ -336,11 +334,11 @@ function toolResponse<T extends Record<string, unknown>>(result: T): {
 export function registerPermanentGateways(server: McpServer, runtime: ConnectionRuntime): void {
 	runtime.server = server;
 
-	const wrap = (name: string, handler: (input: Record<string, unknown>) => unknown | Promise<unknown>) => {
+	const wrap = (name: string, handler: (input: Record<string, unknown>) => Promise<Record<string, unknown>> | Record<string, unknown>) => {
 		return async (input: Record<string, unknown>) => {
 			runtime.markInvoked(name);
 			const result = await handler(input ?? {});
-			return toolResponse(result as Record<string, unknown>);
+			return toolResponse(result);
 		};
 	};
 
@@ -355,7 +353,7 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 				appPassword: z.string().optional(),
 			},
 		},
-		wrap('stonewright-setup-profile', async (input) => {
+		wrap('stonewright-setup-profile', (input) => {
 			const mergedEnv = {
 				...runtime.env,
 				...(typeof input['siteUrl'] === 'string' ? { STONEWRIGHT_WP_URL: input['siteUrl'] } : {}),
@@ -693,7 +691,7 @@ export function registerPermanentGateways(server: McpServer, runtime: Connection
 		wrap('stonewright-tool-profile', async (input) => {
 			if (runtime.callRemoteTool && runtime.status.connected) {
 				try {
-					const remote = await runtime.callRemoteTool('stonewright-tool-profile', input as Record<string, unknown>);
+					const remote = await runtime.callRemoteTool('stonewright-tool-profile', input);
 					const structured = extractStructured(remote);
 					return {
 						ok: true,

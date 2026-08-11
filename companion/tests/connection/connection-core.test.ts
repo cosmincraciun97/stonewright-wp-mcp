@@ -160,7 +160,7 @@ describe('reconnect singleflight', () => {
 	});
 
 	it('failed reconnect reports failure without inventing a new catalog', async () => {
-		const controller = new ReconnectController(async () => ({
+		const controller = new ReconnectController(() => Promise.resolve({
 			ok: false,
 			coalesced: false,
 			reason: 'force',
