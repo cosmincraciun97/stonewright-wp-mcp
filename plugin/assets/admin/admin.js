@@ -801,13 +801,16 @@
 	function initApplyMcpSurface() {
 		var button = document.querySelector( '[data-sw-apply-mcp-surface]' );
 		var select = document.getElementById( 'stonewright_mcp_surface' );
+		var enabled = document.getElementById( 'stonewright_enabled' );
+		var mode = document.getElementById( 'stonewright_mode' );
+		var atomic = document.getElementById( 'stonewright_elementor_v4_atomic' );
 		var status = document.querySelector( '[data-sw-mcp-surface-status]' );
 		if ( ! button || ! select ) {
 			return;
 		}
 
-		button.addEventListener( 'click', function ( event ) {
-			event.preventDefault();
+		var applyQueue = window.Promise.resolve();
+		function applyStepOne( showButtonFeedback ) {
 			if ( ! window.stonewrightSetup || ! window.stonewrightSetup.ajaxUrl ) {
 				if ( status ) {
 					status.textContent = 'Setup AJAX is not available. Use Save settings instead.';
@@ -815,18 +818,23 @@
 				return;
 			}
 
-			var surface = select.value || 'bootstrap';
+			var surface = select.value || 'essential';
 			button.disabled = true;
 			var body = new window.URLSearchParams();
 			body.set( 'action', 'stonewright_apply_mcp_surface' );
 			body.set( 'nonce', window.stonewrightSetup.nonce || '' );
 			body.set( 'surface', surface );
+			body.set( 'mode', mode ? mode.value : 'development' );
+			body.set( 'enabled', enabled && enabled.checked ? '1' : '0' );
+			body.set( 'elementor_v4_atomic', atomic && atomic.checked ? '1' : '0' );
 
-			window.fetch( window.stonewrightSetup.ajaxUrl, {
+			applyQueue = applyQueue.then( function () {
+				return window.fetch( window.stonewrightSetup.ajaxUrl, {
 				method: 'POST',
 				credentials: 'same-origin',
 				headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
 				body: body.toString(),
+				} );
 			} ).then( function ( response ) {
 				return response.json().then( function ( data ) {
 					return { ok: response.ok, data: data };
@@ -840,7 +848,9 @@
 					if ( status ) {
 						status.textContent = truth ? ( msg + ' ' + truth ) : msg;
 					}
-					setButtonFeedback( button, 'Applied' );
+					if ( showButtonFeedback ) {
+						setButtonFeedback( button, 'Applied' );
+					}
 					if ( payload.surface && select.value !== payload.surface ) {
 						select.value = payload.surface;
 					}
@@ -849,16 +859,32 @@
 					if ( status ) {
 						status.textContent = err;
 					}
-					setButtonFeedback( button, 'Failed' );
+					if ( showButtonFeedback ) {
+						setButtonFeedback( button, 'Failed' );
+					}
 				}
 			} ).catch( function () {
 				if ( status ) {
 					status.textContent = 'Network error applying MCP surface.';
 				}
-				setButtonFeedback( button, 'Failed' );
+				if ( showButtonFeedback ) {
+					setButtonFeedback( button, 'Failed' );
+				}
 			} ).finally( function () {
 				button.disabled = false;
 			} );
+		}
+
+		button.addEventListener( 'click', function ( event ) {
+			event.preventDefault();
+			applyStepOne( true );
+		} );
+		[ select, enabled, mode, atomic ].forEach( function ( control ) {
+			if ( control ) {
+				control.addEventListener( 'change', function () {
+					applyStepOne( false );
+				} );
+			}
 		} );
 	}
 
@@ -1024,6 +1050,10 @@
 		}
 		tbody.innerHTML = '';
 		updatePasswordInventorySummary( passwords.length );
+		var inventory = document.querySelector( '.stonewright-app-passwords-list' );
+		if ( inventory && passwords.length > 0 ) {
+			inventory.open = true;
+		}
 		passwords.forEach( function ( item ) {
 			var tr = document.createElement( 'tr' );
 			var nameTd = document.createElement( 'td' );

@@ -137,9 +137,7 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'STONEWRIGHT_MCP_TOOL_PROFILE = "essential"', $result['toml'] );
 	}
 
-	public function test_stdio_snippets_prefer_recommended_compact_profile_over_full_surface(): void {
-		// Site surface may be full for the plugin registry, but client snippets /
-		// paste prompts prefer essential-class profiles (not full).
+	public function test_stdio_snippets_follow_explicit_full_surface(): void {
 		update_option( 'stonewright_mcp_surface', 'full', false );
 
 		$codex  = ConnectClientConfig::snippet_for( 'codex', 'admin', 'pw' );
@@ -149,23 +147,23 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertIsArray( $codex );
 		$this->assertIsArray( $cursor );
 		$this->assertIsArray( $claude );
-		$this->assertStringContainsString( 'STONEWRIGHT_MCP_TOOL_PROFILE = "essential"', $codex['toml'] );
-		$this->assertSame( 'essential', $cursor['mcpServers']['stonewright']['env']['STONEWRIGHT_MCP_TOOL_PROFILE'] );
-		$this->assertStringContainsString( '--env STONEWRIGHT_MCP_TOOL_PROFILE=essential', $claude['command'] );
+		$this->assertStringContainsString( 'STONEWRIGHT_MCP_TOOL_PROFILE = "full"', $codex['toml'] );
+		$this->assertSame( 'full', $cursor['mcpServers']['stonewright']['env']['STONEWRIGHT_MCP_TOOL_PROFILE'] );
+		$this->assertStringContainsString( '--env STONEWRIGHT_MCP_TOOL_PROFILE=full', $claude['command'] );
 	}
 
-	public function test_known_client_does_not_inherit_bootstrap_site_surface(): void {
+	public function test_known_client_follows_explicit_bootstrap_surface(): void {
 		update_option( 'stonewright_mcp_surface', 'bootstrap', false );
 
-		$this->assertSame( 'essential', ConnectClientConfig::recommended_startup_profile( 'codex' ) );
-		$this->assertSame( 'essential', ConnectClientConfig::recommended_startup_profile( 'cursor' ) );
+		$this->assertSame( 'bootstrap', ConnectClientConfig::recommended_startup_profile( 'codex' ) );
+		$this->assertSame( 'bootstrap', ConnectClientConfig::recommended_startup_profile( 'cursor' ) );
 	}
 
-	public function test_unknown_client_gets_useful_static_startup_profile(): void {
+	public function test_unknown_client_follows_explicit_site_surface(): void {
 		update_option( 'stonewright_mcp_surface', 'bootstrap', false );
 
-		$this->assertSame( 'essential-static', ConnectClientConfig::recommended_startup_profile() );
-		$this->assertSame( 'essential-static', ConnectClientConfig::recommended_startup_profile( 'generic' ) );
+		$this->assertSame( 'bootstrap', ConnectClientConfig::recommended_startup_profile() );
+		$this->assertSame( 'bootstrap', ConnectClientConfig::recommended_startup_profile( 'generic' ) );
 	}
 
 	public function test_strict_cap_client_override_wins_over_saved_site_surface(): void {

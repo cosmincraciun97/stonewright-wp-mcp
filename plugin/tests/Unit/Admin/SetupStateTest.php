@@ -49,6 +49,7 @@ final class SetupStateTest extends TestCase {
 	}
 
 	public function test_persist_partial_does_not_clobber_unrelated_fields(): void {
+		$revision = \Stonewright\WpMcp\Core\AbilityRegistry::surface_revision();
 		SetupState::persist_partial(
 			[
 				'mcp_surface' => 'bootstrap',
@@ -61,6 +62,25 @@ final class SetupStateTest extends TestCase {
 		self::assertSame( 'site-a', get_option( 'stonewright_site_alias' ) );
 		self::assertSame( 'staging', get_option( 'stonewright_mode' ) );
 		self::assertTrue( (bool) get_option( 'stonewright_enabled', false ) );
+		self::assertSame( $revision + 1, \Stonewright\WpMcp\Core\AbilityRegistry::surface_revision() );
+	}
+
+	public function test_each_runtime_control_bumps_revision_without_clobbering_other_setup(): void {
+		$revision = \Stonewright\WpMcp\Core\AbilityRegistry::surface_revision();
+		$state = SetupState::persist_partial(
+			[
+				'wordpress_mode'      => 'development',
+				'abilities_requested' => false,
+				'elementor_v4_atomic' => true,
+			],
+			3
+		);
+
+		self::assertSame( $revision + 1, \Stonewright\WpMcp\Core\AbilityRegistry::surface_revision() );
+		self::assertSame( 'development', $state['wordpress_mode'] );
+		self::assertFalse( $state['abilities_requested'] );
+		self::assertTrue( $state['elementor_v4_atomic'] );
+		self::assertSame( 'site-a', $state['site_alias'] );
 	}
 
 	public function test_auth_method_and_client_survive_partial_mode_write(): void {
@@ -82,10 +102,9 @@ final class SetupStateTest extends TestCase {
 		self::assertSame( 'http', $state['transport_method'] );
 	}
 
-	public function test_client_startup_profile_prefers_essential_not_full(): void {
+	public function test_client_startup_profile_follows_explicit_full_surface(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_mcp_surface'] = 'full';
 		$profile = SetupState::client_startup_profile( 3, 'cursor' );
-		self::assertNotSame( 'full', $profile );
-		self::assertContains( $profile, [ 'bootstrap', 'essential', 'essential-static' ] );
+		self::assertSame( 'full', $profile );
 	}
 }

@@ -35,7 +35,7 @@ final class ConfigurationPage {
 	}
 
 	/**
-	 * Apply MCP surface immediately without a full settings form save.
+	 * Apply every runtime-affecting Step 1 control without a page reload.
 	 */
 	public static function handle_apply_mcp_surface(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
@@ -45,27 +45,46 @@ final class ConfigurationPage {
 		check_ajax_referer( 'stonewright_setup_client', 'nonce' );
 
 		$surface = isset( $_POST['surface'] ) ? sanitize_key( (string) wp_unslash( $_POST['surface'] ) ) : '';
+		$mode    = isset( $_POST['mode'] ) ? sanitize_key( (string) wp_unslash( $_POST['mode'] ) ) : '';
 		if ( ! in_array( $surface, [ 'bootstrap', 'essential', 'full' ], true ) ) {
 			wp_send_json_error( [ 'message' => 'invalid_surface' ], 400 );
 		}
+		if ( '' !== $mode && ! in_array( $mode, [ 'development', 'staging', 'production-safe' ], true ) ) {
+			wp_send_json_error( [ 'message' => 'invalid_mode' ], 400 );
+		}
 
-		$saved = \Stonewright\WpMcp\Core\AbilityRegistry::set_mcp_surface( $surface );
-		if ( $saved !== $surface ) {
+		$partial = [ 'mcp_surface' => $surface ];
+		if ( '' !== $mode ) {
+			$partial['wordpress_mode'] = $mode;
+		}
+		if ( isset( $_POST['enabled'] ) ) {
+			$partial['abilities_requested'] = '1' === (string) wp_unslash( $_POST['enabled'] );
+			if ( $partial['abilities_requested'] ) {
+				DomainLock::lock();
+			}
+		}
+		if ( isset( $_POST['elementor_v4_atomic'] ) ) {
+			$partial['elementor_v4_atomic'] = '1' === (string) wp_unslash( $_POST['elementor_v4_atomic'] );
+		}
+
+		$state = SetupState::persist_partial( $partial, get_current_user_id() );
+		if ( (string) $state['mcp_surface'] !== $surface ) {
 			wp_send_json_error(
 				[
 					'message' => __( 'The MCP surface could not be persisted. The previous value is still active.', 'stonewright' ),
-					'surface' => $saved,
+					'surface' => (string) $state['mcp_surface'],
 				],
 				500
 			);
 		}
 		wp_send_json_success(
 			[
-				'surface'         => $saved,
-				'mcp_surface'     => $saved,
+				'surface'         => (string) $state['mcp_surface'],
+				'mcp_surface'     => (string) $state['mcp_surface'],
 				'surface_revision' => \Stonewright\WpMcp\Core\AbilityRegistry::surface_revision(),
-				'message'         => __( 'MCP surface applied and verified.', 'stonewright' ),
-				'transport_truth' => __( 'Surface revision bumped. HTTP clients pick this up on their next tools/list; companion sessions re-list automatically on the next task-start or tool-profile response when they see the new surface_revision. Older companions need a client restart.', 'stonewright' ),
+				'setup_state'     => $state,
+				'message'         => __( 'Step 1 settings applied and verified.', 'stonewright' ),
+				'transport_truth' => __( 'The surface revision is current. Dynamic clients pick it up on their next tools/list; companion sessions re-list automatically on the next task-start or tool-profile response. Clients that cache tools permanently still need one restart.', 'stonewright' ),
 			]
 		);
 	}
@@ -157,6 +176,9 @@ final class ConfigurationPage {
 				if ( $enabled ) {
 					DomainLock::lock();
 				}
+				if ( PluginEffectiveState::enabled_requested() !== $enabled ) {
+					\Stonewright\WpMcp\Core\AbilityRegistry::bump_surface_revision();
+				}
 				return $enabled;
 			},
 		] );
@@ -199,15 +221,13 @@ final class ConfigurationPage {
 
 		register_setting( self::OPTION_GROUP, 'stonewright_mcp_surface', [
 			'type'              => 'string',
-			'default'           => 'bootstrap',
+			'default'           => 'essential',
 			'sanitize_callback' => static function ( mixed $value ): string {
 				$value = is_string( $value ) ? strtolower( trim( $value ) ) : '';
 				if ( ! in_array( $value, [ 'bootstrap', 'essential', 'full' ], true ) ) {
 					$value = 'essential';
 				}
-				// Keep legacy essential_tools_mode aligned with the surface choice.
-				update_option( 'stonewright_essential_tools_mode', 'full' !== $value, false );
-				return $value;
+				return \Stonewright\WpMcp\Core\AbilityRegistry::set_mcp_surface( $value );
 			},
 		] );
 
@@ -216,9 +236,13 @@ final class ConfigurationPage {
 			'default'           => 'development',
 			'sanitize_callback' => static function ( mixed $value ): string {
 				$value = is_string( $value ) ? strtolower( trim( $value ) ) : '';
-				return in_array( $value, [ 'development', 'staging', 'production-safe' ], true )
+				$value = in_array( $value, [ 'development', 'staging', 'production-safe' ], true )
 					? $value
 					: 'development';
+				if ( (string) get_option( 'stonewright_mode', 'development' ) !== $value ) {
+					\Stonewright\WpMcp\Core\AbilityRegistry::bump_surface_revision();
+				}
+				return $value;
 			},
 		] );
 
@@ -237,7 +261,13 @@ final class ConfigurationPage {
 		register_setting( self::OPTION_GROUP, 'stonewright_elementor_v4_atomic', [
 			'type'              => 'boolean',
 			'default'           => false,
-			'sanitize_callback' => static fn( mixed $value ): bool => (bool) $value,
+			'sanitize_callback' => static function ( mixed $value ): bool {
+				$enabled = (bool) $value;
+				if ( (bool) get_option( 'stonewright_elementor_v4_atomic', false ) !== $enabled ) {
+					\Stonewright\WpMcp\Core\AbilityRegistry::bump_surface_revision();
+				}
+				return $enabled;
+			},
 		] );
 
 		register_setting( self::OPTION_GROUP, 'stonewright_unsplash_access_key', [
@@ -397,6 +427,7 @@ final class ConfigurationPage {
 						<h2><?php esc_html_e( 'Enable AI Abilities', 'stonewright' ); ?></h2>
 						<div class="sw-field">
 							<label class="stonewright-switch">
+								<input type="hidden" name="stonewright_enabled" value="0" />
 								<input
 									type="checkbox"
 									name="stonewright_enabled"
@@ -465,7 +496,7 @@ final class ConfigurationPage {
 								</button>
 							</div>
 							<p class="description" id="stonewright-mcp-surface-status" data-sw-mcp-surface-status role="status" aria-live="polite">
-								<?php esc_html_e( 'Bootstrap is the recommended default for new clients. Full mode loads the entire ability surface and is slow and high-context — use only for specialist sessions. Use Apply now to save the surface without a full form submit, or Save settings for all fields.', 'stonewright' ); ?>
+								<?php esc_html_e( 'Essential is the recommended default for real work. Bootstrap is only a startup diagnostic; Full loads the entire ability surface and is slow and high-context. Step 1 changes apply immediately; clients that permanently cache tools still need one restart.', 'stonewright' ); ?>
 							</p>
 						</div>
 						<div class="sw-field">

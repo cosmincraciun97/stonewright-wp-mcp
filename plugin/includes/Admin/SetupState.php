@@ -112,8 +112,7 @@ final class SetupState {
 	}
 
 	/**
-	 * Recommended compact MCP startup profile for the selected client.
-	 * Prefer essential-static / essential over full.
+	 * MCP startup profile for the selected client and saved site surface.
 	 */
 	public static function client_startup_profile( int $user_id, string $client_slug = '' ): string {
 		if ( '' === $client_slug ) {
@@ -152,6 +151,13 @@ final class SetupState {
 	 */
 	public static function persist_partial( array $fields, ?int $user_id = null ): array {
 		$user_id = null !== $user_id ? $user_id : get_current_user_id();
+		$revision_before = AbilityRegistry::surface_revision();
+		$runtime_before  = [
+			'wordpress_mode'       => (string) get_option( 'stonewright_mode', 'development' ),
+			'mcp_surface'          => AbilityRegistry::mcp_surface(),
+			'abilities_requested'  => PluginEffectiveState::enabled_requested(),
+			'elementor_v4_atomic'  => (bool) get_option( 'stonewright_elementor_v4_atomic', false ),
+		];
 
 		if ( array_key_exists( 'wordpress_mode', $fields ) ) {
 			$mode = is_string( $fields['wordpress_mode'] ) ? strtolower( trim( $fields['wordpress_mode'] ) ) : '';
@@ -218,6 +224,16 @@ final class SetupState {
 
 		if ( array_key_exists( 'client_startup_profile', $fields ) && is_string( $fields['client_startup_profile'] ) ) {
 			self::set_client_startup_profile( $user_id, $fields['client_startup_profile'] );
+		}
+
+		$runtime_after = [
+			'wordpress_mode'       => (string) get_option( 'stonewright_mode', 'development' ),
+			'mcp_surface'          => AbilityRegistry::mcp_surface(),
+			'abilities_requested'  => PluginEffectiveState::enabled_requested(),
+			'elementor_v4_atomic'  => (bool) get_option( 'stonewright_elementor_v4_atomic', false ),
+		];
+		if ( $runtime_before !== $runtime_after && $revision_before === AbilityRegistry::surface_revision() ) {
+			AbilityRegistry::bump_surface_revision();
 		}
 
 		return self::export( $user_id );

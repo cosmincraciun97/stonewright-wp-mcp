@@ -1244,7 +1244,7 @@ final class AbilityRegistry {
 	/**
 	 * MCP public surface mode: bootstrap | essential | full.
 	 *
-	 * New installs prefer bootstrap (set on activation). Existing installs without
+	 * New installs prefer essential (set on activation). Existing installs without
 	 * `stonewright_mcp_surface` map from the legacy essential_tools_mode option:
 	 * true → essential, false → full.
 	 */

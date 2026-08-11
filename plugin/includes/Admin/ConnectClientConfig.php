@@ -209,23 +209,16 @@ final class ConnectClientConfig {
 	}
 
 	/**
-	 * Client-aware recommended companion startup profile.
-	 * Prefer essential-static / essential — never default to full.
+	 * Client-aware companion startup profile.
+	 * The explicit site surface is the source of truth. Strict-cap clients keep
+	 * their bounded override because they cannot safely accept the full catalog.
 	 */
 	public static function recommended_startup_profile( string $client_slug = '' ): string {
 		$client_slug = sanitize_key( $client_slug );
-		// Unknown/generic clients may freeze their startup catalog. Give them a
-		// useful static surface instead of depending on list_changed support.
-		if ( '' === $client_slug || 'generic' === $client_slug ) {
-			return 'essential-static';
-		}
 		if ( in_array( $client_slug, [ 'antigravity', 'gemini-cli' ], true ) ) {
 			return 'essential-static';
 		}
-		// The WordPress registry surface and the client startup profile are
-		// separate controls. Known clients get the bounded working profile even
-		// when a migrated site still has bootstrap or an operator selected full.
-		return 'essential';
+		return AbilityRegistry::mcp_surface();
 	}
 
 	/**
@@ -288,7 +281,7 @@ final class ConnectClientConfig {
 		if ( in_array( $client_slug, [ 'antigravity', 'gemini-cli' ], true ) ) {
 			return 'low-tools';
 		}
-		// Prefer recommended compact profile over full site surface for snippets.
+		// Follow the explicit site surface unless the client has a strict cap.
 		return self::recommended_startup_profile( $client_slug );
 	}
 

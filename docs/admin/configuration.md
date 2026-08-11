@@ -64,8 +64,10 @@ essential map to enabled; full maps to disabled. Existing installs without
 `stonewright_mcp_surface` keep their current essential/full behaviour via that
 legacy flag until an admin saves the Configuration page.
 
-On **Setup → Connect**, the MCP tool surface select includes an **Apply now**
-button that saves the surface without a full form submit. Transport truth:
+On **Setup → Connect**, every runtime control in Step 1 (ability enablement,
+mode, MCP surface, and Elementor V4 Atomic) saves immediately without a page
+reload. **Apply now** remains as an explicit retry/verification control. Every
+real change bumps one monotonic surface revision. Transport truth:
 
 - **HTTP clients** pick up the new surface on their next `tools/list`.
 - **Stdio companion** startup reads the saved WordPress surface and uses it as
@@ -73,8 +75,9 @@ button that saves the surface without a full form submit. Transport truth:
   `task-start` or `tool-profile` response and emit `tools/list_changed`; older
   companions need a client restart.
 
-Generated stdio snippets use the saved surface instead of hard-coding
-`essential`. Strict-cap clients keep the explicit `low-tools` override. Set
+Generated stdio snippets and paste-to-agent prompts use the saved surface
+instead of silently replacing an explicit `bootstrap` or `full` choice.
+Strict-cap clients keep the explicit `low-tools` override. Set
 `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK=1` only when a client-specific profile must
 override the site preference.
 

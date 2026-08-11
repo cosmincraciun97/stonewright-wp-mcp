@@ -88,6 +88,8 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringContainsString( 'id="stonewright_enabled"', $html );
 		self::assertStringContainsString( 'id="stonewright_mode"', $html );
 		self::assertStringContainsString( 'id="stonewright_mcp_surface"', $html );
+		self::assertStringContainsString( 'Essential is the recommended default for real work.', $html );
+		self::assertStringNotContainsString( 'Bootstrap is the recommended default for new clients.', $html );
 		self::assertStringContainsString( 'data-sw-apply-mcp-surface', $html );
 		self::assertStringContainsString( 'Apply now', $html );
 		self::assertStringContainsString( 'stonewright_generate_application_password', $html );
