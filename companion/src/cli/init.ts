@@ -41,7 +41,7 @@ function parseInitFlags(argv: string[]): {
 } {
 	const flags: Record<string, string | boolean> = {};
 	for (let i = 0; i < argv.length; i++) {
-		const a = argv[i]!;
+		const a = argv[i];
 		if (!a.startsWith('--')) continue;
 		const key = a.slice(2);
 		const next = argv[i + 1];
@@ -52,7 +52,7 @@ function parseInitFlags(argv: string[]): {
 			flags[key] = true;
 		}
 	}
-	const str = (k: string) => (typeof flags[k] === 'string' ? (flags[k] as string) : undefined);
+	const str = (k: string) => (typeof flags[k] === 'string' ? (flags[k]) : undefined);
 	const out: ReturnType<typeof parseInitFlags> = {
 		replace: flags.replace === true || flags.replace === 'true',
 		nonInteractive: flags.yes === true || Boolean(str('url') && str('username') && str('password')),

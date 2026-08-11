@@ -122,7 +122,7 @@ export function withRegistryLock<T>(sitesFile: string, fn: () => T, timeoutMs = 
 	const dir = dirname(sitesFile);
 	mkdirSync(dir, { recursive: true, mode: 0o700 });
 	const start = Date.now();
-	while (true) {
+	while (Date.now() - start <= timeoutMs) {
 		try {
 			const fd = openSync(lockPath, 'wx', 0o600);
 			try {
@@ -139,15 +139,13 @@ export function withRegistryLock<T>(sitesFile: string, fn: () => T, timeoutMs = 
 		} catch (err) {
 			const code = (err as NodeJS.ErrnoException).code;
 			if (code !== 'EEXIST') throw err;
-			if (Date.now() - start > timeoutMs) {
-				throw new ConnectError(
-					'registry_lock_timeout',
-					`Timed out waiting for registry lock at ${lockPath}`,
-				);
-			}
 			sleepSync(40);
 		}
 	}
+	throw new ConnectError(
+		'registry_lock_timeout',
+		`Timed out waiting for registry lock at ${lockPath}`,
+	);
 }
 
 /**
@@ -200,7 +198,7 @@ export function atomicWriteRegistry(sitesFile: string, registry: SitesRegistryV2
 	return backupPath;
 }
 
-export function readRawSitesFile(sitesFile: string): unknown | null {
+export function readRawSitesFile(sitesFile: string): unknown {
 	if (!existsSync(sitesFile)) return null;
 	const text = readFileSync(sitesFile, 'utf8');
 	try {
@@ -706,7 +704,7 @@ export function buildSiteRecord(input: {
 	username: string;
 	credential_ref: string;
 	environment?: SiteEnvironment | undefined;
-	configured_mode?: ConfiguredMode | string | undefined;
+	configured_mode?: string | undefined;
 	companion_profile?: string | undefined;
 	id?: string | undefined;
 	disabled_tools?: string[] | undefined;

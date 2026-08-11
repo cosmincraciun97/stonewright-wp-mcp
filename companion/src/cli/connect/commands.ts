@@ -33,7 +33,6 @@ import {
 import { mcpServerName } from './server-name.js';
 import {
 	ConnectError,
-	type ConfiguredMode,
 	type ConnectReceipt,
 	type SiteEnvironment,
 	type SiteRecordV2,
@@ -119,7 +118,7 @@ function takenServerNames(registry: SitesRegistryV2, excludeSiteId?: string): Se
 	return taken;
 }
 
-export async function connectDetectClient(ctx: ConnectContext = {}): Promise<number> {
+export function connectDetectClient(ctx: ConnectContext = {}): number {
 	const home = ctx.homeDir ?? homedir();
 	const detected = detectClients(home);
 	const catalog = listClientCatalog();
@@ -133,7 +132,7 @@ export interface ConnectAddInput {
 	username: string;
 	password?: string | undefined;
 	environment?: SiteEnvironment | undefined;
-	mode?: ConfiguredMode | string | undefined;
+	mode?: string | undefined;
 	client?: string | undefined;
 	clientConfigPath?: string | undefined;
 	replace?: boolean | undefined;
@@ -594,7 +593,8 @@ export function connectRemove(
 			const configPath = binding.config_path ?? adapter.defaultConfigPath(ctx.homeDir ?? homedir());
 			adapter.remove(configPath, binding.server_name);
 		}
-		const { [opts.client]: _removed, ...rest } = site.clients;
+		const rest = { ...site.clients };
+		delete rest[opts.client];
 		const nextSite: SiteRecordV2 = { ...site, clients: rest, updated_at: new Date().toISOString() };
 		const next = upsertSite(registry, nextSite, { replace: true });
 		saveRegistry(next, ctxPaths(ctx));

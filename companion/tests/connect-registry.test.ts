@@ -84,7 +84,6 @@ describe('multi-site registry schema v2', () => {
 
 	it('adds first site and rejects same URL different alias', () => {
 		const { file, store } = tmpSites();
-		const cred = { store, prefer: 'memory' as const, allowMemoryFallback: true };
 		const ref = 'memory://stonewright/site-a-staging/app-password';
 		store.set(ref, 'pass-one');
 
@@ -181,7 +180,7 @@ describe('multi-site registry schema v2', () => {
 		}
 		reg = upsertSite(reg, { ...again, id: site.id, alias: 'site-a' }, { replace: true });
 		expect(reg.sites).toHaveLength(1);
-		expect(reg.sites[0]!.canonical_url).toBe('https://b.example');
+		expect(reg.sites[0].canonical_url).toBe('https://b.example');
 	});
 
 	it('removes one site without touching another', () => {

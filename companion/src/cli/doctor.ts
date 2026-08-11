@@ -109,19 +109,22 @@ export function resolveCredentials(env: NodeJS.ProcessEnv, home = homedir()): Cr
 			schema_version?: number;
 			default_site_id?: string;
 			sites?:
-				| Record<string, {
-						url?: string;
-						username?: string;
-						appPassword?: string;
-						applicationPassword?: string;
-				  }>
+				| Record<
+						string,
+						{
+							url?: string;
+							username?: string;
+							appPassword?: string;
+							applicationPassword?: string;
+						}
+					>
 				| Array<{
 						id?: string;
 						alias?: string;
 						canonical_url?: string;
 						username_hint?: string;
 						credential_ref?: string;
-				  }>;
+					}>;
 		};
 
 		// Schema v2: array of sites with credential_ref (password never in file).

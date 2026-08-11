@@ -30,7 +30,7 @@ function renderServerBlock(entry: McpServerEntry): string {
 		lines.push('');
 		lines.push(`[mcp_servers.${entry.serverName}.env]`);
 		for (const key of envKeys.sort()) {
-			lines.push(`${key} = ${tomlEscape(entry.env[key]!)}`);
+			lines.push(`${key} = ${tomlEscape(entry.env[key])}`);
 		}
 	}
 	return lines.join('\n');
@@ -72,7 +72,7 @@ function parseMcpSections(text: string): {
 	for (const line of lines) {
 		const m = headerRe.exec(line);
 		if (m) {
-			const name = m[1]!;
+			const name = m[1];
 			if (mode === 'prefix') {
 				mode = 'block';
 			}
@@ -149,14 +149,14 @@ function rebuildToml(parts: {
 function parseEntryFromBlock(name: string, block: string): McpServerEntry | null {
 	const commandMatch = /^command\s*=\s*"(.*)"\s*$/m.exec(block);
 	if (!commandMatch) return null;
-	const command = commandMatch[1]!.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+	const command = commandMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
 	const argsMatch = /^args\s*=\s*\[([^\]]*)\]\s*$/m.exec(block);
 	const args: string[] = [];
 	if (argsMatch) {
 		const re = /"((?:\\.|[^"\\])*)"/g;
 		let m: RegExpExecArray | null;
-		while ((m = re.exec(argsMatch[1]!)) !== null) {
-			args.push(m[1]!.replace(/\\"/g, '"').replace(/\\\\/g, '\\'));
+		while ((m = re.exec(argsMatch[1])) !== null) {
+			args.push(m[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\'));
 		}
 	}
 	const env: Record<string, string> = {};
@@ -166,7 +166,7 @@ function parseEntryFromBlock(name: string, block: string): McpServerEntry | null
 		for (const line of envBody.split('\n')) {
 			const em = /^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"(.*)"\s*$/.exec(line.trim());
 			if (em) {
-				env[em[1]!] = em[2]!.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+				env[em[1]] = em[2].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
 			}
 		}
 	}

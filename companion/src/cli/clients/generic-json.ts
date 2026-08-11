@@ -41,17 +41,17 @@ function serverBucket(root: JsonRoot): {
 	map: Record<string, unknown>;
 } {
 	if (root.mcpServers && typeof root.mcpServers === 'object') {
-		return { key: 'mcpServers', map: root.mcpServers as Record<string, unknown> };
+		return { key: 'mcpServers', map: root.mcpServers };
 	}
 	if (root.servers && typeof root.servers === 'object') {
-		return { key: 'servers', map: root.servers as Record<string, unknown> };
+		return { key: 'servers', map: root.servers };
 	}
 	if (root.mcp && typeof root.mcp === 'object' && root.mcp.servers && typeof root.mcp.servers === 'object') {
-		return { key: 'mcp.servers', map: root.mcp.servers as Record<string, unknown> };
+		return { key: 'mcp.servers', map: root.mcp.servers };
 	}
 	// Default Cursor/Claude-style
 	if (!root.mcpServers) root.mcpServers = {};
-	return { key: 'mcpServers', map: root.mcpServers as Record<string, unknown> };
+	return { key: 'mcpServers', map: root.mcpServers };
 }
 
 function entryFromJson(name: string, value: unknown): McpServerEntry | null {

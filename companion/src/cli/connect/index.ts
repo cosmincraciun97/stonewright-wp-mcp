@@ -58,7 +58,7 @@ function parseArgs(argv: string[]): { command: string; positionals: string[]; fl
 	const positionals: string[] = [];
 	let command = '';
 	for (let i = 0; i < argv.length; i++) {
-		const a = argv[i]!;
+		const a = argv[i];
 		if (!command && !a.startsWith('-')) {
 			command = a;
 			continue;
@@ -112,7 +112,7 @@ export async function runConnect(argv: string[]): Promise<number> {
 	try {
 		switch (command) {
 			case 'detect-client':
-				return await connectDetectClient(ctx);
+				return connectDetectClient(ctx);
 			case 'list':
 				return connectList(ctx);
 			case 'add': {

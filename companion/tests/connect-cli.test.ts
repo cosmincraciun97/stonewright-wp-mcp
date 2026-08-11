@@ -195,7 +195,7 @@ describe('connect CLI acceptance matrix', () => {
 		const reg = JSON.parse(readFileSync(h.sitesFile, 'utf8')) as {
 			sites: Array<{ clients: Record<string, unknown> }>;
 		};
-		expect(Object.keys(reg.sites[0]!.clients).sort()).toEqual(['codex', 'cursor']);
+		expect(Object.keys(reg.sites[0].clients).sort()).toEqual(['codex', 'cursor']);
 
 		// two sites one client (cursor)
 		const cursorCfg2 = join(h.dir, 'cursor-b.json');
@@ -257,12 +257,14 @@ describe('connect CLI acceptance matrix', () => {
 		const h = harness();
 		capture();
 		let probed = false;
-		const fetchImpl = (async (input: RequestInfo | URL) => {
+		const fetchImpl = ((input: string | URL) => {
 			const url = String(input);
 			if (url.includes('/mcp/stonewright')) {
 				probed = true;
 			}
-			return new Response(JSON.stringify({ namespaces: ['wp/v2'] }), { status: 200 });
+			return Promise.resolve(
+				new Response(JSON.stringify({ namespaces: ['wp/v2'] }), { status: 200 }),
+			);
 		}) as typeof fetch;
 
 		await connectAdd(
@@ -312,7 +314,8 @@ describe('connect CLI acceptance matrix', () => {
 			},
 		);
 
-		const fetch404 = (async () => new Response('missing', { status: 404 })) as typeof fetch;
+		const fetch404 = (() =>
+			Promise.resolve(new Response('missing', { status: 404 }))) as typeof fetch;
 		const v2 = await connectVerify(
 			'plugin-site',
 			{},
@@ -361,7 +364,7 @@ describe('connect CLI acceptance matrix', () => {
 		const reg = JSON.parse(readFileSync(h.sitesFile, 'utf8')) as {
 			sites: Array<{ canonical_url: string }>;
 		};
-		expect(reg.sites[0]!.canonical_url).toBe('https://first.example');
+		expect(reg.sites[0].canonical_url).toBe('https://first.example');
 	});
 
 	it('connect use + list', async () => {

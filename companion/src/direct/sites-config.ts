@@ -201,7 +201,7 @@ function registryToSitesConfig(
 		registry.sites[0];
 	const permissionWarning = permissionWarningFor(path);
 	return {
-		default: defaultSite?.alias ?? Object.keys(sites)[0]!,
+		default: defaultSite?.alias ?? Object.keys(sites)[0],
 		sites,
 		source: 'file',
 		path,
@@ -254,7 +254,7 @@ function loadFromFile(path: string, options: LoadSitesConfigOptions): SitesConfi
 		const defaultAlias =
 			typeof root.default === 'string' && root.default in sites
 				? root.default
-				: Object.keys(sites)[0]!;
+				: Object.keys(sites)[0];
 		const permissionWarning = permissionWarningFor(path);
 		const projected = projectV1AsV2WithoutSecretMove(parsed as SitesRegistryV1);
 		return {
