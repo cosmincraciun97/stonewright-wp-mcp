@@ -329,7 +329,7 @@ final class KitBatchMutate extends AbilityKernel {
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	private static function apply_layout( array $settings, array $operation ): array|\WP_Error {
-		// Single setting form: { group: layout, setting: container_width, value: {size:1140,unit:px} }
+		// Single layout setting via operation.setting / operation.value.
 		if ( isset( $operation['setting'] ) ) {
 			$key = (string) $operation['setting'];
 			if ( '' === $key ) {
