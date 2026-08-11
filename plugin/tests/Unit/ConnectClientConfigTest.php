@@ -10,6 +10,7 @@ use Stonewright\WpMcp\Admin\ConnectClientConfig;
  * @covers \Stonewright\WpMcp\Admin\ConnectClientConfig
  */
 final class ConnectClientConfigTest extends TestCase {
+	private const SERVER_NAME = 'stonewright-example-test';
 
 	protected function setUp(): void {
 		$GLOBALS['stonewright_test_options']['stonewright_mcp_surface'] = 'essential';
@@ -17,6 +18,7 @@ final class ConnectClientConfigTest extends TestCase {
 
 	protected function tearDown(): void {
 		$GLOBALS['stonewright_test_options'] = [];
+		unset( $GLOBALS['stonewright_test_site_url'] );
 	}
 
 	public function test_clients_catalogue_has_required_shape(): void {
@@ -78,9 +80,9 @@ final class ConnectClientConfigTest extends TestCase {
 	public function test_universal_snippet_structure(): void {
 		$snippet = ConnectClientConfig::universal_snippet( 'admin', 'abcd 1234 efgh 5678' );
 		$this->assertArrayHasKey( 'mcpServers', $snippet );
-		$this->assertArrayHasKey( 'stonewright', $snippet['mcpServers'] );
+		$this->assertArrayHasKey( self::SERVER_NAME, $snippet['mcpServers'] );
 
-		$server = $snippet['mcpServers']['stonewright'];
+		$server = $snippet['mcpServers'][ self::SERVER_NAME ];
 		$this->assertSame( 'npx', $server['command'] );
 		$this->assertSame(
 			[
@@ -92,16 +94,24 @@ final class ConnectClientConfigTest extends TestCase {
 			$server['args']
 		);
 		$this->assertNotContains( '@automattic/mcp-wordpress-remote@latest', $server['args'] );
+		$this->assertSame( 'plugin', $server['env']['STONEWRIGHT_MODE'] );
 		$this->assertSame( 'admin', $server['env']['STONEWRIGHT_WP_USERNAME'] );
 		$this->assertSame( 'abcd 1234 efgh 5678', $server['env']['STONEWRIGHT_WP_APP_PASSWORD'] );
 		$this->assertSame( 'essential', $server['env']['STONEWRIGHT_MCP_TOOL_PROFILE'] );
+	}
+
+	public function test_server_name_distinguishes_path_based_sites(): void {
+		$GLOBALS['stonewright_test_site_url'] = 'https://example.test/network/site-a/';
+		$snippet = ConnectClientConfig::universal_snippet( 'admin', 'pass' );
+
+		$this->assertArrayHasKey( 'stonewright-example-test-network-site-a', $snippet['mcpServers'] );
 	}
 
 	public function test_universal_snippet_password_placeholder_when_empty(): void {
 		$snippet = ConnectClientConfig::universal_snippet( 'admin', '' );
 		$this->assertSame(
 			'<your-application-password>',
-			$snippet['mcpServers']['stonewright']['env']['STONEWRIGHT_WP_APP_PASSWORD']
+			$snippet['mcpServers'][ self::SERVER_NAME ]['env']['STONEWRIGHT_WP_APP_PASSWORD']
 		);
 	}
 
@@ -115,10 +125,11 @@ final class ConnectClientConfigTest extends TestCase {
 		$result = ConnectClientConfig::snippet_for( 'claude-code', 'admin', 'pw' );
 		$this->assertIsArray( $result );
 		$this->assertArrayHasKey( 'command', $result );
-		$this->assertStringContainsString( 'claude mcp add stonewright', $result['command'] );
+		$this->assertStringContainsString( "claude mcp add 'stonewright-example-test'", $result['command'] );
 		$this->assertStringContainsString( 'stonewright-companion-0.0.0-test.tgz', $result['command'] );
 		$this->assertStringContainsString( '--package', $result['command'] );
 		$this->assertStringContainsString( 'stonewright-mcp', $result['command'] );
+		$this->assertStringContainsString( '--env STONEWRIGHT_MODE=plugin', $result['command'] );
 		$this->assertStringContainsString( '--env STONEWRIGHT_MCP_TOOL_PROFILE=essential', $result['command'] );
 		$this->assertStringNotContainsString( '@automattic/mcp-wordpress-remote', $result['command'] );
 	}
@@ -128,10 +139,11 @@ final class ConnectClientConfigTest extends TestCase {
 
 		$this->assertIsArray( $result );
 		$this->assertArrayHasKey( 'toml', $result );
-		$this->assertStringContainsString( '[mcp_servers.stonewright]', $result['toml'] );
+		$this->assertStringContainsString( '[mcp_servers.' . self::SERVER_NAME . ']', $result['toml'] );
 		$this->assertStringContainsString( 'command = "npx"', $result['toml'] );
 		$this->assertStringContainsString( 'stonewright-companion-0.0.0-test.tgz', $result['toml'] );
-		$this->assertStringContainsString( '[mcp_servers.stonewright.env]', $result['toml'] );
+		$this->assertStringContainsString( '[mcp_servers.' . self::SERVER_NAME . '.env]', $result['toml'] );
+		$this->assertStringContainsString( 'STONEWRIGHT_MODE = "plugin"', $result['toml'] );
 		$this->assertStringContainsString( 'STONEWRIGHT_WP_USERNAME = "admin"', $result['toml'] );
 		$this->assertStringContainsString( 'STONEWRIGHT_WP_APP_PASSWORD = "pw"', $result['toml'] );
 		$this->assertStringContainsString( 'STONEWRIGHT_MCP_TOOL_PROFILE = "essential"', $result['toml'] );
@@ -148,7 +160,7 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertIsArray( $cursor );
 		$this->assertIsArray( $claude );
 		$this->assertStringContainsString( 'STONEWRIGHT_MCP_TOOL_PROFILE = "full"', $codex['toml'] );
-		$this->assertSame( 'full', $cursor['mcpServers']['stonewright']['env']['STONEWRIGHT_MCP_TOOL_PROFILE'] );
+		$this->assertSame( 'full', $cursor['mcpServers'][ self::SERVER_NAME ]['env']['STONEWRIGHT_MCP_TOOL_PROFILE'] );
 		$this->assertStringContainsString( '--env STONEWRIGHT_MCP_TOOL_PROFILE=full', $claude['command'] );
 	}
 
@@ -172,14 +184,14 @@ final class ConnectClientConfigTest extends TestCase {
 		$gemini = ConnectClientConfig::snippet_for( 'gemini-cli', 'admin', 'pw' );
 
 		$this->assertIsArray( $gemini );
-		$this->assertSame( 'low-tools', $gemini['mcpServers']['stonewright']['env']['STONEWRIGHT_MCP_TOOL_PROFILE'] );
+		$this->assertSame( 'low-tools', $gemini['mcpServers'][ self::SERVER_NAME ]['env']['STONEWRIGHT_MCP_TOOL_PROFILE'] );
 	}
 
 	public function test_snippet_for_known_client_returns_universal_block(): void {
 		$result = ConnectClientConfig::snippet_for( 'cursor', 'admin', 'pw' );
 		$this->assertIsArray( $result );
 		$this->assertArrayHasKey( 'mcpServers', $result );
-		$this->assertArrayHasKey( 'stonewright', $result['mcpServers'] );
+		$this->assertArrayHasKey( self::SERVER_NAME, $result['mcpServers'] );
 	}
 
 	public function test_strict_tool_cap_clients_use_low_tools_profile(): void {
@@ -188,8 +200,8 @@ final class ConnectClientConfigTest extends TestCase {
 
 		$this->assertIsArray( $antigravity );
 		$this->assertIsArray( $gemini );
-		$this->assertSame( 'low-tools', $antigravity['mcpServers']['stonewright']['env']['STONEWRIGHT_MCP_TOOL_PROFILE'] );
-		$this->assertSame( 'low-tools', $gemini['mcpServers']['stonewright']['env']['STONEWRIGHT_MCP_TOOL_PROFILE'] );
+		$this->assertSame( 'low-tools', $antigravity['mcpServers'][ self::SERVER_NAME ]['env']['STONEWRIGHT_MCP_TOOL_PROFILE'] );
+		$this->assertSame( 'low-tools', $gemini['mcpServers'][ self::SERVER_NAME ]['env']['STONEWRIGHT_MCP_TOOL_PROFILE'] );
 	}
 
 	public function test_snippet_for_vscode_copilot_uses_servers_key(): void {
@@ -197,7 +209,7 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertIsArray( $result );
 		$this->assertArrayHasKey( 'servers', $result );
 		$this->assertArrayNotHasKey( 'mcpServers', $result );
-		$this->assertArrayHasKey( 'stonewright', $result['servers'] );
+		$this->assertArrayHasKey( self::SERVER_NAME, $result['servers'] );
 	}
 
 	public function test_snippet_for_github_copilot_uses_servers_key(): void {
@@ -210,7 +222,7 @@ final class ConnectClientConfigTest extends TestCase {
 		$result = ConnectClientConfig::snippet_for( 'zed', 'admin', 'pw' );
 		$this->assertIsArray( $result );
 		$this->assertArrayHasKey( 'context_servers', $result );
-		$this->assertArrayHasKey( 'stonewright', $result['context_servers'] );
+		$this->assertArrayHasKey( self::SERVER_NAME, $result['context_servers'] );
 	}
 
 	public function test_paste_to_agent_prompt_is_current_and_credential_free(): void {
@@ -220,26 +232,27 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringNotContainsString( 'https://example.test', $prompt );
 		$this->assertStringContainsString( '<your-wordpress-url>', $prompt );
 		$this->assertStringContainsString( '<your-wordpress-username>', $prompt );
-		$this->assertStringContainsString( '<your-application-password>', $prompt );
 		$this->assertStringContainsString( 'mcp/stonewright', $prompt );
+		$this->assertStringContainsString( 'mcp/stonewright-oauth', $prompt );
 		$this->assertStringContainsString( 'stonewright-companion-0.0.0-test.tgz', $prompt );
-		$this->assertStringContainsString( '["-y", "--package"', $prompt );
-		$this->assertStringContainsString( 'stonewright-mcp', $prompt );
-		$this->assertStringContainsString( 'STONEWRIGHT_WP_APP_PASSWORD', $prompt );
-		$this->assertStringContainsString( 'STONEWRIGHT_MCP_TOOL_PROFILE', $prompt );
-		$this->assertStringContainsString( 'Prefer OAuth', $prompt );
-		$this->assertStringContainsString( 'communicates with it through standard input/output', $prompt );
-		$this->assertStringContainsString( 'required for local stdio, Direct mode, and local WP-CLI', $prompt );
-		$this->assertStringContainsString( 'It does not run or require a local companion', $prompt );
+		$this->assertStringContainsString( 'stonewright connect add', $prompt );
+		$this->assertStringContainsString( '--mode plugin-only', $prompt );
+		$this->assertStringContainsString( 'stonewright connect repair <alias> --client <client> --mode plugin-only', $prompt );
+		$this->assertStringContainsString( 'Choose exactly one transport', $prompt );
+		$this->assertStringNotContainsString( 'Build a private config', $prompt );
+		$this->assertStringNotContainsString( 'MCP server name: stonewright', $prompt );
+		$this->assertStringContainsString( 'communicates through standard input/output', $prompt );
+		$this->assertStringContainsString( 'does not run a local companion', $prompt );
 		$this->assertStringContainsString( 'Show me approval_url, exact path, byte counts, and a short summary, then stop', $prompt );
 		$this->assertStringContainsString( 'Never open the approval page', $prompt );
-		$this->assertStringContainsString( 'Keep credentials only in the private client config or ~/.stonewright/sites.json', $prompt );
-		$this->assertStringContainsString( 'prefer the versioned `stonewright connect add` installer', $prompt );
-		$this->assertStringContainsString( 'hidden password prompt or --password-env', $prompt );
-		$this->assertStringContainsString( '~/.stonewright/sites.json may contain a credential_ref but never plaintext', $prompt );
+		$this->assertStringContainsString( 'hidden prompt', $prompt );
+		$this->assertStringContainsString( '--password-env', $prompt );
+		$this->assertStringContainsString( '~/.stonewright/sites.json may contain credential_ref values, never plaintext credentials', $prompt );
 		$this->assertStringContainsString( 'stonewright connect verify <alias> --client <client>', $prompt );
-		$this->assertStringContainsString( 'a parseable config file is not runtime proof', $prompt );
-		$this->assertStringContainsString( 'fully restart or reload the MCP session', $prompt );
+		$this->assertStringContainsString( 'fully restart the MCP client', $prompt );
+		$this->assertStringContainsString( 'configured_mode=plugin-only', $prompt );
+		$this->assertStringContainsString( 'active_mode=plugin', $prompt );
+		$this->assertStringContainsString( 'wrong named server is active', $prompt );
 		$this->assertStringContainsString( 'stonewright-task-start', $prompt );
 		$this->assertLessThan(
 			strpos( $prompt, 'stonewright-context-bootstrap' ) ?: PHP_INT_MAX,
@@ -253,7 +266,7 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'companion_version', $prompt );
 		$this->assertStringContainsString( 'expected_companion_package', $prompt );
 		$this->assertStringContainsString( 'refresh_required_tool_names', $prompt );
-		$this->assertStringContainsString( 'do not bypass Stonewright', $prompt );
+		$this->assertStringContainsString( 'never bypass Stonewright', $prompt );
 		$this->assertStringContainsString( 'user-approved browser provider', $prompt );
 		$this->assertStringContainsString( 'Ask me once whether this site/client should use Playwright', $prompt );
 		$this->assertStringContainsString( 'Do not scan my private config or client tool surface without permission', $prompt );

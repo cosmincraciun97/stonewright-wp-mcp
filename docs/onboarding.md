@@ -14,8 +14,9 @@ edit WordPress sites through MCP.
   gates. Not available without the plugin: Elementor batch engines,
   DesignSpec rendering, php-execute, confirmation tokens, content-model
   registration, shared site memory.
-- The companion auto-detects the mode (`STONEWRIGHT_MODE=direct|plugin`
-  overrides; otherwise it probes the plugin MCP endpoint).
+- The companion can auto-detect the mode, but an installed-plugin connection
+  should be registered as `plugin-only`. This fails closed instead of silently
+  entering Direct mode when the wrong site entry or endpoint is selected.
 
 Copy-paste client setup for both modes lives in
 [install-prompts.md](install-prompts.md). Capability detail for Direct mode is
@@ -28,9 +29,13 @@ generated [ability-truth-matrix.md](ability-truth-matrix.md) (do not hand-edit).
 
 1. Install and activate the WordPress plugin.
 2. Start the companion when you need WP-CLI-assisted work or a stdio MCP server.
-3. Create a WordPress Application Password for the MCP client user.
-4. Add the Stonewright MCP server to your AI client (see
-   [install-prompts.md](install-prompts.md) Option A).
+3. Choose OAuth remote HTTP, or create a WordPress Application Password for a
+   local stdio connection. Use one transport per named connection.
+4. For stdio, run the versioned `stonewright connect add` installer with a
+   unique alias, `--mode plugin-only`, and the target client (see
+   [install-prompts.md](install-prompts.md) Option A). If the alias already
+   exists, use `connect repair <alias> --client <client> --mode plugin-only` so
+   the saved credential is reused instead of registering a duplicate.
 5. In wp-admin, open **Stonewright > Configuration**, enable Stonewright, and
    choose the operating mode (`development`, `staging`, or `production-safe`).
 6. Perform a **client-specific restart or MCP session reload** (not only a chat
@@ -40,6 +45,9 @@ generated [ability-truth-matrix.md](ability-truth-matrix.md) (do not hand-edit).
    still exposes that older entry. Prefer credential-free paste prompts from
    [install-prompts.md](install-prompts.md); keep real secrets in private
    user-level client config.
+8. Run `stonewright connect verify <alias> --client <client>` and require the
+   same alias, `configured_mode=plugin-only`, `active_mode=plugin`, the expected
+   companion, task-start/status, and an empty required-tool refresh list.
 
 ### Direct mode (no plugin)
 

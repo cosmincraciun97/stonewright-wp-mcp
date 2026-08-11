@@ -27,48 +27,24 @@ JSON; manual smoke pending until a
   confirmation tokens, shared site skills/memory. Ability inventory:
   [ability-truth-matrix.md](../ability-truth-matrix.md).
 
-The companion auto-detects mode (`STONEWRIGHT_MODE=direct|plugin` overrides).
+Use an explicit saved policy: `direct-only` without the plugin and
+`plugin-only` when the plugin is installed. Reserve auto-detection for a
+connection where Direct fallback is intentional.
 
 ## Fastest start (Direct mode)
 
 Generate a WordPress Application Password, then add Stonewright to Cursor.
 
-Config file (user-level recommended for secrets):
+Use the installer so Cursor receives an alias-specific, secret-free entry:
 
-```text
-~/.cursor/mcp.json
+```bash
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
+  --alias site-a --url https://site-a.example --username editor \
+  --mode direct-only --client cursor
 ```
 
-Project-local alternative: `.cursor/mcp.json` (do not commit secrets).
-
-Replace `VERSION` with the exact release version without a leading `v`:
-
-```json
-{
-  "mcpServers": {
-    "stonewright": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "--package",
-        "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz",
-        "stonewright-mcp"
-      ],
-      "env": {
-        "STONEWRIGHT_WP_URL": "https://your-site.example.com",
-        "STONEWRIGHT_WP_USERNAME": "your-wp-username",
-        "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_DIRECT_WRITES": "confirm",
-        "STONEWRIGHT_MODE": "direct"
-      }
-    }
-  }
-}
-```
-
-Optional: omit `STONEWRIGHT_MODE` for auto-detect, or set
-`STONEWRIGHT_MCP_TOOL_PROFILE` to `essential` for the normal bounded working
-surface or `low-tools` for a strict tool-cap client. Bootstrap is a diagnostic,
+Use `--profile essential` for the normal bounded working surface or
+`--profile low-tools` for a strict tool-cap client. Bootstrap is a diagnostic,
 not a permanent Cursor default.
 
 **Restart Cursor or reload MCP servers** (required). Smoke test:
@@ -91,36 +67,19 @@ Copy-paste Option B: [install-prompts.md](../install-prompts.md).
    under `wp-content/plugins`).
 2. Open **Stonewright > Configuration**, enable abilities, choose operating
    mode, and generate an Application Password.
-3. Use the same `mcpServers.stonewright` JSON shape as Direct mode, but drop
-   `STONEWRIGHT_MODE=direct` (or set `plugin` / leave auto) and set:
+3. Register an alias-specific Plugin connection:
 
-```json
-"STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
+```bash
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
+  --alias site-a --url https://site-a.example --username editor \
+  --mode plugin-only --client cursor --profile essential \
+  --plugin-enabled yes --wp-surface essential
 ```
 
-Example (plugin-oriented env block):
-
-```json
-{
-  "mcpServers": {
-    "stonewright": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "--package",
-        "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz",
-        "stonewright-mcp"
-      ],
-      "env": {
-        "STONEWRIGHT_WP_URL": "https://your-site.example.com",
-        "STONEWRIGHT_WP_USERNAME": "your-wp-username",
-        "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
-      }
-    }
-  }
-}
-```
+If the alias exists, run `stonewright connect repair site-a --client cursor
+--mode plugin-only`; it reuses the saved credential and updates only that named
+entry. Restart Cursor, then require `connect verify` to report the same alias
+and `active_mode=plugin`.
 
 Add `STONEWRIGHT_WP_ROOT` only when you want path-scoped WP-CLI / LocalWP
 discovery. Use the WordPress install folder that contains `wp-config.php`, not

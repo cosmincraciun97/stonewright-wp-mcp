@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.6] - 2026-08-12
+
+### Changed
+
+- Add `connect repair <alias> --mode direct-only|plugin-only|auto` so an
+  existing site can change policy and refresh its named client entry while
+  reusing the stored credential.
+
+### Fixed
+
+- Make an explicit `STONEWRIGHT_SITE_ALIAS` override stale inherited WordPress
+  URL, username, and password values before runtime mode selection.
+- Deduplicate legacy v1 aliases by canonical URL and environment during secure
+  migration, preserving the configured default or first stable alias and never
+  persisting the read-only v1 projection as schema v2.
+
 ## [1.0.0-beta.5] - 2026-08-12
 
 ### Added

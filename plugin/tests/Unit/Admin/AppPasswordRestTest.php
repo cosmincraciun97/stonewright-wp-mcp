@@ -105,7 +105,8 @@ final class AppPasswordRestTest extends TestCase {
 	public function test_paste_prompt_never_contains_real_password(): void {
 		$prompt = ConnectClientConfig::paste_to_agent_prompt( 'admin', 'super-secret-app-pass-xyz', 'cursor' );
 		self::assertStringNotContainsString( 'super-secret-app-pass-xyz', $prompt );
-		self::assertStringContainsString( '<your-application-password>', $prompt );
+		self::assertStringContainsString( 'hidden prompt', $prompt );
+		self::assertStringContainsString( '--password-env', $prompt );
 		self::assertDoesNotMatchRegularExpression( '/STONEWRIGHT_MCP_TOOL_PROFILE=full\b/', $prompt );
 	}
 

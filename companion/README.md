@@ -136,7 +136,7 @@ npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/
   --url https://site-a.example \
   --username editor \
   --env staging \
-  --mode auto \
+  --mode plugin-only \
   --plugin-enabled yes \
   --wp-mode staging \
   --wp-surface essential \
@@ -186,7 +186,7 @@ MCP client config from `connect add --client …` is secret-free:
       "command": "npx",
       "args": ["-y", "--package", "…/stonewright-companion-VERSION.tgz", "stonewright-mcp"],
       "env": {
-        "STONEWRIGHT_MODE": "auto",
+        "STONEWRIGHT_MODE": "plugin",
         "STONEWRIGHT_MCP_TOOL_PROFILE": "essential-static",
         "STONEWRIGHT_SITE_ALIAS": "site-a"
       }
@@ -197,8 +197,9 @@ MCP client config from `connect add --client …` is secret-free:
 
 At companion startup, `STONEWRIGHT_SITE_ALIAS` resolves **only that site** from
 the registry and injects `STONEWRIGHT_WP_URL`, `STONEWRIGHT_WP_USERNAME`, and
-`STONEWRIGHT_WP_APP_PASSWORD` into the runtime env. Other sites' secrets stay
-unloaded.
+`STONEWRIGHT_WP_APP_PASSWORD` into the runtime env. The alias is authoritative:
+it replaces stale or inherited `STONEWRIGHT_WP_*` values instead of allowing a
+named entry to start against another site. Other sites' secrets stay unloaded.
 
 **Modes per site:** `auto` (default probe), `plugin-only` (fail closed without
 plugin MCP), `direct-only` (skip plugin probe). Prefer `--password-env` or the
@@ -208,7 +209,7 @@ Browser provider, scan consent, and install consent are distinct per-client
 fields. `recommended` means Playwright without embedding or installing it;
 `unknown` causes an agent to ask once and never authorizes scanning or
 installation. Update them idempotently with `connect repair <alias> --client
-<id> --browser-provider … --browser-scan-consent …
+<id> --mode plugin-only --browser-provider … --browser-scan-consent …
 --browser-install-consent …`.
 
 After restarting the target client, `connect verify <alias> --client <id>`
@@ -219,7 +220,16 @@ is not a successful runtime verification.
 
 Legacy v1 `sites.json` files with plaintext `appPassword` / `applicationPassword`
 still load at runtime. Run `connect migrate` to move secrets into the OS store
-and rewrite schema v2; the migration does not leave a plaintext `.bak` on success.
+and rewrite schema v2; the migration does not leave a plaintext `.bak` on
+success. If v1 contains several aliases for the same canonical URL and
+environment, migration retains the configured default alias for that group (or
+the first stable alias) and removes the duplicates before v2 is written.
+
+`connect repair <alias> --client <id> --mode plugin-only` reuses the stored
+credential, updates the persisted mode/fallback policy, and rewrites only that
+alias-specific client entry. It does not require the Application Password again.
+For a client managed by its own CLI, omit `--client`; the same command updates
+only the saved site policy and leaves external client configuration untouched.
 
 ### Doctor (connection health)
 

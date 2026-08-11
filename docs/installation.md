@@ -70,6 +70,9 @@ Set Application Password credentials and point at the site URL. With
 - HTTP 404 → Direct mode (100 tools in the current full surface)
 
 Force either path with `STONEWRIGHT_MODE=direct` or `STONEWRIGHT_MODE=plugin`.
+For an installed-plugin connection, prefer the alias-based installer with
+`--mode plugin-only`; `auto` is appropriate only when intentional Direct
+fallback is part of the connection policy.
 
 ```json
 {
@@ -106,7 +109,7 @@ npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/
   --username editor \
   --password-env STONEWRIGHT_TMP_APP_PASSWORD \
   --env staging \
-  --mode auto \
+  --mode plugin-only \
   --plugin-enabled yes \
   --wp-mode staging \
   --wp-surface essential \
@@ -121,7 +124,19 @@ Prefer interactive password entry or `--password-env VAR` (avoid `--password` on
 argv). Schema v2 stores only metadata and a `credential_ref` in
 `~/.stonewright/sites.json`; secrets live in the OS credential store (or
 `env://VAR`). Client config sets `STONEWRIGHT_SITE_ALIAS` only — the companion
-resolves URL and credentials for that alias at startup.
+resolves URL and credentials for that alias at startup. The alias is
+authoritative and replaces stale inherited `STONEWRIGHT_WP_*` values.
+
+If the alias already exists, reuse its saved credential and change the mode or
+client binding without creating a duplicate:
+
+```bash
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect repair site-a --client cursor --mode plugin-only
+```
+
+Secure v1 migration collapses repeated aliases for one canonical
+URL/environment before v2 is written. It keeps the configured default alias
+for that group, or the first stable alias when none is default.
 
 The WordPress Step 1 choices and browser consent are retained per site/client;
 `recommended` records Playwright as the external default without embedding it;
@@ -165,28 +180,18 @@ WordPress Application Password. The setup diagnostics panel blocks a green
 status when HTTPS, Application Passwords, the endpoint, or the 20-tool budget
 is missing.
 
-Fastest MCP-client setup uses `npx`, so Windows, macOS, and Linux do not need a
-shell wrapper, global install, or manual bridge:
+Fastest MCP-client setup uses the alias installer, so Windows, macOS, and Linux
+do not need a shell wrapper, global install, duplicate server block, or secret
+inside the client file:
 
-```json
-{
-  "mcpServers": {
-    "stonewright": {
-      "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"],
-      "env": {
-        "STONEWRIGHT_WP_URL": "http://mcp-test.local",
-        "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
-        "STONEWRIGHT_WP_APP_PASSWORD_AUTO": "local-only",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
-      }
-    }
-  }
-}
+```bash
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
+  --alias local-site --url http://local-site.test --username editor \
+  --env local --mode direct-only --client cursor
 ```
 
 After adding the server, perform the **client-specific restart / MCP reload**,
-then call `stonewright-setup-profile`. It returns copy-paste MCP config,
+call `stonewright-task-start` first, then call `stonewright-setup-profile`. It returns copy-paste MCP config,
 platform checks, credential status, and notes for the current machine. Paste
 blocks stay credential-free; put real secrets only in private user-level client
 config. For local `.local` or `.test` sites, the companion can create one
@@ -219,8 +224,8 @@ For Antigravity 2.0, Antigravity IDE, and Antigravity CLI, use
 [Antigravity setup guide](getting-started/antigravity.md).
 For Codex CLI or the Codex IDE extension, use
 [`~/.codex/config.toml`](getting-started/codex.md) or a trusted project
-`.codex/config.toml`; Codex MCP entries use TOML tables named
-`[mcp_servers.stonewright]`, not JSON.
+`.codex/config.toml`; installer-managed Codex MCP entries use alias-specific
+TOML tables such as `[mcp_servers.stonewright-site-a]`, not JSON.
 
 Before the first WordPress task, verify the client tool list includes
 `stonewright-task-start` (canonical) or compatibility
@@ -285,24 +290,9 @@ npm install
 npm run build
 ```
 
-For MCP clients that use a local stdio server, configure:
-
-```json
-{
-  "mcpServers": {
-    "stonewright": {
-      "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"],
-      "env": {
-        "STONEWRIGHT_WP_URL": "https://your-site.example.com",
-        "STONEWRIGHT_WP_USERNAME": "your-wp-username",
-        "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
-      }
-    }
-  }
-}
-```
+For MCP clients that use local stdio, use the versioned `stonewright connect
+add` flow above. It writes an alias-specific entry with the requested mode and
+tool profile; do not duplicate it with a generic manual block.
 
 `STONEWRIGHT_WP_ROOT` is optional. Add it only when the companion should run
 WP-CLI helper tools or discover LocalWP automatically. Use the absolute

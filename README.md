@@ -42,7 +42,11 @@ Stonewright is a WordPress MCP stack for AI coding agents. **Elementor** is a fi
   <a href="CONTRIBUTING.md">Contributing</a>
 </p>
 
-<!-- Maintainer: add the Stonewright workflow demo here. Do not remove this comment until the asset is available. -->
+<p align="center">
+  <img src="assets/screenshots/stonewright-dashboard-overview.svg" alt="Stonewright dashboard showing a verified Plugin-mode connection" width="1200" />
+</p>
+
+<p align="center"><sub>Synthetic product view. No customer site, credential, memory, or audit data is shown.</sub></p>
 
 ## Capabilities
 
@@ -154,40 +158,33 @@ MCP surface modes (`bootstrap` / `essential-static` / `essential` / `full`) cont
 <details>
 <summary>MCP client config (Plugin mode companion)</summary>
 
-Use the latest companion package URL from [Releases](https://github.com/cosmincraciun97/stonewright-wp-mcp/releases) (do not hardcode a stale version):
+Use the versioned installer from the latest
+[release](https://github.com/cosmincraciun97/stonewright-wp-mcp/releases).
+Because this flow starts from an installed plugin, choose `plugin-only`; it
+fails closed instead of silently falling back to Direct mode.
 
-```json
-{
-  "mcpServers": {
-    "stonewright": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "--package",
-        "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz",
-        "stonewright-mcp"
-      ],
-      "env": {
-        "STONEWRIGHT_WP_URL": "https://your-site.example.com",
-        "STONEWRIGHT_WP_USERNAME": "admin",
-        "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
-      }
-    }
-  }
-}
+```bash
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
+  --alias site-a --url https://site-a.example --username editor \
+  --env production --mode plugin-only --client codex \
+  --plugin-enabled yes --wp-mode production-safe --wp-surface essential
 ```
 
-Replace `VERSION` with the exact release version without the leading `v`, as
-shown on the GitHub Releases page. Keep real credentials in private client
-config; paste-to-agent prompts use placeholders only. Site MCP endpoint when
-using the WordPress MCP adapter directly:
+The installer requests the Application Password through a hidden prompt,
+stores it in the OS credential store, and writes a collision-safe named client
+entry containing `STONEWRIGHT_SITE_ALIAS`, never the password. If the alias is
+already registered, reuse its saved credential and switch the existing entry:
 
-```text
-https://your-site.example.com/wp-json/mcp/stonewright
+```bash
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect repair site-a --client codex --mode plugin-only
 ```
 
-HTTP local sites are supported; Setup treats plain HTTP as informational, not a hard failure.
+Restart the client and run `stonewright connect verify site-a --client codex`.
+The receipt must report the requested alias, `configured_mode=plugin-only`,
+`active_mode=plugin`, task-start/status availability, the expected companion,
+and no required tool refresh. OAuth remote HTTP is a separate connection to
+`/wp-json/mcp/stonewright-oauth`; do not combine both transports under one
+generic `stonewright` server name.
 
 </details>
 
@@ -247,7 +244,10 @@ Each `(canonical URL, environment)` is unique and each site has a stable alias.
 Application Passwords remain in Keychain, Windows protected storage, Linux
 Secret Service, or an explicit `env://` reference. A client entry carries only
 `STONEWRIGHT_SITE_ALIAS`, so startup resolves exactly that site without loading
-unrelated credentials. The registry also retains Direct/Plugin policy, WordPress
+unrelated credentials. The explicit alias is authoritative over inherited
+legacy `STONEWRIGHT_WP_*` values. Secure v1 migration collapses duplicate
+aliases for the same canonical site/environment to one stable record. The
+registry also retains Direct/Plugin policy, WordPress
 mode and tool surface, Elementor V4 selection, plus the browser choice and its
 separate scan/install consent for each client. See [Installation](docs/installation.md).
 

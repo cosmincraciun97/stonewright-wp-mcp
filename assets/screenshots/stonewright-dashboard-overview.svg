@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="810" viewBox="0 0 1440 810" role="img" aria-labelledby="title desc">
+  <title id="title">Stonewright WordPress dashboard</title>
+  <desc id="desc">Synthetic product illustration of the Stonewright dashboard with no customer or runtime data.</desc>
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7f8fc"/>
+      <stop offset="1" stop-color="#eef1f8"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6557ff"/>
+      <stop offset="1" stop-color="#315efb"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#17213a" flood-opacity=".08"/>
+    </filter>
+  </defs>
+
+  <rect width="1440" height="810" fill="url(#page)"/>
+  <rect width="1440" height="58" fill="#15171d"/>
+  <path d="M25 20 36 14 47 20v18L36 44 25 38Z" fill="url(#brand)"/>
+  <path d="m31 22 5-3 5 3v13l-5 3-5-3Z" fill="#b9c5ff" opacity=".85"/>
+  <text x="58" y="36" font-family="Inter,Arial,sans-serif" font-size="17" font-weight="700" fill="#fff">Stonewright</text>
+  <rect x="159" y="9" width="94" height="40" rx="7" fill="#37307d"/>
+  <text x="177" y="35" font-family="Inter,Arial,sans-serif" font-size="14" font-weight="700" fill="#fff">Dashboard</text>
+  <g font-family="Inter,Arial,sans-serif" font-size="13" font-weight="600" fill="#b9bbc4">
+    <text x="278" y="35">Setup</text>
+    <text x="337" y="35">AI Abilities</text>
+    <text x="445" y="35">Workflows</text>
+    <text x="544" y="35">Sandbox</text>
+    <text x="627" y="35">Prompts</text>
+    <text x="716" y="35">Audit Log</text>
+    <text x="803" y="35">Memory</text>
+    <text x="875" y="35">Skills</text>
+  </g>
+  <rect x="1245" y="14" width="132" height="30" rx="15" fill="#262a36" stroke="#51586c"/>
+  <circle cx="1264" cy="29" r="5" fill="#49c78e"/>
+  <text x="1276" y="34" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="700" fill="#dfe5f4">plugin mode</text>
+
+  <g transform="translate(150 108)">
+    <text x="0" y="26" font-family="Inter,Arial,sans-serif" font-size="28" font-weight="750" fill="#202331">Dashboard</text>
+    <text x="0" y="52" font-family="Inter,Arial,sans-serif" font-size="14" fill="#687086">Live overview of mode, tools, companion, and recent MCP activity.</text>
+
+    <g transform="translate(0 82)" filter="url(#shadow)">
+      <rect width="1140" height="142" rx="16" fill="#fff" stroke="#dce1ec"/>
+      <path d="M190 0v142M380 0v142M570 0v142M760 0v142M950 0v142" stroke="#e4e7ef"/>
+      <g font-family="Inter,Arial,sans-serif">
+        <g transform="translate(24 27)">
+          <circle cx="9" cy="9" r="9" fill="#e8f8f0"/><path d="m5 9 3 3 6-7" fill="none" stroke="#24a56c" stroke-width="2"/>
+          <text x="27" y="15" font-size="18" font-weight="750" fill="#202331">Ready</text>
+          <text x="0" y="46" font-size="12" font-weight="700" fill="#687086">Site pulse</text>
+          <text x="0" y="69" font-size="12" fill="#8a91a3">Health checks available</text>
+        </g>
+        <g transform="translate(214 27)">
+          <circle cx="9" cy="9" r="9" fill="#eef0ff"/><path d="M9 4v10M4 9h10" stroke="#6557ff" stroke-width="1.8"/>
+          <text x="27" y="15" font-size="17" font-weight="750" fill="#202331">production-safe</text>
+          <text x="0" y="46" font-size="12" font-weight="700" fill="#687086">WordPress mode</text>
+          <text x="0" y="69" font-size="12" fill="#8a91a3">Confirmation gates active</text>
+        </g>
+        <g transform="translate(404 27)">
+          <circle cx="9" cy="9" r="9" fill="#f2edff"/><path d="M5 13 13 5M6 5h7v7" fill="none" stroke="#7357db" stroke-width="1.8"/>
+          <text x="27" y="15" font-size="18" font-weight="750" fill="#202331">Elementor</text>
+          <text x="0" y="46" font-size="12" font-weight="700" fill="#687086">Native engines</text>
+          <text x="0" y="69" font-size="12" fill="#8a91a3">V3 + V4 ready</text>
+        </g>
+        <g transform="translate(594 27)">
+          <circle cx="9" cy="9" r="9" fill="#e9f3ff"/><path d="M5 9h8M9 5v8" stroke="#3976da" stroke-width="1.8"/>
+          <text x="27" y="15" font-size="18" font-weight="750" fill="#202331">Plugin</text>
+          <text x="0" y="46" font-size="12" font-weight="700" fill="#687086">Active connection</text>
+          <text x="0" y="69" font-size="12" fill="#8a91a3">Alias verified</text>
+        </g>
+        <g transform="translate(784 27)">
+          <circle cx="9" cy="9" r="9" fill="#f0efff"/><path d="M5 6h8M5 9h8M5 12h8" stroke="#6557ff" stroke-width="1.6"/>
+          <text x="27" y="15" font-size="18" font-weight="750" fill="#202331">Essential</text>
+          <text x="0" y="46" font-size="12" font-weight="700" fill="#687086">Tool surface</text>
+          <text x="0" y="69" font-size="12" fill="#8a91a3">Compact working set</text>
+        </g>
+        <g transform="translate(974 27)">
+          <circle cx="9" cy="9" r="9" fill="#fff3df"/><path d="M9 5v5l3 2" fill="none" stroke="#d48620" stroke-width="1.8"/>
+          <text x="27" y="15" font-size="18" font-weight="750" fill="#202331">Just now</text>
+          <text x="0" y="46" font-size="12" font-weight="700" fill="#687086">Last activity</text>
+          <text x="0" y="69" font-size="12" fill="#8a91a3">Connection verified</text>
+        </g>
+      </g>
+    </g>
+
+    <g transform="translate(0 258)" filter="url(#shadow)">
+      <rect width="548" height="330" rx="16" fill="#fff" stroke="#dce1ec"/>
+      <text x="30" y="48" font-family="Inter,Arial,sans-serif" font-size="17" font-weight="750" fill="#202331">Connection health</text>
+      <line x1="30" y1="68" x2="518" y2="68" stroke="#e6e9f1"/>
+      <rect x="30" y="94" width="488" height="74" rx="11" fill="#f7f8fc"/>
+      <circle cx="57" cy="131" r="12" fill="#e8f8f0"/>
+      <path d="m51 131 4 4 8-9" fill="none" stroke="#24a56c" stroke-width="2.2"/>
+      <text x="82" y="126" font-family="Inter,Arial,sans-serif" font-size="14" font-weight="700" fill="#202331">Named site connection verified</text>
+      <text x="82" y="148" font-family="Inter,Arial,sans-serif" font-size="12" fill="#7a8295">Correct alias, Plugin mode, and current companion.</text>
+      <rect x="30" y="188" width="232" height="94" rx="11" fill="#f7f8fc"/>
+      <text x="50" y="219" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="700" fill="#687086">TASK START</text>
+      <text x="50" y="251" font-family="Inter,Arial,sans-serif" font-size="21" font-weight="750" fill="#202331">Available</text>
+      <rect x="286" y="188" width="232" height="94" rx="11" fill="#f7f8fc"/>
+      <text x="306" y="219" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="700" fill="#687086">REFRESH REQUIRED</text>
+      <text x="306" y="251" font-family="Inter,Arial,sans-serif" font-size="21" font-weight="750" fill="#24a56c">None</text>
+    </g>
+
+    <g transform="translate(572 258)" filter="url(#shadow)">
+      <rect width="568" height="330" rx="16" fill="#fff" stroke="#dce1ec"/>
+      <text x="30" y="48" font-family="Inter,Arial,sans-serif" font-size="17" font-weight="750" fill="#202331">Recent activity</text>
+      <text x="448" y="48" font-family="Inter,Arial,sans-serif" font-size="13" font-weight="700" fill="#5749ee">View audit log</text>
+      <line x1="30" y1="68" x2="538" y2="68" stroke="#e6e9f1"/>
+      <circle cx="284" cy="151" r="34" fill="#f0efff"/>
+      <path d="M270 151h28M284 137v28" stroke="#6557ff" stroke-width="2"/>
+      <text x="284" y="210" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="16" font-weight="750" fill="#202331">No recent activity</text>
+      <text x="284" y="235" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="13" fill="#7a8295">Fresh installations begin with an empty audit history.</text>
+    </g>
+  </g>
+</svg>

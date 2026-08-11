@@ -40,12 +40,20 @@ In Antigravity IDE you can also open it from the agent panel:
 ## 3. Add Stonewright
 
 Use the latest release tarball shown by the Stonewright Configuration page.
-Replace `VERSION` with the exact release version without a leading `v`:
+First register the alias and credential through the hidden installer prompt:
+
+```bash
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
+  --alias site-a --url https://site-a.example --username editor \
+  --mode plugin-only --profile low-tools --plugin-enabled yes
+```
+
+Then add the secret-free named entry:
 
 ```json
 {
   "mcpServers": {
-    "stonewright": {
+    "stonewright-site-a": {
       "command": "npx",
       "args": [
         "-y",
@@ -54,15 +62,17 @@ Replace `VERSION` with the exact release version without a leading `v`:
         "stonewright-mcp"
       ],
       "env": {
-        "STONEWRIGHT_WP_URL": "https://your-site.example.com",
-        "STONEWRIGHT_WP_USERNAME": "your-wp-username",
-        "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
+        "STONEWRIGHT_SITE_ALIAS": "site-a",
+        "STONEWRIGHT_MODE": "plugin",
         "STONEWRIGHT_MCP_TOOL_PROFILE": "low-tools"
       }
     }
   }
 }
 ```
+
+If the alias already exists, run `stonewright connect repair site-a --mode
+plugin-only`; do not add another alias or request the password again.
 
 For local WordPress sites, add `STONEWRIGHT_WP_ROOT` only when you want
 path-scoped WP-CLI discovery and local credential helpers:
@@ -101,8 +111,9 @@ stonewright-wp-cli-job-status
 Use this smoke test before asking for site changes:
 
 ```text
-Use Stonewright. First call stonewright-setup-profile, then verify
-stonewright-task-start or compatibility stonewright-context-bootstrap is visible.
+Use Stonewright. Verify stonewright-task-start or compatibility
+stonewright-context-bootstrap is visible, then call stonewright-task-start first.
+After task-start, call stonewright-setup-profile.
 If Stonewright is not connected, call stonewright-wordpress-mcp-status and stop
 with the exact missing config value. Do not inspect private client config
 files, create scratch helper scripts, create helper JSON argument files, launch

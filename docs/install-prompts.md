@@ -51,28 +51,39 @@ WordPress password.
 ```text
 Configure the Stonewright MCP server for my WordPress site in this AI client.
 
-Prefer the versioned `stonewright connect add` installer. Ask me for a unique
-site alias, environment, Plugin/Direct policy, WordPress mode, MCP tool surface,
-Elementor V4 choice, and target client. Ask once for a browser provider and ask
-separately before scanning client configuration or installing anything. Store
-those choices per site/client. Use a hidden password prompt or --password-env;
-never put a password on argv. After I restart the client, run
-`stonewright connect verify <alias> --client <client>` and require spawned task-start/status
-proof, not only a valid config file.
+Choose exactly one transport for this site. Do not combine local stdio and
+OAuth HTTP under the same server name.
 
-Connection values (I will provide secrets when asked):
-- WordPress URL: <https://example.com>
-- MCP server name: stonewright
-- Transport: command `npx`, args ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"]
-- Env vars only (never inline secrets in args): STONEWRIGHT_WP_URL,
-  STONEWRIGHT_WP_USERNAME, STONEWRIGHT_WP_APP_PASSWORD,
-  STONEWRIGHT_MCP_TOOL_PROFILE=essential (normal bounded working profile; use
-  essential-static only for an unknown client with stale tool-list behavior,
-  or low-tools for a strict tool cap).
-- I will supply secrets only into private client config. Do not ask me to paste
-  real Application Passwords or OAuth tokens into chat.
+For local stdio, use the versioned installer with a unique alias, a
+collision-safe named server, and --mode plugin-only. Ask for the environment,
+WordPress mode, MCP surface, Elementor V4 choice, and target client. Let the
+installer request the Application Password through its hidden prompt, or use
+--password-env with a temporary variable; never put a password on argv.
+
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add --alias <unique-alias> --url <your-wordpress-url> --username <your-wordpress-username> --env <environment> --mode plugin-only --client <client> --profile essential --plugin-enabled yes --wp-mode <development|staging|production-safe> --wp-surface essential --elementor-v4 <yes|no>
+
+I will replace private placeholders locally. Do not create or overwrite a
+generic server named stonewright. If the alias already exists, reuse its saved
+credential without asking for the password again:
+
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect repair <alias> --client <client> --mode plugin-only
+
+For remote OAuth HTTP instead, create a separately named connection to
+<your-wordpress-url>/wp-json/mcp/stonewright-oauth. That transport connects
+directly to the plugin and does not run the companion.
+
+Ask once for a browser provider and ask separately before scanning client
+configuration or installing anything. Store those choices per site/client.
+Never inspect or print private configuration. After I restart the client, run
+stonewright connect verify <alias> --client <client> for local stdio and require
+spawned runtime proof, not only a valid config file.
 
 After a client-specific restart / MCP reload (not only a chat refresh):
+- Verify stonewright-task-start is in the tool list; if missing, stop and tell me.
+- Call stonewright-task-start first with a non-empty task, surface, and intent.
+- Require the requested alias, configured_mode=plugin-only, active_mode=plugin,
+  and the expected companion version. If another site or Direct mode appears,
+  stop because the wrong named server is active.
 - Call stonewright-setup-profile and stonewright-wordpress-mcp-status.
 - Confirm companion_version matches VERSION, the WordPress MCP endpoint is
   authenticated, and refresh_required_tool_names is empty.
@@ -80,8 +91,6 @@ After a client-specific restart / MCP reload (not only a chat refresh):
 - If OAuth header delivery is in doubt, call the read-only
   `stonewright-oauth-header-diagnostic`; it returns booleans only and never
   returns a header or token fragment.
-- Verify stonewright-task-start is in the tool list; if missing, stop and tell me.
-- Start every WordPress task with stonewright-task-start.
 - Follow the returned skills, memory, expertise, and fast_path.tool_profile.
 - Task start returns a native rule digest, not the rule bodies. Read them once
   with stonewright-rules-get, cache them, and pass knownDigest on later calls so
@@ -149,23 +158,27 @@ before scanning and before installing/configuring a provider, save those
 choices for this site/client, and never infer consent. After restart, run
 `stonewright connect verify <alias> --client <client>`; require the spawned
 companion version, active alias, task-start, status, and required tool surface.
+For a non-local site, keep `STONEWRIGHT_DIRECT_WRITES=confirm` so every Direct
+mutation still needs the explicit per-call confirmation.
 
-Connection values (I will provide secrets when asked):
-- WordPress URL: <https://example.com>
-- MCP server name: stonewright
-- Transport: command `npx`, args ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"]
-- Env vars only: STONEWRIGHT_WP_URL, STONEWRIGHT_WP_USERNAME,
-  STONEWRIGHT_WP_APP_PASSWORD, STONEWRIGHT_DIRECT_WRITES=confirm
-  (use `on` only where unconfirmed writes are acceptable; multi-site via ~/.stonewright/sites.json).
-  Optional: STONEWRIGHT_MODE=direct to force Direct mode.
+Use this versioned installer shape and let it create the alias-specific named
+entry. Do not build a second generic server entry:
+
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add --alias <unique-alias> --url <your-wordpress-url> --username <your-wordpress-username> --env <environment> --mode direct-only --client <client>
+
+I will replace private placeholders locally. Use the hidden password prompt or
+--password-env, never a password on argv. If the alias already exists, run
+stonewright connect repair <alias> --client <client> --mode direct-only and
+reuse its saved credential.
 
 After reload:
+- Verify stonewright-task-start is in the tool list; if missing, stop and tell me.
+- Call stonewright-task-start first with a non-empty task, surface, and intent.
 - Call stonewright-setup-profile and stonewright-wordpress-mcp-status.
 - Confirm mode is Direct, companion_version matches VERSION, and capability
   gaps are reported honestly rather than silently falling back.
-- Verify stonewright-task-start is in the tool list; if missing, stop and tell me.
-- Start every WordPress task with stonewright-task-start — in Direct mode it
-  returns this site's locally stored skills and memory (or _global).
+- In Direct mode task-start returns this site's locally stored skills and
+  memory (or _global).
 - Task start returns a native rule digest. Read the rules once with
   stonewright-rules-get (on the Direct bootstrap surface), cache them, and pass
   knownDigest afterwards. Direct mode ships the same registry as the plugin, so

@@ -6,25 +6,28 @@ trusted project when the Stonewright connection should be project-specific.
 
 ## Add Stonewright
 
-Open `config.toml` and add the following. Replace `VERSION` with the exact
-release version without a leading `v`:
+Use the versioned installer. It creates a collision-safe alias-specific TOML
+entry and keeps the Application Password in the OS credential store:
 
-```toml
-[mcp_servers.stonewright]
-command = "npx"
-args = ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"]
-
-[mcp_servers.stonewright.env]
-STONEWRIGHT_WP_URL = "https://your-site.com"
-STONEWRIGHT_WP_USERNAME = "your-wp-username"
-STONEWRIGHT_WP_APP_PASSWORD = "xxxx xxxx xxxx xxxx xxxx xxxx"
-STONEWRIGHT_MCP_TOOL_PROFILE = "essential"
+```bash
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
+  --alias site-a --url https://site-a.example --username editor \
+  --env production --mode plugin-only --client codex \
+  --plugin-enabled yes --wp-mode production-safe --wp-surface essential
 ```
 
-For strict tool-cap sessions, use:
+The hidden prompt keeps the password off argv and shell history. Do not add a
+second generic `[mcp_servers.stonewright]` block. If the alias already exists,
+reuse its saved credential:
 
-```toml
-STONEWRIGHT_MCP_TOOL_PROFILE = "low-tools"
+```bash
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect repair site-a --client codex --mode plugin-only
+```
+
+For strict tool-cap sessions, add this installer option:
+
+```text
+--profile low-tools
 ```
 
 Codex is a **tier-1 certification target**
@@ -33,16 +36,18 @@ user-level or private config; never paste real Application Passwords into chat.
 
 ## Make Codex See It
 
-After saving the config, **restart Codex or reload the IDE MCP session** (required
+After installation, **restart Codex or reload the IDE MCP session** (required
 for tool list refresh). In the Codex TUI, run `/mcp` and confirm `stonewright`
-is listed.
+alias entry is listed. Then run `stonewright connect verify site-a --client
+codex`; require the same alias, Plugin mode, the expected companion, task-start,
+status, and no missing required tools.
 
 Then call:
 
 ```text
+stonewright-task-start
 stonewright-setup-profile
 stonewright-wordpress-mcp-status
-stonewright-task-start
 ```
 
 `stonewright-task-start` is the canonical first WordPress call. If neither it
@@ -67,6 +72,7 @@ Check these fields:
 | `expected_companion_package` | The release tarball the config should point to. |
 | `refresh_required_tool_names` | Required tools that prove the visible tool list is current. |
 
-If the version or package is old, update the `args` package URL in
-`config.toml`, save, and restart Codex. If required tools are missing, restart
-or reload the MCP session so Codex refreshes the tool list.
+If the version or package is old, rerun the versioned `connect repair` command,
+then restart Codex. If required tools are missing, reload the MCP session so
+Codex refreshes the tool list. Never copy the alias entry to a generic server
+name: that reintroduces cross-site ambiguity.

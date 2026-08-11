@@ -193,6 +193,33 @@ test.describe('Stonewright admin UI', () => {
 		await expect(page.getByRole('link', { name: 'Manage connected apps' }).first()).toBeVisible();
 	});
 
+	test('Setup Save Settings returns to Stonewright instead of exposing options.php', async ({
+		page,
+	}) => {
+		await page.goto('/wp-admin/admin.php?page=stonewright', {
+			waitUntil: 'domcontentloaded',
+		});
+
+		const settingsForm = page.locator('form.stonewright-settings-form');
+		await expect(settingsForm).toHaveCount(1);
+		await expect(settingsForm).toHaveAttribute('action', 'options.php');
+		const save = settingsForm.getByRole('button', { name: 'Save Settings' });
+		await expect(save).toBeVisible();
+		expect(await save.evaluate((button) => button.form?.classList.contains('stonewright-settings-form'))).toBe(true);
+		expect(await settingsForm.locator('form').count()).toBe(0);
+
+		await Promise.all([
+			page.waitForURL(/\/wp-admin\/admin\.php\?page=stonewright(?:&|$)/, {
+				timeout: 30_000,
+				waitUntil: 'domcontentloaded',
+			}),
+			save.click(),
+		]);
+
+		expect(page.url()).not.toContain('/wp-admin/options.php');
+		await expect(page.locator('form.stonewright-settings-form')).toBeVisible();
+	});
+
 	test('Application Password generation stays in-page, fills only private snippets, and revokes cleanly', async ({
 		page,
 	}, testInfo) => {

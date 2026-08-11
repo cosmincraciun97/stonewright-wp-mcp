@@ -183,7 +183,7 @@ describe('connect CLI acceptance matrix', () => {
 		// second client on same site via repair (does not remove the first binding)
 		const repairCode = connectRepair(
 			'site-a',
-			{ client: 'codex' },
+			{ client: 'codex', mode: 'plugin-only' },
 			{
 				sitesFile: h.sitesFile,
 				homeDir: h.homeDir,
@@ -194,9 +194,19 @@ describe('connect CLI acceptance matrix', () => {
 		expect(repairCode).toBe(0);
 
 		const reg = JSON.parse(readFileSync(h.sitesFile, 'utf8')) as {
-			sites: Array<{ clients: Record<string, unknown> }>;
+			sites: Array<{
+				clients: Record<string, unknown>;
+				configured_mode: string;
+				preferred_active_mode: string;
+				fallback_policy: string;
+			}>;
 		};
 		expect(Object.keys(reg.sites[0].clients).sort()).toEqual(['codex', 'cursor']);
+		expect(reg.sites[0]).toEqual(expect.objectContaining({
+			configured_mode: 'plugin-only',
+			preferred_active_mode: 'plugin',
+			fallback_policy: 'never',
+		}));
 
 		// two sites one client (cursor)
 		const cursorCfg2 = join(h.dir, 'cursor-b.json');
@@ -223,6 +233,91 @@ describe('connect CLI acceptance matrix', () => {
 
 		const codexText = readFileSync(codexCfg, 'utf8');
 		expect(codexText).toMatch(/\[mcp_servers\.stonewright-site-a/);
+		expect(codexText).toMatch(/STONEWRIGHT_MODE\s*=\s*"plugin"/);
+	});
+
+	it('repair migrates duplicate legacy aliases and reuses the saved credential', () => {
+		const h = harness();
+		capture();
+		const codexCfg = join(h.dir, '.codex', 'config.toml');
+		writeFileSync(
+			h.sitesFile,
+			JSON.stringify({
+				default: 'site-primary',
+				sites: {
+					'site-primary': {
+						url: 'https://site.example/',
+						username: 'editor',
+							appPassword: 'pass',
+					},
+					'site.example': {
+						url: 'https://site.example',
+						username: 'editor',
+							appPassword: 'p',
+					},
+				},
+			}),
+			'utf8',
+		);
+
+		const code = connectRepair(
+			'site-primary',
+			{ client: 'codex', mode: 'plugin-only' },
+			{
+				sitesFile: h.sitesFile,
+				homeDir: h.homeDir,
+				credentials: h.credentials,
+				clientConfigPath: codexCfg,
+			},
+		);
+
+		expect(code).toBe(0);
+		const registryText = readFileSync(h.sitesFile, 'utf8');
+		const registry = JSON.parse(registryText) as {
+			schema_version: number;
+			sites: Array<{ alias: string; configured_mode: string; clients: Record<string, unknown> }>;
+		};
+		expect(registry.schema_version).toBe(2);
+		expect(registry.sites).toHaveLength(1);
+		expect(registry.sites[0]).toEqual(expect.objectContaining({
+			alias: 'site-primary',
+			configured_mode: 'plugin-only',
+		}));
+		expect(registry.sites[0].clients).toHaveProperty('codex');
+		expect(registryText).not.toContain('appPassword');
+		expect(readFileSync(codexCfg, 'utf8')).toMatch(/STONEWRIGHT_SITE_ALIAS\s*=\s*"site-primary"/);
+	});
+
+	it('repair can change policy without a client binding or password prompt', async () => {
+		const h = harness();
+		capture();
+		await connectAdd(
+			{
+				alias: 'manual-client',
+				url: 'https://manual.example/',
+				username: 'editor',
+					password: 'pass',
+				mode: 'auto',
+			},
+			{ sitesFile: h.sitesFile, homeDir: h.homeDir, credentials: h.credentials, skipAuth: true },
+		);
+
+		const code = connectRepair(
+			'manual-client',
+			{ mode: 'plugin-only' },
+			{ sitesFile: h.sitesFile, homeDir: h.homeDir, credentials: h.credentials },
+		);
+
+		expect(code).toBe(0);
+		const registry = JSON.parse(readFileSync(h.sitesFile, 'utf8')) as {
+			sites: Array<{ configured_mode: string; preferred_active_mode: string; fallback_policy: string }>;
+		};
+		expect(registry.sites[0]).toEqual(expect.objectContaining({
+			configured_mode: 'plugin-only',
+			preferred_active_mode: 'plugin',
+			fallback_policy: 'never',
+		}));
+		expect(logs.join('')).toContain('no client binding changed');
 	});
 
 	it('remove one site without touching another', async () => {

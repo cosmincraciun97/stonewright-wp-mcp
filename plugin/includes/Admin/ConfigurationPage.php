@@ -456,7 +456,7 @@ final class ConfigurationPage {
 								</p>
 							<?php endif; ?>
 						</div>
-						<?php self::render_domain_lock_status(); ?>
+						<?php self::render_domain_lock_status( false ); ?>
 						<div class="sw-field stonewright-field-row">
 							<label for="stonewright_mode"><?php esc_html_e( 'Mode', 'stonewright' ); ?></label>
 							<select name="stonewright_mode" id="stonewright_mode">
@@ -1494,7 +1494,7 @@ final class ConfigurationPage {
 		exit;
 	}
 
-	private static function render_domain_lock_status(): void {
+	private static function render_domain_lock_status( bool $include_actions = true ): void {
 		$locked_domain = DomainLock::locked_domain();
 		if ( '' === $locked_domain && DomainLock::check() ) {
 			return;
@@ -1503,7 +1503,7 @@ final class ConfigurationPage {
 		$status   = DomainLock::status();
 		$mismatch = ! DomainLock::check();
 		?>
-		<div class="stonewright-domain-lock-status" id="stonewright-domain-lock">
+		<div class="stonewright-domain-lock-status" id="<?php echo esc_attr( $include_actions ? 'stonewright-domain-lock' : 'stonewright-domain-lock-summary' ); ?>">
 			<span><?php esc_html_e( 'Domain lock:', 'stonewright' ); ?></span>
 			<?php if ( '' !== (string) $status['locked'] ) : ?>
 				<code><?php echo esc_html( (string) $status['locked'] ); ?></code>
@@ -1521,6 +1521,13 @@ final class ConfigurationPage {
 					<?php esc_html_e( 'Current origin:', 'stonewright' ); ?>
 					<code><?php echo esc_html( (string) $status['current'] ); ?></code>
 				</p>
+				<?php if ( ! $include_actions ) : ?>
+					<p class="description">
+						<?php esc_html_e( 'Domain lock recovery actions are available below the setup steps.', 'stonewright' ); ?>
+					</p>
+				<?php endif; ?>
+			<?php endif; ?>
+			<?php if ( $include_actions && $mismatch ) : ?>
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form">
 					<input type="hidden" name="action" value="stonewright_rebind_domain_lock"/>
 					<?php wp_nonce_field( 'stonewright_rebind_domain_lock' ); ?>
@@ -1533,7 +1540,7 @@ final class ConfigurationPage {
 					</button>
 				</form>
 			<?php endif; ?>
-			<?php if ( DomainLock::can_rollback() ) : ?>
+			<?php if ( $include_actions && DomainLock::can_rollback() ) : ?>
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form">
 					<input type="hidden" name="action" value="stonewright_rollback_domain_lock"/>
 					<?php wp_nonce_field( 'stonewright_rollback_domain_lock' ); ?>
@@ -1542,13 +1549,13 @@ final class ConfigurationPage {
 					</button>
 				</form>
 			<?php endif; ?>
-			<?php if ( DomainLock::can_clear() ) : ?>
+			<?php if ( $include_actions && DomainLock::can_clear() ) : ?>
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form">
 					<input type="hidden" name="action" value="stonewright_reset_domain_lock"/>
 					<?php wp_nonce_field( 'stonewright_reset_domain_lock' ); ?>
 					<button type="submit" class="button button-small"><?php esc_html_e( 'Clear domain lock', 'stonewright' ); ?></button>
 				</form>
-			<?php elseif ( $mismatch ) : ?>
+			<?php elseif ( $include_actions && $mismatch ) : ?>
 				<p class="description">
 					<?php esc_html_e( 'Clear domain lock is disabled during a mismatch. Rebind this site or restore the prior binding instead.', 'stonewright' ); ?>
 				</p>

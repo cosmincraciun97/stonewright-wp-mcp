@@ -96,10 +96,14 @@ test.describe('Connect wizard interactions', () => {
 		const prompt = page.locator('#stonewright-connect-prompt-full');
 		await expect(prompt).toBeAttached();
 		const fullPrompt = await prompt.getAttribute('data-stonewright-text-full');
-		expect(fullPrompt).toContain('STONEWRIGHT_WP_URL=<your-wordpress-url>');
+		expect(fullPrompt).toContain('stonewright connect add');
+		expect(fullPrompt).toContain('--mode plugin-only');
 		expect(fullPrompt).toContain(
-			'STONEWRIGHT_WP_APP_PASSWORD=<your-application-password>',
+			'stonewright connect repair <alias> --client <client> --mode plugin-only',
 		);
+		expect(fullPrompt).toContain('Choose exactly one transport');
+		expect(fullPrompt).toContain('/wp-json/mcp/stonewright-oauth');
+		expect(fullPrompt).not.toContain('MCP server name: stonewright');
 		expect(fullPrompt).not.toContain(WP_USER);
 		expect(fullPrompt).not.toContain(WP_BASE_URL);
 		// wp-env's login password is literally "password", so a raw substring

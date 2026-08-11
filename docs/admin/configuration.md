@@ -41,6 +41,11 @@ and verifies the same Step 1 transaction. The no-JavaScript form still uses
 **Save Settings**. A connected client sees the new state through the surface
 revision/re-list contract described below.
 
+The Settings API form contains only Step 1 settings. Domain-lock rebind,
+rollback, and clear actions are rendered in a separate action panel outside
+that form. After a no-JavaScript save, WordPress redirects back to
+**Stonewright → Setup**; `/wp-admin/options.php` is never the final page.
+
 ### Mode selector
 
 Three modes are stored in the `stonewright_mode` option:
@@ -78,7 +83,10 @@ real change bumps one monotonic surface revision. Transport truth:
   `task-start` or `tool-profile` response and emit `tools/list_changed`; older
   companions need a client restart.
 
-Generated stdio snippets and paste-to-agent prompts use the saved surface
+Generated stdio snippets use explicit Plugin mode. Paste-to-agent prompts use
+the alias-based installer with `--mode plugin-only`, keep OAuth HTTP as a
+separately named transport, and use `connect repair --mode` to reuse an existing
+credential without creating a duplicate alias. Both flows use the saved surface
 instead of silently replacing an explicit `bootstrap` or `full` choice.
 Strict-cap clients keep the explicit `low-tools` override. Set
 `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK=1` only when a client-specific profile must
@@ -182,30 +190,15 @@ Windsurf, Cline, Gemini CLI, Roo Code, Amazon Q, Zed, Kilo Code, and OpenCode.
 
 For example: `https://example.com/wp-json/mcp/stonewright`.
 
-### Recommended config block
+### Recommended installer
 
 Most local MCP clients can launch the companion through `npx` without a global
-install:
+install. Use `stonewright connect add` with a unique alias, target client, and
+`--mode plugin-only`; the installer writes an alias-specific server entry and
+keeps the Application Password in the OS credential store. Use `connect repair
+<alias> --client <client> --mode plugin-only` when the alias already exists.
 
-```json
-{
-  "mcpServers": {
-    "stonewright": {
-      "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"],
-      "env": {
-        "STONEWRIGHT_WP_URL": "https://example.com",
-        "STONEWRIGHT_WP_USERNAME": "your-wp-username",
-        "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
-      }
-    }
-  }
-}
-```
-
-Use the WordPress URL, username, and Application Password from Cards 2 and 3.
-The `STONEWRIGHT_MCP_TOOL_PROFILE=essential` env value gives known clients a
+The `essential` profile gives known clients a
 bounded working surface from their first session. Unknown clients should use
 `essential-static`; `bootstrap` is an explicit diagnostic, not an install
 default.
