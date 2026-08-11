@@ -57,12 +57,16 @@ Connection values (I will provide secrets when asked):
 - Transport: command `npx`, args ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"]
 - Env vars only (never inline secrets in args): STONEWRIGHT_WP_URL,
   STONEWRIGHT_WP_USERNAME, STONEWRIGHT_WP_APP_PASSWORD,
-  STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap (use low-tools for strict tool-cap clients).
+  STONEWRIGHT_MCP_TOOL_PROFILE=essential-static (install default; use
+  bootstrap or low-tools for strict tool-cap clients).
+- I will supply secrets only into private client config. Do not ask me to paste
+  real Application Passwords or OAuth tokens into chat.
 
-After reload:
+After a client-specific restart / MCP reload (not only a chat refresh):
 - Call stonewright-setup-profile and stonewright-wordpress-mcp-status.
 - Confirm companion_version matches VERSION, the WordPress MCP endpoint is
   authenticated, and refresh_required_tool_names is empty.
+- Status and gateway reports must be honest when disconnected or unauthorized.
 - If OAuth header delivery is in doubt, call the read-only
   `stonewright-oauth-header-diagnostic`; it returns booleans only and never
   returns a header or token fragment.
@@ -164,9 +168,22 @@ After reload:
 
 - Set `STONEWRIGHT_MCP_MAX_TOOLS=50` so the companion applies the same limit deliberately instead of letting the client truncate an arbitrary tail.
 - Configure exactly one Stonewright MCP server entry. Do not register plugin-proxy and Direct mode side by side.
-- `STONEWRIGHT_MCP_TOOL_PROFILE` selects the startup profile. Use `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK=1` only when you intentionally want the environment value to override WordPress Setup throughout the session.
+- `STONEWRIGHT_MCP_TOOL_PROFILE` selects the startup profile. Default is
+  `essential-static`. Use `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK=1` only when you
+  intentionally want the environment value to override WordPress Setup
+  throughout the session.
 
 For stale, disabled, or truncated tools, follow the [tool surface recovery runbook](runbooks/tool-surface-recovery.md).
+
+## Certified vs compatible clients
+
+- **Tier-1 / certified path:** Codex, Claude Code/Desktop, Cursor, VS Code /
+  GitHub Copilot — maintained first; use
+  [client-acceptance-template.md](releases/client-acceptance-template.md).
+- **Compatible:** other catalog clients may work with the same stdio/HTTP
+  snippets but are not fully certified until an acceptance report passes.
+- Evidence and tiers live in `plugin/data/clients/*.json` and
+  [verified-client-versions.md](verified-client-versions.md).
 
 ## Updating an existing setup
 

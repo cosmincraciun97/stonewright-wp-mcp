@@ -14,5 +14,13 @@
   "notes": "Add Stonewright and Playwright entries, then restart or reload Antigravity before visual work. Prefer user-level or private client config; never commit Application Passwords to project-tracked files.",
   "verified_against_docs_on": "2026-07-16",
   "secret_storage": "user-level",
-  "config_path": "Project or global MCP config file"
+  "config_path": "Project or global MCP config file",
+  "support_tier": "compatible",
+  "evidence": {
+    "manual_smoke": "pending",
+    "oauth_http": "untested",
+    "stdio": "untested",
+    "restart_required": true,
+    "certification_report": ""
+  }
 }

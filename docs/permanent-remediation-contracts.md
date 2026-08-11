@@ -60,6 +60,13 @@ registration counters by client identity plus an IPv4 `/24` or IPv6 `/64`
 network bucket. Forwarded client IPs are trusted only when the immediate peer
 is in the explicit trusted-proxy allowlist.
 
+Deterministic matrix coverage (discovery paths, PKCE S256-only, resource
+binding, `WWW-Authenticate`, JSON `invalid_grant` reasons, companion terminal
+reauth, and refresh rotation/replay) lives in:
+
+- `plugin/tests/Unit/OAuth/OAuthMatrixContractTest.php`
+- `companion/tests/oauth-matrix.test.ts`
+
 ## Elementor and Gutenberg writes
 
 One write receipt is the transaction handoff. It contains the transaction and

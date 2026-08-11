@@ -18,7 +18,7 @@ args = ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mc
 STONEWRIGHT_WP_URL = "https://your-site.com"
 STONEWRIGHT_WP_USERNAME = "your-wp-username"
 STONEWRIGHT_WP_APP_PASSWORD = "xxxx xxxx xxxx xxxx xxxx xxxx"
-STONEWRIGHT_MCP_TOOL_PROFILE = "bootstrap"
+STONEWRIGHT_MCP_TOOL_PROFILE = "essential-static"
 ```
 
 For strict tool-cap sessions, use:
@@ -27,10 +27,15 @@ For strict tool-cap sessions, use:
 STONEWRIGHT_MCP_TOOL_PROFILE = "low-tools"
 ```
 
+Codex is a **tier-1** catalog client
+([verified-client-versions.md](../verified-client-versions.md)). Keep secrets in
+user-level or private config; never paste real Application Passwords into chat.
+
 ## Make Codex See It
 
-After saving the config, restart Codex or reload the IDE MCP session. In the
-Codex TUI, run `/mcp` and confirm `stonewright` is listed.
+After saving the config, **restart Codex or reload the IDE MCP session** (required
+for tool list refresh). In the Codex TUI, run `/mcp` and confirm `stonewright`
+is listed.
 
 Then call:
 
@@ -40,9 +45,10 @@ stonewright-wordpress-mcp-status
 stonewright-task-start
 ```
 
-If neither `stonewright-task-start` nor compatibility
-`stonewright-context-bootstrap` is visible, Codex has not loaded the Stonewright
-MCP server yet. Restart or fix the config before WordPress work.
+`stonewright-task-start` is the canonical first WordPress call. If neither it
+nor compatibility `stonewright-context-bootstrap` is visible, Codex has not
+loaded the Stonewright MCP server yet. Restart or fix the config before
+WordPress work.
 
 ## After Releases Or Skill Syncs
 

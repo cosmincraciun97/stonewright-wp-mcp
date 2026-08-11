@@ -43,6 +43,8 @@ final class ClientCatalogTest extends TestCase {
 			'notes',
 			'verified_against_docs_on',
 			'secret_storage',
+			'support_tier',
+			'evidence',
 		];
 
 		foreach ( $all as $client ) {
@@ -55,7 +57,40 @@ final class ClientCatalogTest extends TestCase {
 			self::assertNotEmpty( $client['config_paths'] );
 			self::assertMatchesRegularExpression( '/^\d{4}-\d{2}-\d{2}$/', (string) $client['verified_against_docs_on'] );
 			self::assertSame( 'user-level', $client['secret_storage'] );
+			self::assertContains(
+				(string) $client['support_tier'],
+				[ 'tier-1', 'tier-2', 'compatible', 'experimental' ],
+				'support_tier on ' . $client['slug']
+			);
+			self::assertIsArray( $client['evidence'] );
+			self::assertArrayHasKey( 'manual_smoke', $client['evidence'] );
+			self::assertArrayHasKey( 'oauth_http', $client['evidence'] );
+			self::assertArrayHasKey( 'stdio', $client['evidence'] );
+			self::assertArrayHasKey( 'restart_required', $client['evidence'] );
+			self::assertIsBool( $client['evidence']['restart_required'] );
 		}
+	}
+
+	public function test_tier_one_clients_include_codex_claude_and_cursor_family(): void {
+		$tier_one = array_values(
+			array_map(
+				static fn( array $c ): string => (string) $c['slug'],
+				array_filter(
+					ClientCatalog::all(),
+					static fn( array $c ): bool => 'tier-1' === ( $c['support_tier'] ?? '' )
+				)
+			)
+		);
+		sort( $tier_one );
+
+		foreach ( [ 'claude-code', 'claude-desktop', 'codex', 'cursor', 'github-copilot', 'vscode-copilot' ] as $slug ) {
+			self::assertContains( $slug, $tier_one );
+		}
+
+		$codex = ClientCatalog::get( 'codex' );
+		self::assertIsArray( $codex );
+		self::assertSame( 'tier-1', $codex['support_tier'] );
+		self::assertContains( $codex['evidence']['stdio'], [ 'compatible', 'certified' ] );
 	}
 
 	public function test_get_returns_known_client_and_null_for_unknown(): void {

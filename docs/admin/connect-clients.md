@@ -102,12 +102,22 @@ shown on the GitHub Releases page.
         "STONEWRIGHT_WP_URL": "https://your-site.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
         "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential-static"
       }
     }
   }
 }
 ```
+
+Startup default is `essential-static`. After saving config, perform the
+**client-specific restart / MCP reload**, confirm `stonewright-task-start` is
+visible, and call it first. Paste-to-agent prompts stay credential-free;
+Application Passwords belong only in private user-level config.
+
+Client support tiers (`tier-1` vs `compatible`) and evidence fields live in
+`plugin/data/clients/*.json`. See
+[verified-client-versions.md](../verified-client-versions.md) and
+[client-acceptance-template.md](../releases/client-acceptance-template.md).
 
 Stonewright tool names are hyphenated in MCP clients. Example:
 `stonewright/context-bootstrap` is called as `stonewright-context-bootstrap`.

@@ -14,5 +14,13 @@
   "notes": "Uses the Claude CLI; run the generated command in any terminal. Prefer user-level or private client config; never commit Application Passwords to project-tracked files.",
   "verified_against_docs_on": "2026-07-16",
   "secret_storage": "user-level",
-  "config_path": "Terminal: claude mcp add"
+  "config_path": "Terminal: claude mcp add",
+  "support_tier": "tier-1",
+  "evidence": {
+    "manual_smoke": "pending",
+    "oauth_http": "compatible",
+    "stdio": "compatible",
+    "restart_required": true,
+    "certification_report": ""
+  }
 }

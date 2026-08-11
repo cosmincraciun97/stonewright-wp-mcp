@@ -33,11 +33,13 @@ generated [ability-truth-matrix.md](ability-truth-matrix.md) (do not hand-edit).
    [install-prompts.md](install-prompts.md) Option A).
 5. In wp-admin, open **Stonewright > Configuration**, enable Stonewright, and
    choose the operating mode (`development`, `staging`, or `production-safe`).
-6. Reload or restart the AI client and confirm the tool list includes
-   `stonewright-task-start`.
+6. Perform a **client-specific restart or MCP session reload** (not only a chat
+   refresh) and confirm the tool list includes `stonewright-task-start`.
 7. Smoke test with `stonewright-task-start` (canonical first call). Use
    `stonewright-context-bootstrap` only as a compatibility path when a client
-   still exposes that older entry.
+   still exposes that older entry. Prefer credential-free paste prompts from
+   [install-prompts.md](install-prompts.md); keep real secrets in private
+   user-level client config.
 
 ### Direct mode (no plugin)
 
@@ -45,10 +47,12 @@ generated [ability-truth-matrix.md](ability-truth-matrix.md) (do not hand-edit).
 2. Add the companion as the Stonewright MCP server with URL + username + app
    password (see [install-prompts.md](install-prompts.md) Option B). Optional:
    `STONEWRIGHT_MODE=direct` to force Direct mode.
-3. Reload the client and confirm `stonewright-task-start` is visible.
+3. Restart/reload the client and confirm `stonewright-task-start` is visible.
 4. Smoke test with `stonewright-task-start`. In Direct mode it returns
    locally stored skills and memory for this site (or `_global`).
 5. Call `stonewright-site-discover` before choosing WordPress REST operations.
+6. Do not write custom PHP/CSS/JS/HTML in Direct mode — there is no
+   authenticated wp-admin one-time-grant boundary.
 
 On a fresh installation there is no user memory, no user-created skill, and no
 audit event. Generic built-in skills and native rules are product assets and

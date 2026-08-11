@@ -112,6 +112,7 @@ plugin-only capabilities that remain unavailable until you install Stonewright.
 | Settings, plugins, themes, users, search | yes | yes |
 | WP-CLI (local companion) | yes | yes |
 | PHP execute, Elementor engines, DesignSpec | no | yes |
+| Custom PHP/CSS/JS/HTML write (approval grant) | no | yes (human grant) |
 | Memory and skills store | yes (local `~/.stonewright/`) | yes (site-hosted) |
 | Production-safe confirmation tokens | no | yes |
 
@@ -140,17 +141,19 @@ shell wrapper, global install, or manual bridge:
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
         "STONEWRIGHT_WP_APP_PASSWORD_AUTO": "local-only",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential-static"
       }
     }
   }
 }
 ```
 
-After adding the server, call `stonewright-setup-profile`. It returns
-copy-paste MCP config, platform checks, credential status, and notes for the
-current machine. For local `.local` or `.test` sites, the companion can create
-one Application Password through tokenized WP-CLI and save it in the user profile.
+After adding the server, perform the **client-specific restart / MCP reload**,
+then call `stonewright-setup-profile`. It returns copy-paste MCP config,
+platform checks, credential status, and notes for the current machine. Paste
+blocks stay credential-free; put real secrets only in private user-level client
+config. For local `.local` or `.test` sites, the companion can create one
+Application Password through tokenized WP-CLI and save it in the user profile.
 Do not point IDE MCP configs at `node companion/dist/index.js`; `dist` is a
 source build artifact and is intentionally not committed. Use the `npx` release
 tarball above, or for source development use
@@ -159,12 +162,13 @@ Do not configure generic WordPress MCP adapters such as
 `@automattic/mcp-wordpress-remote` as the `stonewright` server. Use the
 Stonewright companion so setup, status, compact profiles, php-execute, and
 WP-CLI tools stay visible even while the WordPress endpoint is being fixed.
-`STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap` is the default. It exposes the startup
-gateway first; `stonewright-task-start` then enables the compact task profile
-for the current session in plugin or Direct/pluginless mode.
-Use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` for Antigravity, Gemini API, or
-other strict tool-cap clients. It keeps the client-visible startup surface under
-30 tools. Aliases such as `antigravity`, `gemini`,
+`STONEWRIGHT_MCP_TOOL_PROFILE=essential-static` is the install default (not
+`bootstrap`, not `full`). It starts a bounded surface; `stonewright-task-start`
+then activates the compact task profile for the current session in plugin or
+Direct/pluginless mode. Use `bootstrap` when you want the smallest startup
+gateway only. Use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` for Antigravity,
+Gemini API, or other strict tool-cap clients. It keeps the client-visible
+startup surface under 30 tools. Aliases such as `antigravity`, `gemini`,
 `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli` normalize to the
 closest compact profile, so agents do not need exact canonical profile names to
 avoid broad discovery.
@@ -178,8 +182,10 @@ For Codex CLI or the Codex IDE extension, use
 `[mcp_servers.stonewright]`, not JSON.
 
 Before the first WordPress task, verify the client tool list includes
-`stonewright-task-start` or compatibility `stonewright-context-bootstrap`. If
-both tools are missing, reload or fix the MCP client config before continuing.
+`stonewright-task-start` (canonical) or compatibility
+`stonewright-context-bootstrap`. If both tools are missing, reload or fix the
+MCP client config before continuing. Always start real work with
+`stonewright-task-start`.
 Local agent skills, repository files, private
 client config files, scratch scripts such as `query-mcp.js` or
 `run-ability.js`, helper JSON argument files such as `bootstrap-args.json`,

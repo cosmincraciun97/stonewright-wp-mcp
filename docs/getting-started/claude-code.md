@@ -44,16 +44,22 @@ claude mcp add stonewright \
 Optional: omit `STONEWRIGHT_MODE=direct` to let the companion auto-detect (plugin
 endpoint present → plugin proxy; HTTP 404 → Direct).
 
-Restart Claude Code. Verify with:
+Claude Code is a **tier-1** catalog client. Keep Application Passwords in the
+CLI env / private config only — not in chat.
+
+**Restart Claude Code** after `mcp add` (required for tool list refresh). Verify
+with:
 
 ```text
 Use MCP tool stonewright-task-start with a short request that you only want a
 connection smoke test.
 ```
 
-Expect mode Direct, local skills/memory hints, and write-mode guidance. Then call
+`stonewright-task-start` is the canonical first call. Expect mode Direct, local
+skills/memory hints, and write-mode guidance. Then call
 `stonewright-site-discover` before choosing REST operations. Destructive tools
-require `confirm:true` when `STONEWRIGHT_DIRECT_WRITES=confirm`.
+require `confirm:true` when `STONEWRIGHT_DIRECT_WRITES=confirm`. Direct mode
+does not write custom PHP/CSS/JS/HTML.
 
 Copy-paste wording for other clients: [install-prompts.md](../install-prompts.md)
 Option B.
@@ -103,7 +109,7 @@ claude mcp add stonewright \
   --env STONEWRIGHT_WP_URL='https://your-site.example.com' \
   --env STONEWRIGHT_WP_USERNAME='your-wp-username' \
   --env STONEWRIGHT_WP_APP_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx' \
-  --env STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap \
+  --env STONEWRIGHT_MCP_TOOL_PROFILE=essential-static \
   -- npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-mcp
 ```
 
@@ -112,8 +118,8 @@ LocalWP discovery. The value is the absolute WordPress install folder
 containing `wp-config.php`, such as `D:\Sites\example\app\public` or
 `/Users/me/Sites/example/app/public`; it is not the plugin folder.
 
-For strict tool-cap clients, use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools`
-instead of `bootstrap`.
+`essential-static` is the install default. For strict tool-cap clients, use
+`STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` instead.
 
 Register the separate Playwright MCP for browser testing and screenshots:
 

@@ -14,5 +14,13 @@
   "notes": "Prefer `codex mcp add` when available; raw TOML is the advanced fallback. Restart Codex or reload the IDE MCP session after changes. Prefer user-level or private client config; never commit Application Passwords to project-tracked files.",
   "verified_against_docs_on": "2026-07-16",
   "secret_storage": "user-level",
-  "config_path": "~/.codex/config.toml"
+  "config_path": "~/.codex/config.toml",
+  "support_tier": "tier-1",
+  "evidence": {
+    "manual_smoke": "pending",
+    "oauth_http": "compatible",
+    "stdio": "compatible",
+    "restart_required": true,
+    "certification_report": ""
+  }
 }

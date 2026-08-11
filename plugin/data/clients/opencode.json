@@ -14,5 +14,13 @@
   "notes": "Add the snippet under the mcp key. Prefer global config for credentials. Prefer user-level or private client config; never commit Application Passwords to project-tracked files.",
   "verified_against_docs_on": "2026-07-16",
   "secret_storage": "user-level",
-  "config_path": "~/.config/opencode/config.json"
+  "config_path": "~/.config/opencode/config.json",
+  "support_tier": "compatible",
+  "evidence": {
+    "manual_smoke": "pending",
+    "oauth_http": "untested",
+    "stdio": "untested",
+    "restart_required": true,
+    "certification_report": ""
+  }
 }

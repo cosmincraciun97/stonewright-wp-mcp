@@ -33,6 +33,17 @@ Run from `plugin/` unless noted.
 5. Confirm the staged ZIP passes the private-term scan and Jetpack manifest
    verification before upload.
 
+## Client certification (tier-1)
+
+- [ ] At least one filled [client-acceptance-template.md](client-acceptance-template.md)
+      for a tier-1 client (Codex, Claude Code/Desktop, Cursor, or VS Code family).
+- [ ] Catalog `support_tier` / `evidence` still match
+      [verified-client-versions.md](../verified-client-versions.md).
+- [ ] OAuth matrix unit tests green when OAuth or companion token manager changed:
+      `./vendor/bin/phpunit --filter OAuth` and
+      `npx vitest run tests/oauth-matrix.test.ts`.
+- [ ] Release roll-up: [acceptance-report-template.md](acceptance-report-template.md).
+
 ## Manual Verification
 
 ### 1. Clean Install

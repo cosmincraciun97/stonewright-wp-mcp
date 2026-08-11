@@ -4,9 +4,11 @@ This guide gets you from zero to a working Cursor + Stonewright MCP setup.
 Prefer user-level config for secrets; do not commit Application Passwords into
 project-tracked files.
 
-Verified docs snapshot: Cursor is listed in
+Verified docs snapshot: Cursor is a **tier-1** catalog client in
 [verified-client-versions.md](../verified-client-versions.md) (config kind:
-JSON; manual smoke pending). Prefer `~/.cursor/mcp.json` for credentials.
+JSON; manual smoke pending until a
+[client acceptance](../releases/client-acceptance-template.md) pass). Prefer
+`~/.cursor/mcp.json` for credentials. Paste prompts stay credential-free.
 
 ## Prerequisites
 
@@ -64,11 +66,12 @@ Replace `VERSION` with the exact release version without a leading `v`:
 }
 ```
 
-Optional: omit `STONEWRIGHT_MODE` for auto-detect, or set
-`STONEWRIGHT_MCP_TOOL_PROFILE` to `bootstrap` or `low-tools` when you want a
-compact client-visible surface (strict tool-cap clients should use `low-tools`).
+Optional: omit `STONEWRIGHT_MODE` for auto-detect. Default startup profile is
+`essential-static`; set `STONEWRIGHT_MCP_TOOL_PROFILE` to `bootstrap` or
+`low-tools` when you want a smaller surface (strict tool-cap clients should use
+`low-tools`).
 
-Restart Cursor or reload MCP servers. Smoke test:
+**Restart Cursor or reload MCP servers** (required). Smoke test:
 
 ```text
 Use MCP tool stonewright-task-start with a short request that you only want a
@@ -77,7 +80,8 @@ connection smoke test.
 
 Expect mode Direct and local skills/memory hints. Then call
 `stonewright-site-discover` before REST work. Destructive tools require
-`confirm:true` when writes are gated.
+`confirm:true` when writes are gated. Direct mode cannot write custom
+PHP/CSS/JS/HTML.
 
 Copy-paste Option B: [install-prompts.md](../install-prompts.md).
 
@@ -91,7 +95,7 @@ Copy-paste Option B: [install-prompts.md](../install-prompts.md).
    `STONEWRIGHT_MODE=direct` (or set `plugin` / leave auto) and set:
 
 ```json
-"STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
+"STONEWRIGHT_MCP_TOOL_PROFILE": "essential-static"
 ```
 
 Example (plugin-oriented env block):
@@ -111,7 +115,7 @@ Example (plugin-oriented env block):
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
         "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential-static"
       }
     }
   }

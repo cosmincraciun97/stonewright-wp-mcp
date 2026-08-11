@@ -39,7 +39,15 @@ final class ClientCatalog {
 	 *   config_path:string,
 	 *   notes:string,
 	 *   verified_against_docs_on:string,
-	 *   secret_storage:string
+	 *   secret_storage:string,
+	 *   support_tier:string,
+	 *   evidence:array{
+	 *     manual_smoke:string,
+	 *     oauth_http:string,
+	 *     stdio:string,
+	 *     restart_required:bool,
+	 *     certification_report:string
+	 *   }
 	 * }>
 	 */
 	public static function all(): array {
@@ -184,6 +192,31 @@ final class ClientCatalog {
 			$verified = '';
 		}
 
+		$support_tier = isset( $data['support_tier'] ) ? sanitize_key( (string) $data['support_tier'] ) : 'compatible';
+		if ( ! in_array( $support_tier, [ 'tier-1', 'tier-2', 'compatible', 'experimental' ], true ) ) {
+			$support_tier = 'compatible';
+		}
+
+		$evidence_raw = ( isset( $data['evidence'] ) && is_array( $data['evidence'] ) ) ? $data['evidence'] : [];
+		$manual_smoke = isset( $evidence_raw['manual_smoke'] ) ? sanitize_key( (string) $evidence_raw['manual_smoke'] ) : 'pending';
+		if ( ! in_array( $manual_smoke, [ 'pending', 'pass', 'fail', 'skipped' ], true ) ) {
+			$manual_smoke = 'pending';
+		}
+		$oauth_http = isset( $evidence_raw['oauth_http'] ) ? sanitize_key( (string) $evidence_raw['oauth_http'] ) : 'untested';
+		if ( ! in_array( $oauth_http, [ 'untested', 'compatible', 'certified', 'unsupported' ], true ) ) {
+			$oauth_http = 'untested';
+		}
+		$stdio = isset( $evidence_raw['stdio'] ) ? sanitize_key( (string) $evidence_raw['stdio'] ) : 'untested';
+		if ( ! in_array( $stdio, [ 'untested', 'compatible', 'certified', 'unsupported' ], true ) ) {
+			$stdio = 'untested';
+		}
+		$restart_required = array_key_exists( 'restart_required', $evidence_raw )
+			? (bool) $evidence_raw['restart_required']
+			: true;
+		$certification_report = isset( $evidence_raw['certification_report'] )
+			? (string) $evidence_raw['certification_report']
+			: '';
+
 		return [
 			'slug'                     => $slug,
 			'label'                    => $label,
@@ -196,6 +229,14 @@ final class ClientCatalog {
 			'notes'                    => isset( $data['notes'] ) ? (string) $data['notes'] : '',
 			'verified_against_docs_on' => $verified,
 			'secret_storage'           => $secret,
+			'support_tier'             => $support_tier,
+			'evidence'                 => [
+				'manual_smoke'          => $manual_smoke,
+				'oauth_http'            => $oauth_http,
+				'stdio'                 => $stdio,
+				'restart_required'      => $restart_required,
+				'certification_report'  => $certification_report,
+			],
 		];
 	}
 }
