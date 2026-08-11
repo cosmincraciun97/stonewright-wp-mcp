@@ -50,7 +50,7 @@ final class RestRoutesErrorEnvelopeTest extends TestCase {
 			'/stonewright/v1/abilities/run',
 			[
 				'name'  => 'stonewright/example',
-				'input' => [ 'password' => 'secret-value' ],
+				'input' => [ 'password' => 'example-password' ],
 			]
 		);
 		$error = new \WP_Error(
@@ -71,7 +71,7 @@ final class RestRoutesErrorEnvelopeTest extends TestCase {
 		self::assertFalse( $envelope['retryable'] );
 		self::assertSame( 'error', $envelope['public']['outcome'] );
 		self::assertSame( '11111111-1111-1111-1111-111111111111', $envelope['public']['correlation_id'] );
-		self::assertStringNotContainsString( 'secret-value', wp_json_encode( $envelope ) );
+		self::assertStringNotContainsString( 'example-password', wp_json_encode( $envelope ) );
 	}
 
 	public function test_existing_wp_error_never_becomes_unknown_error(): void {

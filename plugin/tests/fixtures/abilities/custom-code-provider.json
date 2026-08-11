@@ -1,0 +1,6 @@
+{
+  "args": {
+    "action": "discover"
+  },
+  "expect": "ok"
+}

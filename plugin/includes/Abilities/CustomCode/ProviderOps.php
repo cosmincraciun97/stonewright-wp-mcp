@@ -221,7 +221,8 @@ final class ProviderOps extends AbilityKernel {
 		}
 		if ( is_array( $result ) ) {
 			foreach ( [ 'before_sha256', 'after_sha256', 'changed_bytes', 'path', 'snapshot_id', 'verification_status', 'rollback_status', 'effect_verified' ] as $key ) {
-				if ( isset( $result[ $key ] ) && ( is_scalar( $result[ $key ] ) || null === $result[ $key ] ) ) {
+				// array_key_exists (not isset) so explicit null values remain eligible.
+				if ( array_key_exists( $key, $result ) && ( is_scalar( $result[ $key ] ) || null === $result[ $key ] ) ) {
 					$meta[ $key ] = $result[ $key ];
 				}
 			}

@@ -110,7 +110,14 @@ final class PluginRegistration {
 		add_action( 'init', [ AuditLog::class, 'maybe_install_table' ] );
 		add_action( 'init', [ IncidentStore::class, 'maybe_install_table' ] );
 		// Idempotent: supersede legacy unresolved audit lessons into incident history.
-		add_action( 'init', [ ErrorPatterns::class, 'migrate_legacy_audit_lessons' ], 20 );
+		// Void wrapper — WP action callbacks must not return values (PHPStan).
+		add_action(
+			'init',
+			static function (): void {
+				ErrorPatterns::migrate_legacy_audit_lessons();
+			},
+			20
+		);
 		add_action( 'init', [ OneTimeLink::class, 'maybe_handle_request' ], 1 );
 		add_action( 'init', [ SkillsTable::class, 'create_table' ] );
 		add_action( 'init', [ SkillVersionsTable::class, 'create_table' ] );

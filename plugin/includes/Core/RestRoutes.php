@@ -1034,7 +1034,7 @@ final class RestRoutes {
 			: ( 'rest:' . strtoupper( $method ) . ' ' . $route );
 		$meta['cause_key'] = strtolower( $cause_ability )
 			. '|' . strtolower( $envelope['error_code'] !== '' ? $envelope['error_code'] : ( 'ok' === $envelope['audit_status'] ? 'ok' : 'stonewright_rest_error' ) )
-			. '|' . strtolower( (string) ( $meta['resource_type'] ?? '' ) );
+			. '|' . strtolower( (string) $meta['resource_type'] );
 
 		$payload = [
 			'source'         => 'rest',
