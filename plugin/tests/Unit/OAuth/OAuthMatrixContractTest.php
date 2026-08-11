@@ -302,7 +302,7 @@ final class OAuthMatrixContractTest extends TestCase {
 			$exception,
 			[
 				'grant_type'    => 'refresh_token',
-				'refresh_token' => 'opaque-refresh-token',
+				'refresh_token' => 'example-opaque-refresh-token',
 			]
 		);
 

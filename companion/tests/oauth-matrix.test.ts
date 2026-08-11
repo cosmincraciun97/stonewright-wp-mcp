@@ -24,7 +24,7 @@ function makeResponse(payload: Record<string, unknown> | string, status = 200, h
 }
 
 function expiredTokens(): OAuthTokenSet {
-	return { accessToken: 'old-access', refreshToken: 'old-refresh', expiresAt: 0, tokenType: 'Bearer' };
+	return { accessToken: 'example-old-access', refreshToken: 'example-old-refresh', expiresAt: 0, tokenType: 'Bearer' };
 }
 
 function withStore(run: (store: OAuthTokenStore, path: string) => Promise<void>): Promise<void> {
@@ -80,8 +80,8 @@ describe('OAuth matrix — refresh rotation and replay', () => {
 			await expect(
 				manager.getAccessToken(
 					() => Promise.resolve(makeResponse({
-						access_token: 'next-access',
-						refresh_token: 'old-refresh',
+						access_token: 'example-next-access',
+						refresh_token: 'example-old-refresh',
 						expires_in: 300,
 					})),
 					'https://example.test/oauth/token',
@@ -103,8 +103,8 @@ describe('OAuth matrix — refresh rotation and replay', () => {
 					await Promise.resolve();
 					bodies.push(String(init?.body ?? ''));
 					return makeResponse({
-						access_token: 'rotated-access',
-						refresh_token: 'rotated-refresh',
+						access_token: 'example-rotated-access',
+						refresh_token: 'example-rotated-refresh',
 						expires_in: 90,
 						token_type: 'Bearer',
 					});
@@ -114,11 +114,11 @@ describe('OAuth matrix — refresh rotation and replay', () => {
 				'https://example.test/wp-json/mcp/stonewright-oauth',
 			);
 
-			expect(token).toBe('rotated-access');
+			expect(token).toBe('example-rotated-access');
 			const params = new URLSearchParams(bodies[0]);
 			expect(params.get('grant_type')).toBe('refresh_token');
 			expect(params.get('resource')).toBe('https://example.test/wp-json/mcp/stonewright-oauth');
-			expect(params.get('refresh_token')).toBe('old-refresh');
+			expect(params.get('refresh_token')).toBe('example-old-refresh');
 			expect(store.load()).toEqual({
 				accessToken: 'rotated-access',
 				refreshToken: 'rotated-refresh',
@@ -134,7 +134,7 @@ describe('OAuth matrix — refresh rotation and replay', () => {
 			const manager = new OAuthTokenManager(store);
 			await expect(
 				manager.getAccessToken(
-					() => Promise.resolve(makeResponse({ access_token: 'only-access', expires_in: 60 })),
+					() => Promise.resolve(makeResponse({ access_token: 'example-only-access', expires_in: 60 })),
 					'https://example.test/oauth/token',
 					'client-example',
 				),
@@ -157,7 +157,7 @@ describe('OAuth matrix — JSON / non-JSON error bodies', () => {
 				),
 			).rejects.toThrow(/OAuth refresh failed with HTTP 400/);
 			// Non-terminal: durable state is retained for a later attempt.
-			expect(store.load()?.refreshToken).toBe('old-refresh');
+			expect(store.load()?.refreshToken).toBe('example-old-refresh');
 		});
 	});
 
@@ -185,13 +185,13 @@ describe('OAuth matrix — JSON / non-JSON error bodies', () => {
 					return makeResponse({ error: 'temporarily_unavailable' }, 429, { 'retry-after': '3' });
 				}
 				return makeResponse({
-					access_token: 'recovered-access',
-					refresh_token: 'recovered-refresh',
+					access_token: 'example-recovered-access',
+					refresh_token: 'example-recovered-refresh',
 					expires_in: 120,
 				});
 			}, 'https://example.test/oauth/token', 'client-example');
 
-			expect(token).toBe('recovered-access');
+			expect(token).toBe('example-recovered-access');
 			expect(calls).toBe(2);
 			expect(waits).toEqual([3_000]);
 		});
@@ -227,7 +227,7 @@ describe('OAuth matrix — JSON / non-JSON error bodies', () => {
 			).rejects.toBeInstanceOf(OAuthTransientError);
 
 			expect(calls).toBe(1);
-			expect(store.load()?.refreshToken).toBe('old-refresh');
+			expect(store.load()?.refreshToken).toBe('example-old-refresh');
 		});
 	});
 });
