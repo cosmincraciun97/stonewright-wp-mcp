@@ -572,101 +572,127 @@ final class ErrorPatterns {
 	 * history metadata). Never deletes rows. Leaves user-created and verified
 	 * learning untouched.
 	 *
-	 * @return array{migrated:int,skipped:int,already_done:bool}
+	 * @return array{migrated:int,skipped:int,already_done:bool,write_failed?:int}
 	 */
 	public static function migrate_legacy_audit_lessons(): array {
 		if ( '1' === (string) get_option( self::LEGACY_LESSON_MIGRATION_OPTION, '' ) ) {
 			return [ 'migrated' => 0, 'skipped' => 0, 'already_done' => true ];
 		}
 
-		$rows     = Memory::list_by_type( 'feedback', 500, 0 );
-		$migrated = 0;
-		$skipped  = 0;
-		$now      = current_time( 'mysql', true );
+		$migrated     = 0;
+		$skipped      = 0;
+		$write_failed = 0;
+		$now          = current_time( 'mysql', true );
+		$page_size    = 500;
+		$offset       = 0;
 
-		foreach ( $rows as $row ) {
-			$key   = (string) ( $row['memory_key'] ?? '' );
-			$value = is_array( $row['value'] ?? null ) ? $row['value'] : [];
-			// list_by_type may expose value_json; decode when needed.
-			if ( [] === $value && isset( $row['value_json'] ) && is_string( $row['value_json'] ) ) {
-				$decoded = json_decode( $row['value_json'], true );
-				$value   = is_array( $decoded ) ? $decoded : [];
+		// Paginate every feedback row. Only mark the migration complete when every
+		// eligible update succeeds — a put_typed failure must not set the done flag.
+		while ( true ) {
+			$rows = Memory::list_by_type( 'feedback', $page_size, $offset );
+			if ( [] === $rows ) {
+				break;
+			}
+			$offset += count( $rows );
+
+			foreach ( $rows as $row ) {
+				$key   = (string) ( $row['memory_key'] ?? '' );
+				$value = is_array( $row['value'] ?? null ) ? $row['value'] : [];
+				// list_by_type may expose value_json; decode when needed.
+				if ( [] === $value && isset( $row['value_json'] ) && is_string( $row['value_json'] ) ) {
+					$decoded = json_decode( $row['value_json'], true );
+					$value   = is_array( $decoded ) ? $decoded : [];
+				}
+
+				if ( ! str_starts_with( $key, 'learning-audit-error-' ) ) {
+					++$skipped;
+					continue;
+				}
+
+				$source = (string) ( $value['source'] ?? '' );
+				$state  = (string) ( $value['state'] ?? '' );
+				// Leave verified / user-created / already-superseded alone.
+				if ( in_array( $source, [ 'verified-repair', 'user', 'user-correction', 'learning-record' ], true ) ) {
+					++$skipped;
+					continue;
+				}
+				if ( in_array( $state, [ 'promoted_learning', 'verified_resolved', 'superseded', 'archived_incident' ], true ) ) {
+					++$skipped;
+					continue;
+				}
+
+				$correction = (string) ( $value['correction'] ?? '' );
+				$lesson     = (string) ( $value['lesson'] ?? '' );
+				$is_generic = (
+					str_contains( strtolower( $correction ), 'unknown error' )
+					|| str_contains( strtolower( $lesson ), 'unknown error' )
+					|| ( '' !== $correction && $correction === $lesson && str_contains( $correction, 'Unresolved incident' ) )
+					|| 'unresolved_incident' === $state
+					|| 'audit-error' === $source
+				);
+				if ( ! $is_generic ) {
+					++$skipped;
+					continue;
+				}
+
+				$archived = array_merge(
+					$value,
+					[
+						'state'             => 'superseded',
+						'superseded_at'     => $now,
+						'superseded_reason' => 'legacy_unresolved_audit_lesson',
+						'archived_to'       => 'incident_history',
+						// Clear dual generic lesson text so agents do not treat it as active teaching.
+						'correction'        => '',
+						'lesson'            => '',
+						'legacy_correction' => mb_substr( $correction, 0, 500 ),
+						'legacy_lesson'     => mb_substr( $lesson, 0, 500 ),
+						'incident_history'  => [
+							'cause_key'  => (string) ( $value['cause_key'] ?? '' ),
+							'error_code' => (string) ( $value['error_code'] ?? '' ),
+							'signature'  => (string) ( $value['signature'] ?? '' ),
+							'trigger'    => (string) ( $value['trigger'] ?? '' ),
+						],
+					]
+				);
+
+				$id = Memory::put_typed(
+					'feedback',
+					(string) ( $row['scope'] ?? 'audit' ),
+					$key,
+					(string) ( $row['name'] ?? $row['topic'] ?? 'Superseded audit incident' ),
+					$archived,
+					(float) ( $row['confidence'] ?? 1.0 ),
+					[
+						'topic'      => (string) ( $row['topic'] ?? 'Superseded audit incident' ),
+						'status'     => 'stale',
+						'precedence' => min( 400, (int) ( $row['precedence'] ?? 400 ) ),
+					]
+				);
+				if ( $id > 0 ) {
+					++$migrated;
+				} else {
+					// Eligible row failed to update — leave migration unfinished.
+					++$write_failed;
+					++$skipped;
+				}
 			}
 
-			if ( ! str_starts_with( $key, 'learning-audit-error-' ) ) {
-				++$skipped;
-				continue;
-			}
-
-			$source = (string) ( $value['source'] ?? '' );
-			$state  = (string) ( $value['state'] ?? '' );
-			// Leave verified / user-created / already-superseded alone.
-			if ( in_array( $source, [ 'verified-repair', 'user', 'user-correction', 'learning-record' ], true ) ) {
-				++$skipped;
-				continue;
-			}
-			if ( in_array( $state, [ 'promoted_learning', 'verified_resolved', 'superseded', 'archived_incident' ], true ) ) {
-				++$skipped;
-				continue;
-			}
-
-			$correction = (string) ( $value['correction'] ?? '' );
-			$lesson     = (string) ( $value['lesson'] ?? '' );
-			$is_generic = (
-				str_contains( strtolower( $correction ), 'unknown error' )
-				|| str_contains( strtolower( $lesson ), 'unknown error' )
-				|| ( '' !== $correction && $correction === $lesson && str_contains( $correction, 'Unresolved incident' ) )
-				|| 'unresolved_incident' === $state
-				|| 'audit-error' === $source
-			);
-			if ( ! $is_generic ) {
-				++$skipped;
-				continue;
-			}
-
-			$archived = array_merge(
-				$value,
-				[
-					'state'               => 'superseded',
-					'superseded_at'       => $now,
-					'superseded_reason'   => 'legacy_unresolved_audit_lesson',
-					'archived_to'         => 'incident_history',
-					// Clear dual generic lesson text so agents do not treat it as active teaching.
-					'correction'          => '',
-					'lesson'              => '',
-					'legacy_correction'   => mb_substr( $correction, 0, 500 ),
-					'legacy_lesson'       => mb_substr( $lesson, 0, 500 ),
-					'incident_history'    => [
-						'cause_key'  => (string) ( $value['cause_key'] ?? '' ),
-						'error_code' => (string) ( $value['error_code'] ?? '' ),
-						'signature'  => (string) ( $value['signature'] ?? '' ),
-						'trigger'    => (string) ( $value['trigger'] ?? '' ),
-					],
-				]
-			);
-
-			$id = Memory::put_typed(
-				'feedback',
-				(string) ( $row['scope'] ?? 'audit' ),
-				$key,
-				(string) ( $row['name'] ?? $row['topic'] ?? 'Superseded audit incident' ),
-				$archived,
-				(float) ( $row['confidence'] ?? 1.0 ),
-				[
-					'topic'      => (string) ( $row['topic'] ?? 'Superseded audit incident' ),
-					'status'     => 'stale',
-					'precedence' => min( 400, (int) ( $row['precedence'] ?? 400 ) ),
-				]
-			);
-			if ( $id > 0 ) {
-				++$migrated;
-			} else {
-				++$skipped;
+			if ( count( $rows ) < $page_size ) {
+				break;
 			}
 		}
 
-		update_option( self::LEGACY_LESSON_MIGRATION_OPTION, '1', false );
-		return [ 'migrated' => $migrated, 'skipped' => $skipped, 'already_done' => false ];
+		if ( 0 === $write_failed ) {
+			update_option( self::LEGACY_LESSON_MIGRATION_OPTION, '1', false );
+		}
+
+		return [
+			'migrated'     => $migrated,
+			'skipped'      => $skipped,
+			'already_done' => false,
+			'write_failed' => $write_failed,
+		];
 	}
 
 	private static function safe_hash( mixed $value ): string {

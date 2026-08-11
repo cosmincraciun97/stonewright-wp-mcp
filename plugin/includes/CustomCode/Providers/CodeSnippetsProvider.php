@@ -297,8 +297,21 @@ final class CodeSnippetsProvider implements ProviderInterface {
 				[ 'status' => 404, 'provider' => $this->id() ]
 			);
 		}
+		$snap_target = sanitize_text_field( (string) ( $snap['target_id'] ?? '' ) );
 		if ( '' === $target ) {
-			$target = (string) ( $snap['target_id'] ?? '' );
+			$target = $snap_target;
+		} elseif ( '' !== $snap_target && $target !== $snap_target ) {
+			return new \WP_Error(
+				'stonewright_code_snippets_snapshot_target_mismatch',
+				__( 'Rollback target_id does not match the snapshot target.', 'stonewright' ),
+				[
+					'status'          => 400,
+					'provider'        => $this->id(),
+					'target_id'       => $target,
+					'snapshot_target' => $snap_target,
+					'snapshot_id'     => $snapshot_id,
+				]
+			);
 		}
 		$snippet = $this->load( $target );
 		if ( $snippet instanceof \WP_Error ) {

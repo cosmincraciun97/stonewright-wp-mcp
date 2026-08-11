@@ -291,6 +291,107 @@ final class ProviderPipelineTest extends TestCase {
 		self::assertSame( 'stonewright_php_candidate_invalid', $result->get_error_code() );
 	}
 
+	public function test_rollback_rejects_target_id_mismatch(): void {
+		$provider = ProviderRegistry::get( 'wpcode' );
+		self::assertNotNull( $provider );
+
+		$candidate = "<?php\necho 'after-mismatch';\n";
+		$dry       = $provider->dry_run(
+			[
+				'target_id' => '12',
+				'code'      => $candidate,
+				'language'  => 'php',
+			]
+		);
+		self::assertIsArray( $dry );
+		$grant = CustomCodeGrant::issue(
+			[
+				'path'         => 'wpcode/snippet/12',
+				'after_sha256' => $dry['after_sha256'],
+				'language'     => 'php',
+			]
+		);
+		self::assertIsArray( $grant );
+		$applied = $provider->apply(
+			[
+				'target_id'              => '12',
+				'code'                   => $candidate,
+				'language'               => 'php',
+				'custom_code_grant'      => $grant['token'],
+				'expected_before_sha256' => $dry['before_sha256'],
+			]
+		);
+		self::assertIsArray( $applied );
+
+		$mismatch = $provider->rollback(
+			[
+				'snapshot_id' => $applied['snapshot_id'],
+				'target_id'   => '999',
+			]
+		);
+		self::assertInstanceOf( \WP_Error::class, $mismatch );
+		self::assertSame( 'stonewright_wpcode_snapshot_target_mismatch', $mismatch->get_error_code() );
+		// Original target still holds the applied body — mismatch must not mutate.
+		self::assertSame( $candidate, $this->wpcode_store['12']['code'] );
+	}
+
+	public function test_list_read_require_code_edit_caps(): void {
+		$ability = new ProviderOps();
+		$GLOBALS['stonewright_test_user_caps'] = [
+			'read'               => true,
+			'manage_options'     => false,
+			'edit_theme_options' => false,
+		];
+
+		$discover = $ability->permission_callback( [ 'action' => 'discover' ] );
+		self::assertTrue( $discover );
+
+		$list = $ability->permission_callback( [ 'action' => 'list', 'provider' => 'wpcode' ] );
+		self::assertInstanceOf( \WP_Error::class, $list );
+
+		$read = $ability->permission_callback( [ 'action' => 'read', 'provider' => 'wpcode', 'target_id' => '12' ] );
+		self::assertInstanceOf( \WP_Error::class, $read );
+
+		$GLOBALS['stonewright_test_user_caps'] = [
+			'read'               => true,
+			'manage_options'     => false,
+			'edit_theme_options' => true,
+		];
+		self::assertTrue( $ability->permission_callback( [ 'action' => 'list', 'provider' => 'wpcode' ] ) );
+		self::assertTrue( $ability->permission_callback( [ 'action' => 'read', 'provider' => 'wpcode', 'target_id' => '12' ] ) );
+
+		// Writes still require manage_options even when edit_theme_options is present.
+		$apply = $ability->permission_callback( [ 'action' => 'apply', 'provider' => 'wpcode' ] );
+		self::assertInstanceOf( \WP_Error::class, $apply );
+
+		$GLOBALS['stonewright_test_user_caps'] = [
+			'read'           => true,
+			'manage_options' => true,
+		];
+		self::assertTrue( $ability->permission_callback( [ 'action' => 'apply', 'provider' => 'wpcode' ] ) );
+	}
+
+	public function test_production_safe_apply_requires_confirmation_token(): void {
+		ProviderRegistry::set_for_tests(
+			[
+				'wpcode' => new WpCodeProvider( $this->wpcode_backend() ),
+			]
+		);
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
+		$ability = new ProviderOps();
+		$result  = $ability->execute(
+			[
+				'action'            => 'apply',
+				'provider'          => 'wpcode',
+				'target_id'         => '12',
+				'code'              => "<?php\necho 1;\n",
+				'custom_code_grant' => 'not-a-real-grant',
+			]
+		);
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_confirmation_required', $result->get_error_code() );
+	}
+
 	/** @return callable */
 	private function wpcode_backend(): callable {
 		return function ( string $op, array $args ) {

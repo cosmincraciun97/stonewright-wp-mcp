@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-08-11T16:30:53+00:00",
+    "generated_at": "2026-08-11T16:35:46+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -587,13 +587,13 @@
         {
             "ability_name": "stonewright/custom-code-provider",
             "mcp_name": "stonewright-custom-code-provider",
-            "kind": "Read",
+            "kind": "Write",
             "input_schema_hash": "b265139ade3937452b1130288c80b22d13a3ef463a48afbd5da5e2450b149de0",
             "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
-            "permission_class": "Permissions::read()",
+            "permission_class": "Permissions::manage_options()",
             "gates": {
                 "backup": false,
-                "token": false,
+                "token": true,
                 "validator": false,
                 "audit": true
             }

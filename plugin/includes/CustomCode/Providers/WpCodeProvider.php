@@ -317,8 +317,21 @@ final class WpCodeProvider implements ProviderInterface {
 				[ 'status' => 404, 'provider' => $this->id() ]
 			);
 		}
+		$snap_target = sanitize_text_field( (string) ( $snap['target_id'] ?? '' ) );
 		if ( '' === $target ) {
-			$target = (string) ( $snap['target_id'] ?? '' );
+			$target = $snap_target;
+		} elseif ( '' !== $snap_target && $target !== $snap_target ) {
+			return new \WP_Error(
+				'stonewright_wpcode_snapshot_target_mismatch',
+				__( 'Rollback target_id does not match the snapshot target.', 'stonewright' ),
+				[
+					'status'           => 400,
+					'provider'         => $this->id(),
+					'target_id'        => $target,
+					'snapshot_target'  => $snap_target,
+					'snapshot_id'      => $snapshot_id,
+				]
+			);
 		}
 		$snippet = $this->load_snippet( $target );
 		if ( $snippet instanceof \WP_Error ) {
@@ -407,6 +420,18 @@ final class WpCodeProvider implements ProviderInterface {
 		if ( ! $post instanceof \WP_Post ) {
 			return new \WP_Error( 'stonewright_wpcode_not_found', __( 'WPCode snippet not found.', 'stonewright' ), [ 'status' => 404, 'target_id' => $id ] );
 		}
+		// Fallback only for detected WPCode CPTs — never treat arbitrary posts as snippets.
+		if ( ! $this->is_wpcode_post_type( (string) $post->post_type ) ) {
+			return new \WP_Error(
+				'stonewright_wpcode_not_found',
+				__( 'Post is not a WPCode snippet type.', 'stonewright' ),
+				[
+					'status'    => 404,
+					'target_id' => $id,
+					'post_type' => (string) $post->post_type,
+				]
+			);
+		}
 		$code = (string) get_post_meta( (int) $id, '_wpcode_snippet_code', true );
 		if ( '' === $code ) {
 			$code = (string) $post->post_content;
@@ -462,7 +487,33 @@ final class WpCodeProvider implements ProviderInterface {
 		if ( ! $post instanceof \WP_Post ) {
 			return new \WP_Error( 'stonewright_wpcode_not_found', __( 'WPCode snippet not found.', 'stonewright' ), [ 'status' => 404 ] );
 		}
+		if ( ! $this->is_wpcode_post_type( (string) $post->post_type ) ) {
+			return new \WP_Error(
+				'stonewright_wpcode_not_found',
+				__( 'Post is not a WPCode snippet type.', 'stonewright' ),
+				[
+					'status'    => 404,
+					'target_id' => $id,
+					'post_type' => (string) $post->post_type,
+				]
+			);
+		}
 		update_post_meta( (int) $id, '_wpcode_snippet_code', $code );
+		return true;
+	}
+
+	/**
+	 * Detected WPCode CPT names used by free/premium builds.
+	 */
+	private function is_wpcode_post_type( string $post_type ): bool {
+		$post_type = sanitize_key( $post_type );
+		if ( ! in_array( $post_type, [ 'wpcode', 'wpcode-snippets' ], true ) ) {
+			return false;
+		}
+		// When the type registry is available, require the CPT to be registered.
+		if ( function_exists( 'post_type_exists' ) ) {
+			return post_type_exists( $post_type );
+		}
 		return true;
 	}
 

@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\CustomCode;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
 use Stonewright\WpMcp\CustomCode\ProviderRegistry;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -14,10 +15,12 @@ use Stonewright\WpMcp\Security\Permissions;
  *
  * Dry-run returns approval_url and must stop before opening approval or obtaining
  * a grant. Apply requires a human-issued single-use custom_code_grant.
+ * Apply/rollback also require confirmation_token in production-safe mode.
  *
  * @stonewright-status stable
  */
 final class ProviderOps extends AbilityKernel {
+	use ConfirmationGuard;
 
 	public function name(): string {
 		return 'stonewright/custom-code-provider';
@@ -112,17 +115,47 @@ final class ProviderOps extends AbilityKernel {
 
 	public function permission_callback( array $args ): bool|\WP_Error {
 		$action = sanitize_key( (string) ( $args['action'] ?? '' ) );
-		if ( in_array( $action, [ 'discover', 'list', 'read', 'verify' ], true ) ) {
-			return Permissions::read();
+
+		// List/read/verify expose snippet bodies, hashes, or theme/customizer code.
+		// Match ThemeFileRead PHP gate (manage_options or edit_theme_options).
+		if ( in_array( $action, [ 'list', 'read', 'verify' ], true ) ) {
+			return ( Permissions::manage_options() || Permissions::edit_theme_options() )
+				? true
+				: new \WP_Error(
+					'stonewright_permission_denied',
+					__( 'Custom-code list/read/verify requires manage_options or edit_theme_options.', 'stonewright' ),
+					[ 'status' => 403 ]
+				);
 		}
-		// Writes and dry-run staging require manage_options (grant boundary).
-		return Permissions::manage_options()
-			? true
-			: new \WP_Error(
-				'stonewright_permission_denied',
-				__( 'Custom-code dry-run/apply requires manage_options.', 'stonewright' ),
-				[ 'status' => 403 ]
-			);
+
+		// Dry-run staging and mutations require manage_options (grant boundary).
+		if ( in_array( $action, [ 'dry-run', 'apply', 'rollback' ], true ) ) {
+			return Permissions::manage_options()
+				? true
+				: new \WP_Error(
+					'stonewright_permission_denied',
+					__( 'Custom-code dry-run/apply/rollback requires manage_options.', 'stonewright' ),
+					[ 'status' => 403 ]
+				);
+		}
+
+		// Discover only returns plugin presence — no code bodies.
+		if ( 'discover' === $action ) {
+			if ( ! Permissions::read() ) {
+				return new \WP_Error(
+					'stonewright_permission_denied',
+					__( 'Custom-code discover requires a logged-in reader.', 'stonewright' ),
+					[ 'status' => 403 ]
+				);
+			}
+			return true;
+		}
+
+		return new \WP_Error(
+			'stonewright_permission_denied',
+			__( 'Unsupported custom-code action.', 'stonewright' ),
+			[ 'status' => 403 ]
+		);
 	}
 
 	public function execute( array $args ): array|\WP_Error {
@@ -138,9 +171,19 @@ final class ProviderOps extends AbilityKernel {
 						'rules'     => [
 							'Agents must stop after dry-run and show approval_url, path, hashes, and summary.',
 							'Never open the approval page or obtain a grant unless the user explicitly asks.',
-							'Direct/pluginless mode may call discover/list/read only; dry-run/apply require plugin auth.',
+							'Direct/pluginless mode may call discover only without code-edit caps; list/read require manage_options or edit_theme_options; dry-run/apply require plugin auth.',
 						],
 					];
+				}
+
+				// Production-safe: apply and rollback need confirmation tokens.
+				if ( in_array( $action, [ 'apply', 'rollback' ], true ) ) {
+					$verify_args = $args;
+					unset( $verify_args['confirmation_token'], $verify_args['custom_code_grant'] );
+					$token_error = $this->confirmation_token_error( $args, $verify_args );
+					if ( $token_error instanceof \WP_Error ) {
+						return $token_error;
+					}
 				}
 
 				$provider_id = sanitize_key( (string) ( $args['provider'] ?? '' ) );
@@ -222,8 +265,13 @@ final class ProviderOps extends AbilityKernel {
 		if ( is_array( $result ) ) {
 			foreach ( [ 'before_sha256', 'after_sha256', 'changed_bytes', 'path', 'snapshot_id', 'verification_status', 'rollback_status', 'effect_verified' ] as $key ) {
 				// array_key_exists (not isset) so explicit null values remain eligible.
-				if ( array_key_exists( $key, $result ) && ( is_scalar( $result[ $key ] ) || null === $result[ $key ] ) ) {
-					$meta[ $key ] = $result[ $key ];
+				if ( ! array_key_exists( $key, $result ) ) {
+					continue;
+				}
+				$value = $result[ $key ];
+				if ( is_scalar( $value ) || null === $value ) {
+					/** @var scalar|null $value */
+					$meta[ $key ] = $value;
 				}
 			}
 			if ( isset( $result['path'] ) && is_scalar( $result['path'] ) ) {
