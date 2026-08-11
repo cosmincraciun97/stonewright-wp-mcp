@@ -39,7 +39,10 @@
             "automattic/jetpack-autoloader": true
         },
         "audit": {
-            "abandoned": "report"
+            "abandoned": "report",
+            "ignore": {
+                "PKSA-rdkp-vv9z-mjkg": "The advisory affects PHP_CodeSniffer below 3.13.6; this repository requires and locks the patched 3.13.6 release. Composer 2.9.5 incorrectly reports the boundary version."
+            }
         },
         "sort-packages": true,
         "platform": {

@@ -490,4 +490,220 @@ describe('connect CLI acceptance matrix', () => {
 		expect(reg.sites[0]?.credential_ref).toMatch(/memory:\/\//);
 		expect(JSON.stringify(reg)).not.toContain('example-password-from-env');
 	});
+
+	it('persists Step 1 expectations and one-time browser consent per site and client', async () => {
+		const h = harness();
+		capture();
+		const clientConfig = join(h.dir, '.cursor', 'mcp.json');
+		const code = await connectAdd(
+			{
+				alias: 'profiled-site',
+				url: 'https://profiled.example/',
+				username: 'editor',
+				password: 'example-password',
+				mode: 'plugin-only',
+				client: 'cursor',
+				clientConfigPath: clientConfig,
+				pluginEnabled: true,
+				wordpressMode: 'production-safe',
+				wordpressToolSurface: 'full',
+				elementorV4Atomic: true,
+				browserProvider: 'recommended',
+				browserScanConsent: 'granted',
+				browserInstallConsent: 'denied',
+			},
+			{ sitesFile: h.sitesFile, homeDir: h.homeDir, credentials: h.credentials, skipAuth: true },
+		);
+		expect(code).toBe(0);
+		const reg = JSON.parse(readFileSync(h.sitesFile, 'utf8')) as {
+			sites: Array<{
+				plugin_expectations: Record<string, unknown>;
+				clients: Record<string, { browser: Record<string, unknown> }>;
+			}>;
+		};
+		expect(reg.sites[0]?.plugin_expectations).toEqual(expect.objectContaining({
+			enabled_requested: true,
+			wordpress_mode: 'production-safe',
+			wordpress_tool_surface: 'full',
+			elementor_v4_atomic: true,
+		}));
+		expect(reg.sites[0]?.clients.cursor?.browser).toEqual({
+			provider: 'recommended',
+			scan_consent: 'granted',
+			install_consent: 'denied',
+		});
+
+		const replaced = await connectAdd(
+			{
+				alias: 'profiled-site',
+				url: 'https://profiled.example/',
+				username: 'editor',
+				password: 'example-replacement-value',
+				mode: 'plugin-only',
+				client: 'cursor',
+				clientConfigPath: clientConfig,
+				replace: true,
+			},
+			{ sitesFile: h.sitesFile, homeDir: h.homeDir, credentials: h.credentials, skipAuth: true },
+		);
+		expect(replaced).toBe(0);
+		const after = JSON.parse(readFileSync(h.sitesFile, 'utf8')) as typeof reg;
+		expect(after.sites[0]?.plugin_expectations).toEqual(reg.sites[0]?.plugin_expectations);
+		expect(after.sites[0]?.clients.cursor?.browser).toEqual(reg.sites[0]?.clients.cursor?.browser);
+	});
+
+	it('rolls back client config and newly stored credential when registry persistence fails', async () => {
+		const h = harness();
+		capture();
+		const clientConfig = join(h.dir, '.cursor', 'mcp.json');
+		writeFileSync(clientConfig, '{\n  "mcpServers": {}\n}\n', 'utf8');
+		const original = readFileSync(clientConfig, 'utf8');
+		const code = await connectAdd(
+			{
+				alias: 'rollback-site',
+				url: 'https://rollback.example/',
+				username: 'editor',
+				password: 'example-password',
+				client: 'cursor',
+				clientConfigPath: clientConfig,
+			},
+			{
+				sitesFile: h.sitesFile,
+				homeDir: h.homeDir,
+				credentials: h.credentials,
+				skipAuth: true,
+				saveRegistryImpl: () => { throw new Error('synthetic registry failure'); },
+			},
+		);
+		expect(code).toBe(1);
+		expect(readFileSync(clientConfig, 'utf8')).toBe(original);
+		expect(h.store.get('memory://stonewright/rollback-site/app-password')).toBeNull();
+		expect(existsSync(h.sitesFile)).toBe(false);
+	});
+
+	it('does not leave a credential when client binding is unsupported', async () => {
+		const h = harness();
+		capture();
+		const code = await connectAdd(
+			{
+				alias: 'unsupported-client-site',
+				url: 'https://unsupported.example/',
+				username: 'editor',
+				password: 'example-password',
+				client: 'not-a-client',
+			},
+			{ sitesFile: h.sitesFile, homeDir: h.homeDir, credentials: h.credentials, skipAuth: true },
+		);
+		expect(code).toBe(1);
+		expect(h.store.get('memory://stonewright/unsupported-client-site/app-password')).toBeNull();
+		expect(existsSync(h.sitesFile)).toBe(false);
+	});
+
+	it('restores the previous credential when replacement persistence fails', async () => {
+		const h = harness();
+		capture();
+		await connectAdd(
+			{
+				alias: 'replace-rollback',
+				url: 'https://replace-rollback.example/',
+				username: 'editor',
+				password: 'example-old-value',
+			},
+			{ sitesFile: h.sitesFile, homeDir: h.homeDir, credentials: h.credentials, skipAuth: true },
+		);
+		const code = await connectAdd(
+			{
+				alias: 'replace-rollback',
+				url: 'https://replace-rollback.example/',
+				username: 'editor',
+				password: 'example-new-value',
+				replace: true,
+			},
+			{
+				sitesFile: h.sitesFile,
+				homeDir: h.homeDir,
+				credentials: h.credentials,
+				skipAuth: true,
+				saveRegistryImpl: () => { throw new Error('synthetic registry failure'); },
+			},
+		);
+		expect(code).toBe(1);
+		expect(h.store.get('memory://stonewright/replace-rollback/app-password')).toBe('example-old-value');
+	});
+
+	it('restores client config when remove cannot persist the registry', async () => {
+		const h = harness();
+		capture();
+		const clientConfig = join(h.dir, '.cursor', 'mcp.json');
+		await connectAdd(
+			{
+				alias: 'remove-rollback',
+				url: 'https://remove-rollback.example/',
+				username: 'editor',
+				password: 'example-password',
+				client: 'cursor',
+				clientConfigPath: clientConfig,
+			},
+			{ sitesFile: h.sitesFile, homeDir: h.homeDir, credentials: h.credentials, skipAuth: true },
+		);
+		const original = readFileSync(clientConfig, 'utf8');
+		const code = connectRemove('remove-rollback', {}, {
+			sitesFile: h.sitesFile,
+			homeDir: h.homeDir,
+			credentials: h.credentials,
+			saveRegistryImpl: () => { throw new Error('synthetic registry failure'); },
+		});
+		expect(code).toBe(1);
+		expect(readFileSync(clientConfig, 'utf8')).toBe(original);
+	});
+
+	it('stores live runtime proof without claiming a structural config check is runtime proof', async () => {
+		const h = harness();
+		capture();
+		const clientConfig = join(h.dir, '.cursor', 'mcp.json');
+		await connectAdd(
+			{
+				alias: 'verified-site',
+				url: 'https://verified.example/',
+				username: 'editor',
+				password: 'example-password',
+				mode: 'plugin-only',
+				client: 'cursor',
+				clientConfigPath: clientConfig,
+			},
+			{ sitesFile: h.sitesFile, homeDir: h.homeDir, credentials: h.credentials, skipAuth: true },
+		);
+		const code = await connectVerify('verified-site', { client: 'cursor' }, {
+			sitesFile: h.sitesFile,
+			homeDir: h.homeDir,
+			credentials: h.credentials,
+			skipAuth: true,
+			fetchImpl: (() => Promise.resolve(new Response('{}', { status: 200 }))) as typeof fetch,
+			runtimeVerifier: (site, _password, entry) => {
+				expect(entry?.env.STONEWRIGHT_SITE_ALIAS).toBe('verified-site');
+				return Promise.resolve({
+					ok: true,
+					detail: 'spawned runtime verified',
+					companion_version: '1.2.3',
+					active_alias: site.alias,
+					remote_tool_names: ['stonewright-task-start', 'stonewright-wordpress-mcp-status'],
+					task_start_available: true,
+					status_available: true,
+				});
+			},
+		});
+		expect(code).toBe(0);
+		const reg = JSON.parse(readFileSync(h.sitesFile, 'utf8')) as {
+			sites: Array<{ last_verification: Record<string, unknown> }>;
+		};
+		expect(reg.sites[0]?.last_verification).toEqual(expect.objectContaining({
+			ok: true,
+			active_alias: 'verified-site',
+			companion_version: '1.2.3',
+			remote_tool_count: 2,
+			task_start_available: true,
+			status_available: true,
+		}));
+		expect(String(reg.sites[0]?.last_verification.surface_digest)).toMatch(/^sha256:/);
+	});
 });

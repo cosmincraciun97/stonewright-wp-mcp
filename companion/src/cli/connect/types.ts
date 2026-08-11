@@ -17,11 +17,21 @@ export type FallbackPolicy =
 
 export type AuthMethod = 'application-password' | 'oauth' | 'none';
 
+export type BrowserProvider = 'recommended' | 'connected-browser' | 'none' | 'unset';
+export type ConsentState = 'granted' | 'denied' | 'unknown';
+
+export interface BrowserPreferences {
+	provider: BrowserProvider;
+	scan_consent: ConsentState;
+	install_consent: ConsentState;
+}
+
 export interface SiteClientBinding {
 	server_name: string;
 	install_profile?: string | undefined;
 	config_path?: string | undefined;
 	last_applied_at?: string | undefined;
+	browser?: BrowserPreferences | undefined;
 }
 
 export interface LastVerification {
@@ -30,12 +40,22 @@ export interface LastVerification {
 	client?: string | undefined;
 	detail?: string | undefined;
 	active_mode?: PreferredActiveMode | 'unknown' | undefined;
+	active_alias?: string | undefined;
+	companion_version?: string | undefined;
+	remote_tool_count?: number | undefined;
+	surface_digest?: string | undefined;
+	task_start_available?: boolean | undefined;
+	status_available?: boolean | undefined;
 }
 
 export interface PluginExpectations {
 	required?: boolean | undefined;
 	min_version?: string | undefined;
 	abilities?: string[] | undefined;
+	enabled_requested?: boolean | undefined;
+	wordpress_mode?: 'development' | 'staging' | 'production-safe' | undefined;
+	wordpress_tool_surface?: 'bootstrap' | 'essential' | 'full' | undefined;
+	elementor_v4_atomic?: boolean | undefined;
 }
 
 export interface SiteRecordV2 {

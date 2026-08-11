@@ -8,18 +8,28 @@ import {
 	getClientAdapter,
 	listClientCatalog,
 	type ClientAdapter,
+	type McpServerEntry,
 } from '../clients/index.js';
 import {
 	type CreateCredentialStoreOptions,
 	MemoryCredentialStore,
+	createCredentialStore,
+	parseCredentialRef,
+	resolveCredentialSecret,
 	storeSiteSecret,
 } from '../../credentials/index.js';
+import { createHash } from 'node:crypto';
+import { restoreFileSnapshot, snapshotFile } from '../clients/atomic-config.js';
+import { WordPressMcpClient } from '../../wordpress-mcp.js';
+import { Client as McpClient } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { APP_VERSION } from '../../version.js';
 import { configuredModeToEnv, mayProbePlugin, resolveActiveMode } from './mode-policy.js';
 import {
 	buildSiteRecord,
 	findSiteByAlias,
 	findSiteById,
+	findDuplicateEndpoint,
 	loadRegistry,
 	makeEnvCredentialRef,
 	migrateSitesFile,
@@ -34,6 +44,9 @@ import { mcpServerName } from './server-name.js';
 import {
 	ConnectError,
 	type ConnectReceipt,
+	type BrowserPreferences,
+	type ConsentState,
+	type PluginExpectations,
 	type SiteEnvironment,
 	type SiteRecordV2,
 	type SitesRegistryV2,
@@ -50,6 +63,20 @@ export interface ConnectContext {
 	packageSpec?: string | undefined;
 	/** Override client config path for add/repair (tests and advanced use). */
 	clientConfigPath?: string | undefined;
+	/** Injectable persistence boundary for transaction-failure tests. */
+	saveRegistryImpl?: typeof saveRegistry | undefined;
+	/** Injectable live runtime probe for certified-client tests. */
+	runtimeVerifier?: ((site: SiteRecordV2, password: string | null, entry?: McpServerEntry) => Promise<RuntimeVerification>) | undefined;
+}
+
+export interface RuntimeVerification {
+	ok: boolean;
+	detail: string;
+	companion_version?: string | undefined;
+	active_alias?: string | undefined;
+	remote_tool_names?: string[] | undefined;
+	task_start_available?: boolean | undefined;
+	status_available?: boolean | undefined;
 }
 
 function ctxPaths(ctx: ConnectContext): LoadRegistryOptions {
@@ -107,6 +134,200 @@ async function verifyAuth(
 	}
 }
 
+function saveRegistryForContext(registry: SitesRegistryV2, ctx: ConnectContext) {
+	return (ctx.saveRegistryImpl ?? saveRegistry)(registry, ctxPaths(ctx));
+}
+
+function credentialStoreForRef(ref: string, ctx: ConnectContext) {
+	const parsed = parseCredentialRef(ref);
+	if (parsed.kind === 'env') return null;
+	if (ctx.credentials?.store) return ctx.credentials.store;
+	return createCredentialStore(ctx.credentials ?? { allowMemoryFallback: false });
+}
+
+function restoreCredential(
+	ref: string,
+	previousSecret: string | null,
+	ctx: ConnectContext,
+): void {
+	const parsed = parseCredentialRef(ref);
+	if (parsed.kind === 'env') {
+		const env = ctx.env ?? process.env;
+		if (previousSecret === null) delete env[parsed.envVar ?? parsed.service];
+		else env[parsed.envVar ?? parsed.service] = previousSecret;
+		return;
+	}
+	const store = credentialStoreForRef(ref, ctx);
+	if (!store) return;
+	if (previousSecret === null) store.delete(ref);
+	else store.set(ref, previousSecret);
+}
+
+function deleteCredentialIfUnreferenced(
+	ref: string,
+	registry: SitesRegistryV2,
+	ctx: ConnectContext,
+): void {
+	if (registry.sites.some((site) => site.credential_ref === ref)) return;
+	const parsed = parseCredentialRef(ref);
+	// Environment variables are user-owned and must never be unset by registry removal.
+	if (parsed.kind === 'env') return;
+	credentialStoreForRef(ref, ctx)?.delete(ref);
+}
+
+function pluginExpectations(input: ConnectAddInput, prior?: PluginExpectations): PluginExpectations {
+	if (input.wordpressMode && !['development', 'staging', 'production-safe'].includes(input.wordpressMode)) {
+		throw new ConnectError('invalid_wordpress_mode', `Unsupported WordPress mode: ${input.wordpressMode}`);
+	}
+	if (input.wordpressToolSurface && !['bootstrap', 'essential', 'full'].includes(input.wordpressToolSurface)) {
+		throw new ConnectError('invalid_wordpress_surface', `Unsupported WordPress tool surface: ${input.wordpressToolSurface}`);
+	}
+	const pluginRequested = input.pluginEnabled ?? prior?.enabled_requested ?? input.mode !== 'direct-only';
+	return {
+		required: input.mode === 'plugin-only',
+		enabled_requested: pluginRequested,
+		wordpress_mode: input.wordpressMode ?? prior?.wordpress_mode ?? 'development',
+		wordpress_tool_surface: input.wordpressToolSurface ?? prior?.wordpress_tool_surface ?? 'essential',
+		elementor_v4_atomic: input.elementorV4Atomic ?? prior?.elementor_v4_atomic ?? false,
+		...(prior?.min_version ? { min_version: prior.min_version } : {}),
+		...(prior?.abilities ? { abilities: prior.abilities } : {}),
+	};
+}
+
+function browserPreferences(
+	input: Pick<ConnectAddInput, 'browserProvider' | 'browserScanConsent' | 'browserInstallConsent'>,
+	prior?: BrowserPreferences,
+): BrowserPreferences {
+	if (input.browserProvider && !['recommended', 'connected-browser', 'none', 'unset'].includes(input.browserProvider)) {
+		throw new ConnectError('invalid_browser_provider', `Unsupported browser provider: ${input.browserProvider}`);
+	}
+	for (const [name, value] of [
+		['browser scan consent', input.browserScanConsent],
+		['browser install consent', input.browserInstallConsent],
+	] as const) {
+		if (value && !['granted', 'denied', 'unknown'].includes(value)) {
+			throw new ConnectError('invalid_browser_consent', `Unsupported ${name}: ${value}`);
+		}
+	}
+	return {
+		provider: input.browserProvider ?? prior?.provider ?? 'unset',
+		scan_consent: input.browserScanConsent ?? prior?.scan_consent ?? 'unknown',
+		install_consent: input.browserInstallConsent ?? prior?.install_consent ?? 'unknown',
+	};
+}
+
+function toolNameMatches(names: string[], expected: string): boolean {
+	const canonical = expected.replace(/^stonewright[-/]/, '').replaceAll('/', '-');
+	return names.some((name) => name.replace(/^stonewright[-/]/, '').replaceAll('/', '-') === canonical);
+}
+
+async function defaultRuntimeVerifier(
+	site: SiteRecordV2,
+	password: string | null,
+	fetchImpl: typeof fetch,
+	entry?: McpServerEntry,
+): Promise<RuntimeVerification> {
+	if (entry) {
+		const env = Object.fromEntries(
+			Object.entries({ ...process.env, ...entry.env }).filter((row): row is [string, string] => typeof row[1] === 'string'),
+		);
+		const transport = new StdioClientTransport({
+			command: entry.command,
+			args: entry.args,
+			env,
+			stderr: 'pipe',
+		});
+		const client = new McpClient({ name: 'stonewright-connect-verify', version: APP_VERSION });
+		try {
+			await client.connect(transport);
+			const listed = await client.listTools({}, { timeout: 20_000 });
+			const names = listed.tools.map((tool) => tool.name);
+			const taskName = names.find((name) => toolNameMatches([name], 'stonewright-task-start'));
+			const statusName = names.find((name) => toolNameMatches([name], 'stonewright-wordpress-mcp-status'));
+			if (taskName) {
+				await client.callTool({
+					name: taskName,
+					arguments: {
+						task: 'Verify the saved Stonewright site connection.',
+						intent: 'read-only connection verification',
+						surface: site.plugin_expectations?.wordpress_tool_surface ?? 'essential',
+					},
+				}, undefined, { timeout: 20_000 });
+			}
+			const status = statusName
+				? await client.callTool({ name: statusName, arguments: {} }, undefined, { timeout: 20_000 })
+				: null;
+			const statusText = JSON.stringify(status ?? {});
+			const versionMatch = statusText.match(/"companion_version"\s*:\s*"([^"]+)"/);
+			const required = site.plugin_expectations?.abilities ?? [];
+			const missing = required.filter((name) => !toolNameMatches(names, name));
+			return {
+				ok: Boolean(taskName && statusName && missing.length === 0),
+				detail: missing.length > 0
+					? `Spawned client runtime missing required tools: ${missing.join(', ')}`
+					: `Spawned client runtime exposed ${names.length} tools; task-start and status completed.`,
+				companion_version: versionMatch?.[1] ?? APP_VERSION,
+				active_alias: entry.env.STONEWRIGHT_SITE_ALIAS ?? site.alias,
+				remote_tool_names: names,
+				task_start_available: Boolean(taskName),
+				status_available: Boolean(statusName),
+			};
+		} catch (err) {
+			return { ok: false, detail: `Spawned client runtime failed: ${err instanceof Error ? err.message : String(err)}` };
+		} finally {
+			await transport.close().catch(() => undefined);
+		}
+	}
+	if (site.configured_mode === 'direct-only') {
+		return {
+			ok: true,
+			detail: 'Site credentials are valid; pass --client to spawn and prove the configured Direct companion runtime.',
+			companion_version: APP_VERSION,
+			active_alias: site.alias,
+		};
+	}
+	if (!password) {
+		return { ok: false, detail: 'Credential unavailable for live MCP runtime verification.' };
+	}
+	try {
+		const client = new WordPressMcpClient(
+			{
+				url: `${site.canonical_url}/wp-json/mcp/stonewright`,
+				username: site.username_hint,
+				password,
+				timeoutMs: 15_000,
+			},
+			fetchImpl,
+		);
+		const tools = await client.listTools();
+		const names = tools.map((tool) => tool.name);
+		const taskName = names.find((name) => toolNameMatches([name], 'stonewright-task-start'));
+		const statusName = names.find((name) => toolNameMatches([name], 'stonewright-wordpress-mcp-status'));
+		if (taskName) {
+			await client.callTool(taskName, {
+				task: 'Verify the saved Stonewright site connection.',
+				intent: 'read-only connection verification',
+				surface: site.plugin_expectations?.wordpress_tool_surface ?? 'essential',
+			});
+		}
+		if (statusName) await client.callTool(statusName, {});
+		const required = site.plugin_expectations?.abilities ?? [];
+		const missing = required.filter((name) => !toolNameMatches(names, name));
+		return {
+			ok: Boolean(taskName && statusName && missing.length === 0),
+			detail: missing.length > 0
+				? `Live MCP missing required tools: ${missing.join(', ')}`
+				: `Live MCP exposed ${names.length} tools; task-start and status completed.`,
+			active_alias: site.alias,
+			remote_tool_names: names,
+			task_start_available: Boolean(taskName),
+			status_available: Boolean(statusName),
+		};
+	} catch (err) {
+		return { ok: false, detail: err instanceof Error ? err.message : String(err) };
+	}
+}
+
 function takenServerNames(registry: SitesRegistryV2, excludeSiteId?: string): Set<string> {
 	const taken = new Set<string>();
 	for (const site of registry.sites) {
@@ -156,6 +377,13 @@ export interface ConnectAddInput {
 	 * When password is missing and stdin is a TTY, connectAdd uses this or a default hidden prompt.
 	 */
 	promptPassword?: (() => Promise<string>) | undefined;
+	pluginEnabled?: boolean | undefined;
+	wordpressMode?: 'development' | 'staging' | 'production-safe' | undefined;
+	wordpressToolSurface?: 'bootstrap' | 'essential' | 'full' | undefined;
+	elementorV4Atomic?: boolean | undefined;
+	browserProvider?: BrowserPreferences['provider'] | undefined;
+	browserScanConsent?: ConsentState | undefined;
+	browserInstallConsent?: ConsentState | undefined;
 }
 
 /**
@@ -283,6 +511,33 @@ export async function connectAdd(input: ConnectAddInput, ctx: ConnectContext = {
 			`Replacing alias "${existing.alias}" (id=${existing.id}). Affected clients: ${Object.keys(existing.clients).join(', ') || '(none)'}.`,
 		);
 	}
+	let requestedPluginExpectations: PluginExpectations;
+	let requestedBrowserPreferences: BrowserPreferences;
+	try {
+		requestedPluginExpectations = pluginExpectations(input, existing?.plugin_expectations);
+		requestedBrowserPreferences = browserPreferences(
+			input,
+			input.client ? existing?.clients[input.client]?.browser : undefined,
+		);
+	} catch (err) {
+		writeErr(err instanceof Error ? err.message : String(err));
+		return 1;
+	}
+
+	// Reject duplicate URL+environment before touching a credential store or client config.
+	const requestedEnvironment = input.environment ?? 'other';
+	const duplicate = findDuplicateEndpoint(
+		registry,
+		input.url,
+		requestedEnvironment,
+		existing?.id,
+	);
+	if (duplicate) {
+		writeErr(
+			`duplicate_site: Canonical URL + environment already registered as alias "${duplicate.alias}". Refusing to clone.`,
+		);
+		return 1;
+	}
 
 	let password: string;
 	try {
@@ -311,6 +566,10 @@ export async function connectAdd(input: ConnectAddInput, ctx: ConnectContext = {
 		writeOut(auth.detail);
 	}
 
+	const previousCredentialRef = existing?.credential_ref ?? null;
+	const previousCredentialSecret = previousCredentialRef
+		? resolveCredentialSecret(previousCredentialRef, ctx.credentials ?? { env: ctx.env ?? process.env })
+		: null;
 	let credential_ref: string;
 	try {
 		if (input.credentialEnv) {
@@ -347,6 +606,7 @@ export async function connectAdd(input: ConnectAddInput, ctx: ConnectContext = {
 		environment: input.environment ?? 'other',
 		configured_mode: input.mode ?? 'auto',
 		companion_profile: input.companionProfile ?? 'essential-static',
+		plugin_expectations: requestedPluginExpectations,
 		...(existing?.id ? { id: existing.id } : {}),
 		clients: existing?.clients ?? {},
 	});
@@ -358,6 +618,7 @@ export async function connectAdd(input: ConnectAddInput, ctx: ConnectContext = {
 		});
 	} catch (err) {
 		if (err instanceof ConnectError) {
+			restoreCredential(credential_ref, credential_ref === previousCredentialRef ? previousCredentialSecret : null, ctx);
 			writeErr(`${err.code}: ${err.message}`);
 			if (err.details) writeErr(JSON.stringify(err.details));
 			return 1;
@@ -367,19 +628,53 @@ export async function connectAdd(input: ConnectAddInput, ctx: ConnectContext = {
 
 	// Bind client if requested
 	let clientApply: Record<string, unknown> | undefined;
+	let rollbackClient: (() => void) | undefined;
 	if (input.client) {
-		const bindCtx: ConnectContext = { ...ctx };
-		const configPath = input.clientConfigPath ?? ctx.clientConfigPath;
-		if (configPath !== undefined) bindCtx.clientConfigPath = configPath;
-		const result = applyClientBinding(registry, site, input.client, bindCtx);
-		registry = result.registry;
-		clientApply = result.receipt;
-		// refresh site from registry
-		const updated = findSiteById(registry, site.id);
-		if (updated) Object.assign(site, updated);
+		try {
+			const bindCtx: ConnectContext = { ...ctx };
+			const configPath = input.clientConfigPath ?? ctx.clientConfigPath;
+			if (configPath !== undefined) bindCtx.clientConfigPath = configPath;
+			const result = applyClientBinding(
+				registry,
+				site,
+				input.client,
+				bindCtx,
+				requestedBrowserPreferences,
+			);
+			registry = result.registry;
+			clientApply = result.receipt;
+			rollbackClient = result.rollback;
+			// refresh site from registry
+			const updated = findSiteById(registry, site.id);
+			if (updated) Object.assign(site, updated);
+		} catch (err) {
+			restoreCredential(
+				credential_ref,
+				credential_ref === previousCredentialRef ? previousCredentialSecret : null,
+				ctx,
+			);
+			writeErr(`Client binding failed; credential was rolled back: ${err instanceof Error ? err.message : String(err)}`);
+			return 1;
+		}
 	}
 
-	const { path, backupPath } = saveRegistry(registry, ctxPaths(ctx));
+	let persisted: ReturnType<typeof saveRegistry>;
+	try {
+		persisted = saveRegistryForContext(registry, ctx);
+	} catch (err) {
+		rollbackClient?.();
+		restoreCredential(
+			credential_ref,
+			credential_ref === previousCredentialRef ? previousCredentialSecret : null,
+			ctx,
+		);
+		writeErr(`Registry write failed; client config and credential were rolled back: ${err instanceof Error ? err.message : String(err)}`);
+		return 1;
+	}
+	const { path, backupPath } = persisted;
+	if (previousCredentialRef && previousCredentialRef !== credential_ref) {
+		deleteCredentialIfUnreferenced(previousCredentialRef, registry, ctx);
+	}
 
 	const receipt: ConnectReceipt = {
 		ok: true,
@@ -409,7 +704,8 @@ function applyClientBinding(
 	site: SiteRecordV2,
 	clientId: string,
 	ctx: ConnectContext,
-): { registry: SitesRegistryV2; receipt: Record<string, unknown> } {
+	browser?: BrowserPreferences,
+): { registry: SitesRegistryV2; receipt: Record<string, unknown>; rollback: () => void } {
 	const adapter = getClientAdapter(clientId);
 	if (!adapter) {
 		throw new ConnectError(
@@ -435,6 +731,7 @@ function applyClientBinding(
 		toolProfile: site.companion_profile,
 	});
 
+	const before = snapshotFile(configPath);
 	const applied = adapter.upsert(configPath, entry);
 	const now = new Date().toISOString();
 	const nextSite: SiteRecordV2 = {
@@ -446,6 +743,11 @@ function applyClientBinding(
 				install_profile: site.companion_profile,
 				config_path: configPath,
 				last_applied_at: now,
+				browser: browser ?? site.clients[adapter.id]?.browser ?? {
+					provider: 'unset',
+					scan_consent: 'unknown',
+					install_consent: 'unknown',
+				},
 			},
 		},
 		updated_at: now,
@@ -453,15 +755,17 @@ function applyClientBinding(
 	const nextRegistry = upsertSite(registry, nextSite, { replace: true });
 	return {
 		registry: nextRegistry,
-		receipt: {
+			receipt: {
 			client: adapter.id,
 			server_name: serverName,
 			config_path: configPath,
 			backup_path: applied.backupPath,
 			created: applied.created,
 			diff: applied.diff,
-			support_tier: adapter.supportTier,
-		},
+				support_tier: adapter.supportTier,
+				browser: nextSite.clients[adapter.id]?.browser,
+			},
+		rollback: () => restoreFileSnapshot(configPath, before),
 	};
 }
 
@@ -595,6 +899,7 @@ export async function connectVerify(
 		}
 	}
 
+	let configuredEntry: McpServerEntry | undefined;
 	if (opts.client) {
 		const adapter = getClientAdapter(opts.client);
 		if (!adapter) {
@@ -608,6 +913,7 @@ export async function connectVerify(
 			const configPath = binding?.config_path ?? adapter.defaultConfigPath(ctx.homeDir ?? homedir());
 			const serverName = binding?.server_name ?? mcpServerName(site.alias, site.id, new Set());
 			const v = adapter.verify(configPath, serverName);
+			configuredEntry = adapter.read(configPath, serverName) ?? undefined;
 			checks.push({
 				id: 'client_config',
 				ok: v.ok,
@@ -615,6 +921,15 @@ export async function connectVerify(
 			});
 		}
 	}
+
+	const runtime = await (ctx.runtimeVerifier
+		? ctx.runtimeVerifier(site, password, configuredEntry)
+		: defaultRuntimeVerifier(site, password, ctx.fetchImpl ?? fetch, configuredEntry));
+	checks.push({ id: 'runtime', ok: runtime.ok, detail: runtime.detail });
+	const remoteNames = runtime.remote_tool_names ?? [];
+	const surfaceDigest = remoteNames.length > 0
+		? `sha256:${createHash('sha256').update([...remoteNames].sort().join('\n')).digest('hex')}`
+		: undefined;
 
 	const ok = checks.every((c) => c.ok);
 	const now = new Date().toISOString();
@@ -626,11 +941,17 @@ export async function connectVerify(
 			...(opts.client ? { client: opts.client } : {}),
 			detail: checks.map((c) => `${c.id}:${c.ok ? 'ok' : 'fail'}`).join(','),
 			active_mode: active.active,
+			active_alias: runtime.active_alias ?? site.alias,
+			companion_version: runtime.companion_version,
+			remote_tool_count: remoteNames.length || undefined,
+			surface_digest: surfaceDigest,
+			task_start_available: runtime.task_start_available,
+			status_available: runtime.status_available,
 		},
 		updated_at: now,
 	};
 	const nextRegistry = upsertSite(registry, nextSite, { replace: true });
-	saveRegistry(nextRegistry, ctxPaths(ctx));
+	saveRegistryForContext(nextRegistry, ctx);
 
 	const receipt: ConnectReceipt = {
 		ok,
@@ -640,7 +961,7 @@ export async function connectVerify(
 		configured_mode: site.configured_mode,
 		active_mode: active.active,
 		message: ok ? 'Verify passed' : 'Verify failed',
-		details: { checks, transition: active.transition },
+		details: { checks, transition: active.transition, runtime, surface_digest: surfaceDigest },
 	};
 	writeOut(receiptLines(receipt));
 	writeOut(JSON.stringify({ checks }, null, 2));
@@ -649,7 +970,12 @@ export async function connectVerify(
 
 export function connectRepair(
 	alias: string,
-	opts: { client?: string } = {},
+	opts: {
+		client?: string;
+		browserProvider?: BrowserPreferences['provider'];
+		browserScanConsent?: ConsentState;
+		browserInstallConsent?: ConsentState;
+	} = {},
 	ctx: ConnectContext = {},
 ): number {
 	const { registry } = loadRegistry(ctxPaths(ctx));
@@ -664,8 +990,22 @@ export function connectRepair(
 		return 1;
 	}
 	try {
-		const { registry: next, receipt } = applyClientBinding(registry, site, clientId, ctx);
-		saveRegistry(next, ctxPaths(ctx));
+		const priorBrowser = site.clients[clientId]?.browser;
+		const browser = browserPreferences({
+			browserProvider: opts.browserProvider ?? priorBrowser?.provider ?? 'unset',
+			browserScanConsent: opts.browserScanConsent ?? priorBrowser?.scan_consent ?? 'unknown',
+			browserInstallConsent: opts.browserInstallConsent ?? priorBrowser?.install_consent ?? 'unknown',
+		}, priorBrowser);
+		const { registry: next, receipt, rollback } = applyClientBinding(registry, site, clientId, ctx, browser);
+		try {
+			saveRegistryForContext(next, ctx);
+		} catch (err) {
+			rollback();
+			throw new ConnectError(
+				'registry_write_failed',
+				`Registry write failed; client config was rolled back: ${err instanceof Error ? err.message : String(err)}`,
+			);
+		}
 		const r: ConnectReceipt = {
 			ok: true,
 			site_id: site.id,
@@ -704,15 +1044,24 @@ export function connectRemove(
 		// Remove only one client binding + its named server entry
 		const adapter = getClientAdapter(opts.client);
 		const binding = site.clients[opts.client];
+		let rollbackClient: (() => void) | undefined;
 		if (adapter && binding) {
 			const configPath = binding.config_path ?? adapter.defaultConfigPath(ctx.homeDir ?? homedir());
+			const before = snapshotFile(configPath);
 			adapter.remove(configPath, binding.server_name);
+			rollbackClient = () => restoreFileSnapshot(configPath, before);
 		}
 		const rest = { ...site.clients };
 		delete rest[opts.client];
 		const nextSite: SiteRecordV2 = { ...site, clients: rest, updated_at: new Date().toISOString() };
 		const next = upsertSite(registry, nextSite, { replace: true });
-		saveRegistry(next, ctxPaths(ctx));
+		try {
+			saveRegistryForContext(next, ctx);
+		} catch (err) {
+			rollbackClient?.();
+			writeErr(`Registry write failed; client config was rolled back: ${err instanceof Error ? err.message : String(err)}`);
+			return 1;
+		}
 		writeOut(
 			receiptLines({
 				ok: true,
@@ -727,19 +1076,33 @@ export function connectRemove(
 	}
 
 	// Remove entire site; clean client entries we know about
-	for (const [clientId, binding] of Object.entries(site.clients)) {
-		const adapter = getClientAdapter(clientId);
-		if (adapter && binding.config_path) {
-			try {
-				adapter.remove(binding.config_path, binding.server_name);
-			} catch {
-				// best effort
+	const rollbackClients: Array<() => void> = [];
+	let removed: SiteRecordV2 = site;
+	try {
+		for (const [clientId, binding] of Object.entries(site.clients)) {
+			const adapter = getClientAdapter(clientId);
+			if (adapter && binding.config_path) {
+				const configPath = binding.config_path;
+				const before = snapshotFile(configPath);
+				adapter.remove(configPath, binding.server_name);
+				rollbackClients.push(() => restoreFileSnapshot(configPath, before));
 			}
 		}
-	}
 
-	const { registry: next, removed } = registryRemoveSite(registry, alias);
-	saveRegistry(next, ctxPaths(ctx));
+		const removal = registryRemoveSite(registry, alias);
+		const next = removal.registry;
+		removed = removal.removed;
+		saveRegistryForContext(next, ctx);
+		try {
+			deleteCredentialIfUnreferenced(removed.credential_ref, next, ctx);
+		} catch (err) {
+			writeErr(`Warning: site was removed, but credential cleanup failed: ${err instanceof Error ? err.message : String(err)}`);
+		}
+	} catch (err) {
+		for (const rollback of rollbackClients.reverse()) rollback();
+		writeErr(`Remove failed; client configs were rolled back: ${err instanceof Error ? err.message : String(err)}`);
+		return 1;
+	}
 	writeOut(
 		receiptLines({
 			ok: true,

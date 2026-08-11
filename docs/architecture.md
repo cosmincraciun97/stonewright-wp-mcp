@@ -23,9 +23,16 @@ flowchart TD
     WordPress["WordPress runtime"]
     PluginState["WordPress database<br/>memory, user skills, audit"]
     DirectState["Private ~/.stonewright state<br/>sites, memory, user skills, redacted audit"]
+    Registry["Schema-v2 site registry<br/>aliases, environment, mode, Step 1 expectations"]
+    Credentials["OS credential store or explicit env reference"]
+    ClientConfig["Transactional per-client MCP adapters"]
     Builtins["Packaged generic skills<br/>and native rules"]
 
     Client --> Companion
+    Client --> ClientConfig
+    ClientConfig --> Companion
+    Companion --> Registry
+    Registry --> Credentials
     Client --> Http
     Companion --> Plugin
     Companion --> Direct
@@ -37,6 +44,16 @@ flowchart TD
     Builtins --> Plugin
     Builtins --> Direct
 ```
+
+The registry enforces one alias per site and one `(canonical URL, environment)`
+record. Client configs contain the alias, never the Application Password. At
+startup the companion resolves only the bound alias, then loads that record's
+credential. Add, repair, and remove operations snapshot client configuration;
+if registry persistence fails, the exact previous file and newly written
+credential state are restored. `connect verify --client` reads the saved entry,
+spawns it through MCP stdio, lists tools, calls `stonewright-task-start` and
+status, and stores a version/tool-surface receipt. Structural config validation
+is reported separately and is never presented as live runtime proof.
 
 Plugin mode owns the broad guarded write surface. Direct mode is not a fallback:
 it owns a documented pluginless surface, local task-start profiles, persistent

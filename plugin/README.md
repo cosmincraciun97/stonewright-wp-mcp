@@ -138,9 +138,16 @@ Toggle in **Stonewright → Setup**. Contracts for the public ability list live 
 
 **Stonewright → Setup → Verify connection** runs an authenticated MCP loopback
 (initialize → tools/list → task-start). Preflight alone does not prove a live
-client session. Companion CLI: `npx @stonewright/companion doctor` checks Node,
+client session. Companion CLI: `npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright doctor` checks Node,
 credentials, REST index/namespaces, REST auth, and MCP initialize without
 printing secrets.
+
+For more than one site or environment, use `stonewright connect add` with a
+unique alias and client id. The schema-v2 registry retains the WordPress mode,
+MCP surface, enablement/V4 selections, and per-client browser consent while
+keeping Application Passwords in the OS store. After restarting the client,
+`stonewright connect verify <alias> --client <id>` spawns the saved entry and
+requires task-start/status proof; parsing the client config is not sufficient.
 
 ### Prompt library
 

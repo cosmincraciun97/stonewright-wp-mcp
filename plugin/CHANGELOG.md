@@ -4,6 +4,9 @@
 
 ### Changed
 
+- Make the paste-to-agent setup prompt prefer the versioned multi-site
+  installer, secret-free credential references, per-site/client choices, and
+  spawned runtime verification after restart.
 - Require explicit browser-provider, scan, and installation consent; Playwright
   remains the recommended default without becoming a silent dependency.
 - Aggregate terminal OAuth client failures over 24 hours while retaining the
@@ -16,6 +19,8 @@
 
 ### Fixed
 
+- Document the exact Composer audit exception for PHP_CodeSniffer 3.13.6, the
+  patched boundary release that Composer 2.9.5 still misclassifies as affected.
 - Add deliberate spacing and consistent control heights across Audit incident
   cards, Memory forms, Skills availability, and Sandbox action cells.
 - Display registered OAuth client names for pre-login audit events through one

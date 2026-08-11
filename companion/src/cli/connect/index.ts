@@ -50,6 +50,13 @@ add options:
   --client <id>            Bind MCP client (codex|cursor|claude-desktop|vscode-copilot|generic-mcp)
   --client-config <path>   Override client config path
   --profile <name>         Companion tool profile (default essential-static)
+  --plugin-enabled <yes|no>  Persist whether Step 1 abilities are requested
+  --wp-mode <mode>         development|staging|production-safe
+  --wp-surface <surface>   bootstrap|essential|full (default essential)
+  --elementor-v4 <yes|no> Persist the Elementor V4 Atomic selection
+  --browser-provider <id> recommended|connected-browser|none|unset
+  --browser-scan-consent <state> granted|denied|unknown
+  --browser-install-consent <state> granted|denied|unknown
   --replace                Replace existing alias (shows affected clients)
   --default                Make this the default site
   --sites-file <path>      Override sites.json path
@@ -94,6 +101,14 @@ function flagString(flags: Record<string, string | boolean>, name: string): stri
 
 function flagBool(flags: Record<string, string | boolean>, name: string): boolean {
 	return flags[name] === true || flags[name] === 'true';
+}
+
+function flagYesNo(flags: Record<string, string | boolean>, name: string): boolean | undefined {
+	const value = flags[name];
+	if (value === undefined) return undefined;
+	if (value === true || value === 'true' || value === 'yes' || value === '1') return true;
+	if (value === 'false' || value === 'no' || value === '0') return false;
+	throw new Error(`--${name} must be yes or no`);
 }
 
 function buildCtx(flags: Record<string, string | boolean>): ConnectContext {
@@ -150,6 +165,20 @@ export async function runConnect(argv: string[]): Promise<number> {
 				if (credentialEnv !== undefined) addInput.credentialEnv = credentialEnv;
 				const profile = flagString(flags, 'profile');
 				if (profile !== undefined) addInput.companionProfile = profile;
+				const pluginEnabled = flagYesNo(flags, 'plugin-enabled');
+				if (pluginEnabled !== undefined) addInput.pluginEnabled = pluginEnabled;
+				const wpMode = flagString(flags, 'wp-mode');
+				if (wpMode !== undefined) addInput.wordpressMode = wpMode as Parameters<typeof connectAdd>[0]['wordpressMode'];
+				const wpSurface = flagString(flags, 'wp-surface');
+				if (wpSurface !== undefined) addInput.wordpressToolSurface = wpSurface as Parameters<typeof connectAdd>[0]['wordpressToolSurface'];
+				const elementorV4 = flagYesNo(flags, 'elementor-v4');
+				if (elementorV4 !== undefined) addInput.elementorV4Atomic = elementorV4;
+				const browserProvider = flagString(flags, 'browser-provider');
+				if (browserProvider !== undefined) addInput.browserProvider = browserProvider as Parameters<typeof connectAdd>[0]['browserProvider'];
+				const scanConsent = flagString(flags, 'browser-scan-consent');
+				if (scanConsent !== undefined) addInput.browserScanConsent = scanConsent as Parameters<typeof connectAdd>[0]['browserScanConsent'];
+				const installConsent = flagString(flags, 'browser-install-consent');
+				if (installConsent !== undefined) addInput.browserInstallConsent = installConsent as Parameters<typeof connectAdd>[0]['browserInstallConsent'];
 				return await connectAdd(addInput, ctx);
 			}
 			case 'use': {
@@ -176,7 +205,15 @@ export async function runConnect(argv: string[]): Promise<number> {
 					return 1;
 				}
 				const client = flagString(flags, 'client');
-				return connectRepair(alias, client ? { client } : {}, ctx);
+				const repairOpts: Parameters<typeof connectRepair>[1] = {};
+				if (client) repairOpts.client = client;
+				const browserProvider = flagString(flags, 'browser-provider');
+				if (browserProvider) repairOpts.browserProvider = browserProvider as NonNullable<typeof repairOpts.browserProvider>;
+				const scanConsent = flagString(flags, 'browser-scan-consent');
+				if (scanConsent) repairOpts.browserScanConsent = scanConsent as NonNullable<typeof repairOpts.browserScanConsent>;
+				const installConsent = flagString(flags, 'browser-install-consent');
+				if (installConsent) repairOpts.browserInstallConsent = installConsent as NonNullable<typeof repairOpts.browserInstallConsent>;
+				return connectRepair(alias, repairOpts, ctx);
 			}
 			case 'remove': {
 				const alias = positionals[0] ?? flagString(flags, 'alias');

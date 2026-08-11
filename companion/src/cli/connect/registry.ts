@@ -770,6 +770,7 @@ export function buildSiteRecord(input: {
 	id?: string | undefined;
 	disabled_tools?: string[] | undefined;
 	clients?: SiteRecordV2['clients'] | undefined;
+	plugin_expectations?: SiteRecordV2['plugin_expectations'] | undefined;
 }): SiteRecordV2 {
 	const environment = input.environment ?? 'other';
 	const canonical_url = normalizeCanonicalUrl(input.url);
@@ -791,6 +792,7 @@ export function buildSiteRecord(input: {
 		fallback_policy: defaultFallbackPolicy(configured_mode),
 		companion_profile: input.companion_profile ?? 'essential-static',
 		clients: input.clients ?? {},
+		...(input.plugin_expectations ? { plugin_expectations: input.plugin_expectations } : {}),
 		...(input.disabled_tools ? { disabled_tools: input.disabled_tools } : {}),
 		created_at: now,
 		updated_at: now,

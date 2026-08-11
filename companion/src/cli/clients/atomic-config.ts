@@ -38,6 +38,34 @@ export function restoreBackup(backupPath: string, targetPath: string): void {
 	copyFileSync(backupPath, targetPath);
 }
 
+export interface FileSnapshot {
+	existed: boolean;
+	contents: string | null;
+	mode: number | null;
+}
+
+/** Capture an exact client-config state for a cross-resource transaction rollback. */
+export function snapshotFile(path: string): FileSnapshot {
+	if (!existsSync(path)) return { existed: false, contents: null, mode: null };
+	let mode: number | null = null;
+	try {
+		mode = statSync(path).mode & 0o777;
+	} catch {
+		mode = null;
+	}
+	return { existed: true, contents: readFileSync(path, 'utf8'), mode };
+}
+
+/** Restore an exact pre-transaction state, including deleting a newly-created file. */
+export function restoreFileSnapshot(path: string, snapshot: FileSnapshot): void {
+	if (!snapshot.existed) {
+		if (existsSync(path)) unlinkSync(path);
+		return;
+	}
+	atomicWriteText(path, snapshot.contents ?? '');
+	if (snapshot.mode !== null && process.platform !== 'win32') chmodSync(path, snapshot.mode);
+}
+
 /**
  * Atomic write preserving mode when the file already exists.
  */

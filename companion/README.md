@@ -131,15 +131,24 @@ CLI for new installs.
 
 ```bash
 # Interactive (hidden password prompt) + optional client binding
-npx @stonewright/companion connect add \
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
   --alias site-a \
   --url https://site-a.example \
   --username editor \
-  --client cursor
+  --env staging \
+  --mode auto \
+  --plugin-enabled yes \
+  --wp-mode staging \
+  --wp-surface essential \
+  --elementor-v4 yes \
+  --client cursor \
+  --browser-provider recommended \
+  --browser-scan-consent granted \
+  --browser-install-consent denied
 
 # Scripts: read password from env (never put secrets on argv)
 export STONEWRIGHT_TMP_APP_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx'
-npx @stonewright/companion connect add \
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
   --alias site-b \
   --url https://site-b.example \
   --username editor \
@@ -148,23 +157,23 @@ npx @stonewright/companion connect add \
   --default
 
 # Headless CI: keep secret in env and store env:// ref only
-npx @stonewright/companion connect add \
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
   --alias ci-site \
   --url https://ci.example \
   --username editor \
   --credential-env STONEWRIGHT_CI_APP_PASSWORD
 
-npx @stonewright/companion connect list
-npx @stonewright/companion connect use site-b
-npx @stonewright/companion connect verify site-a
-npx @stonewright/companion connect migrate   # v1 plaintext → v2 + OS store
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect list
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect use site-b
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect verify site-a --client cursor
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect migrate   # v1 plaintext → v2 + OS store
 ```
 
 **What gets stored where**
 
 | Surface | Contents |
 |---|---|
-| `~/.stonewright/sites.json` (schema v2) | alias, URL, username hint, `credential_ref`, mode, client bindings — **no** Application Passwords |
+| `~/.stonewright/sites.json` (schema v2) | alias, environment, URL, username hint, `credential_ref`, Direct/Plugin policy, Step 1 expectations, client/browser bindings — **no** Application Passwords |
 | macOS Keychain / Windows DPAPI secrets / Linux Secret Service | Application Password for `credman://` / `keychain://` / `secretservice://` refs |
 | Process / shell env | Only when using `env://VAR` or `--password-env` for the current invocation |
 
@@ -195,6 +204,19 @@ unloaded.
 plugin MCP), `direct-only` (skip plugin probe). Prefer `--password-env` or the
 interactive prompt over `--password` (shell history).
 
+Browser provider, scan consent, and install consent are distinct per-client
+fields. `recommended` means Playwright without embedding or installing it;
+`unknown` causes an agent to ask once and never authorizes scanning or
+installation. Update them idempotently with `connect repair <alias> --client
+<id> --browser-provider … --browser-scan-consent …
+--browser-install-consent …`.
+
+After restarting the target client, `connect verify <alias> --client <id>`
+spawns the exact saved MCP entry, confirms the active alias and companion
+version when observable, lists tools, calls task-start and status, checks
+required tools, and records a surface digest. A valid JSON/TOML file by itself
+is not a successful runtime verification.
+
 Legacy v1 `sites.json` files with plaintext `appPassword` / `applicationPassword`
 still load at runtime. Run `connect migrate` to move secrets into the OS store
 and rewrite schema v2; the migration does not leave a plaintext `.bak` on success.
@@ -202,7 +224,7 @@ and rewrite schema v2; the migration does not leave a plaintext `.bak` on succes
 ### Doctor (connection health)
 
 ```bash
-npx @stonewright/companion doctor
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright doctor
 # or from source: node dist/index.js doctor
 ```
 

@@ -68,6 +68,20 @@ MCP client configs set `STONEWRIGHT_SITE_ALIAS` only; the companion injects
 interactive prompt over `--password` on argv. Legacy v1 plaintext files remain
 readable; run `connect migrate` to move secrets out of the file.
 
+Each record also retains configured Direct/Plugin policy and the WordPress
+Setup expectations (`enabled_requested`, mode, bootstrap/essential/full
+surface, Elementor V4 Atomic). Each client binding retains the browser provider
+and separate scan/install consent. `recommended` means the documented external
+Playwright default without embedding a browser module. `unknown` means ask once; it never authorizes
+a scan or installation. `connect repair` can update the binding without adding
+another server entry.
+
+Use `stonewright connect verify <alias> --client <id>` after client restart. It validates
+the file, then spawns that exact stdio entry and requires task-start/status plus
+the expected tool surface. The receipt stores active alias, companion version
+when observable, tool count, and a surface digest; structural validation alone
+is not reported as a working connection.
+
 Direct user memory, user-created skills, backups, and redacted audit history
 live under `~/.stonewright/`. A new state directory starts without user memory,
 user-created skills, or audit events; packaged generic built-ins remain
