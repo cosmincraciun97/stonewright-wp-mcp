@@ -154,11 +154,11 @@ final class RestRoutes {
 						);
 					}
 
-					$master_enabled = (bool) get_option( 'stonewright_enabled', false );
+					$master_enabled = \Stonewright\WpMcp\Security\PluginEffectiveState::is_effectively_enabled();
 					if ( ! $master_enabled && 'stonewright/ping' !== $name ) {
 						return new \WP_Error(
 							'stonewright_disabled',
-							__( 'Master toggle is OFF.', 'stonewright' ),
+							__( 'Master toggle is OFF or blocked (domain lock / dependency).', 'stonewright' ),
 							[ 'status' => 403 ]
 						);
 					}
@@ -410,10 +410,10 @@ final class RestRoutes {
 		// -----------------------------------------------------------------
 
 		$sandbox_toggle_check = static function (): ?\WP_Error {
-			if ( ! (bool) get_option( 'stonewright_enabled', false ) ) {
+			if ( ! \Stonewright\WpMcp\Security\PluginEffectiveState::is_effectively_enabled() ) {
 				return new \WP_Error(
 					'stonewright_disabled',
-					__( 'Master toggle is OFF', 'stonewright' ),
+					__( 'Master toggle is OFF or blocked (domain lock / dependency).', 'stonewright' ),
 					[ 'status' => 403 ]
 				);
 			}
@@ -726,52 +726,146 @@ final class RestRoutes {
 		);
 
 		// -----------------------------------------------------------------
-		// Application Password (generate once)
+		// Application Password (create / list / revoke — password once only)
 		// -----------------------------------------------------------------
 
 		register_rest_route(
 			'stonewright/v1',
 			'/app-password',
 			[
-				'methods'             => 'POST',
-				'permission_callback' => [ Permissions::class, 'manage_options' ],
-				'args'                => [
-					'name' => [
-						'type'    => 'string',
-						'default' => 'Stonewright',
-					],
-				],
-				'callback'            => static function ( \WP_REST_Request $request ) {
-					if ( ! class_exists( 'WP_Application_Passwords' ) ) {
-						return new \WP_Error(
-							'stonewright_app_passwords_unavailable',
-							__( 'Application Passwords are not available on this WordPress installation.', 'stonewright' ),
-							[ 'status' => 501 ]
+				[
+					'methods'             => 'GET',
+					'permission_callback' => [ Permissions::class, 'manage_options' ],
+					'callback'            => static function () {
+						$user_id = get_current_user_id();
+						$rows    = [];
+						if (
+							$user_id > 0
+							&& class_exists( 'WP_Application_Passwords' )
+							&& method_exists( '\WP_Application_Passwords', 'get_user_application_passwords' )
+						) {
+							$passwords = \WP_Application_Passwords::get_user_application_passwords( $user_id );
+							if ( is_array( $passwords ) ) {
+								foreach ( $passwords as $item ) {
+									if ( ! is_array( $item ) ) {
+										continue;
+									}
+									$rows[] = [
+										'uuid'    => (string) ( $item['uuid'] ?? '' ),
+										'name'    => (string) ( $item['name'] ?? '' ),
+										'created' => (int) ( $item['created'] ?? 0 ),
+										'last_used' => (int) ( $item['last_used'] ?? 0 ),
+									];
+								}
+							}
+						}
+
+						$response = rest_ensure_response(
+							[
+								'username'  => wp_get_current_user()->user_login ?? '',
+								'passwords' => $rows,
+							]
 						);
-					}
+						$response->header( 'Cache-Control', 'no-store, private' );
+						return $response;
+					},
+				],
+				[
+					'methods'             => 'POST',
+					'permission_callback' => [ Permissions::class, 'manage_options' ],
+					'args'                => [
+						'name' => [
+							'type'    => 'string',
+							'default' => 'Stonewright',
+						],
+					],
+					'callback'            => static function ( \WP_REST_Request $request ) {
+						if ( ! class_exists( 'WP_Application_Passwords' ) ) {
+							return new \WP_Error(
+								'stonewright_app_passwords_unavailable',
+								__( 'Application Passwords are not available on this WordPress installation.', 'stonewright' ),
+								[ 'status' => 501 ]
+							);
+						}
 
-					$user_id = get_current_user_id();
-					$name    = sanitize_text_field( (string) $request->get_param( 'name' ) );
-					if ( '' === $name ) {
-						$name = 'Stonewright';
-					}
+						$user_id = get_current_user_id();
+						$name    = sanitize_text_field( (string) $request->get_param( 'name' ) );
+						if ( '' === $name ) {
+							return new \WP_Error(
+								'stonewright_app_password_name_required',
+								__( 'Enter a name before generating an Application Password.', 'stonewright' ),
+								[ 'status' => 400 ]
+							);
+						}
 
-					$result = \WP_Application_Passwords::create_new_application_password(
-						$user_id,
-						[ 'name' => $name ]
-					);
+						$result = \WP_Application_Passwords::create_new_application_password(
+							$user_id,
+							[ 'name' => $name ]
+						);
 
-					if ( is_wp_error( $result ) ) {
-						$result->add_data( [ 'status' => 500 ] );
-						return $result;
-					}
+						if ( is_wp_error( $result ) ) {
+							$result->add_data( [ 'status' => 500 ] );
+							return $result;
+						}
 
-					// $result[0] = plaintext password (shown once), $result[1] = item array with uuid.
-					return rest_ensure_response( [
-						'uuid'     => $result[1]['uuid'] ?? '',
-						'password' => $result[0],
-					] );
-				},
+						// $result[0] = plaintext password (shown once), $result[1] = item array with uuid.
+						// Never persist plaintext; return once with no-store.
+						$response = rest_ensure_response(
+							[
+								'uuid'     => (string) ( $result[1]['uuid'] ?? '' ),
+								'name'     => $name,
+								'password' => (string) $result[0],
+								'created'  => (int) ( $result[1]['created'] ?? time() ),
+								'username' => (string) ( wp_get_current_user()->user_login ?? '' ),
+							]
+						);
+						$response->header( 'Cache-Control', 'no-store, private' );
+						return $response;
+					},
+				],
+				[
+					'methods'             => 'DELETE',
+					'permission_callback' => [ Permissions::class, 'manage_options' ],
+					'args'                => [
+						'uuid' => [
+							'type'     => 'string',
+							'required' => true,
+						],
+					],
+					'callback'            => static function ( \WP_REST_Request $request ) {
+						if ( ! class_exists( 'WP_Application_Passwords' ) || ! method_exists( '\WP_Application_Passwords', 'delete_application_password' ) ) {
+							return new \WP_Error(
+								'stonewright_app_passwords_unavailable',
+								__( 'Application Password revocation is not available on this site.', 'stonewright' ),
+								[ 'status' => 501 ]
+							);
+						}
+
+						$uuid = sanitize_text_field( (string) $request->get_param( 'uuid' ) );
+						if ( '' === $uuid ) {
+							return new \WP_Error(
+								'stonewright_app_password_uuid_required',
+								__( 'Choose an Application Password to revoke.', 'stonewright' ),
+								[ 'status' => 400 ]
+							);
+						}
+
+						$deleted = \WP_Application_Passwords::delete_application_password( get_current_user_id(), $uuid );
+						if ( is_wp_error( $deleted ) ) {
+							$deleted->add_data( [ 'status' => 500 ] );
+							return $deleted;
+						}
+
+						$response = rest_ensure_response(
+							[
+								'deleted' => true,
+								'uuid'    => $uuid,
+							]
+						);
+						$response->header( 'Cache-Control', 'no-store, private' );
+						return $response;
+					},
+				],
 			]
 		);
 

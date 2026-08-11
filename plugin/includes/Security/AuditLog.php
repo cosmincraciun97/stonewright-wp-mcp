@@ -22,9 +22,13 @@ final class AuditLog {
 	/** Longest persisted OAuth diagnostic string. */
 	public const AUTH_DIAGNOSTIC_MAX_LENGTH = 200;
 	private const AUTH_COALESCE_WINDOW_SECONDS = 60;
+	private const AUTH_TERMINAL_COALESCE_WINDOW_SECONDS = DAY_IN_SECONDS;
 
 	/** @var list<int> */
 	private const AUTH_COALESCE_RECORD_COUNTS = [ 1, 2, 3, 5, 10, 25, 50 ];
+
+	/** @var list<int> */
+	private const AUTH_TERMINAL_COALESCE_RECORD_COUNTS = [ 1, 25, 100, 500 ];
 
 	/**
 	 * The only OAuth fields that may be persisted, mapped to their audit key.
@@ -442,6 +446,11 @@ final class AuditLog {
 		if ( $http < 400 || $http > 599 ) {
 			return [ 'record' => true, 'count' => 1 ];
 		}
+		$terminal = $http < 500
+			&& 429 !== $http
+			&& ! in_array( $error, [ 'temporarily_unavailable', 'server_error' ], true );
+		$window     = $terminal ? self::AUTH_TERMINAL_COALESCE_WINDOW_SECONDS : self::AUTH_COALESCE_WINDOW_SECONDS;
+		$thresholds = $terminal ? self::AUTH_TERMINAL_COALESCE_RECORD_COUNTS : self::AUTH_COALESCE_RECORD_COUNTS;
 		$salt  = function_exists( 'wp_salt' ) ? wp_salt( 'auth' ) : 'stonewright-oauth';
 		$fingerprint = sanitize_key( $error ) . '|' . sanitize_key( $reason );
 		$key   = 'stonewright_oauth_audit_' . hash_hmac( 'sha256', $endpoint . '|' . $client_id . '|' . $http . '|' . $fingerprint, $salt );
@@ -451,14 +460,14 @@ final class AuditLog {
 		$last  = (int) ( $state['last_at'] ?? 0 );
 		$count = (int) ( $state['count'] ?? 0 );
 		$emitted = (int) ( $state['emitted_count'] ?? 0 );
-		if ( $count > 0 && $now - $last >= self::AUTH_COALESCE_WINDOW_SECONDS ) {
+		if ( $count > 0 && $now - $last >= $window ) {
 			$delta = max( 1, ( $count - $emitted ) + 1 );
-			set_transient( $key, [ 'count' => 1, 'emitted_count' => 1, 'last_at' => $now ], self::AUTH_COALESCE_WINDOW_SECONDS * 2 );
+			set_transient( $key, [ 'count' => 1, 'emitted_count' => 1, 'last_at' => $now ], $window * 2 );
 			return [ 'record' => true, 'count' => $delta ];
 		}
 
 		++$count;
-		$record = in_array( $count, self::AUTH_COALESCE_RECORD_COUNTS, true );
+		$record = in_array( $count, $thresholds, true );
 		$delta  = $record ? max( 1, $count - $emitted ) : 0;
 		set_transient(
 			$key,
@@ -467,7 +476,7 @@ final class AuditLog {
 				'emitted_count' => $record ? $count : $emitted,
 				'last_at'       => $now,
 			],
-			self::AUTH_COALESCE_WINDOW_SECONDS * 2
+			$window * 2
 		);
 		return [
 			'record' => $record,

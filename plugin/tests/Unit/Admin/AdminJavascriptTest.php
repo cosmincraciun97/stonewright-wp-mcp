@@ -103,4 +103,42 @@ final class AdminJavascriptTest extends TestCase {
 		self::assertStringContainsString( 'stonewright_apply_mcp_surface', $script );
 		self::assertStringContainsString( 'transport_truth', $script );
 	}
+
+	public function test_app_password_memory_restores_snippet_placeholders(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
+
+		self::assertStringContainsString( 'appPasswordSnippetTemplates', $script );
+		self::assertStringContainsString( 'captureAppPasswordSnippetTemplates', $script );
+		self::assertStringContainsString( 'restoreAppPasswordSnippetPlaceholders', $script );
+		self::assertStringContainsString( 'restoreAppPasswordSnippetPlaceholders();', $script );
+		self::assertStringContainsString( "entry.template.split( '<your-application-password>' ).join( password )", $script );
+
+		// clearAppPasswordMemory must restore templates so secrets never linger and
+		// a second generate can re-insert from the original placeholder text.
+		$clear_start = strpos( $script, 'function clearAppPasswordMemory()' );
+		$clear_end   = strpos( $script, 'function showAppPasswordLive', false === $clear_start ? 0 : $clear_start );
+		self::assertNotFalse( $clear_start );
+		self::assertNotFalse( $clear_end );
+		$clear_body = substr( $script, (int) $clear_start, (int) $clear_end - (int) $clear_start );
+		self::assertStringContainsString( 'restoreAppPasswordSnippetPlaceholders()', $clear_body );
+	}
+
+	public function test_password_inventory_creates_table_when_empty_state(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
+
+		self::assertStringContainsString( 'function ensurePasswordInventoryTable()', $script );
+		self::assertStringContainsString( 'function refreshPasswordInventory( passwords )', $script );
+		self::assertStringContainsString( 'ensurePasswordInventoryTable()', $script );
+		self::assertStringContainsString( 'stonewright-app-password-table', $script );
+		self::assertStringContainsString( 'updatePasswordInventorySummary', $script );
+
+		// Must not early-return solely because tbody is missing (empty list markup).
+		$refresh_start = strpos( $script, 'function refreshPasswordInventory( passwords )' );
+		$refresh_end   = strpos( $script, 'function revokeAppPassword', false === $refresh_start ? 0 : $refresh_start );
+		self::assertNotFalse( $refresh_start );
+		self::assertNotFalse( $refresh_end );
+		$refresh_body = substr( $script, (int) $refresh_start, (int) $refresh_end - (int) $refresh_start );
+		self::assertStringNotContainsString( 'if ( ! tbody || ! Array.isArray( passwords ) )', $refresh_body );
+		self::assertStringContainsString( 'ensurePasswordInventoryTable()', $refresh_body );
+	}
 }

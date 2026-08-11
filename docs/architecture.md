@@ -23,9 +23,16 @@ flowchart TD
     WordPress["WordPress runtime"]
     PluginState["WordPress database<br/>memory, user skills, audit"]
     DirectState["Private ~/.stonewright state<br/>sites, memory, user skills, redacted audit"]
+    Registry["Schema-v2 site registry<br/>aliases, environment, mode, Step 1 expectations"]
+    Credentials["OS credential store or explicit env reference"]
+    ClientConfig["Transactional per-client MCP adapters"]
     Builtins["Packaged generic skills<br/>and native rules"]
 
     Client --> Companion
+    Client --> ClientConfig
+    ClientConfig --> Companion
+    Companion --> Registry
+    Registry --> Credentials
     Client --> Http
     Companion --> Plugin
     Companion --> Direct
@@ -37,6 +44,16 @@ flowchart TD
     Builtins --> Plugin
     Builtins --> Direct
 ```
+
+The registry enforces one alias per site and one `(canonical URL, environment)`
+record. Client configs contain the alias, never the Application Password. At
+startup the companion resolves only the bound alias, then loads that record's
+credential. Add, repair, and remove operations snapshot client configuration;
+if registry persistence fails, the exact previous file and newly written
+credential state are restored. `connect verify --client` reads the saved entry,
+spawns it through MCP stdio, lists tools, calls `stonewright-task-start` and
+status, and stores a version/tool-surface receipt. Structural config validation
+is reported separately and is never presented as live runtime proof.
 
 Plugin mode owns the broad guarded write surface. Direct mode is not a fallback:
 it owns a documented pluginless surface, local task-start profiles, persistent
@@ -92,6 +109,23 @@ Origin is decided by the row's `status` when present, and falls back to the
 ability name for rows recorded before the `auth` status existed. OAuth dispatch on
 `/stonewright/v1/oauth/*` is audited at the REST layer, so a protocol failure is
 recorded even when no ability ran.
+
+Audit rendering resolves OAuth client names in one batched lookup, so pre-login
+token events identify their registered client without an N+1 query. Terminal
+4xx client failures use a 24-hour aggregation window with sparse count
+checkpoints; retryable 429 and server-side 5xx outcomes keep the short window so
+operational incidents remain visible.
+
+### External browser consent boundary
+
+Stonewright does not embed or silently install a browser provider. Before
+browser work, the agent asks once per site/client whether to use Playwright
+(recommended), another connected provider, or none. Permission to inspect the
+visible client tool surface/private config and permission to install or
+configure a missing provider are separate decisions. Browser automation may
+verify rendered output or perform an explicitly approved dashboard interaction;
+it does not replace custom-code dry-run/approval, backup, permission, audit, or
+confirmation-token gates in Plugin or Direct mode.
 
 ### Elementor write closure
 
@@ -446,45 +480,15 @@ sections of one page, because the decision the user made was about the visual
 direction, not about section two. `checkpoint_token` is in the kernel's default
 redaction list, so no ability writes it into an audit row.
 
-## Visual Workspace in wp-admin
+## Retained visual engine; admin host disabled
 
-`Stonewright Visual` is a browser workspace, and until this release it had no
-visible surface: it could be driven by an MCP client and by nothing else. The
-Visual Workspace admin page hosts it, so a person can watch the same ladder an
-agent walks.
-
-The page owns the chrome and the bundle owns the workspace. PHP renders the
-heading, the post it is pointed at, the editor it expects, the canvas, and the
-inspector, then hands the bundle three slots to fill: the adapter chip, the
-canvas body, and the inspector body. Nothing else in the page is replaced, so
-the screen still reads correctly while the bundle is connecting, and it still
-reads correctly if the bundle never loads. A missing bundle is stated on the
-page, with the command that builds it, rather than producing an empty frame.
-
-What reaches the browser is deliberately thin. The boot payload carries the REST
-base, a `wp_rest` nonce, the post id, the requested editor, and the active
-direction *row* — identity, revision, and contract hash. The contract itself
-stays on the server: the workspace states which direction is in force, it does
-not re-derive its rules in JavaScript. The page is gated on `edit_posts` and, for
-the post it targets, on `Permissions::can_edit_post()`.
-
-The admin host is not an editor. **Connect editor** opens the real same-origin
-Elementor or block editor window after an explicit user gesture, waits for its
-runtime, and supplies those globals to the resolver. Detection then walks
-Elementor V4 atomic, Elementor V3, and Gutenberg. An editor that is present but
-cannot be driven stops the walk instead of falling through. Blocked popups,
-closed windows, 60-second runtime timeouts, and unsupported adapters are
-reported as connection failures rather than false success.
-
-The write ladder is enforced by the controller, not by the markup: read, then
-preview, then an explicit confirmation, then apply, then verify. Every editor
-write goes through one private dispatch that refuses to run outside the applying
-state. A proposed operation carries both a human-readable diff and the exact
-arguments the editor tool will receive, so the confirmation panel shows what a
-person needs and the adapter gets what its schema requires — with no second,
-looser schema invented in the middle. Applying with no evidence behind it does
-not report success: it reports the change as unverified, which is the same
-contract `stonewright/design-quality-check` uses on the server.
+The Design Library admin group, including Visual Workspace, is not registered
+in this release. Direct wp-admin URLs do not render its browser host and its
+page-specific assets are not enqueued. The `visual/` package remains a tested
+headless engine and release dependency for typed MCP workflows; its controller
+still enforces read → preview → confirm → apply → verify when embedded by a
+supported workflow. Design-direction storage is preserved for compatibility
+and rollback, but no disabled admin surface is claimed as user-accessible.
 
 The bundle is built from `visual/` and staged into `plugin/assets/visual/` at
 packaging time; it is not committed. `scripts/package-verify.mjs` warns about a
@@ -512,7 +516,7 @@ activation and native catalog gates against the packaged bytes.
 | DesignEvidence | Normalized observations of a source design | Permission to write anything |
 | NativePlanner | A mapping from evidence to native Gutenberg/Elementor schemas | A guarantee the mapping is what the user wanted |
 | `design-quality-check` | Measurements of a supplied render, with coverage | A score, or a pass for anything unmeasured |
-| Visual Workspace | Browser-side evidence and the confirmation gate | Correctness of the design it is showing |
+| Browser measurement | Rendered evidence at requested breakpoints | Permission to write or correctness without measured coverage |
 | Typed Elementor abilities | Guarded, backed-up, readback-verified writes | Visual judgement |
 
 No part of this subsystem certifies that a page looks right. Together they make

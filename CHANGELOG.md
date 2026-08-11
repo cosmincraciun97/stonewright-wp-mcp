@@ -10,6 +10,49 @@ were never stable releases and are not part of the supported public history.
 
 ## [Unreleased]
 
+### Added
+
+- Add a versioned multi-site/environment registry, collision-safe site aliases,
+  per-client bindings, OS-backed credential references, transactional client
+  configuration, and a `stonewright connect` installer/verification workflow.
+- Persist each site's Plugin/Direct mode policy, WordPress Step 1 expectations,
+  Elementor V4 selection, tool surface, and per-client browser-consent choice.
+
+### Changed
+
+- Require a one-time browser-provider choice per site/client, separate consent
+  for tool/config scanning and installation, and keep every custom-code safety
+  boundary intact for browser-assisted Plugin and Direct workflows.
+- Aggregate terminal OAuth client failures over 24 hours while keeping 429/5xx
+  incidents on the short operational window.
+- Start fresh plugin installs on the bounded `essential` surface, use
+  the operator-selected surface in generated client profiles, retain bounded
+  overrides only for strict-cap clients, and reserve bootstrap for explicit
+  diagnostics.
+- Disable the Design Library wp-admin group and its page-specific browser tests
+  while preserving typed design engines, stored user data, and the
+  `figma-to-native-pixel` workflow.
+
+### Fixed
+
+- Keep the dependency audit fail-closed while documenting Composer 2.9.5's
+  false-positive boundary match for the already patched PHP_CodeSniffer 3.13.6.
+- Align Audit, Memory, Skills, and Sandbox controls with consistent card
+  padding, checkbox spacing, action gaps, and 32px control heights.
+- Resolve pre-login OAuth audit actors to registered client names in one batched
+  lookup, with explicit OAuth-client/System fallbacks instead of `(unknown)`.
+- Refresh the callable companion tool registry after task-start profile changes,
+  reuse tool and prompt handles during reconnect, and keep authentication and
+  WordPress reachability status evidence-based.
+- Preserve requested ability enablement across domain-lock mismatches and expose
+  explicit blocked, rebind, rollback, and audit state instead of silently
+  switching the plugin off.
+- Generate Application Passwords without a page refresh, fill private snippets
+  with the canonical placeholder, clear credentials from the tab lifecycle, and
+  remove plaintext transient persistence from the no-JavaScript fallback.
+- Apply every runtime-affecting Step 1 control immediately, bump one shared
+  surface revision, and expose the exact refresh contract to connected clients.
+
 ## [1.0.0-beta.4] - 2026-08-05
 
 ### Added

@@ -685,7 +685,7 @@ final class AbilityRegistry {
 		}
 		self::$registered_once = true;
 
-		$master_enabled     = (bool) get_option( 'stonewright_enabled', false );
+		$master_enabled     = \Stonewright\WpMcp\Security\PluginEffectiveState::is_effectively_enabled();
 		$disabled_abilities = (array) get_option( 'stonewright_disabled_abilities', [] );
 
 		foreach ( self::public_classes() as $class ) {
@@ -697,7 +697,8 @@ final class AbilityRegistry {
 			$ability = new $class();
 			$name    = $ability->name();
 
-			// Master toggle: skip all abilities except ping when disabled.
+			// Master toggle: skip all abilities except ping when not effectively enabled
+			// (operator off, domain mismatch, dependency, or security policy block).
 			if ( ! $master_enabled && 'stonewright/ping' !== $name ) {
 				continue;
 			}
@@ -765,7 +766,7 @@ final class AbilityRegistry {
 	 * @return list<string>
 	 */
 	public static function mcp_server_ability_names(): array {
-		$master_enabled     = (bool) get_option( 'stonewright_enabled', false );
+		$master_enabled     = \Stonewright\WpMcp\Security\PluginEffectiveState::is_effectively_enabled();
 		$disabled_abilities = array_fill_keys(
 			array_map( 'strval', (array) get_option( 'stonewright_disabled_abilities', [] ) ),
 			true
@@ -1247,7 +1248,7 @@ final class AbilityRegistry {
 	/**
 	 * MCP public surface mode: bootstrap | essential | full.
 	 *
-	 * New installs prefer bootstrap (set on activation). Existing installs without
+	 * New installs prefer essential (set on activation). Existing installs without
 	 * `stonewright_mcp_surface` map from the legacy essential_tools_mode option:
 	 * true → essential, false → full.
 	 */
@@ -1297,11 +1298,12 @@ final class AbilityRegistry {
 		}
 
 		$previous = self::mcp_surface();
+		$revision = self::surface_revision();
 		update_option( 'stonewright_mcp_surface', $surface, false );
 		update_option( 'stonewright_essential_tools_mode', 'full' !== $surface, false );
 
 		$current = self::mcp_surface();
-		if ( $current !== $previous ) {
+		if ( $current !== $previous && self::surface_revision() === $revision ) {
 			self::bump_surface_revision();
 		}
 

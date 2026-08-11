@@ -14,5 +14,16 @@
   "notes": "Configure through the extension panel or its backing JSON settings file. Prefer user-level or private client config; never commit Application Passwords to project-tracked files.",
   "verified_against_docs_on": "2026-07-16",
   "secret_storage": "user-level",
-  "config_path": "VS Code extension settings > Kilo Code > MCP Servers"
+  "config_path": "VS Code extension settings > Kilo Code > MCP Servers",
+  "transport": "stdio",
+  "config_format": "json-mcp",
+  "official_cli_update": "",
+  "official_cli_remove": "",
+  "oauth_support": false,
+  "app_password_support": true,
+  "relist_behavior": "reload-window",
+  "new_task_required_after_catalog_change": true,
+  "safe_tool_budget": 40,
+  "default_profile": "essential-static",
+  "support_tier": "unknown"
 }

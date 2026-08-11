@@ -103,7 +103,7 @@ claude mcp add stonewright \
   --env STONEWRIGHT_WP_URL='https://your-site.example.com' \
   --env STONEWRIGHT_WP_USERNAME='your-wp-username' \
   --env STONEWRIGHT_WP_APP_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx' \
-  --env STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap \
+  --env STONEWRIGHT_MCP_TOOL_PROFILE=essential \
   -- npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-mcp
 ```
 
@@ -115,7 +115,10 @@ containing `wp-config.php`, such as `D:\Sites\example\app\public` or
 For strict tool-cap clients, use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools`
 instead of `bootstrap`.
 
-Register the separate Playwright MCP for browser testing and screenshots:
+Before browser work, the agent asks once whether to use Playwright
+(recommended), another connected browser, or none. It asks permission before
+scanning Claude Code tools/private config and separate permission before
+installing a missing provider. After approval, register Playwright:
 
 ```bash
 claude mcp add playwright -- npx -y @playwright/mcp@latest --caps=testing,vision,devtools
@@ -123,6 +126,8 @@ claude mcp add playwright -- npx -y @playwright/mcp@latest --caps=testing,vision
 
 Restart Claude Code after adding the servers. Before any visual Stonewright
 write, verify the Playwright/browser tool is visible in Claude Code.
+Browser automation never bypasses Stonewright custom-code approval or other
+write-safety gates.
 
 ## 4. Verify the connection
 

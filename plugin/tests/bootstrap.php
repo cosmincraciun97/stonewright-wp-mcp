@@ -217,6 +217,9 @@ if ( ! function_exists( 'get_user_by' ) ) {
 			return $row;
 		}
 	}
+	if ( 'id' === $field && in_array( (int) $value, (array) ( $GLOBALS['stonewright_test_missing_user_ids'] ?? [] ), true ) ) {
+		return false;
+	}
 	if ( 'id' === $field && (int) $value > 0 ) {
 		return (object) [
 			'ID'           => (int) $value,

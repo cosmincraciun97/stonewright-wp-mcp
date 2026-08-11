@@ -4,17 +4,20 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Admin;
 
 use Stonewright\WpMcp\Core\VendorGuard;
+use Stonewright\WpMcp\Security\DomainLock;
+use Stonewright\WpMcp\Security\PluginEffectiveState;
 
 /**
- * Admin bar ON/OFF kill switch for Stonewright abilities.
+ * Admin bar ON/OFF/BLOCKED kill switch for Stonewright abilities.
  *
  * Toggle is nonce-protected and requires manage_options. Shows ERROR when
- * abilities are enabled but vendor/MCP dependencies failed to load.
+ * abilities are enabled but vendor/MCP dependencies failed to load, and
+ * BLOCKED (not OFF) when operator intent is on but domain lock mismatches.
  */
 final class AdminBarIndicator {
 
 	public const TOGGLE_ACTION = 'stonewright_toggle_abilities';
-	public const OPTION        = 'stonewright_enabled';
+	public const OPTION        = PluginEffectiveState::OPTION_REQUESTED;
 	public const CAPABILITY    = 'manage_options';
 
 	/**
@@ -37,26 +40,40 @@ final class AdminBarIndicator {
 			return;
 		}
 
-		$enabled = (bool) get_option( self::OPTION, false );
-		$error   = VendorGuard::get_error();
-		$state   = 'off';
-		if ( $enabled && null !== $error ) {
+		$requested = PluginEffectiveState::enabled_requested();
+		$effective = PluginEffectiveState::effective_state();
+		$error     = VendorGuard::get_error();
+
+		$state = match ( $effective ) {
+			PluginEffectiveState::STATE_ENABLED                 => 'on',
+			PluginEffectiveState::STATE_BLOCKED_DOMAIN_MISMATCH => 'blocked',
+			PluginEffectiveState::STATE_BLOCKED_DEPENDENCY      => 'error',
+			PluginEffectiveState::STATE_BLOCKED_SECURITY_POLICY => 'blocked',
+			default                                             => 'off',
+		};
+
+		// Prefer ERROR badge when vendor is broken even if domain also mismatches.
+		if ( $requested && null !== $error && 'blocked' !== $state ) {
 			$state = 'error';
-		} elseif ( $enabled ) {
-			$state = 'on';
 		}
 
 		$title = match ( $state ) {
-			'on'    => '<span class="stonewright-ab-badge stonewright-ab-badge--on">Stonewright ON</span>',
-			'error' => '<span class="stonewright-ab-badge stonewright-ab-badge--error">Stonewright ERROR</span>',
-			default => '<span class="stonewright-ab-badge stonewright-ab-badge--off">Stonewright OFF</span>',
+			'on'      => '<span class="stonewright-ab-badge stonewright-ab-badge--on">Stonewright ON</span>',
+			'error'   => '<span class="stonewright-ab-badge stonewright-ab-badge--error">Stonewright ERROR</span>',
+			'blocked' => '<span class="stonewright-ab-badge stonewright-ab-badge--blocked">Stonewright BLOCKED</span>',
+			default   => '<span class="stonewright-ab-badge stonewright-ab-badge--off">Stonewright OFF</span>',
 		};
+
+		$config_href = admin_url( 'admin.php?page=' . ConfigurationPage::SLUG );
+		if ( 'blocked' === $state ) {
+			$config_href = admin_url( 'admin.php?page=' . ConfigurationPage::SLUG . '#stonewright-domain-lock' );
+		}
 
 		$bar->add_node(
 			[
 				'id'    => 'stonewright-on',
 				'title' => $title,
-				'href'  => admin_url( 'admin.php?page=' . ConfigurationPage::SLUG ),
+				'href'  => $config_href,
 				'meta'  => [
 					'class' => 'stonewright-ab-status stonewright-ab-status--' . $state,
 				],
@@ -64,9 +81,10 @@ final class AdminBarIndicator {
 		);
 
 		$label = match ( $state ) {
-			'on'    => __( 'AI Abilities: On', 'stonewright' ),
-			'error' => __( 'AI Abilities: Error', 'stonewright' ),
-			default => __( 'AI Abilities: Off', 'stonewright' ),
+			'on'      => __( 'AI Abilities: On', 'stonewright' ),
+			'error'   => __( 'AI Abilities: Error', 'stonewright' ),
+			'blocked' => __( 'AI Abilities: Blocked (domain or policy)', 'stonewright' ),
+			default   => __( 'AI Abilities: Off', 'stonewright' ),
 		};
 
 		$bar->add_node(
@@ -77,7 +95,19 @@ final class AdminBarIndicator {
 			]
 		);
 
-		$target     = $enabled ? 'off' : 'on';
+		if ( 'blocked' === $state && ! DomainLock::check() ) {
+			$bar->add_node(
+				[
+					'id'     => 'stonewright-review-domain',
+					'parent' => 'stonewright-on',
+					'title'  => __( 'Review domain lock', 'stonewright' ),
+					'href'   => $config_href,
+				]
+			);
+		}
+
+		// Toggle changes operator intent only (not effective domain state).
+		$target     = $requested ? 'off' : 'on';
 		$toggle_url = wp_nonce_url(
 			admin_url( 'admin-post.php?action=' . self::TOGGLE_ACTION . '&target=' . $target ),
 			self::TOGGLE_ACTION
@@ -87,12 +117,12 @@ final class AdminBarIndicator {
 			[
 				'id'     => 'stonewright-toggle',
 				'parent' => 'stonewright-on',
-				'title'  => $enabled
+				'title'  => $requested
 					? __( 'Turn Off AI Abilities', 'stonewright' )
 					: __( 'Turn On AI Abilities', 'stonewright' ),
 				'href'   => $toggle_url,
 				'meta'   => [
-					'class' => $enabled ? 'stonewright-ab-toggle-off' : 'stonewright-ab-toggle-on',
+					'class' => $requested ? 'stonewright-ab-toggle-off' : 'stonewright-ab-toggle-on',
 				],
 			]
 		);
@@ -110,6 +140,8 @@ final class AdminBarIndicator {
 	/**
 	 * Apply the kill-switch target after capability checks.
 	 *
+	 * Writes operator intent only — never clears domain lock.
+	 *
 	 * @param string $target 'on' or 'off'.
 	 */
 	public static function apply_toggle( string $target ): void {
@@ -122,7 +154,10 @@ final class AdminBarIndicator {
 			wp_die( esc_html__( 'Invalid toggle target.', 'stonewright' ) );
 		}
 
-		update_option( self::OPTION, 'on' === $target );
+		PluginEffectiveState::set_enabled_requested( 'on' === $target );
+		if ( 'on' === $target ) {
+			DomainLock::lock();
+		}
 	}
 
 	/**
@@ -164,6 +199,7 @@ final class AdminBarIndicator {
 			. '#wpadminbar .stonewright-ab-badge--on { background: #d63638; color: #fff; }'
 			. '#wpadminbar .stonewright-ab-badge--off { background: #646970; color: #fff; }'
 			. '#wpadminbar .stonewright-ab-badge--error { background: #b32d2e; color: #fff; }'
+			. '#wpadminbar .stonewright-ab-badge--blocked { background: #996800; color: #fff; }'
 			. '</style>' . "\n";
 	}
 }

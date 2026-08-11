@@ -64,7 +64,7 @@ DesignSpec and native plan gates reject unresolved semantics and unproven style 
 Before trusting a long mutation chain:
 
 - **wp-admin:** Stonewright → Setup → **Verify connection** (authenticated MCP loopback: initialize → tools/list → task-start).
-- **CLI:** `npx @stonewright/companion doctor` (Node version, credentials, REST index/namespaces, REST auth, MCP initialize). Never prints Application Passwords.
+- **CLI:** versioned `stonewright doctor` companion command (Node version, credentials, REST index/namespaces, REST auth, MCP initialize). Never prints Application Passwords.
 
 Public contracts (additions-only compatibility):
 

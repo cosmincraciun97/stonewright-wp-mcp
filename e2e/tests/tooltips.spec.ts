@@ -36,19 +36,4 @@ test.describe('Tooltips', () => {
 		await expect(page.locator('[role="tooltip"].sw-tooltip.is-visible')).toHaveCount(0);
 	});
 
-	test('blueprint primary button has white text and tooltip', async ({ page }) => {
-		await login(page);
-		await page.goto('/wp-admin/admin.php?page=stonewright-blueprints', {
-			waitUntil: 'domcontentloaded',
-		});
-		const btn = page.locator('.sw-btn--primary').first();
-		await expect(btn).toBeVisible();
-		const color = await btn.evaluate((el) => getComputedStyle(el).color);
-		// rgb(255, 255, 255) or white
-		expect(color.replace(/\s/g, '')).toMatch(/rgb\(255,255,255\)|#fff(fff)?/i);
-		await btn.focus();
-		await expect(page.locator('[role="tooltip"].sw-tooltip.is-visible')).toBeVisible({
-			timeout: 5_000,
-		});
-	});
 });

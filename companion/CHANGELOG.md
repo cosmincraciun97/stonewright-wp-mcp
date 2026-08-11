@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+### Added
+
+- Add `stonewright connect add/list/use/verify/repair/remove/migrate` with a
+  secret-free schema-v2 site registry, OS credential stores, unique aliases,
+  client adapters, and spawned-runtime verification.
+- Store per-site mode/Step 1 expectations and per-client browser provider,
+  scan-consent, and install-consent state without silently scanning or installing.
+- Add the short `stonewright` CLI binary while retaining the existing
+  `stonewright-companion` and `stonewright-mcp` entry points.
+
+### Changed
+
+- Make site, credential, and client-config changes transactional: duplicate
+  endpoints fail before secret writes and registry failures restore the exact
+  client config and credential state.
+
+### Fixed
+
+- Make task-start profile expansion register callable tools before notifying
+  clients, and make repeated Plugin/Direct reconnects reuse existing tool and
+  prompt handles instead of failing on duplicate registration.
+- Report authentication as configured only when complete credential evidence
+  exists and leave unprobed Direct WordPress reachability unknown.
+
 ## [1.0.0-beta.4] - 2026-08-05
 
 ### Added

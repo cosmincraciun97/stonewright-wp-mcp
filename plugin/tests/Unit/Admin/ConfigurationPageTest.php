@@ -88,6 +88,8 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringContainsString( 'id="stonewright_enabled"', $html );
 		self::assertStringContainsString( 'id="stonewright_mode"', $html );
 		self::assertStringContainsString( 'id="stonewright_mcp_surface"', $html );
+		self::assertStringContainsString( 'Essential is the recommended default for real work.', $html );
+		self::assertStringNotContainsString( 'Bootstrap is the recommended default for new clients.', $html );
 		self::assertStringContainsString( 'data-sw-apply-mcp-surface', $html );
 		self::assertStringContainsString( 'Apply now', $html );
 		self::assertStringContainsString( 'stonewright_generate_application_password', $html );
@@ -266,30 +268,48 @@ final class ConfigurationPageTest extends TestCase {
 		);
 	}
 
-	public function test_render_embeds_generated_application_password_once(): void {
-		$GLOBALS['stonewright_test_transients']['stonewright_app_password_flash_42'] = [
-			'generated' => [
-				'password' => 'test-fresh-app-password',
-				'name'     => 'Stonewright',
-				'uuid'     => 'uuid',
-				'created'  => 1710000000,
-			],
-		];
+	public function test_render_never_reads_or_embeds_a_persisted_application_password(): void {
+		ob_start();
+		ConfigurationPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( '&lt;your-application-password&gt;', $html );
+		self::assertStringNotContainsString( 'test-fresh-app-password', $html );
+		self::assertStringNotContainsString( 'stonewright_app_password_flash_', $html );
+	}
+
+	public function test_nojs_generate_source_never_persists_plaintext(): void {
+		$source = (string) file_get_contents( dirname( __DIR__, 3 ) . '/includes/Admin/ConfigurationPage.php' );
+
+		self::assertStringNotContainsString( 'set_transient(', $source );
+		self::assertStringNotContainsString( 'application_password_flash', $source );
+		self::assertStringContainsString( 'Cache-Control: no-store, private, max-age=0', $source );
+		self::assertStringContainsString( 'render_application_password_once( $name, $password )', $source );
+	}
+
+	public function test_domain_lock_clear_hidden_during_mismatch(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_enabled'] = true;
+		$GLOBALS['stonewright_test_home_url'] = 'https://example.test/';
+		\Stonewright\WpMcp\Security\DomainLock::lock();
+		$GLOBALS['stonewright_test_home_url'] = 'https://cloned.example/';
+		\Stonewright\WpMcp\Security\DomainLock::record_mismatch();
 
 		ob_start();
 		ConfigurationPage::render();
 		$html = (string) ob_get_clean();
 
-		self::assertStringContainsString( 'test-fresh-app-password', $html );
-		self::assertStringContainsString( 'Copy password only', $html );
-		self::assertStringContainsString( 'Application password generated.', $html );
-		self::assertMatchesRegularExpression(
-			'/data-stonewright-text-full="(?![^"]*test-fresh-app-password)[^"]*"/',
+		self::assertStringContainsString( 'stonewright-domain-lock', $html );
+		self::assertStringContainsString( 'Mismatch — abilities are BLOCKED', $html );
+		self::assertStringContainsString( 'stonewright_rebind_domain_lock', $html );
+		self::assertStringNotContainsString( 'stonewright_reset_domain_lock', $html );
+		self::assertStringContainsString(
+			'Clear domain lock is disabled during a mismatch',
 			$html
 		);
-		self::assertArrayNotHasKey(
-			'stonewright_app_password_flash_42',
-			$GLOBALS['stonewright_test_transients']
-		);
+
+		delete_option( 'stonewright_locked_domain' );
+		delete_option( 'stonewright_domain_mismatch' );
+		delete_option( 'stonewright_domain_lock_prior' );
+		unset( $GLOBALS['stonewright_test_home_url'] );
 	}
 }
