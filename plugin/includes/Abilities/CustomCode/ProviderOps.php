@@ -114,16 +114,19 @@ final class ProviderOps extends AbilityKernel {
 	}
 
 	public function permission_callback( array $args ): bool|\WP_Error {
-		$action = sanitize_key( (string) ( $args['action'] ?? '' ) );
+		$action      = sanitize_key( (string) ( $args['action'] ?? '' ) );
+		$provider_id = sanitize_key( (string) ( $args['provider'] ?? '' ) );
 
 		// List/read/verify expose snippet bodies, hashes, or theme/customizer code.
-		// Match ThemeFileRead PHP gate (manage_options or edit_theme_options).
+		// Snippet plugins stay manage_options-only; edit_theme_options is accepted
+		// only for the two WordPress theme-owned providers.
 		if ( in_array( $action, [ 'list', 'read', 'verify' ], true ) ) {
-			return ( Permissions::manage_options() || Permissions::edit_theme_options() )
+			$theme_owned = in_array( $provider_id, [ 'theme-file', 'customizer-css' ], true );
+			return ( Permissions::manage_options() || ( $theme_owned && Permissions::edit_theme_options() ) )
 				? true
 				: new \WP_Error(
 					'stonewright_permission_denied',
-					__( 'Custom-code list/read/verify requires manage_options or edit_theme_options.', 'stonewright' ),
+					__( 'Snippet code requires manage_options; theme-file and Customizer CSS reads also accept edit_theme_options.', 'stonewright' ),
 					[ 'status' => 403 ]
 				);
 		}

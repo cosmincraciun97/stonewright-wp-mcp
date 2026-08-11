@@ -2,8 +2,16 @@
 
 ## [Unreleased]
 
+### Added
+
+- Add typed WPCode, Code Snippets, Customizer CSS, and theme-file providers
+  with approval-gated dry runs, concurrency checks, snapshots, verification,
+  and rollback guidance.
+
 ### Changed
 
+- Separate unresolved audit incidents from active learning and promote durable
+  repair guidance only after exact verified evidence or user correction.
 - Make the paste-to-agent setup prompt prefer the versioned multi-site
   installer, secret-free credential references, per-site/client choices, and
   spawned runtime verification after restart.
@@ -19,6 +27,11 @@
 
 ### Fixed
 
+- Restrict snippet-plugin source reads to `manage_options`, retain
+  `edit_theme_options` only for theme-owned providers, and require production
+  confirmation tokens for provider apply and rollback.
+- Reconcile every page of legacy audit lessons and keep failed migrations
+  retryable instead of marking them complete.
 - Document the exact Composer audit exception for PHP_CodeSniffer 3.13.6, the
   patched boundary release that Composer 2.9.5 still misclassifies as affected.
 - Add deliberate spacing and consistent control heights across Audit incident

@@ -335,6 +335,57 @@ final class ProviderPipelineTest extends TestCase {
 		self::assertSame( $candidate, $this->wpcode_store['12']['code'] );
 	}
 
+	public function test_code_snippets_rollback_rejects_target_id_mismatch(): void {
+		$provider = ProviderRegistry::get( 'code-snippets' );
+		self::assertNotNull( $provider );
+
+		$candidate = "<?php\n// changed before mismatch\n";
+		$dry       = $provider->dry_run(
+			[
+				'target_id' => '7',
+				'code'      => $candidate,
+				'language'  => 'php',
+			]
+		);
+		self::assertIsArray( $dry );
+		$grant = CustomCodeGrant::issue(
+			[
+				'path'         => (string) $dry['path'],
+				'after_sha256' => (string) $dry['after_sha256'],
+				'language'     => 'php',
+			]
+		);
+		self::assertIsArray( $grant );
+		$applied = $provider->apply(
+			[
+				'target_id'              => '7',
+				'code'                   => $candidate,
+				'language'               => 'php',
+				'custom_code_grant'      => $grant['token'],
+				'expected_before_sha256' => $dry['before_sha256'],
+			]
+		);
+		self::assertIsArray( $applied );
+
+		$mismatch = $provider->rollback(
+			[
+				'snapshot_id' => $applied['snapshot_id'],
+				'target_id'   => '99',
+			]
+		);
+		self::assertInstanceOf( \WP_Error::class, $mismatch );
+		self::assertSame( 'stonewright_code_snippets_snapshot_target_mismatch', $mismatch->get_error_code() );
+		self::assertSame( $candidate, $this->snippets_store['7']['code'] );
+	}
+
+	public function test_wpcode_post_type_guard_rejects_arbitrary_posts(): void {
+		$provider = new WpCodeProvider();
+		$guard    = new \ReflectionMethod( $provider, 'is_wpcode_post_type' );
+
+		self::assertFalse( $guard->invoke( $provider, 'post' ) );
+		self::assertFalse( $guard->invoke( $provider, 'page' ) );
+	}
+
 	public function test_list_read_require_code_edit_caps(): void {
 		$ability = new ProviderOps();
 		$GLOBALS['stonewright_test_user_caps'] = [
@@ -357,8 +408,12 @@ final class ProviderPipelineTest extends TestCase {
 			'manage_options'     => false,
 			'edit_theme_options' => true,
 		];
-		self::assertTrue( $ability->permission_callback( [ 'action' => 'list', 'provider' => 'wpcode' ] ) );
-		self::assertTrue( $ability->permission_callback( [ 'action' => 'read', 'provider' => 'wpcode', 'target_id' => '12' ] ) );
+		$wpcode_list = $ability->permission_callback( [ 'action' => 'list', 'provider' => 'wpcode' ] );
+		self::assertInstanceOf( \WP_Error::class, $wpcode_list );
+		$wpcode_read = $ability->permission_callback( [ 'action' => 'read', 'provider' => 'wpcode', 'target_id' => '12' ] );
+		self::assertInstanceOf( \WP_Error::class, $wpcode_read );
+		self::assertTrue( $ability->permission_callback( [ 'action' => 'list', 'provider' => 'theme-file' ] ) );
+		self::assertTrue( $ability->permission_callback( [ 'action' => 'read', 'provider' => 'customizer-css' ] ) );
 
 		// Writes still require manage_options even when edit_theme_options is present.
 		$apply = $ability->permission_callback( [ 'action' => 'apply', 'provider' => 'wpcode' ] );
@@ -368,10 +423,11 @@ final class ProviderPipelineTest extends TestCase {
 			'read'           => true,
 			'manage_options' => true,
 		];
+		self::assertTrue( $ability->permission_callback( [ 'action' => 'read', 'provider' => 'wpcode', 'target_id' => '12' ] ) );
 		self::assertTrue( $ability->permission_callback( [ 'action' => 'apply', 'provider' => 'wpcode' ] ) );
 	}
 
-	public function test_production_safe_apply_requires_confirmation_token(): void {
+	public function test_production_safe_apply_and_rollback_require_confirmation_token(): void {
 		ProviderRegistry::set_for_tests(
 			[
 				'wpcode' => new WpCodeProvider( $this->wpcode_backend() ),
@@ -379,17 +435,20 @@ final class ProviderPipelineTest extends TestCase {
 		);
 		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'production-safe';
 		$ability = new ProviderOps();
-		$result  = $ability->execute(
-			[
-				'action'            => 'apply',
-				'provider'          => 'wpcode',
-				'target_id'         => '12',
-				'code'              => "<?php\necho 1;\n",
-				'custom_code_grant' => 'not-a-real-grant',
-			]
-		);
-		self::assertInstanceOf( \WP_Error::class, $result );
-		self::assertSame( 'stonewright_confirmation_required', $result->get_error_code() );
+		foreach ( [ 'apply', 'rollback' ] as $action ) {
+			$result = $ability->execute(
+				[
+					'action'            => $action,
+					'provider'          => 'wpcode',
+					'target_id'         => '12',
+					'code'              => "<?php\necho 1;\n",
+					'snapshot_id'       => 'synthetic-snapshot',
+					'custom_code_grant' => 'not-a-real-grant',
+				]
+			);
+			self::assertInstanceOf( \WP_Error::class, $result, $action );
+			self::assertSame( 'stonewright_confirmation_required', $result->get_error_code(), $action );
+		}
 	}
 
 	/** @return callable */
