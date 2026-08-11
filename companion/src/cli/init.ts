@@ -86,7 +86,7 @@ export async function runInit(): Promise<number> {
 					args: ['-y', '--package', pkg, 'stonewright-mcp'],
 					env: {
 						STONEWRIGHT_MODE: 'direct',
-						STONEWRIGHT_MCP_TOOL_PROFILE: 'bootstrap',
+						STONEWRIGHT_MCP_TOOL_PROFILE: 'essential-static',
 					},
 				},
 			},

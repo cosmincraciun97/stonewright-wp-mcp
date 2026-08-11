@@ -1,7 +1,7 @@
 /**
  * MCP server for the Stonewright companion.
  *
- * WordPress-facing helpers such as WP-CLI are registered here.
+ * Permanent local gateways register first; WordPress proxy / Direct tools follow.
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -21,58 +21,36 @@ import {
 	type WpCliJobStartInput,
 	type WpCliRunInput,
 } from './wp-cli.js';
-import { AGENT_DO_NOT_USE, MCP_MISSING_BOOTSTRAP_STOP, agentUseInstead, buildSetupProfile, buildToolInventory, type ToolInventory } from './setup-profile.js';
+import { MCP_MISSING_BOOTSTRAP_STOP, buildToolInventory } from './setup-profile.js';
 import {
 	STARTUP_REQUIRED_PROXY_TOOL_NAMES,
 	type ProxyToolProfile,
+	emitToolListChanged,
 	mergeServerInstructions,
 	proxyToolProfileFromEnv,
 	proxyToolNamesForProfile,
 	registerWordPressMcpPrompts,
 	registerWordPressMcpTools,
 	resolveWordPressMcpConfig,
-	type WordPressProxyLiveState,
 } from './wordpress-mcp.js';
-import { APP_VERSION, companionPackageSpec } from './version.js';
+import { APP_VERSION } from './version.js';
 import { registerDirectTools, DIRECT_TOOL_NAMES, type DirectToolProfile } from './direct/registry.js';
 import { resolveRuntimeMode, type ProbeResult } from './direct/mode.js';
 import { PLUGIN_ONLY_CAPABILITIES } from './direct/tools/site-discover.js';
+import {
+	PERMANENT_GATEWAY_TOOL_NAMES,
+	PERMANENT_GATEWAY_TOOL_NAME_SET,
+	type ReconnectInput,
+	type ReconnectResult,
+} from './connection/index.js';
+import {
+	createConnectionRuntime,
+	registerPermanentGateways,
+	type ConnectionRuntime,
+	type WordPressMcpConnectionStatus,
+} from './connection/runtime.js';
 
-interface WordPressMcpConnectionStatus extends Record<string, unknown> {
-	ok: boolean;
-	configured: boolean;
-	connected: boolean;
-	url: string | null;
-	tool_profile: string | null;
-	surface_revision: number | null;
-	startup_ready: boolean;
-	startup_required_tool_names: string[];
-	startup_missing_tool_names: string[];
-	local_recovery_tool_names: string[];
-	local_tool_names: string[];
-	profile_expected_tool_count: number;
-	client_visible_expected_tool_count: number;
-	profile_missing_tool_names: string[];
-	remote_tool_count: number;
-	proxied_tool_count: number;
-	profile_filtered_tool_count: number;
-	profile_filtered_tool_names: string[];
-	tool_inventory: ToolInventory;
-	companion_version: string;
-	expected_companion_package: string;
-	refresh_required_tool_names: string[];
-	prompt_skill_count: number;
-	error: { message: string } | null;
-	agent_do_not_use: string[];
-	agent_use_instead: string[];
-	recovery: string[];
-	mode: 'plugin' | 'direct';
-	mode_reason: string | null;
-	direct_tool_count: number;
-	direct_tool_names: string[];
-	unavailable_plugin_capabilities: Array<{ id: string; label: string; reason: string; upgrade: string }>;
-	live: WordPressProxyLiveState | null;
-}
+export type { WordPressMcpConnectionStatus };
 
 export interface CreateMcpServerOptions {
 	env?: NodeJS.ProcessEnv;
@@ -80,9 +58,7 @@ export interface CreateMcpServerOptions {
 }
 
 const LOCAL_RECOVERY_TOOL_NAMES = [
-	'stonewright-setup-profile',
-	'stonewright-wordpress-mcp-status',
-	'stonewright-client-surface-check',
+	...PERMANENT_GATEWAY_TOOL_NAMES,
 	'stonewright-wp-cli-status',
 	'stonewright-wp-cli-discover',
 	'stonewright-wp-cli-run',
@@ -93,9 +69,7 @@ const LOCAL_RECOVERY_TOOL_NAMES = [
 ] as const;
 
 const LOW_TOOLS_LOCAL_RECOVERY_TOOL_NAMES = [
-	'stonewright-setup-profile',
-	'stonewright-wordpress-mcp-status',
-	// Keep low-tools under the 12-tool cap; surface-check stays on normal profiles.
+	...PERMANENT_GATEWAY_TOOL_NAMES,
 	'stonewright-wp-cli-status',
 	'stonewright-wp-cli-batch-run',
 	'stonewright-wp-cli-job-start',
@@ -118,6 +92,13 @@ const LOCAL_TOOL_NAMES = [
 export async function createMcpServer(options: CreateMcpServerOptions = {}): Promise<McpServer> {
 	const env = options.env ?? process.env;
 	const profile = proxyToolProfileFromEnv(env);
+	const fetchImpl = options.fetchImpl ?? fetch;
+	const runtime = createConnectionRuntime({
+		env,
+		profile,
+		...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+	});
+
 	// Companion-only text first; plugin instructions are merged after remote init
 	// (AI client connects after createMcpServer returns, so late set is safe).
 	const server = new McpServer({
@@ -137,83 +118,262 @@ export async function createMcpServer(options: CreateMcpServerOptions = {}): Pro
 		timeoutMs: z.number().int().positive().optional(),
 	};
 
+	// 1) Permanent gateways BEFORE any remote handshake (local-ready).
+	registerPermanentGateways(server, runtime);
+	// 2) WP-CLI helpers (local; not removed by profiles).
 	registerWpCliTools(server, commonInput, env, profile);
-	registerSetupTools(server, env);
-	const wpMcpStatus = createWordPressMcpConnectionStatus(profile);
-	registerWordPressMcpStatusTool(server, wpMcpStatus);
-	// Diagnostic surface stays off low-tools so strict clients remain ≤12 tools.
-	if (profile !== 'low-tools') {
-		registerClientSurfaceCheckTool(server, wpMcpStatus, env);
-	}
+	runtime.refreshSurfaceFromServer();
+
+	// Wire reconnect after helpers exist so it can re-run mode probe + registration.
+	runtime.performReconnect = async (input: ReconnectInput): Promise<ReconnectResult> => {
+		return performReconnect(server, runtime, options, input);
+	};
+
+	await bootstrapConnection(server, runtime, options, fetchImpl);
+	return server;
+}
+
+async function bootstrapConnection(
+	server: McpServer,
+	runtime: ConnectionRuntime,
+	options: CreateMcpServerOptions,
+	fetchImpl: typeof fetch,
+): Promise<void> {
+	const env = runtime.env;
+	const profile = runtime.profile;
+	const wpMcpStatus = runtime.status;
+
+	runtime.stateMachine.transition('probing');
+	wpMcpStatus.connection_stage = runtime.stateMachine.getStage();
 
 	const modeProbe = await resolveRuntimeMode({
 		env,
-		...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+		fetchImpl,
 	});
 	wpMcpStatus.mode = modeProbe.mode;
 	wpMcpStatus.mode_reason = modeProbe.reason;
+	wpMcpStatus.configured_mode = modeProbe.configured;
 
 	if (modeProbe.mode === 'direct') {
-		await registerDirectMode(server, env, options, wpMcpStatus, modeProbe, profile);
-		return server;
+		// plugin-only must never fall into Direct tools (resolveRuntimeMode already
+		// returns plugin for plugin-only; this branch is auto/direct-only).
+		await registerDirectMode(server, env, options, runtime, modeProbe, profile);
+		return;
 	}
 
+	// Plugin path (plugin-only or auto preferring plugin).
+	runtime.stateMachine.transition('plugin-authenticated');
 	let wpMcpConfig = null;
 	try {
 		wpMcpConfig = await resolveWordPressMcpConfig(env);
 	} catch (err) {
 		wpMcpStatus.configured = hasWordPressMcpConfig(env);
 		wpMcpStatus.error = { message: err instanceof Error ? err.message : String(err) };
-	}
-	if (wpMcpConfig) {
-		wpMcpStatus.configured = true;
-		wpMcpStatus.url = wpMcpConfig.url;
-		try {
-			const registration = await registerWordPressMcpTools(server, wpMcpConfig, options.fetchImpl ?? fetch, env);
-			const promptSkills = await registerWordPressMcpPrompts(server, wpMcpConfig, options.fetchImpl ?? fetch);
-			// Forward plugin initialize.instructions so clients see task-start + site rules.
-			setServerInstructions(
-				server,
-				mergeServerInstructions(companionInstructions(profile), registration.remoteInstructions),
-			);
-			wpMcpStatus.ok = true;
-			wpMcpStatus.connected = true;
-			wpMcpStatus.mode = 'plugin';
-			wpMcpStatus.tool_profile = registration.profile;
-			wpMcpStatus.live = registration.liveState;
-			wpMcpStatus.remote_tool_count = registration.remoteTools.length;
-			wpMcpStatus.proxied_tool_count = registration.registeredTools.length;
-			wpMcpStatus.profile_filtered_tool_count = registration.filteredToolCount;
-			wpMcpStatus.profile_filtered_tool_names = registration.profileFilteredToolNames;
-			wpMcpStatus.startup_missing_tool_names = missingStartupTools(registration.registeredTools.map((tool) => tool.name));
-			wpMcpStatus.startup_ready = wpMcpStatus.startup_missing_tool_names.length === 0;
-			const profileExpectedToolNames = proxyToolNamesForProfile(registration.profile);
-			const localToolNames = localToolNamesForProfile(registration.profile);
-			wpMcpStatus.profile_expected_tool_count = profileExpectedToolNames.length;
-			wpMcpStatus.client_visible_expected_tool_count = profileExpectedToolNames.length + localToolNames.length;
-			wpMcpStatus.tool_inventory = buildToolInventory(registration.profile, localToolNames);
-			wpMcpStatus.profile_missing_tool_names = missingProfileTools(
-				profileExpectedToolNames,
-				registration.registeredTools.map((tool) => tool.name),
-				localToolNames,
-			);
-			wpMcpStatus.local_recovery_tool_names = Array.from(localRecoveryToolNamesForProfile(registration.profile));
-			wpMcpStatus.local_tool_names = Array.from(localToolNames);
-			wpMcpStatus.prompt_skill_count = promptSkills.length;
-			wpMcpStatus.recovery = recoveryHints(
-				registration.filteredToolCount,
-				wpMcpStatus.startup_missing_tool_names.length,
-				wpMcpStatus.profile_missing_tool_names.length,
-			);
-			wpMcpStatus.error = null;
-		} catch (err) {
-			wpMcpStatus.ok = false;
-			wpMcpStatus.connected = false;
-			wpMcpStatus.error = { message: err instanceof Error ? err.message : String(err) };
-		}
+		wpMcpStatus.error_code = 'config_error';
+		wpMcpStatus.next_action = 'Fix WordPress MCP config, then call stonewright-reconnect.';
+		runtime.stateMachine.transition('degraded', { error: wpMcpStatus.error.message });
+		runtime.syncLegacyStatus();
+		return;
 	}
 
-	return server;
+	if (!wpMcpConfig) {
+		wpMcpStatus.configured = hasWordPressMcpConfig(env);
+		// plugin-only fails closed: no Direct tools.
+		if (modeProbe.configured === 'plugin-only') {
+			wpMcpStatus.ok = false;
+			wpMcpStatus.connected = false;
+			wpMcpStatus.error = { message: 'Plugin-only mode: WordPress MCP is not configured.' };
+			wpMcpStatus.error_code = 'plugin_unavailable';
+			wpMcpStatus.next_action = 'Configure STONEWRIGHT_WP_URL and credentials, install the plugin, then reconnect.';
+			runtime.stateMachine.transition('degraded', { error: wpMcpStatus.error.message });
+			runtime.syncLegacyStatus();
+			return;
+		}
+		// auto without config: keep local gateways; stay degraded/plugin path recovery.
+		wpMcpStatus.ok = false;
+		wpMcpStatus.connected = false;
+		wpMcpStatus.error_code = 'not_configured';
+		wpMcpStatus.next_action = 'Call stonewright-setup-profile and configure site credentials.';
+		runtime.stateMachine.transition('degraded', { error: 'not_configured' });
+		runtime.syncLegacyStatus();
+		return;
+	}
+
+	wpMcpStatus.configured = true;
+	wpMcpStatus.url = wpMcpConfig.url;
+	runtime.stateMachine.transition('plugin-registering');
+	wpMcpStatus.startup_ready = false;
+	wpMcpStatus.connection_stage = 'plugin-registering';
+	runtime.registry.beginStaging();
+
+	try {
+		const registration = await registerWordPressMcpTools(server, wpMcpConfig, fetchImpl, env);
+		const promptSkills = await registerWordPressMcpPrompts(server, wpMcpConfig, fetchImpl);
+		setServerInstructions(
+			server,
+			mergeServerInstructions(companionInstructions(profile), registration.remoteInstructions),
+		);
+		runtime.callRemoteTool = registration.callRemoteTool;
+		runtime.registry.stageMany(
+			registration.registeredTools.map((tool) => ({ name: tool.name, source: 'remote' as const })),
+		);
+		runtime.registry.commit();
+		runtime.stateMachine.transition('plugin-ready', { bumpGeneration: true });
+
+		wpMcpStatus.ok = true;
+		wpMcpStatus.connected = true;
+		wpMcpStatus.mode = 'plugin';
+		wpMcpStatus.tool_profile = registration.profile;
+		wpMcpStatus.live = registration.liveState;
+		wpMcpStatus.remote_tool_count = registration.remoteTools.length;
+		wpMcpStatus.proxied_tool_count = registration.registeredTools.length;
+		wpMcpStatus.profile_filtered_tool_count = registration.filteredToolCount;
+		wpMcpStatus.profile_filtered_tool_names = registration.profileFilteredToolNames;
+		// Permanent gateways cover task-start; remaining startup tools may still be remote.
+		wpMcpStatus.startup_missing_tool_names = missingStartupTools([
+			...PERMANENT_GATEWAY_TOOL_NAMES,
+			...registration.registeredTools.map((tool) => tool.name),
+		]);
+		wpMcpStatus.startup_ready = wpMcpStatus.startup_missing_tool_names.length === 0;
+		const profileExpectedToolNames = proxyToolNamesForProfile(registration.profile);
+		const localToolNames = localToolNamesForProfile(registration.profile);
+		wpMcpStatus.profile_expected_tool_count = profileExpectedToolNames.length;
+		wpMcpStatus.client_visible_expected_tool_count = profileExpectedToolNames.length + localToolNames.length;
+		wpMcpStatus.tool_inventory = buildToolInventory(registration.profile, localToolNames);
+		wpMcpStatus.profile_missing_tool_names = missingProfileTools(
+			profileExpectedToolNames,
+			[...PERMANENT_GATEWAY_TOOL_NAMES, ...registration.registeredTools.map((tool) => tool.name)],
+			localToolNames,
+		);
+		wpMcpStatus.local_recovery_tool_names = Array.from(localRecoveryToolNamesForProfile(registration.profile));
+		wpMcpStatus.local_tool_names = Array.from(localToolNames);
+		wpMcpStatus.prompt_skill_count = promptSkills.length;
+		wpMcpStatus.recovery = recoveryHints(
+			registration.filteredToolCount,
+			wpMcpStatus.startup_missing_tool_names.length,
+			wpMcpStatus.profile_missing_tool_names.length,
+		);
+		wpMcpStatus.error = null;
+		wpMcpStatus.error_code = null;
+		wpMcpStatus.next_action = 'Call stonewright-task-start and follow fast_path.tool_profile.';
+		runtime.refreshSurfaceFromServer({ forceBump: true });
+		runtime.syncLegacyStatus();
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		runtime.registry.abort(message);
+		// plugin-only: fail closed, no Direct fallback.
+		if (modeProbe.configured === 'plugin-only') {
+			wpMcpStatus.ok = false;
+			wpMcpStatus.connected = false;
+			wpMcpStatus.error = { message };
+			wpMcpStatus.error_code = 'plugin_unavailable';
+			wpMcpStatus.next_action = 'Fix plugin connectivity, then call stonewright-reconnect. Direct tools are not available in plugin-only mode.';
+			runtime.stateMachine.transition('degraded', { error: message });
+			runtime.syncLegacyStatus();
+			return;
+		}
+		// auto: fall back to Direct when plugin registration fails with 404-like absence.
+		if (modeProbe.configured === 'auto' && /404|not found|ECONNREFUSED/i.test(message)) {
+			await registerDirectMode(server, env, options, runtime, {
+				...modeProbe,
+				mode: 'direct',
+				reason: `Plugin registration failed (${message}); auto fallback to Direct.`,
+			}, profile);
+			return;
+		}
+		wpMcpStatus.ok = false;
+		wpMcpStatus.connected = false;
+		wpMcpStatus.error = { message };
+		wpMcpStatus.error_code = 'connection_error';
+		wpMcpStatus.next_action = 'Call stonewright-connect-doctor, fix credentials/URL, then stonewright-reconnect.';
+		runtime.stateMachine.transition('degraded', { error: message });
+		// Permanent gateways remain; prior registry empty on first boot.
+		runtime.syncLegacyStatus();
+	}
+}
+
+async function performReconnect(
+	server: McpServer,
+	runtime: ConnectionRuntime,
+	options: CreateMcpServerOptions,
+	input: ReconnectInput,
+): Promise<ReconnectResult> {
+	const priorReady = runtime.registry.isReady;
+	const priorGeneration = runtime.stateMachine.getGeneration();
+	const priorRevision = runtime.surface.getRevision();
+	const priorNames = runtime.listRegisteredToolNames();
+
+	try {
+		// Re-run bootstrap path. Failed reconnect must preserve prior healthy registry:
+		// we only clear remote call handle after a successful re-register.
+		const previousCallRemote = runtime.callRemoteTool;
+		const previousLive = runtime.status.live;
+		const previousConnected = runtime.status.connected;
+		const previousStartup = runtime.status.startup_ready;
+
+		if (input.force_probe || runtime.status.configured_mode === 'auto') {
+			runtime.stateMachine.transition('probing', { bumpGeneration: true });
+		}
+
+		await bootstrapConnection(server, runtime, options, runtime.fetchImpl);
+
+		if (!runtime.status.connected && priorReady) {
+			// Restore prior healthy signals when reconnect failed.
+			runtime.callRemoteTool = previousCallRemote;
+			runtime.status.live = previousLive;
+			runtime.status.connected = previousConnected;
+			runtime.status.startup_ready = previousStartup;
+			runtime.registry.abort(runtime.status.error?.message ?? 'reconnect failed');
+			runtime.stateMachine.transition('degraded', {
+				error: runtime.status.error?.message ?? 'reconnect failed',
+			});
+			// Keep prior surface names/digest; still bump revision so clients re-list.
+			runtime.surface.bump(priorNames);
+			runtime.syncLegacyStatus();
+			await emitToolListChanged(server);
+			return {
+				ok: false,
+				coalesced: false,
+				reason: input.reason,
+				site_alias: input.site_alias ?? null,
+				force_probe: Boolean(input.force_probe),
+				connection_generation: runtime.stateMachine.getGeneration(),
+				surface_revision: runtime.surface.getRevision(),
+				prior_registry_preserved: true,
+				error: runtime.status.error?.message ?? 'reconnect failed',
+			};
+		}
+
+		runtime.refreshSurfaceFromServer({ forceBump: true });
+		await emitToolListChanged(server);
+		return {
+			ok: runtime.status.connected || runtime.status.mode === 'direct',
+			coalesced: false,
+			reason: input.reason,
+			site_alias: input.site_alias ?? null,
+			force_probe: Boolean(input.force_probe),
+			connection_generation: runtime.stateMachine.getGeneration(),
+			surface_revision: runtime.surface.getRevision(),
+			prior_registry_preserved: false,
+			error: runtime.status.error?.message ?? null,
+		};
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		runtime.registry.abort(message);
+		runtime.surface.bump(priorNames);
+		runtime.syncLegacyStatus();
+		return {
+			ok: false,
+			coalesced: false,
+			reason: input.reason,
+			site_alias: input.site_alias ?? null,
+			force_probe: Boolean(input.force_probe),
+			connection_generation: priorGeneration,
+			surface_revision: priorRevision + 1,
+			prior_registry_preserved: priorReady,
+			error: message,
+		};
+	}
 }
 
 /** SDK stores instructions on the inner Server; mutate before client connect. */
@@ -228,12 +388,14 @@ async function registerDirectMode(
 	server: McpServer,
 	env: NodeJS.ProcessEnv,
 	options: CreateMcpServerOptions,
-	wpMcpStatus: WordPressMcpConnectionStatus,
+	runtime: ConnectionRuntime,
 	modeProbe: ProbeResult,
 	profile: ProxyToolProfile,
 ): Promise<void> {
+	const wpMcpStatus = runtime.status;
 	wpMcpStatus.mode = 'direct';
 	wpMcpStatus.mode_reason = modeProbe.reason;
+	wpMcpStatus.configured_mode = modeProbe.configured;
 	wpMcpStatus.unavailable_plugin_capabilities = PLUGIN_ONLY_CAPABILITIES.map((cap) => ({
 		id: cap.id,
 		label: cap.label,
@@ -251,21 +413,30 @@ async function registerDirectMode(
 			env,
 			...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
 			// Explicit Direct override wins; otherwise the shared MCP surface drives
-			// progressive registration. Bootstrap expands after task-start.
+			// progressive registration. essential-static expands after task-start.
 			toolProfile: directProfile,
+			skipToolNames: PERMANENT_GATEWAY_TOOL_NAME_SET,
+			onSessionReady: (controls) => {
+				runtime.directSession = controls;
+			},
 			onSurfaceChange: (revision, liveProfile) => {
 				wpMcpStatus.surface_revision = revision;
 				wpMcpStatus.tool_profile = liveProfile;
+				runtime.refreshSurfaceFromServer();
 			},
 		});
 		setServerInstructions(server, companionInstructions(profile, 'direct'));
 		const localToolNames = localToolNamesForProfile(profile);
+		runtime.registry.commitDirect(
+			registered.map((name) => ({ name, source: 'direct' as const })),
+		);
+		runtime.stateMachine.transition('direct-ready', { bumpGeneration: true });
+
 		wpMcpStatus.ok = true;
 		wpMcpStatus.connected = true;
 		wpMcpStatus.configured = hasWordPressMcpConfig(env) || Boolean(env['STONEWRIGHT_WP_USERNAME']);
 		wpMcpStatus.url = modeProbe.endpoint;
 		wpMcpStatus.tool_profile = directProfile;
-		wpMcpStatus.surface_revision = 0;
 		wpMcpStatus.direct_tool_count = registered.length;
 		wpMcpStatus.direct_tool_names = registered.slice(0, 40);
 		wpMcpStatus.startup_ready = true;
@@ -291,12 +462,14 @@ async function registerDirectMode(
 		];
 		wpMcpStatus.recovery = [
 			'Direct mode is active: core REST tools are registered without the Stonewright plugin.',
-			'Call stonewright-task-start first; Bootstrap unlocks the compact Direct task profile for this session.',
+			'Call stonewright-task-start first; the compact Direct task profile unlocks for this session.',
 			'Use stonewright-site-discover when endpoint or plugin-only capability details are needed.',
 			'Direct local memory and user skills remain available. Install the plugin only when its native mutation engine, php-execute, or production-safe confirmation tokens are required.',
-			'Set STONEWRIGHT_MODE=plugin after installing the plugin, then restart the MCP client.',
+			'Set STONEWRIGHT_MODE=plugin after installing the plugin, then call stonewright-reconnect or restart the MCP client.',
 		];
 		wpMcpStatus.error = null;
+		wpMcpStatus.error_code = null;
+		wpMcpStatus.next_action = 'Call stonewright-task-start (works with zero WordPress credentials).';
 		wpMcpStatus.agent_use_instead = [
 			'stonewright-task-start',
 			'stonewright-site-discover',
@@ -306,22 +479,27 @@ async function registerDirectMode(
 			'stonewright-wp-cli-run',
 			...DIRECT_TOOL_NAMES.slice(0, 8),
 		];
+		runtime.refreshSurfaceFromServer({ forceBump: true });
+		runtime.syncLegacyStatus();
 	} catch (err) {
 		wpMcpStatus.ok = false;
 		wpMcpStatus.connected = false;
 		wpMcpStatus.error = { message: err instanceof Error ? err.message : String(err) };
+		wpMcpStatus.error_code = 'direct_registration_failed';
+		runtime.stateMachine.transition('degraded', { error: wpMcpStatus.error.message });
+		runtime.syncLegacyStatus();
 	}
 }
 
 function directToolProfileFromEnv(env: NodeJS.ProcessEnv, profile: ProxyToolProfile): DirectToolProfile {
 	const explicit = (env['STONEWRIGHT_DIRECT_TOOL_PROFILE'] ?? '').trim().toLowerCase();
-	if (['bootstrap', 'essential', 'elementor-design', 'content-model', 'gutenberg', 'site-admin', 'full'].includes(explicit)) {
+	if (['bootstrap', 'essential-static', 'essential', 'elementor-design', 'content-model', 'gutenberg', 'site-admin', 'full'].includes(explicit)) {
 		return explicit as DirectToolProfile;
 	}
-	if (['bootstrap', 'essential', 'elementor-design', 'content-model', 'gutenberg', 'site-admin', 'full'].includes(profile)) {
+	if (['bootstrap', 'essential-static', 'essential', 'elementor-design', 'content-model', 'gutenberg', 'site-admin', 'full'].includes(profile)) {
 		return profile as DirectToolProfile;
 	}
-	return 'essential';
+	return 'essential-static';
 }
 
 function companionInstructions(
@@ -376,52 +554,6 @@ function hasWordPressMcpConfig(env: NodeJS.ProcessEnv): boolean {
 	return Boolean((env['STONEWRIGHT_MCP_URL'] ?? env['WP_API_URL'] ?? env['STONEWRIGHT_WP_URL'] ?? '').trim());
 }
 
-function createWordPressMcpConnectionStatus(profile: ProxyToolProfile): WordPressMcpConnectionStatus {
-	const profileExpectedToolNames = proxyToolNamesForProfile(profile);
-	const localToolNames = localToolNamesForProfile(profile);
-	const profileMissingToolNames = missingProfileTools(profileExpectedToolNames, [], localToolNames);
-
-	return {
-		ok: false,
-		configured: false,
-		connected: false,
-		url: null,
-		tool_profile: profile,
-		surface_revision: null,
-		startup_ready: false,
-		startup_required_tool_names: Array.from(STARTUP_REQUIRED_PROXY_TOOL_NAMES),
-		startup_missing_tool_names: Array.from(STARTUP_REQUIRED_PROXY_TOOL_NAMES),
-		local_recovery_tool_names: Array.from(localRecoveryToolNamesForProfile(profile)),
-		local_tool_names: Array.from(localToolNames),
-		profile_expected_tool_count: profileExpectedToolNames.length,
-		client_visible_expected_tool_count: profileExpectedToolNames.length + localToolNames.length,
-		profile_missing_tool_names: profileMissingToolNames,
-		remote_tool_count: 0,
-		proxied_tool_count: 0,
-		profile_filtered_tool_count: 0,
-		profile_filtered_tool_names: [],
-		tool_inventory: buildToolInventory(profile, localToolNames),
-		companion_version: APP_VERSION,
-		expected_companion_package: companionPackageSpec(),
-		refresh_required_tool_names: [
-			'stonewright-context-bootstrap',
-			'stonewright-task-start',
-			'stonewright-php-execute',
-		],
-		prompt_skill_count: 0,
-		error: null,
-		agent_do_not_use: Array.from(AGENT_DO_NOT_USE),
-		agent_use_instead: agentUseInstead({ STONEWRIGHT_MCP_TOOL_PROFILE: profile }),
-		recovery: recoveryHints(0, STARTUP_REQUIRED_PROXY_TOOL_NAMES.length, profileMissingToolNames.length),
-		mode: 'plugin',
-		mode_reason: null,
-		direct_tool_count: 0,
-		direct_tool_names: [],
-		unavailable_plugin_capabilities: [],
-		live: null,
-	};
-}
-
 function missingStartupTools(registeredToolNames: string[]): string[] {
 	const registered = new Set(registeredToolNames);
 	return STARTUP_REQUIRED_PROXY_TOOL_NAMES.filter((name) => !registered.has(name));
@@ -457,180 +589,6 @@ function recoveryHints(profileFilteredToolCount: number, startupMissingToolCount
 		hints.push('If profile_missing_tool_names is not empty, update or enable those WordPress Stonewright tools, or switch STONEWRIGHT_MCP_TOOL_PROFILE to full for specialist recovery.');
 	}
 	return hints;
-}
-
-function registerSetupTools(server: McpServer, env: NodeJS.ProcessEnv): void {
-	server.registerTool(
-		'stonewright-setup-profile',
-		{
-			description: 'Return a compact cross-platform Stonewright companion setup profile with copy-paste MCP config, environment checks, and credential guidance.',
-			inputSchema: {
-				siteUrl: z.string().optional(),
-				wpRoot: z.string().optional(),
-				username: z.string().optional(),
-				appPassword: z.string().optional(),
-			},
-		},
-		async (input) => {
-			const mergedEnv = {
-				...env,
-				...(typeof input.siteUrl === 'string' ? { STONEWRIGHT_WP_URL: input.siteUrl } : {}),
-				...(typeof input.wpRoot === 'string' ? { STONEWRIGHT_WP_ROOT: input.wpRoot } : {}),
-				...(typeof input.username === 'string' ? { STONEWRIGHT_WP_USERNAME: input.username } : {}),
-				...(typeof input.appPassword === 'string' ? { STONEWRIGHT_WP_APP_PASSWORD: input.appPassword } : {}),
-			};
-			const modeProbe = await resolveRuntimeMode({ env: mergedEnv });
-			return toolResponse(buildSetupProfile(mergedEnv, process.platform, {
-				mode: modeProbe.mode,
-				mode_reason: modeProbe.reason,
-			}));
-		},
-	);
-}
-
-function registerWordPressMcpStatusTool(server: McpServer, status: WordPressMcpConnectionStatus): void {
-	server.registerTool(
-		'stonewright-wordpress-mcp-status',
-		{
-			description: 'Return whether the companion successfully proxied the WordPress Stonewright MCP endpoint. Available even when the endpoint is down so agents can recover without losing setup and WP-CLI tools.',
-			inputSchema: {},
-		},
-		() => {
-			const live = status.live;
-			const liveBlock = live
-				? {
-					live_tool_profile: live.profile,
-					surface_revision: live.surfaceRevision,
-					live_enabled_tool_count: live.enabledToolNames.length,
-					live_enabled_tool_names: live.enabledToolNames,
-					last_refresh_at: live.lastRefreshAt,
-					last_refresh_added: live.lastRefresh?.added ?? [],
-					last_refresh_removed: live.lastRefresh?.removed ?? [],
-				}
-				: { live_tool_profile: null };
-			return toolResponse({ ...status, ...liveBlock });
-		},
-	);
-}
-
-/**
- * Diagnose companion vs WordPress vs client tool-surface mismatches.
- * Always local — works even when php-execute is filtered out of the proxy set.
- */
-function registerClientSurfaceCheckTool(
-	server: McpServer,
-	status: WordPressMcpConnectionStatus,
-	env: NodeJS.ProcessEnv,
-): void {
-	server.registerTool(
-		'stonewright-client-surface-check',
-		{
-			description:
-				'Diagnose Stonewright client tool-surface problems: companion profile, remote tools, filtered tools, whether php-execute is registered, and concrete fixes (relist / activate profile / restart MCP). Prefer this over inventing REST abilities/run workarounds.',
-			inputSchema: {
-				expected_tool: z.string().optional(),
-			},
-		},
-		(input) => {
-			const expected = typeof input.expected_tool === 'string' && input.expected_tool.trim() !== ''
-				? input.expected_tool.trim().replaceAll('/', '-')
-				: 'stonewright-php-execute';
-			const expectedNorm = expected.startsWith('stonewright-') ? expected : `stonewright-${expected}`;
-			const live = status.live;
-			const filtered = new Set(status.profile_filtered_tool_names ?? []);
-			const missingProfile = new Set(status.profile_missing_tool_names ?? []);
-			const profile = live?.profile ?? ((status.tool_profile as ProxyToolProfile) || 'bootstrap');
-			const liveEnabled = new Set(live?.enabledToolNames ?? []);
-			for (const name of liveEnabled) {
-				filtered.delete(name);
-				missingProfile.delete(name);
-			}
-			const proxiedToolCount = live?.enabledToolNames.length ?? status.proxied_tool_count;
-			const localNames = new Set(status.local_tool_names ?? []);
-			const profileNames = new Set(proxyToolNamesForProfile(profile));
-			// Prefer explicit inventory membership over "full ⇒ everything ok".
-			const serverHas = status.connected
-				&& status.remote_tool_count > 0
-				&& !missingProfile.has(expectedNorm)
-				&& (profile === 'full' || profileNames.has(expectedNorm) || localNames.has(expectedNorm)
-					|| !filtered.has(expectedNorm));
-			// Filtered tools are remote-visible but not client-registered.
-			const startupClientHas = proxiedToolCount > 0
-				&& !filtered.has(expectedNorm)
-				&& !missingProfile.has(expectedNorm)
-				&& (profile === 'full'
-					? status.remote_tool_count > 0 && !filtered.has(expectedNorm)
-					: profileNames.has(expectedNorm));
-			const clientHas = status.connected
-				&& (localNames.has(expectedNorm)
-					|| (live !== null ? liveEnabled.has(expectedNorm) : startupClientHas));
-
-			let errorCode = 'ok';
-			const fix: string[] = [];
-			if (!status.configured) {
-				errorCode = 'not_configured';
-				fix.push('run_setup_profile', 'set_STONEWRIGHT_WP_URL_and_credentials');
-			} else if (!status.connected) {
-				errorCode = 'auth_or_connectivity_fail';
-				fix.push('verify_app_password', 'verify_mcp_url', 'restart_mcp');
-			} else if (filtered.has(expectedNorm)) {
-				errorCode = 'client_tool_not_registered';
-				fix.push('call_task_start', 'activate_profile:elementor-design_or_full', 'relist_tools', 'restart_mcp');
-			} else if (!serverHas) {
-				errorCode = 'server_missing_tool';
-				fix.push('deploy_plugin_update', 'enable_ability', 'check_remote_tools_list');
-			} else if (!clientHas) {
-				errorCode = 'client_tool_not_registered';
-				fix.push('relist_tools', 'activate_profile:full', 'restart_mcp');
-			}
-
-			const siteAlias = (env['STONEWRIGHT_SITE_ALIAS'] ?? '').trim();
-			const writeTarget = status.url
-				? String(status.url).replace(/\/wp-json\/mcp\/stonewright\/?$/i, '/')
-				: null;
-
-			return toolResponse({
-				ok: errorCode === 'ok',
-				error_code: errorCode,
-				server_has_tool: serverHas || (status.connected && status.remote_tool_count > 50),
-				client_has_tool: clientHas,
-				expected_tool: expectedNorm,
-				companion: {
-					tool_profile: profile,
-					connected: status.connected,
-					configured: status.configured,
-					remote_tool_count: status.remote_tool_count,
-					proxied_tool_count: proxiedToolCount,
-					live_enabled_tool_count: live?.enabledToolNames.length ?? null,
-					stale_startup_snapshot: live !== null && live.lastRefreshAt !== null,
-					profile_filtered_tool_count: status.profile_filtered_tool_count,
-					profile_filtered_tool_names: status.profile_filtered_tool_names,
-					profile_missing_tool_names: status.profile_missing_tool_names,
-					mode: status.mode,
-				},
-				write_target: {
-					url: writeTarget,
-					mcp_url: status.url,
-					site_alias: siteAlias || null,
-					label: writeTarget
-						? `active write target = ${writeTarget} (${status.mode})`
-						: 'active write target unknown — configure STONEWRIGHT_WP_URL',
-				},
-				diagnosis: errorCode === 'ok'
-					? 'Client surface looks healthy for the expected tool.'
-					: errorCode === 'auth_or_connectivity_fail'
-						? 'WordPress MCP endpoint is not connected (auth fail or host down).'
-						: errorCode === 'not_configured'
-							? 'Companion is not configured with site credentials.'
-							: 'Server likely has the tool but the companion client profile filtered it out. Re-list after task-start/tool-profile, or restart MCP. Do not call /abilities/run.',
-				fix,
-				agent_do_not_use: [
-					'Do not call /wp-json/stonewright/v1/abilities/run as a workaround.',
-					'Do not hand-roll JSON-RPC against the MCP endpoint.',
-				],
-			});
-		},
-	);
 }
 
 function registerWpCliTools(

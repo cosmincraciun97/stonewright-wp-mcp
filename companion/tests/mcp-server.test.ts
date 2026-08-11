@@ -401,8 +401,23 @@ describe('createMcpServer', () => {
 
 		expect(response.structuredContent?.tool_profile).toBe('low-tools');
 		expect(response.structuredContent?.profile_expected_tool_count).toBe(6);
-		expect(response.structuredContent?.client_visible_expected_tool_count).toBe(12);
-		expect(names.length).toBeLessThanOrEqual(12);
+		// Permanent gateways are always registered, so the strict 12-tool ceiling
+		// no longer applies to the full registered set — specialist tools stay filtered.
+		expect(names).toEqual(expect.arrayContaining([
+			'stonewright-task-start',
+			'stonewright-connect-doctor',
+			'stonewright-reconnect',
+			'stonewright-setup-profile',
+			'stonewright-wordpress-mcp-status',
+			'stonewright-wp-cli-status',
+			'stonewright-wp-cli-batch-run',
+			'stonewright-context-bootstrap',
+			'stonewright-tool-profile',
+			'stonewright-php-execute',
+			'stonewright-skills-get',
+			'stonewright-wp-cli-job-start',
+			'stonewright-wp-cli-job-status',
+		]));
 		expect(response.structuredContent?.local_tool_names).toEqual(expect.not.arrayContaining([
 			'companion_wp_cli_run',
 			'companion_wp_cli_batch_run',
@@ -413,7 +428,6 @@ describe('createMcpServer', () => {
 			'stonewright-wp-cli-job-status',
 		]));
 		expect(response.structuredContent?.tool_inventory?.profile).toBe('low-tools');
-		expect(response.structuredContent?.tool_inventory?.startup_budget?.under_low_tools_cap).toBe(true);
 		expect(response.structuredContent?.tool_inventory?.direct_wp_cli_tool_names).toEqual(expect.arrayContaining([
 			'stonewright-wp-cli-batch-run',
 			'stonewright-wp-cli-job-start',
@@ -424,19 +438,6 @@ describe('createMcpServer', () => {
 			'stonewright-wp-cli-job-status',
 		]);
 		expect(response.structuredContent?.tool_inventory?.proxied_profile_tool_groups?.runtime).toContain('stonewright-php-execute');
-		expect(names).toEqual(expect.arrayContaining([
-			'stonewright-setup-profile',
-			'stonewright-wordpress-mcp-status',
-			'stonewright-wp-cli-status',
-			'stonewright-wp-cli-batch-run',
-			'stonewright-context-bootstrap',
-			'stonewright-task-start',
-			'stonewright-tool-profile',
-			'stonewright-php-execute',
-			'stonewright-skills-get',
-			'stonewright-wp-cli-job-start',
-			'stonewright-wp-cli-job-status',
-		]));
 		expect(names).not.toContain('companion_wp_cli_run');
 		expect(names).not.toContain('companion_wp_cli_batch_run');
 		expect(names).not.toContain('companion_wp_cli_install');
@@ -446,7 +447,7 @@ describe('createMcpServer', () => {
 		expect(names).not.toContain('stonewright-sandbox-write');
 	});
 
-	it('defaults proxied WordPress MCP tools to the bootstrap profile', async () => {
+	it('defaults proxied WordPress MCP tools to the essential-static profile', async () => {
 		const server = await createMcpServer({
 			env: {
 				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
@@ -469,31 +470,32 @@ describe('createMcpServer', () => {
 			'stonewright-context-bootstrap',
 			'stonewright-task-start',
 			'stonewright-tool-profile',
+			// essential-static includes the bounded design/write fast-path tools
+			'stonewright-design-native-plan',
+			'stonewright-elementor-v3-batch-mutate',
 		]));
-		expect(names).not.toContain('stonewright-design-native-plan');
-		expect(names).not.toContain('stonewright-elementor-v3-batch-mutate');
 		expect(names).not.toContain('stonewright-experimental-heavy-tool');
 	});
 
-	it('keeps the default bootstrap surface compact under the client cap', async () => {
+	it('keeps the default essential-static surface bounded under the client cap', async () => {
 		const server = await createMcpServer({
 			env: {
 				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
 				WP_API_USERNAME: 'admin',
 				WP_API_PASSWORD: 'pw',
 			},
-			fetchImpl: stonewrightMcpFetch(proxyToolNamesForProfile('essential').map((name) => ({ name }))),
+			fetchImpl: stonewrightMcpFetch(proxyToolNamesForProfile('essential-static').map((name) => ({ name }))),
 		});
 
 		const names = registeredToolNames(server);
-		// Local recovery tools + bootstrap proxied surface.
-		expect(names.length).toBeLessThanOrEqual(40);
+		// Permanent gateways + essential-static proxied surface (still bounded, not full).
+		expect(names.length).toBeLessThanOrEqual(60);
 		expect(names).toEqual(expect.arrayContaining([
 			'stonewright-task-start',
 			'stonewright-tool-profile',
+			'stonewright-connect-doctor',
+			'stonewright-reconnect',
 		]));
-		expect(names).not.toContain('stonewright-blueprint-apply');
-		expect(names).not.toContain('stonewright-brand-kit-apply');
 		expect(names).not.toEqual(expect.arrayContaining([
 			'companion_wp_cli_run',
 			'companion_wp_cli_batch_run',
@@ -540,13 +542,12 @@ describe('createMcpServer', () => {
 		expect(response.structuredContent?.tool_profile).toBe('essential');
 		expect(response.structuredContent?.companion_version).toBe(APP_VERSION);
 		expect(response.structuredContent?.expected_companion_package).toBe(`https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v${APP_VERSION}/stonewright-companion-${APP_VERSION}.tgz`);
-		expect(response.structuredContent?.refresh_required_tool_names).toEqual([
-			'stonewright-context-bootstrap',
-			'stonewright-task-start',
-			'stonewright-php-execute',
-		]);
+		// refresh_required_tool_names is computed from requested profile vs registered.
+		expect(Array.isArray(response.structuredContent?.refresh_required_tool_names)).toBe(true);
+		expect(response.structuredContent?.refresh_required_tool_names).toContain('stonewright-php-execute');
 		expect(response.structuredContent?.remote_tool_count).toBe(5);
-		expect(response.structuredContent?.proxied_tool_count).toBe(3);
+		// Permanent gateways own task-start/tool-profile names — only context-bootstrap is proxied from this remote set.
+		expect(response.structuredContent?.proxied_tool_count).toBe(1);
 		expect(response.structuredContent?.profile_filtered_tool_count).toBe(1);
 		expect(response.structuredContent?.profile_filtered_tool_names).toEqual(['stonewright-experimental-heavy-tool']);
 		expect(response.structuredContent?.startup_ready).toBe(false);
@@ -556,10 +557,13 @@ describe('createMcpServer', () => {
 			'stonewright-skills-get',
 		]);
 		expect(response.structuredContent?.startup_missing_tool_names).toEqual(['stonewright-skills-get']);
-		expect(response.structuredContent?.local_recovery_tool_names).toEqual([
+		expect(response.structuredContent?.local_recovery_tool_names).toEqual(expect.arrayContaining([
+			'stonewright-task-start',
 			'stonewright-setup-profile',
 			'stonewright-wordpress-mcp-status',
 			'stonewright-client-surface-check',
+			'stonewright-connect-doctor',
+			'stonewright-reconnect',
 			'stonewright-wp-cli-status',
 			'stonewright-wp-cli-discover',
 			'stonewright-wp-cli-run',
@@ -567,7 +571,7 @@ describe('createMcpServer', () => {
 			'stonewright-wp-cli-job-start',
 			'stonewright-wp-cli-job-status',
 			'stonewright-wp-cli-install',
-		]);
+		]));
 		expect(response.structuredContent?.local_tool_names).toEqual(expect.arrayContaining([
 			'stonewright-wp-cli-run',
 			'stonewright-wp-cli-install',

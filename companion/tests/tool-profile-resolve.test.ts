@@ -59,8 +59,10 @@ describe('tool profile resolve + client cap', () => {
 		expect(proxyToolNamesForProfile('bootstrap').length).toBeLessThanOrEqual(12);
 	});
 
-	it('defaults fresh companion installs to bootstrap', () => {
-		expect(proxyToolProfileFromEnv({})).toBe('bootstrap');
+	it('defaults fresh companion installs to essential-static', () => {
+		expect(proxyToolProfileFromEnv({})).toBe('essential-static');
+		expect(coerceProxyToolProfile('essential-static')).toBe('essential-static');
+		expect(proxyToolNamesForProfile('essential-static')).toContain('stonewright-php-execute');
 	});
 
 	it('uses the saved plugin surface for normal clients and preserves strict overrides', () => {

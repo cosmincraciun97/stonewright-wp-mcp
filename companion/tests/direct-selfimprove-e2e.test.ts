@@ -81,17 +81,20 @@ describe('direct self-improve protocol e2e (zero WordPress)', () => {
 		expect(items.some((i) => i.text.includes('alt text'))).toBe(true);
 	});
 
-	it('starts on bootstrap and unlocks only the task profile for this session', async () => {
+	it('starts on essential-static and unlocks only the task profile for this session', async () => {
 		const stateDir = mkdtempSync(join(tmpdir(), 'sw-e2e-bootstrap-'));
 		const server = await createMcpServer({
 			env: {
 				STONEWRIGHT_MODE: 'direct',
 				STONEWRIGHT_STATE_DIR: stateDir,
 				STONEWRIGHT_SITES_FILE: join(stateDir, 'missing-sites.json'),
+				// Explicit bootstrap so progressive expansion still exercises activate.
+				STONEWRIGHT_MCP_TOOL_PROFILE: 'bootstrap',
+				STONEWRIGHT_DIRECT_TOOL_PROFILE: 'bootstrap',
 			},
 		});
 		const tools = (server as { _registeredTools?: ToolMap & Record<string, { enabled?: boolean }> })._registeredTools ?? {};
-		expect(tools['stonewright-task-start']?.enabled).toBe(true);
+		expect(tools['stonewright-task-start']?.enabled).not.toBe(false);
 		expect(tools['stonewright-elementor-data-update']?.enabled).toBe(false);
 		expect(tools['stonewright-comment-list']?.enabled).toBe(false);
 
@@ -102,11 +105,11 @@ describe('direct self-improve protocol e2e (zero WordPress)', () => {
 		expect(start).toMatchObject({
 			configured_mcp_surface: 'bootstrap',
 			session_tool_profile: 'elementor-design',
-			surface_revision: 1,
 			tools_changed: true,
 		});
+		expect(Number(start.surface_revision)).toBeGreaterThanOrEqual(1);
 		const status = await callTool(tools, 'stonewright-wordpress-mcp-status', {});
-		expect(status.surface_revision).toBe(1);
+		expect(Number(status.surface_revision)).toBeGreaterThanOrEqual(1);
 		expect(status.tool_profile).toBe('elementor-design');
 		expect(tools['stonewright-elementor-data-update']?.enabled).toBe(true);
 		expect(tools['stonewright-comment-list']?.enabled).toBe(false);

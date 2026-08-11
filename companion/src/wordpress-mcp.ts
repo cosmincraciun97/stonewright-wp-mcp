@@ -4,6 +4,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'n
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { z, type ZodTypeAny } from 'zod';
+import { PERMANENT_GATEWAY_TOOL_NAMES, isPermanentGatewayTool } from './connection/permanent-gateways.js';
 import { OAuthTokenManager, OAuthTokenStore } from './oauth-token-manager.js';
 import { runWpCli, type ExecFileRunner } from './wp-cli.js';
 import { APP_VERSION } from './version.js';
@@ -59,6 +60,8 @@ export interface WordPressMcpRegistrationResult {
 	/** Plugin MCP initialize.instructions captured during proxy handshake. */
 	remoteInstructions: string;
 	liveState: WordPressProxyLiveState;
+	/** Call a remote plugin tool (for permanent local gateways that proxy when connected). */
+	callRemoteTool: (name: string, args: Record<string, unknown>) => Promise<unknown>;
 }
 
 /**
@@ -105,6 +108,7 @@ function oauthTokenManagerFor(config: WordPressMcpOAuthConfig): OAuthTokenManage
 }
 
 const COMPANION_OWNED_TOOL_NAMES = new Set([
+	...PERMANENT_GATEWAY_TOOL_NAMES,
 	'stonewright-wp-cli-status',
 	'stonewright-wp-cli-discover',
 	'stonewright-wp-cli-run',
@@ -112,20 +116,27 @@ const COMPANION_OWNED_TOOL_NAMES = new Set([
 	'stonewright-wp-cli-job-start',
 	'stonewright-wp-cli-job-status',
 	'stonewright-wp-cli-install',
-	'stonewright-wordpress-mcp-status',
 ]);
 
 /** Gateway tools that must survive every refresh so the surface can recover. */
 export const NEVER_DISABLE_TOOL_NAMES = new Set([
-	'stonewright-task-start',
+	...PERMANENT_GATEWAY_TOOL_NAMES,
 	'stonewright-context-bootstrap',
 	'stonewright-workflow-preflight',
-	'stonewright-tool-profile',
 	'stonewright-php-execute',
-	'stonewright-wordpress-mcp-status',
 ]);
 
-export type ProxyToolProfile = 'full' | 'bootstrap' | 'low-tools' | 'essential' | 'elementor-design' | 'content-model' | 'gutenberg' | 'wp-cli' | 'site-admin';
+export type ProxyToolProfile =
+	| 'full'
+	| 'bootstrap'
+	| 'essential-static'
+	| 'low-tools'
+	| 'essential'
+	| 'elementor-design'
+	| 'content-model'
+	| 'gutenberg'
+	| 'wp-cli'
+	| 'site-admin';
 
 export const STARTUP_REQUIRED_PROXY_TOOL_NAMES = [
 	'stonewright-context-bootstrap',
@@ -162,6 +173,31 @@ const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, reado
 		'stonewright-content-get-page',
 		'stonewright-elementor-v3-get-page-structure',
 		'stonewright-elementor-schema',
+		'stonewright-theme-file-read',
+		'stonewright-ping',
+	],
+	/**
+	 * Default progressive surface: bounded useful startup catalog (essential base)
+	 * plus recovery gateways owned locally. Permanent gateway names may appear in
+	 * the list for inventory/refresh math but are never dual-registered from remote.
+	 */
+	'essential-static': [
+		...BASE_PROXY_TOOL_NAMES,
+		...BLUEPRINT_PROXY_TOOL_NAMES,
+		'stonewright-security-issue-confirmation-token',
+		'stonewright-elementor-schema',
+		'stonewright-content-bulk-upsert-posts',
+		'stonewright-design-native-plan',
+		'stonewright-design-section-manifest',
+		'stonewright-oauth-header-diagnostic',
+		'stonewright-elementor-v3-batch-mutate',
+		'stonewright-elementor-post-write-verify',
+		'stonewright-elementor-v3-build-page-from-spec',
+		'stonewright-media-upload-batch',
+		'stonewright-theme-builder-apply-template',
+		'stonewright-site-info',
+		'stonewright-content-get-page',
+		'stonewright-elementor-v3-get-page-structure',
 		'stonewright-theme-file-read',
 		'stonewright-ping',
 	],
@@ -728,7 +764,13 @@ export async function registerWordPressMcpTools(
 
 	const candidates: RemoteTool[] = [];
 	for (const tool of tools) {
-		if (!tool.name || tool.name.startsWith('companion_') || COMPANION_OWNED_TOOL_NAMES.has(tool.name)) {
+		// Local permanent gateways own canonical names — never dual-register remote.
+		if (
+			!tool.name
+			|| tool.name.startsWith('companion_')
+			|| COMPANION_OWNED_TOOL_NAMES.has(tool.name)
+			|| isPermanentGatewayTool(tool.name)
+		) {
 			continue;
 		}
 		if (allowedSet !== null && !allowedSet.has(tool.name)) {
@@ -777,6 +819,7 @@ export async function registerWordPressMcpTools(
 		Boolean(tool.name)
 		&& !tool.name.startsWith('companion_')
 		&& !COMPANION_OWNED_TOOL_NAMES.has(tool.name)
+		&& !isPermanentGatewayTool(tool.name)
 		&& keepSet.has(tool.name));
 
 	const registerOneProxyTool = (tool: RemoteTool): void => {
@@ -854,6 +897,7 @@ export async function registerWordPressMcpTools(
 		filteredToolCount: profileFilteredToolNames.length,
 		remoteInstructions: client.remoteInstructions,
 		liveState,
+		callRemoteTool: async (name, args) => client.callTool(name, args),
 	};
 }
 
@@ -873,7 +917,10 @@ export async function resolvePluginProxyToolNames(
 	surfaceRevision: number | null;
 }> {
 	try {
-		const queryProfile = profile === 'full' ? 'essential' : profile;
+		// Plugin may not know essential-static yet; resolve as essential catalog.
+		const queryProfile = profile === 'full' || profile === 'essential-static'
+			? 'essential'
+			: profile;
 		const raw = await client.callTool('stonewright-tool-profile', {
 			action: 'resolve',
 			profile: queryProfile,
@@ -926,7 +973,8 @@ function extractStructured(raw: unknown): Record<string, unknown> | null {
 
 /**
  * Normalize a free-form profile string (env, activate response, task-start) to a
- * canonical ProxyToolProfile. Unknown values fall back to essential.
+ * canonical ProxyToolProfile. Unknown / empty values fall back to essential-static.
+ * `full` is never selected implicitly from empty/auto/unknown.
  */
 export function coerceProxyToolProfile(raw: string | null | undefined): ProxyToolProfile {
 	const normalized = (raw ?? '')
@@ -939,22 +987,37 @@ export function coerceProxyToolProfile(raw: string | null | undefined): ProxyToo
 	if (normalized === 'bootstrap') {
 		return 'bootstrap';
 	}
-	if (normalized === '' || normalized === 'auto' || normalized === 'fast' || normalized === 'general' || normalized === 'compact') {
-		return 'essential';
+	if (normalized === 'essential-static' || normalized === 'static' || normalized === 'essential_static') {
+		return 'essential-static';
+	}
+	// Empty/auto/default → essential-static (install default). Explicit "essential"
+	// remains the dynamic essential profile used after task-start activation.
+	if (
+		normalized === ''
+		|| normalized === 'auto'
+		|| normalized === 'default'
+		|| normalized === 'fast'
+		|| normalized === 'general'
+		|| normalized === 'compact'
+		|| normalized === 'unknown'
+	) {
+		return 'essential-static';
 	}
 	if (normalized in FALLBACK_PROXY_TOOL_SETS) {
 		return normalized as Exclude<ProxyToolProfile, 'full'>;
 	}
 	if (normalized in PROXY_TOOL_PROFILE_ALIASES) {
-		return PROXY_TOOL_PROFILE_ALIASES[normalized] ?? 'essential';
+		return PROXY_TOOL_PROFILE_ALIASES[normalized] ?? 'essential-static';
 	}
-	return 'essential';
+	return 'essential-static';
 }
 
 /**
  * Normal clients follow the surface persisted in WordPress Setup. Specialist and
  * strict-cap profiles remain explicit client overrides. Set the lock env flag to
  * force any configured env profile instead of the site preference.
+ * `full` from the site is honored only when the env profile is a normal progressive
+ * surface — never when env is unset/implicit (caller already resolved env profile).
  */
 export function effectiveInitialProxyProfile(
 	envProfile: ProxyToolProfile,
@@ -964,7 +1027,8 @@ export function effectiveInitialProxyProfile(
 	if (!configuredSurface) return envProfile;
 	const locked = ['1', 'true', 'yes', 'on'].includes((env['STONEWRIGHT_MCP_TOOL_PROFILE_LOCK'] ?? '').trim().toLowerCase());
 	if (locked) return envProfile;
-	if (!['bootstrap', 'essential', 'full'].includes(envProfile)) return envProfile;
+	// Specialist / strict-cap env profiles stay explicit overrides.
+	if (!['bootstrap', 'essential', 'essential-static', 'full'].includes(envProfile)) return envProfile;
 	return configuredSurface;
 }
 
@@ -988,7 +1052,7 @@ export function surfaceRevisionFromStructured(
 
 export function proxyToolProfileFromEnv(env: NodeJS.ProcessEnv): ProxyToolProfile {
 	return coerceProxyToolProfile(
-		env['STONEWRIGHT_MCP_TOOL_PROFILE'] ?? env['STONEWRIGHT_MCP_PROXY_PROFILE'] ?? 'bootstrap',
+		env['STONEWRIGHT_MCP_TOOL_PROFILE'] ?? env['STONEWRIGHT_MCP_PROXY_PROFILE'] ?? 'essential-static',
 	);
 }
 
@@ -1181,7 +1245,11 @@ export async function handleToolsChangedResponse(options: {
 		}
 
 		for (const name of desiredSet) {
-			if (COMPANION_OWNED_TOOL_NAMES.has(name) || name.startsWith('companion_')) {
+			if (
+				COMPANION_OWNED_TOOL_NAMES.has(name)
+				|| isPermanentGatewayTool(name)
+				|| name.startsWith('companion_')
+			) {
 				continue;
 			}
 			const existing = registered.get(name);

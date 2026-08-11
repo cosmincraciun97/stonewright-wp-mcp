@@ -115,7 +115,7 @@ export function buildSetupProfile(
 	const oauthTokenStore = (env['STONEWRIGHT_OAUTH_TOKEN_STORE'] ?? '').trim();
 	const oauthTokenEndpoint = (env['STONEWRIGHT_OAUTH_TOKEN_ENDPOINT'] ?? '').trim();
 	const hasOAuth = oauthClientId !== '' && oauthTokenStore !== '';
-	const toolProfile = (env['STONEWRIGHT_MCP_TOOL_PROFILE'] ?? env['STONEWRIGHT_MCP_PROXY_PROFILE'] ?? 'bootstrap').trim() || 'bootstrap';
+	const toolProfile = (env['STONEWRIGHT_MCP_TOOL_PROFILE'] ?? env['STONEWRIGHT_MCP_PROXY_PROFILE'] ?? 'essential-static').trim() || 'essential-static';
 	const local = siteUrl !== '' && isLocalUrl(siteUrl);
 	const canAutoCredentials = local && wpRoot !== '';
 	const mode = modeOptions.mode
@@ -237,7 +237,7 @@ export function buildSetupProfile(
 			'Verify the MCP tool list includes stonewright-task-start before starting WordPress work; stonewright-context-bootstrap is a plugin compatibility path.',
 			'Use stonewright-wordpress-mcp-status if proxied WordPress tools are missing; setup and WP-CLI tools remain available while fixing the connection.',
 			'After every Stonewright release or skill sync, restart the MCP client and re-run stonewright-setup-profile plus stonewright-wordpress-mcp-status; if refresh_required_tool_names are missing, the client is still using an old tool list.',
-			'STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap is the default progressive surface; stonewright-task-start unlocks the task profile for the current session.',
+			'STONEWRIGHT_MCP_TOOL_PROFILE=essential-static is the default install surface (bounded useful catalog + permanent recovery gateways). full is never selected implicitly. Known dynamic clients may still set bootstrap then activate essential without process restart.',
 			mode === 'direct'
 				? 'Use STONEWRIGHT_MCP_TOOL_PROFILE=low-tools for strict tool-cap clients; task-start plus Direct batch and background-job tools stay visible without php-execute.'
 				: 'Use STONEWRIGHT_MCP_TOOL_PROFILE=low-tools for strict tool-cap clients; php-execute plus companion WP-CLI batch and background-job tools stay visible.',
@@ -293,26 +293,37 @@ export function buildToolInventory(
 	runtimeMode: 'plugin' | 'direct' = 'plugin',
 ): ToolInventory {
 	const proxiedProfileToolNames = runtimeMode === 'plugin' ? proxyToolNamesForProfile(profile) : [];
-	const clientVisibleExpectedToolCount = new Set([...proxiedProfileToolNames, ...localToolNames]).size;
+	const registeredLike = [...new Set([...proxiedProfileToolNames, ...localToolNames])];
+	const clientVisibleExpectedToolCount = registeredLike.length;
 	const firstCallToolNames = runtimeMode === 'direct'
 		? ['stonewright-task-start']
 		: ['stonewright-task-start', 'stonewright-context-bootstrap'];
-	const refreshRequiredToolNames = runtimeMode === 'direct'
-		? ['stonewright-task-start', 'stonewright-rules-get', 'stonewright-site-discover']
-		: ['stonewright-task-start', 'stonewright-context-bootstrap', 'stonewright-php-execute'];
+	// refresh_required_tool_names is computed from requested profile vs registered — not a static list alone.
+	const requestedRefreshBase = runtimeMode === 'direct'
+		? ['stonewright-task-start', 'stonewright-rules-get', 'stonewright-site-discover', ...localToolNames.filter((n) => n.startsWith('stonewright-'))]
+		: [
+			'stonewright-task-start',
+			'stonewright-context-bootstrap',
+			'stonewright-php-execute',
+			...proxiedProfileToolNames.slice(0, 12),
+		];
+	const refreshRequiredToolNames = requestedRefreshBase.filter(
+		(name, index, arr) => arr.indexOf(name) === index && !registeredLike.includes(name),
+	);
 
 	return {
 		profile,
 		runtime_mode: runtimeMode,
 		startup_budget: {
-			strict_client_tool_cap: profile === 'low-tools' ? 12 : 20,
+			strict_client_tool_cap: profile === 'low-tools' ? 12 : 40,
 			client_visible_expected_tool_count: clientVisibleExpectedToolCount,
-			under_low_tools_cap: clientVisibleExpectedToolCount <= (profile === 'low-tools' ? 12 : 20),
+			under_low_tools_cap: clientVisibleExpectedToolCount <= (profile === 'low-tools' ? 12 : 40),
 		},
 		first_call_tool_names: firstCallToolNames,
 		diagnostic_tool_names: localToolNames.filter((name) => [
 			'stonewright-setup-profile',
 			'stonewright-wordpress-mcp-status',
+			'stonewright-connect-doctor',
 			'stonewright-wp-cli-status',
 			'stonewright-wp-cli-discover',
 		].includes(name)),
@@ -376,16 +387,30 @@ function toolVisibilityChecks(env: NodeJS.ProcessEnv): string[] {
 	const profile = proxyToolProfileFromEnv(env);
 	const localTools = profile === 'low-tools'
 		? [
+			'stonewright-task-start',
+			'stonewright-connect-doctor',
 			'stonewright-setup-profile',
 			'stonewright-wordpress-mcp-status',
+			'stonewright-mode-capabilities',
+			'stonewright-tool-profile',
+			'stonewright-client-surface-check',
+			'stonewright-reconnect',
+			'stonewright-ping',
 			'stonewright-wp-cli-status',
 			'stonewright-wp-cli-batch-run',
 			'stonewright-wp-cli-job-start',
 			'stonewright-wp-cli-job-status',
 		]
 		: [
+			'stonewright-task-start',
+			'stonewright-connect-doctor',
 			'stonewright-setup-profile',
 			'stonewright-wordpress-mcp-status',
+			'stonewright-mode-capabilities',
+			'stonewright-tool-profile',
+			'stonewright-client-surface-check',
+			'stonewright-reconnect',
+			'stonewright-ping',
 			'stonewright-wp-cli-status',
 			'stonewright-wp-cli-discover',
 			'stonewright-wp-cli-run',

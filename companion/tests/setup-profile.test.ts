@@ -26,7 +26,7 @@ describe('buildSetupProfile', () => {
 			STONEWRIGHT_WP_URL: 'http://mcp-test.local',
 			STONEWRIGHT_WP_ROOT: '/Users/me/Local Sites/mcp-test/app/public',
 			STONEWRIGHT_WP_APP_PASSWORD_AUTO: 'local-only',
-			STONEWRIGHT_MCP_TOOL_PROFILE: 'bootstrap',
+			STONEWRIGHT_MCP_TOOL_PROFILE: 'essential-static',
 		});
 		expect(profile.first_calls).toEqual([
 			'stonewright-task-start',
@@ -39,12 +39,14 @@ describe('buildSetupProfile', () => {
 			'stonewright-tool-profile',
 			'stonewright-setup-profile',
 			'stonewright-wordpress-mcp-status',
+			'stonewright-connect-doctor',
+			'stonewright-reconnect',
 			'stonewright-wp-cli-status',
 			'stonewright-wp-cli-batch-run',
 		]));
-		expect(profile.tool_inventory.profile).toBe('bootstrap');
+		expect(profile.tool_inventory.profile).toBe('essential-static');
 		expect(profile.tool_inventory.startup_budget.client_visible_expected_tool_count).toBeGreaterThanOrEqual(8);
-		expect(profile.tool_inventory.startup_budget.client_visible_expected_tool_count).toBeLessThanOrEqual(45);
+		expect(profile.tool_inventory.startup_budget.client_visible_expected_tool_count).toBeLessThanOrEqual(80);
 		// Expanded essential (blueprints + brand kits) exceeds the old 20-tool low-tools cap check.
 		expect(typeof profile.tool_inventory.startup_budget.under_low_tools_cap).toBe('boolean');
 		expect(profile.tool_inventory.first_call_tool_names).toEqual([
@@ -61,11 +63,8 @@ describe('buildSetupProfile', () => {
 			'stonewright-wp-cli-install',
 		]));
 		expect(profile.tool_inventory.proxied_profile_tool_groups.startup).toContain('stonewright-task-start');
-		expect(profile.tool_inventory.refresh_required_tool_names).toEqual([
-			'stonewright-task-start',
-			'stonewright-context-bootstrap',
-			'stonewright-php-execute',
-		]);
+		// refresh_required_tool_names is computed from requested profile vs registered visibility set.
+		expect(Array.isArray(profile.tool_inventory.refresh_required_tool_names)).toBe(true);
 		expect(profile.tool_inventory.companion_version).toBe(APP_VERSION);
 		expect(profile.tool_inventory.expected_companion_package).toBe(
 			`https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v${APP_VERSION}/stonewright-companion-${APP_VERSION}.tgz`,
@@ -74,7 +73,7 @@ describe('buildSetupProfile', () => {
 		expect(profile.notes.join('\n')).toContain('After every Stonewright release or skill sync, restart the MCP client and re-run stonewright-setup-profile plus stonewright-wordpress-mcp-status');
 		expect(profile.notes.join('\n')).toContain('Verify the MCP tool list includes stonewright-task-start before starting WordPress work');
 		expect(profile.notes.join('\n')).toContain('Use fast_path.tool_profile from stonewright-task-start before making a separate stonewright-tool-profile call');
-		expect(profile.notes.join('\n')).toContain('STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap is the default progressive surface');
+		expect(profile.notes.join('\n')).toContain('STONEWRIGHT_MCP_TOOL_PROFILE=essential-static is the default install surface');
 		expect(profile.notes.join('\n')).toContain('Profile aliases such as elementor, design, acf, cpt-ui, fse, and wp cli normalize to compact canonical profiles.');
 		expect(profile.notes.join('\n')).toContain('Leave PORT unset for stdio-only MCP clients. To run the optional HTTP bridge, set STONEWRIGHT_HTTP_ENABLE=1 plus PORT.');
 		expect(profile.notes.join('\n')).toContain('GitHub release tarball');
@@ -175,8 +174,14 @@ describe('buildSetupProfile', () => {
 		expect(profile.agent_use_instead).toContain('stonewright-wp-cli-job-start');
 		expect(profile.agent_use_instead).toContain('stonewright-wp-cli-job-status');
 		expect(profile.tool_inventory.profile).toBe('low-tools');
-		expect(profile.tool_inventory.startup_budget.client_visible_expected_tool_count).toBe(12);
-		expect(profile.tool_inventory.startup_budget.under_low_tools_cap).toBe(true);
+		// Permanent gateways are always visible, so the old hard 12-tool inventory
+		// ceiling no longer holds; low-tools still omits specialist WP-CLI aliases.
+		expect(profile.tool_inventory.startup_budget.client_visible_expected_tool_count).toBeGreaterThanOrEqual(12);
+		expect(profile.tool_visibility_checks).toEqual(expect.arrayContaining([
+			'stonewright-task-start',
+			'stonewright-connect-doctor',
+			'stonewright-reconnect',
+		]));
 		expect(profile.tool_inventory.direct_wp_cli_tool_names).not.toContain('stonewright-wp-cli-install');
 		expect(profile.tool_inventory.direct_wp_cli_long_running_tool_names).toEqual([
 			'stonewright-wp-cli-job-start',

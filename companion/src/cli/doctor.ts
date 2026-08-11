@@ -413,11 +413,11 @@ export async function runDoctor(argv: string[] = []): Promise<number> {
 		writeOut('  2. Re-list tools (honor tools/list_changed or re_list_instruction)');
 		writeOut('  3. If still missing: restart MCP client');
 		writeOut('  4. Never call /wp-json/stonewright/v1/abilities/run as a workaround');
-		const envProfile = (process.env.STONEWRIGHT_MCP_TOOL_PROFILE ?? process.env.STONEWRIGHT_MCP_PROXY_PROFILE ?? 'bootstrap').trim();
+		const envProfile = (process.env.STONEWRIGHT_MCP_TOOL_PROFILE ?? process.env.STONEWRIGHT_MCP_PROXY_PROFILE ?? 'essential-static').trim();
 		const lock = (process.env.STONEWRIGHT_MCP_TOOL_PROFILE_LOCK ?? '').trim();
 		const siteAlias = (process.env.STONEWRIGHT_SITE_ALIAS ?? '').trim();
 		const url = (process.env.STONEWRIGHT_WP_URL ?? process.env.STONEWRIGHT_MCP_URL ?? '').trim();
-		writeOut(`env STONEWRIGHT_MCP_TOOL_PROFILE=${envProfile || '(unset → bootstrap)'}`);
+		writeOut(`env STONEWRIGHT_MCP_TOOL_PROFILE=${envProfile || '(unset → essential-static)'}`);
 		writeOut(`env STONEWRIGHT_MCP_TOOL_PROFILE_LOCK=${lock || '(unset)'}`);
 		writeOut(`env STONEWRIGHT_SITE_ALIAS=${siteAlias || '(unset)'}`);
 		writeOut(`env write target URL=${url || '(unset)'}`);

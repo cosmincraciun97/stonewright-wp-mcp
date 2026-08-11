@@ -1,9 +1,12 @@
 export type StonewrightRuntimeMode = 'auto' | 'direct' | 'plugin';
 export type ResolvedRuntimeMode = 'direct' | 'plugin';
+/** Configured mode policy surface (env mapping). */
+export type ConfiguredRuntimeMode = 'direct-only' | 'plugin-only' | 'auto';
 
 export interface ProbeResult {
 	mode: ResolvedRuntimeMode;
 	requested: StonewrightRuntimeMode;
+	configured: ConfiguredRuntimeMode;
 	endpoint: string | null;
 	pluginEndpointStatus: number | null;
 	reason: string;
@@ -11,9 +14,23 @@ export interface ProbeResult {
 
 export function resolveRequestedMode(env: NodeJS.ProcessEnv = process.env): StonewrightRuntimeMode {
 	const raw = (env['STONEWRIGHT_MODE'] ?? 'auto').trim().toLowerCase();
-	if (raw === 'direct' || raw === 'plugin' || raw === 'auto') {
-		return raw;
+	if (raw === 'direct' || raw === 'direct-only') {
+		return 'direct';
 	}
+	if (raw === 'plugin' || raw === 'plugin-only') {
+		return 'plugin';
+	}
+	if (raw === 'auto') {
+		return 'auto';
+	}
+	return 'auto';
+}
+
+/** Map env STONEWRIGHT_MODE to configured policy modes. */
+export function resolveConfiguredMode(env: NodeJS.ProcessEnv = process.env): ConfiguredRuntimeMode {
+	const requested = resolveRequestedMode(env);
+	if (requested === 'direct') return 'direct-only';
+	if (requested === 'plugin') return 'plugin-only';
 	return 'auto';
 }
 
@@ -115,34 +132,40 @@ export async function resolveRuntimeMode(args: {
 }): Promise<ProbeResult> {
 	const env = args.env ?? process.env;
 	const requested = resolveRequestedMode(env);
+	const configured = resolveConfiguredMode(env);
 	const siteBase = siteBaseFromEnv(env);
 	const endpoint = siteBase ? pluginMcpEndpoint(siteBase) : null;
 
+	// direct-only: never probe/switch to plugin.
 	if (requested === 'direct') {
 		return {
 			mode: 'direct',
 			requested,
+			configured,
 			endpoint,
 			pluginEndpointStatus: null,
-			reason: 'STONEWRIGHT_MODE=direct',
+			reason: 'STONEWRIGHT_MODE=direct (direct-only); plugin path not probed.',
 		};
 	}
 
+	// plugin-only: prefer plugin path; caller fails closed (no Direct tools) if unavailable.
 	if (requested === 'plugin') {
 		return {
 			mode: 'plugin',
 			requested,
+			configured,
 			endpoint,
 			pluginEndpointStatus: null,
-			reason: 'STONEWRIGHT_MODE=plugin',
+			reason: 'STONEWRIGHT_MODE=plugin (plugin-only); Direct tools will not be registered as fallback.',
 		};
 	}
 
-	// auto
+	// auto: prefer healthy plugin; fall back Direct when endpoint is explicitly absent.
 	if (!endpoint) {
 		return {
 			mode: 'plugin',
 			requested,
+			configured,
 			endpoint: null,
 			pluginEndpointStatus: null,
 			reason: 'No site URL configured; plugin proxy path remains available for local recovery tools.',
@@ -154,9 +177,10 @@ export async function resolveRuntimeMode(args: {
 		return {
 			mode: 'direct',
 			requested,
+			configured,
 			endpoint,
 			pluginEndpointStatus: probe.status,
-			reason: 'Plugin MCP endpoint returned 404; registering Direct REST tools.',
+			reason: 'Plugin MCP endpoint returned 404; registering Direct REST tools (auto fallback).',
 		};
 	}
 
@@ -164,6 +188,7 @@ export async function resolveRuntimeMode(args: {
 		return {
 			mode: 'plugin',
 			requested,
+			configured,
 			endpoint,
 			pluginEndpointStatus: probe.status,
 			reason: `Plugin MCP endpoint responded with HTTP ${probe.status ?? 'ok'}.`,
@@ -173,6 +198,7 @@ export async function resolveRuntimeMode(args: {
 	return {
 		mode: 'plugin',
 		requested,
+		configured,
 		endpoint,
 		pluginEndpointStatus: probe.status,
 		reason: 'Plugin MCP endpoint probe inconclusive; using plugin proxy path.',
