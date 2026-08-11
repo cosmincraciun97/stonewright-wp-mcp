@@ -17,6 +17,7 @@ final class AuditLogPageTest extends TestCase {
 		$this->original_wpdb = $GLOBALS['wpdb'] ?? null;
 		$GLOBALS['stonewright_test_user_caps'] = [ 'manage_options' => true ];
 		$GLOBALS['stonewright_test_options']   = [];
+		$GLOBALS['stonewright_test_missing_user_ids'] = [ 99 ];
 		$_GET = [];
 	}
 
@@ -28,6 +29,7 @@ final class AuditLogPageTest extends TestCase {
 		}
 		$GLOBALS['stonewright_test_user_caps'] = [];
 		$GLOBALS['stonewright_test_options']   = [];
+		$GLOBALS['stonewright_test_missing_user_ids'] = [];
 		$_GET = [];
 	}
 
@@ -67,12 +69,21 @@ final class AuditLogPageTest extends TestCase {
 						'created_at'     => '2026-07-14 09:00:00',
 					],
 					[
-						'id'             => '10',
-						'ability_name'   => 'oauth/token',
-						'user_id'        => '0',
-						'result_status'  => 'auth',
-						'sanitized_args' => '{"client_id":"client-abc","http_status":400}',
-						'created_at'     => '2026-07-13 08:00:00',
+						'id'               => '10',
+						'ability_name'     => 'oauth/token',
+						'user_id'          => '0',
+						'result_status'    => 'auth',
+						'sanitized_args'   => '{"client_id":"client-abc","http_status":400}',
+						'redacted_details' => '{"http_status":400}',
+						'created_at'       => '2026-07-13 08:00:00',
+					],
+					[
+						'id'             => '9',
+						'ability_name'   => 'stonewright/test',
+						'user_id'        => '99',
+						'result_status'  => 'ok',
+						'sanitized_args' => '{}',
+						'created_at'     => '2026-07-12 08:00:00',
 					],
 				];
 			}
@@ -106,6 +117,7 @@ final class AuditLogPageTest extends TestCase {
 		self::assertStringContainsString( '<details', $html );
 		self::assertStringContainsString( 'post_id', $html );
 		self::assertStringContainsString( 'OAuth: Desktop client', $html );
+		self::assertStringContainsString( 'Deleted user', $html );
 		self::assertStringNotContainsString( '(unknown)', $html );
 		self::assertStringContainsString( 'method="get"', $html );
 	}

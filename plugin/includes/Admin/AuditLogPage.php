@@ -420,6 +420,8 @@ final class AuditLogPage {
 				$user_html = esc_html( sprintf( /* translators: %s: OAuth client name */ __( 'OAuth: %s', 'stonewright' ), $oauth_client_names[ $client_id ] ) );
 			} elseif ( '' !== $client_id ) {
 				$user_html = '<em>' . esc_html__( 'OAuth client', 'stonewright' ) . '</em>';
+			} elseif ( (int) ( $row['user_id'] ?? 0 ) > 0 ) {
+				$user_html = '<em>' . esc_html__( 'Deleted user', 'stonewright' ) . '</em>';
 			} else {
 				$user_html = '<em>' . esc_html__( 'System', 'stonewright' ) . '</em>';
 			}
@@ -524,16 +526,14 @@ final class AuditLogPage {
 		if ( ! str_starts_with( (string) ( $row['ability_name'] ?? '' ), 'oauth/' ) ) {
 			return '';
 		}
-		$raw = (string) ( $row['redacted_details'] ?? '' );
-		if ( '' === $raw ) {
-			$raw = (string) ( $row['sanitized_args'] ?? '' );
-		}
-		$details = json_decode( $raw, true );
-		if ( ! is_array( $details ) || ! isset( $details['client_id'] ) || ! is_scalar( $details['client_id'] ) ) {
-			return '';
+		foreach ( [ 'redacted_details', 'sanitized_args' ] as $payload_key ) {
+			$details = json_decode( (string) ( $row[ $payload_key ] ?? '' ), true );
+			if ( is_array( $details ) && isset( $details['client_id'] ) && is_scalar( $details['client_id'] ) ) {
+				return mb_substr( sanitize_text_field( (string) $details['client_id'] ), 0, AuditLog::AUTH_DIAGNOSTIC_MAX_LENGTH );
+			}
 		}
 
-		return mb_substr( sanitize_text_field( (string) $details['client_id'] ), 0, AuditLog::AUTH_DIAGNOSTIC_MAX_LENGTH );
+		return '';
 	}
 
 	/** @param array<string, mixed> $filters @return array<string, int> */
