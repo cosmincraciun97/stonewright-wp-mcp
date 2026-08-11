@@ -3,7 +3,7 @@
  * Tool handlers are covered by the runner tests.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { APP_VERSION } from '../src/version.js';
 import { createMcpServer } from '../src/mcp-server.js';
 import { proxyToolNamesForProfile } from '../src/wordpress-mcp.js';
@@ -631,6 +631,194 @@ describe('createMcpServer', () => {
 
 		expect(response.structuredContent?.surface_revision).toBe(9);
 		expect(response.structuredContent?.live_tool_profile).toBe('bootstrap');
+	});
+
+	it('refreshes callable proxy tools when the permanent task-start gateway changes profile', async () => {
+		let taskStarted = false;
+		const allTools = [
+			'stonewright-task-start',
+			'stonewright-tool-profile',
+			'stonewright-context-bootstrap',
+			'stonewright-skills-get',
+			'stonewright-php-execute',
+			'stonewright-late-profile-tool',
+		];
+		const fetchImpl: typeof fetch = async (url, init) => {
+			await Promise.resolve();
+			if (String(url).includes('/wp-json/stonewright/v1/skills')) {
+				return new Response(JSON.stringify({ skills: [] }), { headers: { 'content-type': 'application/json' } });
+			}
+			const body = JSON.parse(String(init?.body ?? '{}')) as {
+				method?: string;
+				params?: { name?: string };
+			};
+			if (body.method === 'initialize') {
+				return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: { protocolVersion: '2025-06-18' } }), {
+					headers: { 'mcp-session-id': 'session-profile', 'content-type': 'application/json' },
+				});
+			}
+			if (body.method === 'notifications/initialized') return new Response('', { status: 202 });
+			if (body.method === 'tools/list') {
+				return new Response(JSON.stringify({
+					jsonrpc: '2.0',
+					id: 2,
+					result: {
+						tools: allTools.map((name) => ({
+							name,
+							description: `Remote ${name}`,
+							inputSchema: { type: 'object', properties: {} },
+						})),
+					},
+				}), { headers: { 'content-type': 'application/json' } });
+			}
+			if (body.method === 'tools/call') {
+				const name = body.params?.name;
+				let structuredContent: Record<string, unknown> = { ok: true };
+				if (name === 'stonewright-task-start') {
+					taskStarted = true;
+					structuredContent = {
+						ok: true,
+						tools_changed: true,
+						session_tool_profile: 'essential',
+						surface_revision: 2,
+						recommended_mcp_tools: ['stonewright-late-profile-tool'],
+					};
+				} else if (name === 'stonewright-tool-profile') {
+					structuredContent = {
+						ok: true,
+						tools: taskStarted ? allTools : allTools.filter((tool) => tool !== 'stonewright-late-profile-tool'),
+						mcp_surface: taskStarted ? 'essential' : 'bootstrap',
+						surface_revision: taskStarted ? 2 : 1,
+					};
+				}
+				return new Response(JSON.stringify({
+					jsonrpc: '2.0',
+					id: 3,
+					result: {
+						structuredContent,
+						content: [{ type: 'text', text: JSON.stringify(structuredContent) }],
+					},
+				}), { headers: { 'content-type': 'application/json' } });
+			}
+			return new Response(JSON.stringify({ jsonrpc: '2.0', id: 4, result: {} }), {
+				headers: { 'content-type': 'application/json' },
+			});
+		};
+
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+				STONEWRIGHT_MCP_TOOL_PROFILE: 'bootstrap',
+			},
+			fetchImpl,
+		});
+		const tools = (server as { _registeredTools?: Record<string, { enabled?: boolean; handler?: (input: unknown) => Promise<unknown> }> })._registeredTools ?? {};
+		expect(tools['stonewright-late-profile-tool']).toBeUndefined();
+		const notify = vi.fn(() => Promise.resolve());
+		(server as unknown as { server: { sendToolListChanged: () => Promise<void> } }).server.sendToolListChanged = notify;
+
+		await tools['stonewright-task-start']?.handler?.({ task: 'expand profile' });
+
+		const refreshedTools = (server as { _registeredTools?: Record<string, { enabled?: boolean }> })._registeredTools ?? {};
+		expect(refreshedTools['stonewright-late-profile-tool']?.enabled).toBe(true);
+		expect(notify).toHaveBeenCalled();
+	});
+
+	it('reconnects a healthy plugin catalog without duplicate tool or prompt registration', async () => {
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+			},
+			fetchImpl: stonewrightMcpFetch([
+				{ name: 'stonewright-context-bootstrap' },
+				{ name: 'stonewright-skills-get' },
+				{ name: 'stonewright-php-execute' },
+			]),
+		});
+		const tools = (server as { _registeredTools?: Record<string, { handler?: (input: unknown) => Promise<unknown> }> })._registeredTools ?? {};
+		const toolListChanged = vi.fn(() => Promise.resolve());
+		const promptListChanged = vi.fn(() => Promise.resolve());
+		const protocol = (server as unknown as {
+			server: {
+				sendToolListChanged: () => Promise<void>;
+				sendPromptListChanged: () => Promise<void>;
+			};
+		}).server;
+		protocol.sendToolListChanged = toolListChanged;
+		protocol.sendPromptListChanged = promptListChanged;
+		const result = await tools['stonewright-reconnect']?.handler?.({ reason: 'refresh credentials' }) as {
+			structuredContent?: { ok?: boolean; error?: string | null };
+		};
+
+		expect(result.structuredContent?.ok).toBe(true);
+		expect(result.structuredContent?.error).toBeNull();
+		expect(registeredToolNames(server).filter((name) => name === 'stonewright-context-bootstrap')).toHaveLength(1);
+		expect(registeredPromptNames(server).filter((name) => name === 'stonewright-skill-figma-quality-rules')).toHaveLength(1);
+		expect(toolListChanged).toHaveBeenCalledOnce();
+		expect(promptListChanged).toHaveBeenCalledOnce();
+	});
+
+	it('clears stale Plugin live state when auto reconnect commits Direct mode', async () => {
+		const pluginFetch = stonewrightMcpFetch([
+			{ name: 'stonewright-context-bootstrap' },
+			{ name: 'stonewright-skills-get' },
+			{ name: 'stonewright-php-execute' },
+		]);
+		let endpointProbeCount = 0;
+		const fetchImpl: typeof fetch = async (url, init) => {
+			if (
+				String(url).endsWith('/wp-json/mcp/stonewright')
+				&& (init?.method === 'HEAD' || init?.method === 'GET')
+			) {
+				endpointProbeCount += 1;
+				if (endpointProbeCount > 1) return new Response('', { status: 404 });
+			}
+			return pluginFetch(url, init);
+		};
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_WP_URL: 'https://example.com',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+			},
+			fetchImpl,
+		});
+		const tools = (server as { _registeredTools?: Record<string, { handler?: (input: unknown) => Promise<unknown> }> })._registeredTools ?? {};
+		const pluginStatus = await tools['stonewright-wordpress-mcp-status']?.handler?.({}) as {
+			structuredContent?: { mode?: string; live?: unknown; proxied_tool_count?: number };
+		};
+		expect(pluginStatus.structuredContent?.mode).toBe('plugin');
+		expect(pluginStatus.structuredContent?.live).not.toBeNull();
+		expect(pluginStatus.structuredContent?.proxied_tool_count).toBeGreaterThan(0);
+
+		const reconnect = await tools['stonewright-reconnect']?.handler?.({ reason: 'plugin endpoint removed', force_probe: true }) as {
+			structuredContent?: { ok?: boolean };
+		};
+		expect(reconnect.structuredContent?.ok).toBe(true);
+
+		const directStatus = await tools['stonewright-wordpress-mcp-status']?.handler?.({}) as {
+			structuredContent?: {
+				mode?: string;
+				live?: unknown;
+				proxied_tool_count?: number;
+				profile_filtered_tool_count?: number;
+				profile_filtered_tool_names?: string[];
+				prompt_skill_count?: number;
+			};
+		};
+		expect(directStatus.structuredContent).toMatchObject({
+			mode: 'direct',
+			live: null,
+			proxied_tool_count: 0,
+			profile_filtered_tool_count: 0,
+			profile_filtered_tool_names: [],
+			prompt_skill_count: 0,
+		});
+		expect((server as { _registeredTools?: Record<string, { enabled?: boolean }> })._registeredTools?.['stonewright-php-execute']?.enabled).toBe(false);
 	});
 
 	it('reports startup ready when compact first-call tools are proxied', async () => {

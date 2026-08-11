@@ -180,13 +180,15 @@ Both setup and status responses include `tool_inventory`, a compact grouped map
 of first-call, diagnostic, direct WP-CLI, long-running WP-CLI, and proxied
 profile tools. Use it before broad tool discovery in token-sensitive sessions.
 
-For new stdio sessions, the companion defaults to
-`STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap`. Bootstrap already exposes a minimal
-runtime set (`php-execute`, confirmation token, site/content reads, theme-file-read).
-`stonewright-task-start` then enables the compact task profile for that session
-in plugin or Direct/pluginless mode and always sets `tools_changed` +
-`re_list_instruction` when leaving bootstrap or when the admin surface is
-already essential/full so stuck clients re-list. In Direct mode it also stamps
+For new stdio sessions, an unknown client defaults to
+`STONEWRIGHT_MCP_TOOL_PROFILE=essential-static`; generated known-client configs
+normally use `essential`. Both provide useful bounded startup tools without
+depending on live relisting. Bootstrap remains available as an explicit
+transport/profile diagnostic. When a profile does change,
+`stonewright-task-start` sets `tools_changed` + `re_list_instruction`, updates
+or enables the corresponding callable handles before it emits
+`notifications/tools/list_changed`, and reconnect reuses those handles rather
+than registering duplicate tool or prompt names. In Direct mode task-start also stamps
 a per-site write latch (30-minute TTL); write tools re-require task-start after
 expiry or when targeting a different site. Use companion tool
 `stonewright-client-surface-check` (or `stonewright doctor --client-surface`)

@@ -31,6 +31,7 @@ use Stonewright\WpMcp\Sandbox\CrashRecovery;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Security\DomainLock;
+use Stonewright\WpMcp\Security\PluginEffectiveState;
 use Stonewright\WpMcp\Security\OneTimeLink;
 use Stonewright\WpMcp\Security\StaticAnalysis;
 use Stonewright\WpMcp\Support\Logger;
@@ -163,7 +164,8 @@ final class PluginRegistration {
 		ExpertiseTable::force_create_tables();
 		SkillsSeeder::seed();
 		// Record domain on first activation so subsequent boots can detect clones.
-		if ( (bool) get_option( 'stonewright_enabled', false ) ) {
+		// Uses operator intent only — never writes enablement as a side effect.
+		if ( PluginEffectiveState::enabled_requested() ) {
 			DomainLock::lock();
 		}
 		$is_first_activate = ! get_option( 'stonewright_version' );
@@ -177,39 +179,70 @@ final class PluginRegistration {
 			};
 			update_option( 'stonewright_mode', $initial_mode );
 		}
-		// New installs only: bootstrap progressive-discovery surface.
+		// New installs start on the useful bounded surface. Bootstrap remains an
+		// explicit transport/profile diagnostic, never a permanent install default.
 		// Upgrades leave stonewright_mcp_surface unset so mcp_surface() keeps mapping
 		// from the existing stonewright_essential_tools_mode choice.
 		if ( $is_first_activate ) {
-			update_option( 'stonewright_mcp_surface', 'bootstrap', false );
+			update_option( 'stonewright_mcp_surface', 'essential', false );
 			update_option( 'stonewright_essential_tools_mode', true, false );
 		}
 		Logger::info( 'activate', [ 'version' => STONEWRIGHT_VERSION ] );
 	}
 
 	/**
-	 * On every boot: if abilities are enabled, record the domain (first time)
-	 * and verify it still matches. Auto-disables on mismatch.
+	 * On every boot: if the operator requested enablement, record the domain
+	 * (first time) and verify it still matches.
+	 *
+	 * On mismatch: NEVER rewrite operator intent (`stonewright_enabled`).
+	 * Block effective runtime via PluginEffectiveState, record a redacted
+	 * mismatch fingerprint, and show a persistent admin notice with rebind.
 	 */
 	public function check_domain_lock(): void {
-		if ( ! (bool) get_option( 'stonewright_enabled', false ) ) {
+		if ( ! PluginEffectiveState::enabled_requested() ) {
 			return;
 		}
 		DomainLock::lock();
-		if ( ! DomainLock::check() ) {
-			update_option( 'stonewright_enabled', false );
-			add_action(
-				'admin_notices',
-				static function (): void {
-					echo '<div class="notice notice-error"><p><strong>Stonewright:</strong> ' .
-						esc_html__(
-							'AI abilities have been automatically disabled because the site domain has changed. This is a security measure to prevent unauthorized access after a site migration or clone. Re-enable from the Configuration page after verifying the new domain.',
-							'stonewright'
-						) .
-						'</p></div>';
-				}
-			);
+		if ( DomainLock::check() ) {
+			// Live origin matches — clear any stale mismatch record.
+			if ( null !== DomainLock::mismatch() ) {
+				DomainLock::clear_mismatch();
+			}
+			return;
 		}
+
+		DomainLock::record_mismatch();
+		add_action( 'admin_notices', [ self::class, 'domain_mismatch_admin_notice' ] );
+	}
+
+	/**
+	 * Persistent admin notice when domain lock blocks effective enablement.
+	 */
+	public static function domain_mismatch_admin_notice(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		if ( DomainLock::check() ) {
+			return;
+		}
+
+		$mismatch = DomainLock::mismatch();
+		$locked   = is_array( $mismatch ) ? (string) ( $mismatch['locked_redacted'] ?? '' ) : DomainLock::redact_origin( DomainLock::locked_domain() );
+		$current  = is_array( $mismatch ) ? (string) ( $mismatch['current_redacted'] ?? '' ) : DomainLock::redact_origin( DomainLock::current_origin() );
+		$review   = admin_url( 'admin.php?page=' . ConfigurationPage::SLUG . '#stonewright-domain-lock' );
+
+		echo '<div class="notice notice-error"><p><strong>Stonewright:</strong> ';
+		echo esc_html__(
+			'AI abilities are BLOCKED because the site domain no longer matches the locked origin. Operator enablement was left unchanged. Review and rebind this site after confirming the new domain is intentional.',
+			'stonewright'
+		);
+		echo '</p>';
+		if ( '' !== $locked || '' !== $current ) {
+			echo '<p><code>' . esc_html( $locked ) . '</code> → <code>' . esc_html( $current ) . '</code></p>';
+		}
+		echo '<p><a class="button button-primary" href="' . esc_url( $review ) . '">';
+		echo esc_html__( 'Review and rebind this site', 'stonewright' );
+		echo '</a></p></div>';
 	}
 
 	public function on_deactivate(): void {

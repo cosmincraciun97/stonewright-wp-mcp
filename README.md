@@ -306,6 +306,7 @@ Two optional inputs cut payload without losing precision:
 ```mermaid
 flowchart LR
   Client[AI / MCP client]
+  Browser[User-approved external browser provider]
   Companion[Stonewright Companion]
   CompFilter[Companion profile filter]
   Plugin[Stonewright plugin]
@@ -325,6 +326,7 @@ flowchart LR
   Gates[Backup / validation / readback / audit]
 
   Client --> Companion
+  Client --> Browser
   Companion --> CompFilter
   Companion --> Rules
   CompFilter -->|Plugin mode| Plugin
@@ -347,9 +349,17 @@ flowchart LR
   REST --> WP
   WP --> Content
   Plugin --> WP
+  Browser -. verification or approved dashboard interaction .-> WP
 ```
 
 Tool visibility is filtered twice before a client sees it: the plugin’s **surface gate** (`bootstrap` / `essential` / `full`) and optional **per-session tool profile** decide which abilities the MCP endpoint exposes, then the **companion profile filter** narrows that set again for the client. A monotonic `surface_revision` on every gateway response drives `tools/list_changed` so clients re-list when the surface changes.
+
+Browser automation is external and consent-bound. The agent asks once per
+site/client whether to use Playwright (recommended), another connected browser,
+or none; scanning and installation require separate permission. A browser may
+verify output or perform an explicitly approved dashboard interaction, but it
+never bypasses custom-code dry-run/approval, backup, permission, or confirmation
+gates.
 
 Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **100 tools**. Plugin mode exposes **358 abilities**. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post element/CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
 
@@ -385,22 +395,18 @@ repository follow the common MCP server JSON shape used by several clients.
 ## Admin interface
 
 Plugin mode admin pages include Setup, Dashboard (Site Pulse), Abilities,
-Blueprints, Design Studio, Visual Workspace, Skills, Memory, Sandbox, and Audit
-Log. The Audit Log is the single responsive incident view; Sandbox does not
-duplicate it. The admin ships one supported light theme; there is no theme
-toggle. Its maintained tokens, component contracts, responsive rules, and
-page-by-page release checklist live in [DESIGN.md](DESIGN.md).
+Prompts, Skills, Memory, Sandbox, and Audit Log. The Audit Log is the single
+responsive incident view; Sandbox does not duplicate it. The admin ships one
+supported light theme; there is no theme toggle. Its maintained tokens,
+component contracts, responsive rules, and page-by-page release checklist live
+in [DESIGN.md](DESIGN.md).
 
-Design Studio holds design directions: validated site-wide design intent with
-provenance and revisions. Visual Workspace opens the real Elementor or block
-editor in a same-origin companion window, resolves the live adapter there, and
-walks read → preview → confirm → apply → verify with the active direction on
-screen. Neither page certifies that a page looks right; a change applied without
-evidence is reported as unverified. See [docs/visual.md](docs/visual.md) and
-[docs/figma-to-elementor-workflow.md](docs/figma-to-elementor-workflow.md).
+The Design Library admin group—Blueprints, Design Studio, and Visual
+Workspace—is disabled. Its routes and prompt starters are not registered.
+Persistent user data and the typed MCP design/blueprint engines remain intact;
+`figma-to-native-pixel` remains the supported evidence-led design workflow.
 
 <!-- Maintainer: add the Dashboard or Site Pulse screenshot here. Do not remove this comment until the asset is available. -->
-<!-- Maintainer: add the Blueprints or brand-kit screenshot here. Do not remove this comment until the asset is available. -->
 <!-- Maintainer: add the Audit Log or restore screenshot here. Do not remove this comment until the asset is available. -->
 <!-- Maintainer: add an Elementor or Gutenberg agent workflow screenshot here. Do not remove this comment until the asset is available. -->
 

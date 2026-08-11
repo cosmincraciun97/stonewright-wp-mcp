@@ -60,6 +60,14 @@ registration counters by client identity plus an IPv4 `/24` or IPv6 `/64`
 network bucket. Forwarded client IPs are trusted only when the immediate peer
 is in the explicit trusted-proxy allowlist.
 
+OAuth audit rows preserve retryable and server-side failures on the short
+diagnostic cadence. Terminal client-side failures such as an expired or
+revoked grant are coalesced for 24 hours by endpoint, client, status, error,
+and reason, with sparse aggregate receipts at counts 1, 25, 100, and 500.
+Admin rendering resolves registered OAuth client names in one batched lookup;
+pre-login events therefore show a client label instead of an unknown user and
+do not add one database query per row.
+
 ## Elementor and Gutenberg writes
 
 One write receipt is the transaction handoff. It contains the transaction and

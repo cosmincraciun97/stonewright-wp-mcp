@@ -154,7 +154,7 @@ shell wrapper, global install, or manual bridge:
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
         "STONEWRIGHT_WP_APP_PASSWORD_AUTO": "local-only",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential-static"
       }
     }
   }
@@ -173,9 +173,10 @@ Do not configure generic WordPress MCP adapters such as
 `@automattic/mcp-wordpress-remote` as the `stonewright` server. Use the
 Stonewright companion so setup, status, compact profiles, php-execute, and
 WP-CLI tools stay visible even while the WordPress endpoint is being fixed.
-`STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap` is the default. It exposes the startup
-gateway first; `stonewright-task-start` then enables the compact task profile
-for the current session in plugin or Direct/pluginless mode.
+`STONEWRIGHT_MCP_TOOL_PROFILE=essential-static` is the safe default for an
+unknown client. It exposes a bounded useful catalog plus permanent recovery
+gateways without depending on the client to process `tools/list_changed`.
+Known clients generated from WordPress Setup normally use `essential`.
 Use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` for Antigravity, Gemini API, or
 other strict tool-cap clients. It keeps the client-visible startup surface under
 30 tools. Aliases such as `antigravity`, `gemini`,
@@ -264,7 +265,7 @@ For MCP clients that use a local stdio server, configure:
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
         "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential-static"
       }
     }
   }
@@ -330,8 +331,12 @@ directory and allowed root for that command.
 
 ## Browser MCP
 
-Stonewright does not include browser, screenshot, or visual-review tools. Add a
-separate Playwright MCP server next to Stonewright:
+Stonewright does not include browser, screenshot, or visual-review tools. Before
+browser work, the agent asks once whether to use Playwright (recommended),
+another connected browser provider, or none. It must ask permission before
+scanning client tools/private config and ask separately before installing or
+configuring a missing provider. After approval, add Playwright next to
+Stonewright:
 
 ```json
 {
@@ -344,11 +349,11 @@ separate Playwright MCP server next to Stonewright:
 }
 ```
 
-Agents should connect this before implementation when a task needs browser
-testing, screenshots, or visual inspection. Restart the AI client after adding
-Playwright so the tool list refreshes. If the MCP client cannot see a
-browser/screenshot tool, the agent should stop before visual implementation and
-ask the user to connect Playwright instead of building blind.
+Restart the AI client after adding Playwright so the tool list refreshes. If the
+selected browser tool is not visible, the agent stops before visual
+implementation. Browser automation is a verification or explicitly approved
+dashboard-interaction path; it never bypasses Stonewright's custom-code
+dry-run/approval, backup, permission, or confirmation gates.
 
 ## Example Prompts
 

@@ -1,7 +1,7 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 import path from 'node:path';
 import fs from 'node:fs';
-import { login } from './helpers/design-studio';
+import { login } from './helpers/login';
 
 /**
  * Skills — catalog, keyboard tabs, review drawer, screenshot matrix.
