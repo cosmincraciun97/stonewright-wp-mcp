@@ -12,6 +12,11 @@ were never stable releases and are not part of the supported public history.
 
 ### Changed
 
+- Require a one-time browser-provider choice per site/client, separate consent
+  for tool/config scanning and installation, and keep every custom-code safety
+  boundary intact for browser-assisted Plugin and Direct workflows.
+- Aggregate terminal OAuth client failures over 24 hours while keeping 429/5xx
+  incidents on the short operational window.
 - Start fresh plugin installs on the bounded `essential` surface, use
   the operator-selected surface in generated client profiles, retain bounded
   overrides only for strict-cap clients, and reserve bootstrap for explicit
@@ -22,6 +27,10 @@ were never stable releases and are not part of the supported public history.
 
 ### Fixed
 
+- Align Audit, Memory, Skills, and Sandbox controls with consistent card
+  padding, checkbox spacing, action gaps, and 32px control heights.
+- Resolve pre-login OAuth audit actors to registered client names in one batched
+  lookup, with explicit OAuth-client/System fallbacks instead of `(unknown)`.
 - Refresh the callable companion tool registry after task-start profile changes,
   reuse tool and prompt handles during reconnect, and keep authentication and
   WordPress reachability status evidence-based.

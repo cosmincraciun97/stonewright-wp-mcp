@@ -222,8 +222,9 @@ shape, OAuth preference, private-storage rules, and the canonical first call:
 Application Password, token, or private client configuration.
 
 The note also tells agents that `npx` downloads and runs the versioned GitHub
-release tarball, and that Playwright MCP should be added for browser testing,
-screenshots, and visual QA when the client does not already have browser tools.
+release tarball. For browser work it requires a one-time provider choice,
+permission before scanning client tools/private config, and separate permission
+before installing or configuring a missing Playwright/browser provider.
 It tells Codex users to configure `~/.codex/config.toml` or a trusted
 `.codex/config.toml`, restart/reload the MCP session, and use `/mcp` to verify
 that Stonewright is active.
@@ -298,15 +299,19 @@ credentials; never commit Application Passwords to project-tracked files.
 
 ### Browser MCP
 
-Configure Playwright MCP separately when the agent needs browser testing,
-screenshots, or visual inspection:
+The agent first asks once whether to use Playwright (recommended), another
+connected browser, or none. It asks permission before scanning client
+tools/private config and separate permission before installing or configuring a
+missing provider. After approval, configure Playwright separately:
 
 ```bash
 npx -y @playwright/mcp@latest --caps=testing,vision,devtools
 ```
 
-Restart the AI client after adding Playwright. If no Playwright/browser tool is
-visible, the agent should stop before the first visual write.
+Restart the AI client after adding Playwright. If the selected browser tool is
+not visible, the agent should stop before the first visual write. Browser
+automation never bypasses custom-code dry-run/approval, backup, permission, or
+confirmation gates.
 
 See [connect-clients.md](./connect-clients.md) for per-client details.
 

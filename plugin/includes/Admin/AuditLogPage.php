@@ -3,6 +3,7 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
+use Stonewright\WpMcp\OAuth\Repositories\ClientRepository;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\AuditEvent;
 use Stonewright\WpMcp\Security\ErrorPatterns;
@@ -401,9 +402,27 @@ final class AuditLogPage {
 		echo '<th>' . esc_html__( 'Details', 'stonewright' ) . '</th>';
 		echo '</tr></thead><tbody>';
 
+		$oauth_client_ids = [];
+		foreach ( $rows as $row ) {
+			$client_id = self::oauth_client_id_from_row( $row );
+			if ( '' !== $client_id ) {
+				$oauth_client_ids[] = $client_id;
+			}
+		}
+		$oauth_client_names = ( new ClientRepository() )->names_by_ids( $oauth_client_ids );
+
 		foreach ( $rows as $row ) {
 			$user      = get_user_by( 'id', (int) $row['user_id'] );
-			$user_html = $user ? esc_html( $user->user_login ) : '<em>' . esc_html__( '(unknown)', 'stonewright' ) . '</em>';
+			$client_id = self::oauth_client_id_from_row( $row );
+			if ( $user ) {
+				$user_html = esc_html( $user->user_login );
+			} elseif ( '' !== $client_id && isset( $oauth_client_names[ $client_id ] ) ) {
+				$user_html = esc_html( sprintf( /* translators: %s: OAuth client name */ __( 'OAuth: %s', 'stonewright' ), $oauth_client_names[ $client_id ] ) );
+			} elseif ( '' !== $client_id ) {
+				$user_html = '<em>' . esc_html__( 'OAuth client', 'stonewright' ) . '</em>';
+			} else {
+				$user_html = '<em>' . esc_html__( 'System', 'stonewright' ) . '</em>';
+			}
 			$status    = strtolower( (string) $row['result_status'] );
 			$badge     = match ( $status ) {
 				'ok'      => 'sw-badge--ok',
@@ -496,6 +515,25 @@ final class AuditLogPage {
 			echo '<a class="sw-btn sw-btn--secondary sw-btn--sm" href="' . esc_url( $next ) . '">' . esc_html__( 'Older', 'stonewright' ) . ' &raquo;</a>';
 		}
 		echo '</p>';
+	}
+
+	/**
+	 * @param array<string, mixed> $row Audit row.
+	 */
+	private static function oauth_client_id_from_row( array $row ): string {
+		if ( ! str_starts_with( (string) ( $row['ability_name'] ?? '' ), 'oauth/' ) ) {
+			return '';
+		}
+		$raw = (string) ( $row['redacted_details'] ?? '' );
+		if ( '' === $raw ) {
+			$raw = (string) ( $row['sanitized_args'] ?? '' );
+		}
+		$details = json_decode( $raw, true );
+		if ( ! is_array( $details ) || ! isset( $details['client_id'] ) || ! is_scalar( $details['client_id'] ) ) {
+			return '';
+		}
+
+		return mb_substr( sanitize_text_field( (string) $details['client_id'] ), 0, AuditLog::AUTH_DIAGNOSTIC_MAX_LENGTH );
 	}
 
 	/** @param array<string, mixed> $filters @return array<string, int> */

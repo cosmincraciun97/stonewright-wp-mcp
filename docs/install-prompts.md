@@ -80,7 +80,10 @@ After reload:
 - To keep reads cheap, pass stonewright_fields with the paths you need. Required
   response-envelope fields remain present. Pass knownHash to
   stonewright-elementor-v3-get-page-structure to skip an unchanged page tree.
-- For visual work, verify browser/Playwright tools before the first write.
+- For visual work, ask once whether to use Playwright (recommended), another
+  connected browser, or none. Ask permission before scanning client
+  tools/private config and separate permission before installing or configuring
+  a missing provider; then verify the approved tool before the first write.
 - After any Elementor write, call
   stonewright-elementor-post-write-verify with the touched element IDs. Do not
   call the task complete until its frontend assertions pass and desktop,
@@ -152,7 +155,10 @@ After reload:
   wp-admin one-time-grant boundary; report the Plugin-mode approval-gated path.
 - One-time setup: call stonewright-agents-md-sync and offer to add the pointer to your global agent config.
 - Fix recurring_errors from task-start before new work; never invent Elementor/Gutenberg schemas.
-- For visual work, verify browser/Playwright tools before the first write.
+- For visual work, ask once whether to use Playwright (recommended), another
+  connected browser, or none. Ask permission before scanning client
+  tools/private config and separate permission before installing or configuring
+  a missing provider; then verify the approved tool before the first write.
 - After a local Direct Elementor write, require the returned cache receipt and
   complete browser verification. Remote Direct cannot verify Elementor's PHP
   renderer or post cache; use Plugin mode when closed-loop verification is

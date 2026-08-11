@@ -46,6 +46,9 @@ final class AuditLogPageTest extends TestCase {
 
 			/** @return array<int, array<string, mixed>> */
 			public function get_results( string $query, string $output = 'OBJECT' ): array {
+				if ( str_contains( $query, 'stonewright_oauth_clients' ) ) {
+					return [ [ 'client_id' => 'client-abc', 'client_name' => 'Desktop client' ] ];
+				}
 				return [
 					[
 						'id'             => '12',
@@ -62,6 +65,14 @@ final class AuditLogPageTest extends TestCase {
 						'result_status'  => 'error',
 						'sanitized_args' => '{"post_id":7}',
 						'created_at'     => '2026-07-14 09:00:00',
+					],
+					[
+						'id'             => '10',
+						'ability_name'   => 'oauth/token',
+						'user_id'        => '0',
+						'result_status'  => 'auth',
+						'sanitized_args' => '{"client_id":"client-abc","http_status":400}',
+						'created_at'     => '2026-07-13 08:00:00',
 					],
 				];
 			}
@@ -94,6 +105,8 @@ final class AuditLogPageTest extends TestCase {
 		self::assertStringContainsString( 'data-stonewright-copy="sw-audit-details-12"', $html );
 		self::assertStringContainsString( '<details', $html );
 		self::assertStringContainsString( 'post_id', $html );
+		self::assertStringContainsString( 'OAuth: Desktop client', $html );
+		self::assertStringNotContainsString( '(unknown)', $html );
 		self::assertStringContainsString( 'method="get"', $html );
 	}
 

@@ -233,21 +233,21 @@ final class MemoryInstructionsPage {
 
 			<div class="sw-card stonewright-panel">
 				<h2><?php esc_html_e( 'Receipt lookup and feedback migration', 'stonewright' ); ?></h2>
-				<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>">
+				<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="sw-memory-receipt-form">
 					<input type="hidden" name="page" value="<?php echo esc_attr( self::SLUG ); ?>">
 					<label><?php esc_html_e( 'Plugin memory ID', 'stonewright' ); ?>
 						<input type="number" name="receipt_id" min="1" value="">
 					</label>
-					<button type="submit" class="button button-secondary"><?php esc_html_e( 'Look up receipt', 'stonewright' ); ?></button>
+					<button type="submit" class="sw-btn sw-btn--secondary sw-btn--sm"><?php esc_html_e( 'Look up receipt', 'stonewright' ); ?></button>
 				</form>
 				<?php self::render_receipt_lookup(); ?>
 				<hr>
 				<p><?php esc_html_e( 'Legacy automatic feedback can be reclassified without deleting audit history. Export JSON first; the migration preserves historical Post-deploy smoke feedback.', 'stonewright' ); ?></p>
-				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="sw-memory-migration-form">
 					<input type="hidden" name="action" value="stonewright_memory_migrate_feedback">
 					<?php wp_nonce_field( 'stonewright_memory_migrate_feedback', '_stonewright_nonce' ); ?>
 					<label><input type="checkbox" name="export_confirmed" value="1" required> <?php esc_html_e( 'I exported the current JSON bundle.', 'stonewright' ); ?></label>
-					<button type="submit" class="button button-secondary"><?php esc_html_e( 'Classify legacy feedback', 'stonewright' ); ?></button>
+					<button type="submit" class="sw-btn sw-btn--secondary sw-btn--sm"><?php esc_html_e( 'Classify legacy feedback', 'stonewright' ); ?></button>
 				</form>
 			</div>
 

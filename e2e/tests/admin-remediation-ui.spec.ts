@@ -108,6 +108,57 @@ test('legacy Sandbox audit links lead to the single dedicated Audit Log', async 
 	await expect(page).toHaveURL(/page=stonewright-audit-log/);
 });
 
+test('audit, memory, and skill controls keep deliberate spacing and aligned heights', async ({
+	page,
+}, testInfo) => {
+	test.skip(testInfo.project.name !== 'desktop-1440-light', 'Admin layout contract runs once.');
+	await login(page);
+
+	await page.goto('/wp-admin/admin.php?page=stonewright-audit-log', {
+		waitUntil: 'domcontentloaded',
+	});
+	const incident = page.locator('.sw-incident-summary');
+	const incidentBox = await incident.boundingBox();
+	const incidentHeadingBox = await incident.getByRole('heading', { name: 'Incident lifecycle' }).boundingBox();
+	expect(incidentBox).not.toBeNull();
+	expect(incidentHeadingBox).not.toBeNull();
+	expect(incidentHeadingBox!.x - incidentBox!.x).toBeGreaterThanOrEqual(20);
+	expect(incidentHeadingBox!.y - incidentBox!.y).toBeGreaterThanOrEqual(20);
+
+	await page.goto('/wp-admin/admin.php?page=stonewright-memory', {
+		waitUntil: 'domcontentloaded',
+	});
+	const receiptInput = page.locator('.sw-memory-receipt-form input[type="number"]');
+	const receiptButton = page.locator('.sw-memory-receipt-form button');
+	const inputBox = await receiptInput.boundingBox();
+	const buttonBox = await receiptButton.boundingBox();
+	expect(inputBox).not.toBeNull();
+	expect(buttonBox).not.toBeNull();
+	expect(Math.abs(inputBox!.height - buttonBox!.height)).toBeLessThanOrEqual(2);
+	expect(Math.abs(inputBox!.y + inputBox!.height / 2 - (buttonBox!.y + buttonBox!.height / 2))).toBeLessThanOrEqual(2);
+
+	const memoryHeader = page.locator('.sw-memory-section-header');
+	await expect(memoryHeader.getByText('Enable memory abilities')).toBeVisible();
+	const headerHeights = await memoryHeader.locator('button, input[type="submit"]').evaluateAll((nodes) =>
+		nodes.map((node) => Math.round(node.getBoundingClientRect().height)),
+	);
+	expect(headerHeights.length).toBeGreaterThanOrEqual(2);
+	expect(Math.max(...headerHeights) - Math.min(...headerHeights)).toBeLessThanOrEqual(2);
+
+	await page.goto('/wp-admin/admin.php?page=stonewright-skills&view=editor', {
+		waitUntil: 'domcontentloaded',
+	});
+	const availability = page.locator('.sw-fieldset');
+	await expect(availability.getByText('Skill is active')).toBeVisible();
+	const rowGap = await availability.evaluate((node) => getComputedStyle(node).rowGap);
+	expect(Number.parseFloat(rowGap)).toBeGreaterThanOrEqual(10);
+	const checkboxMargins = await availability.locator('input[type="checkbox"]').first().evaluate((node) => {
+		const style = getComputedStyle(node);
+		return [style.marginTop, style.marginRight, style.marginBottom, style.marginLeft];
+	});
+	expect(checkboxMargins).toEqual(['0px', '0px', '0px', '0px']);
+});
+
 test('companion update handoff is explicit and never claims browser-side installation', async ({
 	page,
 }, testInfo) => {

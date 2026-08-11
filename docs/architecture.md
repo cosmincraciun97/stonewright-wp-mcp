@@ -93,6 +93,23 @@ ability name for rows recorded before the `auth` status existed. OAuth dispatch 
 `/stonewright/v1/oauth/*` is audited at the REST layer, so a protocol failure is
 recorded even when no ability ran.
 
+Audit rendering resolves OAuth client names in one batched lookup, so pre-login
+token events identify their registered client without an N+1 query. Terminal
+4xx client failures use a 24-hour aggregation window with sparse count
+checkpoints; retryable 429 and server-side 5xx outcomes keep the short window so
+operational incidents remain visible.
+
+### External browser consent boundary
+
+Stonewright does not embed or silently install a browser provider. Before
+browser work, the agent asks once per site/client whether to use Playwright
+(recommended), another connected provider, or none. Permission to inspect the
+visible client tool surface/private config and permission to install or
+configure a missing provider are separate decisions. Browser automation may
+verify rendered output or perform an explicitly approved dashboard interaction;
+it does not replace custom-code dry-run/approval, backup, permission, audit, or
+confirmation-token gates in Plugin or Direct mode.
+
 ### Elementor write closure
 
 All typed Elementor V3 writers converge on `ElementorData::write()`. The write
