@@ -437,31 +437,34 @@ final class KitBatchMutate extends AbilityKernel {
 			);
 		}
 
-		// Backup restore is site-local; when the helper exists use it, else refuse.
-		if ( method_exists( Backup::class, 'restore_post' ) ) {
-			$restored = Backup::restore_post( $kit_id, $snapshot_id );
-			if ( $restored instanceof \WP_Error ) {
-				return $restored;
-			}
-			$settings = get_post_meta( $kit_id, '_elementor_page_settings', true );
-			$settings = is_array( $settings ) ? $settings : [];
-			return [
-				'ok'          => true,
-				'kit_id'      => $kit_id,
-				'dry_run'     => false,
-				'snapshot_id' => $snapshot_id,
-				'applied'     => 0,
-				'before_hash' => '',
-				'after_hash'  => self::hash_settings( $settings ),
-				'rollback'    => true,
-			];
+		if ( null === Backup::get_snapshot( $kit_id, $snapshot_id ) ) {
+			return new \WP_Error(
+				'stonewright_kit_rollback_missing',
+				__( 'No kit snapshot found for the given rollback_snapshot.', 'stonewright' ),
+				[ 'status' => 404, 'snapshot_id' => $snapshot_id ]
+			);
 		}
 
-		return new \WP_Error(
-			'stonewright_kit_rollback_unavailable',
-			__( 'Kit rollback requires Backup::restore_post on this build. Re-apply the previous dry-run plan instead.', 'stonewright' ),
-			[ 'status' => 501, 'snapshot_id' => $snapshot_id ]
-		);
+		if ( ! Backup::restore( $kit_id, $snapshot_id ) ) {
+			return new \WP_Error(
+				'stonewright_kit_rollback_failed',
+				__( 'Failed to restore the kit from the given snapshot.', 'stonewright' ),
+				[ 'status' => 500, 'snapshot_id' => $snapshot_id ]
+			);
+		}
+
+		$settings = get_post_meta( $kit_id, '_elementor_page_settings', true );
+		$settings = is_array( $settings ) ? $settings : [];
+		return [
+			'ok'          => true,
+			'kit_id'      => $kit_id,
+			'dry_run'     => false,
+			'snapshot_id' => $snapshot_id,
+			'applied'     => 0,
+			'before_hash' => '',
+			'after_hash'  => self::hash_settings( $settings ),
+			'rollback'    => true,
+		];
 	}
 
 	private static function canonicalize( mixed $value ): mixed {

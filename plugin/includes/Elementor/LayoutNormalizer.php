@@ -113,7 +113,7 @@ final class LayoutNormalizer {
 	 *
 	 * @param mixed $layout
 	 * @param mixed $direction
-	 * @return array{container_type:string,flex_direction:?string|array<string,string>}
+	 * @return array{container_type: string, flex_direction: string|array<string, string>|null}
 	 */
 	public static function for_spec( mixed $layout = null, mixed $direction = null ): array {
 		$container_type = 'flex';

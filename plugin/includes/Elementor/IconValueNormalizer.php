@@ -189,7 +189,8 @@ final class IconValueNormalizer {
 		$url = isset( $payload['url'] ) ? trim( (string) $payload['url'] ) : '';
 		$id  = isset( $payload['id'] ) ? $payload['id'] : ( $payload['value']['id'] ?? '' );
 
-		if ( '' === $url && ( '' === $id || null === $id || 0 === $id || '0' === $id ) ) {
+		// id is never null here: isset excludes null, and ?? '' collapses missing/null nested id.
+		if ( '' === $url && ( '' === $id || 0 === $id || '0' === $id ) ) {
 			return self::error( 'svg_incomplete', 'SVG/media icons require value.url and/or value.id.' );
 		}
 
