@@ -120,8 +120,8 @@ describe('OAuth matrix — refresh rotation and replay', () => {
 			expect(params.get('resource')).toBe('https://example.test/wp-json/mcp/stonewright-oauth');
 			expect(params.get('refresh_token')).toBe('example-old-refresh');
 			expect(store.load()).toEqual({
-				accessToken: 'rotated-access',
-				refreshToken: 'rotated-refresh',
+				accessToken: 'example-rotated-access',
+				refreshToken: 'example-rotated-refresh',
 				expiresAt: now + 90_000,
 				tokenType: 'Bearer',
 			});
