@@ -7,12 +7,31 @@ use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Support\Logger;
 
 /**
- * Groups recurring audit ERROR signatures and promotes them to learning records.
+ * Groups recurring audit ERROR signatures into incident-style patterns.
+ *
+ * Incidents and lessons are separate lifecycles:
+ * - first/recurring failure → pattern counters + IncidentStore (via AuditLog)
+ * - dry-run / repair hint → proposed remediation on the pattern only
+ * - verified correlated repair or explicit user correction → optional learning
+ *
+ * Unresolved incidents must never populate both `correction` and `lesson` with
+ * the same generic text, and must never auto-promote active project rules.
  */
 final class ErrorPatterns {
 
 	public const OPTION_KEY   = 'stonewright_error_patterns';
 	public const MAX_PATTERNS = 200;
+	public const LEGACY_LESSON_MIGRATION_OPTION = 'stonewright_legacy_audit_lessons_migrated_v1';
+
+	/** @var callable|null */
+	private static $test_before_observe = null;
+
+	/**
+	 * @param callable|null $callback Invoked at the start of observe(); unit tests only.
+	 */
+	public static function set_test_before_observe( ?callable $callback ): void {
+		self::$test_before_observe = $callback;
+	}
 
 	/**
 	 * Observe an audit row. When status is ERROR, bump the signature counter.
@@ -121,6 +140,9 @@ final class ErrorPatterns {
 	}
 
 	public static function observe( string $ability, string $status, array $sanitized_args = [] ): void {
+		if ( null !== self::$test_before_observe ) {
+			( self::$test_before_observe )( $ability, $status, $sanitized_args );
+		}
 		$status = strtolower( $status );
 		if ( ! in_array( $status, [ 'error', 'blocked' ], true ) ) {
 			return;
@@ -184,16 +206,19 @@ final class ErrorPatterns {
 			$store[ $signature ]['state'] = $expected_block ? 'blocked_pending_repair' : 'repeated';
 		}
 
-		// Only promote durable feedback learning for unexpected agent-caused errors.
+		// Incidents stay on the pattern/IncidentStore path. Propose remediation
+		// text only — never mint a learning row with identical correction+lesson
+		// for an unresolved generic failure.
 		if (
 			! $expected_block
 			&& (int) $store[ $signature ]['count'] >= 2
 			&& ! $store[ $signature ]['dismissed']
 		) {
-			// Store as unresolved incident-style feedback (not project/user rules).
-			$learning_key = self::ensure_learning_record( $store[ $signature ] );
-			$store[ $signature ]['learning_key'] = $learning_key;
-			$store[ $signature ]['state']        = 'repair_attempted';
+			$repair = RemediationHints::for_code( $code, $ability );
+			$store[ $signature ]['proposed_remediation'] = $repair;
+			$store[ $signature ]['state']                = 'repair_proposed';
+			// learning_key stays empty until verified repair or explicit user correction.
+			$store[ $signature ]['learning_key'] = (string) ( $store[ $signature ]['learning_key'] ?? '' );
 		}
 
 		self::save( $store );
@@ -231,7 +256,7 @@ final class ErrorPatterns {
 			if ( (string) ( $row['ability'] ?? '' ) !== $ability || ! empty( $row['expected'] ) ) {
 				continue;
 			}
-			if ( ! in_array( (string) ( $row['state'] ?? '' ), [ 'repeated', 'repair_attempted', 'blocked_pending_repair', 'verified_resolved', 'promoted_learning', 'reopened' ], true ) ) {
+			if ( ! in_array( (string) ( $row['state'] ?? '' ), [ 'repeated', 'repair_proposed', 'repair_attempted', 'blocked_pending_repair', 'verified_resolved', 'promoted_learning', 'reopened' ], true ) ) {
 				continue;
 			}
 			$row_has_correlation = false;
@@ -265,32 +290,12 @@ final class ErrorPatterns {
 					? (string) $result['after_sha256']
 					: '',
 			];
-			$learning_key = (string) ( $row['learning_key'] ?? '' );
-			if ( '' !== $learning_key ) {
-				Memory::put_typed(
-					'feedback',
-					'audit',
-					$learning_key,
-					'Resolved incident: ' . $ability,
-					[
-						'state'        => 'verified_resolved',
-						'source'       => 'audit-error',
-						'cause_key'    => (string) ( $row['cause_key'] ?? '' ),
-						'error_code'   => (string) ( $row['error_code'] ?? '' ),
-						'resolved_at'  => current_time( 'mysql', true ),
-						'verification' => 'verified',
-					],
-					1.0,
-					[
-						'topic'      => 'Resolved incident: ' . $ability,
-						'status'     => 'stale',
-						'precedence' => 400,
-					]
-				);
-			}
+			// Closing an incident without a concrete recipe never invents a lesson.
+			// A verified recipe is the only automatic path into durable learning.
 			if ( '' !== $recipe ) {
-				self::promote_verified_recipe( $row, $recipe );
-				$store[ $signature ]['state'] = 'promoted_learning';
+				$learning_key = self::promote_verified_recipe( $row, $recipe );
+				$store[ $signature ]['learning_key'] = $learning_key;
+				$store[ $signature ]['state']        = 'promoted_learning';
 			}
 			$dirty = true;
 		}
@@ -341,7 +346,8 @@ final class ErrorPatterns {
 				'resource_key_hash' => (string) ( $row['resource_key_hash'] ?? '' ),
 				'normalized_path' => (string) ( $row['normalized_path'] ?? '' ),
 				'strategy_fingerprint' => (string) ( $row['strategy_fingerprint'] ?? '' ),
-				'repair'     => RemediationHints::for_code( $code, $ability ),
+				'repair'     => (string) ( $row['proposed_remediation'] ?? RemediationHints::for_code( $code, $ability ) ),
+				'state'      => (string) ( $row['state'] ?? '' ),
 			];
 		}
 		usort(
@@ -513,81 +519,33 @@ final class ErrorPatterns {
 	}
 
 	/**
+	 * Promote a concrete verified repair recipe into durable learning.
+	 *
+	 * Only called after correlated verified success supplies a non-empty recipe
+	 * (or an explicit user correction path). Never used for unresolved incidents.
+	 *
 	 * @param array<string, mixed> $row
 	 */
-	private static function ensure_learning_record( array $row ): string {
-		$ability  = (string) ( $row['ability'] ?? 'unknown' );
-		$message  = (string) ( $row['message'] ?? '' );
-		$sig8     = substr( (string) ( $row['signature'] ?? '' ), 0, 8 );
-		$key      = 'learning-audit-error-' . $sig8;
-		$topic    = 'Recurring error: ' . $ability;
-		$repair = RemediationHints::for_code( (string) ( $row['error_code'] ?? '' ), $ability );
-		$correction = sprintf(
-			'Unresolved incident for %s (cause %s): %s Exact remediation: %s Promote to project/user learning only after a verified repair or explicit user correction.',
-			$ability,
-			(string) ( $row['cause_key'] ?? $row['signature'] ?? '' ),
-			'' !== $message ? $message : 'unknown error',
-			$repair
-		);
-
-		// Audit feedback only — never project/user rules. Status pending until verified repair.
+	private static function promote_verified_recipe( array $row, string $recipe ): string {
+		$sig8  = substr( (string) ( $row['signature'] ?? '' ), 0, 8 );
+		$key   = 'verified-repair-' . $sig8;
+		$topic = 'Verified repair: ' . (string) ( $row['ability'] ?? 'unknown' );
 		$row_id = Memory::put_typed(
 			'feedback',
-			'audit',
+			'verified-repairs',
 			$key,
 			$topic,
 			[
-				'correction'  => $correction,
-				'lesson'      => $correction,
-				'trigger'     => $ability,
-				'severity'   => 'high',
-				'source'      => 'audit-error',
-				'signature'   => (string) ( $row['signature'] ?? '' ),
-				'cause_key'   => (string) ( $row['cause_key'] ?? '' ),
-				'state'       => 'unresolved_incident',
-				'recorded_at' => current_time( 'mysql', true ),
-			],
-			1.0,
-			[
-				'topic'      => $topic,
-				// Unresolved audit incidents are not active user/project rules.
-				'status'     => 'stale',
-				'precedence' => 400,
-			]
-		);
-
-		if ( 0 === $row_id ) {
-			Logger::error(
-				'error_pattern_learning_write_failed',
-				[
-					'key'     => $key,
-					'ability' => $ability,
-				]
-			);
-		}
-
-		return $key;
-	}
-
-	/**
-	 * @param array<string, mixed> $row
-	 */
-	private static function promote_verified_recipe( array $row, string $recipe ): void {
-		$sig8  = substr( (string) ( $row['signature'] ?? '' ), 0, 8 );
-		$topic = 'Verified repair: ' . (string) ( $row['ability'] ?? 'unknown' );
-		Memory::put_typed(
-			'feedback',
-			'verified-repairs',
-			'verified-repair-' . $sig8,
-			$topic,
-			[
-				'correction'       => $recipe,
-				'lesson'           => $recipe,
-				'source'           => 'verified-repair',
-				'state'            => 'promoted_learning',
-				'cause_key'        => (string) ( $row['cause_key'] ?? '' ),
-				'verification'     => 'verified',
-				'recorded_at'      => current_time( 'mysql', true ),
+				// Verified recipes may set both fields to the same concrete text —
+				// that is intentional only after verification, never for unresolved.
+				'correction'   => $recipe,
+				'lesson'       => $recipe,
+				'source'       => 'verified-repair',
+				'state'        => 'promoted_learning',
+				'cause_key'    => (string) ( $row['cause_key'] ?? '' ),
+				'error_code'   => (string) ( $row['error_code'] ?? '' ),
+				'verification' => 'verified',
+				'recorded_at'  => current_time( 'mysql', true ),
 			],
 			1.0,
 			[
@@ -596,6 +554,119 @@ final class ErrorPatterns {
 				'precedence' => 650,
 			]
 		);
+		if ( 0 === $row_id ) {
+			Logger::error(
+				'error_pattern_learning_write_failed',
+				[
+					'key'     => $key,
+					'ability' => (string) ( $row['ability'] ?? '' ),
+				]
+			);
+		}
+		return $key;
+	}
+
+	/**
+	 * Reversible migration: identify legacy generic `learning-audit-error-*` /
+	 * "unknown error" rows and mark them superseded (archived into incident
+	 * history metadata). Never deletes rows. Leaves user-created and verified
+	 * learning untouched.
+	 *
+	 * @return array{migrated:int,skipped:int,already_done:bool}
+	 */
+	public static function migrate_legacy_audit_lessons(): array {
+		if ( '1' === (string) get_option( self::LEGACY_LESSON_MIGRATION_OPTION, '' ) ) {
+			return [ 'migrated' => 0, 'skipped' => 0, 'already_done' => true ];
+		}
+
+		$rows     = Memory::list_by_type( 'feedback', 500, 0 );
+		$migrated = 0;
+		$skipped  = 0;
+		$now      = current_time( 'mysql', true );
+
+		foreach ( $rows as $row ) {
+			$key   = (string) ( $row['memory_key'] ?? '' );
+			$value = is_array( $row['value'] ?? null ) ? $row['value'] : [];
+			// list_by_type may expose value_json; decode when needed.
+			if ( [] === $value && isset( $row['value_json'] ) && is_string( $row['value_json'] ) ) {
+				$decoded = json_decode( $row['value_json'], true );
+				$value   = is_array( $decoded ) ? $decoded : [];
+			}
+
+			if ( ! str_starts_with( $key, 'learning-audit-error-' ) ) {
+				++$skipped;
+				continue;
+			}
+
+			$source = (string) ( $value['source'] ?? '' );
+			$state  = (string) ( $value['state'] ?? '' );
+			// Leave verified / user-created / already-superseded alone.
+			if ( in_array( $source, [ 'verified-repair', 'user', 'user-correction', 'learning-record' ], true ) ) {
+				++$skipped;
+				continue;
+			}
+			if ( in_array( $state, [ 'promoted_learning', 'verified_resolved', 'superseded', 'archived_incident' ], true ) ) {
+				++$skipped;
+				continue;
+			}
+
+			$correction = (string) ( $value['correction'] ?? '' );
+			$lesson     = (string) ( $value['lesson'] ?? '' );
+			$is_generic = (
+				str_contains( strtolower( $correction ), 'unknown error' )
+				|| str_contains( strtolower( $lesson ), 'unknown error' )
+				|| ( '' !== $correction && $correction === $lesson && str_contains( $correction, 'Unresolved incident' ) )
+				|| 'unresolved_incident' === $state
+				|| 'audit-error' === $source
+			);
+			if ( ! $is_generic ) {
+				++$skipped;
+				continue;
+			}
+
+			$archived = array_merge(
+				$value,
+				[
+					'state'               => 'superseded',
+					'superseded_at'       => $now,
+					'superseded_reason'   => 'legacy_unresolved_audit_lesson',
+					'archived_to'         => 'incident_history',
+					// Clear dual generic lesson text so agents do not treat it as active teaching.
+					'correction'          => '',
+					'lesson'              => '',
+					'legacy_correction'   => mb_substr( $correction, 0, 500 ),
+					'legacy_lesson'       => mb_substr( $lesson, 0, 500 ),
+					'incident_history'    => [
+						'cause_key'  => (string) ( $value['cause_key'] ?? '' ),
+						'error_code' => (string) ( $value['error_code'] ?? '' ),
+						'signature'  => (string) ( $value['signature'] ?? '' ),
+						'trigger'    => (string) ( $value['trigger'] ?? '' ),
+					],
+				]
+			);
+
+			$id = Memory::put_typed(
+				'feedback',
+				(string) ( $row['scope'] ?? 'audit' ),
+				$key,
+				(string) ( $row['name'] ?? $row['topic'] ?? 'Superseded audit incident' ),
+				$archived,
+				(float) ( $row['confidence'] ?? 1.0 ),
+				[
+					'topic'      => (string) ( $row['topic'] ?? 'Superseded audit incident' ),
+					'status'     => 'stale',
+					'precedence' => min( 400, (int) ( $row['precedence'] ?? 400 ) ),
+				]
+			);
+			if ( $id > 0 ) {
+				++$migrated;
+			} else {
+				++$skipped;
+			}
+		}
+
+		update_option( self::LEGACY_LESSON_MIGRATION_OPTION, '1', false );
+		return [ 'migrated' => $migrated, 'skipped' => $skipped, 'already_done' => false ];
 	}
 
 	private static function safe_hash( mixed $value ): string {

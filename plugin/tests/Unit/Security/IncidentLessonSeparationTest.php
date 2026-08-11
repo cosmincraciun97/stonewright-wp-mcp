@@ -8,12 +8,11 @@ use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Security\ErrorPatterns;
 
 /**
- * End-to-end unit path: recurring audit errors promote into Memory learnings.
+ * Incidents ≠ lessons: unresolved failures never dual-write correction+lesson.
  *
  * @covers \Stonewright\WpMcp\Security\ErrorPatterns
- * @covers \Stonewright\WpMcp\Memory\Memory
  */
-final class ErrorPatternsPromotionTest extends TestCase {
+final class IncidentLessonSeparationTest extends TestCase {
 
 	private mixed $original_wpdb;
 
@@ -22,6 +21,8 @@ final class ErrorPatternsPromotionTest extends TestCase {
 		$GLOBALS['stonewright_test_options'] = [];
 		$GLOBALS['stonewright_test_current_user_id'] = 1;
 		$GLOBALS['wpdb'] = $this->make_memory_wpdb();
+		delete_option( ErrorPatterns::OPTION_KEY );
+		delete_option( ErrorPatterns::LEGACY_LESSON_MIGRATION_OPTION );
 	}
 
 	protected function tearDown(): void {
@@ -31,12 +32,12 @@ final class ErrorPatternsPromotionTest extends TestCase {
 			unset( $GLOBALS['wpdb'] );
 		}
 		$GLOBALS['stonewright_test_options'] = [];
+		delete_option( ErrorPatterns::OPTION_KEY );
+		delete_option( ErrorPatterns::LEGACY_LESSON_MIGRATION_OPTION );
 	}
 
-	public function test_two_identical_errors_propose_remediation_without_learning_row(): void {
+	public function test_recurring_failure_proposes_remediation_without_learning_row(): void {
 		Memory::maybe_install_table();
-		delete_option( 'stonewright_error_patterns' );
-
 		$args = [
 			'error_code' => 'stonewright_demo_failure',
 			'message'    => 'Demo failed',
@@ -49,58 +50,15 @@ final class ErrorPatternsPromotionTest extends TestCase {
 		self::assertSame( 'repair_proposed', $recurring[0]['state'] );
 		self::assertNotEmpty( $recurring[0]['repair'] );
 
-		// Incidents ≠ lessons: unresolved failures stay on the pattern path only.
 		$rows = Memory::list_by_type( 'feedback', 50, 0 );
 		$hit  = array_filter(
 			$rows,
 			static fn( array $r ): bool => str_starts_with( (string) ( $r['memory_key'] ?? '' ), 'learning-audit-error-' )
 		);
-		self::assertSame( [], array_values( $hit ) );
+		self::assertSame( [], array_values( $hit ), 'Unresolved incidents must not auto-create learning-audit-error-* rows' );
 	}
 
-	public function test_expected_safety_blocks_do_not_create_learning(): void {
-		Memory::maybe_install_table();
-		delete_option( 'stonewright_error_patterns' );
-
-		$args = [
-			'error_code' => 'stonewright_php_code_file_write_blocked',
-			'message'    => 'blocked',
-		];
-		ErrorPatterns::observe( 'stonewright/php-execute', 'blocked', $args );
-		ErrorPatterns::observe( 'stonewright/php-execute', 'blocked', $args );
-
-		$rows = Memory::list_by_type( 'feedback', 50, 0 );
-		$hit  = array_filter(
-			$rows,
-			static fn( $r ) => str_contains( (string) ( $r['memory_key'] ?? '' ), 'learning-audit-error-' )
-		);
-		self::assertSame( [], array_values( $hit ) );
-	}
-
-	public function test_verified_success_resolves_incident_without_inventing_a_rule(): void {
-		Memory::maybe_install_table();
-		$args = [ 'error_code' => 'stonewright_demo_failure', 'message' => 'Demo failed' ];
-		ErrorPatterns::observe( 'stonewright/demo-ability', 'error', $args );
-		ErrorPatterns::observe( 'stonewright/demo-ability', 'error', $args );
-
-		ErrorPatterns::observe_verified_repair(
-			'stonewright/demo-ability',
-			[
-				'effect_verified'     => true,
-				'verification_status' => 'verified',
-				'operation_class'     => 'content_update',
-			]
-		);
-
-		// Without a concrete repair_recipe, no learning row is minted.
-		$rows = Memory::list_by_type( 'feedback', 50, 0 );
-		self::assertSame( [], $rows );
-		$store = get_option( ErrorPatterns::OPTION_KEY, [] );
-		$sig   = ErrorPatterns::signature( 'stonewright/demo-ability', $args );
-		self::assertSame( 'verified_resolved', $store[ $sig ]['state'] ?? null );
-	}
-
-	public function test_concrete_verified_recipe_promotes_one_active_repair(): void {
+	public function test_verified_recipe_promotes_learning_once(): void {
 		Memory::maybe_install_table();
 		$args = [ 'error_code' => 'stonewright_demo_failure', 'message' => 'Demo failed' ];
 		ErrorPatterns::observe( 'stonewright/demo-ability', 'error', $args );
@@ -115,7 +73,7 @@ final class ErrorPatternsPromotionTest extends TestCase {
 			]
 		);
 
-		$rows = Memory::list_by_type( 'feedback', 50, 0 );
+		$rows   = Memory::list_by_type( 'feedback', 50, 0 );
 		$active = array_values(
 			array_filter(
 				$rows,
@@ -125,19 +83,96 @@ final class ErrorPatternsPromotionTest extends TestCase {
 		self::assertCount( 1, $active );
 		self::assertSame( 'promoted_learning', $active[0]['value']['state'] ?? null );
 		self::assertStringContainsString( 'Read the schema first', (string) ( $active[0]['value']['correction'] ?? '' ) );
+		// Dual fields allowed only after verification for the concrete recipe.
+		self::assertSame( $active[0]['value']['correction'], $active[0]['value']['lesson'] );
 	}
 
-	/**
-	 * In-memory stonewright_memory table so put_typed + list_by_type share state.
-	 */
+	public function test_verified_success_without_recipe_does_not_invent_lesson(): void {
+		Memory::maybe_install_table();
+		$args = [ 'error_code' => 'stonewright_demo_failure', 'message' => 'Demo failed' ];
+		ErrorPatterns::observe( 'stonewright/demo-ability', 'error', $args );
+		ErrorPatterns::observe( 'stonewright/demo-ability', 'error', $args );
+
+		ErrorPatterns::observe_verified_repair(
+			'stonewright/demo-ability',
+			[
+				'effect_verified'     => true,
+				'verification_status' => 'verified',
+			]
+		);
+
+		$rows = Memory::list_by_type( 'feedback', 50, 0 );
+		self::assertSame( [], $rows );
+	}
+
+	public function test_legacy_generic_audit_lessons_are_superseded_not_deleted(): void {
+		Memory::maybe_install_table();
+		Memory::put_typed(
+			'feedback',
+			'audit',
+			'learning-audit-error-deadbeef',
+			'Recurring error: stonewright/demo',
+			[
+				'correction' => 'Unresolved incident for stonewright/demo: unknown error Exact remediation: fix it',
+				'lesson'     => 'Unresolved incident for stonewright/demo: unknown error Exact remediation: fix it',
+				'source'     => 'audit-error',
+				'state'      => 'unresolved_incident',
+				'cause_key'  => 'stonewright/demo|error|',
+			],
+			1.0,
+			[ 'topic' => 'Recurring error', 'status' => 'stale', 'precedence' => 400 ]
+		);
+		// User-created learning must stay.
+		Memory::put_typed(
+			'feedback',
+			'user',
+			'user-lesson-keep',
+			'User lesson',
+			[
+				'correction' => 'Always validate first',
+				'lesson'     => 'Always validate first',
+				'source'     => 'user',
+				'state'      => 'active',
+			],
+			1.0,
+			[ 'topic' => 'User lesson', 'status' => 'active', 'precedence' => 800 ]
+		);
+
+		$result = ErrorPatterns::migrate_legacy_audit_lessons();
+		self::assertFalse( $result['already_done'] );
+		self::assertSame( 1, $result['migrated'] );
+
+		$rows = Memory::list_by_type( 'feedback', 50, 0 );
+		$by_key = [];
+		foreach ( $rows as $row ) {
+			$by_key[ (string) $row['memory_key'] ] = $row;
+		}
+		self::assertArrayHasKey( 'learning-audit-error-deadbeef', $by_key );
+		self::assertSame( 'superseded', $by_key['learning-audit-error-deadbeef']['value']['state'] ?? null );
+		self::assertSame( '', $by_key['learning-audit-error-deadbeef']['value']['correction'] ?? 'x' );
+		self::assertSame( 'stale', $by_key['learning-audit-error-deadbeef']['status'] ?? null );
+		self::assertNotEmpty( $by_key['learning-audit-error-deadbeef']['value']['legacy_correction'] ?? '' );
+
+		self::assertArrayHasKey( 'user-lesson-keep', $by_key );
+		self::assertSame( 'active', $by_key['user-lesson-keep']['status'] ?? null );
+		self::assertSame( 'Always validate first', $by_key['user-lesson-keep']['value']['correction'] ?? null );
+
+		// Idempotent.
+		$again = ErrorPatterns::migrate_legacy_audit_lessons();
+		self::assertTrue( $again['already_done'] );
+		self::assertSame( 0, $again['migrated'] );
+	}
+
+	/** @return object */
 	private function make_memory_wpdb(): object {
 		return new class() {
 			public string $prefix     = 'wp_';
 			public int $insert_id     = 0;
 			public string $last_error = '';
-
 			/** @var array<int, array<string, mixed>> */
 			public array $rows = [];
+			/** @var array<int, mixed> */
+			public array $last_prepare_args = [];
 
 			public function get_charset_collate(): string {
 				return '';
@@ -146,33 +181,16 @@ final class ErrorPatternsPromotionTest extends TestCase {
 			/** @return array<int, string> */
 			public function get_col( string $query, int $x = 0 ): array {
 				return [
-					'id',
-					'scope',
-					'type',
-					'name',
-					'memory_key',
-					'value_json',
-					'confidence',
-					'topic',
-					'version_fingerprint',
-					'expires_at',
-					'status',
-					'precedence',
-					'created_by',
-					'created_at',
-					'updated_at',
-					'last_retrieved_at',
+					'id', 'scope', 'type', 'name', 'memory_key', 'value_json', 'confidence',
+					'topic', 'version_fingerprint', 'expires_at', 'status', 'precedence',
+					'created_by', 'created_at', 'updated_at', 'last_retrieved_at',
 				];
 			}
 
 			public function prepare( string $query, mixed ...$args ): string {
-				// Stash args for get_results / get_var filters used below.
 				$this->last_prepare_args = $args;
 				return $query;
 			}
-
-			/** @var array<int, mixed> */
-			public array $last_prepare_args = [];
 
 			public function get_var( string $query ): mixed {
 				if ( str_contains( $query, 'SELECT id FROM' ) && str_contains( $query, 'memory_key' ) ) {
@@ -217,28 +235,12 @@ final class ErrorPatternsPromotionTest extends TestCase {
 				if ( str_contains( $query, 'WHERE type' ) ) {
 					$type = (string) ( $this->last_prepare_args[0] ?? '' );
 				}
-
 				$out = [];
 				foreach ( array_reverse( $this->rows ) as $row ) {
 					if ( null !== $type && (string) ( $row['type'] ?? '' ) !== $type ) {
 						continue;
 					}
-					$out[] = [
-						'id'                  => (int) $row['id'],
-						'type'                => (string) ( $row['type'] ?? 'generic' ),
-						'scope'               => (string) ( $row['scope'] ?? '' ),
-						'memory_key'          => (string) ( $row['memory_key'] ?? '' ),
-						'name'                => (string) ( $row['name'] ?? '' ),
-						'value_json'          => (string) ( $row['value_json'] ?? '{}' ),
-						'confidence'          => (float) ( $row['confidence'] ?? 1.0 ),
-						'topic'               => (string) ( $row['topic'] ?? '' ),
-						'version_fingerprint' => (string) ( $row['version_fingerprint'] ?? '' ),
-						'expires_at'          => $row['expires_at'] ?? null,
-						'status'              => (string) ( $row['status'] ?? 'active' ),
-						'precedence'          => (int) ( $row['precedence'] ?? 0 ),
-						'created_at'          => (string) ( $row['created_at'] ?? '' ),
-						'updated_at'          => (string) ( $row['updated_at'] ?? '' ),
-					];
+					$out[] = $row;
 				}
 				return $out;
 			}
