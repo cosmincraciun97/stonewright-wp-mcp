@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Elementor\Renderer;
 
 use Stonewright\WpMcp\DesignTokens\Resolver;
+use Stonewright\WpMcp\Elementor\IconValueNormalizer;
 use Stonewright\WpMcp\Elementor\Renderer\Responsive;
 use Stonewright\WpMcp\Elementor\Renderer\StyleMapper;
 
@@ -43,12 +44,13 @@ final class Button {
 	}
 
 	/**
-	 * @param array<string, mixed> $node
-	 * @param Resolver             $resolver
-	 * @param string               $canonical_path
-	 * @return array<string, mixed>
+	 * @param array<string, mixed>             $node
+	 * @param Resolver                         $resolver
+	 * @param string                           $canonical_path
+	 * @param array<int, array<string, mixed>> $diagnostics
+	 * @return array<string, mixed>|null Null when icon normalization fails (no partial write).
 	 */
-	public static function render( array $node, Resolver $resolver, string $canonical_path ): array {
+	public static function render( array $node, Resolver $resolver, string $canonical_path, array &$diagnostics = [] ): ?array {
 		$settings = [
 			'text' => (string) ( $node['text'] ?? '' ),
 			'link' => [
@@ -74,8 +76,35 @@ final class Button {
 			$settings['size'] = (string) $node['size'];
 		}
 
-		if ( isset( $node['icon'] ) ) {
-			$settings['icon'] = [ 'value' => (string) $node['icon'], 'library' => 'fa-solid' ];
+		if ( isset( $node['icon'] ) || isset( $node['selected_icon'] ) ) {
+			$icon = IconValueNormalizer::normalize( $node['selected_icon'] ?? $node['icon'] );
+			if ( $icon instanceof \WP_Error ) {
+				$diagnostics[] = [
+					'code'     => (string) $icon->get_error_code(),
+					'type'     => 'button',
+					'path'     => $canonical_path,
+					'renderer' => 'elementor_v3',
+					'message'  => $icon->get_error_message(),
+					'data'     => $icon->get_error_data(),
+				];
+				// Structured rejection without partial button write.
+				return null;
+			}
+			// Elementor button uses selected_icon (icons control); keep legacy `icon` for older free versions.
+			$settings['selected_icon'] = $icon;
+			$settings['icon']          = $icon;
+
+			$position = IconValueNormalizer::normalize_position( $node['icon_position'] ?? $node['icon_align'] ?? null );
+			if ( null !== $position ) {
+				$settings['icon_align'] = $position;
+			}
+
+			if ( isset( $node['icon_spacing'] ) || isset( $node['icon_indent'] ) ) {
+				$spacing = $node['icon_spacing'] ?? $node['icon_indent'];
+				$settings['icon_indent'] = is_array( $spacing )
+					? $spacing
+					: [ 'unit' => 'px', 'size' => (int) $spacing ];
+			}
 		}
 
 		if ( isset( $node['color'] ) ) {

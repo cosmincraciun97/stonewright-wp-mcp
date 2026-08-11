@@ -421,14 +421,21 @@
           ],
           "default": "boxed"
         },
+        "type": {
+          "type": "string"
+        },
+        "direction": {
+          "type": [
+            "string",
+            "object"
+          ]
+        },
         "layout": {
-          "type": "string",
-          "enum": [
-            "stack",
-            "row",
-            "grid"
+          "type": [
+            "string",
+            "object"
           ],
-          "default": "stack"
+          "description": "stack|row|grid (or legacy horizontal/vertical), or a desktop/tablet/mobile map of those intents."
         },
         "gap": {
           "type": [
@@ -546,6 +553,16 @@
             "progress-bar",
             "counter",
             "testimonial",
+            "testimonial-carousel",
+            "reviews-carousel",
+            "review-carousel",
+            "carousel",
+            "call-to-action",
+            "cta",
+            "chip-list",
+            "pill-grid",
+            "chips",
+            "pills",
             "form",
             "form-placeholder",
             "html",
@@ -709,10 +726,16 @@
           ]
         },
         "layout": {
-          "type": "string"
+          "type": [
+            "string",
+            "object"
+          ]
         },
         "direction": {
-          "type": "string"
+          "type": [
+            "string",
+            "object"
+          ]
         },
         "pointer": {
           "type": "string"
@@ -732,6 +755,114 @@
             "number",
             "string"
           ]
+        },
+        "skin": {
+          "type": "string"
+        },
+        "min_height": {
+          "type": [
+            "integer",
+            "number",
+            "string",
+            "object"
+          ]
+        },
+        "border_radius": {
+          "type": [
+            "integer",
+            "number",
+            "string",
+            "object"
+          ]
+        },
+        "overlay": {
+          "type": "string"
+        },
+        "overlay_color": {
+          "type": "string"
+        },
+        "vertical_position": {
+          "type": "string"
+        },
+        "alignment": {
+          "type": [
+            "string",
+            "object"
+          ]
+        },
+        "button_text": {
+          "type": "string"
+        },
+        "button": {
+          "type": [
+            "string",
+            "object"
+          ]
+        },
+        "image": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "url": {
+              "type": "string"
+            },
+            "id": {
+              "type": [
+                "integer",
+                "string"
+              ]
+            },
+            "alt": {
+              "type": "string"
+            }
+          }
+        },
+        "icon_position": {
+          "type": "string"
+        },
+        "icon_spacing": {
+          "type": [
+            "integer",
+            "number",
+            "string",
+            "object"
+          ]
+        },
+        "icon_indent": {
+          "type": [
+            "integer",
+            "number",
+            "string",
+            "object"
+          ]
+        },
+        "selected_icon": {
+          "type": [
+            "string",
+            "object"
+          ]
+        },
+        "testimonials": {
+          "type": "array"
+        },
+        "reviews": {
+          "type": "array"
+        },
+        "slides": {
+          "type": "array"
+        },
+        "widget_type": {
+          "type": "string"
+        },
+        "settings": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "fallback": {
+          "type": "string"
+        },
+        "narrow": {
+          "type": "string"
         },
         "image_size": {
           "type": "string"
@@ -827,7 +958,10 @@
           "type": "string"
         },
         "icon": {
-          "type": "string"
+          "type": [
+            "string",
+            "object"
+          ]
         },
         "color": {
           "type": "string"
