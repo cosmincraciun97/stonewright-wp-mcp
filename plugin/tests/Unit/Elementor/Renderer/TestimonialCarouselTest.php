@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Elementor\Renderer;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\DesignTokens\Resolver;
 use Stonewright\WpMcp\Elementor\Renderer\TestimonialCarousel;
+use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetCatalog;
 
 /**
@@ -13,8 +14,22 @@ use Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetCatalog;
  */
 final class TestimonialCarouselTest extends TestCase {
 
-	public function test_selects_catalog_native_widget_and_maps_items(): void {
-		// Offline catalog includes slides; prefer explicit widget_type=slides for deterministic test.
+	private object $original_elementor;
+
+	protected function setUp(): void {
+		$this->original_elementor = \Elementor\Plugin::$instance;
+		WidgetSchemaRepository::reset_request_cache();
+		$GLOBALS['stonewright_test_transients'] = [];
+	}
+
+	protected function tearDown(): void {
+		\Elementor\Plugin::$instance = $this->original_elementor;
+		WidgetSchemaRepository::reset_request_cache();
+		$GLOBALS['stonewright_test_transients'] = [];
+	}
+
+	public function test_selects_live_native_widget_and_maps_items(): void {
+		// Default stub mirrors catalog as live — slides is available.
 		$diagnostics = [];
 		$result      = TestimonialCarousel::render(
 			[
@@ -49,14 +64,16 @@ final class TestimonialCarouselTest extends TestCase {
 		self::assertSame( [], $diagnostics );
 	}
 
-	public function test_unavailable_widget_emits_structured_error_without_icon_box_substitute(): void {
+	public function test_catalog_only_pro_widgets_are_rejected(): void {
+		// Free site: catalog still lists Pro carousel widgets, live registry does not.
+		self::assertTrue( WidgetCatalog::has( 'slides' ) );
+		$this->install_free_only_manager();
+
 		$diagnostics = [];
 		$result      = TestimonialCarousel::render(
 			[
-				'type'        => 'reviews-carousel',
-				'widget_type' => 'definitely-not-a-widget-xyz',
-				// Force only the bogus preferred candidate by emptying items after select fails on preferred+others
-				// when nothing matches. Prefer a candidate list that cannot resolve:
+				'type'        => 'testimonial-carousel',
+				'widget_type' => 'slides',
 				'items'       => [
 					[ 'name' => 'A', 'content' => 'x' ],
 				],
@@ -66,16 +83,13 @@ final class TestimonialCarouselTest extends TestCase {
 			$diagnostics
 		);
 
-		// If catalog has slides it will still select slides after the preferred fails.
-		// Assert the no-candidate path by selecting only an unregistered preferred with empty fallbacks.
-		// Direct unit on select_widget for unregistered:
+		self::assertNull( $result );
+		self::assertSame( TestimonialCarousel::ERROR_CODE, $diagnostics[0]['code'] );
+		self::assertTrue( $diagnostics[0]['live_required'] );
+		self::assertContains( 'slides', $diagnostics[0]['candidates'] );
+		self::assertContains( 'slides', $diagnostics[0]['catalog_known'] );
+		self::assertNull( TestimonialCarousel::select_widget( [ 'slides', 'testimonial-carousel', 'reviews' ] ) );
 		self::assertNull( TestimonialCarousel::select_widget( [ 'not-registered-at-all-zzz' ] ) );
-
-		// Full render with only unregistered preferred still falls through to slides if catalog has it.
-		if ( WidgetCatalog::has( 'slides' ) ) {
-			self::assertIsArray( $result );
-			self::assertNotSame( 'icon-box', $result['widgetType'] ?? '' );
-		}
 	}
 
 	public function test_empty_items_refuses_write(): void {
@@ -111,5 +125,55 @@ final class TestimonialCarouselTest extends TestCase {
 
 		self::assertIsArray( $result );
 		self::assertSame( 'yes', $result['settings']['custom_pro_only_flag'] );
+	}
+
+	/**
+	 * Free-site harness: live manager has core widgets only — no catalog fallback.
+	 */
+	private function install_free_only_manager(): void {
+		$base = $this->original_elementor;
+		\Elementor\Plugin::$instance = (object) array_merge(
+			(array) $base,
+			[
+				'widgets_manager' => new class() {
+					public function get_widget_types( ?string $name = null ): array|object|null {
+						$widgets = [
+							'heading' => new class() {
+								public function get_title(): string {
+									return 'Heading';
+								}
+
+								/** @return list<string> */
+								public function get_categories(): array {
+									return [ 'basic' ];
+								}
+
+								/** @return list<string> */
+								public function get_keywords(): array {
+									return [ 'heading' ];
+								}
+
+								/** @return array<string, array<string, mixed>> */
+								public function get_controls(): array {
+									return [
+										'title' => [
+											'type'    => 'text',
+											'tab'     => 'content',
+											'section' => 'content',
+										],
+									];
+								}
+							},
+						];
+						if ( null === $name ) {
+							return $widgets;
+						}
+						return $widgets[ $name ] ?? null;
+					}
+				},
+			]
+		);
+		WidgetSchemaRepository::reset_request_cache();
+		$GLOBALS['stonewright_test_transients'] = [];
 	}
 }

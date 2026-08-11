@@ -51,13 +51,16 @@ final class TestimonialCarousel {
 		$selected = self::select_widget( $candidates );
 		if ( null === $selected ) {
 			$diagnostics[] = [
-				'code'       => self::ERROR_CODE,
-				'type'       => (string) ( $node['type'] ?? 'testimonial-carousel' ),
-				'path'       => $canonical_path,
-				'renderer'   => 'elementor_v3',
-				'message'    => 'No compatible native Elementor carousel/reviews widget is registered. Refusing write; never substitute static icon boxes.',
-				'candidates' => $candidates,
-				'repair'     => 'Install/activate Elementor Pro (or a widget providing testimonial-carousel/reviews/slides) or revise the design to a supported native widget.',
+				'code'              => self::ERROR_CODE,
+				'type'              => (string) ( $node['type'] ?? 'testimonial-carousel' ),
+				'path'              => $canonical_path,
+				'renderer'          => 'elementor_v3',
+				'message'           => 'No compatible native Elementor carousel/reviews widget is registered live. Refusing write; never substitute static icon boxes. Catalog-only Pro widgets are not written on Free/no-live sites.',
+				'candidates'        => $candidates,
+				'catalog_known'     => self::catalog_known_candidates( $candidates ),
+				'pro_gate_active'   => ProGate::active(),
+				'live_required'     => true,
+				'repair'            => 'Install/activate Elementor Pro (or a widget providing testimonial-carousel/reviews/slides) or revise the design to a supported native widget.',
 			];
 			return null;
 		}
@@ -106,40 +109,53 @@ final class TestimonialCarousel {
 	}
 
 	/**
+	 * Select the first candidate that is registered in the live Elementor runtime.
+	 *
+	 * Catalog shards alone never authorize a write — Free sites list Pro widgets
+	 * offline while the runtime has no such registration. When none are live,
+	 * callers emit {@see self::ERROR_CODE} with the candidate list (catalog may
+	 * still appear in that diagnostic payload for agent repair hints).
+	 *
 	 * @param list<string> $candidates
 	 */
 	public static function select_widget( array $candidates ): ?string {
+		// Without a booted Elementor runtime we cannot prove registration.
+		// Catalog shards may still be listed in error data for repair hints.
+		if ( ! class_exists( '\\Elementor\\Plugin' ) ) {
+			return null;
+		}
+
 		foreach ( $candidates as $candidate ) {
 			$candidate = trim( (string) $candidate );
 			if ( '' === $candidate ) {
 				continue;
 			}
 
-			// Live runtime wins when Elementor is booted.
-			if ( class_exists( '\\Elementor\\Plugin' ) ) {
-				$schema = WidgetSchemaRepository::get( $candidate );
-				if ( ! ( $schema instanceof \WP_Error ) ) {
-					return $candidate;
-				}
-			}
-
-			// Offline / catalog: accept known bundled widgets.
-			if ( WidgetCatalog::has( $candidate ) ) {
-				// Slides is Pro-gated for actual render; still selectable when catalog has it.
-				if ( 'slides' === $candidate && ! ProGate::active() && ! WidgetCatalog::has( 'slides' ) ) {
-					continue;
-				}
+			// Live registry is the only write authority — never catalog alone.
+			$schema = WidgetSchemaRepository::get( $candidate );
+			if ( ! ( $schema instanceof \WP_Error ) ) {
 				return $candidate;
-			}
-
-			// Pro-only candidates when Pro is active even if catalog shard missing.
-			if ( ProGate::active() && in_array( $candidate, [ 'testimonial-carousel', 'reviews', 'nested-carousel' ], true ) ) {
-				// Without live schema we cannot claim registration — skip.
-				continue;
 			}
 		}
 
 		return null;
+	}
+
+	/**
+	 * Catalog-known candidates for repair hints (never used to authorize writes).
+	 *
+	 * @param list<string> $candidates
+	 * @return list<string>
+	 */
+	public static function catalog_known_candidates( array $candidates ): array {
+		$known = [];
+		foreach ( $candidates as $candidate ) {
+			$candidate = trim( (string) $candidate );
+			if ( '' !== $candidate && WidgetCatalog::has( $candidate ) ) {
+				$known[] = $candidate;
+			}
+		}
+		return array_values( array_unique( $known ) );
 	}
 
 	/**

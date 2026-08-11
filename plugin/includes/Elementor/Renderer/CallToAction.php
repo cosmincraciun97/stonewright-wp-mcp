@@ -4,14 +4,18 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Elementor\Renderer;
 
 use Stonewright\WpMcp\DesignTokens\Resolver;
+use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Elementor\WidgetRegistry\WidgetCatalog;
 
 /**
  * Renders a DesignSpec `call-to-action` / `cta` node as Elementor Pro Call to Action.
  *
- * Cover skin only when the live (or catalog) schema accepts `skin=cover`.
+ * Cover skin only when the live schema accepts `skin=cover`.
  * Never silently substitutes image-box — unavailable widget/control returns a
  * structured diagnostic and null so the dispatcher can skip the write path.
+ *
+ * Catalog alone is not enough: Free sites ship the catalog shard but do not
+ * register the Pro widget at runtime. Writes require live registry presence.
  *
  * Spec shape:
  *   {
@@ -36,12 +40,18 @@ final class CallToAction {
 	 * @return array<string, mixed>|null
 	 */
 	public static function render( array $node, Resolver $resolver, string $canonical_path, array &$diagnostics = [] ): ?array {
-		if ( ! ProGate::active() && ! WidgetCatalog::has( self::WIDGET_TYPE ) ) {
+		$live_schema = self::live_schema();
+		if ( null === $live_schema ) {
 			$diagnostics[] = self::diagnostic(
 				$canonical_path,
 				'widget_unavailable',
-				'The Call to Action widget is not registered. Activate Elementor Pro (or a compatible build) — never substitute image-box.',
-				[ 'candidates' => [ self::WIDGET_TYPE ] ]
+				'The Call to Action widget is not registered in the live Elementor runtime. Activate Elementor Pro (or a compatible build) — never substitute image-box. Catalog presence alone is not sufficient.',
+				[
+					'candidates'       => [ self::WIDGET_TYPE ],
+					'catalog_known'    => WidgetCatalog::has( self::WIDGET_TYPE ),
+					'pro_gate_active'  => ProGate::active(),
+					'live_required'    => true,
+				]
 			);
 			return null;
 		}
@@ -61,32 +71,27 @@ final class CallToAction {
 			}
 		}
 
-		// Schema gate: when catalog is present, require skin control with cover option.
-		if ( WidgetCatalog::has( self::WIDGET_TYPE ) ) {
-			$entry    = WidgetCatalog::entry( self::WIDGET_TYPE );
-			$controls = is_array( $entry['settings_index'] ?? null ) ? $entry['settings_index'] : [];
-			if ( ! isset( $controls['skin'] ) ) {
+		// Live schema gate: require skin control; refuse cover when options omit it.
+		$controls = is_array( $live_schema['controls'] ?? null ) ? $live_schema['controls'] : [];
+		if ( ! isset( $controls['skin'] ) ) {
+			$diagnostics[] = self::diagnostic(
+				$canonical_path,
+				'missing_skin_control',
+				'Live schema for call-to-action lacks a skin control; cover CTA refused.',
+				[ 'widget_type' => self::WIDGET_TYPE ]
+			);
+			return null;
+		}
+		if ( 'cover' === $skin ) {
+			$options = $controls['skin']['options'] ?? null;
+			if ( is_array( $options ) && [] !== $options && ! array_key_exists( 'cover', $options ) ) {
 				$diagnostics[] = self::diagnostic(
 					$canonical_path,
-					'missing_skin_control',
-					'Live/catalog schema for call-to-action lacks a skin control; cover CTA refused.',
-					[ 'widget_type' => self::WIDGET_TYPE ]
+					'cover_skin_unavailable',
+					'This Elementor version does not accept skin=cover on call-to-action.',
+					[ 'available_skins' => array_keys( $options ) ]
 				);
 				return null;
-			}
-			if ( 'cover' === $skin ) {
-				// Cover is documented in Elementor Pro catalog; refuse only when
-				// options are present and explicitly omit cover.
-				$options = $controls['skin']['options'] ?? null;
-				if ( is_array( $options ) && [] !== $options && ! array_key_exists( 'cover', $options ) ) {
-					$diagnostics[] = self::diagnostic(
-						$canonical_path,
-						'cover_skin_unavailable',
-						'This Elementor version does not accept skin=cover on call-to-action.',
-						[ 'available_skins' => array_keys( $options ) ]
-					);
-					return null;
-				}
 			}
 		}
 
@@ -170,6 +175,22 @@ final class CallToAction {
 			'settings'   => $settings,
 			'elements'   => [],
 		];
+	}
+
+	/**
+	 * Live Elementor registry presence for call-to-action.
+	 *
+	 * Catalog alone must never green-light a Pro CTA write: Free installs
+	 * still ship the bundled shard.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	private static function live_schema(): ?array {
+		if ( ! class_exists( '\\Elementor\\Plugin' ) ) {
+			return null;
+		}
+		$schema = WidgetSchemaRepository::get( self::WIDGET_TYPE );
+		return $schema instanceof \WP_Error ? null : $schema;
 	}
 
 	/**

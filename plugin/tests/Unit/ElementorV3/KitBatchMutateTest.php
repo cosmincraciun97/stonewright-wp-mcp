@@ -151,4 +151,70 @@ final class KitBatchMutateTest extends TestCase {
 		);
 		self::assertInstanceOf( \WP_Error::class, $result );
 	}
+
+	public function test_rollback_without_operations(): void {
+		// Seed a snapshot via apply, then restore without sending operations.
+		$apply = ( new KitBatchMutate() )->execute(
+			[
+				'operations' => [
+					[ 'group' => 'layout', 'container_width' => 1140 ],
+				],
+			]
+		);
+		self::assertIsArray( $apply );
+		self::assertNotSame( '', $apply['snapshot_id'] );
+
+		$result = ( new KitBatchMutate() )->execute(
+			[
+				'rollback'          => true,
+				'rollback_snapshot' => $apply['snapshot_id'],
+			]
+		);
+
+		self::assertIsArray( $result );
+		self::assertTrue( $result['ok'] );
+		self::assertTrue( $result['rollback'] );
+		self::assertSame( $apply['snapshot_id'], $result['snapshot_id'] );
+	}
+
+	public function test_unchanged_settings_are_success_noop(): void {
+		// First apply changes width to 1140.
+		$first = ( new KitBatchMutate() )->execute(
+			[
+				'operations' => [
+					[
+						'group'   => 'layout',
+						'setting' => 'container_width',
+						'value'   => [ 'size' => 1140, 'unit' => 'px' ],
+					],
+				],
+			]
+		);
+		self::assertIsArray( $first );
+		self::assertTrue( $first['ok'] );
+		self::assertNotSame( '', $first['snapshot_id'] );
+
+		$meta_calls_before = count( $GLOBALS['stonewright_test_post_meta_calls'] ?? [] );
+
+		// Re-apply the same plan — must succeed as no-op, not write_failed.
+		$second = ( new KitBatchMutate() )->execute(
+			[
+				'operations' => [
+					[
+						'group'   => 'layout',
+						'setting' => 'container_width',
+						'value'   => [ 'size' => 1140, 'unit' => 'px' ],
+					],
+				],
+			]
+		);
+
+		self::assertIsArray( $second );
+		self::assertTrue( $second['ok'] );
+		self::assertTrue( $second['noop'] ?? false );
+		self::assertSame( '', $second['snapshot_id'] );
+		self::assertSame( 0, $second['applied'] );
+		self::assertSame( $second['before_hash'], $second['after_hash'] );
+		self::assertSame( $meta_calls_before, count( $GLOBALS['stonewright_test_post_meta_calls'] ?? [] ) );
+	}
 }

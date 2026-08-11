@@ -55,9 +55,9 @@ final class KitBatchMutate extends AbilityKernel {
 				'rollback'           => [ 'type' => 'boolean', 'default' => false ],
 				'operations'         => [
 					'type'        => 'array',
-					'minItems'    => 1,
+					'minItems'    => 0,
 					'maxItems'    => 50,
-					'description' => 'Typed kit operations. group: colors|typography|layout|settings.',
+					'description' => 'Typed kit operations (required unless rollback=true). group: colors|typography|layout|settings.',
 					'items'       => [
 						'type'                 => 'object',
 						'additionalProperties' => true,
@@ -78,7 +78,8 @@ final class KitBatchMutate extends AbilityKernel {
 					],
 				],
 			],
-			'required'             => [ 'operations' ],
+			// operations required only for mutate path; rollback uses rollback_snapshot.
+			// Execute enforces: rollback=true OR non-empty operations.
 		];
 	}
 
@@ -170,18 +171,44 @@ final class KitBatchMutate extends AbilityKernel {
 					];
 				}
 
+				// Idempotent re-apply: planned state already matches kit — success no-op.
+				if ( hash_equals( $before_hash, $after_hash ) ) {
+					return [
+						'ok'            => true,
+						'kit_id'        => $kit_id,
+						'dry_run'       => false,
+						'snapshot_id'   => '',
+						'applied'       => 0,
+						'before_hash'   => $before_hash,
+						'after_hash'    => $after_hash,
+						'readback_hash' => $before_hash,
+						'preview'       => $preview,
+						'readback'      => [
+							'container_width' => $current['container_width'] ?? null,
+							'colors_custom'   => count( is_array( $current['custom_colors'] ?? null ) ? $current['custom_colors'] : [] ),
+							'typo_system'     => count( is_array( $current['system_typography'] ?? null ) ? $current['system_typography'] : [] ),
+							'typo_custom'     => count( is_array( $current['custom_typography'] ?? null ) ? $current['custom_typography'] : [] ),
+						],
+						'rollback'      => false,
+						'noop'          => true,
+					];
+				}
+
 				$snapshot_id = Backup::snapshot_post( $kit_id );
 				if ( '' === $snapshot_id ) {
 					return $this->error( 'snapshot_failed', __( 'Could not snapshot the Elementor kit before write.', 'stonewright' ), [ 'status' => 409 ] );
 				}
 
-				if ( false === update_post_meta( $kit_id, '_elementor_page_settings', $planned ) ) {
-					return $this->error( 'write_failed', __( 'Could not save Elementor kit settings.', 'stonewright' ) );
-				}
-
+				$write_ok = update_post_meta( $kit_id, '_elementor_page_settings', $planned );
 				$readback = get_post_meta( $kit_id, '_elementor_page_settings', true );
 				$readback = is_array( $readback ) ? $readback : [];
 				$readback_hash = self::hash_settings( $readback );
+
+				// WordPress returns false from update_post_meta when the value is
+				// unchanged. Treat matching planned readback as success, not write_failed.
+				if ( false === $write_ok && ! hash_equals( $after_hash, $readback_hash ) ) {
+					return $this->error( 'write_failed', __( 'Could not save Elementor kit settings.', 'stonewright' ) );
+				}
 
 				return [
 					'ok'            => true,
