@@ -127,7 +127,7 @@ describe('multi-site registry schema v2', () => {
 	it('allows same URL under distinct environments (prod vs staging)', () => {
 		const ref = 'memory://x';
 		const store = new MemoryCredentialStore();
-		store.set(ref, 'p');
+		store.set(ref, 'example-p');
 		void store;
 		let reg = { schema_version: 2 as const, default_site_id: null as string | null, sites: [] as ReturnType<typeof buildSiteRecord>[] };
 		const staging = buildSiteRecord({
@@ -217,13 +217,13 @@ describe('multi-site registry schema v2', () => {
 					'site-a': {
 						url: 'https://site-a.example/',
 						username: 'editor',
-						appPassword: 'legacy-secret-password',
+						appPassword: 'example-legacy-app-password',
 						disabledTools: ['stonewright-content-delete'],
 					},
 					'site-b': {
 						url: 'https://site-b.example/',
 						username: 'admin',
-						applicationPassword: 'other-secret',
+						applicationPassword: 'example-other-app-password',
 					},
 				},
 			}),
@@ -243,8 +243,8 @@ describe('multi-site registry schema v2', () => {
 			sites: Array<{ credential_ref: string; alias: string; disabled_tools?: string[] }>;
 		};
 		expect(raw.schema_version).toBe(2);
-		expect(JSON.stringify(raw)).not.toContain('legacy-secret-password');
-		expect(JSON.stringify(raw)).not.toContain('other-secret');
+		expect(JSON.stringify(raw)).not.toContain('example-legacy-app-password');
+		expect(JSON.stringify(raw)).not.toContain('example-other-app-password');
 		expect(raw.sites.find((s) => s.alias === 'site-a')?.disabled_tools).toEqual([
 			'stonewright-content-delete',
 		]);
@@ -262,7 +262,7 @@ describe('multi-site registry schema v2', () => {
 			credentials: { store, prefer: 'memory' },
 		});
 		const site = resolveSite(config, 'site-a');
-		expect(site.appPassword).toBe('legacy-secret-password');
+		expect(site.appPassword).toBe('example-legacy-app-password');
 		expect(site.url).toBe('https://site-a.example');
 	});
 
@@ -274,7 +274,7 @@ describe('multi-site registry schema v2', () => {
 				only: {
 					url: 'https://only.example/',
 					username: 'u',
-					appPassword: 'must-remain',
+					appPassword: 'example-must-remain',
 				},
 			},
 		};
@@ -311,7 +311,7 @@ describe('multi-site registry schema v2', () => {
 		).toThrow();
 
 		const still = JSON.parse(readFileSync(file, 'utf8')) as typeof original;
-		expect(still.sites.only.appPassword).toBe('must-remain');
+		expect(still.sites.only.appPassword).toBe('example-must-remain');
 		expect((still as { schema_version?: number }).schema_version).toBeUndefined();
 		expect(existsSync(file)).toBe(true);
 		void failing;
@@ -327,13 +327,13 @@ describe('multi-site registry schema v2', () => {
 					legacy: {
 						url: 'https://legacy.example/',
 						username: 'editor',
-						appPassword: 'still-plain',
+						appPassword: 'example-still-plain',
 					},
 				},
 			}),
 		);
 		const config = loadSitesConfig({ sitesFile: file });
 		expect(config.schemaVersion).toBe(1);
-		expect(resolveSite(config).appPassword).toBe('still-plain');
+		expect(resolveSite(config).appPassword).toBe('example-still-plain');
 	});
 });
