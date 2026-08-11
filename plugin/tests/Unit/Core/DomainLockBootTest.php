@@ -55,4 +55,28 @@ final class DomainLockBootTest extends TestCase {
 			PluginEffectiveState::effective_state()
 		);
 	}
+
+	public function test_check_domain_lock_does_not_rewrite_identical_mismatch_record(): void {
+		DomainLock::lock();
+		$GLOBALS['stonewright_test_home_url'] = 'https://cloned.example/';
+
+		$ref  = new \ReflectionClass( PluginRegistration::class );
+		$ctor = $ref->getConstructor();
+		self::assertNotNull( $ctor );
+		$instance = $ref->newInstanceWithoutConstructor();
+		$ctor->invoke( $instance, __FILE__ );
+
+		$instance->check_domain_lock();
+		$first = DomainLock::mismatch();
+		self::assertIsArray( $first );
+		$recorded_at = (int) ( $first['recorded_at'] ?? 0 );
+
+		// Second boot with the same origins must keep the stored recorded_at.
+		sleep( 1 );
+		$instance->check_domain_lock();
+		$second = DomainLock::mismatch();
+		self::assertIsArray( $second );
+		self::assertSame( $first['fingerprint'] ?? null, $second['fingerprint'] ?? null );
+		self::assertSame( $recorded_at, (int) ( $second['recorded_at'] ?? 0 ) );
+	}
 }

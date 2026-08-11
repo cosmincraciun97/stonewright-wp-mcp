@@ -49,12 +49,38 @@ final class DomainLock {
 	}
 
 	/**
-	 * Clear the stored lock and any mismatch/prior records (destructive; prefer rebind).
+	 * Whether destructive clear is allowed.
+	 *
+	 * Clear is refused while a live origin mismatch is active so the next boot
+	 * cannot silently rebind the new origin without rebind/rollback confirmation.
 	 */
-	public static function reset(): void {
+	public static function can_clear(): bool {
+		return self::check();
+	}
+
+	/**
+	 * Clear the stored lock and any mismatch/prior records (destructive; prefer rebind).
+	 *
+	 * Refuses while origin mismatches — use rebind() or rollback() instead.
+	 *
+	 * @return true|\WP_Error True on success.
+	 */
+	public static function reset() {
+		if ( ! self::can_clear() ) {
+			return new \WP_Error(
+				'stonewright_domain_reset_blocked',
+				__(
+					'Cannot clear domain lock while the site origin is mismatched. Use Review and rebind, or Restore prior domain binding.',
+					'stonewright'
+				)
+			);
+		}
+
 		delete_option( self::OPTION_LOCKED );
 		delete_option( self::OPTION_MISMATCH );
 		delete_option( self::OPTION_PRIOR );
+
+		return true;
 	}
 
 	/**
@@ -153,18 +179,32 @@ final class DomainLock {
 	/**
 	 * Record a domain mismatch without touching operator enablement intent.
 	 *
+	 * Only writes when no mismatch record exists or the fingerprint changes,
+	 * so boot-time checks do not rewrite options on every request.
+	 *
 	 * @return array<string, mixed> Stored mismatch payload.
 	 */
 	public static function record_mismatch(): array {
-		$locked  = self::locked_domain();
-		$current = self::current_origin();
+		$locked      = self::locked_domain();
+		$current     = self::current_origin();
+		$fingerprint = hash(
+			'sha256',
+			self::normalize_origin( $locked ) . '|' . $current
+		);
+
+		$existing = self::mismatch();
+		if (
+			is_array( $existing )
+			&& isset( $existing['fingerprint'] )
+			&& (string) $existing['fingerprint'] === $fingerprint
+		) {
+			return $existing;
+		}
+
 		$payload = [
 			'locked_redacted'  => self::redact_origin( $locked ),
 			'current_redacted' => self::redact_origin( $current ),
-			'fingerprint'      => hash(
-				'sha256',
-				self::normalize_origin( $locked ) . '|' . $current
-			),
+			'fingerprint'      => $fingerprint,
 			'recorded_at'      => time(),
 			'reason'           => 'domain_mismatch',
 		];

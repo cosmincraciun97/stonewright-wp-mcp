@@ -872,10 +872,46 @@
 		name: '',
 	};
 
+	/** @type {Array<{el: Element, template: string}>|null} */
+	var appPasswordSnippetTemplates = null;
+
+	function captureAppPasswordSnippetTemplates() {
+		if ( appPasswordSnippetTemplates ) {
+			return;
+		}
+		appPasswordSnippetTemplates = [];
+		document.querySelectorAll( '[data-stonewright-method-snippet] pre code, [data-stonewright-method-snippet] pre' ).forEach( function ( block ) {
+			var text = block.textContent || '';
+			if ( text.indexOf( '<your-application-password>' ) === -1 ) {
+				return;
+			}
+			// Prefer <code> nodes; skip parent <pre> when it already wraps a captured code child.
+			if ( block.tagName && block.tagName.toLowerCase() === 'pre' && block.querySelector( 'code' ) ) {
+				return;
+			}
+			appPasswordSnippetTemplates.push( {
+				el: block,
+				template: text,
+			} );
+		} );
+	}
+
+	function restoreAppPasswordSnippetPlaceholders() {
+		if ( ! appPasswordSnippetTemplates ) {
+			return;
+		}
+		appPasswordSnippetTemplates.forEach( function ( entry ) {
+			if ( entry && entry.el && typeof entry.template === 'string' ) {
+				entry.el.textContent = entry.template;
+			}
+		} );
+	}
+
 	function clearAppPasswordMemory() {
 		appPasswordMemory.password = '';
 		appPasswordMemory.uuid = '';
 		appPasswordMemory.name = '';
+		restoreAppPasswordSnippetPlaceholders();
 		var live = document.querySelector( '[data-stonewright-app-password-live]' );
 		if ( live ) {
 			live.hidden = true;
@@ -940,12 +976,54 @@
 		live.appendChild( row );
 	}
 
-	function refreshPasswordInventory( passwords ) {
+	function ensurePasswordInventoryTable() {
 		var tbody = document.querySelector( '.stonewright-app-password-table tbody' );
-		if ( ! tbody || ! Array.isArray( passwords ) ) {
+		if ( tbody ) {
+			return tbody;
+		}
+		var list = document.querySelector( '.stonewright-app-passwords-list' );
+		if ( ! list ) {
+			return null;
+		}
+		var empty = list.querySelector( ':scope > p.description' );
+		if ( empty ) {
+			empty.remove();
+		}
+		var table = document.createElement( 'table' );
+		table.className = 'widefat striped stonewright-app-password-table';
+		var thead = document.createElement( 'thead' );
+		var headRow = document.createElement( 'tr' );
+		[ 'Name', 'UUID', 'Actions' ].forEach( function ( label ) {
+			var th = document.createElement( 'th' );
+			th.textContent = label;
+			headRow.appendChild( th );
+		} );
+		thead.appendChild( headRow );
+		table.appendChild( thead );
+		tbody = document.createElement( 'tbody' );
+		table.appendChild( tbody );
+		list.appendChild( table );
+		return tbody;
+	}
+
+	function updatePasswordInventorySummary( count ) {
+		var summary = document.querySelector( '.stonewright-app-passwords-list summary' );
+		if ( ! summary ) {
+			return;
+		}
+		summary.textContent = 'Manage existing application passwords (' + String( count ) + ')';
+	}
+
+	function refreshPasswordInventory( passwords ) {
+		if ( ! Array.isArray( passwords ) ) {
+			return;
+		}
+		var tbody = ensurePasswordInventoryTable();
+		if ( ! tbody ) {
 			return;
 		}
 		tbody.innerHTML = '';
+		updatePasswordInventorySummary( passwords.length );
 		passwords.forEach( function ( item ) {
 			var tr = document.createElement( 'tr' );
 			var nameTd = document.createElement( 'td' );
@@ -1039,15 +1117,21 @@
 	function updateSnippetsWithPassword( password ) {
 		// Private client snippets may include the one-time password in-page only.
 		// Never write into the paste-to-agent prompt (credential-free contract).
-		document.querySelectorAll( '[data-stonewright-method-snippet] pre code, [data-stonewright-method-snippet] pre' ).forEach( function ( block ) {
-			var text = block.textContent || '';
-			if ( ! text || text.indexOf( '<your-application-password>' ) === -1 ) {
+		// Always re-render from captured templates so clear/regenerate cannot leave
+		// secrets in the DOM or lose the placeholder permanently.
+		captureAppPasswordSnippetTemplates();
+		if ( ! password ) {
+			restoreAppPasswordSnippetPlaceholders();
+			return;
+		}
+		if ( ! appPasswordSnippetTemplates ) {
+			return;
+		}
+		appPasswordSnippetTemplates.forEach( function ( entry ) {
+			if ( ! entry || ! entry.el || typeof entry.template !== 'string' ) {
 				return;
 			}
-			if ( ! password ) {
-				return;
-			}
-			block.textContent = text.split( '<your-application-password>' ).join( password );
+			entry.el.textContent = entry.template.split( '<your-application-password>' ).join( password );
 		} );
 	}
 
@@ -1056,6 +1140,9 @@
 		if ( ! form ) {
 			return;
 		}
+
+		// Capture credential placeholders before any generate/clear mutates them.
+		captureAppPasswordSnippetTemplates();
 
 		var hint = form.querySelector( '[data-stonewright-app-password-nojs-hint]' );
 		if ( hint ) {

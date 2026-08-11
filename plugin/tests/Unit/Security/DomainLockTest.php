@@ -61,9 +61,54 @@ final class DomainLockTest extends TestCase {
 
 	public function test_reset_clears_lock(): void {
 		DomainLock::lock();
-		DomainLock::reset();
+		$result = DomainLock::reset();
+		$this->assertTrue( $result );
 		$this->assertSame( '', DomainLock::locked_domain() );
 		$this->assertTrue( DomainLock::check() );
+	}
+
+	public function test_reset_refuses_while_domain_mismatched(): void {
+		DomainLock::lock();
+		$GLOBALS['stonewright_test_home_url'] = 'https://cloned.example/';
+		$this->assertFalse( DomainLock::check() );
+		$this->assertFalse( DomainLock::can_clear() );
+
+		$result = DomainLock::reset();
+		$this->assertInstanceOf( \WP_Error::class, $result );
+		$this->assertSame( 'stonewright_domain_reset_blocked', $result->get_error_code() );
+		// Lock and enablement intent must survive a refused clear.
+		$this->assertSame( 'https://example.test/', DomainLock::locked_domain() );
+		$this->assertTrue( (bool) get_option( 'stonewright_enabled', false ) );
+	}
+
+	public function test_record_mismatch_is_idempotent_for_same_fingerprint(): void {
+		DomainLock::lock();
+		$GLOBALS['stonewright_test_home_url'] = 'https://cloned.example/';
+
+		$first = DomainLock::record_mismatch();
+		$this->assertIsArray( $first );
+		$this->assertArrayHasKey( 'fingerprint', $first );
+		$this->assertArrayHasKey( 'recorded_at', $first );
+		$recorded_at = (int) $first['recorded_at'];
+
+		// Simulate a later boot with the same locked/current pair.
+		sleep( 1 );
+		$second = DomainLock::record_mismatch();
+		$this->assertSame( $first['fingerprint'], $second['fingerprint'] );
+		$this->assertSame( $recorded_at, (int) $second['recorded_at'] );
+		$this->assertSame( $first, DomainLock::mismatch() );
+	}
+
+	public function test_record_mismatch_rewrites_when_fingerprint_changes(): void {
+		DomainLock::lock();
+		$GLOBALS['stonewright_test_home_url'] = 'https://first-clone.example/';
+		$first = DomainLock::record_mismatch();
+
+		$GLOBALS['stonewright_test_home_url'] = 'https://second-clone.example/';
+		$second = DomainLock::record_mismatch();
+
+		$this->assertNotSame( $first['fingerprint'], $second['fingerprint'] );
+		$this->assertSame( $second['fingerprint'], DomainLock::mismatch()['fingerprint'] ?? null );
 	}
 
 	/**

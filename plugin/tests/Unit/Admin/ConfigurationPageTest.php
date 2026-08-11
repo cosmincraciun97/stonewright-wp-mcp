@@ -292,4 +292,30 @@ final class ConfigurationPageTest extends TestCase {
 			$GLOBALS['stonewright_test_transients']
 		);
 	}
+
+	public function test_domain_lock_clear_hidden_during_mismatch(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_enabled'] = true;
+		$GLOBALS['stonewright_test_home_url'] = 'https://example.test/';
+		\Stonewright\WpMcp\Security\DomainLock::lock();
+		$GLOBALS['stonewright_test_home_url'] = 'https://cloned.example/';
+		\Stonewright\WpMcp\Security\DomainLock::record_mismatch();
+
+		ob_start();
+		ConfigurationPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( 'stonewright-domain-lock', $html );
+		self::assertStringContainsString( 'Mismatch — abilities are BLOCKED', $html );
+		self::assertStringContainsString( 'stonewright_rebind_domain_lock', $html );
+		self::assertStringNotContainsString( 'stonewright_reset_domain_lock', $html );
+		self::assertStringContainsString(
+			'Clear domain lock is disabled during a mismatch',
+			$html
+		);
+
+		delete_option( 'stonewright_locked_domain' );
+		delete_option( 'stonewright_domain_mismatch' );
+		delete_option( 'stonewright_domain_lock_prior' );
+		unset( $GLOBALS['stonewright_test_home_url'] );
+	}
 }

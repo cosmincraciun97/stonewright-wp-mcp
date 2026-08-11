@@ -1552,11 +1552,17 @@ final class ConfigurationPage {
 					</button>
 				</form>
 			<?php endif; ?>
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form">
-				<input type="hidden" name="action" value="stonewright_reset_domain_lock"/>
-				<?php wp_nonce_field( 'stonewright_reset_domain_lock' ); ?>
-				<button type="submit" class="button button-small"><?php esc_html_e( 'Clear domain lock', 'stonewright' ); ?></button>
-			</form>
+			<?php if ( DomainLock::can_clear() ) : ?>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form">
+					<input type="hidden" name="action" value="stonewright_reset_domain_lock"/>
+					<?php wp_nonce_field( 'stonewright_reset_domain_lock' ); ?>
+					<button type="submit" class="button button-small"><?php esc_html_e( 'Clear domain lock', 'stonewright' ); ?></button>
+				</form>
+			<?php elseif ( $mismatch ) : ?>
+				<p class="description">
+					<?php esc_html_e( 'Clear domain lock is disabled during a mismatch. Rebind this site or restore the prior binding instead.', 'stonewright' ); ?>
+				</p>
+			<?php endif; ?>
 		</div>
 		<?php
 	}
@@ -1566,7 +1572,12 @@ final class ConfigurationPage {
 			wp_die( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
 		}
 		check_admin_referer( 'stonewright_reset_domain_lock' );
-		DomainLock::reset();
+
+		$result = DomainLock::reset();
+		if ( is_wp_error( $result ) ) {
+			wp_die( esc_html( $result->get_error_message() ) );
+		}
+
 		wp_safe_redirect( add_query_arg( [ 'page' => self::SLUG, 'lock_reset' => '1' ], admin_url( 'admin.php' ) ) . '#stonewright-domain-lock' );
 		exit;
 	}
