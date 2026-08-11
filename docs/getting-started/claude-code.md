@@ -21,7 +21,8 @@ about five minutes.
   DesignSpec, php-execute, confirmation tokens, and shared site skills/memory.
   Plugin ability inventory: [ability-truth-matrix.md](../ability-truth-matrix.md).
 
-The companion auto-detects mode (`STONEWRIGHT_MODE=direct|plugin` overrides).
+Use an explicit saved policy: `direct-only` without the plugin and
+`plugin-only` when the plugin is installed.
 
 ## Fastest start (Direct mode)
 
@@ -32,17 +33,20 @@ app-password UI), then register Stonewright.
 Replace `VERSION` with the exact release version without a leading `v`:
 
 ```bash
-claude mcp add stonewright \
-  --env STONEWRIGHT_WP_URL='https://your-site.example.com' \
-  --env STONEWRIGHT_WP_USERNAME='your-wp-username' \
-  --env STONEWRIGHT_WP_APP_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx' \
-  --env STONEWRIGHT_DIRECT_WRITES=confirm \
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
+  --alias site-a --url https://site-a.example --username editor \
+  --mode direct-only
+
+claude mcp add stonewright-site-a \
+  --env STONEWRIGHT_SITE_ALIAS=site-a \
   --env STONEWRIGHT_MODE=direct \
+  --env STONEWRIGHT_MCP_TOOL_PROFILE=essential \
   -- npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-mcp
 ```
 
-Optional: omit `STONEWRIGHT_MODE=direct` to let the companion auto-detect (plugin
-endpoint present → plugin proxy; HTTP 404 → Direct).
+The installer requests the password through a hidden prompt and stores it
+outside Claude's config. The named Claude entry contains only the alias and
+mode policy.
 
 Claude Code is a **tier-1 certification target**. Keep Application Passwords in the
 CLI env / private config only — not in chat.
@@ -105,13 +109,20 @@ Register Stonewright. Replace `VERSION` with the exact release version without
 a leading `v`:
 
 ```bash
-claude mcp add stonewright \
-  --env STONEWRIGHT_WP_URL='https://your-site.example.com' \
-  --env STONEWRIGHT_WP_USERNAME='your-wp-username' \
-  --env STONEWRIGHT_WP_APP_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx' \
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
+  --alias site-a --url https://site-a.example --username editor \
+  --mode plugin-only --plugin-enabled yes --wp-surface essential
+
+claude mcp add stonewright-site-a \
+  --env STONEWRIGHT_SITE_ALIAS=site-a \
+  --env STONEWRIGHT_MODE=plugin \
   --env STONEWRIGHT_MCP_TOOL_PROFILE=essential \
   -- npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-mcp
 ```
+
+If `site-a` already exists, run `stonewright connect repair site-a --mode
+plugin-only` to update its saved policy, then rerun the secret-free `claude mcp
+add` command above. Do not create another alias or ask for the password again.
 
 Add `--env STONEWRIGHT_WP_ROOT='...'` only when you want WP-CLI helper tools or
 LocalWP discovery. The value is the absolute WordPress install folder

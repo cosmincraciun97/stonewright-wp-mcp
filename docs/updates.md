@@ -63,6 +63,18 @@ the linked SHA-256 manifest.
    `expected_companion_package` is current, and
    `refresh_required_tool_names` is empty.
 
+For alias-based stdio installs, prefer the versioned repair command over
+editing a generic MCP block:
+
+```bash
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect repair <alias> --client <client> --mode plugin-only
+```
+
+This reuses the existing credential reference, refreshes only the named client
+entry, and makes the alias authoritative over stale inherited WordPress
+environment values. Restart the client, then run `connect verify`; another
+alias or `active_mode=direct` is a failed plugin-mode update, not success.
+
 Direct mode keeps its private state under `~/.stonewright/`. Replacing the
 companion package does not reset its memory, user-created skills, site
 configuration, backups, or audit history.

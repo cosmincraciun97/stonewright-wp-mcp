@@ -38,9 +38,11 @@ function defaultSitesPath(env: NodeJS.ProcessEnv, home: string): string {
 /**
  * When `STONEWRIGHT_SITE_ALIAS` is set, load only that site from the registry
  * and inject `STONEWRIGHT_WP_URL`, `STONEWRIGHT_WP_USERNAME`, and
- * `STONEWRIGHT_WP_APP_PASSWORD` into `env` (overwriting empty values; leaving
- * non-empty explicit env credentials in place when already complete unless
- * `force` is true).
+ * `STONEWRIGHT_WP_APP_PASSWORD` into `env`.
+ *
+ * An explicit alias is authoritative. It always replaces inherited or stale
+ * WordPress environment values so one named client entry cannot start against
+ * a different site's credentials.
  */
 export function applySiteAliasToEnv(
 	env: NodeJS.ProcessEnv = process.env,
@@ -48,7 +50,7 @@ export function applySiteAliasToEnv(
 		sitesFile?: string | undefined;
 		homeDir?: string | undefined;
 		credentials?: CreateCredentialStoreOptions | undefined;
-		/** Overwrite existing STONEWRIGHT_WP_* even when already set. Default false. */
+		/** @deprecated Alias selection is always authoritative. */
 		force?: boolean | undefined;
 	} = {},
 ): ApplySiteAliasResult {
@@ -101,21 +103,6 @@ export function applySiteAliasToEnv(
 		return { applied: false, alias: aliasRaw, injected: false, error };
 	}
 
-	const force = options.force === true;
-	const existingUrl = (env['STONEWRIGHT_WP_URL'] ?? env['WP_API_URL'] ?? '').trim();
-	const existingUser = (env['STONEWRIGHT_WP_USERNAME'] ?? env['WP_API_USERNAME'] ?? '').trim();
-	const existingPass = (
-		env['STONEWRIGHT_WP_APP_PASSWORD'] ??
-		env['STONEWRIGHT_WP_PASSWORD'] ??
-		env['WP_API_PASSWORD'] ??
-		''
-	).trim();
-
-	// When force is off and all three are already present, skip secret resolution.
-	if (!force && existingUrl && existingUser && existingPass) {
-		return { applied: true, alias: site.alias, injected: false };
-	}
-
 	let password: string;
 	try {
 		const resolveOpts: {
@@ -133,25 +120,17 @@ export function applySiteAliasToEnv(
 	} catch (err) {
 		const error = err instanceof Error ? err.message : String(err);
 		log.warn('Failed to resolve credential for site alias', { alias: site.alias, error });
-		// Still inject URL/username so probe/diagnostics can name the site.
-		if (force || !existingUrl) {
-			env['STONEWRIGHT_WP_URL'] = site.canonical_url;
-		}
-		if (force || !existingUser) {
-			env['STONEWRIGHT_WP_USERNAME'] = site.username_hint;
-		}
+		// Name the selected site, but fail closed instead of pairing it with a
+		// password inherited from another MCP entry.
+		env['STONEWRIGHT_WP_URL'] = site.canonical_url;
+		env['STONEWRIGHT_WP_USERNAME'] = site.username_hint;
+		env['STONEWRIGHT_WP_APP_PASSWORD'] = '';
 		return { applied: true, alias: site.alias, injected: false, error };
 	}
 
-	if (force || !existingUrl) {
-		env['STONEWRIGHT_WP_URL'] = site.canonical_url;
-	}
-	if (force || !existingUser) {
-		env['STONEWRIGHT_WP_USERNAME'] = site.username_hint;
-	}
-	if (force || !existingPass) {
-		env['STONEWRIGHT_WP_APP_PASSWORD'] = password;
-	}
+	env['STONEWRIGHT_WP_URL'] = site.canonical_url;
+	env['STONEWRIGHT_WP_USERNAME'] = site.username_hint;
+	env['STONEWRIGHT_WP_APP_PASSWORD'] = password;
 
 	log.info('Applied STONEWRIGHT_SITE_ALIAS to runtime env', {
 		alias: site.alias,

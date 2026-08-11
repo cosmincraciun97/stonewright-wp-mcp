@@ -1,6 +1,6 @@
 # Stonewright Plugin
 
-Version: 1.0.0-beta.5
+Version: 1.0.0-beta.6
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
 License: AGPL-3.0-or-later
@@ -148,6 +148,14 @@ MCP surface, enablement/V4 selections, and per-client browser consent while
 keeping Application Passwords in the OS store. After restarting the client,
 `stonewright connect verify <alias> --client <id>` spawns the saved entry and
 requires task-start/status proof; parsing the client config is not sufficient.
+For a site where this plugin is installed, register `--mode plugin-only`. Use
+`connect repair <alias> --client <id> --mode plugin-only` to reuse an existing
+credential and repair the named entry without creating another alias.
+
+Setup keeps the Settings API form structurally separate from domain-lock
+recovery actions. **Save Settings** therefore returns to Stonewright Setup;
+`/wp-admin/options.php` is only the internal WordPress handler and is never the
+final admin page.
 
 ### Prompt library
 

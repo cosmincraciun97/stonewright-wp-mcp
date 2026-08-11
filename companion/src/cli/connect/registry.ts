@@ -391,6 +391,42 @@ function v1Url(row: SitesRegistryV1['sites'][string]): string {
 }
 
 /**
+ * Pick one stable alias for every legacy URL/environment pair.
+ *
+ * The v1 format allowed the same site to be copied under several aliases. V2
+ * deliberately forbids that ambiguity. Preserve the configured default when
+ * it belongs to a duplicate group; otherwise preserve the first legacy alias.
+ */
+function uniqueV1Entries(
+	v1: SitesRegistryV1,
+): Array<[string, SitesRegistryV1['sites'][string]]> {
+	const entries = Object.entries(v1.sites ?? {});
+	const defaultKey = typeof v1.default === 'string' ? aliasKey(v1.default) : '';
+	const ordered = defaultKey
+		? [
+			...entries.filter(([alias]) => aliasKey(alias) === defaultKey),
+			...entries.filter(([alias]) => aliasKey(alias) !== defaultKey),
+		]
+		: entries;
+	const seen = new Set<string>();
+	const unique: Array<[string, SitesRegistryV1['sites'][string]]> = [];
+
+	for (const [alias, row] of ordered) {
+		const url = v1Url(row);
+		if (!url) {
+			unique.push([alias, row]);
+			continue;
+		}
+		const fingerprint = urlFingerprint(normalizeCanonicalUrl(url), 'other');
+		if (seen.has(fingerprint)) continue;
+		seen.add(fingerprint);
+		unique.push([alias, row]);
+	}
+
+	return unique;
+}
+
+/**
  * Lossless v1 → v2 migration.
  * Moves plaintext secrets into the credential store BEFORE writing v2.
  * On secure-store failure: throws and leaves the original file untouched.
@@ -405,11 +441,9 @@ export function migrateV1ToV2(
 ): SitesRegistryV2 {
 	const sites: SiteRecordV2[] = [];
 	const now = new Date().toISOString();
-	const aliases = Object.keys(v1.sites ?? {});
+	const entries = uniqueV1Entries(v1);
 
-	for (const alias of aliases) {
-		const row = v1.sites[alias];
-		if (!row) continue;
+	for (const [alias, row] of entries) {
 		const url = v1Url(row);
 		const username = v1Username(row);
 		const password = v1Password(row);
@@ -565,7 +599,7 @@ export function loadRegistry(options: LoadRegistryOptions = {}): {
  */
 export function projectV1AsV2WithoutSecretMove(v1: SitesRegistryV1): SitesRegistryV2 {
 	const sites: SiteRecordV2[] = [];
-	for (const [alias, row] of Object.entries(v1.sites ?? {})) {
+	for (const [alias, row] of uniqueV1Entries(v1)) {
 		const url = v1Url(row);
 		const username = v1Username(row);
 		if (!url || !username) continue;

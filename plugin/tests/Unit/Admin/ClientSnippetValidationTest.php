@@ -17,6 +17,7 @@ use Stonewright\WpMcp\Admin\ConnectClientConfig;
  * @covers \Stonewright\WpMcp\Admin\ConnectClientConfig::snippet_for
  */
 final class ClientSnippetValidationTest extends TestCase {
+	private const SERVER_NAME = 'stonewright-example-test';
 
 	private const USER = 'fixture-admin';
 	private const PASS = 'xxxx xxxx xxxx xxxx xxxx xxxx';
@@ -58,7 +59,7 @@ final class ClientSnippetValidationTest extends TestCase {
 
 			if ( isset( $snippet['toml'] ) ) {
 				$toml = (string) $snippet['toml'];
-				self::assertStringContainsString( '[mcp_servers.stonewright]', $toml );
+					self::assertStringContainsString( '[mcp_servers.' . self::SERVER_NAME . ']', $toml );
 				self::assertStringContainsString( 'command = "npx"', $toml );
 				self::assertStringContainsString( 'STONEWRIGHT_WP_USERNAME', $toml );
 				self::assertStringContainsString( self::USER, $toml );
@@ -76,8 +77,8 @@ final class ClientSnippetValidationTest extends TestCase {
 
 			$servers = $decoded['mcpServers'] ?? $decoded['servers'] ?? $decoded['context_servers'] ?? null;
 			self::assertIsArray( $servers, "{$slug} missing server map" );
-			self::assertArrayHasKey( 'stonewright', $servers );
-			$entry = $servers['stonewright'];
+				self::assertArrayHasKey( self::SERVER_NAME, $servers );
+				$entry = $servers[ self::SERVER_NAME ];
 			self::assertIsArray( $entry );
 			if ( isset( $entry['command'] ) ) {
 				self::assertSame( 'npx', $entry['command'] );
@@ -97,7 +98,8 @@ final class ClientSnippetValidationTest extends TestCase {
 			self::assertIsArray( $decoded );
 			$servers = $decoded['mcpServers'] ?? $decoded['servers'] ?? $decoded['context_servers'] ?? null;
 			self::assertIsArray( $servers );
-			$entry = $servers['stonewright'];
+				self::assertArrayHasKey( self::SERVER_NAME, $servers );
+				$entry = $servers[ self::SERVER_NAME ];
 			self::assertArrayHasKey( 'url', $entry );
 			self::assertArrayHasKey( 'headers', $entry );
 			self::assertArrayHasKey( 'Authorization', $entry['headers'] );

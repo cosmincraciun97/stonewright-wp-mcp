@@ -5,10 +5,33 @@ All notable changes to Stonewright are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-The public changelog starts with the first beta. Pre-beta development builds
-were never stable releases and are not part of the supported public history.
+The public changelog keeps the five latest releases inline. Older public betas
+remain available in their immutable versioned release notes. Pre-beta
+development builds were never stable releases.
 
 ## [Unreleased]
+
+## [1.0.0-beta.6] - 2026-08-12
+
+### Changed
+
+- Make the installed-plugin setup prompt choose one transport, require a unique
+  alias and `plugin-only` policy for companion stdio, and reuse an existing
+  credential through `connect repair --mode` instead of creating a generic or
+  duplicate server entry.
+- Add a synthetic, privacy-safe Dashboard overview to the main documentation.
+
+### Fixed
+
+- Keep domain-lock recovery forms outside the Settings API form so **Save
+  Settings** returns to Stonewright Setup instead of leaving the user on
+  `/wp-admin/options.php`.
+- Treat `STONEWRIGHT_SITE_ALIAS` as the startup routing authority, replacing
+  stale inherited WordPress environment values before Plugin/Direct mode is
+  selected and failing closed when its credential cannot be resolved.
+- Collapse duplicate legacy aliases for the same canonical site/environment
+  during secure v1 migration, and allow `connect repair --mode plugin-only` to
+  update a named client entry without requesting the saved password again.
 
 ## [1.0.0-beta.5] - 2026-08-12
 
@@ -173,7 +196,11 @@ were never stable releases and are not part of the supported public history.
   readable, remove inline click handling from category actions, and correct
   low-contrast setup code blocks and focus rings.
 
-## [1.0.0-beta.1] - 2026-07-30
+## Older releases
+
+See [1.0.0-beta.1](docs/releases/1.0.0-beta.1.md) for the first public beta.
+
+### 1.0.0-beta.1 — 2026-07-30
 
 ### Added
 

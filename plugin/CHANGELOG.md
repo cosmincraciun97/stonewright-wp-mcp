@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.6] - 2026-08-12
+
+### Changed
+
+- Make the credential-free installed-plugin prompt choose one transport and
+  route companion setup through an alias-specific `plugin-only` installer or
+  an existing-alias repair flow.
+- Mark every generated Application Password stdio snippet as explicit Plugin
+  mode so a temporary probe failure cannot silently select Direct mode.
+
+### Fixed
+
+- Render domain-lock status without nested action forms inside the Settings API
+  form, keeping **Save Settings** associated with the correct form and returning
+  the operator to Stonewright Setup after WordPress saves the options.
+
 ## [1.0.0-beta.5] - 2026-08-12
 
 ### Added
@@ -134,7 +150,11 @@
   inline category-action click handler, and correct setup code contrast and
   Visual Workspace focus outlines.
 
-## [1.0.0-beta.1] - 2026-07-30
+## Older releases
+
+See [1.0.0-beta.1](../docs/releases/1.0.0-beta.1.md) for the first public beta.
+
+### 1.0.0-beta.1 — 2026-07-30
 
 ### Added
 

@@ -48,6 +48,9 @@ family and all access tokens for that grant.
 
 Direct mode requires local stdio because Direct is implemented by the
 companion. A plugin-only remote HTTP connection does not use the companion.
+Treat OAuth HTTP and local stdio as separate named connections; never merge
+them under one generic server entry. In stdio, `STONEWRIGHT_SITE_ALIAS` is the
+routing authority and replaces stale inherited WordPress environment values.
 
 ## Application Password fallback
 
@@ -93,27 +96,29 @@ HTTP Authorization header. For local development with no HTTPS, set
 
 ## Recommended stdio config
 
-Most clients can run the Stonewright companion with `npx`:
+Use the versioned installer. It creates an alias-specific server entry and
+keeps the Application Password in the OS credential store instead of copying
+it into every client configuration. Because this guide starts from an installed
+plugin, `plugin-only` is the correct policy:
 
-Replace `VERSION` with the exact release version without a leading `v`, as
-shown on the GitHub Releases page.
-
-```json
-{
-  "mcpServers": {
-    "stonewright": {
-      "command": "npx",
-      "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"],
-      "env": {
-        "STONEWRIGHT_WP_URL": "https://your-site.com",
-        "STONEWRIGHT_WP_USERNAME": "your-wp-username",
-        "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
-      }
-    }
-  }
-}
+```bash
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
+  --alias site-a --url https://site-a.example --username editor \
+  --env production --mode plugin-only --client codex \
+  --plugin-enabled yes --wp-mode production-safe --wp-surface essential
 ```
+
+If `site-a` already exists, do not register another alias or request the
+password again:
+
+```bash
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect repair site-a --client codex --mode plugin-only
+```
+
+Restart the client and run `stonewright connect verify site-a --client codex`.
+The result must identify the requested alias, `configured_mode=plugin-only`,
+`active_mode=plugin`, task-start/status, and the expected companion. If it
+identifies another site or Direct mode, stop; the wrong named entry is active.
 
 Generated configurations for known clients use the bounded working profile
 `essential`; `essential-static` is the fallback for an unknown client that may
@@ -180,24 +185,11 @@ by the companion.
 
 Codex CLI and the Codex IDE extension share MCP config from
 `~/.codex/config.toml`. Trusted projects can also use `.codex/config.toml`.
-Add Stonewright as a stdio MCP server:
+Use the installer above with `--client codex`; it writes the alias-specific
+TOML block transactionally. Do not paste a second generic block by hand.
 
-```toml
-[mcp_servers.stonewright]
-command = "npx"
-args = ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"]
-
-[mcp_servers.stonewright.env]
-STONEWRIGHT_WP_URL = "https://your-site.com"
-STONEWRIGHT_WP_USERNAME = "your-wp-username"
-STONEWRIGHT_WP_APP_PASSWORD = "xxxx xxxx xxxx xxxx xxxx xxxx"
-STONEWRIGHT_MCP_TOOL_PROFILE = "essential"
-```
-
-In the Codex IDE extension, open the gear menu, choose **Codex Settings >
-Open config.toml**, paste the block, save, then restart Codex or reload the MCP
-session. In the Codex TUI, use `/mcp` after restart to confirm `stonewright` is
-active.
+Restart Codex or reload the MCP session. In the Codex TUI, use `/mcp` after
+restart to confirm the named Stonewright entry is active.
 
 After every Stonewright release or skill sync, run `stonewright-setup-profile`
 and `stonewright-wordpress-mcp-status`. Check `companion_version`,
@@ -215,7 +207,8 @@ matrix, replacement steps, and persistence guarantees.
 Claude Code registers MCP servers through its CLI:
 
 ```bash
-claude mcp add stonewright \
+claude mcp add stonewright-site-a \
+  --env STONEWRIGHT_MODE=plugin \
   --env STONEWRIGHT_WP_URL='https://your-site.com' \
   --env STONEWRIGHT_WP_USERNAME='your-wp-username' \
   --env STONEWRIGHT_WP_APP_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx' \
@@ -256,10 +249,11 @@ VS Code-style clients use a `servers` top-level key instead of `mcpServers`:
 ```json
 {
   "servers": {
-    "stonewright": {
+    "stonewright-site-a": {
       "command": "npx",
       "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"],
       "env": {
+        "STONEWRIGHT_MODE": "plugin",
         "STONEWRIGHT_WP_URL": "https://your-site.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
         "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
@@ -275,11 +269,12 @@ Zed uses `context_servers`:
 ```json
 {
   "context_servers": {
-    "stonewright": {
+    "stonewright-site-a": {
       "command": {
         "path": "npx",
         "args": ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"],
         "env": {
+          "STONEWRIGHT_MODE": "plugin",
           "STONEWRIGHT_WP_URL": "https://your-site.com",
           "STONEWRIGHT_WP_USERNAME": "your-wp-username",
           "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",

@@ -72,7 +72,18 @@ flowchart TD
 The registry enforces one alias per site and one `(canonical URL, environment)`
 record. Client configs contain the alias, never the Application Password. At
 startup the companion resolves only the bound alias, then loads that record's
-credential. Add, repair, and remove operations snapshot client configuration;
+credential. The explicit alias is authoritative: URL, username, and password
+from that record replace inherited `STONEWRIGHT_WP_*` values before mode
+resolution and plugin probing. If secret resolution fails, startup clears the
+selected password and fails closed instead of pairing one site's URL with
+another site's credential.
+
+Legacy v1 registries may contain several aliases for one endpoint. Secure
+migration collapses each duplicate group before schema v2 is written, retaining
+the configured default alias for that group or its first stable alias. `connect
+repair --mode` reuses the selected alias's credential while updating its mode,
+fallback policy, plugin expectation, and client binding. Add, repair, and remove
+operations snapshot client configuration;
 if registry persistence fails, the exact previous file and newly written
 credential state are restored. `connect verify --client` reads the saved entry,
 spawns it through MCP stdio, lists tools, calls `stonewright-task-start` and

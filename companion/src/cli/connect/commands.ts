@@ -24,7 +24,13 @@ import { WordPressMcpClient } from '../../wordpress-mcp.js';
 import { Client as McpClient } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { APP_VERSION } from '../../version.js';
-import { configuredModeToEnv, mayProbePlugin, resolveActiveMode } from './mode-policy.js';
+import {
+	configuredModeToEnv,
+	defaultFallbackPolicy,
+	defaultPreferredActiveMode,
+	mayProbePlugin,
+	resolveActiveMode,
+} from './mode-policy.js';
 import {
 	buildSiteRecord,
 	findSiteByAlias,
@@ -43,6 +49,7 @@ import {
 import { mcpServerName } from './server-name.js';
 import {
 	ConnectError,
+	type ConfiguredMode,
 	type ConnectReceipt,
 	type BrowserPreferences,
 	type ConsentState,
@@ -136,6 +143,20 @@ async function verifyAuth(
 
 function saveRegistryForContext(registry: SitesRegistryV2, ctx: ConnectContext) {
 	return (ctx.saveRegistryImpl ?? saveRegistry)(registry, ctxPaths(ctx));
+}
+
+/**
+ * Mutating connect commands must never persist the read-only v1 projection.
+ * Securely migrate first, including legacy duplicate collapse, then continue
+ * from the canonical v2 registry.
+ */
+function loadWritableRegistry(ctx: ConnectContext): ReturnType<typeof loadRegistry> {
+	let loaded = loadRegistry(ctxPaths(ctx));
+	if (loaded.schema_was === 1 && loaded.source === 'file') {
+		migrateSitesFile(ctxPaths(ctx));
+		loaded = loadRegistry(ctxPaths(ctx));
+	}
+	return loaded;
 }
 
 function credentialStoreForRef(ref: string, ctx: ConnectContext) {
@@ -799,7 +820,7 @@ export function connectList(ctx: ConnectContext = {}): number {
 }
 
 export function connectUse(alias: string, ctx: ConnectContext = {}): number {
-	const { registry } = loadRegistry(ctxPaths(ctx));
+	const { registry } = loadWritableRegistry(ctx);
 	const site = findSiteByAlias(registry, alias);
 	if (!site) {
 		writeErr(`Unknown alias "${alias}"`);
@@ -825,7 +846,7 @@ export async function connectVerify(
 	opts: { client?: string } = {},
 	ctx: ConnectContext = {},
 ): Promise<number> {
-	const { registry, path } = loadRegistry(ctxPaths(ctx));
+	const { registry, path } = loadWritableRegistry(ctx);
 	const site = findSiteByAlias(registry, alias);
 	if (!site) {
 		writeErr(`Unknown alias "${alias}"`);
@@ -972,22 +993,60 @@ export function connectRepair(
 	alias: string,
 	opts: {
 		client?: string;
+		mode?: ConfiguredMode;
 		browserProvider?: BrowserPreferences['provider'];
 		browserScanConsent?: ConsentState;
 		browserInstallConsent?: ConsentState;
 	} = {},
 	ctx: ConnectContext = {},
 ): number {
-	const { registry } = loadRegistry(ctxPaths(ctx));
+	const { registry } = loadWritableRegistry(ctx);
 	const site = findSiteByAlias(registry, alias);
 	if (!site) {
 		writeErr(`Unknown alias "${alias}"`);
 		return 1;
 	}
+	const configuredMode = opts.mode ?? site.configured_mode;
+	const repairedSite: SiteRecordV2 = {
+		...site,
+		configured_mode: configuredMode,
+		preferred_active_mode: defaultPreferredActiveMode(configuredMode),
+		fallback_policy: defaultFallbackPolicy(configuredMode),
+		plugin_expectations: {
+			...site.plugin_expectations,
+			required: configuredMode === 'plugin-only',
+			enabled_requested:
+				configuredMode === 'plugin-only'
+					? true
+					: site.plugin_expectations?.enabled_requested ?? configuredMode !== 'direct-only',
+		},
+		updated_at: new Date().toISOString(),
+	};
 	const clientId = opts.client ?? Object.keys(site.clients)[0];
 	if (!clientId) {
-		writeErr('No client binding on this site. Pass --client <id>.');
-		return 1;
+		if (!opts.mode) {
+			writeErr('No client binding on this site. Pass --client <id>, or --mode <mode> for a policy-only repair.');
+			return 1;
+		}
+		try {
+			const next = upsertSite(registry, repairedSite, { replace: true });
+			saveRegistryForContext(next, ctx);
+			writeOut(
+				receiptLines({
+					ok: true,
+					site_id: repairedSite.id,
+					site_alias: repairedSite.alias,
+					environment: repairedSite.environment,
+					configured_mode: repairedSite.configured_mode,
+					active_mode: repairedSite.preferred_active_mode,
+					message: 'Repaired site mode policy; no client binding changed',
+				}),
+			);
+			return 0;
+		} catch (err) {
+			writeErr(err instanceof Error ? err.message : String(err));
+			return 1;
+		}
 	}
 	try {
 		const priorBrowser = site.clients[clientId]?.browser;
@@ -996,7 +1055,13 @@ export function connectRepair(
 			browserScanConsent: opts.browserScanConsent ?? priorBrowser?.scan_consent ?? 'unknown',
 			browserInstallConsent: opts.browserInstallConsent ?? priorBrowser?.install_consent ?? 'unknown',
 		}, priorBrowser);
-		const { registry: next, receipt, rollback } = applyClientBinding(registry, site, clientId, ctx, browser);
+		const { registry: next, receipt, rollback } = applyClientBinding(
+			registry,
+			repairedSite,
+			clientId,
+			ctx,
+			browser,
+		);
 		try {
 			saveRegistryForContext(next, ctx);
 		} catch (err) {
@@ -1008,11 +1073,11 @@ export function connectRepair(
 		}
 		const r: ConnectReceipt = {
 			ok: true,
-			site_id: site.id,
-			site_alias: site.alias,
-			environment: site.environment,
-			configured_mode: site.configured_mode,
-			active_mode: site.preferred_active_mode,
+			site_id: repairedSite.id,
+			site_alias: repairedSite.alias,
+			environment: repairedSite.environment,
+			configured_mode: repairedSite.configured_mode,
+			active_mode: repairedSite.preferred_active_mode,
 			message: `Repaired client binding for ${clientId}`,
 			details: receipt,
 		};
@@ -1033,7 +1098,7 @@ export function connectRemove(
 	opts: { client?: string } = {},
 	ctx: ConnectContext = {},
 ): number {
-	const { registry } = loadRegistry(ctxPaths(ctx));
+	const { registry } = loadWritableRegistry(ctx);
 	const site = findSiteByAlias(registry, alias);
 	if (!site) {
 		writeErr(`Unknown alias "${alias}"`);

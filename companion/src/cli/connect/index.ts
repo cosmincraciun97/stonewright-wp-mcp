@@ -31,7 +31,7 @@ Usage:
   stonewright connect list
   stonewright connect use <alias>
   stonewright connect verify <alias> [--client <id>]
-  stonewright connect repair <alias> [--client <id>]
+  stonewright connect repair <alias> [--client <id>] [--mode <mode>]
   stonewright connect remove <alias> [--client <id>]
   stonewright connect migrate
 
@@ -61,6 +61,10 @@ add options:
   --default                Make this the default site
   --sites-file <path>      Override sites.json path
   --skip-auth              Skip live REST auth (tests / offline)
+
+repair options:
+  --client <id>            Create or refresh this site's named client entry
+  --mode <mode>            Change policy without re-entering the saved password
 `);
 }
 
@@ -207,6 +211,13 @@ export async function runConnect(argv: string[]): Promise<number> {
 				const client = flagString(flags, 'client');
 				const repairOpts: Parameters<typeof connectRepair>[1] = {};
 				if (client) repairOpts.client = client;
+				const mode = flagString(flags, 'mode');
+				if (mode) {
+					if (!['direct-only', 'plugin-only', 'auto'].includes(mode)) {
+						throw new Error('--mode must be direct-only, plugin-only, or auto');
+					}
+					repairOpts.mode = mode as ConfiguredMode;
+				}
 				const browserProvider = flagString(flags, 'browser-provider');
 				if (browserProvider) repairOpts.browserProvider = browserProvider as NonNullable<typeof repairOpts.browserProvider>;
 				const scanConsent = flagString(flags, 'browser-scan-consent');

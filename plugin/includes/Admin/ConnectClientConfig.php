@@ -65,12 +65,14 @@ final class ConnectClientConfig {
 	 */
 	public static function native_stdio_snippet( string $username = '', string $app_password = '', string $tool_profile = '' ): array {
 		$tool_profile = '' === trim( $tool_profile ) ? AbilityRegistry::mcp_surface() : $tool_profile;
+		$server_name  = self::mcp_server_name();
 		return [
 			'mcpServers' => [
-				'stonewright' => [
+				$server_name => [
 					'command' => 'npx',
 					'args'    => self::companion_mcp_args(),
 					'env'     => [
+						'STONEWRIGHT_MODE'            => 'plugin',
 						'STONEWRIGHT_WP_URL'          => self::site_url(),
 						'STONEWRIGHT_WP_USERNAME'     => $username ?: 'your-wp-username',
 						'STONEWRIGHT_WP_APP_PASSWORD'  => $app_password ?: '<your-application-password>',
@@ -90,9 +92,10 @@ final class ConnectClientConfig {
 	 */
 	public static function http_snippet( string $username = '', string $app_password = '' ): array {
 		$credentials = base64_encode( $username . ':' . ( $app_password ?: '<your-application-password>' ) );
+		$server_name = self::mcp_server_name();
 		return [
 			'mcpServers' => [
-				'stonewright' => [
+				$server_name => [
 					'url'     => self::mcp_endpoint_url(),
 					'headers' => [
 						'Authorization' => 'Basic ' . $credentials,
@@ -164,11 +167,13 @@ final class ConnectClientConfig {
 		}
 
 		if ( 'claude-code' === $client_slug ) {
+			$server_name = self::mcp_server_name();
 			if ( 'http' === $transport ) {
 				$credentials = base64_encode( $username . ':' . ( $app_password ?: '<your-application-password>' ) );
 				return [
 					'command' => sprintf(
-						'claude mcp add stonewright --transport http --url %s --header "Authorization: Basic %s"',
+						'claude mcp add %s --transport http --url %s --header "Authorization: Basic %s"',
+						escapeshellarg( $server_name ),
 						escapeshellarg( self::mcp_endpoint_url() ),
 						$credentials
 					),
@@ -177,7 +182,8 @@ final class ConnectClientConfig {
 			$tool_profile = self::profile_for_client( $client_slug );
 			return [
 				'command' => sprintf(
-					'claude mcp add stonewright --env STONEWRIGHT_WP_URL=%s --env STONEWRIGHT_WP_USERNAME=%s --env STONEWRIGHT_WP_APP_PASSWORD=%s --env STONEWRIGHT_MCP_TOOL_PROFILE=%s -- npx -y --package %s stonewright-mcp',
+					'claude mcp add %s --env STONEWRIGHT_MODE=plugin --env STONEWRIGHT_WP_URL=%s --env STONEWRIGHT_WP_USERNAME=%s --env STONEWRIGHT_WP_APP_PASSWORD=%s --env STONEWRIGHT_MCP_TOOL_PROFILE=%s -- npx -y --package %s stonewright-mcp',
+					escapeshellarg( $server_name ),
 					escapeshellarg( self::site_url() ),
 					escapeshellarg( $username ),
 					escapeshellarg( $app_password ?: '<your-application-password>' ),
@@ -234,14 +240,10 @@ final class ConnectClientConfig {
 	public static function paste_to_agent_prompt( string $username, string $app_password, string $client_slug = '' ): string {
 		unset( $username, $app_password );
 		$tool_profile = self::recommended_startup_profile( $client_slug );
-		$installer_intro = __(
-			"For local stdio, prefer the versioned `stonewright connect add` installer. Ask for a unique alias, environment, Direct/Plugin policy, WordPress mode, MCP surface, Elementor V4 choice, and client. Use a hidden password prompt or --password-env, never a password on argv. Persist these choices per site/client and generate a collision-safe named server entry. Keep secrets in the private client config, OS credential store, or an explicit env reference; ~/.stonewright/sites.json may contain a credential_ref but never plaintext. After saving, fully restart the MCP client and run stonewright connect verify <alias> --client <client>. Require the spawned companion version, active alias, task-start, status, and required tools; a parseable config file is not runtime proof.",
-			'stonewright'
-		);
-		$prompt = $installer_intro . "\n\n" . sprintf(
+		$prompt       = sprintf(
 			/* translators: 1: companion package URL, 2: selected MCP tool surface. */
 			__(
-				"Configure Stonewright MCP in the current AI client. Do not ask me to paste, reveal, print, or commit a site URL, username, Application Password, token, or private client config.\n\nBuild a private config with placeholders that I will replace locally:\n- MCP server name: stonewright\n- WordPress URL env: STONEWRIGHT_WP_URL=<your-wordpress-url>\n- Username env: STONEWRIGHT_WP_USERNAME=<your-wordpress-username>\n- Application Password env: STONEWRIGHT_WP_APP_PASSWORD=<your-application-password>\n- Tool surface env: STONEWRIGHT_MCP_TOOL_PROFILE=%2\$s\n- Local stdio command: npx\n- Local stdio args: [\"-y\", \"--package\", \"%1\$s\", \"stonewright-mcp\"]\n- Remote HTTP endpoint shape: <your-wordpress-url>/wp-json/mcp/stonewright\n\nConnection meaning:\n- Local stdio means this AI client starts the companion on this computer and communicates with it through standard input/output. The companion is required for local stdio, Direct mode, and local WP-CLI.\n- Remote HTTP connects directly to the WordPress plugin over HTTPS. It does not run or require a local companion.\n\nRules:\n- Prefer OAuth when this client supports Streamable HTTP; it keeps the Application Password out of copied config.\n- Keep credentials only in the private client config or ~/.stonewright/sites.json. Never put them in chat, repository files, memory, skills, audit examples, or commands saved in shell history.\n- For any custom PHP/CSS/JS/HTML write, run the approval-gated typed tool with dry_run first. Show me approval_url, exact path, byte counts, and a short summary, then stop. Never open the approval page, issue or retrieve a grant, or apply with custom_code_grant unless I explicitly ask you to perform that approval step.\n- Do not substitute a generic WordPress MCP adapter, inspect private client config, hand-roll JSON-RPC/REST runners, create scratch scripts, or run shell WP-CLI as a workaround.\n- Save the config and fully restart or reload the MCP session.\n\nVerify after reload:\n1. Confirm stonewright-task-start is visible. stonewright-context-bootstrap is compatibility fallback only.\n2. Call stonewright-task-start first with task, surface, and intent.\n3. Read fast_path.tool_profile; use stonewright-tool-profile only to switch or verify a profile.\n4. Run stonewright-setup-profile and stonewright-wordpress-mcp-status. Confirm companion_version matches expected_companion_package and refresh_required_tool_names is empty.\n5. If required tools are missing, stop. Reload the client or update the pinned companion package; do not bypass Stonewright.\n\nFor visual WordPress work, also confirm the user-approved browser provider is available before the first write.",
+				"Configure this installed Stonewright plugin in the current AI client. Choose exactly one transport for this site; do not combine a local stdio entry and an OAuth HTTP entry under the same server name. Do not ask me to paste, reveal, print, or commit a site URL, username, Application Password, token, or private client config.\n\nLOCAL STDIO WITH COMPANION (recommended when local WP-CLI or Direct fallback is needed)\nUse the versioned installer, a unique site alias, a collision-safe named server, and plugin-only mode:\n\nnpx -y --package %1\$s stonewright connect add --alias <unique-alias> --url <your-wordpress-url> --username <your-wordpress-username> --env <environment> --mode plugin-only --client <client> --profile %2\$s --plugin-enabled yes --wp-mode <development|staging|production-safe> --wp-surface %2\$s --elementor-v4 <yes|no>\n\nI will replace private placeholders locally. Let the installer request the Application Password through its hidden prompt, or use --password-env with a temporary environment variable. Never put a password on argv. Do not create or overwrite a generic server named `stonewright`; the installer must create or reuse the alias-specific named entry. ~/.stonewright/sites.json may contain credential_ref values, never plaintext credentials.\n\nIf the alias already exists and the saved credential must be reused, do not add another alias and do not ask for the password again. Run:\n\nnpx -y --package %1\$s stonewright connect repair <alias> --client <client> --mode plugin-only\n\nThen fully restart the MCP client and run:\n\nnpx -y --package %1\$s stonewright connect verify <alias> --client <client>\n\nREMOTE OAUTH HTTP (alternative, no companion)\nWhen the client supports Streamable HTTP OAuth, create a separately named remote connection to <your-wordpress-url>/wp-json/mcp/stonewright-oauth. Do not also install a local companion entry for that same connection. The Application Password route is <your-wordpress-url>/wp-json/mcp/stonewright and is a separate non-OAuth transport.\n\nConnection rules:\n- Local stdio means this AI client starts the companion and communicates through standard input/output. The alias is the routing authority; legacy STONEWRIGHT_WP_* values must never override it.\n- Remote HTTP connects directly to the WordPress plugin over HTTPS and does not run a local companion.\n- Keep credentials only in the OS credential store, an explicit environment reference, or the private client configuration. Never put them in chat, repository files, memory, skills, audit examples, or shell history.\n- For custom PHP/CSS/JS/HTML writes, run the approval-gated typed tool with dry_run first. Show me approval_url, exact path, byte counts, and a short summary, then stop. Never open the approval page, issue or retrieve a grant, or apply with custom_code_grant unless I explicitly ask you to perform that approval step.\n- Do not substitute a generic WordPress MCP adapter, inspect private client config, hand-roll JSON-RPC/REST runners, create scratch scripts, or run shell WP-CLI as a workaround.\n\nVerify after restart:\n1. The verifier must report the requested alias, configured_mode=plugin-only, active_mode=plugin, and the expected companion version. If it reports another site or Direct mode, stop: the wrong named server is active.\n2. Confirm stonewright-task-start is visible, then call it first with a non-empty task, surface, and intent. stonewright-context-bootstrap is compatibility fallback only.\n3. Read fast_path.tool_profile; use stonewright-tool-profile only to switch or verify a profile.\n4. Run stonewright-setup-profile and stonewright-wordpress-mcp-status. Confirm the target site, active alias, companion_version, expected_companion_package, and that refresh_required_tool_names is empty.\n5. If any required tool is missing or the target differs, fully reload the client; never bypass Stonewright.\n\nFor visual WordPress work, also confirm the user-approved browser provider is available before the first write.",
 				'stonewright'
 			),
 			self::companion_package_spec(),
@@ -256,7 +258,9 @@ final class ConnectClientConfig {
 
 	private static function codex_toml_snippet( string $username, string $app_password, string $tool_profile ): string {
 		$args = array_map( [ self::class, 'toml_string' ], self::companion_mcp_args() );
+		$server_name = self::mcp_server_name();
 		$env  = [
+			'STONEWRIGHT_MODE'            => 'plugin',
 			'STONEWRIGHT_WP_URL'          => self::site_url(),
 			'STONEWRIGHT_WP_USERNAME'     => $username ?: 'your-wp-username',
 			'STONEWRIGHT_WP_APP_PASSWORD'  => $app_password ?: '<your-application-password>',
@@ -264,11 +268,11 @@ final class ConnectClientConfig {
 		];
 
 		$lines = [
-			'[mcp_servers.stonewright]',
+			'[mcp_servers.' . $server_name . ']',
 			'command = "npx"',
 			'args = [' . implode( ', ', $args ) . ']',
 			'',
-			'[mcp_servers.stonewright.env]',
+			'[mcp_servers.' . $server_name . '.env]',
 		];
 
 		foreach ( $env as $key => $value ) {
@@ -306,5 +310,15 @@ final class ConnectClientConfig {
 	private static function normalise_tool_profile( string $tool_profile ): string {
 		$tool_profile = strtolower( trim( $tool_profile ) );
 		return '' === $tool_profile ? 'essential' : $tool_profile;
+	}
+
+	private static function mcp_server_name(): string {
+		$url      = self::site_url();
+		$host     = (string) parse_url( $url, PHP_URL_HOST );
+		$path     = trim( (string) parse_url( $url, PHP_URL_PATH ), '/' );
+		$identity = '' === $path ? $host : $host . '-' . $path;
+		$slug     = strtolower( (string) preg_replace( '/[^a-z0-9]+/i', '-', $identity ) );
+		$slug = trim( $slug, '-' );
+		return '' === $slug ? 'stonewright-site' : 'stonewright-' . $slug;
 	}
 }

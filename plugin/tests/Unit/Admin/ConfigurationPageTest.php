@@ -312,4 +312,34 @@ final class ConfigurationPageTest extends TestCase {
 		delete_option( 'stonewright_domain_lock_prior' );
 		unset( $GLOBALS['stonewright_test_home_url'] );
 	}
+
+	public function test_settings_form_never_contains_nested_domain_lock_forms(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_enabled'] = true;
+		$GLOBALS['stonewright_test_home_url']                       = 'https://example.test/';
+		\Stonewright\WpMcp\Security\DomainLock::lock();
+		$GLOBALS['stonewright_test_home_url'] = 'https://cloned.example/';
+		\Stonewright\WpMcp\Security\DomainLock::record_mismatch();
+
+		ob_start();
+		ConfigurationPage::render();
+		$html = (string) ob_get_clean();
+
+		$form_start = strpos( $html, '<form method="post" action="options.php"' );
+		self::assertNotFalse( $form_start );
+		$form_end = strpos( $html, '</form>', (int) $form_start );
+		self::assertNotFalse( $form_end );
+		$settings_form = substr( $html, (int) $form_start, (int) $form_end - (int) $form_start );
+		self::assertSame( 1, substr_count( $settings_form, '<form' ) );
+		self::assertStringContainsString( 'stonewright-domain-lock-summary', $settings_form );
+		self::assertStringNotContainsString( 'stonewright_rebind_domain_lock', $settings_form );
+
+		$after_settings_form = substr( $html, (int) $form_end + strlen( '</form>' ) );
+		self::assertStringContainsString( 'stonewright_rebind_domain_lock', $after_settings_form );
+		self::assertSame( 1, substr_count( $html, 'id="stonewright-domain-lock"' ) );
+
+		delete_option( 'stonewright_locked_domain' );
+		delete_option( 'stonewright_domain_mismatch' );
+		delete_option( 'stonewright_domain_lock_prior' );
+		unset( $GLOBALS['stonewright_test_home_url'] );
+	}
 }
