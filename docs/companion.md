@@ -39,6 +39,8 @@ folder or site URL.
 | `STONEWRIGHT_WP_URL` | WordPress site URL; the companion derives `/wp-json/mcp/stonewright` when `STONEWRIGHT_MCP_URL` is absent |
 | `STONEWRIGHT_WP_USERNAME` | WordPress username for Application Password auth |
 | `STONEWRIGHT_WP_APP_PASSWORD` | WordPress Application Password |
+| `STONEWRIGHT_SITE_ALIAS` | Multi-site registry alias; at startup the companion loads only this site's URL/username/credential into `STONEWRIGHT_WP_*` |
+| `STONEWRIGHT_SITES_FILE` | Override path for the multi-site registry (default `~/.stonewright/sites.json`) |
 | `STONEWRIGHT_MCP_TOOL_PROFILE` | Initial/fallback client-visible surface. Normal plugin-mode clients follow the bootstrap/essential/full surface saved in WordPress Setup; `low-tools` and specialist profiles remain explicit overrides. |
 | `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK` | Set to `1` only when the environment profile must override the WordPress Setup preference. |
 | `STONEWRIGHT_MCP_URL` | Explicit WordPress MCP endpoint override |
@@ -56,11 +58,15 @@ folder or site URL.
 
 ## Direct mode private state
 
-Run the versioned `stonewright-companion init` command for guided setup. It
-validates the WordPress Application Password, stores the canonical
-`appPassword` field in permission-restricted
-`~/.stonewright/sites.json`, and prints a secret-free MCP block. The legacy
-`applicationPassword` field remains readable for existing installations.
+Run `stonewright connect add` (or the compatibility `stonewright-companion init`
+command) for guided setup. New sites use schema v2: metadata and a
+`credential_ref` in permission-restricted `~/.stonewright/sites.json`, with the
+Application Password in the OS credential store (Keychain / Windows DPAPI
+secrets under `~/.stonewright/secrets/` / Secret Service) or an `env://VAR` ref.
+MCP client configs set `STONEWRIGHT_SITE_ALIAS` only; the companion injects
+`STONEWRIGHT_WP_*` for that alias at startup. Prefer `--password-env` or an
+interactive prompt over `--password` on argv. Legacy v1 plaintext files remain
+readable; run `connect migrate` to move secrets out of the file.
 
 Direct user memory, user-created skills, backups, and redacted audit history
 live under `~/.stonewright/`. A new state directory starts without user memory,

@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+	chmodSync,
+	existsSync,
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { MemoryCredentialStore } from '../src/credentials/index.js';
@@ -23,6 +31,7 @@ import {
 	mayProbePlugin,
 	resolveActiveMode,
 } from '../src/cli/connect/mode-policy.js';
+import { applySiteAliasToEnv } from '../src/direct/apply-site-env.js';
 import { loadSitesConfig, resolveSite } from '../src/direct/sites-config.js';
 
 describe('multi-site registry schema v2', () => {
@@ -207,7 +216,7 @@ describe('multi-site registry schema v2', () => {
 	});
 
 	it('migrates v1 losslessly into credential store and leaves no plaintext password', () => {
-		const { file, store } = tmpSites();
+		const { file, store, dir } = tmpSites();
 		writeFileSync(
 			file,
 			JSON.stringify({
@@ -236,6 +245,10 @@ describe('multi-site registry schema v2', () => {
 		});
 		expect(result.migrated).toBe(true);
 		expect(result.site_count).toBe(2);
+		// Migration must not leave a plaintext .bak on disk after success.
+		expect(result.backupPath).toBeNull();
+		const leftoverBaks = readdirSync(dir).filter((n) => n.includes('.bak'));
+		expect(leftoverBaks).toEqual([]);
 
 		const raw = JSON.parse(readFileSync(file, 'utf8')) as {
 			schema_version: number;
@@ -260,9 +273,14 @@ describe('multi-site registry schema v2', () => {
 			sitesFile: file,
 			credentials: { store, prefer: 'memory' },
 		});
+		// Deferred: loadSitesConfig must not have resolved passwords yet.
+		expect(config.sites['site-a']?.appPassword).toBe('');
+		expect(config.sites['site-b']?.appPassword).toBe('');
 		const site = resolveSite(config, 'site-a');
 		expect(site.appPassword).toBe('example-legacy-app-password');
 		expect(site.url).toBe('https://site-a.example');
+		// Only site-a secret resolved; site-b still deferred until resolveSite.
+		expect(config.sites['site-b']?.appPassword).toBe('');
 	});
 
 	it('stops migration and leaves original file when secure store unavailable', () => {
@@ -334,5 +352,92 @@ describe('multi-site registry schema v2', () => {
 		const config = loadSitesConfig({ sitesFile: file });
 		expect(config.schemaVersion).toBe(1);
 		expect(resolveSite(config).appPassword).toBe('example-still-plain');
+	});
+
+	it('applySiteAliasToEnv injects only the selected site credentials', () => {
+		const { file, store } = tmpSites();
+		const refA = 'memory://stonewright/site-a/app-password';
+		const refB = 'memory://stonewright/site-b/app-password';
+		store.set(refA, 'secret-a-only');
+		store.set(refB, 'secret-b-only');
+
+		let reg = {
+			schema_version: 2 as const,
+			default_site_id: null as string | null,
+			sites: [] as ReturnType<typeof buildSiteRecord>[],
+		};
+		const a = buildSiteRecord({
+			alias: 'site-a',
+			url: 'https://site-a.example/',
+			username: 'editor-a',
+			credential_ref: refA,
+		});
+		const b = buildSiteRecord({
+			alias: 'site-b',
+			url: 'https://site-b.example/',
+			username: 'editor-b',
+			credential_ref: refB,
+		});
+		reg = upsertSite(reg, a, { makeDefault: true });
+		reg = upsertSite(reg, b);
+		saveRegistry(reg, { sitesFile: file });
+
+		const env: NodeJS.ProcessEnv = {
+			STONEWRIGHT_SITE_ALIAS: 'site-b',
+			STONEWRIGHT_SITES_FILE: file,
+		};
+		const result = applySiteAliasToEnv(env, {
+			sitesFile: file,
+			credentials: { store, prefer: 'memory' },
+		});
+		expect(result.applied).toBe(true);
+		expect(result.injected).toBe(true);
+		expect(result.alias).toBe('site-b');
+		expect(env.STONEWRIGHT_WP_URL).toBe('https://site-b.example');
+		expect(env.STONEWRIGHT_WP_USERNAME).toBe('editor-b');
+		expect(env.STONEWRIGHT_WP_APP_PASSWORD).toBe('secret-b-only');
+		// Must not have pulled site-a secret into env.
+		expect(env.STONEWRIGHT_WP_APP_PASSWORD).not.toBe('secret-a-only');
+	});
+
+	it('normal v2 save may keep backup; migration never leaves plaintext bak', () => {
+		const { file, store, dir } = tmpSites();
+		const ref = 'memory://stonewright/x/app-password';
+		store.set(ref, 'example-p');
+		let reg = {
+			schema_version: 2 as const,
+			default_site_id: null as string | null,
+			sites: [] as ReturnType<typeof buildSiteRecord>[],
+		};
+		reg = upsertSite(
+			reg,
+			buildSiteRecord({
+				alias: 'site-a',
+				url: 'https://a.example/',
+				username: 'u',
+				credential_ref: ref,
+			}),
+			{ makeDefault: true },
+		);
+		const { backupPath } = saveRegistry(reg, { sitesFile: file });
+		// First save has no prior file → no backup.
+		expect(backupPath).toBeNull();
+
+		reg = upsertSite(
+			reg,
+			buildSiteRecord({
+				alias: 'site-b',
+				url: 'https://b.example/',
+				username: 'u',
+				credential_ref: ref,
+			}),
+		);
+		const second = saveRegistry(reg, { sitesFile: file });
+		// v2→v2 may keep a bak (no plaintext secrets in schema v2).
+		if (second.backupPath) {
+			expect(existsSync(second.backupPath)).toBe(true);
+			expect(readFileSync(second.backupPath, 'utf8')).not.toMatch(/appPassword|applicationPassword/);
+		}
+		void dir;
 	});
 });

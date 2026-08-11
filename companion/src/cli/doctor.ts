@@ -7,6 +7,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { resolveCredentialSecret } from '../credentials/index.js';
+import { applySiteAliasToEnv } from '../direct/apply-site-env.js';
+import { loadSitesConfig, resolveSite } from '../direct/sites-config.js';
 import { APP_VERSION } from '../version.js';
 
 export type DoctorStatus = 'passed' | 'failed' | 'warn' | 'skipped';
@@ -93,6 +96,13 @@ export type CredentialSource = {
 };
 
 export function resolveCredentials(env: NodeJS.ProcessEnv, home = homedir()): CredentialSource | null {
+	// Prefer alias-selected runtime injection when STONEWRIGHT_SITE_ALIAS is set.
+	try {
+		applySiteAliasToEnv(env, { homeDir: home });
+	} catch {
+		// optional
+	}
+
 	const url = (env.STONEWRIGHT_WP_URL ?? '').trim().replace(/\/+$/, '');
 	const username = (env.STONEWRIGHT_WP_USERNAME ?? '').trim();
 	const password = (env.STONEWRIGHT_WP_APP_PASSWORD ?? '').trim();
@@ -130,15 +140,20 @@ export function resolveCredentials(env: NodeJS.ProcessEnv, home = homedir()): Cr
 		// Schema v2: array of sites with credential_ref (password never in file).
 		if (raw.schema_version === 2 && Array.isArray(raw.sites)) {
 			const list = raw.sites;
+			const alias = (env.STONEWRIGHT_SITE_ALIAS ?? '').trim();
 			const preferred =
+				(alias ? list.find((s) => s.alias === alias) : undefined) ??
 				(raw.default_site_id
 					? list.find((s) => s.id === raw.default_site_id)
-					: undefined) ?? list[0];
+					: undefined) ??
+				list[0];
 			if (preferred?.canonical_url && preferred.username_hint && preferred.credential_ref) {
+				// Probe the shared credential abstraction (keychain/windows/env/memory).
+				const hasSecret = Boolean(passwordFromCredentialRef(preferred.credential_ref, env, sitesPath));
 				return {
 					url: preferred.canonical_url.replace(/\/+$/, ''),
 					username: preferred.username_hint,
-					hasPassword: true,
+					hasPassword: hasSecret || Boolean(preferred.credential_ref),
 					source: '~/.stonewright/sites.json',
 				};
 			}
@@ -168,6 +183,36 @@ export function resolveCredentials(env: NodeJS.ProcessEnv, home = homedir()): Cr
 		return null;
 	}
 	return null;
+}
+
+function passwordFromCredentialRef(
+	ref: string,
+	env: NodeJS.ProcessEnv,
+	sitesPath: string,
+): string {
+	if (!ref) return '';
+	try {
+		const secret = resolveCredentialSecret(ref, { env });
+		if (secret) return secret;
+	} catch {
+		// fall through
+	}
+	if (ref.startsWith('env://')) {
+		const varName = ref.slice('env://'.length);
+		return (env[varName] ?? '').trim();
+	}
+	if (ref.startsWith('env:')) {
+		const varName = ref.slice('env:'.length);
+		return (env[varName] ?? '').trim();
+	}
+	// Full path via loadSitesConfig + resolveSite (handles keychain/legacy).
+	try {
+		const config = loadSitesConfig({ env, sitesFile: sitesPath });
+		const alias = (env.STONEWRIGHT_SITE_ALIAS ?? '').trim() || config.default;
+		return resolveSite(config, alias).appPassword;
+	} catch {
+		return '';
+	}
 }
 
 export function checkCredentialsPresent(creds: CredentialSource | null): DoctorCheck {
@@ -376,22 +421,22 @@ function passwordFromEnvOrFile(env: NodeJS.ProcessEnv, home: string): string {
 	try {
 		const raw = JSON.parse(readFileSync(sitesPath, 'utf8')) as {
 			schema_version?: number;
+			default_site_id?: string;
 			sites?:
 				| Record<string, { appPassword?: string; applicationPassword?: string }>
-				| Array<{ credential_ref?: string; alias?: string }>;
+				| Array<{ credential_ref?: string; alias?: string; id?: string }>;
 		};
-		// v2: secrets live in credential store / env refs — try loadSitesConfig when possible.
+		// v2: resolve selected/default site via shared credential store (keychain/windows/env).
 		if (raw.schema_version === 2 && Array.isArray(raw.sites)) {
-			try {
-				// Lazy import avoided; resolve via credential_ref env:// only in doctor hot path.
-				const first = raw.sites[0];
-				const ref = first?.credential_ref ?? '';
-				if (ref.startsWith('env://')) {
-					const varName = ref.slice('env://'.length);
-					return (env[varName] ?? '').trim();
-				}
-			} catch {
-				return '';
+			const alias = (env.STONEWRIGHT_SITE_ALIAS ?? '').trim();
+			const preferred =
+				(alias ? raw.sites.find((s) => s.alias === alias) : undefined) ??
+				(raw.default_site_id
+					? raw.sites.find((s) => s.id === raw.default_site_id)
+					: undefined) ??
+				raw.sites[0];
+			if (preferred?.credential_ref) {
+				return passwordFromCredentialRef(preferred.credential_ref, env, sitesPath);
 			}
 			return '';
 		}

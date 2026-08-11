@@ -27,7 +27,7 @@ function usage(): void {
 
 Usage:
   stonewright connect detect-client
-  stonewright connect add --alias <alias> --url <url> --username <user> --password <pass> [options]
+  stonewright connect add --alias <alias> --url <url> --username <user> [options]
   stonewright connect list
   stonewright connect use <alias>
   stonewright connect verify <alias> [--client <id>]
@@ -35,11 +35,16 @@ Usage:
   stonewright connect remove <alias> [--client <id>]
   stonewright connect migrate
 
+Password (pick one; never stored in sites.json):
+  (interactive)            Hidden TTY prompt when no password flag is given
+  --password-env <VAR>     Read password from env VAR for this invocation (preferred for scripts)
+  --credential-env <VAR>   Store env://VAR ref instead of OS keychain (headless / CI)
+  --password <pass>        Discouraged (shell history); kept for tests/automation only
+
 add options:
   --alias <name>           Site alias (case-insensitive unique)
   --url <url>              WordPress site URL
   --username <user>        WordPress username
-  --password <pass>        Application Password (never stored in sites.json)
   --env <environment>      local|development|staging|production|other
   --mode <mode>            direct-only|plugin-only|auto
   --client <id>            Bind MCP client (codex|cursor|claude-desktop|vscode-copilot|generic-mcp)
@@ -47,7 +52,6 @@ add options:
   --profile <name>         Companion tool profile (default essential-static)
   --replace                Replace existing alias (shows affected clients)
   --default                Make this the default site
-  --credential-env <VAR>   Store env://VAR ref instead of OS keychain
   --sites-file <path>      Override sites.json path
   --skip-auth              Skip live REST auth (tests / offline)
 `);
@@ -120,6 +124,7 @@ export async function runConnect(argv: string[]): Promise<number> {
 				const url = flagString(flags, 'url');
 				const username = flagString(flags, 'username');
 				const password = flagString(flags, 'password');
+				const passwordEnv = flagString(flags, 'password-env');
 				if (!alias || !url || !username) {
 					writeErr('connect add requires --alias, --url, and --username');
 					usage();
@@ -136,6 +141,7 @@ export async function runConnect(argv: string[]): Promise<number> {
 					yes: flagBool(flags, 'yes'),
 				};
 				if (password !== undefined) addInput.password = password;
+				if (passwordEnv !== undefined) addInput.passwordEnv = passwordEnv;
 				const client = flagString(flags, 'client');
 				if (client !== undefined) addInput.client = client;
 				const clientConfig = flagString(flags, 'client-config');

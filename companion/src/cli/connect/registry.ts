@@ -148,10 +148,51 @@ export function withRegistryLock<T>(sitesFile: string, fn: () => T, timeoutMs = 
 	);
 }
 
+export interface AtomicWriteOptions {
+	/**
+	 * When true, keep a timestamped `.bak.*` next to the file after success.
+	 * Default true for normal v2 saves. Migration from plaintext v1 should pass
+	 * false so secrets are not left on disk after secrets move into the store.
+	 */
+	persistBackup?: boolean;
+}
+
 /**
- * Atomic write: timestamped backup + temp + fsync + rename. Mode 0600.
+ * Best-effort secure delete: overwrite with zeros then unlink.
+ * Used to remove plaintext v1 migration rollback copies after success.
  */
-export function atomicWriteRegistry(sitesFile: string, registry: SitesRegistryV2): string | null {
+export function secureUnlink(path: string): void {
+	if (!existsSync(path)) return;
+	try {
+		const stat = statSync(path);
+		const size = Math.max(stat.size, 1);
+		const fd = openSync(path, 'r+');
+		try {
+			writeSync(fd, Buffer.alloc(size, 0));
+			fsyncSync(fd);
+		} finally {
+			closeSync(fd);
+		}
+	} catch {
+		// Fall through to unlink even if overwrite fails.
+	}
+	try {
+		unlinkSync(path);
+	} catch {
+		// ignore
+	}
+}
+
+/**
+ * Atomic write: optional timestamped backup + temp + fsync + rename. Mode 0600.
+ * Returns the backup path when a backup was created (caller may secureUnlink it).
+ */
+export function atomicWriteRegistry(
+	sitesFile: string,
+	registry: SitesRegistryV2,
+	options: AtomicWriteOptions = {},
+): string | null {
+	const persistBackup = options.persistBackup !== false;
 	const dir = dirname(sitesFile);
 	mkdirSync(dir, { recursive: true, mode: 0o700 });
 	if (process.platform !== 'win32') {
@@ -164,6 +205,8 @@ export function atomicWriteRegistry(sitesFile: string, registry: SitesRegistryV2
 
 	let backupPath: string | null = null;
 	if (existsSync(sitesFile)) {
+		// Always stage a rollback copy while rewriting; delete on success when
+		// persistBackup is false (v1→v2 migration must not leave plaintext).
 		backupPath = `${sitesFile}.bak.${new Date().toISOString().replace(/[:.]/g, '-')}`;
 		copyFileSync(sitesFile, backupPath);
 		if (process.platform !== 'win32') {
@@ -187,13 +230,30 @@ export function atomicWriteRegistry(sitesFile: string, registry: SitesRegistryV2
 	if (process.platform !== 'win32') {
 		chmodSync(tmp, 0o600);
 	}
-	renameSync(tmp, sitesFile);
+	try {
+		renameSync(tmp, sitesFile);
+	} catch (err) {
+		// Restore from staged backup if rename failed.
+		if (backupPath && existsSync(backupPath) && !existsSync(sitesFile)) {
+			try {
+				copyFileSync(backupPath, sitesFile);
+			} catch {
+				// ignore secondary failure
+			}
+		}
+		throw err;
+	}
 	if (process.platform !== 'win32') {
 		try {
 			chmodSync(sitesFile, 0o600);
 		} catch {
 			// ignore
 		}
+	}
+
+	if (backupPath && !persistBackup) {
+		secureUnlink(backupPath);
+		return null;
 	}
 	return backupPath;
 }
@@ -590,11 +650,12 @@ export function migrateSitesFile(options: LoadRegistryOptions = {}): {
 			throw new ConnectError('invalid_registry', `Cannot migrate unrecognized schema in ${path}`);
 		}
 		// Secrets move first (inside migrateV1ToV2). Only then write.
+		// Do not persist a plaintext v1 .bak after success — secrets already left the file.
 		const migrated = migrateV1ToV2(raw as SitesRegistryV1, {
 			...(options.credentials ? { credentials: options.credentials } : {}),
 			...(options.allowEnvRef !== undefined ? { allowEnvRef: options.allowEnvRef } : {}),
 		});
-		const backupPath = atomicWriteRegistry(path, migrated);
+		const backupPath = atomicWriteRegistry(path, migrated, { persistBackup: false });
 		return { path, migrated: true, site_count: migrated.sites.length, backupPath };
 	});
 }

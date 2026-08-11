@@ -130,7 +130,16 @@ export interface ConnectAddInput {
 	alias: string;
 	url: string;
 	username: string;
+	/**
+	 * Application Password value. Prefer `passwordEnv` or interactive prompt;
+	 * argv `--password` is discouraged (shell history) and kept for tests.
+	 */
 	password?: string | undefined;
+	/**
+	 * Read the Application Password from process.env[passwordEnv] for this
+	 * invocation (does not by itself create an env:// credential_ref).
+	 */
+	passwordEnv?: string | undefined;
 	environment?: SiteEnvironment | undefined;
 	mode?: string | undefined;
 	client?: string | undefined;
@@ -142,6 +151,100 @@ export interface ConnectAddInput {
 	companionProfile?: string | undefined;
 	/** When set, skip interactive prompts. */
 	yes?: boolean | undefined;
+	/**
+	 * Optional password prompt for TTY (injected in tests).
+	 * When password is missing and stdin is a TTY, connectAdd uses this or a default hidden prompt.
+	 */
+	promptPassword?: (() => Promise<string>) | undefined;
+}
+
+/**
+ * Resolve the Application Password for connect add without requiring argv.
+ * Order: explicit password → --password-env → interactive prompt → credential-env only.
+ */
+export async function resolveConnectPassword(
+	input: Pick<ConnectAddInput, 'password' | 'passwordEnv' | 'credentialEnv' | 'promptPassword' | 'yes'>,
+	env: NodeJS.ProcessEnv = process.env,
+): Promise<{ password: string; source: 'argv' | 'password-env' | 'prompt' | 'none' }> {
+	const fromArgv = (input.password ?? '').trim();
+	if (fromArgv) {
+		return { password: fromArgv, source: 'argv' };
+	}
+	const envName = (input.passwordEnv ?? '').trim();
+	if (envName) {
+		const fromEnv = (env[envName] ?? '').trim();
+		if (!fromEnv) {
+			throw new ConnectError(
+				'password_env_missing',
+				`Environment variable ${envName} is empty or unset (from --password-env).`,
+			);
+		}
+		return { password: fromEnv, source: 'password-env' };
+	}
+	if (input.credentialEnv && (env[input.credentialEnv] ?? '').trim()) {
+		// credential-env already holds the secret; optional for store path.
+		return { password: (env[input.credentialEnv] ?? '').trim(), source: 'password-env' };
+	}
+	if (input.yes) {
+		return { password: '', source: 'none' };
+	}
+	const prompt = input.promptPassword;
+	if (prompt) {
+		const value = (await prompt()).trim();
+		return { password: value, source: 'prompt' };
+	}
+	if (process.stdin.isTTY && process.stdout.isTTY) {
+		const value = (await defaultHiddenPasswordPrompt()).trim();
+		return { password: value, source: 'prompt' };
+	}
+	return { password: '', source: 'none' };
+}
+
+async function defaultHiddenPasswordPrompt(): Promise<string> {
+	const { createInterface } = await import('node:readline');
+	return new Promise((resolve, reject) => {
+		const rl = createInterface({ input: process.stdin, output: process.stdout });
+		const output = process.stdout;
+		// Mute echo by writing prompt then reading raw if possible.
+		output.write('Application Password (input hidden when supported): ');
+		const stdin = process.stdin;
+		if (typeof stdin.setRawMode === 'function') {
+			const chars: string[] = [];
+			const onData = (buf: Buffer) => {
+				const s = buf.toString('utf8');
+				for (const ch of s) {
+					if (ch === '\n' || ch === '\r' || ch === '\u0004') {
+						stdin.setRawMode?.(false);
+						stdin.removeListener('data', onData);
+						output.write('\n');
+						rl.close();
+						resolve(chars.join(''));
+						return;
+					}
+					if (ch === '\u0003') {
+						stdin.setRawMode?.(false);
+						stdin.removeListener('data', onData);
+						rl.close();
+						reject(new Error('Interrupted'));
+						return;
+					}
+					if (ch === '\u007f' || ch === '\b') {
+						chars.pop();
+						continue;
+					}
+					chars.push(ch);
+				}
+			};
+			stdin.setRawMode(true);
+			stdin.resume();
+			stdin.on('data', onData);
+			return;
+		}
+		rl.question('', (answer) => {
+			rl.close();
+			resolve(answer);
+		});
+	});
 }
 
 export async function connectAdd(input: ConnectAddInput, ctx: ConnectContext = {}): Promise<number> {
@@ -181,9 +284,21 @@ export async function connectAdd(input: ConnectAddInput, ctx: ConnectContext = {
 		);
 	}
 
-	const password = (input.password ?? '').trim();
+	let password: string;
+	try {
+		const resolved = await resolveConnectPassword(input, ctx.env ?? process.env);
+		password = resolved.password;
+	} catch (err) {
+		if (err instanceof ConnectError) {
+			writeErr(err.message);
+			return 1;
+		}
+		throw err;
+	}
 	if (!password && !input.credentialEnv) {
-		writeErr('Application Password is required (or pass --credential-env VAR).');
+		writeErr(
+			'Application Password is required. Prefer interactive prompt, --password-env VAR, or --credential-env VAR. Avoid --password on argv (shell history).',
+		);
 		return 1;
 	}
 

@@ -10,6 +10,7 @@ import {
 	connectRepair,
 	connectUse,
 	connectVerify,
+	resolveConnectPassword,
 	testCredentialOptions,
 } from '../src/cli/connect/commands.js';
 import { runInit } from '../src/cli/init.js';
@@ -445,5 +446,48 @@ describe('connect CLI acceptance matrix', () => {
 		expect(text).toContain('[mcp_servers.other]');
 		expect(text.match(/\[mcp_servers\.stonewright-site-a\]/g)?.length).toBe(1);
 		expect(existsSync(path)).toBe(true);
+	});
+
+	it('resolveConnectPassword prefers password-env and prompt over missing argv', async () => {
+		const fromEnv = await resolveConnectPassword(
+			{ passwordEnv: 'SW_TEST_PASS' },
+			{ SW_TEST_PASS: 'from-env-secret' },
+		);
+		expect(fromEnv).toEqual({ password: 'from-env-secret', source: 'password-env' });
+
+		const fromPrompt = await resolveConnectPassword({
+			promptPassword: () => Promise.resolve('from-prompt-secret'),
+		});
+		expect(fromPrompt).toEqual({ password: 'from-prompt-secret', source: 'prompt' });
+
+		const fromArgv = await resolveConnectPassword({ password: 'from-argv-secret' });
+		expect(fromArgv).toEqual({ password: 'from-argv-secret', source: 'argv' });
+	});
+
+	it('connect add accepts --password-env style input without argv password', async () => {
+		const h = harness();
+		capture();
+		const code = await connectAdd(
+			{
+				alias: 'env-pass-site',
+				url: 'https://env-pass.example/',
+				username: 'editor',
+				passwordEnv: 'SW_CONNECT_TEST_PW',
+			},
+			{
+				sitesFile: h.sitesFile,
+				homeDir: h.homeDir,
+				credentials: h.credentials,
+				skipAuth: true,
+				env: { SW_CONNECT_TEST_PW: 'example-password-from-env' },
+			},
+		);
+		expect(code).toBe(0);
+		const reg = JSON.parse(readFileSync(h.sitesFile, 'utf8')) as {
+			sites: Array<{ alias: string; credential_ref: string }>;
+		};
+		expect(reg.sites[0]?.alias).toBe('env-pass-site');
+		expect(reg.sites[0]?.credential_ref).toMatch(/memory:\/\//);
+		expect(JSON.stringify(reg)).not.toContain('example-password-from-env');
 	});
 });

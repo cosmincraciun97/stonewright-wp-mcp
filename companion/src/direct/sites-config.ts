@@ -7,7 +7,7 @@
  *  - STONEWRIGHT_WP_* environment single-site fallback
  *
  * Runtime ResolvedSite always exposes username + appPassword for WP REST.
- * v2 secrets are resolved via credential_ref (keychain / env / memory).
+ * v2 secrets are resolved lazily via credential_ref only for the requested alias.
  */
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -32,6 +32,10 @@ import type { ConfiguredMode, SiteRecordV2, SitesRegistryV1, SitesRegistryV2 } f
 export interface SiteEntry {
 	url: string;
 	username: string;
+	/**
+	 * Plaintext Application Password when already resolved (v1 / env).
+	 * Empty string for deferred v2 credential_ref resolution.
+	 */
 	appPassword: string;
 	disabledTools?: string[] | undefined;
 	/** v2 metadata */
@@ -50,6 +54,19 @@ export interface SitesConfig {
 	schemaVersion?: 1 | 2 | undefined;
 	/** Full v2 registry when loaded from schema v2 (or projected). */
 	registry?: SitesRegistryV2 | undefined;
+	/**
+	 * Lazy secret resolution for v2 sites. Only the alias passed to
+	 * resolveSite() triggers a credential-store read.
+	 */
+	_secretContext?: SecretResolveContext | undefined;
+}
+
+interface SecretResolveContext {
+	options: LoadSitesConfigOptions;
+	path: string;
+	raw: unknown;
+	/** Cache of alias → resolved password for this process load. */
+	cache: Map<string, string>;
 }
 
 export interface ResolvedSite {
@@ -146,29 +163,45 @@ function permissionWarningFor(path: string): string | undefined {
 	return undefined;
 }
 
-function resolveV2Password(site: SiteRecordV2, options: LoadSitesConfigOptions, path: string, raw: unknown): string {
+function resolveV2Password(
+	site: SiteRecordV2,
+	ctx: SecretResolveContext,
+): string {
+	const cached = ctx.cache.get(site.alias);
+	if (cached !== undefined) {
+		return cached;
+	}
 	try {
-		return resolveSitePassword(site, {
-			sitesFile: path,
-			...(options.credentials ? { credentials: options.credentials } : {}),
-			legacyV1: detectSchemaVersion(raw) === 1 ? (raw as SitesRegistryV1) : null,
+		const password = resolveSitePassword(site, {
+			sitesFile: ctx.path,
+			...(ctx.options.credentials ? { credentials: ctx.options.credentials } : {}),
+			legacyV1: detectSchemaVersion(ctx.raw) === 1 ? (ctx.raw as SitesRegistryV1) : null,
 		});
+		ctx.cache.set(site.alias, password);
+		return password;
 	} catch {
 		// Fall through to env for this alias
-		const env = options.env ?? process.env;
+		const env = ctx.options.env ?? process.env;
 		const envPass = (
 			env['STONEWRIGHT_WP_APP_PASSWORD'] ??
 			env['STONEWRIGHT_WP_PASSWORD'] ??
 			env['WP_APP_PASSWORD'] ??
 			''
 		).trim();
-		if (envPass) return envPass;
+		if (envPass) {
+			ctx.cache.set(site.alias, envPass);
+			return envPass;
+		}
 		throw new Error(
 			`Unable to resolve credentials for site "${site.alias}" (credential_ref). Run stonewright connect migrate or connect add.`,
 		);
 	}
 }
 
+/**
+ * Build SitesConfig metadata for v2 without resolving any OS secrets.
+ * Passwords are loaded only when resolveSite() is called for a specific alias.
+ */
 function registryToSitesConfig(
 	registry: SitesRegistryV2,
 	path: string,
@@ -178,11 +211,11 @@ function registryToSitesConfig(
 ): SitesConfig {
 	const sites: Record<string, SiteEntry> = {};
 	for (const site of registry.sites) {
-		const appPassword = resolveV2Password(site, options, path, raw);
 		const entry: SiteEntry = {
 			url: site.canonical_url,
 			username: site.username_hint,
-			appPassword,
+			// Deferred — resolveSite() loads only the selected alias.
+			appPassword: '',
 			id: site.id,
 			environment: site.environment,
 			configuredMode: site.configured_mode,
@@ -207,6 +240,12 @@ function registryToSitesConfig(
 		path,
 		schemaVersion,
 		registry,
+		_secretContext: {
+			options,
+			path,
+			raw,
+			cache: new Map(),
+		},
 		...(permissionWarning ? { permissionWarning } : {}),
 	};
 }
@@ -332,12 +371,51 @@ export function resolveSite(config: SitesConfig, alias?: string): ResolvedSite {
 	if (!entry) {
 		throw new Error(`Unknown site alias "${key}". Known: ${Object.keys(config.sites).join(', ')}`);
 	}
+
+	let appPassword = entry.appPassword;
+	if (!appPassword) {
+		const ctx = config._secretContext;
+		const record = config.registry
+			? findSiteByAlias(config.registry, resolvedAlias) ??
+				(entry.id ? findSiteById(config.registry, entry.id) : undefined)
+			: undefined;
+		if (ctx && record) {
+			appPassword = resolveV2Password(record, ctx);
+			// Cache on the entry for subsequent resolveSite calls in this process.
+			entry.appPassword = appPassword;
+		} else if (entry.credentialRef && ctx) {
+			// Fallback without full SiteRecordV2
+			const synthetic: SiteRecordV2 = {
+				id: entry.id ?? resolvedAlias,
+				alias: resolvedAlias,
+				environment: (entry.environment as SiteRecordV2['environment']) ?? 'other',
+				canonical_url: entry.url,
+				url_fingerprint: '',
+				username_hint: entry.username,
+				credential_ref: entry.credentialRef,
+				auth_method: 'application-password',
+				configured_mode: entry.configuredMode ?? 'auto',
+				preferred_active_mode: 'plugin',
+				fallback_policy: 'direct-when-plugin-unavailable',
+				companion_profile: 'essential-static',
+				clients: {},
+			};
+			appPassword = resolveV2Password(synthetic, ctx);
+			entry.appPassword = appPassword;
+		}
+	}
+	if (!appPassword) {
+		throw new Error(
+			`Unable to resolve credentials for site "${resolvedAlias}". Run stonewright connect migrate or connect add.`,
+		);
+	}
+
 	return {
 		alias: resolvedAlias,
 		url: entry.url,
 		restBase: restBaseFor(entry.url),
 		username: entry.username,
-		appPassword: entry.appPassword,
+		appPassword,
 		disabledTools: entry.disabledTools ?? [],
 		siteId: entry.id,
 		environment: entry.environment,

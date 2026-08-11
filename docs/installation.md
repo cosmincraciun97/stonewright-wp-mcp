@@ -97,8 +97,22 @@ For a guided Direct setup, run:
 npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-companion init
 ```
 
-It writes credentials only to permission-restricted
-`~/.stonewright/sites.json` and prints a secret-free MCP client block.
+`init` is a compatibility alias for `connect add`. For multi-site installs:
+
+```bash
+npx @stonewright/companion connect add \
+  --alias site-a \
+  --url https://site-a.example \
+  --username editor \
+  --password-env STONEWRIGHT_TMP_APP_PASSWORD \
+  --client cursor
+```
+
+Prefer interactive password entry or `--password-env VAR` (avoid `--password` on
+argv). Schema v2 stores only metadata and a `credential_ref` in
+`~/.stonewright/sites.json`; secrets live in the OS credential store (or
+`env://VAR`). Client config sets `STONEWRIGHT_SITE_ALIAS` only — the companion
+resolves URL and credentials for that alias at startup.
 
 First call in Direct mode: `stonewright-task-start`. Then use
 `stonewright-site-discover`; it lists REST namespaces,
