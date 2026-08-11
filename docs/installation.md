@@ -97,8 +97,45 @@ For a guided Direct setup, run:
 npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-companion init
 ```
 
-It writes credentials only to permission-restricted
-`~/.stonewright/sites.json` and prints a secret-free MCP client block.
+`init` is a compatibility alias for `connect add`. For multi-site installs:
+
+```bash
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
+  --alias site-a \
+  --url https://site-a.example \
+  --username editor \
+  --password-env STONEWRIGHT_TMP_APP_PASSWORD \
+  --env staging \
+  --mode auto \
+  --plugin-enabled yes \
+  --wp-mode staging \
+  --wp-surface essential \
+  --elementor-v4 yes \
+  --client cursor \
+  --browser-provider recommended \
+  --browser-scan-consent granted \
+  --browser-install-consent denied
+```
+
+Prefer interactive password entry or `--password-env VAR` (avoid `--password` on
+argv). Schema v2 stores only metadata and a `credential_ref` in
+`~/.stonewright/sites.json`; secrets live in the OS credential store (or
+`env://VAR`). Client config sets `STONEWRIGHT_SITE_ALIAS` only — the companion
+resolves URL and credentials for that alias at startup.
+
+The WordPress Step 1 choices and browser consent are retained per site/client;
+`recommended` records Playwright as the external default without embedding it;
+unset browser choices cause the agent to ask once. Scan consent never implies
+install consent. After restarting the client, prove the saved entry end to end:
+
+```bash
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect verify site-a --client cursor
+```
+
+Verification spawns the configured stdio server, confirms the active alias and
+companion version when observable, lists tools, calls `stonewright-task-start`
+and status, checks required tools, and stores a surface digest. A parseable
+client config is only a structural check.
 
 First call in Direct mode: `stonewright-task-start`. Then use
 `stonewright-site-discover`; it lists REST namespaces,

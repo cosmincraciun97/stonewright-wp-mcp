@@ -14,5 +14,16 @@
   "notes": "Prefer official CLI add when available; otherwise paste under mcpServers in settings.json. Prefer user-level or private client config; never commit Application Passwords to project-tracked files.",
   "verified_against_docs_on": "2026-07-16",
   "secret_storage": "user-level",
-  "config_path": "~/.gemini/settings.json"
+  "config_path": "~/.gemini/settings.json",
+  "transport": "stdio",
+  "config_format": "cli-only",
+  "official_cli_update": "gemini mcp add",
+  "official_cli_remove": "",
+  "oauth_support": false,
+  "app_password_support": true,
+  "relist_behavior": "restart-session",
+  "new_task_required_after_catalog_change": true,
+  "safe_tool_budget": 40,
+  "default_profile": "essential-static",
+  "support_tier": "community"
 }

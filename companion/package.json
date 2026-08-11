@@ -22,6 +22,7 @@
 	},
 	"main": "dist/index.js",
 	"bin": {
+		"stonewright": "dist/index.js",
 		"stonewright-companion": "dist/index.js",
 		"stonewright-mcp": "dist/index.js"
 	},

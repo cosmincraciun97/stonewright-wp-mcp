@@ -234,6 +234,11 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'Show me approval_url, exact path, byte counts, and a short summary, then stop', $prompt );
 		$this->assertStringContainsString( 'Never open the approval page', $prompt );
 		$this->assertStringContainsString( 'Keep credentials only in the private client config or ~/.stonewright/sites.json', $prompt );
+		$this->assertStringContainsString( 'prefer the versioned `stonewright connect add` installer', $prompt );
+		$this->assertStringContainsString( 'hidden password prompt or --password-env', $prompt );
+		$this->assertStringContainsString( '~/.stonewright/sites.json may contain a credential_ref but never plaintext', $prompt );
+		$this->assertStringContainsString( 'stonewright connect verify <alias> --client <client>', $prompt );
+		$this->assertStringContainsString( 'a parseable config file is not runtime proof', $prompt );
 		$this->assertStringContainsString( 'fully restart or reload the MCP session', $prompt );
 		$this->assertStringContainsString( 'stonewright-task-start', $prompt );
 		$this->assertLessThan(

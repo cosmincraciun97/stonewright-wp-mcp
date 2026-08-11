@@ -286,7 +286,7 @@ The Setup page exposes two distinct checks:
 For the companion stdio path, also run:
 
 ```bash
-npx @stonewright/companion doctor
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright doctor
 ```
 
 Doctor checks Node version, credentials (env or `~/.stonewright/sites.json`),

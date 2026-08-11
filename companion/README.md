@@ -44,7 +44,8 @@ against core WordPress REST.
 |---|---|---|
 | `STONEWRIGHT_MODE` | `auto` \| `direct` \| `plugin` | `auto` |
 | `STONEWRIGHT_DIRECT_WRITES` | `on` \| `off` \| `confirm` | `on` for localhost/`.local`/`.test`; `confirm` for remote |
-| Multi-site config | `~/.stonewright/sites.json` | optional aliases + `disabledTools` |
+| `STONEWRIGHT_SITE_ALIAS` | site alias from the multi-site registry | unset |
+| Multi-site registry | `~/.stonewright/sites.json` | schema v2: metadata only; secrets in OS store / `env://` |
 
 **Auto-detect:** probes `GET/HEAD {site}/wp-json/mcp/stonewright`.
 
@@ -123,15 +124,107 @@ For guided Direct setup:
 npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-companion init
 ```
 
-It validates the WordPress credential, stores `appPassword` in
-permission-restricted `~/.stonewright/sites.json`, and prints a secret-free MCP
-configuration. Existing files with the legacy `applicationPassword` key remain
-compatible.
+`init` is a compatibility alias for `connect add`. Prefer the multi-site connect
+CLI for new installs.
+
+### Multi-site connect CLI
+
+```bash
+# Interactive (hidden password prompt) + optional client binding
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
+  --alias site-a \
+  --url https://site-a.example \
+  --username editor \
+  --env staging \
+  --mode auto \
+  --plugin-enabled yes \
+  --wp-mode staging \
+  --wp-surface essential \
+  --elementor-v4 yes \
+  --client cursor \
+  --browser-provider recommended \
+  --browser-scan-consent granted \
+  --browser-install-consent denied
+
+# Scripts: read password from env (never put secrets on argv)
+export STONEWRIGHT_TMP_APP_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx'
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
+  --alias site-b \
+  --url https://site-b.example \
+  --username editor \
+  --password-env STONEWRIGHT_TMP_APP_PASSWORD \
+  --mode auto \
+  --default
+
+# Headless CI: keep secret in env and store env:// ref only
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
+  --alias ci-site \
+  --url https://ci.example \
+  --username editor \
+  --credential-env STONEWRIGHT_CI_APP_PASSWORD
+
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect list
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect use site-b
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect verify site-a --client cursor
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect migrate   # v1 plaintext → v2 + OS store
+```
+
+**What gets stored where**
+
+| Surface | Contents |
+|---|---|
+| `~/.stonewright/sites.json` (schema v2) | alias, environment, URL, username hint, `credential_ref`, Direct/Plugin policy, Step 1 expectations, client/browser bindings — **no** Application Passwords |
+| macOS Keychain / Windows DPAPI secrets / Linux Secret Service | Application Password for `credman://` / `keychain://` / `secretservice://` refs |
+| Process / shell env | Only when using `env://VAR` or `--password-env` for the current invocation |
+
+MCP client config from `connect add --client …` is secret-free:
+
+```json
+{
+  "mcpServers": {
+    "stonewright-site-a": {
+      "command": "npx",
+      "args": ["-y", "--package", "…/stonewright-companion-VERSION.tgz", "stonewright-mcp"],
+      "env": {
+        "STONEWRIGHT_MODE": "auto",
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential-static",
+        "STONEWRIGHT_SITE_ALIAS": "site-a"
+      }
+    }
+  }
+}
+```
+
+At companion startup, `STONEWRIGHT_SITE_ALIAS` resolves **only that site** from
+the registry and injects `STONEWRIGHT_WP_URL`, `STONEWRIGHT_WP_USERNAME`, and
+`STONEWRIGHT_WP_APP_PASSWORD` into the runtime env. Other sites' secrets stay
+unloaded.
+
+**Modes per site:** `auto` (default probe), `plugin-only` (fail closed without
+plugin MCP), `direct-only` (skip plugin probe). Prefer `--password-env` or the
+interactive prompt over `--password` (shell history).
+
+Browser provider, scan consent, and install consent are distinct per-client
+fields. `recommended` means Playwright without embedding or installing it;
+`unknown` causes an agent to ask once and never authorizes scanning or
+installation. Update them idempotently with `connect repair <alias> --client
+<id> --browser-provider … --browser-scan-consent …
+--browser-install-consent …`.
+
+After restarting the target client, `connect verify <alias> --client <id>`
+spawns the exact saved MCP entry, confirms the active alias and companion
+version when observable, lists tools, calls task-start and status, checks
+required tools, and records a surface digest. A valid JSON/TOML file by itself
+is not a successful runtime verification.
+
+Legacy v1 `sites.json` files with plaintext `appPassword` / `applicationPassword`
+still load at runtime. Run `connect migrate` to move secrets into the OS store
+and rewrite schema v2; the migration does not leave a plaintext `.bak` on success.
 
 ### Doctor (connection health)
 
 ```bash
-npx @stonewright/companion doctor
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright doctor
 # or from source: node dist/index.js doctor
 ```
 

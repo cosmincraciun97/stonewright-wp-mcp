@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { MemoryCredentialStore } from '../src/credentials/index.js';
 import {
 	loadSitesConfig,
 	resolveSite,
@@ -131,5 +132,64 @@ describe('direct sites-config', () => {
 		});
 		const config = loadSitesConfig({ sitesFile: file });
 		expect(config.sites.prod?.disabledTools).toEqual(['stonewright-content-delete']);
+	});
+
+	it('defers v2 secret resolution until resolveSite for the requested alias', () => {
+		const store = new MemoryCredentialStore();
+		const refA = 'memory://stonewright/site-a/app-password';
+		const refB = 'memory://stonewright/site-b/app-password';
+		store.set(refA, 'only-a');
+		store.set(refB, 'only-b');
+
+		const file = writeSites({
+			schema_version: 2,
+			default_site_id: 'id-a',
+			sites: [
+				{
+					id: 'id-a',
+					alias: 'site-a',
+					environment: 'other',
+					canonical_url: 'https://site-a.example',
+					url_fingerprint: 'sha256:a',
+					username_hint: 'editor',
+					credential_ref: refA,
+					auth_method: 'application-password',
+					configured_mode: 'auto',
+					preferred_active_mode: 'plugin',
+					fallback_policy: 'direct-when-plugin-unavailable',
+					companion_profile: 'essential-static',
+					clients: {},
+				},
+				{
+					id: 'id-b',
+					alias: 'site-b',
+					environment: 'other',
+					canonical_url: 'https://site-b.example',
+					url_fingerprint: 'sha256:b',
+					username_hint: 'editor',
+					credential_ref: refB,
+					auth_method: 'application-password',
+					configured_mode: 'auto',
+					preferred_active_mode: 'plugin',
+					fallback_policy: 'direct-when-plugin-unavailable',
+					companion_profile: 'essential-static',
+					clients: {},
+				},
+			],
+		});
+
+		const config = loadSitesConfig({
+			sitesFile: file,
+			credentials: { store, prefer: 'memory' },
+		});
+		expect(config.sites['site-a']?.appPassword).toBe('');
+		expect(config.sites['site-b']?.appPassword).toBe('');
+
+		const a = resolveSite(config, 'site-a');
+		expect(a.appPassword).toBe('only-a');
+		expect(config.sites['site-b']?.appPassword).toBe('');
+
+		const b = resolveSite(config, 'site-b');
+		expect(b.appPassword).toBe('only-b');
 	});
 });

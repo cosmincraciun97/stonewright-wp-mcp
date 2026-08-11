@@ -36,6 +36,7 @@ import {
 import { APP_VERSION } from './version.js';
 import { registerDirectTools, DIRECT_TOOL_NAMES, type DirectToolProfile } from './direct/registry.js';
 import { resolveRuntimeMode, type ProbeResult } from './direct/mode.js';
+import { applySiteAliasToEnv } from './direct/apply-site-env.js';
 import { PLUGIN_ONLY_CAPABILITIES } from './direct/tools/site-discover.js';
 import {
 	PERMANENT_GATEWAY_TOOL_NAMES,
@@ -91,6 +92,10 @@ const LOCAL_TOOL_NAMES = [
 
 export async function createMcpServer(options: CreateMcpServerOptions = {}): Promise<McpServer> {
 	const env = options.env ?? process.env;
+	// Multi-site connect installs only STONEWRIGHT_SITE_ALIAS in client config.
+	// Resolve that alias from the local registry and inject URL/username/password
+	// before mode probe / WordPress MCP config / Direct registration.
+	applySiteAliasToEnv(env);
 	const profile = proxyToolProfileFromEnv(env);
 	const fetchImpl = options.fetchImpl ?? fetch;
 	const runtime = createConnectionRuntime({

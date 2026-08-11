@@ -10,6 +10,14 @@ were never stable releases and are not part of the supported public history.
 
 ## [Unreleased]
 
+### Added
+
+- Add a versioned multi-site/environment registry, collision-safe site aliases,
+  per-client bindings, OS-backed credential references, transactional client
+  configuration, and a `stonewright connect` installer/verification workflow.
+- Persist each site's Plugin/Direct mode policy, WordPress Step 1 expectations,
+  Elementor V4 selection, tool surface, and per-client browser-consent choice.
+
 ### Changed
 
 - Require a one-time browser-provider choice per site/client, separate consent
@@ -27,6 +35,8 @@ were never stable releases and are not part of the supported public history.
 
 ### Fixed
 
+- Keep the dependency audit fail-closed while documenting Composer 2.9.5's
+  false-positive boundary match for the already patched PHP_CodeSniffer 3.13.6.
 - Align Audit, Memory, Skills, and Sandbox controls with consistent card
   padding, checkbox spacing, action gaps, and 32px control heights.
 - Resolve pre-login OAuth audit actors to registered client names in one batched

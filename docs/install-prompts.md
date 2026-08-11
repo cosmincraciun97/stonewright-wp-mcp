@@ -51,6 +51,15 @@ WordPress password.
 ```text
 Configure the Stonewright MCP server for my WordPress site in this AI client.
 
+Prefer the versioned `stonewright connect add` installer. Ask me for a unique
+site alias, environment, Plugin/Direct policy, WordPress mode, MCP tool surface,
+Elementor V4 choice, and target client. Ask once for a browser provider and ask
+separately before scanning client configuration or installing anything. Store
+those choices per site/client. Use a hidden password prompt or --password-env;
+never put a password on argv. After I restart the client, run
+`stonewright connect verify <alias> --client <client>` and require spawned task-start/status
+proof, not only a valid config file.
+
 Connection values (I will provide secrets when asked):
 - WordPress URL: <https://example.com>
 - MCP server name: stonewright
@@ -114,16 +123,27 @@ wp-admin skills/memory/audit UI.
 Optional interactive setup:
 
 ```bash
-npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-companion init
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
+  --alias site-a --url https://site-a.example --username admin \
+  --mode direct-only --client cursor
 ```
 
-It validates the credential, stores the canonical `appPassword` key in
-permission-restricted `~/.stonewright/sites.json`, and prints a secret-free MCP
-block. Existing files using the legacy `applicationPassword` key remain
-readable.
+It validates the credential, stores only a `credential_ref` in the
+permission-restricted schema-v2 `~/.stonewright/sites.json`, keeps the secret in
+the OS credential store (or an explicit `env://` reference), and writes a
+secret-free named MCP entry. Existing v1 plaintext files remain readable only
+for compatibility; run `stonewright connect migrate` to move their secrets out
+without leaving a plaintext backup.
 
 ```text
 Configure the Stonewright MCP server in Direct mode (no WordPress plugin) in this AI client.
+
+Prefer `stonewright connect add` with a unique alias and --mode direct-only.
+Ask once for Playwright, another connected browser, or none. Ask separately
+before scanning and before installing/configuring a provider, save those
+choices for this site/client, and never infer consent. After restart, run
+`stonewright connect verify <alias> --client <client>`; require the spawned
+companion version, active alias, task-start, status, and required tool surface.
 
 Connection values (I will provide secrets when asked):
 - WordPress URL: <https://example.com>
