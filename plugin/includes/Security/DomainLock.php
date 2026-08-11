@@ -189,9 +189,9 @@ final class DomainLock {
 	 *
 	 * Requires manage_options (caller must gate).
 	 *
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error True on success.
 	 */
-	public static function rebind(): true|\WP_Error {
+	public static function rebind() {
 		$previous = self::locked_domain();
 		$current  = self::current_origin();
 		if ( '' === $current ) {
@@ -236,9 +236,9 @@ final class DomainLock {
 	/**
 	 * Restore the prior binding when still within the retention window.
 	 *
-	 * @return true|\WP_Error
+	 * @return bool|\WP_Error True on success.
 	 */
-	public static function rollback(): true|\WP_Error {
+	public static function rollback() {
 		$prior = get_option( self::OPTION_PRIOR, null );
 		if ( ! is_array( $prior ) ) {
 			return new \WP_Error(
