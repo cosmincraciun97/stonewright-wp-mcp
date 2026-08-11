@@ -35,8 +35,11 @@ switch. When it is `false`, the MCP server rejects inbound tool calls except for
 the built-in `ping` ability, which always responds so clients can test
 connectivity.
 
-Flip the toggle, click **Save Settings**, and registered abilities become
-available on the next tool-call attempt.
+In the supported JavaScript flow, flipping the toggle saves immediately and
+updates the visible effective state without a page reload. **Apply now** retries
+and verifies the same Step 1 transaction. The no-JavaScript form still uses
+**Save Settings**. A connected client sees the new state through the surface
+revision/re-list contract described below.
 
 ### Mode selector
 

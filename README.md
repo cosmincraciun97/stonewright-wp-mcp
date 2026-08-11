@@ -48,7 +48,7 @@ Stonewright is a WordPress MCP stack for AI coding agents. **Elementor** is a fi
 
 Counts are derived from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
 
-### Plugin mode — **359** abilities
+### Plugin mode — **360** abilities
 
 Counts below are grouped by the `includes/Abilities/` subdirectory each ability
 lives in, and sum to the total. Regenerate with `composer docs:matrix`.
@@ -57,20 +57,20 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 |---|---:|---|
 | Elementor widgets (compat) | 94 | Generated per-widget builders |
 | Elementor widget builder | 4 | Custom widget project helpers |
-| Elementor V3 | 31 | Structure edit, batch-mutate, post-write verification, legacy-debt report, kit globals, build-from-spec, transactions |
+| Elementor V3 | 33 | Structure edit, batch-mutate, post-write verification, legacy-debt report, kit globals, build-from-spec, transactions |
 | Elementor V4 | 14 | Atomic nodes, variables, classes (experimental) |
 | Design | 28 | DesignSpec validate/render, native plan, intent, versioned Design Directions, manifests, comparison, guarded kit sync, rendered quality checks |
 | Site | 17 | Snapshot, inventory, health, pulse, plugins, theme, shortcodes |
 | Gutenberg + FSE + patterns | 24 | Blocks, theme.json, templates, global styles, transactional block batches |
-| Content + media | 20 | Pages/posts, bulk upsert, content model, upload, stock |
+| Content + media | 16 | Pages/posts, bulk upsert, upload, stock |
 | ACF + SEO | 8 | Field groups/values, multi-plugin SEO |
 | Comments / users / widgets / settings / themes / theme builder / plugins / revisions | 35 | REST-parity admin ops |
 | WP-CLI | 6 | Status, discover, run, batch, jobs |
 | Memory + skills + expertise + knowledge | 20 | Learning, memory generalization, skills, expertise packs |
-| Security + sandbox | 10 | Tokens, one-time links, sandbox lifecycle |
+| Security + sandbox | 12 | Tokens, one-time links, sandbox lifecycle |
 | Diagnostics | 3 | OAuth header, form delivery, and object capability diagnostics |
 | System | 11 | Task start, native rules, tool profiles, ability list |
-| Menus, blueprints, brand kits, runtime, search, WooCommerce | 30 | Native Woo catalog CRUD/audit; see full [matrix](docs/ability-truth-matrix.md) |
+| Menus, blueprints, brand kits, runtime, search, WooCommerce, content model, custom code | 35 | Native Woo catalog CRUD/audit and typed approval-gated code providers; see full [matrix](docs/ability-truth-matrix.md) |
 
 ### Direct mode — **100** tools (pluginless)
 
@@ -137,7 +137,7 @@ The companion authenticates with a WordPress Application Password and exposes **
 
 ## Quick Start
 
-**Plugin mode (about five steps):**
+**Plugin mode (six steps):**
 
 1. Download the latest `stonewright-*.zip` from the [current GitHub release](https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/latest).
 2. In WordPress: **Plugins → Add New → Upload Plugin** → activate **Stonewright**.
@@ -322,60 +322,81 @@ Two optional inputs cut payload without losing precision:
 ## Architecture
 
 ```mermaid
-flowchart LR
-  Client[AI / MCP client]
-  Browser[User-approved external browser provider]
-  Companion[Stonewright Companion]
-  Registry[Site registry + credential references]
-  Clients[Transactional client adapters]
-  CompFilter[Companion profile filter]
-  Plugin[Stonewright plugin]
-  Surface[Surface gate: bootstrap / essential / full]
-  Session[Per-session tool profile]
-  Rev[surface_revision -> tools/list_changed]
-  REST[WordPress REST API]
-  Rules[Native rules + digest cache]
-  WP[WordPress core]
-  Guten[Gutenberg / FSE]
-  Elem[Elementor]
-  Integrity[Elementor integrity gate: double-encode / size-collapse / widgetType-remap / delta-scoped validate]
-  Content[Content / media / menus]
-  Mem[Memory / skills]
-  Users[Users / comments / widgets]
-  WC[WooCommerce native catalog]
-  Gates[Backup / validation / readback / audit]
+flowchart TD
+  Client["AI / MCP client"]
+  Browser["Optional user-approved browser provider"]
 
-  Client --> Companion
-  Client --> Clients
-  Clients --> Companion
-  Companion --> Registry
-  Client --> Browser
+  subgraph Local["Local stdio and client configuration"]
+    Adapters["Transactional per-client adapters"]
+    Registry["Multi-site registry: alias, environment, mode, Step 1 expectations"]
+    Credentials["OS credential store or explicit env reference"]
+    Companion["Stonewright Companion"]
+    CompFilter["Companion profile: bootstrap, essential-static, essential, low-tools, full"]
+    Direct["Pluginless Direct adapters"]
+    DirectState["Private Direct skills, memory, and redacted audit"]
+  end
+
+  subgraph PluginMode["Plugin mode"]
+    Auth["OAuth grant or Application Password boundary"]
+    Step1["Step 1: enabled, mode, surface, Elementor V4"]
+    Surface["Plugin surface gate: bootstrap, essential, full"]
+    Session["Per-session task profile"]
+    Revision["surface_revision and tools/list_changed"]
+    Plugin["Stonewright plugin ability kernel"]
+    Code["Typed custom-code providers"]
+    Approval["Dry run, human grant, confirmation, snapshot, readback"]
+    Elementor["Elementor V3 / V4 / kit schema routing"]
+    Closure["Lease, snapshot, validate, write, readback, rollback, visual QA"]
+    Audit["Coalesced audit with actor attribution"]
+    Incidents["Incident lifecycle"]
+    Memory["Verified repair promotion to memory"]
+  end
+
+  WordPress["WordPress core, REST, Gutenberg/FSE, content, WooCommerce"]
+
+  Client -->|"local stdio"| Companion
+  Client -->|"remote Streamable HTTP"| Auth
+  Client --> Adapters
+  Adapters --> Registry
+  Registry --> Credentials
+  Registry --> Companion
   Companion --> CompFilter
-  Companion --> Rules
-  CompFilter -->|Plugin mode| Plugin
-  CompFilter -->|Direct mode| REST
-  Companion --> Skills[Local skills / memory]
-  Plugin --> Surface
-  Surface --> Session
-  Session --> Rev
-  Rev -. re-list .-> Client
-  Plugin --> Gates
-  Plugin --> Rules
-  Plugin --> Guten
-  Plugin --> Elem
-  Elem --> Integrity
-  Plugin --> Content
-  Plugin --> Mem
-  Plugin --> Users
-  Plugin --> WC
-  REST --> Users
-  REST --> WP
-  WP --> Content
-  Plugin --> WP
-  Browser -. verification or approved dashboard interaction .-> WP
+  CompFilter -->|"Plugin mode"| Auth
+  CompFilter -->|"Direct mode"| Direct
+  Direct --> WordPress
+  Direct --> DirectState
+  Auth --> Plugin
+  Step1 --> Surface --> Session --> Plugin
+  Step1 --> Revision -. "re-list / restart contract" .-> Client
+  Plugin --> WordPress
+  Plugin --> Code --> Approval --> WordPress
+  Plugin --> Elementor --> Closure --> WordPress
+  Plugin --> Audit --> Incidents --> Memory
+  Client -. "provider choice plus scan/install consent" .-> Browser
+  Browser -. "rendered verification or approved dashboard action" .-> WordPress
 ```
 
-Tool visibility is filtered twice before a client sees it: the plugin’s **surface gate** (`bootstrap` / `essential` / `full`) and optional **per-session tool profile** decide which abilities the MCP endpoint exposes, then the **companion profile filter** narrows that set again for the client. A monotonic `surface_revision` on every gateway response drives `tools/list_changed` so clients re-list when the surface changes.
+Tool visibility is filtered twice before a client sees it: the plugin’s
+**surface gate** (`bootstrap`, `essential`, or `full`) and optional per-session
+task profile decide which abilities the MCP endpoint exposes, then the
+**companion profile filter** (`bootstrap`, `essential-static`, `essential`,
+`low-tools`, or `full`) may narrow that set for the client. A monotonic
+`surface_revision` on every gateway response drives `tools/list_changed`;
+clients that cannot process it use the documented re-list/restart path.
+`bootstrap` is diagnostic, while `essential` is the normal bounded working
+profile for known clients.
+
+OAuth credentials remain inside the plugin grant/token boundary. Application
+Passwords stay in private client configuration or the OS-backed site registry;
+paste-to-agent prompts contain placeholders. Direct mode has no plugin approval
+boundary, so it cannot write arbitrary PHP, CSS, JavaScript, HTML, WPCode, Code
+Snippets, or theme files. Plugin-mode custom-code providers always stop after a
+typed dry run until the user issues the exact one-time grant.
+
+Audit success does not erase unrelated failures. Events coalesce noisy OAuth
+terminals, preserve the best available actor attribution, and feed an explicit
+incident lifecycle. Only a correlated verified repair or user correction may
+promote durable guidance into memory.
 
 Browser automation is external and consent-bound. The agent asks once per
 site/client whether to use Playwright (recommended), another connected browser,

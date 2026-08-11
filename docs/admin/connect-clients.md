@@ -191,7 +191,7 @@ args = ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mc
 STONEWRIGHT_WP_URL = "https://your-site.com"
 STONEWRIGHT_WP_USERNAME = "your-wp-username"
 STONEWRIGHT_WP_APP_PASSWORD = "xxxx xxxx xxxx xxxx xxxx xxxx"
-        STONEWRIGHT_MCP_TOOL_PROFILE = "essential"
+STONEWRIGHT_MCP_TOOL_PROFILE = "essential"
 ```
 
 In the Codex IDE extension, open the gear menu, choose **Codex Settings >
