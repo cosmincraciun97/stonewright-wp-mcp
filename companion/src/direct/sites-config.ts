@@ -1,20 +1,55 @@
+/**
+ * Site credentials loader for Direct mode.
+ *
+ * Supports:
+ *  - schema v2 multi-site registry (preferred)
+ *  - legacy schema v1 { default, sites: { alias: { url, username, appPassword } } }
+ *  - STONEWRIGHT_WP_* environment single-site fallback
+ *
+ * Runtime ResolvedSite always exposes username + appPassword for WP REST.
+ * v2 secrets are resolved via credential_ref (keychain / env / memory).
+ */
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import {
+	type CreateCredentialStoreOptions,
+	createCredentialStore,
+	resolveCredentialSecret,
+} from '../credentials/index.js';
+import {
+	detectSchemaVersion,
+	findSiteByAlias,
+	findSiteById,
+	normalizeCanonicalUrl,
+	parseRegistryV2,
+	projectV1AsV2WithoutSecretMove,
+	resolveSitePassword,
+	type LoadRegistryOptions,
+} from '../cli/connect/registry.js';
+import type { ConfiguredMode, SiteRecordV2, SitesRegistryV1, SitesRegistryV2 } from '../cli/connect/types.js';
 
 export interface SiteEntry {
 	url: string;
 	username: string;
 	appPassword: string;
-	disabledTools?: string[];
+	disabledTools?: string[] | undefined;
+	/** v2 metadata */
+	id?: string | undefined;
+	environment?: string | undefined;
+	configuredMode?: ConfiguredMode | undefined;
+	credentialRef?: string | undefined;
 }
 
 export interface SitesConfig {
 	default: string;
 	sites: Record<string, SiteEntry>;
 	source: 'file' | 'env';
-	path?: string;
-	permissionWarning?: string;
+	path?: string | undefined;
+	permissionWarning?: string | undefined;
+	schemaVersion?: 1 | 2 | undefined;
+	/** Full v2 registry when loaded from schema v2 (or projected). */
+	registry?: SitesRegistryV2 | undefined;
 }
 
 export interface ResolvedSite {
@@ -24,25 +59,19 @@ export interface ResolvedSite {
 	username: string;
 	appPassword: string;
 	disabledTools: string[];
+	siteId?: string | undefined;
+	environment?: string | undefined;
+	configuredMode?: ConfiguredMode | undefined;
 }
 
 export interface LoadSitesConfigOptions {
-	env?: NodeJS.ProcessEnv;
-	sitesFile?: string;
+	env?: NodeJS.ProcessEnv | undefined;
+	sitesFile?: string | undefined;
+	credentials?: CreateCredentialStoreOptions | undefined;
 }
 
 function normalizeUrl(raw: string): string {
-	const trimmed = raw.trim().replace(/\/+$/, '');
-	let parsed: URL;
-	try {
-		parsed = new URL(trimmed);
-	} catch {
-		throw new Error(`Invalid site URL: ${raw}`);
-	}
-	if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-		throw new Error(`Site URL must be http(s): ${raw}`);
-	}
-	return `${parsed.protocol}//${parsed.host}${parsed.pathname === '/' ? '' : parsed.pathname.replace(/\/+$/, '')}`;
+	return normalizeCanonicalUrl(raw);
 }
 
 function restBaseFor(url: string): string {
@@ -57,7 +86,7 @@ function defaultSitesPath(env: NodeJS.ProcessEnv): string {
 	return join(homedir(), '.stonewright', 'sites.json');
 }
 
-function parseSiteEntry(alias: string, value: unknown): SiteEntry {
+function parseSiteEntryV1(alias: string, value: unknown): SiteEntry {
 	if (!value || typeof value !== 'object') {
 		throw new Error(`sites.${alias} must be an object`);
 	}
@@ -104,17 +133,95 @@ function parseSiteEntry(alias: string, value: unknown): SiteEntry {
 	};
 }
 
-function loadFromFile(path: string): SitesConfig {
-	let raw: string;
+function permissionWarningFor(path: string): string | undefined {
+	if (process.platform === 'win32') return undefined;
 	try {
-		raw = readFileSync(path, 'utf8');
+		const mode = statSync(path).mode & 0o777;
+		if (mode & 0o077) {
+			return `Sites file ${path} permissions are ${mode.toString(8)}; recommended 0600`;
+		}
+	} catch {
+		// ignore
+	}
+	return undefined;
+}
+
+function resolveV2Password(site: SiteRecordV2, options: LoadSitesConfigOptions, path: string, raw: unknown): string {
+	try {
+		return resolveSitePassword(site, {
+			sitesFile: path,
+			...(options.credentials ? { credentials: options.credentials } : {}),
+			legacyV1: detectSchemaVersion(raw) === 1 ? (raw as SitesRegistryV1) : null,
+		});
+	} catch {
+		// Fall through to env for this alias
+		const env = options.env ?? process.env;
+		const envPass = (
+			env['STONEWRIGHT_WP_APP_PASSWORD'] ??
+			env['STONEWRIGHT_WP_PASSWORD'] ??
+			env['WP_APP_PASSWORD'] ??
+			''
+		).trim();
+		if (envPass) return envPass;
+		throw new Error(
+			`Unable to resolve credentials for site "${site.alias}" (credential_ref). Run stonewright connect migrate or connect add.`,
+		);
+	}
+}
+
+function registryToSitesConfig(
+	registry: SitesRegistryV2,
+	path: string,
+	options: LoadSitesConfigOptions,
+	raw: unknown,
+	schemaVersion: 1 | 2,
+): SitesConfig {
+	const sites: Record<string, SiteEntry> = {};
+	for (const site of registry.sites) {
+		const appPassword = resolveV2Password(site, options, path, raw);
+		const entry: SiteEntry = {
+			url: site.canonical_url,
+			username: site.username_hint,
+			appPassword,
+			id: site.id,
+			environment: site.environment,
+			configuredMode: site.configured_mode,
+			credentialRef: site.credential_ref,
+		};
+		if (site.disabled_tools) {
+			entry.disabledTools = site.disabled_tools;
+		}
+		sites[site.alias] = entry;
+	}
+	if (Object.keys(sites).length === 0) {
+		throw new Error(`Invalid sites config in ${path}: at least one site is required`);
+	}
+	const defaultSite =
+		(registry.default_site_id ? findSiteById(registry, registry.default_site_id) : undefined) ??
+		registry.sites[0];
+	const permissionWarning = permissionWarningFor(path);
+	return {
+		default: defaultSite?.alias ?? Object.keys(sites)[0]!,
+		sites,
+		source: 'file',
+		path,
+		schemaVersion,
+		registry,
+		...(permissionWarning ? { permissionWarning } : {}),
+	};
+}
+
+function loadFromFile(path: string, options: LoadSitesConfigOptions): SitesConfig {
+	let rawText: string;
+	try {
+		rawText = readFileSync(path, 'utf8');
 	} catch (err) {
 		throw new Error(`Unable to read sites file ${path}: ${err instanceof Error ? err.message : String(err)}`);
 	}
 
 	let parsed: unknown;
 	try {
-		parsed = JSON.parse(raw) as unknown;
+		parsed = JSON.parse(rawText) as unknown;
 	} catch (err) {
 		throw new Error(`Invalid JSON in ${path}: ${err instanceof Error ? err.message : String(err)}`);
 	}
@@ -123,44 +230,45 @@ function loadFromFile(path: string): SitesConfig {
 		throw new Error(`Invalid sites config in ${path}: root must be an object`);
 	}
 
-	const root = parsed as Record<string, unknown>;
-	const sitesRaw = root.sites;
-	if (!sitesRaw || typeof sitesRaw !== 'object') {
-		throw new Error(`Invalid sites config in ${path}: "sites" object is required`);
+	const version = detectSchemaVersion(parsed);
+
+	if (version === 2) {
+		const registry = parseRegistryV2(parsed);
+		return registryToSitesConfig(registry, path, options, parsed, 2);
 	}
 
-	const sites: Record<string, SiteEntry> = {};
-	for (const [alias, value] of Object.entries(sitesRaw as Record<string, unknown>)) {
-		sites[alias] = parseSiteEntry(alias, value);
-	}
-	if (Object.keys(sites).length === 0) {
-		throw new Error(`Invalid sites config in ${path}: at least one site is required`);
-	}
-
-	const defaultAlias =
-		typeof root.default === 'string' && root.default in sites
-			? root.default
-			: Object.keys(sites)[0];
-
-	let permissionWarning: string | undefined;
-	if (process.platform !== 'win32') {
-		try {
-			const mode = statSync(path).mode & 0o777;
-			if (mode & 0o077) {
-				permissionWarning = `Sites file ${path} permissions are ${mode.toString(8)}; recommended 0600`;
-			}
-		} catch {
-			// ignore permission probe failures
+	if (version === 1) {
+		// Prefer resolving secrets from plaintext v1 entries directly (runtime BC).
+		const root = parsed as Record<string, unknown>;
+		const sitesRaw = root.sites;
+		if (!sitesRaw || typeof sitesRaw !== 'object') {
+			throw new Error(`Invalid sites config in ${path}: "sites" object is required`);
 		}
+		const sites: Record<string, SiteEntry> = {};
+		for (const [alias, value] of Object.entries(sitesRaw as Record<string, unknown>)) {
+			sites[alias] = parseSiteEntryV1(alias, value);
+		}
+		if (Object.keys(sites).length === 0) {
+			throw new Error(`Invalid sites config in ${path}: at least one site is required`);
+		}
+		const defaultAlias =
+			typeof root.default === 'string' && root.default in sites
+				? root.default
+				: Object.keys(sites)[0]!;
+		const permissionWarning = permissionWarningFor(path);
+		const projected = projectV1AsV2WithoutSecretMove(parsed as SitesRegistryV1);
+		return {
+			default: defaultAlias,
+			sites,
+			source: 'file',
+			path,
+			schemaVersion: 1,
+			registry: projected,
+			...(permissionWarning ? { permissionWarning } : {}),
+		};
 	}
 
-	return {
-		default: defaultAlias,
-		sites,
-		source: 'file',
-		path,
-		...(permissionWarning ? { permissionWarning } : {}),
-	};
+	throw new Error(`Invalid sites config in ${path}: unrecognized schema`);
 }
 
 function loadFromEnv(env: NodeJS.ProcessEnv): SitesConfig {
@@ -179,7 +287,7 @@ function loadFromEnv(env: NodeJS.ProcessEnv): SitesConfig {
 		);
 	}
 
-	const entry = parseSiteEntry('default', { url, username, appPassword });
+	const entry = parseSiteEntryV1('default', { url, username, appPassword });
 	return {
 		default: 'default',
 		sites: { default: entry },
@@ -192,7 +300,7 @@ export function loadSitesConfig(options: LoadSitesConfigOptions = {}): SitesConf
 	const path = options.sitesFile ?? defaultSitesPath(env);
 
 	if (existsSync(path)) {
-		return loadFromFile(path);
+		return loadFromFile(path, options);
 	}
 
 	return loadFromEnv(env);
@@ -200,16 +308,42 @@ export function loadSitesConfig(options: LoadSitesConfigOptions = {}): SitesConf
 
 export function resolveSite(config: SitesConfig, alias?: string): ResolvedSite {
 	const key = (alias ?? config.default).trim() || config.default;
-	const entry = config.sites[key];
+	// Case-insensitive alias match for v2 ergonomics
+	let entry = config.sites[key];
+	let resolvedAlias = key;
+	if (!entry) {
+		const lower = key.toLowerCase();
+		const found = Object.entries(config.sites).find(([a]) => a.toLowerCase() === lower);
+		if (found) {
+			resolvedAlias = found[0];
+			entry = found[1];
+		}
+	}
+	if (!entry) {
+		// Try registry default id
+		if (config.registry) {
+			const byAlias = findSiteByAlias(config.registry, key);
+			if (byAlias && config.sites[byAlias.alias]) {
+				entry = config.sites[byAlias.alias];
+				resolvedAlias = byAlias.alias;
+			}
+		}
+	}
 	if (!entry) {
 		throw new Error(`Unknown site alias "${key}". Known: ${Object.keys(config.sites).join(', ')}`);
 	}
 	return {
-		alias: key,
+		alias: resolvedAlias,
 		url: entry.url,
 		restBase: restBaseFor(entry.url),
 		username: entry.username,
 		appPassword: entry.appPassword,
 		disabledTools: entry.disabledTools ?? [],
+		siteId: entry.id,
+		environment: entry.environment,
+		configuredMode: entry.configuredMode,
 	};
 }
+
+export type { LoadRegistryOptions, SiteRecordV2, SitesRegistryV2, ConfiguredMode };
+export { createCredentialStore, resolveCredentialSecret };

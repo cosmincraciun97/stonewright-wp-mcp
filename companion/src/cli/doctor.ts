@@ -100,28 +100,66 @@ export function resolveCredentials(env: NodeJS.ProcessEnv, home = homedir()): Cr
 		return { url, username, hasPassword: true, source: 'environment' };
 	}
 
-	const sitesPath = join(home, '.stonewright', 'sites.json');
+	const sitesPath = (env.STONEWRIGHT_SITES_FILE ?? '').trim() || join(home, '.stonewright', 'sites.json');
 	if (!existsSync(sitesPath)) {
 		return null;
 	}
 	try {
 		const raw = JSON.parse(readFileSync(sitesPath, 'utf8')) as {
-			sites?: Record<string, {
+			schema_version?: number;
+			default_site_id?: string;
+			sites?:
+				| Record<string, {
+						url?: string;
+						username?: string;
+						appPassword?: string;
+						applicationPassword?: string;
+				  }>
+				| Array<{
+						id?: string;
+						alias?: string;
+						canonical_url?: string;
+						username_hint?: string;
+						credential_ref?: string;
+				  }>;
+		};
+
+		// Schema v2: array of sites with credential_ref (password never in file).
+		if (raw.schema_version === 2 && Array.isArray(raw.sites)) {
+			const list = raw.sites;
+			const preferred =
+				(raw.default_site_id
+					? list.find((s) => s.id === raw.default_site_id)
+					: undefined) ?? list[0];
+			if (preferred?.canonical_url && preferred.username_hint && preferred.credential_ref) {
+				return {
+					url: preferred.canonical_url.replace(/\/+$/, ''),
+					username: preferred.username_hint,
+					hasPassword: true,
+					source: '~/.stonewright/sites.json',
+				};
+			}
+		}
+
+		const sites = (raw.sites ?? {}) as Record<
+			string,
+			{
 				url?: string;
 				username?: string;
 				appPassword?: string;
 				applicationPassword?: string;
-			}>;
-		};
-		const sites = raw.sites ?? {};
-		const first = Object.values(sites)[0];
-		if (first?.url && first.username && (first.appPassword || first.applicationPassword)) {
-			return {
-				url: first.url.replace(/\/+$/, ''),
-				username: first.username,
-				hasPassword: true,
-				source: '~/.stonewright/sites.json',
-			};
+			}
+		>;
+		if (sites && typeof sites === 'object' && !Array.isArray(sites)) {
+			const first = Object.values(sites)[0];
+			if (first?.url && first.username && (first.appPassword || first.applicationPassword)) {
+				return {
+					url: first.url.replace(/\/+$/, ''),
+					username: first.username,
+					hasPassword: true,
+					source: '~/.stonewright/sites.json',
+				};
+			}
 		}
 	} catch {
 		return null;
@@ -328,16 +366,40 @@ function passwordFromEnvOrFile(env: NodeJS.ProcessEnv, home: string): string {
 	if (fromEnv) {
 		return fromEnv;
 	}
-	const sitesPath = join(home, '.stonewright', 'sites.json');
+	const sitesPath = (env.STONEWRIGHT_SITES_FILE ?? '').trim() || join(home, '.stonewright', 'sites.json');
 	if (!existsSync(sitesPath)) {
 		return '';
 	}
 	try {
 		const raw = JSON.parse(readFileSync(sitesPath, 'utf8')) as {
-			sites?: Record<string, { appPassword?: string; applicationPassword?: string }>;
+			schema_version?: number;
+			sites?:
+				| Record<string, { appPassword?: string; applicationPassword?: string }>
+				| Array<{ credential_ref?: string; alias?: string }>;
 		};
-		const first = Object.values(raw.sites ?? {})[0];
-		return (first?.appPassword ?? first?.applicationPassword ?? '').trim();
+		// v2: secrets live in credential store / env refs — try loadSitesConfig when possible.
+		if (raw.schema_version === 2 && Array.isArray(raw.sites)) {
+			try {
+				// Lazy import avoided; resolve via credential_ref env:// only in doctor hot path.
+				const first = raw.sites[0];
+				const ref = first?.credential_ref ?? '';
+				if (ref.startsWith('env://')) {
+					const varName = ref.slice('env://'.length);
+					return (env[varName] ?? '').trim();
+				}
+			} catch {
+				return '';
+			}
+			return '';
+		}
+		const sites = raw.sites ?? {};
+		if (sites && typeof sites === 'object' && !Array.isArray(sites)) {
+			const first = Object.values(sites)[0] as
+				| { appPassword?: string; applicationPassword?: string }
+				| undefined;
+			return (first?.appPassword ?? first?.applicationPassword ?? '').trim();
+		}
+		return '';
 	} catch {
 		return '';
 	}

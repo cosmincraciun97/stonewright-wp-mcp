@@ -39,7 +39,18 @@ final class ClientCatalog {
 	 *   config_path:string,
 	 *   notes:string,
 	 *   verified_against_docs_on:string,
-	 *   secret_storage:string
+	 *   secret_storage:string,
+	 *   transport:string,
+	 *   config_format:string,
+	 *   official_cli_update:string,
+	 *   official_cli_remove:string,
+	 *   oauth_support:bool,
+	 *   app_password_support:bool,
+	 *   relist_behavior:string,
+	 *   new_task_required_after_catalog_change:bool,
+	 *   safe_tool_budget:int,
+	 *   default_profile:string,
+	 *   support_tier:string
 	 * }>
 	 */
 	public static function all(): array {
@@ -184,6 +195,41 @@ final class ClientCatalog {
 			$verified = '';
 		}
 
+		$transport = isset( $data['transport'] ) ? sanitize_key( (string) $data['transport'] ) : $method;
+		if ( ! in_array( $transport, [ 'stdio', 'http', 'application-password', 'mixed' ], true ) ) {
+			$transport = $method;
+		}
+
+		$config_format = isset( $data['config_format'] ) ? sanitize_key( (string) $data['config_format'] ) : $snippet_kind;
+		if ( ! in_array( $config_format, [ 'json', 'toml', 'cli', 'mixed', 'json-mcp', 'json-servers', 'toml-codex', 'cli-only', 'unknown' ], true ) ) {
+			$config_format = $snippet_kind;
+		}
+
+		$support_tier = isset( $data['support_tier'] ) ? sanitize_key( (string) $data['support_tier'] ) : 'compatible';
+		if ( ! in_array( $support_tier, [ 'certified', 'compatible', 'community', 'unknown' ], true ) ) {
+			$support_tier = 'compatible';
+		}
+
+		$relist = isset( $data['relist_behavior'] ) ? (string) $data['relist_behavior'] : 'reload-or-restart';
+		$budget = isset( $data['safe_tool_budget'] ) ? (int) $data['safe_tool_budget'] : 40;
+		if ( $budget < 1 ) {
+			$budget = 40;
+		}
+		$default_profile = isset( $data['default_profile'] ) ? sanitize_key( (string) $data['default_profile'] ) : 'essential-static';
+		if ( '' === $default_profile ) {
+			$default_profile = 'essential-static';
+		}
+
+		$oauth_support = array_key_exists( 'oauth_support', $data )
+			? (bool) $data['oauth_support']
+			: false;
+		$app_password_support = array_key_exists( 'app_password_support', $data )
+			? (bool) $data['app_password_support']
+			: true;
+		$new_task_required = array_key_exists( 'new_task_required_after_catalog_change', $data )
+			? (bool) $data['new_task_required_after_catalog_change']
+			: true;
+
 		return [
 			'slug'                     => $slug,
 			'label'                    => $label,
@@ -191,11 +237,22 @@ final class ClientCatalog {
 			'snippet_kind'             => $snippet_kind,
 			'preferred_method'         => $method,
 			'official_cli_add'         => isset( $data['official_cli_add'] ) ? (string) $data['official_cli_add'] : '',
+			'official_cli_update'      => isset( $data['official_cli_update'] ) ? (string) $data['official_cli_update'] : '',
+			'official_cli_remove'      => isset( $data['official_cli_remove'] ) ? (string) $data['official_cli_remove'] : '',
 			'config_paths'             => $paths,
 			'config_path'              => $config_path,
 			'notes'                    => isset( $data['notes'] ) ? (string) $data['notes'] : '',
 			'verified_against_docs_on' => $verified,
 			'secret_storage'           => $secret,
+			'transport'                => $transport,
+			'config_format'            => $config_format,
+			'oauth_support'            => $oauth_support,
+			'app_password_support'     => $app_password_support,
+			'relist_behavior'          => $relist,
+			'new_task_required_after_catalog_change' => $new_task_required,
+			'safe_tool_budget'         => $budget,
+			'default_profile'          => $default_profile,
+			'support_tier'             => $support_tier,
 		];
 	}
 }

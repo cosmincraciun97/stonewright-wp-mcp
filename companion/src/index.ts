@@ -335,12 +335,17 @@ async function main(): Promise<void> {
 	const argv = process.argv.slice(2);
 	if (argv[0] === 'init') {
 		const { runInit } = await import('./cli/init.js');
-		const code = await runInit();
+		const code = await runInit(argv.slice(1));
 		process.exit(code);
 	}
 	if (argv[0] === 'doctor') {
 		const { runDoctor } = await import('./cli/doctor.js');
 		const code = await runDoctor(argv.slice(1));
+		process.exit(code);
+	}
+	if (argv[0] === 'connect') {
+		const { runConnect } = await import('./cli/connect/index.js');
+		const code = await runConnect(argv.slice(1));
 		process.exit(code);
 	}
 
