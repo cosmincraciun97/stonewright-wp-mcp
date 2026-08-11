@@ -163,6 +163,74 @@ final class IncidentLessonSeparationTest extends TestCase {
 		self::assertSame( 0, $again['migrated'] );
 	}
 
+	public function test_legacy_audit_lesson_migration_processes_rows_after_the_first_page(): void {
+		Memory::maybe_install_table();
+		Memory::put_typed(
+			'feedback',
+			'audit',
+			'learning-audit-error-oldest',
+			'Old recurring error',
+			[
+				'correction' => 'Unresolved incident: unknown error',
+				'lesson'     => 'Unresolved incident: unknown error',
+				'source'     => 'audit-error',
+				'state'      => 'unresolved_incident',
+			],
+			1.0,
+			[ 'status' => 'stale' ]
+		);
+		for ( $index = 0; $index < 500; ++$index ) {
+			Memory::put_typed(
+				'feedback',
+				'user',
+				'user-feedback-' . $index,
+				'User feedback ' . $index,
+				[ 'source' => 'user', 'state' => 'active' ],
+				1.0,
+				[ 'status' => 'active' ]
+			);
+		}
+
+		$result = ErrorPatterns::migrate_legacy_audit_lessons();
+
+		self::assertSame( 1, $result['migrated'] );
+		self::assertSame( 500, $result['skipped'] );
+		self::assertSame( 0, $result['write_failed'] );
+		self::assertSame( '1', get_option( ErrorPatterns::LEGACY_LESSON_MIGRATION_OPTION, '0' ) );
+		$oldest = array_values(
+			array_filter(
+				$GLOBALS['wpdb']->rows,
+				static fn( array $row ): bool => 'learning-audit-error-oldest' === (string) ( $row['memory_key'] ?? '' )
+			)
+		);
+		self::assertSame( 'superseded', json_decode( (string) $oldest[0]['value_json'], true )['state'] ?? null );
+	}
+
+	public function test_legacy_audit_lesson_migration_stays_retryable_after_a_write_failure(): void {
+		Memory::maybe_install_table();
+		Memory::put_typed(
+			'feedback',
+			'audit',
+			'learning-audit-error-write-fails',
+			'Recurring error',
+			[
+				'correction' => 'Unresolved incident: unknown error',
+				'lesson'     => 'Unresolved incident: unknown error',
+				'source'     => 'audit-error',
+				'state'      => 'unresolved_incident',
+			],
+			1.0,
+			[ 'status' => 'stale' ]
+		);
+		$GLOBALS['wpdb']->fail_update_key = 'learning-audit-error-write-fails';
+
+		$result = ErrorPatterns::migrate_legacy_audit_lessons();
+
+		self::assertSame( 0, $result['migrated'] );
+		self::assertSame( 1, $result['write_failed'] );
+		self::assertSame( '0', get_option( ErrorPatterns::LEGACY_LESSON_MIGRATION_OPTION, '0' ) );
+	}
+
 	/** @return object */
 	private function make_memory_wpdb(): object {
 		return new class() {
@@ -173,6 +241,7 @@ final class IncidentLessonSeparationTest extends TestCase {
 			public array $rows = [];
 			/** @var array<int, mixed> */
 			public array $last_prepare_args = [];
+			public string $fail_update_key = '';
 
 			public function get_charset_collate(): string {
 				return '';
@@ -218,10 +287,14 @@ final class IncidentLessonSeparationTest extends TestCase {
 			}
 
 			/** @param array<string, mixed> $data @param array<string, mixed> $where */
-			public function update( string $table, array $data, array $where, array $format = [], array $where_format = [] ): int {
+			public function update( string $table, array $data, array $where, array $format = [], array $where_format = [] ): int|false {
 				$id = (int) ( $where['id'] ?? 0 );
 				foreach ( $this->rows as $i => $row ) {
 					if ( (int) $row['id'] === $id ) {
+						if ( $this->fail_update_key === (string) ( $row['memory_key'] ?? '' ) ) {
+							$this->last_error = 'Synthetic write failure';
+							return false;
+						}
 						$this->rows[ $i ] = array_merge( $row, $data, [ 'updated_at' => gmdate( 'Y-m-d H:i:s' ) ] );
 						return 1;
 					}
@@ -232,8 +305,15 @@ final class IncidentLessonSeparationTest extends TestCase {
 			/** @return array<int, array<string, mixed>> */
 			public function get_results( string $query, string $output = 'OBJECT' ): array {
 				$type = null;
+				$limit = PHP_INT_MAX;
+				$offset = 0;
 				if ( str_contains( $query, 'WHERE type' ) ) {
 					$type = (string) ( $this->last_prepare_args[0] ?? '' );
+					$limit = (int) ( $this->last_prepare_args[1] ?? PHP_INT_MAX );
+					$offset = (int) ( $this->last_prepare_args[2] ?? 0 );
+				} elseif ( str_contains( $query, 'LIMIT' ) ) {
+					$limit = (int) ( $this->last_prepare_args[0] ?? PHP_INT_MAX );
+					$offset = (int) ( $this->last_prepare_args[1] ?? 0 );
 				}
 				$out = [];
 				foreach ( array_reverse( $this->rows ) as $row ) {
@@ -242,7 +322,7 @@ final class IncidentLessonSeparationTest extends TestCase {
 					}
 					$out[] = $row;
 				}
-				return $out;
+				return array_slice( $out, $offset, $limit );
 			}
 		};
 	}
