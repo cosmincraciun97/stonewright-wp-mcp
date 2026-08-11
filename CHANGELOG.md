@@ -10,6 +10,12 @@ were never stable releases and are not part of the supported public history.
 
 ## [Unreleased]
 
+### Fixed
+
+- Refresh the callable companion tool registry after task-start profile changes,
+  reuse tool and prompt handles during reconnect, and keep authentication and
+  WordPress reachability status evidence-based.
+
 ## [1.0.0-beta.4] - 2026-08-05
 
 ### Added

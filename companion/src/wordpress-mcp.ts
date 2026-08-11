@@ -1,4 +1,4 @@
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { McpServer, RegisteredPrompt, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createHash } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -62,6 +62,19 @@ export interface WordPressMcpRegistrationResult {
 	liveState: WordPressProxyLiveState;
 	/** Call a remote plugin tool (for permanent local gateways that proxy when connected). */
 	callRemoteTool: (name: string, args: Record<string, unknown>) => Promise<unknown>;
+}
+
+type MutableMcpServerRegistry = {
+	_registeredTools?: Record<string, RegisteredTool>;
+	_registeredPrompts?: Record<string, RegisteredPrompt>;
+};
+
+function registeredToolHandles(server: McpServer): Record<string, RegisteredTool> {
+	return (server as unknown as MutableMcpServerRegistry)._registeredTools ?? {};
+}
+
+function registeredPromptHandles(server: McpServer): Record<string, RegisteredPrompt> {
+	return (server as unknown as MutableMcpServerRegistry)._registeredPrompts ?? {};
 }
 
 /**
@@ -824,14 +837,19 @@ export async function registerWordPressMcpTools(
 
 	const registerOneProxyTool = (tool: RemoteTool): void => {
 		if (registered.has(tool.name)) return;
-		const handle = server.tool(
-			tool.name,
-			tool.description ?? tool.title ?? 'Proxied Stonewright WordPress MCP tool.',
-			zodShapeFromJsonSchema(tool.inputSchema ?? emptyObjectSchema()),
-			async (input) => handleProxyCall(tool.name, input as Record<string, unknown>),
-		);
+		const description = tool.description ?? tool.title ?? 'Proxied Stonewright WordPress MCP tool.';
+		const paramsSchema = zodShapeFromJsonSchema(tool.inputSchema ?? emptyObjectSchema());
+		const callback = async (input: Record<string, unknown>) => handleProxyCall(tool.name, input);
+		const existing = registeredToolHandles(server)[tool.name];
+		const handle = existing ?? server.tool(tool.name, description, paramsSchema, callback);
+		if (existing) {
+			existing.description = description;
+			existing.inputSchema = z.object(paramsSchema);
+			existing.handler = callback;
+			existing.enabled = true;
+		}
 		registered.set(tool.name, {
-			handle: handle as { enable: () => void; disable: () => void; enabled: boolean },
+			handle,
 			tool,
 		});
 		registeredTools.push(tool);
@@ -886,6 +904,19 @@ export async function registerWordPressMcpTools(
 	for (const tool of finalTools) {
 		registerOneProxyTool(tool);
 	}
+	// Reconnects reuse SDK handles. Disable stale Direct/remote tools only after
+	// the replacement remote catalog was discovered and registered successfully.
+	for (const [name, handle] of Object.entries(registeredToolHandles(server))) {
+		if (
+			handle.enabled
+			&& !registered.has(name)
+			&& !COMPANION_OWNED_TOOL_NAMES.has(name)
+			&& !isPermanentGatewayTool(name)
+			&& !name.startsWith('companion_')
+		) {
+			handle.enabled = false;
+		}
+	}
 	liveState.registeredToolCount = registered.size;
 	liveState.enabledToolNames = [...registered.keys()].sort();
 
@@ -897,7 +928,9 @@ export async function registerWordPressMcpTools(
 		filteredToolCount: profileFilteredToolNames.length,
 		remoteInstructions: client.remoteInstructions,
 		liveState,
-		callRemoteTool: async (name, args) => client.callTool(name, args),
+		// Permanent local gateways (notably task-start) must pass through the same
+		// tools_changed refresh path as ordinary proxied tool calls.
+		callRemoteTool: handleProxyCall,
 	};
 }
 
@@ -1306,29 +1339,43 @@ export async function registerWordPressMcpPrompts(
 		return [];
 	}
 
+	const desiredPromptNames = new Set<string>();
 	for (const skill of skills) {
 		const slug = promptNameSuffix(skill.slug ?? '');
 		if (!slug) continue;
-
-		server.registerPrompt(
-			`stonewright-skill-${slug}`,
-			{
-				title: `Stonewright: ${skill.title || slug}`,
-				description: skill.description || `Use Stonewright site skill ${slug}.`,
-			},
-			() => ({
+		const name = `stonewright-skill-${slug}`;
+		const title = `Stonewright: ${skill.title || slug}`;
+		const description = skill.description || `Use Stonewright site skill ${slug}.`;
+		const callback = () => ({
 				description: skill.description || undefined,
 				messages: [
 					{
-						role: 'user',
+						role: 'user' as const,
 						content: {
-							type: 'text',
+							type: 'text' as const,
 							text: promptSkillText(skill, slug),
 						},
 					},
 				],
-			}),
-		);
+			});
+		desiredPromptNames.add(name);
+		const existing = registeredPromptHandles(server)[name];
+		if (existing) {
+			existing.title = title;
+			existing.description = description;
+			existing.callback = callback;
+			existing.enabled = true;
+		} else {
+			server.registerPrompt(name, { title, description }, callback);
+		}
+	}
+
+	// A reconnect may target another site. Never retain prompts from the prior
+	// site when the new site no longer exposes them.
+	for (const [name, handle] of Object.entries(registeredPromptHandles(server))) {
+		if (name.startsWith('stonewright-skill-') && !desiredPromptNames.has(name) && handle.enabled) {
+			handle.enabled = false;
+		}
 	}
 
 	return skills;

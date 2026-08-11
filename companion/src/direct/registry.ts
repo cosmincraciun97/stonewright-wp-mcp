@@ -462,7 +462,23 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 			toolHandles.set(name, noop);
 			return noop;
 		}
-		const sdkHandle = (server as unknown as ToolRegistrar).tool(name, ...rest) as RegisteredTool | undefined;
+		const existing = (server as unknown as { _registeredTools?: Record<string, RegisteredTool> })
+			._registeredTools?.[name];
+		let sdkHandle: RegisteredTool | undefined;
+		if (existing) {
+			const [description, paramsSchema, callback] = rest as unknown as [
+				string,
+				Record<string, z.ZodTypeAny>,
+				RegisteredTool['handler'],
+			];
+			existing.description = description;
+			existing.inputSchema = z.object(paramsSchema);
+			existing.handler = callback;
+			existing.enabled = true;
+			sdkHandle = existing;
+		} else {
+			sdkHandle = (server as unknown as ToolRegistrar).tool(name, ...rest) as RegisteredTool | undefined;
+		}
 		const fallbackHandle: RegisteredTool = {
 			enabled: true,
 			handler: (() => ({ content: [] })) as RegisteredTool['handler'],
@@ -473,8 +489,12 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		};
 		const handle = sdkHandle ?? fallbackHandle;
 		toolHandles.set(name, handle);
-		if (shouldRegisterDirectTool(name, activeProfile)) registered.push(name);
-		else handle.disable();
+		if (shouldRegisterDirectTool(name, activeProfile)) {
+			handle.enabled = true;
+			registered.push(name);
+		} else {
+			handle.enabled = false;
+		}
 		return handle;
 	}) as typeof server.tool;
 	const tool = registerTool; // filtered registration helper
@@ -1769,6 +1789,23 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		{ extra_paths: z.array(z.string()).optional() },
 		(input) => agentsMd.agentsMdSync(ctx.env, input as never),
 	);
+
+	// Reconnect may switch from Plugin to Direct or replace a prior Direct site.
+	// Disable stale non-local handles only after the complete Direct catalog has
+	// been registered successfully; permanent gateways and WP-CLI stay available.
+	const sdkTools = (server as unknown as { _registeredTools?: Record<string, RegisteredTool> })
+		._registeredTools ?? {};
+	for (const [name, handle] of Object.entries(sdkTools)) {
+		if (
+			handle.enabled
+			&& !toolHandles.has(name)
+			&& !skipToolNames.has(name)
+			&& !name.startsWith('stonewright-wp-cli-')
+			&& !name.startsWith('companion_')
+		) {
+			handle.enabled = false;
+		}
+	}
 
 	return registered;
 }
