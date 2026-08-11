@@ -108,7 +108,7 @@ Fast path for MCP clients:
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
         "STONEWRIGHT_WP_APP_PASSWORD_AUTO": "local-only",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential-static"
       }
     }
   }
@@ -152,9 +152,11 @@ Documented in `src/direct/capability-tiers.ts`:
 | `plugin` | Full Stonewright plugin MCP surface |
 | `plugin-browser-qa` | Plugin + Playwright visual/admin gates |
 
-Direct `STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap` starts with a compact surface.
-`stonewright-task-start` selects and enables a compact Direct task
-profile for the current session; Full is explicit only.
+Default `STONEWRIGHT_MCP_TOOL_PROFILE=essential-static` starts with a bounded
+useful surface plus permanent recovery gateways (`task-start`, `connect-doctor`,
+`reconnect`, `mode-capabilities`, and friends). `stonewright-task-start` can still
+expand the session profile when the client honors `tools/list_changed`. Full is
+never selected implicitly.
 
 After the MCP server starts, call `stonewright-setup-profile` once. It returns
 the same config shape plus platform checks, credential status, and notes for
@@ -226,7 +228,7 @@ cp .env.example .env
 | `STONEWRIGHT_WP_URL` | recommended for stdio | WordPress site URL; the companion derives `/wp-json/mcp/stonewright` |
 | `STONEWRIGHT_WP_USERNAME` | with `STONEWRIGHT_WP_URL` | WordPress username for Application Password auth |
 | `STONEWRIGHT_WP_APP_PASSWORD` | with `STONEWRIGHT_WP_URL` | WordPress Application Password |
-| `STONEWRIGHT_MCP_TOOL_PROFILE` | optional | Initial/fallback client-visible surface. In plugin mode, normal bootstrap/essential/full clients follow the surface saved in WordPress Setup; `low-tools` and specialist profiles remain explicit overrides. |
+| `STONEWRIGHT_MCP_TOOL_PROFILE` | optional | Initial/fallback client-visible surface. Default is `essential-static` (not bootstrap, not full). In plugin mode, normal essential-static/bootstrap/essential clients may follow the surface saved in WordPress Setup; `low-tools` and specialist profiles remain explicit overrides. `full` is never selected implicitly. |
 | `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK` | optional | Set to `1` to force the environment profile instead of the WordPress Setup preference. |
 | `STONEWRIGHT_MCP_MAX_TOOLS` | optional | Maximum proxied tools registered for the client. Use `50` for capped clients so Stonewright trims deterministically after write-critical ordering. |
 | `STONEWRIGHT_MCP_URL` | optional | Explicit WordPress MCP endpoint override |

@@ -215,25 +215,51 @@ export const DIRECT_ESSENTIAL_TOOL_NAMES = [
 	'stonewright-elementor-status',
 ] as const;
 
-export type DirectToolProfile = 'bootstrap' | 'essential' | 'elementor-design' | 'content-model' | 'gutenberg' | 'site-admin' | 'full';
+export type DirectToolProfile =
+	| 'bootstrap'
+	| 'essential-static'
+	| 'essential'
+	| 'elementor-design'
+	| 'content-model'
+	| 'gutenberg'
+	| 'site-admin'
+	| 'full';
+
+export interface DirectSessionControls {
+	activateProfile: (profile: DirectToolProfile) => Promise<{
+		added: string[];
+		removed: string[];
+		surfaceRevision: number;
+	}>;
+	getActiveProfile: () => DirectToolProfile;
+	getSurfaceRevision: () => number;
+}
 
 export interface DirectModeContext {
 	env: NodeJS.ProcessEnv;
 	fetchImpl?: typeof fetch;
 	sitesConfig?: SitesConfig;
 	timeoutMs?: number;
-	/** Initial Direct tool surface. Defaults to bootstrap in the companion. */
+	/** Initial Direct tool surface. Defaults to essential-static in the companion. */
 	toolProfile?: DirectToolProfile;
 	/** Keep companion status synchronized with Direct profile changes. */
 	onSurfaceChange?: (revision: number, profile: DirectToolProfile) => void;
+	/**
+	 * Tool names owned by permanent local gateways — Direct must not dual-register them.
+	 * Permanent task-start/tool-profile/ping etc. stay on the gateway surface.
+	 */
+	skipToolNames?: ReadonlySet<string>;
+	/** Optional hook so permanent task-start can expand the Direct session profile. */
+	onSessionReady?: (controls: DirectSessionControls) => void;
 }
 
 function directProfileToolNames(profile: DirectToolProfile): readonly string[] {
 	if (profile === 'full') return DIRECT_TOOL_NAMES;
 	if (profile === 'bootstrap') return DIRECT_BOOTSTRAP_TOOL_NAMES;
-	if (profile === 'essential') return DIRECT_ESSENTIAL_TOOL_NAMES;
+	// essential-static uses the same bounded useful Direct catalog as essential.
+	if (profile === 'essential' || profile === 'essential-static') return DIRECT_ESSENTIAL_TOOL_NAMES;
 
-	const profileNeedles: Record<Exclude<DirectToolProfile, 'bootstrap' | 'essential' | 'full'>, readonly string[]> = {
+	const profileNeedles: Record<Exclude<DirectToolProfile, 'bootstrap' | 'essential' | 'essential-static' | 'full'>, readonly string[]> = {
 		'elementor-design': ['elementor', 'media-', 'blueprint-', 'content-get', 'content-update', 'gutenberg-validate', 'settings-get'],
 		'content-model': ['content-', 'media-', 'taxonomy-', 'menu-', 'search', 'blueprint-', 'plugin-list', 'theme-list', 'rest-request'],
 		gutenberg: ['gutenberg', 'content-', 'media-', 'template-', 'global-styles', 'block-', 'pattern-', 'settings-get'],
@@ -260,7 +286,7 @@ export function suggestDirectToolProfile(task: string, surface = '', intent = ''
  */
 export function shouldRegisterDirectTool(
 	name: string,
-	profile: DirectToolProfile = 'bootstrap',
+	profile: DirectToolProfile = 'essential-static',
 ): boolean {
 	return directProfileToolNames(profile).includes(name);
 }
@@ -413,15 +439,29 @@ function buildContext(ctx: DirectModeContext, siteAlias?: string) {
 export function registerDirectTools(server: McpServer, ctx: DirectModeContext): string[] {
 	const siteArg = z.string().optional().describe('Site alias from ~/.stonewright/sites.json');
 	const confirmArg = z.boolean().optional().describe('Required true for destructive tools when remote/confirm mode');
-	let activeProfile: DirectToolProfile = ctx.toolProfile ?? 'bootstrap';
+	let activeProfile: DirectToolProfile = ctx.toolProfile ?? 'essential-static';
 	let directSurfaceRevision = 0;
 	const registered: string[] = [];
 	const toolHandles = new Map<string, RegisteredTool>();
+	const skipToolNames = ctx.skipToolNames ?? new Set<string>();
 	// MCP SDK overloads tool(); keep a typed wrapper without `any`.
 	type ToolRegistrar = {
 		tool: (name: string, ...args: never[]) => unknown;
 	};
 	const registerTool = ((name: string, ...rest: never[]) => {
+		// Permanent local gateways own these names — do not dual-register.
+		if (skipToolNames.has(name)) {
+			const noop: RegisteredTool = {
+				enabled: false,
+				handler: (() => ({ content: [] })) as RegisteredTool['handler'],
+				enable() { this.enabled = true; },
+				disable() { this.enabled = false; },
+				update() {},
+				remove() {},
+			};
+			toolHandles.set(name, noop);
+			return noop;
+		}
 		const sdkHandle = (server as unknown as ToolRegistrar).tool(name, ...rest) as RegisteredTool | undefined;
 		const fallbackHandle: RegisteredTool = {
 			enabled: true,
@@ -443,6 +483,7 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		const added: string[] = [];
 		const removed: string[] = [];
 		for (const [name, handle] of toolHandles) {
+			if (skipToolNames.has(name)) continue;
 			const desired = shouldRegisterDirectTool(name, profile);
 			if (desired && !handle.enabled) {
 				handle.enable();
@@ -466,6 +507,12 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 		}
 		return { added, removed, surfaceRevision: directSurfaceRevision };
 	};
+
+	ctx.onSessionReady?.({
+		activateProfile,
+		getActiveProfile: () => activeProfile,
+		getSurfaceRevision: () => directSurfaceRevision,
+	});
 
 
 	// --- Wave 1: content ---
