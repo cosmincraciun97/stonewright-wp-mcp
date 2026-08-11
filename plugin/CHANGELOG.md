@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Default fresh installs to the bounded `essential` MCP surface; unknown client
+  prompts use `essential-static`, while bootstrap and full remain explicit.
+- Disable the Design Library navigation, pages, page assets, and catalog
+  starters without deleting stored directions or removing typed MCP engines.
+
+### Fixed
+
+- Preserve operator enablement intent during domain mismatch and require an
+  audited, reversible explicit rebind before abilities become effective.
+- Keep Application Password creation in the current Setup tab, update private
+  snippets and inventory in place, restore placeholders on clear/revoke, and
+  eliminate plaintext password transients from the no-JavaScript path.
+
 ## [1.0.0-beta.4] - 2026-08-05
 
 ### Added

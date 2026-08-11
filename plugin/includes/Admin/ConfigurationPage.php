@@ -282,13 +282,12 @@ final class ConfigurationPage {
 		$current_user_id     = get_current_user_id();
 		$username            = isset( $current_user->user_login ) ? (string) $current_user->user_login : '';
 		$username            = '' !== $username ? $username : 'your-wp-username';
-		$app_password_flash  = self::consume_application_password_flash( $current_user_id );
-		$generated_password  = $app_password_flash['generated'];
-		$app_password_error  = $app_password_flash['error'];
-		$app_password_value  = is_array( $generated_password )
-			? (string) ( $generated_password['password'] ?? '' )
+		// The one-time password is never read from server persistence. JavaScript
+		// replaces this canonical placeholder in the current tab only.
+		$prompt_password     = '<your-application-password>';
+		$app_password_status = isset( $_GET['stonewright_app_password'] ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice selector.
+			? sanitize_key( (string) wp_unslash( $_GET['stonewright_app_password'] ) ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			: '';
-		$prompt_password     = '' !== $app_password_value ? $app_password_value : '<application-password-from-step-2>';
 		$connect_prompt      = ConnectClientConfig::paste_to_agent_prompt( '', '', self::selected_setup_client( $current_user_id ) );
 		$prompt_preview      = self::prompt_preview( $connect_prompt );
 		$app_passwords       = self::application_passwords_for_current_user();
@@ -296,7 +295,7 @@ final class ConfigurationPage {
 			? 'stonewright-risk-notice--ok'
 			: 'stonewright-risk-notice--warning';
 		$setup_diagnostics   = SetupDiagnostics::report();
-		$has_app_password    = is_array( $generated_password ) || [] !== $app_passwords;
+		$has_app_password    = [] !== $app_passwords;
 		$oauth_available     = Transport::allowed();
 		$step_states         = self::step_states( $enabled, $has_app_password, $oauth_available );
 		$selected_client     = self::selected_setup_client( $current_user_id );
@@ -624,28 +623,13 @@ final class ConfigurationPage {
 						<h3><?php esc_html_e( 'Application Password', 'stonewright' ); ?></h3>
 						<p class="description"><?php esc_html_e( 'Generate one WordPress Application Password for your AI client. It can appear in the private client snippet in step 3 and is shown only once. The paste-to-agent prompt stays credential-free.', 'stonewright' ); ?></p>
 
-						<?php if ( '' !== $app_password_error ) : ?>
-							<div class="notice notice-error inline sw-notice">
-								<p><?php echo esc_html( $app_password_error ); ?></p>
+						<?php if ( 'app_password_revoked' === $app_password_status ) : ?>
+							<div class="notice notice-success inline sw-notice" role="status">
+								<p><?php esc_html_e( 'Application Password revoked.', 'stonewright' ); ?></p>
 							</div>
-						<?php endif; ?>
-
-						<?php if ( is_array( $generated_password ) ) : ?>
-							<div class="stonewright-app-password-success">
-								<strong><?php esc_html_e( 'Application password generated.', 'stonewright' ); ?></strong>
-								<span><?php esc_html_e( 'It is available in the private client snippet in step 3 for this request only. Save it somewhere safe; it will not be shown in full again and is never added to the paste-to-agent prompt.', 'stonewright' ); ?></span>
-								<div class="stonewright-inline-controls sw-actions">
-									<input
-										type="text"
-										readonly
-										class="regular-text"
-										id="stonewright-generated-app-password"
-										value="<?php echo esc_attr( $app_password_value ); ?>"
-									/>
-									<button type="button" class="button button-small" data-stonewright-copy="stonewright-generated-app-password">
-										<?php esc_html_e( 'Copy password only', 'stonewright' ); ?>
-									</button>
-								</div>
+						<?php elseif ( 'app_password_error' === $app_password_status ) : ?>
+							<div class="notice notice-error inline sw-notice" role="alert">
+								<p><?php esc_html_e( 'The Application Password request could not be completed. Check the form and try again.', 'stonewright' ); ?></p>
 							</div>
 						<?php endif; ?>
 
@@ -683,10 +667,8 @@ final class ConfigurationPage {
 								></div>
 								<div class="sw-actions">
 									<?php
-									submit_button(
-										is_array( $generated_password )
-											? __( 'Generate another application password', 'stonewright' )
-											: __( 'Generate application password', 'stonewright' ),
+										submit_button(
+											__( 'Generate application password', 'stonewright' ),
 										'primary',
 										'submit',
 										false,
@@ -1329,36 +1311,6 @@ final class ConfigurationPage {
 		];
 	}
 
-	/**
-	 * @return array{generated: array<string, mixed>|null, error: string}
-	 */
-	private static function consume_application_password_flash( int $user_id ): array {
-		if ( $user_id <= 0 ) {
-			return [ 'generated' => null, 'error' => '' ];
-		}
-
-		$key   = self::application_password_flash_key( $user_id );
-		$flash = get_transient( $key );
-		delete_transient( $key );
-
-		if ( ! is_array( $flash ) ) {
-			return [ 'generated' => null, 'error' => '' ];
-		}
-
-		$generated = isset( $flash['generated'] ) && is_array( $flash['generated'] )
-			? $flash['generated']
-			: null;
-		$error     = isset( $flash['error'] ) && is_string( $flash['error'] )
-			? $flash['error']
-			: '';
-
-		return [ 'generated' => $generated, 'error' => $error ];
-	}
-
-	private static function application_password_flash_key( int $user_id ): string {
-		return 'stonewright_app_password_flash_' . (string) $user_id;
-	}
-
 	private static function application_passwords_available(): bool {
 		if ( ! class_exists( '\WP_Application_Passwords' ) ) {
 			return false;
@@ -1402,12 +1354,10 @@ final class ConfigurationPage {
 
 		$user_id = get_current_user_id();
 		if ( $user_id <= 0 ) {
-			self::store_application_password_error( 0, __( 'No current user is available.', 'stonewright' ) );
 			self::redirect_to_configuration( 'app_password_error' );
 		}
 
 		if ( ! self::application_passwords_available() || ! method_exists( '\WP_Application_Passwords', 'create_new_application_password' ) ) {
-			self::store_application_password_error( $user_id, __( 'Application Passwords are not available on this site.', 'stonewright' ) );
 			self::redirect_to_configuration( 'app_password_error' );
 		}
 
@@ -1415,37 +1365,20 @@ final class ConfigurationPage {
 			? sanitize_text_field( wp_unslash( $_POST['stonewright_app_password_name'] ) )
 			: '';
 		if ( '' === $name ) {
-			self::store_application_password_error( $user_id, __( 'Enter a name before generating an Application Password.', 'stonewright' ) );
 			self::redirect_to_configuration( 'app_password_error' );
 		}
 
 		$created = \WP_Application_Passwords::create_new_application_password( $user_id, [ 'name' => $name ] );
 		if ( is_wp_error( $created ) ) {
-			self::store_application_password_error( $user_id, $created->get_error_message() );
 			self::redirect_to_configuration( 'app_password_error' );
 		}
 
 		$password = isset( $created[0] ) && is_string( $created[0] ) ? $created[0] : '';
-		$item     = isset( $created[1] ) && is_array( $created[1] ) ? $created[1] : [];
 		if ( '' === $password ) {
-			self::store_application_password_error( $user_id, __( 'WordPress did not return an Application Password.', 'stonewright' ) );
 			self::redirect_to_configuration( 'app_password_error' );
 		}
 
-		set_transient(
-			self::application_password_flash_key( $user_id ),
-			[
-				'generated' => [
-					'password' => $password,
-					'name'     => $name,
-					'uuid'     => (string) ( $item['uuid'] ?? '' ),
-					'created'  => (int) ( $item['created'] ?? time() ),
-				],
-			],
-			5 * MINUTE_IN_SECONDS
-		);
-
-		self::redirect_to_configuration( 'app_password_created' );
+		self::render_application_password_once( $name, $password );
 	}
 
 	public static function handle_revoke_application_password(): void {
@@ -1461,34 +1394,53 @@ final class ConfigurationPage {
 
 		$user_id = get_current_user_id();
 		if ( $user_id <= 0 || '' === $uuid ) {
-			self::store_application_password_error( $user_id, __( 'Choose an Application Password to revoke.', 'stonewright' ) );
 			self::redirect_to_configuration( 'app_password_error' );
 		}
 
 		if ( ! method_exists( '\WP_Application_Passwords', 'delete_application_password' ) ) {
-			self::store_application_password_error( $user_id, __( 'Application Password revocation is not available on this site.', 'stonewright' ) );
 			self::redirect_to_configuration( 'app_password_error' );
 		}
 
 		$deleted = \WP_Application_Passwords::delete_application_password( $user_id, $uuid );
 		if ( is_wp_error( $deleted ) ) {
-			self::store_application_password_error( $user_id, $deleted->get_error_message() );
 			self::redirect_to_configuration( 'app_password_error' );
 		}
 
 		self::redirect_to_configuration( 'app_password_revoked' );
 	}
 
-	private static function store_application_password_error( int $user_id, string $message ): void {
-		if ( $user_id <= 0 ) {
-			return;
-		}
-
-		set_transient(
-			self::application_password_flash_key( $user_id ),
-			[ 'error' => $message ],
-			5 * MINUTE_IN_SECONDS
-		);
+	/**
+	 * No-JavaScript fallback: return the credential exactly once without any
+	 * redirect, transient, option, user meta, log, or external asset request.
+	 */
+	private static function render_application_password_once( string $name, string $password ): never {
+		nocache_headers();
+		header( 'Cache-Control: no-store, private, max-age=0', true );
+		header( 'Referrer-Policy: no-referrer', true );
+		header( 'X-Robots-Tag: noindex, nofollow', true );
+		status_header( 200 );
+		$back_url = admin_url( 'admin.php?page=' . self::SLUG . '#stonewright-application-password' );
+		?>
+		<!doctype html>
+		<html <?php language_attributes(); ?>>
+		<head>
+			<meta charset="<?php bloginfo( 'charset' ); ?>">
+			<meta name="viewport" content="width=device-width, initial-scale=1">
+			<meta name="robots" content="noindex,nofollow,noarchive">
+			<title><?php esc_html_e( 'Application Password generated', 'stonewright' ); ?></title>
+		</head>
+		<body>
+			<main>
+				<h1><?php esc_html_e( 'Application Password generated', 'stonewright' ); ?></h1>
+				<p><?php esc_html_e( 'Copy this password now. It is shown only in this no-store response and cannot be displayed again.', 'stonewright' ); ?></p>
+				<p><strong><?php echo esc_html( $name ); ?></strong></p>
+				<p><input type="text" readonly autocomplete="off" value="<?php echo esc_attr( $password ); ?>" aria-label="<?php esc_attr_e( 'Generated Application Password', 'stonewright' ); ?>"></p>
+				<p><a href="<?php echo esc_url( $back_url ); ?>"><?php esc_html_e( 'Return to Stonewright Setup', 'stonewright' ); ?></a></p>
+			</main>
+		</body>
+		</html>
+		<?php
+		exit;
 	}
 
 	private static function redirect_to_configuration( string $status ): void {

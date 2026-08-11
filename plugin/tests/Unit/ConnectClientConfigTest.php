@@ -154,6 +154,20 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( '--env STONEWRIGHT_MCP_TOOL_PROFILE=essential', $claude['command'] );
 	}
 
+	public function test_known_client_does_not_inherit_bootstrap_site_surface(): void {
+		update_option( 'stonewright_mcp_surface', 'bootstrap', false );
+
+		$this->assertSame( 'essential', ConnectClientConfig::recommended_startup_profile( 'codex' ) );
+		$this->assertSame( 'essential', ConnectClientConfig::recommended_startup_profile( 'cursor' ) );
+	}
+
+	public function test_unknown_client_gets_useful_static_startup_profile(): void {
+		update_option( 'stonewright_mcp_surface', 'bootstrap', false );
+
+		$this->assertSame( 'essential-static', ConnectClientConfig::recommended_startup_profile() );
+		$this->assertSame( 'essential-static', ConnectClientConfig::recommended_startup_profile( 'generic' ) );
+	}
+
 	public function test_strict_cap_client_override_wins_over_saved_site_surface(): void {
 		update_option( 'stonewright_mcp_surface', 'full', false );
 

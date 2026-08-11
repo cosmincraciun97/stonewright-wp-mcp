@@ -266,31 +266,23 @@ final class ConfigurationPageTest extends TestCase {
 		);
 	}
 
-	public function test_render_embeds_generated_application_password_once(): void {
-		$GLOBALS['stonewright_test_transients']['stonewright_app_password_flash_42'] = [
-			'generated' => [
-				'password' => 'test-fresh-app-password',
-				'name'     => 'Stonewright',
-				'uuid'     => 'uuid',
-				'created'  => 1710000000,
-			],
-		];
-
+	public function test_render_never_reads_or_embeds_a_persisted_application_password(): void {
 		ob_start();
 		ConfigurationPage::render();
 		$html = (string) ob_get_clean();
 
-		self::assertStringContainsString( 'test-fresh-app-password', $html );
-		self::assertStringContainsString( 'Copy password only', $html );
-		self::assertStringContainsString( 'Application password generated.', $html );
-		self::assertMatchesRegularExpression(
-			'/data-stonewright-text-full="(?![^"]*test-fresh-app-password)[^"]*"/',
-			$html
-		);
-		self::assertArrayNotHasKey(
-			'stonewright_app_password_flash_42',
-			$GLOBALS['stonewright_test_transients']
-		);
+		self::assertStringContainsString( '&lt;your-application-password&gt;', $html );
+		self::assertStringNotContainsString( 'test-fresh-app-password', $html );
+		self::assertStringNotContainsString( 'stonewright_app_password_flash_', $html );
+	}
+
+	public function test_nojs_generate_source_never_persists_plaintext(): void {
+		$source = (string) file_get_contents( dirname( __DIR__, 3 ) . '/includes/Admin/ConfigurationPage.php' );
+
+		self::assertStringNotContainsString( 'set_transient(', $source );
+		self::assertStringNotContainsString( 'application_password_flash', $source );
+		self::assertStringContainsString( 'Cache-Control: no-store, private, max-age=0', $source );
+		self::assertStringContainsString( 'render_application_password_once( $name, $password )', $source );
 	}
 
 	public function test_domain_lock_clear_hidden_during_mismatch(): void {

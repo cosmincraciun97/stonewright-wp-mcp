@@ -55,8 +55,8 @@ Three modes are stored in the `stonewright_mode` option:
 
 | Value | Behaviour |
 |---|---|
-| `bootstrap` | Progressive-discovery entry surface (≤ 12 tools, ≤ ~3,500 est. tokens). Includes `php-execute`, confirmation token, site/content reads, and theme-file-read so cold clients are not stuck. New installs default here. Call `stonewright-tool-profile` / `stonewright-task-start` to expand. |
-| `essential` | Compact fast path (≤ 30 tools) with batch-first Elementor/Gutenberg/content/WP-CLI tools. |
+| `bootstrap` | Explicit progressive-discovery/transport diagnostic (≤ 12 tools, ≤ ~3,500 est. tokens). Use only when the client is proven to process live tool-list changes. |
+| `essential` | Fresh-install default and compact fast path (≤ 30 tools) with batch-first Elementor/Gutenberg/content/WP-CLI tools. |
 | `full` | Entire registered ability catalog. **Slow and high-context** — only for specialist sessions that truly need every ability. |
 
 The legacy `stonewright_essential_tools_mode` flag stays in sync: bootstrap and
@@ -144,9 +144,16 @@ To generate one from the Configuration page:
 1. Enter a required label for the client, such as `Claude Code laptop` or
    `Cursor`.
 2. Click **Generate application password**.
-3. Copy the displayed password immediately. WordPress only shows it once.
-4. The generated password is available only in the private client snippet for
-   the current page load. The paste-to-agent prompt always uses placeholders.
+3. The supported JavaScript flow does not reload or change the URL. It updates
+   the inventory and private client snippet in the current tab.
+4. Copy the displayed password immediately. WordPress only shows it once.
+5. The password stays only in tab memory and is cleared on client/auth changes,
+   revoke, replacement, hide, or unload. It is never stored in a transient,
+   option, user meta, URL, browser storage, prompt, audit row, or log.
+
+Without JavaScript, the form returns a standalone `Cache-Control: no-store`
+response that shows the password once and links back to Setup. It does not
+redirect the credential through Setup or persist it between requests.
 
 The page also lists existing Application Password names for the current user so
 site owners can see whether a client credential already exists. Each row can be
@@ -184,7 +191,7 @@ install:
         "STONEWRIGHT_WP_URL": "https://example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
         "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
       }
     }
   }
@@ -192,8 +199,10 @@ install:
 ```
 
 Use the WordPress URL, username, and Application Password from Cards 2 and 3.
-The `STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap` env value keeps new MCP sessions
-compact while preserving Stonewright fast-path tools.
+The `STONEWRIGHT_MCP_TOOL_PROFILE=essential` env value gives known clients a
+bounded working surface from their first session. Unknown clients should use
+`essential-static`; `bootstrap` is an explicit diagnostic, not an install
+default.
 Use `low-tools` for strict tool-cap clients. Aliases such as `antigravity`,
 `gemini`, `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli` normalize
 to compact canonical profiles before tool filtering.

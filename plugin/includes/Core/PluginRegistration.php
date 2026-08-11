@@ -179,11 +179,12 @@ final class PluginRegistration {
 			};
 			update_option( 'stonewright_mode', $initial_mode );
 		}
-		// New installs only: bootstrap progressive-discovery surface.
+		// New installs start on the useful bounded surface. Bootstrap remains an
+		// explicit transport/profile diagnostic, never a permanent install default.
 		// Upgrades leave stonewright_mcp_surface unset so mcp_surface() keeps mapping
 		// from the existing stonewright_essential_tools_mode choice.
 		if ( $is_first_activate ) {
-			update_option( 'stonewright_mcp_surface', 'bootstrap', false );
+			update_option( 'stonewright_mcp_surface', 'essential', false );
 			update_option( 'stonewright_essential_tools_mode', true, false );
 		}
 		Logger::info( 'activate', [ 'version' => STONEWRIGHT_VERSION ] );

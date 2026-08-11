@@ -241,9 +241,11 @@ the registry rather than restating rule text in PHP.
 
 The Configuration page guides enablement, authentication, client connection,
 component updates, and live verification. Private client snippets may contain a
-newly generated one-time Application Password; the paste-to-agent prompt always
-uses placeholders. The dedicated Prompt Library labels Plugin/Direct support
-and includes requirements plus verification.
+newly generated one-time Application Password in current-tab memory; generation
+does not refresh the page, and the paste-to-agent prompt always uses
+placeholders. The no-JavaScript fallback returns one standalone no-store
+response and never stores plaintext in a transient. The dedicated Prompt
+Library labels Plugin/Direct support and includes requirements plus verification.
 
 ### Design abilities (MCP)
 

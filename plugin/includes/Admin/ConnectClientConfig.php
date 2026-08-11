@@ -214,17 +214,17 @@ final class ConnectClientConfig {
 	 */
 	public static function recommended_startup_profile( string $client_slug = '' ): string {
 		$client_slug = sanitize_key( $client_slug );
+		// Unknown/generic clients may freeze their startup catalog. Give them a
+		// useful static surface instead of depending on list_changed support.
+		if ( '' === $client_slug || 'generic' === $client_slug ) {
+			return 'essential-static';
+		}
 		if ( in_array( $client_slug, [ 'antigravity', 'gemini-cli' ], true ) ) {
 			return 'essential-static';
 		}
-		// Site surface may be bootstrap/essential/full; clamp full to essential for prompts.
-		$surface = AbilityRegistry::mcp_surface();
-		if ( 'full' === $surface ) {
-			return 'essential';
-		}
-		if ( in_array( $surface, [ 'bootstrap', 'essential' ], true ) ) {
-			return $surface;
-		}
+		// The WordPress registry surface and the client startup profile are
+		// separate controls. Known clients get the bounded working profile even
+		// when a migrated site still has bootstrap or an operator selected full.
 		return 'essential';
 	}
 

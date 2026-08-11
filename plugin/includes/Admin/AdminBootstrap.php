@@ -147,7 +147,6 @@ final class AdminBootstrap {
 		$page_styles = [
 			'stonewright'               => 'setup.css',
 			'stonewright-abilities'     => 'abilities.css',
-			'stonewright-blueprints'    => 'blueprints.css',
 			// Prompt library reuses the catalog card/grid system from blueprints.css.
 			'stonewright-prompts'       => 'blueprints.css',
 			'stonewright-status'        => 'dashboard.css',
@@ -155,8 +154,6 @@ final class AdminBootstrap {
 			'stonewright-skills'        => 'skills-memory.css',
 			'stonewright-memory'        => 'skills-memory.css',
 			'stonewright-sandbox'       => 'sandbox.css',
-			'stonewright-design-studio' => 'design-studio.css',
-			'stonewright-visual-workspace' => 'visual-workspace.css',
 		];
 
 		if ( isset( $page_styles[ $page ] ) ) {
@@ -175,8 +172,6 @@ final class AdminBootstrap {
 				$handle = 'stonewright-admin-audit';
 			} elseif ( 'sandbox.css' === $page_styles[ $page ] ) {
 				$handle = 'stonewright-admin-sandbox';
-			} elseif ( 'design-studio.css' === $page_styles[ $page ] ) {
-				$handle = 'stonewright-admin-design-studio';
 			}
 
 			wp_enqueue_style(
