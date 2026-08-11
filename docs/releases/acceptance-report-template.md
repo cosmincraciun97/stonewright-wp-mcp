@@ -27,12 +27,23 @@ From repository root unless noted:
 - [ ] `cd plugin && composer phpcs`
 - [ ] `cd plugin && composer security:audit`
 - [ ] `cd plugin && composer dependencies:audit`
+- [ ] `cd plugin && composer provenance:lint`
+- [ ] `cd plugin && composer contracts:compat`
+- [ ] `cd plugin && composer tokens:measure`
 - [ ] `cd companion && npm run typecheck`
+- [ ] `cd companion && npm run lint`
+- [ ] `cd companion && npm run contracts:compat`
 - [ ] `cd companion && npm test`
+- [ ] `cd companion && npm run tokens:measure`
 - [ ] `cd companion && npm run build`
+- [ ] `cd companion && npm audit --omit=dev`
+- [ ] `cd visual && npm run typecheck && npm test && npm run build`
+- [ ] PR and post-merge `main` `e2e-admin-ui`
 - [ ] `node scripts/check-docs-freshness.mjs`
 - [ ] `git diff --check`
 - [ ] `node scripts/check-public-hygiene.mjs --require-private-terms` (release packaging)
+- [ ] Plugin ZIP, companion TGZ, and Visual TGZ unpacked and scanned; published
+      checksums match downloaded assets.
 - [ ] Focused OAuth matrix when OAuth changed:
   - `cd plugin && ./vendor/bin/phpunit --filter OAuth`
   - `cd companion && npx vitest run tests/oauth-matrix.test.ts tests/oauth-token-manager.test.ts tests/wordpress-mcp-oauth.test.ts`
@@ -53,7 +64,8 @@ From repository root unless noted:
 ## Client certification matrix (tier-1)
 
 Complete one [client-acceptance-template.md](client-acceptance-template.md) per
-row, or attach private evidence links.
+row, or keep environment-specific evidence private. Only a publication-safe,
+repository-relative report may be written to a public catalog descriptor.
 
 | Client | Catalog slug | Mode tested | Result | Evidence |
 |---|---|---|---|---|
@@ -77,6 +89,17 @@ Minimum for a public release:
 - [ ] Companion `doctor` (stdio) exits cleanly without printing secrets.
 - [ ] Terminal OAuth reauth path: invalid/revoked refresh forces browser reauthorization (no infinite retry).
 - [ ] Status / gateway honesty: disconnected and unauthorized states are not reported as healthy.
+- [ ] Step 1 enablement, mode, surface, and Elementor V4 changes expose the
+      documented surface revision and re-list/restart contract.
+- [ ] Application Password generation stays in the current Setup tab and the
+      credential-free prompt remains placeholder-only.
+- [ ] Two synthetic site/environment aliases coexist; duplicate endpoints and
+      a forced config failure leave registry, credential, and client config
+      state unchanged.
+- [ ] Browser provider selection, scan consent, and install/config consent are
+      separate and no provider is silently installed.
+- [ ] Custom-code dry run stops at human approval; Direct mode has no custom-code
+      write path.
 
 ## Security and hygiene
 

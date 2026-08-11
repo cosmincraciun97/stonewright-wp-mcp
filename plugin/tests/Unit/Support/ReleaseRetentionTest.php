@@ -19,7 +19,7 @@ final class ReleaseRetentionTest extends TestCase {
 				$versioned[] = $name;
 			}
 		}
-		self::assertSame( [ '1.0.0-beta.1.md', '1.0.0-beta.2.md', '1.0.0-beta.3.md', '1.0.0-beta.4.md' ], $versioned );
+		self::assertSame( [ '1.0.0-beta.1.md', '1.0.0-beta.2.md', '1.0.0-beta.3.md', '1.0.0-beta.4.md', '1.0.0-beta.5.md' ], $versioned );
 	}
 
 	public function test_root_changelog_has_at_most_five_versions_plus_unreleased(): void {
@@ -34,7 +34,7 @@ final class ReleaseRetentionTest extends TestCase {
 			)
 		);
 		self::assertContains( 'Unreleased', $headers );
-		self::assertSame( [ '1.0.0-beta.4', '1.0.0-beta.3', '1.0.0-beta.2', '1.0.0-beta.1' ], $versions );
+		self::assertSame( [ '1.0.0-beta.5', '1.0.0-beta.4', '1.0.0-beta.3', '1.0.0-beta.2', '1.0.0-beta.1' ], $versions );
 		self::assertStringContainsString( 'public changelog starts with the first beta', $raw );
 	}
 }

@@ -11,6 +11,9 @@ Run from `plugin/` unless noted.
 - [ ] `composer phpcs` - zero style violations.
 - [ ] `composer security:audit` - exits 0.
 - [ ] `composer dependencies:audit` - exits 0 and reports any abandoned compatibility packages.
+- [ ] `composer provenance:lint` - imported/derived source provenance is complete.
+- [ ] `composer contracts:compat` - the public ability contract remains compatible.
+- [ ] `composer tokens:measure` - every plugin profile stays within its budget.
 - [ ] Clean `vendor/`, run `composer install --no-dev --classmap-authoritative`,
       then `composer package:verify-manifests`.
 - [ ] `composer docs:matrix` - regenerates the ability matrix cleanly.
@@ -18,8 +21,19 @@ Run from `plugin/` unless noted.
 - [ ] `cd .. && node scripts/check-public-hygiene.mjs --require-private-terms` - source tree is free of configured private project terms.
 - [ ] `cd .. && node scripts/package-verify.mjs --strict-vendor` - production package inputs and Jetpack manifests are complete.
 - [ ] `cd ../companion && npm run typecheck` - zero TypeScript errors.
+- [ ] `cd ../companion && npm run lint` - zero lint errors.
+- [ ] `cd ../companion && npm run contracts:compat` - Direct contract remains compatible.
 - [ ] `cd ../companion && npm test` - all Vitest tests pass.
+- [ ] `cd ../companion && npm run tokens:measure` - Direct profiles stay within budget.
 - [ ] `cd ../companion && npm run build` - build succeeds.
+- [ ] `cd ../companion && npm audit --omit=dev` - zero production advisories.
+- [ ] `cd ../visual && npm run typecheck && npm test && npm run build` - Visual is green.
+- [ ] The PR and post-merge `main` CI both pass `e2e-admin-ui` against the
+      packaged plugin, including the Setup no-refresh flow and admin spacing.
+- [ ] Build the exact plugin ZIP, companion TGZ, and Visual TGZ through the
+      release workflow recipe; unpack and scan each archive for secrets,
+      private terms, runtime state, development junk, and missing dependencies.
+- [ ] `git diff --check` - zero whitespace errors.
 
 ## Publish
 
@@ -32,6 +46,8 @@ Run from `plugin/` unless noted.
 4. Confirm the GitHub release links to the expected assets and checksums.
 5. Confirm the staged ZIP passes the private-term scan and Jetpack manifest
    verification before upload.
+6. Download every published asset, run `sha256sum -c SHA256SUMS.txt`, and
+   confirm the archive metadata reports the released plugin/companion version.
 
 ## Client certification (tier-1)
 
@@ -115,6 +131,44 @@ Run from `plugin/` unless noted.
 - [ ] Start a new MCP session.
 - [ ] Call `stonewright-task-start`.
 - [ ] Confirm the manual instruction, skill, or memory entry is present in the task-start response.
+
+### 10. Setup and multi-site connection
+
+- [ ] Confirm ability enablement, mode, surface, and Elementor V4 save without a
+      full-page reload and increment one shared `surface_revision` only on a
+      real change.
+- [ ] Confirm HTTP re-list and companion task-start/profile refresh expose the
+      selected surface; document a restart only for a client that keeps a stale
+      startup snapshot.
+- [ ] Generate an Application Password in Setup and confirm the URL, auth tab,
+      client selection, private snippet, and password inventory update in place.
+- [ ] Add two synthetic aliases on different environments, reject a duplicate
+      canonical endpoint, and prove config/credential rollback after a forced
+      registry or adapter failure.
+
+### 11. Custom code and browser consent
+
+- [ ] Confirm each installed typed custom-code provider returns an exact dry-run
+      handoff and refuses apply without the matching human grant.
+- [ ] Confirm Direct mode cannot write custom PHP/CSS/JS/HTML.
+- [ ] Confirm browser provider choice, scan consent, and install/config consent
+      are independent, persistent per site/client, and never silently granted.
+
+### 12. Audit, memory, and actor attribution
+
+- [ ] Confirm terminal OAuth failures coalesce, retryable/server failures retain
+      operational visibility, and pre-login actors resolve without N+1 queries.
+- [ ] Confirm generic success cannot close an unrelated incident and unresolved
+      incidents do not become active learning memory.
+- [ ] Confirm paginated legacy reconciliation remains retryable after a
+      synthetic eligible-memory failure.
+
+### 13. Upgrade preservation
+
+- [ ] Upgrade a fixture containing settings, audit rows, memory, user skills,
+      site aliases, credential references, and Direct state.
+- [ ] Confirm all state remains and no fresh-install seed creates user memory,
+      user skills, or audit events.
 
 ## Rollback
 

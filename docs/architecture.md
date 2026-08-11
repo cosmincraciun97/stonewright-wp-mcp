@@ -16,33 +16,57 @@ and connects straight to the WordPress plugin over HTTPS.
 ```mermaid
 flowchart TD
     Client["MCP client"]
-    Companion["Local stdio companion"]
-    Http["Remote Streamable HTTP"]
-    Plugin["Stonewright WordPress plugin"]
-    Direct["Direct mode adapters"]
-    WordPress["WordPress runtime"]
-    PluginState["WordPress database<br/>memory, user skills, audit"]
-    DirectState["Private ~/.stonewright state<br/>sites, memory, user skills, redacted audit"]
-    Registry["Schema-v2 site registry<br/>aliases, environment, mode, Step 1 expectations"]
-    Credentials["OS credential store or explicit env reference"]
-    ClientConfig["Transactional per-client MCP adapters"]
-    Builtins["Packaged generic skills<br/>and native rules"]
+    Browser["Optional user-approved browser provider"]
 
-    Client --> Companion
+    subgraph Local["Local stdio and connection state"]
+        ClientConfig["Transactional per-client MCP adapters"]
+        Registry["Schema-v2 site registry<br/>alias, environment, mode, Step 1 expectations"]
+        Credentials["OS credential store or explicit env reference"]
+        Companion["Stonewright companion"]
+        CompanionProfile["Companion profile<br/>bootstrap, essential-static, essential, low-tools, full"]
+        Direct["Pluginless Direct adapters"]
+        DirectState["Private ~/.stonewright state<br/>sites, memory, user skills, redacted audit"]
+    end
+
+    subgraph PluginMode["Plugin mode"]
+        Auth["OAuth grant or Application Password"]
+        Step1["Step 1 controls<br/>enabled, mode, surface, Elementor V4"]
+        Surface["Plugin surface gate<br/>bootstrap, essential, full"]
+        Session["Per-session task profile"]
+        Revision["surface_revision<br/>tools/list_changed"]
+        Plugin["Ability kernel"]
+        Code["Typed custom-code providers"]
+        Approval["Dry run, human grant, confirmation, snapshot, readback"]
+        Elementor["Elementor V3, V4, and kit schema router"]
+        Closure["Lease, snapshot, validation, write, readback, rollback, visual QA"]
+        Audit["Coalesced audit and actor attribution"]
+        Incidents["Incident lifecycle"]
+        PluginState["WordPress database<br/>memory, user skills, audit"]
+    end
+
+    WordPress["WordPress runtime<br/>REST, Gutenberg/FSE, content, WooCommerce"]
+    Builtins["Packaged generic skills and native rules"]
+
+    Client -->|"local stdio"| Companion
+    Client -->|"remote Streamable HTTP"| Auth
     Client --> ClientConfig
-    ClientConfig --> Companion
-    Companion --> Registry
-    Registry --> Credentials
-    Client --> Http
-    Companion --> Plugin
-    Companion --> Direct
-    Http --> Plugin
-    Plugin --> WordPress
+    ClientConfig --> Registry --> Credentials
+    Registry --> Companion --> CompanionProfile
+    CompanionProfile -->|"Plugin mode"| Auth
+    CompanionProfile -->|"Direct mode"| Direct
     Direct --> WordPress
-    Plugin --> PluginState
     Direct --> DirectState
+    Auth --> Plugin
+    Step1 --> Surface --> Session --> Plugin
+    Step1 --> Revision -. "re-list or restart" .-> Client
+    Plugin --> WordPress
+    Plugin --> Code --> Approval --> WordPress
+    Plugin --> Elementor --> Closure --> WordPress
+    Plugin --> Audit --> Incidents --> PluginState
     Builtins --> Plugin
     Builtins --> Direct
+    Client -. "provider choice and separate scan/install consent" .-> Browser
+    Browser -. "rendered verification or approved dashboard action" .-> WordPress
 ```
 
 The registry enforces one alias per site and one `(canonical URL, environment)`
@@ -59,6 +83,39 @@ Plugin mode owns the broad guarded write surface. Direct mode is not a fallback:
 it owns a documented pluginless surface, local task-start profiles, persistent
 private state, and read-only WooCommerce access. Capability differences are
 explicit rather than silently emulated.
+
+### Tool surface and Step 1 propagation
+
+Setup Step 1 persists ability enablement, operating mode, MCP surface, and the
+Elementor V4 switch immediately. A real change increments one monotonic
+`surface_revision`. Remote HTTP clients see the new gate on their next
+`tools/list`; active companion sessions refresh their callable registry at
+task-start/profile activation and emit `tools/list_changed`. A client that does
+not honor live list changes must follow the explicit re-list/restart receipt.
+
+The plugin gate has three saved values: `bootstrap`, `essential`, and `full`.
+The companion additionally understands `essential-static` as the bounded
+fallback for an unknown or stale-list client and `low-tools` for a strict
+external cap. The normal known-client working profile is `essential`,
+`bootstrap` is only a startup diagnostic, and `full` is an explicit specialist
+choice. The operator's saved site surface remains the source of truth; a client
+profile may narrow it but never silently broaden it.
+
+### Authentication and custom-code boundaries
+
+Remote HTTP OAuth keeps grants, access tokens, refresh tokens, rotation, and
+revocation inside the plugin. Application Passwords are one-time WordPress
+credentials kept only in private client configuration or referenced from the
+OS-backed registry; public prompts never contain them. The in-admin generator
+holds a newly issued password only in current-tab memory, with a standalone
+no-store response as the no-JavaScript fallback.
+
+Plugin mode exposes typed providers for WPCode, Code Snippets, Customizer CSS,
+and allowlisted theme files. A provider first returns a dry-run receipt and the
+exact approval URL, then stops. Apply and rollback require the matching human
+grant plus their normal permission, concurrency, backup, readback, audit, and
+production confirmation gates. Direct mode cannot write arbitrary custom code:
+without the plugin there is no authenticated wp-admin one-time-grant boundary.
 
 ### Persistent state lifecycle
 
@@ -116,6 +173,13 @@ token events identify their registered client without an N+1 query. Terminal
 checkpoints; retryable 429 and server-side 5xx outcomes keep the short window so
 operational incidents remain visible.
 
+Audit events feed an explicit incident lifecycle (`observing`, `open`,
+`resolved`, or `suppressed`). A generic success cannot close unrelated repair
+debt: resolution requires correlated evidence for the same incident. Unresolved
+incidents are reporting state, not active learning. Only a verified repair or an
+explicit user correction may promote reusable guidance into memory; paginated
+legacy reconciliation stays retryable if any eligible memory update fails.
+
 ### External browser consent boundary
 
 Stonewright does not embed or silently install a browser provider. Before
@@ -128,6 +192,13 @@ it does not replace custom-code dry-run/approval, backup, permission, audit, or
 confirmation-token gates in Plugin or Direct mode.
 
 ### Elementor write closure
+
+Elementor routing starts from the live runtime, document architecture, widget
+registry, and control schema. V3 operations stay within reported V3-safe roots;
+Atomic targets use the V4 tree abilities instead of being converted. Native
+cover CTA, testimonial carousel, chip, and Button-icon output is selected only
+when the live widget/control contract supports the requested settings. Catalog
+presence alone is never availability proof.
 
 All typed Elementor V3 document-tree writers converge on
 `ElementorData::write()`. The write path acquires a per-post lease, validates

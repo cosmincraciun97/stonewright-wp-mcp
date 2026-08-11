@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.5] - 2026-08-12
+
 ### Added
 
 - Add `stonewright connect add/list/use/verify/repair/remove/migrate` with a

@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-08-11T16:35:46+00:00",
+    "generated_at": "2026-08-11T21:19:07+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -2612,6 +2612,20 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            }
+        },
+        {
+            "ability_name": "stonewright/elementor-v3-kit-batch-mutate",
+            "mcp_name": "stonewright-elementor-v3-kit-batch-mutate",
+            "kind": "Write",
+            "input_schema_hash": "c59dc589f64b4bf74b978a6891275accd893e02f4cfbf8b942fa35e17fec6907",
+            "output_schema_hash": "9f7400d0987f9aa70b218f8fcf554127e2ebacf0998ca7f829a7f2b6ca03e1ea",
+            "permission_class": "Permissions::edit_theme_options()",
+            "gates": {
+                "backup": true,
+                "token": true,
+                "validator": false,
+                "audit": true
             }
         },
         {

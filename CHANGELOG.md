@@ -10,6 +10,8 @@ were never stable releases and are not part of the supported public history.
 
 ## [Unreleased]
 
+## [1.0.0-beta.5] - 2026-08-12
+
 ### Added
 
 - Add deterministic plugin/companion OAuth contract matrices, per-client
