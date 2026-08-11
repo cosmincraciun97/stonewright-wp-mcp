@@ -90,6 +90,20 @@ final class ValidatorTest extends TestCase {
 		$this->assertStringContainsString( 'sections[0].layout', (string) ( $error['repair_hint'] ?? '' ) );
 	}
 
+	public function test_validate_rejects_unknown_responsive_direction_breakpoint(): void {
+		$spec = self::minimal_valid_spec();
+		$spec['sections'][0]['direction'] = [
+			'desktop' => 'row',
+			'watch'   => 'column',
+		];
+
+		$result = Validator::validate( $spec );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		$paths = array_column( $result->get_error_data()['errors'], 'path' );
+		self::assertContains( [ 'sections', 0, 'direction' ], $paths );
+	}
+
 	public function test_strict_style_policy_rejects_unproven_decorative_styles(): void {
 		$spec = self::minimal_valid_spec();
 		$spec['style_policy'] = 'strict';

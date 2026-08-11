@@ -129,13 +129,22 @@ confirmation-token gates in Plugin or Direct mode.
 
 ### Elementor write closure
 
-All typed Elementor V3 writers converge on `ElementorData::write()`. The write
-path acquires a per-post lease, validates the document, persists it, and proves
-serialized readback before generated state is touched. Only then does
+All typed Elementor V3 document-tree writers converge on
+`ElementorData::write()`. The write path acquires a per-post lease, validates
+the document, persists it, and proves serialized readback before generated
+state is touched. Only then does
 `PostCacheInvalidator` delete the official document cache key, clear that
 post's CSS state, clean the WordPress post cache, and notify Elementor's atomic
 style layer. A failed readback restores the previous document and invalidates
 the restored state.
+
+Elementor kit globals use the separate typed
+`stonewright/elementor-v3-kit-batch-mutate` transaction because kit settings
+live in `_elementor_page_settings`, not the document tree. Apply and rollback
+share the kit post lease. Apply performs a merge-only plan, verified snapshot,
+single meta write, hash readback, and post-scoped cache invalidation; a mismatch
+attempts snapshot restoration and can never be reported as success. An
+identical plan is a verified no-op without a snapshot or write.
 
 `stonewright/elementor-post-write-verify` is the explicit frontend-closure
 ability. It regenerates post-scoped CSS, warms Elementor through

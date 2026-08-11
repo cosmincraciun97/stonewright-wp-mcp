@@ -95,6 +95,7 @@ use Stonewright\WpMcp\Abilities\ElementorV3\RepairDocument;
 use Stonewright\WpMcp\Abilities\ElementorV3\SaveTemplate;
 use Stonewright\WpMcp\Abilities\ElementorV3\Status as ElementorStatus;
 use Stonewright\WpMcp\Abilities\ElementorV3\UpdateElement;
+use Stonewright\WpMcp\Abilities\ElementorV3\KitBatchMutate;
 use Stonewright\WpMcp\Abilities\ElementorV3\UpdateKitColors;
 use Stonewright\WpMcp\Abilities\ElementorV3\UpdateKitTypography;
 use Stonewright\WpMcp\Abilities\ElementorV3\UpdatePageSettings;
@@ -401,6 +402,7 @@ final class AbilityRegistry {
 			ElementorV3TransactionRun::class,
 			ElementorV3ApplyBundle::class,
 			UpdatePageSettings::class,
+			KitBatchMutate::class,
 			UpdateKitColors::class,
 			UpdateKitTypography::class,
 			SaveTemplate::class,

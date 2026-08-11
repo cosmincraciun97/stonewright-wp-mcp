@@ -160,7 +160,8 @@ An array of section objects. Sections map to Elementor V3 sections/containers or
 | `id` | string | required | Unique identifier within the spec. Used for renderer mapping. |
 | `name` | string | — | Human-readable label for debugging. |
 | `width` | string | `"boxed"` | `full`, `boxed`, or `narrow`. |
-| `layout` | string | `"stack"` | `stack`, `row`, or `grid`. |
+| `layout` | string or object | `"stack"` | `stack`, `row`, `grid`, legacy `horizontal`/`vertical`, or a non-empty `desktop`/`tablet`/`mobile` map of those values. |
+| `direction` | string or object | derived from `layout` | `row`, `column`, reverse variants, legacy aliases, or a non-empty viewport map. Unknown breakpoint names are rejected. |
 | `gap` | string or number | — | Gap between blocks (CSS value or px integer). |
 | `padding` | dimensions | — | Per-side padding. See dimensions definition below. |
 | `background` | background | — | Background color, image, overlay. |
@@ -197,7 +198,7 @@ Blocks are the leaf nodes of a section or nested inside `row` and `column` block
 
 | Field | Type | Description |
 |---|---|---|
-| `type` | string | Required. One of the 14 block types listed below. |
+| `type` | string | Required. Use one of the supported block types below. |
 | `style` | object | Free-form style overrides passed through to the renderer. |
 | `id` | integer or string | Optional ID (e.g., media attachment ID for image blocks). |
 
@@ -208,7 +209,10 @@ Blocks are the leaf nodes of a section or nested inside `row` and `column` block
 | `heading` | `text`, `level` (1-6) | Section or page heading. |
 | `paragraph` | `text` | Body copy. |
 | `image` | `url`, `alt`, `id` | Static image. |
-| `button` | `text`, `url` | Call-to-action button. |
+| `button` | `text`, `url`, optional `icon`, `icon_position`, `icon_spacing` | Call-to-action button. Icon values and optional controls must exist in the live Button schema. |
+| `call-to-action` / `cta` | `title`, `description`, `button`, `url`, `image`, optional `skin`, `min_height`, `border_radius` | Native Elementor Pro CTA. Requires a live registered widget and accepted skin; no image-box substitution. |
+| `testimonial-carousel` / `reviews-carousel` | `items`, optional `widget_type`, `autoplay`, `slides_to_show` | Native testimonial/review carousel. Requires a live compatible repeater widget; catalog-only entries are rejected. |
+| `chip-list` / `pill-grid` | `items`, optional `gap`, `background`, `color`, `border_radius`, `narrow` | Native wrapping container of text or linked pills. A plain list is used only when explicitly requested as fallback. |
 | `spacer` | `height` | Vertical whitespace. |
 | `separator` | — | Horizontal rule. |
 | `list` | `items` (array of strings) | Unordered or ordered list. |
@@ -219,6 +223,22 @@ Blocks are the leaf nodes of a section or nested inside `row` and `column` block
 | `card` | `blocks` | Card container with nested blocks. |
 | `row` | `blocks` | Horizontal flex container with nested blocks. |
 | `column` | `blocks` | Vertical column for nesting inside a `row`. |
+
+Responsive two-column layouts use one map instead of separate rewrites:
+
+```json
+{
+  "layout": {
+    "desktop": "row",
+    "tablet": "stack",
+    "mobile": "stack"
+  }
+}
+```
+
+Elementor Pro widget names in the offline catalog are documentation only. CTA,
+carousel, and button-icon rendering consults the live runtime schema and emits a
+structured diagnostic when the widget or required control is unavailable.
 
 ---
 

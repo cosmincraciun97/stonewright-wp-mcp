@@ -4,6 +4,9 @@
 
 ### Added
 
+- Add native row/container layout normalization, live-gated cover CTA and
+  testimonial carousel rendering, chip groups, schema-backed button icons, and
+  `stonewright/elementor-v3-kit-batch-mutate` for typed kit globals.
 - Add typed WPCode, Code Snippets, Customizer CSS, and theme-file providers
   with approval-gated dry runs, concurrency checks, snapshots, verification,
   and rollback guidance.
@@ -27,6 +30,11 @@
 
 ### Fixed
 
+- Reject catalog-only Pro widget substitutions, accept rollback without dummy
+  operations, verify boolean snapshot restoration, treat identical kit plans as
+  no-ops, restore on kit readback mismatch, and reject unsafe icon classes or
+  SVG URL schemes while writing only live-supported Button icon controls and
+  selecting only carousel widgets with a compatible live repeater.
 - Restrict snippet-plugin source reads to `manage_options`, retain
   `edit_theme_options` only for theme-owned providers, and require production
   confirmation tokens for provider apply and rollback.

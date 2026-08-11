@@ -156,9 +156,12 @@
           "default": "boxed"
         },
         "layout": {
-          "type": "string",
-          "enum": ["stack", "row", "grid"],
-          "default": "stack"
+          "type": ["string", "object"],
+          "description": "stack|row|grid (or legacy horizontal/vertical), or a desktop/tablet/mobile map of those intents."
+        },
+        "direction": {
+          "type": ["string", "object"],
+          "description": "Optional flex direction override; accepts row/column/horizontal/vertical or a viewport map."
         },
         "gap": { "type": ["string", "number"] },
         "padding": { "$ref": "#/$defs/dimensions" },
@@ -179,6 +182,7 @@
         "css_classes": { "type": "string" },
         "justify_content": { "type": "string" },
         "align_items": { "type": "string" },
+        "type": { "type": "string" },
         "blocks": {
           "type": "array",
           "items": { "$ref": "#/$defs/block" }
@@ -225,6 +229,16 @@
             "progress-bar",
             "counter",
             "testimonial",
+            "testimonial-carousel",
+            "reviews-carousel",
+            "review-carousel",
+            "carousel",
+            "call-to-action",
+            "cta",
+            "chip-list",
+            "pill-grid",
+            "chips",
+            "pills",
             "form",
             "form-placeholder"
           ]
@@ -285,13 +299,42 @@
           }
         },
         "menu": { "type": ["integer", "string", "null"] },
-        "layout": { "type": "string" },
-        "direction": { "type": "string" },
+        "layout": { "type": ["string", "object"] },
+        "direction": { "type": ["string", "object"] },
         "pointer": { "type": "string" },
         "justify_content": { "type": "string" },
         "align_items": { "type": "string" },
         "wrap": { "type": "string" },
         "columns": { "type": ["integer", "number", "string"] },
+        "skin": { "type": "string" },
+        "min_height": { "type": ["integer", "number", "string", "object"] },
+        "border_radius": { "type": ["integer", "number", "string", "object"] },
+        "overlay": { "type": "string" },
+        "overlay_color": { "type": "string" },
+        "vertical_position": { "type": "string" },
+        "alignment": { "type": ["string", "object"] },
+        "button_text": { "type": "string" },
+        "button": { "type": ["string", "object"] },
+        "image": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "url": { "type": "string" },
+            "id": { "type": ["integer", "string"] },
+            "alt": { "type": "string" }
+          }
+        },
+        "icon_position": { "type": "string" },
+        "icon_spacing": { "type": ["integer", "number", "string", "object"] },
+        "icon_indent": { "type": ["integer", "number", "string", "object"] },
+        "selected_icon": { "type": ["string", "object"] },
+        "testimonials": { "type": "array" },
+        "reviews": { "type": "array" },
+        "slides": { "type": "array" },
+        "widget_type": { "type": "string" },
+        "settings": { "type": "object", "additionalProperties": true },
+        "fallback": { "type": "string" },
+        "narrow": { "type": "string" },
         "image_size": { "type": "string" },
         "spacing": { "type": ["integer", "number", "string"] },
         "weight": { "type": ["integer", "number", "string", "object"] },
@@ -317,7 +360,7 @@
         "toggle_align": { "type": "string" },
         "toggle_color": { "type": "string" },
         "size": { "type": "string" },
-        "icon": { "type": "string" },
+        "icon": { "type": ["string", "object"] },
         "color": { "type": "string" },
         "background_color": { "type": "string" },
         "external": { "type": "boolean" },

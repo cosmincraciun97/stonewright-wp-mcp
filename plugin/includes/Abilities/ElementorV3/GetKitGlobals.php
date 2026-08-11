@@ -104,13 +104,15 @@ final class GetKitGlobals extends AbilityKernel {
 			],
 			'token_plan'    => [
 				'read_tool'             => 'stonewright/elementor-v3-get-kit-globals',
+				'batch_write_tool'      => 'stonewright/elementor-v3-kit-batch-mutate',
 				'color_write_tool'      => 'stonewright/elementor-v3-update-kit-colors',
 				'typography_write_tool' => 'stonewright/elementor-v3-update-kit-typography',
 				'page_write_tool'       => 'stonewright/elementor-v3-build-page-from-spec',
-				'principle'             => 'Update reusable site-wide tokens first; keep one-off Figma values local to the page spec.',
+				'principle'             => 'Update reusable site-wide tokens first via kit-batch-mutate (dry-run → snapshot → apply → readback); keep one-off Figma values local to the page spec.',
 			],
 			'next_actions'  => [
 				'Compare extracted design colors and typography with this kit snapshot before page writes.',
+				'Prefer stonewright/elementor-v3-kit-batch-mutate for container width, typography, and color token batches with dry-run and snapshot.',
 				'Only update Elementor kit globals when reusable values are approved for site-wide use.',
 				'Run build-page-from-spec after globals are settled so section specs do not repeat raw values unnecessarily.',
 			],

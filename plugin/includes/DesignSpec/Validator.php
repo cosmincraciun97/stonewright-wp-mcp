@@ -306,12 +306,56 @@ final class Validator {
 			if ( ! is_array( $section ) ) {
 				continue;
 			}
-			if ( array_key_exists( 'layout', $section ) && ( ! is_string( $section['layout'] ) || ! in_array( $section['layout'], [ 'stack', 'row', 'grid' ], true ) ) ) {
-				$errors[] = [
-					'keyword' => 'enum',
-					'message' => 'section layout must be one of stack, row, or grid',
-					'path'    => [ 'sections', $index, 'layout' ],
-				];
+			if ( array_key_exists( 'layout', $section ) ) {
+				$layout = $section['layout'];
+				// Scalar stack/row/grid or a viewport map of those intents (desktop/tablet/mobile).
+				$allowed = [ 'stack', 'row', 'grid', 'horizontal', 'vertical' ];
+				$ok      = is_string( $layout ) && in_array( $layout, $allowed, true );
+				if ( ! $ok && is_array( $layout ) ) {
+					$ok = [] !== $layout;
+					foreach ( $layout as $bp => $value ) {
+						if ( ! is_string( $bp ) || ! in_array( $bp, [ 'desktop', 'tablet', 'mobile' ], true ) ) {
+							$ok = false;
+							break;
+						}
+						if ( ! is_string( $value ) || ! in_array( $value, $allowed, true ) ) {
+							$ok = false;
+							break;
+						}
+					}
+				}
+				if ( ! $ok ) {
+					$errors[] = [
+						'keyword' => 'enum',
+						'message' => 'section layout must be stack, row, grid (or legacy horizontal/vertical), or a desktop/tablet/mobile map of those values',
+						'path'    => [ 'sections', $index, 'layout' ],
+					];
+				}
+			}
+			if ( array_key_exists( 'direction', $section ) ) {
+				$direction = $section['direction'];
+				$allowed   = [ 'row', 'column', 'row-reverse', 'column-reverse', 'horizontal', 'vertical' ];
+				$ok        = is_string( $direction ) && in_array( $direction, $allowed, true );
+				if ( ! $ok && is_array( $direction ) ) {
+					$ok = [] !== $direction;
+					foreach ( $direction as $bp => $value ) {
+						if ( ! is_string( $bp ) || ! in_array( $bp, [ 'desktop', 'tablet', 'mobile' ], true ) ) {
+							$ok = false;
+							break;
+						}
+						if ( ! is_string( $value ) || ! in_array( $value, $allowed, true ) ) {
+							$ok = false;
+							break;
+						}
+					}
+				}
+				if ( ! $ok ) {
+					$errors[] = [
+						'keyword' => 'enum',
+						'message' => 'section direction must be row, column, row-reverse, column-reverse (or legacy horizontal/vertical), or a desktop/tablet/mobile map of those values',
+						'path'    => [ 'sections', $index, 'direction' ],
+					];
+				}
 			}
 		}
 		foreach ( self::placeholder_copy_paths( (array) ( $spec['sections'] ?? [] ), [ 'sections' ] ) as $path => $value ) {

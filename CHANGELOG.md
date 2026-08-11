@@ -12,6 +12,9 @@ were never stable releases and are not part of the supported public history.
 
 ### Added
 
+- Add native Elementor row/container normalization, live-gated cover CTA and
+  testimonial carousel rendering, chip groups, schema-backed button icons, and
+  transactional kit/global design updates.
 - Add typed custom-code provider adapters for WPCode, Code Snippets,
   Customizer CSS, and allowlisted theme files with dry-run approval handoff,
   concurrency checks, snapshots, readback verification, and rollback guidance.
@@ -40,6 +43,12 @@ were never stable releases and are not part of the supported public history.
 
 ### Fixed
 
+- Reject catalog-only Elementor Pro widgets, allow operation-free kit rollback,
+  treat identical kit plans as verified no-ops, and restore snapshots whenever
+  kit write readback differs from the planned state; reject injectable icon
+  class payloads and non-HTTP SVG icon URLs, and emit only controls confirmed
+  by the live Button schema; require a compatible live repeater before choosing
+  a testimonial carousel widget.
 - Restrict snippet-plugin source reads to administrators, retain
   `edit_theme_options` only for theme-owned providers, and confirmation-gate
   custom-code apply and rollback in production-safe mode.

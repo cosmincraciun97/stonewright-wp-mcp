@@ -7,6 +7,8 @@ use Stonewright\WpMcp\DesignSpec\Validator;
 use Stonewright\WpMcp\DesignTokens\Resolver;
 use Stonewright\WpMcp\Elementor\Renderer\Accordion;
 use Stonewright\WpMcp\Elementor\Renderer\Button;
+use Stonewright\WpMcp\Elementor\Renderer\CallToAction;
+use Stonewright\WpMcp\Elementor\Renderer\ChipList;
 use Stonewright\WpMcp\Elementor\Renderer\Column;
 use Stonewright\WpMcp\Elementor\Renderer\Container;
 use Stonewright\WpMcp\Elementor\Renderer\Countdown;
@@ -28,6 +30,7 @@ use Stonewright\WpMcp\Elementor\Renderer\SocialIcons;
 use Stonewright\WpMcp\Elementor\Renderer\Spacer;
 use Stonewright\WpMcp\Elementor\Renderer\Tabs;
 use Stonewright\WpMcp\Elementor\Renderer\Testimonial;
+use Stonewright\WpMcp\Elementor\Renderer\TestimonialCarousel;
 use Stonewright\WpMcp\Elementor\Renderer\TextEditor;
 use Stonewright\WpMcp\Elementor\Renderer\Toggle;
 use Stonewright\WpMcp\Elementor\Renderer\Video;
@@ -125,7 +128,17 @@ final class Renderer {
 
 			// ------- interactive -------
 			case 'button':
-				return Button::render( $block, $resolver, $path );
+				return Button::render( $block, $resolver, $path, $diagnostics );
+
+			case 'call-to-action':
+			case 'cta':
+				return CallToAction::render( $block, $resolver, $path, $diagnostics );
+
+			case 'chip-list':
+			case 'pill-grid':
+			case 'chips':
+			case 'pills':
+				return ChipList::render( $block, $resolver, $path, $diagnostics );
 
 			case 'spacer':
 				return Spacer::render( $block, $resolver, $path );
@@ -148,6 +161,12 @@ final class Renderer {
 			// ------- content blocks -------
 			case 'testimonial':
 				return Testimonial::render( $block, $resolver, $path );
+
+			case 'testimonial-carousel':
+			case 'reviews-carousel':
+			case 'review-carousel':
+			case 'carousel':
+				return TestimonialCarousel::render( $block, $resolver, $path, $diagnostics );
 
 			case 'tabs':
 				return Tabs::render( $block, $resolver, $path );

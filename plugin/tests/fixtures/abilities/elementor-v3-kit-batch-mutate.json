@@ -1,0 +1,25 @@
+{
+  "args": {
+    "dry_run": true,
+    "operations": [
+      {
+        "group": "layout",
+        "container_width": 1140
+      },
+      {
+        "group": "typography",
+        "bucket": "system",
+        "mode": "merge",
+        "fonts": [
+          {
+            "id": "primary",
+            "title": "Primary",
+            "font_family": "Montserrat",
+            "font_weight": "700"
+          }
+        ]
+      }
+    ]
+  },
+  "expect": "ok"
+}

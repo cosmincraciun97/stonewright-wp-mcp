@@ -1,0 +1,147 @@
+{
+  "version": "1.0.0",
+  "page": {
+    "title": "Native parity synthetic landing"
+  },
+  "meta": {
+    "description": "Public-safe fixture: two-column hero glass+image, about/experience, CTA cover 320/20, carousel, white chips, icon buttons. Kit globals (1140 + Montserrat) applied separately via elementor-v3-kit-batch-mutate."
+  },
+  "sections": [
+    {
+      "id": "hero",
+      "role": "hero",
+      "layout": {
+        "desktop": "row",
+        "tablet": "stack",
+        "mobile": "stack"
+      },
+      "gap": 32,
+      "align_items": "center",
+      "blocks": [
+        {
+          "type": "column",
+          "width": 50,
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "Glass panel hero",
+              "level": 1
+            },
+            {
+              "type": "paragraph",
+              "text": "Synthetic two-column hero with glass copy and supporting image."
+            },
+            {
+              "type": "button",
+              "text": "Explore",
+              "url": "https://example.test/explore",
+              "icon": "fas fa-arrow-circle-right",
+              "icon_position": "right",
+              "icon_spacing": 8
+            },
+            {
+              "type": "chip-list",
+              "items": [
+                { "text": "Native", "style": "text" },
+                { "text": "Schema-aware", "url": "https://example.test/schema" },
+                { "text": "Responsive", "style": "text" }
+              ],
+              "background_color": "#ffffff",
+              "color": "#111111",
+              "gap": 8
+            }
+          ]
+        },
+        {
+          "type": "column",
+          "width": 50,
+          "blocks": [
+            {
+              "type": "image",
+              "url": "https://example.test/hero.jpg",
+              "alt": "Hero visual"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "about",
+      "role": "content",
+      "layout": "stack",
+      "gap": 16,
+      "blocks": [
+        {
+          "type": "heading",
+          "text": "About and experience",
+          "level": 2
+        },
+        {
+          "type": "paragraph",
+          "text": "Experience section placeholder for pixel-parity QA notes across breakpoints."
+        },
+        {
+          "type": "button",
+          "text": "View work",
+          "url": "https://example.test/work",
+          "icon": "eicon-plus",
+          "icon_position": "left"
+        }
+      ]
+    },
+    {
+      "id": "cta-cover",
+      "role": "cta",
+      "layout": "stack",
+      "blocks": [
+        {
+          "type": "call-to-action",
+          "skin": "cover",
+          "title": "Ready to ship native?",
+          "description": "Cover CTA with min-height 320 and radius 20.",
+          "button": "Start",
+          "url": "https://example.test/start",
+          "image": {
+            "url": "https://example.test/cta-cover.jpg",
+            "id": 99
+          },
+          "min_height": 320,
+          "border_radius": 20,
+          "alignment": "center",
+          "overlay_color": "#00000066"
+        }
+      ]
+    },
+    {
+      "id": "reviews",
+      "role": "testimonials",
+      "layout": "stack",
+      "blocks": [
+        {
+          "type": "heading",
+          "text": "Reviews",
+          "level": 2
+        },
+        {
+          "type": "testimonial-carousel",
+          "widget_type": "slides",
+          "autoplay": true,
+          "items": [
+            {
+              "name": "Alex Rivera",
+              "content": "Pixel-true native containers.",
+              "job": "Product lead",
+              "image": { "url": "https://example.test/a.jpg", "id": 1 }
+            },
+            {
+              "name": "Sam Chen",
+              "content": "No silent widget swaps.",
+              "job": "Engineering",
+              "image": { "url": "https://example.test/b.jpg", "id": 2 }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

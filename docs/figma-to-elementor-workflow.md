@@ -70,9 +70,12 @@ evidence hash, section manifest, and live schema summaries.
    section-manifest planning registered candidates with their real schema hash,
    controls, capabilities, and explicit capability mappings; a missing schema
    is a native gap, not permission to guess a widget name.
-4. Map reusable approved colors and typography to kit globals. Use
-   `stonewright-design-direction-sync-plan` and explicit review before a
-   site-wide sync.
+4. Map reusable approved colors, typography, container width, and layout
+   defaults to kit globals. Use `stonewright-design-direction-sync-plan` for
+   the review plan, then `stonewright-elementor-v3-kit-batch-mutate` for one
+   typed dry-run and one apply. The kit writer serializes against other
+   Elementor writes, snapshots first, preserves unknown settings, verifies
+   readback, invalidates kit cache, and supports explicit snapshot rollback.
 5. Compile no more than two tightly coupled sections. Use
    `stonewright-elementor-v3-build-page-from-spec` with `dry_run=true` for a
    new section/page, or `stonewright-elementor-v3-batch-mutate` for surgical
@@ -91,6 +94,13 @@ evidence hash, section manifest, and live schema summaries.
    Compare bounded anchors for geometry, typography, line-height, spacing, and
    color. A missing observed measurement is a failure, not zero. The write is
    not complete until these checks pass.
+
+Native CTA and testimonial/review carousel nodes are emitted only when their
+widgets are registered in the live Elementor runtime and the required skin or
+repeater controls are present. Button icons likewise use only the live
+`selected_icon` or legacy `icon` control plus supported position/spacing
+controls. Catalog-only Pro entries produce diagnostics and never authorize a
+lower-fidelity substitution.
 
 For a new identity, replacement, or rebrand, build only the first section.
 Render it, collect desktop/tablet/mobile evidence, obtain explicit approval,
