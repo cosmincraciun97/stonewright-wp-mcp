@@ -525,6 +525,11 @@ async function registerDirectMode(
 
 		wpMcpStatus.ok = true;
 		wpMcpStatus.connected = true;
+		// Direct is a committed replacement surface, not a degraded Plugin
+		// session. Drop every Plugin-only live signal so status and recovery
+		// gateways cannot advertise tools from the previous remote catalog.
+		runtime.callRemoteTool = null;
+		wpMcpStatus.live = null;
 		wpMcpStatus.configured = hasWordPressMcpConfig(env) || Boolean(env['STONEWRIGHT_WP_USERNAME']);
 		wpMcpStatus.url = modeProbe.endpoint;
 		wpMcpStatus.tool_profile = directProfile;
@@ -535,6 +540,9 @@ async function registerDirectMode(
 		wpMcpStatus.startup_required_tool_names = ['stonewright-task-start'];
 		wpMcpStatus.remote_tool_count = registered.length;
 		wpMcpStatus.proxied_tool_count = 0;
+		wpMcpStatus.profile_filtered_tool_count = 0;
+		wpMcpStatus.profile_filtered_tool_names = [];
+		wpMcpStatus.prompt_skill_count = 0;
 		wpMcpStatus.profile_expected_tool_count = registered.length;
 		wpMcpStatus.client_visible_expected_tool_count = registered.length + localToolNames.length;
 		wpMcpStatus.local_recovery_tool_names = Array.from(localRecoveryToolNamesForProfile(profile));

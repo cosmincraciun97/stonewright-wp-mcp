@@ -762,6 +762,65 @@ describe('createMcpServer', () => {
 		expect(promptListChanged).toHaveBeenCalledOnce();
 	});
 
+	it('clears stale Plugin live state when auto reconnect commits Direct mode', async () => {
+		const pluginFetch = stonewrightMcpFetch([
+			{ name: 'stonewright-context-bootstrap' },
+			{ name: 'stonewright-skills-get' },
+			{ name: 'stonewright-php-execute' },
+		]);
+		let endpointProbeCount = 0;
+		const fetchImpl: typeof fetch = async (url, init) => {
+			if (
+				String(url).endsWith('/wp-json/mcp/stonewright')
+				&& (init?.method === 'HEAD' || init?.method === 'GET')
+			) {
+				endpointProbeCount += 1;
+				if (endpointProbeCount > 1) return new Response('', { status: 404 });
+			}
+			return pluginFetch(url, init);
+		};
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_WP_URL: 'https://example.com',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+			},
+			fetchImpl,
+		});
+		const tools = (server as { _registeredTools?: Record<string, { handler?: (input: unknown) => Promise<unknown> }> })._registeredTools ?? {};
+		const pluginStatus = await tools['stonewright-wordpress-mcp-status']?.handler?.({}) as {
+			structuredContent?: { mode?: string; live?: unknown; proxied_tool_count?: number };
+		};
+		expect(pluginStatus.structuredContent?.mode).toBe('plugin');
+		expect(pluginStatus.structuredContent?.live).not.toBeNull();
+		expect(pluginStatus.structuredContent?.proxied_tool_count).toBeGreaterThan(0);
+
+		const reconnect = await tools['stonewright-reconnect']?.handler?.({ reason: 'plugin endpoint removed', force_probe: true }) as {
+			structuredContent?: { ok?: boolean };
+		};
+		expect(reconnect.structuredContent?.ok).toBe(true);
+
+		const directStatus = await tools['stonewright-wordpress-mcp-status']?.handler?.({}) as {
+			structuredContent?: {
+				mode?: string;
+				live?: unknown;
+				proxied_tool_count?: number;
+				profile_filtered_tool_count?: number;
+				profile_filtered_tool_names?: string[];
+				prompt_skill_count?: number;
+			};
+		};
+		expect(directStatus.structuredContent).toMatchObject({
+			mode: 'direct',
+			live: null,
+			proxied_tool_count: 0,
+			profile_filtered_tool_count: 0,
+			profile_filtered_tool_names: [],
+			prompt_skill_count: 0,
+		});
+		expect((server as { _registeredTools?: Record<string, { enabled?: boolean }> })._registeredTools?.['stonewright-php-execute']?.enabled).toBe(false);
+	});
+
 	it('reports startup ready when compact first-call tools are proxied', async () => {
 		const server = await createMcpServer({
 			env: {
