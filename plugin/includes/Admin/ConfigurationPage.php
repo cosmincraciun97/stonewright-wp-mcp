@@ -227,7 +227,14 @@ final class ConfigurationPage {
 				if ( ! in_array( $value, [ 'bootstrap', 'essential', 'full' ], true ) ) {
 					$value = 'essential';
 				}
-				return \Stonewright\WpMcp\Core\AbilityRegistry::set_mcp_surface( $value );
+
+				$previous = \Stonewright\WpMcp\Core\AbilityRegistry::mcp_surface();
+				update_option( 'stonewright_essential_tools_mode', 'full' !== $value, false );
+				if ( $previous !== $value ) {
+					\Stonewright\WpMcp\Core\AbilityRegistry::bump_surface_revision();
+				}
+
+				return $value;
 			},
 		] );
 

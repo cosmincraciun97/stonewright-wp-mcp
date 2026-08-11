@@ -1294,11 +1294,12 @@ final class AbilityRegistry {
 		}
 
 		$previous = self::mcp_surface();
+		$revision = self::surface_revision();
 		update_option( 'stonewright_mcp_surface', $surface, false );
 		update_option( 'stonewright_essential_tools_mode', 'full' !== $surface, false );
 
 		$current = self::mcp_surface();
-		if ( $current !== $previous ) {
+		if ( $current !== $previous && self::surface_revision() === $revision ) {
 			self::bump_surface_revision();
 		}
 
