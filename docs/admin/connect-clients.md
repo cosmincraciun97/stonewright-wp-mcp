@@ -59,6 +59,12 @@ is the **Stonewright > Configuration** page:
 3. Save the private client snippet directly. The separate paste-to-agent prompt
    contains placeholders only and never includes the real credential.
 
+The normal flow is in-page: it does not refresh, change the URL, or lose the
+selected client/auth tabs. The credential is held only in current-tab memory
+and cleared on selection changes, revoke, replacement, hide, or unload. The
+no-JavaScript fallback is a standalone no-store one-time response; neither path
+stores plaintext in WordPress transients or settings.
+
 ---
 
 ## Prerequisites
@@ -102,7 +108,7 @@ shown on the GitHub Releases page.
         "STONEWRIGHT_WP_URL": "https://your-site.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
         "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
       }
     }
   }
@@ -172,7 +178,7 @@ args = ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mc
 STONEWRIGHT_WP_URL = "https://your-site.com"
 STONEWRIGHT_WP_USERNAME = "your-wp-username"
 STONEWRIGHT_WP_APP_PASSWORD = "xxxx xxxx xxxx xxxx xxxx xxxx"
-        STONEWRIGHT_MCP_TOOL_PROFILE = "bootstrap"
+        STONEWRIGHT_MCP_TOOL_PROFILE = "essential"
 ```
 
 In the Codex IDE extension, open the gear menu, choose **Codex Settings >
@@ -200,7 +206,7 @@ claude mcp add stonewright \
   --env STONEWRIGHT_WP_URL='https://your-site.com' \
   --env STONEWRIGHT_WP_USERNAME='your-wp-username' \
   --env STONEWRIGHT_WP_APP_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx' \
-  --env STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap \
+  --env STONEWRIGHT_MCP_TOOL_PROFILE=essential \
   -- npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-mcp
 ```
 
@@ -244,7 +250,7 @@ VS Code-style clients use a `servers` top-level key instead of `mcpServers`:
         "STONEWRIGHT_WP_URL": "https://your-site.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
         "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
       }
     }
   }
@@ -264,7 +270,7 @@ Zed uses `context_servers`:
           "STONEWRIGHT_WP_URL": "https://your-site.com",
           "STONEWRIGHT_WP_USERNAME": "your-wp-username",
           "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-          "STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
+          "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
         }
       }
     }
@@ -276,8 +282,11 @@ Zed uses `context_servers`:
 
 ## Browser MCP
 
-Add a separate Playwright MCP server when the task needs browser testing,
-screenshots, or visual inspection:
+Before browser work, the agent asks once whether to use Playwright
+(recommended), another connected browser provider, or none. It must ask before
+scanning client tools/private config and ask separately before installing or
+configuring a missing provider. After approval, add Playwright when the task
+needs browser testing, screenshots, or visual inspection:
 
 ```json
 {
@@ -293,6 +302,9 @@ screenshots, or visual inspection:
 Restart the AI client after adding Playwright so its tool list refreshes. For
 visual tasks, verify a browser or screenshot tool is visible before the first
 Stonewright write.
+
+Browser automation never removes custom-code dry-run, human approval, backup,
+permission, or confirmation-token boundaries in Plugin or Direct mode.
 
 ---
 

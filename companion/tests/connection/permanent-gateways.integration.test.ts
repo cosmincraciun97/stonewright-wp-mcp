@@ -172,10 +172,33 @@ describe('permanent gateways integration', () => {
 		const [a, b] = await Promise.all([
 			reconnect?.({ reason: 'plugin activated' }),
 			reconnect?.({ reason: 'plugin activated' }),
-		]) as Array<{ structuredContent?: { coalesced?: boolean; connection_generation?: number } }>;
+		]) as Array<{ structuredContent?: { ok?: boolean; error?: string | null; coalesced?: boolean; connection_generation?: number } }>;
 		// At least one waiter should be marked coalesced when both ran concurrently.
-		expect([a.structuredContent?.coalesced, b.structuredContent?.coalesced].filter(Boolean).length).toBeGreaterThanOrEqual(0);
+		expect([a.structuredContent?.coalesced, b.structuredContent?.coalesced].filter(Boolean)).toHaveLength(1);
+		expect([a.structuredContent?.coalesced, b.structuredContent?.coalesced]).toContain(false);
+		expect(a.structuredContent?.ok).toBe(true);
+		expect(b.structuredContent?.ok).toBe(true);
+		expect(a.structuredContent?.error).toBeNull();
 		expect(typeof a.structuredContent?.connection_generation).toBe('number');
+	});
+
+	it('does not invent authentication or WordPress reachability in unprobed Direct mode', async () => {
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MODE: 'direct',
+				STONEWRIGHT_WP_URL: 'https://example.com',
+				STONEWRIGHT_WP_USERNAME: 'admin',
+			},
+		});
+		const status = await toolHandler(server, 'stonewright-wordpress-mcp-status')?.({}) as {
+			structuredContent?: {
+				authentication?: { configured?: boolean; method?: string };
+				wordpress_runtime?: { reachable?: boolean | null };
+			};
+		};
+
+		expect(status.structuredContent?.authentication).toEqual({ configured: false, method: 'none' });
+		expect(status.structuredContent?.wordpress_runtime?.reachable).toBeNull();
 	});
 
 	it('status contract remains backward compatible (connected, startup_ready)', async () => {

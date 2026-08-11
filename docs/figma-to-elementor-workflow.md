@@ -10,23 +10,22 @@ live Elementor schemas decide what can be written.
 | Part | Owns | Does not own |
 |---|---|---|
 | Figma MCP | Frames, variables, styles, text, assets, exact bounds | Elementor control names or permission to write |
-| Design Studio | Site direction, tokens, dials, guidance, readiness, revisions | The content of one Elementor page |
+| Design direction (MCP) | Site direction, tokens, dials, guidance, readiness, revisions via typed design abilities | The content of one Elementor page |
 | DesignEvidence | Measured source observations and provenance | Design preference or write authority |
 | Native planner | Semantic node to native widget/container plan | Raw Elementor settings |
 | Typed Elementor abilities | Schema-checked, backed-up writes and readback | Visual proof |
 | Visual Workspace/browser | Live editor connection, confirmation, rendered evidence | Automatic pixel-perfect certification |
 
-Design Library still has a separate job: reusable page/section blueprints and
-brand kits. Design Studio is the active site-wide visual contract; Visual
-Workspace is a per-post execution and evidence surface. Removing the library
-would force reusable structures into either site direction or page history,
-which is the wrong abstraction.
+Blueprints and brand kits remain available as typed MCP abilities (the Design
+Library admin UI is disabled). Design direction abilities are the site-wide
+visual contract; page-local QA uses Visual Workspace tooling when the visual
+package is present.
 
 ## Fast extraction protocol
 
 1. Call `stonewright-task-start` for an Elementor design task.
 2. Call `stonewright-design-direction-brief` once. If there is no active ready
-   direction, create/review one in Design Studio before treating it as policy.
+   direction, create/review one via design-direction MCP abilities before treating it as policy.
 3. In the chosen Figma MCP, read page and top-level frame metadata once. Build
    one page manifest with an ordered `sections` array: stable section and node
    IDs, exact source order (or a unique explicit integer `order`), desktop and
@@ -71,9 +70,12 @@ evidence hash, section manifest, and live schema summaries.
    section-manifest planning registered candidates with their real schema hash,
    controls, capabilities, and explicit capability mappings; a missing schema
    is a native gap, not permission to guess a widget name.
-4. Map reusable approved colors and typography to kit globals. Use
-   `stonewright-design-direction-sync-plan` and explicit review before a
-   site-wide sync.
+4. Map reusable approved colors, typography, container width, and layout
+   defaults to kit globals. Use `stonewright-design-direction-sync-plan` for
+   the review plan, then `stonewright-elementor-v3-kit-batch-mutate` for one
+   typed dry-run and one apply. The kit writer serializes against other
+   Elementor writes, snapshots first, preserves unknown settings, verifies
+   readback, invalidates kit cache, and supports explicit snapshot rollback.
 5. Compile no more than two tightly coupled sections. Use
    `stonewright-elementor-v3-build-page-from-spec` with `dry_run=true` for a
    new section/page, or `stonewright-elementor-v3-batch-mutate` for surgical
@@ -92,6 +94,13 @@ evidence hash, section manifest, and live schema summaries.
    Compare bounded anchors for geometry, typography, line-height, spacing, and
    color. A missing observed measurement is a failure, not zero. The write is
    not complete until these checks pass.
+
+Native CTA and testimonial/review carousel nodes are emitted only when their
+widgets are registered in the live Elementor runtime and the required skin or
+repeater controls are present. Button icons likewise use only the live
+`selected_icon` or legacy `icon` control plus supported position/spacing
+controls. Catalog-only Pro entries produce diagnostics and never authorize a
+lower-fidelity substitution.
 
 For a new identity, replacement, or rebrand, build only the first section.
 Render it, collect desktop/tablet/mobile evidence, obtain explicit approval,
@@ -119,28 +128,20 @@ testimonial, CTA, and footer.
   the post-write verifier closes cache/CSS/frontend assertions and browser
   evidence compares the same 1440 and 390 viewports. A mismatch is repaired
   with a surgical batch mutation, not a full-tree rewrite.
-- Visual Workspace connects to the actual Elementor editor window so the user
-  sees adapter state, proposed diff, confirmation, and quality evidence while
-  keeping the editor open.
+- Browser verification measures the actual Elementor frontend at every target
+  breakpoint after the typed post-write verifier closes cache and readback.
 
 The result can be highly faithful, but “pixel perfect” is an evidence loop, not
 a one-click promise. Completion requires measured comparisons at every target
 breakpoint, no horizontal overflow, correct assets/crops, interactive states,
 and no unchecked critical rule.
 
-## Admin onboarding
+## Design Library status
 
-- **Overview** selects the direction and shows active/ready/sync state.
-- **Editor** changes tokens, dials, guidance, readiness, and open issues. Save
-  creates a new revision. “Ready for use” permits activation; “Ready to sync
-  globals” separately permits an Elementor kit sync plan.
-- **Quality** reads stored reports for a post and links to Visual Workspace.
-- **History** restores an old contract as a new revision.
-- **Visual Workspace** starts with a post id. Select **Connect editor**, keep
-  the companion editor open, then follow connect → read → preview → confirm →
-  apply → verify. Missing evidence remains `not_checked`.
+Design Studio, Visual Workspace, and Blueprints are not registered as wp-admin
+pages in this release. Stored design directions remain intact, while agents use
+typed MCP contracts and a separate browser measurement tool for reviewable
+evidence. Missing evidence remains `not_checked`.
 
-Neither admin page replaces the AI client or browser measurement tool. They
-make the design contract, confirmation, and evidence visible and reviewable.
 The complete cache/readback/browser closure is documented in
 [Elementor write verification](elementor-write-verification.md).

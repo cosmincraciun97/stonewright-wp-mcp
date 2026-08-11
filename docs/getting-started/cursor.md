@@ -65,8 +65,9 @@ Replace `VERSION` with the exact release version without a leading `v`:
 ```
 
 Optional: omit `STONEWRIGHT_MODE` for auto-detect, or set
-`STONEWRIGHT_MCP_TOOL_PROFILE` to `bootstrap` or `low-tools` when you want a
-compact client-visible surface (strict tool-cap clients should use `low-tools`).
+`STONEWRIGHT_MCP_TOOL_PROFILE` to `essential` for the normal bounded working
+surface or `low-tools` for a strict tool-cap client. Bootstrap is a diagnostic,
+not a permanent Cursor default.
 
 Restart Cursor or reload MCP servers. Smoke test:
 
@@ -91,7 +92,7 @@ Copy-paste Option B: [install-prompts.md](../install-prompts.md).
    `STONEWRIGHT_MODE=direct` (or set `plugin` / leave auto) and set:
 
 ```json
-"STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
+"STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
 ```
 
 Example (plugin-oriented env block):
@@ -111,7 +112,7 @@ Example (plugin-oriented env block):
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
         "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
       }
     }
   }
@@ -133,9 +134,11 @@ Shared stdio notes and other clients:
 
 ## Browser MCP (visual work)
 
-Add a separate Playwright MCP when the task needs screenshots or visual checks.
-Stonewright does not embed browser tools. Example pattern (merge into the same
-MCP config file your Cursor build expects):
+The agent asks once whether to use Playwright (recommended), another connected
+browser, or none; it must ask before scanning Cursor's tools/private config and
+again before installing or configuring a missing provider. Stonewright does not
+embed browser tools. After approval, merge this example into the MCP config file
+your Cursor build expects:
 
 ```json
 {

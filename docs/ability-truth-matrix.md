@@ -446,6 +446,14 @@
 
 ---
 
+## CustomCode
+
+| Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `stonewright/custom-code-provider` | `stonewright-custom-code-provider` | `CustomCode\ProviderOps` | Discover, list, read, dry-run, apply, verify, and roll back custom code through first-party adapters (WPCode, Code Snippets, Customizer CSS, theme files). | Write | `Permissions::manage_options()` | Yes | No | No | stable | `tests/Unit/AbilityKernelAuditTest.php` |
+
+---
+
 ## PluginsManage
 
 | Slug | MCP Tool | Class | Description | R/W | Permission | Token | Backup | Validator | Status | Tests |
@@ -636,7 +644,7 @@
 
 ## Summary
 
-Total abilities registered: **359**
+Total abilities registered: **360**
 
 > Verified by `tests/Unit/Documentation/AbilityTruthMatrixTest.php`.
 > To regenerate: `composer docs:matrix`

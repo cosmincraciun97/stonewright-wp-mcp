@@ -138,9 +138,16 @@ Toggle in **Stonewright → Setup**. Contracts for the public ability list live 
 
 **Stonewright → Setup → Verify connection** runs an authenticated MCP loopback
 (initialize → tools/list → task-start). Preflight alone does not prove a live
-client session. Companion CLI: `npx @stonewright/companion doctor` checks Node,
+client session. Companion CLI: `npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright doctor` checks Node,
 credentials, REST index/namespaces, REST auth, and MCP initialize without
 printing secrets.
+
+For more than one site or environment, use `stonewright connect add` with a
+unique alias and client id. The schema-v2 registry retains the WordPress mode,
+MCP surface, enablement/V4 selections, and per-client browser consent while
+keeping Application Passwords in the OS store. After restarting the client,
+`stonewright connect verify <alias> --client <id>` spawns the saved entry and
+requires task-start/status proof; parsing the client config is not sufficient.
 
 ### Prompt library
 
@@ -170,15 +177,20 @@ calls, and
 `/wp-json/stonewright/v1/abilities/run` shell calls are not substitutes for live
 Stonewright MCP tools.
 
-For visual work, connect external Playwright MCP before the first write:
+For visual work, the agent asks once whether this site/client should use
+Playwright (recommended), another connected browser provider, or no browser
+automation. It must ask permission before scanning client tools/config and ask
+separate permission before installing or configuring a missing provider. After
+approval, Playwright can be connected with:
 
 ```bash
 claude mcp add playwright -- npx -y @playwright/mcp@latest --caps=testing,vision,devtools
 ```
 
-Restart the AI client after adding Playwright. If the Playwright/browser tool is
-not visible, the agent should stop before visual implementation and ask for the
-client restart/setup instead of building blind.
+Restart the AI client after adding Playwright. If the selected browser tool is
+not visible, the agent should stop before visual implementation. Browser
+automation never bypasses custom-code dry-run, approval, backup, permission, or
+confirmation gates.
 
 Manual edits in the Stonewright admin Skills/Memory/Instructions pages persist
 between sessions because they are stored in WordPress options/custom tables.
@@ -241,37 +253,26 @@ the registry rather than restating rule text in PHP.
 
 The Configuration page guides enablement, authentication, client connection,
 component updates, and live verification. Private client snippets may contain a
-newly generated one-time Application Password; the paste-to-agent prompt always
-uses placeholders. The dedicated Prompt Library labels Plugin/Direct support
-and includes requirements plus verification.
+newly generated one-time Application Password in current-tab memory; generation
+does not refresh the page, and the paste-to-agent prompt always uses
+placeholders. The no-JavaScript fallback returns one standalone no-store
+response and never stores plaintext in a transient. The dedicated Prompt
+Library labels Plugin/Direct support and includes requirements plus verification.
 
-### Design Studio And Visual Workspace
+### Design abilities (MCP)
 
-Design Studio stores design directions — validated design intent, versioned,
-with provenance — and lets you create or edit one, mark it ready, activate it,
-dry-run a sync against the Elementor Kit, apply that sync with a backup and
-readback, inspect recorded quality evidence, and restore an earlier revision.
-Capture and sanitized import remain typed ability workflows; this admin screen
-does not pretend to expose controls it does not have.
-
-Visual Workspace opens a post under
-`admin.php?page=stonewright-visual-workspace&post_id=<id>`. It requires
-`edit_posts`, plus edit rights on the target post. **Connect editor** opens the
-real same-origin Elementor or block editor window. The workspace resolves the
-adapter against that runtime — Elementor V4 atomic, then Elementor V3, then
-Gutenberg — and enforces read → preview → confirm → apply → verify.
+Design Studio / Visual Workspace / Blueprints admin pages are not registered in
+this build. Typed design, blueprint, and brand-kit abilities remain available
+over MCP; storage tables and options are preserved.
 
 For Figma-derived work, call `stonewright-design-direction-brief` once and
 reuse its compact tokens and translated density/variance/motion guidance across
 section batches. Normalize official Figma MCP or Figma Console MCP output into
 vendor-neutral DesignEvidence; Stonewright embeds neither client.
 
-Neither page claims that a page looks correct. Design directions supply intent,
-quality reports supply measurements with their own coverage, and a change
-applied with no evidence behind it is reported as unverified. The browser bundle
-is generated into `assets/visual/` at packaging time; when it is absent the page
-says so and prints the build command. See
-[docs/visual.md](../docs/visual.md) and
+Design directions supply intent; quality reports supply measurements with their
+own coverage; a change applied with no evidence behind it is reported as
+unverified. See [docs/visual.md](../docs/visual.md) and
 [docs/figma-to-elementor-workflow.md](../docs/figma-to-elementor-workflow.md).
 
 The admin UI ships a single light theme. There is no dark mode and no theme

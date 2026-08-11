@@ -7,6 +7,7 @@ use Stonewright\WpMcp\DesignTokens\Resolver;
 use Stonewright\WpMcp\Elementor\IconValueNormalizer;
 use Stonewright\WpMcp\Elementor\Renderer\Responsive;
 use Stonewright\WpMcp\Elementor\Renderer\StyleMapper;
+use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 
 /**
  * Renders a DesignSpec `button` node as an Elementor button widget.
@@ -77,29 +78,64 @@ final class Button {
 		}
 
 		if ( isset( $node['icon'] ) || isset( $node['selected_icon'] ) ) {
+			$controls = self::live_controls();
+			if ( $controls instanceof \WP_Error ) {
+				$diagnostics[] = self::icon_diagnostic( $controls, $canonical_path );
+				return null;
+			}
+			$icon_key = isset( $controls['selected_icon'] ) ? 'selected_icon' : ( isset( $controls['icon'] ) ? 'icon' : '' );
+			if ( '' === $icon_key ) {
+				$error = new \WP_Error(
+					IconValueNormalizer::ERROR_CODE,
+					'The live Elementor Button schema has no supported icon control.',
+					[ 'status' => 409, 'reason' => 'icon_control_unavailable', 'available_controls' => array_keys( $controls ) ]
+				);
+				$diagnostics[] = self::icon_diagnostic( $error, $canonical_path );
+				return null;
+			}
+
 			$icon = IconValueNormalizer::normalize( $node['selected_icon'] ?? $node['icon'] );
 			if ( $icon instanceof \WP_Error ) {
-				$diagnostics[] = [
-					'code'     => (string) $icon->get_error_code(),
-					'type'     => 'button',
-					'path'     => $canonical_path,
-					'renderer' => 'elementor_v3',
-					'message'  => $icon->get_error_message(),
-					'data'     => $icon->get_error_data(),
-				];
+				$diagnostics[] = self::icon_diagnostic( $icon, $canonical_path );
 				// Structured rejection without partial button write.
 				return null;
 			}
-			// Elementor button uses selected_icon (icons control); keep legacy `icon` for older free versions.
-			$settings['selected_icon'] = $icon;
-			$settings['icon']          = $icon;
+			if ( 'icon' === $icon_key && is_array( $icon['value'] ) ) {
+				$error = new \WP_Error(
+					IconValueNormalizer::ERROR_CODE,
+					'The live legacy Button icon control cannot accept an SVG/media payload.',
+					[ 'status' => 409, 'reason' => 'legacy_icon_svg_unsupported' ]
+				);
+				$diagnostics[] = self::icon_diagnostic( $error, $canonical_path );
+				return null;
+			}
+			$settings[ $icon_key ] = 'icon' === $icon_key ? $icon['value'] : $icon;
 
+			$position_requested = isset( $node['icon_position'] ) || isset( $node['icon_align'] );
 			$position = IconValueNormalizer::normalize_position( $node['icon_position'] ?? $node['icon_align'] ?? null );
+			if ( $position_requested && ( null === $position || ! isset( $controls['icon_align'] ) ) ) {
+				$error = new \WP_Error(
+					IconValueNormalizer::ERROR_CODE,
+					'The requested icon position is invalid or unsupported by the live Button schema.',
+					[ 'status' => 409, 'reason' => 'icon_position_unsupported' ]
+				);
+				$diagnostics[] = self::icon_diagnostic( $error, $canonical_path );
+				return null;
+			}
 			if ( null !== $position ) {
 				$settings['icon_align'] = $position;
 			}
 
 			if ( isset( $node['icon_spacing'] ) || isset( $node['icon_indent'] ) ) {
+				if ( ! isset( $controls['icon_indent'] ) ) {
+					$error = new \WP_Error(
+						IconValueNormalizer::ERROR_CODE,
+						'The live Button schema has no icon spacing control.',
+						[ 'status' => 409, 'reason' => 'icon_spacing_unsupported' ]
+					);
+					$diagnostics[] = self::icon_diagnostic( $error, $canonical_path );
+					return null;
+				}
 				$spacing = $node['icon_spacing'] ?? $node['icon_indent'];
 				$settings['icon_indent'] = is_array( $spacing )
 					? $spacing
@@ -126,6 +162,40 @@ final class Button {
 			'widgetType' => 'button',
 			'settings'   => $settings,
 			'elements'   => [],
+		];
+	}
+
+	/**
+	 * @return array<string, array<string, mixed>>|\WP_Error
+	 */
+	private static function live_controls(): array|\WP_Error {
+		if ( ! class_exists( '\\Elementor\\Plugin' ) ) {
+			return new \WP_Error(
+				IconValueNormalizer::ERROR_CODE,
+				'Elementor must be loaded before rendering a button icon.',
+				[ 'status' => 409, 'reason' => 'elementor_runtime_unavailable' ]
+			);
+		}
+		$schema = WidgetSchemaRepository::get( 'button' );
+		if ( $schema instanceof \WP_Error ) {
+			return new \WP_Error(
+				IconValueNormalizer::ERROR_CODE,
+				'The live Elementor Button schema is unavailable.',
+				[ 'status' => 409, 'reason' => 'button_schema_unavailable', 'cause_code' => $schema->get_error_code() ]
+			);
+		}
+		return is_array( $schema['controls'] ?? null ) ? $schema['controls'] : [];
+	}
+
+	/** @return array<string, mixed> */
+	private static function icon_diagnostic( \WP_Error $error, string $path ): array {
+		return [
+			'code'     => (string) $error->get_error_code(),
+			'type'     => 'button',
+			'path'     => $path,
+			'renderer' => 'elementor_v3',
+			'message'  => $error->get_error_message(),
+			'data'     => $error->get_error_data(),
 		];
 	}
 }

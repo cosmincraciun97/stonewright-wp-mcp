@@ -109,4 +109,18 @@ final class LayoutNormalizerTest extends TestCase {
 		self::assertSame( 'center', $settings['flex_justify_content'] );
 		self::assertSame( 24, $settings['flex_gap'] );
 	}
+
+	public function test_unknown_breakpoint_key_is_not_expanded_into_elementor_settings(): void {
+		$settings = LayoutNormalizer::normalize_settings(
+			[
+				'layout' => [
+					'desktop' => 'row',
+					'watch'   => 'row',
+				],
+			]
+		);
+
+		self::assertSame( 'column', $settings['flex_direction'] );
+		self::assertArrayNotHasKey( 'flex_direction_watch', $settings );
+	}
 }

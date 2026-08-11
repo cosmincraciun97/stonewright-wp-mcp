@@ -801,13 +801,16 @@
 	function initApplyMcpSurface() {
 		var button = document.querySelector( '[data-sw-apply-mcp-surface]' );
 		var select = document.getElementById( 'stonewright_mcp_surface' );
+		var enabled = document.getElementById( 'stonewright_enabled' );
+		var mode = document.getElementById( 'stonewright_mode' );
+		var atomic = document.getElementById( 'stonewright_elementor_v4_atomic' );
 		var status = document.querySelector( '[data-sw-mcp-surface-status]' );
 		if ( ! button || ! select ) {
 			return;
 		}
 
-		button.addEventListener( 'click', function ( event ) {
-			event.preventDefault();
+		var applyQueue = window.Promise.resolve();
+		function applyStepOne( showButtonFeedback ) {
 			if ( ! window.stonewrightSetup || ! window.stonewrightSetup.ajaxUrl ) {
 				if ( status ) {
 					status.textContent = 'Setup AJAX is not available. Use Save settings instead.';
@@ -815,18 +818,23 @@
 				return;
 			}
 
-			var surface = select.value || 'bootstrap';
+			var surface = select.value || 'essential';
 			button.disabled = true;
 			var body = new window.URLSearchParams();
 			body.set( 'action', 'stonewright_apply_mcp_surface' );
 			body.set( 'nonce', window.stonewrightSetup.nonce || '' );
 			body.set( 'surface', surface );
+			body.set( 'mode', mode ? mode.value : 'development' );
+			body.set( 'enabled', enabled && enabled.checked ? '1' : '0' );
+			body.set( 'elementor_v4_atomic', atomic && atomic.checked ? '1' : '0' );
 
-			window.fetch( window.stonewrightSetup.ajaxUrl, {
+			applyQueue = applyQueue.then( function () {
+				return window.fetch( window.stonewrightSetup.ajaxUrl, {
 				method: 'POST',
 				credentials: 'same-origin',
 				headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
 				body: body.toString(),
+				} );
 			} ).then( function ( response ) {
 				return response.json().then( function ( data ) {
 					return { ok: response.ok, data: data };
@@ -840,7 +848,9 @@
 					if ( status ) {
 						status.textContent = truth ? ( msg + ' ' + truth ) : msg;
 					}
-					setButtonFeedback( button, 'Applied' );
+					if ( showButtonFeedback ) {
+						setButtonFeedback( button, 'Applied' );
+					}
 					if ( payload.surface && select.value !== payload.surface ) {
 						select.value = payload.surface;
 					}
@@ -849,16 +859,457 @@
 					if ( status ) {
 						status.textContent = err;
 					}
-					setButtonFeedback( button, 'Failed' );
+					if ( showButtonFeedback ) {
+						setButtonFeedback( button, 'Failed' );
+					}
 				}
 			} ).catch( function () {
 				if ( status ) {
 					status.textContent = 'Network error applying MCP surface.';
 				}
-				setButtonFeedback( button, 'Failed' );
+				if ( showButtonFeedback ) {
+					setButtonFeedback( button, 'Failed' );
+				}
 			} ).finally( function () {
 				button.disabled = false;
 			} );
+		}
+
+		button.addEventListener( 'click', function ( event ) {
+			event.preventDefault();
+			applyStepOne( true );
+		} );
+		[ select, enabled, mode, atomic ].forEach( function ( control ) {
+			if ( control ) {
+				control.addEventListener( 'change', function () {
+					applyStepOne( false );
+				} );
+			}
+		} );
+	}
+
+	/**
+	 * In-memory Application Password only (never query string / storage / data-*).
+	 * Cleared on auth/client change, revoke, hide/unload, or replacement generate.
+	 */
+	var appPasswordMemory = {
+		password: '',
+		uuid: '',
+		name: '',
+	};
+
+	/** @type {Array<{el: Element, template: string}>|null} */
+	var appPasswordSnippetTemplates = null;
+
+	function captureAppPasswordSnippetTemplates() {
+		if ( appPasswordSnippetTemplates ) {
+			return;
+		}
+		appPasswordSnippetTemplates = [];
+		document.querySelectorAll( '[data-stonewright-method-snippet] pre code, [data-stonewright-method-snippet] pre' ).forEach( function ( block ) {
+			var text = block.textContent || '';
+			if ( text.indexOf( '<your-application-password>' ) === -1 ) {
+				return;
+			}
+			// Prefer <code> nodes; skip parent <pre> when it already wraps a captured code child.
+			if ( block.tagName && block.tagName.toLowerCase() === 'pre' && block.querySelector( 'code' ) ) {
+				return;
+			}
+			appPasswordSnippetTemplates.push( {
+				el: block,
+				template: text,
+			} );
+		} );
+	}
+
+	function restoreAppPasswordSnippetPlaceholders() {
+		if ( ! appPasswordSnippetTemplates ) {
+			return;
+		}
+		appPasswordSnippetTemplates.forEach( function ( entry ) {
+			if ( entry && entry.el && typeof entry.template === 'string' ) {
+				entry.el.textContent = entry.template;
+			}
+		} );
+	}
+
+	function clearAppPasswordMemory() {
+		appPasswordMemory.password = '';
+		appPasswordMemory.uuid = '';
+		appPasswordMemory.name = '';
+		restoreAppPasswordSnippetPlaceholders();
+		var live = document.querySelector( '[data-stonewright-app-password-live]' );
+		if ( live ) {
+			live.hidden = true;
+			live.innerHTML = '';
+		}
+		var input = document.getElementById( 'stonewright-generated-app-password' );
+		if ( input ) {
+			input.value = '';
+			if ( input.parentNode ) {
+				input.parentNode.remove();
+			}
+		}
+	}
+
+	function showAppPasswordLive( payload ) {
+		var live = document.querySelector( '[data-stonewright-app-password-live]' );
+		if ( ! live ) {
+			return;
+		}
+		live.hidden = false;
+		live.innerHTML = '';
+		var strong = document.createElement( 'strong' );
+		strong.textContent = 'Application password generated.';
+		live.appendChild( strong );
+		var note = document.createElement( 'span' );
+		note.textContent = ' Shown once in this browser session. The paste-to-agent prompt stays credential-free.';
+		live.appendChild( note );
+		var row = document.createElement( 'div' );
+		row.className = 'stonewright-inline-controls sw-actions';
+		var field = document.createElement( 'input' );
+		field.type = 'text';
+		field.readOnly = true;
+		field.className = 'regular-text';
+		field.id = 'stonewright-generated-app-password';
+		field.value = payload.password || '';
+		field.setAttribute( 'autocomplete', 'off' );
+		var copyBtn = document.createElement( 'button' );
+		copyBtn.type = 'button';
+		copyBtn.className = 'button button-small';
+		copyBtn.textContent = 'Copy password only';
+		copyBtn.addEventListener( 'click', function ( event ) {
+			event.preventDefault();
+			var value = appPasswordMemory.password || field.value || '';
+			if ( ! value ) {
+				return;
+			}
+			var done = function ( ok ) {
+				setButtonFeedback( copyBtn, ok === false ? 'Copy failed' : 'Copied ✓' );
+			};
+			if ( navigator.clipboard && navigator.clipboard.writeText ) {
+				navigator.clipboard.writeText( value ).then( function () {
+					done( true );
+				} ).catch( function () {
+					done( copyWithTextarea( value ) );
+				} );
+			} else {
+				done( copyWithTextarea( value ) );
+			}
+		} );
+		row.appendChild( field );
+		row.appendChild( copyBtn );
+		live.appendChild( row );
+	}
+
+	function ensurePasswordInventoryTable() {
+		var tbody = document.querySelector( '.stonewright-app-password-table tbody' );
+		if ( tbody ) {
+			return tbody;
+		}
+		var list = document.querySelector( '.stonewright-app-passwords-list' );
+		if ( ! list ) {
+			return null;
+		}
+		var empty = list.querySelector( ':scope > p.description' );
+		if ( empty ) {
+			empty.remove();
+		}
+		var table = document.createElement( 'table' );
+		table.className = 'widefat striped stonewright-app-password-table';
+		var thead = document.createElement( 'thead' );
+		var headRow = document.createElement( 'tr' );
+		[ 'Name', 'UUID', 'Actions' ].forEach( function ( label ) {
+			var th = document.createElement( 'th' );
+			th.textContent = label;
+			headRow.appendChild( th );
+		} );
+		thead.appendChild( headRow );
+		table.appendChild( thead );
+		tbody = document.createElement( 'tbody' );
+		table.appendChild( tbody );
+		list.appendChild( table );
+		return tbody;
+	}
+
+	function updatePasswordInventorySummary( count ) {
+		var summary = document.querySelector( '.stonewright-app-passwords-list summary' );
+		if ( ! summary ) {
+			return;
+		}
+		summary.textContent = 'Manage existing application passwords (' + String( count ) + ')';
+	}
+
+	function refreshPasswordInventory( passwords ) {
+		if ( ! Array.isArray( passwords ) ) {
+			return;
+		}
+		var tbody = ensurePasswordInventoryTable();
+		if ( ! tbody ) {
+			return;
+		}
+		tbody.innerHTML = '';
+		updatePasswordInventorySummary( passwords.length );
+		var inventory = document.querySelector( '.stonewright-app-passwords-list' );
+		if ( inventory && passwords.length > 0 ) {
+			inventory.open = true;
+		}
+		passwords.forEach( function ( item ) {
+			var tr = document.createElement( 'tr' );
+			var nameTd = document.createElement( 'td' );
+			nameTd.textContent = item.name || '';
+			var uuidTd = document.createElement( 'td' );
+			uuidTd.textContent = item.uuid || '';
+			var actionTd = document.createElement( 'td' );
+			var form = document.createElement( 'form' );
+			form.method = 'post';
+			form.setAttribute( 'data-stonewright-app-password-revoke', item.uuid || '' );
+			var btn = document.createElement( 'button' );
+			btn.type = 'button';
+			btn.className = 'button button-small';
+			btn.textContent = 'Revoke';
+			btn.setAttribute( 'data-confirm', 'Revoke this Application Password? The connected client will lose access immediately.' );
+			btn.addEventListener( 'click', function ( event ) {
+				event.preventDefault();
+				if ( ! window.confirm( btn.getAttribute( 'data-confirm' ) ) ) { // eslint-disable-line no-alert
+					return;
+				}
+				revokeAppPassword( item.uuid || '', btn );
+			} );
+			form.appendChild( btn );
+			actionTd.appendChild( form );
+			tr.appendChild( nameTd );
+			tr.appendChild( uuidTd );
+			tr.appendChild( actionTd );
+			tbody.appendChild( tr );
+		} );
+	}
+
+	function revokeAppPassword( uuid, button ) {
+		if ( ! uuid ) {
+			return;
+		}
+		var setup = window.stonewrightSetup || {};
+		var url = setup.appPasswordUrl || '';
+		var nonce = setup.restNonce || '';
+		if ( ! url ) {
+			return;
+		}
+		if ( button ) {
+			button.disabled = true;
+		}
+		window.fetch( url + '?uuid=' + encodeURIComponent( uuid ), {
+			method: 'DELETE',
+			credentials: 'same-origin',
+			cache: 'no-store',
+			headers: {
+				'X-WP-Nonce': nonce,
+				'Accept': 'application/json',
+			},
+		} ).then( function ( response ) {
+			return response.json().then( function ( data ) {
+				return { ok: response.ok, data: data };
+			} );
+		} ).then( function ( result ) {
+			if ( ! result.ok ) {
+				throw new Error( 'revoke failed' );
+			}
+			if ( appPasswordMemory.uuid === uuid ) {
+				clearAppPasswordMemory();
+			}
+			return window.fetch( url, {
+				method: 'GET',
+				credentials: 'same-origin',
+				cache: 'no-store',
+				headers: {
+					'X-WP-Nonce': nonce,
+					'Accept': 'application/json',
+				},
+			} );
+		} ).then( function ( response ) {
+			if ( ! response ) {
+				return null;
+			}
+			return response.json();
+		} ).then( function ( list ) {
+			if ( list && list.passwords ) {
+				refreshPasswordInventory( list.passwords );
+			}
+		} ).catch( function () {
+			/* keep no-JS revoke form as fallback on next full page */
+		} ).finally( function () {
+			if ( button ) {
+				button.disabled = false;
+			}
+		} );
+	}
+
+	function updateSnippetsWithPassword( password ) {
+		// Private client snippets may include the one-time password in-page only.
+		// Never write into the paste-to-agent prompt (credential-free contract).
+		// Always re-render from captured templates so clear/regenerate cannot leave
+		// secrets in the DOM or lose the placeholder permanently.
+		captureAppPasswordSnippetTemplates();
+		if ( ! password ) {
+			restoreAppPasswordSnippetPlaceholders();
+			return;
+		}
+		if ( ! appPasswordSnippetTemplates ) {
+			return;
+		}
+		appPasswordSnippetTemplates.forEach( function ( entry ) {
+			if ( ! entry || ! entry.el || typeof entry.template !== 'string' ) {
+				return;
+			}
+			entry.el.textContent = entry.template.split( '<your-application-password>' ).join( password );
+		} );
+	}
+
+	function initAppPasswordForm() {
+		var form = document.querySelector( '[data-stonewright-app-password-form]' );
+		if ( ! form ) {
+			return;
+		}
+
+		// Capture credential placeholders before any generate/clear mutates them.
+		captureAppPasswordSnippetTemplates();
+
+		var hint = form.querySelector( '[data-stonewright-app-password-nojs-hint]' );
+		if ( hint ) {
+			hint.hidden = true;
+		}
+
+		form.addEventListener( 'submit', function ( event ) {
+			var setup = window.stonewrightSetup || {};
+			var url = form.getAttribute( 'data-rest-url' ) || setup.appPasswordUrl || '';
+			var nonce = form.getAttribute( 'data-rest-nonce' ) || setup.restNonce || '';
+			if ( ! url || ! window.fetch ) {
+				// no-JS / no-REST: allow full navigation fallback.
+				return;
+			}
+			event.preventDefault();
+
+			var nameInput = form.querySelector( '#stonewright_app_password_name' );
+			var name = nameInput ? String( nameInput.value || '' ).trim() : '';
+			var submit = form.querySelector( '[type="submit"]' );
+			var live = form.querySelector( '[data-stonewright-app-password-live]' );
+			if ( ! name ) {
+				if ( live ) {
+					live.hidden = false;
+					live.textContent = 'Enter a name before generating an Application Password.';
+				}
+				return;
+			}
+
+			if ( submit ) {
+				submit.disabled = true;
+				setButtonFeedback( submit, 'Generating…' );
+			}
+
+			// Replacement generate clears prior in-memory password first.
+			clearAppPasswordMemory();
+
+			window.fetch( url, {
+				method: 'POST',
+				credentials: 'same-origin',
+				cache: 'no-store',
+				headers: {
+					'X-WP-Nonce': nonce,
+					'Accept': 'application/json',
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify( { name: name } ),
+			} ).then( function ( response ) {
+				return response.json().then( function ( data ) {
+					return { ok: response.ok, data: data, headers: response.headers };
+				} );
+			} ).then( function ( result ) {
+				if ( ! result.ok || ! result.data || ! result.data.password ) {
+					var message = ( result.data && result.data.message ) ? result.data.message : 'Could not generate Application Password.';
+					if ( live ) {
+						live.hidden = false;
+						live.textContent = message;
+					}
+					setButtonFeedback( submit, 'Failed' );
+					return;
+				}
+
+				appPasswordMemory.password = String( result.data.password || '' );
+				appPasswordMemory.uuid = String( result.data.uuid || '' );
+				appPasswordMemory.name = String( result.data.name || name );
+				showAppPasswordLive( {
+					password: appPasswordMemory.password,
+					uuid: appPasswordMemory.uuid,
+					name: appPasswordMemory.name,
+				} );
+				updateSnippetsWithPassword( appPasswordMemory.password );
+				setButtonFeedback( submit, 'Generated' );
+
+				// Refresh inventory without password values.
+				return window.fetch( url, {
+					method: 'GET',
+					credentials: 'same-origin',
+					cache: 'no-store',
+					headers: {
+						'X-WP-Nonce': nonce,
+						'Accept': 'application/json',
+					},
+				} ).then( function ( response ) {
+					return response.json();
+				} ).then( function ( list ) {
+					if ( list && list.passwords ) {
+						refreshPasswordInventory( list.passwords );
+					}
+					if ( list && list.username ) {
+						// Username display is already on page; keep memory free of extra copies.
+					}
+				} );
+			} ).catch( function () {
+				if ( live ) {
+					live.hidden = false;
+					live.textContent = 'Network error generating Application Password.';
+				}
+				if ( submit ) {
+					setButtonFeedback( submit, 'Failed' );
+				}
+			} ).finally( function () {
+				if ( submit ) {
+					submit.disabled = false;
+				}
+			} );
+		} );
+
+		// Clear in-memory password when auth method or client changes.
+		document.querySelectorAll( '[data-stonewright-auth-method]' ).forEach( function ( button ) {
+			button.addEventListener( 'click', function () {
+				clearAppPasswordMemory();
+				var method = button.getAttribute( 'data-stonewright-auth-method' ) || '';
+				if ( method && window.stonewrightSetup && window.stonewrightSetup.ajaxUrl ) {
+					var body = new window.URLSearchParams();
+					body.set( 'action', 'stonewright_set_setup_client' );
+					body.set( 'nonce', window.stonewrightSetup.nonce || '' );
+					body.set( 'auth_method', method );
+					window.fetch( window.stonewrightSetup.ajaxUrl, {
+						method: 'POST',
+						credentials: 'same-origin',
+						headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+						body: body.toString(),
+					} ).catch( function () { /* best-effort */ } );
+				}
+			} );
+		} );
+		document.querySelectorAll( '[data-stonewright-client-card]' ).forEach( function ( card ) {
+			card.addEventListener( 'click', function () {
+				clearAppPasswordMemory();
+			} );
+		} );
+
+		window.addEventListener( 'pagehide', clearAppPasswordMemory );
+		window.addEventListener( 'beforeunload', clearAppPasswordMemory );
+		document.addEventListener( 'visibilitychange', function () {
+			if ( document.visibilityState === 'hidden' ) {
+				clearAppPasswordMemory();
+			}
 		} );
 	}
 
@@ -879,6 +1330,7 @@
 		initSkillEditorControls();
 		initPromptLibrary();
 		initApplyMcpSurface();
+		initAppPasswordForm();
 	} );
 
 	function initPromptLibrary() {

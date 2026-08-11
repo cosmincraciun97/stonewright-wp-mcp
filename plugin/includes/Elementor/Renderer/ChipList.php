@@ -57,11 +57,6 @@ final class ChipList {
 			];
 		}
 
-		$layout = LayoutNormalizer::for_spec(
-			[ 'desktop' => 'row', 'tablet' => 'row', 'mobile' => 'row' ],
-			[ 'desktop' => 'row', 'tablet' => 'row', 'mobile' => 'row' ]
-		);
-
 		$settings = [
 			'container_type'  => 'flex',
 			'flex_direction'  => 'row',

@@ -302,12 +302,15 @@ final class LayoutNormalizer {
 	 * @param array<mixed> $value
 	 */
 	private static function is_viewport_map( array $value ): bool {
+		if ( [] === $value ) {
+			return false;
+		}
 		foreach ( array_keys( $value ) as $key ) {
-			if ( is_string( $key ) && in_array( $key, [ 'desktop', 'tablet', 'mobile' ], true ) ) {
-				return true;
+			if ( ! is_string( $key ) || ! in_array( $key, [ 'desktop', 'tablet', 'mobile' ], true ) ) {
+				return false;
 			}
 		}
 
-		return false;
+		return true;
 	}
 }

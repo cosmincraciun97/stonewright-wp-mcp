@@ -57,24 +57,14 @@ final class DesignStudioPageTest extends TestCase {
 	public function test_design_studio_appears_before_blueprints_in_the_shell(): void {
 		$slugs = array_keys( AdminShell::pages() );
 
-		self::assertContains( DesignStudioPage::SLUG, $slugs );
-		self::assertContains( 'stonewright-blueprints', $slugs );
-		self::assertLessThan(
-			array_search( 'stonewright-blueprints', $slugs, true ),
-			array_search( DesignStudioPage::SLUG, $slugs, true )
-		);
+		self::assertNotContains( DesignStudioPage::SLUG, $slugs );
+		self::assertNotContains( 'stonewright-blueprints', $slugs );
+		self::assertNotContains( 'stonewright-visual-workspace', $slugs );
 	}
 
-	public function test_design_studio_lives_in_the_design_library_group(): void {
-		$group = null;
-		foreach ( AdminShell::menu_groups() as $candidate ) {
-			if ( 'design-library' === $candidate['id'] ) {
-				$group = $candidate;
-			}
-		}
-
-		self::assertIsArray( $group );
-		self::assertArrayHasKey( DesignStudioPage::SLUG, $group['pages'] );
+	public function test_design_library_group_is_removed_from_shell(): void {
+		$ids = array_column( AdminShell::menu_groups(), 'id' );
+		self::assertNotContains( 'design-library', $ids );
 	}
 
 	public function test_render_refuses_users_without_manage_options(): void {

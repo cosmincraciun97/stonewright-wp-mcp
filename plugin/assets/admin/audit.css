@@ -8,6 +8,24 @@
 	box-sizing: border-box;
 }
 
+.sw-audit-page .sw-incident-summary {
+	padding: var(--sw-space-5);
+	margin: 0 0 var(--sw-space-5);
+	background: var(--sw-surface);
+	border: 1px solid var(--sw-border);
+	border-radius: var(--sw-radius);
+	box-shadow: var(--sw-shadow-1);
+}
+
+.sw-audit-page .sw-incident-summary .sw-section__head,
+.sw-audit-page .sw-incident-summary .sw-actions {
+	margin: 0;
+}
+
+.sw-audit-page .sw-incident-summary .sw-actions {
+	margin-top: var(--sw-space-4);
+}
+
 .sw-audit-filters {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));

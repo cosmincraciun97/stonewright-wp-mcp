@@ -122,6 +122,48 @@ final class ClientRepository implements ClientRepositoryInterface {
 	}
 
 	/**
+	 * Resolve client display names in one query for audit/admin views.
+	 *
+	 * @param list<string> $client_ids OAuth client identifiers.
+	 * @return array<string, string> Client id to sanitized display name.
+	 */
+	public function names_by_ids( array $client_ids ): array {
+		global $wpdb;
+
+		$client_ids = array_values(
+			array_unique(
+				array_filter(
+					array_map( static fn( mixed $id ): string => sanitize_text_field( (string) $id ), $client_ids )
+				)
+			)
+		);
+		if ( [] === $client_ids ) {
+			return [];
+		}
+
+		$placeholders = implode( ', ', array_fill( 0, count( $client_ids ), '%s' ) );
+		// phpcs:disable WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQL.NotPrepared -- The placeholder list is generated from the bounded id count and every value is still passed to prepare().
+		$query = $wpdb->prepare(
+			"SELECT client_id, client_name
+			FROM {$wpdb->prefix}stonewright_oauth_clients
+			WHERE client_id IN ({$placeholders})", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Only generated %s placeholders are interpolated.
+			...$client_ids
+		);
+		$rows  = $wpdb->get_results( $query, ARRAY_A );
+		// phpcs:enable
+		$names = [];
+		foreach ( is_array( $rows ) ? $rows : [] as $row ) {
+			$id   = sanitize_text_field( (string) ( $row['client_id'] ?? '' ) );
+			$name = sanitize_text_field( (string) ( $row['client_name'] ?? '' ) );
+			if ( '' !== $id && '' !== $name ) {
+				$names[ $id ] = $name;
+			}
+		}
+
+		return $names;
+	}
+
+	/**
 	 * @return list<array{client_id:string,client_name:string,created_at:string,last_used_at:string|null}>
 	 */
 	public function list_recent( int $limit = 50 ): array {

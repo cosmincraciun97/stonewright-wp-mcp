@@ -53,6 +53,7 @@ final class KitBatchMutateTest extends TestCase {
 		$GLOBALS['stonewright_test_options']         = [];
 		$GLOBALS['stonewright_test_posts']           = [];
 		$GLOBALS['stonewright_test_post_meta_calls'] = [];
+		unset( $GLOBALS['stonewright_test_update_post_meta_returns'] );
 		unset( $GLOBALS['stonewright_mode'] );
 	}
 
@@ -138,6 +139,8 @@ final class KitBatchMutateTest extends TestCase {
 		self::assertSame( 'h1.entry-title', $settings['page_title_selector'] );
 		self::assertSame( '#112233', $settings['custom_colors'][0]['color'] );
 		self::assertSame( 'keep-me', $settings['custom_colors'][0]['extra_pro_key'] );
+		self::assertTrue( $result['cache_invalidation']['ok'] );
+		self::assertArrayNotHasKey( 'stonewright_elementor_lock_44', $GLOBALS['stonewright_test_options'] );
 	}
 
 	public function test_no_kit_errors(): void {
@@ -216,5 +219,71 @@ final class KitBatchMutateTest extends TestCase {
 		self::assertSame( 0, $second['applied'] );
 		self::assertSame( $second['before_hash'], $second['after_hash'] );
 		self::assertSame( $meta_calls_before, count( $GLOBALS['stonewright_test_post_meta_calls'] ?? [] ) );
+	}
+
+	public function test_readback_mismatch_restores_snapshot_instead_of_reporting_success(): void {
+		// Simulate a storage layer that reports success without persisting the kit value.
+		$GLOBALS['stonewright_test_update_post_meta_returns'] = [ '_elementor_page_settings' => true ];
+
+		$result = ( new KitBatchMutate() )->execute(
+			[
+				'operations' => [
+					[ 'group' => 'layout', 'container_width' => 1140 ],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_readback_mismatch', $result->get_error_code() );
+		self::assertTrue( $result->get_error_data()['restored'] );
+		self::assertSame( 'succeeded', $result->get_error_data()['rollback_status'] );
+		self::assertSame( 1200, $GLOBALS['stonewright_test_posts'][44]->meta['_elementor_page_settings']['container_width']['size'] );
+	}
+
+	public function test_rollback_reports_failure_when_snapshot_restore_returns_false(): void {
+		$apply = ( new KitBatchMutate() )->execute(
+			[
+				'operations' => [
+					[ 'group' => 'layout', 'container_width' => 1140 ],
+				],
+			]
+		);
+		self::assertIsArray( $apply );
+
+		$snapshot_id = $apply['snapshot_id'];
+		$GLOBALS['stonewright_test_posts'][44]->meta['_stonewright_backups'][ $snapshot_id ] = [
+			'snapshot_id' => $snapshot_id,
+		];
+
+		$result = ( new KitBatchMutate() )->execute(
+			[
+				'rollback'          => true,
+				'rollback_snapshot' => $snapshot_id,
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_kit_rollback_failed', $result->get_error_code() );
+	}
+
+	public function test_apply_refuses_concurrent_kit_writer(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_elementor_lock_44'] = [
+			'post_id'     => 44,
+			'owner'       => 'other-writer',
+			'acquired_at' => time(),
+			'expires_at'  => time() + 30,
+		];
+
+		$result = ( new KitBatchMutate() )->execute(
+			[
+				'operations' => [
+					[ 'group' => 'layout', 'container_width' => 1140 ],
+				],
+			]
+		);
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_elementor_write_busy', $result->get_error_code() );
+		self::assertSame( [], $GLOBALS['stonewright_test_post_meta_calls'] );
 	}
 }

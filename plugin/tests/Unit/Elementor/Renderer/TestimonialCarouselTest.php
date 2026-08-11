@@ -92,6 +92,26 @@ final class TestimonialCarouselTest extends TestCase {
 		self::assertNull( TestimonialCarousel::select_widget( [ 'not-registered-at-all-zzz' ] ) );
 	}
 
+	public function test_live_but_incompatible_carousel_is_rejected(): void {
+		$this->install_incompatible_slides_manager();
+		self::assertNull( TestimonialCarousel::select_widget( [ 'slides' ] ) );
+
+		$diagnostics = [];
+		$result      = TestimonialCarousel::render(
+			[
+				'type'        => 'testimonial-carousel',
+				'widget_type' => 'slides',
+				'items'       => [ [ 'name' => 'A', 'content' => 'x' ] ],
+			],
+			new Resolver( [] ),
+			's0.b0',
+			$diagnostics
+		);
+
+		self::assertNull( $result );
+		self::assertSame( TestimonialCarousel::ERROR_CODE, $diagnostics[0]['code'] );
+	}
+
 	public function test_empty_items_refuses_write(): void {
 		$diagnostics = [];
 		$result      = TestimonialCarousel::render(
@@ -169,6 +189,28 @@ final class TestimonialCarouselTest extends TestCase {
 							return $widgets;
 						}
 						return $widgets[ $name ] ?? null;
+					}
+				},
+			]
+		);
+		WidgetSchemaRepository::reset_request_cache();
+		$GLOBALS['stonewright_test_transients'] = [];
+	}
+
+	private function install_incompatible_slides_manager(): void {
+		$base = $this->original_elementor;
+		\Elementor\Plugin::$instance = (object) array_merge(
+			(array) $base,
+			[
+				'widgets_manager' => new class() {
+					public function get_widget_types( ?string $name = null ): array|object|null {
+						$widget = new class() {
+							/** @return array<string, array<string, mixed>> */
+							public function get_controls(): array {
+								return [ 'slides' => [ 'type' => 'text', 'section' => 'content' ] ];
+							}
+						};
+						return null === $name ? [ 'slides' => $widget ] : ( 'slides' === $name ? $widget : null );
 					}
 				},
 			]

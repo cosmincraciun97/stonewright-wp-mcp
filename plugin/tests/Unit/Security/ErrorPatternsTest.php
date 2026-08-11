@@ -63,7 +63,7 @@ final class ErrorPatternsTest extends TestCase {
 		self::assertSame( [], ErrorPatterns::recurring() );
 	}
 
-	public function test_learning_write_failure_is_logged(): void {
+	public function test_learning_write_failure_is_logged_only_on_verified_recipe_promote(): void {
 		$log_file = tempnam( sys_get_temp_dir(), 'sw-ep-log-' );
 		self::assertNotFalse( $log_file );
 		$previous_log = ini_get( 'error_log' );
@@ -100,15 +100,28 @@ final class ErrorPatternsTest extends TestCase {
 			'error_code' => 'stonewright_demo_failure',
 			'message'    => 'Demo failed',
 		];
+		// Unresolved observe must not attempt a learning write.
 		ErrorPatterns::observe( 'stonewright/demo-ability', 'error', $args );
 		ErrorPatterns::observe( 'stonewright/demo-ability', 'error', $args );
+		$mid = (string) file_get_contents( $log_file );
+		self::assertStringNotContainsString( 'error_pattern_learning_write_failed', $mid );
+
+		// Verified recipe promotion is the only automatic learning write path.
+		ErrorPatterns::observe_verified_repair(
+			'stonewright/demo-ability',
+			[
+				'effect_verified'     => true,
+				'verification_status' => 'verified',
+				'repair_recipe'       => 'Fix the fixture, then retry once.',
+			]
+		);
 
 		ini_set( 'error_log', (string) $previous_log );
 		$log = (string) file_get_contents( $log_file );
 		@unlink( $log_file );
 
 		self::assertStringContainsString( 'error_pattern_learning_write_failed', $log );
-		self::assertStringContainsString( 'learning-audit-error-', $log );
+		self::assertStringContainsString( 'verified-repair-', $log );
 	}
 
 	public function test_audit_log_records_error_pattern_throws(): void {
@@ -117,8 +130,6 @@ final class ErrorPatternsTest extends TestCase {
 		$previous_log = ini_get( 'error_log' );
 		ini_set( 'error_log', $log_file );
 
-		// Second error promotes a learning row; make put_typed's SELECT throw so
-		// AuditLog's catch logs error_patterns_observe_threw instead of swallowing.
 		$GLOBALS['wpdb'] = new class() {
 			public string $prefix     = 'wp_';
 			public string $last_error = '';
@@ -131,7 +142,7 @@ final class ErrorPatternsTest extends TestCase {
 			}
 
 			public function get_var( string $query ): mixed {
-				throw new \RuntimeException( 'simulated observe failure via get_var' );
+				return null;
 			}
 
 			public function prepare( string $query, mixed ...$args ): string {
@@ -144,9 +155,15 @@ final class ErrorPatternsTest extends TestCase {
 			}
 		};
 
+		ErrorPatterns::set_test_before_observe(
+			static function () {
+				throw new \RuntimeException( 'simulated observe failure via get_var' );
+			}
+		);
+
 		$args = [ 'error_code' => 'x', 'message' => 'boom' ];
 		AuditLog::record( 'stonewright/demo-ability', $args, 'error' );
-		AuditLog::record( 'stonewright/demo-ability', $args, 'error' );
+		ErrorPatterns::set_test_before_observe( null );
 
 		ini_set( 'error_log', (string) $previous_log );
 		$log = (string) file_get_contents( $log_file );

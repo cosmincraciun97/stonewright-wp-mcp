@@ -49,6 +49,20 @@ final class AdminBarIndicatorTest extends TestCase {
 		self::assertStringContainsString( 'target=on', (string) $bar->nodes['stonewright-toggle']['href'] );
 	}
 
+	public function test_add_node_shows_blocked_not_off_on_domain_mismatch(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_enabled'] = true;
+		$GLOBALS['stonewright_test_options']['stonewright_locked_domain'] = 'https://old.example/';
+		$GLOBALS['stonewright_test_home_url'] = 'https://new.example/';
+
+		$bar = new \WP_Admin_Bar();
+		AdminBarIndicator::add_node( $bar );
+
+		self::assertStringContainsString( 'BLOCKED', (string) $bar->nodes['stonewright-on']['title'] );
+		self::assertStringNotContainsString( 'Stonewright OFF', (string) $bar->nodes['stonewright-on']['title'] );
+		self::assertArrayHasKey( 'stonewright-review-domain', $bar->nodes );
+		self::assertStringContainsString( 'domain-lock', (string) $bar->nodes['stonewright-on']['href'] );
+	}
+
 	public function test_add_node_shows_error_when_vendor_missing_and_enabled(): void {
 		VendorGuard::set_error_for_tests(
 			new \WP_Error( 'stonewright_missing_vendor', 'vendor missing' )

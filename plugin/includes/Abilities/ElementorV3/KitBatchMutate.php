@@ -5,6 +5,8 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Abilities\Common\ConfirmationGuard;
+use Stonewright\WpMcp\Elementor\PostCacheInvalidator;
+use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Security\Backup;
 use Stonewright\WpMcp\Security\Permissions;
 
@@ -98,6 +100,8 @@ final class KitBatchMutate extends AbilityKernel {
 				'preview'       => [ 'type' => 'object' ],
 				'readback'      => [ 'type' => 'object' ],
 				'rollback'      => [ 'type' => 'boolean' ],
+				'noop'          => [ 'type' => 'boolean' ],
+				'cache_invalidation' => [ 'type' => 'object' ],
 			],
 		];
 	}
@@ -125,6 +129,21 @@ final class KitBatchMutate extends AbilityKernel {
 					return $this->error( 'no_kit', __( 'No active Elementor kit.', 'stonewright' ) );
 				}
 
+				$requires_lock = ! empty( $args['rollback'] ) || empty( $args['dry_run'] );
+				$lock_owner    = '';
+				if ( $requires_lock ) {
+					$lock_owner = 'kit-' . substr(
+						hash( 'sha256', $kit_id . '|' . (string) wp_json_encode( $verify_args ) . '|' . hrtime( true ) ),
+						0,
+						24
+					);
+					$lease = PostWriteLock::acquire( $kit_id, $lock_owner );
+					if ( $lease instanceof \WP_Error ) {
+						return $lease;
+					}
+				}
+
+				try {
 				if ( ! empty( $args['rollback'] ) ) {
 					return self::rollback( $kit_id, (string) ( $args['rollback_snapshot'] ?? '' ) );
 				}
@@ -205,10 +224,26 @@ final class KitBatchMutate extends AbilityKernel {
 				$readback_hash = self::hash_settings( $readback );
 
 				// WordPress returns false from update_post_meta when the value is
-				// unchanged. Treat matching planned readback as success, not write_failed.
-				if ( false === $write_ok && ! hash_equals( $after_hash, $readback_hash ) ) {
-					return $this->error( 'write_failed', __( 'Could not save Elementor kit settings.', 'stonewright' ) );
+				// unchanged. Matching planned readback is therefore authoritative.
+				// Any mismatch is a failed transaction and restores the snapshot.
+				if ( ! hash_equals( $after_hash, $readback_hash ) ) {
+					$restored = Backup::restore_snapshot( $kit_id, $snapshot_id );
+					$code     = false === $write_ok ? 'write_failed' : 'readback_mismatch';
+					return $this->error(
+						$code,
+						__( 'Elementor kit readback did not match the planned settings; the snapshot restore was attempted.', 'stonewright' ),
+						[
+							'status'          => 500,
+							'expected_hash'   => $after_hash,
+							'readback_hash'   => $readback_hash,
+							'snapshot_id'     => $snapshot_id,
+							'restored'        => $restored,
+							'rollback_status' => $restored ? 'succeeded' : 'failed',
+						]
+					);
 				}
+
+				$cache_invalidation = PostCacheInvalidator::invalidate( $kit_id );
 
 				return [
 					'ok'            => true,
@@ -226,8 +261,14 @@ final class KitBatchMutate extends AbilityKernel {
 						'typo_system'     => count( is_array( $readback['system_typography'] ?? null ) ? $readback['system_typography'] : [] ),
 						'typo_custom'     => count( is_array( $readback['custom_typography'] ?? null ) ? $readback['custom_typography'] : [] ),
 					],
-					'rollback'      => false,
+					'rollback'          => false,
+					'cache_invalidation'=> $cache_invalidation,
 				];
+				} finally {
+					if ( $requires_lock ) {
+						PostWriteLock::release( $kit_id, $lock_owner );
+					}
+				}
 			}
 		);
 	}
@@ -472,7 +513,7 @@ final class KitBatchMutate extends AbilityKernel {
 			);
 		}
 
-		if ( ! Backup::restore( $kit_id, $snapshot_id ) ) {
+		if ( ! Backup::restore_snapshot( $kit_id, $snapshot_id ) ) {
 			return new \WP_Error(
 				'stonewright_kit_rollback_failed',
 				__( 'Failed to restore the kit from the given snapshot.', 'stonewright' ),

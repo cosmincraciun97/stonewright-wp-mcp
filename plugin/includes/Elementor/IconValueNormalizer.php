@@ -68,19 +68,34 @@ final class IconValueNormalizer {
 			return self::from_svg( $raw, $value );
 		}
 
-		if ( in_array( $library, self::FA_LIBRARIES, true ) || 'eicons' === $library || 'eicon' === $library ) {
+		if ( in_array( $library, self::FA_LIBRARIES, true ) ) {
 			if ( ! is_string( $value ) || '' === trim( $value ) ) {
 				return self::error( 'missing_value', 'Icon value is required for library ' . $library . '.' );
 			}
-			$lib = 'eicon' === $library ? 'eicons' : $library;
-			if ( 'eicons' === $lib && ! self::is_eicon( $value ) ) {
-				// Allow bare eicon names; prefix if missing.
-				$value = str_starts_with( $value, 'eicon-' ) ? $value : 'eicon-' . ltrim( $value, '-' );
+			$normalized = self::from_string( trim( $value ) );
+			if ( $normalized instanceof \WP_Error ) {
+				return $normalized;
 			}
-			return [
-				'value'   => trim( (string) $value ),
-				'library' => $lib,
-			];
+			if ( ! hash_equals( $library, $normalized['library'] ) ) {
+				return self::error(
+					'library_mismatch',
+					'Icon value prefix does not match the declared Font Awesome library.',
+					[ 'library' => $library, 'inferred_library' => $normalized['library'] ]
+				);
+			}
+			return $normalized;
+		}
+
+		if ( 'eicons' === $library || 'eicon' === $library ) {
+			if ( ! is_string( $value ) || '' === trim( $value ) ) {
+				return self::error( 'missing_value', 'Icon value is required for library ' . $library . '.' );
+			}
+			$value = trim( $value );
+			$value = str_starts_with( strtolower( $value ), 'eicon-' ) ? $value : 'eicon-' . ltrim( $value, '-' );
+			if ( ! self::is_eicon( $value ) ) {
+				return self::error( 'invalid_class', 'Eicon values must contain one eicon-* CSS class token.' );
+			}
+			return [ 'value' => strtolower( $value ), 'library' => 'eicons' ];
 		}
 
 		if ( is_string( $value ) && '' !== trim( $value ) ) {
@@ -136,7 +151,7 @@ final class IconValueNormalizer {
 		}
 
 		// fa-solid fa-arrow-circle-right style (FA5+ long form).
-		if ( preg_match( '/^(fa-(?:solid|regular|brands|light|duotone|thin))\s+(.+)$/i', $value, $m ) ) {
+		if ( preg_match( '/^(fa-(?:solid|regular|brands|light|duotone|thin))\s+(fa-[a-z0-9-]+)$/i', $value, $m ) ) {
 			return [
 				'value'   => strtolower( $m[1] ) . ' ' . trim( $m[2] ),
 				'library' => strtolower( $m[1] ),
@@ -144,7 +159,7 @@ final class IconValueNormalizer {
 		}
 
 		// fas fa-arrow-circle-right style (short prefix).
-		if ( preg_match( '/^(fa[srlbdt]{1,2})\s+(.+)$/i', $value, $m ) ) {
+		if ( preg_match( '/^(fas|far|fal|fad|fat|fab|fass)\s+(fa-[a-z0-9-]+)$/i', $value, $m ) ) {
 			$prefix  = strtolower( $m[1] );
 			$library = self::FA_PREFIX_LIBRARY[ $prefix ] ?? 'fa-solid';
 			return [
@@ -154,13 +169,9 @@ final class IconValueNormalizer {
 		}
 
 		// Bare fa-* glyph with no prefix → fa-solid.
-		if ( preg_match( '/^fa[srlbdt]?[\w-]*$/i', $value ) || str_starts_with( $value, 'fa-' ) ) {
-			$normalized = str_starts_with( $value, 'fa-' ) ? 'fas ' . $value : $value;
-			if ( ! str_contains( $normalized, ' ' ) ) {
-				$normalized = 'fas ' . ltrim( $value, ' ' );
-			}
+		if ( preg_match( '/^fa-[a-z0-9-]+$/i', $value ) ) {
 			return [
-				'value'   => $normalized,
+				'value'   => 'fas ' . strtolower( $value ),
 				'library' => 'fa-solid',
 			];
 		}
@@ -188,6 +199,16 @@ final class IconValueNormalizer {
 
 		$url = isset( $payload['url'] ) ? trim( (string) $payload['url'] ) : '';
 		$id  = isset( $payload['id'] ) ? $payload['id'] : ( $payload['value']['id'] ?? '' );
+		if ( '' !== $url ) {
+			$scheme = strtolower( (string) parse_url( $url, PHP_URL_SCHEME ) );
+			if ( ! in_array( $scheme, [ 'http', 'https' ], true ) ) {
+				return self::error( 'svg_url_invalid', 'SVG/media icon URLs must use http or https.' );
+			}
+			$url = esc_url_raw( $url, [ 'http', 'https' ] );
+			if ( '' === $url ) {
+				return self::error( 'svg_url_invalid', 'SVG/media icon URL could not be normalized safely.' );
+			}
+		}
 
 		// id is never null here: isset excludes null, and ?? '' collapses missing/null nested id.
 		if ( '' === $url && ( '' === $id || 0 === $id || '0' === $id ) ) {
@@ -204,7 +225,7 @@ final class IconValueNormalizer {
 	}
 
 	private static function is_eicon( string $value ): bool {
-		return str_starts_with( strtolower( $value ), 'eicon-' );
+		return 1 === preg_match( '/^eicon-[a-z0-9-]+$/i', $value );
 	}
 
 	/**

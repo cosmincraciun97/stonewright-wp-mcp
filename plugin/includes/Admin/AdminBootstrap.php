@@ -3,12 +3,9 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Admin;
 
-use Stonewright\WpMcp\Admin\Pages\BlueprintsPage;
-use Stonewright\WpMcp\Admin\Pages\DesignStudioPage;
 use Stonewright\WpMcp\Admin\Pages\PromptLibraryPage;
 use Stonewright\WpMcp\Admin\Pages\SandboxLibraryPage;
 use Stonewright\WpMcp\Admin\Pages\StatusPage;
-use Stonewright\WpMcp\Admin\Pages\VisualWorkspacePage;
 use Stonewright\WpMcp\Admin\RestApi;
 use Stonewright\WpMcp\Sandbox\CrashRecovery;
 
@@ -34,13 +31,13 @@ final class AdminBootstrap {
 		self::$registered = true;
 
 		StatusPage::register();
-		DesignStudioPage::register();
-		VisualWorkspacePage::register();
-		BlueprintsPage::register();
+		// Design Library admin UI (Design Studio / Visual Workspace / Blueprints)
+		// is intentionally not registered. Typed design abilities remain available
+		// over MCP; storage tables/options are preserved.
 		PromptLibraryPage::register();
 		SandboxLibraryPage::register();
 		add_action( 'rest_api_init', [ RestApi::class, 'register' ] );
-		add_action( 'rest_api_init', [ DesignStudioRestApi::class, 'register' ] );
+		// DesignStudioRestApi stays unregistered with the Design Library UI.
 		add_action( 'rest_api_init', [ SkillsRestApi::class, 'register' ] );
 		add_action( 'admin_enqueue_scripts', [ self::class, 'enqueue_assets' ] );
 		add_action( 'admin_notices', [ CrashRecovery::class, 'admin_notice' ] );
@@ -150,7 +147,6 @@ final class AdminBootstrap {
 		$page_styles = [
 			'stonewright'               => 'setup.css',
 			'stonewright-abilities'     => 'abilities.css',
-			'stonewright-blueprints'    => 'blueprints.css',
 			// Prompt library reuses the catalog card/grid system from blueprints.css.
 			'stonewright-prompts'       => 'blueprints.css',
 			'stonewright-status'        => 'dashboard.css',
@@ -158,8 +154,6 @@ final class AdminBootstrap {
 			'stonewright-skills'        => 'skills-memory.css',
 			'stonewright-memory'        => 'skills-memory.css',
 			'stonewright-sandbox'       => 'sandbox.css',
-			'stonewright-design-studio' => 'design-studio.css',
-			'stonewright-visual-workspace' => 'visual-workspace.css',
 		];
 
 		if ( isset( $page_styles[ $page ] ) ) {
@@ -178,8 +172,6 @@ final class AdminBootstrap {
 				$handle = 'stonewright-admin-audit';
 			} elseif ( 'sandbox.css' === $page_styles[ $page ] ) {
 				$handle = 'stonewright-admin-sandbox';
-			} elseif ( 'design-studio.css' === $page_styles[ $page ] ) {
-				$handle = 'stonewright-admin-design-studio';
 			}
 
 			wp_enqueue_style(
@@ -207,63 +199,17 @@ final class AdminBootstrap {
 				'stonewright-admin',
 				'stonewrightSetup',
 				[
-					'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-					'nonce'   => wp_create_nonce( 'stonewright_setup_client' ),
+					'ajaxUrl'          => admin_url( 'admin-ajax.php' ),
+					'nonce'            => wp_create_nonce( 'stonewright_setup_client' ),
+					'appPasswordUrl'   => rest_url( 'stonewright/v1/app-password' ),
+					'restNonce'        => wp_create_nonce( 'wp_rest' ),
+					'username'         => (string) ( wp_get_current_user()->user_login ?? '' ),
 				]
 			);
 		}
 
-		// The Design Studio app and its boot payload load on that page only.
-		if ( DesignStudioPage::SLUG === $page ) {
-			wp_enqueue_script(
-				'stonewright-admin-design-studio',
-				$url_base . 'assets/admin/design-studio.js',
-				[ 'stonewright-admin' ],
-				$version,
-				true
-			);
-
-			wp_localize_script(
-				'stonewright-admin-design-studio',
-				'stonewrightDesignStudio',
-				DesignStudioPage::boot_payload()
-			);
-		}
-
-		// The workspace page chrome — the inspector drawer and its focus
-		// handling — works with or without the browser bundle.
-		if ( VisualWorkspacePage::SLUG === $page ) {
-			wp_enqueue_script(
-				'stonewright-admin-visual-workspace',
-				$url_base . 'assets/admin/visual-workspace.js',
-				[ 'stonewright-admin' ],
-				$version,
-				true
-			);
-
-			// The Stonewright Visual browser bundle is built from the `visual`
-			// package and staged during packaging, so a source checkout does
-			// not carry it. The page reports that instead of requesting a file
-			// that is not there.
-			if ( VisualWorkspacePage::bundle_ready( VisualWorkspacePage::bundle_path() ) ) {
-				wp_enqueue_script(
-					'stonewright-visual-workspace',
-					$url_base . 'assets/visual/workspace-browser.js',
-					[ 'stonewright-admin-visual-workspace' ],
-					$version,
-					true
-				);
-
-				wp_localize_script(
-					'stonewright-visual-workspace',
-					'stonewrightVisualWorkspace',
-					VisualWorkspacePage::boot_payload(
-						VisualWorkspacePage::current_post_id(),
-						VisualWorkspacePage::requested_editor()
-					)
-				);
-			}
-		}
+		// Design Studio / Visual Workspace admin assets are not enqueued —
+		// Design Library UI is disabled. MCP design abilities remain available.
 
 		// The skill lifecycle app and its boot payload load on that page only.
 		if ( SkillsPage::SLUG === $page ) {

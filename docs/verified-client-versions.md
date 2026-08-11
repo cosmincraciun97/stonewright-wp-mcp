@@ -28,5 +28,5 @@ fixtures for generated configs; proprietary GUI clients cannot run in CI.
 2. Apply the client snippet (CLI add preferred when available).
 3. Restart / reload the MCP client.
 4. Confirm `stonewright-task-start` appears in the tool list.
-5. Run in-admin **Verify connection** (loopback) and/or `npx @stonewright/companion doctor`.
+5. Run in-admin **Verify connection** (loopback) and/or the versioned `stonewright doctor` companion command.
 6. Update the `Manual smoke` column and `verified_against_docs_on` in the client JSON.

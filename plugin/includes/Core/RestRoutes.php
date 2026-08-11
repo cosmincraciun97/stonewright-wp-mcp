@@ -154,11 +154,11 @@ final class RestRoutes {
 						);
 					}
 
-					$master_enabled = (bool) get_option( 'stonewright_enabled', false );
+					$master_enabled = \Stonewright\WpMcp\Security\PluginEffectiveState::is_effectively_enabled();
 					if ( ! $master_enabled && 'stonewright/ping' !== $name ) {
 						return new \WP_Error(
 							'stonewright_disabled',
-							__( 'Master toggle is OFF.', 'stonewright' ),
+							__( 'Master toggle is OFF or blocked (domain lock / dependency).', 'stonewright' ),
 							[ 'status' => 403 ]
 						);
 					}
@@ -410,10 +410,10 @@ final class RestRoutes {
 		// -----------------------------------------------------------------
 
 		$sandbox_toggle_check = static function (): ?\WP_Error {
-			if ( ! (bool) get_option( 'stonewright_enabled', false ) ) {
+			if ( ! \Stonewright\WpMcp\Security\PluginEffectiveState::is_effectively_enabled() ) {
 				return new \WP_Error(
 					'stonewright_disabled',
-					__( 'Master toggle is OFF', 'stonewright' ),
+					__( 'Master toggle is OFF or blocked (domain lock / dependency).', 'stonewright' ),
 					[ 'status' => 403 ]
 				);
 			}
@@ -726,52 +726,146 @@ final class RestRoutes {
 		);
 
 		// -----------------------------------------------------------------
-		// Application Password (generate once)
+		// Application Password (create / list / revoke — password once only)
 		// -----------------------------------------------------------------
 
 		register_rest_route(
 			'stonewright/v1',
 			'/app-password',
 			[
-				'methods'             => 'POST',
-				'permission_callback' => [ Permissions::class, 'manage_options' ],
-				'args'                => [
-					'name' => [
-						'type'    => 'string',
-						'default' => 'Stonewright',
-					],
-				],
-				'callback'            => static function ( \WP_REST_Request $request ) {
-					if ( ! class_exists( 'WP_Application_Passwords' ) ) {
-						return new \WP_Error(
-							'stonewright_app_passwords_unavailable',
-							__( 'Application Passwords are not available on this WordPress installation.', 'stonewright' ),
-							[ 'status' => 501 ]
+				[
+					'methods'             => 'GET',
+					'permission_callback' => [ Permissions::class, 'manage_options' ],
+					'callback'            => static function () {
+						$user_id = get_current_user_id();
+						$rows    = [];
+						if (
+							$user_id > 0
+							&& class_exists( 'WP_Application_Passwords' )
+							&& method_exists( '\WP_Application_Passwords', 'get_user_application_passwords' )
+						) {
+							$passwords = \WP_Application_Passwords::get_user_application_passwords( $user_id );
+							if ( is_array( $passwords ) ) {
+								foreach ( $passwords as $item ) {
+									if ( ! is_array( $item ) ) {
+										continue;
+									}
+									$rows[] = [
+										'uuid'    => (string) ( $item['uuid'] ?? '' ),
+										'name'    => (string) ( $item['name'] ?? '' ),
+										'created' => (int) ( $item['created'] ?? 0 ),
+										'last_used' => (int) ( $item['last_used'] ?? 0 ),
+									];
+								}
+							}
+						}
+
+						$response = rest_ensure_response(
+							[
+								'username'  => wp_get_current_user()->user_login ?? '',
+								'passwords' => $rows,
+							]
 						);
-					}
+						$response->header( 'Cache-Control', 'no-store, private' );
+						return $response;
+					},
+				],
+				[
+					'methods'             => 'POST',
+					'permission_callback' => [ Permissions::class, 'manage_options' ],
+					'args'                => [
+						'name' => [
+							'type'    => 'string',
+							'default' => 'Stonewright',
+						],
+					],
+					'callback'            => static function ( \WP_REST_Request $request ) {
+						if ( ! class_exists( 'WP_Application_Passwords' ) ) {
+							return new \WP_Error(
+								'stonewright_app_passwords_unavailable',
+								__( 'Application Passwords are not available on this WordPress installation.', 'stonewright' ),
+								[ 'status' => 501 ]
+							);
+						}
 
-					$user_id = get_current_user_id();
-					$name    = sanitize_text_field( (string) $request->get_param( 'name' ) );
-					if ( '' === $name ) {
-						$name = 'Stonewright';
-					}
+						$user_id = get_current_user_id();
+						$name    = sanitize_text_field( (string) $request->get_param( 'name' ) );
+						if ( '' === $name ) {
+							return new \WP_Error(
+								'stonewright_app_password_name_required',
+								__( 'Enter a name before generating an Application Password.', 'stonewright' ),
+								[ 'status' => 400 ]
+							);
+						}
 
-					$result = \WP_Application_Passwords::create_new_application_password(
-						$user_id,
-						[ 'name' => $name ]
-					);
+						$result = \WP_Application_Passwords::create_new_application_password(
+							$user_id,
+							[ 'name' => $name ]
+						);
 
-					if ( is_wp_error( $result ) ) {
-						$result->add_data( [ 'status' => 500 ] );
-						return $result;
-					}
+						if ( is_wp_error( $result ) ) {
+							$result->add_data( [ 'status' => 500 ] );
+							return $result;
+						}
 
-					// $result[0] = plaintext password (shown once), $result[1] = item array with uuid.
-					return rest_ensure_response( [
-						'uuid'     => $result[1]['uuid'] ?? '',
-						'password' => $result[0],
-					] );
-				},
+						// $result[0] = plaintext password (shown once), $result[1] = item array with uuid.
+						// Never persist plaintext; return once with no-store.
+						$response = rest_ensure_response(
+							[
+								'uuid'     => (string) ( $result[1]['uuid'] ?? '' ),
+								'name'     => $name,
+								'password' => (string) $result[0],
+								'created'  => (int) ( $result[1]['created'] ?? time() ),
+								'username' => (string) ( wp_get_current_user()->user_login ?? '' ),
+							]
+						);
+						$response->header( 'Cache-Control', 'no-store, private' );
+						return $response;
+					},
+				],
+				[
+					'methods'             => 'DELETE',
+					'permission_callback' => [ Permissions::class, 'manage_options' ],
+					'args'                => [
+						'uuid' => [
+							'type'     => 'string',
+							'required' => true,
+						],
+					],
+					'callback'            => static function ( \WP_REST_Request $request ) {
+						if ( ! class_exists( 'WP_Application_Passwords' ) || ! method_exists( '\WP_Application_Passwords', 'delete_application_password' ) ) {
+							return new \WP_Error(
+								'stonewright_app_passwords_unavailable',
+								__( 'Application Password revocation is not available on this site.', 'stonewright' ),
+								[ 'status' => 501 ]
+							);
+						}
+
+						$uuid = sanitize_text_field( (string) $request->get_param( 'uuid' ) );
+						if ( '' === $uuid ) {
+							return new \WP_Error(
+								'stonewright_app_password_uuid_required',
+								__( 'Choose an Application Password to revoke.', 'stonewright' ),
+								[ 'status' => 400 ]
+							);
+						}
+
+						$deleted = \WP_Application_Passwords::delete_application_password( get_current_user_id(), $uuid );
+						if ( is_wp_error( $deleted ) ) {
+							$deleted->add_data( [ 'status' => 500 ] );
+							return $deleted;
+						}
+
+						$response = rest_ensure_response(
+							[
+								'deleted' => true,
+								'uuid'    => $uuid,
+							]
+						);
+						$response->header( 'Cache-Control', 'no-store, private' );
+						return $response;
+					},
+				],
 			]
 		);
 
@@ -998,44 +1092,329 @@ final class RestRoutes {
 			return $response;
 		}
 
-		$status = 'ok';
-		if ( $response instanceof \WP_Error ) {
-			$data = $response->get_error_data();
-			$http = is_array( $data ) ? (int) ( $data['status'] ?? 0 ) : 0;
-			$code = (string) $response->get_error_code();
-			$status = ( 403 === $http || str_contains( $code, 'forbidden' ) || str_contains( $code, 'blocked' ) )
-				? 'blocked'
-				: 'error';
-		} elseif ( $response instanceof \WP_HTTP_Response ) {
-			$code = (int) $response->get_status();
-			if ( $code >= 400 ) {
-				$status = 403 === $code ? 'blocked' : 'error';
-			}
-		}
+		// Extract WP_Error fields before any later conversion discards them.
+		$envelope = self::build_rest_error_envelope( $request, $response );
 
-		$route  = (string) $request->get_route();
-		$method = (string) $request->get_method();
+		$route  = $envelope['route'];
+		$method = $envelope['method'];
 		$params = $request->get_params();
 		$params = is_array( $params ) ? $params : [];
 		unset( $params['_wpnonce'], $params['_locale'] );
 		$resource     = self::resource_from_params( $params );
 		$audit_params = self::compact_audit_params( $params );
 
+		$meta = [
+			'error_code'      => $envelope['error_code'],
+			'public_message'  => $envelope['public_message'],
+			'error_message'   => $envelope['public_message'],
+			'http_status'     => $envelope['http_status'],
+			'operation_class' => 'rest_mutation',
+			'resource_type'   => $envelope['resource_type'] ?? ( '' !== $resource ? 'rest_resource' : '' ),
+			'resource_ref'    => $resource,
+			'retryable'       => $envelope['retryable'],
+			'correlation_id'  => AuditLog::request_id(),
+		];
+		if ( '' !== $envelope['target_ability'] ) {
+			$meta['target_ability'] = $envelope['target_ability'];
+			$meta['ability']        = $envelope['target_ability'];
+		}
+		if ( null !== $envelope['operation_index'] ) {
+			$meta['failed_action_index'] = $envelope['operation_index'];
+		}
+		// Stable cause: target ability (or route label) + code + resource context.
+		// Never empty `route|error|` — always include a concrete code and ability.
+		$cause_ability = '' !== $envelope['target_ability']
+			? $envelope['target_ability']
+			: ( 'rest:' . strtoupper( $method ) . ' ' . $route );
+		$meta['cause_key'] = strtolower( $cause_ability )
+			. '|' . strtolower( $envelope['error_code'] !== '' ? $envelope['error_code'] : ( 'ok' === $envelope['audit_status'] ? 'ok' : 'stonewright_rest_error' ) )
+			. '|' . strtolower( (string) $meta['resource_type'] );
+
+		$payload = [
+			'source'         => 'rest',
+			'route'          => $route,
+			'method'         => $method,
+			'mode'           => (string) get_option( 'stonewright_mode', 'development' ),
+			'resource'       => $resource,
+			'params'         => $audit_params,
+			'error_envelope' => $envelope['public'],
+			'_meta'          => $meta,
+		];
+		if ( '' !== $envelope['target_ability'] ) {
+			$payload['target_ability'] = $envelope['target_ability'];
+		}
+
 		AuditLog::record_rest_mutation(
 			$route,
 			$method,
-			[
-				'source'   => 'rest',
-				'route'    => $route,
-				'method'   => $method,
-				'mode'     => (string) get_option( 'stonewright_mode', 'development' ),
-				'resource' => $resource,
-				'params'   => $audit_params,
-			],
-			$status
+			$payload,
+			$envelope['audit_status'],
+			$envelope['target_ability']
 		);
 
 		return $response;
+	}
+
+	/**
+	 * Build the redacted REST audit error envelope from the live response.
+	 *
+	 * Captures WP_Error code/message/status and allowlisted data keys before
+	 * transport conversion can drop them. Never records credentials, tokens,
+	 * full args, code bodies, private content, or stack traces.
+	 *
+	 * @param \WP_REST_Request                                     $request  Request.
+	 * @param \WP_REST_Response|\WP_HTTP_Response|\WP_Error|mixed $response Response.
+	 * @return array{
+	 *   route:string,
+	 *   method:string,
+	 *   target_ability:string,
+	 *   audit_status:string,
+	 *   http_status:int,
+	 *   error_code:string,
+	 *   public_message:string,
+	 *   operation_index:int|null,
+	 *   resource_type:string|null,
+	 *   retryable:bool,
+	 *   public:array<string,mixed>
+	 * }
+	 */
+	public static function build_rest_error_envelope( \WP_REST_Request $request, $response ): array {
+		$route  = (string) $request->get_route();
+		$method = strtoupper( (string) $request->get_method() );
+		$target = self::target_ability_from_request( $request );
+
+		$http_status      = 200;
+		$error_code       = '';
+		$public_message   = '';
+		$operation_index  = null;
+		$resource_type    = null;
+		$retryable        = false;
+		$audit_status     = 'ok';
+		$allowlisted_data = [];
+
+		if ( $response instanceof \WP_Error ) {
+			// Prefer the original WP_Error fields; never collapse to unknown_error.
+			$error_code     = sanitize_key( (string) $response->get_error_code() );
+			$public_message = self::redact_public_message( (string) $response->get_error_message() );
+			$data           = $response->get_error_data();
+			$data           = is_array( $data ) ? $data : [];
+			$http_status    = (int) ( $data['status'] ?? 0 );
+			if ( $http_status <= 0 ) {
+				$http_status = self::default_http_status_for_code( $error_code );
+			}
+			$allowlisted_data = self::allowlisted_error_data( $data );
+			if ( isset( $data['retryable'] ) ) {
+				$retryable = (bool) $data['retryable'];
+			}
+			if ( isset( $data['failed_action_index'] ) && is_numeric( $data['failed_action_index'] ) ) {
+				$operation_index = (int) $data['failed_action_index'];
+			} elseif ( isset( $data['operation_index'] ) && is_numeric( $data['operation_index'] ) ) {
+				$operation_index = (int) $data['operation_index'];
+			}
+			if ( isset( $data['resource_type'] ) && is_scalar( $data['resource_type'] ) ) {
+				$resource_type = sanitize_key( (string) $data['resource_type'] );
+			}
+			$audit_status = self::audit_status_from_error( $error_code, $http_status, $data );
+		} elseif ( is_object( $response ) && method_exists( $response, 'get_status' ) ) {
+			$http_status = (int) $response->get_status();
+			$body        = method_exists( $response, 'get_data' ) ? $response->get_data() : null;
+			if ( is_array( $body ) && $http_status >= 400 ) {
+				// REST error shape: { code, message, data: { status, ... } }.
+				$raw_code = '';
+				if ( isset( $body['code'] ) && is_scalar( $body['code'] ) ) {
+					$raw_code = (string) $body['code'];
+				} elseif ( isset( $body['error'] ) && is_scalar( $body['error'] ) ) {
+					$raw_code = (string) $body['error'];
+				}
+				$error_code = sanitize_key( $raw_code );
+				if ( isset( $body['message'] ) && is_scalar( $body['message'] ) ) {
+					$public_message = self::redact_public_message( (string) $body['message'] );
+				} elseif ( isset( $body['error_description'] ) && is_scalar( $body['error_description'] ) ) {
+					$public_message = self::redact_public_message( (string) $body['error_description'] );
+				}
+				$nested = is_array( $body['data'] ?? null ) ? $body['data'] : $body;
+				$allowlisted_data = self::allowlisted_error_data( $nested );
+				if ( isset( $nested['retryable'] ) ) {
+					$retryable = (bool) $nested['retryable'];
+				}
+				if ( isset( $nested['failed_action_index'] ) && is_numeric( $nested['failed_action_index'] ) ) {
+					$operation_index = (int) $nested['failed_action_index'];
+				}
+				if ( isset( $nested['resource_type'] ) && is_scalar( $nested['resource_type'] ) ) {
+					$resource_type = sanitize_key( (string) $nested['resource_type'] );
+				}
+			}
+			if ( $http_status >= 400 ) {
+				$audit_status = self::audit_status_from_error( $error_code, $http_status, $allowlisted_data );
+			}
+		}
+
+		// Preserve a real code when present; only invent a bounded rest code when
+		// the transport lost the original WP_Error entirely.
+		if ( 'ok' !== $audit_status && '' === $error_code ) {
+			$error_code = 403 === $http_status
+				? 'stonewright_permission_denied'
+				: 'stonewright_rest_error';
+		}
+		if ( 'ok' !== $audit_status && '' === $public_message ) {
+			$public_message = self::default_public_message( $error_code, $http_status );
+		}
+		if ( in_array( $http_status, [ 429, 502, 503, 504 ], true ) ) {
+			$retryable = true;
+		}
+
+		$public = [
+			'route'            => $route,
+			'method'           => $method,
+			'target_ability'   => '' !== $target ? $target : null,
+			'outcome'          => 'ok' === $audit_status ? 'success' : 'error',
+			'http_status'      => $http_status,
+			'error_code'       => '' !== $error_code ? $error_code : null,
+			'public_message'   => '' !== $public_message ? $public_message : null,
+			'operation_index'  => $operation_index,
+			'resource_type'    => $resource_type,
+			'retryable'        => $retryable,
+			'correlation_id'   => AuditLog::request_id(),
+		];
+		// Allowlisted scalar data only — never merge arbitrary error data.
+		if ( [] !== $allowlisted_data ) {
+			$public['details'] = $allowlisted_data;
+		}
+
+		return [
+			'route'           => $route,
+			'method'          => $method,
+			'target_ability'  => $target,
+			'audit_status'    => $audit_status,
+			'http_status'     => $http_status,
+			'error_code'      => $error_code,
+			'public_message'  => $public_message,
+			'operation_index' => $operation_index,
+			'resource_type'   => $resource_type,
+			'retryable'       => $retryable,
+			'public'          => $public,
+		];
+	}
+
+	/**
+	 * For /abilities/run, attribute the target ability from validated request args.
+	 */
+	private static function target_ability_from_request( \WP_REST_Request $request ): string {
+		$route = (string) $request->get_route();
+		if ( ! str_ends_with( $route, '/abilities/run' ) ) {
+			return '';
+		}
+		$name = $request->get_param( 'name' );
+		if ( ! is_scalar( $name ) ) {
+			return '';
+		}
+		$name = sanitize_text_field( (string) $name );
+		if ( '' === $name || ! str_contains( $name, '/' ) ) {
+			return '';
+		}
+		return mb_substr( $name, 0, 190 );
+	}
+
+	/**
+	 * @param array<string, mixed> $data
+	 */
+	private static function audit_status_from_error( string $code, int $http, array $data ): string {
+		$execution = strtolower( (string) ( $data['execution_status'] ?? '' ) );
+		if ( 403 === $http || 'blocked' === $execution ) {
+			return 'blocked';
+		}
+		foreach ( [ 'forbidden', 'blocked', 'permission', 'grant_required', 'approval_required', 'confirmation_required', 'disabled', 'rule_violation' ] as $marker ) {
+			if ( str_contains( strtolower( $code ), $marker ) ) {
+				return 'blocked';
+			}
+		}
+		return 'error';
+	}
+
+	private static function default_http_status_for_code( string $code ): int {
+		$code = strtolower( $code );
+		if ( str_contains( $code, 'not_found' ) ) {
+			return 404;
+		}
+		if ( str_contains( $code, 'forbidden' ) || str_contains( $code, 'permission' ) || str_contains( $code, 'disabled' ) ) {
+			return 403;
+		}
+		if ( str_contains( $code, 'invalid' ) || str_contains( $code, 'validation' ) || str_contains( $code, 'required' ) ) {
+			return 400;
+		}
+		return 500;
+	}
+
+	private static function default_public_message( string $code, int $http ): string {
+		if ( 'stonewright_permission_denied' === $code || 403 === $http ) {
+			return __( 'Permission denied for the requested ability.', 'stonewright' );
+		}
+		if ( 'stonewright_ability_not_found' === $code ) {
+			return __( 'Ability not found.', 'stonewright' );
+		}
+		if ( 'stonewright_disabled' === $code ) {
+			return __( 'Master toggle is OFF.', 'stonewright' );
+		}
+		return __( 'Request failed.', 'stonewright' );
+	}
+
+	/**
+	 * Bound + redact free-form error messages for audit persistence.
+	 */
+	private static function redact_public_message( string $message ): string {
+		$message = mb_substr( preg_replace( '/\s+/', ' ', sanitize_text_field( $message ) ) ?? '', 0, 500 );
+		$message = (string) preg_replace( '#\b(Bearer|Basic)\s+[A-Za-z0-9._~+/-=]+#i', '$1 [redacted]', $message );
+		$message = (string) preg_replace(
+			'~\b(client_secret|access_token|refresh_token|id_token|assertion|authorization|token|password|app_password|application_password|code)\b(\s*[:=]\s*)(?:"[^"]*"|\'[^\']*\'|[^\s&,;]+)~i',
+			'$1$2[redacted]',
+			$message
+		);
+		return $message;
+	}
+
+	/**
+	 * Scalar allowlist from WP_Error data. Never includes args, bodies, traces.
+	 *
+	 * @param array<string, mixed> $data
+	 * @return array<string, scalar>
+	 */
+	private static function allowlisted_error_data( array $data ): array {
+		$keys = [
+			'status',
+			'retryable',
+			'retry_after_seconds',
+			'execution_status',
+			'verification_status',
+			'rollback_status',
+			'resource_type',
+			'resource_ref',
+			'operation_class',
+			'failed_action_index',
+			'operation_index',
+			'element_id',
+			'setting_path',
+			'expected_type',
+			'actual_type',
+			'schema_version',
+			'remediation_code',
+			'rule_id',
+			'before_sha256',
+			'after_sha256',
+			'changed_bytes',
+			'provider',
+			'provider_id',
+		];
+		$out = [];
+		foreach ( $keys as $key ) {
+			if ( ! array_key_exists( $key, $data ) || ! is_scalar( $data[ $key ] ) ) {
+				continue;
+			}
+			$value = $data[ $key ];
+			$out[ $key ] = is_string( $value )
+				? mb_substr( sanitize_text_field( $value ), 0, 255 )
+				: $value;
+		}
+		return $out;
 	}
 
 	private static function is_oauth_endpoint( \WP_REST_Request $request ): bool {

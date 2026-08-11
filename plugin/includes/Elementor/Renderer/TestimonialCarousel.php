@@ -32,7 +32,6 @@ final class TestimonialCarousel {
 		'testimonial-carousel',
 		'reviews',
 		'slides',
-		'nested-carousel',
 	];
 
 	/**
@@ -133,7 +132,7 @@ final class TestimonialCarousel {
 
 			// Live registry is the only write authority — never catalog alone.
 			$schema = WidgetSchemaRepository::get( $candidate );
-			if ( ! ( $schema instanceof \WP_Error ) ) {
+			if ( ! ( $schema instanceof \WP_Error ) && self::compatible_repeater_key( $candidate, $schema ) ) {
 				return $candidate;
 			}
 		}
@@ -186,7 +185,6 @@ final class TestimonialCarousel {
 		return match ( $widget ) {
 			'slides' => self::settings_for_slides( $items, $node, $resolver, $path ),
 			'testimonial-carousel', 'reviews' => self::settings_for_repeater( $widget, $items, $node, $resolver, $path ),
-			'nested-carousel' => self::settings_for_repeater( $widget, $items, $node, $resolver, $path ),
 			default => new \WP_Error(
 				self::ERROR_CODE,
 				sprintf( 'Selected widget "%s" has no compound settings builder.', $widget ),
@@ -233,9 +231,16 @@ final class TestimonialCarousel {
 	 * @param array<string, mixed>       $node
 	 * @return array<string, mixed>
 	 */
-	private static function settings_for_repeater( string $widget, array $items, array $node, Resolver $resolver, string $path ): array {
+	private static function settings_for_repeater( string $widget, array $items, array $node, Resolver $resolver, string $path ): array|\WP_Error {
 		// Prefer live schema repeater key when available.
-		$repeater_key = self::detect_repeater_key( $widget ) ?? 'slides';
+		$repeater_key = self::detect_repeater_key( $widget );
+		if ( null === $repeater_key ) {
+			return new \WP_Error(
+				self::ERROR_CODE,
+				sprintf( 'Live widget "%s" has no compatible testimonial repeater control.', $widget ),
+				[ 'widget_type' => $widget, 'live_required' => true ]
+			);
+		}
 		$rows         = [];
 		foreach ( $items as $i => $item ) {
 			$image  = isset( $item['image'] ) && is_array( $item['image'] ) ? $item['image'] : [];
@@ -285,11 +290,32 @@ final class TestimonialCarousel {
 
 		$controls = is_array( $schema['controls'] ?? null ) ? $schema['controls'] : [];
 		foreach ( [ 'slides', 'testimonials', 'reviews', 'carousel' ] as $key ) {
-			if ( isset( $controls[ $key ] ) ) {
+			if ( isset( $controls[ $key ] ) && self::is_repeater_control( $controls[ $key ] ) ) {
 				return $key;
 			}
 		}
 
-		return 'slides';
+		return null;
+	}
+
+	/** @param array<string, mixed> $schema */
+	private static function compatible_repeater_key( string $widget, array $schema ): ?string {
+		if ( ! in_array( $widget, self::CANDIDATES, true ) ) {
+			return null;
+		}
+		$controls = is_array( $schema['controls'] ?? null ) ? $schema['controls'] : [];
+		foreach ( [ 'slides', 'testimonials', 'reviews', 'carousel' ] as $key ) {
+			if ( isset( $controls[ $key ] ) && self::is_repeater_control( $controls[ $key ] ) ) {
+				return $key;
+			}
+		}
+		return null;
+	}
+
+	private static function is_repeater_control( mixed $control ): bool {
+		if ( ! is_array( $control ) ) {
+			return false;
+		}
+		return in_array( strtolower( (string) ( $control['type'] ?? '' ) ), [ 'repeater', 'nested-repeater' ], true );
 	}
 }

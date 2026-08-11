@@ -55,8 +55,8 @@ Three modes are stored in the `stonewright_mode` option:
 
 | Value | Behaviour |
 |---|---|
-| `bootstrap` | Progressive-discovery entry surface (≤ 12 tools, ≤ ~3,500 est. tokens). Includes `php-execute`, confirmation token, site/content reads, and theme-file-read so cold clients are not stuck. New installs default here. Call `stonewright-tool-profile` / `stonewright-task-start` to expand. |
-| `essential` | Compact fast path (≤ 30 tools) with batch-first Elementor/Gutenberg/content/WP-CLI tools. |
+| `bootstrap` | Explicit progressive-discovery/transport diagnostic (≤ 12 tools, ≤ ~3,500 est. tokens). Use only when the client is proven to process live tool-list changes. |
+| `essential` | Fresh-install default and compact fast path (≤ 30 tools) with batch-first Elementor/Gutenberg/content/WP-CLI tools. |
 | `full` | Entire registered ability catalog. **Slow and high-context** — only for specialist sessions that truly need every ability. |
 
 The legacy `stonewright_essential_tools_mode` flag stays in sync: bootstrap and
@@ -64,8 +64,10 @@ essential map to enabled; full maps to disabled. Existing installs without
 `stonewright_mcp_surface` keep their current essential/full behaviour via that
 legacy flag until an admin saves the Configuration page.
 
-On **Setup → Connect**, the MCP tool surface select includes an **Apply now**
-button that saves the surface without a full form submit. Transport truth:
+On **Setup → Connect**, every runtime control in Step 1 (ability enablement,
+mode, MCP surface, and Elementor V4 Atomic) saves immediately without a page
+reload. **Apply now** remains as an explicit retry/verification control. Every
+real change bumps one monotonic surface revision. Transport truth:
 
 - **HTTP clients** pick up the new surface on their next `tools/list`.
 - **Stdio companion** startup reads the saved WordPress surface and uses it as
@@ -73,8 +75,9 @@ button that saves the surface without a full form submit. Transport truth:
   `task-start` or `tool-profile` response and emit `tools/list_changed`; older
   companions need a client restart.
 
-Generated stdio snippets use the saved surface instead of hard-coding
-`essential`. Strict-cap clients keep the explicit `low-tools` override. Set
+Generated stdio snippets and paste-to-agent prompts use the saved surface
+instead of silently replacing an explicit `bootstrap` or `full` choice.
+Strict-cap clients keep the explicit `low-tools` override. Set
 `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK=1` only when a client-specific profile must
 override the site preference.
 
@@ -144,9 +147,16 @@ To generate one from the Configuration page:
 1. Enter a required label for the client, such as `Claude Code laptop` or
    `Cursor`.
 2. Click **Generate application password**.
-3. Copy the displayed password immediately. WordPress only shows it once.
-4. The generated password is available only in the private client snippet for
-   the current page load. The paste-to-agent prompt always uses placeholders.
+3. The supported JavaScript flow does not reload or change the URL. It updates
+   the inventory and private client snippet in the current tab.
+4. Copy the displayed password immediately. WordPress only shows it once.
+5. The password stays only in tab memory and is cleared on client/auth changes,
+   revoke, replacement, hide, or unload. It is never stored in a transient,
+   option, user meta, URL, browser storage, prompt, audit row, or log.
+
+Without JavaScript, the form returns a standalone `Cache-Control: no-store`
+response that shows the password once and links back to Setup. It does not
+redirect the credential through Setup or persist it between requests.
 
 The page also lists existing Application Password names for the current user so
 site owners can see whether a client credential already exists. Each row can be
@@ -184,7 +194,7 @@ install:
         "STONEWRIGHT_WP_URL": "https://example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
         "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
       }
     }
   }
@@ -192,8 +202,10 @@ install:
 ```
 
 Use the WordPress URL, username, and Application Password from Cards 2 and 3.
-The `STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap` env value keeps new MCP sessions
-compact while preserving Stonewright fast-path tools.
+The `STONEWRIGHT_MCP_TOOL_PROFILE=essential` env value gives known clients a
+bounded working surface from their first session. Unknown clients should use
+`essential-static`; `bootstrap` is an explicit diagnostic, not an install
+default.
 Use `low-tools` for strict tool-cap clients. Aliases such as `antigravity`,
 `gemini`, `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli` normalize
 to compact canonical profiles before tool filtering.
@@ -210,8 +222,9 @@ shape, OAuth preference, private-storage rules, and the canonical first call:
 Application Password, token, or private client configuration.
 
 The note also tells agents that `npx` downloads and runs the versioned GitHub
-release tarball, and that Playwright MCP should be added for browser testing,
-screenshots, and visual QA when the client does not already have browser tools.
+release tarball. For browser work it requires a one-time provider choice,
+permission before scanning client tools/private config, and separate permission
+before installing or configuring a missing Playwright/browser provider.
 It tells Codex users to configure `~/.codex/config.toml` or a trusted
 `.codex/config.toml`, restart/reload the MCP session, and use `/mcp` to verify
 that Stonewright is active.
@@ -273,7 +286,7 @@ The Setup page exposes two distinct checks:
 For the companion stdio path, also run:
 
 ```bash
-npx @stonewright/companion doctor
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright doctor
 ```
 
 Doctor checks Node version, credentials (env or `~/.stonewright/sites.json`),
@@ -286,15 +299,19 @@ credentials; never commit Application Passwords to project-tracked files.
 
 ### Browser MCP
 
-Configure Playwright MCP separately when the agent needs browser testing,
-screenshots, or visual inspection:
+The agent first asks once whether to use Playwright (recommended), another
+connected browser, or none. It asks permission before scanning client
+tools/private config and separate permission before installing or configuring a
+missing provider. After approval, configure Playwright separately:
 
 ```bash
 npx -y @playwright/mcp@latest --caps=testing,vision,devtools
 ```
 
-Restart the AI client after adding Playwright. If no Playwright/browser tool is
-visible, the agent should stop before the first visual write.
+Restart the AI client after adding Playwright. If the selected browser tool is
+not visible, the agent should stop before the first visual write. Browser
+automation never bypasses custom-code dry-run/approval, backup, permission, or
+confirmation gates.
 
 See [connect-clients.md](./connect-clients.md) for per-client details.
 

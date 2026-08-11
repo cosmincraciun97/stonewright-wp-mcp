@@ -227,9 +227,11 @@ headings inside loop templates; do not rely on many manual meta updates.
   crop bounds. Record those facts as `DesignEvidence`, call
   `stonewright-design-native-plan`, then build, screenshot the live page with
   external Playwright MCP at the same viewport, compare deltas, and iterate.
-- If no Playwright/browser MCP tool is visible, install/connect it with
-  `npx -y @playwright/mcp@latest --caps=testing,vision,devtools`, restart the AI
-  client, and stop before the first visual write until the tool appears.
+- Ask once whether to use Playwright (recommended), another connected browser,
+  or none. Ask permission before scanning client tools/private config. If the
+  selected provider is missing, ask separate permission before installation or
+  configuration; never install silently. Restart after an approved change and
+  stop before the first visual write until the tool appears.
 - Before capturing full-page screenshots, scroll through the page or otherwise
   preload lazy-loaded media so missing assets are not mistaken for layout
   failures.

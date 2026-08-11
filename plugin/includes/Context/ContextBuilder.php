@@ -370,10 +370,13 @@ final class ContextBuilder {
 				'command'       => 'npx',
 				'args'          => [ '-y', '@playwright/mcp@latest', '--caps=testing,vision,devtools' ],
 				'claude_code'   => 'claude mcp add playwright -- npx -y @playwright/mcp@latest --caps=testing,vision,devtools',
+				'consent_required' => true,
+				'preference_choices' => [ 'playwright', 'connected-browser', 'none' ],
 				'setup_steps'   => [
-					'Install external Playwright MCP before visual work: claude mcp add playwright -- npx -y @playwright/mcp@latest --caps=testing,vision,devtools',
-					'Restart the AI client after adding the MCP server so the tool list refreshes.',
-					'Verify a Playwright/browser tool is visible before the first Stonewright write.',
+					'Ask once whether Playwright (recommended), another connected browser, or no browser automation should be used for this site/client.',
+					'Ask permission before scanning the visible client tool surface or private MCP configuration.',
+					'If the selected provider is absent, ask separate explicit permission before installing or configuring it; never install silently.',
+					'After an approved install, restart the AI client and verify the chosen browser tool is visible before the first visual write.',
 				],
 				'required_when' => 'Use when the task needs browser interaction, screenshots, visual checks, or front-end debugging.',
 				'boundary'      => 'Keep this as a separate MCP server; do not add browser or screenshot abilities back into Stonewright.',
@@ -392,14 +395,14 @@ final class ContextBuilder {
 				'timing'            => 'before_first_write',
 				'required_surfaces' => [ 'elementor', 'gutenberg', 'wordpress' ],
 				'task_keywords'     => [ 'figma', 'design', 'pixel', 'responsive', 'visual', 'screenshot' ],
-				'pass_condition'    => 'A Playwright/browser MCP tool is visible in the AI client and can capture the target URL.',
+				'pass_condition'    => 'The user-selected browser provider is visible in the AI client and can capture the target URL.',
 			],
 			'principle'                        => 'Do not implement visual work blind. Measure the reference, build with native controls, screenshot the result, then iterate.',
 			'required_steps'                   => [
 				'Extract measured tokens from the reference screenshot before writing: canvas size, section bounds, max widths, colors, typography, spacing, and asset crop bounds.',
 				'Treat the Figma layer tree as extraction context, not implementation authority; build the WordPress structure that best matches the visual reference images.',
 				'For long designs, capture section reference screenshots and compare section-by-section before attempting full-page signoff.',
-				'Before any visual write, verify Playwright/browser MCP is connected; if not, install it, restart the client, and stop until the tool appears.',
+				'Before any visual write, ask once for the browser preference and required scan consent. If the selected provider is absent, ask separate install permission, restart after approval, and stop until the tool appears.',
 				'Before uploading assets, audit existing WordPress media by filename, alt text, dimensions, and likely source layer so already-downloaded assets are reused.',
 				'Before the first Elementor write, create a global-style plan: reusable color/typography tokens, Elementor kit updates if approved, and page-local values that should remain local.',
 				'Normalize Figma, screenshot, image, or brief observations into DesignEvidence 1.0 and call stonewright/design-native-plan before compiling any builder settings.',
@@ -603,8 +606,8 @@ final class ContextBuilder {
 		];
 
 		if ( $is_visual ) {
-			$steps[] = 'When a task needs browser testing, screenshots, or visual inspection, ensure the external Playwright MCP is installed and connected before implementation.';
-			$steps[] = 'If the external Playwright MCP is unavailable during a visual implementation task, stop before writing and tell the user the exact MCP setup command plus restart requirement.';
+			$steps[] = 'When a task needs browser testing, ask once whether to use Playwright (recommended), another connected browser, or none; do not scan client tools or private config without permission.';
+			$steps[] = 'If the selected browser is unavailable, ask separate explicit permission before installation or configuration, then require a client restart and tool visibility before writing.';
 			$steps[] = 'For design-derived backgrounds, create an asset selection plan and never use a full-page screenshot as a section background.';
 			$steps[] = 'Implement visual pages in one-section batches, or two sections only when simple and tightly coupled; auto-continue after passing desktop, tablet, and mobile verification.';
 			$steps[] = 'Before declaring a visual task done, verify no horizontal overflow with document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1 at all requested breakpoints.';
