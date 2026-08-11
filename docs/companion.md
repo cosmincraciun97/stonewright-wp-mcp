@@ -180,7 +180,10 @@ runtime set (`php-execute`, confirmation token, site/content reads, theme-file-r
 `stonewright-task-start` then enables the compact task profile for that session
 in plugin or Direct/pluginless mode and always sets `tools_changed` +
 `re_list_instruction` when leaving bootstrap or when the admin surface is
-already essential/full so stuck clients re-list. In Direct mode it also stamps
+already essential/full so stuck clients re-list. The companion updates or
+enables the corresponding callable tool handles before it emits
+`notifications/tools/list_changed`; reconnect reuses those handles rather than
+registering duplicate tool or prompt names. In Direct mode task-start also stamps
 a per-site write latch (30-minute TTL); write tools re-require task-start after
 expiry or when targeting a different site. Use companion tool
 `stonewright-client-surface-check` (or `stonewright doctor --client-surface`)

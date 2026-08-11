@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Make task-start profile expansion register callable tools before notifying
+  clients, and make repeated Plugin/Direct reconnects reuse existing tool and
+  prompt handles instead of failing on duplicate registration.
+- Report authentication as configured only when complete credential evidence
+  exists and leave unprobed Direct WordPress reachability unknown.
+
 ## [1.0.0-beta.4] - 2026-08-05
 
 ### Added

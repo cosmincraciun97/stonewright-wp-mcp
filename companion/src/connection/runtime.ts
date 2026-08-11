@@ -99,6 +99,9 @@ export interface ConnectionRuntime {
 	invokedToolNames: Set<string>;
 	callRemoteTool: ((name: string, args: Record<string, unknown>) => Promise<unknown>) | null;
 	directSession: DirectSessionControls | null;
+	authConfigured: boolean;
+	authMethod: ConnectionStatusV2['authentication']['method'];
+	wpReachable: boolean | null;
 	server: McpServer | null;
 	/** Rebuild / re-probe plugin or Direct registration. */
 	performReconnect: (input: ReconnectInput) => Promise<ReconnectResult>;
@@ -125,6 +128,7 @@ export function createConnectionRuntime(args: {
 	const registry = new RegistryBarrier();
 	const surface = new SurfaceRevisionTracker();
 	const invokedToolNames = new Set<string>();
+	const initialAuthMethod = detectAuthMethod(env);
 
 	const status = createInitialStatus(profile);
 
@@ -140,6 +144,9 @@ export function createConnectionRuntime(args: {
 		invokedToolNames,
 		callRemoteTool: null,
 		directSession: null,
+		authConfigured: initialAuthMethod !== 'none',
+		authMethod: initialAuthMethod,
+		wpReachable: null,
 		server: null,
 		performReconnect: () => Promise.reject(new Error('Reconnect executor not wired')),
 		listRegisteredToolNames: () => {
@@ -173,12 +180,12 @@ export function createConnectionRuntime(args: {
 				connectionStage: stage,
 				connectionGeneration: runtime.stateMachine.getGeneration(),
 				mcpUrl: runtime.status.url,
-				authConfigured: runtime.status.configured,
-				authMethod: detectAuthMethod(runtime.env),
-				wpReachable: runtime.status.connected ? true : runtime.status.error ? false : null,
+				authConfigured: runtime.authConfigured,
+				authMethod: runtime.authMethod,
+				wpReachable: runtime.wpReachable,
 				siteUrl: siteUrlFromEnv(runtime.env),
 				plugin: {
-					reachable: runtime.status.mode === 'plugin' ? (runtime.status.connected ? true : false) : null,
+					reachable: runtime.status.mode === 'plugin' && runtime.status.connected ? true : null,
 					enabled_requested: runtime.status.configured_mode !== 'direct-only',
 					effective_state: stage,
 					registry_ready: runtime.registry.isReady || stage === 'direct-ready',
@@ -306,9 +313,15 @@ function createInitialStatus(profile: ProxyToolProfile): WordPressMcpConnectionS
 }
 
 function detectAuthMethod(env: NodeJS.ProcessEnv): ConnectionStatusV2['authentication']['method'] {
-	if ((env['STONEWRIGHT_OAUTH_CLIENT_ID'] ?? '').trim()) return 'oauth';
+	if (
+		(env['STONEWRIGHT_OAUTH_CLIENT_ID'] ?? '').trim()
+		&& (env['STONEWRIGHT_OAUTH_TOKEN_STORE'] ?? '').trim()
+	) return 'oauth';
 	if ((env['STONEWRIGHT_MCP_AUTHORIZATION'] ?? '').trim()) return 'authorization';
-	if ((env['STONEWRIGHT_WP_USERNAME'] ?? env['WP_API_USERNAME'] ?? '').trim()) return 'app-password';
+	if (
+		(env['STONEWRIGHT_WP_USERNAME'] ?? env['WP_API_USERNAME'] ?? '').trim()
+		&& (env['STONEWRIGHT_WP_APP_PASSWORD'] ?? env['WP_API_PASSWORD'] ?? '').trim()
+	) return 'app-password';
 	return 'none';
 }
 
