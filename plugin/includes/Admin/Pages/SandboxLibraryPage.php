@@ -710,7 +710,7 @@ final class SandboxLibraryPage {
 			echo '<td>' . esc_html( $size ) . '</td>';
 			echo '<td>' . esc_html( $mtime ) . '</td>';
 			echo '<td><span class="' . esc_attr( $badge_class ) . '">' . esc_html( ucfirst( $status ) ) . '</span></td>';
-			echo '<td>';
+			echo '<td class="stonewright-action-cell">';
 
 			// View.
 			$view_nonce = wp_create_nonce( 'stonewright_sandbox_view_' . $fname );

@@ -7,7 +7,7 @@ customer content.
 
 Related:
 
-- Catalog source: `plugin/data/clients/*.json` (`support_tier`, `evidence`)
+- Catalog source: `plugin/data/clients/*.json` (`certification_tier`, `support_tier`, `evidence`)
 - Manual smoke table: [verified-client-versions.md](../verified-client-versions.md)
 - Install prompts: [install-prompts.md](../install-prompts.md)
 - Release gate roll-up: [acceptance-report-template.md](acceptance-report-template.md)
@@ -16,7 +16,7 @@ Related:
 
 | Tier | Meaning |
 |---|---|
-| **tier-1** | Primary certified path. Docs, catalog, and smoke matrix are maintained first: Codex, Claude Code/Desktop, Cursor, VS Code / GitHub Copilot. |
+| **tier-1** | Primary certification target. Docs, catalog, and smoke matrix are maintained first: Codex, Claude Code/Desktop, Cursor, VS Code / GitHub Copilot. The label alone is not a certified claim. |
 | **tier-2** | Supported with known caveats; smoke runs on demand. |
 | **compatible** | Config snippets and discovery work; full certification not claimed. |
 | **experimental** | Best-effort only; may break without notice. |
@@ -37,7 +37,8 @@ certification matrix.
 | Stonewright plugin version | |
 | Companion package version (`VERSION` placeholder resolved) | |
 | Connection mode | plugin OAuth HTTP / plugin Application Password stdio / Direct stdio |
-| Support tier (catalog) | tier-1 / tier-2 / compatible / experimental |
+| Certification priority (catalog) | tier-1 / tier-2 / compatible / experimental |
+| Operational support tier | certified / compatible / community / unknown |
 | Tester | |
 | Date (UTC) | YYYY-MM-DD |
 | Result | pass / fail / blocked |
@@ -48,7 +49,7 @@ certification matrix.
 - [ ] Secrets stay in user-level private client config (`secret_storage: user-level`).
 - [ ] Paste-to-agent prompts contain placeholders only (no real credentials).
 - [ ] Exactly one Stonewright MCP server entry is configured.
-- [ ] Startup profile is intentional (`STONEWRIGHT_MCP_TOOL_PROFILE=essential-static` default, or `bootstrap` / `low-tools` when required).
+- [ ] Startup profile is intentional (`essential` for a known client, `essential-static` for unknown/stale-list clients, or `low-tools` for a strict cap). `bootstrap` is diagnostic only.
 
 ## Install and restart
 
@@ -128,7 +129,9 @@ When this report is accepted:
 
 1. Set `evidence.manual_smoke` to `pass` (or keep `pending` if only docs-verified).
 2. Set `evidence.stdio` / `evidence.oauth_http` to `certified` or `compatible` as proven.
-3. Optionally set `evidence.certification_report` to a private tracker id or release note path (never a secret).
+3. Set `evidence.certification_report` only to a repository-relative public
+   acceptance report or another publication-safe evidence receipt. Private
+   tracker IDs and environment details stay out of catalog JSON and git.
 4. Refresh `verified_against_docs_on` and [verified-client-versions.md](../verified-client-versions.md).
 
 ## Failures

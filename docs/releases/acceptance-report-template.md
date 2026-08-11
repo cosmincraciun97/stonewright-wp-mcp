@@ -1,8 +1,9 @@
 # Release acceptance report template
 
-Copy this file for each public release candidate (for example
-`docs/releases/acceptance-VERSION.md` is optional and private; keep secrets out
-of git). Use it as the human roll-up after automated gates in
+Copy this file for each public release candidate. A repository copy such as
+`docs/releases/acceptance-VERSION.md` must remain publication-safe; keep any
+environment-specific copy untracked and outside the repository. Use it as the
+human roll-up after automated gates in
 [checklist.md](checklist.md).
 
 ## Release identity
@@ -42,7 +43,7 @@ From repository root unless noted:
 - [ ] Exact version numbers appear only in package metadata, changelogs, and versioned release notes.
 - [ ] `stonewright-task-start` is documented as the canonical first call.
 - [ ] Compatibility bootstrap (`stonewright-context-bootstrap`) is not the primary path.
-- [ ] Default tool profile documentation matches companion default (`essential-static` unless locked or Setup overrides).
+- [ ] Tool-profile documentation matches the client policy (`essential` for known clients, `essential-static` for unknown/stale-list clients, `low-tools` for strict caps; `bootstrap` is diagnostic only).
 - [ ] Credential-free paste prompts remain free of real secrets.
 - [ ] Certified vs compatible client language matches
   [client-acceptance-template.md](client-acceptance-template.md) and

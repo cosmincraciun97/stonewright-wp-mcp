@@ -11,10 +11,29 @@ use Stonewright\WpMcp\Support\PromptCatalog;
  */
 final class PromptCatalogTest extends TestCase {
 
-	public function test_catalog_loads_at_least_twenty_prompts(): void {
+	public function test_catalog_loads_core_prompts_without_design_library_starters(): void {
 		$catalog = PromptCatalog::load();
-		self::assertGreaterThanOrEqual( 20, count( $catalog['prompts'] ) );
+		// Design Library admin prompts were removed; keep a solid core catalog only.
+		self::assertGreaterThanOrEqual( 15, count( $catalog['prompts'] ) );
 		self::assertGreaterThanOrEqual( 1, (int) $catalog['version'] );
+
+		$ids = array_map(
+			static fn( array $prompt ): string => (string) ( $prompt['id'] ?? '' ),
+			$catalog['prompts']
+		);
+		self::assertContains( 'figma-to-native-pixel', $ids );
+		foreach (
+			[
+				'brand-kit-apply',
+				'blueprint-industry-site',
+				'blueprint-engine-elementor',
+				'blueprint-engine-gutenberg',
+				'blueprint-engine-fse',
+				'brand-kit-preview-restore',
+			] as $removed
+		) {
+			self::assertNotContains( $removed, $ids );
+		}
 	}
 
 	public function test_each_prompt_has_required_fields(): void {

@@ -78,9 +78,11 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertContains( 'Use fast_path.tool_profile from stonewright/task-start before making a separate stonewright/tool-profile call; call tool-profile only to switch or verify a compact profile.', $result['required_followups'] );
 		self::assertSame( 'playwright', $result['recommended_external_mcps'][0]['id'] );
 		self::assertSame( [ '-y', '@playwright/mcp@latest', '--caps=testing,vision,devtools' ], $result['recommended_external_mcps'][0]['args'] );
-		self::assertContains( 'Install external Playwright MCP before visual work: claude mcp add playwright -- npx -y @playwright/mcp@latest --caps=testing,vision,devtools', $result['recommended_external_mcps'][0]['setup_steps'] );
-		self::assertContains( 'Restart the AI client after adding the MCP server so the tool list refreshes.', $result['recommended_external_mcps'][0]['setup_steps'] );
-		self::assertContains( 'Verify a Playwright/browser tool is visible before the first Stonewright write.', $result['recommended_external_mcps'][0]['setup_steps'] );
+		self::assertTrue( $result['recommended_external_mcps'][0]['consent_required'] );
+		self::assertSame( [ 'playwright', 'connected-browser', 'none' ], $result['recommended_external_mcps'][0]['preference_choices'] );
+		self::assertContains( 'Ask once whether Playwright (recommended), another connected browser, or no browser automation should be used for this site/client.', $result['recommended_external_mcps'][0]['setup_steps'] );
+		self::assertContains( 'Ask permission before scanning the visible client tool surface or private MCP configuration.', $result['recommended_external_mcps'][0]['setup_steps'] );
+		self::assertContains( 'If the selected provider is absent, ask separate explicit permission before installing or configuring it; never install silently.', $result['recommended_external_mcps'][0]['setup_steps'] );
 		self::assertIsArray( $result['visual_quality_contract'] );
 		self::assertTrue( $result['visual_quality_contract']['hard_stop_if_browser_unavailable'] );
 		self::assertSame( 2, $result['visual_quality_contract']['section_batching']['max_sections_per_pass'] );
@@ -132,7 +134,7 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertContains( 'Implement visual pages in batches of one section at a time, or two sections only when they are simple and tightly coupled.', $result['visual_quality_contract']['required_steps'] );
 		self::assertContains( 'After each section batch, verify desktop, tablet, and mobile breakpoints before starting the next batch.', $result['visual_quality_contract']['required_steps'] );
 		self::assertContains( 'Auto-continue to the next section batch when screenshots, overflow checks, and diagnostics pass; do not wait for user approval between batches.', $result['visual_quality_contract']['required_steps'] );
-		self::assertContains( 'Before any visual write, verify Playwright/browser MCP is connected; if not, install it, restart the client, and stop until the tool appears.', $result['visual_quality_contract']['required_steps'] );
+		self::assertContains( 'Before any visual write, ask once for the browser preference and required scan consent. If the selected provider is absent, ask separate install permission, restart after approval, and stop until the tool appears.', $result['visual_quality_contract']['required_steps'] );
 		self::assertContains( 'Before the first Elementor write, create a global-style plan: reusable color/typography tokens, Elementor kit updates if approved, and page-local values that should remain local.', $result['visual_quality_contract']['required_steps'] );
 		self::assertContains( 'Before full-page screenshots, scroll through the page or otherwise preload lazy-loaded media so missing assets are not mistaken for layout failures.', $result['visual_quality_contract']['required_steps'] );
 		self::assertContains( 'Fail the implementation if document.documentElement.scrollWidth is greater than document.documentElement.clientWidth by more than 1px at desktop, tablet, or mobile viewport.', $result['visual_quality_contract']['required_steps'] );
@@ -141,8 +143,8 @@ final class ContextBootstrapTest extends TestCase {
 		self::assertContains( 'WordPress page title or theme chrome visible when Elementor Canvas/no header/footer was requested.', $result['visual_quality_contract']['failure_patterns'] );
 		self::assertContains( 'Declaring pixel-perfect without a reference-to-live screenshot delta list for every requested breakpoint.', $result['visual_quality_contract']['failure_patterns'] );
 		self::assertContains( 'Mirroring broken design-tool grouping instead of reproducing the visible layout in the reference screenshot.', $result['visual_quality_contract']['failure_patterns'] );
-		self::assertContains( 'When a task needs browser testing, screenshots, or visual inspection, ensure the external Playwright MCP is installed and connected before implementation.', $result['required_followups'] );
-		self::assertContains( 'If the external Playwright MCP is unavailable during a visual implementation task, stop before writing and tell the user the exact MCP setup command plus restart requirement.', $result['required_followups'] );
+		self::assertContains( 'When a task needs browser testing, ask once whether to use Playwright (recommended), another connected browser, or none; do not scan client tools or private config without permission.', $result['required_followups'] );
+		self::assertContains( 'If the selected browser is unavailable, ask separate explicit permission before installation or configuration, then require a client restart and tool visibility before writing.', $result['required_followups'] );
 		self::assertContains( 'For design-derived backgrounds, create an asset selection plan and never use a full-page screenshot as a section background.', $result['required_followups'] );
 		self::assertContains( 'Before declaring a visual task done, verify no horizontal overflow with document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1 at all requested breakpoints.', $result['required_followups'] );
 		self::assertContains( 'For pixel-perfect tasks, report the visual_build_gate evidence before completion: token table, asset audit, section plan, screenshot deltas, and logged-out viewport checks.', $result['required_followups'] );

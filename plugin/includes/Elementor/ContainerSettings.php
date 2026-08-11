@@ -7,6 +7,12 @@ use Stonewright\WpMcp\Elementor\Schema\SettingsKeyAliases;
 
 /**
  * Normalizes Elementor container settings accepted by direct tree mutations.
+ *
+ * Layout semantics are delegated to {@see LayoutNormalizer}:
+ * - `row` / legacy `horizontal` → flex row
+ * - `stack` / legacy `vertical` → flex column
+ * - `grid` → grid
+ * - breakpoint overrides independent (tablet/mobile direction preserved)
  */
 final class ContainerSettings {
 
@@ -15,22 +21,7 @@ final class ContainerSettings {
 	 * @return array<string, mixed>
 	 */
 	public static function normalize( array $settings ): array {
-		$layout    = isset( $settings['layout'] ) ? (string) $settings['layout'] : '';
-		$direction = isset( $settings['direction'] ) ? (string) $settings['direction'] : '';
-
-		unset( $settings['layout'], $settings['direction'] );
-
-		$settings = SettingsKeyAliases::normalize( $settings )['settings'];
-
-		if ( ! isset( $settings['container_type'] ) ) {
-			$settings['container_type'] = 'grid' === $layout ? 'grid' : 'flex';
-		}
-
-		if ( 'grid' !== $settings['container_type'] && ! isset( $settings['flex_direction'] ) ) {
-			$settings['flex_direction'] = self::is_row_direction( $direction, $layout ) ? 'row' : 'column';
-		}
-
-		return $settings;
+		return LayoutNormalizer::normalize_settings( $settings );
 	}
 
 	/**
@@ -47,7 +38,17 @@ final class ContainerSettings {
 		return [];
 	}
 
-	private static function is_row_direction( string $direction, string $layout ): bool {
-		return in_array( $direction, [ 'row', 'horizontal' ], true ) || 'horizontal' === $layout;
+	/**
+	 * Validate parent/child container settings before mutation.
+	 *
+	 * @param array<string, mixed> $parent_settings
+	 * @param array<string, mixed> $child_settings
+	 * @return list<array<string, mixed>>
+	 */
+	public static function validate_nested( array $parent_settings, array $child_settings ): array {
+		return LayoutNormalizer::validate_nested(
+			self::normalize( $parent_settings ),
+			self::normalize( $child_settings )
+		);
 	}
 }

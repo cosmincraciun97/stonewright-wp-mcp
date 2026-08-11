@@ -191,7 +191,8 @@
 }
 
 .sw-memory-section-header {
-	align-items: flex-start;
+	align-items: center;
+	gap: var(--sw-space-4);
 }
 
 .sw-memory-section-header .description {
@@ -238,10 +239,42 @@
 
 .sw-check {
 	display: inline-flex;
-	align-items: flex-start;
+	align-items: center;
 	gap: var(--sw-space-2);
 	font-weight: 500;
 	color: var(--sw-text);
+}
+
+.sw-check input[type='checkbox'] {
+	margin: 0;
+}
+
+.sw-memory-page .sw-memory-section-header > .sw-actions,
+.sw-memory-page .stonewright-compact-form,
+.sw-memory-receipt-form,
+.sw-memory-migration-form {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--sw-space-3);
+	margin: 0;
+}
+
+.sw-memory-receipt-form label,
+.sw-memory-migration-form label {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--sw-space-2);
+}
+
+.sw-memory-receipt-form input[type='number'] {
+	min-height: 32px;
+}
+
+.sw-memory-page .stonewright-compact-form input[type='submit'] {
+	height: 32px;
+	min-height: 32px;
+	margin: 0;
 }
 
 .sw-badge {
@@ -866,6 +899,8 @@
 }
 
 .sw-fieldset {
+	display: grid;
+	gap: var(--sw-space-3);
 	margin: 0 0 var(--sw-space-4);
 	padding: var(--sw-space-4);
 	border: 1px solid var(--sw-border);
@@ -882,7 +917,12 @@
 
 .sw-fieldset .sw-check {
 	display: flex;
-	margin-bottom: var(--sw-space-2);
+	margin: 0;
+	line-height: 1.4;
+}
+
+.sw-fieldset > .description {
+	margin: 0;
 }
 
 /* Single column is the 375px default; two columns are the wide-viewport

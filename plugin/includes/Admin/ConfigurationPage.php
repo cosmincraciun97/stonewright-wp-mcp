@@ -5,6 +5,7 @@ namespace Stonewright\WpMcp\Admin;
 
 use Stonewright\WpMcp\OAuth\Transport;
 use Stonewright\WpMcp\Security\DomainLock;
+use Stonewright\WpMcp\Security\PluginEffectiveState;
 
 /**
  * Stonewright Configuration admin page.
@@ -19,6 +20,8 @@ final class ConfigurationPage {
 		add_action( 'admin_menu', [ self::class, 'add_menu' ] );
 		add_action( 'admin_init', [ self::class, 'register_settings' ] );
 		add_action( 'admin_post_stonewright_reset_domain_lock', [ self::class, 'handle_reset_domain_lock' ] );
+		add_action( 'admin_post_stonewright_rebind_domain_lock', [ self::class, 'handle_rebind_domain_lock' ] );
+		add_action( 'admin_post_stonewright_rollback_domain_lock', [ self::class, 'handle_rollback_domain_lock' ] );
 		add_action(
 			'admin_post_stonewright_generate_application_password',
 			[ self::class, 'handle_generate_application_password' ]
@@ -32,7 +35,7 @@ final class ConfigurationPage {
 	}
 
 	/**
-	 * Apply MCP surface immediately without a full settings form save.
+	 * Apply every runtime-affecting Step 1 control without a page reload.
 	 */
 	public static function handle_apply_mcp_surface(): void {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
@@ -42,27 +45,46 @@ final class ConfigurationPage {
 		check_ajax_referer( 'stonewright_setup_client', 'nonce' );
 
 		$surface = isset( $_POST['surface'] ) ? sanitize_key( (string) wp_unslash( $_POST['surface'] ) ) : '';
+		$mode    = isset( $_POST['mode'] ) ? sanitize_key( (string) wp_unslash( $_POST['mode'] ) ) : '';
 		if ( ! in_array( $surface, [ 'bootstrap', 'essential', 'full' ], true ) ) {
 			wp_send_json_error( [ 'message' => 'invalid_surface' ], 400 );
 		}
+		if ( '' !== $mode && ! in_array( $mode, [ 'development', 'staging', 'production-safe' ], true ) ) {
+			wp_send_json_error( [ 'message' => 'invalid_mode' ], 400 );
+		}
 
-		$saved = \Stonewright\WpMcp\Core\AbilityRegistry::set_mcp_surface( $surface );
-		if ( $saved !== $surface ) {
+		$partial = [ 'mcp_surface' => $surface ];
+		if ( '' !== $mode ) {
+			$partial['wordpress_mode'] = $mode;
+		}
+		if ( isset( $_POST['enabled'] ) ) {
+			$partial['abilities_requested'] = '1' === (string) wp_unslash( $_POST['enabled'] );
+			if ( $partial['abilities_requested'] ) {
+				DomainLock::lock();
+			}
+		}
+		if ( isset( $_POST['elementor_v4_atomic'] ) ) {
+			$partial['elementor_v4_atomic'] = '1' === (string) wp_unslash( $_POST['elementor_v4_atomic'] );
+		}
+
+		$state = SetupState::persist_partial( $partial, get_current_user_id() );
+		if ( (string) $state['mcp_surface'] !== $surface ) {
 			wp_send_json_error(
 				[
 					'message' => __( 'The MCP surface could not be persisted. The previous value is still active.', 'stonewright' ),
-					'surface' => $saved,
+					'surface' => (string) $state['mcp_surface'],
 				],
 				500
 			);
 		}
 		wp_send_json_success(
 			[
-				'surface'         => $saved,
-				'mcp_surface'     => $saved,
+				'surface'         => (string) $state['mcp_surface'],
+				'mcp_surface'     => (string) $state['mcp_surface'],
 				'surface_revision' => \Stonewright\WpMcp\Core\AbilityRegistry::surface_revision(),
-				'message'         => __( 'MCP surface applied and verified.', 'stonewright' ),
-				'transport_truth' => __( 'Surface revision bumped. HTTP clients pick this up on their next tools/list; companion sessions re-list automatically on the next task-start or tool-profile response when they see the new surface_revision. Older companions need a client restart.', 'stonewright' ),
+				'setup_state'     => $state,
+				'message'         => __( 'Step 1 settings applied and verified.', 'stonewright' ),
+				'transport_truth' => __( 'The surface revision is current. Dynamic clients pick it up on their next tools/list; companion sessions re-list automatically on the next task-start or tool-profile response. Clients that cache tools permanently still need one restart.', 'stonewright' ),
 			]
 		);
 	}
@@ -79,6 +101,7 @@ final class ConfigurationPage {
 
 		$slug   = isset( $_POST['client'] ) ? sanitize_key( (string) wp_unslash( $_POST['client'] ) ) : '';
 		$method = isset( $_POST['method'] ) ? sanitize_key( (string) wp_unslash( $_POST['method'] ) ) : '';
+		$auth   = isset( $_POST['auth_method'] ) ? sanitize_key( (string) wp_unslash( $_POST['auth_method'] ) ) : '';
 		$known  = ClientCatalog::slugs();
 
 		if ( '' !== $slug && ! in_array( $slug, $known, true ) ) {
@@ -87,7 +110,10 @@ final class ConfigurationPage {
 		if ( '' !== $method && ! in_array( $method, [ 'stdio', 'http' ], true ) ) {
 			wp_send_json_error( [ 'message' => 'invalid_method' ], 400 );
 		}
-		if ( '' === $slug && '' === $method ) {
+		if ( '' !== $auth && ! in_array( $auth, [ 'oauth', 'application-password' ], true ) ) {
+			wp_send_json_error( [ 'message' => 'invalid_auth_method' ], 400 );
+		}
+		if ( '' === $slug && '' === $method && '' === $auth ) {
 			wp_send_json_error( [ 'message' => 'missing_selection' ], 400 );
 		}
 
@@ -96,19 +122,24 @@ final class ConfigurationPage {
 			wp_send_json_error( [ 'message' => 'no_user' ], 400 );
 		}
 
+		$partial = [];
 		if ( '' !== $slug ) {
-			update_user_meta( $user_id, 'stonewright_setup_client', $slug );
+			$partial['selected_client'] = $slug;
 		}
 		if ( '' !== $method ) {
-			update_user_meta( $user_id, 'stonewright_setup_method', $method );
+			$partial['transport_method'] = $method;
 		}
+		if ( '' !== $auth ) {
+			$partial['auth_method'] = $auth;
+		}
+		$state = SetupState::persist_partial( $partial, $user_id );
 
-		$saved_client = self::selected_setup_client( $user_id );
-		$saved_method = self::selected_setup_method( $user_id );
 		wp_send_json_success(
 			[
-				'client' => $saved_client,
-				'method' => $saved_method,
+				'client'      => (string) $state['selected_client'],
+				'method'      => (string) $state['transport_method'],
+				'auth_method' => (string) $state['auth_method'],
+				'setup_state' => $state,
 			]
 		);
 	}
@@ -136,10 +167,44 @@ final class ConfigurationPage {
 	}
 
 	public static function register_settings(): void {
-		register_setting( self::OPTION_GROUP, 'stonewright_enabled', [
+		register_setting( self::OPTION_GROUP, PluginEffectiveState::OPTION_REQUESTED, [
 			'type'              => 'boolean',
 			'default'           => false,
-			'sanitize_callback' => static fn( mixed $value ): bool => (bool) $value,
+			'sanitize_callback' => static function ( mixed $value ): bool {
+				$enabled = (bool) $value;
+				// Operator intent only — domain lock is applied separately on enable.
+				if ( $enabled ) {
+					DomainLock::lock();
+				}
+				if ( PluginEffectiveState::enabled_requested() !== $enabled ) {
+					\Stonewright\WpMcp\Core\AbilityRegistry::bump_surface_revision();
+				}
+				return $enabled;
+			},
+		] );
+
+		register_setting( self::OPTION_GROUP, 'stonewright_install_mode', [
+			'type'              => 'string',
+			'default'           => 'auto',
+			'sanitize_callback' => static function ( mixed $value ): string {
+				$value = is_string( $value ) ? strtolower( trim( $value ) ) : '';
+				return in_array( $value, [ 'direct-only', 'plugin-only', 'auto' ], true ) ? $value : 'auto';
+			},
+		] );
+
+		register_setting( self::OPTION_GROUP, 'stonewright_site_alias', [
+			'type'              => 'string',
+			'default'           => '',
+			'sanitize_callback' => static fn( mixed $value ): string => sanitize_text_field( is_string( $value ) ? $value : '' ),
+		] );
+
+		register_setting( self::OPTION_GROUP, 'stonewright_site_environment', [
+			'type'              => 'string',
+			'default'           => '',
+			'sanitize_callback' => static function ( mixed $value ): string {
+				$value = is_string( $value ) ? strtolower( trim( $value ) ) : '';
+				return in_array( $value, [ '', 'local', 'development', 'staging', 'production' ], true ) ? $value : '';
+			},
 		] );
 
 		register_setting( self::OPTION_GROUP, 'stonewright_custom_instructions_enabled', [
@@ -156,14 +221,19 @@ final class ConfigurationPage {
 
 		register_setting( self::OPTION_GROUP, 'stonewright_mcp_surface', [
 			'type'              => 'string',
-			'default'           => 'bootstrap',
+			'default'           => 'essential',
 			'sanitize_callback' => static function ( mixed $value ): string {
 				$value = is_string( $value ) ? strtolower( trim( $value ) ) : '';
 				if ( ! in_array( $value, [ 'bootstrap', 'essential', 'full' ], true ) ) {
 					$value = 'essential';
 				}
-				// Keep legacy essential_tools_mode aligned with the surface choice.
+
+				$previous = \Stonewright\WpMcp\Core\AbilityRegistry::mcp_surface();
 				update_option( 'stonewright_essential_tools_mode', 'full' !== $value, false );
+				if ( $previous !== $value ) {
+					\Stonewright\WpMcp\Core\AbilityRegistry::bump_surface_revision();
+				}
+
 				return $value;
 			},
 		] );
@@ -173,9 +243,13 @@ final class ConfigurationPage {
 			'default'           => 'development',
 			'sanitize_callback' => static function ( mixed $value ): string {
 				$value = is_string( $value ) ? strtolower( trim( $value ) ) : '';
-				return in_array( $value, [ 'development', 'staging', 'production-safe' ], true )
+				$value = in_array( $value, [ 'development', 'staging', 'production-safe' ], true )
 					? $value
 					: 'development';
+				if ( (string) get_option( 'stonewright_mode', 'development' ) !== $value ) {
+					\Stonewright\WpMcp\Core\AbilityRegistry::bump_surface_revision();
+				}
+				return $value;
 			},
 		] );
 
@@ -194,7 +268,13 @@ final class ConfigurationPage {
 		register_setting( self::OPTION_GROUP, 'stonewright_elementor_v4_atomic', [
 			'type'              => 'boolean',
 			'default'           => false,
-			'sanitize_callback' => static fn( mixed $value ): bool => (bool) $value,
+			'sanitize_callback' => static function ( mixed $value ): bool {
+				$enabled = (bool) $value;
+				if ( (bool) get_option( 'stonewright_elementor_v4_atomic', false ) !== $enabled ) {
+					\Stonewright\WpMcp\Core\AbilityRegistry::bump_surface_revision();
+				}
+				return $enabled;
+			},
 		] );
 
 		register_setting( self::OPTION_GROUP, 'stonewright_unsplash_access_key', [
@@ -215,7 +295,8 @@ final class ConfigurationPage {
 			return;
 		}
 
-		$enabled             = (bool) get_option( 'stonewright_enabled', false );
+		$enabled             = PluginEffectiveState::enabled_requested();
+		$effective_state     = PluginEffectiveState::effective_state();
 		$mode                = (string) get_option( 'stonewright_mode', 'development' );
 		$companion_url       = (string) get_option( 'stonewright_companion_url', 'http://127.0.0.1:8765' );
 		$companion_token     = (string) get_option( 'stonewright_companion_token', '' );
@@ -238,21 +319,20 @@ final class ConfigurationPage {
 		$current_user_id     = get_current_user_id();
 		$username            = isset( $current_user->user_login ) ? (string) $current_user->user_login : '';
 		$username            = '' !== $username ? $username : 'your-wp-username';
-		$app_password_flash  = self::consume_application_password_flash( $current_user_id );
-		$generated_password  = $app_password_flash['generated'];
-		$app_password_error  = $app_password_flash['error'];
-		$app_password_value  = is_array( $generated_password )
-			? (string) ( $generated_password['password'] ?? '' )
+		// The one-time password is never read from server persistence. JavaScript
+		// replaces this canonical placeholder in the current tab only.
+		$prompt_password     = '<your-application-password>';
+		$app_password_status = isset( $_GET['stonewright_app_password'] ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only notice selector.
+			? sanitize_key( (string) wp_unslash( $_GET['stonewright_app_password'] ) ) // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			: '';
-		$prompt_password     = '' !== $app_password_value ? $app_password_value : '<application-password-from-step-2>';
-		$connect_prompt      = ConnectClientConfig::paste_to_agent_prompt( '', '' );
+		$connect_prompt      = ConnectClientConfig::paste_to_agent_prompt( '', '', self::selected_setup_client( $current_user_id ) );
 		$prompt_preview      = self::prompt_preview( $connect_prompt );
 		$app_passwords       = self::application_passwords_for_current_user();
 		$risk_class          = 'production-safe' === $mode
 			? 'stonewright-risk-notice--ok'
 			: 'stonewright-risk-notice--warning';
 		$setup_diagnostics   = SetupDiagnostics::report();
-		$has_app_password    = is_array( $generated_password ) || [] !== $app_passwords;
+		$has_app_password    = [] !== $app_passwords;
 		$oauth_available     = Transport::allowed();
 		$step_states         = self::step_states( $enabled, $has_app_password, $oauth_available );
 		$selected_client     = self::selected_setup_client( $current_user_id );
@@ -354,6 +434,7 @@ final class ConfigurationPage {
 						<h2><?php esc_html_e( 'Enable AI Abilities', 'stonewright' ); ?></h2>
 						<div class="sw-field">
 							<label class="stonewright-switch">
+								<input type="hidden" name="stonewright_enabled" value="0" />
 								<input
 									type="checkbox"
 									name="stonewright_enabled"
@@ -363,7 +444,19 @@ final class ConfigurationPage {
 								/>
 								<span><?php esc_html_e( 'Turn on Stonewright abilities for this site', 'stonewright' ); ?></span>
 							</label>
+							<?php if ( $enabled && PluginEffectiveState::STATE_ENABLED !== $effective_state ) : ?>
+								<p class="description" role="status">
+									<?php
+									printf(
+										/* translators: %s: effective runtime state key */
+										esc_html__( 'Requested: on. Effective state: %s (abilities stay blocked until resolved).', 'stonewright' ),
+										esc_html( $effective_state )
+									);
+									?>
+								</p>
+							<?php endif; ?>
 						</div>
+						<?php self::render_domain_lock_status(); ?>
 						<div class="sw-field stonewright-field-row">
 							<label for="stonewright_mode"><?php esc_html_e( 'Mode', 'stonewright' ); ?></label>
 							<select name="stonewright_mode" id="stonewright_mode">
@@ -410,7 +503,7 @@ final class ConfigurationPage {
 								</button>
 							</div>
 							<p class="description" id="stonewright-mcp-surface-status" data-sw-mcp-surface-status role="status" aria-live="polite">
-								<?php esc_html_e( 'Bootstrap is the recommended default for new clients. Full mode loads the entire ability surface and is slow and high-context — use only for specialist sessions. Use Apply now to save the surface without a full form submit, or Save settings for all fields.', 'stonewright' ); ?>
+								<?php esc_html_e( 'Essential is the recommended default for real work. Bootstrap is only a startup diagnostic; Full loads the entire ability surface and is slow and high-context. Step 1 changes apply immediately; clients that permanently cache tools still need one restart.', 'stonewright' ); ?>
 							</p>
 						</div>
 						<div class="sw-field">
@@ -568,33 +661,25 @@ final class ConfigurationPage {
 						<h3><?php esc_html_e( 'Application Password', 'stonewright' ); ?></h3>
 						<p class="description"><?php esc_html_e( 'Generate one WordPress Application Password for your AI client. It can appear in the private client snippet in step 3 and is shown only once. The paste-to-agent prompt stays credential-free.', 'stonewright' ); ?></p>
 
-						<?php if ( '' !== $app_password_error ) : ?>
-							<div class="notice notice-error inline sw-notice">
-								<p><?php echo esc_html( $app_password_error ); ?></p>
+						<?php if ( 'app_password_revoked' === $app_password_status ) : ?>
+							<div class="notice notice-success inline sw-notice" role="status">
+								<p><?php esc_html_e( 'Application Password revoked.', 'stonewright' ); ?></p>
 							</div>
-						<?php endif; ?>
-
-						<?php if ( is_array( $generated_password ) ) : ?>
-							<div class="stonewright-app-password-success">
-								<strong><?php esc_html_e( 'Application password generated.', 'stonewright' ); ?></strong>
-								<span><?php esc_html_e( 'It is available in the private client snippet in step 3 for this request only. Save it somewhere safe; it will not be shown in full again and is never added to the paste-to-agent prompt.', 'stonewright' ); ?></span>
-								<div class="stonewright-inline-controls sw-actions">
-									<input
-										type="text"
-										readonly
-										class="regular-text"
-										id="stonewright-generated-app-password"
-										value="<?php echo esc_attr( $app_password_value ); ?>"
-									/>
-									<button type="button" class="button button-small" data-stonewright-copy="stonewright-generated-app-password">
-										<?php esc_html_e( 'Copy password only', 'stonewright' ); ?>
-									</button>
-								</div>
+						<?php elseif ( 'app_password_error' === $app_password_status ) : ?>
+							<div class="notice notice-error inline sw-notice" role="alert">
+								<p><?php esc_html_e( 'The Application Password request could not be completed. Check the form and try again.', 'stonewright' ); ?></p>
 							</div>
 						<?php endif; ?>
 
 						<?php if ( self::application_passwords_available() ) : ?>
-							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-app-password-form">
+							<form
+								method="post"
+								action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
+								class="stonewright-app-password-form"
+								data-stonewright-app-password-form
+								data-rest-url="<?php echo esc_url( rest_url( 'stonewright/v1/app-password' ) ); ?>"
+								data-rest-nonce="<?php echo esc_attr( wp_create_nonce( 'wp_rest' ) ); ?>"
+							>
 								<input type="hidden" name="action" value="stonewright_generate_application_password"/>
 								<?php wp_nonce_field( 'stonewright_generate_application_password' ); ?>
 								<div class="sw-field stonewright-field-row">
@@ -611,17 +696,28 @@ final class ConfigurationPage {
 									/>
 									<p class="description"><?php esc_html_e( 'Required. Use a clear client label so you can revoke it later.', 'stonewright' ); ?></p>
 								</div>
+								<div
+									class="stonewright-app-password-live"
+									data-stonewright-app-password-live
+									role="status"
+									aria-live="polite"
+									hidden
+								></div>
 								<div class="sw-actions">
 									<?php
-									submit_button(
-										is_array( $generated_password )
-											? __( 'Generate another application password', 'stonewright' )
-											: __( 'Generate application password', 'stonewright' ),
+										submit_button(
+											__( 'Generate application password', 'stonewright' ),
 										'primary',
 										'submit',
-										false
+										false,
+										[
+											'data-stonewright-app-password-submit' => '1',
+										]
 									);
 									?>
+									<span class="description" data-stonewright-app-password-nojs-hint>
+										<?php esc_html_e( 'Without JavaScript this navigates and shows the password once — copy it immediately.', 'stonewright' ); ?>
+									</span>
 								</div>
 							</form>
 							<p>
@@ -1253,36 +1349,6 @@ final class ConfigurationPage {
 		];
 	}
 
-	/**
-	 * @return array{generated: array<string, mixed>|null, error: string}
-	 */
-	private static function consume_application_password_flash( int $user_id ): array {
-		if ( $user_id <= 0 ) {
-			return [ 'generated' => null, 'error' => '' ];
-		}
-
-		$key   = self::application_password_flash_key( $user_id );
-		$flash = get_transient( $key );
-		delete_transient( $key );
-
-		if ( ! is_array( $flash ) ) {
-			return [ 'generated' => null, 'error' => '' ];
-		}
-
-		$generated = isset( $flash['generated'] ) && is_array( $flash['generated'] )
-			? $flash['generated']
-			: null;
-		$error     = isset( $flash['error'] ) && is_string( $flash['error'] )
-			? $flash['error']
-			: '';
-
-		return [ 'generated' => $generated, 'error' => $error ];
-	}
-
-	private static function application_password_flash_key( int $user_id ): string {
-		return 'stonewright_app_password_flash_' . (string) $user_id;
-	}
-
 	private static function application_passwords_available(): bool {
 		if ( ! class_exists( '\WP_Application_Passwords' ) ) {
 			return false;
@@ -1326,12 +1392,10 @@ final class ConfigurationPage {
 
 		$user_id = get_current_user_id();
 		if ( $user_id <= 0 ) {
-			self::store_application_password_error( 0, __( 'No current user is available.', 'stonewright' ) );
 			self::redirect_to_configuration( 'app_password_error' );
 		}
 
 		if ( ! self::application_passwords_available() || ! method_exists( '\WP_Application_Passwords', 'create_new_application_password' ) ) {
-			self::store_application_password_error( $user_id, __( 'Application Passwords are not available on this site.', 'stonewright' ) );
 			self::redirect_to_configuration( 'app_password_error' );
 		}
 
@@ -1339,37 +1403,20 @@ final class ConfigurationPage {
 			? sanitize_text_field( wp_unslash( $_POST['stonewright_app_password_name'] ) )
 			: '';
 		if ( '' === $name ) {
-			self::store_application_password_error( $user_id, __( 'Enter a name before generating an Application Password.', 'stonewright' ) );
 			self::redirect_to_configuration( 'app_password_error' );
 		}
 
 		$created = \WP_Application_Passwords::create_new_application_password( $user_id, [ 'name' => $name ] );
 		if ( is_wp_error( $created ) ) {
-			self::store_application_password_error( $user_id, $created->get_error_message() );
 			self::redirect_to_configuration( 'app_password_error' );
 		}
 
 		$password = isset( $created[0] ) && is_string( $created[0] ) ? $created[0] : '';
-		$item     = isset( $created[1] ) && is_array( $created[1] ) ? $created[1] : [];
 		if ( '' === $password ) {
-			self::store_application_password_error( $user_id, __( 'WordPress did not return an Application Password.', 'stonewright' ) );
 			self::redirect_to_configuration( 'app_password_error' );
 		}
 
-		set_transient(
-			self::application_password_flash_key( $user_id ),
-			[
-				'generated' => [
-					'password' => $password,
-					'name'     => $name,
-					'uuid'     => (string) ( $item['uuid'] ?? '' ),
-					'created'  => (int) ( $item['created'] ?? time() ),
-				],
-			],
-			5 * MINUTE_IN_SECONDS
-		);
-
-		self::redirect_to_configuration( 'app_password_created' );
+		self::render_application_password_once( $name, $password );
 	}
 
 	public static function handle_revoke_application_password(): void {
@@ -1385,34 +1432,53 @@ final class ConfigurationPage {
 
 		$user_id = get_current_user_id();
 		if ( $user_id <= 0 || '' === $uuid ) {
-			self::store_application_password_error( $user_id, __( 'Choose an Application Password to revoke.', 'stonewright' ) );
 			self::redirect_to_configuration( 'app_password_error' );
 		}
 
 		if ( ! method_exists( '\WP_Application_Passwords', 'delete_application_password' ) ) {
-			self::store_application_password_error( $user_id, __( 'Application Password revocation is not available on this site.', 'stonewright' ) );
 			self::redirect_to_configuration( 'app_password_error' );
 		}
 
 		$deleted = \WP_Application_Passwords::delete_application_password( $user_id, $uuid );
 		if ( is_wp_error( $deleted ) ) {
-			self::store_application_password_error( $user_id, $deleted->get_error_message() );
 			self::redirect_to_configuration( 'app_password_error' );
 		}
 
 		self::redirect_to_configuration( 'app_password_revoked' );
 	}
 
-	private static function store_application_password_error( int $user_id, string $message ): void {
-		if ( $user_id <= 0 ) {
-			return;
-		}
-
-		set_transient(
-			self::application_password_flash_key( $user_id ),
-			[ 'error' => $message ],
-			5 * MINUTE_IN_SECONDS
-		);
+	/**
+	 * No-JavaScript fallback: return the credential exactly once without any
+	 * redirect, transient, option, user meta, log, or external asset request.
+	 */
+	private static function render_application_password_once( string $name, string $password ): never {
+		nocache_headers();
+		header( 'Cache-Control: no-store, private, max-age=0', true );
+		header( 'Referrer-Policy: no-referrer', true );
+		header( 'X-Robots-Tag: noindex, nofollow', true );
+		status_header( 200 );
+		$back_url = admin_url( 'admin.php?page=' . self::SLUG . '#stonewright-application-password' );
+		?>
+		<!doctype html>
+		<html <?php language_attributes(); ?>>
+		<head>
+			<meta charset="<?php bloginfo( 'charset' ); ?>">
+			<meta name="viewport" content="width=device-width, initial-scale=1">
+			<meta name="robots" content="noindex,nofollow,noarchive">
+			<title><?php esc_html_e( 'Application Password generated', 'stonewright' ); ?></title>
+		</head>
+		<body>
+			<main>
+				<h1><?php esc_html_e( 'Application Password generated', 'stonewright' ); ?></h1>
+				<p><?php esc_html_e( 'Copy this password now. It is shown only in this no-store response and cannot be displayed again.', 'stonewright' ); ?></p>
+				<p><strong><?php echo esc_html( $name ); ?></strong></p>
+				<p><input type="text" readonly autocomplete="off" value="<?php echo esc_attr( $password ); ?>" aria-label="<?php esc_attr_e( 'Generated Application Password', 'stonewright' ); ?>"></p>
+				<p><a href="<?php echo esc_url( $back_url ); ?>"><?php esc_html_e( 'Return to Stonewright Setup', 'stonewright' ); ?></a></p>
+			</main>
+		</body>
+		</html>
+		<?php
+		exit;
 	}
 
 	private static function redirect_to_configuration( string $status ): void {
@@ -1430,18 +1496,63 @@ final class ConfigurationPage {
 
 	private static function render_domain_lock_status(): void {
 		$locked_domain = DomainLock::locked_domain();
-		if ( '' === $locked_domain ) {
+		if ( '' === $locked_domain && DomainLock::check() ) {
 			return;
 		}
+
+		$status   = DomainLock::status();
+		$mismatch = ! DomainLock::check();
 		?>
-		<div class="stonewright-domain-lock-status">
+		<div class="stonewright-domain-lock-status" id="stonewright-domain-lock">
 			<span><?php esc_html_e( 'Domain lock:', 'stonewright' ); ?></span>
-			<code><?php echo esc_html( $locked_domain ); ?></code>
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form">
-				<input type="hidden" name="action" value="stonewright_reset_domain_lock"/>
-				<?php wp_nonce_field( 'stonewright_reset_domain_lock' ); ?>
-				<button type="submit" class="button button-small"><?php esc_html_e( 'Reset lock', 'stonewright' ); ?></button>
-			</form>
+			<?php if ( '' !== (string) $status['locked'] ) : ?>
+				<code><?php echo esc_html( (string) $status['locked'] ); ?></code>
+			<?php else : ?>
+				<em><?php esc_html_e( 'not set', 'stonewright' ); ?></em>
+			<?php endif; ?>
+			<?php if ( $mismatch ) : ?>
+				<span class="stonewright-risk-notice stonewright-risk-notice--warning">
+					<?php esc_html_e( 'Mismatch — abilities are BLOCKED. Operator enablement was not changed.', 'stonewright' ); ?>
+				</span>
+				<p>
+					<?php esc_html_e( 'Locked origin:', 'stonewright' ); ?>
+					<code><?php echo esc_html( (string) $status['locked'] ); ?></code>
+					→
+					<?php esc_html_e( 'Current origin:', 'stonewright' ); ?>
+					<code><?php echo esc_html( (string) $status['current'] ); ?></code>
+				</p>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form">
+					<input type="hidden" name="action" value="stonewright_rebind_domain_lock"/>
+					<?php wp_nonce_field( 'stonewright_rebind_domain_lock' ); ?>
+					<label>
+						<input type="checkbox" name="stonewright_rebind_confirm" value="1" required />
+						<?php esc_html_e( 'I confirm this is an intentional domain change for this WordPress site.', 'stonewright' ); ?>
+					</label>
+					<button type="submit" class="button button-primary button-small">
+						<?php esc_html_e( 'Review and rebind this site', 'stonewright' ); ?>
+					</button>
+				</form>
+			<?php endif; ?>
+			<?php if ( DomainLock::can_rollback() ) : ?>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form">
+					<input type="hidden" name="action" value="stonewright_rollback_domain_lock"/>
+					<?php wp_nonce_field( 'stonewright_rollback_domain_lock' ); ?>
+					<button type="submit" class="button button-small">
+						<?php esc_html_e( 'Restore prior domain binding', 'stonewright' ); ?>
+					</button>
+				</form>
+			<?php endif; ?>
+			<?php if ( DomainLock::can_clear() ) : ?>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="stonewright-inline-form">
+					<input type="hidden" name="action" value="stonewright_reset_domain_lock"/>
+					<?php wp_nonce_field( 'stonewright_reset_domain_lock' ); ?>
+					<button type="submit" class="button button-small"><?php esc_html_e( 'Clear domain lock', 'stonewright' ); ?></button>
+				</form>
+			<?php elseif ( $mismatch ) : ?>
+				<p class="description">
+					<?php esc_html_e( 'Clear domain lock is disabled during a mismatch. Rebind this site or restore the prior binding instead.', 'stonewright' ); ?>
+				</p>
+			<?php endif; ?>
 		</div>
 		<?php
 	}
@@ -1451,8 +1562,71 @@ final class ConfigurationPage {
 			wp_die( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
 		}
 		check_admin_referer( 'stonewright_reset_domain_lock' );
-		DomainLock::reset();
-		wp_safe_redirect( add_query_arg( [ 'page' => self::SLUG, 'lock_reset' => '1' ], admin_url( 'admin.php' ) ) );
+
+		$result = DomainLock::reset();
+		if ( is_wp_error( $result ) ) {
+			wp_die( esc_html( $result->get_error_message() ) );
+		}
+
+		wp_safe_redirect( add_query_arg( [ 'page' => self::SLUG, 'lock_reset' => '1' ], admin_url( 'admin.php' ) ) . '#stonewright-domain-lock' );
+		exit;
+	}
+
+	/**
+	 * Explicit rebind: snapshot prior binding, write new lock, audit.
+	 * Never mutates operator enablement intent.
+	 */
+	public static function handle_rebind_domain_lock(): void {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
+		}
+		check_admin_referer( 'stonewright_rebind_domain_lock' );
+
+		$confirmed = isset( $_POST['stonewright_rebind_confirm'] ) && '1' === (string) wp_unslash( $_POST['stonewright_rebind_confirm'] );
+		if ( ! $confirmed ) {
+			wp_die( esc_html__( 'Rebind requires explicit confirmation.', 'stonewright' ) );
+		}
+
+		$result = DomainLock::rebind();
+		if ( is_wp_error( $result ) ) {
+			wp_die( esc_html( $result->get_error_message() ) );
+		}
+
+		wp_safe_redirect(
+			add_query_arg(
+				[
+					'page'        => self::SLUG,
+					'lock_rebind' => '1',
+				],
+				admin_url( 'admin.php' )
+			) . '#stonewright-domain-lock'
+		);
+		exit;
+	}
+
+	/**
+	 * Restore prior domain binding within the retention window.
+	 */
+	public static function handle_rollback_domain_lock(): void {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die( esc_html__( 'Insufficient permissions.', 'stonewright' ) );
+		}
+		check_admin_referer( 'stonewright_rollback_domain_lock' );
+
+		$result = DomainLock::rollback();
+		if ( is_wp_error( $result ) ) {
+			wp_die( esc_html( $result->get_error_message() ) );
+		}
+
+		wp_safe_redirect(
+			add_query_arg(
+				[
+					'page'          => self::SLUG,
+					'lock_rollback' => '1',
+				],
+				admin_url( 'admin.php' )
+			) . '#stonewright-domain-lock'
+		);
 		exit;
 	}
 }

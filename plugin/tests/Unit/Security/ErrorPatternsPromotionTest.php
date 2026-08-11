@@ -33,7 +33,7 @@ final class ErrorPatternsPromotionTest extends TestCase {
 		$GLOBALS['stonewright_test_options'] = [];
 	}
 
-	public function test_two_identical_errors_create_pending_feedback_incident(): void {
+	public function test_two_identical_errors_propose_remediation_without_learning_row(): void {
 		Memory::maybe_install_table();
 		delete_option( 'stonewright_error_patterns' );
 
@@ -44,19 +44,18 @@ final class ErrorPatternsPromotionTest extends TestCase {
 		ErrorPatterns::observe( 'stonewright/demo-ability', 'error', $args );
 		ErrorPatterns::observe( 'stonewright/demo-ability', 'error', $args );
 
-		$rows = Memory::list_by_type( 'feedback', 50, 0 );
-		$keys = array_column( $rows, 'memory_key' );
-		$hit  = array_filter(
-			$keys,
-			static fn( $k ) => str_starts_with( (string) $k, 'learning-audit-error-' )
-		);
+		$recurring = ErrorPatterns::recurring();
+		self::assertNotEmpty( $recurring );
+		self::assertSame( 'repair_proposed', $recurring[0]['state'] );
+		self::assertNotEmpty( $recurring[0]['repair'] );
 
-		self::assertNotEmpty( $hit, 'count>=2 must auto-create a learning-audit-error-* memory row' );
-		self::assertSame( 'feedback', $rows[0]['type'] ?? null );
-		self::assertSame( 'audit', $rows[0]['scope'] ?? null );
-		// Unresolved incidents are stale feedback — not active project/user rules.
-		self::assertSame( 'stale', $rows[0]['status'] ?? null );
-		self::assertSame( 400, (int) ( $rows[0]['precedence'] ?? 0 ) );
+		// Incidents ≠ lessons: unresolved failures stay on the pattern path only.
+		$rows = Memory::list_by_type( 'feedback', 50, 0 );
+		$hit  = array_filter(
+			$rows,
+			static fn( array $r ): bool => str_starts_with( (string) ( $r['memory_key'] ?? '' ), 'learning-audit-error-' )
+		);
+		self::assertSame( [], array_values( $hit ) );
 	}
 
 	public function test_expected_safety_blocks_do_not_create_learning(): void {
@@ -93,10 +92,12 @@ final class ErrorPatternsPromotionTest extends TestCase {
 			]
 		);
 
+		// Without a concrete repair_recipe, no learning row is minted.
 		$rows = Memory::list_by_type( 'feedback', 50, 0 );
-		self::assertSame( 'verified_resolved', $rows[0]['value']['state'] ?? null );
-		self::assertSame( 'stale', $rows[0]['status'] ?? null );
-		self::assertCount( 1, $rows );
+		self::assertSame( [], $rows );
+		$store = get_option( ErrorPatterns::OPTION_KEY, [] );
+		$sig   = ErrorPatterns::signature( 'stonewright/demo-ability', $args );
+		self::assertSame( 'verified_resolved', $store[ $sig ]['state'] ?? null );
 	}
 
 	public function test_concrete_verified_recipe_promotes_one_active_repair(): void {

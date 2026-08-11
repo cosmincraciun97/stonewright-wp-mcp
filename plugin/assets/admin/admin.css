@@ -63,6 +63,13 @@
 	display: inline-flex;
 }
 
+.stonewright-action-cell .button,
+.stonewright-library-filters .button,
+.stonewright-library-filters select {
+	min-height: 32px;
+	box-sizing: border-box;
+}
+
 /* ------------------------------------------------------------------ */
 /* Shared admin shell                                                   */
 /* ------------------------------------------------------------------ */

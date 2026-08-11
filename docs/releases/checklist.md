@@ -37,7 +37,7 @@ Run from `plugin/` unless noted.
 
 - [ ] At least one filled [client-acceptance-template.md](client-acceptance-template.md)
       for a tier-1 client (Codex, Claude Code/Desktop, Cursor, or VS Code family).
-- [ ] Catalog `support_tier` / `evidence` still match
+- [ ] Catalog `certification_tier` / `support_tier` / `evidence` still match
       [verified-client-versions.md](../verified-client-versions.md).
 - [ ] OAuth matrix unit tests green when OAuth or companion token manager changed:
       `./vendor/bin/phpunit --filter OAuth` and

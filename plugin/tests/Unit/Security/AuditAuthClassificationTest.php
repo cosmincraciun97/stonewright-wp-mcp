@@ -182,8 +182,18 @@ final class AuditAuthClassificationTest extends TestCase {
 
 		self::assertSame( [], (array) get_option( ErrorPatterns::OPTION_KEY, [] ) );
 		self::assertSame( [], ErrorPatterns::recurring() );
-		self::assertCount( 4, $GLOBALS['wpdb']->inserts );
-		self::assertSame( 2, self::last_audit_args()['_meta']['coalesced_count'] ?? null );
+		self::assertCount( 1, $GLOBALS['wpdb']->inserts );
+	}
+
+	public function test_terminal_protocol_failure_emits_one_aggregate_at_twenty_five_attempts(): void {
+		$response = new \WP_REST_Response( [ 'error' => 'invalid_grant' ], 400 );
+		for ( $i = 0; $i < 25; $i++ ) {
+			AuditLog::reset_request_state();
+			AuditLog::record_auth_event( 'oauth/token', $response, [ 'client_id' => 'stale-client' ] );
+		}
+
+		self::assertCount( 2, $GLOBALS['wpdb']->inserts );
+		self::assertSame( 24, self::last_audit_args()['_meta']['coalesced_count'] ?? null );
 	}
 
 	public function test_auth_coalescing_keeps_distinct_error_reason_fingerprints_separate(): void {

@@ -886,8 +886,8 @@ final class WorkflowPreflight extends AbilityKernel {
 		}
 
 		return [
-			'Install external Playwright MCP before visual work and restart the AI client so the browser tools appear.',
-			'Verify the Playwright/browser tool can open the target URL before the first Stonewright write.',
+			'Ask once whether to use Playwright (recommended), another connected browser, or no browser automation; never scan client config or tools without permission.',
+			'If the selected browser is absent, ask separate install permission, restart after approval, and verify the tool can open the target URL before the first Stonewright write.',
 		];
 	}
 
@@ -962,7 +962,7 @@ final class WorkflowPreflight extends AbilityKernel {
 		if ( ! empty( $profile['needs_visual_check'] ) ) {
 			array_unshift(
 				$gates,
-				'Stop before writing if a visual task has no connected external Playwright/browser MCP.',
+				'Stop before writing if a visual task has no user-approved, connected browser provider.',
 				'Provide visual_build_gate evidence before signoff: Figma token table, media reuse audit, section plan, screenshot deltas, and logged-out viewport checks.',
 				'Use design-tool structure for tokens and asset hints, but match implementation structure to the captured reference screenshots.',
 				'For long visual designs, capture multiple section reference screenshots and compare each section before full-page signoff.',

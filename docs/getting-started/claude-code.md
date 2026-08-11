@@ -44,7 +44,7 @@ claude mcp add stonewright \
 Optional: omit `STONEWRIGHT_MODE=direct` to let the companion auto-detect (plugin
 endpoint present → plugin proxy; HTTP 404 → Direct).
 
-Claude Code is a **tier-1** catalog client. Keep Application Passwords in the
+Claude Code is a **tier-1 certification target**. Keep Application Passwords in the
 CLI env / private config only — not in chat.
 
 **Restart Claude Code** after `mcp add` (required for tool list refresh). Verify
@@ -109,7 +109,7 @@ claude mcp add stonewright \
   --env STONEWRIGHT_WP_URL='https://your-site.example.com' \
   --env STONEWRIGHT_WP_USERNAME='your-wp-username' \
   --env STONEWRIGHT_WP_APP_PASSWORD='xxxx xxxx xxxx xxxx xxxx xxxx' \
-  --env STONEWRIGHT_MCP_TOOL_PROFILE=essential-static \
+  --env STONEWRIGHT_MCP_TOOL_PROFILE=essential \
   -- npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-mcp
 ```
 
@@ -118,10 +118,14 @@ LocalWP discovery. The value is the absolute WordPress install folder
 containing `wp-config.php`, such as `D:\Sites\example\app\public` or
 `/Users/me/Sites/example/app/public`; it is not the plugin folder.
 
-`essential-static` is the install default. For strict tool-cap clients, use
-`STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` instead.
+`essential` is the normal bounded working profile for Claude Code. Use
+`essential-static` only when diagnosing a client that does not process live
+tool-list changes, or `low-tools` for a strict tool cap.
 
-Register the separate Playwright MCP for browser testing and screenshots:
+Before browser work, the agent asks once whether to use Playwright
+(recommended), another connected browser, or none. It asks permission before
+scanning Claude Code tools/private config and separate permission before
+installing a missing provider. After approval, register Playwright:
 
 ```bash
 claude mcp add playwright -- npx -y @playwright/mcp@latest --caps=testing,vision,devtools
@@ -129,6 +133,8 @@ claude mcp add playwright -- npx -y @playwright/mcp@latest --caps=testing,vision
 
 Restart Claude Code after adding the servers. Before any visual Stonewright
 write, verify the Playwright/browser tool is visible in Claude Code.
+Browser automation never bypasses Stonewright custom-code approval or other
+write-safety gates.
 
 ## 4. Verify the connection
 

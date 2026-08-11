@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Elementor\Renderer;
 
 use Stonewright\WpMcp\DesignTokens\Resolver;
+use Stonewright\WpMcp\Elementor\LayoutNormalizer;
 
 /**
  * Renders a generic DesignSpec container/group node as an Elementor V3 container.
@@ -35,14 +36,10 @@ final class Container {
 	 * @return array<string, mixed>
 	 */
 	public static function render( array $node, Resolver $resolver, string $canonical_path ): array {
-		$style            = StyleMapper::node_style( $node, $resolver );
-		$raw_layout       = isset( $node['layout'] ) ? (string) $node['layout'] : '';
-		$layout           = 'grid' === $raw_layout ? 'grid' : 'flex';
-		$direction_source = $node['direction'] ?? ( $style['direction'] ?? ( $style['flex_direction'] ?? null ) );
-		if ( null === $direction_source && in_array( $raw_layout, [ 'horizontal', 'vertical' ], true ) ) {
-			$direction_source = 'horizontal' === $raw_layout ? 'row' : 'column';
-		}
-		$direction        = 'row' === $direction_source ? 'row' : 'column';
+		$style           = StyleMapper::node_style( $node, $resolver );
+		$layout_source   = $node['layout'] ?? null;
+		$direction_src   = $node['direction'] ?? ( $style['direction'] ?? ( $style['flex_direction'] ?? null ) );
+		$layout_intent   = LayoutNormalizer::for_spec( $layout_source, $direction_src );
 
 		$is_companion_sized = ! empty( $node['fullWidth'] )
 			|| ! empty( $node['full_width'] )
@@ -53,19 +50,19 @@ final class Container {
 			|| array_key_exists( 'min_height', $style );
 
 		$settings = [
-			'container_type' => $layout,
+			'container_type' => $layout_intent['container_type'],
 		];
 		if ( $is_companion_sized ) {
 			$settings['content_width'] = 'full';
 			$settings['padding']       = StyleMapper::dimensions( 0 );
 		}
-		if ( 'grid' === $layout ) {
+		if ( 'grid' === $layout_intent['container_type'] ) {
 			$settings['grid_columns_grid'] = [
 				'unit' => 'fr',
 				'size' => isset( $node['columns'] ) ? max( 1, (int) $node['columns'] ) : 2,
 			];
 		} else {
-			$settings['flex_direction'] = $direction;
+			$settings = LayoutNormalizer::apply_direction( $settings, $layout_intent['flex_direction'] );
 			if ( isset( $node['justify_content'] ) ) {
 				$settings['flex_justify_content'] = self::flex_alignment( (string) $node['justify_content'] );
 			}

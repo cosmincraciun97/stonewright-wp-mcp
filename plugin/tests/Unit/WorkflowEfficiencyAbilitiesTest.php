@@ -375,7 +375,8 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertContains( 'Implement visual pages in write-and-verify batches of one section, or two sections only when they are simple and tightly coupled.', $result['fast_path']['batching_rules'] );
 		self::assertContains( 'After each batch, verify desktop, tablet, and mobile screenshots plus overflow before starting the next batch.', $result['fast_path']['batching_rules'] );
 		self::assertContains( 'Auto-continue to the next section batch when screenshots, diagnostics, and overflow checks pass; do not wait for user approval between passing batches.', $result['fast_path']['batching_rules'] );
-		self::assertContains( 'Install external Playwright MCP before visual work and restart the AI client so the browser tools appear.', $result['fast_path']['visual_setup'] );
+		self::assertContains( 'Ask once whether to use Playwright (recommended), another connected browser, or no browser automation; never scan client config or tools without permission.', $result['fast_path']['visual_setup'] );
+		self::assertContains( 'If the selected browser is absent, ask separate install permission, restart after approval, and verify the tool can open the target URL before the first Stonewright write.', $result['fast_path']['visual_setup'] );
 		self::assertContains( 'Use a WordPress Application Password for HTTP MCP authentication.', $result['auth_guidance'] );
 	}
 

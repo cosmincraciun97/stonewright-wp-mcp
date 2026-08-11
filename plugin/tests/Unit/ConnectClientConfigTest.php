@@ -137,7 +137,7 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'STONEWRIGHT_MCP_TOOL_PROFILE = "essential"', $result['toml'] );
 	}
 
-	public function test_stdio_snippets_use_the_saved_site_surface(): void {
+	public function test_stdio_snippets_follow_explicit_full_surface(): void {
 		update_option( 'stonewright_mcp_surface', 'full', false );
 
 		$codex  = ConnectClientConfig::snippet_for( 'codex', 'admin', 'pw' );
@@ -150,6 +150,20 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'STONEWRIGHT_MCP_TOOL_PROFILE = "full"', $codex['toml'] );
 		$this->assertSame( 'full', $cursor['mcpServers']['stonewright']['env']['STONEWRIGHT_MCP_TOOL_PROFILE'] );
 		$this->assertStringContainsString( '--env STONEWRIGHT_MCP_TOOL_PROFILE=full', $claude['command'] );
+	}
+
+	public function test_known_client_follows_explicit_bootstrap_surface(): void {
+		update_option( 'stonewright_mcp_surface', 'bootstrap', false );
+
+		$this->assertSame( 'bootstrap', ConnectClientConfig::recommended_startup_profile( 'codex' ) );
+		$this->assertSame( 'bootstrap', ConnectClientConfig::recommended_startup_profile( 'cursor' ) );
+	}
+
+	public function test_unknown_client_follows_explicit_site_surface(): void {
+		update_option( 'stonewright_mcp_surface', 'bootstrap', false );
+
+		$this->assertSame( 'bootstrap', ConnectClientConfig::recommended_startup_profile() );
+		$this->assertSame( 'bootstrap', ConnectClientConfig::recommended_startup_profile( 'generic' ) );
 	}
 
 	public function test_strict_cap_client_override_wins_over_saved_site_surface(): void {
@@ -220,6 +234,11 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'Show me approval_url, exact path, byte counts, and a short summary, then stop', $prompt );
 		$this->assertStringContainsString( 'Never open the approval page', $prompt );
 		$this->assertStringContainsString( 'Keep credentials only in the private client config or ~/.stonewright/sites.json', $prompt );
+		$this->assertStringContainsString( 'prefer the versioned `stonewright connect add` installer', $prompt );
+		$this->assertStringContainsString( 'hidden password prompt or --password-env', $prompt );
+		$this->assertStringContainsString( '~/.stonewright/sites.json may contain a credential_ref but never plaintext', $prompt );
+		$this->assertStringContainsString( 'stonewright connect verify <alias> --client <client>', $prompt );
+		$this->assertStringContainsString( 'a parseable config file is not runtime proof', $prompt );
 		$this->assertStringContainsString( 'fully restart or reload the MCP session', $prompt );
 		$this->assertStringContainsString( 'stonewright-task-start', $prompt );
 		$this->assertLessThan(
@@ -235,7 +254,11 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'expected_companion_package', $prompt );
 		$this->assertStringContainsString( 'refresh_required_tool_names', $prompt );
 		$this->assertStringContainsString( 'do not bypass Stonewright', $prompt );
-		$this->assertStringContainsString( 'browser/Playwright tool', $prompt );
+		$this->assertStringContainsString( 'user-approved browser provider', $prompt );
+		$this->assertStringContainsString( 'Ask me once whether this site/client should use Playwright', $prompt );
+		$this->assertStringContainsString( 'Do not scan my private config or client tool surface without permission', $prompt );
+		$this->assertStringContainsString( 'Never install or reconfigure a browser provider silently', $prompt );
+		$this->assertStringContainsString( 'never bypasses custom-code dry-run, approval, backup, permission, or confirmation gates', $prompt );
 	}
 
 	public function test_playwright_mcp_snippet_is_separate_server(): void {

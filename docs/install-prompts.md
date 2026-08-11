@@ -51,14 +51,24 @@ WordPress password.
 ```text
 Configure the Stonewright MCP server for my WordPress site in this AI client.
 
+Prefer the versioned `stonewright connect add` installer. Ask me for a unique
+site alias, environment, Plugin/Direct policy, WordPress mode, MCP tool surface,
+Elementor V4 choice, and target client. Ask once for a browser provider and ask
+separately before scanning client configuration or installing anything. Store
+those choices per site/client. Use a hidden password prompt or --password-env;
+never put a password on argv. After I restart the client, run
+`stonewright connect verify <alias> --client <client>` and require spawned task-start/status
+proof, not only a valid config file.
+
 Connection values (I will provide secrets when asked):
 - WordPress URL: <https://example.com>
 - MCP server name: stonewright
 - Transport: command `npx`, args ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz", "stonewright-mcp"]
 - Env vars only (never inline secrets in args): STONEWRIGHT_WP_URL,
   STONEWRIGHT_WP_USERNAME, STONEWRIGHT_WP_APP_PASSWORD,
-  STONEWRIGHT_MCP_TOOL_PROFILE=essential-static (install default; use
-  bootstrap or low-tools for strict tool-cap clients).
+  STONEWRIGHT_MCP_TOOL_PROFILE=essential (normal bounded working profile; use
+  essential-static only for an unknown client with stale tool-list behavior,
+  or low-tools for a strict tool cap).
 - I will supply secrets only into private client config. Do not ask me to paste
   real Application Passwords or OAuth tokens into chat.
 
@@ -84,7 +94,10 @@ After a client-specific restart / MCP reload (not only a chat refresh):
 - To keep reads cheap, pass stonewright_fields with the paths you need. Required
   response-envelope fields remain present. Pass knownHash to
   stonewright-elementor-v3-get-page-structure to skip an unchanged page tree.
-- For visual work, verify browser/Playwright tools before the first write.
+- For visual work, ask once whether to use Playwright (recommended), another
+  connected browser, or none. Ask permission before scanning client
+  tools/private config and separate permission before installing or configuring
+  a missing provider; then verify the approved tool before the first write.
 - After any Elementor write, call
   stonewright-elementor-post-write-verify with the touched element IDs. Do not
   call the task complete until its frontend assertions pass and desktop,
@@ -115,16 +128,27 @@ wp-admin skills/memory/audit UI.
 Optional interactive setup:
 
 ```bash
-npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-companion init
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
+  --alias site-a --url https://site-a.example --username admin \
+  --mode direct-only --client cursor
 ```
 
-It validates the credential, stores the canonical `appPassword` key in
-permission-restricted `~/.stonewright/sites.json`, and prints a secret-free MCP
-block. Existing files using the legacy `applicationPassword` key remain
-readable.
+It validates the credential, stores only a `credential_ref` in the
+permission-restricted schema-v2 `~/.stonewright/sites.json`, keeps the secret in
+the OS credential store (or an explicit `env://` reference), and writes a
+secret-free named MCP entry. Existing v1 plaintext files remain readable only
+for compatibility; run `stonewright connect migrate` to move their secrets out
+without leaving a plaintext backup.
 
 ```text
 Configure the Stonewright MCP server in Direct mode (no WordPress plugin) in this AI client.
+
+Prefer `stonewright connect add` with a unique alias and --mode direct-only.
+Ask once for Playwright, another connected browser, or none. Ask separately
+before scanning and before installing/configuring a provider, save those
+choices for this site/client, and never infer consent. After restart, run
+`stonewright connect verify <alias> --client <client>`; require the spawned
+companion version, active alias, task-start, status, and required tool surface.
 
 Connection values (I will provide secrets when asked):
 - WordPress URL: <https://example.com>
@@ -156,7 +180,10 @@ After reload:
   wp-admin one-time-grant boundary; report the Plugin-mode approval-gated path.
 - One-time setup: call stonewright-agents-md-sync and offer to add the pointer to your global agent config.
 - Fix recurring_errors from task-start before new work; never invent Elementor/Gutenberg schemas.
-- For visual work, verify browser/Playwright tools before the first write.
+- For visual work, ask once whether to use Playwright (recommended), another
+  connected browser, or none. Ask permission before scanning client
+  tools/private config and separate permission before installing or configuring
+  a missing provider; then verify the approved tool before the first write.
 - After a local Direct Elementor write, require the returned cache receipt and
   complete browser verification. Remote Direct cannot verify Elementor's PHP
   renderer or post cache; use Plugin mode when closed-loop verification is
@@ -168,8 +195,9 @@ After reload:
 
 - Set `STONEWRIGHT_MCP_MAX_TOOLS=50` so the companion applies the same limit deliberately instead of letting the client truncate an arbitrary tail.
 - Configure exactly one Stonewright MCP server entry. Do not register plugin-proxy and Direct mode side by side.
-- `STONEWRIGHT_MCP_TOOL_PROFILE` selects the startup profile. Default is
-  `essential-static`. Use `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK=1` only when you
+- `STONEWRIGHT_MCP_TOOL_PROFILE` selects the startup profile. Known clients
+  normally use `essential`; use `essential-static` only for an unknown client
+  with stale tool-list behavior. Use `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK=1` only when you
   intentionally want the environment value to override WordPress Setup
   throughout the session.
 
@@ -177,12 +205,14 @@ For stale, disabled, or truncated tools, follow the [tool surface recovery runbo
 
 ## Certified vs compatible clients
 
-- **Tier-1 / certified path:** Codex, Claude Code/Desktop, Cursor, VS Code /
-  GitHub Copilot — maintained first; use
+- **Tier-1 certification targets:** Codex, Claude Code/Desktop, Cursor, VS Code /
+  GitHub Copilot — maintained first, but not called certified without a passing
+  acceptance report; use
   [client-acceptance-template.md](releases/client-acceptance-template.md).
 - **Compatible:** other catalog clients may work with the same stdio/HTTP
   snippets but are not fully certified until an acceptance report passes.
-- Evidence and tiers live in `plugin/data/clients/*.json` and
+- Certification priority, operational support, and evidence live in
+  `plugin/data/clients/*.json` and
   [verified-client-versions.md](verified-client-versions.md).
 
 ## Updating an existing setup

@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Elementor\Renderer;
 
 use Stonewright\WpMcp\DesignTokens\Resolver;
+use Stonewright\WpMcp\Elementor\LayoutNormalizer;
 
 /**
  * Renders a DesignSpec section node as an Elementor V3 container element.
@@ -37,26 +38,28 @@ final class Section {
 	private static function build_settings( array $node, Resolver $resolver ): array {
 		// `row` block-type auto-implies horizontal layout, even if the spec
 		// doesn't set layout explicitly. For sections, explicit `layout` wins.
-		$type      = isset( $node['type'] ) ? (string) $node['type'] : '';
-		$layout    = isset( $node['layout'] ) ? (string) $node['layout'] : ( 'row' === $type ? 'row' : 'stack' );
-		$direction = 'row' === $layout ? 'row' : 'column';
+		// Canonical map: row/horizontal → flex row; stack/vertical → flex column; grid → grid.
+		$type           = isset( $node['type'] ) ? (string) $node['type'] : '';
+		$layout_source  = $node['layout'] ?? ( 'row' === $type ? 'row' : 'stack' );
+		$direction_src  = $node['direction'] ?? null;
+		$layout_intent  = LayoutNormalizer::for_spec( $layout_source, $direction_src );
 
 		$is_full_width = ! empty( $node['fullWidth'] ) || ! empty( $node['full_width'] );
 
 		$settings = [
 			'content_width'  => $is_full_width ? 'full' : ( isset( $node['width'] ) ? (string) $node['width'] : 'boxed' ),
-			'container_type' => 'grid' === $layout ? 'grid' : 'flex',
+			'container_type' => $layout_intent['container_type'],
 		];
 		if ( $is_full_width ) {
 			$settings['padding'] = self::dimensions( [] );
 		}
-		if ( 'grid' === $layout ) {
+		if ( 'grid' === $layout_intent['container_type'] ) {
 			$settings['grid_columns_grid'] = [
 				'unit' => 'fr',
 				'size' => isset( $node['columns'] ) ? max( 1, (int) $node['columns'] ) : 2,
 			];
 		} else {
-			$settings['flex_direction'] = $direction;
+			$settings = LayoutNormalizer::apply_direction( $settings, $layout_intent['flex_direction'] );
 			if ( isset( $node['justify_content'] ) ) {
 				$settings['flex_justify_content'] = self::flex_alignment( (string) $node['justify_content'] );
 			}

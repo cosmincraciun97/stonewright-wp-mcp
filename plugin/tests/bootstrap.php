@@ -217,6 +217,9 @@ if ( ! function_exists( 'get_user_by' ) ) {
 			return $row;
 		}
 	}
+	if ( 'id' === $field && in_array( (int) $value, (array) ( $GLOBALS['stonewright_test_missing_user_ids'] ?? [] ), true ) ) {
+		return false;
+	}
 	if ( 'id' === $field && (int) $value > 0 ) {
 		return (object) [
 			'ID'           => (int) $value,
@@ -2384,6 +2387,11 @@ if ( ! class_exists( 'WP_REST_Request' ) ) {
 
 		public function get_param( string $key ): mixed {
 			return $this->params[ $key ] ?? null;
+		}
+
+		/** @return array<string, mixed> */
+		public function get_params(): array {
+			return $this->params;
 		}
 
 		/** @param array<string, mixed> $params */

@@ -185,6 +185,24 @@ final class SettingsSanitizerTest extends TestCase {
 		$this->assertContains( 'stonewright_essential_tools_mode', $options );
 	}
 
+	public function test_surface_sanitizer_does_not_write_the_option_it_sanitizes(): void {
+		$GLOBALS['stonewright_test_registered_settings'] = [];
+		update_option( 'stonewright_mcp_surface', 'essential', false );
+		update_option( 'stonewright_essential_tools_mode', true, false );
+
+		ConfigurationPage::register_settings();
+
+		$setting = array_values( array_filter(
+			$GLOBALS['stonewright_test_registered_settings'],
+			static fn( array $registered ): bool => 'stonewright_mcp_surface' === $registered['option']
+		) )[0];
+		$sanitize = $setting['args']['sanitize_callback'];
+
+		$this->assertSame( 'full', $sanitize( 'full' ) );
+		$this->assertSame( 'essential', get_option( 'stonewright_mcp_surface' ) );
+		$this->assertFalse( (bool) get_option( 'stonewright_essential_tools_mode' ) );
+	}
+
 	public function test_settings_page_registers_essential_tools_mode_setting(): void {
 		$GLOBALS['stonewright_test_registered_settings'] = [];
 

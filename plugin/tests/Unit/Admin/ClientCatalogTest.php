@@ -44,6 +44,7 @@ final class ClientCatalogTest extends TestCase {
 			'verified_against_docs_on',
 			'secret_storage',
 			'support_tier',
+			'certification_tier',
 			'evidence',
 		];
 
@@ -59,8 +60,13 @@ final class ClientCatalogTest extends TestCase {
 			self::assertSame( 'user-level', $client['secret_storage'] );
 			self::assertContains(
 				(string) $client['support_tier'],
-				[ 'tier-1', 'tier-2', 'compatible', 'experimental' ],
+				[ 'certified', 'compatible', 'community', 'unknown' ],
 				'support_tier on ' . $client['slug']
+			);
+			self::assertContains(
+				(string) $client['certification_tier'],
+				[ 'tier-1', 'tier-2', 'compatible', 'experimental' ],
+				'certification_tier on ' . $client['slug']
 			);
 			self::assertIsArray( $client['evidence'] );
 			self::assertArrayHasKey( 'manual_smoke', $client['evidence'] );
@@ -77,7 +83,7 @@ final class ClientCatalogTest extends TestCase {
 				static fn( array $c ): string => (string) $c['slug'],
 				array_filter(
 					ClientCatalog::all(),
-					static fn( array $c ): bool => 'tier-1' === ( $c['support_tier'] ?? '' )
+					static fn( array $c ): bool => 'tier-1' === ( $c['certification_tier'] ?? '' )
 				)
 			)
 		);
@@ -89,8 +95,17 @@ final class ClientCatalogTest extends TestCase {
 
 		$codex = ClientCatalog::get( 'codex' );
 		self::assertIsArray( $codex );
-		self::assertSame( 'tier-1', $codex['support_tier'] );
+		self::assertSame( 'tier-1', $codex['certification_tier'] );
 		self::assertContains( $codex['evidence']['stdio'], [ 'compatible', 'certified' ] );
+		self::assertSame( 'essential', $codex['default_profile'] );
+
+		$antigravity = ClientCatalog::get( 'antigravity' );
+		self::assertIsArray( $antigravity );
+		self::assertSame( 'low-tools', $antigravity['default_profile'] );
+
+		$generic = ClientCatalog::get( 'generic-mcp' );
+		self::assertIsArray( $generic );
+		self::assertSame( 'essential-static', $generic['default_profile'] );
 	}
 
 	public function test_get_returns_known_client_and_null_for_unknown(): void {
@@ -101,6 +116,36 @@ final class ClientCatalogTest extends TestCase {
 		self::assertSame( 'codex mcp add', $codex['official_cli_add'] );
 
 		self::assertNull( ClientCatalog::get( 'not-a-real-client' ) );
+	}
+
+	public function test_certified_support_requires_complete_acceptance_evidence(): void {
+		$normalize = new \ReflectionMethod( ClientCatalog::class, 'normalize' );
+
+		$client = [
+			'slug'         => 'synthetic-client',
+			'label'        => 'Synthetic Client',
+			'support_tier' => 'certified',
+			'evidence'     => [
+				'manual_smoke'         => 'pending',
+				'oauth_http'           => 'compatible',
+				'stdio'                => 'compatible',
+				'certification_report' => '',
+			],
+		];
+
+		$without_evidence = $normalize->invoke( null, $client );
+		self::assertIsArray( $without_evidence );
+		self::assertSame( 'compatible', $without_evidence['support_tier'] );
+
+		$client['evidence'] = [
+			'manual_smoke'         => 'pass',
+			'oauth_http'           => 'certified',
+			'stdio'                => 'compatible',
+			'certification_report' => 'docs/releases/example-client-report.md',
+		];
+		$with_evidence = $normalize->invoke( null, $client );
+		self::assertIsArray( $with_evidence );
+		self::assertSame( 'certified', $with_evidence['support_tier'] );
 	}
 
 	public function test_clients_are_sorted_by_label(): void {

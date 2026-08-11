@@ -48,7 +48,7 @@ Stonewright is a WordPress MCP stack for AI coding agents. **Elementor** is a fi
 
 Counts are derived from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
 
-### Plugin mode — **358** abilities
+### Plugin mode — **359** abilities
 
 Counts below are grouped by the `includes/Abilities/` subdirectory each ability
 lives in, and sum to the total. Regenerate with `composer docs:matrix`.
@@ -146,10 +146,10 @@ The companion authenticates with a WordPress Application Password and exposes **
 4. Follow the client-specific OAuth instructions shown in Setup. Use the
    companion configuration below only for Application Password or local
    WP-CLI workflows.
-5. In Setup, run **Verify connection** (live MCP loopback). Optionally run `npx @stonewright/companion doctor` from a shell.
+5. In Setup, run **Verify connection** (live MCP loopback). Optionally run `npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright doctor` from a shell.
 6. **Restart or reload the AI client** (client-specific), confirm `stonewright-task-start` is in the tool list, then call it as the first WordPress task. `stonewright-context-bootstrap` remains a compatibility path only.
 
-MCP surface modes (`bootstrap` / `essential-static` / `essential` / `full`) control how many abilities appear to clients. The companion default startup profile is **`essential-static`**. Public ability and Direct-tool contracts live under [docs/contracts/](docs/contracts/). Elementor multi-step edits use the [transaction envelope](docs/transactions.md). The durable audit, OAuth, write-receipt, and diagnostics contract is [documented here](docs/permanent-remediation-contracts.md). Client certification vs compatibility is defined in [docs/releases/client-acceptance-template.md](docs/releases/client-acceptance-template.md).
+MCP surface modes (`bootstrap` / `essential-static` / `essential` / `full`) control how many abilities appear to clients. Known clients normally use the bounded working profile **`essential`**; **`essential-static`** is the safe fallback for an unknown client with stale tool-list behavior. Public ability and Direct-tool contracts live under [docs/contracts/](docs/contracts/). Elementor multi-step edits use the [transaction envelope](docs/transactions.md). The durable audit, OAuth, write-receipt, and diagnostics contract is [documented here](docs/permanent-remediation-contracts.md). Client certification vs compatibility is defined in [docs/releases/client-acceptance-template.md](docs/releases/client-acceptance-template.md).
 
 <details>
 <summary>MCP client config (Plugin mode companion)</summary>
@@ -171,7 +171,7 @@ Use the latest companion package URL from [Releases](https://github.com/cosmincr
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "admin",
         "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential-static"
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
       }
     }
   }
@@ -195,15 +195,21 @@ HTTP local sites are supported; Setup treats plain HTTP as informational, not a 
 <summary>Direct mode (plugin-less)</summary>
 
 1. Create a WordPress Application Password for an admin user. On plain HTTP local sites, set `WP_ENVIRONMENT_TYPE` to `local` in `wp-config.php` if Application Passwords require it.
-2. Run the companion `init` command from the latest release package (or configure env vars) and paste the MCP JSON into your client:
+2. Register a named site and client from the latest release package. The hidden
+   prompt keeps the Application Password out of argv and shell history:
 
    ```bash
-   npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-companion init
+   npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
+     --alias site-a --url https://site-a.example --username admin \
+     --mode direct-only --client cursor
    ```
-3. First call: `stonewright-task-start`. Use `stonewright-site-discover` for
+3. Restart the client, then run `stonewright connect verify site-a --client
+   cursor`. This spawns the saved server entry and requires task-start and status
+   to complete; a config-file parse alone is not runtime proof.
+4. First in-client call: `stonewright-task-start`. Use `stonewright-site-discover` for
    endpoint and capability details, and `stonewright-setup-profile` for setup
    diagnostics.
-4. Read [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md) for the capability matrix and smoke script.
+5. Read [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md) for the capability matrix and smoke script.
 
 Example env for Direct mode:
 
@@ -223,7 +229,7 @@ Example env for Direct mode:
         "STONEWRIGHT_WP_URL": "http://your-local-site.local",
         "STONEWRIGHT_WP_USERNAME": "admin",
         "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential-static"
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
       }
     }
   }
@@ -233,6 +239,17 @@ Example env for Direct mode:
 Replace `VERSION` with the latest release version (the companion is distributed through GitHub Releases, not the npm registry). Direct mode does not write custom PHP/CSS/JS/HTML (no authenticated wp-admin grant boundary).
 
 </details>
+
+### Multiple sites and environments
+
+Each `(canonical URL, environment)` is unique and each site has a stable alias.
+`~/.stonewright/sites.json` contains metadata and credential references only;
+Application Passwords remain in Keychain, Windows protected storage, Linux
+Secret Service, or an explicit `env://` reference. A client entry carries only
+`STONEWRIGHT_SITE_ALIAS`, so startup resolves exactly that site without loading
+unrelated credentials. The registry also retains Direct/Plugin policy, WordPress
+mode and tool surface, Elementor V4 selection, plus the browser choice and its
+separate scan/install consent for each client. See [Installation](docs/installation.md).
 
 Fresh installs start with no user memory, user-created skills, or audit events.
 Generic built-in skills and native rules are product assets. Updates preserve
@@ -307,7 +324,10 @@ Two optional inputs cut payload without losing precision:
 ```mermaid
 flowchart LR
   Client[AI / MCP client]
+  Browser[User-approved external browser provider]
   Companion[Stonewright Companion]
+  Registry[Site registry + credential references]
+  Clients[Transactional client adapters]
   CompFilter[Companion profile filter]
   Plugin[Stonewright plugin]
   Surface[Surface gate: bootstrap / essential / full]
@@ -326,6 +346,10 @@ flowchart LR
   Gates[Backup / validation / readback / audit]
 
   Client --> Companion
+  Client --> Clients
+  Clients --> Companion
+  Companion --> Registry
+  Client --> Browser
   Companion --> CompFilter
   Companion --> Rules
   CompFilter -->|Plugin mode| Plugin
@@ -348,11 +372,19 @@ flowchart LR
   REST --> WP
   WP --> Content
   Plugin --> WP
+  Browser -. verification or approved dashboard interaction .-> WP
 ```
 
 Tool visibility is filtered twice before a client sees it: the plugin’s **surface gate** (`bootstrap` / `essential` / `full`) and optional **per-session tool profile** decide which abilities the MCP endpoint exposes, then the **companion profile filter** narrows that set again for the client. A monotonic `surface_revision` on every gateway response drives `tools/list_changed` so clients re-list when the surface changes.
 
-Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **100 tools**. Plugin mode exposes **358 abilities**. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post element/CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
+Browser automation is external and consent-bound. The agent asks once per
+site/client whether to use Playwright (recommended), another connected browser,
+or none; scanning and installation require separate permission. A browser may
+verify output or perform an explicitly approved dashboard interaction, but it
+never bypasses custom-code dry-run/approval, backup, permission, or confirmation
+gates.
+
+Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **100 tools**. Plugin mode exposes **360** abilities. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post element/CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 
@@ -386,22 +418,18 @@ repository follow the common MCP server JSON shape used by several clients.
 ## Admin interface
 
 Plugin mode admin pages include Setup, Dashboard (Site Pulse), Abilities,
-Blueprints, Design Studio, Visual Workspace, Skills, Memory, Sandbox, and Audit
-Log. The Audit Log is the single responsive incident view; Sandbox does not
-duplicate it. The admin ships one supported light theme; there is no theme
-toggle. Its maintained tokens, component contracts, responsive rules, and
-page-by-page release checklist live in [DESIGN.md](DESIGN.md).
+Prompts, Skills, Memory, Sandbox, and Audit Log. The Audit Log is the single
+responsive incident view; Sandbox does not duplicate it. The admin ships one
+supported light theme; there is no theme toggle. Its maintained tokens,
+component contracts, responsive rules, and page-by-page release checklist live
+in [DESIGN.md](DESIGN.md).
 
-Design Studio holds design directions: validated site-wide design intent with
-provenance and revisions. Visual Workspace opens the real Elementor or block
-editor in a same-origin companion window, resolves the live adapter there, and
-walks read → preview → confirm → apply → verify with the active direction on
-screen. Neither page certifies that a page looks right; a change applied without
-evidence is reported as unverified. See [docs/visual.md](docs/visual.md) and
-[docs/figma-to-elementor-workflow.md](docs/figma-to-elementor-workflow.md).
+The Design Library admin group—Blueprints, Design Studio, and Visual
+Workspace—is disabled. Its routes and prompt starters are not registered.
+Persistent user data and the typed MCP design/blueprint engines remain intact;
+`figma-to-native-pixel` remains the supported evidence-led design workflow.
 
 <!-- Maintainer: add the Dashboard or Site Pulse screenshot here. Do not remove this comment until the asset is available. -->
-<!-- Maintainer: add the Blueprints or brand-kit screenshot here. Do not remove this comment until the asset is available. -->
 <!-- Maintainer: add the Audit Log or restore screenshot here. Do not remove this comment until the asset is available. -->
 <!-- Maintainer: add an Elementor or Gutenberg agent workflow screenshot here. Do not remove this comment until the asset is available. -->
 

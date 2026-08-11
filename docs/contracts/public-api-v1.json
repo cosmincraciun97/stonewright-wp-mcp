@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "generated_at": "2026-08-04T21:13:19+00:00",
+    "generated_at": "2026-08-11T16:35:46+00:00",
     "allowlist": {
         "removed": [],
         "renamed": {},
@@ -98,8 +98,8 @@
             "ability_name": "stonewright/blocks-batch-mutate",
             "mcp_name": "stonewright-blocks-batch-mutate",
             "kind": "Write",
-            "input_schema_hash": "a2710ba59ed3f444fe250006ae57fd9178f099286a98a0bf223d7e2fa0f9937f",
-            "output_schema_hash": "3fdf3c0d8d7e32cddfe5f8f9658a45fc46145a0a91362952bf02a0df39cfe66a",
+            "input_schema_hash": "c408b59564939fa9431dc88269eb0270844e50af28c6bea680aed68565a202c9",
+            "output_schema_hash": "acb1f95f4acabdd22d70efece4f1a0ac329ea92e6dc5bcd16b90f26f7b2f9196",
             "permission_class": "Permissions::edit_post( (int)",
             "gates": {
                 "backup": true,
@@ -575,6 +575,20 @@
             "mcp_name": "stonewright-cpt-register",
             "kind": "Write",
             "input_schema_hash": "cacf053cfccd4ce098d75e5c03070eb07dd9ead2fe8f5b5dfa1f9ff75374244f",
+            "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
+            "permission_class": "Permissions::manage_options()",
+            "gates": {
+                "backup": false,
+                "token": true,
+                "validator": false,
+                "audit": true
+            }
+        },
+        {
+            "ability_name": "stonewright/custom-code-provider",
+            "mcp_name": "stonewright-custom-code-provider",
+            "kind": "Write",
+            "input_schema_hash": "b265139ade3937452b1130288c80b22d13a3ef463a48afbd5da5e2450b149de0",
             "output_schema_hash": "82ef96cebaf5fbe16269fd18b0240d78f5b9b90a4155a17eb797115b09148ecf",
             "permission_class": "Permissions::manage_options()",
             "gates": {
@@ -2492,7 +2506,7 @@
             "ability_name": "stonewright/elementor-v3-batch-mutate",
             "mcp_name": "stonewright-elementor-v3-batch-mutate",
             "kind": "Write",
-            "input_schema_hash": "ba0cead4eb02b2dd99f65acd6d0dfa19ba45e963e6256f530950791ff21113ea",
+            "input_schema_hash": "1019f0958a5d7e9f9c345e14f54d700eafbd060e5498f7181716b5ea8bfe14be",
             "output_schema_hash": "57f9fb71ff0ab1a2cb5c1982714ff0324225808770cb88c82034375eaaa538e1",
             "permission_class": "Permissions::edit_post( $id )",
             "gates": {
@@ -2596,6 +2610,20 @@
             "gates": {
                 "backup": false,
                 "token": false,
+                "validator": false,
+                "audit": false
+            }
+        },
+        {
+            "ability_name": "stonewright/elementor-v3-legacy-debt-migrate",
+            "mcp_name": "stonewright-elementor-v3-legacy-debt-migrate",
+            "kind": "Read",
+            "input_schema_hash": "bf97a4c1610a0edd61288430b3ab52f691264320b8b0835db40f586f6d9916ae",
+            "output_schema_hash": "bf85c7f0451767217662afcfa768ab44d9e4b691e19dead4c3ebea9476622899",
+            "permission_class": "Permissions::edit_post( (int)",
+            "gates": {
+                "backup": false,
+                "token": true,
                 "validator": false,
                 "audit": false
             }
@@ -3903,6 +3931,20 @@
             }
         },
         {
+            "ability_name": "stonewright/security-audit-reconcile",
+            "mcp_name": "stonewright-security-audit-reconcile",
+            "kind": "Read",
+            "input_schema_hash": "7442754713999ce4f360d88f4720427ebdcd5a497de6d0b6a8ccab32675ab2c1",
+            "output_schema_hash": "26d04eae31808d8747a6a0e76bdbdebc2ff8bbf3e123a4e6000e59ae02430fdd",
+            "permission_class": "Permissions::manage_options()",
+            "gates": {
+                "backup": false,
+                "token": false,
+                "validator": false,
+                "audit": true
+            }
+        },
+        {
             "ability_name": "stonewright/security-create-one-time-link",
             "mcp_name": "stonewright-security-create-one-time-link",
             "kind": "Read",
@@ -3928,6 +3970,20 @@
                 "token": false,
                 "validator": false,
                 "audit": false
+            }
+        },
+        {
+            "ability_name": "stonewright/security-runtime-data-purge",
+            "mcp_name": "stonewright-security-runtime-data-purge",
+            "kind": "Read",
+            "input_schema_hash": "ddf971e6fd83bb2ae968311a9ea288f674e4c923d45c3b2216e40ffb3b441c33",
+            "output_schema_hash": "2e76c9ad2cc98399ed008ca511ecb8b0f14371bd08ac38ad10299d7731a2957f",
+            "permission_class": "Permissions::manage_options()",
+            "gates": {
+                "backup": false,
+                "token": true,
+                "validator": false,
+                "audit": true
             }
         },
         {

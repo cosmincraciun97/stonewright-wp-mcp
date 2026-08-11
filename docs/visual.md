@@ -23,27 +23,15 @@ npm test
 npm run build
 ```
 
-## Visual Workspace admin page
+## Admin host disabled
 
-The same workspace runs in the browser under **Stonewright → Visual Workspace**
-(`admin.php?page=stonewright-visual-workspace`). The page exists so a person can
-see and drive the ladder an MCP client would otherwise walk alone. It requires
-`edit_posts`, and pointing it at a post additionally requires
-`Permissions::can_edit_post()` for that post.
-
-Open it with `&post_id=<id>`, or use the styled picker when no post id is
-supplied. Select **Connect editor**: a user gesture opens the real editor in a
-same-origin companion window, and the workspace waits for its runtime before
-resolving an adapter. Keep that editor window open. The requested editor can be
-pinned with `&editor=elementor-v3`,
-`&editor=elementor-v4`, or `&editor=gutenberg`; the default `auto` leaves it to
-detection, which is the honest default because only the browser can see which
-editor actually loaded.
-
-PHP renders the chrome — heading, target post, expected editor, canvas,
-inspector — and the browser bundle fills three slots: the adapter chip, the
-canvas body, and the inspector body. If the bundle is not present the page says
-so and prints the command that builds it, rather than showing an empty frame.
+The former **Stonewright → Visual Workspace** page is not registered in this
+release. Direct requests to `admin.php?page=stonewright-visual-workspace` do not
+render the product surface, and its page-specific assets are not enqueued. The
+headless package remains built and tested because typed MCP design workflows
+still use its adapter, transaction, confirmation, and verification contracts.
+Persistent design data is preserved; disabling the library is not a data
+deletion or a claim that the underlying render engines were removed.
 
 ### Adapter detection
 

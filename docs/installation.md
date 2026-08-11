@@ -97,8 +97,45 @@ For a guided Direct setup, run:
 npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright-companion init
 ```
 
-It writes credentials only to permission-restricted
-`~/.stonewright/sites.json` and prints a secret-free MCP client block.
+`init` is a compatibility alias for `connect add`. For multi-site installs:
+
+```bash
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
+  --alias site-a \
+  --url https://site-a.example \
+  --username editor \
+  --password-env STONEWRIGHT_TMP_APP_PASSWORD \
+  --env staging \
+  --mode auto \
+  --plugin-enabled yes \
+  --wp-mode staging \
+  --wp-surface essential \
+  --elementor-v4 yes \
+  --client cursor \
+  --browser-provider recommended \
+  --browser-scan-consent granted \
+  --browser-install-consent denied
+```
+
+Prefer interactive password entry or `--password-env VAR` (avoid `--password` on
+argv). Schema v2 stores only metadata and a `credential_ref` in
+`~/.stonewright/sites.json`; secrets live in the OS credential store (or
+`env://VAR`). Client config sets `STONEWRIGHT_SITE_ALIAS` only — the companion
+resolves URL and credentials for that alias at startup.
+
+The WordPress Step 1 choices and browser consent are retained per site/client;
+`recommended` records Playwright as the external default without embedding it;
+unset browser choices cause the agent to ask once. Scan consent never implies
+install consent. After restarting the client, prove the saved entry end to end:
+
+```bash
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect verify site-a --client cursor
+```
+
+Verification spawns the configured stdio server, confirms the active alias and
+companion version when observable, lists tools, calls `stonewright-task-start`
+and status, checks required tools, and stores a surface digest. A parseable
+client config is only a structural check.
 
 First call in Direct mode: `stonewright-task-start`. Then use
 `stonewright-site-discover`; it lists REST namespaces,
@@ -141,7 +178,7 @@ shell wrapper, global install, or manual bridge:
         "STONEWRIGHT_WP_URL": "http://mcp-test.local",
         "STONEWRIGHT_WP_ROOT": "/absolute/path/to/wordpress",
         "STONEWRIGHT_WP_APP_PASSWORD_AUTO": "local-only",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential-static"
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
       }
     }
   }
@@ -162,13 +199,17 @@ Do not configure generic WordPress MCP adapters such as
 `@automattic/mcp-wordpress-remote` as the `stonewright` server. Use the
 Stonewright companion so setup, status, compact profiles, php-execute, and
 WP-CLI tools stay visible even while the WordPress endpoint is being fixed.
-`STONEWRIGHT_MCP_TOOL_PROFILE=essential-static` is the install default (not
-`bootstrap`, not `full`). It starts a bounded surface; `stonewright-task-start`
-then activates the compact task profile for the current session in plugin or
-Direct/pluginless mode. Use `bootstrap` when you want the smallest startup
-gateway only. Use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` for Antigravity,
-Gemini API, or other strict tool-cap clients. It keeps the client-visible
-startup surface under 30 tools. Aliases such as `antigravity`, `gemini`,
+`STONEWRIGHT_MCP_TOOL_PROFILE=essential-static` is the safe default for an
+unknown client. It exposes a bounded useful catalog plus permanent recovery
+gateways without depending on the client to process `tools/list_changed`.
+Known clients generated from WordPress Setup normally use `essential`, the
+bounded real working profile. `stonewright-task-start` then activates the
+compact task profile for the current session in Plugin or Direct mode. Use
+`bootstrap` only for the smallest startup diagnostic; it is not a permanent
+working profile. Never select `full` implicitly.
+Use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools` for Antigravity, Gemini API, or
+other strict tool-cap clients. It keeps the client-visible startup surface under
+30 tools. Aliases such as `antigravity`, `gemini`,
 `elementor`, `design`, `acf`, `cpt-ui`, `fse`, and `wp cli` normalize to the
 closest compact profile, so agents do not need exact canonical profile names to
 avoid broad discovery.
@@ -256,7 +297,7 @@ For MCP clients that use a local stdio server, configure:
         "STONEWRIGHT_WP_URL": "https://your-site.example.com",
         "STONEWRIGHT_WP_USERNAME": "your-wp-username",
         "STONEWRIGHT_WP_APP_PASSWORD": "xxxx xxxx xxxx xxxx xxxx xxxx",
-        "STONEWRIGHT_MCP_TOOL_PROFILE": "bootstrap"
+        "STONEWRIGHT_MCP_TOOL_PROFILE": "essential"
       }
     }
   }
@@ -322,8 +363,12 @@ directory and allowed root for that command.
 
 ## Browser MCP
 
-Stonewright does not include browser, screenshot, or visual-review tools. Add a
-separate Playwright MCP server next to Stonewright:
+Stonewright does not include browser, screenshot, or visual-review tools. Before
+browser work, the agent asks once whether to use Playwright (recommended),
+another connected browser provider, or none. It must ask permission before
+scanning client tools/private config and ask separately before installing or
+configuring a missing provider. After approval, add Playwright next to
+Stonewright:
 
 ```json
 {
@@ -336,11 +381,11 @@ separate Playwright MCP server next to Stonewright:
 }
 ```
 
-Agents should connect this before implementation when a task needs browser
-testing, screenshots, or visual inspection. Restart the AI client after adding
-Playwright so the tool list refreshes. If the MCP client cannot see a
-browser/screenshot tool, the agent should stop before visual implementation and
-ask the user to connect Playwright instead of building blind.
+Restart the AI client after adding Playwright so the tool list refreshes. If the
+selected browser tool is not visible, the agent stops before visual
+implementation. Browser automation is a verification or explicitly approved
+dashboard-interaction path; it never bypasses Stonewright's custom-code
+dry-run/approval, backup, permission, or confirmation gates.
 
 ## Example Prompts
 

@@ -4,11 +4,11 @@ Manual smoke evidence for Stonewright MCP clients. CI validates **parser/schema*
 fixtures for generated configs and deterministic OAuth matrix unit tests;
 proprietary GUI clients cannot run full GUI certification in CI.
 
-## Support tiers
+## Certification priority
 
 | Tier | Meaning |
 |---|---|
-| **tier-1** | Primary certification target: Codex, Claude Code/Desktop, Cursor, VS Code / GitHub Copilot family. |
+| **tier-1** | Primary certification target: Codex, Claude Code/Desktop, Cursor, VS Code / GitHub Copilot family. This is a priority, not proof of certification. |
 | **tier-2** | Supported with caveats; smoke on demand. |
 | **compatible** | Config and discovery expected to work; not fully certified. |
 | **experimental** | Best-effort only. |
@@ -17,8 +17,12 @@ proprietary GUI clients cannot run full GUI certification in CI.
 for a named version. **Compatible** = loads documented MCP config and can call
 `stonewright-task-start` without a full matrix pass.
 
-Catalog fields `support_tier` and `evidence` live in
+Catalog fields `certification_tier` and `evidence` live in
 `plugin/data/clients/*.json` (loaded by `ClientCatalog`).
+
+`support_tier` is a separate operational-support label (`certified`,
+`compatible`, `community`, or `unknown`). Only `evidence.*` plus a completed
+acceptance report can support a certified claim.
 
 | Client | Catalog slug | Tier | Config kind | Official CLI (if any) | Docs verified on | Manual smoke | Notes |
 |---|---|---|---|---|---|---|---|
@@ -51,8 +55,9 @@ Catalog fields `support_tier` and `evidence` live in
 4. Perform the **client-specific restart / MCP session reload**.
 5. Confirm `stonewright-task-start` appears in the tool list. Call it first.
 6. Run in-admin **Verify connection** (loopback) and/or
-   `npx @stonewright/companion doctor`.
-7. Default startup profile is `essential-static` unless you intentionally set
-   `bootstrap`, `low-tools`, or lock the env profile.
-8. Update the `Manual smoke` column, catalog `evidence.*`, and
+   the versioned `stonewright doctor` companion command.
+7. Use `essential` for a known client, `essential-static` for an unknown client
+   with stale tool-list behavior, and `low-tools` for a strict tool cap.
+   `bootstrap` is a temporary diagnostic, not a working default.
+8. Update the `Manual smoke` column, catalog `certification_tier` / `evidence.*`, and
    `verified_against_docs_on` in the client JSON.

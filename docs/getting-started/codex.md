@@ -18,7 +18,7 @@ args = ["-y", "--package", "https://github.com/cosmincraciun97/stonewright-wp-mc
 STONEWRIGHT_WP_URL = "https://your-site.com"
 STONEWRIGHT_WP_USERNAME = "your-wp-username"
 STONEWRIGHT_WP_APP_PASSWORD = "xxxx xxxx xxxx xxxx xxxx xxxx"
-STONEWRIGHT_MCP_TOOL_PROFILE = "essential-static"
+STONEWRIGHT_MCP_TOOL_PROFILE = "essential"
 ```
 
 For strict tool-cap sessions, use:
@@ -27,7 +27,7 @@ For strict tool-cap sessions, use:
 STONEWRIGHT_MCP_TOOL_PROFILE = "low-tools"
 ```
 
-Codex is a **tier-1** catalog client
+Codex is a **tier-1 certification target**
 ([verified-client-versions.md](../verified-client-versions.md)). Keep secrets in
 user-level or private config; never paste real Application Passwords into chat.
 

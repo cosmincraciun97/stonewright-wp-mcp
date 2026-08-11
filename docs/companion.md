@@ -39,7 +39,9 @@ folder or site URL.
 | `STONEWRIGHT_WP_URL` | WordPress site URL; the companion derives `/wp-json/mcp/stonewright` when `STONEWRIGHT_MCP_URL` is absent |
 | `STONEWRIGHT_WP_USERNAME` | WordPress username for Application Password auth |
 | `STONEWRIGHT_WP_APP_PASSWORD` | WordPress Application Password |
-| `STONEWRIGHT_MCP_TOOL_PROFILE` | Initial/fallback client-visible surface. Default is `essential-static`. Normal plugin-mode clients may follow the bootstrap/essential/full surface saved in WordPress Setup; `low-tools` and specialist profiles remain explicit overrides. `full` is never selected implicitly. |
+| `STONEWRIGHT_SITE_ALIAS` | Multi-site registry alias; at startup the companion loads only this site's URL/username/credential into `STONEWRIGHT_WP_*` |
+| `STONEWRIGHT_SITES_FILE` | Override path for the multi-site registry (default `~/.stonewright/sites.json`) |
+| `STONEWRIGHT_MCP_TOOL_PROFILE` | Initial/fallback client-visible surface. The unknown-client fallback is `essential-static`; generated known-client configs use `essential`. Normal plugin-mode clients may follow the bootstrap/essential/full surface saved in WordPress Setup; `low-tools` and specialist profiles remain explicit overrides. `full` is never selected implicitly. |
 | `STONEWRIGHT_MCP_TOOL_PROFILE_LOCK` | Set to `1` only when the environment profile must override the WordPress Setup preference. |
 | `STONEWRIGHT_MCP_URL` | Explicit WordPress MCP endpoint override |
 | `WP_API_USERNAME` | Legacy alias for `STONEWRIGHT_WP_USERNAME` |
@@ -56,11 +58,29 @@ folder or site URL.
 
 ## Direct mode private state
 
-Run the versioned `stonewright-companion init` command for guided setup. It
-validates the WordPress Application Password, stores the canonical
-`appPassword` field in permission-restricted
-`~/.stonewright/sites.json`, and prints a secret-free MCP block. The legacy
-`applicationPassword` field remains readable for existing installations.
+Run `stonewright connect add` (or the compatibility `stonewright-companion init`
+command) for guided setup. New sites use schema v2: metadata and a
+`credential_ref` in permission-restricted `~/.stonewright/sites.json`, with the
+Application Password in the OS credential store (Keychain / Windows DPAPI
+secrets under `~/.stonewright/secrets/` / Secret Service) or an `env://VAR` ref.
+MCP client configs set `STONEWRIGHT_SITE_ALIAS` only; the companion injects
+`STONEWRIGHT_WP_*` for that alias at startup. Prefer `--password-env` or an
+interactive prompt over `--password` on argv. Legacy v1 plaintext files remain
+readable; run `connect migrate` to move secrets out of the file.
+
+Each record also retains configured Direct/Plugin policy and the WordPress
+Setup expectations (`enabled_requested`, mode, bootstrap/essential/full
+surface, Elementor V4 Atomic). Each client binding retains the browser provider
+and separate scan/install consent. `recommended` means the documented external
+Playwright default without embedding a browser module. `unknown` means ask once; it never authorizes
+a scan or installation. `connect repair` can update the binding without adding
+another server entry.
+
+Use `stonewright connect verify <alias> --client <id>` after client restart. It validates
+the file, then spawns that exact stdio entry and requires task-start/status plus
+the expected tool surface. The receipt stores active alias, companion version
+when observable, tool count, and a surface digest; structural validation alone
+is not reported as a working connection.
 
 Direct user memory, user-created skills, backups, and redacted audit history
 live under `~/.stonewright/`. A new state directory starts without user memory,
@@ -174,13 +194,15 @@ Both setup and status responses include `tool_inventory`, a compact grouped map
 of first-call, diagnostic, direct WP-CLI, long-running WP-CLI, and proxied
 profile tools. Use it before broad tool discovery in token-sensitive sessions.
 
-For new stdio sessions, the companion defaults to
-`STONEWRIGHT_MCP_TOOL_PROFILE=bootstrap`. Bootstrap already exposes a minimal
-runtime set (`php-execute`, confirmation token, site/content reads, theme-file-read).
-`stonewright-task-start` then enables the compact task profile for that session
-in plugin or Direct/pluginless mode and always sets `tools_changed` +
-`re_list_instruction` when leaving bootstrap or when the admin surface is
-already essential/full so stuck clients re-list. In Direct mode it also stamps
+For new stdio sessions, an unknown client defaults to
+`STONEWRIGHT_MCP_TOOL_PROFILE=essential-static`; generated known-client configs
+normally use `essential`. Both provide useful bounded startup tools without
+depending on live relisting. Bootstrap remains available as an explicit
+transport/profile diagnostic. When a profile does change,
+`stonewright-task-start` sets `tools_changed` + `re_list_instruction`, updates
+or enables the corresponding callable handles before it emits
+`notifications/tools/list_changed`, and reconnect reuses those handles rather
+than registering duplicate tool or prompt names. In Direct mode task-start also stamps
 a per-site write latch (30-minute TTL); write tools re-require task-start after
 expiry or when targeting a different site. Use companion tool
 `stonewright-client-surface-check` (or `stonewright doctor --client-surface`)

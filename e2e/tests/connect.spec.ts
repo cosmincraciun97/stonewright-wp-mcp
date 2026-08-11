@@ -111,6 +111,18 @@ test.describe('Connect wizard interactions', () => {
 				'i',
 			),
 		);
+		expect(fullPrompt).toContain(
+			'Ask me once whether this site/client should use Playwright',
+		);
+		expect(fullPrompt).toContain(
+			'Do not scan my private config or client tool surface without permission',
+		);
+		expect(fullPrompt).toContain(
+			'Never install or reconfigure a browser provider silently',
+		);
+		expect(fullPrompt).toContain(
+			'never bypasses custom-code dry-run, approval, backup, permission, or confirmation gates',
+		);
 
 		const guide = page.locator('.sw-update-guide');
 		await expect(guide).toBeVisible();

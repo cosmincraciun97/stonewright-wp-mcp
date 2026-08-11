@@ -2,6 +2,62 @@
 
 ## [Unreleased]
 
+### Added
+
+- Add deterministic OAuth discovery, PKCE, resource-binding, challenge,
+  refresh-rotation, replay, and terminal-reauthorization matrix coverage plus
+  distinct client support, certification-priority, and evidence metadata.
+- Add native row/container layout normalization, live-gated cover CTA and
+  testimonial carousel rendering, chip groups, schema-backed button icons, and
+  `stonewright/elementor-v3-kit-batch-mutate` for typed kit globals.
+- Add typed WPCode, Code Snippets, Customizer CSS, and theme-file providers
+  with approval-gated dry runs, concurrency checks, snapshots, verification,
+  and rollback guidance.
+
+### Changed
+
+- Separate unresolved audit incidents from active learning and promote durable
+  repair guidance only after exact verified evidence or user correction.
+- Make the paste-to-agent setup prompt prefer the versioned multi-site
+  installer, secret-free credential references, per-site/client choices, and
+  spawned runtime verification after restart.
+- Require explicit browser-provider, scan, and installation consent; Playwright
+  remains the recommended default without becoming a silent dependency.
+- Aggregate terminal OAuth client failures over 24 hours while retaining the
+  short visibility window for retryable and server-side failures.
+- Default fresh installs to the bounded `essential` MCP surface and make
+  generated client profiles follow the operator's explicit surface selection;
+  strict-cap clients retain their bounded override.
+- Disable the Design Library navigation, pages, page assets, and catalog
+  starters without deleting stored directions or removing typed MCP engines.
+
+### Fixed
+
+- Reject catalog-only Pro widget substitutions, accept rollback without dummy
+  operations, verify boolean snapshot restoration, treat identical kit plans as
+  no-ops, restore on kit readback mismatch, and reject unsafe icon classes or
+  SVG URL schemes while writing only live-supported Button icon controls and
+  selecting only carousel widgets with a compatible live repeater.
+- Restrict snippet-plugin source reads to `manage_options`, retain
+  `edit_theme_options` only for theme-owned providers, and require production
+  confirmation tokens for provider apply and rollback.
+- Reconcile every page of legacy audit lessons and keep failed migrations
+  retryable instead of marking them complete.
+- Document the exact Composer audit exception for PHP_CodeSniffer 3.13.6, the
+  patched boundary release that Composer 2.9.5 still misclassifies as affected.
+- Add deliberate spacing and consistent control heights across Audit incident
+  cards, Memory forms, Skills availability, and Sandbox action cells.
+- Display registered OAuth client names for pre-login audit events through one
+  batched lookup and replace ambiguous `(unknown)` labels with explicit source
+  fallbacks.
+- Preserve operator enablement intent during domain mismatch and require an
+  audited, reversible explicit rebind before abilities become effective.
+- Keep Application Password creation in the current Setup tab, update private
+  snippets and inventory in place, restore placeholders on clear/revoke, and
+  eliminate plaintext password transients from the no-JavaScript path.
+- Save all runtime Step 1 controls immediately and bump a shared surface
+  revision so active transports can re-list without unrelated form writes.
+
 ## [1.0.0-beta.4] - 2026-08-05
 
 ### Added

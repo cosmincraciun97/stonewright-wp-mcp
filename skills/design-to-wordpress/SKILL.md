@@ -74,10 +74,11 @@ For every supplied Figma node:
 ## Required task start
 
 1. `stonewright-task-start` with request, surface, intent.
-2. Confirm an external Playwright/browser MCP tool is visible before first
-   write. If missing, tell the user to add
-   `npx -y @playwright/mcp@latest --caps=testing,vision,devtools`, restart,
-   and stop.
+2. Ask once whether to use Playwright (recommended), another connected browser,
+   or none. Ask permission before scanning client tools/private config. If the
+   selected provider is missing, ask separate permission before installation or
+   configuration; only then show/run the setup command, restart, and stop until
+   the tool is visible.
 3. Elementor work: `stonewright-widget-intent-resolve` + implementation guide
    before writes.
 4. Snapshot before Elementor / template / theme.json writes.
