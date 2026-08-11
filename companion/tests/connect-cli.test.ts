@@ -451,17 +451,17 @@ describe('connect CLI acceptance matrix', () => {
 	it('resolveConnectPassword prefers password-env and prompt over missing argv', async () => {
 		const fromEnv = await resolveConnectPassword(
 			{ passwordEnv: 'SW_TEST_PASS' },
-			{ SW_TEST_PASS: 'from-env-secret' },
+			{ SW_TEST_PASS: 'example-from-env' },
 		);
-		expect(fromEnv).toEqual({ password: 'from-env-secret', source: 'password-env' });
+		expect(fromEnv).toEqual({ password: 'example-from-env', source: 'password-env' });
 
 		const fromPrompt = await resolveConnectPassword({
-			promptPassword: () => Promise.resolve('from-prompt-secret'),
+			promptPassword: () => Promise.resolve('example-from-prompt'),
 		});
-		expect(fromPrompt).toEqual({ password: 'from-prompt-secret', source: 'prompt' });
+		expect(fromPrompt).toEqual({ password: 'example-from-prompt', source: 'prompt' });
 
-		const fromArgv = await resolveConnectPassword({ password: 'from-argv-secret' });
-		expect(fromArgv).toEqual({ password: 'from-argv-secret', source: 'argv' });
+		const fromArgv = await resolveConnectPassword({ password: 'example-from-argv' });
+		expect(fromArgv).toEqual({ password: 'example-from-argv', source: 'argv' });
 	});
 
 	it('connect add accepts --password-env style input without argv password', async () => {
