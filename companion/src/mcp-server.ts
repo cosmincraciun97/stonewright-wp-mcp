@@ -153,6 +153,7 @@ async function bootstrapConnection(
 	wpMcpStatus.mode = modeProbe.mode;
 	wpMcpStatus.mode_reason = modeProbe.reason;
 	wpMcpStatus.configured_mode = modeProbe.configured;
+	runtime.wpReachable = modeProbe.pluginEndpointStatus !== null ? true : null;
 
 	if (modeProbe.mode === 'direct') {
 		// plugin-only must never fall into Direct tools (resolveRuntimeMode already
@@ -177,6 +178,8 @@ async function bootstrapConnection(
 	}
 
 	if (!wpMcpConfig) {
+		runtime.authConfigured = false;
+		runtime.authMethod = 'none';
 		wpMcpStatus.configured = hasWordPressMcpConfig(env);
 		// plugin-only fails closed: no Direct tools.
 		if (modeProbe.configured === 'plugin-only') {
@@ -198,6 +201,9 @@ async function bootstrapConnection(
 		runtime.syncLegacyStatus();
 		return;
 	}
+	const authEvidence = authEvidenceFromConfig(wpMcpConfig);
+	runtime.authConfigured = authEvidence.configured;
+	runtime.authMethod = authEvidence.method;
 
 	wpMcpStatus.configured = true;
 	wpMcpStatus.url = wpMcpConfig.url;
@@ -222,6 +228,7 @@ async function bootstrapConnection(
 
 		wpMcpStatus.ok = true;
 		wpMcpStatus.connected = true;
+		runtime.wpReachable = true;
 		wpMcpStatus.mode = 'plugin';
 		wpMcpStatus.tool_profile = registration.profile;
 		wpMcpStatus.live = registration.liveState;
@@ -292,6 +299,16 @@ async function bootstrapConnection(
 	}
 }
 
+function authEvidenceFromConfig(config: NonNullable<Awaited<ReturnType<typeof resolveWordPressMcpConfig>>>): {
+	configured: boolean;
+	method: 'app-password' | 'authorization' | 'oauth' | 'none';
+} {
+	if (config.oauth) return { configured: true, method: 'oauth' };
+	if (config.authorization) return { configured: true, method: 'authorization' };
+	if (config.username && config.password) return { configured: true, method: 'app-password' };
+	return { configured: false, method: 'none' };
+}
+
 async function performReconnect(
 	server: McpServer,
 	runtime: ConnectionRuntime,
@@ -302,20 +319,27 @@ async function performReconnect(
 	const priorGeneration = runtime.stateMachine.getGeneration();
 	const priorRevision = runtime.surface.getRevision();
 	const priorNames = runtime.listRegisteredToolNames();
+	const previousCallRemote = runtime.callRemoteTool;
+	const previousLive = runtime.status.live;
+	const previousConnected = runtime.status.connected;
+	const previousStartup = runtime.status.startup_ready;
+	const previousAuthConfigured = runtime.authConfigured;
+	const previousAuthMethod = runtime.authMethod;
+	const previousWpReachable = runtime.wpReachable;
 
 	try {
 		// Re-run bootstrap path. Failed reconnect must preserve prior healthy registry:
 		// we only clear remote call handle after a successful re-register.
-		const previousCallRemote = runtime.callRemoteTool;
-		const previousLive = runtime.status.live;
-		const previousConnected = runtime.status.connected;
-		const previousStartup = runtime.status.startup_ready;
-
 		if (input.force_probe || runtime.status.configured_mode === 'auto') {
 			runtime.stateMachine.transition('probing', { bumpGeneration: true });
 		}
 
-		await bootstrapConnection(server, runtime, options, runtime.fetchImpl);
+		const resumeListNotifications = pauseListNotifications(server);
+		try {
+			await bootstrapConnection(server, runtime, options, runtime.fetchImpl);
+		} finally {
+			resumeListNotifications();
+		}
 
 		if (!runtime.status.connected && priorReady) {
 			// Restore prior healthy signals when reconnect failed.
@@ -323,6 +347,9 @@ async function performReconnect(
 			runtime.status.live = previousLive;
 			runtime.status.connected = previousConnected;
 			runtime.status.startup_ready = previousStartup;
+			runtime.authConfigured = previousAuthConfigured;
+			runtime.authMethod = previousAuthMethod;
+			runtime.wpReachable = previousWpReachable;
 			runtime.registry.abort(runtime.status.error?.message ?? 'reconnect failed');
 			runtime.stateMachine.transition('degraded', {
 				error: runtime.status.error?.message ?? 'reconnect failed',
@@ -331,6 +358,7 @@ async function performReconnect(
 			runtime.surface.bump(priorNames);
 			runtime.syncLegacyStatus();
 			await emitToolListChanged(server);
+			await emitPromptListChanged(server);
 			return {
 				ok: false,
 				coalesced: false,
@@ -346,6 +374,7 @@ async function performReconnect(
 
 		runtime.refreshSurfaceFromServer({ forceBump: true });
 		await emitToolListChanged(server);
+		await emitPromptListChanged(server);
 		return {
 			ok: runtime.status.connected || runtime.status.mode === 'direct',
 			coalesced: false,
@@ -359,9 +388,20 @@ async function performReconnect(
 		};
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
+		if (priorReady) {
+			runtime.callRemoteTool = previousCallRemote;
+			runtime.status.live = previousLive;
+			runtime.status.connected = previousConnected;
+			runtime.status.startup_ready = previousStartup;
+			runtime.authConfigured = previousAuthConfigured;
+			runtime.authMethod = previousAuthMethod;
+			runtime.wpReachable = previousWpReachable;
+		}
 		runtime.registry.abort(message);
 		runtime.surface.bump(priorNames);
 		runtime.syncLegacyStatus();
+		await emitToolListChanged(server);
+		await emitPromptListChanged(server);
 		return {
 			ok: false,
 			coalesced: false,
@@ -373,6 +413,49 @@ async function performReconnect(
 			prior_registry_preserved: priorReady,
 			error: message,
 		};
+	}
+}
+
+/**
+ * MCP SDK registration helpers notify after every handle mutation. Reconnect
+ * stages a complete replacement catalog, so suppress those intermediate
+ * notifications and publish one tool/prompt list change after commit/abort.
+ */
+function pauseListNotifications(server: McpServer): () => void {
+	const mutable = server as unknown as {
+		sendToolListChanged?: () => void | Promise<void>;
+		sendPromptListChanged?: () => void | Promise<void>;
+	};
+	const ownTool = Object.getOwnPropertyDescriptor(mutable, 'sendToolListChanged');
+	const ownPrompt = Object.getOwnPropertyDescriptor(mutable, 'sendPromptListChanged');
+	Object.defineProperty(mutable, 'sendToolListChanged', {
+		configurable: true,
+		writable: true,
+		value: () => undefined,
+	});
+	Object.defineProperty(mutable, 'sendPromptListChanged', {
+		configurable: true,
+		writable: true,
+		value: () => undefined,
+	});
+	return () => {
+		if (ownTool) Object.defineProperty(mutable, 'sendToolListChanged', ownTool);
+		else delete mutable.sendToolListChanged;
+		if (ownPrompt) Object.defineProperty(mutable, 'sendPromptListChanged', ownPrompt);
+		else delete mutable.sendPromptListChanged;
+	};
+}
+
+async function emitPromptListChanged(server: McpServer): Promise<boolean> {
+	try {
+		const inner = (server as unknown as {
+			server?: { sendPromptListChanged?: () => void | Promise<void> };
+		}).server;
+		if (!inner?.sendPromptListChanged) return false;
+		await Promise.resolve(inner.sendPromptListChanged());
+		return true;
+	} catch {
+		return false;
 	}
 }
 
@@ -425,6 +508,14 @@ async function registerDirectMode(
 				runtime.refreshSurfaceFromServer();
 			},
 		});
+		const prompts = (server as unknown as {
+			_registeredPrompts?: Record<string, { enabled?: boolean; disable?: () => void }>;
+		})._registeredPrompts ?? {};
+		for (const [name, prompt] of Object.entries(prompts)) {
+			if (name.startsWith('stonewright-skill-') && prompt.enabled !== false) {
+				prompt.disable?.();
+			}
+		}
 		setServerInstructions(server, companionInstructions(profile, 'direct'));
 		const localToolNames = localToolNamesForProfile(profile);
 		runtime.registry.commitDirect(
