@@ -147,9 +147,9 @@ The companion authenticates with a WordPress Application Password and exposes **
    companion configuration below only for Application Password or local
    WP-CLI workflows.
 5. In Setup, run **Verify connection** (live MCP loopback). Optionally run `npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright doctor` from a shell.
-6. Call `stonewright-task-start` (or `stonewright-context-bootstrap` as a compatibility path) before WordPress work.
+6. **Restart or reload the AI client** (client-specific), confirm `stonewright-task-start` is in the tool list, then call it as the first WordPress task. `stonewright-context-bootstrap` remains a compatibility path only.
 
-MCP surface modes (`bootstrap` / `essential` / `full`) control how many plugin abilities appear to clients. Public ability and Direct-tool contracts live under [docs/contracts/](docs/contracts/). Elementor multi-step edits use the [transaction envelope](docs/transactions.md). The durable audit, OAuth, write-receipt, and diagnostics contract is [documented here](docs/permanent-remediation-contracts.md).
+MCP surface modes (`bootstrap` / `essential-static` / `essential` / `full`) control how many abilities appear to clients. Known clients normally use the bounded working profile **`essential`**; **`essential-static`** is the safe fallback for an unknown client with stale tool-list behavior. Public ability and Direct-tool contracts live under [docs/contracts/](docs/contracts/). Elementor multi-step edits use the [transaction envelope](docs/transactions.md). The durable audit, OAuth, write-receipt, and diagnostics contract is [documented here](docs/permanent-remediation-contracts.md). Client certification vs compatibility is defined in [docs/releases/client-acceptance-template.md](docs/releases/client-acceptance-template.md).
 
 <details>
 <summary>MCP client config (Plugin mode companion)</summary>
@@ -179,8 +179,9 @@ Use the latest companion package URL from [Releases](https://github.com/cosmincr
 ```
 
 Replace `VERSION` with the exact release version without the leading `v`, as
-shown on the GitHub Releases page. Site MCP endpoint when using the WordPress
-MCP adapter directly:
+shown on the GitHub Releases page. Keep real credentials in private client
+config; paste-to-agent prompts use placeholders only. Site MCP endpoint when
+using the WordPress MCP adapter directly:
 
 ```text
 https://your-site.example.com/wp-json/mcp/stonewright
@@ -235,7 +236,7 @@ Example env for Direct mode:
 }
 ```
 
-Replace `VERSION` with the latest release version (the companion is distributed through GitHub Releases, not the npm registry).
+Replace `VERSION` with the latest release version (the companion is distributed through GitHub Releases, not the npm registry). Direct mode does not write custom PHP/CSS/JS/HTML (no authenticated wp-admin grant boundary).
 
 </details>
 

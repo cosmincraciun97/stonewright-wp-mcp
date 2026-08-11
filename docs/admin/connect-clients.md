@@ -115,6 +115,19 @@ shown on the GitHub Releases page.
 }
 ```
 
+Generated configurations for known clients use the bounded working profile
+`essential`; `essential-static` is the fallback for an unknown client that may
+not process live tool-list changes. After saving config, perform the
+**client-specific restart / MCP reload**, confirm `stonewright-task-start` is
+visible, and call it first. Paste-to-agent prompts stay credential-free;
+Application Passwords belong only in private user-level config.
+
+Client certification priorities (`certification_tier`), operational support
+levels (`support_tier`), and evidence live in `plugin/data/clients/*.json`. A
+tier-1 priority is not proof of certification. See
+[verified-client-versions.md](../verified-client-versions.md) and
+[client-acceptance-template.md](../releases/client-acceptance-template.md).
+
 Stonewright tool names are hyphenated in MCP clients. Example:
 `stonewright/context-bootstrap` is called as `stonewright-context-bootstrap`.
 

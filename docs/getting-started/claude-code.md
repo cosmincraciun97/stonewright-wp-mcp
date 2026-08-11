@@ -44,16 +44,22 @@ claude mcp add stonewright \
 Optional: omit `STONEWRIGHT_MODE=direct` to let the companion auto-detect (plugin
 endpoint present → plugin proxy; HTTP 404 → Direct).
 
-Restart Claude Code. Verify with:
+Claude Code is a **tier-1 certification target**. Keep Application Passwords in the
+CLI env / private config only — not in chat.
+
+**Restart Claude Code** after `mcp add` (required for tool list refresh). Verify
+with:
 
 ```text
 Use MCP tool stonewright-task-start with a short request that you only want a
 connection smoke test.
 ```
 
-Expect mode Direct, local skills/memory hints, and write-mode guidance. Then call
+`stonewright-task-start` is the canonical first call. Expect mode Direct, local
+skills/memory hints, and write-mode guidance. Then call
 `stonewright-site-discover` before choosing REST operations. Destructive tools
-require `confirm:true` when `STONEWRIGHT_DIRECT_WRITES=confirm`.
+require `confirm:true` when `STONEWRIGHT_DIRECT_WRITES=confirm`. Direct mode
+does not write custom PHP/CSS/JS/HTML.
 
 Copy-paste wording for other clients: [install-prompts.md](../install-prompts.md)
 Option B.
@@ -112,8 +118,9 @@ LocalWP discovery. The value is the absolute WordPress install folder
 containing `wp-config.php`, such as `D:\Sites\example\app\public` or
 `/Users/me/Sites/example/app/public`; it is not the plugin folder.
 
-For strict tool-cap clients, use `STONEWRIGHT_MCP_TOOL_PROFILE=low-tools`
-instead of `bootstrap`.
+`essential` is the normal bounded working profile for Claude Code. Use
+`essential-static` only when diagnosing a client that does not process live
+tool-list changes, or `low-tools` for a strict tool cap.
 
 Before browser work, the agent asks once whether to use Playwright
 (recommended), another connected browser, or none. It asks permission before

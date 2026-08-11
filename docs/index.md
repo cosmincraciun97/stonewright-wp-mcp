@@ -13,6 +13,9 @@ workflows with operator controls.
 - [Stonewright onboarding](onboarding.md)
 - [Installation for Windows and macOS](installation.md)
 - [AI client install prompts (plugin + Direct)](install-prompts.md)
+- [Verified client versions and support tiers](verified-client-versions.md)
+- [Client acceptance template](releases/client-acceptance-template.md)
+- [Release acceptance report template](releases/acceptance-report-template.md)
 - [Updating the plugin and companion](updates.md)
 - [Admin design system and page audit](../DESIGN.md)
 - [Documentation maintenance and release freshness](documentation-maintenance.md)
@@ -40,7 +43,7 @@ workflows with operator controls.
 | `getting-started/` | Setup guides for supported MCP clients, including Claude Code, Codex, and Antigravity |
 | `admin/` | Configuration, client connection, abilities, and admin surface guides |
 | `elementor/` | Elementor widget registry data and related references |
-| `releases/` | Release notes and tagging checklist |
+| `releases/` | Release notes, tagging checklist, client certification and acceptance templates |
 | `onboarding.md` | First run, prompt template, visual workflow, skills, and memory |
 | `abilities.md` | Public ability surface by category |
 | `ability-truth-matrix.md` | Generated ability gate matrix for permissions, backups, tokens, validators, and tests |
@@ -50,4 +53,8 @@ workflows with operator controls.
 | `security.md` and `security-guarantees.md` | Threat model and hardening guarantees |
 | `upstream-code-reuse.md` | Third-party source, licensing, attribution, and import ledger |
 
-- OAuth 2.1 authorization for the HTTP transport — planned, not scheduled.
+- OAuth for the dedicated MCP resource (`/wp-json/mcp/stonewright-oauth`) with
+  mandatory PKCE S256, resource binding, rotating refresh tokens, and discovery
+  well-known documents is shipped. See
+  [permanent-remediation-contracts.md](permanent-remediation-contracts.md) and
+  [connect-clients.md](admin/connect-clients.md).

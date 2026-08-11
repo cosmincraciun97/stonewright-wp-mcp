@@ -12,6 +12,9 @@ were never stable releases and are not part of the supported public history.
 
 ### Added
 
+- Add deterministic plugin/companion OAuth contract matrices, per-client
+  certification priorities and evidence receipts, and reusable acceptance and
+  release-report templates without treating a priority label as certification.
 - Add native Elementor row/container normalization, live-gated cover CTA and
   testimonial carousel rendering, chip groups, schema-backed button icons, and
   transactional kit/global design updates.

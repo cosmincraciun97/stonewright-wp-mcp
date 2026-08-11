@@ -25,5 +25,13 @@
   "new_task_required_after_catalog_change": true,
   "safe_tool_budget": 40,
   "default_profile": "essential-static",
-  "support_tier": "community"
+  "support_tier": "community",
+  "certification_tier": "compatible",
+  "evidence": {
+    "manual_smoke": "pending",
+    "oauth_http": "untested",
+    "stdio": "untested",
+    "restart_required": true,
+    "certification_report": ""
+  }
 }

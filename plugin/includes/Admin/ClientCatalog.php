@@ -50,7 +50,15 @@ final class ClientCatalog {
 	 *   new_task_required_after_catalog_change:bool,
 	 *   safe_tool_budget:int,
 	 *   default_profile:string,
-	 *   support_tier:string
+	 *   support_tier:string,
+	 *   certification_tier:string,
+	 *   evidence:array{
+	 *     manual_smoke:string,
+	 *     oauth_http:string,
+	 *     stdio:string,
+	 *     restart_required:bool,
+	 *     certification_report:string
+	 *   }
 	 * }>
 	 */
 	public static function all(): array {
@@ -216,7 +224,7 @@ final class ClientCatalog {
 			$budget = 40;
 		}
 		$default_profile = isset( $data['default_profile'] ) ? sanitize_key( (string) $data['default_profile'] ) : 'essential-static';
-		if ( '' === $default_profile ) {
+		if ( ! in_array( $default_profile, [ 'bootstrap', 'essential-static', 'essential', 'low-tools', 'full' ], true ) ) {
 			$default_profile = 'essential-static';
 		}
 
@@ -229,6 +237,36 @@ final class ClientCatalog {
 		$new_task_required = array_key_exists( 'new_task_required_after_catalog_change', $data )
 			? (bool) $data['new_task_required_after_catalog_change']
 			: true;
+
+		$certification_tier = isset( $data['certification_tier'] ) ? sanitize_key( (string) $data['certification_tier'] ) : 'compatible';
+		if ( ! in_array( $certification_tier, [ 'tier-1', 'tier-2', 'compatible', 'experimental' ], true ) ) {
+			$certification_tier = 'compatible';
+		}
+
+		$evidence_raw = ( isset( $data['evidence'] ) && is_array( $data['evidence'] ) ) ? $data['evidence'] : [];
+		$manual_smoke = isset( $evidence_raw['manual_smoke'] ) ? sanitize_key( (string) $evidence_raw['manual_smoke'] ) : 'pending';
+		if ( ! in_array( $manual_smoke, [ 'pending', 'pass', 'fail', 'skipped' ], true ) ) {
+			$manual_smoke = 'pending';
+		}
+		$oauth_http = isset( $evidence_raw['oauth_http'] ) ? sanitize_key( (string) $evidence_raw['oauth_http'] ) : 'untested';
+		if ( ! in_array( $oauth_http, [ 'untested', 'compatible', 'certified', 'unsupported' ], true ) ) {
+			$oauth_http = 'untested';
+		}
+		$stdio = isset( $evidence_raw['stdio'] ) ? sanitize_key( (string) $evidence_raw['stdio'] ) : 'untested';
+		if ( ! in_array( $stdio, [ 'untested', 'compatible', 'certified', 'unsupported' ], true ) ) {
+			$stdio = 'untested';
+		}
+		$restart_required = array_key_exists( 'restart_required', $evidence_raw )
+			? (bool) $evidence_raw['restart_required']
+			: true;
+		$certification_report = isset( $evidence_raw['certification_report'] )
+			? sanitize_text_field( (string) $evidence_raw['certification_report'] )
+			: '';
+
+		$has_certified_transport = in_array( 'certified', [ $oauth_http, $stdio ], true );
+		if ( 'certified' === $support_tier && ( 'pass' !== $manual_smoke || ! $has_certified_transport || '' === $certification_report ) ) {
+			$support_tier = 'compatible';
+		}
 
 		return [
 			'slug'                     => $slug,
@@ -253,6 +291,14 @@ final class ClientCatalog {
 			'safe_tool_budget'         => $budget,
 			'default_profile'          => $default_profile,
 			'support_tier'             => $support_tier,
+			'certification_tier'       => $certification_tier,
+			'evidence'                 => [
+				'manual_smoke'         => $manual_smoke,
+				'oauth_http'           => $oauth_http,
+				'stdio'                => $stdio,
+				'restart_required'     => $restart_required,
+				'certification_report' => $certification_report,
+			],
 		];
 	}
 }

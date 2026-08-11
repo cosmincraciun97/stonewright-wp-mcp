@@ -4,9 +4,11 @@ This guide gets you from zero to a working Cursor + Stonewright MCP setup.
 Prefer user-level config for secrets; do not commit Application Passwords into
 project-tracked files.
 
-Verified docs snapshot: Cursor is listed in
+Verified docs snapshot: Cursor is a **tier-1 certification target** in
 [verified-client-versions.md](../verified-client-versions.md) (config kind:
-JSON; manual smoke pending). Prefer `~/.cursor/mcp.json` for credentials.
+JSON; manual smoke pending until a
+[client acceptance](../releases/client-acceptance-template.md) pass). Prefer
+`~/.cursor/mcp.json` for credentials. Paste prompts stay credential-free.
 
 ## Prerequisites
 
@@ -69,7 +71,7 @@ Optional: omit `STONEWRIGHT_MODE` for auto-detect, or set
 surface or `low-tools` for a strict tool-cap client. Bootstrap is a diagnostic,
 not a permanent Cursor default.
 
-Restart Cursor or reload MCP servers. Smoke test:
+**Restart Cursor or reload MCP servers** (required). Smoke test:
 
 ```text
 Use MCP tool stonewright-task-start with a short request that you only want a
@@ -78,7 +80,8 @@ connection smoke test.
 
 Expect mode Direct and local skills/memory hints. Then call
 `stonewright-site-discover` before REST work. Destructive tools require
-`confirm:true` when writes are gated.
+`confirm:true` when writes are gated. Direct mode cannot write custom
+PHP/CSS/JS/HTML.
 
 Copy-paste Option B: [install-prompts.md](../install-prompts.md).
 

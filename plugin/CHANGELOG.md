@@ -4,6 +4,9 @@
 
 ### Added
 
+- Add deterministic OAuth discovery, PKCE, resource-binding, challenge,
+  refresh-rotation, replay, and terminal-reauthorization matrix coverage plus
+  distinct client support, certification-priority, and evidence metadata.
 - Add native row/container layout normalization, live-gated cover CTA and
   testimonial carousel rendering, chip groups, schema-backed button icons, and
   `stonewright/elementor-v3-kit-batch-mutate` for typed kit globals.
