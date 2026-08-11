@@ -282,8 +282,11 @@ Zed uses `context_servers`:
 
 ## Browser MCP
 
-Add a separate Playwright MCP server when the task needs browser testing,
-screenshots, or visual inspection:
+Before browser work, the agent asks once whether to use Playwright
+(recommended), another connected browser provider, or none. It must ask before
+scanning client tools/private config and ask separately before installing or
+configuring a missing provider. After approval, add Playwright when the task
+needs browser testing, screenshots, or visual inspection:
 
 ```json
 {
@@ -299,6 +302,9 @@ screenshots, or visual inspection:
 Restart the AI client after adding Playwright so its tool list refreshes. For
 visual tasks, verify a browser or screenshot tool is visible before the first
 Stonewright write.
+
+Browser automation never removes custom-code dry-run, human approval, backup,
+permission, or confirmation-token boundaries in Plugin or Direct mode.
 
 ---
 

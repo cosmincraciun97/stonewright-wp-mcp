@@ -134,9 +134,11 @@ Shared stdio notes and other clients:
 
 ## Browser MCP (visual work)
 
-Add a separate Playwright MCP when the task needs screenshots or visual checks.
-Stonewright does not embed browser tools. Example pattern (merge into the same
-MCP config file your Cursor build expects):
+The agent asks once whether to use Playwright (recommended), another connected
+browser, or none; it must ask before scanning Cursor's tools/private config and
+again before installing or configuring a missing provider. Stonewright does not
+embed browser tools. After approval, merge this example into the MCP config file
+your Cursor build expects:
 
 ```json
 {

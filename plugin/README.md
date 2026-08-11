@@ -170,15 +170,20 @@ calls, and
 `/wp-json/stonewright/v1/abilities/run` shell calls are not substitutes for live
 Stonewright MCP tools.
 
-For visual work, connect external Playwright MCP before the first write:
+For visual work, the agent asks once whether this site/client should use
+Playwright (recommended), another connected browser provider, or no browser
+automation. It must ask permission before scanning client tools/config and ask
+separate permission before installing or configuring a missing provider. After
+approval, Playwright can be connected with:
 
 ```bash
 claude mcp add playwright -- npx -y @playwright/mcp@latest --caps=testing,vision,devtools
 ```
 
-Restart the AI client after adding Playwright. If the Playwright/browser tool is
-not visible, the agent should stop before visual implementation and ask for the
-client restart/setup instead of building blind.
+Restart the AI client after adding Playwright. If the selected browser tool is
+not visible, the agent should stop before visual implementation. Browser
+automation never bypasses custom-code dry-run, approval, backup, permission, or
+confirmation gates.
 
 Manual edits in the Stonewright admin Skills/Memory/Instructions pages persist
 between sessions because they are stored in WordPress options/custom tables.

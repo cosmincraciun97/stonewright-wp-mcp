@@ -249,7 +249,11 @@ final class ConnectClientConfigTest extends TestCase {
 		$this->assertStringContainsString( 'expected_companion_package', $prompt );
 		$this->assertStringContainsString( 'refresh_required_tool_names', $prompt );
 		$this->assertStringContainsString( 'do not bypass Stonewright', $prompt );
-		$this->assertStringContainsString( 'browser/Playwright tool', $prompt );
+		$this->assertStringContainsString( 'user-approved browser provider', $prompt );
+		$this->assertStringContainsString( 'Ask me once whether this site/client should use Playwright', $prompt );
+		$this->assertStringContainsString( 'Do not scan my private config or client tool surface without permission', $prompt );
+		$this->assertStringContainsString( 'Never install or reconfigure a browser provider silently', $prompt );
+		$this->assertStringContainsString( 'never bypasses custom-code dry-run, approval, backup, permission, or confirmation gates', $prompt );
 	}
 
 	public function test_playwright_mcp_snippet_is_separate_server(): void {
