@@ -43,7 +43,7 @@ Stonewright does not promise that automation cannot fail. It adds concrete contr
 </p>
 
 <p align="center">
-  <img src="assets/screenshots/stonewright-dashboard-beta9.svg" alt="Stonewright dashboard showing a verified Plugin-mode connection" width="1200" />
+  <img src="assets/screenshots/stonewright-dashboard-beta10.svg" alt="Stonewright dashboard showing a verified Plugin-mode connection" width="1200" />
 </p>
 
 ## How it works

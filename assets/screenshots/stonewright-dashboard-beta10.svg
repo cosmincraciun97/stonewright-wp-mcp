@@ -36,7 +36,7 @@
   <text x="712.2" y="33" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif" font-size="12" font-weight="600" letter-spacing=".72" fill="#f8f9fa" fill-opacity=".45">SAFETY &amp; DIAGNOSTICS</text>
   <rect x="1205" y="14" width="107" height="28" rx="14" fill="#6366f1" fill-opacity=".35"/>
   <text x="1258.5" y="33" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif" font-size="12" font-weight="600" fill="#e0e7ff">development</text>
-  <text x="1422" y="33" text-anchor="end" font-family="ui-monospace,'SF Mono','Cascadia Code',Consolas,monospace" font-size="12" fill="#f8f9fa" fill-opacity=".45">1.0.0-beta.9</text>
+  <text x="1422" y="33" text-anchor="end" font-family="ui-monospace,'SF Mono','Cascadia Code',Consolas,monospace" font-size="12" fill="#f8f9fa" fill-opacity=".45">1.0.0-beta.10</text>
 
   <g transform="translate(150 108)">
     <text x="0" y="26" font-family="Inter,Arial,sans-serif" font-size="28" font-weight="750" fill="#202331">Dashboard</text>

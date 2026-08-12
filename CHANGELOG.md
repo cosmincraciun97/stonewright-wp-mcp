@@ -11,6 +11,8 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+## [1.0.0-beta.10] - 2026-08-12
+
 ### Added
 
 - Add a typed verified-repair recorder, canonical incident lifecycle metadata,
@@ -90,75 +92,9 @@ development builds were never stable releases.
   during secure v1 migration, and allow `connect repair --mode plugin-only` to
   update a named client entry without requesting the saved password again.
 
-## [1.0.0-beta.5] - 2026-08-12
-
-### Added
-
-- Add deterministic plugin/companion OAuth contract matrices, per-client
-  certification priorities and evidence receipts, and reusable acceptance and
-  release-report templates without treating a priority label as certification.
-- Add native Elementor row/container normalization, live-gated cover CTA and
-  testimonial carousel rendering, chip groups, schema-backed button icons, and
-  transactional kit/global design updates.
-- Add typed custom-code provider adapters for WPCode, Code Snippets,
-  Customizer CSS, and allowlisted theme files with dry-run approval handoff,
-  concurrency checks, snapshots, readback verification, and rollback guidance.
-- Add a versioned multi-site/environment registry, collision-safe site aliases,
-  per-client bindings, OS-backed credential references, transactional client
-  configuration, and a `stonewright connect` installer/verification workflow.
-- Persist each site's Plugin/Direct mode policy, WordPress Step 1 expectations,
-  Elementor V4 selection, tool surface, and per-client browser-consent choice.
-
-### Changed
-
-- Keep unresolved audit incidents out of active learning memory and promote a
-  durable repair only after exact verified evidence or an explicit correction.
-- Require a one-time browser-provider choice per site/client, separate consent
-  for tool/config scanning and installation, and keep every custom-code safety
-  boundary intact for browser-assisted Plugin and Direct workflows.
-- Aggregate terminal OAuth client failures over 24 hours while keeping 429/5xx
-  incidents on the short operational window.
-- Start fresh plugin installs on the bounded `essential` surface, use
-  the operator-selected surface in generated client profiles, retain bounded
-  overrides only for strict-cap clients, and reserve bootstrap for explicit
-  diagnostics.
-- Disable the Design Library wp-admin group and its page-specific browser tests
-  while preserving typed design engines, stored user data, and the
-  `figma-to-native-pixel` workflow.
-
-### Fixed
-
-- Reject catalog-only Elementor Pro widgets, allow operation-free kit rollback,
-  treat identical kit plans as verified no-ops, and restore snapshots whenever
-  kit write readback differs from the planned state; reject injectable icon
-  class payloads and non-HTTP SVG icon URLs, and emit only controls confirmed
-  by the live Button schema; require a compatible live repeater before choosing
-  a testimonial carousel widget.
-- Restrict snippet-plugin source reads to administrators, retain
-  `edit_theme_options` only for theme-owned providers, and confirmation-gate
-  custom-code apply and rollback in production-safe mode.
-- Paginate legacy audit-lesson reconciliation and leave it retryable whenever
-  an eligible memory update fails.
-- Keep the dependency audit fail-closed while documenting Composer 2.9.5's
-  false-positive boundary match for the already patched PHP_CodeSniffer 3.13.6.
-- Align Audit, Memory, Skills, and Sandbox controls with consistent card
-  padding, checkbox spacing, action gaps, and 32px control heights.
-- Resolve pre-login OAuth audit actors to registered client names in one batched
-  lookup, with explicit OAuth-client/System fallbacks instead of `(unknown)`.
-- Refresh the callable companion tool registry after task-start profile changes,
-  reuse tool and prompt handles during reconnect, and keep authentication and
-  WordPress reachability status evidence-based.
-- Preserve requested ability enablement across domain-lock mismatches and expose
-  explicit blocked, rebind, rollback, and audit state instead of silently
-  switching the plugin off.
-- Generate Application Passwords without a page refresh, fill private snippets
-  with the canonical placeholder, clear credentials from the tab lifecycle, and
-  remove plaintext transient persistence from the no-JavaScript fallback.
-- Apply every runtime-affecting Step 1 control immediately, bump one shared
-  surface revision, and expose the exact refresh contract to connected clients.
-
 ## Older releases
 
+- [1.0.0-beta.5](docs/releases/1.0.0-beta.5.md)
 - [1.0.0-beta.4](docs/releases/1.0.0-beta.4.md)
 - [1.0.0-beta.3](docs/releases/1.0.0-beta.3.md)
 - [1.0.0-beta.2](docs/releases/1.0.0-beta.2.md)
