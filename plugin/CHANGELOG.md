@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.7] - 2026-08-12
+
+### Changed
+
+- Align plugin metadata and generated companion package references with the
+  privacy hardening release. No plugin ability, permission, backup,
+  confirmation, validation, audit, or custom-code gate changed.
+
 ## [1.0.0-beta.6] - 2026-08-12
 
 ### Changed
@@ -127,7 +135,12 @@
 - Return exact batch-mutation repair hints, guarded escaped-layout decoding,
   and stable receipts for the new post-write closure.
 
-## [1.0.0-beta.2] - 2026-07-30
+## Older releases
+
+- [1.0.0-beta.2](../docs/releases/1.0.0-beta.2.md)
+- [1.0.0-beta.1](../docs/releases/1.0.0-beta.1.md)
+
+### 1.0.0-beta.2 — 2026-07-30
 
 ### Added
 
@@ -149,10 +162,6 @@
 - Center Domain Lock controls, restore Sandbox file-type contrast, remove an
   inline category-action click handler, and correct setup code contrast and
   Visual Workspace focus outlines.
-
-## Older releases
-
-See [1.0.0-beta.1](../docs/releases/1.0.0-beta.1.md) for the first public beta.
 
 ### 1.0.0-beta.1 — 2026-07-30
 

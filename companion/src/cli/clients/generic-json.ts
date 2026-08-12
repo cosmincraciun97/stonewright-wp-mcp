@@ -144,7 +144,7 @@ export function createGenericJsonAdapter(meta: {
 			bucket.map[entry.serverName] = entryToJson(entry);
 			setBucket(root, bucket.key, bucket.map);
 			const next = `${JSON.stringify(root, null, 2)}\n`;
-			const { backupPath, diff } = writeWithRollback({
+			const { backupPath, changed, diff } = writeWithRollback({
 				path: configPath,
 				nextContents: next,
 				validate: validateJsonFile,
@@ -152,6 +152,7 @@ export function createGenericJsonAdapter(meta: {
 			return {
 				configPath,
 				backupPath,
+				changed,
 				diff,
 				serverName: entry.serverName,
 				created,

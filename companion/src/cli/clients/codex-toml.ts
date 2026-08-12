@@ -222,7 +222,7 @@ export function codexAdapter(): ClientAdapter {
 				parts.order.push(entry.serverName);
 			}
 			const next = rebuildToml(parts);
-			const { backupPath, diff } = writeWithRollback({
+			const { backupPath, changed, diff } = writeWithRollback({
 				path: configPath,
 				nextContents: next,
 				validate: validateTomlHasStructure,
@@ -230,6 +230,7 @@ export function codexAdapter(): ClientAdapter {
 			return {
 				configPath,
 				backupPath,
+				changed,
 				diff,
 				serverName: entry.serverName,
 				created,

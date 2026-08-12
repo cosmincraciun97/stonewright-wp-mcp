@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.7] - 2026-08-12
+
+### Fixed
+
+- Replace line-by-line client configuration diffs with content-free change
+  summaries and omit private config and backup paths from connect receipts.
+
 ## [1.0.0-beta.6] - 2026-08-12
 
 ### Changed

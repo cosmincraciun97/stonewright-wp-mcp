@@ -16,7 +16,7 @@ import {
 import { runInit } from '../src/cli/init.js';
 import { codexAdapter, cursorAdapter } from '../src/cli/clients/index.js';
 import { ClientConfigError } from '../src/cli/clients/types.js';
-import { writeWithRollback } from '../src/cli/clients/atomic-config.js';
+import { redactedDiff, writeWithRollback } from '../src/cli/clients/atomic-config.js';
 
 describe('connect CLI acceptance matrix', () => {
 	const dirs: string[] = [];
@@ -240,6 +240,7 @@ describe('connect CLI acceptance matrix', () => {
 		const h = harness();
 		capture();
 		const codexCfg = join(h.dir, '.codex', 'config.toml');
+		writeFileSync(codexCfg, '[notice]\nprivate_marker = "do-not-print-local-context"\n', 'utf8');
 		writeFileSync(
 			h.sitesFile,
 			JSON.stringify({
@@ -286,6 +287,22 @@ describe('connect CLI acceptance matrix', () => {
 		expect(registry.sites[0].clients).toHaveProperty('codex');
 		expect(registryText).not.toContain('appPassword');
 		expect(readFileSync(codexCfg, 'utf8')).toMatch(/STONEWRIGHT_SITE_ALIAS\s*=\s*"site-primary"/);
+		expect(logs.join('')).toContain('change_summary');
+		expect(logs.join('')).not.toContain('do-not-print-local-context');
+		expect(logs.join('')).not.toContain(codexCfg);
+	});
+
+	it('client change summaries never include config content or paths', () => {
+		const summary = redactedDiff(
+			'[private]\npath = "/private/client/config"',
+			'[private]\npath = "/private/client/config"\nserver = "stonewright-site-a"',
+			'/private/client/config',
+		);
+
+		expect(summary).toMatch(/configuration updated/i);
+		expect(summary).toContain('contents withheld');
+		expect(summary).not.toContain('/private/client/config');
+		expect(summary).not.toContain('stonewright-site-a');
 	});
 
 	it('repair can change policy without a client binding or password prompt', async () => {
@@ -523,19 +540,22 @@ describe('connect CLI acceptance matrix', () => {
 			'utf8',
 		);
 		const adapter = codexAdapter();
-		adapter.upsert(path, {
+		const first = adapter.upsert(path, {
 			serverName: 'stonewright-site-a',
 			command: 'npx',
 			args: ['-y', 'stonewright-mcp'],
 			env: { STONEWRIGHT_MODE: 'auto', STONEWRIGHT_SITE_ALIAS: 'site-a' },
 		});
-		adapter.upsert(path, {
+		const second = adapter.upsert(path, {
 			serverName: 'stonewright-site-a',
 			command: 'npx',
 			args: ['-y', 'stonewright-mcp'],
 			env: { STONEWRIGHT_MODE: 'auto', STONEWRIGHT_SITE_ALIAS: 'site-a' },
 		});
 		const text = readFileSync(path, 'utf8');
+		expect(first.changed).toBe(true);
+		expect(second.changed).toBe(false);
+		expect(second.diff).toBe('Client configuration unchanged; contents withheld.');
 		expect(text).toContain('# keep this comment');
 		expect(text).toContain('model = "gpt-5"');
 		expect(text).toContain('[mcp_servers.other]');

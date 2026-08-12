@@ -22,7 +22,8 @@ export interface ClientAdapterInfo {
 export interface ApplyResult {
 	configPath: string;
 	backupPath: string | null;
-	/** Redacted human-readable diff (no secrets). */
+	changed: boolean;
+	/** Content-free human-readable change summary. */
 	diff: string;
 	serverName: string;
 	created: boolean;

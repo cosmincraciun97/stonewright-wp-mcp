@@ -90,6 +90,11 @@ spawns it through MCP stdio, lists tools, calls `stonewright-task-start` and
 status, and stores a version/tool-surface receipt. Structural config validation
 is reported separately and is never presented as live runtime proof.
 
+Client configuration receipts are content-free. They report the named server,
+change/backup state, support tier, and browser-consent metadata, but never emit
+the client configuration body, unrelated local settings, or absolute config and
+backup paths.
+
 Plugin mode owns the broad guarded write surface. Direct mode is not a fallback:
 it owns a documented pluginless surface, local task-start profiles, persistent
 private state, and read-only WooCommerce access. Capability differences are
