@@ -95,6 +95,10 @@ change/backup state, support tier, and browser-consent metadata, but never emit
 the client configuration body, unrelated local settings, or absolute config and
 backup paths.
 
+Runtime verification receipts expose only the companion version, active alias,
+task-start/status availability, and refresh-required tool names. A non-empty
+refresh list fails verification instead of treating stale client state as ready.
+
 Plugin mode owns the broad guarded write surface. Direct mode is not a fallback:
 it owns a documented pluginless surface, local task-start profiles, persistent
 private state, and read-only WooCommerce access. Capability differences are

@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.8] - 2026-08-12
+
+### Changed
+
+- Align plugin metadata and generated companion package references with the
+  final connection-verification release. Plugin abilities and safety gates are
+  unchanged.
+
 ## [1.0.0-beta.7] - 2026-08-12
 
 ### Changed
@@ -104,7 +112,13 @@
 - Neutralize spreadsheet formulas in redacted audit CSV exports and include
   both OAuth audit transient families in purge hashes and counts.
 
-## [1.0.0-beta.3] - 2026-07-31
+## Older releases
+
+- [1.0.0-beta.3](../docs/releases/1.0.0-beta.3.md)
+- [1.0.0-beta.2](../docs/releases/1.0.0-beta.2.md)
+- [1.0.0-beta.1](../docs/releases/1.0.0-beta.1.md)
+
+### 1.0.0-beta.3 — 2026-07-31
 
 ### Added
 
@@ -134,11 +148,6 @@
 - Remove a global Elementor CSS-clear fallback from post-scoped regeneration.
 - Return exact batch-mutation repair hints, guarded escaped-layout decoding,
   and stable receipts for the new post-write closure.
-
-## Older releases
-
-- [1.0.0-beta.2](../docs/releases/1.0.0-beta.2.md)
-- [1.0.0-beta.1](../docs/releases/1.0.0-beta.1.md)
 
 ### 1.0.0-beta.2 — 2026-07-30
 

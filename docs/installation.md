@@ -115,7 +115,7 @@ npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/
   --wp-surface essential \
   --elementor-v4 yes \
   --client cursor \
-  --browser-provider recommended \
+  --browser-provider playwright \
   --browser-scan-consent granted \
   --browser-install-consent denied
 ```
@@ -139,7 +139,8 @@ URL/environment before v2 is written. It keeps the configured default alias
 for that group, or the first stable alias when none is default.
 
 The WordPress Step 1 choices and browser consent are retained per site/client;
-`recommended` records Playwright as the external default without embedding it;
+`playwright` (or compatibility value `recommended`) records Playwright as the
+external default without embedding it;
 unset browser choices cause the agent to ask once. Scan consent never implies
 install consent. After restarting the client, prove the saved entry end to end:
 
@@ -149,8 +150,9 @@ npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/
 
 Verification spawns the configured stdio server, confirms the active alias and
 companion version when observable, lists tools, calls `stonewright-task-start`
-and status, checks required tools, and stores a surface digest. A parseable
-client config is only a structural check.
+and status, checks required tools, and stores a surface digest. The receipt
+prints safe runtime proof, including `refresh_required_tool_names`; a non-empty
+list fails verification. A parseable client config is only a structural check.
 
 First call in Direct mode: `stonewright-task-start`. Then use
 `stonewright-site-discover`; it lists REST namespaces,

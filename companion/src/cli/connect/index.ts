@@ -10,6 +10,7 @@ import {
 	connectRepair,
 	connectUse,
 	connectVerify,
+	DEFAULT_BROWSER_PROVIDER_ALIAS,
 	type ConnectContext,
 } from './commands.js';
 import type { ConfiguredMode, SiteEnvironment } from './types.js';
@@ -54,7 +55,7 @@ add options:
   --wp-mode <mode>         development|staging|production-safe
   --wp-surface <surface>   bootstrap|essential|full (default essential)
   --elementor-v4 <yes|no> Persist the Elementor V4 Atomic selection
-  --browser-provider <id> recommended|connected-browser|none|unset
+  --browser-provider <id> ${DEFAULT_BROWSER_PROVIDER_ALIAS}|recommended|connected-browser|none|unset
   --browser-scan-consent <state> granted|denied|unknown
   --browser-install-consent <state> granted|denied|unknown
   --replace                Replace existing alias (shows affected clients)
@@ -65,6 +66,9 @@ add options:
 repair options:
   --client <id>            Create or refresh this site's named client entry
   --mode <mode>            Change policy without re-entering the saved password
+  --browser-provider <id>  ${DEFAULT_BROWSER_PROVIDER_ALIAS}|recommended|connected-browser|none|unset
+  --browser-scan-consent <state> granted|denied|unknown
+  --browser-install-consent <state> granted|denied|unknown
 `);
 }
 
@@ -219,7 +223,7 @@ export async function runConnect(argv: string[]): Promise<number> {
 					repairOpts.mode = mode as ConfiguredMode;
 				}
 				const browserProvider = flagString(flags, 'browser-provider');
-				if (browserProvider) repairOpts.browserProvider = browserProvider as NonNullable<typeof repairOpts.browserProvider>;
+				if (browserProvider) repairOpts.browserProvider = browserProvider;
 				const scanConsent = flagString(flags, 'browser-scan-consent');
 				if (scanConsent) repairOpts.browserScanConsent = scanConsent as NonNullable<typeof repairOpts.browserScanConsent>;
 				const installConsent = flagString(flags, 'browser-install-consent');

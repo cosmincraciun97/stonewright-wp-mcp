@@ -10,6 +10,7 @@ import {
 	connectRepair,
 	connectUse,
 	connectVerify,
+	extractRuntimeStatus,
 	resolveConnectPassword,
 	testCredentialOptions,
 } from '../src/cli/connect/commands.js';
@@ -623,7 +624,7 @@ describe('connect CLI acceptance matrix', () => {
 				wordpressMode: 'production-safe',
 				wordpressToolSurface: 'full',
 				elementorV4Atomic: true,
-				browserProvider: 'recommended',
+				browserProvider: 'playwright',
 				browserScanConsent: 'granted',
 				browserInstallConsent: 'denied',
 			},
@@ -804,6 +805,7 @@ describe('connect CLI acceptance matrix', () => {
 					remote_tool_names: ['stonewright-task-start', 'stonewright-wordpress-mcp-status'],
 					task_start_available: true,
 					status_available: true,
+					refresh_required_tool_names: [],
 				});
 			},
 		});
@@ -818,7 +820,67 @@ describe('connect CLI acceptance matrix', () => {
 			remote_tool_count: 2,
 			task_start_available: true,
 			status_available: true,
+			refresh_required_tool_names: [],
 		}));
 		expect(String(reg.sites[0]?.last_verification.surface_digest)).toMatch(/^sha256:/);
+		expect(logs.join('')).toContain('"companion_version": "1.2.3"');
+		expect(logs.join('')).toContain('"active_alias": "verified-site"');
+		expect(logs.join('')).toContain('"refresh_required_tool_names": []');
+	});
+
+	it('fails runtime verification while the client still requires a tool refresh', async () => {
+		const h = harness();
+		capture();
+		const clientConfig = join(h.dir, '.cursor', 'mcp.json');
+		await connectAdd(
+			{
+				alias: 'stale-client',
+				url: 'https://stale-client.example/',
+				username: 'editor',
+				password: 'example-password',
+				mode: 'plugin-only',
+				client: 'cursor',
+				clientConfigPath: clientConfig,
+			},
+			{ sitesFile: h.sitesFile, homeDir: h.homeDir, credentials: h.credentials, skipAuth: true },
+		);
+		const code = await connectVerify('stale-client', { client: 'cursor' }, {
+			sitesFile: h.sitesFile,
+			homeDir: h.homeDir,
+			credentials: h.credentials,
+			skipAuth: true,
+			fetchImpl: (() => Promise.resolve(new Response('{}', { status: 200 }))) as typeof fetch,
+			runtimeVerifier: () => Promise.resolve({
+				ok: true,
+				detail: 'spawned runtime requires refresh',
+				companion_version: '1.2.3',
+				active_alias: 'stale-client',
+				remote_tool_names: ['stonewright-task-start', 'stonewright-wordpress-mcp-status'],
+				task_start_available: true,
+				status_available: true,
+				refresh_required_tool_names: ['stonewright-required-tool'],
+			}),
+		});
+
+		expect(code).toBe(1);
+		expect(logs.join('')).toContain('"refresh_required_tool_names": [');
+		expect(logs.join('')).toContain('stonewright-required-tool');
+	});
+
+	it('extracts version and refresh requirements from MCP text content', () => {
+		const status = {
+			content: [{
+				type: 'text',
+				text: JSON.stringify({
+					companion_version: '1.0.0-beta.8',
+					refresh_required_tool_names: ['stonewright-new-tool'],
+				}),
+			}],
+		};
+
+		expect(extractRuntimeStatus(status)).toEqual({
+			companion_version: '1.0.0-beta.8',
+			refresh_required_tool_names: ['stonewright-new-tool'],
+		});
 	});
 });

@@ -142,7 +142,7 @@ npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/
   --wp-surface essential \
   --elementor-v4 yes \
   --client cursor \
-  --browser-provider recommended \
+  --browser-provider playwright \
   --browser-scan-consent granted \
   --browser-install-consent denied
 
@@ -168,6 +168,11 @@ npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/
 npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect verify site-a --client cursor
 npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect migrate   # v1 plaintext → v2 + OS store
 ```
+
+`playwright` is the natural alias for the recommended external browser
+provider. Verification prints only safe runtime proof: companion version,
+active alias, task-start/status availability, and
+`refresh_required_tool_names`. A non-empty refresh list fails verification.
 
 **What gets stored where**
 
