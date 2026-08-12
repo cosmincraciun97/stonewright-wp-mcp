@@ -142,6 +142,7 @@ use Stonewright\WpMcp\Abilities\Memory\MemoryList;
 use Stonewright\WpMcp\Abilities\Memory\MemorySave;
 use Stonewright\WpMcp\Abilities\Memory\LearningRecord;
 use Stonewright\WpMcp\Abilities\Security\RuntimeDataPurge;
+use Stonewright\WpMcp\Abilities\Security\IncidentRepairRecord;
 use Stonewright\WpMcp\Abilities\ElementorWidget\CreateCustomWidget;
 use Stonewright\WpMcp\Abilities\ElementorWidget\WidgetDefine;
 use Stonewright\WpMcp\Abilities\Knowledge\DescribeWidget;
@@ -297,6 +298,7 @@ final class AbilityRegistry {
 			IssueConfirmationToken::class,
 			AuditReconcile::class,
 			RuntimeDataPurge::class,
+			IncidentRepairRecord::class,
 			CreateOneTimeLink::class,
 
 			// Runtime.

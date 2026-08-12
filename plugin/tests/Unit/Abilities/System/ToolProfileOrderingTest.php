@@ -59,6 +59,7 @@ final class ToolProfileOrderingTest extends TestCase {
 		$admin = ToolProfile::profile_tools( 'site-admin' );
 		self::assertContains( 'stonewright/security-audit-reconcile', $admin );
 		self::assertContains( 'stonewright/security-runtime-data-purge', $admin );
+		self::assertContains( 'stonewright/incident-repair-record', $admin );
 		self::assertContains( 'stonewright/oauth-header-diagnostic', $admin );
 		self::assertContains( 'stonewright/capability-preflight', $admin );
 		self::assertContains( 'stonewright/form-delivery-diagnostic', $admin );
