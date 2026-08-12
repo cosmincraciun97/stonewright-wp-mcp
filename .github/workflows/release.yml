@@ -148,9 +148,10 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           notes="docs/releases/${version}.md"
           if [ ! -f "$notes" ]; then
-            notes="docs/releases/checklist.md"
+            echo "Missing versioned release notes: $notes" >&2
+            exit 1
           fi
-          release_flag="$(node scripts/release-flags.mjs "$version")"
+          release_flag="$(node scripts/release-flags.mjs "$version" "$notes")"
           gh release create "$GITHUB_REF_NAME" \
             "dist/stonewright-${version}.zip" \
             dist/stonewright-companion-*.tgz \
