@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.9] - 2026-08-12
+
+### Fixed
+
+- Use the plugin-resolved profile catalog for expected counts, missing-tool
+  diagnostics, and `refresh_required_tool_names` instead of comparing a live
+  connection with a potentially newer companion fallback list.
+
 ## [1.0.0-beta.8] - 2026-08-12
 
 ### Fixed

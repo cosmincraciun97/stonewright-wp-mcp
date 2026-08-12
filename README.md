@@ -43,7 +43,7 @@ Stonewright is a WordPress MCP stack for AI coding agents. **Elementor** is a fi
 </p>
 
 <p align="center">
-  <img src="assets/screenshots/stonewright-dashboard-beta8.svg" alt="Stonewright dashboard showing a verified Plugin-mode connection" width="1200" />
+  <img src="assets/screenshots/stonewright-dashboard-beta9.svg" alt="Stonewright dashboard showing a verified Plugin-mode connection" width="1200" />
 </p>
 
 ## Capabilities

@@ -154,6 +154,17 @@
 		}
 	},
 	{
+		"id": "elementor-native-responsive-visibility",
+		"severity": "strong",
+		"scope": "elementor",
+		"rule": "Hide Elementor elements with native Responsive controls only. Use hidden-desktop, hidden-laptop, hidden-tablet, or hidden-mobile for the matching hide setting; never use bare hidden or CSS/JavaScript as a substitute. The editor canvas may still show hidden elements. After writing, read back the settings and verify the frontend classes at the requested devices.",
+		"why": "Wrong switcher return values leave the editor toggle out of sync with saved metadata and do not produce reliable frontend visibility classes.",
+		"enforcement": {
+			"kind": "instruction",
+			"guard": ""
+		}
+	},
+	{
 		"id": "no-schema-guessing",
 		"severity": "strong",
 		"scope": "all",

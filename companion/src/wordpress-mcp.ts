@@ -55,6 +55,8 @@ export interface WordPressMcpRegistrationResult {
 	profile: ProxyToolProfile;
 	remoteTools: RemoteTool[];
 	registeredTools: RemoteTool[];
+	/** Exact profile catalog resolved by the plugin for this connection. */
+	requestedToolNames: string[];
 	profileFilteredToolNames: string[];
 	filteredToolCount: number;
 	/** Plugin MCP initialize.instructions captured during proxy handshake. */
@@ -765,12 +767,21 @@ export async function registerWordPressMcpTools(
 	const liveState: WordPressProxyLiveState = {
 		profile: activeProfile,
 		surfaceRevision: lastSeenSurfaceRevision,
+		requestedToolNames: [],
 		enabledToolNames: [],
 		registeredToolCount: 0,
 		lastRefreshAt: null,
 		lastRefresh: null,
 	};
 	const allowedOrder = resolved.tools;
+	const requestedToolNames = activeProfile === 'full' && allowedOrder.length === 0
+		? tools
+			.map((tool) => tool.name)
+			.filter((name) => Boolean(name)
+				&& !name.startsWith('companion_')
+				&& !COMPANION_OWNED_TOOL_NAMES.has(name))
+		: [...allowedOrder];
+	liveState.requestedToolNames = requestedToolNames;
 	const allowedSet = activeProfile === 'full' && allowedOrder.length === 0
 		? null
 		: new Set(allowedOrder.length > 0 ? allowedOrder : proxyToolNamesForProfile(activeProfile));
@@ -924,6 +935,7 @@ export async function registerWordPressMcpTools(
 		profile: activeProfile,
 		remoteTools: tools,
 		registeredTools,
+		requestedToolNames,
 		profileFilteredToolNames: profileFilteredToolNames.slice(0, 12),
 		filteredToolCount: profileFilteredToolNames.length,
 		remoteInstructions: client.remoteInstructions,
@@ -1167,11 +1179,13 @@ export interface ToolsChangedRefreshResult {
 	removed: string[];
 	profile: ProxyToolProfile;
 	desiredCount: number;
+	desiredToolNames: string[];
 }
 
 export interface WordPressProxyLiveState {
 	profile: ProxyToolProfile;
 	surfaceRevision: number | null;
+	requestedToolNames: string[];
 	enabledToolNames: string[];
 	registeredToolCount: number;
 	lastRefreshAt: string | null;
@@ -1185,6 +1199,9 @@ export function applyRefreshToLiveState(
 	registered: Map<string, { handle: { enabled: boolean }; tool: { name: string } }>,
 ): void {
 	liveState.profile = refresh.profile;
+	if (refresh.refreshed) {
+		liveState.requestedToolNames = refresh.desiredToolNames;
+	}
 	liveState.registeredToolCount = registered.size;
 	liveState.enabledToolNames = [...registered.entries()]
 		.filter(([, entry]) => entry.handle.enabled)
@@ -1307,6 +1324,7 @@ export async function handleToolsChangedResponse(options: {
 			removed,
 			profile: activeProfile,
 			desiredCount: desiredSet.size,
+			desiredToolNames: [...desiredSet],
 		};
 	} catch {
 		// Still notify so clients re-list; companion process may keep the prior set
@@ -1319,6 +1337,7 @@ export async function handleToolsChangedResponse(options: {
 			removed: [],
 			profile: activeProfile,
 			desiredCount: 0,
+			desiredToolNames: [],
 		};
 	}
 }

@@ -41,6 +41,7 @@ final class GlobalRulesTest extends TestCase {
 		'dynamic-architecture-preservation',
 		'native-controls-rendered-proof',
 		'custom-code-human-handoff',
+		'elementor-native-responsive-visibility',
 	];
 
 	public function test_generalized_operating_repairs_live_in_the_digest_registry(): void {

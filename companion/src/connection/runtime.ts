@@ -171,7 +171,8 @@ export function createConnectionRuntime(args: {
 				PERMANENT_GATEWAY_TOOL_NAME_SET.has(n) || n.startsWith('stonewright-wp-cli-') || n.startsWith('companion_'),
 			).length;
 			const remoteCount = runtime.status.remote_tool_count;
-			const requested = proxyToolNamesForProfile(runtime.profile);
+			const requested = runtime.status.live?.requestedToolNames
+				?? proxyToolNamesForProfile(runtime.profile);
 			const refresh = computeRefreshRequiredToolNames(requested, registered);
 			const base = buildConnectionStatusV2({
 				siteAlias: (runtime.env['STONEWRIGHT_SITE_ALIAS'] ?? '').trim() || null,
@@ -238,7 +239,8 @@ export function createConnectionRuntime(args: {
 			runtime.status.local_tool_names = names.filter((n) =>
 				PERMANENT_GATEWAY_TOOL_NAME_SET.has(n) || n.startsWith('stonewright-wp-cli-') || n.startsWith('companion_'),
 			);
-			const requested = proxyToolNamesForProfile(runtime.profile);
+			const requested = runtime.status.live?.requestedToolNames
+				?? proxyToolNamesForProfile(runtime.profile);
 			runtime.status.refresh_required_tool_names = computeRefreshRequiredToolNames(requested, names);
 			runtime.syncLegacyStatus();
 		},

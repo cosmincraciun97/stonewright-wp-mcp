@@ -58,6 +58,18 @@ final class SettingsValidator {
 				continue;
 			}
 
+			$expected_visibility = ResponsiveScope::expected_visibility_value( $key );
+			if ( null !== $expected_visibility && ! ResponsiveScope::visibility_value_is_valid( $key, $value ) ) {
+				$violations[] = self::violation(
+					'settings.' . $key,
+					'invalid_responsive_visibility_value',
+					'an empty value or ' . $expected_visibility,
+					$value,
+					[ '', $expected_visibility ]
+				);
+				continue;
+			}
+
 			$control_key = self::control_key( $key, $controls );
 			if ( null === $control_key ) {
 				// P0 integrity: never strip unknown settings to "pass" validation.
