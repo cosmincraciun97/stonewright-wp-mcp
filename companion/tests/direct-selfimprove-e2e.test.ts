@@ -45,6 +45,7 @@ describe('direct self-improve protocol e2e (zero WordPress)', () => {
 			'stonewright-skill-delete',
 			'stonewright-memory-list',
 			'stonewright-learning-record',
+			'stonewright-incident-repair-record',
 		]) {
 			expect(names).toContain(n);
 		}

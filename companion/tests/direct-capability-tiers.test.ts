@@ -73,6 +73,7 @@ describe('DIRECT_ESSENTIAL_TOOL_NAMES registration filter', () => {
 	it('bootstrap is capped and always exposes task-start', () => {
 		expect(DIRECT_BOOTSTRAP_TOOL_NAMES.length).toBeLessThanOrEqual(8);
 		expect(DIRECT_BOOTSTRAP_TOOL_NAMES).toContain('stonewright-task-start');
+		expect(DIRECT_BOOTSTRAP_TOOL_NAMES).toContain('stonewright-incident-repair-record');
 		expect(shouldRegisterDirectTool('stonewright-task-start', 'bootstrap')).toBe(true);
 		expect(shouldRegisterDirectTool('stonewright-content-update', 'bootstrap')).toBe(false);
 	});

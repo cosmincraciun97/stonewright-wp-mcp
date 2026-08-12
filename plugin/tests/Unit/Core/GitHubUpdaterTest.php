@@ -25,186 +25,153 @@ final class GitHubUpdaterTest extends TestCase {
 		$GLOBALS['stonewright_test_wp_remote_get_calls'] = [];
 	}
 
-	public function test_parse_release_extracts_version_and_package_from_fixture(): void {
-		$raw = $this->fixture_json();
-		$parsed = GitHubUpdater::parse_release( $raw );
+	public function test_installed_channel_distinguishes_stable_and_prerelease_versions(): void {
+		self::assertSame( 'stable', GitHubUpdater::installed_channel( '1.2.3' ) );
+		self::assertSame( 'beta', GitHubUpdater::installed_channel( '1.2.3-beta.4' ) );
+		self::assertSame( 'beta', GitHubUpdater::installed_channel( '2.0.0-rc.1' ) );
+	}
 
+	public function test_select_release_is_channel_strict_and_chooses_highest_eligible_version(): void {
+		$releases = $this->releases_fixture();
+		$stable   = GitHubUpdater::select_release( $releases, 'stable' );
+		$beta     = GitHubUpdater::select_release( $releases, 'beta' );
+
+		self::assertIsArray( $stable );
+		self::assertSame( '1.2.0', $stable['version'] );
+		self::assertIsArray( $beta );
+		self::assertSame( '1.3.0-beta.10', $beta['version'] );
+	}
+
+	public function test_select_release_rejects_malformed_incomplete_and_cross_channel_candidates(): void {
+		$releases = $this->releases_fixture();
+		self::assertNull( GitHubUpdater::select_release( [ $releases[4] ], 'stable' ) );
+		self::assertNull( GitHubUpdater::select_release( [ $releases[5] ], 'beta' ) );
+		self::assertNull( GitHubUpdater::select_release( [ $releases[6] ], 'beta' ) );
+		self::assertNull( GitHubUpdater::select_release( [ $releases[0] ], 'beta' ) );
+		self::assertNull( GitHubUpdater::select_release( [ $releases[1] ], 'stable' ) );
+	}
+
+	public function test_select_release_requires_exact_asset_names_and_trusted_hosts(): void {
+		$release = $this->releases_fixture()[2];
+		$release['assets'][0]['name'] = 'stonewright-latest.zip';
+		self::assertNull( GitHubUpdater::select_release( [ $release ], 'beta' ) );
+
+		$release = $this->releases_fixture()[2];
+		$release['assets'][0]['browser_download_url'] = 'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.3.0-beta.10/other.zip';
+		self::assertNull( GitHubUpdater::select_release( [ $release ], 'beta' ) );
+	}
+
+	public function test_parse_release_extracts_exact_packages(): void {
+		$parsed = GitHubUpdater::parse_release( $this->releases_fixture()[2] );
 		self::assertIsArray( $parsed );
-		self::assertSame( '1.0.0-beta.99', $parsed['version'] );
-		self::assertSame(
-			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.99/stonewright-1.0.0-beta.99.zip',
-			$parsed['package']
-		);
-		self::assertSame(
-			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-beta.99',
-			$parsed['url']
-		);
-		self::assertSame(
-			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.99/stonewright-companion-1.0.0-beta.99.tgz',
-			$parsed['companion_package']
-		);
-		self::assertSame(
-			'https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.99/SHA256SUMS.txt',
-			$parsed['checksums']
-		);
+		self::assertSame( '1.3.0-beta.10', $parsed['version'] );
+		self::assertStringEndsWith( '/stonewright-1.3.0-beta.10.zip', $parsed['package'] );
+		self::assertStringEndsWith( '/stonewright-companion-1.3.0-beta.10.tgz', $parsed['companion_package'] );
 	}
 
-	public function test_parse_release_rejects_untrusted_asset_hosts(): void {
-		$raw = $this->fixture_json();
-		$raw['assets'][0]['browser_download_url'] = 'https://attacker.example/stonewright.zip';
-
-		self::assertNull( GitHubUpdater::parse_release( $raw ) );
-	}
-
-	public function test_parse_release_requires_semantic_version_tag(): void {
-		$raw             = $this->fixture_json();
-		$raw['tag_name'] = 'latest';
-
-		self::assertNull( GitHubUpdater::parse_release( $raw ) );
-	}
-
-	public function test_fetch_latest_release_populates_transient_from_http_fixture(): void {
-		$raw = $this->fixture_json();
-		$GLOBALS['stonewright_test_wp_remote_get'] = static function ( string $url ) use ( $raw ): array {
-			return [
-				'response' => [ 'code' => 200 ],
-				'body'     => (string) wp_json_encode( $raw ),
-			];
-		};
-
-		$parsed = GitHubUpdater::fetch_latest_release();
-
-		self::assertIsArray( $parsed );
-		self::assertSame( '1.0.0-beta.99', $parsed['version'] );
-		self::assertSame( $parsed, get_transient( GitHubUpdater::CACHE_KEY ) );
-		self::assertNotEmpty( $GLOBALS['stonewright_test_wp_remote_get_calls'] );
-	}
-
-	public function test_fetch_latest_release_uses_cached_transient(): void {
-		$cached = [
-			'version' => '1.0.0-beta.50',
-			'package' => 'https://example.test/stonewright-1.0.0-beta.50.zip',
-			'url'     => 'https://example.test/release',
+	public function test_fetch_release_list_selects_installed_channel_and_caches_with_channel(): void {
+		$releases = $this->releases_fixture();
+		$GLOBALS['stonewright_test_wp_remote_get'] = static fn( string $url ): array => [
+			'response' => [ 'code' => 200 ],
+			'body'     => (string) wp_json_encode( $releases ),
 		];
-		set_transient( GitHubUpdater::CACHE_KEY, $cached, 12 * HOUR_IN_SECONDS );
 
-		$calls_before = count( $GLOBALS['stonewright_test_wp_remote_get_calls'] ?? [] );
-		$parsed       = GitHubUpdater::fetch_latest_release();
-		$calls_after  = count( $GLOBALS['stonewright_test_wp_remote_get_calls'] ?? [] );
-
-		self::assertSame( $cached, $parsed );
-		self::assertSame( $calls_before, $calls_after );
+		$parsed = GitHubUpdater::fetch_latest_release( false, '1.0.0-beta.1' );
+		self::assertIsArray( $parsed );
+		self::assertSame( '1.3.0-beta.10', $parsed['version'] );
+		self::assertSame(
+			[ 'channel' => 'beta', 'release' => $parsed ],
+			get_transient( GitHubUpdater::cache_key( 'beta' ) )
+		);
+		self::assertStringContainsString( '/releases?per_page=', $GLOBALS['stonewright_test_wp_remote_get_calls'][0]['url'] );
 	}
 
-	public function test_force_refresh_replaces_a_stale_cached_release(): void {
-		$cached = [
-			'version' => '1.0.0-beta.1',
-			'package' => 'https://example.test/stonewright-1.0.0-beta.1.zip',
-			'url'     => 'https://example.test/release',
+	public function test_cache_cannot_cross_channels(): void {
+		$beta = GitHubUpdater::select_release( $this->releases_fixture(), 'beta' );
+		self::assertIsArray( $beta );
+		set_transient(
+			GitHubUpdater::cache_key( 'beta' ),
+			[ 'channel' => 'beta', 'release' => $beta ],
+			GitHubUpdater::CACHE_TTL
+		);
+		$releases = $this->releases_fixture();
+		$GLOBALS['stonewright_test_wp_remote_get'] = static fn( string $url ): array => [
+			'response' => [ 'code' => 200 ],
+			'body'     => (string) wp_json_encode( $releases ),
 		];
-		set_transient( GitHubUpdater::CACHE_KEY, $cached, 12 * HOUR_IN_SECONDS );
 
-		$raw = $this->fixture_json();
-		$GLOBALS['stonewright_test_wp_remote_get'] = static function ( string $url ) use ( $raw ): array {
-			return [
-				'response' => [ 'code' => 200 ],
-				'body'     => (string) wp_json_encode( $raw ),
-			];
-		};
-
-		$parsed = GitHubUpdater::fetch_latest_release( true );
-
-		self::assertIsArray( $parsed );
-		self::assertSame( '1.0.0-beta.99', $parsed['version'] );
-		self::assertSame( $parsed, get_transient( GitHubUpdater::CACHE_KEY ) );
+		$stable = GitHubUpdater::fetch_latest_release( false, '1.0.0' );
+		self::assertIsArray( $stable );
+		self::assertSame( '1.2.0', $stable['version'] );
 		self::assertCount( 1, $GLOBALS['stonewright_test_wp_remote_get_calls'] );
 	}
 
-	public function test_inject_update_adds_response_when_remote_is_newer(): void {
+	public function test_force_refresh_replaces_same_channel_cache(): void {
 		set_transient(
-			GitHubUpdater::CACHE_KEY,
-			[
-				'version' => '1.0.0-beta.99',
-				'package' => 'https://example.test/stonewright-1.0.0-beta.99.zip',
-				'url'     => 'https://example.test/release',
-			],
-			12 * HOUR_IN_SECONDS
+			GitHubUpdater::cache_key( 'beta' ),
+			[ 'channel' => 'beta', 'release' => [
+				'version' => '1.0.0-beta.1',
+				'package' => 'https://example.test/old.zip',
+				'companion_package' => 'https://example.test/old.tgz',
+				'checksums' => '',
+				'url' => 'https://example.test/old',
+			] ],
+			GitHubUpdater::CACHE_TTL
 		);
-
-		$transient = (object) [
-			'response'  => [],
-			'no_update' => [],
-			'checked'   => [],
+		$releases = $this->releases_fixture();
+		$GLOBALS['stonewright_test_wp_remote_get'] = static fn( string $url ): array => [
+			'response' => [ 'code' => 200 ],
+			'body'     => (string) wp_json_encode( $releases ),
 		];
 
-		$result = GitHubUpdater::inject_update( $transient );
-		$plugin = GitHubUpdater::plugin_basename();
-
-		self::assertObjectHasProperty( 'response', $result );
-		self::assertArrayHasKey( $plugin, $result->response );
-		self::assertSame( '1.0.0-beta.99', $result->response[ $plugin ]->new_version );
-		self::assertSame( 'https://example.test/stonewright-1.0.0-beta.99.zip', $result->response[ $plugin ]->package );
+		$parsed = GitHubUpdater::fetch_latest_release( true, '1.0.0-beta.1' );
+		self::assertSame( '1.3.0-beta.10', $parsed['version'] );
 	}
 
-	public function test_inject_update_skips_when_disable_filter_is_true(): void {
+	public function test_inject_update_follows_beta_installed_channel(): void {
+		$this->set_installed_version( '1.0.0-beta.1' );
+		$this->cache_release( 'beta' );
+		$result = GitHubUpdater::inject_update( (object) [ 'response' => [], 'no_update' => [] ] );
+		$plugin = GitHubUpdater::plugin_basename();
+		self::assertSame( '1.3.0-beta.10', $result->response[ $plugin ]->new_version );
+	}
+
+	public function test_inject_update_follows_stable_installed_channel(): void {
+		$this->set_installed_version( '1.0.0' );
+		$this->cache_release( 'stable' );
+		$result = GitHubUpdater::inject_update( (object) [ 'response' => [], 'no_update' => [] ] );
+		$plugin = GitHubUpdater::plugin_basename();
+		self::assertSame( '1.2.0', $result->response[ $plugin ]->new_version );
+	}
+
+	public function test_inject_update_skips_when_disabled(): void {
 		$GLOBALS['stonewright_test_filters']['stonewright_disable_update_check'] = static fn(): bool => true;
-
-		set_transient(
-			GitHubUpdater::CACHE_KEY,
-			[
-				'version' => '1.0.0-beta.99',
-				'package' => 'https://example.test/stonewright-1.0.0-beta.99.zip',
-				'url'     => 'https://example.test/release',
-			],
-			12 * HOUR_IN_SECONDS
-		);
-
-		$transient = (object) [
-			'response'  => [],
-			'no_update' => [],
-		];
-
-		$result = GitHubUpdater::inject_update( $transient );
+		$result = GitHubUpdater::inject_update( (object) [ 'response' => [], 'no_update' => [] ] );
 		self::assertSame( [], $result->response );
 	}
 
-	public function test_inject_update_reports_no_update_when_current_is_latest(): void {
-		set_transient(
-			GitHubUpdater::CACHE_KEY,
-			[
-				'version' => STONEWRIGHT_VERSION,
-				'package' => 'https://example.test/stonewright.zip',
-				'url'     => 'https://example.test/release',
-			],
-			12 * HOUR_IN_SECONDS
-		);
-
-		$transient = (object) [
-			'response'  => [],
-			'no_update' => [],
-		];
-
-		$result = GitHubUpdater::inject_update( $transient );
-		$plugin = GitHubUpdater::plugin_basename();
-
-		self::assertArrayNotHasKey( $plugin, $result->response );
-		self::assertArrayHasKey( $plugin, $result->no_update );
-	}
-
 	public function test_register_hooks_update_plugins_filter(): void {
-		$GLOBALS['stonewright_test_actions'] = [];
-		$GLOBALS['stonewright_test_filters'] = [];
-		// add_filter in bootstrap stores under stonewright_test_filters as single callback;
-		// register should call add_filter for site_transient_update_plugins.
 		GitHubUpdater::register();
 		self::assertArrayHasKey( 'site_transient_update_plugins', $GLOBALS['stonewright_test_filters'] );
 	}
 
-	/**
-	 * @return array<string, mixed>
-	 */
-	private function fixture_json(): array {
-		$path = dirname( __DIR__, 2 ) . '/fixtures/github/latest-release.json';
+	private function set_installed_version( string $version ): void {
+		$GLOBALS['stonewright_test_filters']['stonewright_installed_version'] = static fn(): string => $version;
+	}
+
+	private function cache_release( string $channel ): void {
+		$release = GitHubUpdater::select_release( $this->releases_fixture(), $channel );
+		self::assertIsArray( $release );
+		set_transient(
+			GitHubUpdater::cache_key( $channel ),
+			[ 'channel' => $channel, 'release' => $release ],
+			GitHubUpdater::CACHE_TTL
+		);
+	}
+
+	/** @return array<int, array<string, mixed>> */
+	private function releases_fixture(): array {
+		$path = dirname( __DIR__, 2 ) . '/fixtures/github/releases-list.json';
 		$raw  = file_get_contents( $path );
 		self::assertNotFalse( $raw );
 		$data = json_decode( $raw, true );

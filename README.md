@@ -5,22 +5,22 @@
 <h1 align="center">Stonewright</h1>
 
 <p align="center">
-  <strong>AI agents that design and build Elementor pages safely</strong><br />
-  Plus guarded Gutenberg, full-site REST, WP-CLI, and self-improving skills — with or without a plugin.
+  <strong>Your AI does not just change WordPress. Stonewright proves what changed and gives you a way back.</strong><br />
+  Guarded, recoverable WordPress and Elementor automation for AI agents.
 </p>
 
 <p align="center">
   <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/cosmincraciun97/stonewright-wp-mcp?label=release" /></a>
   <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/cosmincraciun97/stonewright-wp-mcp/ci.yml?branch=main&label=CI" /></a>
-  <img alt="plugin license" src="https://img.shields.io/badge/plugin-AGPL--3.0--or--later-green" />
-  <img alt="companion license" src="https://img.shields.io/badge/companion-MIT-blue" />
+  <a href="LICENSE"><img alt="plugin license" src="https://img.shields.io/badge/plugin-AGPL--3.0--or--later-green" /></a>
+  <a href="companion/LICENSE"><img alt="companion license" src="https://img.shields.io/badge/companion-MIT-blue" /></a>
   <img alt="php" src="https://img.shields.io/badge/PHP-%3E%3D8.1-777bb4" />
   <img alt="wordpress" src="https://img.shields.io/badge/WordPress-%3E%3D6.7-21759b" />
 </p>
 
-Stonewright is a WordPress MCP stack for AI coding agents. **Elementor** is a first-class surface in Plugin mode (typed engines, DesignSpec, kit globals), and **WooCommerce** has a native, guarded catalog surface. **Direct mode** works against core REST with an Application Password without installing the plugin: companion-local skills/memory, read-only WooCommerce access, and Elementor document edits **without opening the editor** via WP-CLI (local) or REST meta when registered (remote). Full batch-mutate and WooCommerce catalog-write engines remain plugin-only.
+Stonewright MCP presents a compact, task-aware surface backed by **361 Plugin abilities** and **101 Direct tools**. Elementor is a first-class Plugin surface; Gutenberg, WooCommerce, WordPress REST, and tokenized WP-CLI workflows use the same evidence-oriented operating model.
 
-> “Safe” here is a **design goal**: operating modes, permissions, confirmations, backups, validation, readback, and audit logging make agent-driven changes more recoverable. It is not an absolute security guarantee. Use staging, review changes, and keep normal WordPress backups.
+Stonewright does not promise that automation cannot fail. It adds concrete controls around supported changes: permissions, operating modes, confirmation tokens, pre-write snapshots, validation, typed readback, audit evidence, and restore paths. Use staging and normal infrastructure backups for production work.
 
 <p align="center">
   <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases">Download latest release</a>
@@ -46,11 +46,34 @@ Stonewright is a WordPress MCP stack for AI coding agents. **Elementor** is a fi
   <img src="assets/screenshots/stonewright-dashboard-beta9.svg" alt="Stonewright dashboard showing a verified Plugin-mode connection" width="1200" />
 </p>
 
+## How it works
+
+**Inspect → plan or dry-run → approve when required → back up → write → read back and verify → audit or restore.**
+
+Not every operation needs every gate. Stonewright selects the controls required by the typed ability, active mode, target surface, and risk. Custom code stops for human approval; supported Elementor and design writes take a snapshot before mutation; destructive production-safe operations require a scoped confirmation token.
+
+## Start in four steps
+
+1. Download the current Plugin ZIP and install it in **Plugins → Add New → Upload Plugin**.
+2. Open **Stonewright → Setup**, enable the site, then connect your client using the guided OAuth or Application Password flow.
+3. Fully restart the client and run the generated connection verification. A saved or parseable config is not runtime proof.
+4. Confirm `stonewright-task-start` is visible and call it first with the real task. Use `essential` for normal work; `bootstrap` is startup diagnostics only.
+
+The Setup screen provides client-specific commands and keeps credentials out of copied prompts. [Installation](docs/installation.md) covers the default path; [advanced connection options](docs/install-prompts.md) cover Direct mode, local WP-CLI, remote HTTP, browser consent, profiles, and recovery.
+
+## Common workflows
+
+- **Repair an Elementor page:** read the live control schema, plan one surgical batch, snapshot the document, write once, run post-write verification, then complete the browser recipe. [Elementor closure contract](docs/permanent-remediation-contracts.md#elementor-write-closure)
+- **Change custom code:** discover the provider, dry-run the exact target, stop for human approval, apply the approved bytes, read back, and retain rollback evidence. [Custom-code recovery contract](docs/security.md#custom-code-and-theme-file-recovery)
+- **Stop repeating a failure:** classify the recurrence, surface a ranked incident action, verify the repair against correlated audit events, then promote one reusable lesson. [Verified learning](docs/verified-learning.md)
+
+[Why Stonewright MCP](docs/why-stonewright.md) compares this evidence chain with a generic WordPress API bridge without relying on raw tool counts.
+
 ## Capabilities
 
 Counts are derived from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.
 
-### Plugin mode — **360** abilities
+### Plugin mode — **361** abilities
 
 Counts below are grouped by the `includes/Abilities/` subdirectory each ability
 lives in, and sum to the total. Regenerate with `composer docs:matrix`.
@@ -69,12 +92,12 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 | Comments / users / widgets / settings / themes / theme builder / plugins / revisions | 35 | REST-parity admin ops |
 | WP-CLI | 6 | Status, discover, run, batch, jobs |
 | Memory + skills + expertise + knowledge | 20 | Learning, memory generalization, skills, expertise packs |
-| Security + sandbox | 12 | Tokens, one-time links, sandbox lifecycle |
+| Security + sandbox | 13 | Tokens, one-time links, incident repair receipts, sandbox lifecycle |
 | Diagnostics | 3 | OAuth header, form delivery, and object capability diagnostics |
 | System | 11 | Task start, native rules, tool profiles, ability list |
 | Menus, blueprints, brand kits, runtime, search, WooCommerce, content model, custom code | 35 | Native Woo catalog CRUD/audit and typed approval-gated code providers; see full [matrix](docs/ability-truth-matrix.md) |
 
-### Direct mode — **100** tools (pluginless)
+### Direct mode — **101** tools (pluginless)
 
 | Area | Tools (group) | Notes |
 |---|---|---|
@@ -85,7 +108,7 @@ lives in, and sum to the total. Regenerate with `composer docs:matrix`.
 | Plugins, themes, settings, health | REST | Destructive confirms |
 | WooCommerce | products/orders/sales | Read-only; catalog writes require Plugin mode |
 | ACF / SEO | fields get/update, seo-head | REST when plugins expose them |
-| Self-improvement | skill-*, memory, learning, **task-start**, **agents-md-sync** | `~/.stonewright/` storage |
+| Self-improvement | skill-*, memory, verified incident repair, **task-start**, **agents-md-sync** | Private per-site `~/.stonewright/` storage |
 | Native rules | **rules-get** | Same shipped registry as Plugin mode; cache by digest |
 | WP-CLI | status/discover/run/batch/jobs | Tokenized `execFile` argv |
 | Safety | write gating, confirm, audit JSONL, backups | Task-start required before writes (default) |
@@ -135,21 +158,11 @@ Install the Stonewright plugin for advanced Elementor workflows, blueprints and 
 
 ### Direct mode — plugin-less core REST + local Elementor data
 
-The companion authenticates with a WordPress Application Password and exposes **100** tools without installing Stonewright. Elementor documents can be edited **without the Elementor editor** via `stonewright-elementor-data-get` / `data-update` (local WP-CLI preferred; remote Direct falls back to core REST meta when `_elementor_data` is registered, with a file backup under `~/.stonewright/backups/`). This path has no Elementor schema validation — use Plugin mode `elementor-v3-batch-mutate` for production engines. DesignSpec, php-execute, and site-hosted skills remain plugin-only; Direct keeps private local memory and user skills under `~/.stonewright/`. See [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md) and [docs/install-prompts.md](docs/install-prompts.md).
+The companion authenticates with a WordPress Application Password and exposes **101** tools without installing Stonewright. Elementor documents can be edited **without the Elementor editor** via `stonewright-elementor-data-get` / `data-update` (local WP-CLI preferred; remote Direct falls back to core REST meta when `_elementor_data` is registered, with a file backup under `~/.stonewright/backups/`). This path has no Elementor schema validation — use Plugin mode `elementor-v3-batch-mutate` for production engines. DesignSpec, php-execute, and site-hosted skills remain plugin-only; Direct keeps private local memory and user skills under `~/.stonewright/`. See [docs/direct-mode-e2e.md](docs/direct-mode-e2e.md) and [docs/install-prompts.md](docs/install-prompts.md).
 
-## Quick Start
+## Advanced connection options
 
-**Plugin mode (six steps):**
-
-1. Download the latest `stonewright-*.zip` from the [current GitHub release](https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/latest).
-2. In WordPress: **Plugins → Add New → Upload Plugin** → activate **Stonewright**.
-3. Open **Stonewright → Setup**, enable abilities, and choose OAuth
-   (recommended) or create an Application Password.
-4. Follow the client-specific OAuth instructions shown in Setup. Use the
-   companion configuration below only for Application Password or local
-   WP-CLI workflows.
-5. In Setup, run **Verify connection** (live MCP loopback). Optionally run `npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright doctor` from a shell.
-6. **Restart or reload the AI client** (client-specific), confirm `stonewright-task-start` is in the tool list, then call it as the first WordPress task. `stonewright-context-bootstrap` remains a compatibility path only.
+The four-step Plugin path above is the default. The sections below are for local WP-CLI, explicit Application Password configuration, Direct mode, multiple sites, and clients that need manual profile control.
 
 MCP surface modes (`bootstrap` / `essential-static` / `essential` / `full`) control how many abilities appear to clients. Known clients normally use the bounded working profile **`essential`**; **`essential-static`** is the safe fallback for an unknown client with stale tool-list behavior. Public ability and Direct-tool contracts live under [docs/contracts/](docs/contracts/). Elementor multi-step edits use the [transaction envelope](docs/transactions.md). The durable audit, OAuth, write-receipt, and diagnostics contract is [documented here](docs/permanent-remediation-contracts.md). Client certification vs compatibility is defined in [docs/releases/client-acceptance-template.md](docs/releases/client-acceptance-template.md).
 
@@ -403,7 +416,7 @@ verify output or perform an explicitly approved dashboard interaction, but it
 never bypasses custom-code dry-run/approval, backup, permission, or confirmation
 gates.
 
-Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **100 tools**. Plugin mode exposes **360** abilities. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post element/CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
+Direct mode has a **smaller** capability surface: core REST, read-only WooCommerce, local Elementor data, and skills/memory across **101 tools**. Plugin mode exposes **361** abilities. Direct mode skips the plugin’s typed schema validator; Elementor writes in both modes pass an integrity gate that blocks double-encoding, mass size-collapse, and `widgetType` remaps. Local Direct Elementor writes invalidate post element/CSS metadata and report browser verification as still required; remote Direct writes cannot claim server-side Elementor cache closure. WooCommerce catalog writes require Plugin mode; see [WooCommerce support](docs/woocommerce.md).
 
 See [docs/install-prompts.md](docs/install-prompts.md) for copy-paste AI client setup (plugin and Direct).
 
@@ -502,11 +515,13 @@ npm run build
 
 | Component | Path | License |
 |---|---|---|
-| Plugin | `plugin/` | AGPL-3.0-or-later |
-| Visual workspace | `visual/` | AGPL-3.0-or-later |
-| Companion | `companion/` | MIT |
+| Plugin | `plugin/` | [AGPL-3.0-or-later](LICENSE) |
+| Visual workspace | `visual/` | [AGPL-3.0-or-later](LICENSE) |
+| Companion | `companion/` | [MIT](companion/LICENSE) |
 | Skill packs | `skills/` | MIT |
 | Documentation | `docs/` | CC BY 4.0 |
+
+See [component licensing](LICENSING.md) for scope and third-party terms.
 
 ## Support, security, and contributing
 

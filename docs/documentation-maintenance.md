@@ -15,6 +15,9 @@ safety, and release claims must match the code shipped in the same commit.
 | Admin design system | `DESIGN.md` |
 | Public workflow rules | `AGENTS.md` and runtime agent instructions |
 | Installation prompts | `docs/install-prompts.md` and generated wp-admin client snippets |
+| Incident and learning lifecycle | `docs/verified-learning.md`, `IncidentStore`, and Direct incident tests |
+| Component licenses | `LICENSE`, `companion/LICENSE`, and `LICENSING.md` |
+| Update channels | `GitHubUpdater::select_release()` and release-flag tests |
 
 ## Evergreen versus historical documents
 

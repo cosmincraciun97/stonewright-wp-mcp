@@ -98,6 +98,7 @@ final class ContextBootstrap extends AbilityKernel {
 				'memory_entries'                 => [ 'type' => 'array' ],
 				'custom_instructions'            => [ 'type' => 'object' ],
 				'recurring_errors'               => [ 'type' => 'array' ],
+				'incident_actions'                => [ 'type' => 'array', 'maxItems' => 3 ],
 				'expertise_packs'                => [ 'type' => 'array', 'maxItems' => 3 ],
 				'specializations'                => [ 'type' => 'array' ],
 				'recommended_external_mcps'      => [ 'type' => 'array' ],

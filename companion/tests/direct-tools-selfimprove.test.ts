@@ -13,8 +13,11 @@ import {
 	taskStart,
 	taskStartAuthoritative,
 	learningRecordAuthoritative,
+	incidentRepairRecord,
 	type SelfImproveContext,
 } from '../src/direct/tools/self-improve.js';
+import { appendDirectAudit } from '../src/direct/audit.js';
+import { DirectIncidentStore, directIncidentFingerprint } from '../src/direct/incidents.js';
 import { DIRECT_TOOL_NAMES, DIRECT_WAVE4_SELFIMPROVE_TOOL_NAMES } from '../src/direct/registry.js';
 
 function ctx(): SelfImproveContext {
@@ -30,8 +33,9 @@ function ctx(): SelfImproveContext {
 }
 
 describe('direct self-improve tools', () => {
-	it('exports seven wave-4 self-improve tools and total surface >= 98', () => {
-		expect(DIRECT_WAVE4_SELFIMPROVE_TOOL_NAMES).toHaveLength(7);
+	it('exports eight wave-4 self-improve tools and total surface >= 99', () => {
+		expect(DIRECT_WAVE4_SELFIMPROVE_TOOL_NAMES).toHaveLength(8);
+		expect(DIRECT_WAVE4_SELFIMPROVE_TOOL_NAMES).toContain('stonewright-incident-repair-record');
 		expect(DIRECT_TOOL_NAMES.length).toBeGreaterThanOrEqual(98);
 	});
 
@@ -166,6 +170,111 @@ describe('direct self-improve tools', () => {
 		const start = taskStart(c, { task: 'repair audit' });
 		expect(start.target_context?.memory_backend).toMatch(/direct/);
 		expect(start.target_context?.memory_visibility).toMatch(/local-only/i);
+	});
+
+	it('task-start returns ranked compact incident actions and the repair-first gate', () => {
+		const c = ctx();
+		const failure = {
+			tool: 'stonewright-content-update',
+			site: '_global',
+			status: 'error' as const,
+			code: 'write_failed',
+			causeKey: 'content-update|write_failed',
+		};
+		appendDirectAudit(failure, join(c.baseDir!, 'audit-direct.jsonl'));
+		appendDirectAudit(failure, join(c.baseDir!, 'audit-direct.jsonl'));
+
+		const start = taskStart(c, { task: 'repair content write', surface: 'content' });
+		expect(start.required_actions).toContain('repair_open_incidents_first');
+		expect(start.incident_actions).toHaveLength(1);
+		expect(Object.keys(start.incident_actions[0] ?? {}).sort()).toEqual([
+			'ability',
+			'error_code',
+			'incident_id',
+			'learning_policy',
+			'next_tool',
+			'occurrences',
+			'repair',
+			'required_verifier',
+			'retry_policy',
+			'state',
+		].sort());
+	});
+
+	it('records one strictly correlated verified Direct repair and stales it on recurrence', () => {
+		const c = ctx();
+		const auditPath = join(c.baseDir!, 'audit-direct.jsonl');
+		const first = appendDirectAudit({
+			tool: 'stonewright-content-update', site: '_global', status: 'error',
+			code: 'write_failed', causeKey: 'content-update|write_failed',
+			resource: 'post:42', changeSetId: 'change-set-42', verificationStatus: 'failed',
+			timestamp: '2026-08-12T08:00:00.000Z',
+		}, auditPath);
+		const failure = appendDirectAudit({
+			tool: 'stonewright-content-update', site: '_global', status: 'error',
+			code: 'write_failed', causeKey: 'content-update|write_failed',
+			resource: 'post:42', changeSetId: 'change-set-42', verificationStatus: 'failed',
+			timestamp: '2026-08-12T08:01:00.000Z',
+		}, auditPath);
+		const store = new DirectIncidentStore(c.baseDir!, directIncidentFingerprint('_global'));
+		const incident = store.list()[0];
+		const verified = appendDirectAudit({
+			tool: 'stonewright-content-get', site: '_global', status: 'ok',
+			eventType: 'direct_verifier', resource: 'post:42', changeSetId: 'change-set-42',
+			parentRequestId: failure.request_id, verificationStatus: 'verified', effectVerified: true,
+			timestamp: '2026-08-12T08:02:00.000Z',
+		}, auditPath);
+
+		const receipt = incidentRepairRecord(c, {
+			incident_id: incident.incident_id,
+			resolution_event_id: verified.request_id,
+			repair_recipe: 'Correct the normalized field mapping, then verify through the typed read tool.',
+		});
+		expect(receipt).toMatchObject({
+			verified: true,
+			incident_state: 'resolved',
+			learning_status: 'promoted',
+			guidance_only: false,
+		});
+		expect(memoryList(c).items.filter((item) => item.source === 'verified-repair')).toHaveLength(1);
+
+		appendDirectAudit({
+			tool: 'stonewright-content-update', site: '_global', status: 'error',
+			code: 'write_failed', causeKey: 'content-update|write_failed',
+			resource: 'post:42', changeSetId: 'change-set-42', verificationStatus: 'failed',
+		}, auditPath);
+		const start = taskStart(c, { task: 'repair content again' });
+		expect(start.incident_actions[0]?.state).toBe('open');
+		expect(start.memory_highlights.some((item) => item.text.includes('normalized field mapping'))).toBe(false);
+		expect(first.request_id).not.toBe(failure.request_id);
+	});
+
+	it('returns guidance-only and leaves the incident open without independent proof', () => {
+		const c = ctx();
+		const auditPath = join(c.baseDir!, 'audit-direct.jsonl');
+		appendDirectAudit({
+			tool: 'stonewright-content-update', site: '_global', status: 'error',
+			code: 'write_failed', causeKey: 'content-update|write_failed',
+		}, auditPath);
+		appendDirectAudit({
+			tool: 'stonewright-content-update', site: '_global', status: 'error',
+			code: 'write_failed', causeKey: 'content-update|write_failed',
+		}, auditPath);
+		const store = new DirectIncidentStore(c.baseDir!, directIncidentFingerprint('_global'));
+		const incident = store.list()[0];
+		const unverified = appendDirectAudit({
+			tool: 'stonewright-content-update', site: '_global', status: 'ok',
+			verificationStatus: 'response_returned',
+		}, auditPath);
+
+		const result = incidentRepairRecord(c, {
+			incident_id: incident.incident_id,
+			resolution_event_id: unverified.request_id,
+			repair_recipe: 'Retry the same request.',
+		});
+		expect(result).toMatchObject({ verified: false, guidance_only: true, incident_state: 'open' });
+		expect(store.get(incident.incident_id)?.state).toBe('open');
+		expect(memoryList(c).items.filter((item) => item.source === 'verified-repair')).toHaveLength(0);
 	});
 
 	it('plugin-backed task-start and learning use site memory without local dual-write', async () => {

@@ -15,6 +15,15 @@ not paste a real site URL, username, Application Password, token, memory entry,
 or audit payload into an agent chat. See [Updating Stonewright](updates.md)
 when changing versions.
 
+## Default Plugin path
+
+1. Install and activate the current Plugin ZIP.
+2. Open **Stonewright > Setup**, enable AI Abilities, and connect through the guided client flow.
+3. Fully restart the client and run the generated connection verification. A saved config is not runtime proof.
+4. Confirm `stonewright-task-start` is visible and call it first. Use `essential` for normal work; `bootstrap` is diagnostics only.
+
+The copyable prompts below are advanced paths for manual local stdio, Direct mode, remote OAuth HTTP, multiple aliases, browser consent, or connection recovery.
+
 ## What “local stdio” means
 
 With local stdio, the AI client starts the Stonewright companion on your
@@ -192,7 +201,7 @@ After reload:
 - Do not write custom PHP/CSS/JS/HTML in Direct mode. It has no authenticated
   wp-admin one-time-grant boundary; report the Plugin-mode approval-gated path.
 - One-time setup: call stonewright-agents-md-sync and offer to add the pointer to your global agent config.
-- Fix recurring_errors from task-start before new work; never invent Elementor/Gutenberg schemas.
+- Repair `incident_actions` from task-start before new work. Promote audit-derived learning only through `stonewright-incident-repair-record` after correlated verification; never invent Elementor/Gutenberg schemas.
 - For visual work, ask once whether to use Playwright (recommended), another
   connected browser, or none. Ask permission before scanning client
   tools/private config and separate permission before installing or configuring

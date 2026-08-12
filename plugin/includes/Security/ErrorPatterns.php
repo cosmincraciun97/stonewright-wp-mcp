@@ -4,7 +4,6 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Security;
 
 use Stonewright\WpMcp\Memory\Memory;
-use Stonewright\WpMcp\Support\Logger;
 
 /**
  * Groups recurring audit ERROR signatures into incident-style patterns.
@@ -225,83 +224,18 @@ final class ErrorPatterns {
 	}
 
 	/**
-	 * Link a later verified effect to unresolved failures for the same ability.
-	 * A durable rule is promoted only when the successful result supplies a
-	 * concrete repair_recipe; mere success closes the incident but teaches no
-	 * invented behavior.
+	 * Compatibility adapter for abilities that explicitly return a canonical
+	 * verified-repair receipt. Generic success fields never change lifecycle.
 	 *
 	 * @param array<string, mixed> $result
 	 */
 	public static function observe_verified_repair( string $ability, array $result ): void {
-		if (
-			true !== ( $result['effect_verified'] ?? false )
-			|| 'verified' !== (string) ( $result['verification_status'] ?? '' )
-		) {
+		$receipt = is_array( $result['verified_repair_receipt'] ?? null ) ? $result['verified_repair_receipt'] : null;
+		if ( null === $receipt ) {
 			return;
 		}
 
-		$store  = self::load();
-		$recipe = sanitize_textarea_field( (string) ( $result['repair_recipe'] ?? '' ) );
-		$now    = gmdate( 'c' );
-		$dirty  = false;
-		$correlation_keys = [ 'cause_fingerprint', 'resource_key_hash', 'normalized_path', 'change_set_id', 'strategy_fingerprint' ];
-		$has_correlation = false;
-		foreach ( $correlation_keys as $key ) {
-			if ( isset( $result[ $key ] ) && is_scalar( $result[ $key ] ) && '' !== (string) $result[ $key ] ) {
-				$has_correlation = true;
-				break;
-			}
-		}
-		foreach ( $store as $signature => $row ) {
-			if ( (string) ( $row['ability'] ?? '' ) !== $ability || ! empty( $row['expected'] ) ) {
-				continue;
-			}
-			if ( ! in_array( (string) ( $row['state'] ?? '' ), [ 'repeated', 'repair_proposed', 'repair_attempted', 'blocked_pending_repair', 'verified_resolved', 'promoted_learning', 'reopened' ], true ) ) {
-				continue;
-			}
-			$row_has_correlation = false;
-			foreach ( $correlation_keys as $key ) {
-				if ( '' !== (string) ( $row[ $key ] ?? '' ) ) {
-					$row_has_correlation = true;
-					break;
-				}
-			}
-			if ( $has_correlation || $row_has_correlation ) {
-				$matches = true;
-				foreach ( $correlation_keys as $key ) {
-					$left  = (string) ( $row[ $key ] ?? '' );
-					$right = (string) ( $result[ $key ] ?? '' );
-					if ( ( '' !== $left || '' !== $right ) && $left !== $right ) {
-						$matches = false;
-						break;
-					}
-				}
-				if ( ! $matches ) {
-					continue;
-				}
-			}
-			$store[ $signature ]['state']       = 'verified_resolved';
-			$store[ $signature ]['resolved_at'] = $now;
-			$store[ $signature ]['resolution']  = [
-				'verification_status' => 'verified',
-				'resource_type'       => sanitize_key( (string) ( $result['resource_type'] ?? '' ) ),
-				'operation_class'     => sanitize_key( (string) ( $result['operation_class'] ?? '' ) ),
-				'after_sha256'        => 1 === preg_match( '/^[a-f0-9]{64}$/', (string) ( $result['after_sha256'] ?? '' ) )
-					? (string) $result['after_sha256']
-					: '',
-			];
-			// Closing an incident without a concrete recipe never invents a lesson.
-			// A verified recipe is the only automatic path into durable learning.
-			if ( '' !== $recipe ) {
-				$learning_key = self::promote_verified_recipe( $row, $recipe );
-				$store[ $signature ]['learning_key'] = $learning_key;
-				$store[ $signature ]['state']        = 'promoted_learning';
-			}
-			$dirty = true;
-		}
-		if ( $dirty ) {
-			self::save( $store );
-		}
+		IncidentStore::record_verified_repair( $receipt );
 	}
 
 	public static function is_expected_safety_code( string $code ): bool {
@@ -516,54 +450,6 @@ final class ErrorPatterns {
 		}
 		$msg = preg_replace( '/\s+/', ' ', trim( $msg ) ) ?? '';
 		return mb_substr( $msg, 0, 120 );
-	}
-
-	/**
-	 * Promote a concrete verified repair recipe into durable learning.
-	 *
-	 * Only called after correlated verified success supplies a non-empty recipe
-	 * (or an explicit user correction path). Never used for unresolved incidents.
-	 *
-	 * @param array<string, mixed> $row
-	 */
-	private static function promote_verified_recipe( array $row, string $recipe ): string {
-		$sig8  = substr( (string) ( $row['signature'] ?? '' ), 0, 8 );
-		$key   = 'verified-repair-' . $sig8;
-		$topic = 'Verified repair: ' . (string) ( $row['ability'] ?? 'unknown' );
-		$row_id = Memory::put_typed(
-			'feedback',
-			'verified-repairs',
-			$key,
-			$topic,
-			[
-				// Verified recipes may set both fields to the same concrete text —
-				// that is intentional only after verification, never for unresolved.
-				'correction'   => $recipe,
-				'lesson'       => $recipe,
-				'source'       => 'verified-repair',
-				'state'        => 'promoted_learning',
-				'cause_key'    => (string) ( $row['cause_key'] ?? '' ),
-				'error_code'   => (string) ( $row['error_code'] ?? '' ),
-				'verification' => 'verified',
-				'recorded_at'  => current_time( 'mysql', true ),
-			],
-			1.0,
-			[
-				'topic'      => $topic,
-				'status'     => 'active',
-				'precedence' => 650,
-			]
-		);
-		if ( 0 === $row_id ) {
-			Logger::error(
-				'error_pattern_learning_write_failed',
-				[
-					'key'     => $key,
-					'ability' => (string) ( $row['ability'] ?? '' ),
-				]
-			);
-		}
-		return $key;
 	}
 
 	/**

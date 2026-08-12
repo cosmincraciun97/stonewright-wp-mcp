@@ -3,7 +3,9 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Security;
 
+use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Support\Json;
+use Stonewright\WpMcp\Support\Logger;
 
 /**
  * First-class lifecycle store for recurring operational incidents.
@@ -57,6 +59,11 @@ final class IncidentStore {
 			last_event_id CHAR(36) NOT NULL DEFAULT '',
 			resolution_event_id CHAR(36) NOT NULL DEFAULT '',
 			last_change_set_id VARCHAR(96) NOT NULL DEFAULT '',
+			repair_phase VARCHAR(24) NOT NULL DEFAULT 'none',
+			learning_status VARCHAR(24) NOT NULL DEFAULT 'none',
+			learning_memory_key VARCHAR(190) NOT NULL DEFAULT '',
+			repair_receipt_id CHAR(64) NOT NULL DEFAULT '',
+			learned_at DATETIME NULL,
 			evidence_json LONGTEXT NULL,
 			resolution_json LONGTEXT NULL,
 			schema_version VARCHAR(16) NOT NULL DEFAULT '2.0',
@@ -99,10 +106,96 @@ final class IncidentStore {
 			$row['resolution_event_id'] = '';
 			$row['resolution_json']  = '';
 			$row['state']            = 'open';
+			$row['repair_phase']     = 'proposed';
+			$row['repair_receipt_id'] = '';
+			if ( 'promoted' === (string) ( $existing['learning_status'] ?? '' ) ) {
+				$row['learning_status'] = 'stale';
+				$memory_key = (string) ( $existing['learning_memory_key'] ?? '' );
+				if ( '' !== $memory_key && ! Memory::set_status_by_key( 'verified-repairs', $memory_key, 'stale' ) ) {
+					Logger::error( 'incident_learning_stale_failed', [ 'incident_id' => $incident_id, 'memory_key' => $memory_key ] );
+				}
+			}
 		}
 
 		self::persist( $row, null !== $existing );
 		return self::public_row( $row );
+	}
+
+	/** @return array<string, mixed>|null */
+	public static function get( string $incident_id ): ?array {
+		$incident_id = self::safe_hash( $incident_id );
+		if ( '' === $incident_id ) {
+			return null;
+		}
+		$row = self::find( $incident_id );
+		return null === $row ? null : self::public_row( $row );
+	}
+
+	/**
+	 * Persist a receipt that has already been validated against audit events.
+	 *
+	 * @param array<string, mixed> $receipt
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	public static function record_verified_repair( array $receipt ): array|\WP_Error {
+		$incident_id = self::safe_hash( $receipt['incident_id'] ?? '' );
+		$receipt_id  = self::safe_hash( $receipt['repair_receipt_id'] ?? '' );
+		$row         = '' === $incident_id ? null : self::find( $incident_id );
+		if ( null === $row || '' === $receipt_id ) {
+			return self::uncorrelated_error();
+		}
+
+		if ( 'resolved' === (string) ( $row['state'] ?? '' ) && hash_equals( (string) ( $row['repair_receipt_id'] ?? '' ), $receipt_id ) ) {
+			return self::public_row( $row );
+		}
+
+		if ( ! in_array( (string) ( $row['state'] ?? '' ), [ 'open', 'observing' ], true )
+			|| 'verified' !== strtolower( (string) ( $receipt['verification_status'] ?? '' ) )
+			|| true !== ( $receipt['effect_verified'] ?? false )
+			|| ! self::receipt_correlates( $row, $receipt ) ) {
+			return self::uncorrelated_error();
+		}
+
+		$row['state']               = 'resolved';
+		$row['resolved_at']         = gmdate( 'Y-m-d H:i:s' );
+		$row['resolution_event_id'] = self::safe_text( $receipt['resolution_event_id'] ?? '', 36 );
+		$row['repair_receipt_id']    = $receipt_id;
+		$row['repair_phase']         = 'verified';
+		$row['resolution_json']      = Json::encode( [
+			'verification_status' => 'verified',
+			'event_id'            => $row['resolution_event_id'],
+			'change_set_id'       => self::safe_text( $receipt['change_set_id'] ?? '', 96 ),
+			'after_sha256'        => self::safe_hash( is_array( $receipt['evidence'] ?? null ) ? ( $receipt['evidence']['after_sha256'] ?? '' ) : '' ),
+		] );
+		self::persist( $row, true );
+		return self::public_row( $row );
+	}
+
+	public static function mark_learning_promoted( string $incident_id, string $memory_key, string $receipt_id ): bool {
+		$row        = self::find( self::safe_hash( $incident_id ) );
+		$receipt_id = self::safe_hash( $receipt_id );
+		$memory_key = self::safe_text( $memory_key, 190 );
+		if ( null === $row || 'resolved' !== (string) ( $row['state'] ?? '' ) || '' === $receipt_id || '' === $memory_key ) {
+			return false;
+		}
+		if ( ! hash_equals( (string) ( $row['repair_receipt_id'] ?? '' ), $receipt_id ) ) {
+			return false;
+		}
+		$row['learning_status']     = 'promoted';
+		$row['learning_memory_key'] = $memory_key;
+		$row['learned_at']          = gmdate( 'Y-m-d H:i:s' );
+		self::persist( $row, true );
+		return true;
+	}
+
+	public static function mark_learning_stale( string $incident_id ): bool {
+		$row = self::find( self::safe_hash( $incident_id ) );
+		if ( null === $row || '' === (string) ( $row['learning_memory_key'] ?? '' ) ) {
+			return false;
+		}
+		$row['learning_status'] = 'stale';
+		self::persist( $row, true );
+		return true;
 	}
 
 	/** @param array<string, mixed> $event */
@@ -235,6 +328,13 @@ final class IncidentStore {
 			'last_event_id'        => self::safe_text( $event['event_id'] ?? '', 36 ),
 			'resolution_event_id'  => (string) ( $existing['resolution_event_id'] ?? '' ),
 			'last_change_set_id'   => self::safe_text( $event['change_set_id'] ?? '', 96 ),
+			'repair_phase'         => 'open' === $state && in_array( (string) ( $existing['repair_phase'] ?? '' ), [ '', 'none' ], true )
+				? 'proposed'
+				: (string) ( $existing['repair_phase'] ?? 'none' ),
+			'learning_status'      => (string) ( $existing['learning_status'] ?? 'none' ),
+			'learning_memory_key'  => (string) ( $existing['learning_memory_key'] ?? '' ),
+			'repair_receipt_id'    => (string) ( $existing['repair_receipt_id'] ?? '' ),
+			'learned_at'           => $existing['learned_at'] ?? null,
 			'evidence_json'        => Json::encode( [
 				'public_message'   => self::safe_text( $event['public_message'] ?? '', 500 ),
 				'redacted_details' => is_array( $event['redacted_details'] ?? null ) ? $event['redacted_details'] : [],
@@ -285,6 +385,31 @@ final class IncidentStore {
 			return false;
 		}
 		return true;
+	}
+
+	/** @param array<string, mixed> $row @param array<string, mixed> $receipt */
+	private static function receipt_correlates( array $row, array $receipt ): bool {
+		$change_set = self::safe_text( $receipt['change_set_id'] ?? '', 96 );
+		$resource   = self::safe_hash( $receipt['resource_key_hash'] ?? '' );
+		$path       = self::safe_text( $receipt['normalized_path'] ?? '', 255 );
+		if ( '' === $change_set || '' === $resource || '' === $path ) {
+			return false;
+		}
+		if ( ! hash_equals( (string) ( $row['last_change_set_id'] ?? '' ), $change_set )
+			|| ! hash_equals( (string) ( $row['resource_key_hash'] ?? '' ), $resource )
+			|| (string) ( $row['normalized_path'] ?? '' ) !== $path ) {
+			return false;
+		}
+		$evidence = is_array( $receipt['evidence'] ?? null ) ? $receipt['evidence'] : [];
+		$expected = (string) ( $row['expected_verifier'] ?? '' );
+		return '' === $expected || $expected === (string) ( $evidence['verifier'] ?? '' );
+	}
+
+	private static function uncorrelated_error(): \WP_Error {
+		return new \WP_Error(
+			'stonewright_repair_uncorrelated',
+			__( 'Verified repair receipt does not match the open incident.', 'stonewright' )
+		);
 	}
 
 	/** @param array<string,mixed> $event @return array<string,mixed>|null */
@@ -352,6 +477,11 @@ final class IncidentStore {
 			'last_event_id'        => (string) ( $row['last_event_id'] ?? '' ),
 			'resolution_event_id'  => (string) ( $row['resolution_event_id'] ?? '' ),
 			'last_change_set_id'   => (string) ( $row['last_change_set_id'] ?? '' ),
+			'repair_phase'         => (string) ( $row['repair_phase'] ?? 'none' ),
+			'learning_status'      => (string) ( $row['learning_status'] ?? 'none' ),
+			'learning_memory_key'  => (string) ( $row['learning_memory_key'] ?? '' ),
+			'repair_receipt_id'    => (string) ( $row['repair_receipt_id'] ?? '' ),
+			'learned_at'           => (string) ( $row['learned_at'] ?? '' ),
 			'schema_version'       => (string) ( $row['schema_version'] ?? AuditEvent::SCHEMA_VERSION ),
 		];
 	}

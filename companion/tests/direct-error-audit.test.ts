@@ -73,6 +73,38 @@ describe('direct error audit', () => {
 		expect(String(row['request_id'])).toHaveLength(36);
 		expect(String(row['site_fingerprint'])).toHaveLength(64);
 		expect(statSync(path).mode & 0o777).toBe(0o600);
+		const incidentsDir = join(stateDir, 'incidents');
+		expect(existsSync(incidentsDir)).toBe(true);
+		const incidentFiles = readFileSync(path, 'utf8').includes('write_failed');
+		expect(incidentFiles).toBe(true);
+	});
+
+	it('feeds redacted normalized failures into the private incident store', () => {
+		const path = join(stateDir, 'audit-direct.jsonl');
+		const first = appendDirectAudit({
+			tool: 'stonewright-content-update',
+			site: 'site-a',
+			status: 'error',
+			code: 'write_failed',
+			error: 'password=private-value https://customer.example/private',
+			causeKey: 'content-update|write_failed',
+		}, path);
+		appendDirectAudit({
+			tool: 'stonewright-content-update',
+			site: 'site-a',
+			status: 'error',
+			code: 'write_failed',
+			error: 'Authorization: Bearer private-token',
+			causeKey: 'content-update|write_failed',
+		}, path);
+
+		expect(first.request_id).toHaveLength(36);
+		const incidentPath = join(stateDir, 'incidents', `${first.site_fingerprint}.json`);
+		const body = readFileSync(incidentPath, 'utf8');
+		expect(body).toContain('"state": "open"');
+		expect(body).not.toContain('private-value');
+		expect(body).not.toContain('customer.example');
+		expect(body).not.toContain('private-token');
 	});
 
 	it('redacts credentials from all free-text audit fields', () => {
@@ -118,10 +150,17 @@ describe('direct error audit', () => {
 		const res = await start.handler!({ task: 'fix something' });
 		const body = JSON.parse(res.content[0].text) as {
 			recurring_errors: Array<{ tool: string; count: number }>;
+			incident_actions: Array<{ ability: string; state: string }>;
+			required_actions: string[];
 			guidance: string[];
 		};
 		expect(body.recurring_errors.some((r) => r.tool === 'stonewright-foo' && r.count >= 2)).toBe(true);
-		expect(body.guidance.some((g) => g.includes('recurring_errors'))).toBe(true);
+		expect(body.incident_actions).toContainEqual(expect.objectContaining({
+			ability: 'stonewright-foo',
+			state: 'open',
+		}));
+		expect(body.required_actions).toContain('repair_open_incidents_first');
+		expect(body.guidance.some((g) => g.includes('incident_actions'))).toBe(true);
 	});
 
 	it('defaultAuditPath honors STONEWRIGHT_STATE_DIR', () => {

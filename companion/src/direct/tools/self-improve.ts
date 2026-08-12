@@ -1,11 +1,22 @@
-import { appendDirectAudit, recentRecurringErrors } from "../audit.js";
+import {
+  appendDirectAudit,
+  defaultAuditPath,
+  readDirectAuditEvent,
+  recentRecurringErrors,
+} from "../audit.js";
 import {
   getMemory,
   listMemory,
   memoryStorageRef,
   recordMemory,
+  setMemoryStatus,
   type MemoryKind,
 } from "../memory-store.js";
+import {
+  DirectIncidentStore,
+  directIncidentFingerprint,
+} from "../incidents.js";
+import { assertNoSensitiveMaterial } from "../sensitive-content.js";
 import { loadSitesConfig, resolveSite } from "../sites-config.js";
 import {
   deleteSkill,
@@ -238,15 +249,166 @@ export function skillDelete(
 
 export function memoryList(
   ctx: SelfImproveContext,
-  input: { limit?: number; site?: string } = {},
+  input: { limit?: number; site?: string; activeOnly?: boolean } = {},
 ) {
   const { scope, baseDir } = resolveSelfImproveScope(ctx, input.site);
   const scopes = scope === "_global" ? ["_global"] : [scope, "_global"];
   const items = scopes.flatMap(
-    (s) => listMemory({ baseDir, scope: s, limit: input.limit ?? 20 }).items,
+    (s) => listMemory({
+      baseDir,
+      scope: s,
+      limit: input.limit ?? 20,
+      activeOnly: input.activeOnly === true,
+    }).items,
   );
   items.sort((a, b) => b.ts.localeCompare(a.ts));
   return { scope, items: items.slice(0, input.limit ?? 20) };
+}
+
+export type IncidentRepairRecordInput = {
+  incident_id: string;
+  resolution_event_id: string;
+  repair_recipe: string;
+  repair_scope?: string;
+  site?: string;
+};
+
+function reusableRepairRecipe(value: string): string {
+  const recipe = value.trim().replace(/\s+/g, " ");
+  assertNoSensitiveMaterial(recipe, "Verified repair recipe");
+  if (
+    recipe.length < 20 ||
+    recipe.length > 500 ||
+    /https?:\/\/|\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b|(?:^|\s)(?:\/Users\/|\/home\/|[A-Z]:\\)/i.test(recipe)
+  ) {
+    throw new Error(
+      "Repair recipe must be reusable, bounded, and free of URLs, identities, and local paths. code=repair_recipe_not_reusable",
+    );
+  }
+  return recipe;
+}
+
+function proofString(row: Record<string, unknown>, key: string): string {
+  return typeof row[key] === "string" ? String(row[key]) : "";
+}
+
+export function incidentRepairRecord(
+  ctx: SelfImproveContext,
+  input: IncidentRepairRecordInput,
+) {
+  const { scope, siteAlias, baseDir } = resolveSelfImproveScope(ctx, input.site, {
+    allowGlobalFallback: true,
+  });
+  const siteBinding = siteAlias ?? scope;
+  const store = new DirectIncidentStore(
+    baseDir,
+    directIncidentFingerprint(siteBinding),
+  );
+  const incident = store.get(input.incident_id);
+  if (!incident) {
+    throw new Error("Direct incident not found for this site binding. code=incident_not_found");
+  }
+  if (
+    incident.state === "resolved" &&
+    incident.learning_status === "promoted" &&
+    incident.learning_memory_key &&
+    incident.repair_receipt_id
+  ) {
+    return {
+      verified: true,
+      guidance_only: false,
+      incident_id: incident.incident_id,
+      incident_state: incident.state,
+      repair_receipt_id: incident.repair_receipt_id,
+      learning_status: incident.learning_status,
+      memory_key: incident.learning_memory_key,
+    };
+  }
+
+  const auditPath = defaultAuditPath({
+    ...ctx.env,
+    STONEWRIGHT_STATE_DIR: baseDir,
+  });
+  const failure = readDirectAuditEvent(incident.failure_event_id, auditPath);
+  const resolution = readDirectAuditEvent(input.resolution_event_id, auditPath);
+  const correlated = Boolean(
+    failure &&
+    resolution &&
+    proofString(failure, "site_fingerprint") === incident.site_fingerprint &&
+    proofString(resolution, "site_fingerprint") === incident.site_fingerprint &&
+    proofString(failure, "status") === "error" &&
+    proofString(resolution, "status") === "ok" &&
+    proofString(resolution, "event_type") === "direct_verifier" &&
+    resolution["effect_verified"] === true &&
+    proofString(resolution, "verification_status") === "verified" &&
+    proofString(resolution, "tool") !== incident.ability &&
+    proofString(resolution, "parent_request_id") === incident.failure_event_id &&
+    proofString(failure, "change_set_id").length > 0 &&
+    proofString(failure, "change_set_id") === proofString(resolution, "change_set_id") &&
+    proofString(failure, "resource_ref").length > 0 &&
+    proofString(failure, "resource_ref") === proofString(resolution, "resource_ref") &&
+    Date.parse(proofString(resolution, "timestamp")) > Date.parse(proofString(failure, "timestamp"))
+  );
+  if (!correlated) {
+    return {
+      verified: false,
+      guidance_only: true,
+      incident_id: incident.incident_id,
+      incident_state: incident.state,
+      learning_status: incident.learning_status,
+      next_step: "Run an independent typed readback tied to the same change set and resource, then record that persisted verifier event.",
+    };
+  }
+
+  const recipe = reusableRepairRecipe(input.repair_recipe);
+  const receiptId = createHash("sha256")
+    .update(`${incident.incident_id}|${incident.failure_event_id}|${input.resolution_event_id}|${recipe}`)
+    .digest("hex");
+  const resolved = store.markResolved(incident.incident_id, {
+    repair_receipt_id: receiptId,
+    resolution_event_id: input.resolution_event_id,
+    resolved_at: proofString(resolution!, "timestamp"),
+  });
+  if (!resolved) {
+    throw new Error("Direct incident disappeared before resolution. code=incident_state_changed");
+  }
+  const memory = recordMemory({
+    baseDir,
+    scope,
+    kind: "lesson",
+    text: recipe,
+    tags: ["verified-repair", incident.ability, incident.error_code],
+    topic: input.repair_scope?.trim() || incident.error_code,
+    source: "verified-repair",
+    dedupe: true,
+    stableId: receiptId.slice(0, 16),
+  });
+  const readback = getMemory({ baseDir, scope, id: memory.id });
+  if (!readback || readback.text !== recipe || readback.status !== "active") {
+    throw new Error("Verified repair memory readback failed. code=memory_readback_mismatch");
+  }
+  if (!store.markLearningPromoted(incident.incident_id, memory.id, receiptId)) {
+    setMemoryStatus({ baseDir, scope, id: memory.id, status: "stale" });
+    throw new Error("Verified repair could not link learning to incident. code=incident_state_changed");
+  }
+  appendDirectAudit({
+    tool: "stonewright-incident-repair-record",
+    site: siteBinding,
+    status: "ok",
+    eventType: "verified_repair",
+    parentRequestId: input.resolution_event_id,
+    verificationStatus: "verified",
+    effectVerified: true,
+  }, auditPath);
+  return {
+    verified: true,
+    guidance_only: false,
+    incident_id: incident.incident_id,
+    incident_state: "resolved" as const,
+    repair_receipt_id: receiptId,
+    learning_status: "promoted" as const,
+    memory_key: memory.id,
+  };
 }
 
 export type LearningRecordInput = {
@@ -464,12 +626,31 @@ export function taskStart(
       matched.push(hit);
     }
   }
-  const memory = memoryList(ctx, {
-    limit: 5,
-    ...(input.site !== undefined ? { site: input.site } : {}),
-  }).items;
   const writeMode = resolveDirectWriteMode(ctx.env, undefined);
   const recurring = recentRecurringErrors(baseDir, 3);
+  const incidentStore = new DirectIncidentStore(
+    baseDir,
+    directIncidentFingerprint(siteAlias ?? scope),
+  );
+  for (const incident of incidentStore.list()) {
+    if (incident.learning_status === "stale" && incident.learning_memory_key) {
+      setMemoryStatus({
+        baseDir,
+        scope,
+        id: incident.learning_memory_key,
+        status: "stale",
+      });
+    }
+  }
+  const incidentActions = incidentStore.actions(
+    input.surface ?? input.intent ?? "",
+    3,
+  );
+  const memory = memoryList(ctx, {
+    limit: 5,
+    activeOnly: true,
+    ...(input.site !== undefined ? { site: input.site } : {}),
+  }).items;
   const pointerOk = pointerInstalled(ctx.env);
   const agentsPath = joinStateAgents(baseDir);
 
@@ -482,9 +663,9 @@ export function taskStart(
     "Load a matched skill body with stonewright-skill-get before acting on its topic.",
     "Never guess WordPress/Elementor/Gutenberg schemas — read first, research official docs when unknown, verify after writes.",
   ];
-  if (recurring.length > 0) {
+  if (incidentActions.length > 0) {
     guidance.unshift(
-      "Fix recurring_errors first: read last_error, correct the cause, then record the fix with stonewright-learning-record.",
+      "Repair incident_actions first. Record learning only through stonewright-incident-repair-record after an independent correlated verifier succeeds.",
     );
   }
   if (!pointerOk) {
@@ -533,6 +714,10 @@ export function taskStart(
       text: m.text,
     })),
     recurring_errors: recurring,
+    incident_actions: incidentActions,
+    required_actions: incidentActions.length > 0
+      ? ["repair_open_incidents_first"]
+      : [],
     setup: {
       agents_md: agentsPath,
       pointer_installed: pointerOk,

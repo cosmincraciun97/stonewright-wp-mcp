@@ -6,6 +6,7 @@ import {
 	listMemory,
 	memoryStorageRef,
 	recordMemory,
+	setMemoryStatus,
 } from '../src/direct/memory-store.js';
 
 function tempBase() {
@@ -59,5 +60,35 @@ describe('memory store', () => {
 		expect(latest).toHaveLength(1);
 		expect(latest[0]?.id).toBe(refreshed.id);
 		expect(latest[0]?.text).toBe('old rule');
+	});
+
+	it('marks stale verified learning without deleting its history', () => {
+		const baseDir = tempBase();
+		const entry = recordMemory({
+			baseDir,
+			scope: 's',
+			text: 'Use typed readback after a normalized repair.',
+			source: 'verified-repair',
+		});
+		expect(setMemoryStatus({ baseDir, scope: 's', id: entry.id, status: 'stale' })).toBe(true);
+		expect(getMemory({ baseDir, scope: 's', id: entry.id })?.status).toBe('stale');
+		expect(listMemory({ baseDir, scope: 's' }).items).toHaveLength(1);
+		expect(listMemory({ baseDir, scope: 's', activeOnly: true }).items).toHaveLength(0);
+	});
+
+	it('dedupes verified repairs by stable receipt id instead of shared recipe text', () => {
+		const baseDir = tempBase();
+		const first = recordMemory({
+			baseDir, scope: 's', text: 'Use the same reusable typed repair.', stableId: 'a'.repeat(16),
+		});
+		const retry = recordMemory({
+			baseDir, scope: 's', text: 'Use the same reusable typed repair.', stableId: 'a'.repeat(16),
+		});
+		const other = recordMemory({
+			baseDir, scope: 's', text: 'Use the same reusable typed repair.', stableId: 'b'.repeat(16),
+		});
+		expect(retry.id).toBe(first.id);
+		expect(other.id).not.toBe(first.id);
+		expect(listMemory({ baseDir, scope: 's' }).items).toHaveLength(2);
 	});
 });

@@ -132,6 +132,7 @@ final class AuditLog {
 			change_set_id VARCHAR(96) NOT NULL DEFAULT '',
 			execution_status VARCHAR(32) NOT NULL DEFAULT '',
 			verification_status VARCHAR(32) NOT NULL DEFAULT '',
+			effect_verified TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,
 			rollback_status VARCHAR(32) NOT NULL DEFAULT 'not_needed',
 			before_sha256 CHAR(64) NOT NULL DEFAULT '',
 			after_sha256 CHAR(64) NOT NULL DEFAULT '',
@@ -234,6 +235,7 @@ final class AuditLog {
 				'change_set_id'     => self::meta_string( $meta, 'change_set_id' ),
 				'execution_status'  => self::meta_string( $meta, 'execution_status', $status ),
 				'verification_status'=> $verification,
+				'effect_verified'    => true === ( $meta['effect_verified'] ?? false ) ? 1 : 0,
 				'rollback_status'   => $rollback,
 				'before_sha256'     => self::hash_field( $meta, 'before_sha256' ),
 				'after_sha256'      => self::hash_field( $meta, 'after_sha256' ),
@@ -295,9 +297,7 @@ final class AuditLog {
 		self::mark_audited();
 		delete_option( 'stonewright_audit_degraded' );
 		try {
-			if ( AuditEvent::OUTCOME_SUCCESS === $event['outcome'] ) {
-				IncidentStore::resolve( $event );
-			} else {
+			if ( AuditEvent::OUTCOME_SUCCESS !== $event['outcome'] ) {
 				IncidentStore::observe( $event );
 			}
 		} catch ( \Throwable $t ) {
@@ -581,7 +581,7 @@ final class AuditLog {
 
 		$sql = "SELECT id, ability_name, user_id, result_status, sanitized_args,
 				event_type, operation_class, resource_type, resource_ref, change_set_id,
-				execution_status, verification_status, rollback_status, before_sha256,
+				execution_status, verification_status, effect_verified, rollback_status, before_sha256,
 				after_sha256, changed_bytes, error_code, cause_key, duration_ms, backend,
 				site_fingerprint, mode, severity, event_id, schema_version, category,
 				outcome, severity_level, root_error_code, resource_key_hash, normalized_path,
@@ -603,6 +603,16 @@ final class AuditLog {
 		// phpcs:enable WordPress.DB.PreparedSQL.NotPrepared
 
 		return is_array( $rows ) ? $rows : [];
+	}
+
+	/** @return array<string, mixed>|null */
+	public static function find_event( string $event_id ): ?array {
+		$event_id = strtolower( trim( $event_id ) );
+		if ( 1 !== preg_match( '/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/', $event_id ) ) {
+			return null;
+		}
+		$rows = self::recent( 1, 1, [ 'event_id' => $event_id ] );
+		return isset( $rows[0] ) && is_array( $rows[0] ) ? $rows[0] : null;
 	}
 
 	/**
@@ -771,6 +781,12 @@ final class AuditLog {
 		if ( '' !== $change_set_id ) {
 			$clauses[] = 'change_set_id = %s';
 			$params[]  = $change_set_id;
+		}
+
+		$event_id = isset( $filters['event_id'] ) ? strtolower( trim( sanitize_text_field( (string) $filters['event_id'] ) ) ) : '';
+		if ( 1 === preg_match( '/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/', $event_id ) ) {
+			$clauses[] = 'event_id = %s';
+			$params[]  = $event_id;
 		}
 
 		$normalized_path = isset( $filters['normalized_path'] ) ? self::normalized_filter_path( (string) $filters['normalized_path'] ) : '';

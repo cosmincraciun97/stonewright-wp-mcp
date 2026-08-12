@@ -149,6 +149,7 @@ export const DIRECT_WAVE4_SELFIMPROVE_TOOL_NAMES = [
 	'stonewright-skill-delete',
 	'stonewright-memory-list',
 	'stonewright-learning-record',
+	'stonewright-incident-repair-record',
 	'stonewright-task-start',
 ] as const;
 
@@ -194,12 +195,13 @@ export const DIRECT_BOOTSTRAP_TOOL_NAMES = [
 	'stonewright-skill-get',
 	'stonewright-memory-list',
 	'stonewright-learning-record',
+	'stonewright-incident-repair-record',
 	'stonewright-health-check',
-	'stonewright-agents-md-sync',
 ] as const;
 
 export const DIRECT_ESSENTIAL_TOOL_NAMES = [
 	...DIRECT_BOOTSTRAP_TOOL_NAMES,
+	'stonewright-agents-md-sync',
 	'stonewright-content-list',
 	'stonewright-content-get',
 	'stonewright-content-create-page',
@@ -1666,6 +1668,18 @@ export function registerDirectTools(server: McpServer, ctx: DirectModeContext): 
 				.optional(),
 		},
 		(input) => selfImprove.learningRecordAuthoritative(selfCtx(), input as never),
+	);
+	w4(
+		'stonewright-incident-repair-record',
+		'Record a Direct incident repair only when persisted failure and independent verifier events correlate exactly. Otherwise returns guidance_only without learning.',
+		{
+			site: siteArg,
+			incident_id: z.string().length(64),
+			resolution_event_id: z.string().uuid(),
+			repair_recipe: z.string().min(20).max(500),
+			repair_scope: z.string().max(120).optional(),
+		},
+		(input) => selfImprove.incidentRepairRecord(selfCtx(), input as never),
 	);
 	w4(
 		'stonewright-task-start',

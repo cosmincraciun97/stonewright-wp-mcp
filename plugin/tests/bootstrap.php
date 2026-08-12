@@ -488,6 +488,17 @@ if ( ! isset( $GLOBALS['wpdb'] ) ) {
 
 		/** @return array<int, array<string, mixed>> */
 		public function get_results( string $query, string $output = 'OBJECT' ): array {
+			if ( str_contains( $query, 'stonewright_audit_log' ) ) {
+				$rows = is_array( $GLOBALS['stonewright_test_audit_rows'] ?? null )
+					? $GLOBALS['stonewright_test_audit_rows']
+					: [];
+				if ( preg_match( "/event_id\\s*=\\s*'([^']+)'/", $query, $matches ) ) {
+					$event_id = (string) $matches[1];
+					$rows = array_values( array_filter( $rows, static fn( array $row ): bool => $event_id === (string) ( $row['event_id'] ?? '' ) ) );
+				}
+				return $rows;
+			}
+
 			if ( str_contains( $query, 'stonewright_design_direction_versions' ) ) {
 				$direction_id = self::matched_int( $query, '/direction_id\s*=\s*(\d+)/' );
 				$rows         = array_values(

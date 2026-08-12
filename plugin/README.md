@@ -3,7 +3,7 @@
 Version: 1.0.0-beta.9
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
-License: AGPL-3.0-or-later
+License: [AGPL-3.0-or-later](../LICENSE)
 
 Stonewright registers WordPress Abilities as MCP tools through the official
 `wordpress/mcp-adapter`. It supports Gutenberg, Full Site Editing, Elementor V3,
@@ -31,15 +31,12 @@ desktop, tablet, and mobile acceptance. See
 
 ## Quick Start
 
-Release install:
+1. Download the current Plugin ZIP, upload it in **Plugins > Add New > Upload Plugin**, and activate Stonewright.
+2. Open **Stonewright > Setup**, enable AI Abilities, and connect the client through the guided setup.
+3. Fully restart the client and run the generated connection verification. A saved config alone is not runtime proof.
+4. Confirm `stonewright-task-start` is visible and call it first. Use `essential` for normal work; `bootstrap` is startup diagnostics only.
 
-1. Download `stonewright-<version>.zip` from GitHub Releases.
-2. Upload it in WordPress Admin under **Plugins > Add New > Upload Plugin**.
-3. Activate Stonewright and open **Stonewright > Setup**.
-4. Enable AI Abilities, choose OAuth (recommended) or Application Password,
-   and copy the MCP client setup instructions.
-
-Source install:
+Advanced source install:
 
 ```bash
 cd plugin
@@ -62,10 +59,12 @@ See [WooCommerce support](../docs/woocommerce.md) for the catalog and storefront
 support matrix.
 See [Updating Stonewright](../docs/updates.md) for plugin/companion version
 matching, upgrade steps, and persistence guarantees.
-The Connect update panel can read the latest trusted release, compare an
-optional configured HTTP bridge, and copy a credential-free companion update
-prompt. An explicit check bypasses the background release cache. A local stdio
-process still has to be replaced and restarted inside its AI client.
+The Connect update panel reads the newest trusted release on the installed
+stable or prerelease channel, compares an optional configured HTTP bridge, and
+copies a credential-free companion update prompt. Stable and prerelease caches
+are isolated and the updater never crosses channels. An explicit check bypasses
+the background release cache. A local stdio process still has to be replaced
+and restarted inside its AI client.
 
 Custom PHP/CSS/JS/HTML follows a human approval boundary. The agent runs the
 typed dry-run, returns `approval_url`, exact target path, byte counts, and a

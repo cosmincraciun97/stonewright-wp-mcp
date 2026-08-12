@@ -11,6 +11,28 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+### Added
+
+- Add a typed verified-repair recorder, canonical incident lifecycle metadata,
+  ranked task-start repair actions, stale-on-recurrence learning, and an
+  isolated private Direct incident store.
+- Add evidence-backed Elementor, custom-code, and repeated-failure use cases
+  plus a generic API-bridge comparison and verified-learning guide.
+
+### Changed
+
+- Lead onboarding with the inspect-to-restore proof chain and reduce the
+  default Plugin connection to four steps; advanced transports, profiles,
+  Direct mode, and browser choices remain progressively disclosed.
+- Expose the generated 361-ability Plugin and 101-tool Direct contracts.
+- Replace the root license summary with the canonical GNU AGPL v3 text, add a
+  component license map, and verify Plugin, Visual, and Companion metadata in
+  CI and release gates.
+- Select native Plugin and companion updates from the installed SemVer channel,
+  with isolated caches and exact trusted assets; future prerelease tags are
+  published as prereleases while stable tags alone become GitHub's latest
+  release.
+
 ## [1.0.0-beta.9] - 2026-08-12
 
 ### Fixed

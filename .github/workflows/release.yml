@@ -30,6 +30,9 @@ jobs:
       - name: Verify documentation freshness
         run: node scripts/check-docs-freshness.mjs
 
+      - name: Verify license metadata
+        run: node scripts/check-license-metadata.mjs
+
       - name: Verify public repository hygiene
         env:
           STONEWRIGHT_PRIVATE_TERMS: ${{ secrets.STONEWRIGHT_PRIVATE_TERMS }}
@@ -96,6 +99,7 @@ jobs:
             --exclude phpcs.xml \
             --exclude phpunit.xml \
             --exclude phpunit.xml.dist
+          cp LICENSE dist/stonewright/LICENSE
           STONEWRIGHT_PRIVATE_TERMS="${{ secrets.STONEWRIGHT_PRIVATE_TERMS }}" \
             node scripts/check-public-hygiene.mjs \
               --root dist/stonewright \
@@ -117,15 +121,19 @@ jobs:
             node scripts/check-public-hygiene.mjs \
               --root dist/package-scan/visual \
               --require-private-terms
-          if tar -tzf "$companion_archive" | grep -Eq '(^|/)(sites\.json|audit-direct\.jsonl)$|(^|/)memory/'; then
+          if tar -tzf "$companion_archive" | grep -E '(^|/)(sites\.json|audit-direct\.jsonl)$|(^|/)memory/' >/dev/null; then
             echo "Companion archive contains private persistent runtime state" >&2
             exit 1
           fi
-          if unzip -Z1 "dist/stonewright-${version}.zip" | grep -Eq '^stonewright/(tests|bin)/|^stonewright/(phpunit|phpstan|phpcs)|^stonewright/composer\.lock$'; then
+          if unzip -Z1 "dist/stonewright-${version}.zip" | grep -E '^stonewright/(tests|bin)/|^stonewright/(phpunit|phpstan|phpcs)|^stonewright/composer\.lock$' >/dev/null; then
             echo "Plugin archive contains development-only files" >&2
             exit 1
           fi
-          if ! unzip -Z1 "dist/stonewright-${version}.zip" | grep -q '^stonewright/assets/visual/workspace-browser\.js$'; then
+          if ! unzip -Z1 "dist/stonewright-${version}.zip" | grep -E '^stonewright/LICENSE$' >/dev/null; then
+            echo "Plugin archive is missing the canonical license" >&2
+            exit 1
+          fi
+          if ! unzip -Z1 "dist/stonewright-${version}.zip" | grep -E '^stonewright/assets/visual/workspace-browser\.js$' >/dev/null; then
             echo "Plugin archive is missing the Stonewright Visual bundle" >&2
             exit 1
           fi
@@ -142,10 +150,7 @@ jobs:
           if [ ! -f "$notes" ]; then
             notes="docs/releases/checklist.md"
           fi
-          # The public beta is the current supported release. GitHub's
-          # /releases/latest API and repository sidebar ignore prereleases,
-          # which would also disable Stonewright's native update checker.
-          release_flags=(--latest)
+          release_flag="$(node scripts/release-flags.mjs "$version")"
           gh release create "$GITHUB_REF_NAME" \
             "dist/stonewright-${version}.zip" \
             dist/stonewright-companion-*.tgz \
@@ -153,4 +158,4 @@ jobs:
             dist/SHA256SUMS.txt \
             --title "Stonewright ${GITHUB_REF_NAME}" \
             --notes-file "$notes" \
-            "${release_flags[@]}"
+            "$release_flag"

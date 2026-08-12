@@ -35,6 +35,15 @@ The companion derives the dedicated OAuth resource from the configured MCP URL
 and sends that exact `resource` during refresh. Audience mismatch or refresh
 family replay fails closed and requires explicit reauthorization.
 
+## Default Plugin setup
+
+1. Install and activate the current Stonewright Plugin ZIP.
+2. Open **Stonewright > Setup**, enable AI Abilities, and use its guided client connection.
+3. Fully restart the client and run the generated connection verification; parsing private config is not runtime proof.
+4. Confirm `stonewright-task-start` is visible and call it first. Keep `essential` as the working surface and use `bootstrap` only for startup diagnostics.
+
+The companion is needed for local stdio, Direct mode, and local WP-CLI. OAuth remote HTTP connects directly to the Plugin and does not start the companion.
+
 ## Direct mode (no plugin)
 
 When the Stonewright plugin is not installed, the companion can still work
@@ -95,7 +104,7 @@ Remote Direct REST cannot run Elementor's PHP renderer or post-scoped cache
 manager, so it reports cache verification as `not_checked`; use Plugin mode for
 the closed-loop `stonewright-elementor-post-write-verify` ability.
 
-## Install
+## Advanced companion setup
 
 Fast path for MCP clients:
 
@@ -506,7 +515,7 @@ npm run build
 
 ## Direct mode tool surface
 
-**100** Direct tools (`DIRECT_TOOL_NAMES` in `src/direct/registry.ts`):
+**101** Direct tools (`DIRECT_TOOL_NAMES` in `src/direct/registry.ts`):
 
 - Waves 1–3: content (including `stonewright-content-create` for any registered post type, plus `stonewright-content-create-page` / `stonewright-content-create-post`), menus, FSE, settings, plugins/themes, comments, users/application passwords, widgets, site health, oEmbed utilities, WooCommerce read, read-only `stonewright-rest-request`. WooCommerce catalog writes and audits are plugin-only.
 - Wave 4 self-improvement: `stonewright-skill-list|get|save|delete`, `stonewright-memory-list`, `stonewright-learning-record`, `stonewright-task-start` (works with zero WordPress credentials; storage under `~/.stonewright/`)
