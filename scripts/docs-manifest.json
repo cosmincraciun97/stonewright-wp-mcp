@@ -84,6 +84,8 @@
         "companion/README.md",
         "visual/README.md",
         "companion/skills-builtin/**/*.md",
+        "docs/verified-learning.md",
+        "docs/why-stonewright.md",
         "docs/**/*.md"
       ],
       "exclude": [

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-08-11T21:19:07.540Z",
+  "generated_at": "2026-08-12T14:04:24.631Z",
   "allowlist": {
     "removed": [],
     "renamed": {},
@@ -126,6 +126,9 @@
     },
     {
       "name": "stonewright-health-test"
+    },
+    {
+      "name": "stonewright-incident-repair-record"
     },
     {
       "name": "stonewright-learning-record"

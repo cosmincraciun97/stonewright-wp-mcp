@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Added
+
+- Add `stonewright/incident-repair-record` for persisted, correlated repair
+  receipts and one read-back verified reusable lesson.
+- Add canonical incident repair, learning, reopen, and stale metadata plus
+  ranked compact task-start actions.
+
+### Changed
+
+- Stop generic successful audit events from resolving incidents or promoting
+  audit-derived learning. Explicit user corrections remain immediately
+  recordable.
+
 ## [1.0.0-beta.9] - 2026-08-12
 
 ### Added

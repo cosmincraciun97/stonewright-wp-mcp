@@ -31,15 +31,12 @@ desktop, tablet, and mobile acceptance. See
 
 ## Quick Start
 
-Release install:
+1. Download the current Plugin ZIP, upload it in **Plugins > Add New > Upload Plugin**, and activate Stonewright.
+2. Open **Stonewright > Setup**, enable AI Abilities, and connect the client through the guided setup.
+3. Fully restart the client and run the generated connection verification. A saved config alone is not runtime proof.
+4. Confirm `stonewright-task-start` is visible and call it first. Use `essential` for normal work; `bootstrap` is startup diagnostics only.
 
-1. Download `stonewright-<version>.zip` from GitHub Releases.
-2. Upload it in WordPress Admin under **Plugins > Add New > Upload Plugin**.
-3. Activate Stonewright and open **Stonewright > Setup**.
-4. Enable AI Abilities, choose OAuth (recommended) or Application Password,
-   and copy the MCP client setup instructions.
-
-Source install:
+Advanced source install:
 
 ```bash
 cd plugin

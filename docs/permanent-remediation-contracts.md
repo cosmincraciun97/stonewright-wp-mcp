@@ -27,6 +27,27 @@ the same transaction resource/path or an exact change-set correlation. A new
 matching failure reopens a resolved incident. Legacy rows are classified and
 migrated idempotently into the same contract.
 
+`stonewright/incident-repair-record` is the only typed Plugin closure path. It
+reads the incident, failure event, and proposed verifier event from persisted
+storage; caller-supplied proof flags are not evidence. A receipt requires a
+newer independent verifier for the same normalized resource/path or exact
+change set, an explicitly verified effect, and a reusable scrubbed recipe.
+Authentication, permission, and safety outcomes never promote audit-derived
+learning.
+
+Task start returns at most three ranked `incident_actions` with the incident,
+ability, error code, occurrence count, repair, next tool, required verifier,
+retry policy, and learning policy. Any actionable incident adds
+`repair_open_incidents_first` to `required_actions`. A recurrence after
+promotion reopens the incident, increments its reopen count, and makes the
+linked lesson stale.
+
+Direct mode keeps the same state names and action shape in a private per-site
+store. It closes only when local persisted audit contains equivalent
+correlation and independent verification. Missing proof returns
+`guidance_only: true`, leaves the incident open, and creates no lesson. See
+[Verified learning](verified-learning.md).
+
 `stonewright/security-runtime-data-purge` is the only supported runtime-history
 reset. Its dry run returns counts, hashes, and numeric watermarks without row
 bodies. Apply requires the exact reviewed state and plan hashes, an explicit

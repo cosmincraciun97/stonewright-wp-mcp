@@ -22,15 +22,14 @@ HTTPS and does not run or require a local companion.
   or auto-detect LocalWP's `wp-cli.phar` plus PHP on Windows/macOS.
 - OAuth browser access (recommended) or a WordPress Application Password
 
-## Install The WordPress Plugin From Release
+## Default Plugin setup
 
-1. Download `stonewright-<version>.zip` from
-   <https://github.com/cosmincraciun97/stonewright-wp-mcp/releases>.
-2. In WordPress Admin, open **Plugins > Add New > Upload Plugin**.
-3. Upload the ZIP and activate **Stonewright**.
-4. Open **Stonewright → Setup** and enable AI Abilities.
-5. Choose OAuth in Setup and approve the browser sign-in. Alternatively,
-   generate an Application Password from Setup (or Users → Profile).
+1. Download the current `stonewright-<version>.zip`, upload it in **Plugins > Add New > Upload Plugin**, and activate Stonewright.
+2. Open **Stonewright → Setup**, enable AI Abilities, and connect the client through the guided setup.
+3. Fully restart the client and run the generated connection verification. A parseable config file is not runtime proof.
+4. Confirm `stonewright-task-start` is visible and call it first with the real task. Keep `essential` for normal work; `bootstrap` is startup diagnostics only.
+
+The Setup page offers OAuth when the client supports remote Streamable HTTP and Application Password/local stdio when a companion is required. Private credentials remain in the browser approval flow, OS credential store, environment reference, or private client configuration.
 
 The release ZIP includes production Composer dependencies.
 
@@ -40,7 +39,7 @@ Endpoint:
 https://your-site.example.com/wp-json/mcp/stonewright
 ```
 
-## Install The WordPress Plugin From Source
+## Advanced: install from source
 
 ```bash
 cd /path/to/wp-content/plugins
@@ -67,7 +66,7 @@ Set Application Password credentials and point at the site URL. With
 `/wp-json/mcp/stonewright`:
 
 - endpoint present → plugin proxy (full Stonewright abilities)
-- HTTP 404 → Direct mode (100 tools in the current full surface)
+- HTTP 404 → Direct mode (101 tools in the current full surface)
 
 Force either path with `STONEWRIGHT_MODE=direct` or `STONEWRIGHT_MODE=plugin`.
 For an installed-plugin connection, prefer the alias-based installer with

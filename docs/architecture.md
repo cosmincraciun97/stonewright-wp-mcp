@@ -25,7 +25,9 @@ flowchart TD
         Companion["Stonewright companion"]
         CompanionProfile["Companion profile<br/>bootstrap, essential-static, essential, low-tools, full"]
         Direct["Pluginless Direct adapters"]
-        DirectState["Private ~/.stonewright state<br/>sites, memory, user skills, redacted audit"]
+        DirectState["Private per-site ~/.stonewright state<br/>memory, user skills, redacted audit, incidents"]
+        DirectIncidents["Direct incident lifecycle"]
+        DirectReceipt["Correlated verifier receipt<br/>or guidance-only"]
     end
 
     subgraph PluginMode["Plugin mode"]
@@ -41,6 +43,8 @@ flowchart TD
         Closure["Lease, snapshot, validation, write, readback, rollback, visual QA"]
         Audit["Coalesced audit and actor attribution"]
         Incidents["Incident lifecycle"]
+        RepairReceipt["Verified repair receipt"]
+        Learning["Promoted or stale learning"]
         PluginState["WordPress database<br/>memory, user skills, audit"]
     end
 
@@ -55,14 +59,14 @@ flowchart TD
     CompanionProfile -->|"Plugin mode"| Auth
     CompanionProfile -->|"Direct mode"| Direct
     Direct --> WordPress
-    Direct --> DirectState
+    Direct --> DirectIncidents --> DirectReceipt --> DirectState
     Auth --> Plugin
     Step1 --> Surface --> Session --> Plugin
     Step1 --> Revision -. "re-list or restart" .-> Client
     Plugin --> WordPress
     Plugin --> Code --> Approval --> WordPress
     Plugin --> Elementor --> Closure --> WordPress
-    Plugin --> Audit --> Incidents --> PluginState
+    Plugin --> Audit --> Incidents --> RepairReceipt --> Learning --> PluginState
     Builtins --> Plugin
     Builtins --> Direct
     Client -. "provider choice and separate scan/install consent" .-> Browser
@@ -154,6 +158,20 @@ material before persistence. Plugin mode stores site state in WordPress. Direct
 mode stores private state under `~/.stonewright/` with restrictive permissions
 on supported POSIX systems. Release packages never include a runtime
 `sites.json`, audit ledger, memory store, or generated customer state.
+
+Incidents and lessons are separate state. The Plugin `IncidentStore` is the
+only incident lifecycle authority. `stonewright/incident-repair-record` reads
+the failure and verifier from persisted audit storage, creates a receipt only
+for an exact correlated verified effect, then writes and reads back one
+scrubbed lesson. A later matching failure reopens the incident and marks that
+lesson stale instead of deleting history.
+
+Direct mode mirrors the lifecycle in a private file namespaced by the site
+binding fingerprint. It stores bounded classifications and hashes, writes by
+atomic replacement, and never copies runtime state into the companion package.
+When Direct audit lacks independent resource/change-set proof, the recorder
+returns guidance only and does not resolve or learn. See
+[Verified learning](verified-learning.md).
 
 ## WordPress Writes
 
