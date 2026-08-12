@@ -7,6 +7,11 @@ const releaseWorkflow = readFileSync(
 	new URL('../../.github/workflows/release.yml', import.meta.url),
 	'utf8',
 );
+const readme = readFileSync(new URL('../../README.md', import.meta.url), 'utf8');
+const docsFreshness = readFileSync(
+	new URL('../check-docs-freshness.mjs', import.meta.url),
+	'utf8',
+);
 
 test('supported public betas are latest releases', () => {
 	assert.deepEqual(releaseFlags('1.0.0-beta.10', 'supported'), ['--latest']);
@@ -50,4 +55,16 @@ test('archive inspections remain reliable with pipefail enabled', () => {
 		releaseWorkflow,
 		/(?:tar -tzf|unzip -Z1)[^\n]*\|\s*grep\s+-[A-Za-z]*q/,
 	);
+});
+
+test('README exposes one validated supported public beta path', () => {
+	assert.match(readme, /<!-- supported-release:start -->/);
+	assert.match(readme, /<!-- supported-release:end -->/);
+	assert.match(readme, /Current release: 1\.0\.0-beta\.10 — Public Beta/);
+	assert.match(readme, /releases\/tag\/v1\.0\.0-beta\.10/);
+	assert.match(readme, /releases\/download\/v1\.0\.0-beta\.10\/stonewright-1\.0\.0-beta\.10\.zip/);
+	assert.match(readme, /releases\/download\/v1\.0\.0-beta\.10\/stonewright-companion-1\.0\.0-beta\.10\.tgz/);
+	assert.match(readme, /releases\/download\/v1\.0\.0-beta\.10\/SHA256SUMS\.txt/);
+	assert.match(readme, /docs\/installation\.md/);
+	assert.match(docsFreshness, /supported-release:start/);
 });

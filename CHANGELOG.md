@@ -11,6 +11,11 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+### Changed
+
+- Require an explicit, SemVer-compatible release channel and expose the
+  supported public beta through one validated README download path.
+
 ## [1.0.0-beta.10] - 2026-08-12
 
 ### Added

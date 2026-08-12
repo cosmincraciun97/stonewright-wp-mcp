@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { releaseChannelFromNotes, releaseFlags } from './release-flags.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const errors = [];
@@ -174,6 +175,48 @@ if (canonicalVersion && pluginReadmeVersion !== canonicalVersion) {
 
 if (canonicalVersion && !fs.existsSync(path.join(repoRoot, `docs/releases/${canonicalVersion}.md`))) {
 	fail(`Missing docs/releases/${canonicalVersion}.md.`);
+} else if (canonicalVersion) {
+	try {
+		const releaseChannel = releaseChannelFromNotes(read(`docs/releases/${canonicalVersion}.md`));
+		releaseFlags(canonicalVersion, releaseChannel);
+	} catch (error) {
+		fail(`docs/releases/${canonicalVersion}.md has an invalid release channel: ${error instanceof Error ? error.message : String(error)}`);
+	}
+}
+
+const rootReadme = read('README.md');
+const supportedReleaseStart = '<!-- supported-release:start -->';
+const supportedReleaseEnd = '<!-- supported-release:end -->';
+const supportedStartCount = rootReadme.split(supportedReleaseStart).length - 1;
+const supportedEndCount = rootReadme.split(supportedReleaseEnd).length - 1;
+let supportedReleaseBlock = '';
+if (supportedStartCount !== 1 || supportedEndCount !== 1) {
+	fail('README.md must contain exactly one supported-release marker pair.');
+} else {
+	const start = rootReadme.indexOf(supportedReleaseStart);
+	const end = rootReadme.indexOf(supportedReleaseEnd, start + supportedReleaseStart.length);
+	if (end < start) {
+		fail('README.md supported-release markers are reversed.');
+	} else {
+		supportedReleaseBlock = rootReadme.slice(start, end + supportedReleaseEnd.length);
+	}
+}
+if (canonicalVersion && supportedReleaseBlock) {
+	const releaseBase = `https://github.com/cosmincraciun97/stonewright-wp-mcp/releases`;
+	const releaseLabel = canonicalVersion.includes('-') ? 'Public Beta' : 'Stable';
+	const expectedSupportedMarkers = [
+		`Current release: ${canonicalVersion} — ${releaseLabel}`,
+		`${releaseBase}/tag/v${canonicalVersion}`,
+		`${releaseBase}/download/v${canonicalVersion}/stonewright-${canonicalVersion}.zip`,
+		`${releaseBase}/download/v${canonicalVersion}/stonewright-companion-${canonicalVersion}.tgz`,
+		`${releaseBase}/download/v${canonicalVersion}/SHA256SUMS.txt`,
+		'href="docs/installation.md"',
+	];
+	for (const marker of expectedSupportedMarkers) {
+		if (!supportedReleaseBlock.includes(marker)) {
+			fail(`README.md supported-release block is missing: ${marker}`);
+		}
+	}
 }
 
 const abilityCount = Number(read('docs/ability-truth-matrix.md').match(/Total abilities registered: \*\*(\d+)\*\*/)?.[1]);
@@ -314,8 +357,11 @@ const markdownFiles = allMarkdownFiles.filter((absolute) => {
 for (const absolute of markdownFiles) {
 	const relative = path.relative(repoRoot, absolute).split(path.sep).join('/');
 	const content = fs.readFileSync(absolute, 'utf8');
+	const evergreenContent = relative === 'README.md' && supportedReleaseBlock
+		? content.replace(supportedReleaseBlock, '')
+		: content;
 
-	if (!historicalMarkdown(relative) && /releases\/download\/v1\.0\.0-(?:beta|rc)\.\d+\//.test(content)) {
+	if (!historicalMarkdown(relative) && /releases\/download\/v1\.0\.0-(?:beta|rc)\.\d+\//.test(evergreenContent)) {
 		fail(`${relative} pins a release asset; use the VERSION placeholder.`);
 	}
 
