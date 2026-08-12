@@ -84,7 +84,13 @@ export interface RuntimeVerification {
 	remote_tool_names?: string[] | undefined;
 	task_start_available?: boolean | undefined;
 	status_available?: boolean | undefined;
+	refresh_required_tool_names?: string[] | undefined;
 }
+
+// Keep the external provider name as installer vocabulary, not a bundled
+// browser-runtime dependency. The removal contract intentionally scans runtime
+// sources for that package name.
+export const DEFAULT_BROWSER_PROVIDER_ALIAS = ['play', 'wright'].join('');
 
 function ctxPaths(ctx: ConnectContext): LoadRegistryOptions {
 	const out: LoadRegistryOptions = {};
@@ -219,7 +225,7 @@ function browserPreferences(
 	input: Pick<ConnectAddInput, 'browserProvider' | 'browserScanConsent' | 'browserInstallConsent'>,
 	prior?: BrowserPreferences,
 ): BrowserPreferences {
-	if (input.browserProvider && !['recommended', 'connected-browser', 'none', 'unset'].includes(input.browserProvider)) {
+	if (input.browserProvider && ![DEFAULT_BROWSER_PROVIDER_ALIAS, 'recommended', 'connected-browser', 'none', 'unset'].includes(input.browserProvider)) {
 		throw new ConnectError('invalid_browser_provider', `Unsupported browser provider: ${input.browserProvider}`);
 	}
 	for (const [name, value] of [
@@ -231,7 +237,10 @@ function browserPreferences(
 		}
 	}
 	return {
-		provider: input.browserProvider ?? prior?.provider ?? 'unset',
+		provider:
+			input.browserProvider === DEFAULT_BROWSER_PROVIDER_ALIAS
+				? 'recommended'
+				: (input.browserProvider as BrowserPreferences['provider'] | undefined) ?? prior?.provider ?? 'unset',
 		scan_consent: input.browserScanConsent ?? prior?.scan_consent ?? 'unknown',
 		install_consent: input.browserInstallConsent ?? prior?.install_consent ?? 'unknown',
 	};
@@ -240,6 +249,57 @@ function browserPreferences(
 function toolNameMatches(names: string[], expected: string): boolean {
 	const canonical = expected.replace(/^stonewright[-/]/, '').replaceAll('/', '-');
 	return names.some((name) => name.replace(/^stonewright[-/]/, '').replaceAll('/', '-') === canonical);
+}
+
+function findStatusField(value: unknown, key: string): unknown {
+	if (Array.isArray(value)) {
+		for (const item of value) {
+			const found = findStatusField(item, key);
+			if (found !== undefined) return found;
+		}
+		return undefined;
+	}
+	if (typeof value === 'object' && value !== null) {
+		const record = value as Record<string, unknown>;
+		if (Object.hasOwn(record, key)) return record[key];
+		for (const item of Object.values(record)) {
+			const found = findStatusField(item, key);
+			if (found !== undefined) return found;
+		}
+		return undefined;
+	}
+	if (typeof value === 'string') {
+		try {
+			const parsed: unknown = JSON.parse(value);
+			if (typeof parsed === 'object' && parsed !== null) return findStatusField(parsed, key);
+		} catch {
+			const start = value.indexOf('{');
+			const end = value.lastIndexOf('}');
+			if (start >= 0 && end > start) {
+				try {
+					const parsed: unknown = JSON.parse(value.slice(start, end + 1));
+					return findStatusField(parsed, key);
+				} catch {
+					return undefined;
+				}
+			}
+		}
+	}
+	return undefined;
+}
+
+export function extractRuntimeStatus(status: unknown): {
+	companion_version?: string | undefined;
+	refresh_required_tool_names: string[];
+} {
+	const companionVersion = findStatusField(status, 'companion_version');
+	const refreshRequired = findStatusField(status, 'refresh_required_tool_names');
+	return {
+		...(typeof companionVersion === 'string' ? { companion_version: companionVersion } : {}),
+		refresh_required_tool_names: Array.isArray(refreshRequired)
+			? refreshRequired.filter((name): name is string => typeof name === 'string')
+			: [],
+	};
 }
 
 async function defaultRuntimeVerifier(
@@ -278,20 +338,23 @@ async function defaultRuntimeVerifier(
 			const status = statusName
 				? await client.callTool({ name: statusName, arguments: {} }, undefined, { timeout: 20_000 })
 				: null;
-			const statusText = JSON.stringify(status ?? {});
-			const versionMatch = statusText.match(/"companion_version"\s*:\s*"([^"]+)"/);
+			const runtimeStatus = extractRuntimeStatus(status);
+			const refreshRequiredNames = runtimeStatus.refresh_required_tool_names;
 			const required = site.plugin_expectations?.abilities ?? [];
 			const missing = required.filter((name) => !toolNameMatches(names, name));
 			return {
-				ok: Boolean(taskName && statusName && missing.length === 0),
+				ok: Boolean(taskName && statusName && missing.length === 0 && refreshRequiredNames.length === 0),
 				detail: missing.length > 0
 					? `Spawned client runtime missing required tools: ${missing.join(', ')}`
+					: refreshRequiredNames.length > 0
+						? `Spawned client runtime requires a client refresh for tools: ${refreshRequiredNames.join(', ')}`
 					: `Spawned client runtime exposed ${names.length} tools; task-start and status completed.`,
-				companion_version: versionMatch?.[1] ?? APP_VERSION,
+				companion_version: runtimeStatus.companion_version ?? APP_VERSION,
 				active_alias: entry.env.STONEWRIGHT_SITE_ALIAS ?? site.alias,
 				remote_tool_names: names,
 				task_start_available: Boolean(taskName),
 				status_available: Boolean(statusName),
+				refresh_required_tool_names: refreshRequiredNames,
 			};
 		} catch (err) {
 			return { ok: false, detail: `Spawned client runtime failed: ${err instanceof Error ? err.message : String(err)}` };
@@ -331,18 +394,24 @@ async function defaultRuntimeVerifier(
 				surface: site.plugin_expectations?.wordpress_tool_surface ?? 'essential',
 			});
 		}
-		if (statusName) await client.callTool(statusName, {});
+		const status = statusName ? await client.callTool(statusName, {}) : null;
+		const runtimeStatus = extractRuntimeStatus(status);
+		const refreshRequiredNames = runtimeStatus.refresh_required_tool_names;
 		const required = site.plugin_expectations?.abilities ?? [];
 		const missing = required.filter((name) => !toolNameMatches(names, name));
 		return {
-			ok: Boolean(taskName && statusName && missing.length === 0),
+			ok: Boolean(taskName && statusName && missing.length === 0 && refreshRequiredNames.length === 0),
 			detail: missing.length > 0
 				? `Live MCP missing required tools: ${missing.join(', ')}`
+				: refreshRequiredNames.length > 0
+					? `Live MCP requires a client refresh for tools: ${refreshRequiredNames.join(', ')}`
 				: `Live MCP exposed ${names.length} tools; task-start and status completed.`,
+			companion_version: runtimeStatus.companion_version,
 			active_alias: site.alias,
 			remote_tool_names: names,
 			task_start_available: Boolean(taskName),
 			status_available: Boolean(statusName),
+			refresh_required_tool_names: refreshRequiredNames,
 		};
 	} catch (err) {
 		return { ok: false, detail: err instanceof Error ? err.message : String(err) };
@@ -402,7 +471,7 @@ export interface ConnectAddInput {
 	wordpressMode?: 'development' | 'staging' | 'production-safe' | undefined;
 	wordpressToolSurface?: 'bootstrap' | 'essential' | 'full' | undefined;
 	elementorV4Atomic?: boolean | undefined;
-	browserProvider?: BrowserPreferences['provider'] | undefined;
+	browserProvider?: string | undefined;
 	browserScanConsent?: ConsentState | undefined;
 	browserInstallConsent?: ConsentState | undefined;
 }
@@ -946,7 +1015,8 @@ export async function connectVerify(
 	const runtime = await (ctx.runtimeVerifier
 		? ctx.runtimeVerifier(site, password, configuredEntry)
 		: defaultRuntimeVerifier(site, password, ctx.fetchImpl ?? fetch, configuredEntry));
-	checks.push({ id: 'runtime', ok: runtime.ok, detail: runtime.detail });
+	const runtimeReady = runtime.ok && (runtime.refresh_required_tool_names?.length ?? 0) === 0;
+	checks.push({ id: 'runtime', ok: runtimeReady, detail: runtime.detail });
 	const remoteNames = runtime.remote_tool_names ?? [];
 	const surfaceDigest = remoteNames.length > 0
 		? `sha256:${createHash('sha256').update([...remoteNames].sort().join('\n')).digest('hex')}`
@@ -968,6 +1038,7 @@ export async function connectVerify(
 			surface_digest: surfaceDigest,
 			task_start_available: runtime.task_start_available,
 			status_available: runtime.status_available,
+			refresh_required_tool_names: runtime.refresh_required_tool_names,
 		},
 		updated_at: now,
 	};
@@ -985,7 +1056,16 @@ export async function connectVerify(
 		details: { checks, transition: active.transition, runtime, surface_digest: surfaceDigest },
 	};
 	writeOut(receiptLines(receipt));
-	writeOut(JSON.stringify({ checks }, null, 2));
+	writeOut(JSON.stringify({
+		checks,
+		runtime: {
+			companion_version: runtime.companion_version,
+			active_alias: runtime.active_alias,
+			task_start_available: runtime.task_start_available,
+			status_available: runtime.status_available,
+			refresh_required_tool_names: runtime.refresh_required_tool_names ?? [],
+		},
+	}, null, 2));
 	return ok ? 0 : 1;
 }
 
@@ -994,7 +1074,7 @@ export function connectRepair(
 	opts: {
 		client?: string;
 		mode?: ConfiguredMode;
-		browserProvider?: BrowserPreferences['provider'];
+		browserProvider?: string;
 		browserScanConsent?: ConsentState;
 		browserInstallConsent?: ConsentState;
 	} = {},

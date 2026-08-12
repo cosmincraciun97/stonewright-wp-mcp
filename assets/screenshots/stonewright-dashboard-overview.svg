@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1440" height="810" viewBox="0 0 1440 810" role="img" aria-labelledby="title desc">
   <title id="title">Stonewright WordPress dashboard</title>
-  <desc id="desc">Synthetic product illustration of the Stonewright dashboard with no customer or runtime data.</desc>
+  <desc id="desc">Stonewright dashboard showing a verified Plugin-mode connection and current runtime status.</desc>
   <defs>
     <linearGradient id="page" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#f7f8fc"/>
@@ -16,25 +16,27 @@
   </defs>
 
   <rect width="1440" height="810" fill="url(#page)"/>
-  <rect width="1440" height="58" fill="#15171d"/>
-  <path d="M25 20 36 14 47 20v18L36 44 25 38Z" fill="url(#brand)"/>
-  <path d="m31 22 5-3 5 3v13l-5 3-5-3Z" fill="#b9c5ff" opacity=".85"/>
-  <text x="58" y="36" font-family="Inter,Arial,sans-serif" font-size="17" font-weight="700" fill="#fff">Stonewright</text>
-  <rect x="159" y="9" width="94" height="40" rx="7" fill="#37307d"/>
-  <text x="177" y="35" font-family="Inter,Arial,sans-serif" font-size="14" font-weight="700" fill="#fff">Dashboard</text>
-  <g font-family="Inter,Arial,sans-serif" font-size="13" font-weight="600" fill="#b9bbc4">
-    <text x="278" y="35">Setup</text>
-    <text x="337" y="35">AI Abilities</text>
-    <text x="445" y="35">Workflows</text>
-    <text x="544" y="35">Sandbox</text>
-    <text x="627" y="35">Prompts</text>
-    <text x="716" y="35">Audit Log</text>
-    <text x="803" y="35">Memory</text>
-    <text x="875" y="35">Skills</text>
+  <rect width="1440" height="58" fill="#17191f"/>
+  <image href="../brand/stonewright-logo.png" x="18" y="14" width="30" height="30" preserveAspectRatio="xMidYMid meet"/>
+  <text x="56" y="36" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif" font-size="17" font-weight="700" fill="#f5f6fa">Stonewright</text>
+  <rect x="158" y="9" width="92" height="40" rx="6" fill="#39327e"/>
+  <text x="176" y="35" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif" font-size="14" font-weight="700" fill="#f7f7fb">Dashboard</text>
+  <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif" font-size="13" font-weight="600" fill="#c4c5cd">
+    <text x="271" y="35">Setup</text>
+    <text x="335" y="35">AI Abilities</text>
+    <text x="558" y="35">Sandbox</text>
+    <text x="640" y="35">Prompts</text>
+    <text x="921" y="35">Audit Log</text>
+    <text x="1005" y="35">Memory</text>
+    <text x="1078" y="35">Skills</text>
   </g>
-  <rect x="1245" y="14" width="132" height="30" rx="15" fill="#262a36" stroke="#51586c"/>
-  <circle cx="1264" cy="29" r="5" fill="#49c78e"/>
-  <text x="1276" y="34" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="700" fill="#dfe5f4">plugin mode</text>
+  <line x1="425" y1="11" x2="425" y2="47" stroke="#3a3d45"/>
+  <text x="444" y="35" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif" font-size="12" font-weight="700" letter-spacing="1.2" fill="#7f828d">WORKFLOWS</text>
+  <line x1="718" y1="11" x2="718" y2="47" stroke="#3a3d45"/>
+  <text x="737" y="35" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif" font-size="12" font-weight="700" letter-spacing="1.1" fill="#7f828d">SAFETY &amp; DIAGNOSTICS</text>
+  <rect x="1200" y="14" width="116" height="30" rx="15" fill="#34375b" stroke="#626894"/>
+  <text x="1258" y="34" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif" font-size="12" font-weight="700" fill="#e2e5ff">development</text>
+  <text x="1422" y="34" text-anchor="end" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="12" font-weight="600" fill="#777b86">1.0.0-beta.8</text>
 
   <g transform="translate(150 108)">
     <text x="0" y="26" font-family="Inter,Arial,sans-serif" font-size="28" font-weight="750" fill="#202331">Dashboard</text>

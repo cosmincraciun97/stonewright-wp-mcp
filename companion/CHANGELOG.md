@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.8] - 2026-08-12
+
+### Fixed
+
+- Accept `playwright` as the CLI alias for the recommended external browser.
+- Emit safe runtime verification fields and fail closed when status reports
+  non-empty `refresh_required_tool_names`.
+
 ## [1.0.0-beta.7] - 2026-08-12
 
 ### Fixed

@@ -46,8 +46,6 @@ Stonewright is a WordPress MCP stack for AI coding agents. **Elementor** is a fi
   <img src="assets/screenshots/stonewright-dashboard-overview.svg" alt="Stonewright dashboard showing a verified Plugin-mode connection" width="1200" />
 </p>
 
-<p align="center"><sub>Synthetic product view. No customer site, credential, memory, or audit data is shown.</sub></p>
-
 ## Capabilities
 
 Counts are derived from `docs/ability-truth-matrix.md` (plugin) and `DIRECT_TOOL_NAMES` (Direct). Do not hand-edit totals without regenerating the matrix.

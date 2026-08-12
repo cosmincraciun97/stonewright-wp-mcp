@@ -46,6 +46,7 @@ export interface LastVerification {
 	surface_digest?: string | undefined;
 	task_start_available?: boolean | undefined;
 	status_available?: boolean | undefined;
+	refresh_required_tool_names?: string[] | undefined;
 }
 
 export interface PluginExpectations {

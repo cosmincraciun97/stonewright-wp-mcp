@@ -77,6 +77,9 @@ alias or `active_mode=direct` is a failed plugin-mode update, not success.
 The repair receipt is content-free: it confirms the server name, change/backup
 state, support tier, and browser consent without printing the surrounding
 private client configuration or absolute config/backup paths.
+The verification receipt includes the companion version, active alias,
+task-start/status availability, and `refresh_required_tool_names`; any non-empty
+refresh list is a failed update until the client is fully restarted.
 
 Direct mode keeps its private state under `~/.stonewright/`. Replacing the
 companion package does not reset its memory, user-created skills, site

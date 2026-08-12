@@ -11,6 +11,16 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+## [1.0.0-beta.8] - 2026-08-12
+
+### Fixed
+
+- Accept `playwright` as the natural browser-provider value while preserving
+  the existing recommended-provider registry contract.
+- Make `connect verify` print content-safe runtime proof for companion version,
+  active alias, task-start/status availability, and refresh-required tools;
+  verification now fails while any refresh-required tool remains.
+
 ## [1.0.0-beta.7] - 2026-08-12
 
 ### Fixed
@@ -136,7 +146,13 @@ development builds were never stable releases.
 - Neutralize spreadsheet formulas in redacted audit CSV exports and include
   both value and timeout OAuth audit transients in purge state fingerprints.
 
-## [1.0.0-beta.3] - 2026-07-31
+## Older releases
+
+- [1.0.0-beta.3](docs/releases/1.0.0-beta.3.md)
+- [1.0.0-beta.2](docs/releases/1.0.0-beta.2.md)
+- [1.0.0-beta.1](docs/releases/1.0.0-beta.1.md)
+
+### 1.0.0-beta.3 — 2026-07-31
 
 ### Added
 
@@ -177,11 +193,6 @@ development builds were never stable releases.
   guidance instead of encouraging guessed Elementor controls.
 - Clarify escaped-layout PHP parsing and refuse ambiguous heredoc, nowdoc,
   script, style, and interpolation candidates instead of corrupting snippets.
-
-## Older releases
-
-- [1.0.0-beta.2](docs/releases/1.0.0-beta.2.md)
-- [1.0.0-beta.1](docs/releases/1.0.0-beta.1.md)
 
 ### 1.0.0-beta.2 — 2026-07-30
 
