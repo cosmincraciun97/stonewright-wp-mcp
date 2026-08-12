@@ -10,6 +10,8 @@ use Stonewright\WpMcp\Elementor\Schema\RuntimeFingerprint;
 use Stonewright\WpMcp\Expertise\ExpertiseResolver;
 use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Security\ErrorPatterns;
+use Stonewright\WpMcp\Security\IncidentActions;
+use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Skills\Skills;
 
 /**
@@ -70,6 +72,7 @@ final class ContextBuilder {
 			'memory_entries'           => $matched_memory,
 			'custom_instructions'      => self::custom_instructions(),
 			'recurring_errors'         => self::recurring_error_warnings(),
+			'incident_actions'         => IncidentActions::rank( IncidentStore::recent( 50 ), $surface, 3 ),
 			'expertise_packs'          => ExpertiseResolver::resolve( $task, $surface ),
 			'specializations'          => SpecializationCatalog::match( $task, $surface ),
 			'recommended_external_mcps'      => self::recommended_external_mcps( $is_visual ),

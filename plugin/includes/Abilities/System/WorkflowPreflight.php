@@ -335,6 +335,7 @@ final class WorkflowPreflight extends AbilityKernel {
 				'memory_entries'          => $context['memory_entries'] ?? [],
 				'custom_instructions'     => $context['custom_instructions'] ?? [ 'enabled' => false, 'text' => '' ],
 				'recurring_errors'        => $context['recurring_errors'] ?? [],
+				'incident_actions'        => $context['incident_actions'] ?? [],
 				'expertise_packs'         => $context['expertise_packs'] ?? [],
 				'required_followups'      => $context['required_followups'] ?? [],
 			],
@@ -440,13 +441,14 @@ final class WorkflowPreflight extends AbilityKernel {
 		}
 		$custom = is_array( $context['custom_instructions'] ?? null ) ? $context['custom_instructions'] : [];
 		$errors = array_values( array_slice( (array) ( $context['recurring_errors'] ?? [] ), 0, 3 ) );
+		$incident_actions = array_values( array_slice( (array) ( $context['incident_actions'] ?? [] ), 0, 3 ) );
 		// Keep compact task-start under budget: omit empty learning signals.
 		$compact_context = [
 			'matched_skills'   => array_values( array_slice( $skills, 0, 3 ) ),
 			'memory_refs'      => self::compact_memory_entries( $context['memory_entries'] ?? [] ),
 			'expertise_refs'   => self::compact_expertise_refs( $context['expertise_packs'] ?? [] ),
 			'required_actions' => array_values( array_filter( [
-				[] !== $errors ? 'fix_recurring_errors_first' : null,
+				[] !== $incident_actions || [] !== $errors ? 'repair_open_incidents_first' : null,
 				[] !== $skills ? 'load_matched_skills' : null,
 				[] !== (array) ( $context['memory_entries'] ?? [] ) ? 'load_memory_refs' : null,
 				(bool) ( $profile['needs_visual_check'] ?? false ) ? 'connect_browser_before_visual_write' : null,
@@ -481,6 +483,9 @@ final class WorkflowPreflight extends AbilityKernel {
 				},
 				$errors
 			);
+		}
+		if ( [] !== $incident_actions ) {
+			$compact_context['incident_actions'] = $incident_actions;
 		}
 
 		$tool_profile_block = is_array( $fast_path['tool_profile'] ?? null )
