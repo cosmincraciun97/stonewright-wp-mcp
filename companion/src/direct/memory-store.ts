@@ -19,6 +19,7 @@ export type MemoryEntry = {
 	topic?: string;
 	scope_label?: string;
 	source?: string;
+	status: 'active' | 'stale';
 };
 
 function root(baseDir?: string, env?: NodeJS.ProcessEnv): string {
@@ -76,6 +77,7 @@ function parseLine(line: string): MemoryEntry | null {
 			kind: KINDS.has(row.kind as MemoryKind) ? (row.kind as MemoryKind) : 'fact',
 			text,
 			tags: Array.isArray(row.tags) ? row.tags.map(String) : [],
+			status: row.status === 'stale' ? 'stale' : 'active',
 			...(typeof row.topic === 'string' ? { topic: row.topic } : {}),
 			...(typeof row.scope_label === 'string' ? { scope_label: row.scope_label } : {}),
 			...(typeof row.source === 'string' ? { source: row.source } : {}),
@@ -118,6 +120,8 @@ export function recordMemory(input: {
 	source?: string;
 	/** When true, replace an existing entry with the same normalized text. */
 	dedupe?: boolean;
+	/** Internal deterministic receipt key. Keeps identical recipes isolated by incident proof. */
+	stableId?: string;
 }): MemoryEntry {
 	const text = input.text.trim();
 	if (!text) {
@@ -139,6 +143,9 @@ export function recordMemory(input: {
 	if (!KINDS.has(kind)) {
 		throw new Error(`Invalid memory kind: ${kind}`);
 	}
+	if (input.stableId !== undefined && !/^[a-f0-9]{16,64}$/.test(input.stableId)) {
+		throw new Error('Memory stableId must be a 16-64 character lowercase SHA-256 prefix');
+	}
 
 	const file = memoryFile(input.baseDir, input.scope, input.env);
 	const dir = memoryDir(input.baseDir, input.env);
@@ -147,7 +154,9 @@ export function recordMemory(input: {
 	const existing = readAll(file);
 	const norm = normalizeText(text);
 	if (input.dedupe !== false) {
-		const matchIdx = existing.findIndex((e) => normalizeText(e.text) === norm);
+		const matchIdx = input.stableId
+			? existing.findIndex((e) => e.id === input.stableId)
+			: existing.findIndex((e) => normalizeText(e.text) === norm);
 		if (matchIdx >= 0) {
 			const prev = existing[matchIdx];
 			const updated: MemoryEntry = {
@@ -156,6 +165,7 @@ export function recordMemory(input: {
 				kind,
 				text,
 				tags: (input.tags ?? prev.tags).map(String),
+				status: 'active',
 				...(input.topic !== undefined ? { topic: input.topic } : {}),
 				...(input.source !== undefined ? { source: input.source } : {}),
 			};
@@ -172,11 +182,12 @@ export function recordMemory(input: {
 
 	const ts = new Date().toISOString();
 	const entry: MemoryEntry = {
-		id: makeId(input.scope, text, ts),
+		id: input.stableId ?? makeId(input.scope, text, ts),
 		ts,
 		kind,
 		text,
 		tags: (input.tags ?? []).map(String),
+		status: 'active',
 		...(input.topic !== undefined ? { topic: input.topic } : {}),
 		...(input.source !== undefined ? { source: input.source } : {}),
 	};
@@ -199,10 +210,31 @@ export function listMemory(input: {
 	env?: NodeJS.ProcessEnv;
 	scope: string;
 	limit?: number;
+	activeOnly?: boolean;
 }): { items: MemoryEntry[] } {
-	const items = readAll(memoryFile(input.baseDir, input.scope, input.env));
+	const items = readAll(memoryFile(input.baseDir, input.scope, input.env))
+		.filter((entry) => input.activeOnly !== true || entry.status === 'active');
 	items.reverse();
 	return { items: items.slice(0, input.limit ?? 20) };
+}
+
+export function setMemoryStatus(input: {
+	baseDir?: string;
+	env?: NodeJS.ProcessEnv;
+	scope: string;
+	id: string;
+	status: 'active' | 'stale';
+}): boolean {
+	const file = memoryFile(input.baseDir, input.scope, input.env);
+	const existing = readAll(file);
+	const entry = existing.find((row) => row.id === input.id);
+	if (!entry) return false;
+	entry.status = input.status;
+	writeFileSync(file, `${existing.map((row) => JSON.stringify(row)).join('\n')}\n`, {
+		encoding: 'utf8',
+		mode: 0o600,
+	});
+	return true;
 }
 
 export function deleteMemory(input: {

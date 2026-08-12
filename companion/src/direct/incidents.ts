@@ -7,7 +7,7 @@ import {
 	renameSync,
 	writeFileSync,
 } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 
 const FINGERPRINT_RE = /^[a-f0-9]{64}$/;
 const MAX_INCIDENTS = 100;
@@ -57,6 +57,31 @@ function sha256(value: string): string {
 	return createHash('sha256').update(value).digest('hex');
 }
 
+export function directIncidentFingerprint(siteBinding: string): string {
+	return sha256(siteBinding);
+}
+
+export type DirectIncidentAction = {
+	incident_id: string;
+	state: DirectIncidentState;
+	ability: string;
+	error_code: string;
+	occurrences: number;
+	repair: string;
+	next_tool: string;
+	required_verifier: string;
+	retry_policy: string;
+	learning_policy: string;
+};
+
+function verifierFor(ability: string): string {
+	if (ability.includes('elementor')) return 'stonewright-elementor-data-get';
+	if (ability.includes('media')) return 'stonewright-media-get';
+	if (ability.includes('setting')) return 'stonewright-settings-get';
+	if (ability.includes('content')) return 'stonewright-content-get';
+	return 'independent typed readback';
+}
+
 function classification(value: string, fallback: string): string {
 	const first = value.trim().toLowerCase().match(/^[a-z0-9][a-z0-9/_-]*/)?.[0] ?? fallback;
 	return first.slice(0, 96);
@@ -90,7 +115,7 @@ export class DirectIncidentStore {
 		}
 		const dir = resolve(join(baseDir, 'incidents'));
 		this.file = resolve(join(dir, `${siteFingerprint}.json`));
-		if (!this.file.startsWith(`${dir}/`)) {
+		if (!this.file.startsWith(`${dir}${sep}`)) {
 			throw new Error('Direct incident path escaped the private state directory');
 		}
 	}
@@ -105,6 +130,35 @@ export class DirectIncidentStore {
 
 	get(incidentId: string): DirectIncident | null {
 		return this.list().find((incident) => incident.incident_id === incidentId) ?? null;
+	}
+
+	actions(surface = '', limit = 3): DirectIncidentAction[] {
+		const needle = classification(surface, '');
+		return this.list()
+			.filter((incident) => incident.state === 'open' || incident.state === 'observing')
+			.sort((left, right) => {
+				const leftSurface = needle && left.ability.includes(needle) ? 1 : 0;
+				const rightSurface = needle && right.ability.includes(needle) ? 1 : 0;
+				const leftOpen = left.state === 'open' ? 1 : 0;
+				const rightOpen = right.state === 'open' ? 1 : 0;
+				return rightSurface - leftSurface
+					|| rightOpen - leftOpen
+					|| right.occurrences - left.occurrences
+					|| right.last_seen.localeCompare(left.last_seen);
+			})
+			.slice(0, Math.max(0, Math.min(3, limit)))
+			.map((incident) => ({
+				incident_id: incident.incident_id,
+				state: incident.state,
+				ability: incident.ability,
+				error_code: incident.error_code,
+				occurrences: incident.occurrences,
+				repair: 'Read the persisted failure, correct its normalized cause, then run one typed readback verifier.',
+				next_tool: verifierFor(incident.ability),
+				required_verifier: verifierFor(incident.ability),
+				retry_policy: 'repair_then_retry_once',
+				learning_policy: 'record_only_after_verified_repair',
+			}));
 	}
 
 	observeFailure(input: DirectIncidentFailure): DirectIncident {

@@ -30,6 +30,7 @@ export interface DirectAuditEntry {
 	durationMs?: number;
 	mode?: string;
 	severity?: string;
+	effectVerified?: boolean;
 }
 
 export type PersistedDirectAuditEntry = {
@@ -128,6 +129,7 @@ export function appendDirectAudit(
 				: entry.status === 'blocked'
 					? 'notice'
 					: 'info'),
+		effect_verified: entry.effectVerified === true,
 	};
 	appendFileSync(path, `${JSON.stringify(row)}\n`, { encoding: 'utf8', mode: 0o600 });
 	if (process.platform !== 'win32') {
@@ -144,6 +146,23 @@ export function appendDirectAudit(
 		});
 	}
 	return row;
+}
+
+export function readDirectAuditEvent(
+	eventId: string,
+	path = defaultAuditPath(),
+): PersistedDirectAuditEntry | null {
+	if (!existsSync(path)) return null;
+	for (const line of readFileSync(path, 'utf8').split('\n')) {
+		if (!line) continue;
+		try {
+			const row = JSON.parse(line) as PersistedDirectAuditEntry;
+			if (row.request_id === eventId) return row;
+		} catch {
+			// A corrupt audit line is never proof.
+		}
+	}
+	return null;
 }
 
 export type DirectRecurringError = {

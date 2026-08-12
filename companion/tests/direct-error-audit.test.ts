@@ -150,10 +150,17 @@ describe('direct error audit', () => {
 		const res = await start.handler!({ task: 'fix something' });
 		const body = JSON.parse(res.content[0].text) as {
 			recurring_errors: Array<{ tool: string; count: number }>;
+			incident_actions: Array<{ ability: string; state: string }>;
+			required_actions: string[];
 			guidance: string[];
 		};
 		expect(body.recurring_errors.some((r) => r.tool === 'stonewright-foo' && r.count >= 2)).toBe(true);
-		expect(body.guidance.some((g) => g.includes('recurring_errors'))).toBe(true);
+		expect(body.incident_actions).toContainEqual(expect.objectContaining({
+			ability: 'stonewright-foo',
+			state: 'open',
+		}));
+		expect(body.required_actions).toContain('repair_open_incidents_first');
+		expect(body.guidance.some((g) => g.includes('incident_actions'))).toBe(true);
 	});
 
 	it('defaultAuditPath honors STONEWRIGHT_STATE_DIR', () => {

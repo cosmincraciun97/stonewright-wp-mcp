@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { createMcpServer } from '../src/mcp-server.js';
 import { appendDirectAudit } from '../src/direct/audit.js';
+import { DirectIncidentStore, directIncidentFingerprint } from '../src/direct/incidents.js';
 import { listMemory, recordMemory } from '../src/direct/memory-store.js';
 import { listSkills, saveSkill } from '../src/direct/skills-store.js';
 
@@ -23,6 +24,7 @@ describe('Direct persistent-state lifecycle', () => {
 		expect(listMemory({ baseDir: stateDir, scope: '_global' }).items).toEqual([]);
 		expect(listSkills({ baseDir: stateDir, scope: '_global' }).items).toEqual([]);
 		expect(existsSync(join(stateDir, 'audit-direct.jsonl'))).toBe(false);
+		expect(existsSync(join(stateDir, 'incidents'))).toBe(false);
 		expect(listSkills({ baseDir: stateDir, scope: '_builtin' }).items.length).toBeGreaterThan(0);
 	});
 
@@ -47,15 +49,24 @@ describe('Direct persistent-state lifecycle', () => {
 		});
 		const auditPath = join(stateDir, 'audit-direct.jsonl');
 		appendDirectAudit(
-			{ tool: 'stonewright-content-update', site: 'default', status: 'ok' },
+			{ tool: 'stonewright-content-update', site: 'default', status: 'error', code: 'write_failed' },
+			auditPath,
+		);
+		appendDirectAudit(
+			{ tool: 'stonewright-content-update', site: 'default', status: 'error', code: 'write_failed' },
 			auditPath,
 		);
 		const beforeAudit = readFileSync(auditPath, 'utf8');
+		const incidentStore = new DirectIncidentStore(stateDir, directIncidentFingerprint('default'));
+		const beforeIncident = readFileSync(incidentStore.path(), 'utf8');
 
 		await createMcpServer({ env });
 
 		expect(listMemory({ baseDir: stateDir, scope: '_global' }).items).toHaveLength(1);
 		expect(listSkills({ baseDir: stateDir, scope: '_global' }).items).toHaveLength(1);
 		expect(readFileSync(auditPath, 'utf8')).toBe(beforeAudit);
+		expect(readFileSync(incidentStore.path(), 'utf8')).toBe(beforeIncident);
+		expect(new DirectIncidentStore(stateDir, directIncidentFingerprint('default')).list()[0])
+			.toMatchObject({ state: 'open', occurrences: 2 });
 	});
 });
