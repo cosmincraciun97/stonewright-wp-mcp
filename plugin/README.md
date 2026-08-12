@@ -59,10 +59,12 @@ See [WooCommerce support](../docs/woocommerce.md) for the catalog and storefront
 support matrix.
 See [Updating Stonewright](../docs/updates.md) for plugin/companion version
 matching, upgrade steps, and persistence guarantees.
-The Connect update panel can read the latest trusted release, compare an
-optional configured HTTP bridge, and copy a credential-free companion update
-prompt. An explicit check bypasses the background release cache. A local stdio
-process still has to be replaced and restarted inside its AI client.
+The Connect update panel reads the newest trusted release on the installed
+stable or prerelease channel, compares an optional configured HTTP bridge, and
+copies a credential-free companion update prompt. Stable and prerelease caches
+are isolated and the updater never crosses channels. An explicit check bypasses
+the background release cache. A local stdio process still has to be replaced
+and restarted inside its AI client.
 
 Custom PHP/CSS/JS/HTML follows a human approval boundary. The agent runs the
 typed dry-run, returns `approval_url`, exact target path, byte counts, and a

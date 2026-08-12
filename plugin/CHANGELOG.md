@@ -14,6 +14,9 @@
 - Stop generic successful audit events from resolving incidents or promoting
   audit-derived learning. Explicit user corrections remain immediately
   recordable.
+- Keep Plugin and companion update discovery on the installed stable or
+  prerelease channel, using channel-specific caches and exact trusted release
+  assets without cross-channel fallback.
 
 ## [1.0.0-beta.9] - 2026-08-12
 

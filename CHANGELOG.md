@@ -28,6 +28,10 @@ development builds were never stable releases.
 - Replace the root license summary with the canonical GNU AGPL v3 text, add a
   component license map, and verify Plugin, Visual, and Companion metadata in
   CI and release gates.
+- Select native Plugin and companion updates from the installed SemVer channel,
+  with isolated caches and exact trusted assets; future prerelease tags are
+  published as prereleases while stable tags alone become GitHub's latest
+  release.
 
 ## [1.0.0-beta.9] - 2026-08-12
 

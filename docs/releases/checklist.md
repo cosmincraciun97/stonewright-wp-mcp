@@ -18,6 +18,8 @@ Run from `plugin/` unless noted.
       then `composer package:verify-manifests`.
 - [ ] `composer docs:matrix` - regenerates the ability matrix cleanly.
 - [ ] `cd .. && node scripts/check-docs-freshness.mjs` - versions, release notes, install prompts, and Markdown links are current.
+- [ ] `cd .. && node --test scripts/tests/release-flags.test.mjs` - prerelease
+      and stable versions receive exactly one correct GitHub release flag.
 - [ ] `cd .. && node scripts/check-public-hygiene.mjs --require-private-terms` - source tree is free of configured private project terms.
 - [ ] `cd .. && node scripts/package-verify.mjs --strict-vendor` - production package inputs and Jetpack manifests are complete.
 - [ ] `cd ../companion && npm run typecheck` - zero TypeScript errors.
@@ -36,6 +38,11 @@ Run from `plugin/` unless noted.
 - [ ] `git diff --check` - zero whitespace errors.
 
 ## Publish
+
+Release-channel policy applies only to future tags. The existing beta.9 tag,
+release record, and assets are historical and must remain untouched. A future
+beta or release-candidate tag is a GitHub prerelease; only a stable SemVer tag
+becomes the latest release. The native updater stays on the installed channel.
 
 1. Update release notes under `docs/releases/<version>.md`.
 2. Tag the verified commit as `v<version>`.

@@ -218,6 +218,21 @@ incidents are reporting state, not active learning. Only a verified repair or an
 explicit user correction may promote reusable guidance into memory; paginated
 legacy reconciliation stays retryable if any eligible memory update fails.
 
+### Release-channel update discovery
+
+The native updater derives its channel from the installed semantic version.
+Stable builds inspect only complete, non-draft stable releases; prerelease
+builds inspect only complete, non-draft prereleases. Each channel has an
+isolated cache, and both the Plugin ZIP and companion package must use exact
+versioned filenames under the trusted GitHub release-download origin. Invalid
+metadata, missing assets, or a channel mismatch leave the installed version in
+place instead of falling back to another channel.
+
+The Connect update status consumes that same selected release, so Plugin and
+companion recommendations cannot disagree. Future beta and release-candidate
+tags are created as GitHub prereleases; stable tags alone receive the latest
+release marker.
+
 ### External browser consent boundary
 
 Stonewright does not embed or silently install a browser provider. Before
