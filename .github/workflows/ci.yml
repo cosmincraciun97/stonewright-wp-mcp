@@ -15,6 +15,7 @@ jobs:
         with:
           node-version: "22"
       - run: node scripts/check-docs-freshness.mjs
+      - run: node scripts/check-license-metadata.mjs
       - name: Verify public repository hygiene
         env:
           STONEWRIGHT_PRIVATE_TERMS: ${{ secrets.STONEWRIGHT_PRIVATE_TERMS }}
@@ -74,6 +75,7 @@ jobs:
         run: composer install --no-dev --no-interaction --prefer-dist --classmap-authoritative
       - name: Verify production package integrity
         run: |
+          node scripts/check-license-metadata.mjs
           php plugin/bin/verify-jetpack-manifests.php plugin
           node scripts/package-verify.mjs --strict-vendor
       - name: Verify release exclusions preserve manifest integrity

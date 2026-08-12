@@ -30,6 +30,9 @@ jobs:
       - name: Verify documentation freshness
         run: node scripts/check-docs-freshness.mjs
 
+      - name: Verify license metadata
+        run: node scripts/check-license-metadata.mjs
+
       - name: Verify public repository hygiene
         env:
           STONEWRIGHT_PRIVATE_TERMS: ${{ secrets.STONEWRIGHT_PRIVATE_TERMS }}

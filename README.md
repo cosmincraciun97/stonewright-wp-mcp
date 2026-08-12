@@ -12,8 +12,8 @@
 <p align="center">
   <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/cosmincraciun97/stonewright-wp-mcp?label=release" /></a>
   <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/cosmincraciun97/stonewright-wp-mcp/ci.yml?branch=main&label=CI" /></a>
-  <img alt="plugin license" src="https://img.shields.io/badge/plugin-AGPL--3.0--or--later-green" />
-  <img alt="companion license" src="https://img.shields.io/badge/companion-MIT-blue" />
+  <a href="LICENSE"><img alt="plugin license" src="https://img.shields.io/badge/plugin-AGPL--3.0--or--later-green" /></a>
+  <a href="companion/LICENSE"><img alt="companion license" src="https://img.shields.io/badge/companion-MIT-blue" /></a>
   <img alt="php" src="https://img.shields.io/badge/PHP-%3E%3D8.1-777bb4" />
   <img alt="wordpress" src="https://img.shields.io/badge/WordPress-%3E%3D6.7-21759b" />
 </p>
@@ -515,11 +515,13 @@ npm run build
 
 | Component | Path | License |
 |---|---|---|
-| Plugin | `plugin/` | AGPL-3.0-or-later |
-| Visual workspace | `visual/` | AGPL-3.0-or-later |
-| Companion | `companion/` | MIT |
+| Plugin | `plugin/` | [AGPL-3.0-or-later](LICENSE) |
+| Visual workspace | `visual/` | [AGPL-3.0-or-later](LICENSE) |
+| Companion | `companion/` | [MIT](companion/LICENSE) |
 | Skill packs | `skills/` | MIT |
 | Documentation | `docs/` | CC BY 4.0 |
+
+See [component licensing](LICENSING.md) for scope and third-party terms.
 
 ## Support, security, and contributing
 

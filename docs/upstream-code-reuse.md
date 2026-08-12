@@ -15,6 +15,8 @@ AGPL SPDX headers.
 The Stonewright plugin was relicensed before the first Novamira import. The
 companion remains MIT and must not receive AGPL-derived code. Stonewright
 Visual is distributed as a separate AGPL-3.0-or-later package.
+The public component map and canonical license files are listed in
+[`LICENSING.md`](../LICENSING.md).
 
 ## Inspected upstream snapshot
 

@@ -25,6 +25,9 @@ development builds were never stable releases.
   default Plugin connection to four steps; advanced transports, profiles,
   Direct mode, and browser choices remain progressively disclosed.
 - Expose the generated 361-ability Plugin and 101-tool Direct contracts.
+- Replace the root license summary with the canonical GNU AGPL v3 text, add a
+  component license map, and verify Plugin, Visual, and Companion metadata in
+  CI and release gates.
 
 ## [1.0.0-beta.9] - 2026-08-12
 

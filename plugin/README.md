@@ -3,7 +3,7 @@
 Version: 1.0.0-beta.9
 Requires WordPress: 6.7+
 Requires PHP: 8.1+
-License: AGPL-3.0-or-later
+License: [AGPL-3.0-or-later](../LICENSE)
 
 Stonewright registers WordPress Abilities as MCP tools through the official
 `wordpress/mcp-adapter`. It supports Gutenberg, Full Site Editing, Elementor V3,
