@@ -99,6 +99,7 @@ jobs:
             --exclude phpcs.xml \
             --exclude phpunit.xml \
             --exclude phpunit.xml.dist
+          cp LICENSE dist/stonewright/LICENSE
           STONEWRIGHT_PRIVATE_TERMS="${{ secrets.STONEWRIGHT_PRIVATE_TERMS }}" \
             node scripts/check-public-hygiene.mjs \
               --root dist/stonewright \
@@ -120,15 +121,19 @@ jobs:
             node scripts/check-public-hygiene.mjs \
               --root dist/package-scan/visual \
               --require-private-terms
-          if tar -tzf "$companion_archive" | grep -Eq '(^|/)(sites\.json|audit-direct\.jsonl)$|(^|/)memory/'; then
+          if tar -tzf "$companion_archive" | grep -E '(^|/)(sites\.json|audit-direct\.jsonl)$|(^|/)memory/' >/dev/null; then
             echo "Companion archive contains private persistent runtime state" >&2
             exit 1
           fi
-          if unzip -Z1 "dist/stonewright-${version}.zip" | grep -Eq '^stonewright/(tests|bin)/|^stonewright/(phpunit|phpstan|phpcs)|^stonewright/composer\.lock$'; then
+          if unzip -Z1 "dist/stonewright-${version}.zip" | grep -E '^stonewright/(tests|bin)/|^stonewright/(phpunit|phpstan|phpcs)|^stonewright/composer\.lock$' >/dev/null; then
             echo "Plugin archive contains development-only files" >&2
             exit 1
           fi
-          if ! unzip -Z1 "dist/stonewright-${version}.zip" | grep -q '^stonewright/assets/visual/workspace-browser\.js$'; then
+          if ! unzip -Z1 "dist/stonewright-${version}.zip" | grep -E '^stonewright/LICENSE$' >/dev/null; then
+            echo "Plugin archive is missing the canonical license" >&2
+            exit 1
+          fi
+          if ! unzip -Z1 "dist/stonewright-${version}.zip" | grep -E '^stonewright/assets/visual/workspace-browser\.js$' >/dev/null; then
             echo "Plugin archive is missing the Stonewright Visual bundle" >&2
             exit 1
           fi
