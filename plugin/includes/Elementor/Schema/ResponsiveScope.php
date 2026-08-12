@@ -84,6 +84,29 @@ final class ResponsiveScope {
 	}
 
 	/**
+	 * Exact native switcher return values for Elementor's primary devices.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function native_visibility_values(): array {
+		return [
+			'hide_desktop' => 'hidden-desktop',
+			'hide_laptop'  => 'hidden-laptop',
+			'hide_tablet'  => 'hidden-tablet',
+			'hide_mobile'  => 'hidden-mobile',
+		];
+	}
+
+	public static function expected_visibility_value( string $key ): ?string {
+		return self::native_visibility_values()[ $key ] ?? null;
+	}
+
+	public static function visibility_value_is_valid( string $key, mixed $value ): bool {
+		$expected = self::expected_visibility_value( $key );
+		return null === $expected || '' === $value || $expected === $value;
+	}
+
+	/**
 	 * Decide whether a control accepts breakpoint-suffixed keys.
 	 *
 	 * Elementor's add_responsive_control() records the breakpoint bounds as an
@@ -189,6 +212,38 @@ final class ResponsiveScope {
 	 * @return bool|\WP_Error True when valid.
 	 */
 	public static function assert_settings_in_scope( array $settings, array $allowed_breakpoints, array $controls = [], string $widget_type = '' ): bool|\WP_Error {
+		foreach ( $settings as $key => $value ) {
+			$key      = (string) $key;
+			$expected = self::expected_visibility_value( $key );
+			if ( null === $expected || self::visibility_value_is_valid( $key, $value ) ) {
+				continue;
+			}
+			return new \WP_Error(
+				'stonewright_elementor_settings_invalid',
+				sprintf(
+					/* translators: 1: setting key, 2: exact native value */
+					__( 'Elementor visibility setting %1$s must be empty or use its native value %2$s.', 'stonewright' ),
+					$key,
+					$expected
+				),
+				[
+					'status'      => 400,
+					'widget_type' => $widget_type,
+					'violations'  => [
+						[
+							'path'        => 'settings.' . $key,
+							'code'        => 'invalid_responsive_visibility_value',
+							'expected'    => 'an empty value or ' . $expected,
+							'got_type'    => get_debug_type( $value ),
+							'suggestions' => [ '', $expected ],
+						],
+					],
+					'retryable'   => true,
+					'repair'      => 'Use the native Elementor Responsive switcher value for this device, then read back settings and verify frontend classes.',
+				]
+			);
+		}
+
 		$allowed = array_values(
 			array_unique(
 				array_map(

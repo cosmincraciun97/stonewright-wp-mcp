@@ -122,6 +122,39 @@ final class WidgetSchemaRepositoryTest extends TestCase {
 		self::assertSame( 'unknown_setting', $invalid->get_error_data()['violations'][0]['code'] );
 	}
 
+	public function test_container_schema_enforces_native_responsive_visibility_values(): void {
+		$invalid = SettingsValidator::validate_container( [ 'hide_desktop' => 'hidden' ] );
+		self::assertInstanceOf( \WP_Error::class, $invalid );
+		self::assertSame( 'stonewright_elementor_settings_invalid', $invalid->get_error_code() );
+		self::assertSame( 'invalid_responsive_visibility_value', $invalid->get_error_data()['violations'][0]['code'] );
+
+		$valid = SettingsValidator::validate_container(
+			[
+				'hide_desktop' => 'hidden-desktop',
+				'hide_laptop'  => 'hidden-laptop',
+				'hide_tablet'  => '',
+				'hide_mobile'  => 'hidden-mobile',
+			]
+		);
+		self::assertIsArray( $valid );
+	}
+
+	public function test_offline_container_schema_exposes_every_primary_visibility_switch(): void {
+		\Elementor\Plugin::$instance = (object) [
+			'elements_manager' => new class() {
+				public function get_element_types( string $name ): ?object {
+					return null;
+				}
+			},
+		];
+
+		$schema = ContainerSchemaRepository::get();
+		self::assertIsArray( $schema );
+		foreach ( [ 'hide_desktop', 'hide_laptop', 'hide_tablet', 'hide_mobile' ] as $key ) {
+			self::assertArrayHasKey( $key, $schema['controls'] );
+		}
+	}
+
 	public function test_responsive_url_and_recursive_repeater_shapes_are_validated(): void {
 		$valid = SettingsValidator::validate(
 			'third-party-card',
@@ -423,6 +456,10 @@ final class LiveContainerElement {
 			// layout controls even though breakpoint-suffixed values are native.
 			'flex_direction'     => [ 'type' => 'select' ],
 			'plugin_layout_token' => [ 'type' => 'select', 'responsive' => true, 'options' => [ 'wide' => 'Wide' ] ],
+			'hide_desktop'       => [ 'type' => 'switcher' ],
+			'hide_laptop'        => [ 'type' => 'switcher' ],
+			'hide_tablet'        => [ 'type' => 'switcher' ],
+			'hide_mobile'        => [ 'type' => 'switcher' ],
 		];
 	}
 }

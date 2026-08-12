@@ -580,6 +580,60 @@ describe('createMcpServer', () => {
 		expect(response.structuredContent?.recovery).toContain('If startup_ready is false, update/enable the missing startup tools in the WordPress Stonewright plugin, then restart the MCP session.');
 	});
 
+	it('uses the plugin-resolved profile catalog for refresh diagnostics', async () => {
+		const resolvedTools = [
+			'stonewright-context-bootstrap',
+			'stonewright-skills-get',
+			'stonewright-php-execute',
+		];
+		const fallback = stonewrightMcpFetch(resolvedTools.map((name) => ({ name })));
+		const fetchImpl: typeof fetch = async (url, init) => {
+			const body = JSON.parse(String(init?.body ?? '{}')) as {
+				method?: string;
+				params?: { name?: string };
+			};
+			if (body.method === 'tools/call' && body.params?.name === 'stonewright-tool-profile') {
+				const structuredContent = {
+					ok: true,
+					tools: resolvedTools,
+					mcp_surface: 'essential',
+					surface_revision: 7,
+				};
+				return new Response(JSON.stringify({
+					jsonrpc: '2.0',
+					id: 3,
+					result: {
+						structuredContent,
+						content: [{ type: 'text', text: JSON.stringify(structuredContent) }],
+					},
+				}), { headers: { 'content-type': 'application/json' } });
+			}
+			return fallback(url, init);
+		};
+
+		const server = await createMcpServer({
+			env: {
+				STONEWRIGHT_MCP_URL: 'https://example.com/wp-json/mcp/stonewright',
+				WP_API_USERNAME: 'admin',
+				WP_API_PASSWORD: 'pw',
+				STONEWRIGHT_MCP_TOOL_PROFILE: 'essential',
+			},
+			fetchImpl,
+		});
+		const tools = (server as { _registeredTools?: Record<string, { handler?: (input: unknown) => Promise<unknown> }> })._registeredTools ?? {};
+		const response = await tools['stonewright-wordpress-mcp-status']?.handler?.({}) as {
+			structuredContent?: {
+				profile_expected_tool_count?: number;
+				profile_missing_tool_names?: string[];
+				refresh_required_tool_names?: string[];
+			};
+		};
+
+		expect(response.structuredContent?.profile_expected_tool_count).toBe(resolvedTools.length);
+		expect(response.structuredContent?.profile_missing_tool_names).toEqual([]);
+		expect(response.structuredContent?.refresh_required_tool_names).toEqual([]);
+	});
+
 	it('wordpress-mcp-status reports the last seen surface_revision', async () => {
 		const remoteTools = [
 			{ name: 'stonewright-context-bootstrap' },

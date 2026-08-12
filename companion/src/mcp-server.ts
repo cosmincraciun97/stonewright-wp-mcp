@@ -28,7 +28,6 @@ import {
 	emitToolListChanged,
 	mergeServerInstructions,
 	proxyToolProfileFromEnv,
-	proxyToolNamesForProfile,
 	registerWordPressMcpPrompts,
 	registerWordPressMcpTools,
 	resolveWordPressMcpConfig,
@@ -247,7 +246,7 @@ async function bootstrapConnection(
 			...registration.registeredTools.map((tool) => tool.name),
 		]);
 		wpMcpStatus.startup_ready = wpMcpStatus.startup_missing_tool_names.length === 0;
-		const profileExpectedToolNames = proxyToolNamesForProfile(registration.profile);
+		const profileExpectedToolNames = registration.requestedToolNames;
 		const localToolNames = localToolNamesForProfile(registration.profile);
 		wpMcpStatus.profile_expected_tool_count = profileExpectedToolNames.length;
 		wpMcpStatus.client_visible_expected_tool_count = profileExpectedToolNames.length + localToolNames.length;

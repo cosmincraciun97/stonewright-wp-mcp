@@ -139,6 +139,7 @@ final class ContainerSchemaRepository {
 			'sticky_on'             => [ 'type' => 'select2', 'multiple' => true ],
 			'sticky_offset'         => [ 'type' => 'number', 'responsive' => true ],
 			'hide_desktop'          => [ 'type' => 'switcher' ],
+			'hide_laptop'           => [ 'type' => 'switcher' ],
 			'hide_tablet'           => [ 'type' => 'switcher' ],
 			'hide_mobile'           => [ 'type' => 'switcher' ],
 		];

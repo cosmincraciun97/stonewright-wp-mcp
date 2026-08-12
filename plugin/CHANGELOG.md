@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.9] - 2026-08-12
+
+### Added
+
+- Add a site-independent Elementor responsive-visibility rule to the packaged
+  native rule registry used by Plugin and Direct sessions.
+
+### Fixed
+
+- Reject bare `hidden` and cross-device values for the primary Elementor
+  `hide_*` switches; accept only the matching native device value or an empty
+  off state before any document write.
+
 ## [1.0.0-beta.8] - 2026-08-12
 
 ### Changed
@@ -92,28 +105,9 @@
 - Save all runtime Step 1 controls immediately and bump a shared surface
   revision so active transports can re-list without unrelated form writes.
 
-## [1.0.0-beta.4] - 2026-08-05
-
-### Added
-
-- Add the permanent audit/incident taxonomy, OAuth server rate-limit contract,
-  Elementor transaction receipts and evidence-preserving patch validation,
-  Gutenberg block batches, design manifests/comparison, and read-only form and
-  capability diagnostics.
-- Add a count-only, hash-bound runtime-history purge with production
-  confirmation, reviewed watermarks, concurrent-row preservation, and one
-  retained cleanup receipt.
-
-### Fixed
-
-- Bind OAuth tokens to the canonical MCP resource, publish the minimal `mcp`
-  resource scope, and revoke all descendant refresh and access tokens when a
-  rotated refresh token is replayed.
-- Neutralize spreadsheet formulas in redacted audit CSV exports and include
-  both OAuth audit transient families in purge hashes and counts.
-
 ## Older releases
 
+- [1.0.0-beta.4](../docs/releases/1.0.0-beta.4.md)
 - [1.0.0-beta.3](../docs/releases/1.0.0-beta.3.md)
 - [1.0.0-beta.2](../docs/releases/1.0.0-beta.2.md)
 - [1.0.0-beta.1](../docs/releases/1.0.0-beta.1.md)

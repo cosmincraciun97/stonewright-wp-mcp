@@ -76,7 +76,10 @@ The live Elementor schema is authoritative. Before the write:
 - request the exact responsive control keys and value domains;
 - preserve activator controls required by dependent settings;
 - use `_position` only when the live container schema exposes it;
-- use device-specific hide values exposed by the current runtime;
+- for the primary Elementor visibility switches, use only the matching native
+  values: `hide_desktop=hidden-desktop`, `hide_laptop=hidden-laptop`,
+  `hide_tablet=hidden-tablet`, and `hide_mobile=hidden-mobile`; never use bare
+  `hidden`;
 - keep unknown settings unchanged.
 
 A dry-run error can return `schema_requests`. Read each requested schema once,
@@ -106,6 +109,9 @@ The default verification viewports are the source desktop/mobile frames plus
 the site's tablet breakpoint. A page is complete only when the requested
 tolerances pass, there is no unintended horizontal overflow, visibility
 matches the contract, and screenshots show the expected rendered state.
+The Elementor editor canvas can still display a widget hidden for the frontend;
+that is expected. Read back the saved switcher value and verify the rendered
+frontend class and computed display at each requested device.
 
 ## Direct mode boundary
 

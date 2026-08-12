@@ -155,8 +155,8 @@ final class ResponsiveScopeTest extends TestCase {
 		$result = ResponsiveScope::assert_settings_in_scope(
 			[
 				'title_mobile' => 'Hi mobile',
-				'hide_desktop' => 'hidden',
-				'hide_tablet'  => 'hidden',
+				'hide_desktop' => 'hidden-desktop',
+				'hide_tablet'  => 'hidden-tablet',
 			],
 			[ 'mobile' ],
 			[
@@ -165,6 +165,44 @@ final class ResponsiveScopeTest extends TestCase {
 				'hide_tablet'  => [ 'type' => 'switcher' ],
 			],
 			'heading'
+		);
+
+		self::assertTrue( $result );
+	}
+
+	public function test_visibility_switchers_reject_bare_or_cross_device_hidden_values(): void {
+		foreach (
+			[
+				'hide_desktop' => 'hidden',
+				'hide_laptop'  => 'hidden-mobile',
+				'hide_tablet'  => 'hidden-desktop',
+				'hide_mobile'  => 'yes',
+			] as $key => $value
+		) {
+			$result = ResponsiveScope::assert_settings_in_scope(
+				[ $key => $value ],
+				[ 'desktop', 'laptop', 'tablet', 'mobile' ],
+				[ $key => [ 'type' => 'switcher' ] ],
+				'container'
+			);
+
+			self::assertInstanceOf( \WP_Error::class, $result, $key );
+			self::assertSame( 'stonewright_elementor_settings_invalid', $result->get_error_code(), $key );
+			self::assertSame( 'invalid_responsive_visibility_value', $result->get_error_data()['violations'][0]['code'], $key );
+		}
+	}
+
+	public function test_visibility_switchers_accept_empty_or_matching_device_values(): void {
+		$result = ResponsiveScope::assert_settings_in_scope(
+			[
+				'hide_desktop' => 'hidden-desktop',
+				'hide_laptop'  => 'hidden-laptop',
+				'hide_tablet'  => '',
+				'hide_mobile'  => 'hidden-mobile',
+			],
+			[ 'desktop', 'laptop', 'tablet', 'mobile' ],
+			[],
+			'container'
 		);
 
 		self::assertTrue( $result );

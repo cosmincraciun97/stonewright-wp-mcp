@@ -126,6 +126,7 @@ describe('handleToolsChangedResponse', () => {
 		const liveState = {
 			profile: 'bootstrap' as const,
 			surfaceRevision: null as number | null,
+			requestedToolNames: ['stonewright-context-bootstrap'],
 			enabledToolNames: [] as string[],
 			registeredToolCount: 0,
 			lastRefreshAt: null as string | null,
@@ -138,11 +139,13 @@ describe('handleToolsChangedResponse', () => {
 			removed: ['stonewright-elementor-page-digest'],
 			profile: 'essential',
 			desiredCount: 1,
+			desiredToolNames: ['stonewright-tool-profile'],
 		};
 
 		applyRefreshToLiveState(liveState, refresh, registered);
 
 		expect(liveState.profile).toBe('essential');
+		expect(liveState.requestedToolNames).toEqual(['stonewright-tool-profile']);
 		expect(liveState.enabledToolNames).toEqual(['stonewright-tool-profile']);
 		expect(liveState.registeredToolCount).toBe(2);
 		expect(liveState.lastRefreshAt).toBeTruthy();
