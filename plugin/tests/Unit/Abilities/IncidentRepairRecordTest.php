@@ -111,6 +111,47 @@ final class IncidentRepairRecordTest extends TestCase {
 		self::assertSame( 'stale', $this->db->memory_rows[1]['status'] );
 	}
 
+	public function test_learning_write_failure_leaves_incident_resolved_but_unpromoted(): void {
+		$this->seed_open_incident();
+		$this->db->audit_events = [
+			'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' => $this->failure_row(),
+			'dddddddd-dddd-4ddd-8ddd-dddddddddddd' => $this->success_row(),
+		];
+		$this->db->fail_memory_write = true;
+
+		$result = ( new IncidentRepairRecord() )->execute( $this->repair_args() );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_repair_learning_write_failed', $result->get_error_code() );
+		self::assertSame( 'resolved', IncidentStore::get( $this->incident_id() )['state'] );
+		self::assertSame( 'none', IncidentStore::get( $this->incident_id() )['learning_status'] );
+	}
+
+	public function test_learning_readback_failure_leaves_incident_resolved_but_unpromoted(): void {
+		$this->seed_open_incident();
+		$this->db->audit_events = [
+			'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' => $this->failure_row(),
+			'dddddddd-dddd-4ddd-8ddd-dddddddddddd' => $this->success_row(),
+		];
+		$this->db->fail_memory_readback = true;
+
+		$result = ( new IncidentRepairRecord() )->execute( $this->repair_args() );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 'stonewright_repair_learning_readback_failed', $result->get_error_code() );
+		self::assertSame( 'resolved', IncidentStore::get( $this->incident_id() )['state'] );
+		self::assertSame( 'none', IncidentStore::get( $this->incident_id() )['learning_status'] );
+	}
+
+	/** @return array<string, string> */
+	private function repair_args(): array {
+		return [
+			'incident_id'         => $this->incident_id(),
+			'resolution_event_id' => 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+			'repair_recipe'       => 'Read schema, replace rejected field, then verify readback.',
+		];
+	}
+
 	private function seed_open_incident(): void {
 		$failure = $this->incident_failure( 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' );
 		IncidentStore::observe( $failure );
@@ -179,6 +220,8 @@ final class IncidentRepairRecordTest extends TestCase {
 			public string $prefix = 'wptests_';
 			public string $last_error = '';
 			public int $insert_id = 0;
+			public bool $fail_memory_write = false;
+			public bool $fail_memory_readback = false;
 			/** @var array<string, array<string, mixed>> */
 			public array $audit_events = [];
 			/** @var array<int, array<string, mixed>> */
@@ -210,12 +253,14 @@ final class IncidentRepairRecordTest extends TestCase {
 			}
 			/** @return array<string, mixed>|null */
 			public function get_row( string $query, string $output = 'OBJECT' ): ?array {
+				if ( $this->fail_memory_readback && str_contains( $query, 'stonewright_memory' ) ) return null;
 				$id = (int) ( $this->args[0] ?? 0 );
 				return $this->memory_rows[ $id ] ?? null;
 			}
 			/** @param array<string, mixed> $data */
-			public function insert( string $table, array $data, array $formats = [] ): int {
+			public function insert( string $table, array $data, array $formats = [] ): int|false {
 				if ( str_contains( $table, 'stonewright_memory' ) ) {
+					if ( $this->fail_memory_write ) return false;
 					++$this->insert_id;
 					$data['id'] = $this->insert_id;
 					$data['created_at'] = '2026-08-12 10:02:00';
