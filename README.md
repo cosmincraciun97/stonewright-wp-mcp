@@ -18,6 +18,22 @@
   <img alt="wordpress" src="https://img.shields.io/badge/WordPress-%3E%3D6.7-21759b" />
 </p>
 
+<!-- supported-release:start -->
+<p align="center"><strong>Current release: 1.0.0-beta.10 — Public Beta</strong></p>
+<p align="center">
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.10/stonewright-1.0.0-beta.10.zip">Download Plugin</a>
+  ·
+  <a href="docs/installation.md">Installation guide</a>
+  ·
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.10/stonewright-companion-1.0.0-beta.10.tgz">Companion</a>
+  ·
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/v1.0.0-beta.10/SHA256SUMS.txt">Checksums</a>
+  ·
+  <a href="https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/tag/v1.0.0-beta.10">Release notes</a>
+</p>
+<p align="center"><sub>Preview builds appear on the complete Releases page and are not recommended by default.</sub></p>
+<!-- supported-release:end -->
+
 Stonewright MCP presents a compact, task-aware surface backed by **361 Plugin abilities** and **101 Direct tools**. Elementor is a first-class Plugin surface; Gutenberg, WooCommerce, WordPress REST, and tokenized WP-CLI workflows use the same evidence-oriented operating model.
 
 Stonewright does not promise that automation cannot fail. It adds concrete controls around supported changes: permissions, operating modes, confirmation tokens, pre-write snapshots, validation, typed readback, audit evidence, and restore paths. Use staging and normal infrastructure backups for production work.

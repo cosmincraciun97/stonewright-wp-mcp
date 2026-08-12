@@ -131,6 +131,54 @@ npm run build
   compatibility, provenance, or migration. Copied and derived code must keep
   attribution in `docs/upstream-code-reuse.md` and SPDX file headers.
 
+## Release decision gate
+
+- Before changing a version, tag, release state, or release workflow, present a
+  release decision record containing: the user-visible change, affected
+  artifacts, one recommended release class, proposed SemVer, evidence and known
+  gaps, risk and rollback, and required documentation.
+- Recommend exactly one class: **no release**, **supported public beta**,
+  **preview prerelease**, or **stable release**. Do not manufacture a version
+  bump for documentation, tests, plans, comments, or internal automation that
+  does not change a user-consumed artifact.
+- A supported public beta is recommended for general installation. It keeps
+  prerelease SemVer, but is a normal GitHub release marked `Latest`.
+- A preview prerelease is opt-in and is not recommended for general
+  installation. It keeps prerelease SemVer, is marked `Pre-release`, and must
+  never be `Latest`.
+- A stable release uses stable SemVer and `Latest` only after every stable gate
+  below is satisfied.
+- Never publish a tag, release, channel conversion, or stable declaration
+  without explicit maintainer approval after presenting the decision record.
+- Release notes must declare exactly one channel: `supported`, `preview`, or
+  `stable`. Release automation must validate the declaration against SemVer and
+  fail closed for missing, unknown, or incompatible combinations.
+
+### Stable 1.0 gates
+
+Recommend against stable 1.0 while any required gate is missing:
+
+1. No unresolved P0 or P1 defect affects installation, authentication,
+   permissions, backups, writes, update discovery, or recovery.
+2. Plugin and Direct contracts are documented, versioned, and internally
+   consistent; intentional experimental abilities are explicitly marked.
+3. The supported client matrix has runtime evidence for installation,
+   `stonewright-task-start`, status, required tools, and an empty required-tool
+   refresh list after restart.
+4. Plugin, companion, and updater versions align in official release artifacts,
+   not merely in source code or saved configuration.
+5. Upgrade, reinstall, rollback, and private-state preservation are tested.
+6. Production-safe permission, confirmation, backup, custom-code approval,
+   validation, audit, and secret-scanning gates are green.
+7. The complete CI matrix, packaging workflow, checksums, and official archive
+   inspection are green.
+8. Maintained installation, update, architecture, capability, security, and
+   release documentation is current.
+9. A supported public beta has completed a maintainer-approved stabilization
+   period without an unresolved release-blocking regression. Record the beta,
+   observed feedback, resolved blockers, and remaining limitations; elapsed
+   time alone is not proof of stability.
+
 ## Public repository hygiene
 
 - Never commit customer or private-project names, domains, local site aliases,

@@ -220,18 +220,22 @@ legacy reconciliation stays retryable if any eligible memory update fails.
 
 ### Release-channel update discovery
 
-The native updater derives its channel from the installed semantic version.
-Stable builds inspect only complete, non-draft stable releases; prerelease
-builds inspect only complete, non-draft prereleases. Each channel has an
-isolated cache, and both the Plugin ZIP and companion package must use exact
-versioned filenames under the trusted GitHub release-download origin. Invalid
-metadata, missing assets, or a channel mismatch leave the installed version in
-place instead of falling back to another channel.
+The native updater derives compatibility from the installed semantic version.
+Stable builds inspect only complete, non-draft stable versions; prerelease
+builds inspect only complete, non-draft prerelease versions. GitHub presentation
+is a separate, explicit support decision: a supported public beta is a normal
+`Latest` release, a limited preview is a `Pre-release`, and a stable version is
+a normal `Latest` release. Each updater compatibility channel has an isolated
+cache, and both the Plugin ZIP and companion package must use exact versioned
+filenames under the trusted GitHub release-download origin. Invalid metadata,
+missing assets, or a SemVer mismatch leave the installed version in place
+instead of crossing compatibility channels.
 
 The Connect update status consumes that same selected release, so Plugin and
-companion recommendations cannot disagree. Future beta and release-candidate
-tags are created as GitHub prereleases; stable tags alone receive the latest
-release marker.
+companion recommendations cannot disagree. Versioned release notes declare
+`supported`, `preview`, or `stable`; release automation validates the declared
+support channel against SemVer before choosing GitHub's `Latest` or
+`Pre-release` state.
 
 ### External browser consent boundary
 

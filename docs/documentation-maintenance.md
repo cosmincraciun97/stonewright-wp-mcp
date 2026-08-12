@@ -41,6 +41,14 @@ imported reference snapshots with source metadata. Do not hand-edit either.
 
 ## Required review for releases and major changes
 
+Before any version, tag, channel, or release-workflow change, the agent presents
+the release decision record required by `AGENTS.md` and recommends exactly one
+release class. Publication or channel conversion waits for explicit maintainer
+approval. Every versioned `docs/releases/<version>.md` file used for a new
+publication declares exactly one `Release channel: <channel>` line, where the
+channel is `supported`, `preview`, or `stable`. Automation validates that
+declaration against SemVer and fails closed on disagreement.
+
 Review every affected item in the same PR:
 
 - `README.md`, `plugin/README.md`, and `companion/README.md`;
@@ -71,6 +79,7 @@ cd plugin
 composer docs:matrix
 ```
 
-The documentation check validates version agreement, current release notes,
-changelog heads, evergreen package URLs, required install-prompt contracts, and
-relative Markdown links. CI and the release workflow run it automatically.
+The documentation check validates version agreement, current release notes and
+their explicit channel, changelog heads, evergreen package URLs, the supported
+release block, required install-prompt contracts, and relative Markdown links.
+CI and the release workflow run it automatically.
