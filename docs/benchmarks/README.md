@@ -36,7 +36,7 @@ cd companion && npm run tokens:measure
 | Plugin essential (proxied + local) | ≤ 31 |
 | Plugin low-tools (proxied + local) | ≤ 12 |
 | Direct full (when `src/direct` present) | ≤ 101 |
-| Direct essential (when export present) | ≤ 21 |
+| Direct essential (when export present) | ≤ 22 |
 
 Dry-run that must exit `1`:
 

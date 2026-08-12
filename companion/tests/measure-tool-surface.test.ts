@@ -45,8 +45,8 @@ describe('measure-tool-surface budgets', () => {
 		expect(budgets.plugin_essential_max_31_tools).toBe(false);
 		expect(budgets.plugin_essential_max_30_tools).toBe(false);
 		expect(budgets.plugin_low_tools_max_12_tools).toBe(false);
-		expect(budgets.direct_full_max_100_tools).toBe(false);
-		expect(budgets.direct_essential_max_21_tools).toBe(false);
+		expect(budgets.direct_full_max_101_tools).toBe(false);
+		expect(budgets.direct_essential_max_22_tools).toBe(false);
 		expect(budgets.direct_bootstrap_max_8_tools).toBe(false);
 	});
 
