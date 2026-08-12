@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.10] - 2026-08-12
+
+### Added
+
+- Add a private per-site Direct incident store and
+  `stonewright-incident-repair-record` with strict correlated evidence,
+  readback verification, recurrence handling, and compact task-start actions.
+
+### Changed
+
+- Keep audit-derived learning guidance-only until a successful repair is
+  proven; stale a promoted lesson when the same failure recurs.
+
 ## [1.0.0-beta.9] - 2026-08-12
 
 ### Fixed
