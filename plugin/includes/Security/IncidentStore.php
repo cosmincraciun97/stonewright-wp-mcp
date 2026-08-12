@@ -3,7 +3,9 @@ declare( strict_types=1 );
 
 namespace Stonewright\WpMcp\Security;
 
+use Stonewright\WpMcp\Memory\Memory;
 use Stonewright\WpMcp\Support\Json;
+use Stonewright\WpMcp\Support\Logger;
 
 /**
  * First-class lifecycle store for recurring operational incidents.
@@ -108,6 +110,10 @@ final class IncidentStore {
 			$row['repair_receipt_id'] = '';
 			if ( 'promoted' === (string) ( $existing['learning_status'] ?? '' ) ) {
 				$row['learning_status'] = 'stale';
+				$memory_key = (string) ( $existing['learning_memory_key'] ?? '' );
+				if ( '' !== $memory_key && ! Memory::set_status_by_key( 'verified-repairs', $memory_key, 'stale' ) ) {
+					Logger::error( 'incident_learning_stale_failed', [ 'incident_id' => $incident_id, 'memory_key' => $memory_key ] );
+				}
 			}
 		}
 

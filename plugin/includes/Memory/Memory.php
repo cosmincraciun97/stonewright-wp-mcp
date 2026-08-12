@@ -576,6 +576,19 @@ final class Memory {
 		return ( false !== $result );
 	}
 
+	/** Update lifecycle status for one exact scoped key. */
+	public static function set_status_by_key( string $scope, string $key, string $status ): bool {
+		global $wpdb;
+		$id = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT id FROM ' . self::table_name() . ' WHERE scope = %s AND memory_key = %s', // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- owned table and prepared values.
+				$scope,
+				$key
+			)
+		);
+		return $id > 0 && self::update_by_id( $id, [ 'status' => $status ] );
+	}
+
 	/** @param array<string, mixed> $entry */
 	public static function is_active( array $entry ): bool {
 		if ( 'active' !== (string) ( $entry['status'] ?? 'active' ) ) {

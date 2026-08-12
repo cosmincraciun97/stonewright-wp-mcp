@@ -89,10 +89,40 @@ final class IncidentRepairRecordTest extends TestCase {
 		self::assertCount( 1, $this->db->memory_rows );
 	}
 
+	public function test_matching_recurrence_stales_promoted_memory_without_deleting_it(): void {
+		$this->seed_open_incident();
+		$this->db->audit_events = [
+			'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' => $this->failure_row(),
+			'dddddddd-dddd-4ddd-8ddd-dddddddddddd' => $this->success_row(),
+		];
+		$ability = new IncidentRepairRecord();
+		$result = $ability->execute( [
+			'incident_id'         => $this->incident_id(),
+			'resolution_event_id' => 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+			'repair_recipe'       => 'Read schema, replace rejected field, then verify readback.',
+		] );
+		self::assertIsArray( $result );
+
+		$reopened = IncidentStore::observe( $this->incident_failure( 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee' ) );
+
+		self::assertSame( 'open', $reopened['state'] );
+		self::assertSame( 'stale', $reopened['learning_status'] );
+		self::assertCount( 1, $this->db->memory_rows );
+		self::assertSame( 'stale', $this->db->memory_rows[1]['status'] );
+	}
+
 	private function seed_open_incident(): void {
-		$failure = [
+		$failure = $this->incident_failure( 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' );
+		IncidentStore::observe( $failure );
+		$failure['event_id'] = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+		IncidentStore::observe( $failure );
+	}
+
+	/** @return array<string, mixed> */
+	private function incident_failure( string $event_id ): array {
+		return [
 			'incident_id'          => $this->incident_id(),
-			'event_id'             => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+			'event_id'             => $event_id,
 			'outcome'              => AuditEvent::OUTCOME_FAILED,
 			'category'             => AuditEvent::CATEGORY_VALIDATION,
 			'severity_level'       => 'high',
@@ -107,9 +137,6 @@ final class IncidentRepairRecordTest extends TestCase {
 			'expected_verifier'    => 'stonewright/example-verify',
 			'change_set_id'        => 'change-set-a',
 		];
-		IncidentStore::observe( $failure );
-		$failure['event_id'] = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-		IncidentStore::observe( $failure );
 	}
 
 	/** @return array<string, mixed> */
