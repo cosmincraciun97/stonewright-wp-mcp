@@ -74,6 +74,9 @@ This reuses the existing credential reference, refreshes only the named client
 entry, and makes the alias authoritative over stale inherited WordPress
 environment values. Restart the client, then run `connect verify`; another
 alias or `active_mode=direct` is a failed plugin-mode update, not success.
+The repair receipt is content-free: it confirms the server name, change/backup
+state, support tier, and browser consent without printing the surrounding
+private client configuration or absolute config/backup paths.
 
 Direct mode keeps its private state under `~/.stonewright/`. Replacing the
 companion package does not reset its memory, user-created skills, site

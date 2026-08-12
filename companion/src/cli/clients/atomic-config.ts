@@ -113,10 +113,9 @@ export function atomicWriteText(path: string, contents: string, mode = 0o600): v
 	}
 }
 
-export function redactedDiff(before: string | null, after: string, label: string): string {
+export function redactedDiff(before: string | null, after: string, _label: string): string {
 	const a = (before ?? '').split('\n');
 	const b = after.split('\n');
-	const lines: string[] = [`--- ${label} (before)`, `+++ ${label} (after)`];
 	const max = Math.max(a.length, b.length);
 	let changes = 0;
 	for (let i = 0; i < max; i++) {
@@ -124,28 +123,11 @@ export function redactedDiff(before: string | null, after: string, label: string
 		const right = b[i];
 		if (left === right) continue;
 		changes += 1;
-		if (left !== undefined) {
-			lines.push(`- ${redactLine(left)}`);
-		}
-		if (right !== undefined) {
-			lines.push(`+ ${redactLine(right)}`);
-		}
-		if (changes > 40) {
-			lines.push('… (diff truncated)');
-			break;
-		}
 	}
 	if (changes === 0) {
-		return `(no textual change in ${label})`;
+		return 'Client configuration unchanged; contents withheld.';
 	}
-	return lines.join('\n');
-}
-
-function redactLine(line: string): string {
-	return line
-		.replace(/(PASSWORD|TOKEN|SECRET|AUTHORIZATION)\s*[=:]\s*["']?[^"'\s]+/gi, '$1=***')
-		.replace(/Basic\s+[A-Za-z0-9+/=]+/gi, 'Basic ***')
-		.replace(/["'](?:[A-Za-z0-9]{4}\s+){5}[A-Za-z0-9]{4}["']/g, '"***"');
+	return `Client configuration updated (${changes} changed line positions); contents withheld.`;
 }
 
 /**
@@ -155,14 +137,16 @@ export function writeWithRollback(args: {
 	path: string;
 	nextContents: string;
 	validate: (path: string) => void;
-}): { backupPath: string | null; diff: string } {
+}): { backupPath: string | null; changed: boolean; diff: string } {
 	const before = readTextFile(args.path);
+	const changed = before !== args.nextContents;
 	const backupPath = backupFile(args.path);
 	try {
 		atomicWriteText(args.path, args.nextContents);
 		args.validate(args.path);
 		return {
 			backupPath,
+			changed,
 			diff: redactedDiff(before, args.nextContents, args.path),
 		};
 	} catch (err) {

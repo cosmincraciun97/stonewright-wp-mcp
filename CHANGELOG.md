@@ -11,6 +11,15 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+## [1.0.0-beta.7] - 2026-08-12
+
+### Fixed
+
+- Keep `connect add` and `connect repair` receipts content-free: client config
+  contents, unrelated local settings, absolute config paths, and backup paths
+  are withheld while the receipt retains the server name, change state, backup
+  state, support tier, and browser consent metadata.
+
 ## [1.0.0-beta.6] - 2026-08-12
 
 ### Changed
@@ -169,7 +178,12 @@ development builds were never stable releases.
 - Clarify escaped-layout PHP parsing and refuse ambiguous heredoc, nowdoc,
   script, style, and interpolation candidates instead of corrupting snippets.
 
-## [1.0.0-beta.2] - 2026-07-30
+## Older releases
+
+- [1.0.0-beta.2](docs/releases/1.0.0-beta.2.md)
+- [1.0.0-beta.1](docs/releases/1.0.0-beta.1.md)
+
+### 1.0.0-beta.2 — 2026-07-30
 
 ### Added
 
@@ -195,10 +209,6 @@ development builds were never stable releases.
 - Center the complete Domain Lock control group, keep Sandbox file-type badges
   readable, remove inline click handling from category actions, and correct
   low-contrast setup code blocks and focus rings.
-
-## Older releases
-
-See [1.0.0-beta.1](docs/releases/1.0.0-beta.1.md) for the first public beta.
 
 ### 1.0.0-beta.1 — 2026-07-30
 

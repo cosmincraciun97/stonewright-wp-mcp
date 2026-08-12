@@ -776,16 +776,16 @@ function applyClientBinding(
 	const nextRegistry = upsertSite(registry, nextSite, { replace: true });
 	return {
 		registry: nextRegistry,
-			receipt: {
+		receipt: {
 			client: adapter.id,
 			server_name: serverName,
-			config_path: configPath,
-			backup_path: applied.backupPath,
+			config_changed: applied.changed,
+			backup_created: applied.backupPath !== null,
 			created: applied.created,
-			diff: applied.diff,
-				support_tier: adapter.supportTier,
-				browser: nextSite.clients[adapter.id]?.browser,
-			},
+			change_summary: applied.diff,
+			support_tier: adapter.supportTier,
+			browser: nextSite.clients[adapter.id]?.browser,
+		},
 		rollback: () => restoreFileSnapshot(configPath, before),
 	};
 }
