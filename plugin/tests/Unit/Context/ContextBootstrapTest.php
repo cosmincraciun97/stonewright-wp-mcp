@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Tests\Unit\Context;
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Abilities\System\ContextBootstrap;
 use Stonewright\WpMcp\Context\ContextToken;
+use Stonewright\WpMcp\Security\IncidentStore;
 
 /**
  * @covers \Stonewright\WpMcp\Abilities\System\ContextBootstrap
@@ -17,6 +18,7 @@ final class ContextBootstrapTest extends TestCase {
 	private mixed $original_wpdb;
 
 	protected function setUp(): void {
+		IncidentStore::reset_for_tests();
 		$this->original_wpdb = $GLOBALS['wpdb'] ?? null;
 		$GLOBALS['stonewright_test_current_user_id'] = 7;
 		$GLOBALS['stonewright_test_user_caps'] = [ 'read' => true, 'manage_options' => true ];
@@ -31,6 +33,7 @@ final class ContextBootstrapTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		IncidentStore::reset_for_tests();
 		if ( null !== $this->original_wpdb ) {
 			$GLOBALS['wpdb'] = $this->original_wpdb;
 		} else {

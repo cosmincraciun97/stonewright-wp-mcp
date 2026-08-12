@@ -10,6 +10,8 @@ use Stonewright\WpMcp\Design\Direction\DesignDirectionService;
 use Stonewright\WpMcp\Design\Direction\DirectionContractValidator;
 use Stonewright\WpMcp\Design\Direction\ElementorKitSyncPlanner;
 use Stonewright\WpMcp\Design\Direction\ElementorKitWriter;
+use Stonewright\WpMcp\Security\AuditEvent;
+use Stonewright\WpMcp\Security\IncidentStore;
 use Stonewright\WpMcp\Support\ErrorEnvelope;
 
 /**
@@ -21,6 +23,8 @@ final class ContractTest extends TestCase {
 	private const FIXTURE_DIR = __DIR__ . '/../fixtures/abilities';
 
 	protected function setUp(): void {
+		IncidentStore::reset_for_tests();
+		$GLOBALS['stonewright_test_audit_rows'] = [];
 		$GLOBALS['stonewright_test_user_caps'] = array_fill_keys(
 			[
 				'read',
@@ -361,6 +365,9 @@ final class ContractTest extends TestCase {
 
 		$this->assertArrayNotHasKey( 'skip', $fixture, $slug . '.json must not skip contract coverage.' );
 		$this->assertNotSame( 'wp_error', $fixture['expect'] ?? 'ok', $slug . '.json must be a successful output-schema fixture.' );
+		if ( 'stonewright/incident-repair-record' === $ability->name() ) {
+			$this->seed_verified_repair_contract();
+		}
 
 		$result = $ability->execute( $args );
 
@@ -407,6 +414,57 @@ final class ContractTest extends TestCase {
 
 	private static function fixture_slug( string $ability_name ): string {
 		return str_replace( [ 'stonewright/', '/', '.' ], [ '', '-', '-' ], $ability_name );
+	}
+
+	private function seed_verified_repair_contract(): void {
+		$incident_id = hash( 'sha256', 'contract-verified-repair' );
+		$failure_id  = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+		$success_id  = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+		$resource    = hash( 'sha256', 'contract-resource' );
+		$failure     = [
+			'incident_id'          => $incident_id,
+			'event_id'             => $failure_id,
+			'outcome'              => AuditEvent::OUTCOME_FAILED,
+			'category'             => AuditEvent::CATEGORY_VALIDATION,
+			'severity_level'       => 'high',
+			'ability'              => 'stonewright/example-write',
+			'ability_family'       => 'example',
+			'root_error_code'      => 'stonewright_example_invalid',
+			'resource_type'        => 'post',
+			'resource_key_hash'    => $resource,
+			'normalized_path'      => 'example/settings/title',
+			'cause_fingerprint'    => hash( 'sha256', 'contract-cause' ),
+			'strategy_fingerprint' => hash( 'sha256', 'contract-strategy' ),
+			'expected_verifier'    => 'stonewright/example-verify',
+			'change_set_id'        => 'contract-change-set',
+		];
+		IncidentStore::observe( $failure );
+		IncidentStore::observe( $failure );
+		$GLOBALS['stonewright_test_audit_rows'] = [
+			[
+				'event_id'          => $failure_id,
+				'ability_name'      => 'stonewright/example-write',
+				'outcome'           => AuditEvent::OUTCOME_FAILED,
+				'category'          => AuditEvent::CATEGORY_VALIDATION,
+				'change_set_id'     => 'contract-change-set',
+				'resource_key_hash' => $resource,
+				'normalized_path'   => 'example/settings/title',
+				'created_at'        => gmdate( 'Y-m-d H:i:s', time() - 60 ),
+			],
+			[
+				'event_id'            => $success_id,
+				'ability_name'        => 'stonewright/example-verify',
+				'outcome'             => AuditEvent::OUTCOME_SUCCESS,
+				'category'            => AuditEvent::CATEGORY_VERIFY,
+				'verification_status' => 'verified',
+				'effect_verified'     => 1,
+				'change_set_id'       => 'contract-change-set',
+				'resource_key_hash'   => $resource,
+				'normalized_path'     => 'example/settings/title',
+				'after_sha256'        => hash( 'sha256', 'contract-after' ),
+				'created_at'          => gmdate( 'Y-m-d H:i:s', time() + 60 ),
+			],
+		];
 	}
 
 	/**

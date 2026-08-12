@@ -1,0 +1,8 @@
+{
+  "args": {
+    "incident_id": "0000000000000000000000000000000000000000000000000000000000000000",
+    "resolution_event_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "repair_recipe": "Read the typed schema, repair the rejected field, then verify the persisted readback."
+  },
+  "expect": "wp_error"
+}

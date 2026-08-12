@@ -67,7 +67,7 @@ final class BuiltInSkillFilesTest extends TestCase {
 		self::assertStringContainsString( 'block supports', $gutenberg_body );
 		self::assertStringContainsString( 'Create Block Theme', $gutenberg_body );
 		self::assertStringContainsString( 'prototype-to-production workflow', $gutenberg_body );
-		self::assertStringContainsString( 'AI agents that design and build Elementor pages safely', $readme_body );
+		self::assertStringContainsString( 'Stonewright proves what changed and gives you a way back', $readme_body );
 		self::assertStringContainsString( 'Persistent project memory', $readme_body );
 		self::assertStringContainsString( 'Elementor widget and schema intelligence', $readme_body );
 		self::assertStringContainsString( 'Gutenberg, FSE, templates, patterns, and `theme.json`', $readme_body );

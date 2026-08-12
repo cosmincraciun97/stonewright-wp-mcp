@@ -1,0 +1,8 @@
+{
+  "args": {
+    "incident_id": "fdefd178ba0040edf01f22358e525f1c7e4248c4044b8354c0655e3ac86acc6e",
+    "resolution_event_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "repair_recipe": "Read the typed schema, repair the rejected field, then verify the persisted readback."
+  },
+  "expect": "ok"
+}

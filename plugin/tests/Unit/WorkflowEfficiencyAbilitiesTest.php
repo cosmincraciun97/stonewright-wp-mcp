@@ -13,6 +13,7 @@ use Stonewright\WpMcp\Abilities\System\ToolProfile;
 use Stonewright\WpMcp\Abilities\System\WorkflowPreflight;
 use Stonewright\WpMcp\Abilities\System\TaskStart;
 use Stonewright\WpMcp\Core\AbilityRegistry;
+use Stonewright\WpMcp\Security\IncidentStore;
 
 /**
  * @covers \Stonewright\WpMcp\Abilities\System\WorkflowPreflight
@@ -23,6 +24,7 @@ use Stonewright\WpMcp\Core\AbilityRegistry;
 final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 
 	protected function setUp(): void {
+		IncidentStore::reset_for_tests();
 		$_SERVER['HTTP_MCP_SESSION_ID'] = 'workflow-session';
 		$GLOBALS['stonewright_test_transients'] = [];
 		$GLOBALS['stonewright_test_options'] = [
@@ -59,6 +61,7 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
+		IncidentStore::reset_for_tests();
 		unset( $_SERVER['HTTP_MCP_SESSION_ID'] );
 		$GLOBALS['stonewright_test_transients'] = [];
 		$GLOBALS['stonewright_test_options'] = [];
