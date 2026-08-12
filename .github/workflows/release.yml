@@ -145,10 +145,7 @@ jobs:
           if [ ! -f "$notes" ]; then
             notes="docs/releases/checklist.md"
           fi
-          # The public beta is the current supported release. GitHub's
-          # /releases/latest API and repository sidebar ignore prereleases,
-          # which would also disable Stonewright's native update checker.
-          release_flags=(--latest)
+          release_flag="$(node scripts/release-flags.mjs "$version")"
           gh release create "$GITHUB_REF_NAME" \
             "dist/stonewright-${version}.zip" \
             dist/stonewright-companion-*.tgz \
@@ -156,4 +153,4 @@ jobs:
             dist/SHA256SUMS.txt \
             --title "Stonewright ${GITHUB_REF_NAME}" \
             --notes-file "$notes" \
-            "${release_flags[@]}"
+            "$release_flag"
