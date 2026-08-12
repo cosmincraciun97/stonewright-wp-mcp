@@ -58,7 +58,7 @@ final class IncidentLessonSeparationTest extends TestCase {
 		self::assertSame( [], array_values( $hit ), 'Unresolved incidents must not auto-create learning-audit-error-* rows' );
 	}
 
-	public function test_verified_recipe_promotes_learning_once(): void {
+	public function test_uncorrelated_recipe_never_promotes_learning(): void {
 		Memory::maybe_install_table();
 		$args = [ 'error_code' => 'stonewright_demo_failure', 'message' => 'Demo failed' ];
 		ErrorPatterns::observe( 'stonewright/demo-ability', 'error', $args );
@@ -80,11 +80,7 @@ final class IncidentLessonSeparationTest extends TestCase {
 				static fn( array $row ): bool => 'active' === (string) ( $row['status'] ?? '' )
 			)
 		);
-		self::assertCount( 1, $active );
-		self::assertSame( 'promoted_learning', $active[0]['value']['state'] ?? null );
-		self::assertStringContainsString( 'Read the schema first', (string) ( $active[0]['value']['correction'] ?? '' ) );
-		// Dual fields allowed only after verification for the concrete recipe.
-		self::assertSame( $active[0]['value']['correction'], $active[0]['value']['lesson'] );
+		self::assertSame( [], $active );
 	}
 
 	public function test_verified_success_without_recipe_does_not_invent_lesson(): void {

@@ -77,7 +77,7 @@ final class ErrorPatternsPromotionTest extends TestCase {
 		self::assertSame( [], array_values( $hit ) );
 	}
 
-	public function test_verified_success_resolves_incident_without_inventing_a_rule(): void {
+	public function test_same_ability_success_without_receipt_neither_resolves_nor_teaches(): void {
 		Memory::maybe_install_table();
 		$args = [ 'error_code' => 'stonewright_demo_failure', 'message' => 'Demo failed' ];
 		ErrorPatterns::observe( 'stonewright/demo-ability', 'error', $args );
@@ -92,15 +92,15 @@ final class ErrorPatternsPromotionTest extends TestCase {
 			]
 		);
 
-		// Without a concrete repair_recipe, no learning row is minted.
+		// ErrorPatterns is recurrence-only. Generic success is not lifecycle proof.
 		$rows = Memory::list_by_type( 'feedback', 50, 0 );
 		self::assertSame( [], $rows );
 		$store = get_option( ErrorPatterns::OPTION_KEY, [] );
 		$sig   = ErrorPatterns::signature( 'stonewright/demo-ability', $args );
-		self::assertSame( 'verified_resolved', $store[ $sig ]['state'] ?? null );
+		self::assertSame( 'repair_proposed', $store[ $sig ]['state'] ?? null );
 	}
 
-	public function test_concrete_verified_recipe_promotes_one_active_repair(): void {
+	public function test_agent_supplied_recipe_without_canonical_receipt_does_not_promote(): void {
 		Memory::maybe_install_table();
 		$args = [ 'error_code' => 'stonewright_demo_failure', 'message' => 'Demo failed' ];
 		ErrorPatterns::observe( 'stonewright/demo-ability', 'error', $args );
@@ -122,9 +122,10 @@ final class ErrorPatternsPromotionTest extends TestCase {
 				static fn( array $row ): bool => 'active' === (string) ( $row['status'] ?? '' )
 			)
 		);
-		self::assertCount( 1, $active );
-		self::assertSame( 'promoted_learning', $active[0]['value']['state'] ?? null );
-		self::assertStringContainsString( 'Read the schema first', (string) ( $active[0]['value']['correction'] ?? '' ) );
+		self::assertSame( [], $active );
+		$store = get_option( ErrorPatterns::OPTION_KEY, [] );
+		$sig   = ErrorPatterns::signature( 'stonewright/demo-ability', $args );
+		self::assertSame( 'repair_proposed', $store[ $sig ]['state'] ?? null );
 	}
 
 	/**

@@ -134,7 +134,7 @@ abstract class AbilityKernel implements Ability {
 			$sanitized['_meta'] = $metadata;
 		}
 		AuditLog::record( $this->name(), $sanitized, $status );
-		if ( 'ok' === $status && is_array( $result ) ) {
+		if ( 'ok' === $status && is_array( $result ) && isset( $result['verified_repair_receipt'] ) ) {
 			\Stonewright\WpMcp\Security\ErrorPatterns::observe_verified_repair( $this->name(), $result );
 		}
 		return $result;

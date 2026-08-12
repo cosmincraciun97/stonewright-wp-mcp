@@ -106,7 +106,7 @@ final class ErrorPatternsTest extends TestCase {
 		$mid = (string) file_get_contents( $log_file );
 		self::assertStringNotContainsString( 'error_pattern_learning_write_failed', $mid );
 
-		// Verified recipe promotion is the only automatic learning write path.
+		// Agent-supplied success/recipe data is not canonical repair proof.
 		ErrorPatterns::observe_verified_repair(
 			'stonewright/demo-ability',
 			[
@@ -120,8 +120,8 @@ final class ErrorPatternsTest extends TestCase {
 		$log = (string) file_get_contents( $log_file );
 		@unlink( $log_file );
 
-		self::assertStringContainsString( 'error_pattern_learning_write_failed', $log );
-		self::assertStringContainsString( 'verified-repair-', $log );
+		self::assertStringNotContainsString( 'error_pattern_learning_write_failed', $log );
+		self::assertStringNotContainsString( 'verified-repair-', $log );
 	}
 
 	public function test_audit_log_records_error_pattern_throws(): void {
