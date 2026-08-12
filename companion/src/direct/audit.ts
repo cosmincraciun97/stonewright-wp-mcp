@@ -2,6 +2,7 @@ import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync } from '
 import { createHash, randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { DirectIncidentStore } from './incidents.js';
 
 export interface DirectAuditEntry {
 	tool: string;
@@ -31,6 +32,12 @@ export interface DirectAuditEntry {
 	severity?: string;
 }
 
+export type PersistedDirectAuditEntry = {
+	request_id: string;
+	site_fingerprint: string;
+	[key: string]: unknown;
+};
+
 export function defaultStateDir(env: NodeJS.ProcessEnv = process.env): string {
 	const override = (env['STONEWRIGHT_STATE_DIR'] ?? '').trim();
 	if (override) {
@@ -57,7 +64,7 @@ export function redactDirectAuditText(value: string): string {
 export function appendDirectAudit(
 	entry: DirectAuditEntry,
 	path = defaultAuditPath(),
-): void {
+): PersistedDirectAuditEntry {
 	const dir = dirname(path);
 	if (!existsSync(dir)) {
 		mkdirSync(dir, { recursive: true, mode: 0o700 });
@@ -77,7 +84,9 @@ export function appendDirectAudit(
 	const code = entry.code
 		? redactDirectAuditText(entry.code).slice(0, 190)
 		: null;
-	const row = {
+	const requestId = entry.requestId ?? randomUUID();
+	const siteFingerprint = createHash('sha256').update(entry.site).digest('hex');
+	const row: PersistedDirectAuditEntry = {
 		tool: entry.tool,
 		site: entry.site,
 		resource,
@@ -90,7 +99,7 @@ export function appendDirectAudit(
 		resource_type: entry.resourceType ?? null,
 		resource_ref: resource,
 		change_set_id: entry.changeSetId ?? null,
-		request_id: entry.requestId ?? randomUUID(),
+		request_id: requestId,
 		parent_request_id: entry.parentRequestId ?? null,
 		execution_status: executionStatus,
 		verification_status: verificationStatus,
@@ -110,7 +119,7 @@ export function appendDirectAudit(
 			: null,
 		duration_ms: entry.durationMs ?? null,
 		backend: 'direct',
-		site_fingerprint: createHash('sha256').update(entry.site).digest('hex'),
+		site_fingerprint: siteFingerprint,
 		mode: entry.mode ?? 'direct',
 		severity:
 			entry.severity ??
@@ -124,6 +133,17 @@ export function appendDirectAudit(
 	if (process.platform !== 'win32') {
 		chmodSync(path, 0o600);
 	}
+	if (entry.status === 'error') {
+		new DirectIncidentStore(dirname(path), siteFingerprint).observeFailure({
+			event_id: requestId,
+			ability: entry.tool,
+			error_code: code ?? 'unknown_error',
+			cause_key: entry.causeKey ?? `${entry.tool}|${code ?? 'unknown_error'}`,
+			severity: entry.severity ?? 'error',
+			timestamp: String(row['timestamp']),
+		});
+	}
+	return row;
 }
 
 export type DirectRecurringError = {
