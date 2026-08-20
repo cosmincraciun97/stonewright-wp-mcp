@@ -31,7 +31,6 @@ final class OAuthClientConfig {
 			'claude-code'     => 'Claude Code',
 			'windsurf'        => 'Windsurf',
 			'codex-cli'       => 'Codex CLI',
-			'codex'           => 'Codex',
 			'antigravity'     => 'Antigravity',
 			'antigravity-cli' => 'Antigravity CLI',
 			'cursor'          => 'Cursor',
@@ -47,6 +46,21 @@ final class OAuthClientConfig {
 			'opencode'        => 'OpenCode',
 			'generic-mcp'     => 'Generic MCP',
 		];
+	}
+
+	/**
+	 * Hidden chip aliases kept for saved client selections.
+	 *
+	 * @return array<string, string> alias slug => canonical slug
+	 */
+	public static function client_slug_aliases(): array {
+		return [
+			'codex' => 'codex-cli',
+		];
+	}
+
+	public static function resolve_client_slug( string $slug ): string {
+		return self::client_slug_aliases()[ $slug ] ?? $slug;
 	}
 
 	/**
@@ -67,8 +81,20 @@ final class OAuthClientConfig {
 	public static function default_server_name(): string {
 		$host = (string) wp_parse_url( home_url(), PHP_URL_HOST );
 		$host = preg_replace( '/^www\./', '', strtolower( $host ) ) ?? '';
-		$slug = preg_replace( '/[^a-z0-9-]+/', '-', $host ) ?? '';
-		$slug = rtrim( substr( trim( $slug, '-' ), 0, 16 ), '-' );
+		foreach ( [ '.local', '.test', '.localhost', '.ddev.site', '.lndo.site' ] as $suffix ) {
+			if ( str_ends_with( $host, $suffix ) ) {
+				$host = substr( $host, 0, -strlen( $suffix ) );
+				break;
+			}
+		}
+		$slug  = preg_replace( '/[^a-z0-9-]+/', '-', $host ) ?? '';
+		$slug  = trim( $slug, '-' );
+		$parts = array_values( array_filter( explode( '-', $slug ) ) );
+		while ( count( $parts ) >= 2 && $parts[ count( $parts ) - 1 ] === $parts[ count( $parts ) - 2 ] ) {
+			array_pop( $parts );
+		}
+		$slug = implode( '-', $parts );
+		$slug = rtrim( substr( $slug, 0, 16 ), '-' );
 		return 'stonewright-' . ( '' !== $slug ? $slug : 'wordpress' ); // phpcs:ignore WordPress.WP.CapitalPDangit.MisspelledInText -- machine identifier.
 	}
 
@@ -83,12 +109,21 @@ final class OAuthClientConfig {
 	 */
 	public static function configs( string $mcp_url, string $mcp_name ): array {
 		if ( self::host_unreachable_from_cloud() ) {
-			$configs            = self::bridge_configs( $mcp_url, $mcp_name, self::local_bridge_environment() );
-			$configs['chatgpt'] = [
-				'kind'    => 'notice',
-				'message' => 'ChatGPT can connect only when this WordPress site is reachable from the public internet.',
-			];
-			unset( $configs['claude-ai'] );
+			$configs = self::bridge_configs( $mcp_url, $mcp_name, self::local_bridge_environment() );
+			$chatgpt_desktop = is_array( $configs['chatgpt-desktop'] ?? null ) ? $configs['chatgpt-desktop'] : [];
+			$claude_desktop  = is_array( $configs['claude-desktop'] ?? null ) ? $configs['claude-desktop'] : [];
+			$configs['chatgpt'] = array_merge(
+				$chatgpt_desktop,
+				[
+					'message' => 'ChatGPT on the web cannot reach a site that exists only on this machine. ChatGPT Desktop can use this local mcp-remote bridge.',
+				]
+			);
+			$configs['claude-ai'] = array_merge(
+				$claude_desktop,
+				[
+					'message' => 'Claude.ai cannot reach a site that exists only on this machine. Use Claude Desktop or Claude Code with the local mcp-remote bridge below.',
+				]
+			);
 			return self::order( $configs );
 		}
 
@@ -421,6 +456,12 @@ final class OAuthClientConfig {
 			unset( $label );
 			if ( isset( $configs[ $slug ] ) ) {
 				$ordered[ $slug ] = $configs[ $slug ];
+			}
+		}
+		foreach ( self::client_slug_aliases() as $alias => $canonical ) {
+			unset( $canonical );
+			if ( isset( $configs[ $alias ] ) && ! isset( $ordered[ $alias ] ) ) {
+				$ordered[ $alias ] = $configs[ $alias ];
 			}
 		}
 		return $ordered;

@@ -24,7 +24,6 @@ final class OAuthClientConfigTest extends TestCase {
 				'claude-code',
 				'windsurf',
 				'codex-cli',
-				'codex',
 				'antigravity',
 				'antigravity-cli',
 				'cursor',
@@ -45,6 +44,26 @@ final class OAuthClientConfigTest extends TestCase {
 		self::assertSame( 'Codex in ChatGPT Desktop', OAuthClientConfig::client_labels()['chatgpt-desktop'] );
 		self::assertSame( 'Windsurf', OAuthClientConfig::client_labels()['windsurf'] );
 		self::assertSame( 'Codex CLI', OAuthClientConfig::client_labels()['codex-cli'] );
+		self::assertArrayNotHasKey( 'codex', OAuthClientConfig::client_labels() );
+	}
+
+	public function test_codex_hidden_alias_resolves_to_codex_cli(): void {
+		self::assertSame( 'codex-cli', OAuthClientConfig::resolve_client_slug( 'codex' ) );
+		self::assertSame( 'codex-cli', OAuthClientConfig::resolve_client_slug( 'codex-cli' ) );
+
+		$url     = 'https://example.test/wp-json/mcp/stonewright-oauth';
+		$configs = OAuthClientConfig::public_configs( $url, 'stonewright-example' );
+		self::assertSame( $configs['codex-cli']['code'], $configs['codex']['code'] );
+	}
+
+	public function test_default_server_name_strips_local_tld_without_duplicating_suffix(): void {
+		$GLOBALS['stonewright_test_home_url'] = 'https://site-alpha-local.local/';
+		self::assertSame( 'stonewright-site-alpha-local', OAuthClientConfig::default_server_name() );
+		unset( $GLOBALS['stonewright_test_home_url'] );
+
+		$GLOBALS['stonewright_test_home_url'] = 'https://example-local.local/';
+		self::assertSame( 'stonewright-example-local', OAuthClientConfig::default_server_name() );
+		unset( $GLOBALS['stonewright_test_home_url'] );
 	}
 
 	public function test_public_configs_match_native_and_bridge_contracts(): void {
@@ -90,6 +109,25 @@ final class OAuthClientConfigTest extends TestCase {
 		parse_str( $query, $params );
 		self::assertSame( 'stonewright-example', $params['name'] ?? '' );
 		self::assertDoesNotMatchRegularExpression( '/[+\\/=]/', (string) ( $params['config'] ?? '' ) );
+	}
+
+	public function test_local_host_keeps_cloud_clients_actionable_via_bridge(): void {
+		$GLOBALS['stonewright_test_home_url'] = 'http://site-a.local/';
+		$configs = OAuthClientConfig::configs(
+			'http://site-a.local/wp-json/mcp/stonewright-oauth',
+			'stonewright-site-a'
+		);
+		unset( $GLOBALS['stonewright_test_home_url'] );
+
+		foreach ( [ 'chatgpt', 'claude-ai', 'claude-desktop', 'claude-code', 'codex-cli', 'antigravity-cli', 'cursor' ] as $slug ) {
+			self::assertArrayHasKey( $slug, $configs, $slug . ' must stay present on a local host' );
+			self::assertNotSame( '', (string) ( $configs[ $slug ]['code'] ?? '' ), $slug . ' must ship install code, not an empty notice' );
+		}
+		self::assertStringContainsString( 'mcp-remote', (string) $configs['chatgpt']['code'] );
+		self::assertStringContainsString( 'mcp-remote', (string) $configs['claude-ai']['code'] );
+		self::assertStringContainsString( 'ChatGPT Desktop', (string) ( $configs['chatgpt']['message'] ?? '' ) );
+		self::assertStringContainsString( 'Claude Desktop', (string) ( $configs['claude-ai']['message'] ?? '' ) );
+		self::assertStringStartsWith( 'cursor://', (string) $configs['cursor']['deeplink'] );
 	}
 
 	public function test_connector_link_contains_only_name_and_url(): void {
