@@ -182,4 +182,65 @@ final class AuditLogPageTest extends TestCase {
 		self::assertStringContainsString( 'sw-empty-state', $html );
 		self::assertStringContainsString( 'No audit entries', $html );
 	}
+
+	public function test_error_row_expand_shows_code_message_target_mode_and_repair(): void {
+		$GLOBALS['wpdb'] = new class() {
+			public string $prefix = 'wp_';
+
+			public function prepare( string $query, mixed ...$args ): string {
+				return $query;
+			}
+
+			public function get_var( string $query = '' ): string|int|null {
+				return 1;
+			}
+
+			/** @return array<int, array<string, mixed>> */
+			public function get_results( string $query, string $output = 'OBJECT' ): array {
+				if ( str_contains( $query, 'stonewright_oauth_clients' ) ) {
+					return [];
+				}
+				return [
+					[
+						'id'               => '20',
+						'ability_name'     => 'stonewright/design-validate-spec',
+						'user_id'          => '1',
+						'result_status'    => 'error',
+						'error_code'       => 'stonewright_spec_invalid',
+						'root_error_code'  => 'stonewright_spec_invalid',
+						'resource_ref'     => '88',
+						'mode'             => 'development',
+						'remediation_code' => 'stonewright_spec_invalid',
+						'redacted_details' => wp_json_encode(
+							[
+								'error_code'          => 'stonewright_spec_invalid',
+								'error_message'       => 'Spec failed at tokens.color',
+								'target_id'           => '88',
+								'verification_status' => 'failed',
+								'remediation_code'    => 'stonewright_spec_invalid',
+							]
+						),
+						'sanitized_args'   => '{"password":"[redacted]"}',
+						'created_at'       => '2026-07-16 10:00:00',
+					],
+				];
+			}
+		};
+
+		ob_start();
+		AuditLogPage::render();
+		$html = (string) ob_get_clean();
+
+		self::assertStringContainsString( 'error_code', $html );
+		self::assertStringContainsString( 'stonewright_spec_invalid', $html );
+		self::assertStringContainsString( 'error_message', $html );
+		self::assertStringContainsString( 'Spec failed at tokens.color', $html );
+		self::assertStringContainsString( '&quot;target&quot;', $html );
+		self::assertStringContainsString( '88', $html );
+		self::assertStringContainsString( '&quot;mode&quot;', $html );
+		self::assertStringContainsString( 'development', $html );
+		self::assertStringContainsString( '&quot;remediation&quot;', $html );
+		self::assertStringContainsString( 'Validate the design spec', $html );
+		self::assertStringNotContainsString( 'sentinel-private', $html );
+	}
 }

@@ -159,6 +159,37 @@ final class AuditLogCoverageTest extends TestCase {
 		self::assertSame( 'stonewright_readback_mismatch', $row['root_error_code'] );
 	}
 
+	public function test_recorded_wp_error_details_are_not_only_verification_status(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_mode'] = 'development';
+		AuditLog::record(
+			'stonewright/content-update-page',
+			[
+				'post_id'  => 19,
+				'password' => 'sentinel-private-example-secret',
+				'_meta'    => [
+					'error_code'          => 'stonewright_confirmation_required',
+					'error_message'       => str_repeat( 'e', 540 ),
+					'verification_status' => 'failed',
+					'target_id'           => 19,
+					'remediation_code'    => 'stonewright_confirmation_required',
+				],
+			],
+			'error'
+		);
+
+		$row     = $GLOBALS['wpdb']->inserts[0]['data'];
+		$details = json_decode( (string) ( $row['redacted_details'] ?? '' ), true );
+		self::assertIsArray( $details );
+		self::assertSame( 'stonewright_confirmation_required', $details['error_code'] ?? null );
+		self::assertSame( 500, mb_strlen( (string) ( $details['error_message'] ?? '' ) ) );
+		self::assertSame( '19', (string) ( $details['target_id'] ?? $row['resource_ref'] ?? '' ) );
+		self::assertSame( 'stonewright_confirmation_required', $details['remediation_code'] ?? $row['remediation_code'] ?? null );
+		self::assertSame( 'development', $row['mode'] ?? null );
+		self::assertArrayNotHasKey( 'password', $details );
+		self::assertNotEquals( [ 'verification_status' ], array_keys( $details ) );
+		self::assertStringNotContainsString( 'sentinel-private-example-secret', (string) wp_json_encode( $details ) );
+	}
+
 	private function make_wpdb( bool $insert_ok ): object {
 		return new class( $insert_ok ) {
 			public string $prefix = 'wp_';

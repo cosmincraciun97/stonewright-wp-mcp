@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\AuditEvent;
 use Stonewright\WpMcp\Security\ErrorPatterns;
 use Stonewright\WpMcp\Security\IncidentStore;
+use Stonewright\WpMcp\Security\RemediationHints;
 use Stonewright\WpMcp\Security\SensitiveContent;
 
 /**
@@ -433,10 +434,7 @@ final class AuditLogPage {
 				default   => 'sw-badge--error',
 			};
 			$details_raw = (string) ( $row['redacted_details'] ?? '' );
-			if ( '' === $details_raw ) {
-				$details_raw = (string) ( $row['sanitized_args'] ?? '' );
-			}
-			$details     = self::pretty_redacted_details( $details_raw );
+			$details     = self::expanded_row_details( $row, $details_raw );
 			$root_error = (string) ( $row['root_error_code'] ?? $row['error_code'] ?? '' );
 			$retry_after = max( 0, (int) ( $row['retry_after_seconds'] ?? 0 ) );
 			$incident_id = strtolower( (string) ( $row['incident_id'] ?? '' ) );
@@ -627,6 +625,78 @@ final class AuditLogPage {
 			return $pretty;
 		}
 		return SensitiveContent::contains( $raw ) ? '{"redaction_error":"sensitive_content_blocked"}' : mb_substr( sanitize_textarea_field( $raw ), 0, 2000 );
+	}
+
+	/**
+	 * Expand an audit row into the operator-facing details payload.
+	 *
+	 * Error rows always include error_code, error_message, target, mode, and
+	 * remediation when those values can be derived — never verification_status alone.
+	 *
+	 * @param array<string, mixed> $row
+	 */
+	private static function expanded_row_details( array $row, string $details_raw ): string {
+		$decoded = json_decode( $details_raw, true );
+		$details = is_array( $decoded ) ? AuditLog::redact_sensitive( $decoded ) : [];
+		$status  = strtolower( (string) ( $row['result_status'] ?? '' ) );
+		if ( in_array( $status, [ 'error', 'blocked', 'auth' ], true ) ) {
+			$error_code    = self::first_detail_text( [ $details['error_code'] ?? null, $row['error_code'] ?? null, $row['root_error_code'] ?? null ], 190 );
+			$error_message = self::first_detail_text( [ $details['error_message'] ?? null ], 500 );
+			$target        = self::first_detail_text( [ $details['target'] ?? null, $details['target_id'] ?? null, $row['resource_ref'] ?? null ], 64 );
+			$mode          = self::first_detail_text( [ $row['mode'] ?? null, $details['mode'] ?? null ], 32 );
+			$hint_code     = self::first_detail_text( [ $details['remediation_code'] ?? null, $row['remediation_code'] ?? null, $error_code ], 190 );
+			$remediation   = '';
+			if ( '' !== $hint_code ) {
+				$hint    = RemediationHints::for_code( $hint_code, (string) ( $row['ability_name'] ?? '' ) );
+				$generic = RemediationHints::for_code( '', '' );
+				if ( $hint !== $generic ) {
+					$remediation = $hint;
+				}
+			}
+			$expanded = [];
+			if ( '' !== $error_code ) {
+				$expanded['error_code'] = $error_code;
+			}
+			if ( '' !== $error_message ) {
+				$expanded['error_message'] = $error_message;
+			}
+			if ( '' !== $target ) {
+				$expanded['target'] = $target;
+			}
+			if ( '' !== $mode ) {
+				$expanded['mode'] = $mode;
+			}
+			if ( '' !== $remediation ) {
+				$expanded['remediation'] = $remediation;
+			}
+			foreach ( $details as $key => $value ) {
+				if ( isset( $expanded[ $key ] ) || in_array( (string) $key, [ 'target_id', 'remediation_code' ], true ) ) {
+					continue;
+				}
+				$expanded[ $key ] = $value;
+			}
+			$details = $expanded;
+		}
+		if ( [] === $details ) {
+			return self::pretty_redacted_details( (string) ( $row['sanitized_args'] ?? '' ) );
+		}
+		$pretty = wp_json_encode( $details, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
+		if ( ! is_string( $pretty ) || SensitiveContent::contains( $pretty ) ) {
+			return '{"redaction_error":"sensitive_content_blocked"}';
+		}
+		return $pretty;
+	}
+
+	/**
+	 * @param list<mixed> $candidates
+	 */
+	private static function first_detail_text( array $candidates, int $max ): string {
+		foreach ( $candidates as $value ) {
+			if ( is_scalar( $value ) && '' !== trim( (string) $value ) ) {
+				return mb_substr( sanitize_text_field( (string) $value ), 0, $max );
+			}
+		}
+		return '';
 	}
 
 	/**

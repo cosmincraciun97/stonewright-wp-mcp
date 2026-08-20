@@ -904,7 +904,19 @@ final class AuditLog {
 	 * @param array<string, mixed> $args
 	 */
 	private static function logical_resource_ref( array $meta, array $args ): string {
-		foreach ( [ $meta['resource_ref'] ?? null, $args['resource'] ?? null, $args['path'] ?? null ] as $candidate ) {
+		$nested = is_array( $args['args'] ?? null ) ? $args['args'] : [];
+		foreach (
+			[
+				$meta['resource_ref'] ?? null,
+				$meta['target_id'] ?? null,
+				$args['resource'] ?? null,
+				$args['path'] ?? null,
+				$args['post_id'] ?? null,
+				$args['id'] ?? null,
+				$nested['post_id'] ?? null,
+				$nested['id'] ?? null,
+			] as $candidate
+		) {
 			if ( is_scalar( $candidate ) && '' !== trim( (string) $candidate ) ) {
 				$value = str_replace( '\\', '/', (string) $candidate );
 				if ( str_starts_with( $value, '/' ) || preg_match( '/^[A-Za-z]:\//', $value ) ) {

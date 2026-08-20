@@ -91,6 +91,7 @@ final class AuditEvent {
 		$rollback_status     = self::safe_text( self::first_scalar( $meta, $args, [ 'rollback_status' ] ), 32 );
 		$expected_verifier   = self::safe_text( self::first_scalar( $meta, $args, [ 'expected_verifier' ] ), 190 );
 		$remediation_code    = self::safe_text( self::first_scalar( $meta, $args, [ 'remediation_code' ] ), 190 );
+		$target_id           = self::target_id( $meta, $args );
 		$before_sha256       = self::fingerprint( self::first_scalar( $meta, $args, [ 'before_sha256' ] ) );
 		$after_sha256        = self::fingerprint( self::first_scalar( $meta, $args, [ 'after_sha256' ] ) );
 		$context_hash    = self::context_hash( $meta );
@@ -126,7 +127,17 @@ final class AuditEvent {
 			'retryable'               => self::OUTCOME_RETRYABLE === $outcome,
 			'retry_after_seconds'     => $retry_after,
 			'incident_id'             => $incident_id,
-			'redacted_details'        => self::redacted_details( $meta ),
+			'redacted_details'        => self::redacted_details(
+				$meta,
+				[
+					'error_code'       => self::first_scalar( $meta, $args, [ 'error_code' ] ),
+					'error_message'    => self::public_message( $args, $meta ),
+					'root_error_code'  => $code,
+					'incident_id'      => $incident_id,
+					'target_id'        => $target_id,
+					'remediation_code' => $remediation_code,
+				]
+			),
 		];
 	}
 
@@ -299,22 +310,85 @@ final class AuditEvent {
 	private static function public_message( array $args, array $meta ): string {
 		foreach ( [ $meta['public_message'] ?? null, $meta['error_message'] ?? null, $args['message'] ?? null ] as $value ) {
 			if ( is_scalar( $value ) && '' !== trim( (string) $value ) ) {
-				$message = mb_substr( preg_replace( '/\s+/', ' ', sanitize_text_field( (string) $value ) ) ?? '', 0, 500 );
-				$message = (string) preg_replace( '#\b(Bearer|Basic)\s+[A-Za-z0-9._~+/-=]+#i', '$1 [redacted]', $message );
-				$message = (string) preg_replace( '~\b(client_secret|access_token|refresh_token|id_token|assertion|authorization|token|password|code)\b(\s*[:=]\s*)(?:"[^"]*"|\'[^\']*\'|[^\s&,;]+)~i', '$1$2[redacted]', $message );
-				return $message;
+				return self::redact_public_text( (string) $value, 500 );
 			}
 		}
 		return '';
 	}
 
-	/** @return array<string, scalar> */
-	private static function redacted_details( array $meta ): array {
-		$allowed = [ 'rule_id', 'failed_action_index', 'element_id', 'setting_path', 'expected_type', 'actual_type', 'schema_version', 'remediation_code', 'expected_verifier', 'verification_status', 'rollback_status', 'coalesced_count', 'http_status' ];
-		$out = [];
+	/**
+	 * Bounded post/resource id from meta or args, including nested args.post_id / args.id.
+	 *
+	 * @param array<string, mixed> $meta
+	 * @param array<string, mixed> $args
+	 */
+	private static function target_id( array $meta, array $args ): string {
+		$direct = self::first_scalar( $meta, $args, [ 'target_id', 'post_id', 'id' ] );
+		if ( '' !== $direct ) {
+			return mb_substr( sanitize_text_field( $direct ), 0, 64 );
+		}
+		$nested = is_array( $args['args'] ?? null ) ? $args['args'] : [];
+		foreach ( [ 'post_id', 'id' ] as $key ) {
+			if ( isset( $nested[ $key ] ) && is_scalar( $nested[ $key ] ) && '' !== trim( (string) $nested[ $key ] ) ) {
+				return mb_substr( sanitize_text_field( (string) $nested[ $key ] ), 0, 64 );
+			}
+		}
+		return '';
+	}
+
+	private static function redact_public_text( string $value, int $length ): string {
+		$message = mb_substr( preg_replace( '/\s+/', ' ', sanitize_text_field( $value ) ) ?? '', 0, $length );
+		$message = (string) preg_replace( '#\b(Bearer|Basic)\s+[A-Za-z0-9._~+/-=]+#i', '$1 [redacted]', $message );
+		return (string) preg_replace( '~\b(client_secret|access_token|refresh_token|id_token|assertion|authorization|token|password|code)\b(\s*[:=]\s*)(?:"[^"]*"|\'[^\']*\'|[^\s&,;]+)~i', '$1$2[redacted]', $message );
+	}
+
+	/**
+	 * @param array<string, mixed> $meta
+	 * @param array<string, scalar> $computed
+	 * @return array<string, scalar>
+	 */
+	private static function redacted_details( array $meta, array $computed = [] ): array {
+		$allowed = [
+			'rule_id',
+			'failed_action_index',
+			'element_id',
+			'setting_path',
+			'expected_type',
+			'actual_type',
+			'schema_version',
+			'remediation_code',
+			'expected_verifier',
+			'verification_status',
+			'rollback_status',
+			'coalesced_count',
+			'http_status',
+			'error_code',
+			'error_message',
+			'root_error_code',
+			'incident_id',
+			'target_id',
+		];
+		$source = $meta;
+		foreach ( $computed as $key => $value ) {
+			if ( is_scalar( $value ) && '' !== trim( (string) $value ) ) {
+				$source[ $key ] = $value;
+			}
+		}
+		$out     = [];
 		foreach ( $allowed as $key ) {
-			if ( isset( $meta[ $key ] ) && is_scalar( $meta[ $key ] ) ) {
-				$out[ $key ] = is_string( $meta[ $key ] ) ? mb_substr( sanitize_text_field( (string) $meta[ $key ] ), 0, 255 ) : $meta[ $key ];
+			if ( ! isset( $source[ $key ] ) || ! is_scalar( $source[ $key ] ) ) {
+				continue;
+			}
+			if ( ! is_string( $source[ $key ] ) ) {
+				$out[ $key ] = $source[ $key ];
+				continue;
+			}
+			$max = 'error_message' === $key ? 500 : 255;
+			$value = 'error_message' === $key
+				? self::redact_public_text( (string) $source[ $key ], $max )
+				: mb_substr( sanitize_text_field( (string) $source[ $key ] ), 0, $max );
+			if ( '' !== $value ) {
+				$out[ $key ] = $value;
 			}
 		}
 		return $out;

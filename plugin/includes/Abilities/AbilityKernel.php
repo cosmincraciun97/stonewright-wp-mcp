@@ -6,6 +6,7 @@ namespace Stonewright\WpMcp\Abilities;
 use Stonewright\WpMcp\Security\AuditLog;
 use Stonewright\WpMcp\Security\ConfirmationToken;
 use Stonewright\WpMcp\Security\Permissions;
+use Stonewright\WpMcp\Security\RemediationHints;
 
 /**
  * Base class abilities extend so they only have to implement
@@ -104,16 +105,20 @@ abstract class AbilityKernel implements Ability {
 				$status = 'error';
 					}
 				}
+		$target_id  = self::audit_target_id( $args );
 		$sanitized  = $this->sanitize_for_audit( $args );
 		$metadata   = $this->audit_metadata(
 			$args,
 			$result,
 			(int) floor( ( hrtime( true ) - $started_ns ) / 1_000_000 )
 		);
+		if ( '' !== $target_id && ( ! isset( $metadata['target_id'] ) || ! is_scalar( $metadata['target_id'] ) || '' === trim( (string) $metadata['target_id'] ) ) ) {
+			$metadata['target_id'] = $target_id;
+		}
 		if ( $result instanceof \WP_Error ) {
 			$message                   = preg_replace( '/\s+/', ' ', trim( (string) $result->get_error_message() ) ) ?? '';
 			$metadata['error_code']    = sanitize_key( (string) $result->get_error_code() );
-			$metadata['error_message'] = mb_substr( $message, 0, 200 );
+			$metadata['error_message'] = mb_substr( $message, 0, 500 );
 			$data                      = $result->get_error_data();
 			if ( is_array( $data ) ) {
 				foreach ( [ 'execution_status', 'verification_status', 'rollback_status', 'before_sha256', 'after_sha256', 'cause_key', 'cause_fingerprint', 'strategy_fingerprint', 'resource_type', 'resource_ref', 'resource_key_hash', 'normalized_path', 'operation_class', 'change_set_id', 'transaction_id', 'retryable', 'retry_after_seconds', 'root_error_code', 'root_error_path', 'failed_action_index', 'element_id', 'setting_path', 'expected_type', 'actual_type', 'schema_version', 'remediation_code', 'rule_id', 'http_status' ] as $effect_key ) {
@@ -122,6 +127,13 @@ abstract class AbilityKernel implements Ability {
 					}
 				}
 				$metadata = self::merge_receipt_metadata( $metadata, is_array( $data['write_receipt'] ?? null ) ? $data['write_receipt'] : [] );
+			}
+			if ( ! isset( $metadata['remediation_code'] ) || ! is_scalar( $metadata['remediation_code'] ) || '' === trim( (string) $metadata['remediation_code'] ) ) {
+				$hint_code = (string) ( $metadata['error_code'] ?? '' );
+				$hint      = RemediationHints::for_code( $hint_code, $this->name() );
+				if ( $hint !== RemediationHints::for_code( '', '' ) && '' !== $hint_code ) {
+					$metadata['remediation_code'] = $hint_code;
+				}
 			}
 		} elseif ( is_array( $result ) ) {
 			foreach ( [ 'execution_status', 'verification_status', 'rollback_status', 'before_sha256', 'after_sha256', 'changed_bytes', 'effect_verified', 'operation_class', 'resource_type', 'resource_ref', 'resource_key_hash', 'normalized_path', 'cause_fingerprint', 'strategy_fingerprint', 'change_set_id', 'transaction_id', 'retryable', 'retry_after_seconds', 'root_error_code', 'root_error_path', 'failed_action_index', 'element_id', 'setting_path', 'expected_type', 'actual_type', 'schema_version', 'remediation_code', 'category', 'outcome' ] as $effect_key ) {
@@ -201,6 +213,27 @@ abstract class AbilityKernel implements Ability {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Bounded post/resource id from top-level or nested args.post_id / args.id
+	 * before sanitize_for_audit collapses arrays.
+	 *
+	 * @param array<string, mixed> $args
+	 */
+	private static function audit_target_id( array $args ): string {
+		foreach ( [ 'post_id', 'id' ] as $key ) {
+			if ( isset( $args[ $key ] ) && is_scalar( $args[ $key ] ) && '' !== trim( (string) $args[ $key ] ) ) {
+				return mb_substr( sanitize_text_field( (string) $args[ $key ] ), 0, 64 );
+			}
+		}
+		$nested = is_array( $args['args'] ?? null ) ? $args['args'] : [];
+		foreach ( [ 'post_id', 'id' ] as $key ) {
+			if ( isset( $nested[ $key ] ) && is_scalar( $nested[ $key ] ) && '' !== trim( (string) $nested[ $key ] ) ) {
+				return mb_substr( sanitize_text_field( (string) $nested[ $key ] ), 0, 64 );
+			}
+		}
+		return '';
 	}
 
 	/**
