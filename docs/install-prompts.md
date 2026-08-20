@@ -65,12 +65,18 @@ Choose exactly one transport for this site. Do not combine local stdio and
 OAuth HTTP under the same server name.
 
 For local stdio, use the versioned installer with a unique alias, a
-collision-safe named server, and --mode plugin-only. Ask for the environment,
-WordPress mode, MCP surface, Elementor V4 choice, and target client. Let the
-installer request the Application Password through its hidden prompt, or use
---password-env with a temporary variable; never put a password on argv.
+collision-safe named server, and --mode plugin-only. For automatic Direct
+fallback use `--mode auto` instead. Working stdio client ids: cursor,
+claude-desktop, vscode-copilot, codex, generic-mcp. ChatGPT Desktop / Claude.ai
+connect via the OAuth HTTP method, not the local installer. Ask for the
+environment, WordPress mode, MCP surface, Elementor V4 choice, and target
+client. Let the installer request the Application Password through its hidden
+prompt, or use --password-env with a temporary variable; never put a password
+on argv.
 
-npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add --alias <unique-alias> --url <your-wordpress-url> --username <your-wordpress-username> --env <environment> --mode plugin-only --client <client> --profile essential --plugin-enabled yes --wp-mode <development|staging|production-safe> --wp-surface essential --elementor-v4 <yes|no>
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add --alias <unique-alias> --url <your-wordpress-url> --username <your-wordpress-username> --env <local|development|staging|production|other> --mode plugin-only --client <client> --profile essential-static --wp-surface essential --plugin-enabled yes --wp-mode <development|staging|production-safe> --elementor-v4 <yes|no>
+
+`--profile discover-execute` exposes a minimal 3-tool protocol surface.
 
 I will replace private placeholders locally. Do not create or overwrite a
 generic server named stonewright. If the alias already exists, reuse its saved
@@ -88,15 +94,20 @@ Never inspect or print private configuration. After I restart the client, run
 stonewright connect verify <alias> --client <client> for local stdio and require
 spawned runtime proof, not only a valid config file.
 
+If the connection fails, open Stonewright → Troubleshoot in wp-admin and run
+diagnostics.
+
 After a client-specific restart / MCP reload (not only a chat refresh):
 - Verify stonewright-task-start is in the tool list; if missing, stop and tell me.
-- Call stonewright-task-start first with a non-empty task, surface, and intent.
-- Require the requested alias, configured_mode=plugin-only, active_mode=plugin,
-  and the expected companion version. If another site or Direct mode appears,
-  stop because the wrong named server is active.
+- Call stonewright-task-start first with a non-empty task; pass surface and
+  intent when known.
+- Require site_alias, configured_mode=plugin-only, active_mode=plugin,
+  companion_version, and refresh_required_tool_names. If another site or Direct
+  mode appears, stop because the wrong named server is active.
 - Call stonewright-setup-profile and stonewright-wordpress-mcp-status.
-- Confirm companion_version matches VERSION, the WordPress MCP endpoint is
-  authenticated, and refresh_required_tool_names is empty.
+- Confirm the target site, site_alias, companion_version matches VERSION,
+  expected_companion_package, the WordPress MCP endpoint is authenticated, and
+  refresh_required_tool_names is empty.
 - Status and gateway reports must be honest when disconnected or unauthorized.
 - If OAuth header delivery is in doubt, call the read-only
   `stonewright-oauth-header-diagnostic`; it returns booleans only and never
@@ -176,7 +187,7 @@ mutation still needs the explicit per-call confirmation.
 Use this versioned installer shape and let it create the alias-specific named
 entry. Do not build a second generic server entry:
 
-npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add --alias <unique-alias> --url <your-wordpress-url> --username <your-wordpress-username> --env <environment> --mode direct-only --client <client>
+npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add --alias <unique-alias> --url <your-wordpress-url> --username <your-wordpress-username> --env <local|development|staging|production|other> --mode direct-only --client <client>
 
 I will replace private placeholders locally. Use the hidden password prompt or
 --password-env, never a password on argv. If the alias already exists, run

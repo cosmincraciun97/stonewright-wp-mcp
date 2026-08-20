@@ -103,13 +103,16 @@ HTTP Authorization header. For local development with no HTTPS, set
 Use the versioned installer. It creates an alias-specific server entry and
 keeps the Application Password in the OS credential store instead of copying
 it into every client configuration. Because this guide starts from an installed
-plugin, `plugin-only` is the correct policy:
+plugin, `plugin-only` is the correct policy. For automatic Direct fallback use
+`--mode auto` instead. Working stdio client ids: cursor, claude-desktop,
+vscode-copilot, codex, generic-mcp. ChatGPT Desktop / Claude.ai connect via the
+OAuth HTTP method, not the local installer.
 
 ```bash
 npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
   --alias site-a --url https://site-a.example --username editor \
   --env production --mode plugin-only --client cursor \
-  --plugin-enabled yes --wp-mode production-safe --wp-surface essential
+  --profile essential-static --plugin-enabled yes --wp-mode production-safe --wp-surface essential
 ```
 
 If `site-a` already exists, do not register another alias or request the
@@ -120,9 +123,10 @@ npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/
 ```
 
 Restart the client and run `stonewright connect verify site-a --client cursor`.
-The result must identify the requested alias, `configured_mode=plugin-only`,
-`active_mode=plugin`, task-start/status, and the expected companion. If it
-identifies another site or Direct mode, stop; the wrong named entry is active.
+The result must identify site_alias, `configured_mode=plugin-only`,
+`active_mode=plugin`, companion_version, refresh_required_tool_names,
+task-start/status, and the expected companion. If it identifies another site or
+Direct mode, stop; the wrong named entry is active.
 
 Generated configurations for known clients use the bounded working profile
 `essential`; `essential-static` is the fallback for an unknown client that may
@@ -201,7 +205,7 @@ CLI TOML into the Desktop `mcp_config.json`.
 npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect add \
   --alias site-a --url https://site-a.example --username editor \
   --env production --mode plugin-only --client codex-cli \
-  --plugin-enabled yes --wp-mode production-safe --wp-surface essential
+  --profile essential-static --plugin-enabled yes --wp-mode production-safe --wp-surface essential
 ```
 
 The CLI installer writes the alias-specific TOML block transactionally. Do not
@@ -210,7 +214,7 @@ In the Codex TUI, use `/mcp` after restart to confirm the named Stonewright
 entry is active.
 
 After every Stonewright release or skill sync, run `stonewright-setup-profile`
-and `stonewright-wordpress-mcp-status`. Check `companion_version`,
+and `stonewright-wordpress-mcp-status`. Check `site_alias`, `companion_version`,
 `expected_companion_package`, and `refresh_required_tool_names`; if the expected
 package or required tools are stale, Codex is still running an old companion
 process or cached tool list.

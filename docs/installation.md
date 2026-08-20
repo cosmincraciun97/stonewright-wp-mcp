@@ -71,7 +71,8 @@ Set Application Password credentials and point at the site URL. With
 Force either path with `STONEWRIGHT_MODE=direct` or `STONEWRIGHT_MODE=plugin`.
 For an installed-plugin connection, prefer the alias-based installer with
 `--mode plugin-only`; `auto` is appropriate only when intentional Direct
-fallback is part of the connection policy.
+fallback is part of the connection policy. Working stdio client ids: cursor,
+claude-desktop, vscode-copilot, codex, generic-mcp.
 
 ```json
 {
@@ -109,6 +110,7 @@ npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/
   --password-env STONEWRIGHT_TMP_APP_PASSWORD \
   --env staging \
   --mode plugin-only \
+  --profile essential-static \
   --plugin-enabled yes \
   --wp-mode staging \
   --wp-surface essential \
@@ -147,7 +149,7 @@ install consent. After restarting the client, prove the saved entry end to end:
 npx -y --package https://github.com/cosmincraciun97/stonewright-wp-mcp/releases/download/vVERSION/stonewright-companion-VERSION.tgz stonewright connect verify site-a --client cursor
 ```
 
-Verification spawns the configured stdio server, confirms the active alias and
+Verification spawns the configured stdio server, confirms site_alias and
 companion version when observable, lists tools, calls `stonewright-task-start`
 and status, checks required tools, and stores a surface digest. The receipt
 prints safe runtime proof, including `refresh_required_tool_names`; a non-empty
@@ -249,7 +251,7 @@ calls, and
 loaded Stonewright MCP server.
 After installing a new Stonewright release or syncing local skills, restart the
 MCP client and rerun `stonewright-setup-profile` plus
-`stonewright-wordpress-mcp-status`. Compare `companion_version`,
+`stonewright-wordpress-mcp-status`. Compare `site_alias`, `companion_version`,
 `expected_companion_package`, and `refresh_required_tool_names` with the visible
 tool list. Missing refresh-required tools mean the client is still using a stale
 companion process or cached tool surface.
