@@ -8,6 +8,7 @@ use Stonewright\WpMcp\Admin\Pages\DesignPage;
 use Stonewright\WpMcp\Admin\Pages\PromptLibraryPage;
 use Stonewright\WpMcp\Admin\Pages\SandboxLibraryPage;
 use Stonewright\WpMcp\Admin\Pages\StatusPage;
+use Stonewright\WpMcp\Admin\Pages\TroubleshootPage;
 use Stonewright\WpMcp\Admin\RestApi;
 use Stonewright\WpMcp\Sandbox\CrashRecovery;
 
@@ -38,6 +39,7 @@ final class AdminBootstrap {
 		// over MCP; storage tables/options are preserved.
 		DesignPage::register();
 		ContextPage::register();
+		TroubleshootPage::register();
 		PromptLibraryPage::register();
 		SandboxLibraryPage::register();
 		add_action( 'rest_api_init', [ RestApi::class, 'register' ] );
@@ -46,6 +48,21 @@ final class AdminBootstrap {
 		add_action( 'admin_enqueue_scripts', [ self::class, 'enqueue_assets' ] );
 		add_action( 'admin_notices', [ CrashRecovery::class, 'admin_notice' ] );
 		add_action( 'admin_notices', [ self::class, 'production_mode_mismatch_notice' ] );
+		add_filter( 'kses_allowed_protocols', [ self::class, 'allow_cursor_protocol' ] );
+	}
+
+	/**
+	 * Allow Cursor one-click MCP install links through WordPress URL sanitization.
+	 *
+	 * @param list<string> $protocols Allowed URL schemes.
+	 * @return list<string>
+	 */
+	public static function allow_cursor_protocol( array $protocols ): array {
+		if ( ! in_array( 'cursor', $protocols, true ) ) {
+			$protocols[] = 'cursor';
+		}
+
+		return $protocols;
 	}
 
 	/**
@@ -150,6 +167,7 @@ final class AdminBootstrap {
 		$page = isset( $_GET['page'] ) ? sanitize_key( (string) wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$page_styles = [
 			'stonewright'               => 'setup.css',
+			'stonewright-troubleshoot' => 'setup.css',
 			'stonewright-abilities'     => 'abilities.css',
 			// Prompt library reuses the catalog card/grid system from blueprints.css.
 			'stonewright-prompts'       => 'blueprints.css',
@@ -200,7 +218,7 @@ final class AdminBootstrap {
 			);
 		}
 
-		if ( 'stonewright' === $page || str_contains( $hook_suffix, 'toplevel_page_stonewright' ) ) {
+		if ( 'stonewright' === $page || 'stonewright-troubleshoot' === $page || str_contains( $hook_suffix, 'toplevel_page_stonewright' ) ) {
 			wp_localize_script(
 				'stonewright-admin',
 				'stonewrightSetup',

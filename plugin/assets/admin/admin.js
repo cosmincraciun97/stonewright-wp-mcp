@@ -143,30 +143,90 @@
 		return copied;
 	}
 
+	function showCopyFallbackModal( value ) {
+		var modal = document.querySelector( '[data-stonewright-copy-modal]' );
+		if ( ! modal ) {
+			modal = document.createElement( 'div' );
+			modal.className = 'sw-copy-modal';
+			modal.setAttribute( 'data-stonewright-copy-modal', '' );
+
+			var dialog = document.createElement( 'div' );
+			dialog.className = 'sw-copy-modal__dialog';
+			dialog.setAttribute( 'role', 'dialog' );
+			dialog.setAttribute( 'aria-modal', 'true' );
+
+			var hint = document.createElement( 'p' );
+			hint.textContent = 'Press Ctrl/Cmd+C';
+
+			var field = document.createElement( 'textarea' );
+			field.setAttribute( 'readonly', '' );
+
+			var dismiss = document.createElement( 'button' );
+			dismiss.type = 'button';
+			dismiss.className = 'button';
+			dismiss.setAttribute( 'data-stonewright-copy-modal-dismiss', '' );
+			dismiss.textContent = 'Close';
+
+			dialog.appendChild( hint );
+			dialog.appendChild( field );
+			dialog.appendChild( dismiss );
+			modal.appendChild( dialog );
+			document.body.appendChild( modal );
+		}
+
+		var textarea = modal.querySelector( 'textarea' );
+		var dismissBtn = modal.querySelector( '[data-stonewright-copy-modal-dismiss]' );
+		if ( ! textarea ) {
+			return;
+		}
+
+		textarea.value = String( value || '' );
+		modal.hidden = false;
+		textarea.focus();
+		textarea.select();
+
+		if ( dismissBtn && dismissBtn.getAttribute( 'data-stonewright-copy-modal-bound' ) !== '1' ) {
+			dismissBtn.setAttribute( 'data-stonewright-copy-modal-bound', '1' );
+			dismissBtn.addEventListener( 'click', function () {
+				modal.hidden = true;
+			} );
+		}
+	}
+
+	var bindCopyButtons = function () {};
+
 	function initCopyButtons() {
-		document.querySelectorAll( '[data-stonewright-copy]' ).forEach( function ( button ) {
-			button.addEventListener( 'click', function ( event ) {
-				event.preventDefault();
-				var target = document.getElementById( button.getAttribute( 'data-stonewright-copy' ) );
-				var value = textFromTarget( target );
-				if ( ! value ) {
+		bindCopyButtons = function () {
+			document.querySelectorAll( '[data-stonewright-copy]' ).forEach( function ( button ) {
+				if ( button.getAttribute( 'data-stonewright-copy-bound' ) === '1' ) {
 					return;
 				}
-				var done = function ( ok ) {
-					setButtonFeedback( button, ok === false ? 'Copy failed' : 'Copied ✓' );
-				};
-				var fallbackCopy = function () {
-					done( copyWithTextarea( value ) );
-				};
-				if ( navigator.clipboard && navigator.clipboard.writeText ) {
-					navigator.clipboard.writeText( value ).then( function () {
-						done( true );
-					} ).catch( fallbackCopy );
-				} else {
-					fallbackCopy();
-				}
+				button.setAttribute( 'data-stonewright-copy-bound', '1' );
+				button.addEventListener( 'click', function ( event ) {
+					event.preventDefault();
+					var target = document.getElementById( button.getAttribute( 'data-stonewright-copy' ) );
+					var value = textFromTarget( target );
+					if ( ! value ) {
+						return;
+					}
+					var fallbackCopy = function () {
+						if ( copyWithTextarea( value ) ) {
+							setButtonFeedback( button, 'Copied ✓' );
+							return;
+						}
+						showCopyFallbackModal( value );
+					};
+					if ( navigator.clipboard && navigator.clipboard.writeText ) {
+						navigator.clipboard.writeText( value ).then( function () {
+							setButtonFeedback( button, 'Copied ✓' );
+						} ).catch( fallbackCopy );
+					} else {
+						fallbackCopy();
+					}
+				} );
 			} );
-		} );
+		};
+		bindCopyButtons();
 	}
 
 	function initSecretToggles() {
@@ -1313,6 +1373,227 @@
 		} );
 	}
 
+	function diagnosticIcon( status ) {
+		if ( status === 'ok' ) {
+			return '✓';
+		}
+		if ( status === 'warn' ) {
+			return '!';
+		}
+		if ( status === 'info' ) {
+			return 'ⓘ';
+		}
+		return '✗';
+	}
+
+	function formatDiagnosticsCopy( report ) {
+		var lines = [ 'Stonewright diagnostics' ];
+		var versions = report && report.versions ? report.versions : {};
+		if ( report && report.mode ) {
+			lines.push( 'Mode: ' + report.mode );
+		}
+		if ( versions.plugin ) {
+			lines.push( 'Plugin: ' + versions.plugin );
+		}
+		if ( versions.companion_contract ) {
+			lines.push( 'Companion HTTP contract: ' + versions.companion_contract );
+		}
+		if ( versions.wordpress ) {
+			lines.push( 'WordPress: ' + versions.wordpress );
+		}
+		if ( versions.php ) {
+			lines.push( 'PHP: ' + versions.php );
+		}
+		lines.push( '' );
+		( ( report && report.checks ) || [] ).forEach( function ( check ) {
+			lines.push( '[' + ( check.status || 'error' ) + '] ' + ( check.label || '' ) );
+			if ( check.detail ) {
+				lines.push( check.detail );
+			}
+			if ( check.ticket ) {
+				lines.push( check.ticket );
+			}
+			lines.push( '' );
+		} );
+		return lines.join( '\n' ).trim();
+	}
+
+	function paintDiagnosticCards( root, report ) {
+		var cards = root.querySelector( '[data-stonewright-diag-cards]' );
+		if ( ! cards ) {
+			return;
+		}
+		cards.textContent = '';
+		var errorCount = 0;
+		var warnCount = 0;
+		( ( report && report.checks ) || [] ).forEach( function ( check ) {
+			var status = normalizeChecklistStatus( check.status || 'error' );
+			if ( status === 'error' ) {
+				errorCount += 1;
+			}
+			if ( status === 'warn' ) {
+				warnCount += 1;
+			}
+
+			var card = document.createElement( 'div' );
+			card.className = 'sw-diag-card sw-diag-card--' + status;
+			card.setAttribute( 'data-status', status );
+
+			var icon = document.createElement( 'span' );
+			icon.className = 'sw-diag-card__icon';
+			icon.setAttribute( 'aria-hidden', 'true' );
+			icon.textContent = diagnosticIcon( status );
+
+			var bodyEl = document.createElement( 'span' );
+			bodyEl.className = 'sw-diag-card__body';
+
+			var label = document.createElement( 'strong' );
+			label.className = 'sw-diag-card__label';
+			label.textContent = check.label || '';
+
+			var detail = document.createElement( 'span' );
+			detail.className = 'sw-diag-card__detail';
+			detail.textContent = check.detail || '';
+
+			bodyEl.appendChild( label );
+			bodyEl.appendChild( detail );
+
+			if ( check.ticket ) {
+				var ticketId = 'stonewright-diag-ticket-' + String( check.id || 'check' ).replace( /[^a-z0-9_-]/gi, '' );
+				var ticketBtn = document.createElement( 'button' );
+				ticketBtn.type = 'button';
+				ticketBtn.className = 'button';
+				ticketBtn.setAttribute( 'data-stonewright-copy', ticketId );
+				ticketBtn.textContent = 'Copy ticket';
+
+				var ticketArea = document.createElement( 'textarea' );
+				ticketArea.id = ticketId;
+				ticketArea.className = 'sw-diag-copy-source';
+				ticketArea.setAttribute( 'readonly', '' );
+				ticketArea.hidden = true;
+				ticketArea.value = String( check.ticket );
+
+				bodyEl.appendChild( ticketBtn );
+				bodyEl.appendChild( ticketArea );
+			}
+
+			card.appendChild( icon );
+			card.appendChild( bodyEl );
+			cards.appendChild( card );
+		} );
+
+		var problems = root.querySelector( '[data-stonewright-diag-problems]' );
+		var warnings = root.querySelector( '[data-stonewright-diag-warnings]' );
+		if ( problems ) {
+			problems.textContent = errorCount + ' Problems';
+			problems.hidden = errorCount === 0;
+		}
+		if ( warnings ) {
+			warnings.textContent = warnCount + ' Warnings';
+			warnings.hidden = warnCount === 0;
+		}
+
+		var copy = document.getElementById( 'stonewright-diagnostics-copy' );
+		if ( copy ) {
+			copy.value = formatDiagnosticsCopy( report || {} );
+		}
+
+		bindCopyButtons();
+	}
+
+	function initRunDiagnostics() {
+		var root = document.querySelector( '[data-stonewright-diagnostics]' );
+		var button = root ? root.querySelector( '[data-stonewright-run-diagnostics]' ) : null;
+		var form = root ? root.querySelector( '.sw-diagnostics-run' ) : null;
+		if ( ! root || ! button || ! form ) {
+			return;
+		}
+
+		var symptom = root.querySelector( '[data-stonewright-diag-symptom]' );
+		var help = root.querySelector( '[data-stonewright-diag-help]' );
+		var helpText = {
+			tools: 'Confirm Stonewright is enabled and the MCP surface is Essential or Full, then restart the AI client so it re-lists tools.',
+			auth: 'Confirm HTTPS or a local WordPress environment, then reconnect from Setup.',
+			unreachable: 'Check the site URL, TLS, and whether a firewall or login wall is blocking the MCP endpoint.',
+			other: 'Run diagnostics above, then copy the report for support.',
+		};
+		if ( symptom && help ) {
+			symptom.addEventListener( 'change', function () {
+				var text = helpText[ symptom.value ] || '';
+				help.textContent = text;
+				help.hidden = ! text;
+			} );
+		}
+
+		function scrollToFirstIssue() {
+			var first = root.querySelector( '.sw-diag-card--error, .sw-diag-card--warn' );
+			if ( first && first.scrollIntoView ) {
+				first.scrollIntoView( { behavior: 'smooth', block: 'start' } );
+			}
+		}
+
+		var problems = root.querySelector( '[data-stonewright-diag-problems]' );
+		var warnings = root.querySelector( '[data-stonewright-diag-warnings]' );
+		if ( problems ) {
+			problems.addEventListener( 'click', scrollToFirstIssue );
+		}
+		if ( warnings ) {
+			warnings.addEventListener( 'click', scrollToFirstIssue );
+		}
+
+		var running = false;
+		function finishLoading() {
+			running = false;
+			button.disabled = false;
+			button.classList.remove( 'is-loading' );
+			button.setAttribute( 'aria-busy', 'false' );
+		}
+
+		function runDiagnostics( event ) {
+			if ( ! window.stonewrightSetup || ! window.stonewrightSetup.ajaxUrl ) {
+				return;
+			}
+			event.preventDefault();
+			if ( running ) {
+				return;
+			}
+
+			var modeSelect = root.querySelector( '[data-stonewright-diag-mode]' );
+			var mode = modeSelect && modeSelect.value ? modeSelect.value : 'both';
+			running = true;
+			button.disabled = true;
+			button.classList.add( 'is-loading' );
+			button.setAttribute( 'aria-busy', 'true' );
+
+			var body = new window.URLSearchParams();
+			body.set( 'action', 'stonewright_run_diagnostics' );
+			body.set( 'nonce', window.stonewrightSetup.nonce || '' );
+			body.set( 'mode', mode );
+
+			window.fetch( window.stonewrightSetup.ajaxUrl, {
+				method: 'POST',
+				credentials: 'same-origin',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+				body: body.toString(),
+			} ).then( function ( response ) {
+				return response.json().then( function ( data ) {
+					return { ok: response.ok, data: data };
+				} );
+			} ).then( function ( result ) {
+				var success = !!( result.data && result.data.success );
+				var payload = result.data && result.data.data ? result.data.data : ( result.data || {} );
+				if ( success ) {
+					paintDiagnosticCards( root, payload );
+				}
+			} ).catch( function () {
+				/* Keep the last painted cards. */
+			} ).finally( finishLoading );
+		}
+
+		button.addEventListener( 'click', runDiagnostics );
+		form.addEventListener( 'submit', runDiagnostics );
+	}
+
 	document.addEventListener( 'DOMContentLoaded', function () {
 		initDeleteConfirm();
 		initAutoDismissNotices();
@@ -1330,6 +1611,7 @@
 		initSkillEditorControls();
 		initPromptLibrary();
 		initApplyMcpSurface();
+		initRunDiagnostics();
 		initAppPasswordForm();
 	} );
 

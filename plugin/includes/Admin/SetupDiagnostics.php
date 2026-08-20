@@ -16,10 +16,15 @@ use Stonewright\WpMcp\Support\TokenSurfaceBudgets;
 final class SetupDiagnostics {
 
 	/**
-	 * @param array{probe?:bool,loopback?:callable} $args
-	 * @return array{ready: bool, checks: list<array{id: string, status: string, label: string, detail: string}>, versions: array<string, string|int>}
+	 * @param array{probe?:bool,loopback?:callable,mode?:string} $args
+	 * @return array{ready: bool, checks: list<array{id: string, status: string, label: string, detail: string}>, versions: array<string, string|int>, mode: string}
 	 */
 	public static function report( array $args = [] ): array {
+		$mode = isset( $args['mode'] ) ? sanitize_key( (string) $args['mode'] ) : 'both';
+		if ( ! in_array( $mode, [ 'both', 'http', 'stdio' ], true ) ) {
+			$mode = 'both';
+		}
+
 		$enabled       = (bool) get_option( 'stonewright_enabled', false );
 		$https         = is_ssl() || str_starts_with( (string) get_site_url(), 'https://' );
 		$app_passwords = self::application_passwords_available();
@@ -29,7 +34,7 @@ final class SetupDiagnostics {
 		$oauth_allowed = OAuthTransport::allowed();
 		$oauth_endpoint = OAuthBootstrap::resource_identifier();
 		$oauth_discovery = Discovery::protected_resource_metadata_url();
-		$probe         = (bool) ( $args['probe'] ?? false );
+		$probe         = (bool) ( $args['probe'] ?? false ) && 'stdio' !== $mode;
 		$loopback_cb   = $args['loopback'] ?? null;
 
 		$transport_detail = $https
@@ -74,7 +79,7 @@ final class SetupDiagnostics {
 					$tool_count
 				)
 			),
-			self::check( 'tool_budget', $tool_count <= TokenSurfaceBudgets::ESSENTIAL_MAX_TOOLS, __( 'Compact tool surface', 'stonewright' ), sprintf( __( '%d tools exposed in the current profile.', 'stonewright' ), $tool_count ) ),
+			self::compact_tool_surface_check( $surface, $tool_count ),
 			self::check(
 				'oauth_transport',
 				$oauth_allowed,
@@ -105,18 +110,66 @@ final class SetupDiagnostics {
 					? __( 'The MCP endpoint returned HTTP 403 or 406, which often means a firewall or WAF blocked the loopback.', 'stonewright' )
 					: __( 'No 403/406 block observed on the MCP loopback.', 'stonewright' )
 			);
+			$checks[] = self::bot_filter_check( $args, $endpoint );
+			$checks[] = self::oauth_registration_check( $args );
+		} elseif ( 'stdio' === $mode ) {
+			$checks[]        = [
+				'id'     => 'connection_probe',
+				'status' => 'info',
+				'label'  => __( 'MCP connection probe', 'stonewright' ),
+				'detail' => __( 'HTTP loopback skipped for local companion (stdio).', 'stonewright' ),
+			];
+			$checks[]        = [
+				'id'     => 'waf',
+				'status' => 'info',
+				'label'  => __( 'WAF-ish blocks', 'stonewright' ),
+				'detail' => __( 'Not checked for stdio; WAF-ish blocks apply to remote HTTP.', 'stonewright' ),
+			];
+			$checks[]        = [
+				'id'     => 'bot_filter',
+				'status' => 'info',
+				'label'  => __( 'Bot / WAF user-agent filter', 'stonewright' ),
+				'detail' => __( 'Not checked for stdio; User-Agent probes apply to remote HTTP.', 'stonewright' ),
+			];
+			$checks[]        = [
+				'id'     => 'oauth_registration',
+				'status' => 'info',
+				'label'  => __( 'OAuth dynamic registration', 'stonewright' ),
+				'detail' => __( 'Not checked for stdio; OAuth registration applies to remote HTTP.', 'stonewright' ),
+			];
+			$companion_url = trim( (string) get_option( 'stonewright_companion_url', '' ) );
+			$checks[]      = [
+				'id'     => 'companion_url',
+				'status' => '' !== $companion_url ? 'ok' : 'warn',
+				'label'  => __( 'Local companion URL', 'stonewright' ),
+				'detail' => '' !== $companion_url
+					? $companion_url
+					: __( 'No companion URL is configured.', 'stonewright' ),
+			];
 		} else {
 			$checks[] = [
 				'id'     => 'connection_probe',
 				'status' => 'info',
 				'label'  => __( 'MCP connection probe', 'stonewright' ),
-				'detail' => __( 'Click Run diagnostics to exercise the live MCP endpoint.', 'stonewright' ),
+				'detail' => __( 'Not run yet — click Run diagnostics', 'stonewright' ),
 			];
 			$checks[] = [
 				'id'     => 'waf',
 				'status' => 'info',
 				'label'  => __( 'WAF-ish blocks', 'stonewright' ),
-				'detail' => __( 'Run diagnostics to reuse the MCP loopback for 403/406 style blocks.', 'stonewright' ),
+				'detail' => __( 'Not run yet — click Run diagnostics', 'stonewright' ),
+			];
+			$checks[] = [
+				'id'     => 'bot_filter',
+				'status' => 'info',
+				'label'  => __( 'Bot / WAF user-agent filter', 'stonewright' ),
+				'detail' => __( 'Not run yet — click Run diagnostics', 'stonewright' ),
+			];
+			$checks[] = [
+				'id'     => 'oauth_registration',
+				'status' => 'info',
+				'label'  => __( 'OAuth dynamic registration', 'stonewright' ),
+				'detail' => __( 'Not run yet — click Run diagnostics', 'stonewright' ),
 			];
 		}
 
@@ -130,6 +183,7 @@ final class SetupDiagnostics {
 				'php'                => PHP_VERSION,
 				'tool_count'         => $tool_count,
 			],
+			'mode'     => $mode,
 		];
 	}
 
@@ -167,6 +221,192 @@ final class SetupDiagnostics {
 		}
 
 		return false;
+	}
+
+	/**
+	 * @return array{id: string, status: string, label: string, detail: string}
+	 */
+	private static function compact_tool_surface_check( string $surface, int $tool_count ): array {
+		$label   = __( 'Compact tool surface', 'stonewright' );
+		$compact = in_array( $surface, [ 'bootstrap', 'essential' ], true );
+		$over    = $tool_count > TokenSurfaceBudgets::ESSENTIAL_MAX_TOOLS;
+
+		if ( 'full' === $surface ) {
+			return [
+				'id'     => 'tool_budget',
+				'status' => 'info',
+				'label'  => $label,
+				'detail' => sprintf(
+					/* translators: %d: number of exposed MCP tools */
+					__( 'Full surface selected — %d tools. Compact profiles reduce agent token cost.', 'stonewright' ),
+					$tool_count
+				),
+			];
+		}
+
+		if ( $compact && $over ) {
+			return [
+				'id'     => 'tool_budget',
+				'status' => 'warn',
+				'label'  => $label,
+				'detail' => sprintf(
+					/* translators: 1: stored MCP surface, 2: tool count, 3: compact budget */
+					__( 'Stored preference is %1$s but %2$d tools are exposed. Compact profiles stay at or under %3$d tools.', 'stonewright' ),
+					$surface,
+					$tool_count,
+					TokenSurfaceBudgets::ESSENTIAL_MAX_TOOLS
+				),
+			];
+		}
+
+		return self::check(
+			'tool_budget',
+			! $over,
+			$label,
+			sprintf(
+				/* translators: %d: number of exposed MCP tools */
+				__( '%d tools exposed in the current profile.', 'stonewright' ),
+				$tool_count
+			)
+		);
+	}
+
+	/**
+	 * @param array{http?:callable} $args
+	 * @return array{id: string, status: string, label: string, detail: string, ticket?: string}
+	 */
+	private static function bot_filter_check( array $args, string $endpoint ): array {
+		$label = __( 'Bot / WAF user-agent filter', 'stonewright' );
+		$uas   = [ 'python-httpx', 'node', 'Go-http-client' ];
+		$hits  = [];
+
+		foreach ( $uas as $ua ) {
+			$response = self::http(
+				$args,
+				'GET',
+				$endpoint,
+				[
+					'timeout'     => 5,
+					'redirection' => 0,
+					'user-agent'  => $ua,
+					'headers'     => [ 'User-Agent' => $ua ],
+				]
+			);
+			$code     = is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
+			if ( 403 === $code || 406 === $code ) {
+				$hits[] = sprintf( '%s (HTTP %d)', $ua, $code );
+			}
+		}
+
+		if ( [] === $hits ) {
+			return [
+				'id'     => 'bot_filter',
+				'status' => 'ok',
+				'label'  => $label,
+				'detail' => __( 'python-httpx, node, and Go-http-client reached the MCP endpoint without a 403/406 block.', 'stonewright' ),
+			];
+		}
+
+		$site = (string) get_site_url();
+		return [
+			'id'     => 'bot_filter',
+			'status' => 'warn',
+			'label'  => $label,
+			'detail' => sprintf(
+				/* translators: %s: User-Agent and HTTP status list */
+				__( 'Hosting bot filter blocked MCP User-Agents: %s.', 'stonewright' ),
+				implode( ', ', $hits )
+			),
+			'ticket' => self::hosting_ticket( $site, $endpoint, $hits ),
+		];
+	}
+
+	/**
+	 * @param array{http?:callable} $args
+	 * @return array{id: string, status: string, label: string, detail: string}
+	 */
+	private static function oauth_registration_check( array $args ): array {
+		$label    = __( 'OAuth dynamic registration', 'stonewright' );
+		$url      = rest_url( 'stonewright/v1/oauth/register' );
+		$response = self::http(
+			$args,
+			'POST',
+			$url,
+			[
+				'timeout' => 5,
+				'headers' => [
+					'Content-Type' => 'application/json',
+					'Accept'       => 'application/json',
+				],
+				'body'    => '{}',
+			]
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return [
+				'id'     => 'oauth_registration',
+				'status' => 'warn',
+				'label'  => $label,
+				'detail' => $response->get_error_message(),
+			];
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		return [
+			'id'     => 'oauth_registration',
+			'status' => 'ok',
+			'label'  => $label,
+			'detail' => sprintf(
+				/* translators: %d: HTTP status from the registration endpoint */
+				__( 'OAuth registration endpoint responded with HTTP %d.', 'stonewright' ),
+				$code
+			),
+		];
+	}
+
+	/**
+	 * @param list<string> $hits
+	 */
+	private static function hosting_ticket( string $site, string $endpoint, array $hits ): string {
+		$lines = [
+			'Please allow AI HTTP clients to reach the WordPress MCP endpoint on this site.',
+			'',
+			'Site: ' . $site,
+			'MCP endpoint: ' . $endpoint,
+			'',
+			'Requests that send these User-Agent values currently receive HTTP 403 or 406 (hosting bot filter or WAF):',
+		];
+		foreach ( $hits as $hit ) {
+			$lines[] = '- ' . $hit;
+		}
+		$lines[] = '';
+		$lines[] = 'Please allow User-Agent values python-httpx, node, and Go-http-client (or allow the /wp-json/mcp/ path) so MCP clients can connect.';
+
+		return implode( "\n", $lines );
+	}
+
+	/**
+	 * @param array{http?:callable} $args
+	 * @param array<string, mixed>  $request
+	 */
+	private static function http( array $args, string $method, string $url, array $request ): array|\WP_Error {
+		if ( isset( $args['http'] ) && is_callable( $args['http'] ) ) {
+			return $args['http']( $method, $url, $request );
+		}
+
+		$method = strtoupper( $method );
+		if ( 'GET' === $method ) {
+			return wp_remote_get( $url, $request );
+		}
+		if ( function_exists( 'wp_remote_post' ) ) {
+			return wp_remote_post( $url, $request );
+		}
+		if ( function_exists( 'wp_remote_request' ) ) {
+			$request['method'] = $method;
+			return wp_remote_request( $url, $request );
+		}
+
+		return new \WP_Error( 'http_unavailable', __( 'HTTP POST is unavailable in this environment.', 'stonewright' ) );
 	}
 
 	/**

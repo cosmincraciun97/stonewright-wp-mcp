@@ -44,13 +44,16 @@ final class AdminShellTest extends TestCase {
 		self::assertContains( 'stonewright-status', $slugs );
 		self::assertContains( 'stonewright-design', $slugs );
 		self::assertContains( 'stonewright-context', $slugs );
+		self::assertContains( 'stonewright-troubleshoot', $slugs );
 		self::assertSame( 'Setup', $pages['stonewright'] );
+		self::assertSame( 'Troubleshoot', $pages['stonewright-troubleshoot'] );
 		self::assertSame( 'Design', $pages['stonewright-design'] );
 		self::assertSame( 'Context', $pages['stonewright-context'] );
 	}
 
 	public function test_menu_groups_are_at_most_six_and_cover_all_page_slugs(): void {
 		$groups = AdminShell::menu_groups();
+		self::assertCount( 5, $groups );
 		self::assertLessThanOrEqual( 6, count( $groups ) );
 		self::assertGreaterThanOrEqual( 1, count( $groups ) );
 
@@ -71,6 +74,20 @@ final class AdminShellTest extends TestCase {
 			}
 		}
 		self::assertSame( array_keys( AdminShell::pages() ), $from_groups );
+
+		$connect = [];
+		foreach ( $groups as $group ) {
+			if ( 'connect' === $group['id'] ) {
+				$connect = $group['pages'];
+			}
+		}
+		self::assertSame(
+			[
+				'stonewright'               => 'Setup',
+				'stonewright-troubleshoot'  => 'Troubleshoot',
+			],
+			$connect
+		);
 	}
 
 	public function test_open_and_close_produce_shell_markup_with_nav_and_mode_pill(): void {

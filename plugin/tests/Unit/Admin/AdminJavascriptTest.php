@@ -16,6 +16,16 @@ final class AdminJavascriptTest extends TestCase {
 		self::assertStringContainsString( 'navigator.clipboard.writeText', $script );
 		self::assertStringContainsString( '.catch( fallbackCopy )', $script );
 		self::assertStringContainsString( "document.execCommand( 'copy' )", $script );
+		self::assertStringContainsString( 'showCopyFallbackModal', $script );
+		self::assertStringContainsString( 'Press Ctrl/Cmd+C', $script );
+
+		$start = strpos( $script, 'function initCopyButtons()' );
+		$end   = strpos( $script, 'function initSecretToggles()', false === $start ? 0 : $start );
+		self::assertNotFalse( $start );
+		self::assertNotFalse( $end );
+		$body = substr( $script, (int) $start, (int) $end - (int) $start );
+		self::assertStringContainsString( 'showCopyFallbackModal', $body );
+		self::assertStringNotContainsString( 'Copy failed', $body );
 	}
 
 	public function test_declarative_button_handlers_prevent_default_form_submission(): void {
@@ -102,6 +112,38 @@ final class AdminJavascriptTest extends TestCase {
 		self::assertStringContainsString( 'data-sw-apply-mcp-surface', $script );
 		self::assertStringContainsString( 'stonewright_apply_mcp_surface', $script );
 		self::assertStringContainsString( 'transport_truth', $script );
+	}
+
+	public function test_run_diagnostics_posts_ajax_without_page_refresh(): void {
+		$script = (string) file_get_contents( dirname( __DIR__, 3 ) . '/assets/admin/admin.js' );
+
+		self::assertStringContainsString( 'initRunDiagnostics', $script );
+		self::assertStringContainsString( 'initRunDiagnostics();', $script );
+		self::assertStringContainsString( 'data-stonewright-run-diagnostics', $script );
+		self::assertStringContainsString( "body.set( 'action', 'stonewright_run_diagnostics' )", $script );
+		self::assertStringContainsString( "body.set( 'nonce', window.stonewrightSetup.nonce || '' )", $script );
+		self::assertStringContainsString( "body.set( 'mode', mode )", $script );
+		self::assertStringContainsString( 'sw-diag-card', $script );
+		self::assertStringContainsString( 'is-loading', $script );
+		self::assertStringContainsString( "setAttribute( 'aria-busy', 'true' )", $script );
+		self::assertStringContainsString( 'Copy ticket', $script );
+		self::assertStringContainsString( 'scrollIntoView', $script );
+
+		$start = strpos( $script, 'function initRunDiagnostics()' );
+		self::assertNotFalse( $start );
+		$end = strpos( $script, "document.addEventListener( 'DOMContentLoaded'", $start );
+		self::assertNotFalse( $end );
+		$body = substr( $script, (int) $start, (int) $end - (int) $start );
+
+		self::assertStringContainsString( 'event.preventDefault()', $body );
+		self::assertStringContainsString( 'button.disabled = true', $body );
+		self::assertStringContainsString( 'button.disabled = false', $body );
+		self::assertStringContainsString( "setAttribute( 'aria-busy', 'false' )", $body );
+		self::assertStringContainsString( 'classList.add( \'is-loading\' )', $body );
+		self::assertStringContainsString( 'classList.remove( \'is-loading\' )', $body );
+		self::assertStringNotContainsString( 'admin-post.php', $body );
+		self::assertStringNotContainsString( 'location.reload', $body );
+		self::assertStringNotContainsString( 'form.submit()', $body );
 	}
 
 	public function test_app_password_memory_restores_snippet_placeholders(): void {

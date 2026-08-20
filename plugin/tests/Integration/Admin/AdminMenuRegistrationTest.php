@@ -7,6 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\AdminBootstrap;
 use Stonewright\WpMcp\Admin\Pages\StatusPage;
 use Stonewright\WpMcp\Admin\Pages\SandboxLibraryPage;
+use Stonewright\WpMcp\Admin\Pages\TroubleshootPage;
 use Stonewright\WpMcp\Admin\RestApi;
 
 /**
@@ -65,6 +66,13 @@ final class AdminMenuRegistrationTest extends TestCase {
 		AdminBootstrap::register();
 
 		$this->assertSame( 'stonewright-sandbox-library', SandboxLibraryPage::SLUG );
+	}
+
+	public function test_register_adds_admin_menu_hook_for_troubleshoot_page(): void {
+		AdminBootstrap::register();
+
+		$this->assertSame( 'stonewright-troubleshoot', TroubleshootPage::SLUG );
+		$this->assertSame( 'manage_options', TroubleshootPage::CAPABILITY );
 	}
 
 	public function test_register_is_idempotent(): void {

@@ -289,6 +289,14 @@ Doctor checks Node version, credentials (env or `~/.stonewright/sites.json`),
 WordPress REST auth, MCP initialize, and prints client-specific tool-cache
 refresh hints. It never prints secrets.
 
+### Troubleshoot / Run diagnostics
+
+**Stonewright → Troubleshoot** (and the same panel on Setup) is the operator
+path when a client cannot connect. **Run diagnostics** posts over AJAX, shows
+a loading spinner, and paints status cards without reloading the page. A
+no-JavaScript form still posts to `admin-post.php`. See
+[Troubleshoot](troubleshoot.md).
+
 Client definitions live in `plugin/data/clients/*.json` (see
 `docs/verified-client-versions.md`). Prefer user-level private config for
 credentials; never commit Application Passwords to project-tracked files.

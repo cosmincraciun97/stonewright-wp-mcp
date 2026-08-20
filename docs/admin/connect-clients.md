@@ -30,6 +30,10 @@ Bearer parsing, authentication success, proxy stripping suspicion, and the
 Application Password path without returning the header value. It does not
 replace a live client restart or reauthentication.
 
+If the client still cannot connect, open **Stonewright → Troubleshoot**, pick
+how you connect, and run diagnostics. The page stays put and shows a loading
+state; copy the report for support. See [Troubleshoot](troubleshoot.md).
+
 Terminal refresh failures (`refresh_token_expired`, `refresh_token_revoked`, or
 `refresh_token_invalid`) clear local token state and require one explicit
 reauthorization. Transient `429`/`temporarily_unavailable` responses retain

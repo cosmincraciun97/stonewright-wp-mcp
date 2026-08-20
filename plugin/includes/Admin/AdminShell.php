@@ -28,7 +28,8 @@ final class AdminShell {
 				'id'    => 'connect',
 				'label' => __( 'Connect', 'stonewright' ),
 				'pages' => [
-					'stonewright' => __( 'Setup', 'stonewright' ),
+					'stonewright'              => __( 'Setup', 'stonewright' ),
+					'stonewright-troubleshoot' => __( 'Troubleshoot', 'stonewright' ),
 				],
 			],
 			[

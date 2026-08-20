@@ -179,7 +179,8 @@ Copy the **Remote HTTP** snippet from **Stonewright > Configuration**; it points
 directly at `/wp-json/mcp/stonewright` and authenticates with the dedicated
 WordPress Application Password. The setup diagnostics panel blocks a green
 status when HTTPS, Application Passwords, the endpoint, or the 20-tool budget
-is missing.
+is missing. **Stonewright → Troubleshoot** runs the same probes in place with a
+loading state; see [Troubleshoot](admin/troubleshoot.md).
 
 Fastest MCP-client setup uses the alias installer, so Windows, macOS, and Linux
 do not need a shell wrapper, global install, duplicate server block, or secret

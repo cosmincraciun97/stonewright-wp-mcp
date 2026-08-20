@@ -97,7 +97,17 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringContainsString( 'Connect Your AI Client', $html );
 		self::assertStringContainsString( 'Setup diagnostics', $html );
 		self::assertStringContainsString( 'Run diagnostics', $html );
+		self::assertStringContainsString( 'Run these checks when an AI client cannot connect. They probe this site the way a client does and point at what to fix.', $html );
+		self::assertStringContainsString( 'How do you connect?', $html );
+		self::assertStringContainsString( 'Not sure (check both)', $html );
+		self::assertStringContainsString( 'Copy report for support', $html );
+		self::assertStringContainsString( 'data-stonewright-run-diagnostics', $html );
+		self::assertStringContainsString( 'data-stonewright-copy="stonewright-diagnostics-copy"', $html );
+		self::assertStringContainsString( 'sw-diag-card', $html );
+		self::assertStringContainsString( 'Companion HTTP contract', $html );
+		self::assertStringNotContainsString( 'A major contract mismatch is blocked', $html );
 		self::assertStringContainsString( 'value="stonewright_run_diagnostics"', $html );
+		self::assertStringContainsString( 'admin-post.php', $html );
 		self::assertStringContainsString( 'Remote Streamable HTTP', $html );
 		self::assertStringContainsString( 'Local companion (stdio)', $html );
 		self::assertStringContainsString( 'communicates with it through standard input/output', $html );
@@ -202,11 +212,11 @@ final class ConfigurationPageTest extends TestCase {
 		self::assertStringContainsString( 'data-step="1"', $html );
 		self::assertStringContainsString( 'data-step="2"', $html );
 		self::assertStringContainsString( 'data-step="3"', $html );
-		self::assertGreaterThanOrEqual( 5, substr_count( $html, 'sw-checklist__item' ) );
+		self::assertGreaterThanOrEqual( 5, substr_count( $html, 'sw-diag-card' ) );
 		self::assertStringContainsString( 'data-stonewright-client-card="claude-code"', $html );
 		self::assertStringContainsString( 'data-stonewright-client-card="claude-desktop"', $html );
 		self::assertStringContainsString( 'data-stonewright-client-card="cursor"', $html );
-		self::assertStringContainsString( 'data-stonewright-client-card="codex"', $html );
+		self::assertStringContainsString( 'data-stonewright-client-card="codex-cli"', $html );
 		self::assertStringContainsString( 'data-stonewright-client-card="antigravity"', $html );
 		self::assertStringContainsString( 'data-stonewright-client-card="vscode-copilot"', $html );
 		self::assertStringContainsString( 'data-stonewright-client-card="generic-mcp"', $html );
@@ -343,5 +353,87 @@ final class ConfigurationPageTest extends TestCase {
 		delete_option( 'stonewright_domain_mismatch' );
 		delete_option( 'stonewright_domain_lock_prior' );
 		unset( $GLOBALS['stonewright_test_home_url'] );
+	}
+
+	public function test_diagnostics_copy_does_not_claim_mismatch_when_contract_major_matches(): void {
+		$copy = ConfigurationPage::diagnostics_version_copy( '1.0.0-beta.11', '1.0.0' );
+
+		self::assertStringContainsString( 'Plugin 1.0.0-beta.11', $copy );
+		self::assertStringContainsString( 'Companion HTTP contract 1.0.0', $copy );
+		self::assertStringNotContainsString( 'mismatch', strtolower( $copy ) );
+	}
+
+	public function test_register_hooks_ajax_diagnostics_action(): void {
+		$source = (string) file_get_contents( dirname( __DIR__, 3 ) . '/includes/Admin/ConfigurationPage.php' );
+
+		self::assertStringContainsString( "add_action( 'wp_ajax_stonewright_run_diagnostics'", $source );
+		self::assertStringContainsString( 'handle_ajax_run_diagnostics', $source );
+		self::assertStringContainsString( "add_action( 'admin_post_stonewright_run_diagnostics'", $source );
+		self::assertStringContainsString( 'handle_run_diagnostics', $source );
+	}
+
+	public function test_ajax_run_diagnostics_stores_report_and_returns_json(): void {
+		$GLOBALS['stonewright_test_current_user_id'] = 0;
+		$GLOBALS['stonewright_test_json_response']   = null;
+		$_POST = [
+			'nonce' => wp_create_nonce( 'stonewright_setup_client' ),
+			'mode'  => 'both',
+		];
+
+		ConfigurationPage::handle_ajax_run_diagnostics();
+
+		$response = $GLOBALS['stonewright_test_json_response'] ?? null;
+		self::assertIsArray( $response );
+		self::assertTrue( $response['success'] );
+		self::assertIsArray( $response['data'] );
+		self::assertSame( 'both', $response['data']['mode'] );
+		self::assertArrayHasKey( 'checks', $response['data'] );
+		self::assertNotEmpty( $response['data']['checks'] );
+
+		$stored = get_option( 'stonewright_diagnostics_last' );
+		self::assertIsArray( $stored );
+		self::assertSame( $response['data']['checks'], $stored['checks'] );
+		self::assertSame( 'both', $stored['mode'] );
+	}
+
+	public function test_ajax_stdio_mode_skips_http_loopback_and_reports_companion_url(): void {
+		$GLOBALS['stonewright_test_options']['stonewright_companion_url'] = 'http://127.0.0.1:8765';
+		$GLOBALS['stonewright_test_json_response']                       = null;
+		$_POST = [
+			'nonce' => wp_create_nonce( 'stonewright_setup_client' ),
+			'mode'  => 'stdio',
+		];
+
+		ConfigurationPage::handle_ajax_run_diagnostics();
+
+		$response = $GLOBALS['stonewright_test_json_response'] ?? null;
+		self::assertIsArray( $response );
+		self::assertTrue( $response['success'] );
+		self::assertSame( 'stdio', $response['data']['mode'] );
+
+		$by_id = [];
+		foreach ( $response['data']['checks'] as $check ) {
+			$by_id[ (string) ( $check['id'] ?? '' ) ] = $check;
+		}
+		self::assertArrayHasKey( 'companion_url', $by_id );
+		self::assertSame( 'ok', $by_id['companion_url']['status'] );
+		self::assertSame( 'info', $by_id['connection_probe']['status'] );
+		self::assertStringContainsString( 'stdio', strtolower( (string) $by_id['connection_probe']['detail'] ) );
+	}
+
+	public function test_ajax_run_diagnostics_forbidden_without_capability(): void {
+		$GLOBALS['stonewright_test_user_caps']     = [];
+		$GLOBALS['stonewright_test_json_response'] = null;
+		$_POST = [
+			'nonce' => wp_create_nonce( 'stonewright_setup_client' ),
+			'mode'  => 'http',
+		];
+
+		ConfigurationPage::handle_ajax_run_diagnostics();
+
+		$response = $GLOBALS['stonewright_test_json_response'] ?? null;
+		self::assertIsArray( $response );
+		self::assertFalse( $response['success'] );
+		self::assertSame( 403, $response['status'] );
 	}
 }
