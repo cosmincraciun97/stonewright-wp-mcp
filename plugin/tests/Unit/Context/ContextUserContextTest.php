@@ -185,8 +185,8 @@ final class ContextUserContextTest extends TestCase {
 	}
 
 	public function test_compact_task_start_includes_anti_slop_floor_for_visual_profiles(): void {
-		$task    = 'Build a landing page from a screenshot';
-		$built   = ContextBuilder::build( $task, 'elementor', 'write' );
+		$task     = 'Build a landing page from a screenshot';
+		$built    = ContextBuilder::build( $task, 'elementor', 'write' );
 		$expected = $built['visual_quality_contract']['anti_slop_floor'];
 
 		$start = ( new TaskStart() )->execute(
@@ -205,15 +205,27 @@ final class ContextUserContextTest extends TestCase {
 		self::assertArrayHasKey( 'anti_slop_floor', $contract );
 		$floor = $contract['anti_slop_floor'];
 		self::assertIsArray( $floor );
-		self::assertCount( count( $expected ), $floor );
-		foreach ( $floor as $index => $rule ) {
+		self::assertNotEmpty( $floor );
+		$expected_ids = array_column( $expected, 'id' );
+		$ids          = array_column( $floor, 'id' );
+		self::assertSame(
+			array_values( array_intersect( $expected_ids, $ids ) ),
+			$ids,
+			'Compact floor must keep registry order.'
+		);
+		foreach ( $floor as $rule ) {
 			self::assertIsArray( $rule );
-			self::assertArrayHasKey( 'id', $rule );
-			self::assertArrayHasKey( 'summary', $rule );
-			self::assertArrayHasKey( 'severity', $rule );
-			self::assertArrayHasKey( 'guidance', $rule );
-			self::assertSame( $expected[ $index ], $rule );
+			self::assertNotSame( '', (string) ( $rule['id'] ?? '' ) );
+			self::assertNotSame( '', (string) ( $rule['summary'] ?? '' ) );
+			self::assertNotSame( '', (string) ( $rule['severity'] ?? '' ) );
+			if ( array_key_exists( 'guidance', $rule ) ) {
+				self::assertIsString( $rule['guidance'], 'Compact floor omits boolean/non-string guidance.' );
+			}
 		}
+		if ( count( $floor ) < count( $expected ) ) {
+			self::assertSame( count( $expected ), $contract['floor_count'] ?? null );
+		}
+		self::assertLessThan( 3600, strlen( wp_json_encode( $start ) ?: '' ) );
 	}
 
 	public function test_context_bootstrap_output_schema_lists_design_direction_ref(): void {

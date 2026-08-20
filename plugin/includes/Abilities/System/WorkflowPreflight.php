@@ -34,6 +34,16 @@ final class WorkflowPreflight extends AbilityKernel {
 	 */
 	private const COMPACT_CUSTOM_INSTRUCTIONS_CHARS = 400;
 
+	/**
+	 * Compact JSON byte budget for task-start / workflow-preflight.
+	 */
+	private const COMPACT_PAYLOAD_MAX_BYTES = 3600;
+
+	/**
+	 * Compact anti-slop summaries stay short so visual task-start fits the budget.
+	 */
+	private const COMPACT_FLOOR_SUMMARY_CHARS = 28;
+
 	public function name(): string {
 		return 'stonewright/workflow-preflight';
 	}
@@ -599,7 +609,7 @@ final class WorkflowPreflight extends AbilityKernel {
 			unset( $compact_response['changed_keys'] );
 		}
 
-		return $compact_response;
+		return self::fit_compact_payload_to_budget( $compact_response );
 	}
 
 	/**
@@ -1311,8 +1321,11 @@ final class WorkflowPreflight extends AbilityKernel {
 	/**
 	 * Keep the actionable visual quality contract while omitting non-contract keys.
 	 *
+	 * Boolean/non-string guidance is omitted: the compact payload cannot afford
+	 * it, and the id/summary/severity triple is what agents act on.
+	 *
 	 * @param list<array<string, mixed>> $floor
-	 * @return list<array{id:string,summary:string,severity:string,guidance:mixed}>
+	 * @return list<array{id:string,summary:string,severity:string,guidance?:string}>
 	 */
 	private static function compact_anti_slop_floor( array $floor ): array {
 		$out = [];
@@ -1323,22 +1336,90 @@ final class WorkflowPreflight extends AbilityKernel {
 			$id       = (string) ( $row['id'] ?? '' );
 			$summary  = (string) ( $row['summary'] ?? '' );
 			$severity = (string) ( $row['severity'] ?? '' );
-			if ( '' === $id || '' === $summary || '' === $severity || ! array_key_exists( 'guidance', $row ) ) {
+			if ( '' === $id || '' === $summary || '' === $severity ) {
 				continue;
 			}
-			$guidance = $row['guidance'];
-			if ( is_string( $guidance ) ) {
-				$guidance = self::truncate_compact_chars( $guidance, 100 );
-			}
-			$out[] = [
+			$compact = [
 				'id'       => $id,
-				'summary'  => $summary,
+				'summary'  => self::truncate_floor_summary( $summary ),
 				'severity' => $severity,
-				'guidance' => $guidance,
 			];
+			$guidance = $row['guidance'] ?? null;
+			if ( is_string( $guidance ) && '' !== $guidance ) {
+				$compact['guidance'] = self::truncate_compact_chars( $guidance, 100 );
+			}
+			$out[] = $compact;
 		}
 
 		return $out;
+	}
+
+	/**
+	 * Drop lowest-severity floor rows until compact JSON fits, never the key.
+	 *
+	 * @param array<string, mixed> $response
+	 * @return array<string, mixed>
+	 */
+	private static function fit_compact_payload_to_budget( array $response ): array {
+		$encoded = wp_json_encode( $response );
+		if ( ! is_string( $encoded ) || strlen( $encoded ) < self::COMPACT_PAYLOAD_MAX_BYTES ) {
+			return $response;
+		}
+
+		$context  = is_array( $response['context'] ?? null ) ? $response['context'] : [];
+		$contract = is_array( $context['visual_quality_contract'] ?? null )
+			? $context['visual_quality_contract']
+			: [];
+		$floor    = is_array( $contract['anti_slop_floor'] ?? null )
+			? $contract['anti_slop_floor']
+			: [];
+		if ( [] === $floor ) {
+			return $response;
+		}
+
+		$original_count = count( $floor );
+		$remaining      = $original_count;
+		$encoded_size   = strlen( $encoded );
+		while ( $encoded_size >= self::COMPACT_PAYLOAD_MAX_BYTES && $remaining > 1 ) {
+			array_splice( $floor, self::lowest_severity_index( $floor ), 1 );
+			--$remaining;
+			$contract['anti_slop_floor']        = $floor;
+			$contract['floor_count']            = $original_count;
+			$context['visual_quality_contract'] = $contract;
+			$response['context']                = $context;
+			$encoded_size                       = strlen( wp_json_encode( $response ) ?: '' );
+		}
+
+		return $response;
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $floor
+	 */
+	private static function lowest_severity_index( array $floor ): int {
+		$lowest_rank = PHP_INT_MAX;
+		$index       = count( $floor ) - 1;
+		foreach ( $floor as $i => $row ) {
+			if ( ! is_array( $row ) ) {
+				return (int) $i;
+			}
+			$rank = self::compact_severity_rank( (string) ( $row['severity'] ?? '' ) );
+			if ( $rank <= $lowest_rank ) {
+				$lowest_rank = $rank;
+				$index       = (int) $i;
+			}
+		}
+
+		return $index;
+	}
+
+	private static function compact_severity_rank( string $severity ): int {
+		return match ( strtolower( $severity ) ) {
+			'error'   => 3,
+			'warning' => 2,
+			'info'    => 1,
+			default   => 0,
+		};
 	}
 
 	/**
@@ -1350,6 +1431,18 @@ final class WorkflowPreflight extends AbilityKernel {
 		}
 
 		return mb_substr( $text, 0, $limit - 1 ) . '…';
+	}
+
+	/**
+	 * Floor summaries use ASCII ellipsis so JSON does not pay the \u2026 tax.
+	 */
+	private static function truncate_floor_summary( string $text ): string {
+		$limit = self::COMPACT_FLOOR_SUMMARY_CHARS;
+		if ( $limit < 4 || mb_strlen( $text ) <= $limit ) {
+			return $text;
+		}
+
+		return rtrim( mb_substr( $text, 0, $limit - 3 ) ) . '...';
 	}
 
 	private static function normalise( string $text ): string {
