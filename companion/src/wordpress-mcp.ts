@@ -283,6 +283,7 @@ const FALLBACK_PROXY_TOOL_NAMES: Record<Exclude<ProxyToolProfile, 'full'>, reado
 		'stonewright-theme-builder-apply-template',
 		'stonewright-elementor-page-digest',
 		'stonewright-elementor-document-health',
+		'stonewright-elementor-performance-audit',
 		'stonewright-elementor-v3-legacy-debt-report',
 		'stonewright-elementor-v3-legacy-debt-migrate',
 	],

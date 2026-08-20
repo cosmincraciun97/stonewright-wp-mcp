@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Added
+
+- Add a read-only Elementor performance audit ability reporting bounded document,
+  settings, backup, and revision size metrics without exposing content.
+
+### Fixed
+
+- Store backup snapshots and restores through a slash-safe post-meta boundary so
+  Elementor documents containing escaped JSON round-trip byte-faithfully; the
+  snapshot integrity hash check now passes for legitimate writes and still fails
+  closed on genuine storage corruption.
+
 ## [1.0.0-beta.10] - 2026-08-12
 
 ### Added

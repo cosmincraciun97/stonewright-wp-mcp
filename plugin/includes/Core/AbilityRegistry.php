@@ -82,6 +82,7 @@ use Stonewright\WpMcp\Abilities\ElementorV3\GetKitGlobals;
 use Stonewright\WpMcp\Abilities\ElementorV3\BuildTree;
 use Stonewright\WpMcp\Abilities\ElementorV3\DesignMirrorExport;
 use Stonewright\WpMcp\Abilities\ElementorV3\DocumentHealth;
+use Stonewright\WpMcp\Abilities\ElementorV3\PerformanceAudit;
 use Stonewright\WpMcp\Abilities\ElementorV3\GetPageStructure;
 use Stonewright\WpMcp\Abilities\ElementorV3\LegacyDebtReport;
 use Stonewright\WpMcp\Abilities\ElementorV3\LegacyDebtMigrate;
@@ -386,6 +387,7 @@ final class AbilityRegistry {
 			GetPageStructure::class,
 			PageDigest::class,
 			DocumentHealth::class,
+			PerformanceAudit::class,
 			LegacyDebtReport::class,
 			LegacyDebtMigrate::class,
 			PostWriteVerify::class,

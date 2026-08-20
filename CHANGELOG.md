@@ -11,6 +11,18 @@ development builds were never stable releases.
 
 ## [Unreleased]
 
+### Added
+
+- Add a read-only Elementor performance audit ability reporting bounded document,
+  settings, backup, and revision size metrics without exposing content.
+
+### Fixed
+
+- Store backup snapshots and restores through a slash-safe post-meta boundary so
+  Elementor documents containing escaped JSON round-trip byte-faithfully; the
+  snapshot integrity hash check now passes for legitimate writes and still fails
+  closed on genuine storage corruption.
+
 ### Changed
 
 - Require an explicit, SemVer-compatible release channel and expose the
