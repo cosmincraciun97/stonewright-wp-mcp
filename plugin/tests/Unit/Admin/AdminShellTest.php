@@ -38,6 +38,8 @@ final class AdminShellTest extends TestCase {
 		self::assertNotContains( 'stonewright-visual-workspace', $slugs );
 		self::assertContains( 'stonewright-prompts', $slugs );
 		self::assertContains( 'stonewright-sandbox', $slugs );
+		self::assertContains( 'stonewright-block-finalizer', $slugs );
+		self::assertSame( 'Block Editor Queue', $pages['stonewright-block-finalizer'] );
 		self::assertContains( 'stonewright-skills', $slugs );
 		self::assertContains( 'stonewright-memory', $slugs );
 		self::assertContains( 'stonewright-audit-log', $slugs );
@@ -88,6 +90,15 @@ final class AdminShellTest extends TestCase {
 			],
 			$connect
 		);
+
+		$workflows = [];
+		foreach ( $groups as $group ) {
+			if ( 'workflows' === $group['id'] ) {
+				$workflows = $group['pages'];
+			}
+		}
+		self::assertSame( 'Sandbox', $workflows['stonewright-sandbox'] ?? null );
+		self::assertSame( 'Block Editor Queue', $workflows['stonewright-block-finalizer'] ?? null );
 	}
 
 	public function test_open_and_close_produce_shell_markup_with_nav_and_mode_pill(): void {

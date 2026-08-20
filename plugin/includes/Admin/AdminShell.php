@@ -43,9 +43,10 @@ final class AdminShell {
 				'id'    => 'workflows',
 				'label' => __( 'Workflows', 'stonewright' ),
 				'pages' => [
-					'stonewright-sandbox' => __( 'Sandbox', 'stonewright' ),
-					'stonewright-prompts' => __( 'Prompts', 'stonewright' ),
-					'stonewright-design'  => __( 'Design', 'stonewright' ),
+					'stonewright-sandbox'         => __( 'Sandbox', 'stonewright' ),
+					'stonewright-block-finalizer' => __( 'Block Editor Queue', 'stonewright' ),
+					'stonewright-prompts'         => __( 'Prompts', 'stonewright' ),
+					'stonewright-design'          => __( 'Design', 'stonewright' ),
 				],
 			],
 			[

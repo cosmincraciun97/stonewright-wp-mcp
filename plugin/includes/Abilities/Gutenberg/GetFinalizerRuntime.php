@@ -24,7 +24,7 @@ final class GetFinalizerRuntime extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Returns the hidden block-finalizer URL, queued-change count, and editor scripts to keep loaded.', 'stonewright' );
+		return __( 'Returns whether the Block Editor Queue tab is online, the queued-change count, the finalizer URL, and per-target editor frame URLs.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -43,13 +43,15 @@ final class GetFinalizerRuntime extends AbilityKernel {
 		return [
 			'type'       => 'object',
 			'properties' => [
-				'url'          => [ 'type' => 'string' ],
-				'queued_count' => [ 'type' => 'integer' ],
-				'keep_open'    => [ 'type' => 'boolean' ],
-				'session_id'   => [ 'type' => 'string' ],
-				'scripts'      => [ 'type' => 'array' ],
-				'online'       => [ 'type' => 'boolean' ],
-				'targets'      => [
+				'url'           => [ 'type' => 'string' ],
+				'finalizer_url' => [ 'type' => 'string' ],
+				'queued_count'  => [ 'type' => 'integer' ],
+				'pending_count' => [ 'type' => 'integer' ],
+				'keep_open'     => [ 'type' => 'boolean' ],
+				'session_id'    => [ 'type' => 'string' ],
+				'scripts'       => [ 'type' => 'array' ],
+				'online'        => [ 'type' => 'boolean' ],
+				'targets'       => [
 					'type'  => 'array',
 					'items' => [
 						'type'       => 'object',
@@ -71,18 +73,22 @@ final class GetFinalizerRuntime extends AbilityKernel {
 
 	public function execute( array $args ): array|\WP_Error {
 		$issued = BlockQueue::issue_token();
+		$url    = FinalizerPage::url( $issued['token'] );
+		$count  = BlockQueue::pending_count();
 		return [
-			'url'          => FinalizerPage::url( $issued['token'] ),
-			'queued_count' => BlockQueue::pending_count(),
-			'keep_open'    => true,
-			'session_id'   => $issued['session_id'],
-			'scripts'      => [ 'wp-blocks', 'wp-block-editor', 'wp-data', 'wp-api-fetch', 'wp-element', 'wp-block-library' ],
-			'online'       => FinalizerPage::is_online(),
-			'targets'      => FinalizerPage::pending_targets(),
+			'url'           => $url,
+			'finalizer_url' => $url,
+			'queued_count'  => $count,
+			'pending_count' => $count,
+			'keep_open'     => true,
+			'session_id'    => $issued['session_id'],
+			'scripts'       => [ 'wp-blocks', 'wp-block-editor', 'wp-data', 'wp-api-fetch', 'wp-element', 'wp-block-library' ],
+			'online'        => FinalizerPage::is_online(),
+			'targets'       => FinalizerPage::pending_targets(),
 		];
 	}
 
 	protected function audit_redacted_keys(): array {
-		return array_merge( parent::audit_redacted_keys(), [ 'url' ] );
+		return array_merge( parent::audit_redacted_keys(), [ 'url', 'finalizer_url' ] );
 	}
 }

@@ -405,7 +405,34 @@
 		});
 	}
 
+	function heartbeat() {
+		if (!token) {
+			return;
+		}
+		var body = { token: token };
+		if (window.wp && wp.apiFetch) {
+			wp.apiFetch({
+				path: '/stonewright/v1/block-finalizer/heartbeat',
+				method: 'POST',
+				data: body,
+			}).catch(function () {
+				/* Keep the queue page open; the next beat will retry. */
+			});
+			return;
+		}
+		fetch(restBase + 'heartbeat', {
+			method: 'POST',
+			credentials: 'same-origin',
+			headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
+			body: JSON.stringify(body),
+		}).catch(function () {
+			/* Keep the queue page open; the next beat will retry. */
+		});
+	}
+
 	function boot() {
+		heartbeat();
+		setInterval(heartbeat, 15000);
 		tick();
 		setInterval(tick, 2000);
 	}

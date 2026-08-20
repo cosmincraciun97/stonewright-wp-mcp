@@ -41,6 +41,7 @@ final class GutenbergFinalizerTest extends TestCase {
 		$GLOBALS['stonewright_test_submenu_pages']   = [];
 		$GLOBALS['stonewright_test_enqueued_scripts'] = [];
 		$GLOBALS['stonewright_test_transients']      = [];
+		$GLOBALS['stonewright_test_transient_ttls']  = [];
 		$GLOBALS['stonewright_test_posts']           = [
 			42 => (object) [
 				'ID'           => 42,
@@ -76,7 +77,8 @@ final class GutenbergFinalizerTest extends TestCase {
 		$GLOBALS['stonewright_test_rest_routes']       = [];
 		$GLOBALS['stonewright_test_actions']           = [];
 		unset( $GLOBALS['stonewright_test_registered_blocks'] );
-		$GLOBALS['stonewright_test_transients'] = [];
+		$GLOBALS['stonewright_test_transients']     = [];
+		$GLOBALS['stonewright_test_transient_ttls'] = [];
 	}
 
 	public function test_queue_block_change_stores_normalized_spec_not_html(): void {
@@ -125,6 +127,12 @@ final class GutenbergFinalizerTest extends TestCase {
 		$runtime = ( new GetFinalizerRuntime() )->execute( [] );
 		self::assertIsArray( $runtime );
 		self::assertSame( 1, $runtime['queued_count'] );
+		self::assertSame( 1, $runtime['pending_count'] );
+		self::assertArrayHasKey( 'online', $runtime );
+		self::assertIsBool( $runtime['online'] );
+		self::assertArrayHasKey( 'finalizer_url', $runtime );
+		self::assertStringContainsString( 'stonewright-block-finalizer', (string) $runtime['finalizer_url'] );
+		self::assertStringContainsString( 'example.test', (string) $runtime['finalizer_url'] );
 		self::assertStringNotContainsString( 'hidden-from-list', (string) wp_json_encode( $runtime ) );
 
 		$url = ( new GetFinalizationUrl() )->execute( [] );
@@ -247,23 +255,32 @@ final class GutenbergFinalizerTest extends TestCase {
 		self::assertStringContainsString( 'latest-posts', (string) $GLOBALS['stonewright_test_posts'][42]->post_content );
 	}
 
-	public function test_finalizer_page_is_hidden_and_asks_to_keep_the_session_open(): void {
+	public function test_finalizer_page_is_visible_block_editor_queue_with_keep_open_copy(): void {
 		if ( ! defined( 'STONEWRIGHT_URL' ) ) {
 			define( 'STONEWRIGHT_URL', 'https://example.test/wp-content/plugins/stonewright/' );
 		}
 		FinalizerPage::register();
 		do_action( 'admin_menu' );
 
-		$slug = FinalizerPage::SLUG;
+		$slug     = FinalizerPage::SLUG;
+		$submenu  = $GLOBALS['stonewright_test_submenu_pages'][ $slug ] ?? [];
 		self::assertArrayHasKey( $slug, $GLOBALS['stonewright_test_submenu_pages'] );
-		self::assertSame( '', $GLOBALS['stonewright_test_submenu_pages'][ $slug ]['parent'] );
+		self::assertSame( 'stonewright', $submenu['parent'] );
+		self::assertSame( 'Block Editor Queue', $submenu['page_title'] );
+		self::assertSame( 'Block Editor Queue', $submenu['menu_title'] );
+		self::assertNotSame( '', $submenu['page_title'] );
 
 		$_GET['page'] = $slug;
 		ob_start();
 		FinalizerPage::render();
 		$html = (string) ob_get_clean();
-		self::assertStringContainsString( 'Keep this page open while a session runs', $html );
+		self::assertStringContainsString( 'Block Editor Queue', $html );
+		self::assertStringContainsString( 'Keep this tab open while an agent session runs — queued block changes are serialized here.', $html );
 		self::assertStringContainsString( 'queued', strtolower( $html ) );
+
+		$titled = FinalizerPage::filter_admin_title( ' &lsaquo; example.test', '' );
+		self::assertStringStartsWith( 'Block Editor Queue', $titled );
+		self::assertStringContainsString( 'example.test', $titled );
 	}
 
 	public function test_client_side_block_is_not_server_serialized_and_runtime_exposes_editor_frame_url(): void {
@@ -337,6 +354,50 @@ final class GutenbergFinalizerTest extends TestCase {
 		FinalizerPage::render();
 		$html = (string) ob_get_clean();
 		self::assertStringContainsString( 'id="stonewright-finalizer-frame"', $html );
+		self::assertSame( 1, (int) $runtime['pending_count'] );
+		self::assertStringContainsString( 'stonewright-block-finalizer', (string) $runtime['finalizer_url'] );
+	}
+
+	public function test_heartbeat_sets_online_transient_for_forty_five_seconds(): void {
+		FinalizerPage::register();
+		do_action( 'rest_api_init' );
+
+		$route = $this->find_route( '/block-finalizer/heartbeat' );
+		self::assertNotNull( $route );
+		self::assertSame( 'POST', $route['args']['methods'] ?? '' );
+
+		$issued  = BlockQueue::issue_token();
+		$request = new \WP_REST_Request( 'POST', '/stonewright/v1/block-finalizer/heartbeat' );
+		$request->set_json_params( [ 'token' => $issued['token'] ] );
+		$response = FinalizerPage::rest_heartbeat( $request );
+
+		self::assertInstanceOf( \WP_REST_Response::class, $response );
+		self::assertTrue( FinalizerPage::is_online() );
+		self::assertArrayHasKey( 'stonewright_finalizer_online', $GLOBALS['stonewright_test_transients'] );
+		self::assertSame( 45, (int) ( $GLOBALS['stonewright_test_transient_ttls']['stonewright_finalizer_online'] ?? 0 ) );
+
+		$runtime = ( new GetFinalizerRuntime() )->execute( [] );
+		self::assertIsArray( $runtime );
+		self::assertTrue( $runtime['online'] );
+		self::assertSame( 0, $runtime['pending_count'] );
+		self::assertArrayHasKey( 'finalizer_url', $runtime );
+	}
+
+	public function test_heartbeat_rejects_invalid_hmac_token(): void {
+		FinalizerPage::register();
+		do_action( 'rest_api_init' );
+
+		$route = $this->find_route( '/block-finalizer/heartbeat' );
+		self::assertNotNull( $route );
+		$permission = $route['args']['permission_callback'];
+		self::assertIsCallable( $permission );
+
+		$request = new \WP_REST_Request( 'POST', '/stonewright/v1/block-finalizer/heartbeat' );
+		$request->set_json_params( [ 'token' => 'not-a-real-hmac' ] );
+		$result = $permission( $request );
+
+		self::assertInstanceOf( \WP_Error::class, $result );
+		self::assertSame( 403, (int) ( $result->get_error_data()['status'] ?? 0 ) );
 	}
 
 	public function test_editor_iframe_serialization_restores_blocks_and_save_locks_in_finally(): void {
@@ -346,6 +407,8 @@ final class GutenbergFinalizerTest extends TestCase {
 			'/var originalBlocks = blockSelect\.getBlocks\(\);.*try \{.*resetEditorBlocks\(\[created\]\).*finally \{.*resetEditorBlocks\(originalBlocks\).*unlockPostSaving\(lockKey\).*unlockPostAutosaving\(lockKey\)/s',
 			$script
 		);
+		self::assertStringContainsString( 'block-finalizer/heartbeat', $script );
+		self::assertMatchesRegularExpression( '/setInterval\(\s*heartbeat\s*,\s*15000\s*\)/', $script );
 	}
 
 	public function test_result_endpoint_recomputes_hash_when_client_flags_hash_unavailable(): void {

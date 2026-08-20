@@ -5,10 +5,12 @@ namespace Stonewright\WpMcp\Tests\Integration\Admin;
 
 use PHPUnit\Framework\TestCase;
 use Stonewright\WpMcp\Admin\AdminBootstrap;
+use Stonewright\WpMcp\Admin\AdminShell;
 use Stonewright\WpMcp\Admin\Pages\StatusPage;
 use Stonewright\WpMcp\Admin\Pages\SandboxLibraryPage;
 use Stonewright\WpMcp\Admin\Pages\TroubleshootPage;
 use Stonewright\WpMcp\Admin\RestApi;
+use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
 
 /**
  * Verifies that AdminBootstrap wires the expected hooks and that the new
@@ -152,5 +154,29 @@ final class AdminMenuRegistrationTest extends TestCase {
 		$this->assertIsArray( $data['files'], '"files" value must be an array' );
 		$this->assertIsInt( $data['count'], '"count" value must be an integer' );
 		$this->assertCount( $data['count'], $data['files'], '"count" must equal the number of items in "files"' );
+	}
+
+	public function test_block_editor_queue_is_visible_under_workflows_with_sandbox(): void {
+		$GLOBALS['stonewright_test_submenu_pages'] = [];
+		FinalizerPage::register();
+		do_action( 'admin_menu' );
+
+		$slug       = FinalizerPage::SLUG;
+		$registered = $GLOBALS['stonewright_test_submenu_pages'][ $slug ] ?? null;
+		$this->assertIsArray( $registered );
+		$this->assertSame( 'stonewright', $registered['parent'] );
+		$this->assertSame( 'Block Editor Queue', $registered['page_title'] );
+		$this->assertSame( 'Block Editor Queue', $registered['menu_title'] );
+		$this->assertSame( 'edit_posts', $registered['capability'] );
+
+		$workflows = [];
+		foreach ( AdminShell::menu_groups() as $group ) {
+			if ( 'workflows' === $group['id'] ) {
+				$workflows = $group['pages'];
+			}
+		}
+		$this->assertArrayHasKey( 'stonewright-sandbox', $workflows );
+		$this->assertSame( 'Sandbox', $workflows['stonewright-sandbox'] );
+		$this->assertSame( 'Block Editor Queue', $workflows[ $slug ] ?? null );
 	}
 }

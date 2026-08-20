@@ -6,14 +6,16 @@ namespace Stonewright\WpMcp\Gutenberg\Finalizer;
 use Stonewright\WpMcp\Admin\AdminShell;
 
 /**
- * Hidden admin page that loads the live block editor scripts and serializes
- * queued `{name, attributes, innerBlocks}` specs. Persistence stays in
- * stonewright/blocks-finalize-batch.
+ * Visible Block Editor Queue page that loads the live block editor scripts and
+ * serializes queued `{name, attributes, innerBlocks}` specs. Persistence stays
+ * in stonewright/blocks-finalize-batch.
  */
 final class FinalizerPage {
 
-	public const SLUG       = 'stonewright-block-finalizer';
-	public const CAPABILITY = 'edit_posts';
+	public const SLUG             = 'stonewright-block-finalizer';
+	public const CAPABILITY       = 'edit_posts';
+	public const ONLINE_TRANSIENT = 'stonewright_finalizer_online';
+	public const ONLINE_TTL       = 45;
 
 	public static function register(): void {
 		add_action( 'admin_menu', [ self::class, 'add_submenu' ] );
@@ -21,13 +23,14 @@ final class FinalizerPage {
 		add_action( 'rest_api_init', [ self::class, 'register_rest' ] );
 		add_action( 'wp_ajax_stonewright_block_finalizer_pending', [ self::class, 'ajax_pending' ] );
 		add_action( 'wp_ajax_stonewright_block_finalizer_result', [ self::class, 'ajax_result' ] );
+		add_filter( 'admin_title', [ self::class, 'filter_admin_title' ], 10, 2 );
 	}
 
 	public static function add_submenu(): void {
 		add_submenu_page(
-			'',
-			__( 'Block finalizer', 'stonewright' ),
-			__( 'Block finalizer', 'stonewright' ),
+			'stonewright',
+			__( 'Block Editor Queue', 'stonewright' ),
+			__( 'Block Editor Queue', 'stonewright' ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]
@@ -78,10 +81,10 @@ final class FinalizerPage {
 			'queuedCount' => $count,
 		];
 
-		AdminShell::open( self::SLUG, [ 'title' => __( 'Block finalizer', 'stonewright' ) ] );
+		AdminShell::open( self::SLUG, [ 'title' => __( 'Block Editor Queue', 'stonewright' ) ] );
 		echo '<div class="stonewright-block-finalizer-page">';
-		echo '<header class="stonewright-page-header"><div><h1>' . esc_html__( 'Block finalizer', 'stonewright' ) . '</h1>';
-		echo '<p>' . esc_html__( 'Keep this page open while a session runs. It serializes queued block specs with the live editor registry; Stonewright still persists through the guarded finalize ability.', 'stonewright' ) . '</p></div></header>';
+		echo '<header class="stonewright-page-header"><div><h1>' . esc_html__( 'Block Editor Queue', 'stonewright' ) . '</h1>';
+		echo '<p>' . esc_html__( 'Keep this tab open while an agent session runs — queued block changes are serialized here.', 'stonewright' ) . '</p></div></header>';
 		echo '<p class="stonewright-finalizer-count"><strong>' . esc_html__( 'Queued changes:', 'stonewright' ) . '</strong> ';
 		echo '<span id="stonewright-finalizer-queued-count">' . esc_html( (string) $count ) . '</span></p>';
 		echo '<iframe id="stonewright-finalizer-frame" class="stonewright-block-finalizer-frame" hidden title="' . esc_attr( __( 'Block serializer', 'stonewright' ) ) . '"></iframe>';
@@ -115,14 +118,46 @@ final class FinalizerPage {
 				'callback'            => [ self::class, 'rest_result' ],
 			]
 		);
+		register_rest_route(
+			'stonewright/v1',
+			'/block-finalizer/heartbeat',
+			[
+				'methods'             => 'POST',
+				'permission_callback' => [ self::class, 'rest_permission' ],
+				'callback'            => [ self::class, 'rest_heartbeat' ],
+			]
+		);
+	}
+
+	public static function rest_heartbeat( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
+		$token    = self::request_token( $request );
+		$verified = BlockQueue::verify_token( $token );
+		if ( $verified instanceof \WP_Error ) {
+			return $verified;
+		}
+		self::mark_online();
+		return rest_ensure_response(
+			[
+				'ok'     => true,
+				'online' => true,
+			]
+		);
+	}
+
+	public static function filter_admin_title( string $admin_title, string $title ): string {
+		$page = isset( $_GET['page'] ) ? sanitize_key( (string) wp_unslash( (string) $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( self::SLUG !== $page ) {
+			return $admin_title;
+		}
+		$label = __( 'Block Editor Queue', 'stonewright' );
+		if ( str_starts_with( $admin_title, $label ) || str_starts_with( $title, $label ) ) {
+			return $admin_title;
+		}
+		return $label . $admin_title;
 	}
 
 	public static function rest_permission( \WP_REST_Request $request ): bool|\WP_Error {
-		$token = (string) $request->get_param( 'token' );
-		if ( '' === $token ) {
-			$body = $request->get_json_params();
-			$token = is_array( $body ) ? (string) ( $body['token'] ?? '' ) : '';
-		}
+		$token = self::request_token( $request );
 		$verified = BlockQueue::verify_token( $token );
 		if ( $verified instanceof \WP_Error ) {
 			return $verified;
@@ -253,7 +288,7 @@ final class FinalizerPage {
 	}
 
 	public static function is_online(): bool {
-		$beat = get_transient( 'stonewright_block_finalizer_online' );
+		$beat = get_transient( self::ONLINE_TRANSIENT );
 		return false !== $beat && is_numeric( $beat );
 	}
 
@@ -279,7 +314,16 @@ final class FinalizerPage {
 	}
 
 	private static function mark_online(): void {
-		set_transient( 'stonewright_block_finalizer_online', time(), defined( 'MINUTE_IN_SECONDS' ) ? (int) MINUTE_IN_SECONDS : 60 );
+		set_transient( self::ONLINE_TRANSIENT, time(), self::ONLINE_TTL );
+	}
+
+	private static function request_token( \WP_REST_Request $request ): string {
+		$token = (string) $request->get_param( 'token' );
+		if ( '' !== $token ) {
+			return $token;
+		}
+		$body = $request->get_json_params();
+		return is_array( $body ) ? (string) ( $body['token'] ?? '' ) : '';
 	}
 
 	/**
