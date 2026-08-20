@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
+use Stonewright\WpMcp\Elementor\Schema\PlainLlmSchemaConverter;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Elementor\WidgetRegistry\EditorTabKnowledge;
 use Stonewright\WpMcp\Security\Permissions;
@@ -24,7 +25,7 @@ final class GetWidgetSchema extends AbilityKernel {
 	}
 
 	public function description(): string {
-		return __( 'Returns compact Content, Style, and Advanced control groups for a single Elementor widget by default, or full control defaults when responseMode=full.', 'stonewright' );
+		return __( 'Returns compact Content, Style, and Advanced control groups for a single Elementor widget by default, a type/description summary, or full control defaults when responseMode=full. Schemas are plain values without typed envelopes.', 'stonewright' );
 	}
 
 	public function category(): string {
@@ -39,9 +40,9 @@ final class GetWidgetSchema extends AbilityKernel {
 				'name'         => [ 'type' => 'string' ],
 				'responseMode' => [
 					'type'        => 'string',
-					'enum'        => [ 'summary', 'full' ],
-					'default'     => 'summary',
-					'description' => 'Use summary for control names, types, labels, sections, and editor tabs; use full only when default values are required.',
+					'enum'        => [ 'summary', 'compact', 'full' ],
+					'default'     => 'compact',
+					'description' => 'Use compact for control names, types, labels, sections, and editor tabs; summary for type and description only; full only when default values are required.',
 				],
 				'tabFilter'    => [
 					'type'        => 'array',
@@ -133,20 +134,38 @@ final class GetWidgetSchema extends AbilityKernel {
 			return $schema;
 		}
 
-		$controls = [];
-		foreach ( (array) $schema['controls'] as $key => $control ) {
+		$plain_map = PlainLlmSchemaConverter::convert( (array) $schema['controls'] );
+		$controls  = [];
+		foreach ( $plain_map as $key => $control ) {
 			$controls[] = [ 'name' => (string) $key ] + (array) $control;
 		}
 
-		$response_mode = (string) ( $args['responseMode'] ?? 'summary' );
+		$response_mode = (string) ( $args['responseMode'] ?? 'compact' );
+		if ( ! in_array( $response_mode, [ 'summary', 'compact', 'full' ], true ) ) {
+			$response_mode = 'compact';
+		}
 		$filters          = self::filters( $args );
 		$compact_controls = self::filter_controls( self::compact_controls( $controls ), $filters );
 		$full_controls    = self::filter_controls( $controls, $filters );
-		$output_controls  = 'full' === $response_mode ? $full_controls : $compact_controls;
+		if ( 'summary' === $response_mode ) {
+			$output_controls = [];
+			foreach ( $full_controls as $control ) {
+				$name = (string) ( $control['name'] ?? '' );
+				if ( '' === $name ) {
+					continue;
+				}
+				$output_controls[ $name ] = [
+					'type'        => (string) ( $control['type'] ?? '' ),
+					'description' => (string) ( $control['description'] ?? $control['label'] ?? '' ),
+				];
+			}
+		} else {
+			$output_controls = 'full' === $response_mode ? $full_controls : $compact_controls;
+		}
 
 		return [
 			'name'              => (string) $args['name'],
-			'response_mode'     => 'full' === $response_mode ? 'full' : 'summary',
+			'response_mode'     => $response_mode,
 			'title'             => (string) $schema['title'],
 			'categories'        => (array) $schema['categories'],
 			'schema_hash'       => (string) $schema['schema_hash'],

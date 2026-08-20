@@ -12,6 +12,7 @@ use Stonewright\WpMcp\Elementor\Schema\PatchValidator;
 use Stonewright\WpMcp\Elementor\Schema\RepeaterPatcher;
 use Stonewright\WpMcp\Elementor\Schema\ResponsiveScope;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
+use Stonewright\WpMcp\Elementor\Schema\SparseSettingsNormalizer;
 use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Elementor\V4\AtomicTreeInspector;
 use Stonewright\WpMcp\Elementor\V4\ArchitectureRouter;
@@ -694,6 +695,7 @@ final class BatchMutate extends AbilityKernel {
 		if ( $evidence instanceof \WP_Error ) {
 			return $evidence;
 		}
+		$settings = SparseSettingsNormalizer::for_new_write( $settings, 'container', $settings );
 		$element  = [
 			'id'       => ElementorData::generate_id(),
 			'elType'   => 'container',
@@ -750,6 +752,9 @@ final class BatchMutate extends AbilityKernel {
 		$evidence = EvidenceValidator::validate( $widget_type, $settings, self::operation_evidence( $operation ), $require_evidence );
 		if ( $evidence instanceof \WP_Error ) {
 			return $evidence;
+		}
+		if ( 'html' !== $widget_type ) {
+			$settings = SparseSettingsNormalizer::for_new_write( $settings, $widget_type, $settings );
 		}
 
 		if ( isset( $operation['parent_ref'] ) ) {
@@ -898,6 +903,18 @@ final class BatchMutate extends AbilityKernel {
 		$evidence = EvidenceValidator::validate( $evidence_widget_type, $incoming, self::operation_evidence( $operation ), $require_evidence );
 		if ( $evidence instanceof \WP_Error ) {
 			return $evidence;
+		}
+		$schema = in_array( $evidence_widget_type, [ 'container', 'section', 'column' ], true )
+			? ContainerSchemaRepository::get( $evidence_widget_type )
+			: WidgetSchemaRepository::get( $evidence_widget_type );
+		if ( is_array( $schema ) ) {
+			$settings = SparseSettingsNormalizer::for_write(
+				$settings,
+				(array) ( $schema['controls'] ?? [] ),
+				$incoming,
+				$effective_before,
+				array_map( 'strval', (array) ( $schema['required_for_render'] ?? [] ) )
+			);
 		}
 		if ( $settings === $effective_before ) {
 			return $this->error(

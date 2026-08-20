@@ -5,7 +5,11 @@ namespace Stonewright\WpMcp\Abilities\ElementorV3;
 
 use Stonewright\WpMcp\Abilities\AbilityKernel;
 use Stonewright\WpMcp\Elementor\ContainerSettings;
+use Stonewright\WpMcp\Elementor\Schema\ContainerSchemaRepository;
+use Stonewright\WpMcp\Elementor\Schema\SettingsKeyAliases;
 use Stonewright\WpMcp\Elementor\Schema\SettingsValidator;
+use Stonewright\WpMcp\Elementor\Schema\SparseSettingsNormalizer;
+use Stonewright\WpMcp\Elementor\Schema\WidgetSchemaRepository;
 use Stonewright\WpMcp\Elementor\V4\AtomicTreeInspector;
 use Stonewright\WpMcp\Elementor\Write\PostWriteLock;
 use Stonewright\WpMcp\Elementor\Write\TreeHasher;
@@ -153,21 +157,42 @@ final class UpdateElement extends AbilityKernel {
 				$settings = isset( $existing['settings'] ) && is_array( $existing['settings'] ) ? $existing['settings'] : [];
 				$mode     = isset( $args['mode'] ) ? (string) $args['mode'] : 'merge';
 				$incoming = (array) $args['settings'];
+				$supplied = SettingsKeyAliases::normalize( $incoming )['settings'];
 				$next     = 'replace' === $mode ? $incoming : array_merge( $settings, $incoming );
 				$element_type = (string) ( $existing['elType'] ?? '' );
 				if ( in_array( $element_type, [ 'container', 'section', 'column' ], true ) ) {
-					$next      = 'container' === $element_type ? ContainerSettings::normalize( $next ) : $next;
+					if ( 'container' === $element_type ) {
+						$supplied = ContainerSettings::normalize( $supplied );
+						$next     = ContainerSettings::normalize( $next );
+					}
 					$validated = SettingsValidator::validate_container( $next, $element_type, false, true );
 					if ( $validated instanceof \WP_Error ) {
 						return $validated;
 					}
-					$next = $validated['settings'];
+					$schema = ContainerSchemaRepository::get( $element_type );
+					$controls = is_array( $schema ) ? (array) ( $schema['controls'] ?? [] ) : [];
+					$next = SparseSettingsNormalizer::for_write(
+						$validated['settings'],
+						$controls,
+						$supplied,
+						'replace' === $mode ? [] : $settings
+					);
 				} elseif ( 'widget' === ( $existing['elType'] ?? '' ) ) {
-					$validated = SettingsValidator::validate( (string) ( $existing['widgetType'] ?? '' ), $next, false, false, true );
+					$widget_type = (string) ( $existing['widgetType'] ?? '' );
+					$validated = SettingsValidator::validate( $widget_type, $next, false, false, true );
 					if ( $validated instanceof \WP_Error ) {
 						return $validated;
 					}
-					$next = $validated['settings'];
+					$schema   = WidgetSchemaRepository::get( $widget_type );
+					$controls = is_array( $schema ) ? (array) ( $schema['controls'] ?? [] ) : [];
+					$required = is_array( $schema ) ? array_map( 'strval', (array) ( $schema['required_for_render'] ?? [] ) ) : [];
+					$next     = SparseSettingsNormalizer::for_write(
+						$validated['settings'],
+						$controls,
+						$supplied,
+						'replace' === $mode ? [] : $settings,
+						$required
+					);
 				}
 
 				$existing['settings'] = $next;

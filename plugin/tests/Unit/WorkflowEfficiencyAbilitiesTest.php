@@ -792,10 +792,10 @@ final class WorkflowEfficiencyAbilitiesTest extends TestCase {
 		self::assertArrayHasKey( 'tab_groups', $schema['properties'] );
 		self::assertArrayHasKey( 'research_guidance', $schema['properties'] );
 
-		$result = $ability->execute( [ 'name' => 'Contract' ] );
+		$result = $ability->execute( [ 'name' => 'Contract', 'responseMode' => 'compact' ] );
 
 		self::assertIsArray( $result );
-		self::assertSame( 'summary', $result['response_mode'] );
+		self::assertSame( 'compact', $result['response_mode'] );
 		self::assertTrue( $result['defaults_omitted'] );
 		self::assertArrayHasKey( 'tab_groups', $result );
 		self::assertArrayHasKey( 'Content', $result['tab_groups'] );
