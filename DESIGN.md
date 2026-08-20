@@ -1,4 +1,5 @@
 ---
+# This repository-level document styles the plugin admin UI; it is not a per-site design direction.
 name: Stonewright
 description: Precise, calm WordPress operations in a restrained light workspace.
 colors:

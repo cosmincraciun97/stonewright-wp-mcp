@@ -16,6 +16,7 @@ final class DirectionBriefTest extends TestCase {
 		$GLOBALS['stonewright_test_options'] = [ DesignDirectionService::ACTIVE_OPTION => 73 ];
 
 		global $wpdb;
+		$document = 'A calm editorial system with restrained spacing.';
 		$contract = [
 			'tokens'    => [ 'spacing' => [ 'section' => '88px' ] ],
 			'dials'     => [ 'variance' => 80, 'density' => 25, 'motion' => 10 ],
@@ -30,8 +31,8 @@ final class DirectionBriefTest extends TestCase {
 				'status'           => 'ready',
 				'contract_json'    => (string) wp_json_encode( $contract ),
 				'contract_hash'    => DesignDirectionService::hash( $contract ),
-				'source_type'      => 'manual',
-				'source_refs_json' => '[]',
+				'source_type'      => 'import',
+				'source_refs_json' => (string) wp_json_encode( [ 'rationale' => $document ] ),
 				'revision'         => 3,
 				'created_at'       => '2026-07-01 00:00:00',
 				'updated_at'       => '2026-07-02 00:00:00',
@@ -55,6 +56,20 @@ final class DirectionBriefTest extends TestCase {
 		self::assertSame( 'blocked', $result['brief']['elementor_guidance']['motion']['motion_fx'] );
 		self::assertSame( '88px', $result['brief']['tokens']['spacing']['section'] );
 		self::assertArrayNotHasKey( 'contract', $result['brief'] );
+		self::assertArrayNotHasKey( 'document', $result );
+	}
+
+	public function test_returns_bounded_sanitized_imported_document_on_demand(): void {
+		global $wpdb;
+		$document = '<strong>Safe design rationale.</strong> ' . str_repeat( 'x', 40000 );
+		$sanitized = wp_strip_all_tags( $document );
+		$wpdb->direction_rows[73]['source_refs_json'] = (string) wp_json_encode( [ 'rationale' => $document ] );
+
+		$result = ( new DirectionBrief() )->execute( [ 'include_document' => true ] );
+
+		self::assertIsArray( $result );
+		self::assertSame( substr( $sanitized, 0, 32768 ), $result['document'] );
+		self::assertSame( 32768, strlen( $result['document'] ) );
 	}
 
 	public function test_reports_an_empty_brief_when_no_direction_is_active(): void {
