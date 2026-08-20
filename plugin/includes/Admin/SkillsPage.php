@@ -42,7 +42,7 @@ final class SkillsPage {
 		add_submenu_page(
 			'stonewright',
 			__( 'Skills', 'stonewright' ),
-			__( 'Safety: Skills', 'stonewright' ),
+			__( 'Skills', 'stonewright' ),
 			self::CAP,
 			self::SLUG,
 			[ self::class, 'render' ]

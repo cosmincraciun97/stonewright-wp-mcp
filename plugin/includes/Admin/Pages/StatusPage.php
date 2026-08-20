@@ -26,7 +26,7 @@ final class StatusPage {
 		add_submenu_page(
 			'stonewright',
 			__( 'Dashboard', 'stonewright' ),
-			__( 'Overview', 'stonewright' ),
+			__( 'Dashboard', 'stonewright' ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]

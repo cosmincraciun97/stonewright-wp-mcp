@@ -19,7 +19,7 @@ final class AdminShell {
 		return [
 			[
 				'id'    => 'overview',
-				'label' => __( 'Overview', 'stonewright' ),
+				'label' => __( 'Dashboard', 'stonewright' ),
 				'pages' => [
 					'stonewright-status' => __( 'Dashboard', 'stonewright' ),
 				],
@@ -34,7 +34,7 @@ final class AdminShell {
 			],
 			[
 				'id'    => 'capabilities',
-				'label' => __( 'Capabilities', 'stonewright' ),
+				'label' => __( 'AI Abilities', 'stonewright' ),
 				'pages' => [
 					'stonewright-abilities' => __( 'AI Abilities', 'stonewright' ),
 				],

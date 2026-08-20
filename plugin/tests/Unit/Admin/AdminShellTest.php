@@ -49,6 +49,11 @@ final class AdminShellTest extends TestCase {
 		self::assertContains( 'stonewright-troubleshoot', $slugs );
 		self::assertSame( 'Setup', $pages['stonewright'] );
 		self::assertSame( 'Troubleshoot', $pages['stonewright-troubleshoot'] );
+		self::assertSame( 'Dashboard', $pages['stonewright-status'] );
+		self::assertSame( 'AI Abilities', $pages['stonewright-abilities'] );
+		self::assertSame( 'Audit Log', $pages['stonewright-audit-log'] );
+		self::assertSame( 'Memory', $pages['stonewright-memory'] );
+		self::assertSame( 'Skills', $pages['stonewright-skills'] );
 		self::assertSame( 'Design', $pages['stonewright-design'] );
 		self::assertSame( 'Context', $pages['stonewright-context'] );
 	}
@@ -99,6 +104,21 @@ final class AdminShellTest extends TestCase {
 		}
 		self::assertSame( 'Sandbox', $workflows['stonewright-sandbox'] ?? null );
 		self::assertSame( 'Block Editor Queue', $workflows['stonewright-block-finalizer'] ?? null );
+
+		$overview = [];
+		$capabilities = [];
+		foreach ( $groups as $group ) {
+			if ( 'overview' === $group['id'] ) {
+				$overview = $group;
+			}
+			if ( 'capabilities' === $group['id'] ) {
+				$capabilities = $group;
+			}
+		}
+		self::assertSame( 'Dashboard', $overview['label'] );
+		self::assertSame( 'Dashboard', $overview['pages']['stonewright-status'] ?? null );
+		self::assertSame( 'AI Abilities', $capabilities['label'] );
+		self::assertSame( 'AI Abilities', $capabilities['pages']['stonewright-abilities'] ?? null );
 	}
 
 	public function test_open_and_close_produce_shell_markup_with_nav_and_mode_pill(): void {

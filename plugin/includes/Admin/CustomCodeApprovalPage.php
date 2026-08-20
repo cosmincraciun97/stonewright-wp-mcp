@@ -21,8 +21,8 @@ final class CustomCodeApprovalPage {
 	public static function add_submenu(): void {
 		add_submenu_page(
 			ConfigurationPage::SLUG,
-			__( 'Custom Code Approval', 'stonewright' ),
-			__( 'Safety: Code approval', 'stonewright' ),
+			__( 'Code approval', 'stonewright' ),
+			__( 'Code approval', 'stonewright' ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]

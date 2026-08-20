@@ -26,7 +26,7 @@ final class AbilitiesPage {
 		add_submenu_page(
 			'stonewright',
 			__( 'AI Abilities', 'stonewright' ),
-			__( 'Capabilities', 'stonewright' ),
+			__( 'AI Abilities', 'stonewright' ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]

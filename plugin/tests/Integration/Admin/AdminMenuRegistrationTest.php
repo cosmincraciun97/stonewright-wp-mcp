@@ -4,12 +4,18 @@ declare( strict_types=1 );
 namespace Stonewright\WpMcp\Tests\Integration\Admin;
 
 use PHPUnit\Framework\TestCase;
+use Stonewright\WpMcp\Admin\AbilitiesPage;
 use Stonewright\WpMcp\Admin\AdminBootstrap;
 use Stonewright\WpMcp\Admin\AdminShell;
+use Stonewright\WpMcp\Admin\AuditLogPage;
+use Stonewright\WpMcp\Admin\ConfigurationPage;
+use Stonewright\WpMcp\Admin\CustomCodeApprovalPage;
+use Stonewright\WpMcp\Admin\MemoryInstructionsPage;
 use Stonewright\WpMcp\Admin\Pages\StatusPage;
 use Stonewright\WpMcp\Admin\Pages\SandboxLibraryPage;
 use Stonewright\WpMcp\Admin\Pages\TroubleshootPage;
 use Stonewright\WpMcp\Admin\RestApi;
+use Stonewright\WpMcp\Admin\SkillsPage;
 use Stonewright\WpMcp\Gutenberg\Finalizer\FinalizerPage;
 
 /**
@@ -154,6 +160,38 @@ final class AdminMenuRegistrationTest extends TestCase {
 		$this->assertIsArray( $data['files'], '"files" value must be an array' );
 		$this->assertIsInt( $data['count'], '"count" value must be an integer' );
 		$this->assertCount( $data['count'], $data['files'], '"count" must equal the number of items in "files"' );
+	}
+
+	public function test_sidebar_menu_titles_match_shell_tab_labels(): void {
+		$GLOBALS['stonewright_test_submenu_pages'] = [];
+
+		ConfigurationPage::register();
+		StatusPage::register();
+		AbilitiesPage::register();
+		AuditLogPage::register();
+		MemoryInstructionsPage::register();
+		SkillsPage::register();
+		CustomCodeApprovalPage::register();
+		do_action( 'admin_menu' );
+
+		$shell_labels = AdminShell::pages();
+		$submenus     = $GLOBALS['stonewright_test_submenu_pages'];
+
+		$aligned = [
+			StatusPage::SLUG              => $shell_labels[ StatusPage::SLUG ],
+			'stonewright-abilities'       => $shell_labels['stonewright-abilities'],
+			ConfigurationPage::SLUG       => $shell_labels[ ConfigurationPage::SLUG ],
+			AuditLogPage::SLUG            => $shell_labels[ AuditLogPage::SLUG ],
+			MemoryInstructionsPage::SLUG    => $shell_labels[ MemoryInstructionsPage::SLUG ],
+			SkillsPage::SLUG              => $shell_labels[ SkillsPage::SLUG ],
+		];
+
+		foreach ( $aligned as $slug => $label ) {
+			$this->assertArrayHasKey( $slug, $submenus, "Expected sidebar registration for {$slug}" );
+			$this->assertSame( $label, $submenus[ $slug ]['menu_title'], "Sidebar label for {$slug}" );
+		}
+
+		$this->assertSame( 'Code approval', $submenus[ CustomCodeApprovalPage::SLUG ]['menu_title'] );
 	}
 
 	public function test_block_editor_queue_is_visible_under_workflows_with_sandbox(): void {

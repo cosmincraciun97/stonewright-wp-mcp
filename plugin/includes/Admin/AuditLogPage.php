@@ -68,7 +68,7 @@ final class AuditLogPage {
 		add_submenu_page(
 			ConfigurationPage::SLUG,
 			__( 'Audit Log', 'stonewright' ),
-			__( 'Safety: Audit', 'stonewright' ),
+			__( 'Audit Log', 'stonewright' ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]

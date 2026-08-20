@@ -246,7 +246,7 @@ final class ConfigurationPage {
 		add_submenu_page(
 			self::SLUG,
 			__( 'Setup', 'stonewright' ),
-			__( 'Connect', 'stonewright' ),
+			__( 'Setup', 'stonewright' ),
 			self::CAPABILITY,
 			self::SLUG,
 			[ self::class, 'render' ]
