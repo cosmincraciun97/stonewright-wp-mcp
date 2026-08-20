@@ -32,7 +32,7 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 		self::assertContains( 'stonewright/task-start', $names );
 		self::assertNotContains( 'stonewright/workflow-preflight', $names );
 		self::assertContains( 'stonewright/tool-profile', $names );
-		self::assertContains( 'stonewright/php-execute', $names );
+		self::assertNotContains( 'stonewright/php-execute', $names );
 		self::assertContains( 'stonewright/wp-cli-batch-run', $names );
 		self::assertContains( 'stonewright/theme-builder-apply-template', $names );
 		self::assertContains( 'stonewright/content-model-loop-grid-flow', $names );
@@ -80,7 +80,7 @@ final class AbilityRegistryEssentialModeTest extends TestCase {
 		self::assertContains( 'stonewright/task-start', $names );
 		self::assertNotContains( 'stonewright/workflow-preflight', $names );
 		self::assertContains( 'stonewright/tool-profile', $names );
-		self::assertContains( 'stonewright/php-execute', $names );
+		self::assertNotContains( 'stonewright/php-execute', $names );
 		self::assertContains( 'stonewright/elementor-v3-build-page-from-spec', $names );
 		self::assertContains( 'stonewright/elementor-v3-batch-mutate', $names );
 		self::assertContains( 'stonewright/elementor-post-write-verify', $names );

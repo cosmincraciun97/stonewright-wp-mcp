@@ -1455,9 +1455,9 @@ final class AbilityRegistry {
 	/**
 	 * Progressive-discovery bootstrap surface (≤ TokenSurfaceBudgets::BOOTSTRAP_MAX_TOOLS).
 	 *
-	 * Ordered for cold start: task gateway → expansion → runtime/write escape
-	 * hatches → site identity → minimal content/Elementor reads. Agents must
-	 * never be stuck without php-execute or a profile switcher on a cold client.
+	 * Ordered for cold start: task gateway → expansion → confirmation
+	 * hatches → site identity → minimal content/Elementor reads. Agents expand
+	 * to php-execute via tool-profile `full` when a snippet is required.
 	 *
 	 * @return list<string>
 	 */
@@ -1489,8 +1489,7 @@ final class AbilityRegistry {
 					$pick( [ 'stonewright/context-bootstrap' ] ),
 					$pick( [ 'stonewright/tool-profile' ] ),
 					$pick( [ 'stonewright/skills-get' ] ),
-					// First-class runtime + confirmation (never hide these on cold start).
-					$pick( [ 'stonewright/php-execute' ] ),
+					// Confirmation issuer stays on cold start; php-execute is full-profile only.
 					$pick( [ 'stonewright/security-issue-confirmation-token' ] ),
 					// Site identity + connectivity.
 					$pick( [ 'stonewright/site-info', 'stonewright/setup-profile' ] ),
@@ -1524,7 +1523,6 @@ final class AbilityRegistry {
 			'stonewright/tool-profile',
 			'stonewright/skills-get',
 			'stonewright/rules-get',
-			'stonewright/php-execute',
 			'stonewright/security-issue-confirmation-token',
 			'stonewright/site-info',
 

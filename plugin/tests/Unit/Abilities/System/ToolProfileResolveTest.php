@@ -111,7 +111,7 @@ final class ToolProfileResolveTest extends TestCase {
 		self::assertLessThanOrEqual( 12, count( $names ) );
 		self::assertContains( 'stonewright/task-start', $names );
 		self::assertContains( 'stonewright/tool-profile', $names );
-		self::assertContains( 'stonewright/php-execute', $names );
+		self::assertNotContains( 'stonewright/php-execute', $names );
 
 		$ability = new ToolProfile();
 		$result  = $ability->execute(

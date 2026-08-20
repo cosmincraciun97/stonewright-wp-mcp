@@ -16,6 +16,17 @@ development builds were never stable releases.
 - Add a read-only Elementor performance audit ability reporting bounded document,
   settings, backup, and revision size metrics without exposing content.
 
+### Security
+
+- Enforce php-execute read-only at runtime, block concatenated protected meta
+  keys and direct database writes to core tables, and keep php-execute off the
+  default compact MCP surfaces.
+- Sign one-time admin login links, bind them to IP and User-Agent, rate-limit
+  issuance, skip remember-me cookies, and require confirmation in production-safe
+  mode.
+- Restrict REST ability execution to the active tool profile unless confirmed,
+  and require a confirmation token to toggle abilities over REST.
+
 ### Fixed
 
 - Store backup snapshots and restores through a slash-safe post-meta boundary so
